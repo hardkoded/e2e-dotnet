@@ -49,6 +49,21 @@ public sealed class AgentException : E2EException
         : base(code, message, inner)
     {
     }
+
+    public AgentException(string code, string message, bool blocked)
+        : base(code, message)
+    {
+        Blocked = blocked;
+    }
+
+    /// <summary>The step's account of what happened. The same text as <see cref="Exception.Message"/>.</summary>
+    public string Explanation => Message;
+
+    /// <summary>
+    /// True when credentials, the environment, test setup, or the agent's own budget stopped the step,
+    /// rather than the app misbehaving.
+    /// </summary>
+    public bool Blocked { get; }
 }
 
 /// <summary>The engine refused an operation or could not drive the app.</summary>

@@ -36,4 +36,7 @@ public static class E2EDefaults
 
     /// <summary>Upstream <c>maxModelCalls</c> for one agent call.</summary>
     public const int MaxModelCalls = 25;
+
+    /// <summary>Upstream <c>maxSteps</c>: actions one <c>act</c> may take.</summary>
+    public const int MaxSteps = 25;
 }

@@ -20,8 +20,6 @@ internal sealed class Redactor
     /// <summary>The fewest consecutive characters of a value that count as a fragment of it.</summary>
     internal const int FragmentLength = 8;
 
-    private const int MinSecretLength = 6;
-
     private static readonly TimeSpan MatchTimeout = TimeSpan.FromSeconds(2);
 
     private static readonly CultureInfo[] CaseCultures =
@@ -105,7 +103,7 @@ internal sealed class Redactor
 
     private static string ValuePattern(string value)
     {
-        var trimmable = new StringInfo(value.Trim()).LengthInTextElements >= MinSecretLength;
+        var trimmable = new StringInfo(value.Trim()).LengthInTextElements >= Secret.MinLength;
         var pieces = Regex.Split(value, @"(\s+)", RegexOptions.None, MatchTimeout);
         var builder = new StringBuilder();
         for (var index = 0; index < pieces.Length; index++)

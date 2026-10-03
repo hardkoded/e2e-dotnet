@@ -412,9 +412,9 @@ public sealed class E2EConfig
                 throw Invalid("secret \"" + name + "\" has no value; set " + variable);
             }
 
-            if (value.EnumerateRunes().Count() < Secrets.MinimumLength)
+            if (Secret.Problem(value) is { } problem)
             {
-                throw Invalid("secret \"" + name + "\" must be at least " + Secrets.MinimumLength.ToString(CultureInfo.InvariantCulture) + " characters (code points)");
+                throw Invalid("secret \"" + name + "\" " + problem);
             }
 
             values[name] = Secret.Create(name, value);

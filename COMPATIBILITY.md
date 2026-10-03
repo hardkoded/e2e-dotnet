@@ -31,6 +31,12 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - `Values.Unique` and `Secret`. Secret values are redacted from prompts, including the `assert`, `waitFor`, and `extract` statement. Redaction matches any case, JSON escapes, HTML character references, percent encoding, and collapsed inner whitespace. A known marker is never rewritten. A failed secret fill in `WebEngine` reports the Playwright message with the value and its fragments of 8 or more characters redacted. Not ported: decoding base64 runs, and values cut short at a length limit
 - `app.open`, `app.back`, `app.restart`, `app.clearState`, and `app.baseUrl` (`App.BaseUrl`), and the context `platform`
 - The `browser` fixture subset: `reload`, `back`, `forward`, `url`, `title`, `waitForURL`, `evaluate`, `cookies`, `setCookies`, `setViewport`, `keyboard.press`, `keyboard.type`, and `mouse.move`, `wheel`, `down`, `up`
+- `Values.Unique` rejects an empty or whitespace value, and a value that contains the cache slot marker (U+0001, the port's form of `{{param:`)
+- A secret value has at least 6 code points. `Secret.Create` throws `INVALID_ARGUMENT`, and `Credentials.User` throws `INVALID_CONFIG` for a short `E2E_USER_*_PASSWORD`
+- Agent budgets: `ActOptions.MaxSteps` (default 25), `ActOptions.MaxModelCalls`, and `WaitForOptions.MaxModelCalls`. A per-call budget can only lower the configured one (`E2ESessionOptions.MaxSteps`, `MaxModelCalls`). A higher or non-positive value throws `INVALID_ARGUMENT`
+- An `act` past its action budget ends `STEP_BUDGET_EXHAUSTED`, blocked. The model is told and may still conclude: a passing verdict, or a failure without a code, becomes the budget error. Replayed actions draw on the same budget
+- `ActResult.ModelCalls` (0 for a full replay) and `ActResult.Actions` (replayed and live actions, counting failed attempts)
+- `AgentException.Blocked` and `AgentException.Explanation` (the same text as `Message`)
 - OpenAI-compatible tool calling
 
 Replay runs `back` and a viewport scroll as recorded, re-finds a scrolled list before each repeat, and pages again for a `scroll_to` text. Consecutive identical scrolls are recorded as one action with a repeat count. `observe` is not recorded. Upstream scrolls the viewport when a list that filled the screen cannot be re-found. This port has no node geometry, so a lost list stops the replay.
@@ -57,6 +63,7 @@ These match upstream.
 | Action timeout | 30 s |
 | Assertion timeout | 5 s |
 | `maxModelCalls` | 25 |
+| `maxSteps` (actions per `act`) | 25 |
 | `waitFor` interval | 3 s. The judge runs only when the screen changed |
 | Replay wait | 15 s |
 
@@ -76,6 +83,19 @@ These match upstream.
 - Value expectations (`expect(value).toBe`, `toEqual`, `toMatchObject`, `toHaveProperty`, `toMatchSchema`, and the rest) and their `expect.soft` form. Use NUnit `Assert.That` with constraints, and `Assert.EnterMultipleScope` (or `Assert.Multiple`) for soft value checks. `expect.poll` takes NUnit constraints through `ToMatchAsync` in their place
 - Asymmetric matchers (`expect.any`, `anything`, `objectContaining`, `arrayContaining`, `stringContaining`, `stringMatching`). Use NUnit constraints such as `Is.InstanceOf`, `Is.Not.Null`, `Has.Property`, `Is.SupersetOf`, `Does.Contain`, and `Does.Match`
 - The upstream reporter, GitHub pull request comment, and trace viewer
+
+### Agent options not yet ported
+
+Tracked in [#13](https://github.com/hardkoded/e2e-dotnet/issues/13).
+
+- `ExtractOptions`: a Standard Schema `schema`, a per-call `timeout`, and validation with one repair round before `MODEL_OUTPUT_INVALID`. `ExtractAsync<T>` deserializes into `T`
+- `judge` (a separate judgment model), `system`, and `context`
+- Named agents (`agents.<name>` and the per-call `agent` option)
+- `providerOptions`, `judgmentTimeout`, `maxObservationBytes`, and `maxInputTokens`
+- `vision` and `screenshot` on judgments, and `AgentError.screenshot`
+- Act param limits: 64 KiB and 32 levels deep. A cycle is already rejected with `INVALID_ARGUMENT` when the cache key serializes the params
+- Range checks on the configured budgets (1 through 100)
+- A model-call budget exhausted by `act` ends `STEP_NO_CONCLUSION`, not `STEP_BUDGET_EXHAUSTED`
 
 ## Config
 

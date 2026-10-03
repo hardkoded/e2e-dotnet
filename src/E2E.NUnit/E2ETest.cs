@@ -84,6 +84,8 @@ public abstract class E2ETest
     /// <summary><c>agents.default.maxModelCalls</c>.</summary>
     protected virtual int MaxModelCalls => Config.Agent.MaxModelCalls;
 
+    protected virtual int MaxSteps => E2EDefaults.MaxSteps;
+
     /// <summary>Cache identity for this test. The default is the NUnit full name, so each test keeps its own replay.</summary>
     protected virtual string CacheTitle(global::NUnit.Framework.TestContext.TestAdapter test)
     {
@@ -132,6 +134,7 @@ public abstract class E2ETest
                 StepTimeout = StepTimeout,
                 ReplayTimeout = ReplayTimeout,
                 MaxModelCalls = MaxModelCalls,
+                MaxSteps = MaxSteps,
                 Attempt = attempt,
                 OnSoftFailure = RecordSoftFailure,
                 TestFailed = HasFailed,

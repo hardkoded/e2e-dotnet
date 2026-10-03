@@ -118,6 +118,7 @@ public sealed class E2ESession : IAsyncDisposable
             ReplayTimeout = options.ReplayTimeout,
             StepTimeout = options.StepTimeout,
             MaxModelCalls = options.MaxModelCalls,
+            MaxSteps = options.MaxSteps,
             Token = () => timeout.Token,
             TestFailed = options.TestFailed ?? (static () => false),
         };
@@ -300,6 +301,9 @@ public sealed class E2ESessionOptions
     public TimeSpan ReplayTimeout { get; init; } = E2EDefaults.ReplayTimeout;
 
     public int MaxModelCalls { get; init; } = E2EDefaults.MaxModelCalls;
+
+    /// <summary>Actions one <c>ActAsync</c> may take. <see cref="ActOptions.MaxSteps"/> can only lower it.</summary>
+    public int MaxSteps { get; init; } = E2EDefaults.MaxSteps;
 
     /// <summary>
     /// Receives each <c>expect.soft</c> failure as it happens. Null keeps them
