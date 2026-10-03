@@ -20,6 +20,8 @@ public abstract class E2ETest
 
     protected App App => Session.App;
 
+    protected Browser Browser => Session.Browser;
+
     protected Agent Agent => Session.Agent;
 
     protected Screen Screen => Session.Screen;

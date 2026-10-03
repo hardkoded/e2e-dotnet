@@ -116,6 +116,94 @@ public sealed class WebEngineTests
         }
     }
 
+    [Fact]
+    public async Task Chromium_browser_fixture_navigates_reads_and_drives_input()
+    {
+        using var site = await TinySite.StartAsync(InputPage);
+        var session = await TryStartAsync(site, UpgradeModel(() => { }), cache: null);
+        if (session is null)
+        {
+            return;
+        }
+
+        await RunAsync(session, async () =>
+        {
+            var browser = session.Browser;
+            Assert.Equal("web", session.Context.Platform);
+            await session.App.OpenAsync("/first");
+            await session.App.OpenAsync("/second");
+            Assert.Equal(site.Url + "second", await browser.UrlAsync());
+            Assert.Equal("Input page", await browser.TitleAsync());
+
+            await browser.BackAsync();
+            await browser.WaitForURLAsync("/first");
+            await browser.ForwardAsync();
+            await browser.WaitForURLAsync(new Regex("/second$"));
+            await session.App.BackAsync();
+            await browser.WaitForURLAsync("/first");
+            var missed = await Assert.ThrowsAsync<TestException>(() => browser.WaitForURLAsync("/never", TimeSpan.FromMilliseconds(200)));
+            Assert.Equal("ASSERTION_FAILED", missed.Code);
+
+            await browser.EvaluateAsync<object>("() => { window.marker = 1; return null; }");
+            await browser.ReloadAsync();
+            Assert.Equal(0, await browser.EvaluateAsync<int>("() => window.marker ?? 0"));
+            Assert.Equal(42, await browser.EvaluateAsync<int>("x => x * 2", 21));
+            var thrown = await Assert.ThrowsAsync<TestException>(() => browser.EvaluateAsync<int>("() => { throw new Error('boom'); }"));
+            Assert.Equal("EVALUATE_FAILED", thrown.Code);
+
+            await browser.SetViewportAsync(800, 600);
+            Assert.Equal(800, await browser.EvaluateAsync<int>("() => window.innerWidth"));
+
+            await browser.Mouse.MoveAsync(20, 20);
+            await browser.Mouse.DownAsync();
+            await browser.Mouse.UpAsync();
+            await browser.Keyboard.TypeAsync("hello");
+            await browser.Keyboard.PressAsync("!");
+            Assert.Equal("hello!", await browser.EvaluateAsync<string>("() => document.querySelector('input').value"));
+        });
+    }
+
+    [Fact]
+    public async Task Chromium_restart_keeps_cookies_and_clear_state_drops_them()
+    {
+        using var site = await TinySite.StartAsync(InputPage);
+        var session = await TryStartAsync(site, UpgradeModel(() => { }), cache: null);
+        if (session is null)
+        {
+            return;
+        }
+
+        await RunAsync(session, async () =>
+        {
+            var browser = session.Browser;
+            Assert.Equal(site.Url, session.App.BaseUrl);
+            await session.App.OpenAsync("/");
+            await browser.SetCookiesAsync([new BrowserCookie { Name = "plan", Value = "pro", Url = site.Url }]);
+            var denied = await Assert.ThrowsAsync<TestException>(() => browser.SetCookiesAsync([new BrowserCookie { Name = "x", Value = "y" }]));
+            Assert.Equal("INVALID_ARGUMENT", denied.Code);
+            await browser.SetViewportAsync(700, 500);
+
+            await session.App.RestartAsync();
+            Assert.Equal("about:blank", await browser.UrlAsync());
+            Assert.Contains(await browser.CookiesAsync(), cookie => cookie.Name == "plan" && cookie.Value == "pro");
+            await session.App.OpenAsync("/");
+            Assert.Equal(700, await browser.EvaluateAsync<int>("() => window.innerWidth"));
+
+            await session.App.ClearStateAsync();
+            Assert.Equal("about:blank", await browser.UrlAsync());
+            Assert.Empty(await browser.CookiesAsync());
+            await session.App.OpenAsync("/");
+            await Expect.That(session.Screen.GetByRole("textbox")).ToBeVisibleAsync();
+        });
+    }
+
+    private const string InputPage = """
+        <!DOCTYPE html>
+        <html><head><title>Input page</title></head><body style="margin:0">
+        <input style="position:absolute;left:0;top:0;width:200px;height:40px">
+        </body></html>
+        """;
+
     private static ScriptedModel UpgradeModel(Action onCall)
     {
         return new ScriptedModel(request =>

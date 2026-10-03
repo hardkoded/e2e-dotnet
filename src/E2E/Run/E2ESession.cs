@@ -19,18 +19,21 @@ public sealed class E2ESession : IAsyncDisposable
     private int _state;
     private int _disposed;
 
-    private E2ESession(AttemptScope scope, CancellationTokenSource timeout, IEngineSession engine, App app, Agent agent, Screen screen, TestContext context)
+    private E2ESession(AttemptScope scope, CancellationTokenSource timeout, IEngineSession engine, App app, Browser browser, Agent agent, Screen screen, TestContext context)
     {
         _scope = scope;
         _timeout = timeout;
         _engine = engine;
         App = app;
+        Browser = browser;
         Agent = agent;
         Screen = screen;
         Context = context;
     }
 
     public App App { get; }
+
+    public Browser Browser { get; }
 
     public Agent Agent { get; }
 
@@ -91,6 +94,7 @@ public sealed class E2ESession : IAsyncDisposable
             Token = () => timeout.Token,
         };
         var app = new App(engine, options.BaseUrl, () => timeout.Token);
+        var browser = new Browser(engine, options.Engine.Platform, options.BaseUrl, options.AssertionTimeout, () => timeout.Token);
         var agent = new Agent(scope);
         var screen = new Screen(
             token => engine.ObserveAsync(token),
@@ -102,11 +106,13 @@ public sealed class E2ESession : IAsyncDisposable
         var context = new TestContext
         {
             App = app,
+            Browser = browser,
+            Platform = options.Engine.Platform,
             Agent = agent,
             Screen = screen,
             CancellationToken = timeout.Token,
         };
-        return new E2ESession(scope, timeout, engine, app, agent, screen, context);
+        return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context);
     }
 
     /// <summary>
