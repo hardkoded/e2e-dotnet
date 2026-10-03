@@ -88,6 +88,7 @@ public sealed class E2ESession : IAsyncDisposable
             ActionTimeout = options.ActionTimeout,
             StepTimeout = options.StepTimeout,
             MaxModelCalls = options.MaxModelCalls,
+            MaxSteps = options.MaxSteps,
             Token = () => timeout.Token,
         };
         var app = new App(engine, options.BaseUrl, () => timeout.Token);
@@ -200,6 +201,9 @@ public sealed class E2ESessionOptions
     public TimeSpan StepTimeout { get; init; } = TimeSpan.FromSeconds(30);
 
     public int MaxModelCalls { get; init; } = 12;
+
+    /// <summary>Actions one <c>ActAsync</c> may take. <see cref="ActOptions.MaxSteps"/> can only lower it.</summary>
+    public int MaxSteps { get; init; } = 25;
 
     /// <summary>1 is the first try. Later attempts do not read or write the replay cache.</summary>
     public int Attempt { get; init; } = 1;

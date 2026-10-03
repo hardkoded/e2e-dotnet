@@ -24,6 +24,12 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - `agent.act`, `agent.assert`, `agent.waitFor`, `agent.extract`
 - Replay cache for a verified `act`: role, name, test id, and path. Modes are `self-finalized`, `agent-concluded`, and `missed`
 - `Values.Unique` and `Secret`. Secret values are redacted from prompts
+- `Values.Unique` rejects an empty or whitespace value, and a value that contains the cache slot marker (U+0001, the port's form of `{{param:`)
+- A secret value has at least 6 code points. `Secret.Create` throws `INVALID_ARGUMENT`, and `Credentials.User` throws `INVALID_CONFIG` for a short `E2E_USER_*_PASSWORD`
+- Agent budgets: `ActOptions.MaxSteps` (default 25), `ActOptions.MaxModelCalls`, and `WaitForOptions.MaxModelCalls`. A per-call budget can only lower the configured one (`E2ESessionOptions.MaxSteps`, `MaxModelCalls`). A higher or non-positive value throws `INVALID_ARGUMENT`
+- An `act` past its action budget ends `STEP_BUDGET_EXHAUSTED`, blocked. The model is told and may still conclude: a passing verdict, or a failure without a code, becomes the budget error. Replayed actions draw on the same budget
+- `ActResult.ModelCalls` (0 for a full replay) and `ActResult.Actions` (replayed and live actions, counting failed attempts)
+- `AgentException.Blocked` and `AgentException.Explanation` (the same text as `Message`)
 - OpenAI-compatible tool calling
 
 A passing locator expectation or `agent.assert` after `act` writes the recording. `agent.assert`, `waitFor`, and `extract` always run live. Retries do not replay.
@@ -40,6 +46,19 @@ A passing locator expectation or `agent.assert` after `act` writes the recording
 - Diff-only observations. Each model turn receives a full text snapshot
 - Telemetry
 - The upstream reporter, GitHub pull request comment, and trace viewer
+
+### Agent options not yet ported
+
+Tracked in [#13](https://github.com/hardkoded/e2e-dotnet/issues/13).
+
+- `ExtractOptions`: a Standard Schema `schema`, a per-call `timeout`, and validation with one repair round before `MODEL_OUTPUT_INVALID`. `ExtractAsync<T>` deserializes into `T`
+- `judge` (a separate judgment model), `system`, and `context`
+- Named agents (`agents.<name>` and the per-call `agent` option)
+- `providerOptions`, `judgmentTimeout`, `maxObservationBytes`, and `maxInputTokens`
+- `vision` and `screenshot` on judgments, and `AgentError.screenshot`
+- Act param limits: 64 KiB and 32 levels deep. A cycle is already rejected with `INVALID_ARGUMENT` when the cache key serializes the params
+- Range checks on the configured budgets (1 through 100). The port's default `MaxModelCalls` is 12, upstream's is 25
+- A model-call budget exhausted by `act` ends `STEP_NO_CONCLUSION`, not `STEP_BUDGET_EXHAUSTED`
 
 ## Web engine
 

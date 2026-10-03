@@ -28,6 +28,9 @@ public sealed class Agent
         "status failed with code ASSERTION_INCONCLUSIVE when the screen does not show enough to decide. " +
         "You do not see earlier steps. Do not call any tool except done.";
 
+    private static readonly HashSet<string> ActionTools =
+        new(["navigate", "tap", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear"], StringComparer.Ordinal);
+
     private readonly AttemptScope _scope;
 
     internal Agent(AttemptScope scope)
@@ -38,6 +41,9 @@ public sealed class Agent
     public async Task<ActResult> ActAsync(string instruction, ActOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(instruction);
+        var maxCalls = Budget(options?.MaxModelCalls, _scope.MaxModelCalls, "MaxModelCalls");
+        var budget = new ActionBudget(Budget(options?.MaxSteps, _scope.MaxSteps, "MaxSteps"));
+        var callsBefore = _scope.ModelCalls;
         using var linked = Link(cancellationToken, options?.Timeout ?? _scope.StepTimeout);
         var token = linked.Token;
         _scope.Remember(options?.Params);
@@ -55,7 +61,7 @@ public sealed class Agent
         var handoff = false;
         if (_scope.CacheEnabled && _scope.Attempt == 1 && _scope.Cache is not null)
         {
-            var replay = await TryReplayAsync(key, start, actions, options?.Params, token).ConfigureAwait(false);
+            var replay = await TryReplayAsync(key, start, actions, budget, options?.Params, token).ConfigureAwait(false);
             info = replay.Info;
             handoff = replay.Handoff;
             if (replay.Completed)
@@ -63,11 +69,10 @@ public sealed class Agent
                 pending.Completed = true;
                 pending.Entry = BuildEntry(instruction, start, await _scope.Session.ObserveAsync(token).ConfigureAwait(false), actions, options?.Params);
                 _scope.Completed.Add("Replayed: " + instruction);
-                return new ActResult { Summary = "Replayed recorded actions.", Cache = info };
+                return new ActResult { Summary = "Replayed recorded actions.", Cache = info, ModelCalls = 0, Actions = budget.Used };
             }
         }
 
-        var maxCalls = options?.MaxModelCalls ?? _scope.MaxModelCalls;
         var messages = new List<ModelMessage>
         {
             new()
@@ -98,7 +103,7 @@ public sealed class Agent
             messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ToolCalls = response.ToolCalls });
             foreach (var toolCall in response.ToolCalls)
             {
-                var outcome = await ExecuteAsync(toolCall, options?.Params, actions, token).ConfigureAwait(false);
+                var outcome = await ExecuteAsync(toolCall, options?.Params, actions, budget, token).ConfigureAwait(false);
                 messages.Add(new ModelMessage
                 {
                     Role = "tool",
@@ -118,18 +123,30 @@ public sealed class Agent
 
                 summary = outcome.Summary ?? "";
                 var code = outcome.Code;
+                if (budget.Exhausted && string.Equals(outcome.Status, "passed", StringComparison.Ordinal))
+                {
+                    // The model cannot declare success over the runtime's own accounting.
+                    throw budget.Stop(summary);
+                }
+
                 if (string.Equals(outcome.Status, "passed", StringComparison.Ordinal))
                 {
                     pending.Completed = true;
                     var end = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
                     pending.Entry = BuildEntry(instruction, start, end, actions, options?.Params);
                     _scope.Completed.Add(summary.Length == 0 ? instruction : summary);
-                    return new ActResult { Summary = summary, Cache = info };
+                    return new ActResult { Summary = summary, Cache = info, ModelCalls = _scope.ModelCalls - callsBefore, Actions = budget.Used };
                 }
 
                 if (string.Equals(outcome.Status, "blocked", StringComparison.Ordinal))
                 {
-                    throw new AgentException(code!, summary.Length == 0 ? "The step is blocked." : summary);
+                    throw new AgentException(code!, summary.Length == 0 ? "The step is blocked." : summary, blocked: true);
+                }
+
+                // A failure the model gave no code for inherits the exhausted budget, so the report names it.
+                if (code is null && budget.Exhausted)
+                {
+                    throw budget.Stop(summary);
                 }
 
                 throw new AgentException(code ?? "ACTION_FAILED", summary.Length == 0 ? "The step failed." : summary);
@@ -139,6 +156,11 @@ public sealed class Agent
             {
                 messages.Add(new ModelMessage { Role = "user", Content = "The last actions failed. Change approach, then call done if you cannot." });
             }
+        }
+
+        if (budget.Exhausted)
+        {
+            throw budget.Stop(null);
         }
 
         throw new AgentException("STEP_NO_CONCLUSION", "The step used " + maxCalls.ToString(CultureInfo.InvariantCulture) + " model call(s) without a verdict.");
@@ -155,6 +177,7 @@ public sealed class Agent
         ArgumentException.ThrowIfNullOrWhiteSpace(statement);
         var timeout = options?.Timeout ?? _scope.StepTimeout;
         var interval = options?.Interval ?? TimeSpan.FromMilliseconds(200);
+        var maxCalls = Budget(options?.MaxModelCalls, _scope.MaxModelCalls, "MaxModelCalls");
         using var linked = Link(cancellationToken, timeout);
         var token = linked.Token;
         var deadline = DateTime.UtcNow + timeout;
@@ -169,9 +192,9 @@ public sealed class Agent
             {
                 last = snapshot;
                 calls++;
-                if (calls > _scope.MaxModelCalls)
+                if (calls > maxCalls)
                 {
-                    throw new AgentException("STEP_BUDGET_EXHAUSTED", "waitFor used its model-call budget.");
+                    throw new AgentException("STEP_BUDGET_EXHAUSTED", "waitFor used its model-call budget of " + maxCalls.ToString(CultureInfo.InvariantCulture) + ".", blocked: true);
                 }
 
                 var verdict = await JudgeOnceAsync(statement, snapshot, token).ConfigureAwait(false);
@@ -321,6 +344,7 @@ public sealed class Agent
         string key,
         Observation start,
         List<RecordedAction> actions,
+        ActionBudget budget,
         IReadOnlyDictionary<string, object?>? parameters,
         CancellationToken token)
     {
@@ -349,6 +373,12 @@ public sealed class Agent
         {
             if (string.Equals(action.Kind, "navigate", StringComparison.Ordinal))
             {
+                if (!budget.TryReserve())
+                {
+                    _scope.HandedOff++;
+                    return ReplayAttempt.Hand("action-budget");
+                }
+
                 await _scope.Session.OpenAsync(action.Url ?? "/", token).ConfigureAwait(false);
                 actions.Add(action);
                 started = true;
@@ -367,6 +397,13 @@ public sealed class Agent
 
                 _scope.HandedOff++;
                 return ReplayAttempt.Hand(found.Reason ?? "target-not-found");
+            }
+
+            // A replayed action draws on the step's action budget like a live one. The first always fits.
+            if (!budget.TryReserve())
+            {
+                _scope.HandedOff++;
+                return ReplayAttempt.Hand("action-budget");
             }
 
             try
@@ -461,6 +498,7 @@ public sealed class Agent
         ModelToolCall call,
         IReadOnlyDictionary<string, object?>? parameters,
         List<RecordedAction> actions,
+        ActionBudget budget,
         CancellationToken token)
     {
         if (string.Equals(call.Name, "done", StringComparison.Ordinal))
@@ -486,6 +524,17 @@ public sealed class Agent
             }
 
             return ToolOutcome.Finish(status, Args.String(call.Arguments, "summary"), code);
+        }
+
+        if (!ActionTools.Contains(call.Name))
+        {
+            return ToolOutcome.Fail("Unknown tool " + call.Name + ".");
+        }
+
+        // Every action claims a budget slot before it runs. A failed action was still an attempt.
+        if (!budget.TryReserve())
+        {
+            return ToolOutcome.Fail(budget.Message + ". Take no more actions. Call done with a verdict.");
         }
 
         if (string.Equals(call.Name, "navigate", StringComparison.Ordinal))
@@ -894,6 +943,29 @@ public sealed class Agent
         return false;
     }
 
+    /// <summary>A per-call budget can only lower the configured limit, never raise it.</summary>
+    private static int Budget(int? requested, int limit, string label)
+    {
+        if (requested is null)
+        {
+            return limit;
+        }
+
+        if (requested <= 0)
+        {
+            throw new TestException("INVALID_ARGUMENT", label + " must be a positive integer.");
+        }
+
+        if (requested > limit)
+        {
+            throw new TestException(
+                "INVALID_ARGUMENT",
+                label + " " + requested.Value.ToString(CultureInfo.InvariantCulture) + " exceeds the configured limit " + limit.ToString(CultureInfo.InvariantCulture) + ".");
+        }
+
+        return requested.Value;
+    }
+
     private CancellationTokenSource Link(CancellationToken cancellationToken, TimeSpan timeout)
     {
         var caller = cancellationToken == default ? _scope.Token() : cancellationToken;
@@ -936,6 +1008,10 @@ public sealed class ActOptions
 
     public TimeSpan? Timeout { get; init; }
 
+    /// <summary>Action budget. Defaults to the configured <c>MaxSteps</c> (25) and can only lower it.</summary>
+    public int? MaxSteps { get; init; }
+
+    /// <summary>Model-call budget. Defaults to the configured <c>MaxModelCalls</c> and can only lower it.</summary>
     public int? MaxModelCalls { get; init; }
 }
 
@@ -949,6 +1025,9 @@ public sealed class WaitForOptions
     public TimeSpan? Timeout { get; init; }
 
     public TimeSpan? Interval { get; init; }
+
+    /// <summary>Judgment budget. Defaults to the configured <c>MaxModelCalls</c> and can only lower it.</summary>
+    public int? MaxModelCalls { get; init; }
 }
 
 public sealed class ActResult
@@ -960,6 +1039,12 @@ public sealed class ActResult
     /// <c>agent-concluded</c> replayed then handed off, <c>missed</c> ran live from the start.
     /// </summary>
     public CacheInfo? Cache { get; init; }
+
+    /// <summary>Model calls the step spent. 0 when a replay finished it.</summary>
+    public int ModelCalls { get; init; }
+
+    /// <summary>Actions the step performed, replayed or live, counting ones that failed.</summary>
+    public int Actions { get; init; }
 }
 
 public sealed class CacheInfo
@@ -994,6 +1079,8 @@ internal sealed class AttemptScope
     public TimeSpan StepTimeout { get; init; } = TimeSpan.FromSeconds(30);
 
     public int MaxModelCalls { get; init; } = 12;
+
+    public int MaxSteps { get; init; } = 25;
 
     public Func<CancellationToken> Token { get; init; } = static () => CancellationToken.None;
 
@@ -1065,6 +1152,33 @@ internal sealed class PendingAct
     public bool ParamCollision { get; set; }
 
     public CacheEntry? Entry { get; set; }
+}
+
+/// <summary>The action slots of one act step. Replayed and live actions draw on the same budget.</summary>
+internal sealed class ActionBudget(int max)
+{
+    public int Used { get; private set; }
+
+    public bool Exhausted { get; private set; }
+
+    public string Message => "agent.act exhausted its action budget of " + max.ToString(CultureInfo.InvariantCulture);
+
+    public bool TryReserve()
+    {
+        if (Used >= max)
+        {
+            Exhausted = true;
+            return false;
+        }
+
+        Used++;
+        return true;
+    }
+
+    public AgentException Stop(string? summary)
+    {
+        return new AgentException("STEP_BUDGET_EXHAUSTED", string.IsNullOrEmpty(summary) ? Message + "." : Message + ": " + summary, blocked: true);
+    }
 }
 
 internal readonly record struct Verdict(string Status, string? Summary, string? Code);

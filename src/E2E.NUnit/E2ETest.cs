@@ -47,6 +47,8 @@ public abstract class E2ETest
 
     protected virtual int MaxModelCalls => 12;
 
+    protected virtual int MaxSteps => 25;
+
     /// <summary>Cache identity for this test. The default is the NUnit full name, so each test keeps its own replay.</summary>
     protected virtual string CacheTitle(global::NUnit.Framework.TestContext.TestAdapter test)
     {
@@ -82,6 +84,7 @@ public abstract class E2ETest
                 AssertionTimeout = AssertionTimeout,
                 StepTimeout = StepTimeout,
                 MaxModelCalls = MaxModelCalls,
+                MaxSteps = MaxSteps,
                 Attempt = attempt,
             },
             current.CancellationToken).ConfigureAwait(false);
