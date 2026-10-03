@@ -8,6 +8,7 @@ using Microsoft.Playwright;
 
 namespace E2E.Tests;
 
+[Collection(BrowserCollection.Name)]
 public sealed class EngineErrorTests
 {
     [Fact]
@@ -98,15 +99,7 @@ public sealed class EngineErrorTests
             <!DOCTYPE html>
             <html><body><button type="button" disabled>Save</button></body></html>
             """);
-        IEngineSession session;
-        try
-        {
-            session = await new WebEngine(headless: true).StartAsync(new EngineStartOptions { ActionTimeout = TimeSpan.FromMilliseconds(500) }, CancellationToken.None);
-        }
-        catch (EngineException ex) when (ex.Code == "ENVIRONMENT_UNAVAILABLE")
-        {
-            return;
-        }
+        var session = await new WebEngine(headless: true).StartAsync(new EngineStartOptions { ActionTimeout = TimeSpan.FromMilliseconds(500) }, CancellationToken.None);
 
         await using (session)
         {

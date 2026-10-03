@@ -10,6 +10,7 @@ using E2E.Engine;
 
 namespace E2E.Tests;
 
+[Collection(BrowserCollection.Name)]
 public sealed class WebEngineTests
 {
     private const string BillingPage = """
@@ -46,12 +47,7 @@ public sealed class WebEngineTests
     public async Task Chromium_upgrades_the_plan_when_a_browser_is_installed()
     {
         using var site = await TinySite.StartAsync(BillingPage);
-        var session = await TryStartAsync(site, UpgradeModel(() => { }), cache: null);
-        if (session is null)
-        {
-            return;
-        }
-
+        var session = await StartAsync(site, UpgradeModel(() => { }), cache: null);
         await RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/");
@@ -75,12 +71,7 @@ public sealed class WebEngineTests
             var target = Regex.Matches(text, @"button ""Delete"" \[ref=(e\d+)\]")[^1].Groups[1].Value;
             return ModelResponses.Call("tap", new { @ref = target });
         });
-        var session = await TryStartAsync(site, model, cache: null);
-        if (session is null)
-        {
-            return;
-        }
-
+        var session = await StartAsync(site, model, cache: null);
         await RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/");
@@ -99,12 +90,7 @@ public sealed class WebEngineTests
         for (var run = 0; run < 2; run++)
         {
             var calls = 0;
-            var session = await TryStartAsync(site, UpgradeModel(() => calls++), new FileStepCache(directory));
-            if (session is null)
-            {
-                return;
-            }
-
+            var session = await StartAsync(site, UpgradeModel(() => calls++), new FileStepCache(directory));
             await RunAsync(session, async () =>
             {
                 await session.App.OpenAsync("/");
@@ -141,15 +127,7 @@ public sealed class WebEngineTests
             </body></html>
             """;
         using var site = await TinySite.StartAsync(page);
-        IEngineSession session;
-        try
-        {
-            session = await new WebEngine(headless: true).StartAsync(new EngineStartOptions { BaseUrl = site.Url }, CancellationToken.None);
-        }
-        catch (EngineException ex) when (ex.Code == "ENVIRONMENT_UNAVAILABLE")
-        {
-            return;
-        }
+        var session = await new WebEngine(headless: true).StartAsync(new EngineStartOptions { BaseUrl = site.Url }, CancellationToken.None);
 
         await using (session)
         {
@@ -187,12 +165,7 @@ public sealed class WebEngineTests
     public async Task Chromium_browser_fixture_navigates_reads_and_drives_input()
     {
         using var site = await TinySite.StartAsync(InputPage);
-        var session = await TryStartAsync(site, UpgradeModel(() => { }), cache: null);
-        if (session is null)
-        {
-            return;
-        }
-
+        var session = await StartAsync(site, UpgradeModel(() => { }), cache: null);
         await RunAsync(session, async () =>
         {
             var browser = session.Browser;
@@ -234,12 +207,7 @@ public sealed class WebEngineTests
     public async Task Chromium_restart_keeps_cookies_and_clear_state_drops_them()
     {
         using var site = await TinySite.StartAsync(InputPage);
-        var session = await TryStartAsync(site, UpgradeModel(() => { }), cache: null);
-        if (session is null)
-        {
-            return;
-        }
-
+        var session = await StartAsync(site, UpgradeModel(() => { }), cache: null);
         await RunAsync(session, async () =>
         {
             var browser = session.Browser;
@@ -293,12 +261,7 @@ public sealed class WebEngineTests
             </body></html>
             """;
         using var site = await TinySite.StartAsync(page);
-        var session = await TryStartAsync(site, UpgradeModel(() => { }), cache: null);
-        if (session is null)
-        {
-            return;
-        }
-
+        var session = await StartAsync(site, UpgradeModel(() => { }), cache: null);
         await RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/");
@@ -319,12 +282,7 @@ public sealed class WebEngineTests
     public async Task Chromium_reads_attributes_boxes_and_waits_for_states()
     {
         using var site = await TinySite.StartAsync(BillingPage);
-        var session = await TryStartAsync(site, UpgradeModel(() => { }), cache: null);
-        if (session is null)
-        {
-            return;
-        }
-
+        var session = await StartAsync(site, UpgradeModel(() => { }), cache: null);
         await RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/");
@@ -358,12 +316,7 @@ public sealed class WebEngineTests
             </body></html>
             """;
         using var site = await TinySite.StartAsync(page);
-        var session = await TryStartAsync(site, new ScriptedModel(_ => ModelResponses.Done("passed", "none")), cache: null);
-        if (session is null)
-        {
-            return;
-        }
-
+        var session = await StartAsync(site, new ScriptedModel(_ => ModelResponses.Done("passed", "none")), cache: null);
         await RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/");
@@ -404,12 +357,7 @@ public sealed class WebEngineTests
             <script>document.querySelector("input").focus();</script>
             </body></html>
             """);
-        var session = await TryStartAsync(site, new ScriptedModel(_ => ModelResponses.Done("passed", "unused")), cache: null);
-        if (session is null)
-        {
-            return;
-        }
-
+        var session = await StartAsync(site, new ScriptedModel(_ => ModelResponses.Done("passed", "unused")), cache: null);
         await RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/");
@@ -420,28 +368,21 @@ public sealed class WebEngineTests
         });
     }
 
-    private static async Task<E2ESession?> TryStartAsync(TinySite site, ScriptedModel model, FileStepCache? cache)
+    private static async Task<E2ESession> StartAsync(TinySite site, ScriptedModel model, FileStepCache? cache)
     {
-        try
+        return await E2ESession.StartAsync(new E2ESessionOptions
         {
-            return await E2ESession.StartAsync(new E2ESessionOptions
-            {
-                Engine = new WebEngine(headless: true),
-                Model = model,
-                BaseUrl = site.Url,
-                Cache = cache,
-                CacheEnabled = cache is not null,
-                TestTitle = "web > step",
-                AssertionTimeout = TimeSpan.FromSeconds(5),
-                ActionTimeout = TimeSpan.FromSeconds(10),
-                StepTimeout = TimeSpan.FromSeconds(20),
-                TestTimeout = TimeSpan.FromSeconds(30),
-            });
-        }
-        catch (EngineException ex) when (ex.Code == "ENVIRONMENT_UNAVAILABLE")
-        {
-            return null;
-        }
+            Engine = new WebEngine(headless: true),
+            Model = model,
+            BaseUrl = site.Url,
+            Cache = cache,
+            CacheEnabled = cache is not null,
+            TestTitle = "web > step",
+            AssertionTimeout = TimeSpan.FromSeconds(5),
+            ActionTimeout = TimeSpan.FromSeconds(10),
+            StepTimeout = TimeSpan.FromSeconds(20),
+            TestTimeout = TimeSpan.FromSeconds(30),
+        });
     }
 
     private static async Task RunAsync(E2ESession session, Func<Task> body)

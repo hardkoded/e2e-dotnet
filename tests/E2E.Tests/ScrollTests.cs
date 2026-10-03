@@ -8,6 +8,7 @@ using E2E.Engine;
 
 namespace E2E.Tests;
 
+[Collection(BrowserCollection.Name)]
 public sealed class ScrollTests
 {
     [Fact]
@@ -221,25 +222,17 @@ public sealed class ScrollTests
             return ModelResponses.Call("scroll_to", new { text = "Item 3150" });
         });
 
-        E2ESession session;
-        try
+        var session = await E2ESession.StartAsync(new E2ESessionOptions
         {
-            session = await E2ESession.StartAsync(new E2ESessionOptions
-            {
-                Engine = new WebEngine(headless: true),
-                Model = model,
-                BaseUrl = site.Url,
-                TestTitle = "web > scroll",
-                AssertionTimeout = TimeSpan.FromSeconds(5),
-                ActionTimeout = TimeSpan.FromSeconds(10),
-                StepTimeout = TimeSpan.FromSeconds(30),
-                TestTimeout = TimeSpan.FromSeconds(60),
-            });
-        }
-        catch (EngineException ex) when (ex.Code == "ENVIRONMENT_UNAVAILABLE")
-        {
-            return;
-        }
+            Engine = new WebEngine(headless: true),
+            Model = model,
+            BaseUrl = site.Url,
+            TestTitle = "web > scroll",
+            AssertionTimeout = TimeSpan.FromSeconds(5),
+            ActionTimeout = TimeSpan.FromSeconds(10),
+            StepTimeout = TimeSpan.FromSeconds(30),
+            TestTimeout = TimeSpan.FromSeconds(60),
+        });
 
         await using (session)
         {

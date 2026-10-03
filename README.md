@@ -90,7 +90,7 @@ dotnet test --project samples/E2E.Sample
 dotnet test E2E.slnx -c Release
 ```
 
-Unit tests use `DocumentEngine` and a scripted model. They do not need an API key or a browser. The Playwright tests return without failing when Chromium is not installed, so set `PLAYWRIGHT_BROWSERS_PATH` to a matching install to run them.
+Unit tests use `DocumentEngine` and a scripted model. They do not need an API key or a browser. The Playwright tests install Chromium once per run, before the first of them starts.
 
 ## What is in this port
 

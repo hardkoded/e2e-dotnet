@@ -8,6 +8,7 @@ using E2E.Engine;
 
 namespace E2E.Tests;
 
+[Collection(BrowserCollection.Name)]
 public sealed class WebSemanticsTests
 {
     private const string RolesPage = """
@@ -72,12 +73,7 @@ public sealed class WebSemanticsTests
     public async Task Chromium_reports_landmark_structure_and_state_roles()
     {
         using var site = await TinySite.StartAsync(RolesPage);
-        await using var session = await TryOpenAsync(site.Url, new WebEngineOptions { Headless = true, TestIdAttribute = "data-qa" });
-        if (session is null)
-        {
-            return;
-        }
-
+        await using var session = await OpenAsync(site.Url, new WebEngineOptions { Headless = true, TestIdAttribute = "data-qa" });
         var observation = await session.ObserveAsync(CancellationToken.None);
         var nodes = Flatten(observation.Roots).ToList();
         var roles = nodes.Select(node => node.Role).ToHashSet();
@@ -108,12 +104,7 @@ public sealed class WebSemanticsTests
     public async Task Chromium_walks_open_and_closed_shadow_roots_and_acts_inside_them()
     {
         using var site = await TinySite.StartAsync(ShadowPage);
-        var session = await TryStartSessionAsync(site.Url);
-        if (session is null)
-        {
-            return;
-        }
-
+        var session = await StartSessionAsync(site.Url);
         await RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/");
@@ -128,13 +119,8 @@ public sealed class WebSemanticsTests
     public async Task Chromium_stitches_iframe_documents_under_their_frame_node()
     {
         using var site = await TinySite.StartAsync(FramePage);
-        await using (var engine = await TryOpenAsync(site.Url, new WebEngineOptions { Headless = true }))
+        await using (var engine = await OpenAsync(site.Url, new WebEngineOptions { Headless = true }))
         {
-            if (engine is null)
-            {
-                return;
-            }
-
             var observation = await engine.ObserveAsync(CancellationToken.None);
             var frame = Assert.Single(observation.Roots, node => node.Role == "iframe");
             Assert.Equal("Checkout", frame.Name);
@@ -147,12 +133,7 @@ public sealed class WebSemanticsTests
             Assert.Equal(refs.Count, refs.Distinct().Count());
         }
 
-        var session = await TryStartSessionAsync(site.Url);
-        if (session is null)
-        {
-            return;
-        }
-
+        var session = await StartSessionAsync(site.Url);
         await RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/");
@@ -172,12 +153,7 @@ public sealed class WebSemanticsTests
 
         html.Append("</body></html>");
         using var site = await TinySite.StartAsync(html.ToString());
-        await using var session = await TryOpenAsync(site.Url, new WebEngineOptions { Headless = true });
-        if (session is null)
-        {
-            return;
-        }
-
+        await using var session = await OpenAsync(site.Url, new WebEngineOptions { Headless = true });
         var observation = await session.ObserveAsync(CancellationToken.None);
         Assert.True(observation.Truncated);
         Assert.Equal(ObservationLimits.Nodes, observation.Roots.Count);
@@ -211,7 +187,7 @@ public sealed class WebSemanticsTests
                 </body></html>
                 """);
         });
-        await using var session = await TryOpenAsync(site.Url, new WebEngineOptions
+        await using var session = await OpenAsync(site.Url, new WebEngineOptions
         {
             Headless = true,
             Viewport = new WebViewport(800, 600),
@@ -219,11 +195,6 @@ public sealed class WebSemanticsTests
             Headers = new Dictionary<string, string> { ["X-Preview"] = "bypass" },
             BasicAuth = new WebBasicAuth("ada", Secret.Create("pw", "s3cret")),
         });
-        if (session is null)
-        {
-            return;
-        }
-
         var nodes = Flatten((await session.ObserveAsync(CancellationToken.None)).Roots).ToList();
         string TextOf(string testId) => nodes.Single(node => node.TestId == testId).Text ?? "";
         Assert.Equal("ada:s3cret", TextOf("auth"));
@@ -260,12 +231,7 @@ public sealed class WebSemanticsTests
                 </body></html>
                 """);
         });
-        await using var session = await TryOpenAsync(site.Url, new WebEngineOptions { Headless = true });
-        if (session is null)
-        {
-            return;
-        }
-
+        await using var session = await OpenAsync(site.Url, new WebEngineOptions { Headless = true });
         var observation = await session.ObserveAsync(CancellationToken.None);
         Assert.Equal("loaded", Assert.Single(observation.Roots, node => node.Role == "status").Name);
     }
@@ -332,43 +298,28 @@ public sealed class WebSemanticsTests
         }
     }
 
-    private static async Task<IEngineSession?> TryOpenAsync(string url, WebEngineOptions options)
+    private static async Task<IEngineSession> OpenAsync(string url, WebEngineOptions options)
     {
-        IEngineSession session;
-        try
-        {
-            session = await new WebEngine(options).StartAsync(
-                new EngineStartOptions { BaseUrl = url, ActionTimeout = TimeSpan.FromSeconds(10) },
-                CancellationToken.None);
-        }
-        catch (EngineException ex) when (ex.Code == "ENVIRONMENT_UNAVAILABLE")
-        {
-            return null;
-        }
+        var session = await new WebEngine(options).StartAsync(
+            new EngineStartOptions { BaseUrl = url, ActionTimeout = TimeSpan.FromSeconds(10) },
+            CancellationToken.None);
 
         await session.OpenAsync(url, CancellationToken.None);
         return session;
     }
 
-    private static async Task<E2ESession?> TryStartSessionAsync(string url)
+    private static async Task<E2ESession> StartSessionAsync(string url)
     {
-        try
+        return await E2ESession.StartAsync(new E2ESessionOptions
         {
-            return await E2ESession.StartAsync(new E2ESessionOptions
-            {
-                Engine = new WebEngine(headless: true),
-                BaseUrl = url,
-                TestTitle = "web > semantics",
-                AssertionTimeout = TimeSpan.FromSeconds(5),
-                ActionTimeout = TimeSpan.FromSeconds(10),
-                StepTimeout = TimeSpan.FromSeconds(20),
-                TestTimeout = TimeSpan.FromSeconds(30),
-            });
-        }
-        catch (EngineException ex) when (ex.Code == "ENVIRONMENT_UNAVAILABLE")
-        {
-            return null;
-        }
+            Engine = new WebEngine(headless: true),
+            BaseUrl = url,
+            TestTitle = "web > semantics",
+            AssertionTimeout = TimeSpan.FromSeconds(5),
+            ActionTimeout = TimeSpan.FromSeconds(10),
+            StepTimeout = TimeSpan.FromSeconds(20),
+            TestTimeout = TimeSpan.FromSeconds(30),
+        });
     }
 
     private static async Task RunAsync(E2ESession session, Func<Task> body)
