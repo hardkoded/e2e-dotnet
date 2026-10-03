@@ -63,18 +63,57 @@ internal static class PageScript
             if (el.getAttribute("aria-live") || tag === "OUTPUT") return "status";
             return null;
           };
+          // accname reads an aria-labelledby reference (2B) before the
+          // element's own aria-label (2C), then its associated labels.
           const nameOf = (el, role) => {
-            const aria = el.getAttribute("aria-label");
-            if (aria) return cut(aria, 256);
-            if (el.labels && el.labels.length) return cut(el.labels[0].innerText || "", 256);
-            const labelledby = el.getAttribute("aria-labelledby");
+            const labelledby = (el.getAttribute("aria-labelledby") || "").trim();
             if (labelledby) {
               const text = labelledby.split(/\s+/).map((id) => document.getElementById(id)?.innerText || "").join(" ");
               if (text.trim()) return cut(text, 256);
             }
+            const aria = el.getAttribute("aria-label");
+            if (aria && aria.trim()) return cut(aria, 256);
+            if (el.labels && el.labels.length) return cut(el.labels[0].innerText || "", 256);
             if (role === "textbox" || role === "searchbox") return cut(el.getAttribute("placeholder") || "", 256);
             if (role) return cut(el.innerText || el.getAttribute("alt") || "", 256);
             return "";
+          };
+          // The roles aria-disabled applies to (WAI-ARIA 1.2), as Playwright's
+          // toBeDisabled reads them.
+          const ariaDisabledRoles = new Set([
+            "application", "button", "composite", "gridcell", "group", "input", "link", "menuitem", "scrollbar",
+            "separator", "tab", "checkbox", "columnheader", "combobox", "grid", "listbox", "menu", "menubar",
+            "menuitemcheckbox", "menuitemradio", "option", "radio", "radiogroup", "row", "rowheader", "searchbox",
+            "select", "slider", "spinbutton", "switch", "tablist", "textbox", "toolbar", "tree", "treegrid", "treeitem"
+          ]);
+          const parentOrHostOf = (el) => {
+            if (el.parentElement) return el.parentElement;
+            const root = el.getRootNode();
+            return root instanceof ShadowRoot ? root.host : null;
+          };
+          // The nearest aria-disabled on the element or above it; "false" cuts the chain.
+          const ariaDisabledInChain = (el) => {
+            for (let current = el; current; current = parentOrHostOf(current)) {
+              const value = (current.getAttribute("aria-disabled") || "").toLowerCase();
+              if (value === "true") return true;
+              if (value === "false") return false;
+            }
+            return false;
+          };
+          // :disabled covers the control's own attribute, a disabled fieldset
+          // (outside its first legend), and a disabled optgroup. aria-disabled
+          // on the element counts for any role; inherited, it reaches only the
+          // roles the state applies to.
+          const disabledOf = (el, role) => {
+            if (el.matches(":disabled")) return true;
+            if (el.getAttribute("aria-disabled") === "true") return true;
+            return !!role && ariaDisabledRoles.has(role) && ariaDisabledInChain(el);
+          };
+          // A native checkbox or radio reports its own state; aria-checked
+          // fills in only where the element has no native state.
+          const checkedOf = (el) => {
+            if (el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio")) return el.checked;
+            return el.getAttribute("aria-checked") === "true";
           };
           const walk = (el, into) => {
             if (!el || skip.has(el.tagName) || count >= max) return;
@@ -94,8 +133,8 @@ internal static class PageScript
                 placeholder: el.getAttribute("placeholder"),
                 inputPurpose: secure ? "password" : null,
                 level: /^H[1-6]$/.test(el.tagName) ? Number(el.tagName.slice(1)) : null,
-                disabled: !!el.disabled,
-                checked: !!el.checked,
+                disabled: disabledOf(el, role),
+                checked: checkedOf(el),
                 hidden: hidden(el),
                 secure,
                 children: []
