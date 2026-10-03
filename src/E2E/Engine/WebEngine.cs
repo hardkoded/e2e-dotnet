@@ -567,8 +567,6 @@ public sealed class WebEngine : IEngine
 /// </summary>
 internal static partial class WebErrors
 {
-    private const string Redacted = "[redacted]";
-
     /// <summary>Whether Playwright raised <paramref name="cause"/>. Playwright for .NET reports timeouts as <see cref="System.TimeoutException"/>.</summary>
     public static bool IsPlaywright(Exception cause)
     {
@@ -608,7 +606,8 @@ internal static partial class WebErrors
         var text = Message(rawCause);
         if (action is LocatorAction.Fill fill && sensitive && fill.Value.Length > 0)
         {
-            text = text.Replace(fill.Value, Redacted, StringComparison.Ordinal);
+            // The message can quote the value in any spelling or cut short.
+            text = Redactor.ForValue(fill.Value).RedactFragments(text);
         }
 
         var cause = sensitive ? null : rawCause;
