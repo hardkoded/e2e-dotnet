@@ -4,6 +4,8 @@
 
 using E2E.Engine;
 using NUnit.Framework;
+using NUnit.Framework.Interfaces;
+using NUnit.Framework.Internal;
 
 namespace E2E.NUnit;
 
@@ -12,7 +14,9 @@ namespace E2E.NUnit;
 /// session. Teardown commits the replay cache from the NUnit result: a pass
 /// records verified acts, a failure deletes unverified ones, and a skip or a
 /// cancelled test leaves the cache alone. The first attempt can replay. Retries
-/// run live.
+/// run live. Each <c>Expect.Soft</c> failure is recorded on the NUnit result,
+/// as inside <c>Assert.EnterMultipleScope</c>, so the test fails when its body
+/// ends and lists every soft failure.
 /// </summary>
 public abstract class E2ETest
 {
@@ -56,6 +60,13 @@ public abstract class E2ETest
         return string.IsNullOrWhiteSpace(test.FullName) ? test.Name : test.FullName;
     }
 
+    /// <summary>Records an <c>Expect.Soft</c> failure on the running NUnit test. The test body runs on and fails when it ends.</summary>
+    protected virtual void RecordSoftFailure(TestException failure)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+        TestExecutionContext.CurrentContext.CurrentResult.RecordAssertion(AssertionStatus.Failed, failure.Message, failure.StackTrace);
+    }
+
     private E2ESession Session => _session ?? throw new InvalidOperationException("The E2E session is available after setup, during the test.");
 
     [SetUp]
@@ -85,6 +96,7 @@ public abstract class E2ETest
                 StepTimeout = StepTimeout,
                 MaxModelCalls = MaxModelCalls,
                 Attempt = attempt,
+                OnSoftFailure = RecordSoftFailure,
             },
             current.CancellationToken).ConfigureAwait(false);
     }

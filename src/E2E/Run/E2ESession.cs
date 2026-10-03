@@ -103,7 +103,8 @@ public sealed class E2ESession : IAsyncDisposable
             () => timeout.Token,
             scope.MarkVerified,
             options.ActionTimeout,
-            options.AssertionTimeout);
+            options.AssertionTimeout,
+            new SoftFailures(options.OnSoftFailure));
         var context = new TestContext
         {
             App = app,
@@ -115,6 +116,14 @@ public sealed class E2ESession : IAsyncDisposable
         };
         return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context);
     }
+
+    /// <summary>
+    /// Ends <c>expect.soft</c> collection and returns one <c>ASSERTION_FAILED</c>
+    /// for every failure kept since the session started, or null. Call it when
+    /// the test body settles and fail the test with the result. Later soft
+    /// matchers throw as hard ones would.
+    /// </summary>
+    public TestException? CloseSoftFailures() => Screen.SoftFailures.Close();
 
     /// <summary>
     /// Writes verified acts and deletes unverified ones. A <see cref="SkipException"/>,
@@ -207,6 +216,12 @@ public sealed class E2ESessionOptions
     public TimeSpan StepTimeout { get; init; } = TimeSpan.FromSeconds(30);
 
     public int MaxModelCalls { get; init; } = 12;
+
+    /// <summary>
+    /// Receives each <c>expect.soft</c> failure as it happens. Null keeps them
+    /// on the session until <see cref="E2ESession.CloseSoftFailures"/>.
+    /// </summary>
+    public Action<TestException>? OnSoftFailure { get; init; }
 
     /// <summary>1 is the first try. Later attempts do not read or write the replay cache.</summary>
     public int Attempt { get; init; } = 1;

@@ -25,8 +25,10 @@ public sealed class Screen
         Func<CancellationToken> cancellation,
         Action verified,
         TimeSpan actionTimeout,
-        TimeSpan assertionTimeout)
+        TimeSpan assertionTimeout,
+        SoftFailures? softFailures = null)
     {
+        SoftFailures = softFailures ?? new SoftFailures();
         _observe = observe;
         _perform = perform;
         _cancellation = cancellation;
@@ -38,6 +40,8 @@ public sealed class Screen
     internal TimeSpan ActionTimeout { get; }
 
     internal TimeSpan AssertionTimeout { get; }
+
+    internal SoftFailures SoftFailures { get; }
 
     internal TimeSpan PollInterval { get; } = TimeSpan.FromMilliseconds(50);
 
