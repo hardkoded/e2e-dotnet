@@ -35,7 +35,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 
 Replay runs `back` and a viewport scroll as recorded, re-finds a scrolled list before each repeat, and pages again for a `scroll_to` text. Consecutive identical scrolls are recorded as one action with a repeat count. `observe` is not recorded. Upstream scrolls the viewport when a list that filled the screen cannot be re-found. This port has no node geometry, so a lost list stops the replay.
 
-A passing locator expectation or `agent.assert` after `act` writes the recording. `agent.assert`, `waitFor`, and `extract` always run live.
+A passing locator expectation or `agent.assert` after `act` writes the recording. `agent.assert`, `waitFor`, and `extract` always run live. As upstream, verification stops when the test fails, so a check in a derived `[TearDown]` after a failure records nothing. When a replay ends in `end-mismatch` and the agent repairs it with more actions, the entry is evicted instead of rewritten; the next clean run records the flow again.
 
 ## Replay cache
 

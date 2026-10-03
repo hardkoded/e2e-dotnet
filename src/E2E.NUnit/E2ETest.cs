@@ -16,7 +16,8 @@ namespace E2E.NUnit;
 /// or a skip records verified acts, a failure evicts the unverified ones it
 /// recorded or replayed, and a cancelled test leaves the cache alone. The first
 /// attempt can replay. <c>[Retry]</c> attempts run live and still record. Each
-/// <c>[Repeat]</c> iteration is a first attempt.
+/// <c>[Repeat]</c> iteration is a first attempt. A check in a derived [TearDown]
+/// after a failure verifies nothing.
 /// Each <c>Expect.Soft</c> failure is recorded on the NUnit result, as inside
 /// <c>Assert.EnterMultipleScope</c>, so the test fails when its body ends and
 /// lists every soft failure.
@@ -103,6 +104,7 @@ public abstract class E2ETest
                 MaxModelCalls = MaxModelCalls,
                 Attempt = attempt,
                 OnSoftFailure = RecordSoftFailure,
+                TestFailed = HasFailed,
             },
             current.CancellationToken).ConfigureAwait(false);
     }
@@ -136,6 +138,12 @@ public abstract class E2ETest
             .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
             .Any(method => string.Equals(method.Name, name, StringComparison.Ordinal) && method.IsDefined(typeof(RetryAttribute), true));
         return retried ? current.CurrentRepeatCount + 1 : 1;
+    }
+
+    // A derived [TearDown] runs before this fixture's teardown, after the result of the test body is known.
+    private static bool HasFailed()
+    {
+        return global::NUnit.Framework.TestContext.CurrentContext.Result.Outcome.Status == global::NUnit.Framework.Interfaces.TestStatus.Failed;
     }
 
     private static Exception? ErrorForCache(global::NUnit.Framework.TestContext.ResultAdapter result)

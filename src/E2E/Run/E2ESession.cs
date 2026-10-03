@@ -96,6 +96,7 @@ public sealed class E2ESession : IAsyncDisposable
             StepTimeout = options.StepTimeout,
             MaxModelCalls = options.MaxModelCalls,
             Token = () => timeout.Token,
+            TestFailed = options.TestFailed ?? (static () => false),
         };
         var app = new App(engine, options.BaseUrl, () => timeout.Token);
         var browser = new Browser(engine, options.Engine.Platform, options.BaseUrl, options.AssertionTimeout, () => timeout.Token);
@@ -246,6 +247,12 @@ public sealed class E2ESessionOptions
     /// on the session until <see cref="E2ESession.CloseSoftFailures"/>.
     /// </summary>
     public Action<TestException>? OnSoftFailure { get; init; }
+
+    /// <summary>
+    /// Reports whether the test has already failed. Once it returns true, a passing check no longer
+    /// verifies acts, so a teardown assertion after a failure does not record them.
+    /// </summary>
+    public Func<bool>? TestFailed { get; init; }
 
     /// <summary>1 is the first try. Later attempts do not replay, and still record verified acts.</summary>
     public int Attempt { get; init; } = 1;
