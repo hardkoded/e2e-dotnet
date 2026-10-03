@@ -65,6 +65,13 @@ public sealed class Agent
             var replay = await TryReplayAsync(pending, start, actions, options?.Params, token).ConfigureAwait(false);
             info = replay.Info;
             handoff = replay.Handoff;
+            if (_scope.CacheStrict && !replay.Completed && info?.Reason is not null and not "no-entry")
+            {
+                throw new AgentException(
+                    "REPLAY_STALE",
+                    "The recording for '" + instruction + "' no longer matches (" + info.Reason + "). Strict cache mode does not run it live; re-record it without cache.strict.");
+            }
+
             if (replay.Completed)
             {
                 pending.Completed = true;
@@ -143,7 +150,11 @@ public sealed class Agent
                     {
                         // The recorded actions ran but did not reach the recorded end, so they are proven
                         // not to produce it. Evict the entry and let a clean run record the flow again.
-                        _scope.Cache!.Delete(key);
+                        if (_scope.CacheWrite)
+                        {
+                            _scope.Cache!.Delete(key);
+                        }
+
                         _scope.Completed.Add(summary.Length == 0 ? instruction : summary);
                         return new ActResult { Summary = summary, Cache = info };
                     }
@@ -182,7 +193,7 @@ public sealed class Agent
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(statement);
         var timeout = options?.Timeout ?? _scope.StepTimeout;
-        var interval = options?.Interval ?? TimeSpan.FromSeconds(3);
+        var interval = options?.Interval ?? E2EDefaults.WaitForInterval;
         using var linked = Link(cancellationToken, timeout);
         var token = linked.Token;
         var deadline = DateTime.UtcNow + timeout;
@@ -1392,6 +1403,13 @@ internal sealed class AttemptScope
 
     public required bool CacheEnabled { get; init; }
 
+    /// <summary>False in read-only mode: the attempt replays but does not write or delete recordings.</summary>
+    public bool CacheWrite { get; init; }
+
+    public bool CacheStrict { get; init; }
+
+    public TimeSpan CleanupTimeout { get; init; } = E2EDefaults.CleanupTimeout;
+
     public required string TestTitle { get; init; }
 
     public required string EnginePlatform { get; init; }
@@ -1403,13 +1421,13 @@ internal sealed class AttemptScope
 
     public int Attempt { get; init; } = 1;
 
-    public TimeSpan ActionTimeout { get; init; } = TimeSpan.FromSeconds(30);
+    public TimeSpan ActionTimeout { get; init; } = E2EDefaults.ActionTimeout;
 
-    public TimeSpan ReplayTimeout { get; init; } = TimeSpan.FromSeconds(15);
+    public TimeSpan ReplayTimeout { get; init; } = E2EDefaults.ReplayTimeout;
 
-    public TimeSpan StepTimeout { get; init; } = TimeSpan.FromSeconds(30);
+    public TimeSpan StepTimeout { get; init; } = E2EDefaults.StepTimeout;
 
-    public int MaxModelCalls { get; init; } = 25;
+    public int MaxModelCalls { get; init; } = E2EDefaults.MaxModelCalls;
 
     public Func<CancellationToken> Token { get; init; } = static () => CancellationToken.None;
 

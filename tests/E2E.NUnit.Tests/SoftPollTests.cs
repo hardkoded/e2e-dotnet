@@ -21,7 +21,7 @@ public sealed class SoftPollTests : E2ETest
         }));
     }
 
-    protected override bool CacheEnabled => false;
+    protected override CacheMode CacheMode => CacheMode.Off;
 
     protected override TimeSpan AssertionTimeout => TimeSpan.FromMilliseconds(100);
 

@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text;
+
 namespace E2E;
 
 /// <summary>
@@ -93,5 +95,52 @@ public static class Credentials
         }
 
         return new UserCredential(username, Secret.Create("password", password, name + " password"));
+    }
+}
+
+/// <summary>
+/// The secrets declared in <c>e2e.config.json</c>. Each value comes from
+/// <c>E2E_SECRET_{NAME}</c> when it is set, else from the config. The name is
+/// uppercased and every character other than A-Z and 0-9 becomes an underscore.
+/// </summary>
+public sealed class Secrets
+{
+    /// <summary>The shortest secret value, in code points.</summary>
+    public const int MinimumLength = 6;
+
+    private readonly IReadOnlyDictionary<string, Secret> _values;
+
+    internal Secrets(IReadOnlyDictionary<string, Secret> values)
+    {
+        _values = values;
+    }
+
+    public static Secrets Empty { get; } = new(new Dictionary<string, Secret>(StringComparer.Ordinal));
+
+    public IEnumerable<string> Names => _values.Keys;
+
+    /// <summary>The override variable for a secret name, such as <c>E2E_SECRET_STRIPE_KEY</c> for <c>stripe-key</c>.</summary>
+    public static string EnvironmentVariable(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        var builder = new StringBuilder("E2E_SECRET_");
+        foreach (var ch in name.ToUpperInvariant())
+        {
+            builder.Append(ch is (>= 'A' and <= 'Z') or (>= '0' and <= '9') ? ch : '_');
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>The configured secret. A name the config does not declare throws <c>SECRET_UNAVAILABLE</c>.</summary>
+    public Secret Get(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (_values.TryGetValue(name, out var secret))
+        {
+            return secret;
+        }
+
+        throw new TestException("SECRET_UNAVAILABLE", "Secret '" + name + "' is not declared in e2e.config.json secrets.");
     }
 }

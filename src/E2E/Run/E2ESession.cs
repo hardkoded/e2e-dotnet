@@ -68,24 +68,47 @@ public sealed class E2ESession : IAsyncDisposable
         }
 
         IEngineSession engine;
+        var launch = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token);
         try
         {
+            if (Bounded(options.LaunchTimeout))
+            {
+                launch.CancelAfter(options.LaunchTimeout);
+            }
+
             engine = await options.Engine.StartAsync(
                 new EngineStartOptions { BaseUrl = options.BaseUrl, ActionTimeout = options.ActionTimeout },
-                timeout.Token).ConfigureAwait(false);
+                launch.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException ex) when (launch.IsCancellationRequested && !timeout.IsCancellationRequested)
+        {
+            timeout.Dispose();
+            throw new EngineException(
+                "ENVIRONMENT_UNAVAILABLE",
+                "The engine did not start within the launch timeout (" + options.LaunchTimeout.TotalMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " ms).",
+                ex);
         }
         catch
         {
             timeout.Dispose();
             throw;
         }
+        finally
+        {
+            launch.Dispose();
+        }
 
+        // A later attempt never replays but still records, so the attempt number does not turn the cache off.
+        var cacheOn = options.CacheEnabled && options.CacheMode != CacheMode.Off && options.Cache is not null;
         var scope = new AttemptScope
         {
             Session = engine,
             Model = options.Model,
             Cache = options.Cache,
-            CacheEnabled = options.CacheEnabled,
+            CacheEnabled = cacheOn,
+            CacheWrite = cacheOn && options.CacheMode == CacheMode.ReadWrite,
+            CacheStrict = options.CacheStrict,
+            CleanupTimeout = options.CleanupTimeout,
             TestTitle = options.TestTitle,
             EnginePlatform = options.Engine.Platform,
             EngineVersion = options.Engine.Version,
@@ -173,18 +196,42 @@ public sealed class E2ESession : IAsyncDisposable
             return;
         }
 
-        await _engine.DisposeAsync().ConfigureAwait(false);
-        _timeout.Dispose();
+        try
+        {
+            var cleanup = _engine.DisposeAsync().AsTask();
+            if (Bounded(_scope.CleanupTimeout))
+            {
+                await cleanup.WaitAsync(_scope.CleanupTimeout).ConfigureAwait(false);
+            }
+            else
+            {
+                await cleanup.ConfigureAwait(false);
+            }
+        }
+        catch (TimeoutException ex)
+        {
+            throw new EngineException(
+                "ENVIRONMENT_UNAVAILABLE",
+                "The engine did not shut down within the cleanup timeout (" + _scope.CleanupTimeout.TotalMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " ms).",
+                ex);
+        }
+        finally
+        {
+            _timeout.Dispose();
+        }
     }
+
+    private static bool Bounded(TimeSpan timeout) => timeout > TimeSpan.Zero && timeout != Timeout.InfiniteTimeSpan;
 
     private void Commit(Exception? error, CancellationToken cancellationToken)
     {
-        if (!_scope.CacheEnabled || _scope.Cache is null || cancellationToken.IsCancellationRequested)
+        if (!_scope.CacheWrite || _scope.Cache is null || cancellationToken.IsCancellationRequested)
         {
             return;
         }
 
-        var preserve = error is AgentException { Code: "MODEL_UNAVAILABLE" or "MODEL_PROVIDER_FAILED" };
+        // A stale recording under strict mode stays in place, so the next strict run fails the same way until someone re-records it.
+        var preserve = error is AgentException { Code: "MODEL_UNAVAILABLE" or "MODEL_PROVIDER_FAILED" or "REPLAY_STALE" };
         foreach (var act in _scope.Acts)
         {
             var recorded = act.Completed && act.Entry is { Actions.Count: > 0 } && !act.ParamCollision;
@@ -227,20 +274,32 @@ public sealed class E2ESessionOptions
 
     public bool CacheEnabled { get; init; } = true;
 
+    /// <summary><see cref="CacheMode.ReadOnly"/> replays but never writes or deletes recordings.</summary>
+    public CacheMode CacheMode { get; init; } = CacheMode.ReadWrite;
+
+    /// <summary>When true, a recording that no longer matches fails the act with <c>REPLAY_STALE</c>.</summary>
+    public bool CacheStrict { get; init; }
+
+    /// <summary>How long the engine may take to start. Upstream <c>launchTimeout</c>.</summary>
+    public TimeSpan LaunchTimeout { get; init; } = E2EDefaults.LaunchTimeout;
+
+    /// <summary>How long the engine may take to shut down on dispose. Upstream <c>cleanupTimeout</c>.</summary>
+    public TimeSpan CleanupTimeout { get; init; } = E2EDefaults.CleanupTimeout;
+
     public required string TestTitle { get; init; }
 
-    public TimeSpan TestTimeout { get; init; } = TimeSpan.FromSeconds(120);
+    public TimeSpan TestTimeout { get; init; } = E2EDefaults.TestTimeout;
 
-    public TimeSpan ActionTimeout { get; init; } = TimeSpan.FromSeconds(30);
+    public TimeSpan ActionTimeout { get; init; } = E2EDefaults.ActionTimeout;
 
-    public TimeSpan AssertionTimeout { get; init; } = TimeSpan.FromSeconds(5);
+    public TimeSpan AssertionTimeout { get; init; } = E2EDefaults.AssertionTimeout;
 
-    public TimeSpan StepTimeout { get; init; } = TimeSpan.FromSeconds(30);
+    public TimeSpan StepTimeout { get; init; } = E2EDefaults.StepTimeout;
 
     /// <summary>How long a replay waits for each recorded target and for the recorded end state.</summary>
-    public TimeSpan ReplayTimeout { get; init; } = TimeSpan.FromSeconds(15);
+    public TimeSpan ReplayTimeout { get; init; } = E2EDefaults.ReplayTimeout;
 
-    public int MaxModelCalls { get; init; } = 25;
+    public int MaxModelCalls { get; init; } = E2EDefaults.MaxModelCalls;
 
     /// <summary>
     /// Receives each <c>expect.soft</c> failure as it happens. Null keeps them

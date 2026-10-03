@@ -18,6 +18,9 @@ public sealed class ReplayTests : E2ETest
 
     protected override string CacheDirectory => CacheDir;
 
+    // These tests record and replay, so they keep writing in CI, where an unset mode is read-only.
+    protected override CacheMode CacheMode => CacheMode.ReadWrite;
+
     protected override IAgentModel? CreateModel() => BillingModel();
 
     protected override string? BaseUrl => "https://billing.test";
