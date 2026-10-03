@@ -748,7 +748,7 @@ public sealed class WebEngine : IEngine
                     Secure = dto.Secure,
                     Selected = dto.Selected,
                 },
-                Attributes = dto.Attributes,
+                Attributes = dto.Attributes ?? new Dictionary<string, string>(StringComparer.Ordinal),
                 Rect = dto.Rect is { } rect ? new BoundingBox(rect.X, rect.Y, rect.Width, rect.Height) : null,
                 Children = dto.Children?.Select(ToNode).ToList() ?? [],
             };

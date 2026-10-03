@@ -9,10 +9,11 @@ using E2E.Internal;
 namespace E2E;
 
 /// <summary>
-/// A string or a regular expression, the upstream <c>TextMatch</c>. A string
-/// matches exactly by default, and <c>exact: false</c> makes it a
-/// case-insensitive substring. A <see cref="Regex"/> is tested against the
-/// whitespace-normalized text and ignores <c>exact</c>.
+/// A string or a regular expression, the upstream <c>TextMatch</c>, used by
+/// both screen queries and expectations. In a query, a string matches exactly
+/// by default, and <c>exact: false</c> makes it a case-insensitive substring;
+/// a <see cref="Regex"/> is tested against the whitespace-normalized text and
+/// ignores <c>exact</c>. Converts implicitly from both.
 /// </summary>
 public sealed class TextMatch
 {
@@ -65,6 +66,27 @@ public sealed class TextMatch
         }
 
         return "/" + Pattern + "/" + flags;
+    }
+
+    /// <summary>
+    /// The match under <c>ignoreCase</c>: <c>true</c> adds <see cref="RegexOptions.IgnoreCase"/> to a pattern,
+    /// <c>false</c> removes it, and null keeps it. A string is returned as it is; the comparison folds its case.
+    /// </summary>
+    internal TextMatch WithIgnoreCase(bool? ignoreCase)
+    {
+        if (Pattern is null || ignoreCase is not bool fold)
+        {
+            return this;
+        }
+
+        var options = fold ? Pattern.Options | RegexOptions.IgnoreCase : Pattern.Options & ~RegexOptions.IgnoreCase;
+        return options == Pattern.Options ? this : new TextMatch(null, new Regex(Pattern.ToString(), options, Pattern.MatchTimeout));
+    }
+
+    /// <summary>The match as an expectation failure prints it.</summary>
+    internal string Describe(bool? ignoreCase)
+    {
+        return Pattern is null && ignoreCase == true ? ToString() + " (ignoring case)" : ToString();
     }
 
     internal bool Matches(string? actual, bool exact)

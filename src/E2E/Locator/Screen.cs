@@ -289,7 +289,7 @@ public sealed class Locator
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         var node = await ResolveStrictAsync(cancellationToken).ConfigureAwait(false);
-        return node.Attributes is not null && node.Attributes.TryGetValue(name, out var value) ? value : null;
+        return node.Attributes.TryGetValue(name, out var value) ? value : null;
     }
 
     /// <summary>Reads current visibility: true when exactly one visible node matches. More than one match fails.</summary>
@@ -404,10 +404,10 @@ public sealed class Locator
         }
     }
 
-    internal async Task<IReadOnlyList<SemanticNode>> ResolveAsync(CancellationToken cancellationToken)
+    internal async Task<IReadOnlyList<SemanticNode>> ResolveAsync(CancellationToken cancellationToken, bool includeHidden = false)
     {
         var observation = await _screen.ObserveAsync(cancellationToken).ConfigureAwait(false);
-        return LocatorResolver.Resolve(observation, Query);
+        return LocatorResolver.Resolve(observation, Query, includeHidden);
     }
 
     internal Screen Screen => _screen;

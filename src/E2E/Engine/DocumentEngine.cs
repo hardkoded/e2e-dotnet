@@ -299,7 +299,7 @@ public sealed class DocumentEngine : IEngine
                     Expanded = element.Expanded,
                     Pressed = element.Pressed,
                     Secure = secure,
-                    Focused = false,
+                    Focused = element.Focused,
                 },
                 Attributes = AttributesOf(element, secure),
                 Rect = element.Rect,
@@ -307,13 +307,8 @@ public sealed class DocumentEngine : IEngine
             };
         }
 
-        private static Dictionary<string, string>? AttributesOf(DocumentElement element, bool secure)
+        private static Dictionary<string, string> AttributesOf(DocumentElement element, bool secure)
         {
-            if (element.Attributes.Count == 0)
-            {
-                return null;
-            }
-
             var attributes = new Dictionary<string, string>(element.Attributes, StringComparer.Ordinal);
             if (secure)
             {
@@ -473,9 +468,11 @@ public sealed class DocumentElement
 
     public bool Secure { get; set; }
 
+    public bool Focused { get; set; }
+
     public string? NavigateTo { get; init; }
 
-    /// <summary>Attributes <c>getAttribute</c> reads, such as <c>href</c> or <c>aria-label</c>.</summary>
+    /// <summary>Attributes <c>getAttribute</c> and <c>toHaveAttribute</c> read, such as <c>href</c> or <c>aria-label</c>.</summary>
     public Dictionary<string, string> Attributes { get; } = new(StringComparer.Ordinal);
 
     /// <summary>The box <c>boundingBox</c> reports. Null when the page does not lay it out.</summary>

@@ -61,8 +61,11 @@ public sealed class SemanticNode
 
     public NodeStates States { get; init; } = new();
 
-    /// <summary>Platform attributes, what <c>getAttribute</c> reads. A secure field never reports its value.</summary>
-    public IReadOnlyDictionary<string, string>? Attributes { get; init; }
+    /// <summary>
+    /// Platform attributes by name, what <c>getAttribute</c> and <c>toHaveAttribute</c> read.
+    /// A secure field never reports its value.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Attributes { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
 
     /// <summary>The node's box in viewport CSS pixels, when the platform measures one.</summary>
     public BoundingBox? Rect { get; init; }

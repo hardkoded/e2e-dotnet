@@ -391,6 +391,35 @@ public sealed class WebEngineTests
         });
     }
 
+    [Fact]
+    public async Task Chromium_reports_selected_expanded_focused_and_attributes()
+    {
+        using var site = await TinySite.StartAsync("""
+            <!DOCTYPE html>
+            <html><body>
+            <div role="tab" aria-selected="true">Overview</div>
+            <button type="button" aria-expanded="true">Menu</button>
+            <a href="/docs" target="_blank">Docs</a>
+            <input aria-label="Email" autofocus>
+            <script>document.querySelector("input").focus();</script>
+            </body></html>
+            """);
+        var session = await TryStartAsync(site, new ScriptedModel(_ => ModelResponses.Done("passed", "unused")), cache: null);
+        if (session is null)
+        {
+            return;
+        }
+
+        await RunAsync(session, async () =>
+        {
+            await session.App.OpenAsync("/");
+            await Expect.That(session.Screen.GetByRole("tab", "Overview")).ToBeSelectedAsync();
+            await Expect.That(session.Screen.GetByRole("button", "Menu")).ToBeExpandedAsync();
+            await Expect.That(session.Screen.GetByLabel("Email")).ToBeFocusedAsync();
+            await Expect.That(session.Screen.GetByRole("link", "Docs")).ToHaveAttributeAsync("target", "_blank");
+        });
+    }
+
     private static async Task<E2ESession?> TryStartAsync(TinySite site, ScriptedModel model, FileStepCache? cache)
     {
         try
