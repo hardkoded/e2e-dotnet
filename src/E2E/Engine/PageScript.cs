@@ -98,6 +98,10 @@ internal static class PageScript
                 checked: !!el.checked,
                 hidden: hidden(el),
                 secure,
+                selected: el.getAttribute("aria-selected") === "true" || (el.tagName === "OPTION" && !!el.selected),
+                expanded: el.getAttribute("aria-expanded") === "true",
+                focused: el === document.activeElement,
+                attributes: secure ? {} : Object.fromEntries(Array.from(el.attributes, (attr) => [attr.name, attr.value])),
                 children: []
               };
               into.push(node);

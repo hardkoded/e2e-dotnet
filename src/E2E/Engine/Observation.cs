@@ -55,6 +55,9 @@ public sealed class SemanticNode
 
     public NodeStates States { get; init; } = new();
 
+    /// <summary>Platform attributes by name, what <c>toHaveAttribute</c> reads. Engines leave them out on a secure field.</summary>
+    public IReadOnlyDictionary<string, string> Attributes { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
     public IReadOnlyList<SemanticNode> Children { get; init; } = [];
 }
 

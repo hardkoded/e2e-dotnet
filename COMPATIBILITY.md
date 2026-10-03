@@ -20,7 +20,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - `Assert.Ignore`, `[Retry]`, `[Timeout]`, and `[Category]`
 - Screen queries: role, text, label, test id, placeholder, `filter`, `first`, `nth`
 - Actions: tap, fill, press, check, uncheck, clear. They wait up to the action timeout for exactly one enabled match
-- Locator expectations: visible, hidden, text, count, enabled, disabled, checked, value. They poll until the assertion timeout
+- Locator expectations: visible, hidden, attached, enabled, disabled, checked, selected, expanded, focused, text, contained text, value, attribute, accessible name, and count. They poll until the assertion timeout, or the matcher's own `timeout`. `Not` inverts a matcher, which then passes after 1000 ms of continuous truth (or the whole budget when it is shorter). Text matchers take a string or a `Regex` (`TextMatch`), `ignoreCase`, and a list form. The boolean flags are `visible`, `attached`, `enabled`, and `isChecked` (`checked` is a C# keyword)
 - `agent.act`, `agent.assert`, `agent.waitFor`, `agent.extract`
 - Replay cache for a verified `act`: role, name, test id, and path. Modes are `self-finalized`, `agent-concluded`, and `missed`
 - `Values.Unique` and `Secret`. Secret values are redacted from prompts
@@ -45,4 +45,8 @@ A passing locator expectation or `agent.assert` after `act` writes the recording
 
 `WebEngine` launches Chromium through Playwright and builds a semantic tree in the page: explicit roles, common implicit roles, accessible name, text, `data-testid`, disabled, checked, and hidden. Each observed element keeps a stable ref for the life of the document, and actions run on the element that ref names. Firefox and WebKit launch options are not exposed yet; the package reference can drive them later.
 
-Password fields are marked secure and their values are omitted from the snapshot.
+Password fields are marked secure and their values and attributes are omitted from the snapshot. A text, value, or attribute expectation on a secure field fails with `POLICY_DENIED`, as upstream.
+
+Selected is `aria-selected="true"` or a selected `<option>`, expanded is `aria-expanded="true"`, and focused is the document's active element. Only nodes the semantic tree already keeps (a role or a test id) report them. Attributes are read for every kept node; they are not sent to the model.
+
+Locators skip hidden nodes, so `toBeHidden` treats hidden and absent alike. Only `toBeAttached` also matches hidden nodes. A single-node matcher that still sees more than one match at its deadline fails with `STRICT_MODE`.

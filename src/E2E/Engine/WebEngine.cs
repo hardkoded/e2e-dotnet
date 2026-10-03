@@ -186,7 +186,13 @@ public sealed class WebEngine : IEngine
                     Disabled = dto.Disabled,
                     Hidden = dto.Hidden,
                     Secure = dto.Secure,
+                    Selected = dto.Selected,
+                    Expanded = dto.Expanded,
+                    Focused = dto.Focused,
                 },
+                Attributes = dto.Secure || dto.Attributes is null
+                    ? new Dictionary<string, string>(StringComparer.Ordinal)
+                    : new Dictionary<string, string>(dto.Attributes, StringComparer.Ordinal),
                 Children = dto.Children?.Select(ToNode).ToList() ?? [],
             };
         }
@@ -226,6 +232,14 @@ public sealed class WebEngine : IEngine
         public bool Hidden { get; set; }
 
         public bool Secure { get; set; }
+
+        public bool Selected { get; set; }
+
+        public bool Expanded { get; set; }
+
+        public bool Focused { get; set; }
+
+        public Dictionary<string, string>? Attributes { get; set; }
 
         public List<WebNode>? Children { get; set; }
     }

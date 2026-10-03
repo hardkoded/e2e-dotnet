@@ -181,10 +181,10 @@ public sealed class Locator
         return node.Value;
     }
 
-    internal async Task<IReadOnlyList<SemanticNode>> ResolveAsync(CancellationToken cancellationToken)
+    internal async Task<IReadOnlyList<SemanticNode>> ResolveAsync(CancellationToken cancellationToken, bool includeHidden = false)
     {
         var observation = await _screen.ObserveAsync(cancellationToken).ConfigureAwait(false);
-        return LocatorResolver.Resolve(observation, Query);
+        return LocatorResolver.Resolve(observation, Query, includeHidden);
     }
 
     internal Screen Screen => _screen;
@@ -310,23 +310,24 @@ internal static class LocatorResolver
         "searchbox",
     };
 
-    public static IReadOnlyList<SemanticNode> Resolve(Observation observation, LocatorQuery query)
+    /// <summary>Finds the matches of <paramref name="query"/>. Hidden nodes match only with <paramref name="includeHidden"/>, which <c>toBeAttached</c> sets.</summary>
+    public static IReadOnlyList<SemanticNode> Resolve(Observation observation, LocatorQuery query, bool includeHidden = false)
     {
         var matches = new List<SemanticNode>();
         if (query.Parent is null)
         {
             foreach (var root in observation.Roots)
             {
-                Collect(root, query, matches);
+                Collect(root, query, includeHidden, matches);
             }
         }
         else
         {
-            foreach (var parent in Resolve(observation, query.Parent))
+            foreach (var parent in Resolve(observation, query.Parent, includeHidden))
             {
                 foreach (var child in parent.Children)
                 {
-                    Collect(child, query, matches);
+                    Collect(child, query, includeHidden, matches);
                 }
             }
         }
@@ -366,16 +367,16 @@ internal static class LocatorResolver
         }
     }
 
-    private static void Collect(SemanticNode node, LocatorQuery query, List<SemanticNode> matches)
+    private static void Collect(SemanticNode node, LocatorQuery query, bool includeHidden, List<SemanticNode> matches)
     {
-        if (!node.States.Hidden && Matches(node, query))
+        if ((includeHidden || !node.States.Hidden) && Matches(node, query))
         {
             matches.Add(node);
         }
 
         foreach (var child in node.Children)
         {
-            Collect(child, query, matches);
+            Collect(child, query, includeHidden, matches);
         }
     }
 

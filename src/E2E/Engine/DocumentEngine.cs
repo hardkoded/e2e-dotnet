@@ -219,8 +219,13 @@ public sealed class DocumentEngine : IEngine
                     Disabled = element.Disabled,
                     Hidden = element.Hidden,
                     Secure = secure,
-                    Focused = false,
+                    Selected = element.Selected,
+                    Expanded = element.Expanded,
+                    Focused = element.Focused,
                 },
+                Attributes = secure
+                    ? new Dictionary<string, string>(StringComparer.Ordinal)
+                    : new Dictionary<string, string>(element.Attributes, StringComparer.Ordinal),
                 Children = children,
             };
         }
@@ -365,6 +370,15 @@ public sealed class DocumentElement
     public bool Hidden { get; set; }
 
     public bool Secure { get; set; }
+
+    public bool Selected { get; set; }
+
+    public bool Expanded { get; set; }
+
+    public bool Focused { get; set; }
+
+    /// <summary>Attributes by name, what <c>toHaveAttribute</c> reads.</summary>
+    public Dictionary<string, string> Attributes { get; } = new(StringComparer.Ordinal);
 
     public string? NavigateTo { get; init; }
 
