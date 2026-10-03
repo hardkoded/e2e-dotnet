@@ -423,6 +423,46 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public async Task Secret_value_in_a_statement_never_reaches_the_model()
+    {
+        var model = new ScriptedModel(request =>
+        {
+            var text = string.Join('\n', request.Messages.Select(message => message.Content));
+            return text.Contains("Instruction:", StringComparison.Ordinal)
+                ? ModelResponses.Call("extract", new { data = "ok" })
+                : ModelResponses.Done("passed", "ok");
+        });
+        var world = new DocumentWorld().Map("/login", page =>
+        {
+            page.Textbox("Password", secure: true);
+            page.Paragraph("hint S3CRET-VALUE");
+        });
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/login");
+                await ctx.Agent.ActAsync("sign in", new ActOptions
+                {
+                    Params = new Dictionary<string, object?>
+                    {
+                        ["password"] = Secret.Create("password", "s3cret-value", "member password"),
+                    },
+                });
+                await ctx.Agent.AssertAsync("the hint says S3cret-Value");
+                await ctx.Agent.WaitForAsync("the hint says s3cret%2Dvalue");
+                await ctx.Agent.ExtractAsync<string>("read s3cret-value from the hint");
+            },
+            world,
+            model: model);
+
+        Assert.Null(result.Error);
+        var prompt = string.Join('\n', model.Requests.SelectMany(request => request.Messages.Select(message => message.Content)));
+        Assert.DoesNotContain("s3cret", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Statement: the hint says <secret:password>", prompt, StringComparison.Ordinal);
+        Assert.Contains("Instruction: read <secret:password> from the hint", prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Unique_values_replay_with_the_new_value()
     {
         var directory = TempCache();

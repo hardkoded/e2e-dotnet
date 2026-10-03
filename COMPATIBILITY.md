@@ -23,7 +23,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - Locator expectations: visible, hidden, text, count, enabled, disabled, checked, value. They poll until the assertion timeout
 - `agent.act`, `agent.assert`, `agent.waitFor`, `agent.extract`
 - Replay cache for a verified `act`: role, name, test id, and path. Modes are `self-finalized`, `agent-concluded`, and `missed`
-- `Values.Unique` and `Secret`. Secret values are redacted from prompts
+- `Values.Unique` and `Secret`. Secret values are redacted from prompts, including the `assert`, `waitFor`, and `extract` statement. Redaction matches any case, JSON escapes, HTML character references, percent encoding, and collapsed inner whitespace. A known marker is never rewritten. A failed secret fill in `WebEngine` reports the Playwright message with the value and its fragments of 8 or more characters redacted. Not ported: decoding base64 runs, and values cut short at a length limit
 - OpenAI-compatible tool calling
 
 A passing locator expectation or `agent.assert` after `act` writes the recording. `agent.assert`, `waitFor`, and `extract` always run live. Retries do not replay.

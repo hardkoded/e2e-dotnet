@@ -149,6 +149,16 @@ public sealed class WebEngine : IEngine
                         throw new EngineException("UNSUPPORTED_CAPABILITY", "Web engine cannot perform " + action.GetType().Name + ".");
                 }
             }
+            catch (PlaywrightException ex) when (action is LocatorAction.Fill { Sensitive: true } sensitive)
+            {
+                // The Playwright message can quote the value. Keep only a redacted copy and drop the inner exception.
+                if (ex.Message.Contains("not attached", StringComparison.Ordinal))
+                {
+                    throw new EngineException("NOT_FOUND", $"Node {node.Ref} left the page before the action.");
+                }
+
+                throw new EngineException("NOT_ACTIONABLE", Redactor.ForValue(sensitive.Value).RedactFragments(ex.Message));
+            }
             catch (PlaywrightException ex) when (ex.Message.Contains("not attached", StringComparison.Ordinal))
             {
                 throw new EngineException("NOT_FOUND", $"Node {node.Ref} left the page before the action.", ex);

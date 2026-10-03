@@ -204,7 +204,7 @@ public sealed class Agent
             new()
             {
                 Role = "user",
-                Content = "Instruction: " + instruction + "\n\nReturn JSON with this shape: " + shape + "\n\n" + snapshot,
+                Content = SnapshotText.Redact("Instruction: " + instruction + "\n\nReturn JSON with this shape: " + shape + "\n\n", _scope.Secrets) + snapshot,
             },
         };
         var response = await CallModelAsync(JudgeSystem, messages, AgentTools.Extract, token).ConfigureAwait(false);
@@ -272,7 +272,7 @@ public sealed class Agent
     {
         var messages = new List<ModelMessage>
         {
-            new() { Role = "user", Content = "Statement: " + statement + "\n\n" + snapshot },
+            new() { Role = "user", Content = SnapshotText.Redact("Statement: " + statement + "\n\n", _scope.Secrets) + snapshot },
         };
         var response = await CallModelAsync(JudgeSystem, messages, AgentTools.Judge, token).ConfigureAwait(false);
         var verdict = ReadVerdict(response);
