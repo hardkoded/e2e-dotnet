@@ -322,7 +322,9 @@ public sealed class WebEngine : IEngine
                 throw WebErrors.NavigationStaleOr(ex, "locate " + node.Ref);
             }
 
-            var element = handle.AsElement();
+            // A frame's handle to a missing ref is a plain JSHandle, which
+            // AsElement rejects instead of returning null.
+            var element = handle as IElementHandle;
             if (element is null)
             {
                 await handle.DisposeAsync().ConfigureAwait(false);
