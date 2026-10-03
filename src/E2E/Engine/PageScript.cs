@@ -76,6 +76,18 @@ internal static class PageScript
             if (role) return cut(el.innerText || el.getAttribute("alt") || "", 256);
             return "";
           };
+          const attributesOf = (el, secure) => {
+            const out = {};
+            for (const attr of el.attributes) {
+              if (secure && attr.name === "value") continue;
+              out[attr.name] = attr.value;
+            }
+            return out;
+          };
+          const rectOf = (el) => {
+            const box = el.getBoundingClientRect();
+            return { x: box.x, y: box.y, width: box.width, height: box.height };
+          };
           const walk = (el, into) => {
             if (!el || skip.has(el.tagName) || count >= max) return;
             const role = roleOf(el);
@@ -98,6 +110,8 @@ internal static class PageScript
                 checked: !!el.checked,
                 hidden: hidden(el),
                 secure,
+                attributes: attributesOf(el, secure),
+                rect: rectOf(el),
                 children: []
               };
               into.push(node);

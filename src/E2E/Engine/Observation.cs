@@ -31,6 +31,9 @@ public sealed class NodeStates
     public bool Pressed { get; init; }
 }
 
+/// <summary>A viewport-relative rectangle in CSS pixels.</summary>
+public sealed record BoundingBox(double X, double Y, double Width, double Height);
+
 /// <summary>One node of an observation tree. <see cref="Ref"/> is valid only for the observation it came from.</summary>
 public sealed class SemanticNode
 {
@@ -54,6 +57,12 @@ public sealed class SemanticNode
     public int? Level { get; init; }
 
     public NodeStates States { get; init; } = new();
+
+    /// <summary>Platform attributes, what <c>getAttribute</c> reads. A secure field never reports its value.</summary>
+    public IReadOnlyDictionary<string, string>? Attributes { get; init; }
+
+    /// <summary>The node's box in viewport CSS pixels, when the platform measures one.</summary>
+    public BoundingBox? Rect { get; init; }
 
     public IReadOnlyList<SemanticNode> Children { get; init; } = [];
 }

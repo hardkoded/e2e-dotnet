@@ -135,36 +135,36 @@ public sealed class Locator
         });
     }
 
-    public Task TapAsync(CancellationToken cancellationToken = default)
+    public Task TapAsync(ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
-        return ActAsync(new LocatorAction.Tap(), cancellationToken);
+        return ActAsync(new LocatorAction.Tap(), options, cancellationToken);
     }
 
-    public Task FillAsync(string value, CancellationToken cancellationToken = default)
+    public Task FillAsync(string value, ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(value);
-        return ActAsync(new LocatorAction.Fill(value), cancellationToken);
+        return ActAsync(new LocatorAction.Fill(value), options, cancellationToken);
     }
 
-    public Task PressAsync(string key, CancellationToken cancellationToken = default)
+    public Task PressAsync(string key, ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
-        return ActAsync(new LocatorAction.Press(key), cancellationToken);
+        return ActAsync(new LocatorAction.Press(key), options, cancellationToken);
     }
 
-    public Task CheckAsync(CancellationToken cancellationToken = default)
+    public Task CheckAsync(ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
-        return ActAsync(new LocatorAction.Check(), cancellationToken);
+        return ActAsync(new LocatorAction.Check(), options, cancellationToken);
     }
 
-    public Task UncheckAsync(CancellationToken cancellationToken = default)
+    public Task UncheckAsync(ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
-        return ActAsync(new LocatorAction.Uncheck(), cancellationToken);
+        return ActAsync(new LocatorAction.Uncheck(), options, cancellationToken);
     }
 
-    public Task ClearAsync(CancellationToken cancellationToken = default)
+    public Task ClearAsync(ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
-        return ActAsync(new LocatorAction.Clear(), cancellationToken);
+        return ActAsync(new LocatorAction.Clear(), options, cancellationToken);
     }
 
     /// <summary>Reads text once. Does not retry and does not verify an earlier <c>act</c>.</summary>
@@ -181,6 +181,124 @@ public sealed class Locator
         return node.Value;
     }
 
+    /// <summary>Reads one platform attribute of exactly one match once, or null when the node does not have it.</summary>
+    public async Task<string?> GetAttributeAsync(string name, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        var node = await ResolveStrictAsync(cancellationToken).ConfigureAwait(false);
+        return node.Attributes is not null && node.Attributes.TryGetValue(name, out var value) ? value : null;
+    }
+
+    /// <summary>Reads current visibility: true when exactly one visible node matches. More than one match fails.</summary>
+    public async Task<bool> IsVisibleAsync(CancellationToken cancellationToken = default)
+    {
+        return await ResolveSingleAsync(_screen.Token(cancellationToken)).ConfigureAwait(false) is not null;
+    }
+
+    /// <summary>Reads current hidden or absent state, the negation of <see cref="IsVisibleAsync"/>.</summary>
+    public async Task<bool> IsHiddenAsync(CancellationToken cancellationToken = default)
+    {
+        return !await IsVisibleAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Reads the enabled state of exactly one match once.</summary>
+    public async Task<bool> IsEnabledAsync(CancellationToken cancellationToken = default)
+    {
+        var node = await ResolveStrictAsync(cancellationToken).ConfigureAwait(false);
+        return !node.States.Disabled;
+    }
+
+    /// <summary>Reads the disabled state of exactly one match once, the negation of <see cref="IsEnabledAsync"/>.</summary>
+    public async Task<bool> IsDisabledAsync(CancellationToken cancellationToken = default)
+    {
+        return !await IsEnabledAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Reads the checked state of exactly one match once.</summary>
+    public async Task<bool> IsCheckedAsync(CancellationToken cancellationToken = default)
+    {
+        var node = await ResolveStrictAsync(cancellationToken).ConfigureAwait(false);
+        return node.States.Checked;
+    }
+
+    /// <summary>Reads the viewport-relative box of exactly one match once, or null when the engine does not report one.</summary>
+    public async Task<BoundingBox?> BoundingBoxAsync(CancellationToken cancellationToken = default)
+    {
+        var node = await ResolveStrictAsync(cancellationToken).ConfigureAwait(false);
+        return node.Rect;
+    }
+
+    /// <summary>Counts current matches without waiting.</summary>
+    public async Task<int> CountAsync(CancellationToken cancellationToken = default)
+    {
+        var matches = await ResolveAsync(_screen.Token(cancellationToken)).ConfigureAwait(false);
+        return matches.Count;
+    }
+
+    /// <summary>One <see cref="Nth"/> locator per current match, without waiting. Empty when nothing matches.</summary>
+    public async Task<IReadOnlyList<Locator>> AllAsync(CancellationToken cancellationToken = default)
+    {
+        var count = await CountAsync(cancellationToken).ConfigureAwait(false);
+        var locators = new List<Locator>(count);
+        for (var i = 0; i < count; i++)
+        {
+            locators.Add(Nth(i));
+        }
+
+        return locators;
+    }
+
+    /// <summary>Reads the text of every current match, without waiting. Empty when nothing matches.</summary>
+    public async Task<IReadOnlyList<string>> AllTextContentsAsync(CancellationToken cancellationToken = default)
+    {
+        var matches = await ResolveAsync(_screen.Token(cancellationToken)).ConfigureAwait(false);
+        return matches.Select(node => node.Text ?? node.Name ?? "").ToList();
+    }
+
+    /// <summary>
+    /// Waits for <see cref="LocatorWaitForOptions.State"/>, <see cref="WaitForState.Visible"/> by default:
+    /// <see cref="WaitForState.Attached"/> for one match, visible or not;
+    /// <see cref="WaitForState.Detached"/> for none; <see cref="WaitForState.Hidden"/> for none
+    /// or a hidden one. The timeout defaults to the action timeout. More than one match fails at once.
+    /// Does not verify an earlier <c>act</c>.
+    /// </summary>
+    public async Task WaitForAsync(LocatorWaitForOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var state = options?.State ?? WaitForState.Visible;
+        var token = _screen.Token(cancellationToken);
+        var deadline = DateTime.UtcNow + TimeoutOf(options?.Timeout);
+        var includeHidden = state is WaitForState.Attached or WaitForState.Detached;
+        while (true)
+        {
+            token.ThrowIfCancellationRequested();
+            var observation = await _screen.ObserveAsync(token).ConfigureAwait(false);
+            var matches = LocatorResolver.Resolve(observation, Query, includeHidden);
+            if (matches.Count > 1 && state is not WaitForState.Detached)
+            {
+                throw Ambiguous(matches.Count);
+            }
+
+            var done = state switch
+            {
+                WaitForState.Attached or WaitForState.Visible => matches.Count == 1,
+                _ => matches.Count == 0,
+            };
+            if (done)
+            {
+                return;
+            }
+
+            if (DateTime.UtcNow >= deadline)
+            {
+                throw new TestException(
+                    "TIMEOUT",
+                    Query.Describe() + ".waitFor(" + StateName(state) + ") timed out: matched " + matches.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " nodes.");
+            }
+
+            await Task.Delay(_screen.PollInterval, token).ConfigureAwait(false);
+        }
+    }
+
     internal async Task<IReadOnlyList<SemanticNode>> ResolveAsync(CancellationToken cancellationToken)
     {
         var observation = await _screen.ObserveAsync(cancellationToken).ConfigureAwait(false);
@@ -193,10 +311,10 @@ public sealed class Locator
     /// Waits up to the action timeout for exactly one enabled match, then acts on it.
     /// More than one match fails at once.
     /// </summary>
-    private async Task ActAsync(LocatorAction action, CancellationToken cancellationToken)
+    private async Task ActAsync(LocatorAction action, ActionOptions? options, CancellationToken cancellationToken)
     {
         var token = _screen.Token(cancellationToken);
-        var deadline = DateTime.UtcNow + _screen.ActionTimeout;
+        var deadline = DateTime.UtcNow + TimeoutOf(options?.Timeout);
         while (true)
         {
             var node = await ResolveSingleAsync(token).ConfigureAwait(false);
@@ -229,13 +347,66 @@ public sealed class Locator
         var matches = await ResolveAsync(token).ConfigureAwait(false);
         if (matches.Count > 1)
         {
-            throw new TestException("STRICT_MODE", Query.Describe() + " matched " + matches.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " nodes.");
+            throw Ambiguous(matches.Count);
         }
 
         return matches.Count == 1 ? matches[0] : null;
     }
 
+    private TimeSpan TimeoutOf(TimeSpan? timeout)
+    {
+        if (timeout is TimeSpan chosen)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(chosen, TimeSpan.Zero, "timeout");
+            return chosen;
+        }
+
+        return _screen.ActionTimeout;
+    }
+
+    private static string StateName(WaitForState state) => state switch
+    {
+        WaitForState.Attached => "attached",
+        WaitForState.Detached => "detached",
+        WaitForState.Hidden => "hidden",
+        _ => "visible",
+    };
+
+    private TestException Ambiguous(int count) => new("STRICT_MODE", Query.Describe() + " matched " + count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " nodes.");
+
     private TestException NotFound() => new("NOT_FOUND", Query.Describe() + " matched 0 nodes.");
+}
+
+/// <summary>Options for one locator action.</summary>
+public class ActionOptions
+{
+    /// <summary>How long to wait for exactly one enabled match. Defaults to the configured action timeout.</summary>
+    public TimeSpan? Timeout { get; init; }
+}
+
+/// <summary>The state <see cref="Locator.WaitForAsync"/> waits for.</summary>
+public enum WaitForState
+{
+    /// <summary>Exactly one visible match.</summary>
+    Visible,
+
+    /// <summary>Exactly one match, visible or not.</summary>
+    Attached,
+
+    /// <summary>No match, visible or not.</summary>
+    Detached,
+
+    /// <summary>No visible match.</summary>
+    Hidden,
+}
+
+/// <summary>Options for <see cref="Locator.WaitForAsync"/>.</summary>
+public sealed class LocatorWaitForOptions
+{
+    public WaitForState State { get; init; } = WaitForState.Visible;
+
+    /// <summary>How long to wait. Defaults to the configured action timeout.</summary>
+    public TimeSpan? Timeout { get; init; }
 }
 
 internal sealed class LocatorQuery
@@ -310,23 +481,27 @@ internal static class LocatorResolver
         "searchbox",
     };
 
-    public static IReadOnlyList<SemanticNode> Resolve(Observation observation, LocatorQuery query)
+    /// <summary>
+    /// Returns the nodes <paramref name="query"/> names. Hidden nodes never match,
+    /// unless <paramref name="includeHidden"/> asks for every attached node.
+    /// </summary>
+    public static IReadOnlyList<SemanticNode> Resolve(Observation observation, LocatorQuery query, bool includeHidden = false)
     {
         var matches = new List<SemanticNode>();
         if (query.Parent is null)
         {
             foreach (var root in observation.Roots)
             {
-                Collect(root, query, matches);
+                Collect(root, query, matches, includeHidden);
             }
         }
         else
         {
-            foreach (var parent in Resolve(observation, query.Parent))
+            foreach (var parent in Resolve(observation, query.Parent, includeHidden))
             {
                 foreach (var child in parent.Children)
                 {
-                    Collect(child, query, matches);
+                    Collect(child, query, matches, includeHidden);
                 }
             }
         }
@@ -366,16 +541,16 @@ internal static class LocatorResolver
         }
     }
 
-    private static void Collect(SemanticNode node, LocatorQuery query, List<SemanticNode> matches)
+    private static void Collect(SemanticNode node, LocatorQuery query, List<SemanticNode> matches, bool includeHidden)
     {
-        if (!node.States.Hidden && Matches(node, query))
+        if ((includeHidden || !node.States.Hidden) && Matches(node, query))
         {
             matches.Add(node);
         }
 
         foreach (var child in node.Children)
         {
-            Collect(child, query, matches);
+            Collect(child, query, matches, includeHidden);
         }
     }
 

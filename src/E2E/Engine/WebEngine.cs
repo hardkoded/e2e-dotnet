@@ -187,6 +187,8 @@ public sealed class WebEngine : IEngine
                     Hidden = dto.Hidden,
                     Secure = dto.Secure,
                 },
+                Attributes = dto.Attributes,
+                Rect = dto.Rect is { } rect ? new BoundingBox(rect.X, rect.Y, rect.Width, rect.Height) : null,
                 Children = dto.Children?.Select(ToNode).ToList() ?? [],
             };
         }
@@ -227,6 +229,21 @@ public sealed class WebEngine : IEngine
 
         public bool Secure { get; set; }
 
+        public Dictionary<string, string>? Attributes { get; set; }
+
+        public WebRect? Rect { get; set; }
+
         public List<WebNode>? Children { get; set; }
+    }
+
+    private sealed class WebRect
+    {
+        public double X { get; set; }
+
+        public double Y { get; set; }
+
+        public double Width { get; set; }
+
+        public double Height { get; set; }
     }
 }
