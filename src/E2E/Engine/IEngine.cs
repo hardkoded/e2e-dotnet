@@ -20,7 +20,7 @@ public sealed class EngineStartOptions
 {
     public string? BaseUrl { get; init; }
 
-    public TimeSpan ActionTimeout { get; init; } = TimeSpan.FromSeconds(5);
+    public TimeSpan ActionTimeout { get; init; } = TimeSpan.FromSeconds(30);
 }
 
 /// <summary>

@@ -56,9 +56,9 @@ public sealed class CacheConfig
 
 public sealed class TimeoutConfig
 {
-    public int TestMs { get; set; } = 60_000;
+    public int TestMs { get; set; } = 120_000;
 
-    public int ActionMs { get; set; } = 5_000;
+    public int ActionMs { get; set; } = 30_000;
 
     public int AssertionMs { get; set; } = 5_000;
 

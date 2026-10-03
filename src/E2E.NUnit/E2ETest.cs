@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
 using E2E.Engine;
 using NUnit.Framework;
 
@@ -10,9 +11,10 @@ namespace E2E.NUnit;
 /// <summary>
 /// Base class for an NUnit test that drives the app. Setup starts one engine
 /// session. Teardown commits the replay cache from the NUnit result: a pass
-/// records verified acts, a failure deletes unverified ones, and a skip or a
-/// cancelled test leaves the cache alone. The first attempt can replay. Retries
-/// run live.
+/// or a skip records verified acts, a failure evicts the unverified ones it
+/// recorded or replayed, and a cancelled test leaves the cache alone. The first
+/// attempt can replay. <c>[Retry]</c> attempts run live and still record. Each
+/// <c>[Repeat]</c> iteration is a first attempt.
 /// </summary>
 public abstract class E2ETest
 {
@@ -37,15 +39,17 @@ public abstract class E2ETest
 
     protected virtual bool CacheEnabled => true;
 
-    protected virtual TimeSpan TestTimeout => TimeSpan.FromSeconds(60);
+    protected virtual TimeSpan TestTimeout => TimeSpan.FromSeconds(120);
 
-    protected virtual TimeSpan ActionTimeout => TimeSpan.FromSeconds(5);
+    protected virtual TimeSpan ActionTimeout => TimeSpan.FromSeconds(30);
 
     protected virtual TimeSpan AssertionTimeout => TimeSpan.FromSeconds(5);
 
     protected virtual TimeSpan StepTimeout => TimeSpan.FromSeconds(30);
 
-    protected virtual int MaxModelCalls => 12;
+    protected virtual TimeSpan ReplayTimeout => TimeSpan.FromSeconds(15);
+
+    protected virtual int MaxModelCalls => 25;
 
     /// <summary>Cache identity for this test. The default is the NUnit full name, so each test keeps its own replay.</summary>
     protected virtual string CacheTitle(global::NUnit.Framework.TestContext.TestAdapter test)
@@ -60,7 +64,7 @@ public abstract class E2ETest
     public async Task StartE2ESessionAsync()
     {
         var current = global::NUnit.Framework.TestContext.CurrentContext;
-        var attempt = current.CurrentRepeatCount + 1;
+        var attempt = AttemptOf(current);
         var engine = CreateEngine();
         var title = CacheTitle(current.Test);
         if (string.IsNullOrWhiteSpace(title))
@@ -75,12 +79,13 @@ public abstract class E2ETest
                 Model = CreateModel(),
                 BaseUrl = BaseUrl,
                 Cache = CacheEnabled ? new FileStepCache(CacheDirectory) : null,
-                CacheEnabled = CacheEnabled && attempt == 1,
+                CacheEnabled = CacheEnabled,
                 TestTitle = title,
                 TestTimeout = TestTimeout,
                 ActionTimeout = ActionTimeout,
                 AssertionTimeout = AssertionTimeout,
                 StepTimeout = StepTimeout,
+                ReplayTimeout = ReplayTimeout,
                 MaxModelCalls = MaxModelCalls,
                 Attempt = attempt,
             },
@@ -106,6 +111,16 @@ public abstract class E2ETest
         {
             await session.DisposeAsync().ConfigureAwait(false);
         }
+    }
+
+    // NUnit counts both [Retry] and [Repeat] in CurrentRepeatCount. Only a retry is a later attempt.
+    private int AttemptOf(global::NUnit.Framework.TestContext current)
+    {
+        var name = current.Test.MethodName;
+        var retried = name is not null && GetType()
+            .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
+            .Any(method => string.Equals(method.Name, name, StringComparison.Ordinal) && method.IsDefined(typeof(RetryAttribute), true));
+        return retried ? current.CurrentRepeatCount + 1 : 1;
     }
 
     private static Exception? ErrorForCache(global::NUnit.Framework.TestContext.ResultAdapter result)

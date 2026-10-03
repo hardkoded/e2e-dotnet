@@ -2,7 +2,9 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json;
 using E2E.Engine;
+using E2E.Internal;
 
 namespace E2E;
 
@@ -80,12 +82,13 @@ public sealed class E2ESession : IAsyncDisposable
             Session = engine,
             Model = options.Model,
             Cache = options.Cache,
-            CacheEnabled = options.CacheEnabled && options.Attempt <= 1,
+            CacheEnabled = options.CacheEnabled,
             TestTitle = options.TestTitle,
             EnginePlatform = options.Engine.Platform,
             EngineVersion = options.Engine.Version,
             Attempt = options.Attempt,
             ActionTimeout = options.ActionTimeout,
+            ReplayTimeout = options.ReplayTimeout,
             StepTimeout = options.StepTimeout,
             MaxModelCalls = options.MaxModelCalls,
             Token = () => timeout.Token,
@@ -110,8 +113,11 @@ public sealed class E2ESession : IAsyncDisposable
     }
 
     /// <summary>
-    /// Writes verified acts and deletes unverified ones. A <see cref="SkipException"/>,
-    /// or a model outage, leaves existing entries in place. A cancelled
+    /// Writes verified acts and evicts the unverified ones this attempt recorded or
+    /// replayed. A passed or skipped attempt confirms only what a later check verified.
+    /// An act that missed the cache and never passed leaves its key alone. An entry a
+    /// verified replay finished, or one that already holds the same flow, is not
+    /// rewritten. A model outage leaves existing entries in place. A cancelled
     /// <paramref name="cancellationToken"/> writes nothing.
     /// </summary>
     public void Complete(Exception? error = null, CancellationToken cancellationToken = default)
@@ -161,22 +167,37 @@ public sealed class E2ESession : IAsyncDisposable
             return;
         }
 
-        var preserve = error is SkipException || error is AgentException { Code: "MODEL_UNAVAILABLE" or "MODEL_PROVIDER_FAILED" };
+        var preserve = error is AgentException { Code: "MODEL_UNAVAILABLE" or "MODEL_PROVIDER_FAILED" };
         foreach (var act in _scope.Acts)
         {
-            if (act.Verified && act.Entry is { Actions.Count: > 0 } && !act.ParamCollision)
+            var recorded = act.Completed && act.Entry is { Actions.Count: > 0 } && !act.ParamCollision;
+            if (act.Verified && recorded)
             {
-                _scope.Cache.Write(act.Key, act.Entry);
+                if (!act.ReplayedWhole && !HoldsSameFlow(_scope.Cache, act.Key, act.Entry!))
+                {
+                    _scope.Cache.Write(act.Key, act.Entry!);
+                }
             }
-            else if (!preserve)
+            else if (!preserve && (recorded || act.ConsumedReplay))
             {
                 _scope.Cache.Delete(act.Key);
             }
         }
     }
+
+    // Rewriting an identical flow would only churn a committed cache directory.
+    private static bool HoldsSameFlow(IStepCache cache, string key, CacheEntry entry)
+    {
+        var existing = cache.Read(key).Entry;
+        return existing is not null
+            && string.Equals(
+                JsonSerializer.Serialize(existing, JsonDefaults.Options),
+                JsonSerializer.Serialize(entry, JsonDefaults.Options),
+                StringComparison.Ordinal);
+    }
 }
 
-/// <summary>How to open one <see cref="E2ESession"/>. Retries set <see cref="Attempt"/> above 1 so the cache stays off.</summary>
+/// <summary>How to open one <see cref="E2ESession"/>. Retries set <see cref="Attempt"/> above 1 so the cache records but does not replay.</summary>
 public sealed class E2ESessionOptions
 {
     public required IEngine Engine { get; init; }
@@ -191,16 +212,19 @@ public sealed class E2ESessionOptions
 
     public required string TestTitle { get; init; }
 
-    public TimeSpan TestTimeout { get; init; } = TimeSpan.FromSeconds(60);
+    public TimeSpan TestTimeout { get; init; } = TimeSpan.FromSeconds(120);
 
-    public TimeSpan ActionTimeout { get; init; } = TimeSpan.FromSeconds(5);
+    public TimeSpan ActionTimeout { get; init; } = TimeSpan.FromSeconds(30);
 
     public TimeSpan AssertionTimeout { get; init; } = TimeSpan.FromSeconds(5);
 
     public TimeSpan StepTimeout { get; init; } = TimeSpan.FromSeconds(30);
 
-    public int MaxModelCalls { get; init; } = 12;
+    /// <summary>How long a replay waits for each recorded target and for the recorded end state.</summary>
+    public TimeSpan ReplayTimeout { get; init; } = TimeSpan.FromSeconds(15);
 
-    /// <summary>1 is the first try. Later attempts do not read or write the replay cache.</summary>
+    public int MaxModelCalls { get; init; } = 25;
+
+    /// <summary>1 is the first try. Later attempts do not replay, and still record verified acts.</summary>
     public int Attempt { get; init; } = 1;
 }
