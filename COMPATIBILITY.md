@@ -19,7 +19,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - NUnit `[Test]`, `[SetUp]`, `[TearDown]`, `[OneTimeSetUp]`, and `[OneTimeTearDown]`
 - `Assert.Ignore`, `[Retry]`, `[Timeout]`, and `[Category]`
 - Screen queries: role, text, label, test id, placeholder, `filter`, `first`, `nth`
-- Actions: tap, fill, press, check, uncheck, clear. They wait up to the action timeout for exactly one enabled match
+- Actions: tap, click (an alias of tap), doubleTap, fill (a string or a `Secret`), pressSequentially, press, check, uncheck, clear, selectOption, focus, scrollIntoView. They wait up to the action timeout for exactly one enabled match. `selectOption` takes a string that matches an option value or label
 - Locator expectations: visible, hidden, text, count, enabled, disabled, checked, value. They poll until the assertion timeout
 - `agent.act`, `agent.assert`, `agent.waitFor`, `agent.extract`
 - Act tools `observe`, `scroll`, `scroll_to`, and `back`. They are offered when the engine declares `EngineCapabilities.Scroll` or `EngineCapabilities.History`. `scroll_to` with a target scrolls it into view. With text, it pages the viewport, or the target list, until a node reading the text is listed, then scrolls it into view. It stops when the screen stops moving
@@ -40,7 +40,8 @@ A passing locator expectation or `agent.assert` after `act` writes the recording
 - MCP server, `e2e init`, `e2e login`, OAuth subscriptions (ChatGPT, Copilot, Grok)
 - Vision, screenshots, traces, and video
 - Parallel workers, serial suites, project tools, and custom executors
-- The full locator action set (`dragTo`, `swipe`, `hover`, `setInputFiles`, pointer points)
+- The full locator action set (`dragTo`, `swipe`, `hover`, `setInputFiles`, `secondaryTap`, `longPress`, pointer points). `secondaryTap` and `longPress` have no counterpart in the document engine
+- Per-action options: `timeout`, click `modifiers`, tap `position`, and the `{ label, value, index }` form of `selectOption`
 - Route patterns that ignore a record id. This port compares the URL path exactly and ignores the query and fragment
 - Diff-only observations. Each model turn receives a full text snapshot
 - Telemetry

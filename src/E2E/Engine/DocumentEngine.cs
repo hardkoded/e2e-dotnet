@@ -130,29 +130,20 @@ public sealed class DocumentEngine : IEngine
             switch (action)
             {
                 case LocatorAction.Tap:
-                    if (element.Role == "checkbox" && element.OnTap is null)
-                    {
-                        element.Checked = !element.Checked;
-                    }
-
-                    element.OnTap?.Invoke();
-                    if (element.Role == "textbox")
-                    {
-                        _focused = element;
-                    }
-
+                    Tap(element);
+                    return element.NavigateTo is null ? Task.CompletedTask : OpenAsync(element.NavigateTo, cancellationToken);
+                case LocatorAction.DoubleTap:
+                    // A browser fires two clicks before dblclick. A link navigates on the first.
+                    Tap(element);
                     if (element.NavigateTo is not null)
                     {
-                        Navigate(element.NavigateTo);
+                        Navigate(Routes.PathOf(element.NavigateTo));
                     }
 
+                    Tap(element);
                     break;
                 case LocatorAction.Fill fill:
-                    if (element.Role != "textbox" && element.Role != "combobox" && element.Role != "searchbox")
-                    {
-                        throw new EngineException("NOT_ACTIONABLE", $"{Describe(element)} does not accept text.");
-                    }
-
+                    RequireText(element);
                     element.Value = fill.Value;
                     element.OnFill?.Invoke(fill.Value);
                     _focused = element;
@@ -160,6 +151,16 @@ public sealed class DocumentEngine : IEngine
                 case LocatorAction.Press press:
                     _focused = element;
                     Activate(element, press.Key);
+                    break;
+                case LocatorAction.PressSequentially typed:
+                    RequireText(element);
+                    _focused = element;
+                    foreach (var character in typed.Text)
+                    {
+                        element.Value = (element.Value ?? "") + character;
+                        element.OnFill?.Invoke(element.Value);
+                    }
+
                     break;
                 case LocatorAction.Select select:
                     element.Value = select.Value;
@@ -175,7 +176,11 @@ public sealed class DocumentEngine : IEngine
                     element.Value = "";
                     _focused = element;
                     break;
+                case LocatorAction.Focus:
+                    _focused = element;
+                    break;
                 case LocatorAction.ScrollIntoView:
+                    // The document engine has no viewport; every node is already in view.
                     break;
                 case LocatorAction.Swipe swipe:
                     element.OnScroll?.Invoke(swipe.Direction);
@@ -200,6 +205,28 @@ public sealed class DocumentEngine : IEngine
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        private static void RequireText(DocumentElement element)
+        {
+            if (element.Role != "textbox" && element.Role != "combobox" && element.Role != "searchbox")
+            {
+                throw new EngineException("NOT_ACTIONABLE", $"{Describe(element)} does not accept text.");
+            }
+        }
+
+        private void Tap(DocumentElement element)
+        {
+            if (element.Role == "checkbox" && element.OnTap is null)
+            {
+                element.Checked = !element.Checked;
+            }
+
+            element.OnTap?.Invoke();
+            if (element.Role == "textbox")
+            {
+                _focused = element;
+            }
+        }
 
         private void Activate(DocumentElement element, string key)
         {

@@ -13,9 +13,14 @@ public abstract record LocatorAction
 
     public sealed record Tap : LocatorAction;
 
+    public sealed record DoubleTap : LocatorAction;
+
     public sealed record Fill(string Value, bool Sensitive = false) : LocatorAction;
 
     public sealed record Press(string Key) : LocatorAction;
+
+    /// <summary>Focuses the node and types <paramref name="Text"/> one character at a time.</summary>
+    public sealed record PressSequentially(string Text, TimeSpan? Delay = null) : LocatorAction;
 
     public sealed record Select(string Value) : LocatorAction;
 
@@ -24,6 +29,8 @@ public abstract record LocatorAction
     public sealed record Uncheck : LocatorAction;
 
     public sealed record Clear : LocatorAction;
+
+    public sealed record Focus : LocatorAction;
 
     /// <summary>Scrolls the node's nearest scrollable container until the node is in the viewport.</summary>
     public sealed record ScrollIntoView : LocatorAction;

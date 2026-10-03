@@ -347,11 +347,21 @@ public sealed class WebEngine : IEngine
                     case LocatorAction.Tap:
                         await element.ClickAsync(new ElementHandleClickOptions { Timeout = timeout }).ConfigureAwait(false);
                         break;
+                    case LocatorAction.DoubleTap:
+                        await element.DblClickAsync(new ElementHandleDblClickOptions { Timeout = timeout }).ConfigureAwait(false);
+                        break;
                     case LocatorAction.Fill fill:
                         await element.FillAsync(fill.Value, new ElementHandleFillOptions { Timeout = timeout }).ConfigureAwait(false);
                         break;
                     case LocatorAction.Press press:
                         await element.PressAsync(press.Key, new ElementHandlePressOptions { Timeout = timeout }).ConfigureAwait(false);
+                        break;
+                    case LocatorAction.PressSequentially typed:
+                        await element.FocusAsync().ConfigureAwait(false);
+                        await Page.Keyboard.TypeAsync(typed.Text, new KeyboardTypeOptions
+                        {
+                            Delay = typed.Delay is TimeSpan delay ? (float)delay.TotalMilliseconds : null,
+                        }).ConfigureAwait(false);
                         break;
                     case LocatorAction.Select select:
                         await element.SelectOptionAsync(select.Value, new ElementHandleSelectOptionOptions { Timeout = timeout }).ConfigureAwait(false);
@@ -364,6 +374,9 @@ public sealed class WebEngine : IEngine
                         break;
                     case LocatorAction.Clear:
                         await element.FillAsync("", new ElementHandleFillOptions { Timeout = timeout }).ConfigureAwait(false);
+                        break;
+                    case LocatorAction.Focus:
+                        await element.FocusAsync().ConfigureAwait(false);
                         break;
                     case LocatorAction.ScrollIntoView:
                         await element.ScrollIntoViewIfNeededAsync(new ElementHandleScrollIntoViewIfNeededOptions { Timeout = timeout }).ConfigureAwait(false);
