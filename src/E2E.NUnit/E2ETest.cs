@@ -84,6 +84,7 @@ public abstract class E2ETest
     /// <summary><c>agents.default.maxModelCalls</c>.</summary>
     protected virtual int MaxModelCalls => Config.Agent.MaxModelCalls;
 
+    /// <summary>Actions one <c>ActAsync</c> may take. <c>ActOptions.MaxSteps</c> can only lower it.</summary>
     protected virtual int MaxSteps => E2EDefaults.MaxSteps;
 
     /// <summary>Cache identity for this test. The default is the NUnit full name, so each test keeps its own replay.</summary>
