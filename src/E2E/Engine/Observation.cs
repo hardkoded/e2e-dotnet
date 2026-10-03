@@ -9,6 +9,9 @@ public static class ObservationLimits
 {
     public const int Name = 256;
     public const int Text = 512;
+
+    /// <summary>Most nodes one web observation lists, across every frame of the page.</summary>
+    public const int Nodes = 3000;
 }
 
 /// <summary>Boolean states a platform can report for one node.</summary>
@@ -64,4 +67,7 @@ public sealed class Observation
     public required string Route { get; init; }
 
     public required IReadOnlyList<SemanticNode> Roots { get; init; }
+
+    /// <summary>True when the engine stopped at its node budget, so the tree does not hold the whole screen.</summary>
+    public bool Truncated { get; init; }
 }

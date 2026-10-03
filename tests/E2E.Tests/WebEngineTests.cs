@@ -179,23 +179,37 @@ internal sealed class TinySite : IDisposable
 {
     private readonly HttpListener _listener = new();
     private readonly CancellationTokenSource _stop = new();
-    private readonly byte[] _page;
+    private readonly Func<HttpListenerContext, Task> _handler;
 
-    private TinySite(string url, string html)
+    private TinySite(string url, Func<HttpListenerContext, Task> handler)
     {
         Url = url;
-        _page = Encoding.UTF8.GetBytes(html);
+        _handler = handler;
     }
 
     public string Url { get; }
 
-    public static async Task<TinySite> StartAsync(string html)
+    public static Task<TinySite> StartAsync(string html)
+    {
+        return StartAsync(context => RespondAsync(context, html));
+    }
+
+    public static async Task RespondAsync(HttpListenerContext context, string html)
+    {
+        var page = Encoding.UTF8.GetBytes(html);
+        context.Response.ContentType = "text/html; charset=utf-8";
+        context.Response.ContentLength64 = page.Length;
+        await context.Response.OutputStream.WriteAsync(page);
+        context.Response.Close();
+    }
+
+    public static async Task<TinySite> StartAsync(Func<HttpListenerContext, Task> handler)
     {
         var listener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
         listener.Start();
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
         listener.Stop();
-        var site = new TinySite("http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/", html);
+        var site = new TinySite("http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/", handler);
         site._listener.Prefixes.Add(site.Url);
         site._listener.Start();
         _ = Task.Run(() => site.ListenAsync(site._stop.Token));
@@ -223,10 +237,19 @@ internal sealed class TinySite : IDisposable
                 return;
             }
 
-            context.Response.ContentType = "text/html; charset=utf-8";
-            context.Response.ContentLength64 = _page.Length;
-            await context.Response.OutputStream.WriteAsync(_page, cancellationToken);
-            context.Response.Close();
+            _ = Task.Run(() => HandleAsync(context), CancellationToken.None);
+        }
+    }
+
+    private async Task HandleAsync(HttpListenerContext context)
+    {
+        try
+        {
+            await _handler(context);
+        }
+        catch (Exception)
+        {
+            context.Response.Abort();
         }
     }
 }
