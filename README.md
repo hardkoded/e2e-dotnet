@@ -13,7 +13,7 @@ dotnet add package E2E
 dotnet add package E2E.NUnit
 ```
 
-The library targets `net10.0` and includes `WebEngine`, which drives Chromium, Firefox, and WebKit through [Microsoft.Playwright](https://playwright.dev/dotnet/). Install a browser once, from the build output of the project that references `E2E`:
+The library targets `net10.0` and includes `WebEngine`, which drives Chromium through [Microsoft.Playwright](https://playwright.dev/dotnet/). Firefox and WebKit are not exposed yet. Install a browser once, from the build output of the project that references `E2E`:
 
 ```bash
 pwsh bin/Debug/net10.0/playwright.ps1 install chromium
@@ -42,7 +42,7 @@ public sealed class BillingTests : E2ETest
 }
 ```
 
-`E2ETest` starts a `WebEngine` session for each `[Test]`. Override `CreateEngine` with a `DocumentEngine` when the test should not open a browser. An `act` that a later `assert` or locator `Expect` verifies is recorded. The next run replays those actions with no model calls until the screen no longer matches. A failure or a skip evicts unverified acts that recorded or replayed. `[Retry]` runs the later attempts live, and they still record. Tests that never call the agent need no model.
+`E2ETest` starts a `WebEngine` session for each `[Test]`. Override `CreateEngine` with a `DocumentEngine` when the test should not open a browser. An `act` that a later `assert` or locator `Expect` verifies is recorded. The next run replays those actions with no model calls until the screen no longer matches. When the test ends, verified acts are written and unverified acts that recorded or replayed are evicted, whether it passed, failed, or was skipped. `[Retry]` runs the later attempts live, and they still record. Tests that never call the agent need no model.
 
 ## Config
 
@@ -90,7 +90,7 @@ dotnet test --project samples/E2E.Sample
 dotnet test E2E.slnx -c Release
 ```
 
-Unit tests use `DocumentEngine` and a scripted model. They do not need an API key or a browser. The Playwright test returns without failing when Chromium is not installed.
+Unit tests use `DocumentEngine` and a scripted model. They do not need an API key or a browser. The Playwright tests return without failing when Chromium is not installed, so set `PLAYWRIGHT_BROWSERS_PATH` to a matching install to run them.
 
 ## What is in this port
 

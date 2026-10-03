@@ -25,21 +25,19 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - Locator expectations: visible, hidden, attached, enabled, disabled, checked, selected, expanded, focused, text, contained text, value, attribute, accessible name, and count. They poll until the assertion timeout, or the matcher's own `timeout`. `Not` inverts a matcher, which then passes after 1000 ms of continuous truth (or the whole budget when it is shorter). Text matchers take the same `TextMatch` as queries, `ignoreCase`, and a list form. The boolean flags are `visible`, `attached`, `enabled`, and `isChecked` (`checked` is a C# keyword)
 - `expect.soft` for every locator expectation, as `Expect.Soft(locator)`, including `.Not` and the per-matcher `timeout`. An `ASSERTION_FAILED` is kept and the body runs on; any other error still throws. `E2ETest` records each one on the NUnit result, as inside `Assert.EnterMultipleScope`, so the test fails when the body ends and lists every failure. Other hosts set `E2ESessionOptions.OnSoftFailure` or call `E2ESession.CloseSoftFailures`
 - `expect.poll` as `Expect.Poll(read, options)`, with `Timeout`, `Interval`, and `Message`. A read that throws is retried. The matchers are `ToBeAsync`, `ToSatisfyAsync`, and `.Not`; `E2E.NUnit` adds `ToMatchAsync` for any NUnit constraint, such as `Is.GreaterThan(3)`. The default timeout is 5 seconds, not the configured assertion timeout, because the poll does not see the running test, and it does not stop at the test deadline unless a cancellation token is passed
-- `agent.act`, `agent.assert`, `agent.waitFor`, `agent.extract`
+- `agent.act`, `agent.assert`, `agent.waitFor`, `agent.extract`. `ActOptions` has `Params`, `Timeout`, `MaxSteps`, and `MaxModelCalls`; `AssertOptions` has `Timeout`; `WaitForOptions` has `Timeout`, `Interval`, and `MaxModelCalls`. `ExtractAsync<T>` takes no options (see [Agent options not yet ported](#agent-options-not-yet-ported))
 - Act tools `observe`, `scroll`, `scroll_to`, and `back`. They are offered when the engine declares `EngineCapabilities.Scroll` or `EngineCapabilities.History`. `scroll_to` with a target scrolls it into view. With text, it pages the viewport, or the target list, until a node reading the text is listed, then scrolls it into view. It stops when the screen stops moving
 - Replay cache for a verified `act`: role, name, test id, and path. Modes are `self-finalized`, `agent-concluded`, and `missed`
-- `Values.Unique` and `Secret`. Secret values are redacted from prompts, including the `assert`, `waitFor`, and `extract` statement. Redaction matches any case, JSON escapes, HTML character references, percent encoding, and collapsed inner whitespace. A known marker is never rewritten. A failed secret fill in `WebEngine` reports the Playwright message with the value and its fragments of 8 or more characters redacted. Not ported: decoding base64 runs, and values cut short at a length limit
+- `Values.Unique` and `Secret`. `Values.Unique` rejects an empty or whitespace value, and a value that contains the cache slot marker (U+0001, the port's form of `{{param:`). A secret value has at least 6 code points: `Secret.Create` throws `INVALID_ARGUMENT`, a config secret `INVALID_CONFIG`, and `Credentials.User` `INVALID_CONFIG` for a short `E2E_USER_*_PASSWORD`. Secret values are redacted from prompts, including the `assert`, `waitFor`, and `extract` statement. Redaction matches any case, JSON escapes, HTML character references, percent encoding, and collapsed inner whitespace. A known marker is never rewritten. A failed secret fill in `WebEngine` reports the Playwright message with the value and its fragments of 8 or more characters redacted. Not ported: decoding base64 runs, and values cut short at a length limit
 - `app.open`, `app.back`, `app.restart`, `app.clearState`, and `app.baseUrl` (`App.BaseUrl`), and the context `platform`
 - The `browser` fixture subset: `reload`, `back`, `forward`, `url`, `title`, `waitForURL`, `evaluate`, `cookies`, `setCookies`, `setViewport`, `keyboard.press`, `keyboard.type`, and `mouse.move`, `wheel`, `down`, `up`
-- `Values.Unique` rejects an empty or whitespace value, and a value that contains the cache slot marker (U+0001, the port's form of `{{param:`)
-- A secret value has at least 6 code points. `Secret.Create` throws `INVALID_ARGUMENT`, and `Credentials.User` throws `INVALID_CONFIG` for a short `E2E_USER_*_PASSWORD`
-- Agent budgets: `ActOptions.MaxSteps` (default 25), `ActOptions.MaxModelCalls`, and `WaitForOptions.MaxModelCalls`. A per-call budget can only lower the configured one (`E2ESessionOptions.MaxSteps`, `MaxModelCalls`). A higher or non-positive value throws `INVALID_ARGUMENT`
-- An `act` past its action budget ends `STEP_BUDGET_EXHAUSTED`, blocked. The model is told and may still conclude: a passing verdict, or a failure without a code, becomes the budget error. Replayed actions draw on the same budget
+- Agent budgets: `ActOptions.MaxSteps`, `ActOptions.MaxModelCalls`, and `WaitForOptions.MaxModelCalls`. A per-call budget can only lower the configured one (`E2ESessionOptions.MaxSteps` and `MaxModelCalls`, 25 each by default). A higher or non-positive value throws `INVALID_ARGUMENT`
+- An `act` past its action budget ends `STEP_BUDGET_EXHAUSTED`, blocked. The model is told and may still conclude: a passing verdict, or a failure without a code, becomes the budget error. Replayed actions draw on the same budget. `navigate`, `back`, `scroll`, and `scroll_to` take a slot; `observe` does not
 - `ActResult.ModelCalls` (0 for a full replay) and `ActResult.Actions` (replayed and live actions, counting failed attempts)
 - `AgentException.Blocked` and `AgentException.Explanation` (the same text as `Message`)
 - OpenAI-compatible tool calling
 
-Replay runs `back` and a viewport scroll as recorded, re-finds a scrolled list before each repeat, and pages again for a `scroll_to` text. Consecutive identical scrolls are recorded as one action with a repeat count. `observe` is not recorded. Upstream scrolls the viewport when a list that filled the screen cannot be re-found. This port has no node geometry, so a lost list stops the replay.
+Replay runs `back` and a viewport scroll as recorded, re-finds a scrolled list before each repeat, and pages again for a `scroll_to` text. Consecutive identical scrolls are recorded as one action with a repeat count. `observe` is not recorded. Upstream scrolls the viewport when a list that filled the screen cannot be re-found. Replay does not use node geometry, so a lost list stops the replay.
 
 A passing locator expectation or `agent.assert` after `act` writes the recording. `agent.assert`, `waitFor`, and `extract` always run live. As upstream, verification stops when the test fails, so a check in a derived `[TearDown]` after a failure records nothing. When a replay ends in `end-mismatch` and the agent repairs it with more actions, the entry is evicted instead of rewritten; the next clean run records the flow again.
 
@@ -66,6 +64,15 @@ These match upstream.
 | `maxSteps` (actions per `act`) | 25 |
 | `waitFor` interval | 3 s. The judge runs only when the screen changed |
 | Replay wait | 15 s |
+
+`E2EDefaults` holds these values; `E2EConfig`, `E2ESessionOptions`, and `E2ETest` start from it.
+
+## Error codes that differ
+
+| | Upstream | .NET |
+| --- | --- | --- |
+| A locator action, read, or expectation matched more than one node | `LOCATOR_AMBIGUOUS` | `STRICT_MODE` |
+| A locator action or read matched no node | `LOCATOR_NOT_FOUND` | `NOT_FOUND` |
 
 ## Not ported
 
@@ -108,13 +115,13 @@ Differences:
 - `retries` is validated and resolved (1 in CI, 0 elsewhere) but NUnit retries still come from `[Retry]`
 - `cache.strict` treats any replay that finds a recording but does not finish it as stale, and leaves that recording in place
 - A launch or cleanup timeout fails with `ENVIRONMENT_UNAVAILABLE`
-- Not supported, and rejected with `INVALID_CONFIG`: `projectId`, `tests`, `failOnSkippedFailure`, `workers`, `artifacts`, `output`, `trace`, `video`, `reporters`, `credentials`, `cache.store`, the non-URL `app` keys, and agent keys other than `model` and `maxModelCalls`. Credentials still come from `E2E_USER_<NAME>_USERNAME` and `_PASSWORD`
+- Not supported, and rejected with `INVALID_CONFIG`: `projectId`, `tests`, `failOnSkippedFailure`, `workers`, `artifacts`, `output`, `trace`, `video`, `reporters`, `credentials`, `cache.store`, the non-URL `app` keys, and agent keys other than `model` and `maxModelCalls` (`maxSteps` is the fixture property `E2ETest.MaxSteps`). Credentials still come from `E2E_USER_<NAME>_USERNAME` and `_PASSWORD`
 
 ## Web engine
 
 `WebEngine` launches Chromium through Playwright and builds a semantic tree in the page: explicit roles, the upstream implicit role table (landmarks, lists, tables with rows and cells, dialogs, options, `img alt=""` as presentation, `select multiple` as listbox, and the rest), accessible name, text, test id, heading level, and the disabled, checked, expanded, selected, pressed, focused, and hidden states. As upstream, the name reads `aria-labelledby` before `aria-label` and associated labels. Disabled covers `:disabled` (including a disabled fieldset), `aria-disabled="true"` on the element, and `aria-disabled` inherited from an ancestor for the roles it applies to. Checked is the native state for checkbox and radio inputs and `aria-checked="true"` elsewhere; `mixed` reads as not checked. A node under a hidden ancestor is hidden, `role="img"` is reported as `image`, and an open `details` is expanded. A closed select lists up to 60 options under it. Each observed element keeps a stable ref for the life of the document, and actions run on the element that ref names. Firefox and WebKit launch options are not exposed yet; the package reference can drive them later.
 
-The walk goes through open shadow roots and closed ones that page script attached (an init script records them, as upstream does). Each iframe is a boundary node, and the engine reads that frame's document through Playwright and puts it under the node, so same-origin and cross-origin frames are both listed and acted on. One observation lists at most 3000 nodes across all frames and reports `Truncated` when it stops there. `OpenAsync` waits for the `load` event.
+The walk goes through open shadow roots and closed ones that page script attached (an init script records them, as upstream does). Each iframe is a boundary node, and the engine reads that frame's document through Playwright and puts it under the node, so same-origin and cross-origin frames are both listed and acted on. One observation lists at most 3000 nodes across all frames. When a document has more, nodes that intersect the viewport come first and the rest of the budget goes to the others in document order; the observation reports `Truncated`, and the snapshot tells the model to scroll. `OpenAsync` waits for the `load` event.
 
 `WebEngineOptions` carries the upstream `web()` options: `Viewport` (default 1280 by 720, `null` for no emulation), `TestIdAttribute`, `Headers`, `BasicAuth`, `UserAgent`, and `Connect` (a CDP endpoint resolver). Differences:
 
@@ -122,17 +129,17 @@ The walk goes through open shadow roots and closed ones that page script attache
 - `Connect` has no `reconnectEndpoint`, so there is no persistent remote context, and no provider (`browser: BrowserProvider`) or `screencast` option
 - `BasicAuth` takes a `Secret` password, but the value is not added to the session's redaction list
 
-The tree is a subset of upstream's: names follow the port's simpler accname rules, nodes are listed by role or test id only (not by name, direct text, or as an empty painted `box`). Attributes are kept on each node for `getAttribute` and `toHaveAttribute` but are not sent to the model.
+The tree is a subset of upstream's: names follow the port's simpler accname rules, nodes are listed by role or test id only (not by name, direct text, or as an empty painted `box`).
 
-Password fields are marked secure. Their values, and their `value` attribute, are omitted from the snapshot. A text, value, or attribute expectation on a secure field fails with `POLICY_DENIED`, as upstream.
+Password fields and `autocomplete=current-password` fields are marked secure. Their values, and their `value` attribute, are omitted from the snapshot. A text, value, or attribute expectation on a secure field fails with `POLICY_DENIED`, as upstream.
 
-Selected is `aria-selected="true"` or a selected `<option>`, expanded is `aria-expanded="true"` or an open `details`, and focused is the active element, followed into shadow roots. Attributes and the client rect are read for every kept node; they are not sent to the model. A rect in an iframe is relative to that frame's viewport.
+Selected is `aria-selected="true"` or a selected `<option>`, expanded is `aria-expanded="true"` or an open `details`, and focused is the active element, followed into shadow roots. Attributes (for `getAttribute` and `toHaveAttribute`) and the client rect (for `boundingBox`) are read for every kept node; they are not sent to the model. A rect in an iframe is relative to that frame's viewport.
 
 Text, label, placeholder, test id, and display value queries keep hidden matches, so `toBeVisible` fails on a hidden match and `toBeHidden` passes on no match or one hidden match. Role queries skip hidden nodes, and `toBeAttached` and `waitFor` `attached` or `detached` also match hidden nodes for role queries. A single-node matcher that still sees more than one match at its deadline fails with `STRICT_MODE`.
 
 Playwright failures never escape as `PlaywrightException`. `WebEngine` throws `EngineException` with an upstream engine code from `EngineErrorCodes`: `NOT_ACTIONABLE` when an action timed out before its input was dispatched or the target does not take that input, `ACTION_MAY_HAVE_COMMITTED` when it timed out after dispatch, `NODE_STALE` when the element or its document is gone, `OPERATION_TIMEOUT` for a navigation or key press timeout, and `ENGINE_FAILURE` otherwise. `EngineException.Retryable` is true only for `NODE_STALE` and `FRAME_NOT_FOUND`; any other retryable claim becomes `ENGINE_FAILURE`, as upstream. A sensitive fill's value is redacted from the message. The document engine still uses `NOT_FOUND` for a ref missing from its last observation.
 
-When a document has more nodes than the observation budget, nodes that intersect the viewport come first, the rest of the budget goes to the others in document order, and the snapshot tells the model to scroll. A scroll moves three quarters of the viewport or the scrolled element with `scrollBy`. Upstream sends a wheel gesture. `back` is the browser history.
+A scroll moves three quarters of the viewport or the scrolled element with `scrollBy`. Upstream sends a wheel gesture. `back` is the browser history.
 
 ## App and browser fixtures
 
