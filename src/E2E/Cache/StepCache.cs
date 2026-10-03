@@ -49,6 +49,15 @@ public sealed class RecordedAction
     public string? Key { get; set; }
 
     public string? Url { get; set; }
+
+    /// <summary><c>up</c>, <c>down</c>, <c>left</c>, or <c>right</c> for <c>scroll</c> and <c>scrollUntil</c>.</summary>
+    public string? Direction { get; set; }
+
+    /// <summary>Consecutive identical scrolls folded into one action. Null means one.</summary>
+    public int? Times { get; set; }
+
+    /// <summary>The text a <c>scrollUntil</c> paged toward.</summary>
+    public string? Text { get; set; }
 }
 
 public sealed class RecordedTarget

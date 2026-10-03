@@ -13,6 +13,12 @@ public enum EngineCapabilities
     Actions = 2,
     Location = 4,
     Keyboard = 8,
+
+    /// <summary>The viewport swipe, <see cref="LocatorAction.Swipe"/>, and <see cref="LocatorAction.ScrollIntoView"/>.</summary>
+    Scroll = 16,
+
+    /// <summary><see cref="IEngineSession.BackAsync"/>.</summary>
+    History = 32,
 }
 
 /// <summary>Passed to <see cref="IEngine.StartAsync"/> once per test attempt.</summary>
@@ -54,7 +60,16 @@ public interface IEngineSession : IAsyncDisposable
     /// <summary>Sends a key to whatever holds focus. The harness has already validated the key.</summary>
     Task PressAsync(string key, CancellationToken cancellationToken);
 
-    /// <summary>Goes back one entry in the session history. With no earlier entry it does nothing.</summary>
+    /// <summary>
+    /// Scrolls the viewport about three quarters of a screen. Engines that declare
+    /// <see cref="EngineCapabilities.Scroll"/> implement it.
+    /// </summary>
+    Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => Unsupported("scroll");
+
+    /// <summary>
+    /// Goes back one entry in the session history. With no earlier entry it does nothing.
+    /// Engines that declare <see cref="EngineCapabilities.History"/> implement it.
+    /// </summary>
     Task BackAsync(CancellationToken cancellationToken) => Unsupported("app.back");
 
     /// <summary>Closes the current document and opens a blank one, keeping cookies and storage.</summary>

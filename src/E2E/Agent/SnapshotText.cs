@@ -30,7 +30,7 @@ internal static class SnapshotText
         if (observation.Truncated)
         {
             builder.AppendLine();
-            builder.Append("(truncated: the screen has more nodes than one observation lists)");
+            builder.Append("(More of the page is off screen. Scroll to reach it.)");
         }
 
         return builder.ToString();

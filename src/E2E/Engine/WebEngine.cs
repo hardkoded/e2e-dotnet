@@ -123,7 +123,9 @@ public sealed class WebEngine : IEngine
         EngineCapabilities.Observation
         | EngineCapabilities.Actions
         | EngineCapabilities.Location
-        | EngineCapabilities.Keyboard;
+        | EngineCapabilities.Keyboard
+        | EngineCapabilities.Scroll
+        | EngineCapabilities.History;
 
     public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {
@@ -303,7 +305,7 @@ public sealed class WebEngine : IEngine
             }
 
             _frames = walk.Frames;
-            return new Observation { Route = Route, Roots = roots.Select(ToNode).ToList(), Truncated = walk.Truncated };
+            return new Observation { Route = Route, Roots = roots.Select(ToNode).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll };
         }
 
         public async Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
@@ -362,6 +364,12 @@ public sealed class WebEngine : IEngine
                         break;
                     case LocatorAction.Clear:
                         await element.FillAsync("", new ElementHandleFillOptions { Timeout = timeout }).ConfigureAwait(false);
+                        break;
+                    case LocatorAction.ScrollIntoView:
+                        await element.ScrollIntoViewIfNeededAsync(new ElementHandleScrollIntoViewIfNeededOptions { Timeout = timeout }).ConfigureAwait(false);
+                        break;
+                    case LocatorAction.Swipe swipe:
+                        await element.EvaluateAsync(PageScript.ScrollElement, Direction(swipe.Direction)).ConfigureAwait(false);
                         break;
                     default:
                         throw new EngineException(EngineErrorCodes.UnsupportedCapability, "Web engine cannot perform " + action.GetType().Name + ".");
@@ -567,6 +575,19 @@ public sealed class WebEngine : IEngine
             await NewPageAsync(context).ConfigureAwait(false);
         }
 
+        public async Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                await Page.EvaluateAsync(PageScript.ScrollViewport, Direction(direction)).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.NavigationStaleOr(ex, "scroll");
+            }
+        }
+
         public async ValueTask DisposeAsync()
         {
             try
@@ -616,6 +637,11 @@ public sealed class WebEngine : IEngine
             _nextRef = dto.Next;
             walk.Remaining -= dto.Count;
             walk.Truncated |= dto.Truncated;
+            if (frame == Page.MainFrame)
+            {
+                walk.Scroll = dto.Scroll;
+            }
+
             var roots = dto.Roots ?? [];
             var owners = new Dictionary<string, WebNode>(StringComparer.Ordinal);
             Index(roots, frame, walk, owners);
@@ -674,6 +700,17 @@ public sealed class WebEngine : IEngine
         private IBrowserContext RequireContext() =>
             _context ?? throw new EngineException(EngineErrorCodes.InvalidState, "The browser has no context.");
 
+        private static string Direction(ScrollDirection direction)
+        {
+            return direction switch
+            {
+                ScrollDirection.Up => "up",
+                ScrollDirection.Left => "left",
+                ScrollDirection.Right => "right",
+                _ => "down",
+            };
+        }
+
         private static SemanticNode ToNode(WebNode dto)
         {
             return new SemanticNode
@@ -709,6 +746,8 @@ public sealed class WebEngine : IEngine
 
         public bool Truncated { get; set; }
 
+        public string? Scroll { get; set; }
+
         public Dictionary<string, IFrame> Frames { get; } = new(StringComparer.Ordinal);
     }
 
@@ -719,6 +758,8 @@ public sealed class WebEngine : IEngine
         public int Count { get; set; }
 
         public bool Truncated { get; set; }
+
+        public string? Scroll { get; set; }
 
         public List<WebNode>? Roots { get; set; }
     }

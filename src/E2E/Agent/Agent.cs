@@ -19,7 +19,13 @@ public sealed class Agent
         "done status is passed, failed, or blocked. " +
         "blocked means credentials, the environment, or test setup prevented a verdict, and requires a code. " +
         "Never type a secret value. Call fill_secret with the secret name. " +
-        "A secret looks like <secret:name>.";
+        "A secret looks like <secret:name>. " +
+        "If what you need is not on the screen, scroll to it.";
+
+    // A scroll to a text gives up after this many pages, or once the screen stops moving.
+    private const int MaxScrollUntilScreens = 800;
+    private const int ScrollUntilStillPages = 3;
+    private const int ScrollUntilWrongListPages = 2;
 
     private const string JudgeSystem =
         "You judge one statement against the current screen. Call done. " +
@@ -86,7 +92,7 @@ public sealed class Agent
                 messages.Add(new ModelMessage { Role = "user", Content = "Stop acting. Call done with a verdict." });
             }
 
-            var response = await CallModelAsync(ActSystem, messages, AgentTools.Act, token).ConfigureAwait(false);
+            var response = await CallModelAsync(ActSystem, messages, AgentTools.ActFor(_scope.EngineCapabilities), token).ConfigureAwait(false);
             if (response.ToolCalls.Count == 0)
             {
                 messages.Add(new ModelMessage { Role = "assistant", Content = response.Content });
@@ -345,6 +351,19 @@ public sealed class Agent
         }
 
         var started = false;
+        ReplayAttempt Lost(string? reason)
+        {
+            if (!started)
+            {
+                _scope.Missed++;
+                actions.Clear();
+                return ReplayAttempt.Miss(reason ?? "target-not-found");
+            }
+
+            _scope.HandedOff++;
+            return ReplayAttempt.Hand(reason ?? "target-not-found");
+        }
+
         foreach (var action in entry.Actions)
         {
             if (string.Equals(action.Kind, "navigate", StringComparison.Ordinal))
@@ -355,24 +374,63 @@ public sealed class Agent
                 continue;
             }
 
-            var found = await WaitForTargetAsync(action, token).ConfigureAwait(false);
-            if (found.Node is null)
-            {
-                if (!started)
-                {
-                    _scope.Missed++;
-                    actions.Clear();
-                    return ReplayAttempt.Miss(found.Reason ?? "target-not-found");
-                }
-
-                _scope.HandedOff++;
-                return ReplayAttempt.Hand(found.Reason ?? "target-not-found");
-            }
-
             try
             {
-                var performed = ResolveSecret(Detemplate(action, parameters));
-                await PerformRecordedAsync(found.Node, performed, token).ConfigureAwait(false);
+                // back and a viewport scroll target nothing, so they replay as given.
+                // A scroll on a list re-finds the list before each repeat.
+                switch (action.Kind)
+                {
+                    case "back":
+                        await _scope.Session.BackAsync(token).ConfigureAwait(false);
+                        break;
+                    case "scroll" or "scrollUntil" when !TryDirection(action.Direction, out _):
+                        return Lost("invalid-entry");
+                    case "scroll" when !HasTarget(action):
+                        for (var repeat = 0; repeat < (action.Times ?? 1); repeat++)
+                        {
+                            await _scope.Session.SwipeAsync(Direction(action.Direction), token).ConfigureAwait(false);
+                        }
+
+                        break;
+                    case "scroll":
+                        for (var repeat = 0; repeat < (action.Times ?? 1); repeat++)
+                        {
+                            var list = await WaitForTargetAsync(action, token).ConfigureAwait(false);
+                            if (list.Node is null)
+                            {
+                                return Lost(list.Reason);
+                            }
+
+                            await _scope.Session.PerformAsync(list.Node, new LocatorAction.Swipe(Direction(action.Direction)), token).ConfigureAwait(false);
+                            started = true;
+                        }
+
+                        break;
+                    case "scrollUntil":
+                        if (HasTarget(action))
+                        {
+                            var list = await WaitForTargetAsync(action, token).ConfigureAwait(false);
+                            if (list.Node is null)
+                            {
+                                return Lost(list.Reason);
+                            }
+                        }
+
+                        var text = CacheKeys.Detemplate(action.Text ?? "", parameters);
+                        await ScrollUntilAsync(text, Direction(action.Direction), HasTarget(action) ? action : null, token).ConfigureAwait(false);
+                        break;
+                    default:
+                        var found = await WaitForTargetAsync(action, token).ConfigureAwait(false);
+                        if (found.Node is null)
+                        {
+                            return Lost(found.Reason);
+                        }
+
+                        var performed = ResolveSecret(Detemplate(action, parameters));
+                        await PerformRecordedAsync(found.Node, performed, token).ConfigureAwait(false);
+                        break;
+                }
+
                 actions.Add(action);
                 started = true;
             }
@@ -452,6 +510,7 @@ public sealed class Agent
             "check" => new LocatorAction.Check(),
             "uncheck" => new LocatorAction.Uncheck(),
             "clear" => new LocatorAction.Clear(),
+            "scrollTo" => new LocatorAction.ScrollIntoView(),
             _ => throw new AgentException("AUTOMATION_UNSUPPORTED", "Cannot replay " + action.Kind + "."),
         };
         await _scope.Session.PerformAsync(node, locatorAction, token).ConfigureAwait(false);
@@ -486,6 +545,18 @@ public sealed class Agent
             }
 
             return ToolOutcome.Finish(status, Args.String(call.Arguments, "summary"), code);
+        }
+
+        switch (call.Name)
+        {
+            case "observe":
+                return ToolOutcome.Ok(await DescribeAsync("observed", token).ConfigureAwait(false));
+            case "back":
+                return await BackAsync(actions, token).ConfigureAwait(false);
+            case "scroll":
+                return await ScrollAsync(call.Arguments, actions, token).ConfigureAwait(false);
+            case "scroll_to":
+                return await ScrollToAsync(call.Arguments, parameters, actions, token).ConfigureAwait(false);
         }
 
         if (string.Equals(call.Name, "navigate", StringComparison.Ordinal))
@@ -574,6 +645,275 @@ public sealed class Agent
         {
             return ToolOutcome.Fail(ex.Message);
         }
+    }
+
+    private async Task<ToolOutcome> BackAsync(List<RecordedAction> actions, CancellationToken token)
+    {
+        try
+        {
+            await _scope.Session.BackAsync(token).ConfigureAwait(false);
+        }
+        catch (E2EException ex)
+        {
+            return ToolOutcome.Fail(ex.Message);
+        }
+
+        actions.Add(new RecordedAction { Kind = "back" });
+        return ToolOutcome.Ok(await DescribeAsync("navigated back", token).ConfigureAwait(false));
+    }
+
+    private async Task<ToolOutcome> ScrollAsync(JsonElement arguments, List<RecordedAction> actions, CancellationToken token)
+    {
+        if (!TryDirection(Args.String(arguments, "direction"), out var direction))
+        {
+            return ToolOutcome.Fail("scroll direction must be up, down, left, or right.");
+        }
+
+        var times = Args.Int(arguments, "times") ?? 1;
+        if (times is < 1 or > AgentTools.MaxScrollTimes)
+        {
+            return ToolOutcome.Fail("scroll times must be 1 to " + AgentTools.MaxScrollTimes.ToString(CultureInfo.InvariantCulture) + ".");
+        }
+
+        try
+        {
+            var list = HasTarget(arguments) ? await ResolveAsync(arguments, token).ConfigureAwait(false) : null;
+            for (var repeat = 0; repeat < times; repeat++)
+            {
+                if (list is null)
+                {
+                    await _scope.Session.SwipeAsync(direction, token).ConfigureAwait(false);
+                }
+                else
+                {
+                    await _scope.Session.PerformAsync(list, new LocatorAction.Swipe(direction), token).ConfigureAwait(false);
+                }
+
+                RecordScroll(actions, direction, list);
+            }
+
+            var done = "scrolled" + (list is null ? "" : " " + Label(list)) + " " + DirectionName(direction);
+            if (times > 1)
+            {
+                done += " " + times.ToString(CultureInfo.InvariantCulture) + " screens";
+            }
+
+            return ToolOutcome.Ok(await DescribeAsync(done, token).ConfigureAwait(false));
+        }
+        catch (E2EException ex)
+        {
+            return ToolOutcome.Fail(ex.Message);
+        }
+    }
+
+    private async Task<ToolOutcome> ScrollToAsync(
+        JsonElement arguments,
+        IReadOnlyDictionary<string, object?>? parameters,
+        List<RecordedAction> actions,
+        CancellationToken token)
+    {
+        var text = Args.String(arguments, "text");
+        try
+        {
+            if (text is not null)
+            {
+                if (string.IsNullOrWhiteSpace(text) || text.Length > AgentTools.MaxScrollToText)
+                {
+                    return ToolOutcome.Fail("scroll_to text must be the text to reach, up to " + AgentTools.MaxScrollToText.ToString(CultureInfo.InvariantCulture) + " characters.");
+                }
+
+                var way = Args.String(arguments, "direction");
+                var direction = ScrollDirection.Down;
+                if (way is not null && !TryDirection(way, out direction))
+                {
+                    return ToolOutcome.Fail("scroll_to direction must be up, down, left, or right.");
+                }
+
+                var list = HasTarget(arguments) ? Record(await ResolveAsync(arguments, token).ConfigureAwait(false), "scrollUntil") : null;
+                await ScrollUntilAsync(text, direction, list, token).ConfigureAwait(false);
+                actions.Add(new RecordedAction
+                {
+                    Kind = "scrollUntil",
+                    Role = list?.Role,
+                    Name = list?.Name,
+                    TestId = list?.TestId,
+                    Direction = DirectionName(direction),
+                    Text = CacheKeys.Template(text, parameters),
+                });
+                return ToolOutcome.Ok(await DescribeAsync("scrolled " + DirectionName(direction) + " until \"" + text + "\" was in view", token).ConfigureAwait(false));
+            }
+
+            if (!HasTarget(arguments))
+            {
+                return ToolOutcome.Fail("scroll_to takes a target, a text to reach, or both.");
+            }
+
+            var node = await ResolveAsync(arguments, token).ConfigureAwait(false);
+            await _scope.Session.PerformAsync(node, new LocatorAction.ScrollIntoView(), token).ConfigureAwait(false);
+            actions.Add(Record(node, "scrollTo"));
+            return ToolOutcome.Ok(await DescribeAsync("scrolled " + Label(node) + " into view", token).ConfigureAwait(false));
+        }
+        catch (E2EException ex)
+        {
+            return ToolOutcome.Fail(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Pages a list, or the viewport, until a node reading <paramref name="text"/> is on the
+    /// screen, then brings it into view. A screen that stops moving ends the paging, and a
+    /// list that does not move hands the paging to the viewport. The list is re-found before
+    /// every page.
+    /// </summary>
+    private async Task ScrollUntilAsync(string text, ScrollDirection direction, RecordedAction? list, CancellationToken token)
+    {
+        string? previous = null;
+        var still = 0;
+        for (var screens = 0; ; screens++)
+        {
+            var observation = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
+            var within = list is null ? null : Single(Find(observation, list.Role, list.Name, list.TestId, null));
+            var found = Reading(within is null ? observation.Roots : within.Children, text);
+            if (found is not null)
+            {
+                await _scope.Session.PerformAsync(found, new LocatorAction.ScrollIntoView(), token).ConfigureAwait(false);
+                return;
+            }
+
+            if (screens >= MaxScrollUntilScreens)
+            {
+                throw new TestException("LOCATOR_NOT_FOUND", "Nothing reading \"" + text + "\" came into view within " + MaxScrollUntilScreens.ToString(CultureInfo.InvariantCulture) + " screens.");
+            }
+
+            // The tree can stay the same while the page moves under it (every node
+            // already fits the budget), so the scroll position counts too.
+            var shape = SnapshotText.Render(observation, []) + "\n" + observation.ScrollPosition;
+            still = string.Equals(shape, previous, StringComparison.Ordinal) ? still + 1 : 0;
+            if (still >= ScrollUntilStillPages)
+            {
+                throw new TestException(
+                    "LOCATOR_NOT_FOUND",
+                    "Nothing reading \"" + text + "\" came into view before the screen stopped moving " + DirectionName(direction) + ", after " + screens.ToString(CultureInfo.InvariantCulture) + " screens.");
+            }
+
+            if (still >= ScrollUntilWrongListPages && within is not null)
+            {
+                within = null;
+                still = 0;
+            }
+
+            previous = shape;
+            if (within is null)
+            {
+                // A list that is gone, or that does not move, gives the paging to the viewport for good.
+                list = null;
+                await _scope.Session.SwipeAsync(direction, token).ConfigureAwait(false);
+            }
+            else
+            {
+                await _scope.Session.PerformAsync(within, new LocatorAction.Swipe(direction), token).ConfigureAwait(false);
+            }
+        }
+    }
+
+    // The innermost visible node whose name or text contains the text.
+    private static SemanticNode? Reading(IReadOnlyList<SemanticNode> nodes, string text)
+    {
+        foreach (var node in nodes)
+        {
+            if (node.States.Hidden)
+            {
+                continue;
+            }
+
+            var inner = Reading(node.Children, text);
+            if (inner is not null)
+            {
+                return inner;
+            }
+
+            if (TextRules.Matches(node.Name, text, exact: false) || TextRules.Matches(node.Text, text, exact: false))
+            {
+                return node;
+            }
+        }
+
+        return null;
+    }
+
+    private static SemanticNode? Single(List<SemanticNode> matches)
+    {
+        return matches.Count == 1 ? matches[0] : null;
+    }
+
+    // Consecutive identical scrolls fold into one recorded action with a repeat count.
+    private static void RecordScroll(List<RecordedAction> actions, ScrollDirection direction, SemanticNode? list)
+    {
+        var way = DirectionName(direction);
+        if (actions.Count > 0
+            && actions[^1] is { Kind: "scroll" } last
+            && string.Equals(last.Direction, way, StringComparison.Ordinal)
+            && string.Equals(last.Role, list?.Role, StringComparison.Ordinal)
+            && string.Equals(last.Name, list?.Name, StringComparison.Ordinal)
+            && string.Equals(last.TestId, list?.TestId, StringComparison.Ordinal))
+        {
+            last.Times = (last.Times ?? 1) + 1;
+            return;
+        }
+
+        actions.Add(new RecordedAction { Kind = "scroll", Role = list?.Role, Name = list?.Name, TestId = list?.TestId, Direction = way });
+    }
+
+    private static bool HasTarget(JsonElement arguments)
+    {
+        return Args.String(arguments, "role") is not null
+            || Args.String(arguments, "name") is not null
+            || Args.String(arguments, "testId") is not null
+            || Args.String(arguments, "ref") is not null;
+    }
+
+    private static bool HasTarget(RecordedAction action)
+    {
+        return action.Role is not null || action.Name is not null || action.TestId is not null;
+    }
+
+    private static bool TryDirection(string? value, out ScrollDirection direction)
+    {
+        switch (value?.Trim().ToLowerInvariant())
+        {
+            case "up":
+                direction = ScrollDirection.Up;
+                return true;
+            case "down":
+                direction = ScrollDirection.Down;
+                return true;
+            case "left":
+                direction = ScrollDirection.Left;
+                return true;
+            case "right":
+                direction = ScrollDirection.Right;
+                return true;
+            default:
+                direction = ScrollDirection.Down;
+                return false;
+        }
+    }
+
+    private static ScrollDirection Direction(string? value)
+    {
+        TryDirection(value, out var direction);
+        return direction;
+    }
+
+    private static string DirectionName(ScrollDirection direction)
+    {
+        return direction switch
+        {
+            ScrollDirection.Up => "up",
+            ScrollDirection.Left => "left",
+            ScrollDirection.Right => "right",
+            _ => "down",
+        };
     }
 
     private async Task<ToolOutcome> FillSecretAsync(SemanticNode node, JsonElement arguments, List<RecordedAction> actions, CancellationToken token)
@@ -686,7 +1026,7 @@ public sealed class Agent
             builder.Append("Replay stopped (").Append(handoffReason).Append(") after these actions:\n");
             foreach (var action in already)
             {
-                builder.Append("- ").Append(action.Kind).Append(' ').Append(action.Role).Append(" \"").Append(action.Name).Append("\"\n");
+                builder.Append("- ").Append(Describe(action)).Append('\n');
             }
 
             builder.Append("Continue from the current screen. Do not repeat an action that already had its effect.\n\n");
@@ -835,6 +1175,9 @@ public sealed class Agent
             Key = action.Key,
             Url = action.Url is null ? null : CacheKeys.Detemplate(action.Url, parameters),
             Value = action.Value is null ? null : CacheKeys.Detemplate(action.Value, parameters),
+            Direction = action.Direction,
+            Times = action.Times,
+            Text = action.Text is null ? null : CacheKeys.Detemplate(action.Text, parameters),
         };
     }
 
@@ -852,6 +1195,45 @@ public sealed class Agent
         }
 
         return text;
+    }
+
+    private static string Describe(RecordedAction action)
+    {
+        var builder = new StringBuilder(action.Kind);
+        if (action.Role is not null || action.Name is not null || action.TestId is not null)
+        {
+            builder.Append(' ').Append(action.Role ?? "node");
+            if (action.Name is not null)
+            {
+                builder.Append(" \"").Append(action.Name).Append('"');
+            }
+            else if (action.TestId is not null)
+            {
+                builder.Append(" testId=").Append(action.TestId);
+            }
+        }
+
+        if (action.Url is not null)
+        {
+            builder.Append(' ').Append(action.Url);
+        }
+
+        if (action.Text is not null)
+        {
+            builder.Append(" \"").Append(action.Text).Append('"');
+        }
+
+        if (action.Direction is not null)
+        {
+            builder.Append(' ').Append(action.Direction);
+        }
+
+        if (action.Times is > 1)
+        {
+            builder.Append(" x").Append(action.Times.Value.ToString(CultureInfo.InvariantCulture));
+        }
+
+        return builder.ToString();
     }
 
     private static string Label(SemanticNode node)
@@ -925,6 +1307,9 @@ public sealed class Agent
             Key = action.Key,
             Url = action.Url,
             Value = secret.Value,
+            Direction = action.Direction,
+            Times = action.Times,
+            Text = action.Text,
         };
     }
 }
@@ -986,6 +1371,9 @@ internal sealed class AttemptScope
     public required string EnginePlatform { get; init; }
 
     public required string EngineVersion { get; init; }
+
+    /// <summary>What the engine declared. Scroll and back tools are offered only when it can honor them.</summary>
+    public EngineCapabilities EngineCapabilities { get; init; }
 
     public int Attempt { get; init; } = 1;
 

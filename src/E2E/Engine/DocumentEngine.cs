@@ -34,7 +34,9 @@ public sealed class DocumentEngine : IEngine
         EngineCapabilities.Observation
         | EngineCapabilities.Actions
         | EngineCapabilities.Location
-        | EngineCapabilities.Keyboard;
+        | EngineCapabilities.Keyboard
+        | EngineCapabilities.Scroll
+        | EngineCapabilities.History;
 
     public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {
@@ -62,6 +64,13 @@ public sealed class DocumentEngine : IEngine
         {
             cancellationToken.ThrowIfCancellationRequested();
             Navigate(Routes.PathOf(url));
+            return Task.CompletedTask;
+        }
+
+        public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            RequirePage().OnScroll?.Invoke(direction);
             return Task.CompletedTask;
         }
 
@@ -134,7 +143,7 @@ public sealed class DocumentEngine : IEngine
 
                     if (element.NavigateTo is not null)
                     {
-                        return OpenAsync(element.NavigateTo, cancellationToken);
+                        Navigate(element.NavigateTo);
                     }
 
                     break;
@@ -165,6 +174,11 @@ public sealed class DocumentEngine : IEngine
                 case LocatorAction.Clear:
                     element.Value = "";
                     _focused = element;
+                    break;
+                case LocatorAction.ScrollIntoView:
+                    break;
+                case LocatorAction.Swipe swipe:
+                    element.OnScroll?.Invoke(swipe.Direction);
                     break;
                 default:
                     throw new EngineException("UNSUPPORTED_CAPABILITY", $"Document engine cannot perform {action.GetType().Name}.");
@@ -319,6 +333,9 @@ public sealed class DocumentPage
 
     public string Path { get; }
 
+    /// <summary>Runs when the viewport scrolls, for a page that loads more as it is scrolled. The page has no viewport of its own.</summary>
+    public Action<ScrollDirection>? OnScroll { get; set; }
+
     internal List<DocumentElement> Roots { get; } = [];
 
     public DocumentElement Heading(string name, int level = 1)
@@ -407,6 +424,9 @@ public sealed class DocumentElement
     public Action? OnTap { get; init; }
 
     public Action<string>? OnFill { get; init; }
+
+    /// <summary>Runs when this element is scrolled with <see cref="LocatorAction.Swipe"/>.</summary>
+    public Action<ScrollDirection>? OnScroll { get; set; }
 
     public List<DocumentElement> Children { get; } = [];
 }

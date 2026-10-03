@@ -12,8 +12,10 @@ internal static class PageScript
     // documents. The latest observation's elements are kept for Find. The
     // walk reads one document: it goes through open shadow roots and closed
     // ones the init script recorded, and lists an iframe as a boundary node
-    // the host fills with that frame's own observation. It stops at the node
-    // budget and says so.
+    // the host fills with that frame's own observation. When the document has
+    // more nodes than the budget, every node that intersects the viewport is
+    // kept first and the rest of the budget goes to the others in document
+    // order, so scrolling brings the cut ones in. It says when it cut nodes.
     public const string Collect = """
         ({ seed, max, testIdAttribute }) => {
           const refKey = Symbol.for("e2e.observation.ref");
@@ -34,7 +36,10 @@ internal static class PageScript
             "option", "menuitem", "menuitemcheckbox", "menuitemradio", "switch", "slider", "spinbutton", "progressbar", "meter", "separator", "iframe"]);
           const maxSelectOptions = 60;
           let count = 0;
-          let truncated = false;
+          let full = false;
+          let offBudget = max;
+          let offCount = 0;
+          let scroll = Math.round(scrollX) + "," + Math.round(scrollY);
           const closedRoots = globalThis[Symbol.for("e2e.closedShadowRoots")];
           const shadowOf = (el) => el.shadowRoot ?? closedRoots?.get(el) ?? null;
           let focused = document.activeElement;
@@ -45,6 +50,12 @@ internal static class PageScript
           }
           const hasOwnName = (el) => ["aria-label", "aria-labelledby", "title"].some((attribute) => (el.getAttribute(attribute) || "").trim() !== "");
           const pageLevel = (el) => el.closest("article, aside, main, nav, section, [role~=article], [role~=complementary], [role~=main], [role~=navigation], [role~=region]") === null;
+          // An option paints inside its select, so it is on screen when the select is.
+          const inView = (el) => {
+            const box = el.tagName === "OPTION" ? (el.closest("select") ?? el) : el;
+            const r = box.getBoundingClientRect();
+            return r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
+          };
           const cut = (value, limit) => {
             const text = (value || "").replace(/\s+/g, " ").trim();
             return text.length > limit ? text.slice(0, limit) : text;
@@ -167,16 +178,42 @@ internal static class PageScript
             if (el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio")) return el.checked;
             return el.getAttribute("aria-checked") === "true";
           };
+          const listed = (el, role) => (role && role !== "presentation" && role !== "none") || !!el.getAttribute(testIdAttribute);
+          // How many nodes the walk would list, or only those on screen.
+          const tally = (el, visible) => {
+            if (!el || skip.has(el.tagName)) return 0;
+            if (el.tagName === "IFRAME" && hidden(el)) return 0;
+            let n = 0;
+            const role = roleOf(el);
+            if (listed(el, role)) {
+              const counted = !visible || inView(el);
+              if (counted) n++;
+              if (el.tagName === "SELECT") return counted ? n + Math.min(el.options.length, maxSelectOptions) : n;
+              if (role && leaves.has(role)) return n;
+            }
+            for (const child of el.children) n += tally(child, visible);
+            const shadow = shadowOf(el);
+            if (shadow) for (const child of shadow.children) n += tally(child, visible);
+            return n;
+          };
           const walk = (el, into) => {
-            if (!el || skip.has(el.tagName) || truncated) return;
+            if (!el || skip.has(el.tagName) || full) return;
             const role = roleOf(el);
             const testId = el.getAttribute(testIdAttribute);
             const isFrame = el.tagName === "IFRAME";
             if (isFrame && hidden(el)) return;
-            if ((role && role !== "presentation" && role !== "none") || testId) {
+            if (listed(el, role)) {
               if (count >= max) {
-                truncated = true;
+                full = true;
                 return;
+              }
+              if (offBudget < max && !inView(el)) {
+                if (offCount >= offBudget) {
+                  if ((role && leaves.has(role)) || el.tagName === "SELECT") return;
+                  walkChildren(el, into);
+                  return;
+                }
+                offCount++;
               }
               count++;
               const type = (el.getAttribute("type") || "").toLowerCase();
@@ -203,6 +240,7 @@ internal static class PageScript
                 children: []
               };
               into.push(node);
+              if (el.scrollTop || el.scrollLeft) scroll += ";" + node.ref + ":" + Math.round(el.scrollLeft) + "," + Math.round(el.scrollTop);
               if (el.tagName === "SELECT") {
                 // A closed select paints none of its options; they are what it offers.
                 for (const option of Array.from(el.options).slice(0, maxSelectOptions)) {
@@ -227,9 +265,30 @@ internal static class PageScript
             if (shadow) for (const child of shadow.children) walk(child, into);
           };
           const roots = [];
+          const truncated = !!document.body && tally(document.body, false) > max;
+          if (truncated) offBudget = Math.max(0, max - tally(document.body, true));
           if (document.body) walk(document.body, roots);
           window[Symbol.for("e2e.observation.elements")] = elements;
-          return JSON.stringify({ next, count, truncated, roots });
+          return JSON.stringify({ next, count, truncated: truncated || full, scroll, roots });
+        }
+        """;
+
+    // Moves about three quarters of a screen, so every row shows at least once.
+    public const string ScrollViewport = """
+        (direction) => {
+          const x = Math.round(innerWidth * 0.75);
+          const y = Math.round(innerHeight * 0.75);
+          const by = { up: [0, -y], down: [0, y], left: [-x, 0], right: [x, 0] }[direction];
+          window.scrollBy({ left: by[0], top: by[1], behavior: "instant" });
+        }
+        """;
+
+    public const string ScrollElement = """
+        (el, direction) => {
+          const x = Math.round(el.clientWidth * 0.75);
+          const y = Math.round(el.clientHeight * 0.75);
+          const by = { up: [0, -y], down: [0, y], left: [-x, 0], right: [x, 0] }[direction];
+          el.scrollBy({ left: by[0], top: by[1], behavior: "instant" });
         }
         """;
 

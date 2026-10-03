@@ -68,6 +68,12 @@ public sealed class Observation
 
     public required IReadOnlyList<SemanticNode> Roots { get; init; }
 
-    /// <summary>True when the engine stopped at its node budget, so the tree does not hold the whole screen.</summary>
+    /// <summary>True when the engine left nodes out to stay within its node budget. Scrolling brings them in.</summary>
     public bool Truncated { get; init; }
+
+    /// <summary>
+    /// Where the engine's viewport and scrolled elements stand, when it can tell. Paging
+    /// compares it to see whether a scroll moved anything the tree does not show.
+    /// </summary>
+    internal string? ScrollPosition { get; init; }
 }
