@@ -21,6 +21,8 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - Screen queries: role, text, label, test id, placeholder, `filter`, `first`, `nth`
 - Actions: tap, fill, press, check, uncheck, clear. They wait up to the action timeout for exactly one enabled match
 - Locator expectations: visible, hidden, text, count, enabled, disabled, checked, value. They poll until the assertion timeout
+- `expect.soft` for locator expectations, as `Expect.Soft(locator)`. An `ASSERTION_FAILED` is kept and the body runs on; any other error still throws. `E2ETest` records each one on the NUnit result, as inside `Assert.EnterMultipleScope`, so the test fails when the body ends and lists every failure. Other hosts set `E2ESessionOptions.OnSoftFailure` or call `E2ESession.CloseSoftFailures`
+- `expect.poll` as `Expect.Poll(read, options)`, with `Timeout`, `Interval`, and `Message`. A read that throws is retried. The matchers are `ToBeAsync`, `ToSatisfyAsync`, and `.Not`; `E2E.NUnit` adds `ToMatchAsync` for any NUnit constraint, such as `Is.GreaterThan(3)`. The default timeout is 5 seconds, not the configured assertion timeout, because the poll does not see the running test, and it does not stop at the test deadline unless a cancellation token is passed
 - `agent.act`, `agent.assert`, `agent.waitFor`, `agent.extract`
 - Replay cache for a verified `act`: role, name, test id, and path. Modes are `self-finalized`, `agent-concluded`, and `missed`
 - `Values.Unique` and `Secret`. Secret values are redacted from prompts
@@ -39,6 +41,8 @@ A passing locator expectation or `agent.assert` after `act` writes the recording
 - Route patterns that ignore a record id. This port compares the URL path exactly and ignores the query and fragment
 - Diff-only observations. Each model turn receives a full text snapshot
 - Telemetry
+- Value expectations (`expect(value).toBe`, `toEqual`, `toMatchObject`, `toHaveProperty`, `toMatchSchema`, and the rest) and their `expect.soft` form. Use NUnit `Assert.That` with constraints, and `Assert.EnterMultipleScope` (or `Assert.Multiple`) for soft value checks. `expect.poll` takes NUnit constraints through `ToMatchAsync` in their place
+- Asymmetric matchers (`expect.any`, `anything`, `objectContaining`, `arrayContaining`, `stringContaining`, `stringMatching`). Use NUnit constraints such as `Is.InstanceOf`, `Is.Not.Null`, `Has.Property`, `Is.SupersetOf`, `Does.Contain`, and `Does.Match`
 - The upstream reporter, GitHub pull request comment, and trace viewer
 
 ## Web engine

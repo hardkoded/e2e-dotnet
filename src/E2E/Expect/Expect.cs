@@ -7,13 +7,52 @@ using E2E.Engine;
 
 namespace E2E;
 
-/// <summary>Polling assertions for a <see cref="Locator"/>. A passing locator assertion verifies the previous <c>agent.act</c>.</summary>
+/// <summary>
+/// Polling assertions for a <see cref="Locator"/>, <c>expect.soft</c>, and
+/// <c>expect.poll</c>. A passing locator assertion verifies the previous
+/// <c>agent.act</c>. Plain value matchers are not ported: use NUnit
+/// <c>Assert.That</c>, and <c>Assert.EnterMultipleScope</c> for soft value checks.
+/// </summary>
 public static class Expect
 {
     public static LocatorExpect That(Locator locator)
     {
         ArgumentNullException.ThrowIfNull(locator);
         return new LocatorExpect(locator);
+    }
+
+    /// <summary>
+    /// The locator matchers, but a failure is kept on the session instead of
+    /// thrown and the body runs on. The test fails at the end with every kept
+    /// failure. <c>E2ETest</c> records each one as an NUnit assertion failure.
+    /// </summary>
+    public static SoftLocatorExpect Soft(Locator locator)
+    {
+        ArgumentNullException.ThrowIfNull(locator);
+        return new SoftLocatorExpect(new LocatorExpect(locator), locator.Screen.SoftFailures);
+    }
+
+    /// <summary>Re-reads <paramref name="read"/> until the chosen matcher holds or the timeout passes.</summary>
+    public static PollExpectation<T> Poll<T>(Func<CancellationToken, Task<T>> read, PollOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(read);
+        options ??= new PollOptions();
+        PollExpectation<T>.Validate(options);
+        return new PollExpectation<T>(read, options, negated: false);
+    }
+
+    /// <inheritdoc cref="Poll{T}(Func{CancellationToken, Task{T}}, PollOptions?)"/>
+    public static PollExpectation<T> Poll<T>(Func<Task<T>> read, PollOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(read);
+        return Poll(_ => read(), options);
+    }
+
+    /// <inheritdoc cref="Poll{T}(Func{CancellationToken, Task{T}}, PollOptions?)"/>
+    public static PollExpectation<T> Poll<T>(Func<T> read, PollOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(read);
+        return Poll(_ => Task.FromResult(read()), options);
     }
 }
 
