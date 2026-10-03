@@ -10,6 +10,9 @@ namespace E2E.Engine;
 /// In-memory page engine for samples and tests that do not need a browser.
 /// Each open builds a fresh page from the route mapped on
 /// <see cref="DocumentWorld"/>. Actions mutate that page until the next open.
+/// <c>app.back</c> rebuilds the previous route, and <c>app.restart</c> and
+/// <c>app.clearState</c> leave a blank page with no history. The document engine
+/// has no browser, so the <see cref="Browser"/> fixture is unsupported.
 /// </summary>
 public sealed class DocumentEngine : IEngine
 {
@@ -46,6 +49,7 @@ public sealed class DocumentEngine : IEngine
         private DocumentPage? _page;
         private DocumentElement? _focused;
         private Dictionary<string, DocumentElement> _refs = new(StringComparer.Ordinal);
+        private readonly List<string> _history = [];
 
         public DocumentSession(DocumentWorld world)
         {
@@ -57,12 +61,31 @@ public sealed class DocumentEngine : IEngine
         public Task OpenAsync(string url, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var path = Routes.PathOf(url);
-            _page = _world.Create(path);
-            _focused = null;
-            _refs = new Dictionary<string, DocumentElement>(StringComparer.Ordinal);
+            Navigate(Routes.PathOf(url));
             return Task.CompletedTask;
         }
+
+        public Task BackAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (_history.Count > 1)
+            {
+                _history.RemoveAt(_history.Count - 1);
+                Show(_world.Create(_history[^1]));
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task RestartAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _history.Clear();
+            Show(null);
+            return Task.CompletedTask;
+        }
+
+        public Task ClearStateAsync(CancellationToken cancellationToken) => RestartAsync(cancellationToken);
 
         public Task<Observation> ObserveAsync(CancellationToken cancellationToken)
         {
@@ -171,10 +194,23 @@ public sealed class DocumentEngine : IEngine
                 element.OnTap?.Invoke();
                 if (element.NavigateTo is not null)
                 {
-                    _page = _world.Create(Routes.PathOf(element.NavigateTo));
-                    _focused = null;
+                    Navigate(Routes.PathOf(element.NavigateTo));
                 }
             }
+        }
+
+        private void Navigate(string path)
+        {
+            var page = _world.Create(path);
+            _history.Add(path);
+            Show(page);
+        }
+
+        private void Show(DocumentPage? page)
+        {
+            _page = page;
+            _focused = null;
+            _refs = new Dictionary<string, DocumentElement>(StringComparer.Ordinal);
         }
 
         private DocumentPage RequirePage()

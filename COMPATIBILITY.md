@@ -24,6 +24,8 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - `agent.act`, `agent.assert`, `agent.waitFor`, `agent.extract`
 - Replay cache for a verified `act`: role, name, test id, and path. Modes are `self-finalized`, `agent-concluded`, and `missed`
 - `Values.Unique` and `Secret`. Secret values are redacted from prompts, including the `assert`, `waitFor`, and `extract` statement. Redaction matches any case, JSON escapes, HTML character references, percent encoding, and collapsed inner whitespace. A known marker is never rewritten. A failed secret fill in `WebEngine` reports the Playwright message with the value and its fragments of 8 or more characters redacted. Not ported: decoding base64 runs, and values cut short at a length limit
+- `app.open`, `app.back`, `app.restart`, `app.clearState`, and `app.baseUrl` (`App.BaseUrl`), and the context `platform`
+- The `browser` fixture subset: `reload`, `back`, `forward`, `url`, `title`, `waitForURL`, `evaluate`, `cookies`, `setCookies`, `setViewport`, `keyboard.press`, `keyboard.type`, and `mouse.move`, `wheel`, `down`, `up`
 - OpenAI-compatible tool calling
 
 A passing locator expectation or `agent.assert` after `act` writes the recording. `agent.assert`, `waitFor`, and `extract` always run live. Retries do not replay.
@@ -39,6 +41,7 @@ A passing locator expectation or `agent.assert` after `act` writes the recording
 - Route patterns that ignore a record id. This port compares the URL path exactly and ignores the query and fragment
 - Diff-only observations. Each model turn receives a full text snapshot
 - Telemetry
+- Browser fixture members `goto`, `locator`, `frameLocator`, `route`, `unroute`, `waitForResponse`, `onDialog`, `waitForDownload`, and the `expect(browser)` matchers (`toHaveURL`, `toHaveTitle`, `toHaveClass`)
 - The upstream reporter, GitHub pull request comment, and trace viewer
 
 ## Web engine
@@ -58,3 +61,16 @@ The tree is a subset of upstream's: names follow the port's simpler accname rule
 Password fields are marked secure and their values are omitted from the snapshot.
 
 Playwright failures never escape as `PlaywrightException`. `WebEngine` throws `EngineException` with an upstream engine code from `EngineErrorCodes`: `NOT_ACTIONABLE` when an action timed out before its input was dispatched or the target does not take that input, `ACTION_MAY_HAVE_COMMITTED` when it timed out after dispatch, `NODE_STALE` when the element or its document is gone, `OPERATION_TIMEOUT` for a navigation or key press timeout, and `ENGINE_FAILURE` otherwise. `EngineException.Retryable` is true only for `NODE_STALE` and `FRAME_NOT_FOUND`; any other retryable claim becomes `ENGINE_FAILURE`, as upstream. A sensitive fill's value is redacted from the message. The document engine still uses `NOT_FOUND` for a ref missing from its last observation.
+
+## App and browser fixtures
+
+`App.RestartAsync` closes the tab and opens a blank one in the same browser context, so cookies and storage survive. `App.ClearStateAsync` replaces the context with a clean one and opens a blank page. Both keep a viewport set with `Browser.SetViewportAsync`. Call `App.OpenAsync` afterwards.
+
+Differences from upstream:
+
+- `app.open`, `back`, `forward`, and `reload` wait for `load` within the action timeout. Upstream waits within the test timeout.
+- `Browser.WaitForURLAsync` takes a string, resolved against the base URL and compared exactly, or a `Regex`. It polls until the assertion timeout or the given timeout.
+- `Browser.EvaluateAsync<T>` takes the script as a string (an expression, or a function source that is called with the optional argument) and deserializes the JSON result to `T`. A throwing script fails with `EVALUATE_FAILED`.
+- Fixture calls are not recorded as harness steps.
+
+`DocumentEngine` supports `app.back` (it rebuilds the previous route), `app.restart`, and `app.clearState` (both leave a blank page and no history). It has no browser, so every `Browser` member fails with `UNSUPPORTED_CAPABILITY`. A custom engine opts in by implementing `IBrowserSession`, and by overriding the default `BackAsync`, `RestartAsync`, and `ClearStateAsync` on `IEngineSession`, which otherwise fail with `UNSUPPORTED_CAPABILITY`.

@@ -143,12 +143,9 @@ public sealed class WebEngine : IEngine
                 browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless }).ConfigureAwait(false);
             }
 
-            var context = await browser.NewContextAsync(ContextOptions()).ConfigureAwait(false);
-            await context.AddInitScriptAsync(PageScript.RecordClosedShadowRoots).ConfigureAwait(false);
-            await InstallSiteHeadersAsync(context, options.BaseUrl).ConfigureAwait(false);
-            var page = await context.NewPageAsync().ConfigureAwait(false);
-            page.SetDefaultTimeout((float)options.ActionTimeout.TotalMilliseconds);
-            return new WebSession(playwright, browser, context, page, options.ActionTimeout, _options.TestIdAttribute);
+            var session = new WebSession(playwright, browser, options.ActionTimeout, _options, context => InstallSiteHeadersAsync(context, options.BaseUrl));
+            await session.NewContextAsync().ConfigureAwait(false);
+            return session;
         }
         catch (PlaywrightException ex) when (ex.Message.Contains("Executable doesn't exist", StringComparison.Ordinal) || ex.Message.Contains("browserType.launch", StringComparison.Ordinal))
         {
@@ -195,20 +192,20 @@ public sealed class WebEngine : IEngine
         }
     }
 
-    private BrowserNewContextOptions ContextOptions()
+    // A clean context: the viewport the session holds now (setViewport
+    // outlives restart and clearState), or no emulation when there is none.
+    private static BrowserNewContextOptions ContextOptions(WebEngineOptions options, ViewportSize? viewport)
     {
         var context = new BrowserNewContextOptions
         {
-            ViewportSize = _options.Viewport is { } viewport
-                ? new ViewportSize { Width = viewport.Width, Height = viewport.Height }
-                : ViewportSize.NoViewport,
+            ViewportSize = viewport ?? ViewportSize.NoViewport,
         };
-        if (_options.UserAgent is not null)
+        if (options.UserAgent is not null)
         {
-            context.UserAgent = _options.UserAgent;
+            context.UserAgent = options.UserAgent;
         }
 
-        if (_options.BasicAuth is { } auth)
+        if (options.BasicAuth is { } auth)
         {
             context.HttpCredentials = new HttpCredentials { Username = auth.Username, Password = auth.Password };
         }
@@ -243,35 +240,43 @@ public sealed class WebEngine : IEngine
         }).ConfigureAwait(false);
     }
 
-    private sealed class WebSession : IEngineSession
+    private sealed class WebSession : IBrowserSession
     {
         private readonly IPlaywright _playwright;
         private readonly IBrowser _browser;
-        private readonly IBrowserContext _context;
-        private readonly IPage _page;
         private readonly TimeSpan _actionTimeout;
         private readonly string _testIdAttribute;
+        private readonly WebEngineOptions _options;
+        private readonly Func<IBrowserContext, Task> _setUpContext;
+        private IBrowserContext? _context;
+        private IPage? _page;
+        private ViewportSize? _viewport;
         private Dictionary<string, IFrame> _frames = new(StringComparer.Ordinal);
         private int _nextRef = 1;
 
-        public WebSession(IPlaywright playwright, IBrowser browser, IBrowserContext context, IPage page, TimeSpan actionTimeout, string testIdAttribute)
+        public WebSession(IPlaywright playwright, IBrowser browser, TimeSpan actionTimeout, WebEngineOptions options, Func<IBrowserContext, Task> setUpContext)
         {
             _playwright = playwright;
             _browser = browser;
-            _context = context;
-            _page = page;
+            _options = options;
+            _setUpContext = setUpContext;
+            _testIdAttribute = options.TestIdAttribute;
+            _viewport = options.Viewport is { } viewport ? new ViewportSize { Width = viewport.Width, Height = viewport.Height } : null;
             _actionTimeout = actionTimeout;
-            _testIdAttribute = testIdAttribute;
         }
 
-        public string Route => Routes.PathOf(_page.Url);
+        private IPage Page => _page ?? throw new EngineException(EngineErrorCodes.InvalidState, "The browser has no open page.");
+
+        private float ActionMs => (float)_actionTimeout.TotalMilliseconds;
+
+        public string Route => Routes.PathOf(Page.Url);
 
         public async Task OpenAsync(string url, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                await _page.GotoAsync(url, new PageGotoOptions
+                await Page.GotoAsync(url, new PageGotoOptions
                 {
                     WaitUntil = WaitUntilState.Load,
                     Timeout = (float)_actionTimeout.TotalMilliseconds,
@@ -290,7 +295,7 @@ public sealed class WebEngine : IEngine
             List<WebNode> roots;
             try
             {
-                roots = await CollectAsync(_page.MainFrame, walk, cancellationToken).ConfigureAwait(false);
+                roots = await CollectAsync(Page.MainFrame, walk, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
@@ -306,7 +311,7 @@ public sealed class WebEngine : IEngine
             cancellationToken.ThrowIfCancellationRequested();
             ArgumentNullException.ThrowIfNull(node);
             ArgumentNullException.ThrowIfNull(action);
-            var frame = _frames.GetValueOrDefault(node.Ref) ?? _page.MainFrame;
+            var frame = _frames.GetValueOrDefault(node.Ref) ?? Page.MainFrame;
             if (frame.IsDetached)
             {
                 throw new EngineException(EngineErrorCodes.NodeStale, $"Node {node.Ref} is not on the page. Observe again.", retryable: true);
@@ -373,7 +378,7 @@ public sealed class WebEngine : IEngine
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                await _page.Keyboard.PressAsync(key).ConfigureAwait(false);
+                await Page.Keyboard.PressAsync(key).ConfigureAwait(false);
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
@@ -381,11 +386,195 @@ public sealed class WebEngine : IEngine
             }
         }
 
+        public async Task BackAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                await Page.GoBackAsync(new PageGoBackOptions { WaitUntil = WaitUntilState.Load, Timeout = ActionMs }).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.Translate(ex, "back");
+            }
+        }
+
+        public async Task ForwardAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                await Page.GoForwardAsync(new PageGoForwardOptions { WaitUntil = WaitUntilState.Load, Timeout = ActionMs }).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.Translate(ex, "forward");
+            }
+        }
+
+        public async Task ReloadAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                await Page.ReloadAsync(new PageReloadOptions { WaitUntil = WaitUntilState.Load, Timeout = ActionMs }).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.Translate(ex, "reload");
+            }
+        }
+
+        public async Task RestartAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var context = RequireContext();
+            _page = null;
+            foreach (var page in context.Pages.ToList())
+            {
+                await page.CloseAsync().ConfigureAwait(false);
+            }
+
+            await NewPageAsync(context).ConfigureAwait(false);
+        }
+
+        public async Task ClearStateAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var context = _context;
+            _context = null;
+            _page = null;
+            if (context is not null)
+            {
+                await context.CloseAsync().ConfigureAwait(false);
+            }
+
+            await NewContextAsync().ConfigureAwait(false);
+        }
+
+        public Task<string> GetUrlAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(Page.Url);
+        }
+
+        public Task<string> GetTitleAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Page.TitleAsync();
+        }
+
+        public async Task<System.Text.Json.JsonElement?> EvaluateAsync(string expression, object? arg, bool hasArg, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                return hasArg
+                    ? await Page.EvaluateAsync<System.Text.Json.JsonElement?>(expression, arg).ConfigureAwait(false)
+                    : await Page.EvaluateAsync<System.Text.Json.JsonElement?>(expression).ConfigureAwait(false);
+            }
+            catch (PlaywrightException ex)
+            {
+                throw new TestException("EVALUATE_FAILED", ex.Message, ex);
+            }
+        }
+
+        public async Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var cookies = await RequireContext().CookiesAsync().ConfigureAwait(false);
+            return cookies.Select(cookie => new BrowserCookie
+            {
+                Name = cookie.Name,
+                Value = cookie.Value,
+                Domain = cookie.Domain,
+                Path = cookie.Path,
+                Expires = cookie.Expires >= 0 ? (long)Math.Floor(cookie.Expires) : null,
+                HttpOnly = cookie.HttpOnly,
+                Secure = cookie.Secure,
+                SameSite = cookie.SameSite.ToString(),
+            }).ToList();
+        }
+
+        public Task SetCookiesAsync(IReadOnlyList<BrowserCookie> cookies, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ArgumentNullException.ThrowIfNull(cookies);
+            return RequireContext().AddCookiesAsync(cookies.Select(cookie => new Cookie
+            {
+                Name = cookie.Name,
+                Value = cookie.Value,
+                Url = cookie.Url,
+                Domain = cookie.Url is null ? cookie.Domain : null,
+                Path = cookie.Url is null ? cookie.Path ?? "/" : null,
+                Expires = cookie.Expires,
+                HttpOnly = cookie.HttpOnly,
+                Secure = cookie.Secure,
+                SameSite = cookie.SameSite switch
+                {
+                    null => null,
+                    "Strict" => SameSiteAttribute.Strict,
+                    "Lax" => SameSiteAttribute.Lax,
+                    _ => SameSiteAttribute.None,
+                },
+            }));
+        }
+
+        public async Task SetViewportAsync(int width, int height, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _viewport = new ViewportSize { Width = width, Height = height };
+            await Page.SetViewportSizeAsync(width, height).ConfigureAwait(false);
+        }
+
+        public Task KeyboardTypeAsync(string text, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Page.Keyboard.TypeAsync(text);
+        }
+
+        public Task MouseMoveAsync(float x, float y, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Page.Mouse.MoveAsync(x, y);
+        }
+
+        public Task MouseWheelAsync(float deltaX, float deltaY, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Page.Mouse.WheelAsync(deltaX, deltaY);
+        }
+
+        public Task MouseDownAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Page.Mouse.DownAsync();
+        }
+
+        public Task MouseUpAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Page.Mouse.UpAsync();
+        }
+
+        /// <summary>Opens a clean context and its first page at the current viewport.</summary>
+        public async Task NewContextAsync()
+        {
+            var context = await _browser.NewContextAsync(ContextOptions(_options, _viewport)).ConfigureAwait(false);
+            await context.AddInitScriptAsync(PageScript.RecordClosedShadowRoots).ConfigureAwait(false);
+            await _setUpContext(context).ConfigureAwait(false);
+            _context = context;
+            await NewPageAsync(context).ConfigureAwait(false);
+        }
+
         public async ValueTask DisposeAsync()
         {
             try
             {
-                await _context.CloseAsync().ConfigureAwait(false);
+                if (_context is not null)
+                {
+                    await _context.CloseAsync().ConfigureAwait(false);
+                }
             }
             finally
             {
@@ -413,7 +602,7 @@ public sealed class WebEngine : IEngine
             {
                 json = await frame.EvaluateAsync<string>(PageScript.Collect, new { seed = _nextRef, max = walk.Remaining, testIdAttribute = _testIdAttribute }).ConfigureAwait(false);
             }
-            catch (PlaywrightException) when (frame != _page.MainFrame)
+            catch (PlaywrightException) when (frame != Page.MainFrame)
             {
                 return [];
             }
@@ -469,6 +658,21 @@ public sealed class WebEngine : IEngine
                 Index(node.Children ?? [], frame, walk, owners);
             }
         }
+
+        private async Task NewPageAsync(IBrowserContext context)
+        {
+            var page = await context.NewPageAsync().ConfigureAwait(false);
+            page.SetDefaultTimeout(ActionMs);
+            if (_viewport is { } viewport)
+            {
+                await page.SetViewportSizeAsync(viewport.Width, viewport.Height).ConfigureAwait(false);
+            }
+
+            _page = page;
+        }
+
+        private IBrowserContext RequireContext() =>
+            _context ?? throw new EngineException(EngineErrorCodes.InvalidState, "The browser has no context.");
 
         private static SemanticNode ToNode(WebNode dto)
         {

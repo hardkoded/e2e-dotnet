@@ -53,4 +53,16 @@ public interface IEngineSession : IAsyncDisposable
 
     /// <summary>Sends a key to whatever holds focus. The harness has already validated the key.</summary>
     Task PressAsync(string key, CancellationToken cancellationToken);
+
+    /// <summary>Goes back one entry in the session history. With no earlier entry it does nothing.</summary>
+    Task BackAsync(CancellationToken cancellationToken) => Unsupported("app.back");
+
+    /// <summary>Closes the current document and opens a blank one, keeping cookies and storage.</summary>
+    Task RestartAsync(CancellationToken cancellationToken) => Unsupported("app.restart");
+
+    /// <summary>Discards cookies, storage, and history, and opens a blank document.</summary>
+    Task ClearStateAsync(CancellationToken cancellationToken) => Unsupported("app.clearState");
+
+    private static Task Unsupported(string operation) =>
+        Task.FromException(new EngineException("UNSUPPORTED_CAPABILITY", operation + " is not supported by this engine."));
 }
