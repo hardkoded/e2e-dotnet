@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.RegularExpressions;
 using E2E.Internal;
 using Microsoft.Playwright;
 
@@ -156,6 +157,10 @@ public sealed class WebEngine : IEngine
                 "Chromium is not installed for Playwright. From the build output run: playwright.ps1 install chromium",
                 ex);
         }
+        catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+        {
+            throw new EngineException(EngineErrorCodes.EngineFailure, "browser launch failed: " + WebErrors.Message(ex), ex);
+        }
     }
 
     /// <summary>True when <paramref name="url"/> is bound for the app's host, the only requests the configured headers ride.</summary>
@@ -264,18 +269,34 @@ public sealed class WebEngine : IEngine
         public async Task OpenAsync(string url, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await _page.GotoAsync(url, new PageGotoOptions
+            try
             {
-                WaitUntil = WaitUntilState.Load,
-                Timeout = (float)_actionTimeout.TotalMilliseconds,
-            }).ConfigureAwait(false);
+                await _page.GotoAsync(url, new PageGotoOptions
+                {
+                    WaitUntil = WaitUntilState.Load,
+                    Timeout = (float)_actionTimeout.TotalMilliseconds,
+                }).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.Translate(ex, "navigate to " + url);
+            }
         }
 
         public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var walk = new FrameWalk();
-            var roots = await CollectAsync(_page.MainFrame, walk, cancellationToken).ConfigureAwait(false);
+            List<WebNode> roots;
+            try
+            {
+                roots = await CollectAsync(_page.MainFrame, walk, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.NavigationStaleOr(ex, "observe");
+            }
+
             _frames = walk.Frames;
             return new Observation { Route = Route, Roots = roots.Select(ToNode).ToList(), Truncated = walk.Truncated };
         }
@@ -288,15 +309,24 @@ public sealed class WebEngine : IEngine
             var frame = _frames.GetValueOrDefault(node.Ref) ?? _page.MainFrame;
             if (frame.IsDetached)
             {
-                throw new EngineException("NOT_FOUND", $"Node {node.Ref} is not on the page.");
+                throw new EngineException(EngineErrorCodes.NodeStale, $"Node {node.Ref} is not on the page. Observe again.", retryable: true);
             }
 
-            var handle = await frame.EvaluateHandleAsync(PageScript.Find, node.Ref).ConfigureAwait(false);
+            IJSHandle handle;
+            try
+            {
+                handle = await frame.EvaluateHandleAsync(PageScript.Find, node.Ref).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.NavigationStaleOr(ex, "locate " + node.Ref);
+            }
+
             var element = handle.AsElement();
             if (element is null)
             {
                 await handle.DisposeAsync().ConfigureAwait(false);
-                throw new EngineException("NOT_FOUND", $"Node {node.Ref} is not on the page.");
+                throw new EngineException(EngineErrorCodes.NodeStale, $"Node {node.Ref} is not on the page. Observe again.", retryable: true);
             }
 
             await using var disposeElement = element.ConfigureAwait(false);
@@ -327,19 +357,26 @@ public sealed class WebEngine : IEngine
                         await element.FillAsync("", new ElementHandleFillOptions { Timeout = timeout }).ConfigureAwait(false);
                         break;
                     default:
-                        throw new EngineException("UNSUPPORTED_CAPABILITY", "Web engine cannot perform " + action.GetType().Name + ".");
+                        throw new EngineException(EngineErrorCodes.UnsupportedCapability, "Web engine cannot perform " + action.GetType().Name + ".");
                 }
             }
-            catch (PlaywrightException ex) when (ex.Message.Contains("not attached", StringComparison.Ordinal))
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
-                throw new EngineException("NOT_FOUND", $"Node {node.Ref} left the page before the action.", ex);
+                throw WebErrors.ClassifyAction(ex, action);
             }
         }
 
-        public Task PressAsync(string key, CancellationToken cancellationToken)
+        public async Task PressAsync(string key, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return _page.Keyboard.PressAsync(key);
+            try
+            {
+                await _page.Keyboard.PressAsync(key).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.Translate(ex, "press " + key);
+            }
         }
 
         public async ValueTask DisposeAsync()
@@ -520,4 +557,121 @@ public sealed class WebEngine : IEngine
 
         public List<WebNode>? Children { get; set; }
     }
+}
+
+/// <summary>
+/// Maps Playwright failures to stable engine codes, following upstream <c>@e2e-dev/web</c>
+/// (<c>classifyActionError</c>, <c>translatePwError</c>, and <c>navigationStaleOr</c>).
+/// </summary>
+internal static partial class WebErrors
+{
+    private const string Redacted = "[redacted]";
+
+    /// <summary>Whether Playwright raised <paramref name="cause"/>. Playwright for .NET reports timeouts as <see cref="System.TimeoutException"/>.</summary>
+    public static bool IsPlaywright(Exception cause)
+    {
+        return cause is PlaywrightException or System.TimeoutException;
+    }
+
+    /// <summary>A failure's message without terminal color sequences.</summary>
+    public static string Message(Exception cause)
+    {
+        return AnsiPattern().Replace(cause.Message, "");
+    }
+
+    /// <summary>An unexpected failure: a timeout becomes <c>OPERATION_TIMEOUT</c>, anything else <c>ENGINE_FAILURE</c>.</summary>
+    public static EngineException Translate(Exception cause, string label)
+    {
+        var text = label + ": " + Message(cause);
+        return cause is System.TimeoutException
+            ? new EngineException(EngineErrorCodes.OperationTimeout, text, cause)
+            : new EngineException(EngineErrorCodes.EngineFailure, text, cause);
+    }
+
+    /// <summary>A read that lost its document to a navigation is a retryable <c>NODE_STALE</c>, so the caller observes the new document.</summary>
+    public static EngineException NavigationStaleOr(Exception cause, string label)
+    {
+        if (NavigationRacePattern().IsMatch(Message(cause)))
+        {
+            return new EngineException(EngineErrorCodes.NodeStale, label + ": " + Message(cause), retryable: true, cause);
+        }
+
+        return Translate(cause, label);
+    }
+
+    /// <summary>Classifies a failed locator action. A timeout after the input was dispatched may have committed.</summary>
+    public static EngineException ClassifyAction(Exception rawCause, LocatorAction action)
+    {
+        var sensitive = action is LocatorAction.Fill { Sensitive: true };
+        var text = Message(rawCause);
+        if (action is LocatorAction.Fill fill && sensitive && fill.Value.Length > 0)
+        {
+            text = text.Replace(fill.Value, Redacted, StringComparison.Ordinal);
+        }
+
+        var cause = sensitive ? null : rawCause;
+        var kind = action.GetType().Name.ToLowerInvariant();
+        if (StrictModePattern().IsMatch(text))
+        {
+            return new EngineException(EngineErrorCodes.EngineFailure, text, retryable: false, cause);
+        }
+
+        if (DetachedPattern().IsMatch(text) || NavigationRacePattern().IsMatch(text))
+        {
+            return new EngineException(EngineErrorCodes.NodeStale, text, retryable: true, cause);
+        }
+
+        if (TimeoutPattern().IsMatch(text) || rawCause is System.TimeoutException)
+        {
+            if (PostDispatchPattern().IsMatch(text))
+            {
+                return new EngineException(EngineErrorCodes.ActionMayHaveCommitted, kind + " timed out after its input was dispatched: " + text, retryable: false, cause);
+            }
+
+            return new EngineException(EngineErrorCodes.NotActionable, kind + " did not become actionable in time: " + Summary(text), retryable: false, cause);
+        }
+
+        if (NotEditablePattern().IsMatch(text))
+        {
+            return new EngineException(EngineErrorCodes.NotActionable, text, retryable: false, cause);
+        }
+
+        return new EngineException(EngineErrorCodes.EngineFailure, text, retryable: false, cause);
+    }
+
+    // The headline and the last call log line, which names what blocked the action.
+    private static string Summary(string text)
+    {
+        var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (lines.Length == 0)
+        {
+            return text;
+        }
+
+        var last = lines[^1].TrimStart('-', ' ');
+        return lines.Length > 1 && !string.Equals(last, "Call log:", StringComparison.Ordinal)
+            ? lines[0] + " Last: " + last
+            : lines[0];
+    }
+
+    [GeneratedRegex(@"\u001b\[\d+(?:;\d+)*m")]
+    private static partial Regex AnsiPattern();
+
+    [GeneratedRegex("strict mode violation", RegexOptions.IgnoreCase)]
+    private static partial Regex StrictModePattern();
+
+    [GeneratedRegex("element (is |was )?(detached|not attached)", RegexOptions.IgnoreCase)]
+    private static partial Regex DetachedPattern();
+
+    [GeneratedRegex("Timeout .*exceeded", RegexOptions.IgnoreCase)]
+    private static partial Regex TimeoutPattern();
+
+    [GeneratedRegex(@"performing \w+ action|\w+ action done|waiting for scheduled navigations to finish", RegexOptions.IgnoreCase)]
+    private static partial Regex PostDispatchPattern();
+
+    [GeneratedRegex("not an? <?(input|checkbox|radio|select)|not editable|not checkable", RegexOptions.IgnoreCase)]
+    private static partial Regex NotEditablePattern();
+
+    [GeneratedRegex("execution context was destroyed|because of a navigation|navigating and changing the content|frame was detached|frame got detached|node is detached from document", RegexOptions.IgnoreCase)]
+    private static partial Regex NavigationRacePattern();
 }

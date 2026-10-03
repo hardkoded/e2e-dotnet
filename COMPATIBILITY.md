@@ -56,3 +56,5 @@ The walk goes through open shadow roots and closed ones that page script attache
 The tree is a subset of upstream's: names follow the port's simpler accname rules, nodes are listed by role or test id only (not by name, direct text, or as an empty painted `box`), and hrefs and attributes are not projected.
 
 Password fields are marked secure and their values are omitted from the snapshot.
+
+Playwright failures never escape as `PlaywrightException`. `WebEngine` throws `EngineException` with an upstream engine code from `EngineErrorCodes`: `NOT_ACTIONABLE` when an action timed out before its input was dispatched or the target does not take that input, `ACTION_MAY_HAVE_COMMITTED` when it timed out after dispatch, `NODE_STALE` when the element or its document is gone, `OPERATION_TIMEOUT` for a navigation or key press timeout, and `ENGINE_FAILURE` otherwise. `EngineException.Retryable` is true only for `NODE_STALE` and `FRAME_NOT_FOUND`; any other retryable claim becomes `ENGINE_FAILURE`, as upstream. A sensitive fill's value is redacted from the message. The document engine still uses `NOT_FOUND` for a ref missing from its last observation.
