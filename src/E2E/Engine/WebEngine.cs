@@ -185,6 +185,9 @@ public sealed class WebEngine : IEngine
                     Checked = dto.Checked,
                     Disabled = dto.Disabled,
                     Hidden = dto.Hidden,
+                    Selected = dto.Selected,
+                    Expanded = dto.Expanded,
+                    Pressed = dto.Pressed,
                     Secure = dto.Secure,
                 },
                 Children = dto.Children?.Select(ToNode).ToList() ?? [],
@@ -224,6 +227,12 @@ public sealed class WebEngine : IEngine
         public bool Checked { get; set; }
 
         public bool Hidden { get; set; }
+
+        public bool Selected { get; set; }
+
+        public bool Expanded { get; set; }
+
+        public bool Pressed { get; set; }
 
         public bool Secure { get; set; }
 

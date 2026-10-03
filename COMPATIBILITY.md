@@ -18,8 +18,8 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 
 - NUnit `[Test]`, `[SetUp]`, `[TearDown]`, `[OneTimeSetUp]`, and `[OneTimeTearDown]`
 - `Assert.Ignore`, `[Retry]`, `[Timeout]`, and `[Category]`
-- Screen queries: role, text, label, test id, placeholder, `filter`, `first`, `nth`
-- Actions: tap, fill, press, check, uncheck, clear. They wait up to the action timeout for exactly one enabled match
+- Screen queries: role, text, label, test id, placeholder, display value, `filter` (`hasText` and `has`), `first`, `last`, `nth`. A locator offers every query kind, scoped to its matches' descendants. Every query takes a `TextMatch`: a string or a .NET `Regex`, tested against the whitespace-normalized text. `RoleOptions` carries `name`, `checked`, `disabled`, `selected`, `expanded`, `pressed`, and `level`, and `img` is read as `image`. A role query never matches a hidden node; the other kinds keep hidden nodes unless `Visible` is set, as upstream. `getByLabel` matches any node whose accessible name matches, as the upstream reference resolver does. Options are C# objects (`RoleOptions`, `TextMatchOptions`) instead of object literals, and `filter({ hasText, has })` is the two overloads `Filter(TextMatch)` and `Filter(Locator)`. Regular expressions use .NET syntax, not ECMAScript
+- Actions: tap, fill, press, check, uncheck, clear. They wait up to the action timeout for exactly one enabled, visible match
 - Locator expectations: visible, hidden, text, count, enabled, disabled, checked, value. They poll until the assertion timeout
 - `agent.act`, `agent.assert`, `agent.waitFor`, `agent.extract`
 - Replay cache for a verified `act`: role, name, test id, and path. Modes are `self-finalized`, `agent-concluded`, and `missed`
@@ -43,6 +43,6 @@ A passing locator expectation or `agent.assert` after `act` writes the recording
 
 ## Web engine
 
-`WebEngine` launches Chromium through Playwright and builds a semantic tree in the page: explicit roles, common implicit roles, accessible name, text, `data-testid`, disabled, checked, and hidden. Each observed element keeps a stable ref for the life of the document, and actions run on the element that ref names. Firefox and WebKit launch options are not exposed yet; the package reference can drive them later.
+`WebEngine` launches Chromium through Playwright and builds a semantic tree in the page: explicit roles, common implicit roles, accessible name, text, `data-testid`, disabled, checked, selected, expanded, pressed, heading level, and hidden. A node under a hidden ancestor is hidden, and `role="img"` is reported as `image`. Each observed element keeps a stable ref for the life of the document, and actions run on the element that ref names. Firefox and WebKit launch options are not exposed yet; the package reference can drive them later.
 
 Password fields are marked secure and their values are omitted from the snapshot.

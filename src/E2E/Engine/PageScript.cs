@@ -40,7 +40,7 @@ internal static class PageScript
           };
           const roleOf = (el) => {
             const explicit = el.getAttribute("role");
-            if (explicit) return explicit;
+            if (explicit) return explicit === "img" ? "image" : explicit;
             const tag = el.tagName;
             if (tag === "BUTTON") return "button";
             if (tag === "A" && el.hasAttribute("href")) return "link";
@@ -76,8 +76,10 @@ internal static class PageScript
             if (role) return cut(el.innerText || el.getAttribute("alt") || "", 256);
             return "";
           };
-          const walk = (el, into) => {
+          const aria = (el, name) => el.getAttribute(name) === "true";
+          const walk = (el, into, parentHidden) => {
             if (!el || skip.has(el.tagName) || count >= max) return;
+            const isHidden = parentHidden || hidden(el);
             const role = roleOf(el);
             const testId = el.getAttribute("data-testid");
             if (role || testId) {
@@ -95,20 +97,23 @@ internal static class PageScript
                 inputPurpose: secure ? "password" : null,
                 level: /^H[1-6]$/.test(el.tagName) ? Number(el.tagName.slice(1)) : null,
                 disabled: !!el.disabled,
-                checked: !!el.checked,
-                hidden: hidden(el),
+                checked: !!el.checked || aria(el, "aria-checked"),
+                selected: !!el.selected || aria(el, "aria-selected"),
+                expanded: aria(el, "aria-expanded") || (el.tagName === "DETAILS" && el.open),
+                pressed: aria(el, "aria-pressed"),
+                hidden: isHidden,
                 secure,
                 children: []
               };
               into.push(node);
               if (role && leaves.has(role)) return;
-              for (const child of el.children) walk(child, node.children);
+              for (const child of el.children) walk(child, node.children, isHidden);
               return;
             }
-            for (const child of el.children) walk(child, into);
+            for (const child of el.children) walk(child, into, isHidden);
           };
           const roots = [];
-          if (document.body) walk(document.body, roots);
+          if (document.body) walk(document.body, roots, false);
           window[Symbol.for("e2e.observation.elements")] = elements;
           return JSON.stringify({ next, roots });
         }

@@ -116,6 +116,39 @@ public sealed class WebEngineTests
         }
     }
 
+    [Fact]
+    public async Task Chromium_reports_role_states_image_alias_and_hidden_ancestors()
+    {
+        const string page = """
+            <!DOCTYPE html>
+            <html><body>
+            <div role="tablist"><div role="tab" aria-selected="true">One</div><div role="tab" aria-selected="false">Two</div></div>
+            <button type="button" aria-expanded="true">Menu</button>
+            <button type="button" aria-pressed="true">Bold</button>
+            <div role="img" aria-label="Logo"></div>
+            <div style="display: none"><p>Saved</p></div>
+            <p>Saved</p>
+            </body></html>
+            """;
+        using var site = await TinySite.StartAsync(page);
+        var session = await TryStartAsync(site, new ScriptedModel(_ => ModelResponses.Done("passed", "none")), cache: null);
+        if (session is null)
+        {
+            return;
+        }
+
+        await RunAsync(session, async () =>
+        {
+            await session.App.OpenAsync("/");
+            await Expect.That(session.Screen.GetByRole("tab", new RoleOptions { Selected = true })).ToHaveTextAsync("One");
+            await Expect.That(session.Screen.GetByRole("button", new RoleOptions { Expanded = true })).ToHaveTextAsync("Menu");
+            await Expect.That(session.Screen.GetByRole("button", new RoleOptions { Pressed = true })).ToHaveTextAsync("Bold");
+            await Expect.That(session.Screen.GetByRole("img", "Logo")).ToBeVisibleAsync();
+            await Expect.That(session.Screen.GetByText("Saved")).ToHaveCountAsync(2);
+            await Expect.That(session.Screen.GetByText("Saved", new TextMatchOptions { Visible = true })).ToBeVisibleAsync();
+        });
+    }
+
     private static ScriptedModel UpgradeModel(Action onCall)
     {
         return new ScriptedModel(request =>
