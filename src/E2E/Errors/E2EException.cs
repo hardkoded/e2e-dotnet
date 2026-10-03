@@ -73,3 +73,17 @@ public sealed class SkipException : E2EException
     {
     }
 }
+
+/// <summary><c>e2e.config.json</c> is invalid. The code is <c>INVALID_CONFIG</c>.</summary>
+public sealed class ConfigurationException : E2EException
+{
+    public ConfigurationException(string code, string message)
+        : base(code, message)
+    {
+    }
+
+    public ConfigurationException(string code, string message, Exception inner)
+        : base(code, message, inner)
+    {
+    }
+}

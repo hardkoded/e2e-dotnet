@@ -58,6 +58,13 @@ public sealed class Agent
             var replay = await TryReplayAsync(key, start, actions, options?.Params, token).ConfigureAwait(false);
             info = replay.Info;
             handoff = replay.Handoff;
+            if (_scope.CacheStrict && !replay.Completed && info?.Reason is not null and not "no-entry")
+            {
+                throw new AgentException(
+                    "REPLAY_STALE",
+                    "The recording for '" + instruction + "' no longer matches (" + info.Reason + "). Strict cache mode does not run it live; re-record it without cache.strict.");
+            }
+
             if (replay.Completed)
             {
                 pending.Completed = true;
@@ -980,6 +987,13 @@ internal sealed class AttemptScope
     public required IStepCache? Cache { get; init; }
 
     public required bool CacheEnabled { get; init; }
+
+    /// <summary>False in read-only mode: the attempt replays but does not write or delete recordings.</summary>
+    public bool CacheWrite { get; init; }
+
+    public bool CacheStrict { get; init; }
+
+    public TimeSpan CleanupTimeout { get; init; } = TimeSpan.FromSeconds(30);
 
     public required string TestTitle { get; init; }
 

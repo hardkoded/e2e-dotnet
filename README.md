@@ -44,20 +44,37 @@ public sealed class BillingTests : E2ETest
 
 `E2ETest` starts a `WebEngine` session for each `[Test]`. Override `CreateEngine` with a `DocumentEngine` when the test should not open a browser. An `act` that a later `assert` or locator `Expect` verifies is recorded. The next run replays those actions with no model calls until the screen no longer matches. A failure deletes unverified acts. `Assert.Ignore` leaves the cache alone. `[Retry]` runs the later attempts live. Tests that never call the agent need no model.
 
-There is no default model and no shared API key. A host can load the same shape from `e2e.config.json` with `E2EConfig.Load`.
+## Config
+
+`E2ETest` reads the nearest `e2e.config.json` above the test assembly directory, then above the working directory. The shape follows upstream `e2e.config.ts`. Every key is optional, and an unknown key fails with `INVALID_CONFIG`.
 
 ```json
 {
-  "app": { "url": "http://127.0.0.1:4173" },
-  "agent": {
-    "model": "gpt-4.1-mini",
-    "baseUrl": "https://api.openai.com/v1",
-    "apiKeyEnv": "OPENAI_API_KEY"
-  }
+  "targets": [{ "platform": "web", "app": { "url": "http://127.0.0.1:4173" } }],
+  "timeout": 120000,
+  "launchTimeout": 60000,
+  "actionTimeout": 30000,
+  "assertionTimeout": 5000,
+  "cleanupTimeout": 30000,
+  "agents": {
+    "default": {
+      "model": "gpt-4.1-mini",
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKeyEnv": "OPENAI_API_KEY"
+    }
+  },
+  "cache": { "mode": "read-write", "dir": ".e2e/cache", "strict": false },
+  "secrets": { "stripe-key": null }
 }
 ```
 
-`baseUrl` can point at any OpenAI-compatible server, including a local one. Tests without agent steps ignore it.
+There is no default model and no shared API key. `baseUrl` can point at any OpenAI-compatible server, including a local one. Tests without agent steps ignore it.
+
+`cache.mode` is `off`, `read-only`, or `read-write`. Unset, it is `read-write` locally and `read-only` when `CI` is set. `cache.strict` fails a recording that no longer matches with `REPLAY_STALE` instead of running the step live. `cache.dir` resolves against the config file's directory.
+
+Each secret reads `E2E_SECRET_<NAME>` first, then the config value. `null` means the variable is required. A test gets one with `Secrets.Get("stripe-key")`.
+
+A fixture overrides any value with the matching property, such as `BaseUrl`, `CacheMode`, or `ActionTimeout`, or replaces the whole config by overriding `Config`.
 
 ## Sample
 

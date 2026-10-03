@@ -10,7 +10,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 | --- | --- |
 | `e2e` and `@e2e-dev/web` | `E2E` (`WebEngine` is Playwright, in the same package) |
 | NUnit `[Test]` | `E2E.NUnit.E2ETest`. The fixture commits the replay cache from the NUnit result |
-| `e2e.config.ts` | `E2EConfig.Load` reads `e2e.config.json`. A host applies the values on the NUnit fixture |
+| `e2e.config.ts` | `e2e.config.json`, the same keys as JSON. `E2ETest` finds and applies it; fixture properties override it |
 | Vercel AI SDK model | `OpenAiCompatibleModel` (chat completions and tool calls) |
 | — | `DocumentEngine`, an in-memory page for hosts that do not want a browser |
 
@@ -40,6 +40,19 @@ A passing locator expectation or `agent.assert` after `act` writes the recording
 - Diff-only observations. Each model turn receives a full text snapshot
 - Telemetry
 - The upstream reporter, GitHub pull request comment, and trace viewer
+
+## Config
+
+`E2ETest` loads the nearest `e2e.config.json` above the test assembly directory, then above the working directory, once per run. Supported keys: `targets` (one entry with `name`, `platform`, and `app.url`), `timeout`, `launchTimeout`, `actionTimeout`, `assertionTimeout`, `cleanupTimeout`, `retries`, `agents`, `cache` (`mode`, `dir`, `strict`), and `secrets`. Defaults, the CI cache demotion to `read-only`, `E2E_SECRET_<NAME>` overrides, the 6 code point secret minimum, and `INVALID_CONFIG` for unknown keys follow upstream. Keys of the old .NET shape (`app`, `engine`, `agent`, `timeouts`) fail with a hint to the upstream key.
+
+Differences:
+
+- JSON has no engine handles or model instances. The fixture's `CreateEngine` chooses the engine, `platform` must be `web`, and `targets` holds one entry. `agents.<name>.model` is an OpenAI-compatible model id, with the .NET-only `baseUrl` and `apiKeyEnv` beside it. Only `agents.default` is used
+- A secret set to `null` reads only `E2E_SECRET_<NAME>`. Provider functions do not exist in JSON. A test reads secrets with `Secrets.Get(name)`
+- `retries` is validated and resolved (1 in CI, 0 elsewhere) but NUnit retries still come from `[Retry]`
+- `cache.strict` treats any replay that finds a recording but does not finish it as stale, and leaves that recording in place
+- A launch or cleanup timeout fails with `ENVIRONMENT_UNAVAILABLE`
+- Not supported, and rejected with `INVALID_CONFIG`: `projectId`, `tests`, `failOnSkippedFailure`, `workers`, `artifacts`, `output`, `trace`, `video`, `reporters`, `credentials`, `cache.store`, the non-URL `app` keys, and agent keys other than `model` and `maxModelCalls`. Credentials still come from `E2E_USER_<NAME>_USERNAME` and `_PASSWORD`
 
 ## Web engine
 
