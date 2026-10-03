@@ -40,7 +40,9 @@ public sealed class WebEngine : IEngine
         EngineCapabilities.Observation
         | EngineCapabilities.Actions
         | EngineCapabilities.Location
-        | EngineCapabilities.Keyboard;
+        | EngineCapabilities.Keyboard
+        | EngineCapabilities.Scroll
+        | EngineCapabilities.History;
 
     public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {
@@ -102,7 +104,7 @@ public sealed class WebEngine : IEngine
             var dto = System.Text.Json.JsonSerializer.Deserialize<WebObservation>(json, JsonDefaults.Options);
             _nextRef = dto?.Next ?? _nextRef;
             var roots = (dto?.Roots ?? []).Select(ToNode).ToList();
-            return new Observation { Route = Route, Roots = roots };
+            return new Observation { Route = Route, Roots = roots, Truncated = dto?.Truncated ?? false };
         }
 
         public async Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
@@ -145,6 +147,12 @@ public sealed class WebEngine : IEngine
                     case LocatorAction.Clear:
                         await element.FillAsync("", new ElementHandleFillOptions { Timeout = timeout }).ConfigureAwait(false);
                         break;
+                    case LocatorAction.ScrollIntoView:
+                        await element.ScrollIntoViewIfNeededAsync(new ElementHandleScrollIntoViewIfNeededOptions { Timeout = timeout }).ConfigureAwait(false);
+                        break;
+                    case LocatorAction.Swipe swipe:
+                        await element.EvaluateAsync(PageScript.ScrollElement, Direction(swipe.Direction)).ConfigureAwait(false);
+                        break;
                     default:
                         throw new EngineException("UNSUPPORTED_CAPABILITY", "Web engine cannot perform " + action.GetType().Name + ".");
                 }
@@ -161,10 +169,37 @@ public sealed class WebEngine : IEngine
             return _page.Keyboard.PressAsync(key);
         }
 
+        public async Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await _page.EvaluateAsync(PageScript.ScrollViewport, Direction(direction)).ConfigureAwait(false);
+        }
+
+        public async Task BackAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await _page.GoBackAsync(new PageGoBackOptions
+            {
+                WaitUntil = WaitUntilState.DOMContentLoaded,
+                Timeout = (float)_actionTimeout.TotalMilliseconds,
+            }).ConfigureAwait(false);
+        }
+
         public async ValueTask DisposeAsync()
         {
             await _browser.CloseAsync().ConfigureAwait(false);
             _playwright.Dispose();
+        }
+
+        private static string Direction(ScrollDirection direction)
+        {
+            return direction switch
+            {
+                ScrollDirection.Up => "up",
+                ScrollDirection.Left => "left",
+                ScrollDirection.Right => "right",
+                _ => "down",
+            };
         }
 
         private static SemanticNode ToNode(WebNode dto)
@@ -195,6 +230,8 @@ public sealed class WebEngine : IEngine
     private sealed class WebObservation
     {
         public int Next { get; set; }
+
+        public bool Truncated { get; set; }
 
         public List<WebNode>? Roots { get; set; }
     }

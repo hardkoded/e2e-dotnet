@@ -64,4 +64,7 @@ public sealed class Observation
     public required string Route { get; init; }
 
     public required IReadOnlyList<SemanticNode> Roots { get; init; }
+
+    /// <summary>True when the engine left nodes out to stay within its node budget. Scrolling brings them in.</summary>
+    public bool Truncated { get; init; }
 }

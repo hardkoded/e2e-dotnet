@@ -22,9 +22,12 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - Actions: tap, fill, press, check, uncheck, clear. They wait up to the action timeout for exactly one enabled match
 - Locator expectations: visible, hidden, text, count, enabled, disabled, checked, value. They poll until the assertion timeout
 - `agent.act`, `agent.assert`, `agent.waitFor`, `agent.extract`
+- Act tools `observe`, `scroll`, `scroll_to`, and `back`. They are offered when the engine declares `EngineCapabilities.Scroll` or `EngineCapabilities.History`. `scroll_to` with a target scrolls it into view. With text, it pages the viewport, or the target list, until a node reading the text is listed, then scrolls it into view. It stops when the screen stops moving
 - Replay cache for a verified `act`: role, name, test id, and path. Modes are `self-finalized`, `agent-concluded`, and `missed`
 - `Values.Unique` and `Secret`. Secret values are redacted from prompts
 - OpenAI-compatible tool calling
+
+Replay runs `back` and a viewport scroll as recorded, re-finds a scrolled list before each repeat, and pages again for a `scroll_to` text. Consecutive identical scrolls are recorded as one action with a repeat count. `observe` is not recorded. Upstream scrolls the viewport when a list that filled the screen cannot be re-found. This port has no node geometry, so a lost list stops the replay.
 
 A passing locator expectation or `agent.assert` after `act` writes the recording. `agent.assert`, `waitFor`, and `extract` always run live. Retries do not replay.
 
@@ -46,3 +49,7 @@ A passing locator expectation or `agent.assert` after `act` writes the recording
 `WebEngine` launches Chromium through Playwright and builds a semantic tree in the page: explicit roles, common implicit roles, accessible name, text, `data-testid`, disabled, checked, and hidden. Each observed element keeps a stable ref for the life of the document, and actions run on the element that ref names. Firefox and WebKit launch options are not exposed yet; the package reference can drive them later.
 
 Password fields are marked secure and their values are omitted from the snapshot.
+
+An observation holds at most 500 nodes. When a page has more, nodes that intersect the viewport come first, the rest of the budget goes to the others in document order, and the snapshot tells the model to scroll. A scroll moves three quarters of the viewport or the scrolled element with `scrollBy`. Upstream sends a wheel gesture. `back` is the browser history.
+
+`DocumentEngine` has no viewport. `DocumentPage.OnScroll` and `DocumentElement.OnScroll` let a page load more rows when it is scrolled, and `back` reopens the previous route.

@@ -24,4 +24,19 @@ public abstract record LocatorAction
     public sealed record Uncheck : LocatorAction;
 
     public sealed record Clear : LocatorAction;
+
+    /// <summary>Scrolls the node's nearest scrollable container until the node is in the viewport.</summary>
+    public sealed record ScrollIntoView : LocatorAction;
+
+    /// <summary>Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is <see cref="IEngineSession.SwipeAsync"/>.</summary>
+    public sealed record Swipe(ScrollDirection Direction) : LocatorAction;
+}
+
+/// <summary>Which way a scroll moves the content into view. <see cref="Down"/> reveals what is below.</summary>
+public enum ScrollDirection
+{
+    Up,
+    Down,
+    Left,
+    Right,
 }

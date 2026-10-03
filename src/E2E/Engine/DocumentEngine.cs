@@ -31,7 +31,9 @@ public sealed class DocumentEngine : IEngine
         EngineCapabilities.Observation
         | EngineCapabilities.Actions
         | EngineCapabilities.Location
-        | EngineCapabilities.Keyboard;
+        | EngineCapabilities.Keyboard
+        | EngineCapabilities.Scroll
+        | EngineCapabilities.History;
 
     public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {
@@ -43,6 +45,7 @@ public sealed class DocumentEngine : IEngine
     private sealed class DocumentSession : IEngineSession
     {
         private readonly DocumentWorld _world;
+        private readonly Stack<string> _history = new();
         private DocumentPage? _page;
         private DocumentElement? _focused;
         private Dictionary<string, DocumentElement> _refs = new(StringComparer.Ordinal);
@@ -57,10 +60,26 @@ public sealed class DocumentEngine : IEngine
         public Task OpenAsync(string url, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var path = Routes.PathOf(url);
-            _page = _world.Create(path);
-            _focused = null;
-            _refs = new Dictionary<string, DocumentElement>(StringComparer.Ordinal);
+            Navigate(url);
+            return Task.CompletedTask;
+        }
+
+        public Task BackAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (_history.Count == 0)
+            {
+                throw new EngineException("NOT_ACTIONABLE", "There is no earlier page to go back to.");
+            }
+
+            Show(_world.Create(_history.Pop()));
+            return Task.CompletedTask;
+        }
+
+        public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            RequirePage().OnScroll?.Invoke(direction);
             return Task.CompletedTask;
         }
 
@@ -111,7 +130,7 @@ public sealed class DocumentEngine : IEngine
 
                     if (element.NavigateTo is not null)
                     {
-                        return OpenAsync(element.NavigateTo, cancellationToken);
+                        Navigate(element.NavigateTo);
                     }
 
                     break;
@@ -143,6 +162,11 @@ public sealed class DocumentEngine : IEngine
                     element.Value = "";
                     _focused = element;
                     break;
+                case LocatorAction.ScrollIntoView:
+                    break;
+                case LocatorAction.Swipe swipe:
+                    element.OnScroll?.Invoke(swipe.Direction);
+                    break;
                 default:
                     throw new EngineException("UNSUPPORTED_CAPABILITY", $"Document engine cannot perform {action.GetType().Name}.");
             }
@@ -171,10 +195,27 @@ public sealed class DocumentEngine : IEngine
                 element.OnTap?.Invoke();
                 if (element.NavigateTo is not null)
                 {
-                    _page = _world.Create(Routes.PathOf(element.NavigateTo));
-                    _focused = null;
+                    Navigate(element.NavigateTo);
                 }
             }
+        }
+
+        private void Navigate(string url)
+        {
+            var page = _world.Create(Routes.PathOf(url));
+            if (_page is not null)
+            {
+                _history.Push(_page.Path);
+            }
+
+            Show(page);
+        }
+
+        private void Show(DocumentPage page)
+        {
+            _page = page;
+            _focused = null;
+            _refs = new Dictionary<string, DocumentElement>(StringComparer.Ordinal);
         }
 
         private DocumentPage RequirePage()
@@ -283,6 +324,9 @@ public sealed class DocumentPage
 
     public string Path { get; }
 
+    /// <summary>Runs when the viewport scrolls, for a page that loads more as it is scrolled. The page has no viewport of its own.</summary>
+    public Action<ScrollDirection>? OnScroll { get; set; }
+
     internal List<DocumentElement> Roots { get; } = [];
 
     public DocumentElement Heading(string name, int level = 1)
@@ -371,6 +415,9 @@ public sealed class DocumentElement
     public Action? OnTap { get; init; }
 
     public Action<string>? OnFill { get; init; }
+
+    /// <summary>Runs when this element is scrolled with <see cref="LocatorAction.Swipe"/>.</summary>
+    public Action<ScrollDirection>? OnScroll { get; set; }
 
     public List<DocumentElement> Children { get; } = [];
 }

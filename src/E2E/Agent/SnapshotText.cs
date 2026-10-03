@@ -26,6 +26,12 @@ internal static class SnapshotText
             builder.Append("(empty)");
         }
 
+        if (observation.Truncated)
+        {
+            builder.AppendLine();
+            builder.Append("(More of the page is off screen. Scroll to reach it.)");
+        }
+
         return builder.ToString();
     }
 

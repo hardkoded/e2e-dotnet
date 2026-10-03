@@ -10,6 +10,9 @@ internal static class PageScript
     // document, so a ref the model saw stays valid in the next observation.
     // The host passes the next free number, so refs never repeat across
     // documents. The latest observation's elements are kept for Find.
+    // When the page has more nodes than the budget, every node that
+    // intersects the viewport is kept first and the rest of the budget goes
+    // to the others in document order, so scrolling brings the cut ones in.
     public const string Collect = """
         (seed) => {
           const refKey = Symbol.for("e2e.observation.ref");
@@ -29,6 +32,12 @@ internal static class PageScript
           const leaves = new Set(["button", "link", "textbox", "checkbox", "radio", "combobox", "searchbox", "heading", "status", "image", "tab"]);
           const max = 500;
           let count = 0;
+          let offBudget = max;
+          let offCount = 0;
+          const inView = (el) => {
+            const r = el.getBoundingClientRect();
+            return r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
+          };
           const cut = (value, limit) => {
             const text = (value || "").replace(/\s+/g, " ").trim();
             return text.length > limit ? text.slice(0, limit) : text;
@@ -76,10 +85,29 @@ internal static class PageScript
             if (role) return cut(el.innerText || el.getAttribute("alt") || "", 256);
             return "";
           };
+          const tally = (el, visible) => {
+            if (!el || skip.has(el.tagName)) return 0;
+            let n = 0;
+            const role = roleOf(el);
+            if (role || el.getAttribute("data-testid")) {
+              if (!visible || inView(el)) n++;
+              if (role && leaves.has(role)) return n;
+            }
+            for (const child of el.children) n += tally(child, visible);
+            return n;
+          };
           const walk = (el, into) => {
             if (!el || skip.has(el.tagName) || count >= max) return;
             const role = roleOf(el);
             const testId = el.getAttribute("data-testid");
+            if ((role || testId) && offBudget < max && !inView(el)) {
+              if (offCount >= offBudget) {
+                if (role && leaves.has(role)) return;
+                for (const child of el.children) walk(child, into);
+                return;
+              }
+              offCount++;
+            }
             if (role || testId) {
               count++;
               const type = (el.getAttribute("type") || "").toLowerCase();
@@ -108,9 +136,30 @@ internal static class PageScript
             for (const child of el.children) walk(child, into);
           };
           const roots = [];
+          const truncated = !!document.body && tally(document.body, false) > max;
+          if (truncated) offBudget = Math.max(0, max - tally(document.body, true));
           if (document.body) walk(document.body, roots);
           window[Symbol.for("e2e.observation.elements")] = elements;
-          return JSON.stringify({ next, roots });
+          return JSON.stringify({ next, roots, truncated });
+        }
+        """;
+
+    // Moves about three quarters of a screen, so every row shows at least once.
+    public const string ScrollViewport = """
+        (direction) => {
+          const x = Math.round(innerWidth * 0.75);
+          const y = Math.round(innerHeight * 0.75);
+          const by = { up: [0, -y], down: [0, y], left: [-x, 0], right: [x, 0] }[direction];
+          window.scrollBy({ left: by[0], top: by[1], behavior: "instant" });
+        }
+        """;
+
+    public const string ScrollElement = """
+        (el, direction) => {
+          const x = Math.round(el.clientWidth * 0.75);
+          const y = Math.round(el.clientHeight * 0.75);
+          const by = { up: [0, -y], down: [0, y], left: [-x, 0], right: [x, 0] }[direction];
+          el.scrollBy({ left: by[0], top: by[1], behavior: "instant" });
         }
         """;
 
