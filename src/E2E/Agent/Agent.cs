@@ -53,6 +53,7 @@ public sealed class Agent
         var actions = new List<RecordedAction>();
         CacheInfo? info = null;
         var handoff = false;
+        var actionsAtEndMismatch = -1;
         if (_scope.CacheEnabled && _scope.Attempt == 1 && _scope.Cache is not null)
         {
             var replay = await TryReplayAsync(key, start, actions, options?.Params, token).ConfigureAwait(false);
@@ -64,6 +65,11 @@ public sealed class Agent
                 pending.Entry = BuildEntry(instruction, start, await _scope.Session.ObserveAsync(token).ConfigureAwait(false), actions, options?.Params);
                 _scope.Completed.Add("Replayed: " + instruction);
                 return new ActResult { Summary = "Replayed recorded actions.", Cache = info };
+            }
+
+            if (handoff && string.Equals(info?.Reason, "end-mismatch", StringComparison.Ordinal))
+            {
+                actionsAtEndMismatch = actions.Count;
             }
         }
 
@@ -120,6 +126,15 @@ public sealed class Agent
                 var code = outcome.Code;
                 if (string.Equals(outcome.Status, "passed", StringComparison.Ordinal))
                 {
+                    if (actionsAtEndMismatch >= 0 && actions.Count > actionsAtEndMismatch)
+                    {
+                        // The recorded actions ran but did not reach the recorded end, so they are proven
+                        // not to produce it. Evict the entry and let a clean run record the flow again.
+                        _scope.Cache!.Delete(key);
+                        _scope.Completed.Add(summary.Length == 0 ? instruction : summary);
+                        return new ActResult { Summary = summary, Cache = info };
+                    }
+
                     pending.Completed = true;
                     var end = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
                     pending.Entry = BuildEntry(instruction, start, end, actions, options?.Params);
@@ -997,6 +1012,9 @@ internal sealed class AttemptScope
 
     public Func<CancellationToken> Token { get; init; } = static () => CancellationToken.None;
 
+    /// <summary>True once the test has failed. Verification stops there, so a later teardown check proves nothing.</summary>
+    public Func<bool> TestFailed { get; init; } = static () => false;
+
     public List<Secret> Secrets { get; } = [];
 
     public List<string> Completed { get; } = [];
@@ -1044,6 +1062,11 @@ internal sealed class AttemptScope
 
     public void MarkVerified()
     {
+        if (TestFailed())
+        {
+            return;
+        }
+
         foreach (var act in Acts)
         {
             if (act.Completed)

@@ -26,7 +26,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - `Values.Unique` and `Secret`. Secret values are redacted from prompts
 - OpenAI-compatible tool calling
 
-A passing locator expectation or `agent.assert` after `act` writes the recording. `agent.assert`, `waitFor`, and `extract` always run live. Retries do not replay.
+A passing locator expectation or `agent.assert` after `act` writes the recording. `agent.assert`, `waitFor`, and `extract` always run live. Retries do not replay. As upstream, verification stops when the test fails, so a check in a derived `[TearDown]` after a failure records nothing. When a replay ends in `end-mismatch` and the agent repairs it with more actions, the entry is evicted instead of rewritten; the next clean run records the flow again.
 
 ## Not ported
 

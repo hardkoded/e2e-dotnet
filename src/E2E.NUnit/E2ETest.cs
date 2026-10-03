@@ -11,8 +11,8 @@ namespace E2E.NUnit;
 /// Base class for an NUnit test that drives the app. Setup starts one engine
 /// session. Teardown commits the replay cache from the NUnit result: a pass
 /// records verified acts, a failure deletes unverified ones, and a skip or a
-/// cancelled test leaves the cache alone. The first attempt can replay. Retries
-/// run live.
+/// cancelled test leaves the cache alone. A check in a derived [TearDown] after
+/// a failure verifies nothing. The first attempt can replay. Retries run live.
 /// </summary>
 public abstract class E2ETest
 {
@@ -83,6 +83,7 @@ public abstract class E2ETest
                 StepTimeout = StepTimeout,
                 MaxModelCalls = MaxModelCalls,
                 Attempt = attempt,
+                TestFailed = HasFailed,
             },
             current.CancellationToken).ConfigureAwait(false);
     }
@@ -106,6 +107,12 @@ public abstract class E2ETest
         {
             await session.DisposeAsync().ConfigureAwait(false);
         }
+    }
+
+    // A derived [TearDown] runs before this fixture's teardown, after the result of the test body is known.
+    private static bool HasFailed()
+    {
+        return global::NUnit.Framework.TestContext.CurrentContext.Result.Outcome.Status == global::NUnit.Framework.Interfaces.TestStatus.Failed;
     }
 
     private static Exception? ErrorForCache(global::NUnit.Framework.TestContext.ResultAdapter result)

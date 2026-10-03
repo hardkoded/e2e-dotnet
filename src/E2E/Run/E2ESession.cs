@@ -89,6 +89,7 @@ public sealed class E2ESession : IAsyncDisposable
             StepTimeout = options.StepTimeout,
             MaxModelCalls = options.MaxModelCalls,
             Token = () => timeout.Token,
+            TestFailed = options.TestFailed ?? (static () => false),
         };
         var app = new App(engine, options.BaseUrl, () => timeout.Token);
         var agent = new Agent(scope);
@@ -200,6 +201,12 @@ public sealed class E2ESessionOptions
     public TimeSpan StepTimeout { get; init; } = TimeSpan.FromSeconds(30);
 
     public int MaxModelCalls { get; init; } = 12;
+
+    /// <summary>
+    /// Reports whether the test has already failed. Once it returns true, a passing check no longer
+    /// verifies acts, so a teardown assertion after a failure does not record them.
+    /// </summary>
+    public Func<bool>? TestFailed { get; init; }
 
     /// <summary>1 is the first try. Later attempts do not read or write the replay cache.</summary>
     public int Attempt { get; init; } = 1;
