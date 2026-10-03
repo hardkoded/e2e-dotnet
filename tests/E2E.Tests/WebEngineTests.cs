@@ -116,6 +116,50 @@ public sealed class WebEngineTests
         }
     }
 
+    [Fact]
+    public async Task Chromium_runs_the_extra_locator_actions()
+    {
+        const string page = """
+            <!DOCTYPE html>
+            <html><body>
+            <button type="button" ondblclick="log('double')" onclick="log('click')">Like</button>
+            <input aria-label="Search" onkeydown="log('key ' + event.key)">
+            <input aria-label="Password" type="password" oninput="log('pw ' + this.value.length)">
+            <select aria-label="Plan" onchange="log('plan ' + this.value)">
+              <option value="free">Free</option>
+              <option value="pro">Pro</option>
+            </select>
+            <div style="height: 3000px"></div>
+            <button type="button" onfocus="log('focus')">Far</button>
+            <div role="status"></div>
+            <script>
+              function log(entry) { document.querySelector("[role=status]").textContent += entry + ";"; }
+            </script>
+            </body></html>
+            """;
+        using var site = await TinySite.StartAsync(page);
+        var session = await TryStartAsync(site, UpgradeModel(() => { }), cache: null);
+        if (session is null)
+        {
+            return;
+        }
+
+        await RunAsync(session, async () =>
+        {
+            await session.App.OpenAsync("/");
+            var screen = session.Screen;
+            await screen.GetByRole("button", "Like").ClickAsync();
+            await screen.GetByRole("button", "Like").DoubleTapAsync();
+            await screen.GetByRole("textbox", "Search").PressSequentiallyAsync("ab");
+            await screen.GetByRole("textbox", "Password").FillAsync(Secret.Create("password", "hunter2"));
+            await screen.GetByRole("combobox", "Plan").SelectOptionAsync("pro");
+            await screen.GetByRole("button", "Far").ScrollIntoViewAsync();
+            await screen.GetByRole("button", "Far").FocusAsync();
+            await Expect.That(screen.GetByRole("status")).ToContainTextAsync("click;click;click;double;key a;key b;pw 7;plan pro;focus;");
+            Assert.Equal("ab", await screen.GetByRole("textbox", "Search").InputValueAsync());
+        });
+    }
+
     private static ScriptedModel UpgradeModel(Action onCall)
     {
         return new ScriptedModel(request =>

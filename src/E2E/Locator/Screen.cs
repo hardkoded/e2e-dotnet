@@ -140,10 +140,40 @@ public sealed class Locator
         return ActAsync(new LocatorAction.Tap(), cancellationToken);
     }
 
+    /// <summary>Alias of <see cref="TapAsync"/>.</summary>
+    public Task ClickAsync(CancellationToken cancellationToken = default) => TapAsync(cancellationToken);
+
+    public Task DoubleTapAsync(CancellationToken cancellationToken = default)
+    {
+        return ActAsync(new LocatorAction.DoubleTap(), cancellationToken);
+    }
+
     public Task FillAsync(string value, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(value);
         return ActAsync(new LocatorAction.Fill(value), cancellationToken);
+    }
+
+    /// <summary>Fills a secret. The engine marks the value sensitive and never reports it.</summary>
+    public Task FillAsync(Secret value, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        return ActAsync(new LocatorAction.Fill(value.Value, Sensitive: true), cancellationToken);
+    }
+
+    /// <summary>
+    /// Focuses the input and types <paramref name="text"/> one character at a time,
+    /// so the app receives key events. <paramref name="delay"/> waits between characters.
+    /// </summary>
+    public Task PressSequentiallyAsync(string text, TimeSpan? delay = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        if (delay is TimeSpan wait)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(wait, TimeSpan.Zero, nameof(delay));
+        }
+
+        return ActAsync(new LocatorAction.PressSequentially(text, delay), cancellationToken);
     }
 
     public Task PressAsync(string key, CancellationToken cancellationToken = default)
@@ -165,6 +195,23 @@ public sealed class Locator
     public Task ClearAsync(CancellationToken cancellationToken = default)
     {
         return ActAsync(new LocatorAction.Clear(), cancellationToken);
+    }
+
+    /// <summary>Selects the option whose value or label is <paramref name="value"/>.</summary>
+    public Task SelectOptionAsync(string value, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        return ActAsync(new LocatorAction.Select(value), cancellationToken);
+    }
+
+    public Task FocusAsync(CancellationToken cancellationToken = default)
+    {
+        return ActAsync(new LocatorAction.Focus(), cancellationToken);
+    }
+
+    public Task ScrollIntoViewAsync(CancellationToken cancellationToken = default)
+    {
+        return ActAsync(new LocatorAction.ScrollIntoView(), cancellationToken);
     }
 
     /// <summary>Reads text once. Does not retry and does not verify an earlier <c>act</c>.</summary>
