@@ -19,7 +19,9 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - NUnit `[Test]`, `[SetUp]`, `[TearDown]`, `[OneTimeSetUp]`, and `[OneTimeTearDown]`
 - `Assert.Ignore`, `[Retry]`, `[Timeout]`, and `[Category]`
 - Screen queries: role, text, label, test id, placeholder, `filter`, `first`, `nth`
-- Actions: tap, click (an alias of tap), doubleTap, fill (a string or a `Secret`), pressSequentially, press, check, uncheck, clear, selectOption, focus, scrollIntoView. They wait up to the action timeout for exactly one enabled match. `selectOption` takes a string that matches an option value or label
+- Actions: tap, click (an alias of tap), doubleTap, fill (a string or a `Secret`), pressSequentially, press, check, uncheck, clear, selectOption, focus, scrollIntoView. They wait up to the action timeout for exactly one enabled match. `selectOption` takes a string that matches an option value or label. `ActionOptions.Timeout` overrides the wait per action (`PressSequentiallyOptions` adds `Delay`). The web engine's own Playwright wait still uses the configured action timeout
+- Locator reads: `textContent`, `inputValue`, `getAttribute`, `isVisible`, `isHidden`, `isEnabled`, `isDisabled`, `isChecked`, `boundingBox`, `count`, `all`, `allTextContents`. They read the current screen once and do not verify an earlier `act`. Single-node reads fail with `NOT_FOUND` when nothing matches instead of waiting
+- `locator.waitFor` with `attached`, `detached`, `visible` (default), and `hidden`, as `WaitForAsync(new LocatorWaitForOptions { State, Timeout })`. The timeout defaults to the action timeout and a timeout fails with `TIMEOUT`. `LocatorWaitForOptions` is named apart from `agent.waitFor`'s `WaitForOptions`
 - Locator expectations: visible, hidden, text, count, enabled, disabled, checked, value. They poll until the assertion timeout
 - `agent.act`, `agent.assert`, `agent.waitFor`, `agent.extract`
 - Act tools `observe`, `scroll`, `scroll_to`, and `back`. They are offered when the engine declares `EngineCapabilities.Scroll` or `EngineCapabilities.History`. `scroll_to` with a target scrolls it into view. With text, it pages the viewport, or the target list, until a node reading the text is listed, then scrolls it into view. It stops when the screen stops moving
@@ -41,7 +43,7 @@ A passing locator expectation or `agent.assert` after `act` writes the recording
 - Vision, screenshots, traces, and video
 - Parallel workers, serial suites, project tools, and custom executors
 - The full locator action set (`dragTo`, `swipe`, `hover`, `setInputFiles`, `secondaryTap`, `longPress`, pointer points). `secondaryTap` and `longPress` have no counterpart in the document engine
-- Per-action options: `timeout`, click `modifiers`, tap `position`, and the `{ label, value, index }` form of `selectOption`
+- Per-action options other than `timeout` (and `delay` for `pressSequentially`): click `modifiers`, tap `position`, and the `{ label, value, index }` form of `selectOption`
 - Route patterns that ignore a record id. This port compares the URL path exactly and ignores the query and fragment
 - Diff-only observations. Each model turn receives a full text snapshot
 - Telemetry

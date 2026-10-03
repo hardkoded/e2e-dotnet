@@ -37,7 +37,7 @@ public sealed class LocatorActionTests
         var error = await RunAsync(world, async screen =>
         {
             var search = screen.GetByRole("textbox", "Search");
-            await search.PressSequentiallyAsync("bc", TimeSpan.FromMilliseconds(1));
+            await search.PressSequentiallyAsync("bc", new PressSequentiallyOptions { Delay = TimeSpan.FromMilliseconds(1) });
             Assert.Equal("abc", await search.InputValueAsync());
         });
 

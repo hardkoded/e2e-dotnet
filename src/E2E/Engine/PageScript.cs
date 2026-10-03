@@ -178,6 +178,18 @@ internal static class PageScript
             if (el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio")) return el.checked;
             return el.getAttribute("aria-checked") === "true";
           };
+          const attributesOf = (el, secure) => {
+            const out = {};
+            for (const attr of el.attributes) {
+              if (secure && attr.name === "value") continue;
+              out[attr.name] = attr.value;
+            }
+            return out;
+          };
+          const rectOf = (el) => {
+            const box = el.getBoundingClientRect();
+            return { x: box.x, y: box.y, width: box.width, height: box.height };
+          };
           const listed = (el, role) => (role && role !== "presentation" && role !== "none") || !!el.getAttribute(testIdAttribute);
           // How many nodes the walk would list, or only those on screen.
           const tally = (el, visible) => {
@@ -237,6 +249,8 @@ internal static class PageScript
                 hidden: hidden(el),
                 secure,
                 frame: isFrame,
+                attributes: attributesOf(el, secure),
+                rect: rectOf(el),
                 children: []
               };
               into.push(node);

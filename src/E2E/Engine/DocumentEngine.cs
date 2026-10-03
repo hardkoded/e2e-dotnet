@@ -298,8 +298,26 @@ public sealed class DocumentEngine : IEngine
                     Secure = secure,
                     Focused = false,
                 },
+                Attributes = AttributesOf(element, secure),
+                Rect = element.Rect,
                 Children = children,
             };
+        }
+
+        private static Dictionary<string, string>? AttributesOf(DocumentElement element, bool secure)
+        {
+            if (element.Attributes.Count == 0)
+            {
+                return null;
+            }
+
+            var attributes = new Dictionary<string, string>(element.Attributes, StringComparer.Ordinal);
+            if (secure)
+            {
+                attributes.Remove("value");
+            }
+
+            return attributes;
         }
 
         private static string? Cut(string? value, int limit)
@@ -447,6 +465,12 @@ public sealed class DocumentElement
     public bool Secure { get; set; }
 
     public string? NavigateTo { get; init; }
+
+    /// <summary>Attributes <c>getAttribute</c> reads, such as <c>href</c> or <c>aria-label</c>.</summary>
+    public Dictionary<string, string> Attributes { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The box <c>boundingBox</c> reports. Null when the page does not lay it out.</summary>
+    public BoundingBox? Rect { get; set; }
 
     public Action? OnTap { get; init; }
 

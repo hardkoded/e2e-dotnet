@@ -315,6 +315,34 @@ public sealed class WebEngineTests
         });
     }
 
+    [Fact]
+    public async Task Chromium_reads_attributes_boxes_and_waits_for_states()
+    {
+        using var site = await TinySite.StartAsync(BillingPage);
+        var session = await TryStartAsync(site, UpgradeModel(() => { }), cache: null);
+        if (session is null)
+        {
+            return;
+        }
+
+        await RunAsync(session, async () =>
+        {
+            await session.App.OpenAsync("/");
+            var upgrade = session.Screen.GetByRole("button", "Upgrade to Pro");
+            Assert.Equal("button", await upgrade.GetAttributeAsync("type"));
+            var box = await upgrade.BoundingBoxAsync();
+            Assert.NotNull(box);
+            Assert.True(box.Width > 0 && box.Height > 0);
+
+            var status = session.Screen.GetByRole("status");
+            Assert.True(await status.IsHiddenAsync());
+            await status.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Attached });
+            await upgrade.TapAsync(new ActionOptions { Timeout = TimeSpan.FromSeconds(2) });
+            await status.WaitForAsync();
+            Assert.True(await status.IsVisibleAsync());
+        });
+    }
+
     private static ScriptedModel UpgradeModel(Action onCall)
     {
         return new ScriptedModel(request =>
