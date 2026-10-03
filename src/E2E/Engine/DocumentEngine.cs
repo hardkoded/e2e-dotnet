@@ -295,6 +295,9 @@ public sealed class DocumentEngine : IEngine
                     Checked = element.Checked,
                     Disabled = element.Disabled,
                     Hidden = element.Hidden,
+                    Selected = element.Selected,
+                    Expanded = element.Expanded,
+                    Pressed = element.Pressed,
                     Secure = secure,
                     Focused = false,
                 },
@@ -461,6 +464,12 @@ public sealed class DocumentElement
     public bool Checked { get; set; }
 
     public bool Hidden { get; set; }
+
+    public bool Selected { get; set; }
+
+    public bool Expanded { get; set; }
+
+    public bool Pressed { get; set; }
 
     public bool Secure { get; set; }
 

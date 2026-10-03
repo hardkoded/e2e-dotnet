@@ -208,12 +208,14 @@ internal static class PageScript
             if (shadow) for (const child of shadow.children) n += tally(child, visible);
             return n;
           };
-          const walk = (el, into) => {
+          // A node under a hidden ancestor is hidden too.
+          const walk = (el, into, parentHidden) => {
             if (!el || skip.has(el.tagName) || full) return;
+            const isHidden = !!parentHidden || hidden(el);
             const role = roleOf(el);
             const testId = el.getAttribute(testIdAttribute);
             const isFrame = el.tagName === "IFRAME";
-            if (isFrame && hidden(el)) return;
+            if (isFrame && isHidden) return;
             if (listed(el, role)) {
               if (count >= max) {
                 full = true;
@@ -222,7 +224,7 @@ internal static class PageScript
               if (offBudget < max && !inView(el)) {
                 if (offCount >= offBudget) {
                   if ((role && leaves.has(role)) || el.tagName === "SELECT") return;
-                  walkChildren(el, into);
+                  walkChildren(el, into, isHidden);
                   return;
                 }
                 offCount++;
@@ -242,11 +244,11 @@ internal static class PageScript
                 level: /^H[1-6]$/.test(el.tagName) ? Number(el.tagName.slice(1)) : null,
                 disabled: disabledOf(el, role),
                 checked: checkedOf(el),
-                expanded: el.getAttribute("aria-expanded") === "true",
+                expanded: el.getAttribute("aria-expanded") === "true" || (el.tagName === "DETAILS" && el.open),
                 selected: el.tagName === "OPTION" ? !!el.selected : el.getAttribute("aria-selected") === "true",
                 pressed: el.getAttribute("aria-pressed") === "true",
                 focused: el === focused,
-                hidden: hidden(el),
+                hidden: isHidden,
                 secure,
                 frame: isFrame,
                 attributes: attributesOf(el, secure),
@@ -259,29 +261,29 @@ internal static class PageScript
                 // A closed select paints none of its options; they are what it offers.
                 for (const option of Array.from(el.options).slice(0, maxSelectOptions)) {
                   const before = node.children.length;
-                  walk(option, node.children);
-                  if (node.children.length > before) node.children[before].hidden = false;
+                  walk(option, node.children, isHidden);
+                  if (node.children.length > before) node.children[before].hidden = isHidden;
                 }
                 return;
               }
               if (role && leaves.has(role)) return;
-              walkChildren(el, node.children);
+              walkChildren(el, node.children, isHidden);
               return;
             }
-            walkChildren(el, into);
+            walkChildren(el, into, isHidden);
           };
           // Light children first, then the shadow tree. Slotted elements are
           // light children and the shadow tree holds only their slots, so
           // nothing is listed twice.
-          const walkChildren = (el, into) => {
-            for (const child of el.children) walk(child, into);
+          const walkChildren = (el, into, parentHidden) => {
+            for (const child of el.children) walk(child, into, parentHidden);
             const shadow = shadowOf(el);
-            if (shadow) for (const child of shadow.children) walk(child, into);
+            if (shadow) for (const child of shadow.children) walk(child, into, parentHidden);
           };
           const roots = [];
           const truncated = !!document.body && tally(document.body, false) > max;
           if (truncated) offBudget = Math.max(0, max - tally(document.body, true));
-          if (document.body) walk(document.body, roots);
+          if (document.body) walk(document.body, roots, false);
           window[Symbol.for("e2e.observation.elements")] = elements;
           return JSON.stringify({ next, count, truncated: truncated || full, scroll, roots });
         }

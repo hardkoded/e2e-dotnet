@@ -31,16 +31,21 @@ public sealed class LocatorExpect
     {
         return PollAsync(
             "toBeVisible",
-            matches => matches.Count == 1 ? null : "matched " + matches.Count.ToString(CultureInfo.InvariantCulture) + " nodes",
+            matches => matches.Count != 1
+                ? "matched " + matches.Count.ToString(CultureInfo.InvariantCulture) + " nodes"
+                : matches[0].States.Hidden ? "was hidden" : null,
             strict: true,
             cancellationToken);
     }
 
+    /// <summary>Passes when nothing matches or the one match is hidden.</summary>
     public Task ToBeHiddenAsync(CancellationToken cancellationToken = default)
     {
         return PollAsync(
             "toBeHidden",
-            matches => matches.Count == 0 ? null : "matched " + matches.Count.ToString(CultureInfo.InvariantCulture) + " nodes",
+            matches => matches.Count == 0 || (matches.Count == 1 && matches[0].States.Hidden)
+                ? null
+                : "matched " + matches.Count.ToString(CultureInfo.InvariantCulture) + (matches.Count == 1 ? " visible node" : " nodes"),
             strict: false,
             cancellationToken);
     }
