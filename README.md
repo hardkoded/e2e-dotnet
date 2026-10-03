@@ -42,7 +42,7 @@ public sealed class BillingTests : E2ETest
 }
 ```
 
-`E2ETest` starts a `WebEngine` session for each `[Test]`. Override `CreateEngine` with a `DocumentEngine` when the test should not open a browser. An `act` that a later `assert` or locator `Expect` verifies is recorded. The next run replays those actions with no model calls until the screen no longer matches. A failure deletes unverified acts. `Assert.Ignore` leaves the cache alone. `[Retry]` runs the later attempts live. Tests that never call the agent need no model.
+`E2ETest` starts a `WebEngine` session for each `[Test]`. Override `CreateEngine` with a `DocumentEngine` when the test should not open a browser. An `act` that a later `assert` or locator `Expect` verifies is recorded. The next run replays those actions with no model calls until the screen no longer matches. A failure or a skip evicts unverified acts that recorded or replayed. `[Retry]` runs the later attempts live, and they still record. Tests that never call the agent need no model.
 
 There is no default model and no shared API key. A host can load the same shape from `e2e.config.json` with `E2EConfig.Load`.
 

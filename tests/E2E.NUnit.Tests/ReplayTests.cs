@@ -22,7 +22,8 @@ public sealed class ReplayTests : E2ETest
 
     protected override string? BaseUrl => "https://billing.test";
 
-    protected override string CacheTitle(global::NUnit.Framework.TestContext.TestAdapter test) => "billing > upgrades";
+    protected override string CacheTitle(global::NUnit.Framework.TestContext.TestAdapter test) =>
+        test.MethodName == nameof(Each_repeat_is_a_first_attempt) ? "billing > repeated" : "billing > upgrades";
 
     [Test]
     public async Task First_run_calls_the_model()
@@ -39,6 +40,17 @@ public sealed class ReplayTests : E2ETest
         _actCalls = 0;
         await UpgradeAsync();
         Assert.That(_actCalls, Is.EqualTo(0));
+    }
+
+    [Test]
+    [Repeat(2)]
+    public async Task Each_repeat_is_a_first_attempt()
+    {
+        // The first iteration records under its own title. The second one replays it.
+        _actCalls = 0;
+        await UpgradeAsync();
+        var repeat = global::NUnit.Framework.TestContext.CurrentContext.CurrentRepeatCount;
+        Assert.That(_actCalls, repeat == 0 ? Is.GreaterThan(0) : Is.EqualTo(0));
     }
 
     private async Task UpgradeAsync()

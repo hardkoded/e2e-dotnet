@@ -61,16 +61,23 @@ public sealed class Agent
         var handoff = false;
         if (_scope.CacheEnabled && _scope.Attempt == 1 && _scope.Cache is not null)
         {
-            var replay = await TryReplayAsync(key, start, actions, options?.Params, token).ConfigureAwait(false);
+            var replay = await TryReplayAsync(pending, start, actions, options?.Params, token).ConfigureAwait(false);
             info = replay.Info;
             handoff = replay.Handoff;
             if (replay.Completed)
             {
                 pending.Completed = true;
+                pending.ReplayedWhole = true;
                 pending.Entry = BuildEntry(instruction, start, await _scope.Session.ObserveAsync(token).ConfigureAwait(false), actions, options?.Params);
                 _scope.Completed.Add("Replayed: " + instruction);
                 return new ActResult { Summary = "Replayed recorded actions.", Cache = info };
             }
+        }
+        else if (_scope.CacheEnabled && _scope.Cache is not null)
+        {
+            // A retry records like any attempt but never replays.
+            _scope.Missed++;
+            info = ReplayAttempt.Miss("retry").Info;
         }
 
         var maxCalls = options?.MaxModelCalls ?? _scope.MaxModelCalls;
@@ -160,7 +167,7 @@ public sealed class Agent
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(statement);
         var timeout = options?.Timeout ?? _scope.StepTimeout;
-        var interval = options?.Interval ?? TimeSpan.FromMilliseconds(200);
+        var interval = options?.Interval ?? TimeSpan.FromSeconds(3);
         using var linked = Link(cancellationToken, timeout);
         var token = linked.Token;
         var deadline = DateTime.UtcNow + timeout;
@@ -324,13 +331,13 @@ public sealed class Agent
     }
 
     private async Task<ReplayAttempt> TryReplayAsync(
-        string key,
+        PendingAct pending,
         Observation start,
         List<RecordedAction> actions,
         IReadOnlyDictionary<string, object?>? parameters,
         CancellationToken token)
     {
-        var lookup = _scope.Cache!.Read(key);
+        var lookup = _scope.Cache!.Read(pending.Key);
         if (lookup.Entry is null)
         {
             _scope.Missed++;
@@ -338,17 +345,21 @@ public sealed class Agent
         }
 
         var entry = lookup.Entry;
-        if (!string.Equals(entry.Route, start.Route, StringComparison.Ordinal))
-        {
-            _scope.Missed++;
-            return ReplayAttempt.Miss("wrong-context");
-        }
-
         if (entry.Actions.Count == 0)
         {
             _scope.Missed++;
             return ReplayAttempt.Miss("invalid-entry");
         }
+
+        // A recording that opens with navigate sets up its own start screen.
+        var opensWithNavigate = string.Equals(entry.Actions[0].Kind, "navigate", StringComparison.Ordinal);
+        if (!opensWithNavigate && !string.Equals(entry.Route, start.Route, StringComparison.Ordinal))
+        {
+            _scope.Missed++;
+            return ReplayAttempt.Miss("wrong-context");
+        }
+
+        pending.ConsumedReplay = true;
 
         var started = false;
         ReplayAttempt Lost(string? reason)
@@ -451,10 +462,10 @@ public sealed class Agent
         return ReplayAttempt.Done();
     }
 
-    // The last action may start a navigation or a slow render, so the end route and anchors get the action timeout to show up.
+    // The last action may start a navigation or a slow render, so the end route and anchors get the replay timeout to show up.
     private async Task<bool> WaitForEndAsync(CacheEntry entry, CancellationToken token)
     {
-        var deadline = DateTime.UtcNow + _scope.ActionTimeout;
+        var deadline = DateTime.UtcNow + _scope.ReplayTimeout;
         while (true)
         {
             var end = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
@@ -475,7 +486,7 @@ public sealed class Agent
 
     private async Task<(SemanticNode? Node, string? Reason)> WaitForTargetAsync(RecordedAction action, CancellationToken token)
     {
-        var deadline = DateTime.UtcNow + _scope.ActionTimeout;
+        var deadline = DateTime.UtcNow + _scope.ReplayTimeout;
         while (true)
         {
             var observation = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
@@ -1377,11 +1388,13 @@ internal sealed class AttemptScope
 
     public int Attempt { get; init; } = 1;
 
-    public TimeSpan ActionTimeout { get; init; } = TimeSpan.FromSeconds(5);
+    public TimeSpan ActionTimeout { get; init; } = TimeSpan.FromSeconds(30);
+
+    public TimeSpan ReplayTimeout { get; init; } = TimeSpan.FromSeconds(15);
 
     public TimeSpan StepTimeout { get; init; } = TimeSpan.FromSeconds(30);
 
-    public int MaxModelCalls { get; init; } = 12;
+    public int MaxModelCalls { get; init; } = 25;
 
     public Func<CancellationToken> Token { get; init; } = static () => CancellationToken.None;
 
@@ -1451,6 +1464,12 @@ internal sealed class PendingAct
     public bool Verified { get; set; }
 
     public bool ParamCollision { get; set; }
+
+    /// <summary>A recording was read and replay ran at least up to its first action.</summary>
+    public bool ConsumedReplay { get; set; }
+
+    /// <summary>Replay finished the act with no model call, so the stored entry is already this flow.</summary>
+    public bool ReplayedWhole { get; set; }
 
     public CacheEntry? Entry { get; set; }
 }

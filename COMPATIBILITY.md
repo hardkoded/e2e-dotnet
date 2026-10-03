@@ -35,7 +35,29 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 
 Replay runs `back` and a viewport scroll as recorded, re-finds a scrolled list before each repeat, and pages again for a `scroll_to` text. Consecutive identical scrolls are recorded as one action with a repeat count. `observe` is not recorded. Upstream scrolls the viewport when a list that filled the screen cannot be re-found. This port has no node geometry, so a lost list stops the replay.
 
-A passing locator expectation or `agent.assert` after `act` writes the recording. `agent.assert`, `waitFor`, and `extract` always run live. Retries do not replay.
+A passing locator expectation or `agent.assert` after `act` writes the recording. `agent.assert`, `waitFor`, and `extract` always run live.
+
+## Replay cache
+
+- The key holds the cache schema, the replay policy version, the test, the engine and its major.minor version, the instruction, the params, and the repeat index.
+- Only the first attempt replays. A `[Retry]` attempt runs live and still records, and its acts report `missed` with reason `retry`. Each `[Repeat]` iteration is a first attempt.
+- A recording that opens with `navigate` replays from any route. Any other recording needs the start route.
+- At the end of an attempt that passed, failed, or was skipped, verified acts are written and the unverified acts that recorded or replayed are evicted. An act that missed the cache and then failed leaves its key alone. A model outage or a cancelled test writes and evicts nothing.
+- An entry that a verified replay finished, or that already holds the same flow, is not rewritten.
+- A replay waits up to `ReplayTimeout` (15 s) for each recorded target and for the recorded end state. Upstream waits 15 s for the end route and sizes the anchor wait from the recording.
+
+## Defaults
+
+These match upstream.
+
+| Setting | Default |
+| --- | --- |
+| Test timeout | 120 s |
+| Action timeout | 30 s |
+| Assertion timeout | 5 s |
+| `maxModelCalls` | 25 |
+| `waitFor` interval | 3 s. The judge runs only when the screen changed |
+| Replay wait | 15 s |
 
 ## Not ported
 

@@ -793,6 +793,7 @@ public sealed class CoreTests
             TestTitle = "billing > case",
             AssertionTimeout = assertionTimeout ?? TimeSpan.FromSeconds(2),
             ActionTimeout = actionTimeout ?? TimeSpan.FromMilliseconds(300),
+            ReplayTimeout = actionTimeout ?? TimeSpan.FromMilliseconds(300),
             TestTimeout = TimeSpan.FromSeconds(10),
             StepTimeout = TimeSpan.FromSeconds(5),
         });
