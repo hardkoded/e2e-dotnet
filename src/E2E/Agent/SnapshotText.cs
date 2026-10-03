@@ -26,6 +26,12 @@ internal static class SnapshotText
             builder.Append("(empty)");
         }
 
+        if (observation.Truncated)
+        {
+            builder.AppendLine();
+            builder.Append("(truncated: the screen has more nodes than one observation lists)");
+        }
+
         return builder.ToString();
     }
 
@@ -79,6 +85,26 @@ internal static class SnapshotText
             if (node.States.Disabled)
             {
                 builder.Append(" [disabled]");
+            }
+
+            if (node.States.Expanded)
+            {
+                builder.Append(" [expanded]");
+            }
+
+            if (node.States.Selected)
+            {
+                builder.Append(" [selected]");
+            }
+
+            if (node.States.Pressed)
+            {
+                builder.Append(" [pressed]");
+            }
+
+            if (node.States.Focused)
+            {
+                builder.Append(" [focused]");
             }
 
             wrote = true;
