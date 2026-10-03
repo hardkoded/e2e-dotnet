@@ -25,14 +25,14 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - Locator expectations: visible, hidden, attached, enabled, disabled, checked, selected, expanded, focused, text, contained text, value, attribute, accessible name, and count. They poll until the assertion timeout, or the matcher's own `timeout`. `Not` inverts a matcher, which then passes after 1000 ms of continuous truth (or the whole budget when it is shorter). Text matchers take the same `TextMatch` as queries, `ignoreCase`, and a list form. The boolean flags are `visible`, `attached`, `enabled`, and `isChecked` (`checked` is a C# keyword)
 - `expect.soft` for every locator expectation, as `Expect.Soft(locator)`, including `.Not` and the per-matcher `timeout`. An `ASSERTION_FAILED` is kept and the body runs on; any other error still throws. `E2ETest` records each one on the NUnit result, as inside `Assert.EnterMultipleScope`, so the test fails when the body ends and lists every failure. Other hosts set `E2ESessionOptions.OnSoftFailure` or call `E2ESession.CloseSoftFailures`
 - `expect.poll` as `Expect.Poll(read, options)`, with `Timeout`, `Interval`, and `Message`. A read that throws is retried. The matchers are `ToBeAsync`, `ToSatisfyAsync`, and `.Not`; `E2E.NUnit` adds `ToMatchAsync` for any NUnit constraint, such as `Is.GreaterThan(3)`. The default timeout is 5 seconds, not the configured assertion timeout, because the poll does not see the running test, and it does not stop at the test deadline unless a cancellation token is passed
-- `agent.act`, `agent.assert`, `agent.waitFor`, `agent.extract`. `ActOptions` has `Params`, `Timeout`, `MaxSteps`, and `MaxModelCalls`; `AssertOptions` has `Timeout`; `WaitForOptions` has `Timeout`, `Interval`, and `MaxModelCalls`. `ExtractAsync<T>` takes no options (see [Agent options not yet ported](#agent-options-not-yet-ported))
+- `agent.act`, `agent.assert`, `agent.waitFor`, `agent.extract`. `ActOptions` has `Params`, `Timeout`, `MaxSteps`, `MaxModelCalls`, and `Agent`; `AssertOptions` has `Timeout` and `Agent`; `WaitForOptions` has `Timeout`, `Interval`, `MaxModelCalls`, and `Agent`; `ExtractOptions` has `Timeout` and `Agent`. See [Agents](#agents)
 - Act tools `observe`, `scroll`, `scroll_to`, and `back`. They are offered when the engine declares `EngineCapabilities.Scroll` or `EngineCapabilities.History`. `scroll_to` with a target scrolls it into view. With text, it pages the viewport, or the target list, until a node reading the text is listed, then scrolls it into view. It stops when the screen stops moving
 - Replay cache for a verified `act`: role, name, test id, and path. Modes are `self-finalized`, `agent-concluded`, and `missed`
 - `Values.Unique` and `Secret`. `Values.Unique` rejects an empty or whitespace value, and a value that contains the cache slot marker (U+0001, the port's form of `{{param:`). A secret value has at least 6 code points: `Secret.Create` throws `INVALID_ARGUMENT`, a config secret `INVALID_CONFIG`, and `Credentials.User` `INVALID_CONFIG` for a short `E2E_USER_*_PASSWORD`. Secret values are redacted from prompts, including the `assert`, `waitFor`, and `extract` statement. Redaction matches any case, JSON escapes, HTML character references, percent encoding, and collapsed inner whitespace. A known marker is never rewritten. A failed secret fill in `WebEngine` reports the Playwright message with the value and its fragments of 8 or more characters redacted. Not ported: decoding base64 runs, and values cut short at a length limit
 - `app.open`, `app.back`, `app.restart`, `app.clearState`, and `app.baseUrl` (`App.BaseUrl`), and the context `platform`
 - The `browser` fixture subset: `reload`, `back`, `forward`, `url`, `title`, `waitForURL`, `evaluate`, `cookies`, `setCookies`, `setViewport`, `keyboard.press`, `keyboard.type`, and `mouse.move`, `wheel`, `down`, `up`
-- Agent budgets: `ActOptions.MaxSteps`, `ActOptions.MaxModelCalls`, and `WaitForOptions.MaxModelCalls`. A per-call budget can only lower the configured one (`E2ESessionOptions.MaxSteps` and `MaxModelCalls`, 25 each by default). A higher or non-positive value throws `INVALID_ARGUMENT`
-- An `act` past its action budget ends `STEP_BUDGET_EXHAUSTED`, blocked. The model is told and may still conclude: a passing verdict, or a failure without a code, becomes the budget error. Replayed actions draw on the same budget. `navigate`, `back`, `scroll`, and `scroll_to` take a slot; `observe` does not
+- Agent budgets: `ActOptions.MaxSteps`, `ActOptions.MaxModelCalls`, and `WaitForOptions.MaxModelCalls`. A per-call budget can only lower the agent's configured one (25 each by default, 1 through 100). A higher or non-positive value throws `INVALID_ARGUMENT`
+- An `act` past its action budget ends `STEP_BUDGET_EXHAUSTED`, blocked. The model is told and may still conclude: a passing verdict, or a failure without a code, becomes the budget error. Replayed actions draw on the same budget. `navigate`, `back`, `scroll`, and `scroll_to` take a slot; `observe` does not. An `act` that needs one model call more than its budget also ends `STEP_BUDGET_EXHAUSTED`, blocked (`agent.act exhausted its model-call budget of N`)
 - `ActResult.ModelCalls` (0 for a full replay) and `ActResult.Actions` (replayed and live actions, counting failed attempts)
 - `AgentException.Blocked` and `AgentException.Explanation` (the same text as `Message`)
 - OpenAI-compatible tool calling
@@ -91,18 +91,27 @@ These match upstream.
 - Asymmetric matchers (`expect.any`, `anything`, `objectContaining`, `arrayContaining`, `stringContaining`, `stringMatching`). Use NUnit constraints such as `Is.InstanceOf`, `Is.Not.Null`, `Has.Property`, `Is.SupersetOf`, `Does.Contain`, and `Does.Match`
 - The upstream reporter, GitHub pull request comment, and trace viewer
 
-### Agent options not yet ported
+## Agents
 
-Tracked in [#13](https://github.com/hardkoded/e2e-dotnet/issues/13).
+`E2ESessionOptions` describes the default agent with `Model`, `Judge`, `AgentSystem`, `AgentContext`, `MaxSteps`, `MaxModelCalls`, `JudgmentTimeout`, and `ProviderOptions`, and names the others in `Agents` (an `AgentOptions` per name). `E2ETest` fills both from `agents.<name>` in `e2e.config.json`. A call picks an agent with its `Agent` option; an empty or unknown name throws `INVALID_ARGUMENT` (`unknown agent "x"; configured: default, ...`). Each agent starts from the defaults and inherits nothing from another. Settings are checked when the session starts and fail with `INVALID_CONFIG`.
 
-- `ExtractOptions`: a Standard Schema `schema`, a per-call `timeout`, and validation with one repair round before `MODEL_OUTPUT_INVALID`. `ExtractAsync<T>` deserializes into `T`
-- `judge` (a separate judgment model), `system`, and `context`
-- Named agents (`agents.<name>` and the per-call `agent` option)
-- `providerOptions`, `judgmentTimeout`, `maxObservationBytes`, and `maxInputTokens`
-- `vision` and `screenshot` on judgments, and `AgentError.screenshot`
-- Act param limits: 64 KiB and 32 levels deep. A cycle is already rejected with `INVALID_ARGUMENT` when the cache key serializes the params
-- Range checks on the configured budgets (1 through 100)
-- A model-call budget exhausted by `act` ends `STEP_NO_CONCLUSION`, not `STEP_BUDGET_EXHAUSTED`
+- `judge` judges `assert`, `waitFor`, and `extract`, and defaults to the model. `act` always uses the model
+- `system` is appended to the built-in act rules. Judges never see it
+- `context` (at most 16384 UTF-8 bytes) is told to every model call: after the act rules as `Project context:`, and to judges inside `<project-context>`
+- `maxSteps` and `maxModelCalls` are 1 through 100, 25 by default
+- `judgmentTimeout` (30 s) bounds `assert`, `waitFor`, and `extract` unless the call sets `Timeout`. A per-call timeout must be positive; a `waitFor` interval is 100 ms through 60 s
+- `providerOptions` is a dictionary of JSON objects by provider. It rides every `ModelRequest`, and `OpenAiCompatibleModel` adds the fields under its `Provider` key (`openai` by default) to the chat-completions body as given, so write the wire names (`reasoning_effort`, not `reasoningEffort`). It cannot replace `model`, `messages`, or `tools`. Upstream also sends `store: false` and a prompt cache key to OpenAI by default; this port does not
+- `assert` and `extract` make one model call and one repair round. `waitFor` judges at once, then again only after `Interval` and on a changed screen, and every call, repairs included, counts against `MaxModelCalls`. It ends `STEP_TIMEOUT` (`waitFor timed out; last judgment: ...`) or `STEP_BUDGET_EXHAUSTED` (`waitFor exhausted its model-call budget; last judgment: ...`)
+- `ExtractAsync<T>`: the type argument is the schema, in place of a Standard Schema. The judge gets the JSON schema of `T` (`JsonSchemaExporter`), and the answer must deserialize into `T` with required members and nullable annotations respected. A failure gets one repair round with the validation error, then `MODEL_OUTPUT_INVALID` (`extracted data failed schema validation: ...`). A judge that says the data is not shown ends `ASSERTION_INCONCLUSIVE` (`nothing to extract: ...`)
+- `act` params are checked as upstream: JSON-safe values, at most 32 levels deep, no cycle, and at most 64 KiB once a `Secret` is projected to its name and purpose and a `Values.Unique` to its value. The instruction is at most 8192 UTF-8 bytes. Each limit throws `INVALID_ARGUMENT` with the upstream message before any model call. A value reached twice through different paths is not a cycle
+- `act` takes `ActOptions.Timeout`, or `E2ESessionOptions.StepTimeout` (30 s, a .NET-only setting). Upstream bounds `act` by the test timeout
+
+Not ported:
+
+- `maxObservationBytes` and `maxInputTokens`. The port sends each observation whole, so it has nothing to cut; the keys are rejected in `e2e.config.json`
+- `vision` on judgments, `screenshot` on `assert`, and `AgentError.screenshot`. The port has no pixels (see Vision under [Not ported](#not-ported))
+- `executor` (a custom brain) and project `tools`. The agent loop is not pluggable
+- Pinning an agent for a whole test. Name it on each call instead
 
 ## Config
 
@@ -110,12 +119,12 @@ Tracked in [#13](https://github.com/hardkoded/e2e-dotnet/issues/13).
 
 Differences:
 
-- JSON has no engine handles or model instances. The fixture's `CreateEngine` chooses the engine, `platform` must be `web`, and `targets` holds one entry. `agents.<name>.model` is an OpenAI-compatible model id, with the .NET-only `baseUrl` and `apiKeyEnv` beside it. Only `agents.default` is used
+- JSON has no engine handles or model instances. The fixture's `CreateEngine` chooses the engine, `platform` must be `web`, and `targets` holds one entry. `agents.<name>.model` and `judge` are OpenAI-compatible model ids, with the .NET-only `baseUrl` and `apiKeyEnv` beside them. `E2ETest` passes `agents.default` as the session's own agent settings and every other entry through `CreateAgents`
 - A secret set to `null` reads only `E2E_SECRET_<NAME>`. Provider functions do not exist in JSON. A test reads secrets with `Secrets.Get(name)`
 - `retries` is validated and resolved (1 in CI, 0 elsewhere) but NUnit retries still come from `[Retry]`
 - `cache.strict` treats any replay that finds a recording but does not finish it as stale, and leaves that recording in place
 - A launch or cleanup timeout fails with `ENVIRONMENT_UNAVAILABLE`
-- Not supported, and rejected with `INVALID_CONFIG`: `projectId`, `tests`, `failOnSkippedFailure`, `workers`, `artifacts`, `output`, `trace`, `video`, `reporters`, `credentials`, `cache.store`, the non-URL `app` keys, and agent keys other than `model` and `maxModelCalls` (`maxSteps` is the fixture property `E2ETest.MaxSteps`). Credentials still come from `E2E_USER_<NAME>_USERNAME` and `_PASSWORD`
+- Not supported, and rejected with `INVALID_CONFIG`: `projectId`, `tests`, `failOnSkippedFailure`, `workers`, `artifacts`, `output`, `trace`, `video`, `reporters`, `credentials`, `cache.store`, the non-URL `app` keys, and the agent keys `tools`, `executor`, `maxObservationBytes`, and `maxInputTokens`. Credentials still come from `E2E_USER_<NAME>_USERNAME` and `_PASSWORD`
 
 ## Web engine
 
