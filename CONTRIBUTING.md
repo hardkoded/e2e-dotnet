@@ -8,7 +8,7 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | --- | --- |
 | `src/E2E` | SDK: tests, expect, agent, cache, document engine, Playwright `WebEngine` |
 | `src/E2E.NUnit` | NUnit fixture `E2ETest` |
-| `tests/E2E.Tests` | Unit tests. No API key, no browser required |
+| `tests/E2E.Tests` | Unit tests. No API key. The Chromium tests install the browser once per run |
 | `samples/E2E.Sample` | NUnit billing upgrade, twice, to show replay |
 
 ## Development
@@ -21,7 +21,7 @@ dotnet build
 dotnet test
 ```
 
-The Playwright test is skipped in-process when Chromium is missing. Install it with the `playwright.ps1` script in the `E2E` build output.
+The Chromium tests in `tests/E2E.Tests` install the Chromium build that Playwright expects once per run, through `BrowserFixture`. They need network access the first time, and fail if the install fails.
 
 Style is enforced at build time through `.editorconfig` and `Directory.Build.props` (`EnforceCodeStyleInBuild`, `TreatWarningsAsErrors`). C# files use the Apache file header.
 
