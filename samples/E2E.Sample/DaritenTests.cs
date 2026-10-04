@@ -27,6 +27,7 @@ public sealed class DaritenTests : E2ETest
     }
 
     [Test]
+    [Category("RealModel")]
     public async Task An_agent_filters_the_register_by_category()
     {
         await App.OpenAsync("/transactions");
