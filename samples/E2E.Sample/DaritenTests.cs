@@ -29,11 +29,6 @@ public sealed class DaritenTests : E2ETest
     [Test]
     public async Task An_agent_filters_the_register_by_category()
     {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("OPENAI_API_KEY")))
-        {
-            Assert.Ignore("Set OPENAI_API_KEY to run the agent test.");
-        }
-
         await App.OpenAsync("/transactions");
         await Agent.ActAsync("filter the register to show only the Groceries category");
         await Agent.AssertAsync("every transaction listed is in the Groceries category, or the register says no transactions match");
