@@ -285,6 +285,44 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public async Task A_key_press_on_the_focused_control_replays()
+    {
+        var directory = TempCache();
+        static DocumentWorld World() => new DocumentWorld().Map("/todos", page =>
+        {
+            var status = page.Status("Empty");
+            page.Roots.Add(new DocumentElement { Role = "textbox", Name = "New todo", OnFill = value => status.Name = status.Text = "Typed " + value });
+        });
+        var model = new ScriptedModel(request =>
+        {
+            var text = string.Join('\n', request.Messages.Select(message => message.Content));
+            if (text.Contains("pressed Enter", StringComparison.Ordinal))
+            {
+                return ModelResponses.Done("passed", "Added.");
+            }
+
+            return text.Contains("filled", StringComparison.Ordinal)
+                ? ModelResponses.Call("press", new { key = "Enter" })
+                : ModelResponses.Fill("textbox", "New todo", "Buy milk");
+        });
+
+        async Task Body(TestContext ctx)
+        {
+            await ctx.App.OpenAsync("/todos");
+            await ctx.Agent.ActAsync("add the todo Buy milk");
+            await Expect.That(ctx.Screen.GetByRole("status")).ToHaveTextAsync("Typed Buy milk");
+        }
+
+        var first = await RunAsync(Body, World(), model, directory);
+        Assert.Null(first.Error);
+
+        var second = await RunAsync(Body, World(), new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")), directory);
+        Assert.Null(second.Error);
+        Assert.Equal(1, second.Replayed);
+        Assert.Equal(0, second.ModelCalls);
+    }
+
+    [Fact]
     public async Task Replay_waits_for_an_end_state_that_shows_up_late()
     {
         var directory = TempCache();
