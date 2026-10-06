@@ -799,7 +799,7 @@ public sealed class Agent
             return ToolOutcome.Ok(await DescribeAsync("navigated to " + Routes.PathOf(url), token).ConfigureAwait(false));
         }
 
-        if (string.Equals(call.Name, "press", StringComparison.Ordinal) && Args.String(call.Arguments, "role") is null && Args.String(call.Arguments, "name") is null && Args.String(call.Arguments, "ref") is null)
+        if (string.Equals(call.Name, "press", StringComparison.Ordinal) && !HasTarget(call.Arguments))
         {
             var key = Args.String(call.Arguments, "key") ?? "Enter";
             try

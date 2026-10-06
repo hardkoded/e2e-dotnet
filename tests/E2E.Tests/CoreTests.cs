@@ -323,6 +323,32 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public async Task A_key_press_with_only_a_test_id_goes_to_that_control()
+    {
+        var world = new DocumentWorld().Map("/form", page =>
+        {
+            var status = page.Status("Not saved");
+            page.Roots.Add(new DocumentElement { Role = "button", Name = "Save", TestId = "save", OnTap = () => status.Name = status.Text = "Saved" });
+        });
+        var model = new ScriptedModel(request =>
+        {
+            var text = string.Join('\n', request.Messages.Select(message => message.Content));
+            return text.Contains("pressed Enter", StringComparison.Ordinal)
+                ? ModelResponses.Done("passed", "Saved.")
+                : ModelResponses.Call("press", new { key = "Enter", testId = "save" });
+        });
+
+        var result = await RunAsync(async ctx =>
+        {
+            await ctx.App.OpenAsync("/form");
+            await ctx.Agent.ActAsync("save the form");
+            await Expect.That(ctx.Screen.GetByRole("status")).ToHaveTextAsync("Saved");
+        }, world, model);
+
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
     public async Task A_repeated_control_is_not_recorded_as_an_end_state_anchor()
     {
         var directory = TempCache();
