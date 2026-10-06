@@ -323,6 +323,42 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public async Task A_repeated_control_is_not_recorded_as_an_end_state_anchor()
+    {
+        var directory = TempCache();
+        static DocumentWorld World() => new DocumentWorld().Map("/todos", page =>
+        {
+            page.Button("Add two", () =>
+            {
+                page.Roots.Add(new DocumentElement { Role = "button", Name = "Delete" });
+                page.Roots.Add(new DocumentElement { Role = "button", Name = "Delete" });
+                page.Roots.Add(new DocumentElement { Role = "status", Name = "Added two", Text = "Added two" });
+            });
+        });
+        var model = new ScriptedModel(request =>
+        {
+            var text = string.Join('\n', request.Messages.Select(message => message.Content));
+            return text.Contains("tapped", StringComparison.Ordinal)
+                ? ModelResponses.Done("passed", "Added.")
+                : ModelResponses.Tap("button", "Add two");
+        });
+
+        async Task Body(TestContext ctx)
+        {
+            await ctx.App.OpenAsync("/todos");
+            await ctx.Agent.ActAsync("add two todos");
+            await Expect.That(ctx.Screen.GetByRole("button", "Delete")).ToHaveCountAsync(2);
+        }
+
+        var first = await RunAsync(Body, World(), model, directory);
+        Assert.Null(first.Error);
+
+        var second = await RunAsync(Body, World(), new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")), directory);
+        Assert.Null(second.Error);
+        Assert.Equal(1, second.Replayed);
+    }
+
+    [Fact]
     public async Task Replay_waits_for_an_end_state_that_shows_up_late()
     {
         var directory = TempCache();

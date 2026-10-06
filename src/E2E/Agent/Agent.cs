@@ -1376,6 +1376,12 @@ public sealed class Agent
                 continue;
             }
 
+            // The replay needs exactly one match, so a repeated control is no anchor.
+            if (Find(after, node.Role, node.Name, node.TestId, null).Count != 1)
+            {
+                continue;
+            }
+
             appeared.Add(new RecordedTarget { Role = node.Role, Name = node.Name, TestId = node.TestId });
             if (appeared.Count == 8)
             {
