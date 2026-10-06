@@ -20,7 +20,8 @@ public sealed class DeletingTodosTests : TodoMvcTest
     {
         await AddTodosAsync("Task 1", "Task 2", "Task 3");
 
-        // Every row has a Delete button, shown on hover, so a locator names the row.
+        // Every row has a Delete button, so a locator names the row. The button shows while the pointer is
+        // over the row, and the click on the row moves the pointer there.
         await Todo("Task 2").ClickAsync();
         await Todo("Task 2").GetByRole("button", "Delete").ClickAsync();
         await Expect.That(Todo("Task 2")).ToBeHiddenAsync();

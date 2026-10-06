@@ -44,25 +44,29 @@ public sealed class AddingTodosTests : TodoMvcTest
             Params = new Dictionary<string, object?> { ["text"] = "   Todo with spaces   " },
         });
 
-        await Expect.That(Todo("Todo with spaces").GetByText("Todo with spaces")).ToBeVisibleAsync();
+        await Expect.Poll(() => Todos.GetByTestId("todo-title").TextContentAsync()).ToBeAsync("Todo with spaces");
         await Expect.That(Screen.GetByText("1 item left")).ToBeVisibleAsync();
     }
 
     [Test]
     public async Task Ignores_an_empty_todo()
     {
+        await AddTodosAsync("Buy milk");
+
         await Agent.ActAsync("submit the new todo field while it is empty");
-        await Expect.That(Todos).ToHaveCountAsync(0);
+        await Expect.That(Todos).ToHaveCountAsync(1);
     }
 
     [Test]
     public async Task Ignores_a_todo_with_only_spaces()
     {
+        await AddTodosAsync("Buy milk");
+
         await Agent.ActAsync("submit a new todo whose text is only spaces: {text}", new ActOptions
         {
             Params = new Dictionary<string, object?> { ["text"] = "   " },
         });
 
-        await Expect.That(Todos).ToHaveCountAsync(0);
+        await Expect.That(Todos).ToHaveCountAsync(1);
     }
 }

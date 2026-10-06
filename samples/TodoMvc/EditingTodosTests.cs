@@ -13,6 +13,7 @@ public sealed class EditingTodosTests : TodoMvcTest
 
         await Agent.ActAsync("rename the todo Buy milk to Buy organic milk");
         await Expect.That(Todo("Buy organic milk")).ToBeVisibleAsync();
+        await Expect.That(Todo("Buy milk")).ToBeHiddenAsync();
         await Expect.That(Todos).ToHaveCountAsync(1);
     }
 
@@ -24,6 +25,7 @@ public sealed class EditingTodosTests : TodoMvcTest
         await Agent.ActAsync(
             "rename the todo Call dentist to Schedule dentist appointment. Save it by clicking the todos heading, not by pressing Enter");
         await Expect.That(Todo("Schedule dentist appointment")).ToBeVisibleAsync();
+        await Expect.That(Todo("Call dentist")).ToBeHiddenAsync();
     }
 
     [Test]
@@ -54,6 +56,6 @@ public sealed class EditingTodosTests : TodoMvcTest
         {
             Params = new Dictionary<string, object?> { ["text"] = "   Edited task   " },
         });
-        await Expect.That(Todo("Edited task").GetByText("Edited task")).ToBeVisibleAsync();
+        await Expect.Poll(() => Todos.GetByTestId("todo-title").TextContentAsync()).ToBeAsync("Edited task");
     }
 }

@@ -1,6 +1,6 @@
 # TodoMVC sample
 
-This sample tests the [TodoMVC demo](https://demo.playwright.dev/todomvc) with the `E2E` and `E2E.NUnit` NuGet packages. It covers the same behavior as Playwright's [`examples/todomvc`](https://github.com/microsoft/playwright/tree/main/examples/todomvc), but the agent performs the actions.
+This sample tests the [TodoMVC demo](https://demo.playwright.dev/todomvc) with the `E2E` and `E2E.NUnit` NuGet packages. It covers the same behavior as Playwright's [`examples/todomvc`](https://github.com/microsoft/playwright/tree/main/examples/todomvc) (Apache-2.0, Microsoft), but the agent performs the actions. The test cases and their data come from that example.
 
 ## Run it
 
@@ -43,7 +43,7 @@ One kind of step uses a locator instead of the agent: acting on one row when the
 | | Playwright | e2e |
 | --- | --- | --- |
 | Tests | 23 | 20 |
-| Lines of test code | 625 | 303 |
+| Lines of test code | 625 | 310 |
 | Selectors in tests | One per control, such as `'❯Mark all as complete'`, `getByTestId('todo-title')`, and `.todo-list li` | The `todo-item` test id, plus the checkbox and Delete button inside a row |
 
 ## What changed from the Playwright suite
@@ -56,6 +56,6 @@ One kind of step uses a locator instead of the agent: acting on one row when the
 
 The first run asks the model to perform each `ActAsync`. A passing run records each verified step in `.e2e/cache`, and the next run replays it with no model call. The cache is not committed, so your first run records it.
 
-On one machine, the first run of all 20 tests took about 4 minutes. The next run replayed every step and took 17 seconds.
+On one machine, the first run of all 20 tests took about 4 minutes. The next run replayed every step and took 17 to 32 seconds.
 
 `AssertAsync` calls the model on every run, so this sample avoids it. The model judges the accessibility tree, not pixels, so it cannot check styling such as strike-through text.
