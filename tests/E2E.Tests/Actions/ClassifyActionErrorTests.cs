@@ -44,9 +44,9 @@ public sealed class ClassifyActionErrorTests
     }
 
     [Theory]
-    [InlineData("strict mode violation: 2 elements", "NODE_STALE", true, Skip = "https://github.com/hardkoded/e2e-dotnet/issues/108: a strict mode violation is ENGINE_FAILURE, not NODE_STALE or ACTION_MAY_HAVE_COMMITTED")]
-    [InlineData("strict mode violation: 2 elements\nCall log:\n  - move and down action done", "ACTION_MAY_HAVE_COMMITTED", false, Skip = "https://github.com/hardkoded/e2e-dotnet/issues/108: a strict mode violation is ENGINE_FAILURE, not NODE_STALE or ACTION_MAY_HAVE_COMMITTED")]
-    [InlineData("strict mode violation: getByText('performing click action') resolved to 2 elements:\n    1) <p>click action done</p>\nCall log:\n  - waiting for getByText('performing click action')", "NODE_STALE", true, Skip = "https://github.com/hardkoded/e2e-dotnet/issues/108: a strict mode violation is ENGINE_FAILURE, not NODE_STALE or ACTION_MAY_HAVE_COMMITTED")]
+    [InlineData("strict mode violation: 2 elements", "NODE_STALE", true)]
+    [InlineData("strict mode violation: 2 elements\nCall log:\n  - move and down action done", "ACTION_MAY_HAVE_COMMITTED", false)]
+    [InlineData("strict mode violation: getByText('performing click action') resolved to 2 elements:\n    1) <p>click action done</p>\nCall log:\n  - waiting for getByText('performing click action')", "NODE_STALE", true)]
     [InlineData("element is detached from the DOM", "NODE_STALE", true)]
     [InlineData("Element is not an <input>, <textarea> or [contenteditable] element", "NOT_ACTIONABLE", false)]
     [InlineData("Target page, context or browser has been closed", "ENGINE_FAILURE", false)]

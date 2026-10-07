@@ -1369,9 +1369,13 @@ internal static partial class WebErrors
         }
 
         var cause = sensitive ? null : rawCause;
+        // A strict mode violation is a located match that turned ambiguous: stale before any input, so the runner
+        // locates again; possibly committed once the call log shows the input went out.
         if (StrictModePattern().IsMatch(text))
         {
-            return new EngineException(EngineErrorCodes.EngineFailure, text, retryable: false, cause);
+            return PostDispatchPattern().IsMatch(text)
+                ? new EngineException(EngineErrorCodes.ActionMayHaveCommitted, kind + " matched more than one element after its input was dispatched: " + text, retryable: false, cause)
+                : new EngineException(EngineErrorCodes.NodeStale, text, retryable: true, cause);
         }
 
         if (DetachedPattern().IsMatch(text) || NavigationRacePattern().IsMatch(text))
@@ -1428,7 +1432,8 @@ internal static partial class WebErrors
     [GeneratedRegex("Timeout .*exceeded", RegexOptions.IgnoreCase)]
     private static partial Regex TimeoutPattern();
 
-    [GeneratedRegex(@"performing \w+ action|\w+ action done|waiting for scheduled navigations to finish", RegexOptions.IgnoreCase)]
+    // Only whole "- " call log lines count, so a locator or element text quoting these words never does.
+    [GeneratedRegex(@"^\s*- (performing \w+ action|[\w ]+ action done|waiting for scheduled navigations to finish)\s*$", RegexOptions.IgnoreCase | RegexOptions.Multiline)]
     private static partial Regex PostDispatchPattern();
 
     // A call log line naming what kept a node from being acted on: an element over it, or a state it never reached.
