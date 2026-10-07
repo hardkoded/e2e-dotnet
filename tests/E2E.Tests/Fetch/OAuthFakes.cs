@@ -75,6 +75,9 @@ internal sealed class FakeApi(Func<FakeApi.Received, (HttpStatusCode Status, str
 {
     public ConcurrentQueue<Received> Requests { get; } = new();
 
+    /// <summary>The answer this API gives a request, without recording it.</summary>
+    public (HttpStatusCode Status, string Body) Respond(Received request) => answer(request);
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var received = new Received(
