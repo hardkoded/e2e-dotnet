@@ -9,28 +9,6 @@ namespace E2E.Tests;
 public sealed class SessionTests
 {
     [Fact]
-    public async Task Complete_records_a_verified_act_for_the_next_session()
-    {
-        var directory = TempCache();
-        var firstCalls = 0;
-        await using (var session = await StartAsync(directory, () => firstCalls++, attempt: 1))
-        {
-            await UpgradeAsync(session);
-            session.Complete();
-            Assert.True(firstCalls > 0);
-        }
-
-        var secondCalls = 0;
-        await using (var session = await StartAsync(directory, () => secondCalls++, attempt: 1))
-        {
-            await UpgradeAsync(session);
-            session.Complete();
-            Assert.Equal(0, secondCalls);
-            Assert.Equal(1, session.Replayed);
-        }
-    }
-
-    [Fact]
     public async Task A_failed_session_does_not_replay()
     {
         var directory = TempCache();
@@ -129,65 +107,6 @@ public sealed class SessionTests
     }
 
     [Fact]
-    public async Task An_unchanged_flow_does_not_rewrite_the_entry()
-    {
-        var directory = TempCache();
-        await RecordAsync(directory);
-        var file = Assert.Single(Entries(directory));
-        var stamp = new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        File.SetLastWriteTimeUtc(file, stamp);
-
-        await RecordAsync(directory);
-        Assert.Equal(stamp, File.GetLastWriteTimeUtc(file));
-
-        // A retry runs live and records the same flow again.
-        await using (var session = await StartAsync(directory, () => { }, attempt: 2))
-        {
-            await UpgradeAsync(session);
-            session.Complete();
-        }
-
-        Assert.Equal(stamp, File.GetLastWriteTimeUtc(file));
-    }
-
-    [Fact]
-    public void Defaults_match_upstream()
-    {
-        var options = new E2ESessionOptions { Engine = new DocumentEngine(new DocumentWorld()), TestTitle = "t" };
-        Assert.Equal(TimeSpan.FromSeconds(120), options.TestTimeout);
-        Assert.Equal(TimeSpan.FromSeconds(30), options.ActionTimeout);
-        Assert.Equal(TimeSpan.FromSeconds(5), options.AssertionTimeout);
-        Assert.Equal(TimeSpan.FromSeconds(15), options.ReplayTimeout);
-        Assert.Equal(25, options.MaxModelCalls);
-    }
-
-    [Fact]
-    public async Task A_teardown_check_after_a_failure_does_not_verify_acts()
-    {
-        var directory = TempCache();
-        var failed = false;
-        await using (var session = await StartAsync(directory, () => { }, attempt: 1, () => failed))
-        {
-            await session.App.OpenAsync("/settings/billing");
-            await session.Agent.ActAsync("upgrade the workspace to the Pro plan");
-            failed = true;
-            await session.Agent.AssertAsync("the invoice preview shows a prorated amount");
-            await Expect.That(session.Screen.GetByRole("status", "Pro")).ToBeVisibleAsync();
-            session.Complete(new TestException("TEST_FAILED", "the body failed before teardown"));
-        }
-
-        Assert.Equal(0, CachedEntries(directory));
-        var calls = 0;
-        await using (var session = await StartAsync(directory, () => calls++, attempt: 1))
-        {
-            await UpgradeAsync(session);
-            session.Complete();
-            Assert.True(calls > 0);
-            Assert.Equal(0, session.Replayed);
-        }
-    }
-
-    [Fact]
     public async Task A_replay_repaired_after_an_end_mismatch_evicts_the_entry()
     {
         var directory = TempCache();
@@ -251,26 +170,26 @@ public sealed class SessionTests
         Assert.Equal(0, CachedEntries(directory));
     }
 
-    private static async Task RecordAsync(string directory)
+    internal static async Task RecordAsync(string directory)
     {
         await using var session = await StartAsync(directory, () => { }, attempt: 1);
         await UpgradeAsync(session);
         session.Complete();
     }
 
-    private static string[] Entries(string directory)
+    internal static string[] Entries(string directory)
     {
         return Directory.Exists(directory) ? Directory.GetFiles(directory, "*.json") : [];
     }
 
-    private static async Task UpgradeAsync(E2ESession session)
+    internal static async Task UpgradeAsync(E2ESession session)
     {
         await session.App.OpenAsync("/settings/billing");
         await session.Agent.ActAsync("upgrade the workspace to the Pro plan");
         await session.Agent.AssertAsync("the invoice preview shows a prorated amount");
     }
 
-    private static Task<E2ESession> StartAsync(string directory, Action onAct, int attempt, Func<bool>? testFailed = null)
+    internal static Task<E2ESession> StartAsync(string directory, Action onAct, int attempt, Func<bool>? testFailed = null)
     {
         return StartAsync(
             directory,
@@ -342,7 +261,7 @@ public sealed class SessionTests
         });
     }
 
-    private static int CachedEntries(string directory) => Directory.Exists(directory) ? Directory.GetFiles(directory, "*", SearchOption.AllDirectories).Length : 0;
+    internal static int CachedEntries(string directory) => Directory.Exists(directory) ? Directory.GetFiles(directory, "*", SearchOption.AllDirectories).Length : 0;
 
     internal static string TempCache() => Path.Combine(Path.GetTempPath(), "e2e-session", Guid.NewGuid().ToString("n"));
 }
