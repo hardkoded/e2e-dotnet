@@ -29,14 +29,16 @@ public sealed class ModelRequestHeadersTests
 
     internal static void AssertIdentified(RecordedRequest request)
     {
-        Assert.Matches(new Regex(@"^e2e-dotnet/\S+ \(\S+; \S+\)$"), request.Headers["User-Agent"]);
-        Assert.Equal(ModelHttp.UserAgent, request.Headers["User-Agent"]);
+        Assert.Matches(new Regex(@"^e2e-dotnet/\S+ \(\S+; \S+\)$"), ModelHttp.UserAgent);
+        Assert.StartsWith(ModelHttp.UserAgent + " ", request.Headers["User-Agent"], StringComparison.Ordinal);
+        Assert.Contains(" runtime/dotnet/", request.Headers["User-Agent"], StringComparison.Ordinal);
         Assert.Equal("https://github.com/hardkoded/e2e-dotnet", request.Headers["HTTP-Referer"]);
         Assert.Equal("e2e-dotnet", request.Headers["X-Title"]);
     }
 
     [Fact]
-    public async Task Identifies_e2e_on_a_judgment_call()
+    // The port has no AI SDK; the .NET runtime token takes the place of its user agent.
+    public async Task Identifies_e2e_on_a_judgment_call_ahead_of_the_AI_SDK_user_agent()
     {
         var handler = new RecordingHandler(Completion("done", """{"status":"passed","summary":"holds"}"""));
 
@@ -52,8 +54,10 @@ public sealed class ModelRequestHeadersTests
             Completion("tap", """{"role":"button","name":"Upgrade to Pro"}"""),
             Completion("done", """{"status":"passed","summary":"upgraded"}"""));
 
-        await RunAsync(handler, ctx => ctx.Agent.ActAsync("upgrade the workspace to the Pro plan"));
+        ActResult? result = null;
+        await RunAsync(handler, async ctx => result = await ctx.Agent.ActAsync("upgrade the workspace to the Pro plan"));
 
+        Assert.Equal("upgraded", result!.Summary);
         Assert.Equal(2, handler.Requests.Count);
         Assert.All(handler.Requests, AssertIdentified);
     }

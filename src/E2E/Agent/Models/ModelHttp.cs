@@ -20,12 +20,12 @@ internal static class ModelHttp
 
     /// <summary>
     /// Sent with every model call, whichever provider serves it, replacing the same headers set on the client.
-    /// <c>HTTP-Referer</c> and <c>X-Title</c> are the app attribution the Vercel AI Gateway and OpenRouter read,
-    /// and others ignore.
+    /// The .NET runtime follows our user agent, as the AI SDK appends its own upstream; <c>HTTP-Referer</c> and
+    /// <c>X-Title</c> are the app attribution the Vercel AI Gateway and OpenRouter read, and others ignore.
     /// </summary>
     public static readonly IReadOnlyDictionary<string, string> RequestHeaders = new Dictionary<string, string>(StringComparer.Ordinal)
     {
-        ["User-Agent"] = UserAgent,
+        ["User-Agent"] = UserAgent + " runtime/dotnet/" + System.Environment.Version,
         ["HTTP-Referer"] = "https://github.com/hardkoded/e2e-dotnet",
         ["X-Title"] = "e2e-dotnet",
     };
