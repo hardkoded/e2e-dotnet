@@ -8,7 +8,7 @@ namespace E2E.Tests.FixtureRuntime;
 
 public sealed class AppSteeringHooksTests
 {
-    [Fact(Skip = "Gap: the port's app.restart and app.clearState leave a blank page; upstream reopens the app at its base URL after the hook.")]
+    [Fact]
     public async Task Restart_and_clearState_run_the_hook_then_reopen_the_app_at_its_base_URL()
     {
         var calls = new List<string>();
