@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 using E2E.Engine;
 using E2E.Internal;
 
-namespace E2E.Tests;
+namespace E2E.Tests.ModelRequestHeaders;
 
 public sealed class ModelRequestHeadersTests
 {
