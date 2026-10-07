@@ -92,16 +92,6 @@ public sealed class ExpectTests
     }
 
     [Fact]
-    public async Task ToHaveText_without_ignore_case_compares_case()
-    {
-        var error = await RunAsync(
-            screen => Expect.That(screen.GetByText("Invoice preview")).ToHaveTextAsync("invoice preview", timeout: TimeSpan.FromMilliseconds(100)));
-
-        var failure = Assert.IsType<TestException>(error);
-        Assert.Contains("observed text \"Invoice preview\"", failure.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Text_matchers_take_a_list()
     {
         var world = new DocumentWorld().Map("/list", page =>
@@ -234,7 +224,7 @@ public sealed class ExpectTests
         Assert.Equal("POLICY_DENIED", Assert.IsType<TestException>(error).Code);
     }
 
-    private static async Task<Exception?> RunAsync(
+    internal static async Task<Exception?> RunAsync(
         Func<Screen, Task> body,
         DocumentWorld? world = null,
         string route = "/settings/billing",
