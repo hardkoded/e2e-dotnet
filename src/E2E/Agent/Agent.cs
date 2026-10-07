@@ -70,7 +70,7 @@ public sealed class Agent
         using var linked = Link(cancellationToken, timeout);
         var token = linked.Token;
         _scope.Remember(options?.Params);
-        var signature = CacheKeys.Create(_scope.EnginePlatform, _scope.EngineVersion, _scope.TestTitle, instruction, options?.Params);
+        var signature = CacheKeys.Create(_scope.EnginePlatform, _scope.TestTitle, instruction, options?.Params);
         var key = CacheKeys.ForCall(signature, _scope.NextCallIndex(signature));
         var pending = new PendingAct { Key = key, ParamCollision = CacheKeys.Collides(options?.Params) };
         if (_scope.CacheEnabled)

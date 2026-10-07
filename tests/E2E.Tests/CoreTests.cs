@@ -803,9 +803,17 @@ public sealed class CoreTests
     }
 
     [Fact]
+    public void The_key_names_the_engine_and_not_its_version()
+    {
+        Assert.NotEqual(
+            CacheKeys.Create("document", "test", "add items", null),
+            CacheKeys.Create("web", "test", "add items", null));
+    }
+
+    [Fact]
     public void Nested_params_key_by_their_content()
     {
-        string Key(object? value) => CacheKeys.Create("document", "1.0.0", "test", "add items", new Dictionary<string, object?> { ["items"] = value });
+        string Key(object? value) => CacheKeys.Create("document", "test", "add items", new Dictionary<string, object?> { ["items"] = value });
 
         Assert.NotEqual(Key(new[] { "apple" }), Key(new[] { "pear" }));
         Assert.Equal(Key(new[] { Values.Unique("a@example.test") }), Key(new[] { Values.Unique("b@example.test") }));
