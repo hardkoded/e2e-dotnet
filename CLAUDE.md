@@ -12,6 +12,9 @@ This repo is a .NET port of [tester-army/e2e](https://github.com/tester-army/e2e
   - Each upstream test file is a directory, named in PascalCase. `protected-app-options.test.ts` becomes `ProtectedAppOptions/`.
   - Each `describe` in that file is one test class file inside the directory. `describe('web({ locale, timezoneId })')` becomes `ProtectedAppOptions/WebLocaleTimezoneIdTests.cs`.
   - Each `it` is one test method, named after the `it` text.
+  - Tests outside any `describe` go in `<Directory>/<Directory>Tests.cs`.
+  - The directory sits in the test project that runs the test, and the namespace follows it: `E2E.Tests.ProtectedAppOptions`.
+  - Port-only tests that have no upstream test stay in the existing flat files.
 
 ## Before you push
 
