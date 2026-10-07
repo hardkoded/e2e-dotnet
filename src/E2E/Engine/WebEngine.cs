@@ -77,6 +77,20 @@ public sealed class WebEngineOptions
     /// <summary>The <c>User-Agent</c> the browser sends and <c>navigator.userAgent</c> reports. Defaults to the browser's own.</summary>
     public string? UserAgent { get; init; }
 
+    /// <summary>
+    /// The locale every attempt's context runs in, a BCP 47 tag such as <c>de-DE</c>:
+    /// what <c>navigator.language</c>, <c>Intl</c> formatting, and the <c>Accept-Language</c>
+    /// header report. Defaults to the browser's own. An <c>accept-language</c> entry in
+    /// <see cref="Headers"/> beside it is <c>INVALID_CONFIG</c>.
+    /// </summary>
+    public string? Locale { get; init; }
+
+    /// <summary>
+    /// The IANA time zone every attempt's context runs in, such as <c>Europe/Berlin</c>:
+    /// what <c>Date</c> and <c>Intl</c> resolve local time against. Defaults to the machine's.
+    /// </summary>
+    public string? TimezoneId { get; init; }
+
     /// <summary>Attach to a remote Chromium over CDP instead of launching a local one.</summary>
     public WebConnectOptions? Connect { get; init; }
 }
@@ -87,7 +101,7 @@ public sealed class WebEngineOptions
 /// same node actions the document engine does. Install browsers once with
 /// <c>playwright.ps1 install chromium</c> from this project's build output.
 /// </summary>
-public sealed class WebEngine : IEngine
+public sealed partial class WebEngine : IEngine
 {
     public const string EngineVersion = "1.1.0";
 
@@ -219,7 +233,49 @@ public sealed class WebEngine : IEngine
         {
             throw new EngineException("INVALID_CONFIG", "Set the user agent with userAgent or a user-agent header, not both.");
         }
+
+        if (options.Locale is { } locale)
+        {
+            ValidateLocale(locale, options.Headers);
+        }
+
+        if (options.TimezoneId is { } timezoneId && !IsTimeZone(timezoneId))
+        {
+            throw new EngineException("INVALID_CONFIG", "timezoneId must be an IANA time zone such as \"Europe/Berlin\", got \"" + timezoneId + "\".");
+        }
     }
+
+    // Refuses a locale that is not a BCP 47 tag, and one an accept-language
+    // header would override on the app's host while navigator.language kept
+    // reporting it.
+    private static void ValidateLocale(string locale, IReadOnlyDictionary<string, string>? headers)
+    {
+        if (LanguageTagPattern().Match(locale) is not { Success: true } tag
+            || string.Equals(tag.Groups["language"].Value, "und", StringComparison.OrdinalIgnoreCase))
+        {
+            // "und" (undetermined) parses, but Chromium refuses it at context creation.
+            throw new EngineException("INVALID_CONFIG", "locale must be a BCP 47 language tag such as \"de-DE\", got \"" + locale + "\".");
+        }
+
+        if (headers is not null && headers.Keys.Any(name => string.Equals(name, "accept-language", StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new EngineException("INVALID_CONFIG", "locale and an accept-language header in headers conflict; set locale only.");
+        }
+    }
+
+    // True when the runtime knows the name as an IANA time zone; an alias
+    // (US/Eastern) is fine, a Windows zone id is not. Best effort: the lookup
+    // ignores case, so Chromium's own "Invalid timezone ID" for a miscased
+    // name (europe/berlin) stays the final word.
+    private static bool IsTimeZone(string timezoneId)
+    {
+        return TimeZoneInfo.TryFindSystemTimeZoneById(timezoneId, out var zone) && zone.HasIanaId;
+    }
+
+    // A Unicode locale identifier, as Intl.Locale parses one: language, then
+    // optional script, region, variants, extensions, and private use.
+    [GeneratedRegex(@"^(?<language>[a-z]{2,3}|[a-z]{5,8})(-[a-z]{4})?(-([a-z]{2}|[0-9]{3}))?(-([a-z0-9]{5,8}|[0-9][a-z0-9]{3}))*(-[0-9a-wyz](-[a-z0-9]{2,8})+)*(-x(-[a-z0-9]{1,8})+)?\z", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex LanguageTagPattern();
 
     // A clean context: the viewport the session holds now (setViewport
     // outlives restart and clearState), or no emulation when there is none.
@@ -228,6 +284,8 @@ public sealed class WebEngine : IEngine
         var context = new BrowserNewContextOptions
         {
             ViewportSize = viewport ?? ViewportSize.NoViewport,
+            Locale = options.Locale,
+            TimezoneId = options.TimezoneId,
         };
         if (options.UserAgent is not null)
         {
