@@ -803,11 +803,52 @@ public sealed class CoreTests
     }
 
     [Fact]
-    public void The_key_names_the_engine_and_not_its_version()
+    public void The_key_is_stable_for_identical_parts()
     {
-        Assert.NotEqual(
-            CacheKeys.Create("document", "test", "add items", null),
-            CacheKeys.Create("web", "test", "add items", null));
+        var key = Key();
+
+        Assert.Matches("^[a-f0-9]{64}$", key);
+        Assert.Equal(key, Key());
+    }
+
+    public static TheoryData<string> KeyParts => new() { "instruction", "params", "call index", "test", "engine" };
+
+    [Theory]
+    [MemberData(nameof(KeyParts))]
+    public void The_key_changes_when_a_part_changes(string part)
+    {
+        var changed = part switch
+        {
+            "instruction" => Key(instruction: "close billing"),
+            "params" => Key(parameters: new Dictionary<string, object?> { ["fast"] = true }),
+            "call index" => Key(callIndex: 1),
+            "test" => Key(test: "other test"),
+            "engine" => Key(engine: "web"),
+            _ => throw new ArgumentOutOfRangeException(nameof(part)),
+        };
+
+        Assert.NotEqual(Key(), changed);
+    }
+
+    // Every committed .e2e/cache entry is filed under this key, so a change here misses all of them after an upgrade.
+    // Change it only together with FileStepCache.SchemaVersion or CacheKeys.ReplayPolicyVersion.
+    [Fact]
+    public void The_key_hashes_a_fixed_input_to_the_same_value_across_releases()
+    {
+        Assert.Equal("d0aa9621333b82d63a522dfad2bb6b1f3d8e038976f55b4af08beed7430cba18", Key());
+        Assert.Equal(
+            "da8823f4a3e160487cb18020a36c2cf4a5a8a1b47574f75071277212ccef06e7",
+            Key(instruction: "upgrade to {{plan}}", parameters: new Dictionary<string, object?> { ["plan"] = "Pro", ["seats"] = 3 }, callIndex: 2));
+    }
+
+    private static string Key(
+        string engine = "document",
+        string test = "billing upgrade",
+        string instruction = "open billing",
+        IReadOnlyDictionary<string, object?>? parameters = null,
+        int callIndex = 0)
+    {
+        return CacheKeys.ForCall(CacheKeys.Create(engine, test, instruction, parameters), callIndex);
     }
 
     [Fact]
