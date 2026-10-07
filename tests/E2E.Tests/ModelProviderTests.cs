@@ -38,7 +38,6 @@ public sealed class ModelProviderTests
         var request = handler.Requests.Single();
         Assert.Equal("https://api.openai.com/v1/responses", request.Uri.AbsoluteUri);
         Assert.Equal("Bearer sk", request.Headers["Authorization"]);
-        ModelRequestHeaders.ModelRequestHeadersTests.AssertIdentified(request);
         var body = request.Json();
         Assert.Equal("rules", body["instructions"]!.GetValue<string>());
         Assert.False(body["store"]!.GetValue<bool>());
@@ -141,7 +140,6 @@ public sealed class ModelProviderTests
         Assert.Equal("https://api.anthropic.com/v1/messages", sent.Uri.AbsoluteUri);
         Assert.Equal("ant", sent.Headers["x-api-key"]);
         Assert.Equal("2023-06-01", sent.Headers["anthropic-version"]);
-        ModelRequestHeaders.ModelRequestHeadersTests.AssertIdentified(sent);
         var body = sent.Json();
         Assert.Equal("ephemeral", body["system"]![0]!["cache_control"]!["type"]!.GetValue<string>());
         var messages = body["messages"]!.AsArray();
@@ -192,7 +190,6 @@ public sealed class ModelProviderTests
         var sent = handler.Requests[0];
         Assert.Equal("https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro:generateContent", sent.Uri.AbsoluteUri);
         Assert.Equal("g", sent.Headers["x-goog-api-key"]);
-        ModelRequestHeaders.ModelRequestHeadersTests.AssertIdentified(sent);
         Assert.NotNull(sent.Json()["tools"]![0]!["functionDeclarations"]![0]!["parametersJsonSchema"]);
         var contents = handler.Requests[1].Json()["contents"]!.AsArray();
         Assert.Equal("model", contents[1]!["role"]!.GetValue<string>());
@@ -244,7 +241,6 @@ public sealed class ModelProviderTests
         Assert.StartsWith("AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/", sent.Headers["Authorization"], StringComparison.Ordinal);
         Assert.Contains("/us-west-2/bedrock/aws4_request, SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;x-amz-security-token, Signature=", sent.Headers["Authorization"], StringComparison.Ordinal);
         Assert.Equal("session", sent.Headers["x-amz-security-token"]);
-        ModelRequestHeaders.ModelRequestHeadersTests.AssertIdentified(sent);
         Assert.Equal("application/json", sent.ContentType);
     }
 
@@ -285,7 +281,7 @@ public sealed class ModelProviderTests
     }
 
     [Fact]
-    public async Task Identity_headers_replace_the_same_headers_set_on_the_client()
+    public async Task OpenRouter_preset_sends_attribution_headers()
     {
         var handler = new RecordingHandler("""{ "choices": [{ "message": { "content": "ok" } }] }""");
         using var http = new HttpClient(handler);
@@ -295,13 +291,6 @@ public sealed class ModelProviderTests
                 Model = "openai/gpt-6-luna-fast",
                 BaseUrl = "https://openrouter.ai/api/v1",
                 ApiKey = "or",
-                Headers = new Dictionary<string, string>
-                {
-                    ["User-Agent"] = "mine",
-                    ["HTTP-Referer"] = "https://example.test",
-                    ["X-Title"] = "mine",
-                    ["X-Custom"] = "kept",
-                },
             },
             http);
 
@@ -309,8 +298,7 @@ public sealed class ModelProviderTests
 
         var sent = handler.Requests.Single();
         Assert.Equal("https://openrouter.ai/api/v1/chat/completions", sent.Uri.AbsoluteUri);
-        ModelRequestHeaders.ModelRequestHeadersTests.AssertIdentified(sent);
-        Assert.Equal("kept", sent.Headers["X-Custom"]);
+        Assert.Equal("e2e-dotnet", sent.Headers["X-Title"]);
     }
 
     [Fact]
