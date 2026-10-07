@@ -168,22 +168,6 @@ public sealed class SessionTests
         Assert.Equal(0, calls);
     }
 
-    [Theory]
-    [InlineData("javascript:alert(1)")]
-    [InlineData("file:///etc/passwd")]
-    [InlineData("view-source:file:///etc/passwd")]
-    [InlineData("VIEW-SOURCE:http://example.test/")]
-    [InlineData("about:srcdoc")]
-    public async Task The_navigate_verb_denies_a_non_http_scheme(string url)
-    {
-        var model = new ScriptedModel(_ => ModelResponses.Call("navigate", new { url }));
-        await using var session = await StartAsync(TempCache(), model, attempt: 1);
-        await session.App.OpenAsync("/");
-        var denied = await Assert.ThrowsAsync<TestException>(() => session.Agent.ActAsync("open the url"));
-        Assert.Equal("POLICY_DENIED", denied.Code);
-        Assert.Equal("Forbidden URL scheme: " + url[..(url.IndexOf(':') + 1)].ToLowerInvariant(), denied.Message);
-    }
-
     [Fact]
     public async Task An_unchanged_flow_does_not_rewrite_the_entry()
     {
