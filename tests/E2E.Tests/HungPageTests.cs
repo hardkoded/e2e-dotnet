@@ -82,6 +82,28 @@ public sealed class HungPageTests
     }
 
     [Fact]
+    public async Task Chromium_times_out_keyboard_and_mouse_input_on_a_page_whose_renderer_is_stuck_in_a_script()
+    {
+        using var site = await TinySite.StartAsync(BusyPage);
+        await using var session = await StartAsync();
+        await FreezeAsync(session, site);
+        var browser = (IBrowserSession)session;
+
+        var press = await BoundedAsync(() => session.PressAsync("Enter", CancellationToken.None));
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", press.Code);
+        var type = await BoundedAsync(() => browser.KeyboardTypeAsync("hello", CancellationToken.None));
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", type.Code);
+        var move = await BoundedAsync(() => browser.MouseMoveAsync(10, 10, CancellationToken.None));
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", move.Code);
+        var down = await BoundedAsync(() => browser.MouseDownAsync(CancellationToken.None));
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", down.Code);
+        var up = await BoundedAsync(() => browser.MouseUpAsync(CancellationToken.None));
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", up.Code);
+        var wheel = await BoundedAsync(() => browser.MouseWheelAsync(0, 100, CancellationToken.None));
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", wheel.Code);
+    }
+
+    [Fact]
     public async Task Chromium_keeps_the_reason_playwright_gives_for_a_tap_that_cannot_land_ahead_of_the_deadline()
     {
         using var site = await TinySite.StartAsync(CoveredPage);
