@@ -68,7 +68,7 @@ public sealed class ClassifyActionErrorTests
         Assert.Contains("tap did not become actionable", error.Message, StringComparison.Ordinal);
     }
 
-    [Fact(Skip = "https://github.com/hardkoded/e2e-dotnet/issues/109: the not-actionable summary keeps the last log line, not the last blocker")]
+    [Fact]
     public void Cuts_a_not_actionable_timeout_to_its_headline_and_the_last_blocker_the_log_names()
     {
         string[] covered =
@@ -94,7 +94,7 @@ public sealed class ClassifyActionErrorTests
             WebErrors.ClassifyAction(compressed, Tap).Message);
     }
 
-    [Fact(Skip = "https://github.com/hardkoded/e2e-dotnet/issues/109: the not-actionable summary keeps the last log line, not the last blocker")]
+    [Fact]
     public void Keeps_a_not_actionable_timeout_whole_when_its_log_names_no_blocker()
     {
         foreach (var log in new[] { new[] { "waiting for getByRole('button')" }, new[] { "waiting for getByText('element is not visible')" } })
