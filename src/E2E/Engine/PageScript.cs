@@ -236,7 +236,9 @@ internal static class PageScript
                 ref: stamp(el),
                 role,
                 name: isFrame ? cut(el.getAttribute("title") || "", 256) : nameOf(el, role),
-                text: role && leaves.has(role) ? null : cut(el.innerText || "", 512),
+                // A leaf keeps its own text too: a labelled status or button
+                // reads its content, not its label, as upstream's node read does.
+                text: cut(el.innerText || "", 512),
                 value: secure || !("value" in el) || el.tagName === "OPTION" ? null : String(el.value ?? ""),
                 testId,
                 placeholder: el.getAttribute("placeholder"),

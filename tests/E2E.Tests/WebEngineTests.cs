@@ -173,6 +173,50 @@ public sealed class WebEngineTests
         }
     }
 
+    [Fact]
+    public async Task Chromium_reads_the_text_of_a_labelled_status_not_its_label()
+    {
+        // The outputs follow upstream's gestures fixture, which its agent verb tests read with toHaveText.
+        const string page = """
+            <!DOCTYPE html>
+            <html><body>
+            <output id="state" role="status" aria-label="Gesture state">idle</output>
+            <output aria-label="Ledger state">golden out of view</output>
+            <output aria-label="Remaining">1 remaining</output>
+            <button type="button" aria-label="Redeem" onclick="document.getElementById('state').textContent = 'redeemed'">Go</button>
+            </body></html>
+            """;
+        using var site = await TinySite.StartAsync(page);
+        var session = await StartAsync(site, UpgradeModel(() => { }), cache: null);
+        await RunAsync(session, async () =>
+        {
+            await session.App.OpenAsync("/");
+            var gesture = session.Screen.GetByRole("status", "Gesture state");
+            await Expect.That(gesture).ToHaveTextAsync("idle");
+            await Expect.That(session.Screen.GetByLabel("Ledger state")).ToHaveTextAsync("golden out of view");
+            var remaining = session.Screen.GetByRole("status", "Remaining");
+            await Expect.That(remaining).ToHaveTextAsync("1 remaining");
+            await Expect.That(remaining).ToHaveAccessibleNameAsync("Remaining");
+            Assert.Equal("1 remaining", await remaining.TextContentAsync());
+            Assert.Equal(["idle", "golden out of view", "1 remaining"], await session.Screen.GetByRole("status").AllTextContentsAsync());
+
+            var redeem = session.Screen.GetByRole("button", "Redeem");
+            await Expect.That(redeem).ToHaveTextAsync("Go");
+            await redeem.TapAsync();
+            await Expect.That(gesture).ToHaveTextAsync("redeemed");
+        });
+
+        // The snapshot the agent reads still names each node by its label.
+        var engine = await new WebEngine(headless: true).StartAsync(new EngineStartOptions { BaseUrl = site.Url }, CancellationToken.None);
+        await using (engine)
+        {
+            await engine.OpenAsync(site.Url, CancellationToken.None);
+            var snapshot = SnapshotText.Render(await engine.ObserveAsync(CancellationToken.None), []);
+            Assert.Contains("status \"Remaining\"", snapshot, StringComparison.Ordinal);
+            Assert.Contains("button \"Redeem\"", snapshot, StringComparison.Ordinal);
+        }
+    }
+
     private static IEnumerable<SemanticNode> Flatten(IEnumerable<SemanticNode> nodes)
     {
         foreach (var node in nodes)

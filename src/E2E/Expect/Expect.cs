@@ -505,8 +505,8 @@ public sealed class LocatorExpect
         public Func<string, string> DescribeExpected { get; }
 
         /// <summary>
-        /// The field as the matcher reads it, the empty string when absent. Text falls back to the name,
-        /// since this port reports a control's label as its name and leaves its text empty.
+        /// The field as the matcher reads it, the empty string when absent. Text falls back to the name
+        /// only for a node whose engine reports no text, as the document engine's controls do.
         /// </summary>
         public string Read(SemanticNode node)
         {
