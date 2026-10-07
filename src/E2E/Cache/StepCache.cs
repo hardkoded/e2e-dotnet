@@ -14,8 +14,8 @@ namespace E2E;
 
 /// <summary>
 /// A recording of one verified <c>act</c>. The key is the cache schema, the replay
-/// policy version, the engine, the test, the instruction, the params, and which repeat of that same instruction and params in the attempt it
-/// is. The model id is not part of the key.
+/// policy version, the engine, the test, the instruction, the params, and which repeat
+/// of that same instruction and params in the attempt it is. The model id is not part of the key.
 /// </summary>
 public sealed class CacheEntry
 {

@@ -1758,8 +1758,6 @@ internal sealed class AttemptScope
 
     public required string EnginePlatform { get; init; }
 
-    public required string EngineVersion { get; init; }
-
     /// <summary>What the engine declared. Scroll and back tools are offered only when it can honor them.</summary>
     public EngineCapabilities EngineCapabilities { get; init; }
 

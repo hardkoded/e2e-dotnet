@@ -831,7 +831,7 @@ public sealed class CoreTests
     }
 
     // Every committed .e2e/cache entry is filed under this key, so a change here misses all of them after an upgrade.
-    // Change it only together with FileStepCache.SchemaVersion or CacheKeys.ReplayPolicyVersion.
+    // Change it only with a COMPATIBILITY.md note saying so.
     [Fact]
     public void The_key_hashes_a_fixed_input_to_the_same_value_across_releases()
     {
