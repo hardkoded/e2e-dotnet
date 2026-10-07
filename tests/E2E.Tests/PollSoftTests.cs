@@ -8,29 +8,9 @@ namespace E2E.Tests;
 
 public sealed class PollSoftTests
 {
-    private static readonly PollOptions Fast = new() { Timeout = TimeSpan.FromSeconds(5), Interval = TimeSpan.FromMilliseconds(10) };
+    internal static readonly PollOptions Fast = new() { Timeout = TimeSpan.FromSeconds(5), Interval = TimeSpan.FromMilliseconds(10) };
 
-    private static readonly PollOptions Short = new() { Timeout = TimeSpan.FromMilliseconds(100), Interval = TimeSpan.FromMilliseconds(10) };
-
-    [Fact]
-    public async Task Poll_rereads_until_the_value_matches()
-    {
-        var reads = 0;
-        await Expect.Poll(() => ++reads, new PollOptions { Interval = TimeSpan.FromMilliseconds(5) }).ToBeAsync(3);
-        Assert.Equal(3, reads);
-    }
-
-    [Fact]
-    public async Task Poll_awaits_an_async_read()
-    {
-        var reads = 0;
-        await Expect.Poll(async () =>
-        {
-            await Task.Yield();
-            return ++reads;
-        }, Fast).ToSatisfyAsync(value => value > 2, "above 2");
-        Assert.Equal(3, reads);
-    }
+    internal static readonly PollOptions Short = new() { Timeout = TimeSpan.FromMilliseconds(100), Interval = TimeSpan.FromMilliseconds(10) };
 
     [Fact]
     public async Task Poll_retries_a_read_that_throws()
@@ -56,36 +36,6 @@ public sealed class PollSoftTests
         Func<int> read = () => throw new InvalidOperationException("offline");
         var error = await Assert.ThrowsAsync<TestException>(() => Expect.Poll(read, Short).ToBeAsync(1));
         Assert.EndsWith("last: offline", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Poll_not_waits_for_the_value_to_change()
-    {
-        var reads = 0;
-        await Expect.Poll(() => ++reads > 2 ? "done" : "pending", Fast).Not.ToBeAsync("pending");
-        Assert.Equal(3, reads);
-
-        var error = await Assert.ThrowsAsync<TestException>(() => Expect.Poll(() => "pending", Short).Not.ToBeAsync("pending"));
-        Assert.StartsWith("expect.poll(...).not.toBe(...) timed out", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Poll_stops_a_read_that_outlives_the_deadline()
-    {
-        var error = await Assert.ThrowsAsync<TestException>(() =>
-            Expect.Poll(async token =>
-            {
-                await Task.Delay(TimeSpan.FromSeconds(30), CancellationToken.None);
-                return 1;
-            }, new PollOptions { Timeout = TimeSpan.FromMilliseconds(100) }).ToBeAsync(1));
-        Assert.EndsWith("last: no read completed", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Poll_refuses_a_malformed_option()
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => Expect.Poll(() => 1, new PollOptions { Interval = TimeSpan.Zero }));
-        Assert.Throws<ArgumentOutOfRangeException>(() => Expect.Poll(() => 1, new PollOptions { Timeout = TimeSpan.FromSeconds(-1) }));
     }
 
     [Fact]
@@ -124,15 +74,6 @@ public sealed class PollSoftTests
     }
 
     [Fact]
-    public async Task Soft_throws_after_collection_closes()
-    {
-        await using var session = await StartAsync();
-        await session.App.OpenAsync("/settings/billing");
-        Assert.Null(session.CloseSoftFailures());
-        await Assert.ThrowsAsync<TestException>(() => Expect.Soft(session.Screen.GetByRole("status", "Pro")).ToBeVisibleAsync());
-    }
-
-    [Fact]
     public async Task Soft_still_throws_on_strict_mode()
     {
         var world = new DocumentWorld().Map("/twins", page =>
@@ -160,7 +101,7 @@ public sealed class PollSoftTests
         Assert.Null(session.CloseSoftFailures());
     }
 
-    private static Task<E2ESession> StartAsync(DocumentWorld? world = null, Action<TestException>? onSoftFailure = null)
+    internal static Task<E2ESession> StartAsync(DocumentWorld? world = null, Action<TestException>? onSoftFailure = null)
     {
         return E2ESession.StartAsync(new E2ESessionOptions
         {
