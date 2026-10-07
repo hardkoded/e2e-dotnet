@@ -1091,7 +1091,7 @@ internal static partial class WebErrors
 
         var cause = sensitive ? null : rawCause;
         // A strict mode violation is a located match that turned ambiguous: stale before any input, so the runner
-        // locates again; possibly committed once input went out, as the second side of a drag resolves after the press.
+        // locates again; possibly committed once the call log shows the input went out.
         if (StrictModePattern().IsMatch(text))
         {
             return PostDispatchPattern().IsMatch(text)
