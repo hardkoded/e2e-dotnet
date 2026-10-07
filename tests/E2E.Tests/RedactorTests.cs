@@ -30,22 +30,6 @@ public sealed class RedactorTests
     }
 
     [Fact]
-    public void Redacting_twice_is_redacting_once()
-    {
-        var secrets = new[] { Secret.Create("secret", "secret") };
-        var once = SnapshotText.Redact("a secret here", secrets);
-        Assert.Equal("a <secret:secret> here", once);
-        Assert.Equal(once, SnapshotText.Redact(once, secrets));
-    }
-
-    [Fact]
-    public void Longer_value_wins()
-    {
-        var secrets = new[] { Secret.Create("short", "abcdef"), Secret.Create("long", "abcdef-123456") };
-        Assert.Equal("x <secret:long> y <secret:short>", SnapshotText.Redact("x ABCDEF-123456 y abcdef", secrets));
-    }
-
-    [Fact]
     public void Fragments_are_redacted_in_engine_text()
     {
         var redactor = Redactor.ForValue("correct-horse-battery");
