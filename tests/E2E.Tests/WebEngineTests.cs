@@ -184,6 +184,8 @@ public sealed class WebEngineTests
             <output aria-label="Ledger state">golden out of view</output>
             <output aria-label="Remaining">1 remaining</output>
             <button type="button" aria-label="Redeem" onclick="document.getElementById('state').textContent = 'redeemed'">Go</button>
+            <button type="button" aria-label="Close"><svg width="8" height="8"></svg></button>
+            <div role="textbox" contenteditable autocomplete="current-password" aria-label="PIN">4321</div>
             </body></html>
             """;
         using var site = await TinySite.StartAsync(page);
@@ -204,6 +206,11 @@ public sealed class WebEngineTests
             await Expect.That(redeem).ToHaveTextAsync("Go");
             await redeem.TapAsync();
             await Expect.That(gesture).ToHaveTextAsync("redeemed");
+
+            // As upstream reads it, a leaf with no text of its own reads empty, not its label,
+            // and a secure field withholds its text.
+            Assert.Equal("", await session.Screen.GetByRole("button", "Close").TextContentAsync());
+            Assert.Equal("", await session.Screen.GetByRole("textbox", "PIN").TextContentAsync());
         });
 
         // The snapshot the agent reads still names each node by its label.

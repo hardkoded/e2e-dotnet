@@ -505,8 +505,9 @@ public sealed class LocatorExpect
         public Func<string, string> DescribeExpected { get; }
 
         /// <summary>
-        /// The field as the matcher reads it, the empty string when absent. Text falls back to the name
-        /// only for a node whose engine reports no text, as the document engine's controls do.
+        /// The field as the matcher reads it, the empty string when absent. The web engine reports text for
+        /// every node, empty for an icon button, so text falls back to the name only for a node with no
+        /// text at all, as the document engine's controls have.
         /// </summary>
         public string Read(SemanticNode node)
         {
