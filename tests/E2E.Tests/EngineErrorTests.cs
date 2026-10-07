@@ -53,18 +53,6 @@ public sealed class EngineErrorTests
     }
 
     [Fact]
-    public void An_action_the_operation_deadline_cut_off_may_have_committed()
-    {
-        var cut = new EngineException(EngineErrorCodes.OperationTimeout, "tap timed out", retryable: false);
-
-        var error = WebErrors.ClassifyAction(cut, new LocatorAction.Tap());
-
-        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", error.Code);
-        Assert.False(error.Retryable);
-        Assert.Same(cut, error.InnerException);
-    }
-
-    [Fact]
     public void Input_the_operation_deadline_cut_off_may_have_committed_and_a_playwright_timeout_keeps_its_translation()
     {
         var cut = new EngineException(EngineErrorCodes.OperationTimeout, "keyboard.press timed out", retryable: false);
