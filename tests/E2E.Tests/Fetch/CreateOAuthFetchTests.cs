@@ -8,7 +8,10 @@ using E2E.OAuth;
 
 namespace E2E.Tests.Fetch;
 
-/// <summary>Upstream's <c>createOAuthFetch</c> is the port's <see cref="OAuthHandler"/>.</summary>
+/// <summary>
+/// Upstream's <c>createOAuthFetch</c> is the port's <see cref="OAuthHandler"/>. "lets the provider send the request its
+/// own way" is not ported: a port provider prepares a request but cannot send it itself.
+/// </summary>
 public sealed class CreateOAuthFetchTests
 {
     private const string Url = "https://api.test/";

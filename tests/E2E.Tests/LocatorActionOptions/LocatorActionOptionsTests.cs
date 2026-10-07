@@ -6,6 +6,12 @@ using E2E.Engine;
 
 namespace E2E.Tests.LocatorActionOptions;
 
+/// <summary>
+/// "%s rejects an unknown option before any lookup, action, or step" is not ported: the port's options are a typed
+/// class. The nested "modifiers" describe, "longPress sends a duration from 100 through 10000 and none when unset, so
+/// the engine default holds", and "longPress refuses a duration of %s before any action" are not ported: the port has
+/// no tap modifiers and no long press.
+/// </summary>
 public sealed class LocatorActionOptionsTests
 {
     private static readonly SemanticNode Box = new() { Ref = "agree", Role = "checkbox", Name = "Agree" };
