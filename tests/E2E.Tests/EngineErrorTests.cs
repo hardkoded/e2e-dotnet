@@ -53,6 +53,18 @@ public sealed class EngineErrorTests
     }
 
     [Fact]
+    public void An_action_the_operation_deadline_cut_off_may_have_committed()
+    {
+        var cut = new EngineException(EngineErrorCodes.OperationTimeout, "tap timed out", retryable: false);
+
+        var error = WebErrors.ClassifyAction(cut, new LocatorAction.Tap());
+
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", error.Code);
+        Assert.False(error.Retryable);
+        Assert.Same(cut, error.InnerException);
+    }
+
+    [Fact]
     public void A_detached_element_is_a_retryable_stale_node()
     {
         var error = WebErrors.ClassifyAction(new PlaywrightException("Element is not attached to the DOM"), new LocatorAction.Check());

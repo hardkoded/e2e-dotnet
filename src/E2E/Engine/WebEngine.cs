@@ -492,7 +492,7 @@ public sealed partial class WebEngine : IEngine
             IJSHandle handle;
             try
             {
-                handle = await frame.EvaluateHandleAsync(PageScript.Find, node.Ref).ConfigureAwait(false);
+                handle = await WithinActionTimeoutAsync(frame.EvaluateHandleAsync(PageScript.Find, node.Ref), "locate " + node.Ref, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
@@ -527,7 +527,7 @@ public sealed partial class WebEngine : IEngine
                         await element.PressAsync(press.Key, new ElementHandlePressOptions { Timeout = timeout }).ConfigureAwait(false);
                         break;
                     case LocatorAction.PressSequentially typed:
-                        await element.FocusAsync().ConfigureAwait(false);
+                        await WithinActionTimeoutAsync(element.FocusAsync(), "focus", cancellationToken).ConfigureAwait(false);
                         await Page.Keyboard.TypeAsync(typed.Text, new KeyboardTypeOptions
                         {
                             Delay = typed.Delay is TimeSpan delay ? (float)delay.TotalMilliseconds : null,
@@ -546,19 +546,19 @@ public sealed partial class WebEngine : IEngine
                         await element.FillAsync("", new ElementHandleFillOptions { Timeout = timeout }).ConfigureAwait(false);
                         break;
                     case LocatorAction.Focus:
-                        await element.FocusAsync().ConfigureAwait(false);
+                        await WithinActionTimeoutAsync(element.FocusAsync(), "focus", cancellationToken).ConfigureAwait(false);
                         break;
                     case LocatorAction.ScrollIntoView:
                         await element.ScrollIntoViewIfNeededAsync(new ElementHandleScrollIntoViewIfNeededOptions { Timeout = timeout }).ConfigureAwait(false);
                         break;
                     case LocatorAction.Swipe swipe:
-                        await element.EvaluateAsync(PageScript.ScrollElement, Direction(swipe.Direction)).ConfigureAwait(false);
+                        await WithinActionTimeoutAsync(element.EvaluateAsync(PageScript.ScrollElement, Direction(swipe.Direction)), "swipe", cancellationToken).ConfigureAwait(false);
                         break;
                     default:
                         throw new EngineException(EngineErrorCodes.UnsupportedCapability, "Web engine cannot perform " + action.GetType().Name + ".");
                 }
             }
-            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex) || ex is EngineException { Code: EngineErrorCodes.OperationTimeout })
             {
                 throw WebErrors.ClassifyAction(ex, action);
             }
@@ -654,7 +654,7 @@ public sealed partial class WebEngine : IEngine
         public Task<string> GetTitleAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Page.TitleAsync();
+            return WithinActionTimeoutAsync(Page.TitleAsync(), "title", cancellationToken);
         }
 
         public async Task<System.Text.Json.JsonElement?> EvaluateAsync(string expression, object? arg, bool hasArg, CancellationToken cancellationToken)
@@ -662,9 +662,10 @@ public sealed partial class WebEngine : IEngine
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                return hasArg
-                    ? await Page.EvaluateAsync<System.Text.Json.JsonElement?>(expression, arg).ConfigureAwait(false)
-                    : await Page.EvaluateAsync<System.Text.Json.JsonElement?>(expression).ConfigureAwait(false);
+                var call = hasArg
+                    ? Page.EvaluateAsync<System.Text.Json.JsonElement?>(expression, arg)
+                    : Page.EvaluateAsync<System.Text.Json.JsonElement?>(expression);
+                return await WithinActionTimeoutAsync(call, "evaluate", cancellationToken).ConfigureAwait(false);
             }
             catch (PlaywrightException ex)
             {
@@ -824,7 +825,7 @@ public sealed partial class WebEngine : IEngine
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                await Page.EvaluateAsync(PageScript.ScrollViewport, Direction(direction)).ConfigureAwait(false);
+                await WithinActionTimeoutAsync(Page.EvaluateAsync(PageScript.ScrollViewport, Direction(direction)), "scroll", cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
@@ -865,7 +866,7 @@ public sealed partial class WebEngine : IEngine
             string json;
             try
             {
-                json = await frame.EvaluateAsync<string>(PageScript.Collect, new { seed = _nextRef, max = walk.Remaining, testIdAttribute = _testIdAttribute }).ConfigureAwait(false);
+                json = await WithinActionTimeoutAsync(frame.EvaluateAsync<string>(PageScript.Collect, new { seed = _nextRef, max = walk.Remaining, testIdAttribute = _testIdAttribute }), "observe", cancellationToken).ConfigureAwait(false);
             }
             catch (PlaywrightException) when (frame != _page?.MainFrame)
             {
@@ -899,6 +900,31 @@ public sealed partial class WebEngine : IEngine
             }
 
             return roots;
+        }
+
+        /// <summary>
+        /// Bounds a page-script call by the action timeout, which Playwright does
+        /// not apply to an evaluate: a page stuck in a script never answers one,
+        /// so the call is abandoned as <c>OPERATION_TIMEOUT</c> instead of holding
+        /// the test until its own timeout.
+        /// </summary>
+        private async Task WithinActionTimeoutAsync(Task call, string label, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await call.WaitAsync(_actionTimeout, cancellationToken).ConfigureAwait(false);
+            }
+            catch (System.TimeoutException ex) when (ex != call.Exception?.InnerException)
+            {
+                // The wait ran out, not Playwright's own timeout, which keeps its translation.
+                throw new EngineException(EngineErrorCodes.OperationTimeout, label + " timed out", retryable: false);
+            }
+        }
+
+        private async Task<T> WithinActionTimeoutAsync<T>(Task<T> call, string label, CancellationToken cancellationToken)
+        {
+            await WithinActionTimeoutAsync((Task)call, label, cancellationToken).ConfigureAwait(false);
+            return await call.ConfigureAwait(false);
         }
 
         private static async Task<string?> OwnerOfAsync(IFrame frame)
@@ -1315,6 +1341,13 @@ internal static partial class WebErrors
     /// <summary>Classifies a failed locator action. A timeout after the input was dispatched may have committed.</summary>
     public static EngineException ClassifyAction(Exception rawCause, LocatorAction action)
     {
+        var kind = action.GetType().Name.ToLowerInvariant();
+        if (rawCause is EngineException { Code: EngineErrorCodes.OperationTimeout } cut)
+        {
+            // The operation deadline cut the action off: Playwright never answered, so the input may have reached the page.
+            return new EngineException(EngineErrorCodes.ActionMayHaveCommitted, kind + " timed out before the page answered; its input may have been dispatched", retryable: false, cut);
+        }
+
         var sensitive = action is LocatorAction.Fill { Sensitive: true };
         var text = Message(rawCause);
         if (action is LocatorAction.Fill fill && sensitive && fill.Value.Length > 0)
@@ -1324,7 +1357,6 @@ internal static partial class WebErrors
         }
 
         var cause = sensitive ? null : rawCause;
-        var kind = action.GetType().Name.ToLowerInvariant();
         if (StrictModePattern().IsMatch(text))
         {
             return new EngineException(EngineErrorCodes.EngineFailure, text, retryable: false, cause);
