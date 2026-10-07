@@ -110,8 +110,8 @@ public sealed partial class WebEngine : IEngine
     private const string SkipBrowserGcVariable = "PLAYWRIGHT_SKIP_BROWSER_GC";
 
     // Playwright's install is a no-op when the build is already there; one run per mode serves every session in the process.
-    private static readonly Lazy<Task<int>> HeadlessChromiumInstall = new(() => Task.Run(() => RunChromiumInstall(headed: false)));
-    private static readonly Lazy<Task<int>> HeadedChromiumInstall = new(() => Task.Run(() => RunChromiumInstall(headed: true)));
+    private static readonly Lazy<Task<int>> HeadlessChromiumInstall = new(() => Task.Run(() => RunChromiumInstall(headed: false, Microsoft.Playwright.Program.Main)));
+    private static readonly Lazy<Task<int>> HeadedChromiumInstall = new(() => Task.Run(() => RunChromiumInstall(headed: true, Microsoft.Playwright.Program.Main)));
 
     private readonly WebEngineOptions _options;
     private readonly bool _headless;
@@ -203,17 +203,15 @@ public sealed partial class WebEngine : IEngine
         return headed ? ["chromium"] : ["--only-shell", "chromium"];
     }
 
-    /// <summary>The <c>PLAYWRIGHT_SKIP_BROWSER_GC</c> an install runs with: the user's value, else <c>1</c>, so it keeps other tools' browsers.</summary>
-    internal static string InstallSkipBrowserGc(string? value)
-    {
-        return value ?? "1";
-    }
-
-    private static int RunChromiumInstall(bool headed)
+    /// <summary>
+    /// Runs <paramref name="install"/> with the Chromium install arguments and <c>PLAYWRIGHT_SKIP_BROWSER_GC=1</c>
+    /// unless the user set it, so the install keeps other tools' browsers.
+    /// </summary>
+    internal static int RunChromiumInstall(bool headed, Func<string[], int> install)
     {
         // Program.Main starts the driver with this process's environment, so the value is set on the process.
-        Environment.SetEnvironmentVariable(SkipBrowserGcVariable, InstallSkipBrowserGc(Environment.GetEnvironmentVariable(SkipBrowserGcVariable)));
-        return Microsoft.Playwright.Program.Main(["install", .. InstallArgs(headed)]);
+        Environment.SetEnvironmentVariable(SkipBrowserGcVariable, Environment.GetEnvironmentVariable(SkipBrowserGcVariable) ?? "1");
+        return install(["install", .. InstallArgs(headed)]);
     }
 
     private static async Task EnsureChromiumAsync(bool headed, CancellationToken cancellationToken)
