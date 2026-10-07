@@ -281,7 +281,7 @@ public sealed class ModelProviderTests
     }
 
     [Fact]
-    public async Task OpenRouter_preset_sends_attribution_headers()
+    public async Task Identity_headers_replace_the_same_headers_set_on_the_client()
     {
         var handler = new RecordingHandler("""{ "choices": [{ "message": { "content": "ok" } }] }""");
         using var http = new HttpClient(handler);
@@ -291,7 +291,13 @@ public sealed class ModelProviderTests
                 Model = "openai/gpt-6-luna-fast",
                 BaseUrl = "https://openrouter.ai/api/v1",
                 ApiKey = "or",
-                Headers = ModelProviders.AttributionHeaders,
+                Headers = new Dictionary<string, string>
+                {
+                    ["User-Agent"] = "mine",
+                    ["HTTP-Referer"] = "https://example.test",
+                    ["X-Title"] = "mine",
+                    ["X-Custom"] = "kept",
+                },
             },
             http);
 
@@ -299,7 +305,8 @@ public sealed class ModelProviderTests
 
         var sent = handler.Requests.Single();
         Assert.Equal("https://openrouter.ai/api/v1/chat/completions", sent.Uri.AbsoluteUri);
-        Assert.Equal("e2e-dotnet", sent.Headers["X-Title"]);
+        ModelRequestHeadersTests.AssertIdentified(sent);
+        Assert.Equal("kept", sent.Headers["X-Custom"]);
     }
 
     [Fact]
@@ -433,9 +440,9 @@ internal sealed class RecordingHandler : HttpMessageHandler
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var header in request.Headers)
+        foreach (var header in request.Headers.NonValidated)
         {
-            headers[header.Key] = string.Join(",", header.Value);
+            headers[header.Key] = header.Value.ToString();
         }
 
         var body = request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken);
