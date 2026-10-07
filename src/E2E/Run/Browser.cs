@@ -97,12 +97,13 @@ public sealed class Browser
     public Task<IReadOnlyList<BrowserCookie>> CookiesAsync(CancellationToken cancellationToken = default) =>
         Require("cookies").GetCookiesAsync(Token(cancellationToken));
 
-    /// <summary>Sets cookies. Each target URL, or the origin a domain cookie is sent to, must pass the URL rule.</summary>
+    /// <summary>Sets cookies. Each target URL, or the origin a domain cookie is sent to, must pass the URL rule. A relative url resolves against the base URL.</summary>
     public Task SetCookiesAsync(IReadOnlyList<BrowserCookie> cookies, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(cookies);
         var session = Require("setCookies");
         var scheme = _baseUrl is not null && _baseUrl.StartsWith("https:", StringComparison.OrdinalIgnoreCase) ? "https" : "http";
+        var resolved = new List<BrowserCookie>(cookies.Count);
         foreach (var cookie in cookies)
         {
             ArgumentNullException.ThrowIfNull(cookie);
@@ -111,10 +112,13 @@ public sealed class Browser
                 throw new TestException("INVALID_ARGUMENT", "Cookie \"" + cookie.Name + "\" needs a url, or a domain with an optional path, not both.");
             }
 
-            Routes.Resolve(_baseUrl, cookie.Url ?? scheme + "://" + cookie.Domain!.TrimStart('.'));
+            // A url cookie is set on the URL the rule resolved, so a relative one
+            // lands on the base URL the way OpenAsync would.
+            var target = Routes.Resolve(_baseUrl, cookie.Url ?? scheme + "://" + cookie.Domain!.TrimStart('.'));
+            resolved.Add(cookie.Url is null ? cookie : cookie with { Url = target });
         }
 
-        return session.SetCookiesAsync(cookies, Token(cancellationToken));
+        return session.SetCookiesAsync(resolved, Token(cancellationToken));
     }
 
     /// <summary>Sets the viewport size for the rest of the attempt.</summary>

@@ -264,6 +264,20 @@ public sealed class WebEngineTests
         """;
 
     [Fact]
+    public async Task Chromium_sets_a_cookie_with_a_relative_url_on_the_base_URL()
+    {
+        using var site = await TinySite.StartAsync(InputPage);
+        var session = await StartAsync(site, UpgradeModel(() => { }), cache: null);
+        await RunAsync(session, async () =>
+        {
+            var browser = session.Browser;
+            await browser.SetCookiesAsync([new BrowserCookie { Name = "flavor", Value = "oatmeal", Url = "/" }]);
+            var cookie = Assert.Single(await browser.CookiesAsync());
+            Assert.Equal(("flavor", "oatmeal", "127.0.0.1", "/"), (cookie.Name, cookie.Value, cookie.Domain, cookie.Path));
+        });
+    }
+
+    [Fact]
     public async Task Chromium_runs_the_extra_locator_actions()
     {
         const string page = """
