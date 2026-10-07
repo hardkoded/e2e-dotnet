@@ -4,6 +4,7 @@
 
 namespace E2E.Tests.StepCache;
 
+/// <summary>"leaves an entry untouched when only the rule that flagged a typed value differs" is not ported: the port records no run-time value gaps.</summary>
 public sealed class FlushStagedTracesAndAReRecordedFlowTests
 {
     [Fact]
