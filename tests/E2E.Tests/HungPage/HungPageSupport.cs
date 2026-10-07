@@ -36,15 +36,13 @@ internal static class HungPageSupport
         return new WebEngine(headless: true).StartAsync(new EngineStartOptions { ActionTimeout = Budget }, CancellationToken.None);
     }
 
-    /// <summary>Opens the busy page, observes it, and taps the button that starts the endless script. Returns the other button.</summary>
-    public static async Task<SemanticNode> FreezeAsync(IEngineSession session, TinySite site)
+    /// <summary>Opens the busy page, observes it, and taps the button that starts the endless script.</summary>
+    public static async Task FreezeAsync(IEngineSession session, TinySite site)
     {
         await session.OpenAsync(site.Url, CancellationToken.None);
-        var observation = await session.ObserveAsync(CancellationToken.None);
-        var freeze = Button(observation, "Freeze");
+        var freeze = Button(await session.ObserveAsync(CancellationToken.None), "Freeze");
         var tap = await BoundedAsync(() => session.PerformAsync(freeze, new LocatorAction.Tap(), CancellationToken.None));
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", tap.Code);
-        return Button(observation, "Next");
     }
 
     /// <summary>
