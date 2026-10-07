@@ -1090,9 +1090,13 @@ internal static partial class WebErrors
         }
 
         var cause = sensitive ? null : rawCause;
+        // A strict mode violation is a located match that turned ambiguous: stale before any input, so the runner
+        // locates again; possibly committed once input went out, as the second side of a drag resolves after the press.
         if (StrictModePattern().IsMatch(text))
         {
-            return new EngineException(EngineErrorCodes.EngineFailure, text, retryable: false, cause);
+            return PostDispatchPattern().IsMatch(text)
+                ? new EngineException(EngineErrorCodes.ActionMayHaveCommitted, kind + " matched more than one element after its input was dispatched: " + text, retryable: false, cause)
+                : new EngineException(EngineErrorCodes.NodeStale, text, retryable: true, cause);
         }
 
         if (DetachedPattern().IsMatch(text) || NavigationRacePattern().IsMatch(text))
@@ -1153,7 +1157,8 @@ internal static partial class WebErrors
     [GeneratedRegex("Timeout .*exceeded", RegexOptions.IgnoreCase)]
     private static partial Regex TimeoutPattern();
 
-    [GeneratedRegex(@"performing \w+ action|\w+ action done|waiting for scheduled navigations to finish", RegexOptions.IgnoreCase)]
+    // Only whole "- " call log lines count, so a locator or element text quoting these words never does.
+    [GeneratedRegex(@"^\s*- (performing \w+ action|[\w ]+ action done|waiting for scheduled navigations to finish)\s*$", RegexOptions.IgnoreCase | RegexOptions.Multiline)]
     private static partial Regex PostDispatchPattern();
 
     [GeneratedRegex("not an? <?(input|checkbox|radio|select)|not editable|not checkable", RegexOptions.IgnoreCase)]
