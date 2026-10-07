@@ -38,6 +38,7 @@ public sealed class ModelProviderTests
         var request = handler.Requests.Single();
         Assert.Equal("https://api.openai.com/v1/responses", request.Uri.AbsoluteUri);
         Assert.Equal("Bearer sk", request.Headers["Authorization"]);
+        ModelRequestHeadersTests.AssertIdentified(request);
         var body = request.Json();
         Assert.Equal("rules", body["instructions"]!.GetValue<string>());
         Assert.False(body["store"]!.GetValue<bool>());
@@ -140,6 +141,7 @@ public sealed class ModelProviderTests
         Assert.Equal("https://api.anthropic.com/v1/messages", sent.Uri.AbsoluteUri);
         Assert.Equal("ant", sent.Headers["x-api-key"]);
         Assert.Equal("2023-06-01", sent.Headers["anthropic-version"]);
+        ModelRequestHeadersTests.AssertIdentified(sent);
         var body = sent.Json();
         Assert.Equal("ephemeral", body["system"]![0]!["cache_control"]!["type"]!.GetValue<string>());
         var messages = body["messages"]!.AsArray();
@@ -190,6 +192,7 @@ public sealed class ModelProviderTests
         var sent = handler.Requests[0];
         Assert.Equal("https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro:generateContent", sent.Uri.AbsoluteUri);
         Assert.Equal("g", sent.Headers["x-goog-api-key"]);
+        ModelRequestHeadersTests.AssertIdentified(sent);
         Assert.NotNull(sent.Json()["tools"]![0]!["functionDeclarations"]![0]!["parametersJsonSchema"]);
         var contents = handler.Requests[1].Json()["contents"]!.AsArray();
         Assert.Equal("model", contents[1]!["role"]!.GetValue<string>());
@@ -241,6 +244,7 @@ public sealed class ModelProviderTests
         Assert.StartsWith("AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/", sent.Headers["Authorization"], StringComparison.Ordinal);
         Assert.Contains("/us-west-2/bedrock/aws4_request, SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;x-amz-security-token, Signature=", sent.Headers["Authorization"], StringComparison.Ordinal);
         Assert.Equal("session", sent.Headers["x-amz-security-token"]);
+        ModelRequestHeadersTests.AssertIdentified(sent);
         Assert.Equal("application/json", sent.ContentType);
     }
 

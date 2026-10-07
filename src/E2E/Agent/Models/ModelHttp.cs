@@ -16,8 +16,7 @@ namespace E2E.Internal;
 internal static class ModelHttp
 {
     /// <summary><c>e2e-dotnet/&lt;version&gt; (&lt;platform&gt;; &lt;arch&gt;)</c>: what every vendor request identifies as. Never another client's name.</summary>
-    public static readonly string UserAgent = "e2e-dotnet/" + PackageVersion() + " (" + Platform() + "; "
-        + RuntimeInformation.OSArchitecture.ToString().ToLowerInvariant() + ")";
+    public static readonly string UserAgent = "e2e-dotnet/" + PackageVersion() + " (" + Platform() + "; " + Arch() + ")";
 
     /// <summary>
     /// Sent with every model call, whichever provider serves it, replacing the same headers set on the client.
@@ -179,7 +178,20 @@ internal static class ModelHttp
         return OperatingSystem.IsMacOS() ? "darwin"
             : OperatingSystem.IsWindows() ? "win32"
             : OperatingSystem.IsLinux() ? "linux"
-            : RuntimeInformation.OSDescription;
+            : OperatingSystem.IsFreeBSD() ? "freebsd"
+            : "unknown";
+    }
+
+    /// <summary>The process architecture by Node's <c>process.arch</c> name.</summary>
+    private static string Arch()
+    {
+        return RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.X86 => "ia32",
+            Architecture.LoongArch64 => "loong64",
+            Architecture.Ppc64le => "ppc64",
+            var other => other.ToString().ToLowerInvariant(),
+        };
     }
 
     public static int Int(JsonElement element, string name)
