@@ -528,10 +528,11 @@ public sealed partial class WebEngine : IEngine
                         break;
                     case LocatorAction.PressSequentially typed:
                         await WithinActionTimeoutAsync(element.FocusAsync(), "focus", cancellationToken).ConfigureAwait(false);
-                        await Page.Keyboard.TypeAsync(typed.Text, new KeyboardTypeOptions
+                        var typing = Page.Keyboard.TypeAsync(typed.Text, new KeyboardTypeOptions
                         {
                             Delay = typed.Delay is TimeSpan delay ? (float)delay.TotalMilliseconds : null,
-                        }).ConfigureAwait(false);
+                        });
+                        await WithinActionTimeoutAsync(typing, "type", cancellationToken).ConfigureAwait(false);
                         break;
                     case LocatorAction.Select select:
                         await element.SelectOptionAsync(select.Value, new ElementHandleSelectOptionOptions { Timeout = timeout }).ConfigureAwait(false);
@@ -564,17 +565,10 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
-        public async Task PressAsync(string key, CancellationToken cancellationToken)
+        public Task PressAsync(string key, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            try
-            {
-                await Page.Keyboard.PressAsync(key).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
-            {
-                throw WebErrors.Translate(ex, "press " + key);
-            }
+            return InputAsync(Page.Keyboard.PressAsync(key), "press " + key, cancellationToken);
         }
 
         public async Task BackAsync(CancellationToken cancellationToken)
@@ -779,31 +773,31 @@ public sealed partial class WebEngine : IEngine
         public Task KeyboardTypeAsync(string text, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Page.Keyboard.TypeAsync(text);
+            return InputAsync(Page.Keyboard.TypeAsync(text), "keyboard.type", cancellationToken);
         }
 
         public Task MouseMoveAsync(float x, float y, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Page.Mouse.MoveAsync(x, y);
+            return InputAsync(Page.Mouse.MoveAsync(x, y), "mouse.move", cancellationToken);
         }
 
         public Task MouseWheelAsync(float deltaX, float deltaY, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Page.Mouse.WheelAsync(deltaX, deltaY);
+            return InputAsync(Page.Mouse.WheelAsync(deltaX, deltaY), "mouse.wheel", cancellationToken);
         }
 
         public Task MouseDownAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Page.Mouse.DownAsync();
+            return InputAsync(Page.Mouse.DownAsync(), "mouse.down", cancellationToken);
         }
 
         public Task MouseUpAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Page.Mouse.UpAsync();
+            return InputAsync(Page.Mouse.UpAsync(), "mouse.up", cancellationToken);
         }
 
         /// <summary>Opens a clean context at the current viewport. Its first page opens on the first navigation.</summary>
@@ -918,6 +912,19 @@ public sealed partial class WebEngine : IEngine
             {
                 // The wait ran out, not Playwright's own timeout, which keeps its translation.
                 throw new EngineException(EngineErrorCodes.OperationTimeout, label + " timed out", retryable: false);
+            }
+        }
+
+        /// <summary>Bounds an input call with no element behind it, a keystroke or a pointer event, and classifies its failure.</summary>
+        private async Task InputAsync(Task call, string label, CancellationToken cancellationToken)
+        {
+            try
+            {
+                await WithinActionTimeoutAsync(call, label, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex) || ex is EngineException { Code: EngineErrorCodes.OperationTimeout })
+            {
+                throw WebErrors.ClassifyInput(ex, label);
             }
         }
 
@@ -1338,14 +1345,19 @@ internal static partial class WebErrors
         return Translate(cause, label);
     }
 
+    /// <summary>Classifies the failure of an input call with no element behind it: a keystroke or a pointer event.</summary>
+    public static EngineException ClassifyInput(Exception cause, string label)
+    {
+        return InputCutOff(cause, label) ?? Translate(cause, label);
+    }
+
     /// <summary>Classifies a failed locator action. A timeout after the input was dispatched may have committed.</summary>
     public static EngineException ClassifyAction(Exception rawCause, LocatorAction action)
     {
         var kind = action.GetType().Name.ToLowerInvariant();
-        if (rawCause is EngineException { Code: EngineErrorCodes.OperationTimeout } cut)
+        if (InputCutOff(rawCause, kind) is { } cut)
         {
-            // The operation deadline cut the action off: Playwright never answered, so the input may have reached the page.
-            return new EngineException(EngineErrorCodes.ActionMayHaveCommitted, kind + " timed out before the page answered; its input may have been dispatched", retryable: false, cut);
+            return cut;
         }
 
         var sensitive = action is LocatorAction.Fill { Sensitive: true };
@@ -1383,6 +1395,14 @@ internal static partial class WebErrors
         }
 
         return new EngineException(EngineErrorCodes.EngineFailure, text, retryable: false, cause);
+    }
+
+    // An input call the operation deadline cut off: Playwright never answered, so the input may have reached the page and must not be repeated blindly.
+    private static EngineException? InputCutOff(Exception cause, string label)
+    {
+        return cause is EngineException { Code: EngineErrorCodes.OperationTimeout }
+            ? new EngineException(EngineErrorCodes.ActionMayHaveCommitted, label + " timed out before the page answered; its input may have been dispatched", retryable: false, cause)
+            : null;
     }
 
     // The headline and the last call log line, which names what blocked the action.

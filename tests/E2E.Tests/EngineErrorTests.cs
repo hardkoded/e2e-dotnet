@@ -65,6 +65,20 @@ public sealed class EngineErrorTests
     }
 
     [Fact]
+    public void Input_the_operation_deadline_cut_off_may_have_committed_and_a_playwright_timeout_keeps_its_translation()
+    {
+        var cut = new EngineException(EngineErrorCodes.OperationTimeout, "keyboard.press timed out", retryable: false);
+
+        var error = WebErrors.ClassifyInput(cut, "keyboard.press");
+
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", error.Code);
+        Assert.False(error.Retryable);
+        Assert.Same(cut, error.InnerException);
+        Assert.Contains("keyboard.press timed out before the page answered", error.Message, StringComparison.Ordinal);
+        Assert.Equal("OPERATION_TIMEOUT", WebErrors.ClassifyInput(new System.TimeoutException("Timeout 5000ms exceeded."), "keyboard.press").Code);
+    }
+
+    [Fact]
     public void A_detached_element_is_a_retryable_stale_node()
     {
         var error = WebErrors.ClassifyAction(new PlaywrightException("Element is not attached to the DOM"), new LocatorAction.Check());
