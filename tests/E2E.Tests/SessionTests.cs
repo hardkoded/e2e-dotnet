@@ -129,46 +129,6 @@ public sealed class SessionTests
     }
 
     [Fact]
-    public async Task A_recording_that_opens_with_navigate_replays_from_another_route()
-    {
-        var directory = TempCache();
-        var calls = 0;
-        var model = new ScriptedModel(request =>
-        {
-            var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            if (text.Contains("Statement:", StringComparison.Ordinal))
-            {
-                return ModelResponses.Done(text.Contains("Prorated", StringComparison.Ordinal) ? "passed" : "failed", "judged", text.Contains("Prorated", StringComparison.Ordinal) ? null : "ASSERTION_FAILED");
-            }
-
-            calls++;
-            if (text.Contains("tapped", StringComparison.Ordinal))
-            {
-                return ModelResponses.Done("passed", "Upgraded to Pro.");
-            }
-
-            return text.Contains("navigated", StringComparison.Ordinal)
-                ? ModelResponses.Tap("button", "Upgrade to Pro")
-                : ModelResponses.Call("navigate", new { url = "/settings/billing" });
-        });
-
-        async Task RunAsync(string start)
-        {
-            await using var session = await StartAsync(directory, model, attempt: 1);
-            await session.App.OpenAsync(start);
-            await session.Agent.ActAsync("open billing and upgrade to Pro");
-            await session.Agent.AssertAsync("the invoice preview shows a prorated amount");
-            session.Complete();
-        }
-
-        await RunAsync("/");
-        Assert.True(calls > 0);
-        calls = 0;
-        await RunAsync("/home");
-        Assert.Equal(0, calls);
-    }
-
-    [Fact]
     public async Task An_unchanged_flow_does_not_rewrite_the_entry()
     {
         var directory = TempCache();
@@ -336,7 +296,7 @@ public sealed class SessionTests
             testFailed);
     }
 
-    private static Task<E2ESession> StartAsync(string directory, IAgentModel model, int attempt, Func<bool>? testFailed = null)
+    internal static Task<E2ESession> StartAsync(string directory, IAgentModel model, int attempt, Func<bool>? testFailed = null)
     {
         var world = new DocumentWorld()
             .Map("/", page => page.Heading("Home"))
@@ -384,5 +344,5 @@ public sealed class SessionTests
 
     private static int CachedEntries(string directory) => Directory.Exists(directory) ? Directory.GetFiles(directory, "*", SearchOption.AllDirectories).Length : 0;
 
-    private static string TempCache() => Path.Combine(Path.GetTempPath(), "e2e-session", Guid.NewGuid().ToString("n"));
+    internal static string TempCache() => Path.Combine(Path.GetTempPath(), "e2e-session", Guid.NewGuid().ToString("n"));
 }
