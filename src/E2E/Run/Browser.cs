@@ -134,8 +134,14 @@ public sealed class Browser
             }
 
             // A url cookie is set on the URL the rule resolved, so a relative one
-            // lands on the base URL the way OpenAsync would.
+            // lands on the base URL the way OpenAsync would. The rule admits
+            // about:blank for navigation, which holds no cookie.
             var target = Routes.Resolve(_baseUrl, cookie.Url ?? scheme + "://" + cookie.Domain!.TrimStart('.'));
+            if (!target.StartsWith("http:", StringComparison.Ordinal) && !target.StartsWith("https:", StringComparison.Ordinal))
+            {
+                throw new TestException("POLICY_DENIED", "Cookie URL must be http(s): " + target);
+            }
+
             resolved.Add(cookie.Url is null ? cookie : cookie with { Url = target });
         }
 

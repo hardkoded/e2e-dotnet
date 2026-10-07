@@ -256,6 +256,31 @@ public sealed class WebEngineTests
         });
     }
 
+    [Fact]
+    public async Task Chromium_denies_a_wrapped_or_non_http_scheme_and_admits_about_blank()
+    {
+        using var site = await TinySite.StartAsync(InputPage);
+        var session = await StartAsync(site, UpgradeModel(() => { }), cache: null);
+        await RunAsync(session, async () =>
+        {
+            await session.App.OpenAsync("/");
+            foreach (var url in new[] { "view-source:file:///etc/passwd", "VIEW-SOURCE:file:///etc/passwd", "  view-source:file:///etc/passwd", "blob:http://127.0.0.1/x", "about:srcdoc" })
+            {
+                var denied = await Assert.ThrowsAsync<TestException>(() => session.App.OpenAsync(url));
+                Assert.Equal("POLICY_DENIED", denied.Code);
+                Assert.Matches("^Forbidden URL scheme: (view-source|blob|about):$", denied.Message);
+            }
+
+            await session.App.OpenAsync("about:blank");
+            Assert.Equal("about:blank", await session.Browser.UrlAsync());
+
+            var cookie = await Assert.ThrowsAsync<TestException>(
+                () => session.Browser.SetCookiesAsync([new BrowserCookie { Name = "flavor", Value = "oatmeal", Url = "about:blank" }]));
+            Assert.Equal("POLICY_DENIED", cookie.Code);
+            Assert.Equal("Cookie URL must be http(s): about:blank", cookie.Message);
+        });
+    }
+
     private const string InputPage = """
         <!DOCTYPE html>
         <html><head><title>Input page</title></head><body style="margin:0">
