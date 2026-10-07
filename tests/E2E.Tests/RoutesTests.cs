@@ -104,4 +104,12 @@ public sealed class RoutesTests
         Assert.Equal("http://localhost:3000/a", Routes.Resolve("http://localhost:3000/app/", "  http://localhost:3000/a "));
         Assert.Equal("http://other.test/x", Routes.Resolve("http://localhost:3000/app/", "//other.test/x"));
     }
+
+    [Fact]
+    public void Absolute_resolves_without_the_navigation_scheme_rule()
+    {
+        // WaitForURLAsync compares against the result, and waiting opens nothing.
+        Assert.Equal("about:blank#done", Routes.Absolute("http://h/", "about:blank#done").AbsoluteUri);
+        Assert.Equal("http://h/x", Routes.Absolute("http://h/app/", "/x").AbsoluteUri);
+    }
 }

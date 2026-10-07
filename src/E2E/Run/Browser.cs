@@ -72,7 +72,7 @@ public sealed class Browser
     public Task WaitForURLAsync(string url, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(url);
-        var expected = Routes.Resolve(_baseUrl, url);
+        var expected = Routes.Absolute(_baseUrl, url).AbsoluteUri;
         return WaitForURLAsync(current => string.Equals(current, expected, StringComparison.Ordinal), url, timeout, cancellationToken);
     }
 
