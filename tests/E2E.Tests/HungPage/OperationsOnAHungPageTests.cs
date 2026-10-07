@@ -59,6 +59,6 @@ public sealed class OperationsOnAHungPageTests
         var tap = await BoundedAsync(() => session.PerformAsync(pay, new LocatorAction.Tap(), CancellationToken.None));
 
         Assert.Equal("NOT_ACTIONABLE", tap.Code);
-        Assert.Contains("intercepts pointer events", tap.InnerException?.Message, StringComparison.Ordinal);
+        Assert.Contains("intercepts pointer events", tap.Message, StringComparison.Ordinal);
     }
 }

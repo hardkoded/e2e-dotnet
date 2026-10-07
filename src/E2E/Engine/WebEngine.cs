@@ -1126,19 +1126,15 @@ internal static partial class WebErrors
             : null;
     }
 
-    // The headline and the last call log line, which names what blocked the action.
+    // The headline and the last blocker the call log names; a log without a blocker is kept whole.
     private static string Summary(string text)
     {
-        var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (lines.Length == 0)
-        {
-            return text;
-        }
-
-        var last = lines[^1].TrimStart('-', ' ');
-        return lines.Length > 1 && !string.Equals(last, "Call log:", StringComparison.Ordinal)
-            ? lines[0] + " Last: " + last
-            : lines[0];
+        var lines = text.Split('\n');
+        var blocker = lines.Skip(1)
+            .Select(line => line.Trim())
+            .Select(line => line.StartsWith("- ", StringComparison.Ordinal) ? line[2..] : line)
+            .LastOrDefault(line => BlockerPattern().IsMatch(line));
+        return blocker is null ? text : lines[0] + " " + blocker;
     }
 
     [GeneratedRegex(@"\u001b\[\d+(?:;\d+)*m")]
@@ -1155,6 +1151,10 @@ internal static partial class WebErrors
 
     [GeneratedRegex(@"performing \w+ action|\w+ action done|waiting for scheduled navigations to finish", RegexOptions.IgnoreCase)]
     private static partial Regex PostDispatchPattern();
+
+    // A call log line naming what kept a node from being acted on: an element over it, or a state it never reached.
+    [GeneratedRegex("^element is (?:not (?:visible|enabled|stable|editable)|outside of the viewport)$| intercepts pointer events$", RegexOptions.IgnoreCase)]
+    private static partial Regex BlockerPattern();
 
     [GeneratedRegex("not an? <?(input|checkbox|radio|select)|not editable|not checkable", RegexOptions.IgnoreCase)]
     private static partial Regex NotEditablePattern();
