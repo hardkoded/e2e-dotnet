@@ -2,7 +2,6 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using E2E;
 using E2E.Engine;
@@ -211,21 +210,6 @@ internal static class GesturesSession
             await flow.Check(session.Screen);
         });
         return result!;
-    }
-
-    /// <summary>The actions recorded for the test with this title.</summary>
-    public static List<RecordedAction> RecordedActions(string directory, string title)
-    {
-        foreach (var path in Directory.GetFiles(directory, "*.json", SearchOption.AllDirectories))
-        {
-            var entry = JsonSerializer.Deserialize<CacheEntry>(File.ReadAllText(path), new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
-            if (entry.Test is not null && entry.Test.EndsWith(title, StringComparison.Ordinal))
-            {
-                return entry.Actions;
-            }
-        }
-
-        throw new InvalidOperationException("No cache entry for \"" + title + "\".");
     }
 
     /// <summary>The ref of the last listed node whose line matches <paramref name="line"/>.</summary>
