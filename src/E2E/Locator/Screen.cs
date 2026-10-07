@@ -278,7 +278,8 @@ public sealed class Locator
     public async Task<string?> TextContentAsync(CancellationToken cancellationToken = default)
     {
         var node = await ResolveStrictAsync(cancellationToken).ConfigureAwait(false);
-        return node.Text ?? node.Name;
+        var text = node.Text ?? node.Name;
+        return text is null ? null : TextRules.Normalize(text);
     }
 
     /// <summary>Reads an input value once. Does not retry and does not verify an earlier <c>act</c>.</summary>
@@ -359,7 +360,7 @@ public sealed class Locator
     public async Task<IReadOnlyList<string>> AllTextContentsAsync(CancellationToken cancellationToken = default)
     {
         var matches = await ResolveAsync(_screen.Token(cancellationToken)).ConfigureAwait(false);
-        return matches.Select(node => node.Text ?? node.Name ?? "").ToList();
+        return matches.Select(node => TextRules.Normalize(node.Text ?? node.Name ?? "")).ToList();
     }
 
     /// <summary>
