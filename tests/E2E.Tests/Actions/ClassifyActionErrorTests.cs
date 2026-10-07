@@ -142,7 +142,7 @@ public sealed class ClassifyActionErrorTests
         Assert.Equal("NOT_ACTIONABLE", WebErrors.ClassifyAction(error, new LocatorAction.Press("Enter")).Code);
     }
 
-    [Fact(Skip = "https://github.com/hardkoded/e2e-dotnet/issues/110: a redacted fill value reads <secret>, not [redacted]")]
+    [Fact]
     public void Never_echoes_a_sensitive_fill_value_in_the_message_or_through_the_cause()
     {
         const string secret = "hunter2-plaintext";
