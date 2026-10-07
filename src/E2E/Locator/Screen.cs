@@ -274,7 +274,7 @@ public sealed class Locator
         return ActAsync(new LocatorAction.ScrollIntoView(), options, cancellationToken);
     }
 
-    /// <summary>Reads text once. Does not retry and does not verify an earlier <c>act</c>.</summary>
+    /// <summary>Reads whitespace-normalized text once. Does not retry and does not verify an earlier <c>act</c>.</summary>
     public async Task<string?> TextContentAsync(CancellationToken cancellationToken = default)
     {
         var node = await ResolveStrictAsync(cancellationToken).ConfigureAwait(false);
@@ -356,7 +356,7 @@ public sealed class Locator
         return locators;
     }
 
-    /// <summary>Reads the text of every current match, without waiting. Empty when nothing matches.</summary>
+    /// <summary>Reads the whitespace-normalized text of every current match, without waiting. Empty when nothing matches.</summary>
     public async Task<IReadOnlyList<string>> AllTextContentsAsync(CancellationToken cancellationToken = default)
     {
         var matches = await ResolveAsync(_screen.Token(cancellationToken)).ConfigureAwait(false);
