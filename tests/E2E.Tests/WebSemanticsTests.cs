@@ -261,72 +261,12 @@ public sealed class WebSemanticsTests
         })).Code);
     }
 
-    [Theory]
-    [InlineData("de-DE", "Europe/Berlin")]
-    [InlineData("zh-Hant-TW", "UTC")]
-    [InlineData("de-DE-u-co-phonebk", "US/Eastern")]
-    [InlineData(null, "GMT")]
-    public void Accepts_a_language_tag_and_an_IANA_time_zone(string? locale, string timezoneId)
-    {
-        _ = new WebEngine(new WebEngineOptions { Locale = locale, TimezoneId = timezoneId });
-    }
-
-    [Theory]
-    [InlineData("", null, "BCP 47")]
-    [InlineData("not a locale", null, "BCP 47")]
-    [InlineData("de_DE", null, "BCP 47")]
-    [InlineData("und", null, "BCP 47")]
-    [InlineData("x-private", null, "BCP 47")]
-    [InlineData(null, "", "IANA time zone")]
-    [InlineData(null, "Mars/Olympus_Mons", "IANA time zone")]
-    [InlineData(null, "GMT+25", "IANA time zone")]
-    [InlineData(null, "+01:00", "IANA time zone")]
-    [InlineData(null, "europe/berlin", "IANA time zone")]
-    [InlineData(null, "utc", "IANA time zone")]
-    public void Rejects_a_value_that_is_no_language_tag_or_time_zone(string? locale, string? timezoneId, string message)
-    {
-        var error = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { Locale = locale, TimezoneId = timezoneId }));
-        Assert.Equal("INVALID_CONFIG", error.Code);
-        Assert.Contains(message, error.Message, StringComparison.Ordinal);
-    }
-
     [Fact]
     public void Rejects_a_language_tag_with_a_trailing_line_break()
     {
         var error = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { Locale = "de-DE\n" }));
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Contains("BCP 47", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Rejects_an_accept_language_header_beside_locale_which_would_override_it_on_the_app_site_only()
-    {
-        var error = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions
-        {
-            Locale = "de-DE",
-            Headers = new Dictionary<string, string> { ["Accept-Language"] = "fr" },
-        }));
-        Assert.Contains("conflict", error.Message, StringComparison.Ordinal);
-        _ = new WebEngine(new WebEngineOptions { Locale = "de-DE", Headers = new Dictionary<string, string> { ["x-preview"] = "token" } });
-    }
-
-    [Fact]
-    public async Task Runs_the_page_in_the_configured_locale_and_time_zone_after_a_context_reset_too()
-    {
-        using var site = await TinySite.StartAsync(context => TinySite.RespondAsync(context, "<!DOCTYPE html><html><body></body></html>"));
-        await using var session = (IBrowserSession)await OpenAsync(site.Url, new WebEngineOptions
-        {
-            Headless = true,
-            Locale = "de-DE",
-            TimezoneId = "Asia/Tokyo",
-        });
-        const string Read = "() => [navigator.language, Intl.DateTimeFormat().resolvedOptions().timeZone, new Date('2026-01-01T00:00:00Z').getTimezoneOffset()].join(' ')";
-        const string Expected = "de-DE Asia/Tokyo -540";
-
-        Assert.Equal(Expected, (await session.EvaluateAsync(Read, null, false, CancellationToken.None))?.GetString());
-        await session.ClearStateAsync(CancellationToken.None);
-        await session.OpenAsync(site.Url, CancellationToken.None);
-        Assert.Equal(Expected, (await session.EvaluateAsync(Read, null, false, CancellationToken.None))?.GetString());
     }
 
     [Fact]
@@ -367,7 +307,7 @@ public sealed class WebSemanticsTests
         }
     }
 
-    private static async Task<IEngineSession> OpenAsync(string url, WebEngineOptions options)
+    internal static async Task<IEngineSession> OpenAsync(string url, WebEngineOptions options)
     {
         var session = await new WebEngine(options).StartAsync(
             new EngineStartOptions { BaseUrl = url, ActionTimeout = TimeSpan.FromSeconds(10) },
