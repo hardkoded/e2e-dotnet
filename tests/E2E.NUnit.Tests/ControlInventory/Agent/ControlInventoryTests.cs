@@ -31,7 +31,7 @@ public sealed class ControlInventoryTests : ControlInventoryTest
     public async Task Check_picks_a_radio_the_pick_replaces_with_its_summary()
     {
         await Agent.ActAsync("pick Express delivery");
-        // Upstream reads toHaveText; see ControlInventory.ControlInventoryTests.
+        // Upstream reads toHaveText. Until #82 lands, the port reads a labelled output's label as its text.
         await Expect.That(Screen.GetByLabel("Delivery state")).ToHaveValueAsync("Express");
     }
 }

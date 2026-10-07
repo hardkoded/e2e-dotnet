@@ -19,6 +19,24 @@ internal static class CheckPage
         await test(session);
     }
 
+    /// <summary>Opens <paramref name="body"/> in a test session, whose screen locators act on it.</summary>
+    public static async Task RunWithScreenAsync(string body, Func<E2ESession, Task> test)
+    {
+        using var site = await TinySite.StartAsync("<!DOCTYPE html><html><body>" + body + "</body></html>");
+        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = new WebEngine(headless: true),
+            Model = new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
+            BaseUrl = site.Url,
+            TestTitle = "check actions > through the locator target",
+            ActionTimeout = TimeSpan.FromSeconds(2),
+            AssertionTimeout = TimeSpan.FromSeconds(5),
+        });
+        await session.App.OpenAsync("/");
+        await test(session);
+        session.Complete(null);
+    }
+
     public static Task<IEngineSession> StartAsync()
     {
         return new WebEngine(headless: true).StartAsync(new EngineStartOptions { ActionTimeout = TimeSpan.FromSeconds(2) }, CancellationToken.None);

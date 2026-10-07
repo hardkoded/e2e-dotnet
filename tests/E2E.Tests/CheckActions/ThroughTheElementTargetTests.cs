@@ -9,10 +9,9 @@ namespace E2E.Tests.CheckActions;
 
 /// <summary>
 /// <c>check</c> and <c>uncheck</c> against a real page, ported from upstream
-/// <c>check-actions.test.ts</c>. Upstream runs each case through a locator and through
-/// an element handle; this port acts through the element an observation names for both,
-/// so each case runs once. A control the app replaces or navigates away from once it is
-/// picked took the click, so the action is done, and one the click did not change fails.
+/// <c>check-actions.test.ts</c>, on the element an observation names, which the agent acts
+/// through. A control the app replaces or navigates away from once it is picked took the
+/// click, so the action is done, and one the click did not change fails.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class ThroughTheElementTargetTests
