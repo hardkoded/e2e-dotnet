@@ -107,8 +107,11 @@ public sealed partial class WebEngine : IEngine
 
     private const string SkipInstallVariable = "E2E_SKIP_BROWSER_INSTALL";
 
-    // Playwright's install is a no-op when Chromium is already there; one run serves every session in the process.
-    private static readonly Lazy<Task<int>> ChromiumInstall = new(() => Task.Run(() => Microsoft.Playwright.Program.Main(["install", "chromium"])));
+    private const string SkipBrowserGcVariable = "PLAYWRIGHT_SKIP_BROWSER_GC";
+
+    // Playwright's install is a no-op when the build is already there; one run per mode serves every session in the process.
+    private static readonly Lazy<Task<int>> HeadlessChromiumInstall = new(() => Task.Run(() => RunChromiumInstall(headed: false)));
+    private static readonly Lazy<Task<int>> HeadedChromiumInstall = new(() => Task.Run(() => RunChromiumInstall(headed: true)));
 
     private readonly WebEngineOptions _options;
     private readonly bool _headless;
@@ -154,7 +157,7 @@ public sealed partial class WebEngine : IEngine
         {
             if (_options.Connect is null)
             {
-                await EnsureChromiumAsync(cancellationToken).ConfigureAwait(false);
+                await EnsureChromiumAsync(!_headless, cancellationToken).ConfigureAwait(false);
             }
 
             var playwright = await Playwright.CreateAsync().ConfigureAwait(false);
@@ -194,7 +197,26 @@ public sealed partial class WebEngine : IEngine
             && string.Equals(target.Host, app.Host, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static async Task EnsureChromiumAsync(CancellationToken cancellationToken)
+    /// <summary>The <c>playwright install</c> arguments for Chromium: <c>--only-shell</c> on a headless run, which launches the headless shell.</summary>
+    internal static string[] InstallArgs(bool headed)
+    {
+        return headed ? ["chromium"] : ["--only-shell", "chromium"];
+    }
+
+    /// <summary>The <c>PLAYWRIGHT_SKIP_BROWSER_GC</c> an install runs with: the user's value, else <c>1</c>, so it keeps other tools' browsers.</summary>
+    internal static string InstallSkipBrowserGc(string? value)
+    {
+        return value ?? "1";
+    }
+
+    private static int RunChromiumInstall(bool headed)
+    {
+        // Program.Main starts the driver with this process's environment, so the value is set on the process.
+        Environment.SetEnvironmentVariable(SkipBrowserGcVariable, InstallSkipBrowserGc(Environment.GetEnvironmentVariable(SkipBrowserGcVariable)));
+        return Microsoft.Playwright.Program.Main(["install", .. InstallArgs(headed)]);
+    }
+
+    private static async Task EnsureChromiumAsync(bool headed, CancellationToken cancellationToken)
     {
         var skip = Environment.GetEnvironmentVariable(SkipInstallVariable);
         if (string.Equals(skip, "1", StringComparison.Ordinal) || string.Equals(skip, "true", StringComparison.OrdinalIgnoreCase))
@@ -202,7 +224,8 @@ public sealed partial class WebEngine : IEngine
             return;
         }
 
-        var exitCode = await ChromiumInstall.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var install = headed ? HeadedChromiumInstall : HeadlessChromiumInstall;
+        var exitCode = await install.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
         if (exitCode != 0)
         {
             throw new EngineException(
