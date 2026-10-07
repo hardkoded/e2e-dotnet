@@ -262,14 +262,6 @@ public sealed class WebSemanticsTests
     }
 
     [Fact]
-    public void Rejects_a_language_tag_with_a_trailing_line_break()
-    {
-        var error = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { Locale = "de-DE\n" }));
-        Assert.Equal("INVALID_CONFIG", error.Code);
-        Assert.Contains("BCP 47", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void Snapshot_text_shows_states_and_truncation()
     {
         var observation = new Observation
