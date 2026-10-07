@@ -8,6 +8,27 @@ namespace E2E.Tests.Urls;
 
 public sealed class ResolveNavigationUrlTests
 {
+    [Fact]
+    public void Resolves_relative_paths_against_the_base()
+    {
+        Assert.Equal("http://localhost:3000/billing", Routes.Resolve("http://localhost:3000/app/", "/billing"));
+        Assert.Equal("http://localhost:3000/app/settings", Routes.Resolve("http://localhost:3000/app/", "settings"));
+    }
+
+    [Fact]
+    public void Admits_any_http_s_origin_a_click_reaches_one_just_as_well()
+    {
+        Assert.Equal("https://other.test/x", Routes.Resolve("http://localhost:3000/app/", "https://other.test/x"));
+    }
+
+    [Fact]
+    public void Always_denies_file_data_and_javascript()
+    {
+        Assert.Contains("scheme", Assert.Throws<TestException>(() => Routes.Resolve("http://localhost:3000/app/", "file:///etc/passwd")).Message, StringComparison.Ordinal);
+        Assert.Contains("scheme", Assert.Throws<TestException>(() => Routes.Resolve("http://localhost:3000/app/", "data:text/html,x")).Message, StringComparison.Ordinal);
+        Assert.Contains("scheme", Assert.Throws<TestException>(() => Routes.Resolve("http://localhost:3000/app/", "javascript:alert(1)")).Message, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("view-source:file:///etc/passwd", "view-source:")]
     [InlineData("view-source:http://localhost:3000/", "view-source:")]
