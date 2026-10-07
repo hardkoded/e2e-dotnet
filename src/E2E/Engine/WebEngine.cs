@@ -263,13 +263,35 @@ public sealed partial class WebEngine : IEngine
         }
     }
 
-    // True when the runtime knows the name as an IANA time zone; an alias
-    // (US/Eastern) is fine, a Windows zone id is not. Best effort: the lookup
-    // ignores case, so Chromium's own "Invalid timezone ID" for a miscased
-    // name (europe/berlin) stays the final word.
+    // True when the name is an IANA time zone spelled with its own case. The
+    // runtime lookup ignores case, and Chromium refuses a miscased name
+    // (europe/berlin), so the spelling must also be one ICU knows or a tz
+    // database file. Links (US/Eastern, GMT) are both.
     private static bool IsTimeZone(string timezoneId)
     {
-        return TimeZoneInfo.TryFindSystemTimeZoneById(timezoneId, out var zone) && zone.HasIanaId;
+        return TimeZoneInfo.TryFindSystemTimeZoneById(timezoneId, out var zone)
+            && zone.HasIanaId
+            && (TimeZoneInfo.TryConvertIanaIdToWindowsId(timezoneId, out _) || IsZoneInfoName(timezoneId));
+    }
+
+    // True when each segment of the name is an entry of the tz database
+    // directory the runtime reads on Unix, matched with its own case. ICU
+    // misses a few zones (EST5EDT), and is absent in invariant globalization.
+    private static bool IsZoneInfoName(string timezoneId)
+    {
+        var directory = Environment.GetEnvironmentVariable("TZDIR") is { Length: > 0 } tzdir ? tzdir : "/usr/share/zoneinfo";
+        var caseSensitive = new EnumerationOptions { MatchCasing = MatchCasing.CaseSensitive, MatchType = MatchType.Simple };
+        foreach (var segment in timezoneId.Split('/'))
+        {
+            if (!Directory.Exists(directory) || !Directory.EnumerateFileSystemEntries(directory, segment, caseSensitive).Any())
+            {
+                return false;
+            }
+
+            directory = Path.Combine(directory, segment);
+        }
+
+        return true;
     }
 
     // A Unicode locale identifier, as Intl.Locale parses one: language, then

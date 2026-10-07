@@ -144,8 +144,6 @@ The walk goes through open shadow roots and closed ones that page script attache
 - `Headers` ride requests to the base URL's host. Upstream scopes them to the app's site, which can include sibling subdomains
 - `Connect` has no `reconnectEndpoint`, so there is no persistent remote context, and no provider (`browser: BrowserProvider`) or `screencast` option
 - `BasicAuth` takes a `Secret` password, but the value is not added to the session's redaction list
-- `TimezoneId` matches IANA names without regard to case at construction, so a miscased name such as `europe/berlin` fails when the browser context is created, not with `INVALID_CONFIG`
-
 The tree is a subset of upstream's: names follow the port's simpler accname rules, nodes are listed by role or test id only (not by name, direct text, or as an empty painted `box`).
 
 Password fields and `autocomplete=current-password` fields are marked secure. Their values, and their `value` attribute, are omitted from the snapshot. A text, value, or attribute expectation on a secure field fails with `POLICY_DENIED`, as upstream.

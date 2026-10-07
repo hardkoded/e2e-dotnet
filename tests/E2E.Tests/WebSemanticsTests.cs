@@ -266,39 +266,40 @@ public sealed class WebSemanticsTests
     [InlineData("zh-Hant-TW", "UTC")]
     [InlineData("de-DE-u-co-phonebk", "US/Eastern")]
     [InlineData(null, "GMT")]
-    public void Locale_and_timezone_accept_a_language_tag_and_an_IANA_time_zone(string? locale, string timezoneId)
+    public void Accepts_a_language_tag_and_an_IANA_time_zone(string? locale, string timezoneId)
     {
         _ = new WebEngine(new WebEngineOptions { Locale = locale, TimezoneId = timezoneId });
     }
 
     [Theory]
-    [InlineData("")]
-    [InlineData("not a locale")]
-    [InlineData("de_DE")]
-    [InlineData("und")]
-    [InlineData("x-private")]
-    [InlineData("de-DE\n")]
-    public void Locale_rejects_a_value_that_is_no_language_tag(string locale)
+    [InlineData("", null, "BCP 47")]
+    [InlineData("not a locale", null, "BCP 47")]
+    [InlineData("de_DE", null, "BCP 47")]
+    [InlineData("und", null, "BCP 47")]
+    [InlineData("x-private", null, "BCP 47")]
+    [InlineData(null, "", "IANA time zone")]
+    [InlineData(null, "Mars/Olympus_Mons", "IANA time zone")]
+    [InlineData(null, "GMT+25", "IANA time zone")]
+    [InlineData(null, "+01:00", "IANA time zone")]
+    [InlineData(null, "europe/berlin", "IANA time zone")]
+    [InlineData(null, "utc", "IANA time zone")]
+    public void Rejects_a_value_that_is_no_language_tag_or_time_zone(string? locale, string? timezoneId, string message)
     {
-        var error = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { Locale = locale }));
+        var error = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { Locale = locale, TimezoneId = timezoneId }));
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Contains(message, error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Rejects_a_language_tag_with_a_trailing_line_break()
+    {
+        var error = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { Locale = "de-DE\n" }));
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Contains("BCP 47", error.Message, StringComparison.Ordinal);
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("Mars/Olympus_Mons")]
-    [InlineData("GMT+25")]
-    [InlineData("+01:00")]
-    public void Timezone_rejects_a_value_that_is_no_IANA_time_zone(string timezoneId)
-    {
-        var error = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { TimezoneId = timezoneId }));
-        Assert.Equal("INVALID_CONFIG", error.Code);
-        Assert.Contains("IANA time zone", error.Message, StringComparison.Ordinal);
-    }
-
     [Fact]
-    public void Locale_rejects_an_accept_language_header_beside_it_which_would_override_it_on_the_app_site_only()
+    public void Rejects_an_accept_language_header_beside_locale_which_would_override_it_on_the_app_site_only()
     {
         var error = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions
         {
@@ -310,7 +311,7 @@ public sealed class WebSemanticsTests
     }
 
     [Fact]
-    public async Task Chromium_runs_the_page_in_the_configured_locale_and_time_zone_after_a_context_reset_too()
+    public async Task Runs_the_page_in_the_configured_locale_and_time_zone_after_a_context_reset_too()
     {
         using var site = await TinySite.StartAsync(context => TinySite.RespondAsync(context, "<!DOCTYPE html><html><body></body></html>"));
         await using var session = (IBrowserSession)await OpenAsync(site.Url, new WebEngineOptions
