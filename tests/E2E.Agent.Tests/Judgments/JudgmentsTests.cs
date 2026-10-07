@@ -4,7 +4,7 @@
 
 using E2E.NUnit;
 
-namespace E2E.Agent.Tests;
+namespace E2E.Agent.Tests.Judgments;
 
 /// <summary>
 /// The judgment tier against a real model: <c>AssertAsync</c>, each paired with a
