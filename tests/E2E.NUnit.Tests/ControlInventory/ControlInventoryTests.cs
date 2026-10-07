@@ -3,8 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E;
+using E2E.NUnit.Tests.Testbed;
 
-namespace E2E.NUnit.Tests.Testbed;
+namespace E2E.NUnit.Tests.ControlInventory;
 
 /// <summary>
 /// The control inventory through locators only, ported from upstream's

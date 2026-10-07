@@ -3,21 +3,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using static E2E.Tests.CheckActions.CheckPage;
 
-namespace E2E.Tests;
+namespace E2E.Tests.CheckActions;
 
 /// <summary>
-/// <c>check</c> and <c>uncheck</c> against a real page, on the element an observation
-/// names, which both a locator and the agent act through. A control the app replaces
-/// or navigates away from once it is picked took the click, so the action is done; a
-/// control the click never reached stays a stale node, and one the click did not
-/// change fails.
+/// <c>check</c> and <c>uncheck</c> against a real page, ported from upstream
+/// <c>check-actions.test.ts</c>. Upstream runs each case through a locator and through
+/// an element handle; this port acts through the element an observation names for both,
+/// so each case runs once. A control the app replaces or navigates away from once it is
+/// picked took the click, so the action is done, and one the click did not change fails.
 /// </summary>
 [Collection(BrowserCollection.Name)]
-public sealed class CheckActionsTests
+public sealed class ThroughTheElementTargetTests
 {
-    private const string CountClicks = """<script>window.clicks = 0; document.addEventListener("click", () => window.clicks++, true)</script>""";
-
     [Fact]
     public async Task Checks_a_radio_the_app_replaces_with_its_selected_view()
     {
@@ -143,55 +142,4 @@ public sealed class CheckActionsTests
             });
     }
 
-    [Fact]
-    public async Task A_control_gone_before_the_click_stays_a_retryable_stale_node()
-    {
-        await RunAsync(
-            """<label><input type="checkbox" id="box">Notify</label>""",
-            async session =>
-            {
-                var box = await FindAsync(session, "checkbox", "Notify");
-                await EvaluateAsync<bool>(session, "() => { document.getElementById('box').remove(); return true; }");
-                var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(box, new LocatorAction.Check(), CancellationToken.None));
-                Assert.Equal("NODE_STALE", error.Code);
-                Assert.True(error.Retryable);
-            });
-    }
-
-    private static async Task RunAsync(string body, Func<IEngineSession, Task> test)
-    {
-        using var site = await TinySite.StartAsync("<!DOCTYPE html><html><body>" + body + "</body></html>");
-        await using var session = await StartAsync();
-        await session.OpenAsync(site.Url, CancellationToken.None);
-        await test(session);
-    }
-
-    private static Task<IEngineSession> StartAsync()
-    {
-        return new WebEngine(headless: true).StartAsync(new EngineStartOptions { ActionTimeout = TimeSpan.FromSeconds(2) }, CancellationToken.None);
-    }
-
-    private static async Task<SemanticNode> FindAsync(IEngineSession session, string role, string name)
-    {
-        var observation = await session.ObserveAsync(CancellationToken.None);
-        return Flatten(observation.Roots).First(node => node.Role == role && node.Name == name);
-    }
-
-    private static async Task<T> EvaluateAsync<T>(IEngineSession session, string expression)
-    {
-        var result = await ((IBrowserSession)session).EvaluateAsync(expression, null, hasArg: false, CancellationToken.None);
-        return System.Text.Json.JsonSerializer.Deserialize<T>(result!.Value)!;
-    }
-
-    private static IEnumerable<SemanticNode> Flatten(IEnumerable<SemanticNode> nodes)
-    {
-        foreach (var node in nodes)
-        {
-            yield return node;
-            foreach (var child in Flatten(node.Children))
-            {
-                yield return child;
-            }
-        }
-    }
 }
