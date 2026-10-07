@@ -99,11 +99,13 @@ public sealed class CodexLoginTests
     {
         var issuer = new FakeApi(_ => (HttpStatusCode.OK, TokenReply));
         var port = FreePort();
-        var squatter = new TcpListener(IPAddress.Loopback, 0);
+        var squatted = FreePort();
+        using var squatter = new HttpListener();
+        squatter.Prefixes.Add("http://localhost:" + squatted.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/");
         squatter.Start();
         try
         {
-            var taken = new CodexProvider(new HttpClient(issuer), issuer: Issuer, callbackPort: ((IPEndPoint)squatter.LocalEndpoint).Port);
+            var taken = new CodexProvider(new HttpClient(issuer), issuer: Issuer, callbackPort: squatted);
             var credentials = await taken.LoginAsync(
                 new OAuthLoginCallbacks { OnAuth = _ => { }, OnPrompt = (_, _) => Task.FromResult("http://localhost/auth/callback?code=pasted-code") },
                 new OAuthLoginOptions(),
