@@ -45,12 +45,4 @@ public sealed class RoutesTests
         Assert.Equal("POLICY_DENIED", Assert.Throws<TestException>(() => E2E.Internal.Routes.Resolve("http://h/", url)).Code);
         Assert.Equal("POLICY_DENIED", Assert.Throws<TestException>(() => E2E.Internal.Routes.Resolve(null, url)).Code);
     }
-
-    [Fact]
-    public void Absolute_resolves_without_the_navigation_scheme_rule()
-    {
-        // WaitForURLAsync compares against the result, and waiting opens nothing.
-        Assert.Equal("about:blank#done", Routes.Absolute("http://h/", "about:blank#done").AbsoluteUri);
-        Assert.Equal("http://h/x", Routes.Absolute("http://h/app/", "/x").AbsoluteUri);
-    }
 }

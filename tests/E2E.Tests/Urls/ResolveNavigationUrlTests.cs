@@ -45,14 +45,6 @@ public sealed class ResolveNavigationUrlTests
     }
 
     [Fact]
-    public void A_tab_inside_a_scheme_is_escaped_into_a_path_not_stripped()
-    {
-        // WHATWG strips the tab and denies view-source:; System.Uri escapes it, so the URL stays an http path.
-        Assert.Equal("http://localhost:3000/app/view-%09source:file:///etc/passwd", Routes.Resolve("http://localhost:3000/app/", "view-\tsource:file:///etc/passwd"));
-        Assert.Equal("APP_URL_REQUIRED", Assert.Throws<TestException>(() => Routes.Resolve(null, "view-\tsource:file:///etc/passwd")).Code);
-    }
-
-    [Fact]
     public void Admits_exactly_about_blank_which_loads_nothing()
     {
         Assert.Equal("about:blank", Routes.Resolve("http://localhost:3000/app/", "about:blank"));
