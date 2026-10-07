@@ -264,20 +264,6 @@ public sealed class WebEngineTests
         """;
 
     [Fact]
-    public async Task Chromium_sets_a_cookie_with_a_relative_url_on_the_base_URL()
-    {
-        using var site = await TinySite.StartAsync(InputPage);
-        var session = await StartAsync(site, UpgradeModel(() => { }), cache: null);
-        await RunAsync(session, async () =>
-        {
-            var browser = session.Browser;
-            await browser.SetCookiesAsync([new BrowserCookie { Name = "flavor", Value = "oatmeal", Url = "/" }]);
-            var cookie = Assert.Single(await browser.CookiesAsync());
-            Assert.Equal(("flavor", "oatmeal", "127.0.0.1", "/"), (cookie.Name, cookie.Value, cookie.Domain, cookie.Path));
-        });
-    }
-
-    [Fact]
     public async Task Chromium_runs_the_extra_locator_actions()
     {
         const string page = """
@@ -406,7 +392,7 @@ public sealed class WebEngineTests
         });
     }
 
-    private static async Task<E2ESession> StartAsync(TinySite site, ScriptedModel model, FileStepCache? cache)
+    internal static async Task<E2ESession> StartAsync(TinySite site, ScriptedModel model, FileStepCache? cache)
     {
         return await E2ESession.StartAsync(new E2ESessionOptions
         {
@@ -423,7 +409,7 @@ public sealed class WebEngineTests
         });
     }
 
-    private static async Task RunAsync(E2ESession session, Func<Task> body)
+    internal static async Task RunAsync(E2ESession session, Func<Task> body)
     {
         await using (session)
         {
