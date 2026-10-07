@@ -404,13 +404,13 @@ public sealed partial class WebEngine : IEngine
         public async Task OpenAsync(string url, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (_page is null)
-            {
-                await NewPageAsync(RequireContext()).ConfigureAwait(false);
-            }
-
             try
             {
+                if (_page is null)
+                {
+                    await NewPageAsync(RequireContext()).ConfigureAwait(false);
+                }
+
                 await Page.GotoAsync(url, new PageGotoOptions
                 {
                     WaitUntil = WaitUntilState.Load,
