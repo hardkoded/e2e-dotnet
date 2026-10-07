@@ -28,9 +28,11 @@ public interface IBrowserSession : IEngineSession
     /// <summary>
     /// Waits up to <paramref name="timeout"/> for a response whose URL <paramref name="matches"/>
     /// accepts. The timeout bounds the match only: the body read starts once the
-    /// response is known and goes on in <see cref="BrowserResponse.Body"/>.
+    /// response is known and goes on in <see cref="BrowserResponse.Body"/>. A session
+    /// that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
-    Task<BrowserResponse> WaitForResponseAsync(Func<string, bool> matches, TimeSpan timeout, CancellationToken cancellationToken);
+    Task<BrowserResponse> WaitForResponseAsync(Func<string, bool> matches, TimeSpan timeout, CancellationToken cancellationToken) =>
+        Task.FromException<BrowserResponse>(new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForResponse is not supported by this engine."));
 
     Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(CancellationToken cancellationToken);
 
