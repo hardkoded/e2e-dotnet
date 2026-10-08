@@ -138,11 +138,11 @@ public sealed class OpenCodeConsoleModel : DelegatingModel
 
     private IAgentModel Create(OpenCodeRoute route)
     {
-        var provider = route.Go ? "opencode.go" : "opencode";
+        // Go and Zen both read their provider options under "opencode", as upstream does.
         return route.Protocol switch
         {
             "openai" => new OpenAiResponsesModel(
-                new OpenAiResponsesModelOptions { Model = route.ModelId, BaseUrl = route.BaseUrl, Provider = "openai", ApiKey = "oauth", Headers = _headers },
+                new OpenAiResponsesModelOptions { Model = route.ModelId, BaseUrl = route.BaseUrl, Provider = "openai", ApiKey = "oauth", Headers = _headers, SessionId = _headers["x-opencode-session"] },
                 Http),
             "anthropic" => new AnthropicModel(
                 new AnthropicModelOptions { Model = route.ModelId, BaseUrl = route.BaseUrl, ApiKey = "oauth", Headers = _headers },
@@ -151,7 +151,7 @@ public sealed class OpenCodeConsoleModel : DelegatingModel
                 new GoogleModelOptions { Model = route.ModelId, BaseUrl = route.BaseUrl, ApiKey = "oauth", Headers = _headers },
                 Http),
             _ => new OpenAiCompatibleModel(
-                new OpenAiCompatibleModelOptions { Model = route.ModelId, BaseUrl = route.BaseUrl, Provider = provider, ApiKey = "oauth", Headers = _headers },
+                new OpenAiCompatibleModelOptions { Model = route.ModelId, BaseUrl = route.BaseUrl, Provider = "opencode", ApiKey = "oauth", Headers = _headers },
                 Http),
         };
     }
