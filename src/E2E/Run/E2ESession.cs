@@ -277,7 +277,7 @@ public sealed class E2ESession : IAsyncDisposable
             return;
         }
 
-        // A model outage or a stale strict replay says nothing about the recording, so it stays.
+        // A model outage says nothing about the recording, so it stays. Strict mode never reaches here: it writes nothing.
         var preserve = AttemptScope.KeepsCache(error) || _scope.KeepCache;
         Flush(_scope.Cache, _scope.Acts, preserve);
     }
@@ -343,7 +343,7 @@ public sealed class E2ESession : IAsyncDisposable
     }
 }
 
-/// <summary>How to open one <see cref="E2ESession"/>. Retries set <see cref="Attempt"/> above 1 so the cache records but does not replay.</summary>
+/// <summary>How to open one <see cref="E2ESession"/>. Retries set <see cref="Attempt"/> above 1 so the cache records but does not replay, except under <see cref="CacheStrict"/>, where every attempt replays.</summary>
 public sealed class E2ESessionOptions
 {
     public required IEngine Engine { get; init; }
