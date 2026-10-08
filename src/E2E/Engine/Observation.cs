@@ -49,6 +49,13 @@ public sealed class SemanticNode
 
     public string? Text { get; init; }
 
+    /// <summary>
+    /// The inline elements read in <see cref="Text"/> that have no node of their own, such as the <c>&lt;span&gt;</c> in
+    /// <c>Ticket A &lt;span&gt;urgent&lt;/span&gt;</c>. A text query resolves them under this node, so it still finds the
+    /// word, as Playwright's text engine does. They are not in <see cref="Children"/>, so the agent does not read them twice.
+    /// </summary>
+    internal IReadOnlyList<SemanticNode> InlineNodes { get; init; } = [];
+
     public string? Value { get; init; }
 
     public string? TestId { get; init; }

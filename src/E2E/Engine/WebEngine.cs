@@ -1822,6 +1822,7 @@ public sealed partial class WebEngine : IEngine
                 Role = dto.Role,
                 Name = dto.Name,
                 Text = dto.Text,
+                InlineNodes = dto.Inline?.Select(inline => ToNode(inline, testIdAttribute)).ToList() ?? [],
                 Value = dto.Secure ? null : dto.Value,
                 TestId = dto.TestId,
                 TestIdAttribute = dto.TestId is null ? null : testIdAttribute,
@@ -2031,6 +2032,8 @@ public sealed partial class WebEngine : IEngine
         public Dictionary<string, string>? Attributes { get; set; }
 
         public WebRect? Rect { get; set; }
+
+        public List<WebNode>? Inline { get; set; }
 
         public List<WebNode>? Children { get; set; }
     }

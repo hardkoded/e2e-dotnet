@@ -889,7 +889,7 @@ internal static class LocatorResolver
                 _parents[node] = parent;
             }
 
-            foreach (var child in node.Children)
+            foreach (var child in node.Children.Concat(node.InlineNodes))
             {
                 Add(child, node);
             }

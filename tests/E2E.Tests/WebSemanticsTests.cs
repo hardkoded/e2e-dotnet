@@ -181,7 +181,7 @@ public sealed class WebSemanticsTests
     [Fact]
     public async Task Chromium_lists_a_container_with_only_its_own_direct_text()
     {
-        using var site = await TinySite.StartAsync("<!DOCTYPE html><html><body><ul><li data-testid=\"item\">Order <strong>$42.00</strong> due</li></ul></body></html>");
+        using var site = await TinySite.StartAsync("<!DOCTYPE html><html><body><ul><li data-testid=\"item\">Order <div>$42.00</div> due</li></ul></body></html>");
         await using var session = await OpenAsync(site.Url, new WebEngineOptions { Headless = true });
         var nodes = Flatten((await session.ObserveAsync(CancellationToken.None)).Roots).ToList();
         Assert.Equal("Order due", Assert.Single(nodes, node => node.TestId == "item").Text);
