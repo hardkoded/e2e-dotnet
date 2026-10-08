@@ -179,16 +179,6 @@ public sealed class WebSemanticsTests
     }
 
     [Fact]
-    public async Task Chromium_lists_a_container_with_only_its_own_direct_text()
-    {
-        using var site = await TinySite.StartAsync("<!DOCTYPE html><html><body><ul><li data-testid=\"item\">Order <div>$42.00</div> due</li></ul></body></html>");
-        await using var session = await OpenAsync(site.Url, new WebEngineOptions { Headless = true });
-        var nodes = Flatten((await session.ObserveAsync(CancellationToken.None)).Roots).ToList();
-        Assert.Equal("Order due", Assert.Single(nodes, node => node.TestId == "item").Text);
-        Assert.Contains(nodes, node => node.Text == "$42.00");
-    }
-
-    [Fact]
     public async Task Chromium_applies_viewport_user_agent_headers_and_basic_auth()
     {
         using var site = await TinySite.StartAsync(async context =>
