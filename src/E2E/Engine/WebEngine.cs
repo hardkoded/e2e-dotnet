@@ -250,7 +250,7 @@ public sealed partial class WebEngine : IEngine
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            var initScripts = await ReadInitScriptsAsync(System.IO.Path.GetFullPath(options.ProjectRoot ?? Directory.GetCurrentDirectory()), cancellationToken).ConfigureAwait(false);
+            var initScripts = await ReadInitScriptsAsync(options.ProjectRoot, cancellationToken).ConfigureAwait(false);
             if (_options.Connect is null)
             {
                 await EnsureChromiumAsync(!_headless, cancellationToken).ConfigureAwait(false);
@@ -376,14 +376,15 @@ public sealed partial class WebEngine : IEngine
 
     // The configured init scripts as page source, read before the browser
     // launches, so a missing file fails the attempt with nothing to close.
-    private async Task<List<string>> ReadInitScriptsAsync(string projectRoot, CancellationToken cancellationToken)
+    private async Task<List<string>> ReadInitScriptsAsync(string? projectRoot, CancellationToken cancellationToken)
     {
         var sources = new List<string>();
         var scripts = _options.InitScripts ?? [];
         for (var index = 0; index < scripts.Count; index++)
         {
             var at = InitScriptAt(index);
-            sources.Add(await scripts[index].ReadAsync(null, projectRoot, (message, cause) => new EngineException("INVALID_CONFIG", at + message, cause), cancellationToken).ConfigureAwait(false));
+            var root = System.IO.Path.GetFullPath(string.IsNullOrEmpty(projectRoot) ? Directory.GetCurrentDirectory() : projectRoot);
+            sources.Add(await scripts[index].ReadAsync(null, root, (message, cause) => new EngineException("INVALID_CONFIG", at + message, cause), cancellationToken).ConfigureAwait(false));
         }
 
         return sources;

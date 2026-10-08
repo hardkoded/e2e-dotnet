@@ -21,9 +21,9 @@ public sealed class Browser
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
 
     // An init script argument is page source, so a Secret anywhere in it is refused.
-    private static readonly JsonSerializerOptions InitScriptArgumentOptions = new(JsonDefaults.Options)
+    // Names and nulls are kept as written, as JSON.stringify and EvaluateAsync keep them.
+    private static readonly JsonSerializerOptions InitScriptArgumentOptions = new()
     {
-        WriteIndented = false,
         Converters = { new SecretRefusal() },
     };
 
@@ -251,7 +251,16 @@ public sealed class Browser
             throw new TestException("INVALID_ARGUMENT", "browser.addInitScript takes an argument only with a function script");
         }
 
-        var argument = hasArg ? JsonSerializer.Serialize(arg, InitScriptArgumentOptions) : null;
+        string? argument = null;
+        try
+        {
+            argument = hasArg ? JsonSerializer.Serialize(arg, InitScriptArgumentOptions) : null;
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        {
+            throw new TestException("INVALID_ARGUMENT", "browser.addInitScript argument is not JSON: " + ex.Message, ex);
+        }
+
         var session = Require("addInitScript");
         var token = Token(cancellationToken);
         var source = await script.ReadAsync(argument, _projectRoot, (message, cause) => new TestException("INVALID_ARGUMENT", "browser.addInitScript " + message, cause), token).ConfigureAwait(false);
