@@ -262,7 +262,7 @@ internal static class PageScript
           };
           // A subtree the name computation drops: aria-hidden, or hidden by style as innerText leaves it out.
           const isNameHidden = (el, style) =>
-            (el.getAttribute("aria-hidden") || "").toLowerCase() === "true" || style.display === "none" || style.visibility === "hidden";
+            ariaHidden(el) || style.display === "none" || style.visibility === "hidden";
           // alt of an element HTML-AAM names by it: an img or an input type="image".
           const altOf = (el) => {
             const named = el instanceof HTMLImageElement || (el instanceof HTMLInputElement && el.type === "image");
