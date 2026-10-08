@@ -115,6 +115,7 @@ public sealed class OpenCodeConsoleModel : DelegatingModel
 {
     private readonly string _model;
     private readonly OpenCodeConsoleProvider _provider;
+    private readonly string _session;
     private readonly Dictionary<string, string> _headers;
     private readonly IAgentModel _chat;
 
@@ -124,7 +125,8 @@ public sealed class OpenCodeConsoleModel : DelegatingModel
         ArgumentException.ThrowIfNullOrWhiteSpace(model);
         _model = model;
         _provider = provider;
-        _headers = new Dictionary<string, string>(StringComparer.Ordinal) { ["x-opencode-session"] = "e2e_" + Guid.NewGuid().ToString("N") };
+        _session = "e2e_" + Guid.NewGuid().ToString("N");
+        _headers = new Dictionary<string, string>(StringComparer.Ordinal) { ["x-opencode-session"] = _session };
         _chat = Create(OpenCodeConsoleProvider.ChatRoute(model));
     }
 
@@ -142,7 +144,7 @@ public sealed class OpenCodeConsoleModel : DelegatingModel
         return route.Protocol switch
         {
             "openai" => new OpenAiResponsesModel(
-                new OpenAiResponsesModelOptions { Model = route.ModelId, BaseUrl = route.BaseUrl, Provider = "openai", ApiKey = "oauth", Headers = _headers, SessionId = _headers["x-opencode-session"] },
+                new OpenAiResponsesModelOptions { Model = route.ModelId, BaseUrl = route.BaseUrl, Provider = "openai", ApiKey = "oauth", Headers = _headers, SessionId = _session },
                 Http),
             "anthropic" => new AnthropicModel(
                 new AnthropicModelOptions { Model = route.ModelId, BaseUrl = route.BaseUrl, ApiKey = "oauth", Headers = _headers },
