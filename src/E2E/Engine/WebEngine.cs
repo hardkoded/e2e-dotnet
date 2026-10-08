@@ -1266,7 +1266,7 @@ public sealed partial class WebEngine : IEngine
             try
             {
                 // As upstream, attaching a persistent attempt has the browser launch budget.
-                binding = await AttachWithinAsync(playwright, seams, persistent.Provision, E2EDefaults.LaunchTimeout, seams.Clock.GetTimestamp(), null, "connection", cancellationToken, CancellationToken.None).ConfigureAwait(false);
+                binding = await AttachWithinAsync(playwright, seams, persistent.Provision, E2EDefaults.LaunchTimeout, seams.Clock.GetTimestamp(), null, "connection", cancellationToken, CancellationToken.None, static _ => Task.CompletedTask).ConfigureAwait(false);
             }
             catch
             {
@@ -1352,6 +1352,14 @@ public sealed partial class WebEngine : IEngine
                 throw _failure;
             }
 
+            lock (_recoveryLock)
+            {
+                if (_recovery == recovery)
+                {
+                    _recovery = null;
+                }
+            }
+
             // Recovery is the engine's own work, so it counts against the operation's budget.
             _operationStart.Value = started;
             return await work().ConfigureAwait(false);
@@ -1371,11 +1379,10 @@ public sealed partial class WebEngine : IEngine
             _frames = new(StringComparer.Ordinal);
             try
             {
-                var binding = await AttachWithinAsync(_playwright, _seams, _persistent!.Reconnect, _actionTimeout, started, previous, label, cancellationToken, _lifetime.Token).ConfigureAwait(false);
-                try
+                var binding = await AttachWithinAsync(_playwright, _seams, _persistent!.Reconnect, _actionTimeout, started, previous, label, cancellationToken, _lifetime.Token, async candidate =>
                 {
-                    await ConfigureAsync(binding.Context).ConfigureAwait(false);
-                    if (binding.Page is { } page)
+                    await ConfigureAsync(candidate.Context).ConfigureAwait(false);
+                    if (candidate.Page is { } page)
                     {
                         page.SetDefaultTimeout(ActionMs);
                         if (size is { } viewport)
@@ -1383,23 +1390,11 @@ public sealed partial class WebEngine : IEngine
                             await page.SetViewportSizeAsync(viewport.Width, viewport.Height).ConfigureAwait(false);
                         }
                     }
-
-                    _lifetime.Token.ThrowIfCancellationRequested();
-                }
-                catch
-                {
-                    await CloseQuietlyAsync(binding.Browser).ConfigureAwait(false);
-                    throw;
-                }
-
+                }).ConfigureAwait(false);
                 _browser = binding.Browser;
                 _context = binding.Context;
                 _page = binding.Page;
                 _target = binding.Target;
-                lock (_recoveryLock)
-                {
-                    _recovery = null;
-                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested || _lifetime.IsCancellationRequested)
             {
@@ -1414,9 +1409,10 @@ public sealed partial class WebEngine : IEngine
         }
 
         /// <summary>
-        /// Attaches within what is left of <paramref name="budget"/> since <paramref name="started"/>:
-        /// a resolver or dial still pending at the deadline is cancelled, and the operation
-        /// fails with <c>OPERATION_TIMEOUT</c>.
+        /// Attaches, then runs <paramref name="prepare"/> on the candidate, all within what is
+        /// left of <paramref name="budget"/> since <paramref name="started"/>: a resolver, dial,
+        /// or configuration still pending at the deadline is cancelled, and the operation fails
+        /// with <c>OPERATION_TIMEOUT</c>. A candidate that fails or arrives late is closed.
         /// </summary>
         private static async Task<SessionBinding> AttachWithinAsync(
             IPlaywright playwright,
@@ -1427,12 +1423,30 @@ public sealed partial class WebEngine : IEngine
             (string ContextId, TargetIdentity? Target)? previous,
             string label,
             CancellationToken cancellationToken,
-            CancellationToken lifetime)
+            CancellationToken lifetime,
+            Func<SessionBinding, Task> prepare)
         {
             TimeSpan Remaining() => budget - seams.Clock.GetElapsedTime(started);
             using var timer = new CancellationTokenSource(Remaining() > TimeSpan.Zero ? Remaining() : TimeSpan.Zero, seams.Clock);
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime, timer.Token);
-            var attach = AttachPersistentAsync(playwright, seams, resolve, Remaining, previous, label, deadline.Token);
+            var token = deadline.Token;
+            async Task<SessionBinding> AttachAndPrepareAsync()
+            {
+                var candidate = await AttachPersistentAsync(playwright, seams, resolve, Remaining, previous, label, token).ConfigureAwait(false);
+                try
+                {
+                    await prepare(candidate).ConfigureAwait(false);
+                    token.ThrowIfCancellationRequested();
+                    return candidate;
+                }
+                catch
+                {
+                    await CloseQuietlyAsync(candidate.Browser).ConfigureAwait(false);
+                    throw;
+                }
+            }
+
+            var attach = AttachAndPrepareAsync();
             try
             {
                 return await attach.WaitAsync(deadline.Token).ConfigureAwait(false);
