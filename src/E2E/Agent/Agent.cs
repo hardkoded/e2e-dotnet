@@ -197,8 +197,10 @@ public sealed class Agent
                     }
 
                     pending.Completed = true;
-                    var end = _scope.CacheEnabled ? await ObserveHeldStillAsync(token).ConfigureAwait(false) : start;
-                    pending.Entry = BuildEntry(instruction, start, end, actions, options?.Params);
+                    // Only a cache that writes keeps the recording, so only it waits for the screen to hold still.
+                    pending.Entry = _scope.CacheWrite
+                        ? BuildEntry(instruction, start, await ObserveHeldStillAsync(token).ConfigureAwait(false), actions, options?.Params)
+                        : null;
                     _scope.Completed.Add(summary.Length == 0 ? instruction : summary);
                     if (info is not null && pending.ParamCollision && pending.Entry is not null)
                     {
