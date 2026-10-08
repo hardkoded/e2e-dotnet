@@ -15,8 +15,6 @@ namespace E2E.Tests.Controls;
 [Collection(BrowserCollection.Name)]
 public sealed class ControlsTests
 {
-    private const string Status82 = "https://github.com/hardkoded/e2e-dotnet/issues/82: ToHaveText on a labelled output reads its name, not its text";
-
     // Upstream's testbed /controls page body.
     private const string ControlsPage = """
         <!DOCTYPE html>
@@ -239,7 +237,7 @@ public sealed class ControlsTests
         await Expect.That(first).ToBeFocusedAsync();
     });
 
-    [Fact(Skip = Status82)]
+    [Fact]
     public Task Press_spells_modifiers_the_way_the_app_sees_them() => RunAsync(async screen =>
     {
         var keys = screen.GetByLabel("Key log input");
@@ -308,7 +306,7 @@ public sealed class ControlsTests
         Assert.Equal("FREESHIP", await screen.GetByLabel("Coupon").InputValueAsync());
     });
 
-    [Fact(Skip = Status82)]
+    [Fact]
     public Task ScrollIntoView_brings_a_node_far_below_into_the_viewport() => RunAsync(async screen =>
     {
         var footnote = screen.GetByText("Footnote", exact: true);
