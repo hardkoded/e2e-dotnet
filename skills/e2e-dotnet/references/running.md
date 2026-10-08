@@ -43,8 +43,8 @@ records them again.
 `cache.strict` fails a step whose committed recording no longer replays
 (`REPLAY_STALE`) instead of handing it to the agent. That includes a
 `no-entry` miss while the cache directory holds a recording of the same
-step under another key, for example after an `E2E` upgrade changed the
-cache key. The message names that file. A custom `IStepCache` is not
+step under another key, for example after an `E2E` upgrade or a change
+to the agent's `context` re-keyed it. The message names that file. A custom `IStepCache` is not
 checked this way. A step never recorded (a new or edited instruction or
 params) and a retry still run live. Re-record with a `read-write` run
 without `cache.strict`, commit the changed entry, and delete the old file

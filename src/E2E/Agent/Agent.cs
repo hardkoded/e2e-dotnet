@@ -1449,7 +1449,7 @@ public sealed class Agent
 
     /// <summary>
     /// Under strict mode, ends a step whose key found no entry while the cache directory holds a
-    /// recording made for the same step under another key: the cache key rules changed since, and
+    /// recording made for the same step under another key: the runner or the agent's context changed since, and
     /// the recording no longer replays. A step whose instruction or params changed is a new step and
     /// still runs live. A custom <see cref="IStepCache"/> is not checked.
     /// </summary>
@@ -1463,7 +1463,7 @@ public sealed class Agent
 
         throw new AgentException(
             "REPLAY_STALE",
-            "The recording for '" + instruction + "' sits under another cache key (" + previous + ".json), since the cache key rules changed after it was recorded. Strict cache mode does not run it live; re-record it without cache.strict.");
+            "The recording for '" + instruction + "' sits under another cache key (" + previous + ".json), since the runner or the agent's context changed after it was recorded. Strict cache mode does not run it live; re-record it without cache.strict.");
     }
 
     // A step that changed nothing a replay could check, no node and no route, records nothing:
