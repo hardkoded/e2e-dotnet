@@ -125,7 +125,7 @@ public sealed class PollConditionTests
         var screen = Scripted(_ => []);
         using var abort = new CancellationTokenSource();
         var poll = Expect.That(screen.GetByRole("status")).ToBeVisibleAsync(timeout: TimeSpan.FromSeconds(60), cancellationToken: abort.Token);
-        while (!_time.HasTimer)
+        while (!_time.HasTimer && !poll.IsCompleted)
         {
             await Task.Delay(1);
         }
