@@ -49,6 +49,8 @@ public sealed class SkippingFixture : E2ETest
 
     public static bool TeardownRan;
 
+    public static List<string?> Messages { get; } = [];
+
     protected override E2EConfig Config => FixtureConfig;
 
     protected override string? BaseUrl => E2E.Playground.Testbed.Url;
@@ -61,7 +63,11 @@ public sealed class SkippingFixture : E2ETest
     }
 
     [TearDown]
-    public void RecordTeardown() => TeardownRan = true;
+    public void RecordTeardown()
+    {
+        TeardownRan = true;
+        Messages.Add(global::NUnit.Framework.TestContext.CurrentContext.Result.Message);
+    }
 
     [Test]
     public async Task Soft_then_skip()
@@ -103,6 +109,18 @@ public sealed class SkippingFixture : E2ETest
     {
         await Expect.Soft(Screen.GetByLabel("Loads")).ToHaveTextAsync("loads: 1", timeout: SoftTimeout);
         Assert.Ignore("not applicable");
+    }
+
+    [Test]
+    public async Task False_condition()
+    {
+        var disabled = Attempts < 0;
+        if (disabled)
+        {
+            Assert.Ignore("not applicable");
+        }
+
+        await Expect.That(Screen.GetByLabel("Loads")).ToHaveTextAsync("loads: 1");
     }
 
     [Test]
