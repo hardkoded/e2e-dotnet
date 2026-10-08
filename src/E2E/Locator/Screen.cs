@@ -100,15 +100,32 @@ public sealed class Screen
     /// <summary>Creates a lazy displayed-value query: the current value of an input, text area, or select.</summary>
     public Locator GetByDisplayValue(TextMatch value, TextMatchOptions options) => new(this, LocatorQuery.For("displayValue", value, options, nameof(value)));
 
-    internal Task<Observation> ObserveAsync(CancellationToken cancellationToken)
+    internal async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
     {
-        return _observe(cancellationToken == default ? _cancellation() : cancellationToken);
+        try
+        {
+            return await _observe(cancellationToken == default ? _cancellation() : cancellationToken).ConfigureAwait(false);
+        }
+        catch (EngineException ex) when (ex.Code == EngineErrorCodes.InvalidState)
+        {
+            throw AppNotOpen(ex);
+        }
     }
 
-    internal Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
+    internal async Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
     {
-        return _perform(node, action, cancellationToken == default ? _cancellation() : cancellationToken);
+        try
+        {
+            await _perform(node, action, cancellationToken == default ? _cancellation() : cancellationToken).ConfigureAwait(false);
+        }
+        catch (EngineException ex) when (ex.Code == EngineErrorCodes.InvalidState)
+        {
+            throw AppNotOpen(ex);
+        }
     }
+
+    // An engine with no open page reports INVALID_STATE; to the test that means no app is open.
+    private static TestException AppNotOpen(EngineException ex) => new("APP_NOT_OPEN", ex.Message, ex);
 
     internal CancellationToken Token(CancellationToken cancellationToken)
     {
@@ -274,7 +291,10 @@ public sealed class Locator
         return ActAsync(new LocatorAction.ScrollIntoView(), options, cancellationToken);
     }
 
-    /// <summary>Reads whitespace-normalized text once. Does not retry and does not verify an earlier <c>act</c>.</summary>
+    /// <summary>
+    /// Reads whitespace-normalized text once: the node's rendered text (<c>innerText</c> on the web), not its label.
+    /// Does not retry and does not verify an earlier <c>act</c>.
+    /// </summary>
     public async Task<string?> TextContentAsync(CancellationToken cancellationToken = default)
     {
         var node = await ResolveStrictAsync(cancellationToken).ConfigureAwait(false);
@@ -356,7 +376,7 @@ public sealed class Locator
         return locators;
     }
 
-    /// <summary>Reads the whitespace-normalized text of every current match, without waiting. Empty when nothing matches.</summary>
+    /// <summary>Reads the whitespace-normalized rendered text of every current match, without waiting. Empty when nothing matches.</summary>
     public async Task<IReadOnlyList<string>> AllTextContentsAsync(CancellationToken cancellationToken = default)
     {
         var matches = await ResolveAsync(_screen.Token(cancellationToken)).ConfigureAwait(false);

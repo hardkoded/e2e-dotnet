@@ -24,4 +24,13 @@ public sealed class GetByRoleWithANameTests
             await _screen.GetByRole("button", new RoleOptions { Name = "Cancel" }).TextContentAsync(),
             await _screen.GetByRole("button", "Cancel").TextContentAsync());
     }
+
+    /// <summary>Options with no name before them cannot be written against the port's typed overloads, so only the name in both places is checked.</summary>
+    [Fact(Skip = "https://github.com/hardkoded/e2e-dotnet/issues/138: GetByRole takes a name in both places")]
+    public void Refuses_a_name_in_both_places_and_options_with_no_name_before_them()
+    {
+        var error = Assert.Throws<TestException>(() => _screen.GetByRole("button", "Save", new RoleOptions { Name = "Cancel" }));
+        Assert.Equal("INVALID_LOCATOR", error.Code);
+        Assert.Contains("\"name\"", error.Message, StringComparison.Ordinal);
+    }
 }

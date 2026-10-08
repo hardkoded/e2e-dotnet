@@ -75,11 +75,14 @@ internal sealed class FakeApi(Func<FakeApi.Received, (HttpStatusCode Status, str
 {
     public ConcurrentQueue<Received> Requests { get; } = new();
 
+    /// <summary>The answer this API gives a request, without recording it.</summary>
+    public (HttpStatusCode Status, string Body) Respond(Received request) => answer(request);
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var received = new Received(
             request.RequestUri!,
-            request.Headers.ToDictionary(header => header.Key.ToLowerInvariant(), header => string.Join(", ", header.Value), StringComparer.Ordinal),
+            request.Headers.NonValidated.ToDictionary(header => header.Key.ToLowerInvariant(), header => header.Value.ToString(), StringComparer.Ordinal),
             request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken));
         Requests.Enqueue(received);
         var (status, body) = answer(received);

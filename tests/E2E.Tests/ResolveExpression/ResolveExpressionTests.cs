@@ -11,6 +11,10 @@ namespace E2E.Tests.ResolveExpression;
 /// The reference locator semantics. The screen is an iOS Settings page as the
 /// mobile engine projects one: an application node, a navigation bar with a
 /// button, a cell echoing its static text, a switch, two fields, a hidden button.
+/// Not ported: "refuses a role query whose value is not a string" (the port's role is a typed string), "drops hidden
+/// nodes from any query kind when it says visible" (the port's role options cannot ask for the hidden state), "hands a
+/// selector to the platform hook, and refuses one without it" (no selector queries), and "rejects frames, since a
+/// semantic tree has no nested documents" (no frame queries).
 /// </summary>
 public sealed class ResolveExpressionTests
 {

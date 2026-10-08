@@ -112,6 +112,125 @@ public sealed class PollConditionTests
         Assert.InRange(calls, 8, 11);
     }
 
+    [Fact]
+    public async Task Returns_once_the_positive_condition_holds()
+    {
+        var calls = 0;
+        var screen = Scripted(call =>
+        {
+            calls = call;
+            return call >= 3 ? [Shown] : [];
+        });
+        await Expect.That(screen.GetByRole("status")).ToBeVisibleAsync(timeout: TimeSpan.FromSeconds(5));
+        Assert.Equal(3, calls);
+    }
+
+    [Fact(Skip = "https://github.com/hardkoded/e2e-dotnet/issues/125: a cancelled matcher throws TaskCanceledException, not CANCELLED")]
+    public async Task Stops_polling_when_the_signal_aborts_between_evaluations()
+    {
+        var screen = Scripted(_ => []);
+        using var abort = new CancellationTokenSource();
+        var poll = Expect.That(screen.GetByRole("status")).ToBeVisibleAsync(timeout: TimeSpan.FromSeconds(60), cancellationToken: abort.Token);
+        await Task.Delay(25);
+        await abort.CancelAsync();
+        var error = await Assert.ThrowsAsync<TestException>(() => poll);
+        Assert.Equal("CANCELLED", error.Code);
+    }
+
+    [Fact(Skip = "https://github.com/hardkoded/e2e-dotnet/issues/126: the engine timeout of a cut-off read escapes the matcher")]
+    public async Task Ends_on_the_last_sample_when_the_deadline_cuts_a_read_off_and_fails_on_a_read_the_deadline_did_not_cut()
+    {
+        var cut = new EngineException("OPERATION_TIMEOUT", "locate timed out");
+        var budget = TimeSpan.FromMilliseconds(350);
+        var watch = Stopwatch.StartNew();
+        var calls = 0;
+        var screen = Over(_ =>
+        {
+            calls++;
+            return watch.Elapsed < budget ? Task.FromResult<SemanticNode[]>([]) : throw cut;
+        });
+        var error = await Assert.ThrowsAsync<TestException>(() => Expect.That(screen.GetByRole("status")).ToBeVisibleAsync(timeout: budget));
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        Assert.True(calls > 1);
+
+        var early = Over(_ => throw cut);
+        Assert.Same(cut, await Assert.ThrowsAsync<EngineException>(() => Expect.That(early.GetByRole("status")).ToBeVisibleAsync(timeout: TimeSpan.FromSeconds(5))));
+    }
+
+    [Fact]
+    public async Task Keeps_a_read_that_hung_most_of_the_wait_a_failure_and_never_lets_a_negation_pass_on_it()
+    {
+        var cut = new EngineException("OPERATION_TIMEOUT", "locate timed out");
+        var budget = TimeSpan.FromMilliseconds(2_000);
+        var watch = Stopwatch.StartNew();
+        var calls = 0;
+        var screen = Over(async token =>
+        {
+            calls++;
+            if (calls == 1)
+            {
+                return [];
+            }
+
+            // The page froze: this read takes the rest of the wait and is cut at its deadline.
+            var rest = budget - watch.Elapsed;
+            await Task.Delay(rest > TimeSpan.Zero ? rest : TimeSpan.Zero, token);
+            throw cut;
+        });
+        Assert.Same(cut, await Assert.ThrowsAsync<EngineException>(() => Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: budget)));
+    }
+
+    [Fact(Skip = "https://github.com/hardkoded/e2e-dotnet/issues/126: the engine timeout of a cut-off read escapes the matcher")]
+    public async Task Negated_a_read_the_deadline_cut_off_ends_the_poll_on_what_held_until_it_was_cut()
+    {
+        var cut = new EngineException("OPERATION_TIMEOUT", "locate timed out");
+        Task Run(int cutAfterMs)
+        {
+            var budget = TimeSpan.FromMilliseconds(1_950);
+            var watch = Stopwatch.StartNew();
+
+            // Visible for the first cutAfterMs, then gone; the read that starts with under a 100 ms tick left is cut.
+            var screen = Over(_ =>
+            {
+                if (budget - watch.Elapsed < TimeSpan.FromMilliseconds(100))
+                {
+                    throw cut;
+                }
+
+                return Task.FromResult<SemanticNode[]>(watch.ElapsedMilliseconds < cutAfterMs ? [Shown] : []);
+            });
+            return Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: budget);
+        }
+
+        // Gone from 900 ms: the grace window had run when the read was cut off at 1900 ms.
+        await Run(900);
+
+        // Gone from 1000 ms: it had not, and the poll fails with the cut-off read as its cause.
+        var error = await Assert.ThrowsAsync<TestException>(() => Run(1_000));
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        Assert.Same(cut, error.InnerException);
+    }
+
+    [Fact(Skip = "https://github.com/hardkoded/e2e-dotnet/issues/126: the engine timeout of a cut-off read escapes the matcher")]
+    public async Task Negated_a_budget_shorter_than_the_grace_window_still_passes_when_its_last_read_is_cut_off()
+    {
+        var cut = new EngineException("OPERATION_TIMEOUT", "locate timed out");
+        var budget = TimeSpan.FromMilliseconds(350);
+        var watch = Stopwatch.StartNew();
+        var screen = Over(async token =>
+        {
+            var rest = budget - watch.Elapsed;
+            if (rest < TimeSpan.FromMilliseconds(100))
+            {
+                await Task.Delay(rest > TimeSpan.Zero ? rest : TimeSpan.Zero, token);
+                throw cut;
+            }
+
+            return [];
+        });
+        await Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: budget);
+    }
+
     /// <summary>A screen whose nth read (from 1) shows the nodes <paramref name="read"/> returns for it.</summary>
     private static Screen Scripted(Func<int, SemanticNode[]> read)
     {

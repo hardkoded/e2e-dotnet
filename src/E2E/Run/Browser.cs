@@ -20,17 +20,29 @@ public sealed class Browser
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
 
+    // An init script argument is page source, so a Secret anywhere in it is refused.
+    // Names and nulls are kept as written, as JSON.stringify and EvaluateAsync keep them.
+    private static readonly JsonSerializerOptions InitScriptArgumentOptions = new()
+    {
+        Converters = { new SecretRefusal() },
+    };
+
     private readonly IEngineSession _session;
     private readonly string _platform;
     private readonly string? _baseUrl;
+    private readonly string _projectRoot;
+    private readonly TimeSpan _actionTimeout;
     private readonly TimeSpan _assertionTimeout;
     private readonly Func<CancellationToken> _token;
+    private readonly List<(object Pattern, Func<IBrowserRoute, Task> Handler)> _routes = [];
 
-    internal Browser(IEngineSession session, string platform, string? baseUrl, TimeSpan assertionTimeout, Func<CancellationToken> token)
+    internal Browser(IEngineSession session, string platform, string? baseUrl, string projectRoot, TimeSpan actionTimeout, TimeSpan assertionTimeout, Func<CancellationToken> token)
     {
         _session = session;
         _platform = platform;
         _baseUrl = baseUrl;
+        _projectRoot = projectRoot;
+        _actionTimeout = actionTimeout;
         _assertionTimeout = assertionTimeout;
         _token = token;
         Keyboard = new BrowserKeyboard(this);
@@ -59,7 +71,7 @@ public sealed class Browser
     public Task<string> UrlAsync(CancellationToken cancellationToken = default) =>
         Require("url").GetUrlAsync(Token(cancellationToken));
 
-    /// <summary>Returns the current title.</summary>
+    /// <summary>Returns the current title. A page that does not answer within the action timeout fails with <c>OPERATION_TIMEOUT</c>.</summary>
     public Task<string> TitleAsync(CancellationToken cancellationToken = default) =>
         Require("title").GetTitleAsync(Token(cancellationToken));
 
@@ -70,7 +82,7 @@ public sealed class Browser
     public Task WaitForURLAsync(string url, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(url);
-        var expected = Routes.Resolve(_baseUrl, url);
+        var expected = Routes.Absolute(_baseUrl, url).AbsoluteUri;
         return WaitForURLAsync(current => string.Equals(current, expected, StringComparison.Ordinal), url, timeout, cancellationToken);
     }
 
@@ -84,7 +96,8 @@ public sealed class Browser
     /// <summary>
     /// Evaluates trusted test code in the page: an expression, or a function
     /// source that is called. The result must be JSON-safe and is deserialized to
-    /// <typeparamref name="T"/>. A throwing script fails with <c>EVALUATE_FAILED</c>.
+    /// <typeparamref name="T"/>. A throwing script fails with <c>EVALUATE_FAILED</c>, and a
+    /// script that does not finish within the action timeout with <c>OPERATION_TIMEOUT</c>.
     /// </summary>
     public Task<T?> EvaluateAsync<T>(string expression, CancellationToken cancellationToken = default) =>
         EvaluateCoreAsync<T>(expression, null, hasArg: false, cancellationToken);
@@ -93,16 +106,96 @@ public sealed class Browser
     public Task<T?> EvaluateAsync<T>(string expression, object? arg, CancellationToken cancellationToken = default) =>
         EvaluateCoreAsync<T>(expression, arg, hasArg: true, cancellationToken);
 
+    /// <summary>
+    /// Waits for a response whose complete URL matches the glob <paramref name="pattern"/>:
+    /// <c>*</c> matches within one path segment, <c>**</c> crosses <c>/</c>, <c>?</c>
+    /// matches one character, and <c>\</c> escapes the next one. The timeout bounds
+    /// the match only, and defaults to the action timeout.
+    /// </summary>
+    public Task<WebResponse> WaitForResponseAsync(string pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        return WaitForResponseCoreAsync(Routes.CompilePattern(pattern).IsMatch, timeout, cancellationToken);
+    }
+
+    /// <summary>Waits for a response whose URL matches <paramref name="pattern"/>. The timeout bounds the match only, and defaults to the action timeout.</summary>
+    public Task<WebResponse> WaitForResponseAsync(Regex pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        return WaitForResponseCoreAsync(pattern.IsMatch, timeout, cancellationToken);
+    }
+
+    /// <summary>
+    /// Adds a network route for the rest of the attempt, matching a complete URL with
+    /// the glob <paramref name="pattern"/> that <see cref="WaitForResponseAsync(string, TimeSpan?, CancellationToken)"/>
+    /// takes. The route registered last runs first. <paramref name="handler"/> must take
+    /// exactly one decision on the <see cref="WebRoute"/>. A handler that takes none,
+    /// takes two, or throws fails the next step with that error, and an undecided
+    /// request is aborted.
+    /// </summary>
+    public Task RouteAsync(string pattern, Func<WebRoute, Task> handler, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        return RouteCoreAsync(pattern, handler, cancellationToken);
+    }
+
+    /// <summary>Adds a network route for the URLs <paramref name="pattern"/> matches. See <see cref="RouteAsync(string, Func{WebRoute, Task}, CancellationToken)"/>.</summary>
+    public Task RouteAsync(Regex pattern, Func<WebRoute, Task> handler, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        return RouteCoreAsync(pattern, handler, cancellationToken);
+    }
+
+    /// <summary>Removes every route added with the same glob.</summary>
+    public Task UnrouteAsync(string pattern, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        return UnrouteCoreAsync(pattern, cancellationToken);
+    }
+
+    /// <summary>Removes every route added with a regex of the same source and options.</summary>
+    public Task UnrouteAsync(Regex pattern, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(pattern);
+        return UnrouteCoreAsync(pattern, cancellationToken);
+    }
+
+    /// <summary>
+    /// Adds JavaScript source every document runs before the page's own, in
+    /// every tab and frame, from the next navigation on, for the rest of the attempt.
+    /// </summary>
+    public Task AddInitScriptAsync(string script, CancellationToken cancellationToken = default) =>
+        AddInitScriptAsync(WebInitScript.FromSource(script), cancellationToken);
+
+    /// <summary>
+    /// Adds an init script: source, a file of it (<see cref="WebInitScript.FromPath"/>),
+    /// or a function the page calls with no argument (<see cref="WebInitScript.FromFunction"/>).
+    /// </summary>
+    public Task AddInitScriptAsync(WebInitScript script, CancellationToken cancellationToken = default) =>
+        AddInitScriptCoreAsync(script, null, hasArg: false, cancellationToken);
+
+    /// <summary>
+    /// Adds an init script function (<see cref="WebInitScript.FromFunction"/>) the
+    /// page calls with one JSON-safe argument. Only a function takes an argument.
+    /// </summary>
+    public Task AddInitScriptAsync(WebInitScript script, object? arg, CancellationToken cancellationToken = default) =>
+        AddInitScriptCoreAsync(script, arg, hasArg: true, cancellationToken);
+
     /// <summary>Returns the cookies visible to the browser context.</summary>
     public Task<IReadOnlyList<BrowserCookie>> CookiesAsync(CancellationToken cancellationToken = default) =>
         Require("cookies").GetCookiesAsync(Token(cancellationToken));
 
-    /// <summary>Sets cookies. Each target URL, or the origin a domain cookie is sent to, must pass the URL rule.</summary>
+    /// <summary>
+    /// Sets cookies. Each target URL, or the origin a domain cookie is sent to, must pass the URL rule. A relative url resolves against the base URL.
+    /// A cookie URL that does not parse, or uses a scheme other than <c>http:</c> or <c>https:</c> (<c>about:blank</c> included),
+    /// is <c>POLICY_DENIED</c>.
+    /// </summary>
     public Task SetCookiesAsync(IReadOnlyList<BrowserCookie> cookies, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(cookies);
         var session = Require("setCookies");
         var scheme = _baseUrl is not null && _baseUrl.StartsWith("https:", StringComparison.OrdinalIgnoreCase) ? "https" : "http";
+        var resolved = new List<BrowserCookie>(cookies.Count);
         foreach (var cookie in cookies)
         {
             ArgumentNullException.ThrowIfNull(cookie);
@@ -111,10 +204,19 @@ public sealed class Browser
                 throw new TestException("INVALID_ARGUMENT", "Cookie \"" + cookie.Name + "\" needs a url, or a domain with an optional path, not both.");
             }
 
-            Routes.Resolve(_baseUrl, cookie.Url ?? scheme + "://" + cookie.Domain!.TrimStart('.'));
+            // A url cookie is set on the URL the rule resolved, so a relative one
+            // lands on the base URL the way OpenAsync would. The rule admits
+            // about:blank for navigation, which holds no cookie.
+            var target = Routes.Resolve(_baseUrl, cookie.Url ?? scheme + "://" + cookie.Domain!.TrimStart('.'));
+            if (!target.StartsWith("http:", StringComparison.Ordinal) && !target.StartsWith("https:", StringComparison.Ordinal))
+            {
+                throw new TestException("POLICY_DENIED", "cookie URL must be http(s): " + target);
+            }
+
+            resolved.Add(cookie.Url is null ? cookie : cookie with { Url = target });
         }
 
-        return session.SetCookiesAsync(cookies, Token(cancellationToken));
+        return session.SetCookiesAsync(resolved, Token(cancellationToken));
     }
 
     /// <summary>Sets the viewport size for the rest of the attempt.</summary>
@@ -136,6 +238,35 @@ public sealed class Browser
     internal CancellationToken Token(CancellationToken cancellationToken) =>
         cancellationToken == default ? _token() : cancellationToken;
 
+    private async Task AddInitScriptCoreAsync(WebInitScript script, object? arg, bool hasArg, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(script);
+        if (script.Problem() is { } problem)
+        {
+            throw new TestException("INVALID_ARGUMENT", "browser.addInitScript script " + problem);
+        }
+
+        if (hasArg && script.Function is null)
+        {
+            throw new TestException("INVALID_ARGUMENT", "browser.addInitScript takes an argument only with a function script");
+        }
+
+        string? argument = null;
+        try
+        {
+            argument = hasArg ? JsonSerializer.Serialize(arg, InitScriptArgumentOptions) : null;
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        {
+            throw new TestException("INVALID_ARGUMENT", "browser.addInitScript argument is not JSON: " + ex.Message, ex);
+        }
+
+        var session = Require("addInitScript");
+        var token = Token(cancellationToken);
+        var source = await script.ReadAsync(argument, _projectRoot, (message, cause) => new TestException("INVALID_ARGUMENT", "browser.addInitScript " + message, cause), token).ConfigureAwait(false);
+        await session.AddInitScriptAsync(source, token).ConfigureAwait(false);
+    }
+
     private async Task<T?> EvaluateCoreAsync<T>(string expression, object? arg, bool hasArg, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(expression);
@@ -153,6 +284,44 @@ public sealed class Browser
         catch (JsonException ex)
         {
             throw new TestException("EVALUATE_FAILED", "evaluate result does not convert to " + typeof(T).Name + ": " + ex.Message, ex);
+        }
+    }
+
+    private async Task<WebResponse> WaitForResponseCoreAsync(Func<string, bool> matches, TimeSpan? timeout, CancellationToken cancellationToken)
+    {
+        var session = Require("waitForResponse");
+        var response = await session.WaitForResponseAsync(matches, timeout ?? _actionTimeout, Token(cancellationToken)).ConfigureAwait(false);
+        return new WebResponse(response, _actionTimeout, _token);
+    }
+
+    private async Task RouteCoreAsync(object pattern, Func<WebRoute, Task> handler, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
+        var session = Require("route");
+        async Task Decide(IBrowserRoute engineRoute)
+        {
+            var route = new WebRoute(engineRoute, url => Routes.Resolve(_baseUrl, url), file => System.IO.Path.GetFullPath(file, _projectRoot));
+            await handler(route).ConfigureAwait(false);
+            if (!route.Decided)
+            {
+                throw new TestException("ACTION_FAILED", "route handler returned without calling fulfill, continue, fallback, or abort");
+            }
+        }
+
+        await session.RouteAsync(Routes.Matcher(pattern), Decide, Token(cancellationToken)).ConfigureAwait(false);
+        _routes.Add((pattern, Decide));
+    }
+
+    private async Task UnrouteCoreAsync(object pattern, CancellationToken cancellationToken)
+    {
+        var session = Require("unroute");
+        for (var i = _routes.Count - 1; i >= 0; i--)
+        {
+            if (Routes.PatternsEqual(_routes[i].Pattern, pattern))
+            {
+                await session.UnrouteAsync(_routes[i].Handler, Token(cancellationToken)).ConfigureAwait(false);
+                _routes.RemoveAt(i);
+            }
         }
     }
 
@@ -178,9 +347,133 @@ public sealed class Browser
             await Task.Delay(PollInterval, token).ConfigureAwait(false);
         }
     }
+
+    private sealed class SecretRefusal : System.Text.Json.Serialization.JsonConverter<Secret>
+    {
+        public override Secret Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            throw new NotSupportedException();
+
+        public override void Write(Utf8JsonWriter writer, Secret value, JsonSerializerOptions options) =>
+            throw new TestException("POLICY_DENIED", "addInitScript argument must not contain a Secret");
+    }
 }
 
-/// <summary>Keyboard input for whatever holds focus in the active tab.</summary>
+/// <summary>
+/// One request a <see cref="Browser.RouteAsync(string, Func{WebRoute, Task}, CancellationToken)"/>
+/// handler intercepted. Take exactly one decision. Each validates its options before
+/// it decides, so a rejected option leaves the request undecided, and the request is aborted.
+/// </summary>
+public sealed class WebRoute
+{
+    private readonly IBrowserRoute _route;
+    private readonly Func<string, string> _resolveUrl;
+    private readonly Func<string, string> _resolvePath;
+
+    internal WebRoute(IBrowserRoute route, Func<string, string> resolveUrl, Func<string, string> resolvePath)
+    {
+        _route = route;
+        _resolveUrl = resolveUrl;
+        _resolvePath = resolvePath;
+    }
+
+    /// <summary>The intercepted request.</summary>
+    public WebRouteRequest Request => _route.Request;
+
+    internal bool Decided { get; private set; }
+
+    /// <summary>Answers the request.</summary>
+    public async Task FulfillAsync(RouteFulfillResponse response)
+    {
+        var decision = RouteOptions.ParseFulfill(response, _resolvePath);
+        Decide("fulfill");
+        await _route.FulfillAsync(decision).ConfigureAwait(false);
+    }
+
+    /// <summary>Sends the request to the network once, skipping every other route.</summary>
+    public async Task ContinueAsync(RouteContinueOverrides? overrides = null)
+    {
+        var decision = RouteOptions.ParseContinue(overrides, _route.Request.Url, _resolveUrl);
+        Decide("continue");
+        await _route.ContinueAsync(decision).ConfigureAwait(false);
+    }
+
+    /// <summary>Hands the request to the route registered before this one, or the network when none matches.</summary>
+    public async Task FallbackAsync()
+    {
+        Decide("fallback");
+        await _route.FallbackAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>Aborts the request.</summary>
+    public async Task AbortAsync()
+    {
+        Decide("abort");
+        await _route.AbortAsync().ConfigureAwait(false);
+    }
+
+    private void Decide(string name)
+    {
+        if (Decided)
+        {
+            throw new TestException("ACTION_FAILED", "route handler already decided; " + name + " called twice");
+        }
+
+        Decided = true;
+    }
+}
+
+/// <summary>A response <see cref="Browser.WaitForResponseAsync(string, TimeSpan?, CancellationToken)"/> matched.</summary>
+public sealed class WebResponse
+{
+    private readonly Task<string> _body;
+    private readonly TimeSpan _actionTimeout;
+    private readonly Func<CancellationToken> _token;
+
+    internal WebResponse(BrowserResponse response, TimeSpan actionTimeout, Func<CancellationToken> token)
+    {
+        Url = response.Url;
+        Status = response.Status;
+        Headers = response.Headers;
+        _body = response.Body;
+        _actionTimeout = actionTimeout;
+        _token = token;
+    }
+
+    /// <summary>Response URL.</summary>
+    public string Url { get; }
+
+    /// <summary>HTTP status.</summary>
+    public int Status { get; }
+
+    /// <summary>Response headers, with lower-cased names.</summary>
+    public IReadOnlyDictionary<string, string> Headers { get; }
+
+    /// <summary>
+    /// Waits for the body, up to the action timeout, and reads it as text. Fails with
+    /// <c>ACTION_FAILED</c> when the body could not be read or did not finish in time.
+    /// </summary>
+    public async Task<string> TextAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _body.WaitAsync(_actionTimeout, cancellationToken == default ? _token() : cancellationToken).ConfigureAwait(false);
+        }
+        catch (TimeoutException) when (!_body.IsCompleted)
+        {
+            var budget = ((long)_actionTimeout.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            throw new TestException("ACTION_FAILED", "waitForResponse: response body did not finish within " + budget + "ms");
+        }
+    }
+
+    /// <summary>Waits for the body as <see cref="TextAsync"/> does and deserializes it as JSON.</summary>
+    public async Task<T?> JsonAsync<T>(CancellationToken cancellationToken = default) =>
+        JsonSerializer.Deserialize<T>(await TextAsync(cancellationToken).ConfigureAwait(false), JsonDefaults.Options);
+}
+
+/// <summary>
+/// Keyboard input for whatever holds focus in the active tab. A call the page does not
+/// answer within the action timeout fails with <c>ACTION_MAY_HAVE_COMMITTED</c>: the input may have reached the page.
+/// </summary>
 public sealed class BrowserKeyboard
 {
     private readonly Browser _browser;
@@ -194,7 +487,7 @@ public sealed class BrowserKeyboard
     public Task PressAsync(string key, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(key);
-        return _browser.Require("keyboard.press").PressAsync(key, _browser.Token(cancellationToken));
+        return _browser.Require("keyboard.press").KeyboardPressAsync(key, _browser.Token(cancellationToken));
     }
 
     /// <summary>Types plain text.</summary>
@@ -205,7 +498,10 @@ public sealed class BrowserKeyboard
     }
 }
 
-/// <summary>Pointer input for the active tab, in CSS pixels.</summary>
+/// <summary>
+/// Pointer input for the active tab, in CSS pixels. A call the page does not answer
+/// within the action timeout fails with <c>ACTION_MAY_HAVE_COMMITTED</c>: the input may have reached the page.
+/// </summary>
 public sealed class BrowserMouse
 {
     private readonly Browser _browser;

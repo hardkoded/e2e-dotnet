@@ -11,7 +11,8 @@ namespace E2E.Tests.AgentActVerbs;
 /// <c>agent.act</c> grammar verbs recorded on a first run, then replayed with no model call.
 /// Upstream's replay pass also runs hover, drag, upload, two repeated-press flows, and a
 /// windowed list paged to a row. This port has no hover, drag, or upload tool, its press
-/// tool takes no repeat count, and it reads a labelled list row's label instead of its text (#82).
+/// tool takes no repeat count, and its scroll to a text fails on a windowed list
+/// (https://github.com/hardkoded/e2e-dotnet/issues/166).
 /// The engine-name and policy-event lines are not ported: the port has no engine or policy events.
 /// </summary>
 [Collection(BrowserCollection.Name)]
@@ -35,9 +36,11 @@ public sealed class AgentActGrammarVerbsRecordThenZeroTurnReplayTests(AgentActGr
     public void Replays_hover_drag_check_upload_and_scroll_into_view_without_a_model_call_and_runs_a_round_trip_that_changed_nothing_live()
     {
         // Every second-run flow passed its check: RunFlowAsync fails the fixture otherwise.
-        // Upstream never records a round trip that left the screen and the route as it
-        // found them, so its second run calls the model again. This port records and
-        // replays it, so those two upstream assertions are not ported.
+        // A round trip leaves the screen and the route as it found them: nothing a
+        // replay could check, so it is never recorded and the model runs it again.
+        var roundTrip = runs.Second[RoundTrip];
+        Assert.Equal(("missed", "no-entry"), (roundTrip.Cache?.Mode, roundTrip.Cache?.Reason));
+        Assert.Equal(runs.Second.Values.Sum(result => result.ModelCalls), roundTrip.ModelCalls);
         foreach (var flow in ReplayFlows.Where(entry => entry.Title != RoundTrip))
         {
             var step = runs.Second[flow.Title];
