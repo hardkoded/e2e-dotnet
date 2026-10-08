@@ -65,6 +65,11 @@ internal sealed partial class RemoteChrome : IAsyncDisposable
             "--no-sandbox",
             "--disable-setuid-sandbox",
             "--disable-dev-shm-usage",
+
+            // A renderer that holds only hidden tabs runs at background priority, whatever
+            // --disable-renderer-backgrounding says, and a loaded machine starves it. One
+            // renderer per site keeps a hidden tab with a visible tab of the same app.
+            "--process-per-site",
             "--user-data-dir=" + userDataDir,
             "about:blank",
         })
