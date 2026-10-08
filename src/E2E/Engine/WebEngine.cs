@@ -1825,7 +1825,9 @@ public sealed partial class WebEngine : IEngine
                     throw Unchanged();
                 }
 
-                await budget.DelayAsync(left < CheckPollInterval ? left : CheckPollInterval).ConfigureAwait(false);
+                // Rounded up to whole milliseconds, which is what Task.Delay waits, so the capped pause never wakes before the window ends.
+                var wait = TimeSpan.FromMilliseconds(Math.Ceiling(left.TotalMilliseconds));
+                await budget.DelayAsync(wait < CheckPollInterval ? wait : CheckPollInterval).ConfigureAwait(false);
             }
         }
 
