@@ -63,6 +63,16 @@ Members of `E2ETest` in both frameworks:
   echoing its child does not count twice: `GetByText("$42.00")` finds the
   `<strong>` in `<p>Order total: <strong>$42.00</strong></p>`. Text inside a
   control's `<label>` answers with the control.
+- Roles follow HTML-AAM, and `img` aliases `image`. An inline `<svg>` is an
+  `image`. A `<th>` without `scope` beside a data cell with text or children
+  is a `rowheader`; one in a row of header cells, or with `scope="col"`, is a
+  `columnheader`.
+- A role's name is the accessible name, as Playwright computes it. Only
+  content roles (button, link, cell, heading, tab, option, and the like) are
+  named by their text, so `GetByRole("group", "More")` misses a `<details>`.
+  A table is named by its `<caption>`, a fieldset by its `<legend>`, a figure
+  by its `<figcaption>`, and an svg by its `<title>` child, which also names
+  a link or button around it. A node with no name reports `Name` null.
 - `RoleOptions` adds `Checked`, `Disabled`, `Selected`, `Expanded`,
   `Pressed`, and `Level`.
 - Narrow with `Filter(text)` or `Filter(locator)`, and pick with `First()`,
@@ -70,6 +80,19 @@ Members of `E2ETest` in both frameworks:
   every query, scoped to its matches' descendants.
 - A locator resolves when it is used. A match on two nodes fails with
   `STRICT_MODE`; no match fails with `NOT_FOUND`.
+- `Visible = true` (on `TextMatchOptions` or `RoleOptions`) drops nodes the
+  page hides (a closed drawer) before the exactly-one rule. Visibility is
+  what renders, as `ToBeVisibleAsync` reads it: `display: none`, a
+  `visibility` other than `visible`, and content under
+  `content-visibility: hidden` or a closed `details` are hidden. A child that
+  sets `visibility: visible` under a hidden parent is visible, and a
+  `display: contents` element is visible when something under it is. Unlike
+  upstream, an `aria-hidden` node reads as hidden, and a box with no size
+  reads as visible.
+- `GetByDisplayValue` never matches a checkbox or radio. An accessible name
+  includes an embedded control's value (`<button>Flash the screen
+  <input value="3"> times</button>` is "Flash the screen 3 times") and leaves
+  out `aria-hidden` parts, such as a required-field `*`.
 
 ### Actions
 
@@ -88,13 +111,18 @@ upload, long press, or right click.
 `AllTextContentsAsync`. A read looks at the screen once and does not wait
 for a value to change; use a matcher when a value has to settle.
 `WaitForAsync` waits for a state (`attached`, `detached`, `visible`,
-`hidden`).
+`hidden`). `BoundingBoxAsync` is `null` for a node with no layout box
+(`display: none` on it or an ancestor, or any `display: contents`
+element). `InputValueAsync` on a checkbox or
+radio reads its value attribute, `on` when it has none, whatever its checked
+state; `IsCheckedAsync` reads the state.
 
 Text reads (`ToHaveTextAsync`, `ToContainTextAsync`, `TextContentAsync`, and
 `AllTextContentsAsync`) read the node's rendered text, whitespace
 collapsed. On the web that is what `innerText` reads, not the label:
 `<output aria-label="Remaining">1 remaining</output>` reads `1 remaining`,
-and an icon-only button reads `""`. Check a label with
+and an icon-only button reads `""`. A hidden node reads its DOM text, so a
+text query still finds a `visibility: hidden` copy. Check a label with
 `ToHaveAccessibleNameAsync`.
 
 ## Expect
