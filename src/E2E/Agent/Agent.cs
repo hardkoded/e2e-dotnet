@@ -1344,7 +1344,6 @@ public sealed class Agent
     private async Task<SemanticNode> ResolveAsync(JsonElement arguments, CancellationToken token)
     {
         var observation = await _feed.ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false);
-        _feed.MarkActing();
         var matches = Find(observation, Args.String(arguments, "role"), Args.String(arguments, "name"), Args.String(arguments, "testId"), Args.String(arguments, "ref"), _scope.Redactor);
         if (matches.Count == 0)
         {
@@ -1356,6 +1355,7 @@ public sealed class Agent
             throw new TestException("STRICT_MODE", "Matched " + matches.Count.ToString(CultureInfo.InvariantCulture) + " controls. Name the control more specifically.");
         }
 
+        _feed.MarkActing();
         return matches[0];
     }
 

@@ -56,9 +56,10 @@ internal static class AgentObservation
     /// <summary>
     /// The shape two looks are compared by: the screen as the model reads it, without the per-observation node
     /// references, without focus, which moves without the page changing, and with clock-like values read as one
-    /// placeholder, which tick without the page changing.
+    /// placeholder, which tick without the page changing. The scroll position counts too: upstream's screenshot shows a
+    /// scroll the tree does not, and the port's observations carry no screenshot.
     /// </summary>
-    public static string Shape(Observation observation) => Shape(SnapshotText.Render(observation, Redactor.None));
+    public static string Shape(Observation observation) => Shape(SnapshotText.Render(observation, Redactor.None)) + "\n" + observation.ScrollPosition;
 
     /// <summary>The shape of a screen already rendered as text.</summary>
     public static string Shape(string text) => Clock.Replace(Focus.Replace(Reference.Replace(text, ""), ""), "<time>");
