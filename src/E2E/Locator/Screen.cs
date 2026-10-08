@@ -63,6 +63,11 @@ public sealed class Screen
     {
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(options);
+        if (options.Name is not null)
+        {
+            throw new TestException("INVALID_LOCATOR", "getByRole takes the \"name\" as its second argument or in the options, not both.");
+        }
+
         return new Locator(this, LocatorQuery.ForRole(role, name, options));
     }
 
@@ -395,12 +400,11 @@ public sealed class Locator
         var state = options?.State ?? WaitForState.Visible;
         var token = _screen.Token(cancellationToken);
         var deadline = DateTime.UtcNow + TimeoutOf(options?.Timeout);
-        var includeHidden = state is WaitForState.Attached or WaitForState.Detached;
         while (true)
         {
             token.ThrowIfCancellationRequested();
             var observation = await _screen.ObserveAsync(token).ConfigureAwait(false);
-            var matches = LocatorResolver.Resolve(observation, Query, includeHidden);
+            var matches = LocatorResolver.Resolve(observation, Query, includeHidden: true);
             if (matches.Count > 1)
             {
                 throw Ambiguous(matches.Count);
@@ -654,14 +658,15 @@ internal sealed record LocatorQuery
                     : ".nth(" + Index!.Value.ToString(System.Globalization.CultureInfo.InvariantCulture) + ")");
         }
 
+        var visible = Visible ? ", visible: true" : "";
         var core = Kind switch
         {
-            "role" => "getByRole(\"" + Role + "\"" + (Value is null ? "" : ", " + Value) + RoleOptions() + ")",
-            "text" => "getByText(" + Value + ")",
-            "label" => "getByLabel(" + Value + ")",
-            "testid" => "getByTestId(" + Value + ")",
-            "placeholder" => "getByPlaceholder(" + Value + ")",
-            "displayValue" => "getByDisplayValue(" + Value + ")",
+            "role" => "getByRole(\"" + Role + "\"" + (Value is null ? "" : ", " + Value) + RoleOptions() + visible + ")",
+            "text" => "getByText(" + Value + visible + ")",
+            "label" => "getByLabel(" + Value + visible + ")",
+            "testid" => "getByTestId(" + Value + visible + ")",
+            "placeholder" => "getByPlaceholder(" + Value + visible + ")",
+            "displayValue" => "getByDisplayValue(" + Value + visible + ")",
             _ => Kind,
         };
         return Parent is null ? core : Parent.Describe() + "." + core;
@@ -702,8 +707,8 @@ internal static class LocatorResolver
 {
     /// <summary>
     /// Returns the nodes <paramref name="query"/> names. <paramref name="includeHidden"/>
-    /// asks for every attached node, so role queries and <c>visible</c> queries match
-    /// hidden nodes too.
+    /// asks for every attached node, so role queries match hidden nodes too.
+    /// A <c>visible</c> query never matches a hidden node.
     /// </summary>
     public static IReadOnlyList<SemanticNode> Resolve(Observation observation, LocatorQuery query, bool includeHidden = false)
     {
@@ -729,10 +734,15 @@ internal static class LocatorResolver
         {
             case "filter":
             {
+                if (query.Has is not null && UsesDisplayValue(query.Has))
+                {
+                    throw UnsupportedDisplayValue();
+                }
+
                 var source = Resolve(query.Source!, candidates, tree, includeHidden);
                 return source.Where(node =>
                 {
-                    if (query.HasText is not null && !SubtreeHasText(node, query.HasText))
+                    if (query.HasText is not null && !SubtreeHasText(node, query.HasText, includeValue: !UsesDisplayValue(query.Source!)))
                     {
                         return false;
                     }
@@ -750,6 +760,11 @@ internal static class LocatorResolver
 
             default:
             {
+                if (query.Parent is not null && UsesDisplayValue(query.Parent))
+                {
+                    throw UnsupportedDisplayValue();
+                }
+
                 var pool = query.Parent is null
                     ? candidates
                     : tree.DescendantsOf(Resolve(query.Parent, candidates, tree, includeHidden), candidates);
@@ -759,9 +774,15 @@ internal static class LocatorResolver
         }
     }
 
+    private static bool UsesDisplayValue(LocatorQuery query) =>
+        query.Kind == "displayValue" || (query.Source is not null && UsesDisplayValue(query.Source));
+
+    private static EngineException UnsupportedDisplayValue() =>
+        new("UNSUPPORTED_CAPABILITY", "displayValue queries cannot scope child queries or serve as a has-filter in this engine");
+
     private static bool Matches(SemanticNode node, LocatorQuery query, bool includeHidden)
     {
-        if (query.Visible && node.States.Hidden && !includeHidden)
+        if (query.Visible && node.States.Hidden)
         {
             return false;
         }
@@ -807,17 +828,20 @@ internal static class LocatorResolver
 
     private static bool StateIs(bool? wanted, bool actual) => wanted is null || wanted.Value == actual;
 
-    /// <summary>Whether the node's own name, text, or value, or a descendant's, contains the text, ignoring case.</summary>
-    private static bool SubtreeHasText(SemanticNode node, TextMatch expected)
+    /// <summary>
+    /// Whether the node's own name, text, or value, or a descendant's, contains the text, ignoring case.
+    /// <paramref name="includeValue"/> false leaves values out, as the text content of a display-value match has none.
+    /// </summary>
+    private static bool SubtreeHasText(SemanticNode node, TextMatch expected, bool includeValue)
     {
-        if (expected.Matches(node.Name, exact: false) || expected.Matches(node.Text, exact: false) || expected.Matches(node.Value, exact: false))
+        if (expected.Matches(node.Name, exact: false) || expected.Matches(node.Text, exact: false) || (includeValue && expected.Matches(node.Value, exact: false)))
         {
             return true;
         }
 
         foreach (var child in node.Children)
         {
-            if (SubtreeHasText(child, expected))
+            if (SubtreeHasText(child, expected, includeValue))
             {
                 return true;
             }
