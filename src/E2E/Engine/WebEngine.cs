@@ -501,6 +501,11 @@ public sealed partial class WebEngine : IEngine
             {
                 throw WebErrors.NavigationStaleOr(ex, "locate " + node.Ref);
             }
+            catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
+            {
+                // As upstream, the deadline cutting off any part of an action is the action's cut-off.
+                throw WebErrors.ClassifyAction(ex, action);
+            }
 
             // A frame's handle to a missing ref is a plain JSHandle, which
             // AsElement rejects instead of returning null.
