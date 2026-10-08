@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Schema;
 using System.Text.Json.Serialization.Metadata;
+using E2E.Cache;
 using E2E.Engine;
 using E2E.Internal;
 
@@ -591,7 +592,7 @@ public sealed class Agent
         pending.RecordedActions = entry.Actions.Count;
         // A recording that opens with navigate sets up its own start screen.
         var opensWithNavigate = string.Equals(entry.Actions[0].Kind, "navigate", StringComparison.Ordinal);
-        if (!opensWithNavigate && !string.Equals(entry.Route, start.Route, StringComparison.Ordinal))
+        if (!opensWithNavigate && !CacheRoute.Same(entry.Route, start.Route))
         {
             _scope.Missed++;
             return ReplayAttempt.Miss("wrong-context");
@@ -625,7 +626,7 @@ public sealed class Agent
         {
             // An action with no target reads no screen, so the screen the previous action left would go unseen.
             // Look at it, settled as the previous action's policy asks, until one on the recorded end route has been seen.
-            if (Look() is { } before && !HasTarget(action) && !string.Equals(screens[^1].Route, entry.EndRoute, StringComparison.Ordinal))
+            if (Look() is { } before && !HasTarget(action) && !CacheRoute.Same(screens[^1].Route, entry.EndRoute))
             {
                 screens.Add(await _feed.ObserveAsync(before, token).ConfigureAwait(false));
             }
@@ -784,7 +785,7 @@ public sealed class Agent
         {
             // Every look must still be on the recorded end route: a screen that moved on is another screen.
             var end = await _feed.ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false);
-            if (string.Equals(entry.EndRoute, end.Route, StringComparison.Ordinal) && Anchors.Holds(entry, Project(end, parameters), before))
+            if (CacheRoute.Same(entry.EndRoute, end.Route) && Anchors.Holds(entry, Project(end, parameters), before))
             {
                 return true;
             }
@@ -805,7 +806,7 @@ public sealed class Agent
         Observation? baseline = null;
         foreach (var screen in screens)
         {
-            baseline = string.Equals(screen.Route, endRoute, StringComparison.Ordinal) ? baseline ?? screen : null;
+            baseline = CacheRoute.Same(screen.Route, endRoute) ? baseline ?? screen : null;
         }
 
         return baseline;
@@ -934,7 +935,7 @@ public sealed class Agent
         {
             var url = Args.String(call.Arguments, "url") ?? "/";
             await _scope.Session.OpenAsync(Routes.Resolve(_scope.BaseUrl, url), token).ConfigureAwait(false);
-            actions.Add(new RecordedAction { Kind = "navigate", Url = url });
+            actions.Add(new RecordedAction { Kind = "navigate", Url = CacheKeys.Template(url, parameters) });
             return ToolOutcome.Ok(await DescribeAsync("navigated to " + Routes.PathOf(url), actions[^1], token).ConfigureAwait(false));
         }
 
@@ -1529,7 +1530,7 @@ public sealed class Agent
         List<RecordedAction> actions,
         IReadOnlyDictionary<string, object?>? parameters)
     {
-        var routeMoved = !string.Equals(baseline.Route, end.Route, StringComparison.Ordinal);
+        var routeMoved = !CacheRoute.Same(baseline.Route, end.Route);
         var (appeared, gone) = Anchors.Describe(Project(baseline, parameters), Project(end, parameters), routeMoved);
         if (appeared.Count == 0 && gone.Count == 0 && !routeMoved)
         {
