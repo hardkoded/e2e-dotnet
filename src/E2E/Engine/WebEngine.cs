@@ -780,6 +780,11 @@ public sealed partial class WebEngine : IEngine
             {
                 throw WebErrors.NavigationStaleOr(ex, "scroll");
             }
+            catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
+            {
+                // As upstream's viewport swipe, a scroll the deadline cut off may have moved the page.
+                throw WebErrors.ClassifyAction(ex, new LocatorAction.Swipe(direction));
+            }
         }
 
         public async ValueTask DisposeAsync()
