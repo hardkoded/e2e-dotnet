@@ -1248,6 +1248,7 @@ public sealed partial class WebEngine : IEngine
                 }
 
                 Index(node.Children ?? [], frame, walk, owners);
+                Index(node.Inline ?? [], frame, walk, owners);
             }
         }
 

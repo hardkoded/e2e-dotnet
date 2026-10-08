@@ -650,7 +650,7 @@ internal static class PageScript
             const parent = el.assignedSlot ?? parentOrHostOf(el);
             if (parent === null || !flowsInLine(el)) return false;
             if (!ownsLine(parent)) return isReadInLine(parent);
-            return lineTextOf(parent).length <= textLimit && !invisible(parent, styleOf(parent));
+            return lineTextOf(parent).length <= textLimit && !invisible(parent, styleOf(parent)) && !namesControl(parent);
           });
           // The elements that reference each id from aria-labelledby, read once
           // per walk. nameOf resolves those ids in the document, so this does too.
@@ -694,12 +694,12 @@ internal static class PageScript
           // their own, as bare nodes of text under it, so a text query still
           // finds a word the line carries, as Playwright's text engine does.
           // They stay out of the tree the agent reads.
-          const inlineNodesOf = (parent) => {
+          const inlineNodesOf = (parent, isHidden) => {
             const out = [];
             for (const child of renderedChildrenOf(parent)) {
               if (child.nodeType !== Node.ELEMENT_NODE || !flowsInLine(child) || listed(child, roleOf(child))) continue;
               const text = cut(lineRunOf(child), Infinity);
-              if (text) out.push({ ref: stamp(child), text, hidden: false, rect: rectOf(child), children: inlineNodesOf(child) });
+              if (text) out.push({ ref: stamp(child), text, hidden: isHidden, rect: rectOf(child), children: inlineNodesOf(child, isHidden) });
             }
             return out;
           };
@@ -766,7 +766,7 @@ internal static class PageScript
                 // withholds it. innerText is empty for a node that does not
                 // render; its DOM text is what a text query matches.
                 text: secure ? "" : cut(ownsChildren ? lineTextOf(el) : (isHidden ? el.textContent : el.innerText) || "", textLimit),
-                inline: secure || !ownsChildren || lineTextOf(el) === "" ? null : inlineNodesOf(el),
+                inline: secure || !ownsChildren || lineTextOf(el) === "" ? null : inlineNodesOf(el, isHidden),
                 value: secure || !("value" in el) || el.tagName === "OPTION" ? null : String(el.value ?? ""),
                 testId,
                 placeholder: el.getAttribute("placeholder"),
