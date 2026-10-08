@@ -39,7 +39,7 @@ internal static partial class Routes
         // and a list of forbidden ones misses the wrapper. The exact about:blank loads nothing.
         if (resolved.Scheme is not ("http" or "https") && resolved.AbsoluteUri != "about:blank")
         {
-            throw new TestException("POLICY_DENIED", "Forbidden URL scheme: " + resolved.Scheme + ":");
+            throw new TestException("POLICY_DENIED", "forbidden URL scheme: " + resolved.Scheme + ":");
         }
 
         return resolved.AbsoluteUri;

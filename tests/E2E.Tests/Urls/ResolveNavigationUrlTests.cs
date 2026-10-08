@@ -51,7 +51,7 @@ public sealed class ResolveNavigationUrlTests
     {
         var error = Assert.Throws<TestException>(() => E2E.Internal.Routes.Resolve("http://localhost:3000/app/", url));
         Assert.Equal("POLICY_DENIED", error.Code);
-        Assert.Equal("Forbidden URL scheme: " + scheme, error.Message);
+        Assert.Equal("forbidden URL scheme: " + scheme, error.Message);
         Assert.Equal("POLICY_DENIED", Assert.Throws<TestException>(() => E2E.Internal.Routes.Resolve(null, url)).Code);
     }
 

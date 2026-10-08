@@ -143,7 +143,7 @@ public sealed class Browser
             var target = Routes.Resolve(_baseUrl, cookie.Url ?? scheme + "://" + cookie.Domain!.TrimStart('.'));
             if (!target.StartsWith("http:", StringComparison.Ordinal) && !target.StartsWith("https:", StringComparison.Ordinal))
             {
-                throw new TestException("POLICY_DENIED", "Cookie URL must be http(s): " + target);
+                throw new TestException("POLICY_DENIED", "cookie URL must be http(s): " + target);
             }
 
             resolved.Add(cookie.Url is null ? cookie : cookie with { Url = target });

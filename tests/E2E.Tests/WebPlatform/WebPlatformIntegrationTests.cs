@@ -101,7 +101,7 @@ public sealed class WebPlatformIntegrationTests
                 Assert.DoesNotContain("marker-local-file", await session.Browser.EvaluateAsync<string>("() => document.body?.innerText ?? ''"));
             }));
             Assert.Equal("POLICY_DENIED", error.Code);
-            Assert.Matches("^Forbidden URL scheme: (view-source|blob|about):$", error.Message);
+            Assert.Matches("^forbidden URL scheme: (view-source|blob|about):$", error.Message);
         }
 
         Assert.Null(await RunAsync(async session =>
@@ -117,7 +117,7 @@ public sealed class WebPlatformIntegrationTests
             await session.Browser.SetCookiesAsync([new BrowserCookie { Name = "flavor", Value = "oatmeal", Url = "about:blank" }]);
         }));
         Assert.Equal("POLICY_DENIED", cookie.Code);
-        Assert.Equal("Cookie URL must be http(s): about:blank", cookie.Message);
+        Assert.Equal("cookie URL must be http(s): about:blank", cookie.Message);
         directory.Delete(recursive: true);
     }
 
