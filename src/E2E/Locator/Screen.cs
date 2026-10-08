@@ -699,8 +699,8 @@ internal sealed record LocatorQuery
 
 /// <summary>
 /// The upstream reference locator semantics over a semantic tree. Role queries
-/// never match a hidden node; the other kinds keep hidden nodes unless the
-/// query says <c>visible</c>. Text and label queries answer with the innermost
+/// never match a hidden node unless asked to; the other kinds keep hidden nodes
+/// unless the query says <c>visible</c>, which always wins. Text and label queries answer with the innermost
 /// match. A scope searches strict descendants of its matches.
 /// </summary>
 internal static class LocatorResolver
@@ -740,9 +740,10 @@ internal static class LocatorResolver
                 }
 
                 var source = Resolve(query.Source!, candidates, tree, includeHidden);
+                var includeValue = !UsesDisplayValue(query.Source!);
                 return source.Where(node =>
                 {
-                    if (query.HasText is not null && !SubtreeHasText(node, query.HasText, includeValue: !UsesDisplayValue(query.Source!)))
+                    if (query.HasText is not null && !SubtreeHasText(node, query.HasText, includeValue))
                     {
                         return false;
                     }
@@ -775,7 +776,9 @@ internal static class LocatorResolver
     }
 
     private static bool UsesDisplayValue(LocatorQuery query) =>
-        query.Kind == "displayValue" || (query.Source is not null && UsesDisplayValue(query.Source));
+        query.Kind == "displayValue"
+        || (query.Source is not null && UsesDisplayValue(query.Source))
+        || (query.Parent is not null && UsesDisplayValue(query.Parent));
 
     private static EngineException UnsupportedDisplayValue() =>
         new("UNSUPPORTED_CAPABILITY", "displayValue queries cannot scope child queries or serve as a has-filter in this engine");
