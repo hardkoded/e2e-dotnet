@@ -118,7 +118,11 @@ public sealed class Browser
     public Task<IReadOnlyList<BrowserCookie>> CookiesAsync(CancellationToken cancellationToken = default) =>
         Require("cookies").GetCookiesAsync(Token(cancellationToken));
 
-    /// <summary>Sets cookies. Each target URL, or the origin a domain cookie is sent to, must pass the URL rule. A relative url resolves against the base URL.</summary>
+    /// <summary>
+    /// Sets cookies. Each target URL, or the origin a domain cookie is sent to, must pass the URL rule. A relative url resolves against the base URL.
+    /// A cookie URL that does not parse, or uses a scheme other than <c>http:</c> or <c>https:</c> (<c>about:blank</c> included),
+    /// is <c>POLICY_DENIED</c>.
+    /// </summary>
     public Task SetCookiesAsync(IReadOnlyList<BrowserCookie> cookies, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(cookies);
