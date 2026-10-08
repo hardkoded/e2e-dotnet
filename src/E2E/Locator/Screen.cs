@@ -299,22 +299,23 @@ public sealed class Locator
 
     /// <summary>
     /// Reads whitespace-normalized text once: the node's rendered text (<c>innerText</c> on the web), not its label.
-    /// Does not retry and does not verify an earlier <c>act</c>.
+    /// Does not retry and does not verify an earlier <c>act</c>. Fails with <c>POLICY_DENIED</c> on a secure field.
     /// </summary>
     public async Task<string?> TextContentAsync(CancellationToken cancellationToken = default)
     {
-        var node = await ResolveStrictAsync(cancellationToken).ConfigureAwait(false);
+        var node = await ResolveReadableAsync(cancellationToken).ConfigureAwait(false);
         var text = node.Text ?? node.Name;
         return text is null ? null : TextRules.Normalize(text);
     }
 
     /// <summary>
     /// Reads an input value once. Does not retry and does not verify an earlier <c>act</c>. A checkbox or
-    /// radio reads its value attribute, <c>on</c> when it has none, whatever its checked state.
+    /// radio reads its value attribute, <c>on</c> when it has none, whatever its checked state. Fails with
+    /// <c>POLICY_DENIED</c> on a secure field.
     /// </summary>
     public async Task<string?> InputValueAsync(CancellationToken cancellationToken = default)
     {
-        var node = await ResolveStrictAsync(cancellationToken).ConfigureAwait(false);
+        var node = await ResolveReadableAsync(cancellationToken).ConfigureAwait(false);
         return node.Value;
     }
 
@@ -388,10 +389,14 @@ public sealed class Locator
         return locators;
     }
 
-    /// <summary>Reads the whitespace-normalized rendered text of every current match, without waiting. Empty when nothing matches.</summary>
+    /// <summary>
+    /// Reads the whitespace-normalized rendered text of every current match, without waiting. Empty when nothing matches.
+    /// Fails with <c>POLICY_DENIED</c> when any match is a secure field.
+    /// </summary>
     public async Task<IReadOnlyList<string>> AllTextContentsAsync(CancellationToken cancellationToken = default)
     {
         var matches = await ResolveAsync(_screen.Token(cancellationToken)).ConfigureAwait(false);
+        DenySecureRead(matches);
         return matches.Select(node => TextRules.Normalize(node.Text ?? node.Name ?? "")).ToList();
     }
 
@@ -477,6 +482,23 @@ public sealed class Locator
 
             await Task.Delay(_screen.PollInterval, token).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>A secure field's text, value, and attributes are withheld, so reading them is denied rather than read as empty.</summary>
+    internal void DenySecureRead(IReadOnlyList<SemanticNode> nodes)
+    {
+        if (nodes.Any(node => node.States.Secure))
+        {
+            throw new TestException("POLICY_DENIED", "reading values from a secure field is denied: " + Query.Describe());
+        }
+    }
+
+    /// <summary>Returns the one match for a text or value read. A secure match fails with <c>POLICY_DENIED</c>.</summary>
+    private async Task<SemanticNode> ResolveReadableAsync(CancellationToken cancellationToken)
+    {
+        var node = await ResolveStrictAsync(cancellationToken).ConfigureAwait(false);
+        DenySecureRead([node]);
+        return node;
     }
 
     private async Task<SemanticNode> ResolveStrictAsync(CancellationToken cancellationToken)
