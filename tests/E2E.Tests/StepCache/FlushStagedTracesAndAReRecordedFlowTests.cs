@@ -10,17 +10,17 @@ public sealed class FlushStagedTracesAndAReRecordedFlowTests
     [Fact]
     public async Task Leaves_an_entry_the_same_flow_re_recorded_untouched_and_replaces_it_when_the_actions_change()
     {
-        var directory = SessionTests.TempCache();
-        await SessionTests.RecordAsync(directory);
-        var file = Assert.Single(SessionTests.Entries(directory));
+        var directory = BillingSession.TempCache();
+        await BillingSession.RecordAsync(directory);
+        var file = Assert.Single(BillingSession.Entries(directory));
         var written = await File.ReadAllTextAsync(file);
         var stamp = new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         File.SetLastWriteTimeUtc(file, stamp);
 
         // A retry runs live and records the same flow again: nothing a replay reads changed.
-        await using (var session = await SessionTests.StartAsync(directory, () => { }, attempt: 2))
+        await using (var session = await BillingSession.StartAsync(directory, () => { }, attempt: 2))
         {
-            await SessionTests.UpgradeAsync(session);
+            await BillingSession.UpgradeAsync(session);
             session.Complete();
         }
 
@@ -28,13 +28,13 @@ public sealed class FlushStagedTracesAndAReRecordedFlowTests
         Assert.Equal(written, await File.ReadAllTextAsync(file));
 
         // One more tap is a different flow, and the entry follows it.
-        await using (var session = await SessionTests.StartAsync(directory, TapsTwice(), attempt: 2))
+        await using (var session = await BillingSession.StartAsync(directory, TapsTwice(), attempt: 2))
         {
-            await SessionTests.UpgradeAsync(session);
+            await BillingSession.UpgradeAsync(session);
             session.Complete();
         }
 
-        var replaced = await File.ReadAllTextAsync(Assert.Single(SessionTests.Entries(directory)));
+        var replaced = await File.ReadAllTextAsync(Assert.Single(BillingSession.Entries(directory)));
         Assert.NotEqual(written, replaced);
         Assert.Equal(2, System.Text.RegularExpressions.Regex.Count(replaced, "\"kind\":\\s*\"tap\""));
     }

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using E2E.Internal;
 
 namespace E2E.Tests.AgentObservation;
 
@@ -25,7 +26,7 @@ public sealed class PrepareObservationTests
     public void Carries_an_engine_reported_cut_through_as_truncated_with_its_own_marker()
     {
         var tree = new SemanticNode { Ref = "n1", Role = "document", Children = [new SemanticNode { Ref = "n2", Role = "button", Name = "One" }] };
-        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree], Truncated = true }, []);
+        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree], Truncated = true }, Redactor.None);
         Assert.Contains("button \"One\"", text, StringComparison.Ordinal);
         Assert.EndsWith("\n(More of the page is off screen. Scroll to reach it.)", text, StringComparison.Ordinal);
     }
@@ -44,7 +45,7 @@ public sealed class PrepareObservationTests
                 new SemanticNode { Ref = "n3", Role = "button", Name = "Buy", States = new NodeStates { Disabled = true } },
             ],
         };
-        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree] }, []);
+        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree] }, Redactor.None);
         Assert.Equal(
             ["Screen (/):", "- document \"Home\" [ref=n1]", "  - heading \"Welcome\" [ref=n2]", "  - button \"Buy\" [ref=n3] [disabled]"],
             text.Split(Environment.NewLine));
@@ -58,7 +59,7 @@ public sealed class PrepareObservationTests
             Ref = "n1",
             Children = [new SemanticNode { Ref = "n2", Role = "textbox", Name = "Password", Value = "should-not-appear", InputPurpose = "password", States = new NodeStates { Secure = true } }],
         };
-        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree] }, []);
+        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree] }, Redactor.None);
         Assert.Contains(" secure", text, StringComparison.Ordinal);
         Assert.Contains("purpose=password", text, StringComparison.Ordinal);
         Assert.DoesNotContain("should-not-appear", text, StringComparison.Ordinal);
@@ -76,7 +77,7 @@ public sealed class PrepareObservationTests
                 new SemanticNode { Ref = "n3", Role = "textbox", Name = "hunter2", Value = "hunter2" },
             ],
         };
-        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree] }, [Secret.Create("member", "hunter2")]);
+        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree] }, Redactor.For([Secret.Create("member", "hunter2")]));
         Assert.DoesNotContain("hunter2", text, StringComparison.Ordinal);
         Assert.Contains("<secret:member>", text, StringComparison.Ordinal);
     }
@@ -84,7 +85,7 @@ public sealed class PrepareObservationTests
     [Fact(Skip = "https://github.com/hardkoded/e2e-dotnet/issues/136: the screen text keeps control characters")]
     public void Collapses_whitespace_and_strips_control_characters_from_app_text()
     {
-        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "n1", Role = "status", Text = "line\u0007one\n   two  " }] }, []);
+        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "n1", Role = "status", Text = "line\u0007one\n   two  " }] }, Redactor.None);
         Assert.Contains("\"line\uFFFDone two\"", text, StringComparison.Ordinal);
     }
 }

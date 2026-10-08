@@ -45,6 +45,10 @@ public sealed class Agent
     // The most bytes an act instruction may hold.
     private const int MaxInstructionBytes = 8_192;
 
+    // How long the screen a step passed on may keep moving before it is recorded as it is, and how often it is read.
+    private static readonly TimeSpan HeldStill = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan HeldStillPoll = TimeSpan.FromMilliseconds(100);
+
     // How often waitFor looks for a changed screen once its interval has passed.
     private static readonly TimeSpan WaitForTick = TimeSpan.FromMilliseconds(250);
 
@@ -60,7 +64,10 @@ public sealed class Agent
         _scope = scope;
     }
 
-    public async Task<ActResult> ActAsync(string instruction, ActOptions? options = null, CancellationToken cancellationToken = default)
+    public Task<ActResult> ActAsync(string instruction, ActOptions? options = null, CancellationToken cancellationToken = default) =>
+        _scope.Track(ActCoreAsync(instruction, options, cancellationToken));
+
+    private async Task<ActResult> ActCoreAsync(string instruction, ActOptions? options, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(instruction);
         CheckInstruction(instruction);
@@ -73,8 +80,7 @@ public sealed class Agent
         using var linked = Link(cancellationToken, timeout);
         var token = linked.Token;
         _scope.Remember(options?.Params);
-        var signature = CacheKeys.Create(_scope.EnginePlatform, _scope.TestTitle, instruction, options?.Params);
-        var key = CacheKeys.ForCall(signature, _scope.NextCallIndex(signature));
+        var key = _scope.ClaimKey(instruction, options?.Params, agent);
         var pending = new PendingAct { Key = key, ParamCollision = CacheKeys.Collides(options?.Params) };
         if (_scope.CacheEnabled)
         {
@@ -89,9 +95,10 @@ public sealed class Agent
         if (_scope.CacheEnabled && _scope.Attempt == 1 && _scope.Cache is not null)
         {
             var replay = await TryReplayAsync(pending, start, actions, budget, options?.Params, token).ConfigureAwait(false);
-            info = replay.Info;
+            info = new CacheInfo { Mode = replay.Info!.Mode, Reason = replay.Info.Reason, ReplayedActions = actions.Count, TotalActions = pending.RecordedActions };
             handoff = replay.Handoff;
-            if (_scope.CacheStrict && !replay.Completed && info?.Reason is not null and not "no-entry")
+            // A store that could not be read says nothing about a recording, so strict mode runs the step live too.
+            if (_scope.CacheStrict && !replay.Completed && !pending.ReadFailed && info?.Reason is not null and not "no-entry")
             {
                 throw new AgentException(
                     "REPLAY_STALE",
@@ -102,7 +109,7 @@ public sealed class Agent
             {
                 pending.Completed = true;
                 pending.ReplayedWhole = true;
-                pending.Entry = BuildEntry(instruction, start, await _scope.Session.ObserveAsync(token).ConfigureAwait(false), actions, options?.Params);
+                pending.Entry = replay.Entry;
                 _scope.Completed.Add("Replayed: " + instruction);
                 return new ActResult { Summary = "Replayed recorded actions.", Cache = info, ModelCalls = 0, Actions = budget.Used };
             }
@@ -155,7 +162,7 @@ public sealed class Agent
                     Role = "tool",
                     ToolCallId = toolCall.Id,
                     Name = toolCall.Name,
-                    Content = SnapshotText.Redact(outcome.Content, _scope.Secrets),
+                    Content = _scope.Redactor.Redact(outcome.Content),
                 });
                 if (!outcome.Succeeded)
                 {
@@ -191,9 +198,17 @@ public sealed class Agent
                     }
 
                     pending.Completed = true;
-                    var end = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
-                    pending.Entry = BuildEntry(instruction, start, end, actions, options?.Params);
+                    // Only a cache that writes keeps the recording, so only it waits for the screen to hold still.
+                    pending.Entry = _scope.CacheWrite
+                        ? BuildEntry(instruction, start, await ObserveHeldStillAsync(token).ConfigureAwait(false), actions, options?.Params)
+                        : null;
                     _scope.Completed.Add(summary.Length == 0 ? instruction : summary);
+                    if (info is not null && pending.ParamCollision && pending.Entry is not null)
+                    {
+                        // The recording cannot be templated safely, so it is not written, and the result says why.
+                        info = new CacheInfo { Mode = info.Mode, Reason = info.Reason, ReplayedActions = info.ReplayedActions, TotalActions = info.TotalActions, NotRecorded = "param-collision" };
+                    }
+
                     return new ActResult { Summary = summary, Cache = info, ModelCalls = _scope.ModelCalls - callsBefore, Actions = budget.Used };
                 }
 
@@ -230,10 +245,13 @@ public sealed class Agent
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(statement);
         var agent = _scope.Select(options?.Agent);
-        return JudgeAsync(statement, ResolveTimeout(options?.Timeout, agent.JudgmentTimeout), agent, cancellationToken);
+        return _scope.Track(JudgeAsync(statement, ResolveTimeout(options?.Timeout, agent.JudgmentTimeout), agent, cancellationToken));
     }
 
-    public async Task WaitForAsync(string statement, WaitForOptions? options = null, CancellationToken cancellationToken = default)
+    public Task WaitForAsync(string statement, WaitForOptions? options = null, CancellationToken cancellationToken = default) =>
+        _scope.Track(WaitForCoreAsync(statement, options, cancellationToken));
+
+    private async Task WaitForCoreAsync(string statement, WaitForOptions? options, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(statement);
         var agent = _scope.Select(options?.Agent);
@@ -247,7 +265,7 @@ public sealed class Agent
         var last = "the statement did not hold";
         try
         {
-            var snapshot = SnapshotText.Render(await _scope.Session.ObserveAsync(token).ConfigureAwait(false), _scope.Secrets);
+            var snapshot = SnapshotText.Render(await _scope.Session.ObserveAsync(token).ConfigureAwait(false), _scope.Redactor);
             while (true)
             {
                 var verdict = await JudgeOnceAsync(statement, snapshot, agent, maxCalls - (_scope.ModelCalls - callsBefore), token).ConfigureAwait(false);
@@ -282,7 +300,7 @@ public sealed class Agent
                         await Task.Delay(wait < remaining ? wait : remaining, token).ConfigureAwait(false);
                     }
 
-                    snapshot = SnapshotText.Render(await _scope.Session.ObserveAsync(token).ConfigureAwait(false), _scope.Secrets);
+                    snapshot = SnapshotText.Render(await _scope.Session.ObserveAsync(token).ConfigureAwait(false), _scope.Redactor);
                     if (DateTime.UtcNow - judgedAt >= interval && !string.Equals(snapshot, judged, StringComparison.Ordinal))
                     {
                         break;
@@ -302,14 +320,17 @@ public sealed class Agent
     /// members and nullable annotations respected. An answer that does not gets one repair round, then
     /// <c>MODEL_OUTPUT_INVALID</c>.
     /// </summary>
-    public async Task<T> ExtractAsync<T>(string instruction, ExtractOptions? options = null, CancellationToken cancellationToken = default)
+    public Task<T> ExtractAsync<T>(string instruction, ExtractOptions? options = null, CancellationToken cancellationToken = default) =>
+        _scope.Track(ExtractCoreAsync<T>(instruction, options, cancellationToken));
+
+    private async Task<T> ExtractCoreAsync<T>(string instruction, ExtractOptions? options, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(instruction);
         var agent = _scope.Select(options?.Agent);
         using var linked = Link(cancellationToken, ResolveTimeout(options?.Timeout, agent.JudgmentTimeout));
         var token = linked.Token;
         var observation = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
-        var snapshot = SnapshotText.Render(observation, _scope.Secrets);
+        var snapshot = SnapshotText.Render(observation, _scope.Redactor);
         var schema = JsonSchemaExporter.GetJsonSchemaAsNode(ExtractJson, typeof(T));
         var tools = AgentTools.ExtractFor(schema);
         var messages = new List<ModelMessage>
@@ -317,7 +338,7 @@ public sealed class Agent
             new()
             {
                 Role = "user",
-                Content = SnapshotText.Redact("Instruction: " + instruction + "\n\nReturn data matching this JSON schema: " + schema.ToJsonString() + "\n\n", _scope.Secrets) + snapshot,
+                Content = _scope.Redactor.Redact("Instruction: " + instruction + "\n\nReturn data matching this JSON schema: " + schema.ToJsonString() + "\n\n") + snapshot,
             },
         };
         for (var call = 1; ; call++)
@@ -377,13 +398,12 @@ public sealed class Agent
             messages.Add(new ModelMessage
             {
                 Role = "user",
-                Content = SnapshotText.Redact(
+                Content = _scope.Redactor.Redact(
                     Repair(
                         issue,
                         previous,
                         fields,
-                        "Correct a misread or a wrong shape. When the screen cannot satisfy the errors, call done with status failed and code ASSERTION_INCONCLUSIVE and say in summary what is missing, rather than change values."),
-                    _scope.Secrets),
+                        "Correct a misread or a wrong shape. When the screen cannot satisfy the errors, call done with status failed and code ASSERTION_INCONCLUSIVE and say in summary what is missing, rather than change values.")),
             });
         }
     }
@@ -393,7 +413,7 @@ public sealed class Agent
         using var linked = Link(cancellationToken, timeout);
         var token = linked.Token;
         var observation = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
-        var verdict = await JudgeOnceAsync(statement, SnapshotText.Render(observation, _scope.Secrets), agent, JudgmentModelCalls, token).ConfigureAwait(false);
+        var verdict = await JudgeOnceAsync(statement, SnapshotText.Render(observation, _scope.Redactor), agent, JudgmentModelCalls, token).ConfigureAwait(false);
         if (string.Equals(verdict.Status, "passed", StringComparison.Ordinal))
         {
             _scope.MarkVerified();
@@ -408,7 +428,7 @@ public sealed class Agent
     {
         var messages = new List<ModelMessage>
         {
-            new() { Role = "user", Content = SnapshotText.Redact("Statement: " + statement + "\n\n", _scope.Secrets) + snapshot },
+            new() { Role = "user", Content = _scope.Redactor.Redact("Statement: " + statement + "\n\n") + snapshot },
         };
         var system = JudgeSystemFor(agent);
         var response = await CallModelAsync(agent.Judge, system, messages, AgentTools.Judge, agent, token).ConfigureAwait(false);
@@ -522,7 +542,19 @@ public sealed class Agent
         IReadOnlyDictionary<string, object?>? parameters,
         CancellationToken token)
     {
-        var lookup = _scope.Cache!.Read(pending.Key);
+        CacheLookup lookup;
+        try
+        {
+            lookup = _scope.Cache!.Read(pending.Key);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The cache is disposable: a store that cannot be read is a miss, never a failed step.
+            pending.ReadFailed = true;
+            _scope.Missed++;
+            return ReplayAttempt.Miss("invalid-entry");
+        }
+
         if (lookup.Entry is null)
         {
             _scope.Missed++;
@@ -530,12 +562,16 @@ public sealed class Agent
         }
 
         var entry = lookup.Entry;
-        if (entry.Actions.Count == 0)
+        pending.ReadEntry = true;
+
+        // Any store can return a hit, so its shape is checked here, at the one read site.
+        if (entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null)
         {
             _scope.Missed++;
             return ReplayAttempt.Miss("invalid-entry");
         }
 
+        pending.RecordedActions = entry.Actions.Count;
         // A recording that opens with navigate sets up its own start screen.
         var opensWithNavigate = string.Equals(entry.Actions[0].Kind, "navigate", StringComparison.Ordinal);
         if (!opensWithNavigate && !string.Equals(entry.Route, start.Route, StringComparison.Ordinal))
@@ -546,6 +582,9 @@ public sealed class Agent
 
         pending.ConsumedReplay = true;
 
+        // Every screen the replay looks at, in order. The end check measures the recorded delta from the first of them
+        // on the route the replay ends on.
+        var screens = new List<Observation> { start };
         var started = false;
         ReplayAttempt Lost(string? reason)
         {
@@ -562,6 +601,13 @@ public sealed class Agent
 
         foreach (var action in entry.Actions)
         {
+            // An action with no target reads no screen, so the screen the previous action left would go unseen.
+            // Look at it until one on the recorded end route has been seen.
+            if (started && !HasTarget(action) && !string.Equals(screens[^1].Route, entry.EndRoute, StringComparison.Ordinal))
+            {
+                screens.Add(await _scope.Session.ObserveAsync(token).ConfigureAwait(false));
+            }
+
             if (string.Equals(action.Kind, "navigate", StringComparison.Ordinal))
             {
                 if (!budget.TryReserve())
@@ -570,7 +616,7 @@ public sealed class Agent
                     return ReplayAttempt.Hand("action-budget");
                 }
 
-                await _scope.Session.OpenAsync(action.Url ?? "/", token).ConfigureAwait(false);
+                await _scope.Session.OpenAsync(Routes.Resolve(_scope.BaseUrl, action.Url ?? "/"), token).ConfigureAwait(false);
                 actions.Add(action);
                 started = true;
                 continue;
@@ -608,7 +654,7 @@ public sealed class Agent
                     case "scroll":
                         for (var repeat = 0; repeat < (action.Times ?? 1); repeat++)
                         {
-                            var list = await WaitForTargetAsync(action, token).ConfigureAwait(false);
+                            var list = await WaitForTargetAsync(action, token, screens).ConfigureAwait(false);
                             if (list.Node is null)
                             {
                                 return Lost(list.Reason);
@@ -622,7 +668,7 @@ public sealed class Agent
                     case "scrollUntil":
                         if (HasTarget(action))
                         {
-                            var list = await WaitForTargetAsync(action, token).ConfigureAwait(false);
+                            var list = await WaitForTargetAsync(action, token, screens).ConfigureAwait(false);
                             if (list.Node is null)
                             {
                                 return Lost(list.Reason);
@@ -633,7 +679,7 @@ public sealed class Agent
                         await ScrollUntilAsync(text, Direction(action.Direction), HasTarget(action) ? action : null, token).ConfigureAwait(false);
                         break;
                     default:
-                        var found = await WaitForTargetAsync(action, token).ConfigureAwait(false);
+                        var found = await WaitForTargetAsync(action, token, screens).ConfigureAwait(false);
                         if (found.Node is null)
                         {
                             return Lost(found.Reason);
@@ -660,25 +706,40 @@ public sealed class Agent
             }
         }
 
-        if (!await WaitForEndAsync(entry, token).ConfigureAwait(false))
+        if (!await WaitForEndAsync(entry, start, screens, parameters, token).ConfigureAwait(false))
         {
             _scope.HandedOff++;
             return ReplayAttempt.Hand("end-mismatch");
         }
 
         _scope.Replayed++;
-        return ReplayAttempt.Done();
+        return ReplayAttempt.Done(entry);
     }
 
     // The last action may start a navigation or a slow render, so the end route and anchors get the replay timeout to show up.
-    private async Task<bool> WaitForEndAsync(CacheEntry entry, CancellationToken token)
+    // The replay must also have produced the delta: an outcome already on screen before the actions proves nothing.
+    private async Task<bool> WaitForEndAsync(
+        CacheEntry entry,
+        Observation start,
+        List<Observation> screens,
+        IReadOnlyDictionary<string, object?>? parameters,
+        CancellationToken token)
     {
+        var baseline = Baseline(screens, entry.EndRoute);
+        var baselineAnchors = baseline is null ? null : Project(baseline, parameters);
+        var inputTargets = entry.Actions.Where(HasTarget).Select(action => new RecordedTarget { Role = action.Role, Name = action.Name, TestId = action.TestId });
+        if (!Anchors.Evidenced(entry, baselineAnchors, inputTargets))
+        {
+            return false;
+        }
+
+        var before = baselineAnchors ?? Project(start, parameters);
         var deadline = DateTime.UtcNow + _scope.ReplayTimeout;
         while (true)
         {
+            // Every look must still be on the recorded end route: a screen that moved on is another screen.
             var end = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
-            if (string.Equals(entry.EndRoute, end.Route, StringComparison.Ordinal)
-                && entry.Appeared.All(appeared => Find(end, appeared.Role, appeared.Name, appeared.TestId, null).Count == 1))
+            if (string.Equals(entry.EndRoute, end.Route, StringComparison.Ordinal) && Anchors.Holds(entry, Project(end, parameters), before))
             {
                 return true;
             }
@@ -692,13 +753,51 @@ public sealed class Agent
         }
     }
 
-    private async Task<(SemanticNode? Node, string? Reason)> WaitForTargetAsync(RecordedAction action, CancellationToken token)
+    // The screen a step passed on, held still: captures a beat apart until two agree in shape, bounded so a screen
+    // that keeps moving costs one wait. Read too early, a recording misses an effect the page renders a frame later.
+    private async Task<Observation> ObserveHeldStillAsync(CancellationToken token)
+    {
+        var deadline = DateTime.UtcNow + HeldStill;
+        var last = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
+        var lastShape = SnapshotText.Render(last, Redactor.None);
+        while (DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(HeldStillPoll, token).ConfigureAwait(false);
+            var next = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
+            var nextShape = SnapshotText.Render(next, Redactor.None);
+            if (string.Equals(next.Route, last.Route, StringComparison.Ordinal) && string.Equals(nextShape, lastShape, StringComparison.Ordinal))
+            {
+                return next;
+            }
+
+            last = next;
+            lastShape = nextShape;
+        }
+
+        return last;
+    }
+
+    // The first screen of the replay's last stretch on the end route, or null when its last screen before the end
+    // was on another route, so the last action moved it.
+    private static Observation? Baseline(List<Observation> screens, string? endRoute)
+    {
+        Observation? baseline = null;
+        foreach (var screen in screens)
+        {
+            baseline = string.Equals(screen.Route, endRoute, StringComparison.Ordinal) ? baseline ?? screen : null;
+        }
+
+        return baseline;
+    }
+
+    private async Task<(SemanticNode? Node, string? Reason)> WaitForTargetAsync(RecordedAction action, CancellationToken token, List<Observation>? screens = null)
     {
         var deadline = DateTime.UtcNow + _scope.ReplayTimeout;
         while (true)
         {
             var observation = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
-            var matches = Find(observation, action.Role, action.Name, action.TestId, null);
+            screens?.Add(observation);
+            var matches = Find(observation, action.Role, action.Name, action.TestId, null, _scope.Redactor);
             if (matches.Count == 1)
             {
                 return (matches[0], null);
@@ -798,7 +897,7 @@ public sealed class Agent
         if (string.Equals(call.Name, "navigate", StringComparison.Ordinal))
         {
             var url = Args.String(call.Arguments, "url") ?? "/";
-            await _scope.Session.OpenAsync(url, token).ConfigureAwait(false);
+            await _scope.Session.OpenAsync(Routes.Resolve(_scope.BaseUrl, url), token).ConfigureAwait(false);
             actions.Add(new RecordedAction { Kind = "navigate", Url = url });
             return ToolOutcome.Ok(await DescribeAsync("navigated to " + Routes.PathOf(url), token).ConfigureAwait(false));
         }
@@ -848,8 +947,8 @@ public sealed class Agent
                     {
                         Kind = "fill",
                         Role = node.Role,
-                        Name = node.Name,
-                        TestId = node.TestId,
+                        Name = Redact(node.Name, _scope.Redactor),
+                        TestId = Redact(node.TestId, _scope.Redactor),
                         Value = CacheKeys.Template(value, parameters),
                     });
                     return ToolOutcome.Ok(await DescribeAsync("filled " + Label(node), token).ConfigureAwait(false));
@@ -858,12 +957,12 @@ public sealed class Agent
                 case "press":
                     var key = Args.String(call.Arguments, "key") ?? "Enter";
                     await _scope.Session.PerformAsync(node, new LocatorAction.Press(key), token).ConfigureAwait(false);
-                    actions.Add(new RecordedAction { Kind = "press", Role = node.Role, Name = node.Name, TestId = node.TestId, Key = key });
+                    actions.Add(new RecordedAction { Kind = "press", Role = node.Role, Name = Redact(node.Name, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Key = key });
                     return ToolOutcome.Ok(await DescribeAsync("pressed " + key + " on " + Label(node), token).ConfigureAwait(false));
                 case "select":
                     var selected = Args.String(call.Arguments, "value") ?? "";
                     await _scope.Session.PerformAsync(node, new LocatorAction.Select(selected), token).ConfigureAwait(false);
-                    actions.Add(new RecordedAction { Kind = "select", Role = node.Role, Name = node.Name, TestId = node.TestId, Value = selected });
+                    actions.Add(new RecordedAction { Kind = "select", Role = node.Role, Name = Redact(node.Name, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Value = selected });
                     return ToolOutcome.Ok(await DescribeAsync("selected " + selected, token).ConfigureAwait(false));
                 case "check":
                     await _scope.Session.PerformAsync(node, new LocatorAction.Check(), token).ConfigureAwait(false);
@@ -1012,8 +1111,8 @@ public sealed class Agent
         for (var screens = 0; ; screens++)
         {
             var observation = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
-            var within = list is null ? null : Single(Find(observation, list.Role, list.Name, list.TestId, null));
-            var found = Reading(within is null ? observation.Roots : within.Children, text);
+            var within = list is null ? null : Single(Find(observation, list.Role, list.Name, list.TestId, null, _scope.Redactor));
+            var found = Reading(within is null ? observation.Roots : within.Children, text, _scope.Redactor);
             if (found is not null)
             {
                 await _scope.Session.PerformAsync(found, new LocatorAction.ScrollIntoView(), token).ConfigureAwait(false);
@@ -1027,7 +1126,7 @@ public sealed class Agent
 
             // The tree can stay the same while the page moves under it (every node
             // already fits the budget), so the scroll position counts too.
-            var shape = SnapshotText.Render(observation, []) + "\n" + observation.ScrollPosition;
+            var shape = SnapshotText.Render(observation, Redactor.None) + "\n" + observation.ScrollPosition;
             still = string.Equals(shape, previous, StringComparison.Ordinal) ? still + 1 : 0;
             if (still >= ScrollUntilStillPages)
             {
@@ -1056,8 +1155,8 @@ public sealed class Agent
         }
     }
 
-    // The innermost visible node whose name or text contains the text.
-    private static SemanticNode? Reading(IReadOnlyList<SemanticNode> nodes, string text)
+    // The innermost visible node whose redacted name or text contains the text.
+    private static SemanticNode? Reading(IReadOnlyList<SemanticNode> nodes, string text, Redactor redactor)
     {
         foreach (var node in nodes)
         {
@@ -1066,13 +1165,13 @@ public sealed class Agent
                 continue;
             }
 
-            var inner = Reading(node.Children, text);
+            var inner = Reading(node.Children, text, redactor);
             if (inner is not null)
             {
                 return inner;
             }
 
-            if (TextRules.Matches(node.Name, text, exact: false) || TextRules.Matches(node.Text, text, exact: false))
+            if (TextRules.Matches(Redact(node.Name, redactor), text, exact: false) || TextRules.Matches(Redact(node.Text, redactor), text, exact: false))
             {
                 return node;
             }
@@ -1087,21 +1186,23 @@ public sealed class Agent
     }
 
     // Consecutive identical scrolls fold into one recorded action with a repeat count.
-    private static void RecordScroll(List<RecordedAction> actions, ScrollDirection direction, SemanticNode? list)
+    private void RecordScroll(List<RecordedAction> actions, ScrollDirection direction, SemanticNode? list)
     {
         var way = DirectionName(direction);
+        var scroll = list is null ? new RecordedAction { Kind = "scroll" } : Record(list, "scroll");
         if (actions.Count > 0
             && actions[^1] is { Kind: "scroll" } last
             && string.Equals(last.Direction, way, StringComparison.Ordinal)
-            && string.Equals(last.Role, list?.Role, StringComparison.Ordinal)
-            && string.Equals(last.Name, list?.Name, StringComparison.Ordinal)
-            && string.Equals(last.TestId, list?.TestId, StringComparison.Ordinal))
+            && string.Equals(last.Role, scroll.Role, StringComparison.Ordinal)
+            && string.Equals(last.Name, scroll.Name, StringComparison.Ordinal)
+            && string.Equals(last.TestId, scroll.TestId, StringComparison.Ordinal))
         {
             last.Times = (last.Times ?? 1) + 1;
             return;
         }
 
-        actions.Add(new RecordedAction { Kind = "scroll", Role = list?.Role, Name = list?.Name, TestId = list?.TestId, Direction = way });
+        scroll.Direction = way;
+        actions.Add(scroll);
     }
 
     private static bool HasTarget(JsonElement arguments)
@@ -1177,8 +1278,8 @@ public sealed class Agent
         {
             Kind = "fill",
             Role = node.Role,
-            Name = node.Name,
-            TestId = node.TestId,
+            Name = Redact(node.Name, _scope.Redactor),
+            TestId = Redact(node.TestId, _scope.Redactor),
             Value = "<secret:" + secret.Name + ">",
         });
         return ToolOutcome.Ok(await DescribeAsync("filled secret <secret:" + secret.Name + "> into " + Label(node), token).ConfigureAwait(false));
@@ -1187,7 +1288,7 @@ public sealed class Agent
     private async Task<SemanticNode> ResolveAsync(JsonElement arguments, CancellationToken token)
     {
         var observation = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
-        var matches = Find(observation, Args.String(arguments, "role"), Args.String(arguments, "name"), Args.String(arguments, "testId"), Args.String(arguments, "ref"));
+        var matches = Find(observation, Args.String(arguments, "role"), Args.String(arguments, "name"), Args.String(arguments, "testId"), Args.String(arguments, "ref"), _scope.Redactor);
         if (matches.Count == 0)
         {
             throw new TestException("NOT_FOUND", "No control matched role=" + Args.String(arguments, "role") + " name=" + Args.String(arguments, "name") + ".");
@@ -1201,7 +1302,8 @@ public sealed class Agent
         return matches[0];
     }
 
-    private static List<SemanticNode> Find(Observation observation, string? role, string? name, string? testId, string? reference)
+    // A name or test id is matched in its redacted form, the form the model reads and the cache records.
+    private static List<SemanticNode> Find(Observation observation, string? role, string? name, string? testId, string? reference, Redactor redactor)
     {
         var matches = new List<SemanticNode>();
         foreach (var node in LocatorResolver.Walk(observation.Roots))
@@ -1226,12 +1328,12 @@ public sealed class Agent
                 continue;
             }
 
-            if (name is not null && !TextRules.Matches(node.Name, name, exact: true))
+            if (name is not null && !TextRules.Matches(Redact(node.Name, redactor), name, exact: true))
             {
                 continue;
             }
 
-            if (testId is not null && !string.Equals(node.TestId, testId, StringComparison.Ordinal))
+            if (testId is not null && !string.Equals(Redact(node.TestId, redactor), testId, StringComparison.Ordinal))
             {
                 continue;
             }
@@ -1250,7 +1352,7 @@ public sealed class Agent
     private async Task<string> DescribeAsync(string action, CancellationToken token)
     {
         var observation = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
-        return action + "\n" + SnapshotText.Render(observation, _scope.Secrets);
+        return action + "\n" + SnapshotText.Render(observation, _scope.Redactor);
     }
 
     private string Opening(
@@ -1291,8 +1393,8 @@ public sealed class Agent
             }
         }
 
-        builder.Append('\n').Append(SnapshotText.Render(start, _scope.Secrets));
-        return SnapshotText.Redact(builder.ToString(), _scope.Secrets);
+        builder.Append('\n').Append(SnapshotText.Render(start, _scope.Redactor));
+        return _scope.Redactor.Redact(builder.ToString());
     }
 
     private async Task<ModelResponse> CallModelAsync(
@@ -1313,7 +1415,7 @@ public sealed class Agent
         {
             var request = new ModelRequest
             {
-                System = SnapshotText.Redact(system, _scope.Secrets),
+                System = _scope.Redactor.Redact(system),
                 Messages = messages,
                 Tools = tools,
                 ProviderOptions = agent.ProviderOptions,
@@ -1335,13 +1437,22 @@ public sealed class Agent
         return response;
     }
 
-    private CacheEntry BuildEntry(
+    // A step that changed nothing a replay could check, no node and no route, records nothing:
+    // its recording would replay on mechanics alone.
+    private CacheEntry? BuildEntry(
         string instruction,
         Observation start,
         Observation end,
         List<RecordedAction> actions,
         IReadOnlyDictionary<string, object?>? parameters)
     {
+        var routeMoved = !string.Equals(start.Route, end.Route, StringComparison.Ordinal);
+        var (appeared, gone) = Anchors.Describe(Project(start, parameters), Project(end, parameters), routeMoved);
+        if (appeared.Count == 0 && gone.Count == 0 && !routeMoved)
+        {
+            return null;
+        }
+
         return new CacheEntry
         {
             Schema = FileStepCache.SchemaVersion,
@@ -1350,54 +1461,27 @@ public sealed class Agent
             Route = start.Route,
             EndRoute = end.Route,
             Actions = actions.ToList(),
-            Appeared = Appeared(start, end, parameters),
+            Appeared = appeared,
+            Gone = gone,
         };
     }
 
-    private static List<RecordedTarget> Appeared(Observation before, Observation after, IReadOnlyDictionary<string, object?>? parameters)
+    // Anchors as the recording stores them: a name or text holding a unique param is skipped, every field has
+    // secrets redacted, and a name, text, or value has each unique param as its slot. The secrets are read as
+    // they are now, so an unchanged node is no delta.
+    private List<AnchorNode> Project(Observation observation, IReadOnlyDictionary<string, object?>? parameters)
     {
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var node in LocatorResolver.Walk(before.Roots))
-        {
-            if (!node.States.Hidden && !string.IsNullOrEmpty(node.Name))
-            {
-                seen.Add((node.Role ?? "") + "\n" + node.Name + "\n" + node.TestId);
-            }
-        }
+        var redactor = _scope.Redactor;
+        return Anchors.Project(
+            observation,
+            text => ContainsParam(text, parameters),
+            value => CacheKeys.Template(redactor.Redact(value), parameters),
+            redactor.Redact);
+    }
 
-        var appeared = new List<RecordedTarget>();
-        foreach (var node in LocatorResolver.Walk(after.Roots))
-        {
-            if (node.States.Hidden || string.IsNullOrEmpty(node.Name))
-            {
-                continue;
-            }
-
-            if (ContainsParam(node.Name, parameters))
-            {
-                continue;
-            }
-
-            var key = (node.Role ?? "") + "\n" + node.Name + "\n" + node.TestId;
-            if (!seen.Add(key))
-            {
-                continue;
-            }
-
-            // The replay needs exactly one match, so a repeated control is no anchor.
-            if (Find(after, node.Role, node.Name, node.TestId, null).Count != 1)
-            {
-                continue;
-            }
-
-            appeared.Add(new RecordedTarget { Role = node.Role, Name = node.Name, TestId = node.TestId });
-            if (appeared.Count == 8)
-            {
-                break;
-            }
-        }
-
-        return appeared;
+    private static string? Redact(string? text, Redactor redactor)
+    {
+        return text is null ? null : redactor.Redact(text);
     }
 
     private static bool ContainsParam(string name, IReadOnlyDictionary<string, object?>? parameters)
@@ -1418,9 +1502,9 @@ public sealed class Agent
         return false;
     }
 
-    private static RecordedAction Record(SemanticNode node, string kind)
+    private RecordedAction Record(SemanticNode node, string kind)
     {
-        return new RecordedAction { Kind = kind, Role = node.Role, Name = node.Name, TestId = node.TestId };
+        return new RecordedAction { Kind = kind, Role = node.Role, Name = Redact(node.Name, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor) };
     }
 
     private static RecordedAction Detemplate(RecordedAction action, IReadOnlyDictionary<string, object?>? parameters)
@@ -1735,13 +1819,61 @@ public sealed class CacheInfo
     public required string Mode { get; init; }
 
     public string? Reason { get; init; }
+
+    /// <summary>The recorded actions the replay ran. 0 for a miss.</summary>
+    public int ReplayedActions { get; init; }
+
+    /// <summary>The actions the recording holds. 0 when there was no recording to read.</summary>
+    public int TotalActions { get; init; }
+
+    /// <summary><c>param-collision</c> when the step passed but its recording was not written, because a <c>unique()</c> value is spelled by another param.</summary>
+    public string? NotRecorded { get; init; }
 }
 
 internal sealed class AttemptScope
 {
     private readonly Dictionary<string, int> _callIndexes = new(StringComparer.Ordinal);
+    private readonly List<Secret> _secrets = [];
+    private Built? _redactor;
+
+    /// <summary>
+    /// An agent call in this attempt hit a model outage or a stale strict replay. The cache keeps its
+    /// entries even when the host reports the failure without the original exception.
+    /// </summary>
+    public bool KeepCache { get; private set; }
+
+    public static bool KeepsCache(Exception? error) => error is AgentException { Code: "MODEL_UNAVAILABLE" or "MODEL_PROVIDER_FAILED" or "REPLAY_STALE" };
+
+    public async Task Track(Task call)
+    {
+        try
+        {
+            await call.ConfigureAwait(false);
+        }
+        catch (AgentException ex) when (KeepsCache(ex))
+        {
+            KeepCache = true;
+            throw;
+        }
+    }
+
+    public async Task<T> Track<T>(Task<T> call)
+    {
+        try
+        {
+            return await call.ConfigureAwait(false);
+        }
+        catch (AgentException ex) when (KeepsCache(ex))
+        {
+            KeepCache = true;
+            throw;
+        }
+    }
 
     public required IEngineSession Session { get; init; }
+
+    /// <summary>The base URL a navigate action resolves against, under the same URL rule as <c>app.open</c>.</summary>
+    public string? BaseUrl { get; init; }
 
     /// <summary>The agents by name. <c>default</c> is always present.</summary>
     public required IReadOnlyDictionary<string, ResolvedAgent> Agents { get; init; }
@@ -1777,7 +1909,29 @@ internal sealed class AttemptScope
     /// <summary>True once the test has failed. Verification stops there, so a later teardown check proves nothing.</summary>
     public Func<bool> TestFailed { get; init; } = static () => false;
 
-    public List<Secret> Secrets { get; } = [];
+    public IReadOnlyList<Secret> Secrets => _secrets;
+
+    /// <summary>
+    /// The redactor for <see cref="Secrets"/>, rebuilt only when <see cref="Remember"/>
+    /// has added a secret since the last build: building one costs time linear in
+    /// the values' length, so a long value must not pay it on every snapshot.
+    /// </summary>
+    public Redactor Redactor
+    {
+        get
+        {
+            var built = _redactor;
+            if (built is not null && built.Count == _secrets.Count)
+            {
+                return built.Redactor;
+            }
+
+            var secrets = _secrets.ToArray();
+            built = new Built(Redactor.For(secrets), secrets.Length);
+            _redactor = built;
+            return built.Redactor;
+        }
+    }
 
     public List<string> Completed { get; } = [];
 
@@ -1796,14 +1950,18 @@ internal sealed class AttemptScope
     public int Missed { get; set; }
 
     /// <summary>
-    /// The zero-based repeat of this signature in the attempt. Only an identical act counts,
-    /// so an optional step does not renumber the acts after it.
+    /// Claims one act's cache key. Each claim advances the zero-based repeat of its signature in the
+    /// attempt. Only an identical act counts, with the same agent and context, so an optional step or
+    /// another agent's call does not renumber the acts after it.
     /// </summary>
-    public int NextCallIndex(string signature)
+    public string ClaimKey(string instruction, IReadOnlyDictionary<string, object?>? parameters, ResolvedAgent agent)
     {
+        // The key reads the agent context as the model does, with the secrets known so far redacted.
+        var context = agent.Context is null ? null : Redactor.Redact(agent.Context);
+        var signature = CacheKeys.Create(EnginePlatform, TestTitle, instruction, parameters, agent.Name, context);
         var index = _callIndexes.GetValueOrDefault(signature);
         _callIndexes[signature] = index + 1;
-        return index;
+        return CacheKeys.ForCall(signature, index);
     }
 
     /// <summary>The agent a call names, or <c>default</c>. An unknown name is <c>INVALID_ARGUMENT</c>.</summary>
@@ -1834,7 +1992,7 @@ internal sealed class AttemptScope
         {
             if (value is Secret secret && !Secrets.Any(item => string.Equals(item.Name, secret.Name, StringComparison.Ordinal) && string.Equals(item.Value, secret.Value, StringComparison.Ordinal)))
             {
-                Secrets.Add(secret);
+                _secrets.Add(secret);
             }
         }
     }
@@ -1854,6 +2012,9 @@ internal sealed class AttemptScope
             }
         }
     }
+
+    /// <summary>A redactor and how many secrets it was built from. One object, so a reader never sees one without the other.</summary>
+    private sealed record Built(Redactor Redactor, int Count);
 }
 
 internal sealed class PendingAct
@@ -1871,6 +2032,15 @@ internal sealed class PendingAct
 
     /// <summary>Replay finished the act with no model call, so the stored entry is already this flow.</summary>
     public bool ReplayedWhole { get; set; }
+
+    /// <summary>The store returned an entry for this act, whether or not it replayed.</summary>
+    public bool ReadEntry { get; set; }
+
+    /// <summary>The store's read threw, so nothing is known about a recording.</summary>
+    public bool ReadFailed { get; set; }
+
+    /// <summary>The actions of the entry the store returned. 0 when it returned none.</summary>
+    public int RecordedActions { get; set; }
 
     public CacheEntry? Entry { get; set; }
 }
@@ -1904,9 +2074,9 @@ internal sealed class ActionBudget(int max)
 
 internal readonly record struct Verdict(string Status, string? Summary, string? Code);
 
-internal readonly record struct ReplayAttempt(bool Completed, bool Handoff, CacheInfo? Info)
+internal readonly record struct ReplayAttempt(bool Completed, bool Handoff, CacheInfo? Info, CacheEntry? Entry = null)
 {
-    public static ReplayAttempt Done() => new(true, false, new CacheInfo { Mode = "self-finalized" });
+    public static ReplayAttempt Done(CacheEntry entry) => new(true, false, new CacheInfo { Mode = "self-finalized" }, entry);
 
     public static ReplayAttempt Miss(string reason) => new(false, false, new CacheInfo { Mode = "missed", Reason = reason });
 

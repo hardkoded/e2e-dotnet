@@ -16,7 +16,7 @@ public sealed class DecideTraceReplayTests
     [Fact]
     public async Task Replays_a_navigate_opening_trace_from_anywhere()
     {
-        var directory = SessionTests.TempCache();
+        var directory = BillingSession.TempCache();
         var calls = 0;
         var model = new ScriptedModel(request =>
         {
@@ -39,7 +39,7 @@ public sealed class DecideTraceReplayTests
 
         async Task RunAsync(string start)
         {
-            await using var session = await SessionTests.StartAsync(directory, model, attempt: 1);
+            await using var session = await BillingSession.StartAsync(directory, model, attempt: 1);
             await session.App.OpenAsync(start);
             await session.Agent.ActAsync("open billing and upgrade to Pro");
             await session.Agent.AssertAsync("the invoice preview shows a prorated amount");
