@@ -700,8 +700,8 @@ public sealed partial class WebEngine : IEngine
             cancellationToken.ThrowIfCancellationRequested();
             var context = RequireContext();
             Func<IRoute, Task> playwrightHandler = route => HandleRouteAsync(route, handler);
-            _routes.Add((matches, playwrightHandler, handler));
             await context.RouteAsync(matches, playwrightHandler).ConfigureAwait(false);
+            _routes.Add((matches, playwrightHandler, handler));
         }
 
         public async Task UnrouteAsync(Func<IBrowserRoute, Task> handler, CancellationToken cancellationToken)
@@ -862,7 +862,7 @@ public sealed partial class WebEngine : IEngine
             {
                 json = await frame.EvaluateAsync<string>(PageScript.Collect, new { seed = _nextRef, max = walk.Remaining, testIdAttribute = _testIdAttribute }).ConfigureAwait(false);
             }
-            catch (PlaywrightException) when (frame != Page.MainFrame)
+            catch (PlaywrightException) when (frame != _page?.MainFrame)
             {
                 return [];
             }

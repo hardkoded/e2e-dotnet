@@ -250,8 +250,8 @@ public sealed class Browser
             }
         }
 
-        _routes.Add((pattern, Decide));
         await session.RouteAsync(url => Routes.PatternMatches(pattern, url), Decide, Token(cancellationToken)).ConfigureAwait(false);
+        _routes.Add((pattern, Decide));
     }
 
     private async Task UnrouteCoreAsync(object pattern, CancellationToken cancellationToken)
