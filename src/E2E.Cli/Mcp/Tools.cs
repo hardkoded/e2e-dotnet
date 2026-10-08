@@ -162,7 +162,15 @@ internal static partial class Tools
         }
 
         var cut = sentence.LastIndexOf(' ', CatalogSentenceMax - 1);
-        return TrailingPunctuation().Replace(sentence[..(cut > 0 ? cut : CatalogSentenceMax - 1)], "") + "…";
+        var length = cut > 0 ? cut : CatalogSentenceMax - 1;
+
+        // Never split a surrogate pair: an emoji at the cut would become an invalid character.
+        if (char.IsHighSurrogate(sentence[length - 1]))
+        {
+            length--;
+        }
+
+        return TrailingPunctuation().Replace(sentence[..length], "") + "…";
     }
 
     /// <summary>
@@ -316,12 +324,21 @@ internal static class ArgumentSchema
             return;
         }
 
-        // A union, as zod renders an optional, nullable, or either-or value: one branch must fit.
+        // A union, as zod renders a nullable or either-or value: one branch must fit. A nullable value reports
+        // its inner type's issues, as zod does; any other union says only that the input is invalid.
         if (Branches(schema) is { } branches)
         {
             if (!branches.Any(branch => Fits(branch, value)))
             {
-                issues.Add(new SchemaIssue([.. path], "Invalid input"));
+                var inner = branches.Where(branch => !IsNull(branch)).ToList();
+                if (inner.Count == 1)
+                {
+                    Check(inner[0], value, path, issues);
+                }
+                else
+                {
+                    issues.Add(new SchemaIssue([.. path], "Invalid input"));
+                }
             }
 
             return;
@@ -346,7 +363,7 @@ internal static class ArgumentSchema
             case "number" or "integer":
                 if (Expect(value, JsonValueKind.Number, "number", path, issues))
                 {
-                    var number = value!.Value.GetDouble();
+                    var number = Number(value!.Value);
                     if (type == "integer" && Math.Floor(number) != number)
                     {
                         issues.Add(new SchemaIssue([.. path], "Invalid input: expected int, received number"));
@@ -389,6 +406,17 @@ internal static class ArgumentSchema
         }
 
         return null;
+    }
+
+    /// <summary>A JSON number as a double; one too large for a double is infinite rather than an error.</summary>
+    private static double Number(JsonElement number)
+    {
+        return double.Parse(number.GetRawText(), NumberStyles.Float, CultureInfo.InvariantCulture);
+    }
+
+    private static bool IsNull(JsonElement schema)
+    {
+        return schema.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String && type.GetString() == "null";
     }
 
     private static bool Fits(JsonElement schema, JsonElement? value)
@@ -466,11 +494,11 @@ internal static class ArgumentSchema
     private static void CheckSize(JsonElement schema, int size, string origin, string unit, List<string> path, List<SchemaIssue> issues)
     {
         var (min, max) = origin == "array" ? ("minItems", "maxItems") : ("minLength", "maxLength");
-        if (schema.TryGetProperty(min, out var floor) && size < floor.GetDouble())
+        if (schema.TryGetProperty(min, out var floor) && size < Number(floor))
         {
             issues.Add(new SchemaIssue([.. path], "Too small: expected " + origin + " to have >=" + floor.GetRawText() + " " + unit));
         }
-        else if (schema.TryGetProperty(max, out var ceiling) && size > ceiling.GetDouble())
+        else if (schema.TryGetProperty(max, out var ceiling) && size > Number(ceiling))
         {
             issues.Add(new SchemaIssue([.. path], "Too big: expected " + origin + " to have <=" + ceiling.GetRawText() + " " + unit));
         }
@@ -478,19 +506,19 @@ internal static class ArgumentSchema
 
     private static void CheckBound(JsonElement schema, double number, List<string> path, List<SchemaIssue> issues)
     {
-        if (schema.TryGetProperty("minimum", out var floor) && number < floor.GetDouble())
+        if (schema.TryGetProperty("minimum", out var floor) && number < Number(floor))
         {
             issues.Add(new SchemaIssue([.. path], "Too small: expected number to be >=" + floor.GetRawText()));
         }
-        else if (schema.TryGetProperty("exclusiveMinimum", out var above) && above.ValueKind == JsonValueKind.Number && number <= above.GetDouble())
+        else if (schema.TryGetProperty("exclusiveMinimum", out var above) && above.ValueKind == JsonValueKind.Number && number <= Number(above))
         {
             issues.Add(new SchemaIssue([.. path], "Too small: expected number to be >" + above.GetRawText()));
         }
-        else if (schema.TryGetProperty("maximum", out var ceiling) && number > ceiling.GetDouble())
+        else if (schema.TryGetProperty("maximum", out var ceiling) && number > Number(ceiling))
         {
             issues.Add(new SchemaIssue([.. path], "Too big: expected number to be <=" + ceiling.GetRawText()));
         }
-        else if (schema.TryGetProperty("exclusiveMaximum", out var below) && below.ValueKind == JsonValueKind.Number && number >= below.GetDouble())
+        else if (schema.TryGetProperty("exclusiveMaximum", out var below) && below.ValueKind == JsonValueKind.Number && number >= Number(below))
         {
             issues.Add(new SchemaIssue([.. path], "Too big: expected number to be <" + below.GetRawText()));
         }

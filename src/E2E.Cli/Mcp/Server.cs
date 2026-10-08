@@ -140,7 +140,7 @@ internal static class Server
 
     /// <summary>
     /// Checks the arguments against the tool's closed schema, then runs it. A refusal or a failure is an error
-    /// result the agent can react to, never a protocol error.
+    /// result the agent can react to. Only a tool the server does not have is a protocol error, as upstream.
     /// </summary>
     private static async ValueTask<CallToolResult> CallAsync(IReadOnlyList<McpToolSpec> specs, CallToolRequestParams? request, CancellationToken cancellationToken)
     {

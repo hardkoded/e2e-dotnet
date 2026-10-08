@@ -2,9 +2,9 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Reflection;
 using System.Runtime.InteropServices;
 using E2E.Cli.Mcp;
+using E2E.Internal;
 
 namespace E2E.Cli;
 
@@ -52,7 +52,7 @@ internal static class McpCommand
                     Target = options.Target,
                     Headed = options.Headed,
                     MaxSessions = options.MaxSessions,
-                    Version = Version(),
+                    Version = ModelHttp.PackageVersion(),
                     Stdin = stdin,
                     Stdout = protocol,
                     Log = line => stderr.WriteLine("e2e mcp: " + line),
@@ -66,13 +66,5 @@ internal static class McpCommand
             await stderr.WriteLineAsync("e2e mcp: [error] uncaught: " + Tools.CodedMessage(ex)).ConfigureAwait(false);
             return 1;
         }
-    }
-
-    /// <summary>The tool's version, without the commit MinVer appends.</summary>
-    private static string Version()
-    {
-        var version = typeof(McpCommand).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
-        var plus = version.IndexOf('+', StringComparison.Ordinal);
-        return plus < 0 ? version : version[..plus];
     }
 }
