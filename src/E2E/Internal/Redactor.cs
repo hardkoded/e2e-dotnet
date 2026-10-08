@@ -100,7 +100,9 @@ internal sealed class Redactor
     /// <summary>
     /// <see cref="Redact"/> that also rewrites every run of at least
     /// <see cref="FragmentLength"/> consecutive characters of a value, in any
-    /// case. For raw engine text, such as an error that quotes a value cut short.
+    /// case and with its whitespace runs collapsed, and every base64 run that
+    /// decodes to text holding a value or a fragment. For raw engine text, such
+    /// as an error that quotes a value cut short.
     /// </summary>
     public string RedactFragments(string text)
     {
