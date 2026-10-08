@@ -632,6 +632,7 @@ public sealed partial class WebEngine : IEngine
         public async Task ClearStateAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            ThrowPending();
             var context = _context;
             _context = null;
             _page = null;
@@ -641,7 +642,7 @@ public sealed partial class WebEngine : IEngine
             }
 
             await NewContextAsync().ConfigureAwait(false);
-            await NewPageAsync(RequireContext()).ConfigureAwait(false);
+            await NewPageAsync(_context!).ConfigureAwait(false);
         }
 
         public Task<string> GetUrlAsync(CancellationToken cancellationToken)

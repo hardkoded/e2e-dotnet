@@ -11,6 +11,6 @@ public sealed class RoutePatternMatchesTests
     [Fact]
     public void Supports_regexp_wire_patterns()
     {
-        Assert.True(E2E.Internal.Routes.PatternMatches(new Regex(@"api/\w+$"), "http://x.test/api/flags"));
+        Assert.True(E2E.Internal.Routes.Matcher(new Regex(@"api/\w+$"))("http://x.test/api/flags"));
     }
 }

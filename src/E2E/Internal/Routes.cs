@@ -118,10 +118,7 @@ internal static partial class Routes
         return new Regex(source.Append('$').ToString(), RegexOptions.CultureInvariant);
     }
 
-    /// <summary>Matches a URL against a route pattern: a glob string (<see cref="CompilePattern"/>) or a <see cref="Regex"/>.</summary>
-    public static bool PatternMatches(object pattern, string url) => Matcher(pattern)(url);
-
-    /// <summary>The URL test for a route pattern, with a glob compiled once.</summary>
+    /// <summary>The URL test for a route pattern, a glob string (<see cref="CompilePattern"/>, compiled once) or a <see cref="Regex"/>.</summary>
     public static Func<string, bool> Matcher(object pattern) =>
         pattern is Regex regex ? regex.IsMatch : CompilePattern((string)pattern).IsMatch;
 
