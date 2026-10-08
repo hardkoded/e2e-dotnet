@@ -26,7 +26,8 @@ public sealed class Screen
         Action verified,
         TimeSpan actionTimeout,
         TimeSpan assertionTimeout,
-        SoftFailures? softFailures = null)
+        SoftFailures? softFailures = null,
+        TimeProvider? clock = null)
     {
         SoftFailures = softFailures ?? new SoftFailures();
         _observe = observe;
@@ -35,11 +36,14 @@ public sealed class Screen
         _verified = verified;
         ActionTimeout = actionTimeout;
         AssertionTimeout = assertionTimeout;
+        Clock = clock ?? TimeProvider.System;
     }
 
     internal TimeSpan ActionTimeout { get; }
 
     internal TimeSpan AssertionTimeout { get; }
+
+    internal TimeProvider Clock { get; }
 
     internal SoftFailures SoftFailures { get; }
 
@@ -286,7 +290,8 @@ public sealed class Locator
     }
 
     /// <summary>
-    /// Reads whitespace-normalized text once: the node's rendered text (<c>innerText</c> on the web), not its label.
+    /// Reads whitespace-normalized text once: the node's text, not its label. On the web a button, link, or heading
+    /// reads its rendered text (<c>innerText</c>); a node that lists its children reads only its own direct text.
     /// Does not retry and does not verify an earlier <c>act</c>. Fails with <c>POLICY_DENIED</c> on a secure field.
     /// </summary>
     public async Task<string?> TextContentAsync(CancellationToken cancellationToken = default)
@@ -312,7 +317,7 @@ public sealed class Locator
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         var node = await ResolveReadableAsync(cancellationToken).ConfigureAwait(false);
-        return node.Attributes.TryGetValue(name, out var value) ? value : null;
+        return node.AttributeOf(name);
     }
 
     /// <summary>Reads current visibility: true when exactly one visible node matches. More than one match fails.</summary>
