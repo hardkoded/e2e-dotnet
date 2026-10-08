@@ -118,6 +118,18 @@ internal static partial class Routes
         return new Regex(source.Append('$').ToString(), RegexOptions.CultureInvariant);
     }
 
+    /// <summary>Matches a URL against a route pattern: a glob string (<see cref="CompilePattern"/>) or a <see cref="Regex"/>.</summary>
+    public static bool PatternMatches(object pattern, string url) =>
+        pattern is Regex regex ? regex.IsMatch(url) : CompilePattern((string)pattern).IsMatch(url);
+
+    /// <summary>Structural equality for route patterns, used by unroute: the same glob, or the same regex source and options.</summary>
+    public static bool PatternsEqual(object a, object b) => (a, b) switch
+    {
+        (string x, string y) => string.Equals(x, y, StringComparison.Ordinal),
+        (Regex x, Regex y) => string.Equals(x.ToString(), y.ToString(), StringComparison.Ordinal) && x.Options == y.Options,
+        _ => false,
+    };
+
     [GeneratedRegex("^[A-Za-z][A-Za-z0-9+.-]*:")]
     private static partial Regex SchemePattern();
 }
