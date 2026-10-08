@@ -10,8 +10,6 @@ namespace E2E.Tests.Routes;
 [Collection(BrowserCollection.Name)]
 public sealed class BrowserRouteDecisionsTests
 {
-    private const string SchemeRuleIssue = "The navigation rule denies only file, data, and javascript, with a capitalized message: https://github.com/hardkoded/e2e-dotnet/issues/65";
-
     [Fact]
     public Task Answers_with_the_route_registered_last_when_two_fulfill() => WithRoutesAsync(async routes =>
     {
@@ -89,8 +87,8 @@ public sealed class BrowserRouteDecisionsTests
     });
 
     [Theory]
-    [InlineData("a forbidden scheme", "file:///etc/hosts", "POLICY_DENIED", "forbidden URL scheme: file:", Skip = SchemeRuleIssue)]
-    [InlineData("a wrapped scheme", "view-source:file:///etc/hosts", "POLICY_DENIED", "forbidden URL scheme: view-source:", Skip = SchemeRuleIssue)]
+    [InlineData("a forbidden scheme", "file:///etc/hosts", "POLICY_DENIED", "forbidden URL scheme: file:")]
+    [InlineData("a wrapped scheme", "view-source:file:///etc/hosts", "POLICY_DENIED", "forbidden URL scheme: view-source:")]
     [InlineData("about:blank", "about:blank", "INVALID_ARGUMENT", "route.continue url must keep the request's http: scheme; got about:")]
     [InlineData("another scheme", "https://127.0.0.1/echo", "INVALID_ARGUMENT", "route.continue url must keep the request's http: scheme; got https:")]
     public Task Continue_to_aborts_the_request_and_fails_the_next_step(string name, string url, string code, string message) => WithRoutesAsync(async routes =>
