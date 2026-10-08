@@ -82,7 +82,7 @@ internal sealed class FakeApi(Func<FakeApi.Received, (HttpStatusCode Status, str
     {
         var received = new Received(
             request.RequestUri!,
-            request.Headers.ToDictionary(header => header.Key.ToLowerInvariant(), header => string.Join(", ", header.Value), StringComparer.Ordinal),
+            request.Headers.NonValidated.ToDictionary(header => header.Key.ToLowerInvariant(), header => header.Value.ToString(), StringComparer.Ordinal),
             request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken));
         Requests.Enqueue(received);
         var (status, body) = answer(received);

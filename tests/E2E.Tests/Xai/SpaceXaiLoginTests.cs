@@ -77,7 +77,7 @@ public sealed class SpaceXaiLoginTests
         Assert.Equal(("a3", "rt-2"), (third.Access, third.Refresh));
     }
 
-    /// <summary>The port's model names no provider, and its user agent is the port's own.</summary>
+    /// <summary>The port's model names no provider, and its user agent names the port's product, e2e-dotnet.</summary>
     [Fact]
     public async Task Serves_generateText_with_the_bearer_token_against_the_SpaceXAI_API()
     {
@@ -92,7 +92,7 @@ public sealed class SpaceXaiLoginTests
         Assert.Equal("hello", result.Content);
         var seen = api.Requests.Last();
         Assert.Equal("Bearer xai-tok", seen.Header("authorization"));
-        Assert.Equal("e2e-dotnet", seen.Header("user-agent"));
+        Assert.Matches(@"^e2e-dotnet/\d+\.\d+\.\d+\S* \(\w+; \w+\)$", seen.Header("user-agent"));
     }
 
     [Fact]

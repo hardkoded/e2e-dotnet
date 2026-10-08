@@ -20,7 +20,7 @@ namespace E2E.Tests.OpencodeConsole;
 [Collection(ProcessEnvironment.Name)]
 public sealed class OpencodeConsoleTests
 {
-    /// <summary>The port's model names no provider, and its user agent is the port's own, so neither is checked.</summary>
+    /// <summary>The port's model names no provider, and its user agent names the port's product, e2e-dotnet.</summary>
     [Fact]
     public async Task Routes_a_Zen_model_to_the_protocol_the_workspace_config_names_naming_the_workspace_and_session_under_one_fixed_name()
     {
@@ -43,6 +43,7 @@ public sealed class OpencodeConsoleTests
         // The port writes the session id as 32 hex digits; upstream writes a dashed UUID.
         Assert.Matches(new Regex("^e2e_[0-9a-f]{32}$"), call.Header("x-opencode-session"));
         Assert.Null(call.Header("x-api-key"));
+        Assert.Matches(@"^e2e-dotnet/\d+\.\d+\.\d+\S* \(\w+; \w+\)$", call.Header("user-agent"));
         Assert.Equal("claude-sonnet-5", JsonNode.Parse(call.Body)!["model"]!.GetValue<string>());
     }
 

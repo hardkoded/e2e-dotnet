@@ -32,7 +32,7 @@ public sealed class CreateOAuthFetchTests
         var sent = Assert.Single(api.Requests);
         Assert.Equal("Bearer tok", sent.Header("authorization"));
         Assert.Null(sent.Header("x-api-key"));
-        Assert.Equal("e2e-dotnet", sent.Header("user-agent"));
+        Assert.Equal(E2E.Internal.ModelHttp.UserAgent, sent.Header("user-agent"));
         Assert.Equal("{}", sent.Body);
     }
 
