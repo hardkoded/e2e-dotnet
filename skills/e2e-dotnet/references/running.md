@@ -31,8 +31,8 @@ relative to the config file. There are no `cache` commands; delete the
 directory to clear it. The modes are `read-write`, `read-only`, and `off`.
 Topic `agent` explains what is recorded. Secret values never enter cache
 entries: a secret an act received in `Params` that shows in a control's name,
-text, value, placeholder, or test id is stored as `<secret:name>`, and the replay matches the screen in
-that same redacted form.
+text, value, placeholder, or test id is stored as `<secret:name>`, and the
+replay matches the screen in that same redacted form.
 
 An entry belongs to a test, an instruction, its params, and an agent: its
 name and a hash of its redacted `context`. Running with another agent, or

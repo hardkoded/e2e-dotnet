@@ -97,7 +97,8 @@ public sealed class Agent
             var replay = await TryReplayAsync(pending, start, actions, budget, options?.Params, token).ConfigureAwait(false);
             info = new CacheInfo { Mode = replay.Info!.Mode, Reason = replay.Info.Reason, ReplayedActions = actions.Count, TotalActions = pending.RecordedActions };
             handoff = replay.Handoff;
-            if (_scope.CacheStrict && !replay.Completed && info?.Reason is not null and not "no-entry")
+            // A store that could not be read says nothing about a recording, so strict mode runs the step live too.
+            if (_scope.CacheStrict && !replay.Completed && !pending.ReadFailed && info?.Reason is not null and not "no-entry")
             {
                 throw new AgentException(
                     "REPLAY_STALE",
@@ -549,6 +550,7 @@ public sealed class Agent
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // The cache is disposable: a store that cannot be read is a miss, never a failed step.
+            pending.ReadFailed = true;
             _scope.Missed++;
             return ReplayAttempt.Miss("invalid-entry");
         }
@@ -757,17 +759,19 @@ public sealed class Agent
     {
         var deadline = DateTime.UtcNow + HeldStill;
         var last = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
+        var lastShape = SnapshotText.Render(last, Redactor.None);
         while (DateTime.UtcNow < deadline)
         {
             await Task.Delay(HeldStillPoll, token).ConfigureAwait(false);
             var next = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
-            if (string.Equals(next.Route, last.Route, StringComparison.Ordinal)
-                && string.Equals(SnapshotText.Render(next, Redactor.None), SnapshotText.Render(last, Redactor.None), StringComparison.Ordinal))
+            var nextShape = SnapshotText.Render(next, Redactor.None);
+            if (string.Equals(next.Route, last.Route, StringComparison.Ordinal) && string.Equals(nextShape, lastShape, StringComparison.Ordinal))
             {
                 return next;
             }
 
             last = next;
+            lastShape = nextShape;
         }
 
         return last;
@@ -2031,6 +2035,9 @@ internal sealed class PendingAct
 
     /// <summary>The store returned an entry for this act, whether or not it replayed.</summary>
     public bool ReadEntry { get; set; }
+
+    /// <summary>The store's read threw, so nothing is known about a recording.</summary>
+    public bool ReadFailed { get; set; }
 
     /// <summary>The actions of the entry the store returned. 0 when it returned none.</summary>
     public int RecordedActions { get; set; }
