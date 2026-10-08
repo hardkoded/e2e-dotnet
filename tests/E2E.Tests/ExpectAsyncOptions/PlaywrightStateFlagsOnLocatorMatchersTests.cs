@@ -6,6 +6,7 @@ using static E2E.Tests.ExpectAsyncOptions.Banner;
 
 namespace E2E.Tests.ExpectAsyncOptions;
 
+/// <summary>"reads a computed option bag the same way" and "refuses a flag that is not a boolean" are not ported: the port's flags are typed bool parameters, not an option bag.</summary>
 public sealed class PlaywrightStateFlagsOnLocatorMatchersTests
 {
     [Fact]

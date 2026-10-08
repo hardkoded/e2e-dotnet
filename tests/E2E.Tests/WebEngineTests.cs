@@ -390,7 +390,7 @@ public sealed class WebEngineTests
         });
     }
 
-    private static async Task<E2ESession> StartAsync(TinySite site, ScriptedModel model, FileStepCache? cache)
+    internal static async Task<E2ESession> StartAsync(TinySite site, ScriptedModel model, FileStepCache? cache)
     {
         return await E2ESession.StartAsync(new E2ESessionOptions
         {
@@ -407,7 +407,7 @@ public sealed class WebEngineTests
         });
     }
 
-    private static async Task RunAsync(E2ESession session, Func<Task> body)
+    internal static async Task RunAsync(E2ESession session, Func<Task> body)
     {
         await using (session)
         {

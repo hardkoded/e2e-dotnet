@@ -10,12 +10,11 @@ namespace E2E;
 
 internal static class SnapshotText
 {
-    public static string Render(Observation observation, IReadOnlyList<Secret> secrets)
+    public static string Render(Observation observation, Redactor redactor)
     {
         var builder = new StringBuilder();
         builder.Append("Screen (").Append(observation.Route).Append("):");
         var any = false;
-        var redactor = Redactor.For(secrets);
         foreach (var root in observation.Roots)
         {
             any |= Write(builder, root, 0, redactor);
@@ -36,12 +35,6 @@ internal static class SnapshotText
         return builder.ToString();
     }
 
-    /// <summary>Replaces each secret value, in any case or encoding, with its marker.</summary>
-    public static string Redact(string value, IReadOnlyList<Secret> secrets)
-    {
-        return secrets.Count == 0 ? value : Redactor.For(secrets).Redact(value);
-    }
-
     private static bool Write(StringBuilder builder, SemanticNode node, int depth, Redactor redactor)
     {
         var wrote = false;
@@ -51,7 +44,9 @@ internal static class SnapshotText
             builder.Append(' ', depth * 2);
             builder.Append("- ");
             builder.Append(node.Role ?? "text");
-            var name = redactor.Redact(node.Name ?? node.Text ?? "");
+            // A node with no accessible name, such as one listed for its text
+            // or its test id, shows its text.
+            var name = redactor.Redact((string.IsNullOrEmpty(node.Name) ? node.Text : node.Name) ?? "");
             if (name.Length > 0)
             {
                 builder.Append(" \"").Append(TextRules.Normalize(name)).Append('"');

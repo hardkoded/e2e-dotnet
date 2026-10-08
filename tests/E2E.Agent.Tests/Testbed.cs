@@ -6,12 +6,14 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 
-namespace E2E.Agent.Tests;
+namespace E2E.Playground;
 
 /// <summary>
-/// The playground pages the agent tests run against, served on a loopback port for the whole
+/// The playground pages the testbed tests run against, served on a loopback port for the whole
 /// test run. A port of upstream's <c>apps/testbed</c> with only the pages these tests use:
-/// the landing page, a todo list kept in localStorage, and a checkout with one planted bug.
+/// the landing page, a todo list kept in localStorage, a checkout with one planted bug, a profile
+/// form, a page that loads users from <c>/api/users</c>, the browser fixture's own page, and the
+/// about page navigation lands on. E2E.NUnit.Tests links this file for its browser fixture tests.
 /// </summary>
 internal static class Testbed
 {
@@ -20,6 +22,10 @@ internal static class Testbed
         ("/", "Home"),
         ("/todos", "Todos"),
         ("/checkout", "Checkout"),
+        ("/forms", "Forms"),
+        ("/network", "Network"),
+        ("/browser", "Browser"),
+        ("/about", "About"),
     ];
 
     private static readonly Dictionary<string, (string Title, string Body)> Pages = new(StringComparer.Ordinal)
@@ -154,6 +160,127 @@ internal static class Testbed
                      }
                    </script>
             """),
+
+        ["/network"] = ("Network", """
+            <h1>Network</h1>
+                   <button id="load">Load users</button>
+                   <ul id="users"></ul>
+                   <output role="status" aria-label="Network state">idle</output>
+
+                   <script>
+                     document.getElementById('load').addEventListener('click', async () => {
+                       const state = document.querySelector('output');
+                       state.textContent = 'loading';
+                       try {
+                         const response = await fetch('/api/users');
+                         if (!response.ok) throw new Error('HTTP ' + response.status);
+                         const users = await response.json();
+                         const list = document.getElementById('users');
+                         list.innerHTML = '';
+                         for (const user of users) {
+                           const item = document.createElement('li');
+                           item.textContent = user.name;
+                           list.append(item);
+                         }
+                         state.textContent = 'loaded ' + users.length;
+                       } catch {
+                         state.textContent = 'failed';
+                       }
+                     });
+                   </script>
+            """),
+
+        ["/forms"] = ("Forms", """
+            <h1>Forms</h1>
+                   <form id="profile">
+                     <label for="name">Full name</label>
+                     <input id="name" placeholder="Ada Lovelace" autocomplete="username" />
+
+                     <label for="bio">Bio</label>
+                     <textarea id="bio" placeholder="Tell us about yourself"></textarea>
+
+                     <label for="city">City</label>
+                     <input id="city" autocomplete="off" />
+                     <ul id="city-suggestions" aria-label="City suggestions"></ul>
+
+                     <label for="team">Team</label>
+                     <select id="team">
+                       <option value="platform">Platform</option>
+                       <option value="web">Web</option>
+                       <option value="mobile">Mobile</option>
+                     </select>
+
+                     <fieldset>
+                       <legend>Notifications</legend>
+                       <label for="email-notifications">Email notifications</label>
+                       <input id="email-notifications" type="checkbox" />
+                       <label for="digest">Weekly digest</label>
+                       <input id="digest" type="checkbox" checked />
+                     </fieldset>
+
+                     <button type="submit">Save profile</button>
+                   </form>
+                   <output role="status" aria-label="Save result"></output>
+                   <input aria-label="Prefilled field" value="prefilled-value" readonly />
+
+                   <script>
+                     document.getElementById('profile').addEventListener('submit', (event) => {
+                       event.preventDefault();
+                       const name = document.getElementById('name').value.trim();
+                       document.querySelector('output').textContent =
+                         name === '' ? 'Name is required' : 'Saved profile for ' + name;
+                     });
+                     // Search-as-you-type: suggestions render on keyup, so a value set
+                     // without key events leaves the list empty.
+                     const cities = ['Warsaw', 'Wroclaw', 'Gdansk', 'Krakow'];
+                     const city = document.getElementById('city');
+                     city.addEventListener('keyup', () => {
+                       const typed = city.value.toLowerCase();
+                       const list = document.getElementById('city-suggestions');
+                       list.replaceChildren();
+                       if (typed === '') return;
+                       for (const name of cities.filter((candidate) => candidate.toLowerCase().startsWith(typed))) {
+                         const item = document.createElement('li');
+                         item.textContent = name;
+                         list.appendChild(item);
+                       }
+                     });
+                   </script>
+            """),
+
+        // The browser fixture's own surface: navigation with a delay, the viewport
+        // size, the cookies the page sees, and a load counter for reload.
+        ["/browser"] = ("Browser", """
+            <h1>Browser</h1>
+                   <button id="go-about">Go to about, soon</button>
+                   <output aria-label="Viewport"></output>
+                   <output aria-label="Cookies"></output>
+                   <output aria-label="Loads"></output>
+                   <output aria-label="Random"></output>
+                   <script>
+                     document.getElementById('go-about').addEventListener('click', () => {
+                       setTimeout(() => {
+                         location.assign('/about');
+                       }, 400);
+                     });
+                     const viewport = document.querySelector('output[aria-label="Viewport"]');
+                     const report = () => {
+                       viewport.textContent = innerWidth + 'x' + innerHeight;
+                     };
+                     addEventListener('resize', report);
+                     report();
+                     document.querySelector('output[aria-label="Cookies"]').textContent = document.cookie || 'no cookies';
+                     const loads = Number(sessionStorage.getItem('loads') ?? '0') + 1;
+                     sessionStorage.setItem('loads', String(loads));
+                     document.querySelector('output[aria-label="Loads"]').textContent = 'loads: ' + loads;
+                     document.querySelector('output[aria-label="Random"]').textContent = 'random: ' + (Math.random() === 0.5 ? 'seeded' : 'unseeded');
+                   </script>
+            """),
+
+        ["/about"] = ("About page", """
+            <h1>About</h1>
+                   <p>The playground, described.</p>
+            """),
     };
 
     private static readonly Lazy<string> Server = new(Start, LazyThreadSafetyMode.ExecutionAndPublication);
@@ -181,7 +308,14 @@ internal static class Testbed
         {
             var context = await listener.GetContextAsync().ConfigureAwait(false);
             var response = context.Response;
-            if (Pages.TryGetValue(context.Request.Url?.AbsolutePath ?? "", out var page))
+            if (context.Request.Url?.AbsolutePath == "/api/users")
+            {
+                var users = Encoding.UTF8.GetBytes("""[{"name":"Ada"},{"name":"Grace"},{"name":"Margaret"}]""");
+                response.ContentType = "application/json";
+                response.ContentLength64 = users.Length;
+                await response.OutputStream.WriteAsync(users).ConfigureAwait(false);
+            }
+            else if (Pages.TryGetValue(context.Request.Url?.AbsolutePath ?? "", out var page))
             {
                 var bytes = Encoding.UTF8.GetBytes(Layout(page.Title, page.Body));
                 response.ContentType = "text/html; charset=utf-8";

@@ -45,22 +45,51 @@ internal static class OpencodeConsoleWorkspace
         } } }
         """;
 
-    public static FakeApi Serve()
+    /// <summary>The config with only the Zen provider, for a login that reaches no Go subscription.</summary>
+    public static string ZenOnlyConfig => Config[..Config.IndexOf("\"opencode-go\"", StringComparison.Ordinal)].TrimEnd().TrimEnd(',') + " } } }";
+
+    public const string ChatCompletion = """{ "id": "c1", "object": "chat.completion", "created": 1, "model": "m", "choices": [{ "index": 0, "finish_reason": "stop", "message": { "role": "assistant", "content": "hello" } }], "usage": { "prompt_tokens": 3, "completion_tokens": 1, "total_tokens": 4 } }""";
+
+    public const string AnthropicMessage = """{ "id": "msg_1", "type": "message", "role": "assistant", "model": "claude-sonnet-5", "content": [{ "type": "text", "text": "hello" }], "stop_reason": "end_turn", "usage": { "input_tokens": 3, "output_tokens": 1 } }""";
+
+    public static FakeApi Serve(string? config = null)
     {
         return new FakeApi(request =>
         {
             var path = request.Uri.AbsolutePath;
             if (path == "/console/api/config")
             {
-                return (HttpStatusCode.OK, Config);
+                return (HttpStatusCode.OK, config ?? Config);
+            }
+
+            if (path.EndsWith("/chat/completions", StringComparison.Ordinal))
+            {
+                return (HttpStatusCode.OK, ChatCompletion);
             }
 
             if (path.EndsWith("/messages", StringComparison.Ordinal))
             {
-                return (HttpStatusCode.OK, """{ "id": "msg_1", "type": "message", "role": "assistant", "model": "claude-sonnet-5", "content": [{ "type": "text", "text": "hello" }], "stop_reason": "end_turn", "usage": { "input_tokens": 3, "output_tokens": 1 } }""");
+                return (HttpStatusCode.OK, AnthropicMessage);
+            }
+
+            if (path.Contains(":generateContent", StringComparison.Ordinal))
+            {
+                return (HttpStatusCode.OK, """{ "candidates": [{ "content": { "role": "model", "parts": [{ "text": "hello" }] }, "finishReason": "STOP" }], "usageMetadata": { "promptTokenCount": 3, "candidatesTokenCount": 1, "totalTokenCount": 4 } }""");
+            }
+
+            if (path.EndsWith("/responses", StringComparison.Ordinal))
+            {
+                return (HttpStatusCode.OK, """{ "id": "resp_1", "object": "response", "created_at": 1, "status": "completed", "model": "gpt-5-nano", "output": [{ "type": "message", "id": "msg_1", "role": "assistant", "status": "completed", "content": [{ "type": "output_text", "text": "hello", "annotations": [] }] }], "usage": { "input_tokens": 3, "output_tokens": 1, "total_tokens": 4 } }""");
             }
 
             return (HttpStatusCode.NotFound, """{ "error": "not found" }""");
         });
     }
+
+    /// <summary>The requests that reached inference, leaving out the config reads.</summary>
+    public static List<FakeApi.Received> Inference(FakeApi api) =>
+        [.. api.Requests.Where(request => request.Uri.AbsolutePath.StartsWith("/inference/", StringComparison.Ordinal))];
+
+    public static ModelRequest Prompt(string text, string system = "") =>
+        new() { System = system, Tools = [], Messages = [new ModelMessage { Role = "user", Content = text }] };
 }

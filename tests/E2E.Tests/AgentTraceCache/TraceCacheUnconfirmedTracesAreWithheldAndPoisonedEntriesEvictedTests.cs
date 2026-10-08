@@ -10,9 +10,9 @@ public sealed class TraceCacheUnconfirmedTracesAreWithheldAndPoisonedEntriesEvic
     [Fact]
     public async Task Teardown_steps_passing_after_the_failure_cannot_confirm_the_implicated_trace()
     {
-        var directory = SessionTests.TempCache();
+        var directory = BillingSession.TempCache();
         var failed = false;
-        await using (var session = await SessionTests.StartAsync(directory, () => { }, attempt: 1, () => failed))
+        await using (var session = await BillingSession.StartAsync(directory, () => { }, attempt: 1, () => failed))
         {
             await session.App.OpenAsync("/settings/billing");
             await session.Agent.ActAsync("upgrade the workspace to the Pro plan");
@@ -24,19 +24,19 @@ public sealed class TraceCacheUnconfirmedTracesAreWithheldAndPoisonedEntriesEvic
             session.Complete(new TestException("TEST_FAILED", "the body failed before teardown"));
         }
 
-        Assert.Equal(0, SessionTests.CachedEntries(directory));
+        Assert.Equal(0, BillingSession.CachedEntries(directory));
     }
 
     [Fact]
     public async Task Evicts_a_previously_good_entry_once_its_flow_is_implicated_in_a_failure()
     {
-        var directory = SessionTests.TempCache();
-        await SessionTests.RecordAsync(directory);
-        Assert.Single(SessionTests.Entries(directory));
+        var directory = BillingSession.TempCache();
+        await BillingSession.RecordAsync(directory);
+        Assert.Single(BillingSession.Entries(directory));
 
         // Same instruction, stricter assertion: the replay finishes the step, the assertion fails.
         var calls = 0;
-        await using (var session = await SessionTests.StartAsync(directory, () => calls++, attempt: 1))
+        await using (var session = await BillingSession.StartAsync(directory, () => calls++, attempt: 1))
         {
             await session.App.OpenAsync("/settings/billing");
             await session.Agent.ActAsync("upgrade the workspace to the Pro plan");
@@ -45,6 +45,6 @@ public sealed class TraceCacheUnconfirmedTracesAreWithheldAndPoisonedEntriesEvic
         }
 
         Assert.Equal(0, calls);
-        Assert.Empty(SessionTests.Entries(directory));
+        Assert.Empty(BillingSession.Entries(directory));
     }
 }

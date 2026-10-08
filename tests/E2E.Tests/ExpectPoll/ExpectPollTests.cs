@@ -6,6 +6,12 @@ using System.Diagnostics;
 
 namespace E2E.Tests.ExpectPoll;
 
+/// <summary>
+/// The port's poll has the toBe and toSatisfy matchers only, so "runs every value matcher", "polls the new
+/// matchers until they hold and reports their last failure", "treats a matcher type complaint as not yet, like
+/// any other failing sample", and "a negated global regexp never passes on an unchanged matching value" are not
+/// ported. The port has no attempt budget, so the nested "inside an attempt" describe is not ported either.
+/// </summary>
 public sealed class ExpectPollTests
 {
     [Fact]
@@ -90,6 +96,27 @@ public sealed class ExpectPollTests
         Assert.Contains("timed out after 100 ms", message, StringComparison.Ordinal);
         Assert.EndsWith("last: no read completed", message, StringComparison.Ordinal);
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(1), "the poll ended after " + watch.Elapsed);
+    }
+
+    [Fact]
+    public async Task Keeps_the_last_completed_sample_when_a_later_read_hangs()
+    {
+        var reads = 0;
+        var message = await FailsWith(() => Expect.Poll(_ => ++reads == 1 ? Task.FromResult("running") : new TaskCompletionSource<string>().Task, Options(100, 5)).ToBeAsync("done"));
+        Assert.EndsWith("last: received \"running\", expected \"done\"", message, StringComparison.Ordinal);
+        Assert.Equal(2, reads);
+    }
+
+    [Fact]
+    public async Task Honors_the_interval_between_samples()
+    {
+        var reads = 0;
+        await FailsWith(() => Expect.Poll(() =>
+        {
+            reads++;
+            return "running";
+        }, Options(200, 50)).ToBeAsync("done"));
+        Assert.InRange(reads, 3, 6);
     }
 
     [Fact]

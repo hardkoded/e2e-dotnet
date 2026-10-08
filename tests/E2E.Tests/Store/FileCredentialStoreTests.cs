@@ -6,6 +6,7 @@ using E2E.OAuth;
 
 namespace E2E.Tests.Store;
 
+[Collection(ProcessEnvironment.Name)]
 public sealed class FileCredentialStoreTests : IDisposable
 {
     private static readonly OAuthCredentials Creds = new()
@@ -58,4 +59,78 @@ public sealed class FileCredentialStoreTests : IDisposable
         Assert.Equal(["x"], await store.ListAsync());
         Assert.Null(await store.GetAsync("broken"));
     }
+
+    [Fact]
+    public async Task Keeps_other_providers_when_one_is_written_even_from_concurrent_writers()
+    {
+        var file = Path.Combine(_directory, "nested", "oauth.json");
+        var a = new FileCredentialStore(file);
+        var b = new FileCredentialStore(file);
+        await Task.WhenAll(a.SetAsync("a", Creds), b.SetAsync("b", With(Creds, "b")), a.SetAsync("c", With(Creds, "c")));
+        Assert.Equal(["a", "b", "c"], (await a.ListAsync()).Order(StringComparer.Ordinal));
+        Assert.Equal("b", (await b.GetAsync("b"))?.Access);
+    }
+
+    [Fact]
+    public async Task Defers_a_writer_while_another_process_holds_the_lock()
+    {
+        var file = Path.Combine(_directory, "nested", "oauth.json");
+        var store = new FileCredentialStore(file);
+        await store.SetAsync("x", Creds);
+        await File.WriteAllTextAsync(file + ".lock", "");
+        var settled = false;
+        var pending = store.SetAsync("y", Creds).ContinueWith(_ => settled = true, TaskScheduler.Default);
+        await Task.Delay(150);
+        Assert.False(settled);
+        File.Delete(file + ".lock");
+        await pending;
+        Assert.Equal(["x", "y"], (await store.ListAsync()).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task Tightens_the_permissions_of_a_directory_and_file_that_already_existed()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var file = Path.Combine(_directory, "nested", "oauth.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+        File.SetUnixFileMode(Path.GetDirectoryName(file)!, (UnixFileMode)Convert.ToInt32("755", 8));
+        await File.WriteAllTextAsync(file, "{}");
+        File.SetUnixFileMode(file, (UnixFileMode)Convert.ToInt32("644", 8));
+        await new FileCredentialStore(file).SetAsync("x", Creds);
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute, File.GetUnixFileMode(Path.GetDirectoryName(file)!));
+        Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(file));
+    }
+
+    [Fact]
+    public async Task Takes_over_a_stale_lock_left_by_a_dead_process()
+    {
+        var file = Path.Combine(_directory, "nested", "oauth.json");
+        var store = new FileCredentialStore(file);
+        await store.SetAsync("x", Creds);
+        await File.WriteAllTextAsync(file + ".lock", "");
+        File.SetLastWriteTimeUtc(file + ".lock", DateTime.UtcNow.AddSeconds(-60));
+        await store.SetAsync("y", Creds);
+        Assert.Equal(["x", "y"], (await store.ListAsync()).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void Defaults_to_the_XDG_config_directory()
+    {
+        using (ProcessEnvironment.Set("XDG_CONFIG_HOME", "/tmp/xdg"))
+        {
+            Assert.Equal(Path.Combine("/tmp/xdg", "e2e", "oauth.json"), CredentialStores.DefaultPath());
+        }
+
+        using (ProcessEnvironment.Set("XDG_CONFIG_HOME", null))
+        {
+            Assert.EndsWith(Path.Combine(".config", "e2e", "oauth.json"), CredentialStores.DefaultPath(), StringComparison.Ordinal);
+        }
+    }
+
+    private static OAuthCredentials With(OAuthCredentials credentials, string access) =>
+        new() { Access = access, Refresh = credentials.Refresh, Expires = credentials.Expires, Extra = credentials.Extra };
 }

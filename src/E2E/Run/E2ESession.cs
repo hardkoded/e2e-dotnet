@@ -68,6 +68,7 @@ public sealed class E2ESession : IAsyncDisposable
             timeout.CancelAfter(options.TestTimeout);
         }
 
+        var projectRoot = Path.GetFullPath(string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot);
         IEngineSession engine;
         var launch = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token);
         try
@@ -78,7 +79,7 @@ public sealed class E2ESession : IAsyncDisposable
             }
 
             engine = await options.Engine.StartAsync(
-                new EngineStartOptions { BaseUrl = options.BaseUrl, ActionTimeout = options.ActionTimeout },
+                new EngineStartOptions { BaseUrl = options.BaseUrl, ActionTimeout = options.ActionTimeout, ProjectRoot = projectRoot },
                 launch.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException ex) when (launch.IsCancellationRequested && !timeout.IsCancellationRequested)
@@ -101,9 +102,12 @@ public sealed class E2ESession : IAsyncDisposable
 
         // A later attempt never replays but still records, so the attempt number does not turn the cache off.
         var cacheOn = options.CacheEnabled && options.CacheMode != CacheMode.Off && options.Cache is not null;
+        var softFailures = new SoftFailures(options.OnSoftFailure);
+        var testFailed = options.TestFailed ?? (static () => false);
         var scope = new AttemptScope
         {
             Session = engine,
+            BaseUrl = options.BaseUrl,
             Agents = agents,
             Cache = options.Cache,
             CacheEnabled = cacheOn,
@@ -118,10 +122,10 @@ public sealed class E2ESession : IAsyncDisposable
             ReplayTimeout = options.ReplayTimeout,
             StepTimeout = options.StepTimeout,
             Token = () => timeout.Token,
-            TestFailed = options.TestFailed ?? (static () => false),
+            TestFailed = () => softFailures.Any || testFailed(),
         };
         var app = new App(engine, options.BaseUrl, () => timeout.Token);
-        var browser = new Browser(engine, options.Engine.Platform, options.BaseUrl, options.AssertionTimeout, () => timeout.Token);
+        var browser = new Browser(engine, options.Engine.Platform, options.BaseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token);
         var agent = new Agent(scope);
         var screen = new Screen(
             token => engine.ObserveAsync(token),
@@ -130,7 +134,7 @@ public sealed class E2ESession : IAsyncDisposable
             scope.MarkVerified,
             options.ActionTimeout,
             options.AssertionTimeout,
-            new SoftFailures(options.OnSoftFailure));
+            softFailures);
         var context = new TestContext
         {
             App = app,
@@ -272,20 +276,38 @@ public sealed class E2ESession : IAsyncDisposable
         }
 
         // A stale recording under strict mode stays in place, so the next strict run fails the same way until someone re-records it.
-        var preserve = error is AgentException { Code: "MODEL_UNAVAILABLE" or "MODEL_PROVIDER_FAILED" or "REPLAY_STALE" };
-        foreach (var act in _scope.Acts)
+        var preserve = AttemptScope.KeepsCache(error) || _scope.KeepCache;
+        Flush(_scope.Cache, _scope.Acts, preserve);
+    }
+
+    /// <summary>
+    /// Settles the acts of one attempt: a verified act's recording is written, and an unverified one that
+    /// recorded or replayed is evicted, unless <paramref name="preserve"/> says the failure implicates nothing.
+    /// </summary>
+    internal static void Flush(IStepCache cache, IEnumerable<PendingAct> acts, bool preserve)
+    {
+        foreach (var act in acts)
         {
             var recorded = act.Completed && act.Entry is { Actions.Count: > 0 } && !act.ParamCollision;
-            if (act.Verified && recorded)
+            try
             {
-                if (!act.ReplayedWhole && !HoldsSameFlow(_scope.Cache, act.Key, act.Entry!))
+                if (act.Verified && recorded)
                 {
-                    _scope.Cache.Write(act.Key, act.Entry!);
+                    if (!act.ReplayedWhole && !HoldsSameFlow(cache, act.Key, act.Entry!))
+                    {
+                        cache.Write(act.Key, act.Entry!);
+                    }
+                }
+                // An entry read for an act that then passed with nothing to record is evicted too: it did not serve
+                // this pass, and nothing replaces it, so every later run would hand off the same way.
+                else if (!preserve && (recorded || act.ConsumedReplay || (act.Completed && act.ReadEntry)))
+                {
+                    cache.Delete(act.Key);
                 }
             }
-            else if (!preserve && (recorded || act.ConsumedReplay))
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _scope.Cache.Delete(act.Key);
+                // The cache is disposable, as a replay's read is: a store that fails here costs the next run a live step.
             }
         }
     }
@@ -332,6 +354,9 @@ public sealed class E2ESessionOptions
     public IReadOnlyDictionary<string, AgentOptions>? Agents { get; init; }
 
     public string? BaseUrl { get; init; }
+
+    /// <summary>Anchors the files a test names, such as a route's fulfill <c>Path</c>. Defaults to the working directory.</summary>
+    public string? ProjectRoot { get; init; }
 
     public IStepCache? Cache { get; init; }
 
