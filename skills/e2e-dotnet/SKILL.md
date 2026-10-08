@@ -79,7 +79,7 @@ public sealed class BillingTests : E2ETest
 
 Members of `E2ETest`:
 
-- `App`: `OpenAsync(path)`, `BackAsync`, `RestartAsync`, `ClearStateAsync`. A path resolves against the target URL.
+- `App`: `OpenAsync(path)`, `BackAsync`, `RestartAsync`, `ClearStateAsync`. A path resolves against the target URL. `RestartAsync` keeps cookies and storage, `ClearStateAsync` drops them, and both reopen the target URL.
 - `Agent`: `ActAsync(instruction)` performs a goal. `AssertAsync(statement)` judges the screen once. `WaitForAsync(statement)` judges until true or timeout. `ExtractAsync<T>(instruction)` reads typed data from the screen.
 - `Screen`: `GetByRole(role, name)`, `GetByText`, `GetByLabel`, `GetByPlaceholder`, `GetByTestId`, `GetByDisplayValue`. Text matches are **exact by default**; pass `exact: false` for a substring. A locator has `ClickAsync`, `FillAsync`, `PressAsync`, `SelectOptionAsync`, `CheckAsync`, `First()`, `Last()`, `Nth(i)`, and `Filter(...)`.
 - `Expect.That(locator)`: `ToBeVisibleAsync`, `ToBeHiddenAsync`, `ToContainTextAsync`, `ToHaveTextAsync`, `ToHaveValueAsync`, `ToHaveCountAsync`, `ToBeEnabledAsync`, `ToBeCheckedAsync`, `ToHaveAttributeAsync`, and more. `Expect.Soft` records a failure and continues. `Expect.Poll(read)` retries any value.
