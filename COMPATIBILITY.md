@@ -145,7 +145,7 @@ The walk goes through open shadow roots and closed ones that page script attache
 - `Headers` ride requests to the base URL's host. Upstream scopes them to the app's site, which can include sibling subdomains
 - `Connect` has no `reconnectEndpoint`, so there is no persistent remote context, and no provider (`browser: BrowserProvider`) or `screencast` option
 - `BasicAuth` takes a `Secret` password, but the value is not added to the session's redaction list
-- An `InitScripts` entry is a `WebInitScript`: source (a string converts to one), `WebInitScript.FromPath`, or `WebInitScript.FromFunction`. A C# lambda cannot run in the page, so a function is its JavaScript source. A relative path resolves against the current directory, because the engine does not see the project root. Each attempt reads the files when its session starts; upstream reads them once per process
+- An `InitScripts` entry is a `WebInitScript`: source (a string converts to one), `WebInitScript.FromPath`, or `WebInitScript.FromFunction`. A C# lambda cannot run in the page, so a function is its JavaScript source. A relative path resolves against the project root (`EngineStartOptions.ProjectRoot`, which `E2ESession` passes from `E2ESessionOptions.ProjectRoot`). Each attempt reads the files when its session starts; upstream reads them once per process
 
 The tree is a subset of upstream's: names follow the port's simpler accname rules, nodes are listed by role or test id only (not by name, direct text, or as an empty painted `box`).
 

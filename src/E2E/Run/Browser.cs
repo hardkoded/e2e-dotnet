@@ -254,7 +254,7 @@ public sealed class Browser
         var argument = hasArg ? JsonSerializer.Serialize(arg, InitScriptArgumentOptions) : null;
         var session = Require("addInitScript");
         var token = Token(cancellationToken);
-        var source = await script.ReadAsync(argument, (message, cause) => new TestException("INVALID_ARGUMENT", "browser.addInitScript " + message, cause), token).ConfigureAwait(false);
+        var source = await script.ReadAsync(argument, _projectRoot, (message, cause) => new TestException("INVALID_ARGUMENT", "browser.addInitScript " + message, cause), token).ConfigureAwait(false);
         await session.AddInitScriptAsync(source, token).ConfigureAwait(false);
     }
 

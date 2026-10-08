@@ -131,7 +131,7 @@ To test without a browser or model, override `CreateEngine()` to return a `Docum
 
 ### Run a script before the page
 
-An init script runs in every document before the page's own scripts, in every tab and frame: mock a browser API, seed `Math.random`, or set a flag the app reads at boot. A script is JavaScript source (a string), a file (`WebInitScript.FromPath`, relative to the working directory), or a function's JavaScript source (`WebInitScript.FromFunction`). A function cannot close over test variables; pass a JSON `arg` instead. For every test, set `InitScripts` on the engine:
+An init script runs in every document before the page's own scripts, in every tab and frame: mock a browser API, seed `Math.random`, or set a flag the app reads at boot. A script is JavaScript source (a string), a file (`WebInitScript.FromPath`, relative to the project root), or a function's JavaScript source (`WebInitScript.FromFunction`). A function cannot close over test variables; pass a JSON `arg` instead. For every test, set `InitScripts` on the engine:
 
 ```csharp
 protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions

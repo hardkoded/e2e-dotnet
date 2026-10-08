@@ -57,7 +57,7 @@ public sealed class WebInitScript
     /// <summary>The JavaScript source, or <see langword="null"/> for a file or a function.</summary>
     public string? Source { get; }
 
-    /// <summary>The file of JavaScript source, relative to the current directory, or <see langword="null"/> for source or a function.</summary>
+    /// <summary>The file of JavaScript source, relative to the project root, or <see langword="null"/> for source or a function.</summary>
     public string? Path { get; }
 
     /// <summary>
@@ -97,7 +97,7 @@ public sealed class WebInitScript
     /// text with a <c>sourceURL</c>, so a stack trace in the page names it. A
     /// file that cannot be read throws what <paramref name="fail"/> makes of the problem.
     /// </summary>
-    internal async Task<string> ReadAsync(string? argument, Func<string, Exception, Exception> fail, CancellationToken cancellationToken)
+    internal async Task<string> ReadAsync(string? argument, string projectRoot, Func<string, Exception, Exception> fail, CancellationToken cancellationToken)
     {
         if (Source is not null)
         {
@@ -112,7 +112,7 @@ public sealed class WebInitScript
         var file = Path!;
         try
         {
-            file = System.IO.Path.GetFullPath(file);
+            file = System.IO.Path.GetFullPath(file, projectRoot);
             return await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false) + "\n//# sourceURL=" + file.ReplaceLineEndings("");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
@@ -250,7 +250,7 @@ public sealed partial class WebEngine : IEngine
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            var initScripts = await ReadInitScriptsAsync(cancellationToken).ConfigureAwait(false);
+            var initScripts = await ReadInitScriptsAsync(System.IO.Path.GetFullPath(options.ProjectRoot ?? Directory.GetCurrentDirectory()), cancellationToken).ConfigureAwait(false);
             if (_options.Connect is null)
             {
                 await EnsureChromiumAsync(!_headless, cancellationToken).ConfigureAwait(false);
@@ -376,14 +376,14 @@ public sealed partial class WebEngine : IEngine
 
     // The configured init scripts as page source, read before the browser
     // launches, so a missing file fails the attempt with nothing to close.
-    private async Task<List<string>> ReadInitScriptsAsync(CancellationToken cancellationToken)
+    private async Task<List<string>> ReadInitScriptsAsync(string projectRoot, CancellationToken cancellationToken)
     {
         var sources = new List<string>();
         var scripts = _options.InitScripts ?? [];
         for (var index = 0; index < scripts.Count; index++)
         {
             var at = InitScriptAt(index);
-            sources.Add(await scripts[index].ReadAsync(null, (message, cause) => new EngineException("INVALID_CONFIG", at + message, cause), cancellationToken).ConfigureAwait(false));
+            sources.Add(await scripts[index].ReadAsync(null, projectRoot, (message, cause) => new EngineException("INVALID_CONFIG", at + message, cause), cancellationToken).ConfigureAwait(false));
         }
 
         return sources;
