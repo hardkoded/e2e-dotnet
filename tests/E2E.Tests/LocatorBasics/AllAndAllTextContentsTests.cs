@@ -10,7 +10,7 @@ namespace E2E.Tests.LocatorBasics;
 
 public sealed class AllAndAllTextContentsTests
 {
-    [Fact(Skip = "Gap: the port's locator reads return the text as the engine reported it; upstream normalizes whitespace in the read.")]
+    [Fact]
     public async Task Hands_back_one_nth_locator_per_current_match_in_document_order()
     {
         var all = await ScreenFixture.Create(List).GetByRole("listitem").AllAsync();
@@ -24,7 +24,7 @@ public sealed class AllAndAllTextContentsTests
         Assert.Equal(["Item Alpha", "Item Beta", "Item Gamma"], texts);
     }
 
-    [Fact(Skip = "Gap: the port's locator reads return the text as the engine reported it; upstream normalizes whitespace in the read.")]
+    [Fact]
     public async Task Reads_the_normalized_text_of_every_match_without_strictness()
     {
         Assert.Equal(["Item Alpha", "Item Beta", "Item Gamma"], await ScreenFixture.Create(List).GetByRole("listitem").AllTextContentsAsync());
