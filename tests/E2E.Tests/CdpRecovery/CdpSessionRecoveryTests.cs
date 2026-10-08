@@ -76,6 +76,29 @@ public sealed class CdpSessionRecoveryTests
     }
 
     [Fact]
+    public async Task Runs_configured_and_test_init_scripts_once_per_document_after_reconnect_too()
+    {
+        using var app = await FixtureApp.StartAsync();
+        await using var remote = await RemoteChrome.LaunchAsync();
+        await using var session = await StartAsync(app, new WebEngine(new WebEngineOptions
+        {
+            Connect = Fixed(remote),
+            InitScripts = ["(window.trail ??= []).push('config');"],
+        }));
+        Task<string[]?> Trail() => EvaluateAsync<string[]>(session, "() => window.trail ?? null");
+        Assert.Equal<string[]>(["config"], await Trail());
+        var test = await WebInitScript.FromFunction("() => { (window.trail ??= []).push('test'); }")
+            .ReadAsync(null, Directory.GetCurrentDirectory(), (message, cause) => new InvalidOperationException(message, cause), None);
+        await ((IBrowserSession)session).AddInitScriptAsync(test, None);
+        await session.OpenAsync(app.Url + "login", None);
+        Assert.Equal<string[]>(["config", "test"], await Trail());
+
+        await WebEngine.SurfaceOf(session)!.Context().Browser!.CloseAsync();
+        await session.OpenAsync(app.Url + "login", None);
+        Assert.Equal<string[]>(["config", "test"], await Trail());
+    }
+
+    [Fact]
     public async Task Fails_an_uncertain_click_without_reconnecting_or_dispatching_it_twice()
     {
         using var app = await FixtureApp.StartAsync();
