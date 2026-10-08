@@ -1449,9 +1449,9 @@ public sealed class Agent
 
     /// <summary>
     /// Under strict mode, ends a step whose key found no entry while the cache directory holds a
-    /// recording made for the same step under another key: the runner or the agent's context changed since, and
-    /// the recording no longer replays. A step whose instruction or params changed is a new step and
-    /// still runs live. A custom <see cref="IStepCache"/> is not checked.
+    /// recording made for the same step under another key: the runner or the agent's context changed
+    /// since, and the recording no longer replays. A step whose instruction or params changed is a new
+    /// step and still runs live. A custom <see cref="IStepCache"/> is not checked.
     /// </summary>
     private void FailIfRekeyed(PendingAct pending, string instruction)
     {
@@ -1482,7 +1482,8 @@ public sealed class Agent
             return null;
         }
 
-        var entry = Copy(step);
+        var entry = new CacheEntry { Schema = step.Schema };
+        entry.SetStep(step);
         entry.Route = start.Route;
         entry.EndRoute = end.Route;
         entry.Actions = actions.ToList();
@@ -1506,20 +1507,6 @@ public sealed class Agent
             ParamsDigest = CacheKeys.ParamsDigest(parameters),
             CallIndex = callIndex,
             Agent = _scope.Redactor.Redact(agent),
-        };
-    }
-
-    private static CacheEntry Copy(CacheEntry step)
-    {
-        return new CacheEntry
-        {
-            Schema = step.Schema,
-            Test = step.Test,
-            Instruction = step.Instruction,
-            Engine = step.Engine,
-            ParamsDigest = step.ParamsDigest,
-            CallIndex = step.CallIndex,
-            Agent = step.Agent,
         };
     }
 
@@ -2009,12 +1996,8 @@ internal sealed class AttemptScope
     /// <summary>
     /// Claims one act's cache key. Each claim advances the zero-based repeat of its signature in the
     /// attempt. Only an identical act counts, with the same agent and context, so an optional step or
-    /// another agent's call does not renumber the acts after it.
+    /// another agent's call does not renumber the acts after it. <paramref name="callIndex"/> is that repeat.
     /// </summary>
-    public string ClaimKey(string instruction, IReadOnlyDictionary<string, object?>? parameters, ResolvedAgent agent) =>
-        ClaimKey(instruction, parameters, agent, out _);
-
-    /// <summary>Claims one act's key, and gives the repeat index it holds.</summary>
     public string ClaimKey(string instruction, IReadOnlyDictionary<string, object?>? parameters, ResolvedAgent agent, out int callIndex)
     {
         // The key reads the agent context as the model does, with the secrets known so far redacted.

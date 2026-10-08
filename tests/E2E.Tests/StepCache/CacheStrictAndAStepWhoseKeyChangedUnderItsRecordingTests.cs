@@ -105,9 +105,9 @@ public sealed class CacheStrictAndAStepWhoseKeyChangedUnderItsRecordingTests
     }
 
     [Fact]
-    public async Task Runs_live_when_the_only_recording_is_truncated_or_records_no_step()
+    public async Task Runs_live_when_the_only_recording_has_no_actions_or_records_no_step()
     {
-        // The port has no truncated entries; an entry with no actions never replays either.
+        // Upstream also runs live on a truncated recording; the port has no truncated entries.
         Action<CacheEntry>[] changes =
         [
             entry => entry.Actions = [],

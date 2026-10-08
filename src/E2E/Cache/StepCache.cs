@@ -50,6 +50,17 @@ public sealed class CacheEntry
 
     /// <summary>Nodes on screen when the step began and gone when it passed.</summary>
     public List<RecordedTarget> Gone { get; set; } = [];
+
+    /// <summary>Sets the fields that name the step this entry is recorded for, from <paramref name="step"/>.</summary>
+    internal void SetStep(CacheEntry step)
+    {
+        Test = step.Test;
+        Instruction = step.Instruction;
+        Engine = step.Engine;
+        ParamsDigest = step.ParamsDigest;
+        CallIndex = step.CallIndex;
+        Agent = step.Agent;
+    }
 }
 
 public sealed class RecordedAction

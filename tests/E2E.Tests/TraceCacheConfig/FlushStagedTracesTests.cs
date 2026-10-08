@@ -65,7 +65,7 @@ public sealed class FlushStagedTracesTests
     public void Completes_the_provenance_of_a_confirmed_kept_entry_recorded_before_the_occurrence_fields_and_nothing_else()
     {
         var store = new MemoryCache();
-        var recorded = Trace("replayed flow");
+        var recorded = Trace("open billing");
         recorded.Engine = null;
         recorded.ParamsDigest = null;
         recorded.CallIndex = null;
@@ -74,7 +74,7 @@ public sealed class FlushStagedTracesTests
 
         E2ESession.Flush(store, [Kept(KeyA, store, verified: true)], preserve: false);
 
-        var expected = Trace("replayed flow");
+        var expected = Trace("open billing");
         Assert.Equal(JsonSerializer.Serialize(expected), store.Entries[KeyA]);
     }
 
@@ -119,9 +119,9 @@ public sealed class FlushStagedTracesTests
         var scope = Fresh();
         var agent = new ResolvedAgent { Name = "default" };
 
-        var first = scope.ClaimKey("open billing", null, agent);
-        var repeat = scope.ClaimKey("open billing", null, agent);
-        var other = scope.ClaimKey("open billing", new Dictionary<string, object?> { ["fast"] = true }, agent);
+        var first = scope.ClaimKey("open billing", null, agent, out _);
+        var repeat = scope.ClaimKey("open billing", null, agent, out _);
+        var other = scope.ClaimKey("open billing", new Dictionary<string, object?> { ["fast"] = true }, agent, out _);
 
         Assert.Matches("^[a-f0-9]{64}$", first);
         Assert.NotEqual(first, repeat);
@@ -189,7 +189,7 @@ public sealed class FlushStagedTracesTests
 
     private static string Claim(AttemptScope scope, string agent, string? context)
     {
-        return scope.ClaimKey("approve the order", null, new ResolvedAgent { Name = agent, Context = context });
+        return scope.ClaimKey("approve the order", null, new ResolvedAgent { Name = agent, Context = context }, out _);
     }
 
     /// <summary>A store that keeps each entry as the JSON text it was written as.</summary>
