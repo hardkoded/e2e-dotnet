@@ -325,6 +325,7 @@ public sealed class E2ESession : IAsyncDisposable
             return;
         }
 
+        existing.Test = step.Test;
         existing.Engine = step.Engine;
         existing.ParamsDigest = step.ParamsDigest;
         existing.CallIndex = step.CallIndex;

@@ -235,7 +235,7 @@ public sealed class FileStepCache : IStepCache
         foreach (var path in Directory.EnumerateFiles(_directory, "*.json"))
         {
             var key = Path.GetFileNameWithoutExtension(path);
-            if (key.Length == 0 || key.Any(ch => !char.IsAsciiLetterOrDigit(ch)))
+            if (!IsKey(key))
             {
                 continue;
             }
@@ -280,9 +280,11 @@ public sealed class FileStepCache : IStepCache
         return JsonSerializer.Serialize(new object[] { step.Test, step.Engine, step.Instruction, step.ParamsDigest, step.CallIndex.Value, step.Agent });
     }
 
+    private static bool IsKey(string key) => key.Length > 0 && key.All(char.IsAsciiLetterOrDigit);
+
     private string PathFor(string key)
     {
-        if (key.Length == 0 || key.Any(ch => !char.IsAsciiLetterOrDigit(ch)))
+        if (!IsKey(key))
         {
             throw new TestException("INVALID_ARGUMENT", "Cache key must be ASCII letters and digits.");
         }
