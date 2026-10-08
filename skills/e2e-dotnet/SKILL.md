@@ -192,4 +192,13 @@ A failed fill of a `Secret` never shows the value. The message reads `[redacted]
 
 A replay miss is not a failure. The step runs live and records again. `ActResult.Cache.Reason` says why it missed: `no-entry` (nothing recorded yet), `invalid-entry` (an old or broken file), `target-not-found` (the control's role or name changed), `target-ambiguous`, `wrong-context` (the page or path changed), or `end-mismatch` (the replay ended on a different screen).
 
+## Drive the app over MCP
+
+`e2e mcp` serves the project to a coding agent over MCP (stdio). Register it with `claude mcp add e2e -- e2e mcp`. It has four fixed tools (`open_session`, `tools`, `call`, `close_session`) and serves this skill as the resources `e2e://guide` and `e2e://guide/<topic>`. Live sessions are not ported yet: `open_session` answers `UNSUPPORTED_CAPABILITY`.
+
+| Topic | File | Read it when |
+| --- | --- | --- |
+| `mcp` | [references/mcp.md](references/mcp.md) | Driving the live app from a coding agent over MCP: `e2e mcp`, its tools, and the explore-then-write loop |
+| `writing-tests` | [references/writing-tests.md](references/writing-tests.md) | Writing or fixing a test: a complete file, locators, and agent steps |
+
 Differences from the TypeScript [tester-army/e2e](https://github.com/tester-army/e2e) are listed in `COMPATIBILITY.md` in the e2e-dotnet repo.
