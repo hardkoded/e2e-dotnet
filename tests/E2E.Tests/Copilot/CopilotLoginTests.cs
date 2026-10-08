@@ -9,14 +9,9 @@ using E2E.Tests.Fetch;
 
 namespace E2E.Tests.Copilot;
 
+[Collection(InstantDeviceFlow.Name)]
 public sealed class CopilotLoginTests
 {
-    /// <summary>Polls without waiting out the interval, as upstream does on fake timers.</summary>
-    public CopilotLoginTests()
-    {
-        DeviceFlow.Delay = (_, _) => Task.CompletedTask;
-    }
-
     private static readonly OAuthLoginCallbacks Quiet = new() { OnAuth = _ => { }, OnPrompt = (_, _) => Task.FromResult("") };
 
     private static readonly Func<string?, CancellationToken, Task<string?>> NoCli = (_, _) => Task.FromResult<string?>(null);

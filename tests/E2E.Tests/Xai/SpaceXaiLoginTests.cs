@@ -10,14 +10,9 @@ using E2E.Tests.Fetch;
 
 namespace E2E.Tests.Xai;
 
+[Collection(InstantDeviceFlow.Name)]
 public sealed class SpaceXaiLoginTests
 {
-    /// <summary>Polls without waiting out the interval, as upstream does on fake timers.</summary>
-    public SpaceXaiLoginTests()
-    {
-        DeviceFlow.Delay = (_, _) => Task.CompletedTask;
-    }
-
     [Fact]
     public async Task Runs_the_RFC_8628_device_flow_against_auth_x_ai_and_reads_expiry_from_the_JWT()
     {

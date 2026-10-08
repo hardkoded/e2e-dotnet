@@ -10,6 +10,7 @@ using E2E.Tests.Fetch;
 
 namespace E2E.Tests.Openai;
 
+[Collection(InstantDeviceFlow.Name)]
 public sealed class CodexLoginTests
 {
     private const string Issuer = "https://auth.test";
@@ -19,12 +20,6 @@ public sealed class CodexLoginTests
     private static readonly string AccessToken = FakeJwt.Of("""{"https://api.openai.com/auth":{"chatgpt_compute_residency":"eu"}}""");
 
     private static readonly string TokenReply = "{ \"access_token\": \"" + AccessToken + "\", \"refresh_token\": \"ref\", \"id_token\": \"" + IdToken + "\", \"expires_in\": 600 }";
-
-    /// <summary>Polls without waiting out the interval, as upstream does on fake timers.</summary>
-    public CodexLoginTests()
-    {
-        DeviceFlow.Delay = (_, _) => Task.CompletedTask;
-    }
 
     [Fact]
     public async Task Runs_the_browser_flow_PKCE_authorize_URL_local_callback_code_exchange_account_id_and_residency()
@@ -98,7 +93,6 @@ public sealed class CodexLoginTests
     public async Task Asks_for_the_pasted_code_when_the_callback_port_is_taken_or_the_browser_never_returns()
     {
         var issuer = new FakeApi(_ => (HttpStatusCode.OK, TokenReply));
-        var port = FreePort();
         var squatted = FreePort();
         using var squatter = new HttpListener();
         squatter.Prefixes.Add("http://localhost:" + squatted.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/");
@@ -119,7 +113,7 @@ public sealed class CodexLoginTests
         }
 
         // After the browser fails to return in time, the terminal asks for the URL instead of failing.
-        var slow = new CodexProvider(new HttpClient(issuer), issuer: Issuer, callbackPort: port, loginTimeout: TimeSpan.FromMilliseconds(50));
+        var slow = new CodexProvider(new HttpClient(issuer), issuer: Issuer, callbackPort: FreePort(), loginTimeout: TimeSpan.FromMilliseconds(50));
         var pasted = await slow.LoginAsync(
             new OAuthLoginCallbacks { OnAuth = _ => { }, OnPrompt = (_, _) => Task.FromResult("late-code") },
             new OAuthLoginOptions(),
