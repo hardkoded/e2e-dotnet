@@ -14,7 +14,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 | `e2e.config.ts` | `e2e.config.json`, the same keys as JSON. `E2ETest` finds and applies it; fixture properties override it |
 | Vercel AI SDK model | `OpenAiCompatibleModel`, `OpenAiResponsesModel`, `AnthropicModel`, `GoogleModel`, and `BedrockModel`, built from `provider` in JSON or `ModelProviders` in code. See [Models](#models) |
 | `e2e/oauth/chatgpt`, `copilot`, `grok`, `opencode-console` | `E2E.OAuth.Subscriptions` |
-| `e2e login`, `e2e logout`, `e2e models`, `e2e mcp` | `E2E.Cli`, a .NET tool whose command is `e2e`. `e2e mcp` is partly ported: see [MCP server](#mcp-server) |
+| `e2e login`, `e2e logout`, `e2e models`, `e2e guide`, `e2e mcp` | `E2E.Cli`, a .NET tool whose command is `e2e`. `e2e guide [topic]` prints the bundled skill, as upstream; an unknown topic exits 2. `e2e mcp` is partly ported: see [MCP server](#mcp-server) |
 | — | `DocumentEngine`, an in-memory page for hosts that do not want a browser |
 
 ## Ported
@@ -82,7 +82,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 
 ## Not ported
 
-- The `e2e` command-line tool apart from `login`, `logout`, `models`, and `mcp`: the custom runner, `[E2ETest]` discovery, `--grep`, `test.only`, and the JSON report
+- The `e2e` command-line tool apart from `login`, `logout`, `models`, `guide`, and `mcp`: the custom runner, `[E2ETest]` discovery, `--grep`, `test.only`, and the JSON report
 - `@e2e-dev/mobile`, `@e2e-dev/github`, `@e2e-dev/kernel`, `@e2e-dev/eas`
 - `e2e init`
 - Vision, screenshots, traces, and video
@@ -106,7 +106,7 @@ Differences:
 
 - The fixed tools check their arguments with a strict check of the JSON Schema subset tool schemas use, since the .NET MCP SDK does not validate them. The messages are zod's, so an unknown argument reads `Invalid arguments for tool <name>: Unrecognized key: "<key>"`, as upstream.
 - The server instructions name `e2e.config.json`, `E2ETest` classes, and `dotnet test` in place of `e2e.config.ts`, `tests/*.e2e.ts`, and `npx e2e run`.
-- The guide has the topics `mcp` and `writing-tests`. Upstream also has `setup`, `agent`, `running`, `explore`, `debugging`, and `bug-bash`.
+- The guide has upstream's eight topics, written for .NET. `explore` and `bug-bash` say that `e2e explore` is not ported.
 - The 2026-07-28 MCP revision deprecates logging. The server still declares it and sends its log lines, as upstream does.
 
 Not ported yet:

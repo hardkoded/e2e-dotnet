@@ -56,7 +56,7 @@ before anything runs, with `Invalid arguments for tool <name>: Unrecognized
 key: "<key>"`.
 
 Resources: `e2e://guide` is the skill overview, and `e2e://guide/<topic>`
-holds one topic (`mcp`, `writing-tests`). An unknown topic fails with
+holds one topic (`e2e guide <topic>` prints the same text). An unknown topic fails with
 `UNKNOWN_TOPIC`.
 
 ## Workflow

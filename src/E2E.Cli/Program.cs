@@ -12,8 +12,8 @@ namespace E2E.Cli;
 
 /// <summary>
 /// <c>e2e login</c>, <c>e2e logout</c>, and <c>e2e models</c>: upstream's subscription commands. Logins go to the
-/// credentials file upstream's CLI uses, so a login made with either one serves both. <c>e2e mcp</c> serves a
-/// coding agent over MCP.
+/// credentials file upstream's CLI uses, so a login made with either one serves both. <c>e2e guide</c> prints
+/// the bundled skill, and <c>e2e mcp</c> serves a coding agent over MCP.
 /// </summary>
 public static class Program
 {
@@ -22,6 +22,7 @@ public static class Program
           e2e login [provider] [--device] [--client-id <id>] [--from-gh] [--enterprise-url <host>]
           e2e logout [provider]
           e2e models [provider]
+          e2e guide [topic]
           e2e mcp [--config <path>] [--target <name>] [--headed] [--max-sessions <n>]
 
         Providers:
@@ -85,6 +86,8 @@ public static class Program
                 return await LogoutAsync(provider, stdout, stdin, interactive, cancellationToken).ConfigureAwait(false);
             case "models":
                 return await ModelsAsync(provider, stdout, stderr, cancellationToken).ConfigureAwait(false);
+            case "guide":
+                return await GuideAsync(positional.FirstOrDefault(), stdout, stderr).ConfigureAwait(false);
             default:
                 await stderr.WriteLineAsync("unknown command \"" + args[0] + "\"\n\n" + Usage).ConfigureAwait(false);
                 return 1;
@@ -213,6 +216,20 @@ public static class Program
         }
 
         return failed ? 1 : 0;
+    }
+
+    /// <summary><c>e2e guide</c>: prints the bundled skill's overview, or one topic. An unknown topic exits 2.</summary>
+    private static async Task<int> GuideAsync(string? topic, TextWriter stdout, TextWriter stderr)
+    {
+        var text = Skill.ReadGuide(topic);
+        if (text is null)
+        {
+            await stderr.WriteLineAsync("unknown topic \"" + topic + "\"; topics: " + string.Join(", ", Skill.Topics())).ConfigureAwait(false);
+            return 2;
+        }
+
+        await stdout.WriteAsync(text.EndsWith('\n') ? text : text + "\n").ConfigureAwait(false);
+        return 0;
     }
 
     /// <summary>Parses the flags of <c>e2e mcp</c> and serves. A bad command line exits 2.</summary>
