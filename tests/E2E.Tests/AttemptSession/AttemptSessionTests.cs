@@ -15,6 +15,8 @@ public sealed class AttemptSessionTests
 
     private static readonly CancellationToken None = CancellationToken.None;
 
+    // Context ids are refused once any attempt in the process rode them, so each test has its own.
+    private readonly string _run = Guid.NewGuid().ToString("N");
     private readonly List<IBrowser> _connections = [];
     private readonly List<TimeSpan> _dialTimeouts = [];
     private int _connects;
@@ -23,8 +25,8 @@ public sealed class AttemptSessionTests
     public async Task Detaches_an_unresolved_identity_before_its_response_arrives_and_cannot_overwrite_the_next_attempt()
     {
         var response = new TaskCompletionSource<JsonElement?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var old = FakeRemote.Create("old", response.Task);
-        var current = FakeRemote.Create("current");
+        var old = Remote("old", response.Task);
+        var current = Remote("current");
         _connections.AddRange([old.Browser, current.Browser]);
         using var cancel = new CancellationTokenSource();
         var starting = Engine().StartAsync(Start(), cancel.Token);
@@ -41,7 +43,7 @@ public sealed class AttemptSessionTests
     [Fact]
     public async Task Leaves_the_persistent_page_at_the_window_size_under_viewport_null()
     {
-        var current = FakeRemote.Create("current");
+        var current = Remote("current");
         _connections.Add(current.Browser);
         var active = FakeTarget.Create("page");
         current.Pages.Add(active.Page);
@@ -53,7 +55,7 @@ public sealed class AttemptSessionTests
     [Fact]
     public async Task Serves_the_first_page_from_the_persistent_browsers_own_tab_on_a_fresh_document_and_opens_a_new_tab_after_it_closed()
     {
-        var current = FakeRemote.Create("current");
+        var current = Remote("current");
         var initial = FakeTarget.Create("initial");
         var opened = FakeTarget.Create("opened");
         current.Pages.Add(initial.Page);
@@ -111,7 +113,7 @@ public sealed class AttemptSessionTests
     [Fact]
     public async Task Refuses_a_viewport_that_is_not_whole_pixels_keeps_a_copy_of_the_one_it_accepts_and_resizes_an_open_page()
     {
-        var current = FakeRemote.Create("current");
+        var current = Remote("current");
         _connections.Add(current.Browser);
         var active = FakeTarget.Create("page");
         current.Pages.Add(active.Page);
@@ -148,8 +150,8 @@ public sealed class AttemptSessionTests
     [Fact]
     public async Task Keeps_a_late_old_page_identity_out_of_the_next_attempt()
     {
-        var old = FakeRemote.Create("old");
-        var current = FakeRemote.Create("current");
+        var old = Remote("old");
+        var current = Remote("current");
         _connections.AddRange([old.Browser, current.Browser]);
         var first = await Engine().StartAsync(Start(), None);
         var response = new TaskCompletionSource<JsonElement?>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -171,7 +173,7 @@ public sealed class AttemptSessionTests
     public async Task Does_not_publish_an_attachment_until_configuration_succeeds()
     {
         var configure = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var browser = FakeRemote.Create("current");
+        var browser = Remote("current");
         browser.ContextFake.Members["AddInitScriptAsync"] = _ => configure.Task.ContinueWith(_ => FakeRemote.Registration, TaskScheduler.Default);
         _connections.Add(browser.Browser);
         var starting = Engine().StartAsync(Start(), None);
@@ -187,7 +189,7 @@ public sealed class AttemptSessionTests
     [InlineData("cancel")]
     public async Task Distinguishes_recovery_and_prevents_dispatch(string reason)
     {
-        var browser = FakeRemote.Create("current");
+        var browser = Remote("current");
         var page = FakeTarget.Create("page");
         browser.Pages.Add(page.Page);
         _connections.Add(browser.Browser);
@@ -236,7 +238,7 @@ public sealed class AttemptSessionTests
     [Fact]
     public async Task Propagates_the_recovery_owner_cancellation_to_another_waiting_operation()
     {
-        var browser = FakeRemote.Create("current");
+        var browser = Remote("current");
         var page = FakeTarget.Create("page");
         browser.Pages.Add(page.Page);
         _connections.Add(browser.Browser);
@@ -260,8 +262,8 @@ public sealed class AttemptSessionTests
     [Fact]
     public async Task Subtracts_endpoint_resolution_from_both_the_CDP_dial_and_dispatched_operation_budgets()
     {
-        var original = FakeRemote.Create("current");
-        var recovered = FakeRemote.Create("current");
+        var original = Remote("current");
+        var recovered = Remote("current");
         var page = FakeTarget.Create("page");
         recovered.Pages.Add(page.Page);
         _connections.AddRange([original.Browser, recovered.Browser]);
@@ -278,6 +280,8 @@ public sealed class AttemptSessionTests
         // 160 ms left, less Playwright's timeout lead: half of a budget this short.
         Assert.Equal(80, page.Gotos.Single(navigation => navigation.Url == Url).Timeout);
     }
+
+    private FakeRemote Remote(string identity, Task<JsonElement?>? response = null) => FakeRemote.Create(identity + "-" + _run, response);
 
     private static EngineStartOptions Start(TimeSpan? actionTimeout = null) =>
         new() { BaseUrl = Url, ActionTimeout = actionTimeout ?? TimeSpan.FromSeconds(1) };

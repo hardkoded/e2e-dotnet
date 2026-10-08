@@ -223,7 +223,8 @@ public sealed partial class WebEngine : IEngine
     private readonly Dictionary<string, string>? _siteHeaders;
 
     // The default contexts earlier attempts rode, so a cdpEndpoint that hands one back is refused.
-    private readonly HashSet<string> _usedContexts = new(StringComparer.Ordinal);
+    // Process-wide: a test fixture creates an engine for each attempt, retries included.
+    private static readonly HashSet<string> UsedContexts = new(StringComparer.Ordinal);
 
     public WebEngine(bool? headless = null)
         : this(new WebEngineOptions { Headless = headless })
@@ -286,7 +287,7 @@ public sealed partial class WebEngine : IEngine
             {
                 return await WebSession.StartPersistentAsync(
                     playwright,
-                    new PersistentConnect(persistent.CdpEndpoint, reconnect, _usedContexts),
+                    new PersistentConnect(persistent.CdpEndpoint, reconnect, UsedContexts),
                     options.ActionTimeout,
                     _options,
                     initScripts,
@@ -1216,14 +1217,15 @@ public sealed partial class WebEngine : IEngine
         /// </summary>
         private async Task<IPage> NextPageAsync(IBrowserContext context)
         {
-            var first = _firstPage;
-            _firstPage = false;
-            if (first && _persistent is not null && context.Pages.FirstOrDefault(page => !page.IsClosed) is { } initial)
+            if (_firstPage && _persistent is not null && context.Pages.FirstOrDefault(page => !page.IsClosed) is { } initial)
             {
+                // A navigation that failed leaves the tab to the next attempt at opening the first page.
                 await initial.GotoAsync("about:blank", new PageGotoOptions { Timeout = ActionMs }).ConfigureAwait(false);
+                _firstPage = false;
                 return initial;
             }
 
+            _firstPage = false;
             return await context.NewPageAsync().ConfigureAwait(false);
         }
 
@@ -1339,7 +1341,8 @@ public sealed partial class WebEngine : IEngine
             Task recovery;
             lock (_recoveryLock)
             {
-                recovery = _recovery ??= ReconnectAsync(label, started, cancellationToken);
+                // Started on the pool, so the resolver, which is user code, never runs under the lock.
+                recovery = _recovery ??= Task.Run(() => ReconnectAsync(label, started, cancellationToken), CancellationToken.None);
             }
 
             try
@@ -1453,8 +1456,12 @@ public sealed partial class WebEngine : IEngine
             }
             catch (OperationCanceledException)
             {
-                // The abandoned attach closes a connection that arrives late; its failure has no one to reach.
-                _ = attach.ContinueWith(static abandoned => abandoned.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+                // A connection that arrives once the attach was abandoned is closed; a failure has no one to reach.
+                _ = attach.ContinueWith(
+                    static abandoned => abandoned.IsCompletedSuccessfully ? CloseQuietlyAsync(abandoned.Result.Browser) : Task.FromResult(abandoned.Exception),
+                    CancellationToken.None,
+                    TaskContinuationOptions.None,
+                    TaskScheduler.Default);
                 if (cancellationToken.IsCancellationRequested || lifetime.IsCancellationRequested)
                 {
                     throw;
