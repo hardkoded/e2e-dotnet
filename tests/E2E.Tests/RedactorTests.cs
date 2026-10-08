@@ -57,6 +57,6 @@ public sealed class RedactorTests
     public void Text_without_values_is_unchanged()
     {
         Assert.Equal("nothing to see", Redactor.For(Secrets).Redact("nothing to see"));
-        Assert.Equal("nothing to see", Redactor.For([]).Redact("nothing to see"));
+        Assert.Equal("nothing to see", Redactor.None.Redact("nothing to see"));
     }
 }

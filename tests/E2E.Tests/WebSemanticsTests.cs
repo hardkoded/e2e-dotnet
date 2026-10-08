@@ -282,7 +282,7 @@ public sealed class WebSemanticsTests
             ],
         };
 
-        var text = SnapshotText.Render(observation, Redactor.For([]));
+        var text = SnapshotText.Render(observation, Redactor.None);
         Assert.Contains("button \"Menu\" [ref=e1] [expanded] [pressed] [focused]", text, StringComparison.Ordinal);
         Assert.Contains("tab \"General\" [ref=e2] [selected]", text, StringComparison.Ordinal);
         Assert.Contains("More of the page is off screen", text, StringComparison.Ordinal);

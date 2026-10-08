@@ -1035,7 +1035,7 @@ public sealed class Agent
 
             // The tree can stay the same while the page moves under it (every node
             // already fits the budget), so the scroll position counts too.
-            var shape = SnapshotText.Render(observation, Redactor.For([])) + "\n" + observation.ScrollPosition;
+            var shape = SnapshotText.Render(observation, Redactor.None) + "\n" + observation.ScrollPosition;
             still = string.Equals(shape, previous, StringComparison.Ordinal) ? still + 1 : 0;
             if (still >= ScrollUntilStillPages)
             {
@@ -1748,7 +1748,8 @@ public sealed class CacheInfo
 internal sealed class AttemptScope
 {
     private readonly Dictionary<string, int> _callIndexes = new(StringComparer.Ordinal);
-    private Redactor? _redactor;
+    private readonly List<Secret> _secrets = [];
+    private Built? _redactor;
 
     /// <summary>
     /// An agent call in this attempt hit a model outage or a stale strict replay. The cache keeps its
@@ -1823,14 +1824,29 @@ internal sealed class AttemptScope
     /// <summary>True once the test has failed. Verification stops there, so a later teardown check proves nothing.</summary>
     public Func<bool> TestFailed { get; init; } = static () => false;
 
-    public List<Secret> Secrets { get; } = [];
+    public IReadOnlyList<Secret> Secrets => _secrets;
 
     /// <summary>
-    /// The redactor for <see cref="Secrets"/>, built once and rebuilt only after
-    /// <see cref="Remember"/> adds a secret: building one costs time linear in
+    /// The redactor for <see cref="Secrets"/>, rebuilt only when <see cref="Remember"/>
+    /// has added a secret since the last build: building one costs time linear in
     /// the values' length, so a long value must not pay it on every snapshot.
     /// </summary>
-    public Redactor Redactor => _redactor ??= Redactor.For(Secrets);
+    public Redactor Redactor
+    {
+        get
+        {
+            var built = _redactor;
+            if (built is not null && built.Count == _secrets.Count)
+            {
+                return built.Redactor;
+            }
+
+            var secrets = _secrets.ToArray();
+            built = new Built(Redactor.For(secrets), secrets.Length);
+            _redactor = built;
+            return built.Redactor;
+        }
+    }
 
     public List<string> Completed { get; } = [];
 
@@ -1887,8 +1903,7 @@ internal sealed class AttemptScope
         {
             if (value is Secret secret && !Secrets.Any(item => string.Equals(item.Name, secret.Name, StringComparison.Ordinal) && string.Equals(item.Value, secret.Value, StringComparison.Ordinal)))
             {
-                Secrets.Add(secret);
-                _redactor = null;
+                _secrets.Add(secret);
             }
         }
     }
@@ -1908,6 +1923,9 @@ internal sealed class AttemptScope
             }
         }
     }
+
+    /// <summary>A redactor and how many secrets it was built from. One object, so a reader never sees one without the other.</summary>
+    private sealed record Built(Redactor Redactor, int Count);
 }
 
 internal sealed class PendingAct

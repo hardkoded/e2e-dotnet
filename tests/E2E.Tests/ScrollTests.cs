@@ -190,8 +190,8 @@ public sealed class ScrollTests
             Truncated = true,
         };
 
-        Assert.Contains("Scroll to reach it", SnapshotText.Render(observation, Redactor.For([])), StringComparison.Ordinal);
-        Assert.DoesNotContain("Scroll", SnapshotText.Render(new Observation { Route = "/", Roots = observation.Roots }, Redactor.For([])), StringComparison.Ordinal);
+        Assert.Contains("Scroll to reach it", SnapshotText.Render(observation, Redactor.None), StringComparison.Ordinal);
+        Assert.DoesNotContain("Scroll", SnapshotText.Render(new Observation { Route = "/", Roots = observation.Roots }, Redactor.None), StringComparison.Ordinal);
     }
 
     [Fact]
