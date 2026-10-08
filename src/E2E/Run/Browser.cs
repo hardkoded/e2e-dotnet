@@ -250,7 +250,7 @@ public sealed class Browser
             }
         }
 
-        await session.RouteAsync(url => Routes.PatternMatches(pattern, url), Decide, Token(cancellationToken)).ConfigureAwait(false);
+        await session.RouteAsync(Routes.Matcher(pattern), Decide, Token(cancellationToken)).ConfigureAwait(false);
         _routes.Add((pattern, Decide));
     }
 

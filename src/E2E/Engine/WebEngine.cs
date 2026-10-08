@@ -118,6 +118,9 @@ public sealed partial class WebEngine : IEngine
     private readonly WebEngineOptions _options;
     private readonly bool _headless;
 
+    /// <summary>The configured headers, names lower-cased so they replace the browser's own; null when none are set.</summary>
+    private readonly Dictionary<string, string>? _siteHeaders;
+
     public WebEngine(bool? headless = null)
         : this(new WebEngineOptions { Headless = headless })
     {
@@ -128,6 +131,9 @@ public sealed partial class WebEngine : IEngine
         ArgumentNullException.ThrowIfNull(options);
         Validate(options);
         _options = options;
+        _siteHeaders = options.Headers is { Count: > 0 } headers
+            ? headers.ToDictionary(pair => pair.Key.ToLowerInvariant(), pair => pair.Value, StringComparer.Ordinal)
+            : null;
         if (options.Headless is bool chosen)
         {
             _headless = chosen;
@@ -350,11 +356,9 @@ public sealed partial class WebEngine : IEngine
     /// The configured headers, names lower-cased, that a request to <paramref name="url"/>
     /// carries: all of them for the app's host, none for any other host or when there is no app.
     /// </summary>
-    private Dictionary<string, string>? SiteHeadersFor(string url, Uri? app)
+    private IReadOnlyDictionary<string, string>? SiteHeadersFor(string url, Uri? app)
     {
-        return _options.Headers is { Count: > 0 } headers && app is not null && IsAppRequest(url, app)
-            ? headers.ToDictionary(pair => pair.Key.ToLowerInvariant(), pair => pair.Value, StringComparer.Ordinal)
-            : null;
+        return app is not null && IsAppRequest(url, app) ? _siteHeaders : null;
     }
 
     /// <summary>
@@ -365,7 +369,7 @@ public sealed partial class WebEngine : IEngine
     /// </summary>
     private async Task InstallSiteHeadersAsync(IBrowserContext context, Uri? app)
     {
-        if (_options.Headers is not { Count: > 0 } || app is null)
+        if (_siteHeaders is not { } headers || app is null)
         {
             return;
         }
@@ -373,7 +377,7 @@ public sealed partial class WebEngine : IEngine
         await context.RouteAsync(url => IsAppRequest(url, app), async route =>
         {
             var merged = new Dictionary<string, string>(route.Request.Headers, StringComparer.Ordinal);
-            foreach (var (name, value) in SiteHeadersFor(route.Request.Url, app)!)
+            foreach (var (name, value) in headers)
             {
                 merged[name] = value;
             }
@@ -397,7 +401,7 @@ public sealed partial class WebEngine : IEngine
         private readonly string _testIdAttribute;
         private readonly WebEngineOptions _options;
         private readonly Func<IBrowserContext, Task> _setUpContext;
-        private readonly Func<string, Dictionary<string, string>?> _siteHeaders;
+        private readonly Func<string, IReadOnlyDictionary<string, string>?> _siteHeaders;
 
         // Attempt-scoped routes, registered on the context so they cover every page,
         // and registered again on each context ClearStateAsync opens.
@@ -409,7 +413,7 @@ public sealed partial class WebEngine : IEngine
         private Dictionary<string, IFrame> _frames = new(StringComparer.Ordinal);
         private int _nextRef = 1;
 
-        public WebSession(IPlaywright playwright, IBrowser browser, TimeSpan actionTimeout, WebEngineOptions options, Func<IBrowserContext, Task> setUpContext, Func<string, Dictionary<string, string>?> siteHeaders)
+        public WebSession(IPlaywright playwright, IBrowser browser, TimeSpan actionTimeout, WebEngineOptions options, Func<IBrowserContext, Task> setUpContext, Func<string, IReadOnlyDictionary<string, string>?> siteHeaders)
         {
             _playwright = playwright;
             _browser = browser;
@@ -1083,9 +1087,9 @@ public sealed partial class WebEngine : IEngine
     private sealed class PlaywrightRoute : IBrowserRoute
     {
         private readonly IRoute _route;
-        private readonly Func<string, Dictionary<string, string>?> _siteHeaders;
+        private readonly Func<string, IReadOnlyDictionary<string, string>?> _siteHeaders;
 
-        public PlaywrightRoute(IRoute route, Func<string, Dictionary<string, string>?> siteHeaders)
+        public PlaywrightRoute(IRoute route, Func<string, IReadOnlyDictionary<string, string>?> siteHeaders)
         {
             _route = route;
             _siteHeaders = siteHeaders;
@@ -1140,7 +1144,7 @@ public sealed partial class WebEngine : IEngine
                     headers[name.ToLowerInvariant()] = value;
                 }
 
-                foreach (var (name, value) in site ?? [])
+                foreach (var (name, value) in site ?? Enumerable.Empty<KeyValuePair<string, string>>())
                 {
                     headers[name] = value;
                 }

@@ -119,8 +119,11 @@ internal static partial class Routes
     }
 
     /// <summary>Matches a URL against a route pattern: a glob string (<see cref="CompilePattern"/>) or a <see cref="Regex"/>.</summary>
-    public static bool PatternMatches(object pattern, string url) =>
-        pattern is Regex regex ? regex.IsMatch(url) : CompilePattern((string)pattern).IsMatch(url);
+    public static bool PatternMatches(object pattern, string url) => Matcher(pattern)(url);
+
+    /// <summary>The URL test for a route pattern, with a glob compiled once.</summary>
+    public static Func<string, bool> Matcher(object pattern) =>
+        pattern is Regex regex ? regex.IsMatch : CompilePattern((string)pattern).IsMatch;
 
     /// <summary>Structural equality for route patterns, used by unroute: the same glob, or the same regex source and options.</summary>
     public static bool PatternsEqual(object a, object b) => (a, b) switch
