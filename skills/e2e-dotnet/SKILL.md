@@ -83,6 +83,7 @@ Members of `E2ETest`:
 - `Agent`: `ActAsync(instruction)` performs a goal. `AssertAsync(statement)` judges the screen once. `WaitForAsync(statement)` judges until true or timeout. `ExtractAsync<T>(instruction)` reads typed data from the screen.
 - `Screen`: `GetByRole(role, name)`, `GetByText`, `GetByLabel`, `GetByPlaceholder`, `GetByTestId`, `GetByDisplayValue`. Text matches are **exact by default**; pass `exact: false` for a substring. A locator has `ClickAsync`, `FillAsync`, `PressAsync`, `SelectOptionAsync`, `CheckAsync`, `First()`, `Last()`, `Nth(i)`, and `Filter(...)`.
 - `Expect.That(locator)`: `ToBeVisibleAsync`, `ToBeHiddenAsync`, `ToContainTextAsync`, `ToHaveTextAsync`, `ToHaveValueAsync`, `ToHaveCountAsync`, `ToBeEnabledAsync`, `ToBeCheckedAsync`, `ToHaveAttributeAsync`, and more. `Expect.Soft` records a failure and continues. `Expect.Poll(read)` retries any value.
+- Text reads: `ToHaveTextAsync`, `ToContainTextAsync`, `TextContentAsync`, and `AllTextContentsAsync` read the node's rendered text, whitespace collapsed. On the web that is what `innerText` reads, not the label: `<output aria-label="Remaining">1 remaining</output>` reads `1 remaining`, and an icon-only button reads `""`. Check a label with `ToHaveAccessibleNameAsync`.
 - `Browser`: URL, title, cookies, viewport, and raw keyboard and mouse.
 - `Secrets.Get("admin-password")`: a `Secret` from config.
 
