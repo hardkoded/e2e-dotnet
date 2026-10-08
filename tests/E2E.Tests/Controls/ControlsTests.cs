@@ -289,8 +289,8 @@ public sealed class ControlsTests
         Assert.Equal(3, (await tickets.AllTextContentsAsync()).Count);
         Assert.Equal(3, (await tickets.AllAsync()).Count);
 
-        // Upstream also checks that filter({}) and nth(-1) fail as INVALID_LOCATOR. C# has no
-        // empty filter, and Nth throws ArgumentOutOfRangeException for a negative index.
+        // Upstream's INVALID_LOCATOR for filter({}) and nth(-1) is the C# argument check.
+        Assert.Throws<ArgumentNullException>(() => tickets.Filter((TextMatch)null!));
         Assert.Throws<ArgumentOutOfRangeException>(() => tickets.Nth(-1));
     });
 
