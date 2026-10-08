@@ -68,7 +68,7 @@ internal static partial class Routes
 
         if (resolved is null)
         {
-            throw new TestException("POLICY_DENIED", "Malformed URL: " + url);
+            throw new TestException("POLICY_DENIED", "malformed URL: " + url);
         }
 
         return resolved;
