@@ -12,6 +12,7 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | `tests/E2E.Tests` | Unit tests. No API key. The Chromium tests install the browser on the first launch |
 | `tests/E2E.Agent.Tests` | Agent tests against a real model, ported from upstream's `apps/testbed/tests-agent`. They serve upstream's playground pages on a loopback port. All are in the `RealModel` category and need a GitHub Copilot login |
 | `samples/E2E.Sample` | NUnit tests against the live Dariten demo. The agent test needs a GitHub Copilot login (`dotnet run --project src/E2E.Cli -- login github-copilot`) |
+| `samples/E2E.XUnit.V3.Sample` | The `samples/E2E.Sample` tests, written for xUnit v3 |
 
 ## Development
 
