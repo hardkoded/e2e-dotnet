@@ -8,8 +8,9 @@ Tests run with the .NET test runner. The `e2e` tool holds the rest:
 dotnet test                                          # run every test
 dotnet test --filter "FullyQualifiedName~BillingTests"  # one class
 dotnet test --filter "TestCategory!=RealModel"       # skip tests that call a model
-e2e guide [topic]                                    # print this skill; topics: agent, bug-bash,
-                                                     # debugging, explore, mcp, running, setup, writing-tests
+e2e guide [topic]                                    # print this skill; topics: agent, bug-bash, debugging,
+                                                     # explore, mcp, running, setup, writing-tests,
+                                                     # writing-tests-nunit, writing-tests-xunit
 e2e login|logout|models [provider]                   # subscription logins: openai,
                                                      # github-copilot, opencode-console, spacexai
 e2e mcp                                              # MCP server for a coding agent (topic mcp)

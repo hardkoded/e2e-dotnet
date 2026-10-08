@@ -64,7 +64,8 @@ internal static partial class Skill
 
         return files
             .OrderBy(file => file.Relative == "SKILL.md" ? 0 : 1)
-            .ThenBy(file => file.Relative, StringComparer.Ordinal)
+            // By name without the extension, so a topic comes before the topics that extend its name.
+            .ThenBy(file => Path.ChangeExtension(file.Relative, null), StringComparer.Ordinal)
             .ToList();
     }
 

@@ -53,7 +53,7 @@ internal static class Server
         Call open_session (optionally with a target, a config path, and headed: true when the user wants to watch) to get a session, its tool catalog, and the first observation. Then call {tool, args} runs any catalog tool: observe, the grammar its engine honors, type_secret, locate, screenshot, start_recording and stop_recording when the engine records video (a video of the app for a pull request), and the project's own tools; tools lists them, tools {tool} shows one tool's arguments. close_session when done.
         Several sessions can be open at once, each with its own browser or device, so parallel agents (subagents) each open their own: pass the session id from open_session to every tools, call, and close_session.
         Write deterministic tests (E2ETest classes) from what you saw and run them with dotnet test. Resources e2e://guide and e2e://guide/{topic} hold the writing guide.
-        This build does not open sessions yet: open_session answers UNSUPPORTED_CAPABILITY. Until it does, read e2e://guide/writing-tests and write tests from the app's markup.
+        This build does not open sessions yet: open_session answers UNSUPPORTED_CAPABILITY. Until it does, read e2e://guide/writing-tests and e2e://guide/writing-tests-nunit or e2e://guide/writing-tests-xunit, and write tests from the app's markup.
         """;
 
     private const string GuideUri = "e2e://guide";

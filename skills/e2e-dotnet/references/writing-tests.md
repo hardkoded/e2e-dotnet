@@ -1,62 +1,42 @@
 # Writing tests
 
-## A complete file
+## Pick your framework
+
+A test class derives from an `E2ETest` base class. Its setup, attributes,
+model-test marker, and `dotnet test --filter` syntax depend on the
+framework; read the guide for yours first:
+
+| Framework | Package | Topic |
+| --- | --- | --- |
+| NUnit | `E2E.NUnit` | `writing-tests-nunit` ([writing-tests-nunit.md](writing-tests-nunit.md)) |
+| xUnit v3 | `E2E.XUnit.V3` | `writing-tests-xunit` ([writing-tests-xunit.md](writing-tests-xunit.md)) |
+
+This topic covers what both share. A test body reads the same in either:
 
 ```csharp
-using E2E;
-using E2E.NUnit;
+await App.OpenAsync("/todos");
 
-public sealed class TodoTests : E2ETest
+// An exact interaction: an empty submit adds nothing.
+await Screen.GetByRole("button", "Add").ClickAsync();
+await Expect.That(Screen.GetByRole("listitem")).ToHaveCountAsync(0);
+
+await Agent.ActAsync("add a todo with the given title", new ActOptions
 {
-    [SetUp]
-    public Task OpenTodos() => App.OpenAsync("/todos");
-
-    [Test]
-    [Category("RealModel")]
-    public async Task Adds_and_completes_a_todo()
-    {
-        await Agent.ActAsync("add a todo with the given title", new ActOptions
-        {
-            Params = new Dictionary<string, object?> { ["title"] = "Write the release notes" },
-        });
-        await Expect.That(Screen.GetByRole("listitem")).ToHaveCountAsync(1);
-
-        await Agent.ActAsync("mark the todo as done");
-        await Expect.That(Screen.GetByRole("status", "Remaining")).ToHaveTextAsync("0 remaining");
-    }
-
-    [Test]
-    public async Task Ignores_an_empty_submission()
-    {
-        // An exact interaction: the empty submit is the point of the test.
-        await Screen.GetByRole("button", "Add").ClickAsync();
-        await Expect.That(Screen.GetByRole("listitem")).ToHaveCountAsync(0);
-    }
-}
+    Params = new Dictionary<string, object?> { ["title"] = "Write the release notes" },
+});
+await Expect.That(Screen.GetByRole("listitem")).ToHaveCountAsync(1);
 ```
 
 The agent does the flow; `Expect` pins what must be true after each goal,
 and that check lets the replay cache rerun the step later. `Screen` actions
 are for exact interactions and values. Every test starts from a fresh
 browser context with no page open, so it calls `App.OpenAsync` first.
-
-For xUnit v3, derive from `E2E.XUnit.V3.E2ETest` and write `[Fact]` tests;
-the members are the same.
-
-## Registration
-
-Tests are the framework's: NUnit `[Test]`, `[SetUp]`, `[TearDown]`,
-`[OneTimeSetUp]`, `[OneTimeTearDown]`, `[Retry]`, `[Timeout]`, and
-`[Category]`, or xUnit v3 `[Fact]` and traits. There is no `describe`,
-`test.setup`, `serial` group, or tag of e2e's own.
-
-Mark a test that calls a real model with `[Category("RealModel")]` in NUnit,
-or `[Trait("TestCategory", "RealModel")]` in xUnit v3, so CI can skip it with
-`--filter "TestCategory!=RealModel"`.
+There is no `describe`, `test.setup`, `serial` group, or tag of e2e's own:
+grouping, setup, and categories are the framework's.
 
 ## Fixtures
 
-Members of `E2ETest`:
+Members of `E2ETest` in both frameworks:
 
 - `App`: `OpenAsync(path)`, `BackAsync`, `RestartAsync`, `ClearStateAsync`,
   and `BaseUrl`. A path resolves against the target URL. `OpenAsync` and the
@@ -130,7 +110,8 @@ matcher.
 ## Sign-in
 
 There is no `test.setup` or saved `session`. Sign in inside each test, or in
-`[SetUp]`, with `Screen` actions or `Agent.ActAsync`; both fill a `Secret`:
+the framework's per-test setup (NUnit `[SetUp]`, xUnit v3 `InitializeAsync`),
+with `Screen` actions or `Agent.ActAsync`; both fill a `Secret`:
 
 ```csharp
 var admin = Credentials.User("admin");

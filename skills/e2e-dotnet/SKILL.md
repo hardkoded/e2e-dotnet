@@ -49,6 +49,8 @@ one; the installed tool prints the same text with `e2e guide <topic>`
 | --- | --- | --- |
 | `setup` | [references/setup.md](references/setup.md) | Adding e2e to a project, writing `e2e.config.json`, picking a model provider, browser options |
 | `writing-tests` | [references/writing-tests.md](references/writing-tests.md) | Writing or fixing tests: fixture members, locators, actions, matchers, sign-in, the `Browser` member |
+| `writing-tests-nunit` | [references/writing-tests-nunit.md](references/writing-tests-nunit.md) | NUnit: the `E2E.NUnit` base class, `[Test]`, `[Category("RealModel")]`, `dotnet test --filter`, a complete test |
+| `writing-tests-xunit` | [references/writing-tests-xunit.md](references/writing-tests-xunit.md) | xUnit v3: the `E2E.XUnit.V3` base class, `[Fact]`, `[Trait("TestCategory", "RealModel")]`, `dotnet test --filter`, a complete test |
 | `agent` | [references/agent.md](references/agent.md) | Adding `Agent` steps, picking a model, budgets, the replay cache |
 | `running` | [references/running.md](references/running.md) | `dotnet test` filters, the `e2e` tool, exit codes, CI |
 | `explore` | [references/explore.md](references/explore.md) | Exploring an app toward a goal without a test file (not ported) |

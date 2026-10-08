@@ -106,7 +106,7 @@ Differences:
 
 - The fixed tools check their arguments with a strict check of the JSON Schema subset tool schemas use, since the .NET MCP SDK does not validate them. The messages are zod's, so an unknown argument reads `Invalid arguments for tool <name>: Unrecognized key: "<key>"`, as upstream.
 - The server instructions name `e2e.config.json`, `E2ETest` classes, and `dotnet test` in place of `e2e.config.ts`, `tests/*.e2e.ts`, and `npx e2e run`.
-- The guide has upstream's eight topics, written for .NET. `explore` and `bug-bash` say that `e2e explore` is not ported.
+- The guide has upstream's eight topics, written for .NET, plus `writing-tests-nunit` and `writing-tests-xunit`, one per test framework. `explore` and `bug-bash` say that `e2e explore` is not ported.
 - The 2026-07-28 MCP revision deprecates logging. The server still declares it and sends its log lines, as upstream does.
 
 Not ported yet:

@@ -9,6 +9,7 @@ namespace E2E.Cli.Tests.CliGuide;
 public sealed class TheBuiltCliAndTheBundledSkillTests
 {
     [Fact]
+    // The topic list holds the port's two framework topics beside upstream's eight.
     public async Task Prints_the_overview_and_a_topic_from_the_package_copy_of_the_skill()
     {
         var dir = Directory.CreateTempSubdirectory("e2e-guide-").FullName;
@@ -20,7 +21,7 @@ public sealed class TheBuiltCliAndTheBundledSkillTests
             Assert.Equal(await File.ReadAllTextAsync(Path.Combine(RepoSkill(), "references", "writing-tests.md")), topic.Stdout);
             var unknown = await RunAsync(dir, "guide", "nope");
             Assert.Equal(2, unknown.Code);
-            Assert.Contains("unknown topic \"nope\"; topics: agent, bug-bash, debugging, explore, mcp, running, setup, writing-tests", unknown.Stderr, StringComparison.Ordinal);
+            Assert.Contains("unknown topic \"nope\"; topics: agent, bug-bash, debugging, explore, mcp, running, setup, writing-tests, writing-tests-nunit, writing-tests-xunit", unknown.Stderr, StringComparison.Ordinal);
             var help = await RunAsync(dir, "--help");
             Assert.Contains("guide [topic]", help.Stdout, StringComparison.Ordinal);
         }

@@ -21,11 +21,8 @@ dotnet add MyApp.E2E package E2E
 dotnet add MyApp.E2E package E2E.NUnit
 ```
 
-For xUnit v3, create the project with `dotnet new install xunit.v3.templates`
-and `dotnet new xunit3`, then add `E2E` and `E2E.XUnit.V3`. Derive from
-`E2E.XUnit.V3.E2ETest` and write `[Fact]` tests. The members are the same as
-the NUnit fixture's (topic `writing-tests`). `Expect.Soft` failures fail the
-test when it is disposed, and `Expect.Poll` uses `ToSatisfyAsync(predicate)`.
+For xUnit v3, see topic `writing-tests-xunit`. Topic `writing-tests-nunit`
+covers the NUnit base class.
 
 Install the `e2e` tool for subscription logins and the MCP server:
 
