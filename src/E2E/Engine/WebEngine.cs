@@ -441,7 +441,7 @@ public sealed partial class WebEngine : IEngine
 
         public async Task OpenAsync(string url, CancellationToken cancellationToken)
         {
-            var budget = Budget("navigate to " + url, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 if (_page is null)
@@ -449,6 +449,8 @@ public sealed partial class WebEngine : IEngine
                     await NewPageAsync(RequireContext()).ConfigureAwait(false);
                 }
 
+                // The budget is the navigation's: opening the first page does not spend it.
+                var budget = Budget("navigate to " + url, cancellationToken);
                 await budget.WithinAsync(Page.GotoAsync(url, new PageGotoOptions
                 {
                     WaitUntil = WaitUntilState.Load,
@@ -879,6 +881,9 @@ public sealed partial class WebEngine : IEngine
                     break;
                 case LocatorAction.PressSequentially typed:
                     await element.FocusAsync().ConfigureAwait(false);
+
+                    // A focus the deadline cut off must not type later, into whatever holds focus then.
+                    budget.ThrowIfExpired();
                     await Page.Keyboard.TypeAsync(typed.Text, new KeyboardTypeOptions
                     {
                         Delay = typed.Delay is TimeSpan delay ? (float)delay.TotalMilliseconds : null,
@@ -1332,6 +1337,9 @@ internal sealed class OperationBudget
         await WithinAsync((Task)call).ConfigureAwait(false);
         return await call.ConfigureAwait(false);
     }
+
+    /// <summary>Throws <c>OPERATION_TIMEOUT</c> once the deadline has passed, before a call that takes no timeout of its own.</summary>
+    public void ThrowIfExpired() => Remaining();
 
     private TimeSpan Remaining()
     {
