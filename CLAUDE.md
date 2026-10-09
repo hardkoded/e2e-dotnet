@@ -15,8 +15,8 @@ This repo is a .NET port of [tester-army/e2e](https://github.com/tester-army/e2e
   - A class holds every `it` of its upstream `describe`, not only the ones the commit adds.
   - Tests outside any `describe` go in `<Directory>/<Directory>Tests.cs`.
   - The directory sits in the test project that runs the test, and the namespace follows it: `E2E.Tests.ProtectedAppOptions`.
-- In the test projects under `tests/`, every test ports an upstream `it`, except as the next rule allows. If an upstream `it` covers the behavior, port that `it` instead of writing your own test.
-- .NET-only code may keep tests that have no upstream `it`, when no upstream `it` covers that behavior. Examples: model providers, the SigV4 signer, launch timeouts, adapters.
+- In the test projects under `tests/`, every test ports an upstream `it`, except as the next rule allows. If an upstream `it` covers the behavior, even in part, port that `it` instead of writing your own test.
+- .NET-only code may keep tests that have no upstream `it`, when no upstream `it` covers that behavior. Examples: model providers, the SigV4 signer, launch timeouts, adapters. Name each such test in the PR report.
 - The sample tests under `samples/` (the TodoMvc and Dariten samples) have no upstream `it`. They are required. Do not remove them.
 - A ported test checks everything its upstream `it` checks. If a part needs a feature the port does not have, name it in the PR report. Do not keep an upstream name on a test that checks only part of it.
 
