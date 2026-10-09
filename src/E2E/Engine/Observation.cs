@@ -31,9 +31,6 @@ public sealed class NodeStates
     /// <summary>The node, or an ancestor, is <c>aria-hidden</c>. It may still paint, so it can be visible, but role queries and the agent skip it.</summary>
     public bool AriaHidden { get; init; }
 
-    /// <summary>The accessibility tree drops the node: it does not render, or it is <c>aria-hidden</c>. Role queries and the agent skip it.</summary>
-    public bool HiddenFromTree => Hidden || AriaHidden;
-
     public bool Secure { get; init; }
 
     public bool Selected { get; init; }
