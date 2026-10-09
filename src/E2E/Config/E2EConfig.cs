@@ -136,8 +136,8 @@ public sealed class E2EConfig
 
     /// <summary>
     /// The nearest <see cref="FileName"/> in each start directory or one of its parents,
-    /// tried in order, or null. The search stops at the repository root, a directory with a <c>.git</c>
-    /// entry, and never picks a config above it.
+    /// tried in order, or null. A directory with a <c>.git</c> entry is the repository root: the search
+    /// looks for the file there and goes no higher.
     /// </summary>
     public static string? Find(params string[] startDirectories)
     {
