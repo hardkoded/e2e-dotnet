@@ -271,8 +271,10 @@ internal sealed class SessionCatalog
             Execute = async (args, token) =>
             {
                 var mapped = new JsonObject { ["ref"] = args.GetProperty("target").GetString(), ["secret"] = args.GetProperty("secret").GetString() };
-                var outcome = await RunAsync(context, "type_secret", "fill_secret", args, token, mapped).ConfigureAwait(false);
+
+                // Before the fill: a fill that reached the page and then failed must still withhold pixels.
                 context.PixelsTainted = true;
+                var outcome = await RunAsync(context, "type_secret", "fill_secret", args, token, mapped).ConfigureAwait(false);
                 return outcome.Content;
             },
         };
@@ -304,7 +306,7 @@ internal sealed class SessionCatalog
 
     private static string Failure(string label, string? code, string message, string? target)
     {
-        if (code == "NOT_FOUND" && target is not null)
+        if (code == "NOT_FOUND" && target is not null && message.StartsWith("No control matched", StringComparison.Ordinal))
         {
             message = "node " + target + " is not on the current screen; re-observe for the newest refs";
         }

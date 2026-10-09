@@ -205,9 +205,9 @@ internal sealed class SessionHost : IDisposable
         var live = _sessions.Resolve(session);
         var tool = live.Catalog.Find(name) ?? throw UnknownTool(live, name);
         CallToolResult result;
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, live.Abort.Token);
         try
         {
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, live.Abort.Token);
             // One call at a time: the page is one thing, and a second call would act on a screen the first is changing.
             await live.Gate.WaitAsync(linked.Token).ConfigureAwait(false);
             try
@@ -320,9 +320,9 @@ internal sealed class SessionHost : IDisposable
 
             // A first screen that came back despite the cancel must not become a live session nobody asked for.
             abort.Token.ThrowIfCancellationRequested();
+            live.Lifetime = new Timer(_ => EndOnItsOwn(live, "the session reached its time limit of " + Math.Round(_options.Lifetime.TotalMinutes).ToString(CultureInfo.InvariantCulture) + " minutes"), null, _options.Lifetime, Timeout.InfiniteTimeSpan);
             _sessions.Activate(live);
             Touch(live);
-            live.Lifetime = new Timer(_ => EndOnItsOwn(live, "the session reached its time limit of " + Math.Round(_options.Lifetime.TotalMinutes).ToString(CultureInfo.InvariantCulture) + " minutes"), null, _options.Lifetime, Timeout.InfiniteTimeSpan);
             return text;
         }
         catch (Exception cause)

@@ -163,16 +163,33 @@ internal sealed class SessionRegistry<TSession>(int limit)
 
         await Task.WhenAll(opening.Select(Settled)).ConfigureAwait(false);
         List<TSession> live;
-        List<Task<string>> closing;
         lock (_gate)
         {
             live = Live();
+        }
+
+        var summaries = await Task.WhenAll(live.Select(session => CloseIfLiveAsync(session, reason, teardown))).ConfigureAwait(false);
+        List<Task<string>> closing;
+        lock (_gate)
+        {
             closing = [.. _entries.Values.Select(entry => entry.Phase).OfType<ClosingPhase>().Select(phase => phase.Closed)];
         }
 
-        var summaries = await Task.WhenAll(live.Select(session => CloseAsync(session.Id, reason, teardown))).ConfigureAwait(false);
         await Task.WhenAll(closing.Select(Settled)).ConfigureAwait(false);
-        return summaries;
+        return [.. summaries.OfType<string>()];
+    }
+
+    /// <summary>Closes a session, or reports nothing when it finished closing on its own since the caller looked.</summary>
+    private async Task<string?> CloseIfLiveAsync(TSession session, string reason, Func<TSession, Task<string>> teardown)
+    {
+        try
+        {
+            return await CloseAsync(session.Id, reason, teardown).ConfigureAwait(false);
+        }
+        catch (ConfigurationException ex) when (ex.Code == "NO_SESSION")
+        {
+            return null;
+        }
     }
 
     private static async Task Settled(Task task)
