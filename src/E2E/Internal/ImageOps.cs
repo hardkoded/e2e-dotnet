@@ -42,7 +42,12 @@ internal static class ImageOps
         }
 
         var info = new SKImageInfo(codec.Info.Width, codec.Info.Height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
-        using var bitmap = SKBitmap.Decode(codec, info) ?? throw new InvalidDataException("the PNG could not be decoded");
+        using var bitmap = new SKBitmap(info);
+        if (codec.GetPixels(info, bitmap.GetPixels()) != SKCodecResult.Success)
+        {
+            throw new InvalidDataException("the PNG is cut short or could not be decoded");
+        }
+
         return new RgbaImage(info.Width, info.Height, bitmap.GetPixelSpan().ToArray());
     }
 
@@ -51,7 +56,7 @@ internal static class ImageOps
     {
         var info = new SKImageInfo(image.Width, image.Height, SKColorType.Rgba8888, SKAlphaType.Unpremul);
         using var pixels = SKImage.FromPixelCopy(info, image.Data);
-        using var data = pixels.Encode(SKEncodedImageFormat.Png, 100);
+        using var data = pixels?.Encode(SKEncodedImageFormat.Png, 100) ?? throw new InvalidOperationException("the image could not be encoded as a PNG");
         return data.ToArray();
     }
 
