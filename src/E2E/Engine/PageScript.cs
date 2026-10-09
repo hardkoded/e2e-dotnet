@@ -649,8 +649,9 @@ internal static class PageScript
                 // A leaf keeps its own text too: a labelled status or button
                 // reads its content, not its label, as upstream's node read
                 // does. A secure field withholds it. innerText is empty for a
-                // node that does not render; its DOM text is what a text query matches.
-                text: secure ? "" : cut((isHidden ? el.textContent : el.innerText) || "", 512),
+                // node that does not render, and for a textarea; its DOM text is
+                // what a text query matches.
+                text: secure ? "" : cut((isHidden || el.tagName === "TEXTAREA" ? el.textContent : el.innerText) || "", 512),
                 // A node that lists its children shows the snapshot only the
                 // text it owns, since they carry theirs.
                 ownText: secure || !ownsChildren ? null : cut(directTextOf(el), 512),
