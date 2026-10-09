@@ -14,8 +14,7 @@ no `report_finding` tool.
   `Agent.ActAsync` with the goal, then `Agent.AssertAsync` or
   `Expect.That` on the outcome you expect (topic `agent`). A failed step
   carries the model's explanation of what it saw.
-- Once the `e2e mcp` sessions are ported, a coding agent can drive the live
-  app directly (topic `mcp`).
+- A coding agent can drive the live app directly with `e2e mcp` (topic `mcp`).
 
 ## When it does not fit
 

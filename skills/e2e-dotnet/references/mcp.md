@@ -5,12 +5,11 @@ coding agent will drive the app the way the testing agent does: look at a
 screen before writing a test, check a locator before committing to it.
 Running tests and reading a failed run stay with `dotnet test`.
 
-**Status in the .NET port.** The server, its four fixed tools, and the guide
-resources work. Live sessions do not exist yet: `open_session` answers
-`UNSUPPORTED_CAPABILITY`, and `tools`, `call`, and `close_session` answer as
-they do with no session open. Until sessions land, read the guide resources
-and write tests from the app's markup and `Screen` locators (topic
-`writing-tests`).
+**In the .NET port** a session drives the one target of `e2e.config.json` in a
+Chromium browser. The catalog is the testing agent's own actions plus `locate`
+and `screenshot`. Not ported: recording a video, the project's own tools,
+and the tap, hover, and type at a point. `e2e init` does not exist, so
+register the server yourself (below).
 
 ## Setup
 
@@ -46,9 +45,9 @@ Four tools; everything a session can do is a catalog behind `call`.
 
 | Tool | Does |
 | --- | --- |
-| `open_session` | Loads the config (`config` names another file; default the nearest `e2e.config.json`), boots the browser, opens the app URL, and returns the session id, the catalog, and the first observation. `target` is required when the config declares several. `headed: true` shows the browser when the user wants to watch. Not ported yet: it answers `UNSUPPORTED_CAPABILITY`. |
+| `open_session` | Loads the config (`config` names another file; default the nearest `e2e.config.json`), boots the browser, opens the app URL, and returns the session id, the catalog, and the first observation. `target` must name the config's target when given. `headed: true` shows the browser when the user wants to watch. |
 | `tools` | The catalog: one line per tool with its argument names (`?` marks optional), the first sentence of its description, and `[read-only]` where it changes nothing. `tools {tool}` shows the full description and the JSON Schema of its arguments. |
-| `call` | Runs one catalog tool: `call {tool: "tap", args: {target: "n42"}}`. Arguments are checked against the tool's schema first; a wrong one fails with `INVALID_ARGUMENT` naming the field. |
+| `call` | Runs one catalog tool: `call {tool: "tap", args: {target: "e12"}}`, where `e12` is the `ref=` of a node in the newest observation. Arguments are checked against the tool's schema first; a wrong one fails with `INVALID_ARGUMENT` naming the field. |
 | `close_session` | Ends the session and disposes the browser. With no session open and no `session` argument, it says `No session is open.` |
 
 Every fixed tool takes only the arguments it declares. An unknown one fails
@@ -59,12 +58,37 @@ Resources: `e2e://guide` is the skill overview, and `e2e://guide/<topic>`
 holds one topic (`e2e guide <topic>` prints the same text). An unknown topic fails with
 `UNKNOWN_TOPIC`.
 
+## The catalog
+
+`observe` shows the whole screen, one node per line with its `[ref=...]`. Every
+action returns the screen after it. What an engine lacks is missing from its
+catalog: `scroll` and `scroll_to` need scrolling, `back` needs history,
+`screenshot` needs the web engine, and `type_secret` appears only when the
+config declares a `secrets` entry.
+
+| Tool | Does |
+| --- | --- |
+| `observe` | The whole current screen |
+| `tap`, `double_tap`, `check`, `uncheck`, `clear` `{target}` | Act on one node |
+| `type {target, text}` | Replace the text in a field |
+| `type_secret {target, secret}` | Fill a configured secret into a password or secret field by name; you never see the value |
+| `press {key, target?}` | Press a key on a node, or on whatever has focus |
+| `select {target, value}` | Choose an option |
+| `scroll {direction, times?, target?}`, `scroll_to {target?, text?, direction?}` | Move the viewport, or page to a node |
+| `navigate {url}` | Open a path or an http or https URL. Any other scheme fails with `POLICY_DENIED` |
+| `back` | One step back in the history |
+| `screenshot` | The viewport as an image. After a secret was filled it answers `PIXEL_TAINTED` and attaches nothing |
+| `locate {role? name? text? label? placeholder? testId? exact?}` | Try a locator; see the loop below |
+
+A failed action is an error result that starts with the tool, the node, and
+the code: `tap n9999 failed: NOT_FOUND: ...`.
+
 ## Workflow
 
-Once sessions land, the loop is:
+The loop is:
 
 1. `open_session`, then `call {tool: "observe"}` and act until the screen you
-   want to test is in front of you. Node ids are valid only for the newest
+   want to test is in front of you. Node refs are valid only for the newest
    observation.
 2. `call {tool: "locate", args: {...}}` for each locator you intend to write.
    One match: use the printed `Screen.GetByRole(...)` call. Zero or several:
@@ -78,6 +102,9 @@ Once sessions land, the loop is:
 
 ## Rules
 
+- A session ends when you close it, after 30 minutes without a call, or after
+  4 hours. A secret value never leaves the server: every output shows it as
+  `<secret:name>`.
 - Nothing a session does is recorded as a test or into the replay cache. A
   session is for looking and trying; the test is what you write afterwards.
 - Parallel agents (subagents) share one server: each opens its own session
@@ -85,5 +112,6 @@ Once sessions land, the loop is:
   A call may leave `session` out only while one session is open.
 - `NO_SESSION`: call `open_session` first, or the session named has ended
   (the message says why). `SESSION_REQUIRED`: several sessions are open;
-  pass `session`. `UNKNOWN_TOOL`: the name is not in this session's catalog;
+  pass `session`. `SESSION_OPEN`: all slots are taken (`--max-sessions`).
+  `CONFIG_IN_USE`: sessions open at once share one config. `UNKNOWN_TOOL`: the name is not in this session's catalog;
   the message lists what is.

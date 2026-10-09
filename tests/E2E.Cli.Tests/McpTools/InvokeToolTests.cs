@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Cli.Mcp;
+using E2E.Cli.Tests.Helpers;
 using static E2E.Cli.Tests.McpTools.ToolFixtures;
 
 namespace E2E.Cli.Tests.McpTools;
@@ -60,6 +61,35 @@ public sealed class InvokeToolTests
         var missing = await Assert.ThrowsAsync<ConfigurationException>(() => Tools.InvokeToolAsync("tap", guarded, Json("{}"), Extra));
         Assert.Equal("INVALID_ARGUMENT", missing.Code);
         Assert.False(ran);
+    }
+
+    [Fact]
+    public async Task Refuses_an_argument_a_grammar_tool_does_not_declare_before_anything_is_dispatched()
+    {
+        var engine = new FakeEngine();
+        await using var context = await SessionContext.StartAsync(engine);
+        var catalog = SessionCatalog.Create(context, engine.Capabilities, hasSecrets: false);
+        var error = await Assert.ThrowsAsync<ConfigurationException>(() => Tools.InvokeToolAsync("tap", catalog.Find("tap")!, Json("""{ "target": "n4", "force": true }"""), Extra));
+
+        Assert.Equal("INVALID_ARGUMENT", error.Code);
+        Assert.Equal("call tap: Unrecognized key: \"force\"; tools {tool: \"tap\"} shows its arguments", error.Message);
+        Assert.Equal(0, engine.Actions);
+    }
+
+    [Fact]
+    public async Task Refuses_an_argument_the_session_catalogs_observe_and_locate_do_not_declare()
+    {
+        var engine = new FakeEngine();
+        await using var context = await SessionContext.StartAsync(engine);
+        var catalog = SessionCatalog.Create(context, engine.Capabilities, hasSecrets: false);
+        var observe = await Assert.ThrowsAsync<ConfigurationException>(() => Tools.InvokeToolAsync("observe", catalog.Find("observe")!, Json("""{ "verbose": true }"""), Extra));
+        Assert.Equal("INVALID_ARGUMENT", observe.Code);
+        Assert.Equal("call observe: Unrecognized key: \"verbose\"; tools {tool: \"observe\"} shows its arguments", observe.Message);
+        var locate = await Assert.ThrowsAsync<ConfigurationException>(() => Tools.InvokeToolAsync("locate", catalog.Find("locate")!, Json("""{ "role": "button", "selector": "#save" }"""), Extra));
+        Assert.Equal("INVALID_ARGUMENT", locate.Code);
+        Assert.Equal("call locate: Unrecognized key: \"selector\"; tools {tool: \"locate\"} shows its arguments", locate.Message);
+        Assert.Equal(0, engine.Actions);
+        Assert.Equal(0, engine.Observations);
     }
 
     [Fact]

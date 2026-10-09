@@ -50,10 +50,9 @@ internal static class Server
 {
     public const string Instructions = """
         e2e-dotnet is the .NET port of the e2e end-to-end test framework; this server drives an e2e project's app (its e2e.config.json) live.
-        Call open_session (optionally with a target, a config path, and headed: true when the user wants to watch) to get a session, its tool catalog, and the first observation. Then call {tool, args} runs any catalog tool: observe, the grammar its engine honors, type_secret, locate, screenshot, start_recording and stop_recording when the engine records video (a video of the app for a pull request), and the project's own tools; tools lists them, tools {tool} shows one tool's arguments. close_session when done.
+        Call open_session (optionally with a target, a config path, and headed: true when the user wants to watch) to get a session, its tool catalog, and the first observation. Then call {tool, args} runs any catalog tool: observe, the grammar its engine honors, type_secret, locate, and screenshot; tools lists them, tools {tool} shows one tool's arguments. close_session when done.
         Several sessions can be open at once, each with its own browser or device, so parallel agents (subagents) each open their own: pass the session id from open_session to every tools, call, and close_session.
         Write deterministic tests (E2ETest classes) from what you saw and run them with dotnet test. Resources e2e://guide and e2e://guide/{topic} hold the writing guide.
-        This build does not open sessions yet: open_session answers UNSUPPORTED_CAPABILITY. Until it does, read e2e://guide/writing-tests and e2e://guide/writing-tests-nunit or e2e://guide/writing-tests-xunit, and write tests from the app's markup.
         """;
 
     private const string GuideUri = "e2e://guide";
@@ -67,7 +66,16 @@ internal static class Server
     public static async Task<int> ServeAsync(ServeOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
-        var specs = new SessionHost().ToolSpecs();
+        McpServer? server = null;
+        using var host = new SessionHost(new SessionHostOptions
+        {
+            LocateConfig = configPath => Config.Locate(options.Cwd, configPath ?? options.ConfigPath),
+            Headed = options.Headed,
+            DefaultTarget = options.Target,
+            MaxSessions = options.MaxSessions,
+            Log = (level, message) => Log(server, options, ParseLevel(level), message),
+        });
+        var specs = host.ToolSpecs();
         var serverOptions = new McpServerOptions
         {
             ServerInfo = new Implementation { Name = "e2e", Title = "e2e", Version = options.Version },
@@ -85,7 +93,7 @@ internal static class Server
 
         // No logger factory: the SDK logs nothing, so nothing but the protocol reaches the protocol stream.
         var transport = new StreamServerTransport(options.Stdin, options.Stdout, "e2e");
-        var server = McpServer.Create(transport, serverOptions);
+        server = McpServer.Create(transport, serverOptions);
         var running = server.RunAsync(cancellationToken);
         Log(server, options, LoggingLevel.Info, "e2e mcp " + options.Version + " serving " + options.Cwd);
         try
@@ -97,6 +105,21 @@ internal static class Server
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // A signal: the server shuts down as on a disconnect.
+        }
+
+        try
+        {
+            var summary = await host.CloseAllAsync("server shutdown").ConfigureAwait(false);
+            if (summary is not null)
+            {
+                options.Log(summary);
+            }
+        }
+#pragma warning disable CA1031 // The teardown of a session must not keep the server from exiting.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            options.Log("session teardown failed: " + Tools.CodedMessage(ex));
         }
 
         // Disposing waits for the stdin read too; a client that keeps stdin open must not hold the exit.
@@ -111,10 +134,10 @@ internal static class Server
     }
 
     /// <summary>Logs a line for the operator, and for the client at the level it asked for.</summary>
-    private static void Log(McpServer server, ServeOptions options, LoggingLevel level, string message)
+    private static void Log(McpServer? server, ServeOptions options, LoggingLevel level, string message)
     {
         options.Log("[" + level.ToString().ToLowerInvariant() + "] " + message);
-        if (server.LoggingLevel is { } minimum && level < minimum)
+        if (server is null || (server.LoggingLevel is { } minimum && level < minimum))
         {
             return;
         }
@@ -126,6 +149,13 @@ internal static class Server
             TaskContinuationOptions.OnlyOnFaulted,
             TaskScheduler.Default);
     }
+
+    private static LoggingLevel ParseLevel(string level) => level switch
+    {
+        "error" => LoggingLevel.Error,
+        "warning" => LoggingLevel.Warning,
+        _ => LoggingLevel.Info,
+    };
 
     private static Tool ToTool(McpToolSpec spec)
     {

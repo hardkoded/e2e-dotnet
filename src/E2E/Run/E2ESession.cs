@@ -43,6 +43,19 @@ public sealed class E2ESession : IAsyncDisposable
 
     public TestContext Context { get; }
 
+    /// <summary>The engine session, for a host that drives the app without a test body.</summary>
+    internal IEngineSession Engine => _engine;
+
+    /// <summary>Redacts the values of the secrets this attempt knows.</summary>
+    internal Redactor Redactor => _scope.Redactor;
+
+    /// <summary>The secrets <see cref="Agent"/> may fill by name, and every output redacts.</summary>
+    internal IReadOnlyList<Secret> Secrets => _scope.Secrets;
+
+    /// <summary>Adds secrets the attempt knows from the start, as an <c>act</c> does with its params.</summary>
+    internal void Remember(IEnumerable<Secret> secrets) =>
+        _scope.Remember(secrets.ToDictionary(secret => secret.Name, secret => (object?)secret, StringComparer.Ordinal));
+
     public int Replayed => _scope.Replayed;
 
     public int HandedOff => _scope.HandedOff;

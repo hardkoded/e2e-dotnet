@@ -186,7 +186,7 @@ await Expect.That(Screen).ToHaveScreenshotAsync("feed.png", new ScreenshotOption
 claude mcp add e2e -- e2e mcp
 ```
 
-The server has four fixed tools (`open_session`, `tools`, `call`, `close_session`) and serves the skill as the resources `e2e://guide` and `e2e://guide/<topic>`. Live sessions are not ported yet: `open_session` answers `UNSUPPORTED_CAPABILITY`. The flags are `--config`, `--target`, `--headed`, and `--max-sessions` (1 through 16, default 4). See [COMPATIBILITY.md](COMPATIBILITY.md#mcp-server).
+The server has four fixed tools (`open_session`, `tools`, `call`, `close_session`) and serves the skill as the resources `e2e://guide` and `e2e://guide/<topic>`. `open_session` boots a Chromium browser on the config's target; `call` then observes, acts, fills a secret, locates, and takes a screenshot, with every secret value shown by name. A session ends after 30 minutes idle or 4 hours, and nothing it does is written to the replay cache. The flags are `--config`, `--target`, `--headed`, and `--max-sessions` (1 through 16, default 4). See [COMPATIBILITY.md](COMPATIBILITY.md#mcp-server).
 
 ## Sample
 
