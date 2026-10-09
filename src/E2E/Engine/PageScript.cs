@@ -108,7 +108,7 @@ internal static class PageScript
             }
             return style.display === "none" || style.visibility !== "visible" || inClosedDetails(el);
           };
-          const ariaHidden = (el) => el.getAttribute("aria-hidden") === "true";
+          const ariaHidden = (el) => (el.getAttribute("aria-hidden") || "").toLowerCase() === "true";
           // What stops the element and everything under it from rendering:
           // display: none, which no descendant can undo, and content-visibility:
           // hidden, which keeps the element's own box and renders nothing under
@@ -264,7 +264,7 @@ internal static class PageScript
           };
           // A subtree the name computation drops: aria-hidden, or hidden by style as innerText leaves it out.
           const isNameHidden = (el, style) =>
-            el.getAttribute("aria-hidden") === "true" || style.display === "none" || style.visibility === "hidden";
+            ariaHidden(el) || style.display === "none" || style.visibility === "hidden";
           // alt of an element HTML-AAM names by it: an img or an input type="image".
           const altOf = (el) => {
             const named = el instanceof HTMLImageElement || (el instanceof HTMLInputElement && el.type === "image");
@@ -287,7 +287,7 @@ internal static class PageScript
           // A referenced target accname 2A reads whole: hidden itself, or under an aria-hidden ancestor.
           // Upstream's hidden includes a box with no size, which a target under display: none has.
           const isReferenceHidden = (el) => {
-            if (hidden(el) || el.closest("[aria-hidden=\"true\"]") !== null) return true;
+            if (hidden(el) || el.closest("[aria-hidden=\"true\" i]") !== null) return true;
             const box = el.getBoundingClientRect();
             return !(box.width > 0 && box.height > 0);
           };
@@ -658,7 +658,7 @@ internal static class PageScript
                 // withholds it. innerText is empty for a node that does not
                 // render, and for a textarea; its DOM text is what a text query matches.
                 text: secure ? "" : cut(ownsChildren ? directTextOf(el) : (isHidden || el.tagName === "TEXTAREA" ? el.textContent : el.innerText) || "", 512),
-                value: secure || !("value" in el) || el.tagName === "OPTION" ? null : String(el.value ?? ""),
+                value: secure || !(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) ? null : String(el.value ?? ""),
                 testId,
                 placeholder: el.getAttribute("placeholder"),
                 inputPurpose: secure ? "password" : null,
@@ -666,7 +666,7 @@ internal static class PageScript
                 disabled: disabledOf(el, role),
                 checked: checkedOf(el),
                 expanded: el.getAttribute("aria-expanded") === "true" || (el.tagName === "DETAILS" && el.open),
-                selected: el.tagName === "OPTION" ? !!el.selected : el.getAttribute("aria-selected") === "true",
+                selected: el.tagName === "OPTION" ? !!el.selected : (el.getAttribute("aria-selected") || "").toLowerCase() === "true",
                 pressed: el.getAttribute("aria-pressed") === "true",
                 focused: el === focused,
                 hidden: isHidden,
