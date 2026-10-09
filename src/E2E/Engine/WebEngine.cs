@@ -1852,6 +1852,7 @@ public sealed partial class WebEngine : IEngine
                 Name = dto.Name,
                 Text = dto.Text,
                 InlineNodes = dto.Inline?.Select(inline => ToNode(inline, testIdAttribute)).ToList() ?? [],
+                OwnText = dto.OwnText,
                 Value = dto.Secure ? null : dto.Value,
                 TestId = dto.TestId,
                 TestIdAttribute = dto.TestId is null ? null : testIdAttribute,
@@ -1865,6 +1866,7 @@ public sealed partial class WebEngine : IEngine
                     Expanded = dto.Expanded,
                     Focused = dto.Focused,
                     Hidden = dto.Hidden,
+                    AriaHidden = dto.AriaHidden,
                     Pressed = dto.Pressed,
                     Secure = dto.Secure,
                     Selected = dto.Selected,
@@ -2030,6 +2032,8 @@ public sealed partial class WebEngine : IEngine
 
         public string? Text { get; set; }
 
+        public string? OwnText { get; set; }
+
         public string? Value { get; set; }
 
         public string? TestId { get; set; }
@@ -2053,6 +2057,8 @@ public sealed partial class WebEngine : IEngine
         public bool Focused { get; set; }
 
         public bool Hidden { get; set; }
+
+        public bool AriaHidden { get; set; }
 
         public bool Secure { get; set; }
 

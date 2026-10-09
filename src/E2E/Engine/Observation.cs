@@ -25,7 +25,11 @@ public sealed class NodeStates
 
     public bool Focused { get; init; }
 
+    /// <summary>The node does not render: <c>display: none</c>, <c>visibility</c>, skipped content, a closed <c>details</c>. This is what <c>isVisible</c> reads.</summary>
     public bool Hidden { get; init; }
+
+    /// <summary>The node, or an ancestor, is <c>aria-hidden</c>. It may still paint, so it can be visible, but role queries and the agent skip it.</summary>
+    public bool AriaHidden { get; init; }
 
     public bool Secure { get; init; }
 
@@ -47,7 +51,14 @@ public sealed class SemanticNode
     /// <summary>The accessible name, by the accname rules Playwright follows, or null when the node has none.</summary>
     public string? Name { get; init; }
 
+    /// <summary>The rendered text, which locator reads and text queries use.</summary>
     public string? Text { get; init; }
+
+    /// <summary>
+    /// The text the node owns, read as a line: its inline words stay in place, but its listed children's text is left out. The snapshot shows it.
+    /// Null when the node has no split: <see cref="Text"/> then reads whole.
+    /// </summary>
+    public string? OwnText { get; init; }
 
     /// <summary>
     /// The inline elements read in <see cref="Text"/> that have no node of their own, such as the <c>&lt;span&gt;</c> in

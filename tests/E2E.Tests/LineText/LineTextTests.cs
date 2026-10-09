@@ -84,8 +84,8 @@ public sealed class LineTextTests
             <p>Price <span style="display:inline-block;width:0;height:0;overflow:hidden">$99</span><span style="font-size:0">$98</span> today</p>
             <p>extra<wbr>ordinary</p>
             """);
-        var texts = nodes.Where(node => node.Role is null or "paragraph").Select(node => node.Text);
-        Assert.Equal(["Intro tail", "Block", "one two", "Show per page", "Shown end", "Price today", "extraordinary"], texts);
+        var texts = nodes.Where(node => node.Role is null or "paragraph").Select(node => node.OwnText ?? node.Text);
+        Assert.Equal(["Intro tail", "Block", "one two", "Show per page", "Shown decor end", "Price today", "extraordinary"], texts);
     }
 
     [Fact]
@@ -140,8 +140,8 @@ public sealed class LineTextTests
     {
         var nodes = await ObserveAsync($"<p>{string.Concat(Enumerable.Repeat("word ", 120))}<strong>Total: $42</strong></p>");
         Assert.Equal(2, nodes.Count);
-        Assert.StartsWith("word word", nodes[0].Text);
-        Assert.Equal("Total: $42", nodes[1].Text);
+        Assert.StartsWith("word word", (nodes[0].OwnText ?? nodes[0].Text));
+        Assert.Equal("Total: $42", (nodes[1].OwnText ?? nodes[1].Text));
     }
 
     /// <summary>
@@ -159,5 +159,5 @@ public sealed class LineTextTests
 
     /// <summary>The nodes as <c>role "name" text</c>, the parts a model reads.</summary>
     private static List<string> Lines(IEnumerable<SemanticNode> nodes) =>
-        nodes.Select(node => string.Join(' ', new[] { node.Role, node.Name is null ? null : $"\"{node.Name}\"", node.Text }.Where(part => !string.IsNullOrEmpty(part)))).ToList();
+        nodes.Select(node => string.Join(' ', new[] { node.Role, node.Name is null ? null : $"\"{node.Name}\"", node.OwnText ?? node.Text }.Where(part => !string.IsNullOrEmpty(part)))).ToList();
 }
