@@ -13,7 +13,7 @@ public sealed class WebLocaleTimezoneIdTests
     [InlineData("zh-Hant-TW", "UTC")]
     [InlineData("de-DE-u-co-phonebk", "US/Eastern")]
     [InlineData(null, "GMT")]
-    public void Accepts_a_language_tag_and_an_IANA_time_zone(string? locale, string timezoneId)
+    public void Accepts_a_time_zone_alias(string? locale, string timezoneId)
     {
         _ = new WebEngine(new WebEngineOptions { Locale = locale, TimezoneId = timezoneId });
     }
