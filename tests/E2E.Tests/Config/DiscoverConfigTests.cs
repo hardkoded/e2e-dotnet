@@ -7,7 +7,7 @@ namespace E2E.Tests.Config;
 public sealed class DiscoverConfigTests
 {
     [Fact]
-    public void Stops_at_the_repository_root_and_never_picks_a_config_above_it()
+    public void Find_stops_at_the_repository_root()
     {
         var root = Path.Combine(Path.GetTempPath(), "e2e-discover", Guid.NewGuid().ToString("n"));
         var cwd = Path.Combine(root, "repo", "a", "b");

@@ -9,7 +9,7 @@ public sealed class ResolveConfigTests
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "e2e-config-root");
 
     [Fact]
-    public void Refuses_two_secrets_that_share_an_E2E_SECRET_variable_naming_the_entries_and_never_a_value_whether_or_not_it_is_set()
+    public void Secrets_that_share_an_override_variable_are_refused_without_naming_a_value()
     {
         string[] values = ["secret-value-a1", "secret-value-b2", "secret-value-c3"];
         var colliding = $$"""{ "secrets": { "api-key": "{{values[0]}}", "api_key": "{{values[1]}}" } }""";
@@ -34,7 +34,7 @@ public sealed class ResolveConfigTests
             $$"""{ "secrets": { "a-b": "{{values[0]}}", "a_b": "{{values[1]}}", "a.b": "{{values[2]}}" } }""", Root, Env()));
         Assert.StartsWith("secrets \"a-b\", \"a_b\" and \"a.b\" share", three.Message, StringComparison.Ordinal);
 
-        // Upstream's second entry is a provider function; the port has only string secrets.
+        // Upstream also tests a provider-function secret; the port has only string secrets.
         var pk = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(
             $$"""{ "secrets": { "pk-live": "{{values[0]}}", "pk_live": "{{values[1]}}" } }""", Root, Env()));
         Assert.Contains("E2E_SECRET_PK_LIVE", pk.Message, StringComparison.Ordinal);
