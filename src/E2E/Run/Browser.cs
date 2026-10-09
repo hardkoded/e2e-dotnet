@@ -70,6 +70,11 @@ public sealed class Browser
     public Task GotoAsync(string url, GotoOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(url);
+        if (options?.Timeout is { } budget)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(budget, TimeSpan.Zero, nameof(options));
+        }
+
         var resolved = Routes.Resolve(_baseUrl, url);
         return AppNotOpen.GuardAsync(() => Require("goto").GotoAsync(resolved, options?.WaitUntil ?? GotoWaitUntil.Load, options?.Timeout ?? _actionTimeout, Token(cancellationToken)));
     }
@@ -102,6 +107,7 @@ public sealed class Browser
     public Task WaitForURLAsync(string url, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(url);
+        Require("waitForURL");
         return new BrowserExpect(this, negated: false).ToHaveURLAsync(url, timeout: timeout, cancellationToken: cancellationToken);
     }
 
@@ -109,6 +115,7 @@ public sealed class Browser
     public Task WaitForURLAsync(Regex pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(pattern);
+        Require("waitForURL");
         return new BrowserExpect(this, negated: false).ToHaveURLAsync(pattern, timeout: timeout, cancellationToken: cancellationToken);
     }
 

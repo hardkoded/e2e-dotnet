@@ -806,6 +806,10 @@ public sealed partial class WebEngine : IEngine
                 };
                 await budget.WithinAsync(Page.GotoAsync(url, new PageGotoOptions { WaitUntil = until, Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
             }
+            catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
+            {
+                throw new EngineException(EngineErrorCodes.Cancelled, "goto " + url + " cancelled", retryable: false, ex);
+            }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
                 throw WebErrors.Translate(ex, "goto " + url);
