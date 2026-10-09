@@ -85,7 +85,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         var opened = await _served.InvokeAsync("open_session");
         Assert.False(opened.IsError, opened.Text);
         Assert.Matches(new Regex(@"^Session \S+ open on target ""web"" \(platform web, engine web [^)]+\), headless; config .*e2e\.config\.json\.", RegexOptions.None, TimeSpan.FromSeconds(5)), opened.Text);
-        Assert.Contains($"App: {_served.App.Url}.", opened.Text, StringComparison.Ordinal);
+        Assert.Contains($"App: {_served.App.Url}/.", opened.Text, StringComparison.Ordinal);
         Assert.Contains("Secrets: \"adminPassword\", \"apiKey\".", opened.Text, StringComparison.Ordinal);
         Assert.Contains("Tools (run one with call {tool, args}; tools {tool} shows a tool's arguments):", opened.Text, StringComparison.Ordinal);
         string[] names =

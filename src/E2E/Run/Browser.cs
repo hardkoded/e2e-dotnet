@@ -220,7 +220,7 @@ public sealed class Browser
     {
         ArgumentNullException.ThrowIfNull(cookies);
         var session = Require("setCookies");
-        var scheme = _baseUrl is not null && _baseUrl.StartsWith("https:", StringComparison.OrdinalIgnoreCase) ? "https" : "http";
+        var scheme = _baseUrl is null ? "http" : new Uri(_baseUrl).Scheme;
         var resolved = new List<BrowserCookie>(cookies.Count);
         foreach (var cookie in cookies)
         {

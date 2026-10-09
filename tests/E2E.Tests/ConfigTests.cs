@@ -29,7 +29,7 @@ public sealed class ConfigTests
             """);
 
         Assert.Equal("site", config.Target.Name);
-        Assert.Equal("http://127.0.0.1:4173", config.Target.App.Url);
+        Assert.Equal("http://127.0.0.1:4173/", config.Target.App.Url);
         Assert.Equal(TimeSpan.FromSeconds(90), config.Timeout);
         Assert.Equal(TimeSpan.FromSeconds(20), config.LaunchTimeout);
         Assert.Equal(TimeSpan.FromSeconds(7), config.ActionTimeout);
@@ -152,7 +152,7 @@ public sealed class ConfigTests
     [InlineData("""{ "cache": { "mode": "on" } }""", "cache.mode must be \"off\", \"read-only\", or \"read-write\"")]
     [InlineData("""{ "cache": { "strict": "yes" } }""", "cache.strict must be a boolean")]
     [InlineData("""{ "targets": [] }""", "targets must be a non-empty array")]
-    [InlineData("""{ "targets": [{ "app": { "url": "http://x", "port": 1 } }] }""", "unknown targets[0].app key \"port\"")]
+    [InlineData("""{ "targets": [{ "app": { "url": "https://x", "port": 1 } }] }""", "unknown targets[0].app key \"port\"")]
     [InlineData("""{ "targets": [{ "platform": "ios" }] }""", "targets[0].platform \"ios\" is not supported")]
     [InlineData("""{ "agents": { "default": { "modle": "m" } } }""", "unknown agents.default key \"modle\"; did you mean \"model\"?")]
     [InlineData("""{ "agents": { "default": { "maxInputTokens": 3 } } }""", "agents.default key \"maxInputTokens\" is not supported by the .NET port")]
@@ -207,7 +207,7 @@ public sealed class ConfigTests
             var config = E2EConfig.Load(path, Env());
             Assert.Equal(path, config.ConfigPath);
             Assert.Equal(root, config.ProjectRoot);
-            Assert.Equal("https://app.test", config.Target.App.Url);
+            Assert.Equal("https://app.test/", config.Target.App.Url);
             Assert.Equal(Path.Combine(root, "cache"), config.Cache.Directory);
         }
         finally
@@ -285,6 +285,45 @@ public sealed class ConfigTests
         }));
         Assert.Equal("ENVIRONMENT_UNAVAILABLE", error.Code);
         Assert.Contains("launch timeout", error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("tester.army", "https://tester.army/")]
+    [InlineData("localhost:3000/app", "http://localhost:3000/app")]
+    public void Normalizes_the_app_URL(string url, string expected)
+    {
+        Assert.Equal(expected, Parse("""{ "targets": [{ "app": { "url": "%URL%" } }] }""".Replace("%URL%", url, StringComparison.Ordinal)).Target.App.Url);
+    }
+
+    [Theory]
+    [InlineData("http://example.test", "plain HTTP is allowed only for loopback hosts: http://example.test")]
+    [InlineData("https://user:pw@example.test", "app URL must not contain userinfo")]
+    [InlineData("ftp://example.test", "app URL must be http(s): ftp://example.test")]
+    public void Rejects_an_invalid_app_URL(string url, string message)
+    {
+        var error = Assert.Throws<ConfigurationException>(() => Parse("""{ "targets": [{ "app": { "url": "%URL%" } }] }""".Replace("%URL%", url, StringComparison.Ordinal)));
+        Assert.Equal("INVALID_APP_URL", error.Code);
+        Assert.Equal(message, error.Message);
+    }
+
+    [Fact]
+    public void Rejects_an_app_URL_that_asks_for_a_free_port_because_nothing_starts_the_app()
+    {
+        var error = Assert.Throws<ConfigurationException>(() => Parse("""{ "targets": [{ "app": { "url": "http://127.0.0.1:0" } }] }"""));
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Contains("targets[0].app.url asks for a free port", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Rejects_a_base_URL_override_that_the_config_would_reject()
+    {
+        var error = await Assert.ThrowsAsync<ConfigurationException>(() => E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = new HangingEngine(),
+            TestTitle = "base url",
+            BaseUrl = "http://example.test",
+        }));
+        Assert.Equal("INVALID_APP_URL", error.Code);
     }
 
     private static E2EConfig Parse(string json, Func<string, string?>? environment = null)
