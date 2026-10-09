@@ -978,7 +978,7 @@ public sealed class CoreTests
     [Theory]
     [InlineData("passed")]
     [InlineData("failed")]
-    public async Task Act_past_its_action_budget_is_blocked(string status)
+    public async Task Fails_closed_when_the_executor_claims_success_over_an_exhausted_budget(string status)
     {
         var model = new ScriptedModel(request =>
         {
