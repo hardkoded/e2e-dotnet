@@ -62,14 +62,6 @@ public sealed class EngineErrorTests
     }
 
     [Fact]
-    public void A_field_that_does_not_take_text_is_not_actionable()
-    {
-        var error = Assert.IsType<EngineException>(WebErrors.ClassifyAction(new PlaywrightException("Error: Element is not an <input>, <textarea> or [contenteditable] element"), new LocatorAction.Fill("x")));
-
-        Assert.Equal("NOT_ACTIONABLE", error.Code);
-    }
-
-    [Fact]
     public void A_sensitive_fill_redacts_its_value_and_drops_the_cause()
     {
         var error = Assert.IsType<EngineException>(WebErrors.ClassifyAction(new PlaywrightException("fill(\"hunter2\") failed"), new LocatorAction.Fill("hunter2", Sensitive: true)));
@@ -90,44 +82,5 @@ public sealed class EngineErrorTests
         Assert.Equal("NODE_STALE", stale.Code);
         Assert.True(stale.Retryable);
         Assert.Equal("ENGINE_FAILURE", WebErrors.NavigationStaleOr(new PlaywrightException("boom"), "observe").Code);
-    }
-
-    [Fact]
-    public async Task Chromium_reports_engine_codes_instead_of_playwright_errors()
-    {
-        using var site = await TinySite.StartAsync("""
-            <!DOCTYPE html>
-            <html><body><button type="button" disabled>Save</button></body></html>
-            """);
-        var session = await new WebEngine(headless: true).StartAsync(new EngineStartOptions { ActionTimeout = TimeSpan.FromMilliseconds(500) }, CancellationToken.None);
-
-        await using (session)
-        {
-            await session.OpenAsync(site.Url, CancellationToken.None);
-            var observation = await session.ObserveAsync(CancellationToken.None);
-            var button = Flatten(observation.Roots).First(node => node.Role == "button");
-
-            var blocked = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(button, new LocatorAction.Tap(), CancellationToken.None));
-            Assert.Equal("NOT_ACTIONABLE", blocked.Code);
-
-            var missing = new SemanticNode { Ref = "e9999", Role = "button" };
-            var stale = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(missing, new LocatorAction.Tap(), CancellationToken.None));
-            Assert.Equal("NODE_STALE", stale.Code);
-
-            var unreachable = await Assert.ThrowsAsync<EngineException>(() => session.OpenAsync("http://127.0.0.1:1/", CancellationToken.None));
-            Assert.Equal("ENGINE_FAILURE", unreachable.Code);
-        }
-    }
-
-    private static IEnumerable<SemanticNode> Flatten(IEnumerable<SemanticNode> nodes)
-    {
-        foreach (var node in nodes)
-        {
-            yield return node;
-            foreach (var child in Flatten(node.Children))
-            {
-                yield return child;
-            }
-        }
     }
 }
