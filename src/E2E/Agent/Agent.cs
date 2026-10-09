@@ -872,6 +872,13 @@ public sealed class Agent
         await _scope.Session.PerformAsync(node, locatorAction, token).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Runs one act tool for a coding agent that drives a live session over MCP: the tool as the testing agent runs
+    /// it, with no model, no replay cache, and no action budget. A refusal comes back as a failed outcome.
+    /// </summary>
+    internal Task<ToolOutcome> RunToolAsync(string name, JsonElement arguments, CancellationToken token) =>
+        _scope.Track(ExecuteAsync(new ModelToolCall { Id = name, Name = name, Arguments = arguments }, null, [], new ActionBudget(int.MaxValue), token));
+
     private async Task<ToolOutcome> ExecuteAsync(
         ModelToolCall call,
         IReadOnlyDictionary<string, object?>? parameters,
@@ -948,7 +955,7 @@ public sealed class Agent
             }
             catch (E2EException ex)
             {
-                return ToolOutcome.Fail(ex.Message);
+                return ToolOutcome.Fail(ex);
             }
 
             actions.Add(new RecordedAction { Kind = "press", Key = key });
@@ -962,7 +969,7 @@ public sealed class Agent
         }
         catch (TestException ex)
         {
-            return ToolOutcome.Fail(ex.Message);
+            return ToolOutcome.Fail(ex);
         }
 
         try
@@ -1019,7 +1026,7 @@ public sealed class Agent
         }
         catch (E2EException ex)
         {
-            return ToolOutcome.Fail(ex.Message);
+            return ToolOutcome.Fail(ex);
         }
     }
 
@@ -1031,7 +1038,7 @@ public sealed class Agent
         }
         catch (E2EException ex)
         {
-            return ToolOutcome.Fail(ex.Message);
+            return ToolOutcome.Fail(ex);
         }
 
         actions.Add(new RecordedAction { Kind = "back" });
@@ -1091,7 +1098,7 @@ public sealed class Agent
         }
         catch (E2EException ex)
         {
-            return ToolOutcome.Fail(ex.Message);
+            return ToolOutcome.Fail(ex);
         }
     }
 
@@ -1144,7 +1151,7 @@ public sealed class Agent
         }
         catch (E2EException ex)
         {
-            return ToolOutcome.Fail(ex.Message);
+            return ToolOutcome.Fail(ex);
         }
     }
 
@@ -2229,6 +2236,9 @@ internal sealed class ToolOutcome
     public static ToolOutcome Ok(string content) => new() { Content = content, Succeeded = true };
 
     public static ToolOutcome Fail(string content) => new() { Content = "failed: " + content, Succeeded = false };
+
+    /// <summary>A refusal that keeps its error code, which the model never reads and a host driving the tools does.</summary>
+    public static ToolOutcome Fail(E2EException error) => new() { Content = "failed: " + error.Message, Succeeded = false, Code = error.Code };
 
     public static ToolOutcome Finish(string status, string? summary, string? code) => new()
     {

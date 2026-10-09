@@ -14,7 +14,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 | `e2e.config.ts` | `e2e.config.json`, the same keys as JSON. `E2ETest` finds and applies it; fixture properties override it |
 | Vercel AI SDK model | `OpenAiCompatibleModel`, `OpenAiResponsesModel`, `AnthropicModel`, `GoogleModel`, and `BedrockModel`, built from `provider` in JSON or `ModelProviders` in code. See [Models](#models) |
 | `e2e/oauth/chatgpt`, `copilot`, `grok`, `opencode-console` | `E2E.OAuth.Subscriptions` |
-| `e2e login`, `e2e logout`, `e2e models`, `e2e guide`, `e2e mcp` | `E2E.Cli`, a .NET tool whose command is `e2e`. `e2e guide [topic]` prints the bundled skill, as upstream; an unknown topic exits 2. `e2e mcp` is partly ported: see [MCP server](#mcp-server) |
+| `e2e login`, `e2e logout`, `e2e models`, `e2e guide`, `e2e mcp` | `E2E.Cli`, a .NET tool whose command is `e2e`. `e2e guide [topic]` prints the bundled skill, as upstream; an unknown topic exits 2. `e2e mcp` is ported apart from video, project tools, and `e2e init`: see [MCP server](#mcp-server) |
 | — | `DocumentEngine`, an in-memory page for hosts that do not want a browser |
 
 ## Ported
@@ -119,21 +119,30 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 
 ## MCP server
 
-Partly ported. `e2e mcp` serves over stdio with the server name `e2e`, the tools, resources, and logging capabilities, and upstream's four fixed tools with their names, descriptions, and closed argument schemas. Stdout carries only the protocol; every other write goes to stderr, and the MCP SDK logs nothing. The flags are `--config`, `--target`, `--headed`, a hidden `--headless`, and `--max-sessions` (1 through 16, default 4). A bad command line exits with 2, a disconnect or a signal with 0, and an unexpected error with 1. The resources `e2e://guide` and `e2e://guide/<topic>` serve the bundled skill; an unknown topic fails with `UNKNOWN_TOPIC`.
+Ported from upstream `packages/e2e/src/mcp` at commit `da790a1250d9164064a7ddde17a931f61e161f31` (`docs(visual-testing): show a failed screenshot comparison in a clip (#1010)`), apart from what is listed below. `e2e mcp` serves over stdio with the server name `e2e`, the tools, resources, and logging capabilities, and upstream's four fixed tools with their names, descriptions, and closed argument schemas. Stdout carries only the protocol; every other write goes to stderr, and the MCP SDK logs nothing. The flags are `--config`, `--target`, `--headed`, a hidden `--headless`, and `--max-sessions` (1 through 16, default 4). A bad command line exits with 2, a disconnect or a signal with 0, and an unexpected error with 1. The resources `e2e://guide` and `e2e://guide/<topic>` serve the bundled skill; an unknown topic fails with `UNKNOWN_TOPIC`.
+
+A session is an attempt on the config's target with a Chromium `WebEngine` of its own, so parallel agents each drive their own browser. `open_session` loads `e2e.config.json` fresh, claims the config (`CONFIG_IN_USE` for another config while a session is open), and fails `UNKNOWN_TARGET` for a target the config does not declare, `CONFIG_NOT_FOUND` for no config, `SESSION_OPEN` when no slot is free. `call` and `tools` name a session, or fail `NO_SESSION` or `SESSION_REQUIRED`. A session ends on `close_session`, after 30 minutes without a call, or after 4 hours. It never reads or writes the replay cache. Every configured secret is a secret of the session: any output, error, log line, and the close summary shows its value by name (`<secret:name>`). `type_secret` fills a secret into a password or secret field only, and after a fill `screenshot` answers `PIXEL_TAINTED` and attaches nothing.
+
+The catalog is what the testing agent's tools do, so a coding agent acts as the model of an `act` does: `observe`, `tap`, `double_tap`, `type`, `press`, `select`, `check`, `uncheck`, `clear`, `scroll_to`, `scroll`, `navigate`, `back`, `screenshot`, `type_secret`, and `locate`. `scroll_to` and `scroll` need `EngineCapabilities.Scroll`, `back` needs `History`, `screenshot` needs `Screenshot`, and `type_secret` needs a `secrets` entry. `navigate` allows `http` and `https` only (`POLICY_DENIED` for any other scheme).
 
 Differences:
 
+- Arguments name a node by its `ref` (`target: "e12"`, from `observe`), as the testing agent's tools do, where upstream uses node ids (`n42`) and a revision. Actions answer with the screen after the action, not with a diff of what changed since the last one. A failed action is an error result: `tap e9 failed: NOT_FOUND: node e9 is not on the current screen; re-observe for the newest refs`.
+- The grammar is the port's: `type` and `type_secret` take `text` and `secret`; `uncheck` and `clear` are tools of their own. Upstream's `long_press`, `right_click`, `hover`, `drag`, `upload`, and the point tools (`tap_at`, `hover_at`, `type_at`, `press_at`, `select_at`) have no counterpart in the port's actions.
+- A secret fills a password or secret field only (`fill_secret` refuses a plain textbox); upstream's generic secrets fill any input.
+- `locate` writes the `Screen` call a test uses (`Screen.GetByRole("button", "Save")`) and the port's codes: `NOT_FOUND` and `STRICT_MODE`, where upstream names `LOCATOR_NOT_FOUND` and `LOCATOR_AMBIGUOUS`.
 - The fixed tools check their arguments with a strict check of the JSON Schema subset tool schemas use, since the .NET MCP SDK does not validate them. The messages are zod's, so an unknown argument reads `Invalid arguments for tool <name>: Unrecognized key: "<key>"`, as upstream.
 - The server instructions name `e2e.config.json`, `E2ETest` classes, and `dotnet test` in place of `e2e.config.ts`, `tests/*.e2e.ts`, and `npx e2e run`.
 - The guide has upstream's eight topics, written for .NET, plus `writing-tests-nunit` and `writing-tests-xunit`, one per test framework. `explore` and `bug-bash` say that `e2e explore` is not ported.
 - The 2026-07-28 MCP revision deprecates logging. The server still declares it and sends its log lines, as upstream does.
+- The config declares one web target, so `TARGET_REQUIRED` and `ENGINE_IN_USE` cannot happen. A session's engine is its own, so sessions never share an engine instance, and the credential registry upstream keeps process-wide has no counterpart (the port has no `credentials`).
+- The `e2e` tool ships one package per platform (`E2E.Cli.osx-arm64`, `osx-x64`, `linux-x64`, `linux-arm64`, `win-x64`), each with its Playwright driver; `E2E.Cli` points at them. Chromium installs on the first session, as for a test.
 
-Not ported yet:
+Not ported:
 
-- Live sessions. `open_session` answers `UNSUPPORTED_CAPABILITY`. `tools` and `call` answer `NO_SESSION`, and `close_session` answers `No session is open.`, as upstream does with no session open. `--config`, `--target`, `--headed`, and `--max-sessions` are accepted and have no effect yet.
-- The session catalog behind `call`: `observe`, the grammar verbs, `type_secret`, `locate`, `screenshot` and the point tools, `start_recording` and `stop_recording`, and project tools.
-- The idle and lifetime limits of a session, redaction of what user code prints, telemetry, and `e2e init` registering the server.
-- The Playwright driver in the tool package. The tool still ships without it.
+- `start_recording` and `stop_recording` (Kernel video), the project's own tools (`defineTool`, `toModelOutput`), custom engines, mobile tools, and per-session telemetry.
+- Redaction of what user code prints: a config is JSON, so no user code runs in the server.
+- `e2e init` registering the server. The port has no `e2e init` (see below); register it with `claude mcp add e2e -- e2e mcp` or a `.mcp.json` entry.
 
 ## Agents
 
