@@ -14,8 +14,9 @@ namespace E2E.Tests.ScreenshotAssertions;
 /// <c>screenshot-assertions.test.ts</c>. Not ported: "keeps no screenshot when a secure field on screen went
 /// unmasked" (the engine masks secure fields itself, so no proof of masking is read back), "reports the mismatch
 /// it saw when a later capture comes back without pixels" (an engine returns a PNG or fails), "refuses a screen
-/// scoped to a frame" (the port has no <c>browser.frameLocator</c>), and the unknown-option and non-locator-mask
-/// cases of the invalid-argument table (the types forbid them).
+/// scoped to a frame" (the port has no <c>browser.frameLocator</c>), and the unknown-option case of the
+/// invalid-argument table (the type forbids it). The first test is renamed because the port has no
+/// <c>comparable</c> observe option and no step to attach images to; the secret test covers the fill case only.
 /// </summary>
 public sealed class ToHaveScreenshotTests
 {
@@ -38,7 +39,7 @@ public sealed class ToHaveScreenshotTests
     private static int ButtonPixels => (int)(ScreenEngine.Button.Width * ScreenEngine.Button.Height);
 
     [Fact]
-    public async Task Writes_a_missing_screenshot_and_fails_passes_against_it_next_run_fails_with_the_stored_actual_and_diff_images_once_the_screen_changes_and_rewrites_it_under_update()
+    public async Task Writes_a_missing_screenshot_and_fails_passes_against_it_next_run_fails_with_the_stored_actual_and_diff_images_once_the_screen_changes_and_rewrites_it_under_update_with_the_images_on_disk_in_place_of_a_step()
     {
         var engine = new ScreenEngine();
         using var project = new ScreenProject(engine);
@@ -268,13 +269,14 @@ public sealed class ToHaveScreenshotTests
     [InlineData("../home", null, null, "name must be a file name")]
     [InlineData("home", 2.0, null, "threshold must be a number from 0 to 1")]
     [InlineData("home", null, "red", "maskColor must be a color written #rrggbb")]
+    [InlineData("home", null, null, "mask must be an array of locators", true)]
     [InlineData("ああああああああああああああああああああああああああああああああああああああああああああああああああああああああああああ", null, null, "at most 150 bytes")]
-    public async Task Refuses_an_invalid_call_before_it_reads_the_screen(string name, double? threshold, string? maskColor, string message)
+    public async Task Refuses_an_invalid_call_before_it_reads_the_screen(string name, double? threshold, string? maskColor, string message, bool nullMask = false)
     {
         var engine = new ScreenEngine();
         using var project = new ScreenProject(engine);
         var error = await project.RunAsync("invalid", "invalid", screen =>
-            Expect.That(screen).ToHaveScreenshotAsync(name, new ScreenshotOptions { Threshold = threshold, MaskColor = maskColor }));
+            Expect.That(screen).ToHaveScreenshotAsync(name, new ScreenshotOptions { Threshold = threshold, MaskColor = maskColor, Mask = nullMask ? [null!] : null }));
         Assert.Equal("INVALID_ARGUMENT", error?.Code);
         Assert.Contains(message, error!.Message, StringComparison.Ordinal);
         Assert.Equal(0, engine.Captures);

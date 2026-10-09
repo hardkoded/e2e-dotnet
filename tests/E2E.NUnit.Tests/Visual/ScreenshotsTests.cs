@@ -9,8 +9,8 @@ namespace E2E.NUnit.Tests.Visual;
 /// <summary>
 /// <c>ToHaveScreenshotAsync</c> against the playground's <c>/swatches</c> page, ported from upstream's
 /// <c>apps/testbed/tests/visual.e2e.ts</c>. The page draws solid blocks with no text, so each stored screenshot
-/// is the same file on every operating system the suite runs on. "compares a block inside a frame" finds the
-/// block through the screen, since the port has no <c>browser.frameLocator</c>.
+/// is the same file on every operating system the suite runs on. "compares a block inside a frame" is renamed
+/// because it finds the block through the screen, as the port has no <c>browser.frameLocator</c>.
 /// </summary>
 public sealed class ScreenshotsTests : E2ETest
 {
@@ -39,7 +39,7 @@ public sealed class ScreenshotsTests : E2ETest
     }
 
     [Test]
-    public Task Compares_a_block_inside_a_frame()
+    public Task Compares_a_block_inside_a_frame_found_through_the_screen()
     {
         return Expect.That(Screen.GetByTestId("framed")).ToHaveScreenshotAsync("framed.png");
     }
