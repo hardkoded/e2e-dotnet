@@ -51,7 +51,8 @@ internal sealed class ScreenshotStore
     /// <summary>Starts a new run for the stored screenshots under <paramref name="directory"/>: none counts as written.</summary>
     internal static void ForgetWrittenUnder(string directory)
     {
-        foreach (var file in WrittenFiles.Keys.Where(file => file.StartsWith(directory, StringComparison.Ordinal)))
+        var prefix = Path.EndsInDirectorySeparator(directory) ? directory : directory + Path.DirectorySeparatorChar;
+        foreach (var file in WrittenFiles.Keys.Where(file => file.StartsWith(prefix, StringComparison.Ordinal)))
         {
             WrittenFiles.TryRemove(file, out _);
         }
