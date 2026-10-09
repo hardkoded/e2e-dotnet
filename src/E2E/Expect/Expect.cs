@@ -25,6 +25,13 @@ public static class Expect
         return new LocatorExpect(locator, negated: false);
     }
 
+    /// <summary>Waits for the browser's URL or title with <see cref="BrowserExpect"/>. A passing matcher verifies the previous act.</summary>
+    public static BrowserExpect That(Browser browser)
+    {
+        ArgumentNullException.ThrowIfNull(browser);
+        return new BrowserExpect(browser, negated: false);
+    }
+
     /// <summary>Compares the whole screen against a stored screenshot with <see cref="ScreenExpect.ToHaveScreenshotAsync(string?, ScreenshotOptions?, string?)"/>.</summary>
     public static ScreenExpect That(Screen screen)
     {
@@ -41,6 +48,13 @@ public static class Expect
     {
         ArgumentNullException.ThrowIfNull(locator);
         return new SoftLocatorExpect(new LocatorExpect(locator, negated: false), locator.Screen.SoftFailures);
+    }
+
+    /// <summary>The browser matchers, but a failure is kept as <see cref="Soft(Locator)"/> keeps one.</summary>
+    public static SoftBrowserExpect Soft(Browser browser)
+    {
+        ArgumentNullException.ThrowIfNull(browser);
+        return new SoftBrowserExpect(new BrowserExpect(browser, negated: false), browser.SoftFailures);
     }
 
     /// <summary>Re-reads <paramref name="read"/> until the chosen matcher holds or the timeout passes.</summary>
@@ -537,7 +551,7 @@ public sealed class LocatorExpect
     private static readonly JsonSerializerOptions QuoteOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
     /// <summary>Prints a value as upstream does with <c>JSON.stringify</c>: quoted, with newlines and quotes escaped.</summary>
-    private static string Quote(string? value) => JsonSerializer.Serialize(value ?? "", QuoteOptions);
+    internal static string Quote(string? value) => JsonSerializer.Serialize(value ?? "", QuoteOptions);
 
     /// <summary>One sample's answer: <see cref="Holds"/> is null when the sample cannot answer, such as no node or several.</summary>
     private readonly record struct Verdict(bool? Holds, string Observed, int StrictCount = 0)

@@ -787,6 +787,31 @@ public sealed partial class WebEngine : IEngine
             }
         });
 
+        public Task GotoAsync(string url, GotoWaitUntil waitUntil, TimeSpan timeout, CancellationToken cancellationToken) => RunAsync("goto", cancellationToken, async () =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                if (_page is null || _page.IsClosed)
+                {
+                    await NewPageAsync(RequireContext()).ConfigureAwait(false);
+                }
+
+                var budget = Budget("goto " + url, cancellationToken, timeout);
+                var until = waitUntil switch
+                {
+                    GotoWaitUntil.DomContentLoaded => WaitUntilState.DOMContentLoaded,
+                    GotoWaitUntil.NetworkIdle => WaitUntilState.NetworkIdle,
+                    _ => WaitUntilState.Load,
+                };
+                await budget.WithinAsync(Page.GotoAsync(url, new PageGotoOptions { WaitUntil = until, Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.Translate(ex, "goto " + url);
+            }
+        });
+
         public Task ReloadAsync(CancellationToken cancellationToken) => RunAsync("reload", cancellationToken, async () =>
         {
             var budget = Budget("reload", cancellationToken);
@@ -1184,8 +1209,8 @@ public sealed partial class WebEngine : IEngine
         }
 
         /// <summary>One operation's budget: the action timeout, shared by every page call in the operation.</summary>
-        private OperationBudget Budget(string label, CancellationToken cancellationToken) =>
-            new(_actionTimeout, label, cancellationToken, _seams.Clock, _operationStart.Value);
+        private OperationBudget Budget(string label, CancellationToken cancellationToken, TimeSpan? timeout = null) =>
+            new(timeout ?? _actionTimeout, label, cancellationToken, _seams.Clock, _operationStart.Value);
 
         /// <summary>Sends one keystroke or pointer event, with no element behind it, within its budget, and classifies its failure.</summary>
         private async Task InputAsync(Func<Task> input, string label, CancellationToken cancellationToken)

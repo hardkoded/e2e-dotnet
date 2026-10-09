@@ -2,7 +2,6 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using E2E.Engine;
@@ -18,8 +17,6 @@ namespace E2E;
 /// </summary>
 public sealed class Browser
 {
-    private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
-
     // An init script argument is page source, so a Secret anywhere in it is refused.
     // Names and nulls are kept as written, as JSON.stringify and EvaluateAsync keep them.
     private static readonly JsonSerializerOptions InitScriptArgumentOptions = new()
@@ -34,9 +31,10 @@ public sealed class Browser
     private readonly TimeSpan _actionTimeout;
     private readonly TimeSpan _assertionTimeout;
     private readonly Func<CancellationToken> _token;
+    private readonly Action _verified;
     private readonly List<(object Pattern, Func<IBrowserRoute, Task> Handler)> _routes = [];
 
-    internal Browser(IEngineSession session, string platform, string? baseUrl, string projectRoot, TimeSpan actionTimeout, TimeSpan assertionTimeout, Func<CancellationToken> token)
+    internal Browser(IEngineSession session, string platform, string? baseUrl, string projectRoot, TimeSpan actionTimeout, TimeSpan assertionTimeout, Func<CancellationToken> token, Action verified, SoftFailures softFailures)
     {
         _session = session;
         _platform = platform;
@@ -45,6 +43,8 @@ public sealed class Browser
         _actionTimeout = actionTimeout;
         _assertionTimeout = assertionTimeout;
         _token = token;
+        _verified = verified;
+        SoftFailures = softFailures;
         Keyboard = new BrowserKeyboard(this);
         Mouse = new BrowserMouse(this);
     }
@@ -54,6 +54,25 @@ public sealed class Browser
 
     /// <summary>Direct pointer input from test code, independent of agent observations.</summary>
     public BrowserMouse Mouse { get; }
+
+    internal SoftFailures SoftFailures { get; }
+
+    internal TimeSpan AssertionTimeout => _assertionTimeout;
+
+    internal string? BaseUrl => _baseUrl;
+
+    internal void NotifyVerified() => _verified();
+
+    /// <summary>
+    /// Navigates to <paramref name="url"/>, resolved against the base URL like <c>App.OpenAsync</c>,
+    /// and waits for <see cref="GotoOptions.WaitUntil"/> within <see cref="GotoOptions.Timeout"/>.
+    /// </summary>
+    public Task GotoAsync(string url, GotoOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(url);
+        var resolved = Routes.Resolve(_baseUrl, url);
+        return AppNotOpen.GuardAsync(() => Require("goto").GotoAsync(resolved, options?.WaitUntil ?? GotoWaitUntil.Load, options?.Timeout ?? _actionTimeout, Token(cancellationToken)));
+    }
 
     /// <summary>Reloads the current document.</summary>
     public Task ReloadAsync(CancellationToken cancellationToken = default) =>
@@ -77,20 +96,20 @@ public sealed class Browser
 
     /// <summary>
     /// Waits until the current URL equals <paramref name="url"/>, resolved
-    /// against the base URL. The default timeout is the assertion timeout.
+    /// against the base URL, as <see cref="BrowserExpect.ToHaveURLAsync(string, bool?, TimeSpan?, CancellationToken)"/>.
+    /// The default timeout is the assertion timeout.
     /// </summary>
     public Task WaitForURLAsync(string url, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(url);
-        var expected = Routes.Absolute(_baseUrl, url).AbsoluteUri;
-        return WaitForURLAsync(current => string.Equals(current, expected, StringComparison.Ordinal), url, timeout, cancellationToken);
+        return new BrowserExpect(this, negated: false).ToHaveURLAsync(url, timeout: timeout, cancellationToken: cancellationToken);
     }
 
     /// <summary>Waits until the current URL matches <paramref name="pattern"/>. The default timeout is the assertion timeout.</summary>
     public Task WaitForURLAsync(Regex pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(pattern);
-        return WaitForURLAsync(pattern.IsMatch, "/" + pattern + "/", timeout, cancellationToken);
+        return new BrowserExpect(this, negated: false).ToHaveURLAsync(pattern, timeout: timeout, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -322,29 +341,6 @@ public sealed class Browser
                 await session.UnrouteAsync(_routes[i].Handler, Token(cancellationToken)).ConfigureAwait(false);
                 _routes.RemoveAt(i);
             }
-        }
-    }
-
-    private async Task WaitForURLAsync(Func<string, bool> matches, string label, TimeSpan? timeout, CancellationToken cancellationToken)
-    {
-        var session = Require("waitForURL");
-        var token = Token(cancellationToken);
-        var budget = timeout ?? _assertionTimeout;
-        var clock = Stopwatch.StartNew();
-        while (true)
-        {
-            var current = await AppNotOpen.GuardAsync(() => session.GetUrlAsync(token)).ConfigureAwait(false);
-            if (matches(current))
-            {
-                return;
-            }
-
-            if (clock.Elapsed >= budget)
-            {
-                throw new TestException("ASSERTION_FAILED", "browser.waitForURL failed\nexpected: URL " + label + "\nobserved: URL " + current);
-            }
-
-            await Task.Delay(PollInterval, token).ConfigureAwait(false);
         }
     }
 
