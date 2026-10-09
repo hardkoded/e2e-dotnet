@@ -14,6 +14,14 @@ namespace E2E.Engine;
 /// </summary>
 public interface IBrowserSession : IEngineSession
 {
+    /// <summary>
+    /// Navigates to <paramref name="url"/>, already resolved and checked, and waits
+    /// for <paramref name="waitUntil"/> within <paramref name="timeout"/>. A session
+    /// that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
+    /// </summary>
+    Task GotoAsync(string url, GotoWaitUntil waitUntil, TimeSpan timeout, CancellationToken cancellationToken) =>
+        Task.FromException(new EngineException("UNSUPPORTED_CAPABILITY", "browser.goto is not supported by this engine."));
+
     Task ReloadAsync(CancellationToken cancellationToken);
 
     Task ForwardAsync(CancellationToken cancellationToken);

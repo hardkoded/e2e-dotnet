@@ -4,6 +4,7 @@
 
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 
 namespace E2E;
 
@@ -66,16 +67,32 @@ public sealed class SoftLocatorExpect
 
     public Task ToHaveCountAsync(int count, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => KeepAsync(_expect.ToHaveCountAsync(count, timeout, cancellationToken));
 
-    private async Task KeepAsync(Task matcher)
+    private Task KeepAsync(Task matcher) => _failures.KeepAsync(matcher);
+}
+
+/// <summary>
+/// The browser matchers of <see cref="BrowserExpect"/>, but an
+/// <c>ASSERTION_FAILED</c> is kept on the session instead of thrown, as <see cref="SoftLocatorExpect"/> does.
+/// </summary>
+public sealed class SoftBrowserExpect
+{
+    private readonly BrowserExpect _expect;
+    private readonly SoftFailures _failures;
+
+    internal SoftBrowserExpect(BrowserExpect expect, SoftFailures failures)
     {
-        try
-        {
-            await matcher.ConfigureAwait(false);
-        }
-        catch (TestException ex) when (ex.Code == "ASSERTION_FAILED" && _failures.Keep(ex))
-        {
-        }
+        _expect = expect;
+        _failures = failures;
     }
+
+    /// <summary>Inverts the matcher, as <see cref="BrowserExpect.Not"/>. A failure is still kept, not thrown.</summary>
+    public SoftBrowserExpect Not => new(_expect.Not, _failures);
+
+    public Task ToHaveURLAsync(string expected, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => _failures.KeepAsync(_expect.ToHaveURLAsync(expected, ignoreCase, timeout, cancellationToken));
+
+    public Task ToHaveURLAsync(Regex expected, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => _failures.KeepAsync(_expect.ToHaveURLAsync(expected, ignoreCase, timeout, cancellationToken));
+
+    public Task ToHaveTitleAsync(TextMatch expected, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => _failures.KeepAsync(_expect.ToHaveTitleAsync(expected, timeout, cancellationToken));
 }
 
 /// <summary>
@@ -104,6 +121,18 @@ internal sealed class SoftFailures
             {
                 return _failures.Count > 0;
             }
+        }
+    }
+
+    /// <summary>Awaits <paramref name="matcher"/> and keeps its <c>ASSERTION_FAILED</c>. Any other error still throws.</summary>
+    public async Task KeepAsync(Task matcher)
+    {
+        try
+        {
+            await matcher.ConfigureAwait(false);
+        }
+        catch (TestException ex) when (ex.Code == "ASSERTION_FAILED" && Keep(ex))
+        {
         }
     }
 

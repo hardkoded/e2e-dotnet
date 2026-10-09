@@ -102,11 +102,48 @@ internal static class FixtureApp
         </html>
         """;
 
+    private const string About = """
+        <!doctype html>
+        <html>
+        <head><title>About page</title></head>
+        <body>
+          <h1>About</h1>
+          <a href="/">Home</a>
+        </body>
+        </html>
+        """;
+
+    // Class assertions: a node that arrives late, duplicates, and the two shapes of an empty class.
+    private const string Classes = """
+        <!doctype html>
+        <html>
+        <head><title>Classes</title></head>
+        <body>
+          <h1>Classes</h1>
+          <span class="dup">Duplicated</span>
+          <span class="dup">Duplicated</span>
+          <div id="blank-card" class="">Blank</div>
+          <ul data-testid="items"><li>Item</li></ul>
+          <script>
+            setTimeout(() => {
+              const card = document.createElement('div');
+              card.id = 'late-card';
+              card.className = 'card late';
+              card.textContent = 'Late card';
+              document.body.appendChild(card);
+            }, 600);
+          </script>
+        </body>
+        </html>
+        """;
+
     public static Task<TinySite> StartAsync()
     {
         return TinySite.StartAsync(context => context.Request.Url!.AbsolutePath switch
         {
             "/" => TinySite.RespondAsync(context, Home),
+            "/about" => TinySite.RespondAsync(context, About),
+            "/classes" => TinySite.RespondAsync(context, Classes),
             "/value-attributes" => TinySite.RespondAsync(context, ValueAttributes),
             _ => NotFoundAsync(context),
         });

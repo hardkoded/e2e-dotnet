@@ -10,13 +10,14 @@ namespace E2E.Tests.WebPlatform;
 [Collection(BrowserCollection.Name)]
 public sealed class WebPlatformIntegrationTests
 {
-    // Not ported, the port has no such feature: frameLocator, waitForDownload, browser.route, browser.onDialog, browser.goto,
-    // CSS locators, the expect(browser) matchers, click modifiers and secondaryTap, harness step records, and report.json.
+    // Not ported, the port has no such feature: frameLocator, waitForDownload, browser.route, browser.onDialog,
+    // CSS locators, toHaveClass, click modifiers and secondaryTap, harness step records, and report.json.
     [Theory]
     [InlineData("deterministic queries and reads")]
     [InlineData("a textarea value compares raw")]
     [InlineData("toHaveAttribute reads the value attribute of plain fields")]
     [InlineData("a viewport set before the first navigation holds through app.open")]
+    [InlineData("toHaveURL ignoreCase folds the comparison")]
     public async Task Passes(string title)
     {
         Assert.Null(await RunAsync(Scenarios[title]));
@@ -76,6 +77,18 @@ public sealed class WebPlatformIntegrationTests
     }
 
     [Fact]
+    public async Task A_negated_toHaveURL_ignoreCase_fails_on_a_case_folded_match()
+    {
+        var error = Assert.IsType<TestException>(await RunAsync(async session =>
+        {
+            await session.App.OpenAsync("/classes");
+            await Expect.That(session.Browser).Not.ToHaveURLAsync("/CLASSES", ignoreCase: true, timeout: TimeSpan.FromMilliseconds(300));
+        }));
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        Assert.Matches("^expect\\.not\\.toHaveURL failed\nexpected: not URL /CLASSES \\(ignoring case\\)\nobserved: URL http://127\\.0\\.0\\.1:\\d+/classes$", error.Message);
+    }
+
+    [Fact]
     public async Task Denies_navigation_to_a_forbidden_scheme()
     {
         var error = Assert.IsType<TestException>(await RunAsync(Scenarios["forbidden URL schemes are refused"]));
@@ -91,7 +104,6 @@ public sealed class WebPlatformIntegrationTests
         await File.WriteAllTextAsync(markerPath, "marker-local-file\n");
         var marker = new Uri(markerPath).AbsoluteUri;
 
-        // The browser.goto steps are not ported: the port has no goto.
         foreach (var url in new[] { "view-source:" + marker, "VIEW-SOURCE:" + marker, "  view-source:" + marker, "blob:http://127.0.0.1/x", "about:srcdoc" })
         {
             var error = Assert.IsType<TestException>(await RunAsync(async session =>
@@ -104,10 +116,20 @@ public sealed class WebPlatformIntegrationTests
             Assert.Matches("^forbidden URL scheme: (view-source|blob|about):$", error.Message);
         }
 
+        var navigated = Assert.IsType<TestException>(await RunAsync(async session =>
+        {
+            await session.App.OpenAsync();
+            await session.Browser.GotoAsync("view-source:" + marker);
+            Assert.DoesNotContain("marker-local-file", await session.Browser.EvaluateAsync<string>("() => document.body?.innerText ?? ''"));
+        }));
+        Assert.Equal("POLICY_DENIED", navigated.Code);
+        Assert.Equal("forbidden URL scheme: view-source:", navigated.Message);
+
         Assert.Null(await RunAsync(async session =>
         {
             await session.App.OpenAsync();
             await session.App.OpenAsync("about:blank");
+            await session.Browser.GotoAsync("about:blank");
             Assert.Equal("about:blank", await session.Browser.UrlAsync());
         }));
 
@@ -124,6 +146,13 @@ public sealed class WebPlatformIntegrationTests
     // The upstream kitchen-sink tests these assertions read, by title.
     private static readonly Dictionary<string, Func<E2ESession, Task>> Scenarios = new()
     {
+        ["toHaveURL ignoreCase folds the comparison"] = async session =>
+        {
+            await session.App.OpenAsync("/classes");
+            await Expect.That(session.Browser).ToHaveURLAsync("/CLASSES", ignoreCase: true);
+            await Expect.That(session.Browser).ToHaveURLAsync(new Regex("CLASSES$"), ignoreCase: true);
+            await Expect.That(session.Browser).Not.ToHaveURLAsync("/CLASSES", timeout: TimeSpan.FromMilliseconds(300));
+        },
         ["deterministic queries and reads"] = async session =>
         {
             var screen = session.Screen;

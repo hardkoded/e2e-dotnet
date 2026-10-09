@@ -48,7 +48,7 @@ Members of `E2ETest` in both frameworks:
 - `Agent`: `ActAsync`, `AssertAsync`, `WaitForAsync`, `ExtractAsync<T>`
   (topic `agent`).
 - `Screen`: the locators below.
-- `Expect`: `Expect.That(locator)`, `Expect.Soft(locator)`, `Expect.Poll(read)`.
+- `Expect`: `Expect.That(locator)`, `Expect.That(Browser)`, `Expect.Soft(locator)`, `Expect.Poll(read)`.
 - `Browser`: URL, title, cookies, viewport, raw keyboard and mouse, and
   responses (below).
 - `Secrets.Get(name)`: a `Secret` from the config. `Credentials.User(name)`:
@@ -149,6 +149,9 @@ matcher.
   `.e2e/results/`. Files are per target and OS (`-web-linux.png`): screenshots
   written on a Mac never serve Linux CI, so write CI's from a CI job with the
   update variable.
+- `Expect.That(Browser).ToHaveURLAsync("/about")` (a string, or a `Regex`; `ignoreCase`)
+  and `ToHaveTitleAsync("About page")` poll the URL and the title, `.Not`
+  inverts them, and `Expect.Soft(Browser)` keeps their failures.
 - `Expect.Soft(locator)` records a failure and lets the test go on; the
   test fails at its end with every failure listed.
 - `Expect.Poll(read)` retries any value: `ToBeAsync`, `ToSatisfyAsync`, and,
@@ -178,7 +181,7 @@ not the value.
 `Browser` works with `WebEngine` only; the document engine answers
 `UNSUPPORTED_CAPABILITY`.
 
-- `ReloadAsync`, `BackAsync`, `ForwardAsync`, `UrlAsync`, `TitleAsync`,
+- `GotoAsync(url, new GotoOptions { WaitUntil, Timeout })`, `ReloadAsync`, `BackAsync`, `ForwardAsync`, `UrlAsync`, `TitleAsync`,
   `WaitForURLAsync`, `EvaluateAsync<T>`, `SetViewportAsync`, and the raw
   keyboard and mouse.
 - `WaitForResponseAsync(pattern, timeout?)` resolves once the headers

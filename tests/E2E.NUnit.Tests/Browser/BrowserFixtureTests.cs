@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.RegularExpressions;
 using E2E;
 using E2E.Engine;
 
@@ -9,8 +10,7 @@ namespace E2E.NUnit.Tests.Browser;
 
 /// <summary>
 /// The browser fixture against the playground's <c>/browser</c> page, ported from
-/// upstream's <c>apps/testbed/tests/browser.e2e.ts</c>. "navigation verbs and the URL
-/// and title matchers" waits for <c>browser.goto</c> and the browser matchers (#164).
+/// upstream's <c>apps/testbed/tests/browser.e2e.ts</c>.
 /// </summary>
 public sealed class BrowserFixtureTests : E2ETest
 {
@@ -25,6 +25,23 @@ public sealed class BrowserFixtureTests : E2ETest
 
     [SetUp]
     public Task OpenBrowserPageAsync() => App.OpenAsync("/browser");
+
+    [Test]
+    public async Task Navigation_verbs_and_the_URL_and_title_matchers()
+    {
+        await Expect.That(Browser).ToHaveTitleAsync("Browser");
+
+        await Browser.GotoAsync("/about");
+        await Expect.That(Browser).ToHaveURLAsync("/about");
+        await Expect.That(Browser).ToHaveTitleAsync("About page");
+        Assert.That(await Browser.UrlAsync(), Does.Match("/about$"));
+        Assert.That(await Browser.TitleAsync(), Is.EqualTo("About page"));
+
+        await Browser.BackAsync();
+        await Expect.That(Browser).ToHaveURLAsync("/browser");
+        await Browser.ForwardAsync();
+        await Expect.That(Browser).ToHaveURLAsync(new Regex("about$"));
+    }
 
     [Test]
     public async Task WaitForURL_waits_out_a_delayed_navigation()

@@ -127,7 +127,7 @@ public sealed class E2ESession : IAsyncDisposable
             TestFailed = () => softFailures.Any || testFailed(),
         };
         var app = new App(engine, options.BaseUrl, () => timeout.Token);
-        var browser = new Browser(engine, options.Engine.Platform, options.BaseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token);
+        var browser = new Browser(engine, options.Engine.Platform, options.BaseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures);
         var agent = new Agent(scope);
         var screen = new Screen(
             token => engine.ObserveAsync(token),
