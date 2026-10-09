@@ -8,12 +8,9 @@
     <PackageTags>e2e;testing;agent;llm;oauth;cli;mcp</PackageTags>
     <IsPackable>true</IsPackable>
     <PackAsTool>true</PackAsTool>
-    <!-- One package per platform, each with its Playwright driver and native image libraries; E2E.Cli itself only points at them. -->
-    <RuntimeIdentifiers>osx-arm64;osx-x64;linux-x64;linux-arm64;win-x64</RuntimeIdentifiers>
-    <!-- A build without a runtime identifier ships the driver of the machine it runs on, not all five. -->
-    <PlaywrightPlatform Condition="'$(RuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</PlaywrightPlatform>
-    <!-- The pointer package has no assembly to take symbols from. -->
-    <IncludeSymbols Condition="'$(RuntimeIdentifier)' == ''">false</IncludeSymbols>
+    <!-- One tool package for every platform: pack with the Playwright driver of each. A build ships the driver of the machine it runs on. -->
+    <PlaywrightPlatform Condition="'$(_IsPacking)' == 'true'">all</PlaywrightPlatform>
+    <PlaywrightPlatform Condition="'$(PlaywrightPlatform)' == ''">$(NETCoreSdkRuntimeIdentifier)</PlaywrightPlatform>
     <!-- The Playwright driver carries PowerShell scripts that are not NuGet scripts. -->
     <NoWarn>$(NoWarn);NU5111</NoWarn>
     <ToolCommandName>e2e</ToolCommandName>
@@ -22,6 +19,11 @@
   <ItemGroup>
     <ProjectReference Include="..\E2E\E2E.csproj" />
     <PackageReference Include="ModelContextProtocol.Core" Version="2.2.0" />
+    <!-- The tool never compares screenshots, so it ships none of the SkiaSharp native libraries E2E brings in. -->
+    <PackageReference Include="SkiaSharp" Version="4.153.1" ExcludeAssets="native;runtime" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" ExcludeAssets="all" />
+    <PackageReference Include="SkiaSharp.NativeAssets.macOS" Version="4.153.1" ExcludeAssets="all" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="4.153.1" ExcludeAssets="all" />
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     <InternalsVisibleTo Include="E2E.Cli.Tests" />
   </ItemGroup>
