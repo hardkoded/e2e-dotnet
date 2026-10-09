@@ -4,11 +4,7 @@
 
 namespace E2E.Tests.SecretLedger;
 
-/// <summary>
-/// Upstream's ledger takes values registered later and rotated names. The port builds a redactor
-/// over a fixed set of secrets, so "redacts values registered after the redact function was handed
-/// out" and "keeps redacting earlier values after a name rotates" are not ported.
-/// </summary>
+/// <summary>"redacts values registered after the redact function was handed out" and "keeps redacting earlier values after a name rotates" run in <c>E2E.Cli.Tests</c>, against the MCP server's ledger: this redactor takes a fixed set of secrets.</summary>
 public sealed class SecretLedgerTests
 {
     [Fact]

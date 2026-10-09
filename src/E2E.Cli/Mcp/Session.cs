@@ -237,7 +237,7 @@ internal sealed class SessionHost : IDisposable
         _shutdown.Dispose();
     }
 
-    private static CallToolResult RedactResult(CallToolResult result, Func<string, string> redact)
+    internal static CallToolResult RedactResult(CallToolResult result, Func<string, string> redact)
     {
         return new CallToolResult
         {
