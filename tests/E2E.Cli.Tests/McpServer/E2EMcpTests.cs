@@ -257,6 +257,12 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
     {
         foreach (var (flag, mode) in new[] { ("--headed", "headed"), ("--headless", "headless") })
         {
+            // A headed browser needs a display; the host tests cover the headed flag where there is none.
+            if (flag == "--headed" && OperatingSystem.IsLinux() && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY")))
+            {
+                continue;
+            }
+
             await using var other = await ServedCli.StartAsync(_served.Project.Directory, flag);
             var opened = await other.InvokeAsync("open_session");
             Assert.Contains($"), {mode};", opened.Text, StringComparison.Ordinal);
