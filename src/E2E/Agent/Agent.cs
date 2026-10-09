@@ -218,7 +218,7 @@ public sealed class Agent
                     // Only a cache that writes keeps the recording, so only it waits for the screen to settle: after the
                     // last action's change, held still.
                     pending.Entry = _scope.CacheWrite
-                        ? BuildEntry(pending.Step!, start.Route, _feed.FirstActedOn ?? start, await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false), actions, options?.Params)
+                        ? await RecordAsync(pending.Step!, start, actions, options?.Params, token).ConfigureAwait(false)
                         : null;
                     _scope.Completed.Add(summary.Length == 0 ? instruction : summary);
                     if (info is not null && pending.ParamCollision && pending.Entry is not null)
@@ -1534,6 +1534,27 @@ public sealed class Agent
 
     private static string? Recorded(string? route, IReadOnlyDictionary<string, object?>? parameters) =>
         route is null ? null : CacheKeys.Detemplate(route, parameters);
+
+    // The cache is disposable: a passing step whose end screen cannot be read records nothing, and still passes.
+    private async Task<CacheEntry?> RecordAsync(
+        CacheEntry step,
+        Observation start,
+        List<RecordedAction> actions,
+        IReadOnlyDictionary<string, object?>? parameters,
+        CancellationToken token)
+    {
+        Observation end;
+        try
+        {
+            end = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
+        }
+        catch (EngineException)
+        {
+            return null;
+        }
+
+        return BuildEntry(step, start.Route, _feed.FirstActedOn ?? start, end, actions, parameters);
+    }
 
     // A step that changed nothing a replay could check, no node and no route, records nothing:
     // its recording would replay on mechanics alone.
