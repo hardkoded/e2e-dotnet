@@ -137,7 +137,7 @@ Differences:
 - The guide has upstream's eight topics, written for .NET, plus `writing-tests-nunit` and `writing-tests-xunit`, one per test framework. `explore` and `bug-bash` say that `e2e explore` is not ported.
 - The 2026-07-28 MCP revision deprecates logging. The server still declares it and sends its log lines, as upstream does.
 - The config declares one web target, so `TARGET_REQUIRED` and `ENGINE_IN_USE` cannot happen. A session's engine is its own, so sessions never share an engine instance, and the credential registry upstream keeps process-wide has no counterpart (the port has no `credentials`).
-- The `e2e` tool ships one package per platform (`E2E.Cli.osx-arm64`, `osx-x64`, `linux-x64`, `linux-arm64`, `win-x64`), each with its Playwright driver; `E2E.Cli` points at them. Chromium installs on the first session, as for a test.
+- The `e2e` tool ships the Playwright driver of every platform (about 215 MB) and none of the SkiaSharp native libraries, since it never compares screenshots. Chromium installs on the first session, as for a test.
 
 Not ported:
 
