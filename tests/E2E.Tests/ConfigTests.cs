@@ -166,7 +166,7 @@ public sealed class ConfigTests
     [InlineData("""{ "retries": 11 }""", "retries must be an integer from 0 to 10")]
     [InlineData("""{ "secrets": { "pin": "12345" } }""", "secret \"pin\" must be at least 6 characters")]
     [InlineData("""{ "secrets": { "token": null } }""", "secret \"token\" has no value; set E2E_SECRET_TOKEN")]
-    [InlineData("""{ "secrets": { "api-key": "aaaaaa", "api_key": "bbbbbb" } }""", "names share override variables")]
+    [InlineData("""{ "secrets": { "api-key": "aaaaaa", "api_key": "bbbbbb" } }""", "share the override variable E2E_SECRET_API_KEY")]
     [InlineData("""[]""", "the config must be a JSON object")]
     public void Rejects_an_invalid_config(string json, string message)
     {

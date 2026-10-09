@@ -136,7 +136,8 @@ public sealed class E2EConfig
 
     /// <summary>
     /// The nearest <see cref="FileName"/> in each start directory or one of its parents,
-    /// tried in order, or null.
+    /// tried in order, or null. The search stops at the repository root, a directory with a <c>.git</c>
+    /// entry, and never picks a config above it.
     /// </summary>
     public static string? Find(params string[] startDirectories)
     {
@@ -154,6 +155,11 @@ public sealed class E2EConfig
                 if (File.Exists(candidate))
                 {
                     return candidate;
+                }
+
+                if (Path.Exists(Path.Combine(directory.FullName, ".git")))
+                {
+                    break;
                 }
             }
         }
@@ -437,24 +443,31 @@ public sealed class E2EConfig
             throw Invalid("secrets must be an object of secret values by name");
         }
 
-        var variables = new Dictionary<string, string>(StringComparer.Ordinal);
         var values = new Dictionary<string, Secret>(StringComparer.Ordinal);
         foreach (var property in raw.Value.EnumerateObject())
         {
-            var name = property.Name;
-            if (name.Trim().Length == 0)
+            if (property.Name.Trim().Length == 0)
             {
                 throw Invalid("secret names must be non-empty");
             }
+        }
 
+        // One E2E_SECRET_* value would replace every secret that maps to the variable, set or not.
+        var shared = raw.Value.EnumerateObject()
+            .GroupBy(property => Secrets.EnvironmentVariable(property.Name), StringComparer.Ordinal)
+            .FirstOrDefault(group => group.Count() > 1);
+        if (shared is not null)
+        {
+            var names = shared.Select(property => "\"" + property.Name + "\"").ToArray();
+            throw Invalid(
+                "secrets " + string.Join(", ", names[..^1]) + " and " + names[^1] + " share the override variable " + shared.Key
+                + ", so one value set there would replace all of them; rename all but one");
+        }
+
+        foreach (var property in raw.Value.EnumerateObject())
+        {
+            var name = property.Name;
             var variable = Secrets.EnvironmentVariable(name);
-            if (variables.TryGetValue(variable, out var other))
-            {
-                throw Invalid(
-                    "secrets \"" + other + "\" and \"" + name + "\" names share override variables, so one value set there would replace all of them (" + variable + ")");
-            }
-
-            variables[variable] = name;
             string? entry = property.Value.ValueKind switch
             {
                 JsonValueKind.String => property.Value.GetString(),
