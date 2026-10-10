@@ -455,13 +455,14 @@ internal sealed class TinySite : IDisposable
         context.Response.Close();
     }
 
-    public static async Task<TinySite> StartAsync(Func<HttpListenerContext, Task> handler)
+    /// <summary>Starts a site on <paramref name="host"/>, a loopback name: <c>127.0.0.1</c> and <c>localhost</c> are different sites.</summary>
+    public static async Task<TinySite> StartAsync(Func<HttpListenerContext, Task> handler, string host = "127.0.0.1")
     {
         var listener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
         listener.Start();
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
         listener.Stop();
-        var site = new TinySite("http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/", handler);
+        var site = new TinySite("http://" + host + ":" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/", handler);
         site._listener.Prefixes.Add(site.Url);
         site._listener.Start();
         _ = Task.Run(() => site.ListenAsync(site._stop.Token));
