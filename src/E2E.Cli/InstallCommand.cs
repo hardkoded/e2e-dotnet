@@ -46,6 +46,6 @@ internal static class InstallCommand
             return 2;
         }
 
-        return await Task.Run(() => WebEngine.RunInstall([.. options, .. names.Count > 0 ? names : ["chromium"]], run)).ConfigureAwait(false);
+        return WebEngine.RunInstall([.. options, .. names.Count > 0 ? names : ["chromium"]], run);
     }
 }

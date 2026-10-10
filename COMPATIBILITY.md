@@ -126,7 +126,7 @@ Not ported:
 
 - A command named `e2e-web`, and `npx`, `bunx`, and `pnpm exec` usage lines. `dotnet e2e install` is the local tool form.
 - Upstream's exit code 2 for a missing or unknown command. `e2e` exits 1 for both, as it does for every command.
-- Forwarding SIGINT and SIGTERM to the installer and the 128-plus-signal exit code. `Microsoft.Playwright.Program.Main` runs in this process, and Ctrl+C reaches its driver as the same console group.
+- Forwarding SIGINT and SIGTERM to the installer and the 128-plus-signal exit code. `Microsoft.Playwright.Program.Main` runs in this process. Ctrl+C in a terminal reaches its driver in the same process group; a SIGTERM sent to `e2e` alone does not.
 - `install.test.ts` (`ensureBrowsersInstalled`) is the first-launch install of the engine, not the command. The port covers it in `E2E.Tests/Install`, and upstream's own checks of the installed-browser cache and of the run's environment have no counterpart: the port leaves that to Playwright's install (see [Web engine](#web-engine)).
 
 ## MCP server
