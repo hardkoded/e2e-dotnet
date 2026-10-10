@@ -128,9 +128,10 @@ internal static class PageScript
           // The root of a contenteditable region: editable itself, under a
           // parent that is not. A rich-text editor renders its document as such
           // a host with block children; the host is the control a person types
-          // into, whatever its tag, and the blocks are its content.
+          // into, whatever its tag, and the blocks are its content. A document in
+          // designMode makes <html> editable; the page is not a control.
           const isEditingHost = (el) =>
-            el instanceof HTMLElement && el.isContentEditable && !nonHostTags.has(el.tagName.toUpperCase()) &&
+            el instanceof HTMLElement && el.isContentEditable && el !== el.ownerDocument.documentElement && !nonHostTags.has(el.tagName.toUpperCase()) &&
             !(el.parentElement instanceof HTMLElement && el.parentElement.isContentEditable);
           const inEditingHost = (el) => {
             if (el.parentElement?.closest("[contenteditable]") == null) return false;
