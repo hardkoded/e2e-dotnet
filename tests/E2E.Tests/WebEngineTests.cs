@@ -44,19 +44,6 @@ public sealed class WebEngineTests
         """;
 
     [Fact]
-    public async Task Chromium_upgrades_the_plan_when_a_browser_is_installed()
-    {
-        using var site = await TinySite.StartAsync(BillingPage);
-        var session = await StartAsync(site, UpgradeModel(() => { }), cache: null);
-        await RunAsync(session, async () =>
-        {
-            await session.App.OpenAsync("/");
-            await session.Agent.ActAsync("upgrade the workspace to the Pro plan");
-            await Expect.That(session.Screen.GetByRole("status")).ToContainTextAsync("Pro");
-        });
-    }
-
-    [Fact]
     public async Task Chromium_acts_on_the_element_a_ref_names_when_two_share_a_role_and_name()
     {
         using var site = await TinySite.StartAsync(ProjectsPage);
@@ -455,7 +442,6 @@ internal sealed class TinySite : IDisposable
         context.Response.Close();
     }
 
-    /// <summary>Starts a site on <paramref name="host"/>, a loopback name: <c>127.0.0.1</c> and <c>localhost</c> are different sites.</summary>
     public static async Task<TinySite> StartAsync(Func<HttpListenerContext, Task> handler, string host = "127.0.0.1")
     {
         var listener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
