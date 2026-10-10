@@ -19,7 +19,7 @@ namespace E2E.Tests.HungPage;
 public sealed class OperationsOnAHungPageTests
 {
     [Fact]
-    public async Task Ends_a_browser_assertion_on_a_stuck_page_at_its_own_timeout_not_the_action_timeout()
+    public async Task Ends_a_title_assertion_on_a_stuck_page_at_its_own_timeout()
     {
         using var site = await TinySite.StartAsync(BusyPage);
         await using var session = await StartAsync();

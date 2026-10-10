@@ -11,7 +11,7 @@ namespace E2E.Tests.Lifecycle;
 public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
 {
     [Fact]
-    public async Task Observes_a_semantic_tree_and_locates_by_display_value_in_one_round_trip()
+    public async Task Observes_a_tree_and_locates_by_display_value()
     {
         using var site = await FixtureApp.StartAsync();
         var session = await WebSemanticsTests.StartSessionAsync(site.Url);
@@ -38,7 +38,7 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     }
 
     [Fact]
-    public async Task Reports_pressed_and_heading_level_queries_by_them_and_performs_pointer_actions_on_nodes_and_at_points()
+    public async Task Reports_pressed_and_heading_level_and_queries_by_them()
     {
         using var site = await FixtureApp.StartAsync();
         var session = await WebSemanticsTests.StartSessionAsync(site.Url);
@@ -66,7 +66,7 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     }
 
     [Fact]
-    public async Task Keeps_tree_attributes_bounded_while_node_reads_expose_every_attribute()
+    public async Task Exposes_every_attribute_on_node_reads()
     {
         using var site = await FixtureApp.StartAsync();
         var session = await WebSemanticsTests.StartSessionAsync(site.Url);
@@ -84,7 +84,7 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     }
 
     [Fact]
-    public async Task Excludes_hidden_twins_from_a_visible_query_for_every_query_kind_and_under_an_index()
+    public async Task Excludes_hidden_twins_from_a_visible_query_for_every_query_kind_and_under_an_index_without_label_and_text_in_label_cases()
     {
         using var site = await FixtureApp.StartAsync();
         var session = await WebSemanticsTests.StartSessionAsync(site.Url);
@@ -167,7 +167,7 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     }
 
     [Fact]
-    public async Task Applies_visible_before_an_index_filter_or_scope_so_a_hidden_twin_is_never_selected()
+    public async Task Applies_visible_before_an_index_filter_or_scope_without_the_has_filters_on_body_and_live()
     {
         using var site = await FixtureApp.StartAsync();
         var session = await WebSemanticsTests.StartSessionAsync(site.Url);
@@ -347,7 +347,7 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     }
 
     [Fact]
-    public async Task Mints_one_root_id_that_survives_navigation_and_swipes_the_viewport_when_it_is_the_target()
+    public async Task Stamps_element_ids_in_the_page_and_swipes_the_viewport()
     {
         using var site = await FixtureApp.StartAsync();
         await using var session = await WebSemanticsTests.OpenAsync(site.Url + "form", new WebEngineOptions { Headless = true });

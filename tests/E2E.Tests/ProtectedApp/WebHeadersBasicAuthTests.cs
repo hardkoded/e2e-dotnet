@@ -92,7 +92,7 @@ public sealed class WebHeadersBasicAuthTests
     }
 
     [Fact]
-    public async Task Answers_the_challenge_with_a_secrets_get_password_the_attempt_resolves()
+    public async Task Answers_the_challenge_with_a_secret_password()
     {
         using var app = await StartAsync();
         // The port has no deferred secret: the password is a Secret value, so there is no resolver to ask.

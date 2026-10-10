@@ -77,7 +77,7 @@ public sealed class WebEngineOverCdpTests
     }
 
     [Fact]
-    public async Task Never_caches_a_browser_that_connects_after_the_init_was_cancelled()
+    public async Task Resolves_the_endpoint_again_after_a_cancelled_start()
     {
         using var app = await LifecycleApp.StartAsync();
         await using var remote = await RemoteChrome.LaunchAsync();

@@ -27,7 +27,7 @@ public sealed class NestedFrameLocatorsTests
         $"<h1>Host</h1><iframe id=\"outer\" title=\"outer\" srcdoc=\"{Attribute(OuterDocument)}\"></iframe>";
 
     [Fact]
-    public async Task Reports_a_located_nodes_box_in_the_top_level_viewport_past_each_frames_border_and_padding()
+    public async Task Reports_an_observed_nodes_box_in_the_top_level_viewport_past_each_frames_border_and_padding()
     {
         await using var session = await WebSemanticsTests.OpenAsync("about:blank", new WebEngineOptions { Headless = true });
         var page = WebEngine.SurfaceOf(session)!.Page();

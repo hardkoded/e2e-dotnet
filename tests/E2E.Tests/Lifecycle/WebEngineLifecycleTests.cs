@@ -41,7 +41,7 @@ public sealed class WebEngineLifecycleTests
     }
 
     [Fact]
-    public async Task Follows_the_window_under_viewport_null_reports_the_measured_size_and_swipes_by_it()
+    public async Task Follows_the_window_under_viewport_null_and_swipes_by_it()
     {
         using var site = await FixtureApp.StartAsync();
         await using var session = await WebSemanticsTests.OpenAsync(site.Url + "form", new WebEngineOptions { Headless = true, Viewport = null });
