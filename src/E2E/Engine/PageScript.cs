@@ -523,6 +523,35 @@ internal static class PageScript
             if (el instanceof HTMLInputElement && (el.type === "checkbox" || el.type === "radio")) return el.checked;
             return el.getAttribute("aria-checked") === "true";
           };
+          // A link target as the model reads it: origin and path, without
+          // userinfo, query, or fragment, which routinely carry tokens. A
+          // dropped query or fragment leaves "?…" or "#…" behind, so the value
+          // never reads as the whole target; a URL path never holds a literal
+          // "…", since the URL parser percent-encodes it. mailto: and tel: keep
+          // their scheme in place of an origin; blob: keeps its inner URL,
+          // reduced the same way, or becomes "blob:…" when that has no origin.
+          // Any other scheme with no origin (data:, javascript:) carries its
+          // payload as its path, so it is reduced to "scheme:…". The path is
+          // whole otherwise: the agent bounds what it renders.
+          const originAndPath = (value, base) => {
+            const elided = (query, fragment) => (query ? "?…" : "") + (fragment ? "#…" : "");
+            try {
+              const url = new URL(value, base);
+              const rest = url.pathname + elided(url.search !== "", url.hash !== "");
+              if (url.protocol === "blob:") {
+                let inner = null;
+                try { inner = new URL(url.pathname); } catch { inner = null; }
+                return inner === null || inner.origin === "null" ? "blob:…" : "blob:" + inner.origin + inner.pathname + elided(url.search !== "", url.hash !== "");
+              }
+              if (url.origin !== "null") return url.origin + rest;
+              if (url.protocol === "mailto:" || url.protocol === "tel:") return url.protocol + rest;
+              return url.protocol + "…";
+            } catch {
+              const [beforeFragment, ...fragment] = value.split("#");
+              const [path, ...query] = beforeFragment.split("?");
+              return path + elided(query.join("?") !== "", fragment.join("#") !== "");
+            }
+          };
           const attributesOf = (el, secure) => {
             const out = {};
             for (const attr of el.attributes) {
@@ -790,6 +819,7 @@ internal static class PageScript
                 secure,
                 frame: isFrame,
                 attributes: attributesOf(el, secure),
+                href: el.hasAttribute("href") ? originAndPath(el.getAttribute("href"), el.ownerDocument.baseURI) : null,
                 rect: rectOf(el),
                 children: []
               };

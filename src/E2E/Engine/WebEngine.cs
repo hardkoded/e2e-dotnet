@@ -1951,6 +1951,7 @@ public sealed partial class WebEngine : IEngine
                 TestId = dto.TestId,
                 TestIdAttribute = dto.TestId is null ? null : testIdAttribute,
                 Placeholder = dto.Placeholder,
+                Href = dto.Href,
                 InputPurpose = dto.InputPurpose,
                 Level = dto.Level,
                 States = new NodeStates
@@ -2133,6 +2134,8 @@ public sealed partial class WebEngine : IEngine
         public string? TestId { get; set; }
 
         public string? Placeholder { get; set; }
+
+        public string? Href { get; set; }
 
         public string? InputPurpose { get; set; }
 
