@@ -83,7 +83,7 @@ public sealed class LocatorsInsideClosedShadowRootsTests
     }
 
     [Fact]
-    public async Task Scopes_a_child_query_to_a_root_inside_the_closed_root_and_lets_has_cross_the_boundary()
+    public async Task Scopes_a_child_query_to_a_root_inside_the_closed_root_and_filters_a_region_by_a_button_inside_it()
     {
         await WithScreenAsync(async screen =>
         {
@@ -99,7 +99,7 @@ public sealed class LocatorsInsideClosedShadowRootsTests
     }
 
     [Fact]
-    public async Task Reads_hasText_as_Playwright_does_so_text_inside_a_closed_root_does_not_count_toward_the_host()
+    public async Task Filters_a_node_inside_a_closed_root_by_its_text()
     {
         await WithScreenAsync(async screen =>
         {
