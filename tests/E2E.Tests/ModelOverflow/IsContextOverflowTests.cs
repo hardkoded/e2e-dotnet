@@ -65,14 +65,14 @@ public sealed class IsContextOverflowTests
     }
 
     [Fact]
-    public void Looks_through_wrappers_a_cause_chain()
+    public void Looks_through_a_cause_chain()
     {
         Assert.True(ContextOverflow.Describes(new Exception("gateway failed", new Exception(Overflow))));
         Assert.False(ContextOverflow.Describes(new Exception("outer", new Exception("middle", new Exception("rate limit")))));
     }
 
     [Fact]
-    public void Rejects_non_errors()
+    public void Rejects_a_null_error()
     {
         Assert.False(ContextOverflow.Describes(null));
     }
