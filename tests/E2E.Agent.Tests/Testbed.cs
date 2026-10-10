@@ -670,12 +670,13 @@ internal static class Testbed
     {
         using var reader = new StreamReader(request.InputStream, request.ContentEncoding);
         var body = await reader.ReadToEndAsync().ConfigureAwait(false);
-        return body.Split('&', StringSplitOptions.RemoveEmptyEntries)
-            .Select(pair => pair.Split('=', 2))
-            .ToDictionary(
-                pair => Uri.UnescapeDataString(pair[0].Replace('+', ' ')),
-                pair => pair.Length > 1 ? Uri.UnescapeDataString(pair[1].Replace('+', ' ')) : "",
-                StringComparer.Ordinal);
+        var form = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var pair in body.Split('&', StringSplitOptions.RemoveEmptyEntries).Select(pair => pair.Split('=', 2)))
+        {
+            form[Uri.UnescapeDataString(pair[0].Replace('+', ' '))] = pair.Length > 1 ? Uri.UnescapeDataString(pair[1].Replace('+', ' ')) : "";
+        }
+
+        return form;
     }
 
     private static string LoginBody(bool failed) => $"""

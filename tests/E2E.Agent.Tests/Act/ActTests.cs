@@ -24,6 +24,13 @@ public sealed class ActTests : E2ETest
         Environment.SetEnvironmentVariable("E2E_USER_ADMIN_PASSWORD", "admin-pass");
     }
 
+    [OneTimeTearDown]
+    public void ClearAdminCredential()
+    {
+        Environment.SetEnvironmentVariable("E2E_USER_ADMIN_USERNAME", null);
+        Environment.SetEnvironmentVariable("E2E_USER_ADMIN_PASSWORD", null);
+    }
+
     [Test]
     public async Task Act_drives_a_multi_action_todo_flow()
     {
