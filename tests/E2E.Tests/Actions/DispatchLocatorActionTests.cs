@@ -8,7 +8,7 @@ using static E2E.Tests.CheckActions.CheckPage;
 namespace E2E.Tests.Actions;
 
 /// <summary>
-/// Every locator action the agent and the screen tier send lands on the right Playwright call. The port checks the
+/// Partial ports of upstream "dispatches %j to locator.%s" (clear, selectOption label) and the node swipe: the upstream tests check call arguments and a wheel on stubs. The port checks the
 /// effect on a live page, since the page calls are made inside the engine. <c>longPress</c>, the <c>index</c> form of
 /// <c>selectOption</c>, <c>dragTo</c>, and the node swipe's missing-box case are not ported: the port has no long press,
 /// no index select, no <c>dragTo</c>, and scrolls a node with <c>scrollBy</c>, which needs no box (COMPATIBILITY.md).
@@ -19,7 +19,7 @@ public sealed class DispatchLocatorActionTests
     [Theory]
     [InlineData("clear")]
     [InlineData("selectOption label")]
-    public async Task Dispatches_action_to_locator_method(string action)
+    public async Task Changes_the_field_or_the_selected_option_as_the_action_says(string action)
     {
         await RunAsync(
             """
@@ -42,9 +42,9 @@ public sealed class DispatchLocatorActionTests
     }
 
     [Fact]
-    public async Task Scrolls_a_node_with_a_wheel_gesture_sized_by_its_own_box_the_agent_node_scroll()
+    public async Task Scrolls_a_node_by_three_quarters_of_its_own_box()
     {
-        // The port scrolls the node itself by three quarters of its own box, where upstream wheels over it by half.
+        // Partial: upstream wheels over the node by half its box, with a momentum option; the port calls scrollBy by three quarters.
         await RunAsync(
             """
             <div role="region" aria-label="Box" tabindex="0" style="width:400px;height:300px;overflow:auto">

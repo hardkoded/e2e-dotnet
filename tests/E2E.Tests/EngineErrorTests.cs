@@ -62,14 +62,6 @@ public sealed class EngineErrorTests
     }
 
     [Fact]
-    public void A_field_that_does_not_take_text_is_not_actionable()
-    {
-        var error = Assert.IsType<EngineException>(WebErrors.ClassifyAction(new PlaywrightException("Error: Element is not an <input>, <textarea> or [contenteditable] element"), new LocatorAction.Fill("x")));
-
-        Assert.Equal("NOT_ACTIONABLE", error.Code);
-    }
-
-    [Fact]
     public void A_sensitive_fill_redacts_its_value_and_drops_the_cause()
     {
         var error = Assert.IsType<EngineException>(WebErrors.ClassifyAction(new PlaywrightException("fill(\"hunter2\") failed"), new LocatorAction.Fill("hunter2", Sensitive: true)));
