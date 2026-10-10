@@ -1330,11 +1330,21 @@ public sealed class Agent
             return ToolOutcome.Fail("No secret named '" + (name ?? "") + "' was passed to this step.");
         }
 
-        var purpose = node.InputPurpose;
-        var allowed = node.States.Secure || purpose is "password" or "one-time-code" or "generic-secret";
-        if (!allowed)
+        if (node.States.Disabled)
         {
-            return ToolOutcome.Fail("Secret fill refused: " + Label(node) + " is not a secret field.");
+            return ToolOutcome.Fail("Secret fill refused: " + Label(node) + " is disabled.");
+        }
+
+        if (node.Role is not ("textbox" or "searchbox" or "combobox"))
+        {
+            return ToolOutcome.Fail("Secret fill refused: " + Label(node) + " is not an editable input (role " + (node.Role ?? "none") + ").");
+        }
+
+        // A password belongs in a password field, where the surface masks it. A generic secret goes wherever the test says.
+        var purpose = string.IsNullOrEmpty(node.InputPurpose) ? "none" : node.InputPurpose;
+        if (secret.Purpose == "password" && purpose != "password")
+        {
+            return ToolOutcome.Fail("Secret fill refused: field purpose " + purpose + " is incompatible with secret purpose " + secret.Purpose + ".");
         }
 
         await _scope.Session.PerformAsync(node, new LocatorAction.Fill(secret.Value, true), token).ConfigureAwait(false);
