@@ -73,6 +73,13 @@ public sealed class SemanticNode
 
     public string? Placeholder { get; init; }
 
+    /// <summary>
+    /// A link's target as the model reads it: origin and path, with the userinfo dropped, a dropped query or fragment
+    /// marked <c>?…</c> or <c>#…</c>, and a <c>data:</c> or <c>javascript:</c> payload reduced to <c>data:…</c> or
+    /// <c>javascript:…</c>. <see cref="Attributes"/> keeps the whole <c>href</c>, which <c>getAttribute</c> reads.
+    /// </summary>
+    public string? Href { get; init; }
+
     /// <summary>What a field takes: <c>username</c>, <c>password</c>, <c>one-time-code</c>, <c>generic-secret</c>, or <c>none</c>.</summary>
     public string? InputPurpose { get; init; }
 
