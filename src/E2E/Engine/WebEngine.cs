@@ -896,7 +896,7 @@ public sealed partial class WebEngine : IEngine
             catch (ArgumentException ex)
             {
                 // Playwright cannot carry a result that is not JSON, such as Infinity or NaN.
-                throw new TestException("INVALID_ARGUMENT", "evaluate result is not JSON: " + ex.Message, ex);
+                throw new TestException("INVALID_ARGUMENT", "evaluate argument or result is not JSON: " + ex.Message, ex);
             }
 
             var result = outcome!.Value;
@@ -1153,7 +1153,7 @@ public sealed partial class WebEngine : IEngine
             System.Text.Json.JsonElement json;
             try
             {
-                json = await budget.WithinAsync(frame.EvaluateAsync<System.Text.Json.JsonElement>(PageScript.Collect,new { seed = _nextRef, max = walk.Remaining, testIdAttribute = _testIdAttribute })).ConfigureAwait(false);
+                json = await budget.WithinAsync(frame.EvaluateAsync<System.Text.Json.JsonElement>(PageScript.Collect, new { seed = _nextRef, max = walk.Remaining, testIdAttribute = _testIdAttribute })).ConfigureAwait(false);
             }
             catch (PlaywrightException) when (frame != _page?.MainFrame)
             {
