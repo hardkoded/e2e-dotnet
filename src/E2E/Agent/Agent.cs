@@ -164,13 +164,13 @@ public sealed class Agent
             var response = await CallModelAsync(agent.Model, ActSystemFor(agent), messages, AgentTools.ActFor(_scope.EngineCapabilities), agent, token).ConfigureAwait(false);
             if (response.ToolCalls.Count == 0)
             {
-                messages.Add(new ModelMessage { Role = "assistant", Content = response.Content });
+                messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ReasoningItems = response.ReasoningItems });
                 messages.Add(new ModelMessage { Role = "user", Content = "Call a tool. End the step with done." });
                 failures++;
                 continue;
             }
 
-            messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ToolCalls = response.ToolCalls });
+            messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ToolCalls = response.ToolCalls, ReasoningItems = response.ReasoningItems });
             foreach (var toolCall in response.ToolCalls)
             {
                 var outcome = await ExecuteAsync(toolCall, options?.Params, actions, budget, token).ConfigureAwait(false);
@@ -476,7 +476,7 @@ public sealed class Agent
     // A rejected answer stays in the transcript, with a reply to each of its tool calls.
     private static void AddRejected(List<ModelMessage> messages, ModelResponse response)
     {
-        messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ToolCalls = response.ToolCalls });
+        messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ToolCalls = response.ToolCalls, ReasoningItems = response.ReasoningItems });
         foreach (var call in response.ToolCalls)
         {
             messages.Add(new ModelMessage { Role = "tool", ToolCallId = call.Id, Name = call.Name, Content = "rejected" });
