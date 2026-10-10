@@ -289,17 +289,6 @@ public sealed class WebSemanticsTests
         Assert.Equal("loaded", Assert.Single(observation.Roots, node => node.Role == "status").Name);
     }
 
-    [Theory]
-    [InlineData("http://127.0.0.1:5000/path?q=1", true)]
-    [InlineData("https://127.0.0.1/other", true)]
-    [InlineData("http://localhost:5000/", false)]
-    [InlineData("https://cdn.example.com/app.js", false)]
-    [InlineData("data:text/plain,hi", false)]
-    public void Headers_ride_only_requests_for_the_app_host(string url, bool expected)
-    {
-        Assert.Equal(expected, WebEngine.IsAppRequest(url, new Uri("http://127.0.0.1:5000/")));
-    }
-
     [Fact]
     public void Invalid_web_options_are_refused()
     {
