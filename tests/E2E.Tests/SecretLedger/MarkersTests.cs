@@ -4,7 +4,7 @@
 
 namespace E2E.Tests.SecretLedger;
 
-/// <summary>"keeps the MCP call boundary from rewriting what observe already redacted" is not ported: the port has no MCP server.</summary>
+/// <summary>"keeps the MCP call boundary from rewriting what observe already redacted" runs in <c>E2E.Cli.Tests</c>, beside the MCP server.</summary>
 public sealed class MarkersTests
 {
     [Fact]
