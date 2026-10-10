@@ -8,7 +8,7 @@ namespace E2E.Tests.ReadNodeSelection;
 public sealed class SelectionTests(ChromiumPage chromium) : IClassFixture<ChromiumPage>
 {
     [Fact]
-    public async Task Reads_the_selection_of_the_focused_field_and_editing_host_but_not_the_editor_role_or_value()
+    public async Task Reads_the_selection_of_the_focused_field_and_editing_host()
     {
         await chromium.Page.SetContentAsync("""
             <input data-testid="field" value="release approved">
