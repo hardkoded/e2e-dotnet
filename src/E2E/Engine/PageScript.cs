@@ -67,6 +67,27 @@ internal static class PageScript
             const r = box.getBoundingClientRect();
             return r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
           };
+          // Tags a contenteditable never makes an editing host: a drawn or embedded
+          // surface, a void element, and a native control with a value of its own.
+          const nonHostTags = ["svg", "math", "canvas", "video", "audio", "iframe", "img", "hr", "br", "wbr", "area", "a", "button", "input", "textarea", "select"];
+          const isEditingHost = (el) => el instanceof HTMLElement && el.isContentEditable && !nonHostTags.includes(el.tagName.toLowerCase())
+            && !(el.parentElement instanceof HTMLElement && el.parentElement.isContentEditable);
+          // The text selected inside a focused field: the slice between a field's
+          // selection ends, or the document selection inside an editing host.
+          // Null for a collapsed caret.
+          const selectedTextOf = (el) => {
+            if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+              const start = el.selectionStart;
+              const end = el.selectionEnd;
+              if (start === null || end === null || start === end) return null;
+              return el.value.slice(Math.min(start, end), Math.max(start, end));
+            }
+            if (!isEditingHost(el)) return null;
+            const range = el.ownerDocument.getSelection();
+            if (range === null || range.rangeCount === 0 || range.isCollapsed || !el.contains(range.getRangeAt(0).commonAncestorContainer)) return null;
+            const text = range.toString();
+            return text === "" ? null : text;
+          };
           const cut = (value, limit) => {
             const text = (value || "").replace(/\s+/g, " ").trim();
             return text.length > limit ? text.slice(0, limit) : text;
@@ -775,6 +796,7 @@ internal static class PageScript
                 ownText: secure || !ownsChildren ? null : cut(lineTextOf(el), textLimit),
                 inline: secure || !ownsChildren || lineTextOf(el) === "" ? null : inlineNodesOf(el, isHidden),
                 value: secure || !(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) ? null : String(el.value ?? ""),
+                selection: el === focused && !secure ? selectedTextOf(el)?.slice(0, textLimit) ?? null : null,
                 testId,
                 placeholder: el.getAttribute("placeholder"),
                 inputPurpose: secure ? "password" : null,
