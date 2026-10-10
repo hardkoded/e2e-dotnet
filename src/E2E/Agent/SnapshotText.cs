@@ -48,7 +48,7 @@ internal static class SnapshotText
             // or its test id, shows the text it owns, so a container does not repeat its children's.
             // A named node shows its text too, when it differs.
             var shown = node.OwnText ?? node.Text;
-            var name = Clean(redactor.Redact((string.IsNullOrEmpty(node.Name) ? shown : node.Name) ?? ""));
+            var name = Clean(string.IsNullOrEmpty(node.Name) ? redactor.RedactField(shown ?? "", Redactor.TextLimit) : redactor.RedactField(node.Name, Redactor.NameLimit));
             if (name.Length > 0)
             {
                 builder.Append(" \"").Append(name).Append('"');
@@ -56,7 +56,7 @@ internal static class SnapshotText
 
             if (!string.IsNullOrEmpty(node.Name))
             {
-                var text = Clean(redactor.Redact(shown ?? ""));
+                var text = Clean(redactor.RedactField(shown ?? "", Redactor.TextLimit));
                 if (text.Length > 0 && text != name)
                 {
                     builder.Append(" text=\"").Append(text).Append('"');
@@ -67,7 +67,7 @@ internal static class SnapshotText
             // A checkbox's or radio's value is an app token its checked state already says more than.
             if (!node.States.Secure && !string.IsNullOrEmpty(node.Value) && !LocatorResolver.IsCheckable(node))
             {
-                builder.Append(" value=\"").Append(redactor.Redact(node.Value)).Append('"');
+                builder.Append(" value=\"").Append(redactor.RedactField(node.Value, Redactor.TextLimit)).Append('"');
             }
 
             if (node.States.Secure)

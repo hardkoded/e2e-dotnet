@@ -991,7 +991,7 @@ public sealed class Agent
                     {
                         Kind = "fill",
                         Role = node.Role,
-                        Name = Redact(LabelOf(node), _scope.Redactor),
+                        Name = RedactLabel(node, _scope.Redactor),
                         TestId = Redact(node.TestId, _scope.Redactor),
                         Value = CacheKeys.Template(value, parameters),
                     });
@@ -1001,12 +1001,12 @@ public sealed class Agent
                 case "press":
                     var key = Args.String(call.Arguments, "key") ?? "Enter";
                     await _scope.Session.PerformAsync(node, new LocatorAction.Press(key), token).ConfigureAwait(false);
-                    actions.Add(new RecordedAction { Kind = "press", Role = node.Role, Name = Redact(LabelOf(node), _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Key = key });
+                    actions.Add(new RecordedAction { Kind = "press", Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Key = key });
                     return ToolOutcome.Ok(await DescribeAsync("pressed " + key + " on " + Label(node), actions[^1], token).ConfigureAwait(false));
                 case "select":
                     var selected = Args.String(call.Arguments, "value") ?? "";
                     await _scope.Session.PerformAsync(node, new LocatorAction.Select(selected), token).ConfigureAwait(false);
-                    actions.Add(new RecordedAction { Kind = "select", Role = node.Role, Name = Redact(LabelOf(node), _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Value = selected });
+                    actions.Add(new RecordedAction { Kind = "select", Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Value = selected });
                     return ToolOutcome.Ok(await DescribeAsync("selected " + selected, actions[^1], token).ConfigureAwait(false));
                 case "check":
                     await _scope.Session.PerformAsync(node, new LocatorAction.Check(), token).ConfigureAwait(false);
@@ -1235,7 +1235,7 @@ public sealed class Agent
                 return inner;
             }
 
-            if (TextRules.Matches(Redact(node.Name, redactor), text, exact: false) || TextRules.Matches(Redact(node.Text, redactor), text, exact: false))
+            if (TextRules.Matches(RedactField(node.Name, Redactor.NameLimit, redactor), text, exact: false) || TextRules.Matches(RedactField(node.Text, Redactor.TextLimit, redactor), text, exact: false))
             {
                 return node;
             }
@@ -1342,7 +1342,7 @@ public sealed class Agent
         {
             Kind = "fill",
             Role = node.Role,
-            Name = Redact(LabelOf(node), _scope.Redactor),
+            Name = RedactLabel(node, _scope.Redactor),
             TestId = Redact(node.TestId, _scope.Redactor),
             Value = "<secret:" + secret.Name + ">",
         });
@@ -1393,7 +1393,7 @@ public sealed class Agent
                 continue;
             }
 
-            if (name is not null && !TextRules.Matches(Redact(LabelOf(node), redactor), name, exact: true))
+            if (name is not null && !TextRules.Matches(RedactLabel(node, redactor), name, exact: true))
             {
                 continue;
             }
@@ -1611,12 +1611,24 @@ public sealed class Agent
             observation,
             text => ContainsParam(text, parameters),
             value => CacheKeys.Template(redactor.Redact(value), parameters),
-            redactor.Redact);
+            redactor.Redact,
+            redactor.RedactField);
     }
 
     private static string? Redact(string? text, Redactor redactor)
     {
         return text is null ? null : redactor.Redact(text);
+    }
+
+    private static string? RedactField(string? text, int limit, Redactor redactor)
+    {
+        return text is null ? null : redactor.RedactField(text, limit);
+    }
+
+    // The label as LabelOf reads it, redacted for the limit of the field it came from.
+    private static string? RedactLabel(SemanticNode node, Redactor redactor)
+    {
+        return node.Name is not null ? RedactField(node.Name, Redactor.NameLimit, redactor) : RedactField(LabelOf(node), Redactor.TextLimit, redactor);
     }
 
     private static bool ContainsParam(string name, IReadOnlyDictionary<string, object?>? parameters)
@@ -1646,7 +1658,7 @@ public sealed class Agent
 
     private RecordedAction Record(SemanticNode node, string kind)
     {
-        return new RecordedAction { Kind = kind, Role = node.Role, Name = Redact(LabelOf(node), _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor) };
+        return new RecordedAction { Kind = kind, Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor) };
     }
 
     private static RecordedAction Detemplate(RecordedAction action, IReadOnlyDictionary<string, object?>? parameters)
