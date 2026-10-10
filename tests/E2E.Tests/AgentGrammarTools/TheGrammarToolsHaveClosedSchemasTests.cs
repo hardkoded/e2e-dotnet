@@ -55,6 +55,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         {
             0 => ModelResponses.Done("blocked", "could not tell"),
             1 => ModelResponses.Done("blocked", "the total is wrong", "ASSERTION_FAILED"),
+            2 => ModelResponses.Done("blocked", "too slow", "STEP_TIMEOUT"),
             _ => ModelResponses.Done("blocked", "no login", "AUTH_CREDENTIAL_UNAVAILABLE"),
         });
 
@@ -64,9 +65,9 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", error.Code);
         Assert.Equal("no login", error.Message);
         Assert.True(error.Blocked);
-        Assert.Equal(3, model.CallCount);
-        var rejections = model.Requests[2].Messages.Where(message => message.Role == "tool").Select(message => message.Content).Take(2).ToArray();
-        Assert.Equal(2, rejections.Length);
+        Assert.Equal(4, model.CallCount);
+        var rejections = model.Requests[3].Messages.Where(message => message.Role == "tool").Select(message => message.Content).Take(3).ToArray();
+        Assert.Equal(3, rejections.Length);
         Assert.All(rejections, content => Assert.StartsWith("failed: a blocked verdict requires a code naming what blocked you", content, StringComparison.Ordinal));
     }
 
