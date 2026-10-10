@@ -14,6 +14,7 @@ namespace E2E;
 /// </summary>
 internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
 {
+    private readonly Dictionary<string, SemanticNode> _seen = [];
     private PendingChange? _pending;
 
     /// <summary>How far each look of the step settled, in order.</summary>
@@ -59,9 +60,23 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
                 token).ConfigureAwait(false);
         }
 
+        if (Latest is not null && !string.Equals(Latest.Route, observation.Route, StringComparison.Ordinal))
+        {
+            // Refs are per document, so a ref seen on another page names nothing here.
+            _seen.Clear();
+        }
+
         Latest = observation;
+        foreach (var node in LocatorResolver.Walk(observation.Roots))
+        {
+            _seen[node.Ref] = node;
+        }
+
         return observation;
     }
+
+    /// <summary>The newest node an observation of the step listed under <paramref name="reference"/>, if any.</summary>
+    public SemanticNode? LastSeen(string reference) => _seen.GetValueOrDefault(reference);
 
     /// <summary>
     /// Marks the newest observation as the one the step's next action is taken on, when no action came before. An
