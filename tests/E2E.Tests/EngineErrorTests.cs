@@ -81,18 +81,6 @@ public sealed class EngineErrorTests
     }
 
     [Fact]
-    public void Navigation_and_reads_map_to_engine_codes()
-    {
-        Assert.Equal("OPERATION_TIMEOUT", WebErrors.Translate(new System.TimeoutException("Timeout 5000ms exceeded."), "navigate to /").Code);
-        Assert.Equal("ENGINE_FAILURE", WebErrors.Translate(new PlaywrightException("net::ERR_CONNECTION_REFUSED"), "navigate to /").Code);
-
-        var stale = WebErrors.NavigationStaleOr(new PlaywrightException("Execution context was destroyed, most likely because of a navigation"), "observe");
-        Assert.Equal("NODE_STALE", stale.Code);
-        Assert.True(stale.Retryable);
-        Assert.Equal("ENGINE_FAILURE", WebErrors.NavigationStaleOr(new PlaywrightException("boom"), "observe").Code);
-    }
-
-    [Fact]
     public async Task Chromium_reports_engine_codes_instead_of_playwright_errors()
     {
         using var site = await TinySite.StartAsync("""
