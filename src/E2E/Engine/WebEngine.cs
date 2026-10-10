@@ -351,9 +351,15 @@ public sealed partial class WebEngine : IEngine
     /// </summary>
     internal static int RunChromiumInstall(bool headed, Func<string[], int> install)
     {
+        return RunInstall(InstallArgs(headed), install);
+    }
+
+    /// <summary>Runs <paramref name="install"/> with <c>install</c> and <paramref name="args"/>, keeping other tools' browsers as <see cref="RunChromiumInstall"/> does.</summary>
+    internal static int RunInstall(string[] args, Func<string[], int> install)
+    {
         // Program.Main starts the driver with this process's environment, so the value is set on the process.
         Environment.SetEnvironmentVariable(SkipBrowserGcVariable, Environment.GetEnvironmentVariable(SkipBrowserGcVariable) ?? "1");
-        return install(["install", .. InstallArgs(headed)]);
+        return install(["install", .. args]);
     }
 
     internal static async Task EnsureChromiumAsync(bool headed, CancellationToken cancellationToken)
