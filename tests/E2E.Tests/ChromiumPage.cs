@@ -46,11 +46,10 @@ public sealed class ChromiumPage : IAsyncLifetime
     public async Task<IReadOnlyList<ReadNode>> CaptureAsync()
     {
         // The next free ref carries over, as the engine's does, so a ref never names two elements.
-        var json = await Page.EvaluateAsync<string>(PageScript.Collect, new { seed = _nextRef, max = ObservationLimits.Nodes, testIdAttribute = "data-testid" });
-        using var document = JsonDocument.Parse(json);
-        _nextRef = document.RootElement.GetProperty("next").GetInt32();
+        var observed = await Page.EvaluateAsync<JsonElement>(PageScript.Collect, new { seed = _nextRef, max = ObservationLimits.Nodes, testIdAttribute = "data-testid" });
+        _nextRef = observed.GetProperty("next").GetInt32();
         var nodes = new List<ReadNode>();
-        Flatten(document.RootElement.GetProperty("roots"), nodes);
+        Flatten(observed.GetProperty("roots"), nodes);
         return nodes;
     }
 
