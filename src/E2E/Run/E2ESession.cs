@@ -74,6 +74,7 @@ public sealed class E2ESession : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(options.Engine);
         ArgumentException.ThrowIfNullOrWhiteSpace(options.TestTitle);
         var agents = ResolveAgents(options);
+        var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl) ? null : Urls.NormalizeAppUrl(options.BaseUrl, "the base URL").Href;
 
         var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         if (options.TestTimeout > TimeSpan.Zero && options.TestTimeout != Timeout.InfiniteTimeSpan)
@@ -92,7 +93,7 @@ public sealed class E2ESession : IAsyncDisposable
             }
 
             engine = await options.Engine.StartAsync(
-                new EngineStartOptions { BaseUrl = options.BaseUrl, ActionTimeout = options.ActionTimeout, ProjectRoot = projectRoot },
+                new EngineStartOptions { BaseUrl = baseUrl, ActionTimeout = options.ActionTimeout, ProjectRoot = projectRoot },
                 launch.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException ex) when (launch.IsCancellationRequested && !timeout.IsCancellationRequested)
@@ -121,7 +122,7 @@ public sealed class E2ESession : IAsyncDisposable
         var scope = new AttemptScope
         {
             Session = engine,
-            BaseUrl = options.BaseUrl,
+            BaseUrl = baseUrl,
             Agents = agents,
             Cache = options.Cache,
             CacheEnabled = cacheOn,
@@ -139,8 +140,8 @@ public sealed class E2ESession : IAsyncDisposable
             Token = () => timeout.Token,
             TestFailed = () => softFailures.Any || testFailed(),
         };
-        var app = new App(engine, options.BaseUrl, () => timeout.Token);
-        var browser = new Browser(engine, options.Engine.Platform, options.BaseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures);
+        var app = new App(engine, baseUrl, () => timeout.Token);
+        var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures);
         var agent = new Agent(scope);
         var screen = new Screen(
             token => engine.ObserveAsync(token),

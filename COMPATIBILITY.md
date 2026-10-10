@@ -170,7 +170,9 @@ Not ported:
 
 ## Config
 
-`E2ETest` loads the nearest `e2e.config.json` above the test assembly directory, then above the working directory, once per run. Supported keys: `targets` (one entry with `name`, `platform`, and `app.url`), `timeout`, `launchTimeout`, `actionTimeout`, `assertionTimeout`, `cleanupTimeout`, `retries`, `agents`, `cache` (`mode`, `dir`, `strict`), and `secrets`. Defaults, the CI cache demotion to `read-only`, `E2E_SECRET_<NAME>` overrides, the 6 code point secret minimum, and `INVALID_CONFIG` for unknown keys follow upstream. Keys of the old .NET shape (`app`, `engine`, `agent`, `timeouts`) fail with a hint to the upstream key.
+`E2ETest` loads the nearest `e2e.config.json` above the test assembly directory, then above the working directory, once per run. Supported keys: `targets` (one entry with `name`, `platform`, and `app.url`), `timeout`, `launchTimeout`, `actionTimeout`, `assertionTimeout`, `cleanupTimeout`, `retries`, `agents`, `cache` (`mode`, `dir`, `strict`), and `secrets`. Defaults, the CI cache demotion to `read-only`, `E2E_SECRET_<NAME>` overrides, the 6 code point secret minimum, and `INVALID_CONFIG` for unknown keys follow upstream.
+
+`app.url` is normalized as upstream does, with `System.Uri` instead of WHATWG: a missing scheme becomes `https://`, or `http://` for a loopback host. Userinfo, a query, a fragment, a scheme other than http(s), and plain HTTP on a non-loopback host are `INVALID_APP_URL`, with upstream's messages. A base URL set in code (`E2EFixture.BaseUrl`, `E2ESessionOptions.BaseUrl`) follows the same rule. Port `0` on `127.0.0.1` or `[::1]` is accepted by the parser, but the port has no `app.command` to start the app on a free port, so it is `INVALID_CONFIG`; any other host with port `0` is `INVALID_APP_URL`. Keys of the old .NET shape (`app`, `engine`, `agent`, `timeouts`) fail with a hint to the upstream key.
 
 Differences:
 

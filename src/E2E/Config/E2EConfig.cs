@@ -5,6 +5,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json;
+using E2E.Internal;
 
 namespace E2E;
 
@@ -273,7 +274,7 @@ public sealed class E2EConfig
             }
 
             CheckKeys(rawApp, "targets[0].app", AppKeys, UnsupportedAppKeys, null);
-            app = new AppConfig { Url = OptionalString(rawApp, "url", "targets[0].app.url") };
+            app = new AppConfig { Url = OptionalString(rawApp, "url", "targets[0].app.url") is { } url ? Urls.NormalizeAppUrl(url, "targets[0].app.url").Href : null };
         }
 
         return [new TargetConfig { Name = name, Platform = platform, App = app }];
@@ -639,7 +640,10 @@ public sealed class TargetConfig
 
 public sealed class AppConfig
 {
-    /// <summary>Base URL for <c>App.OpenAsync</c>. Relative URLs resolve against it.</summary>
+    /// <summary>
+    /// Base URL for <c>App.OpenAsync</c>, normalized: a missing scheme becomes <c>https://</c>, or <c>http://</c> for a loopback host.
+    /// Relative URLs resolve against it.
+    /// </summary>
     public string? Url { get; init; }
 }
 

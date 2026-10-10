@@ -80,7 +80,7 @@ unknown key fails with `INVALID_CONFIG`.
 
 | Key | Default | Notes |
 | --- | --- | --- |
-| `targets` | a `web` target with no URL | One entry: `name`, `platform` (`web`), and `app.url`. Without a URL, `App.OpenAsync` takes absolute URLs only. |
+| `targets` | a `web` target with no URL | One entry: `name`, `platform` (`web`), and `app.url`. A URL without a scheme gets `https://` (`http://` for localhost); plain HTTP is allowed on loopback hosts only, and userinfo, a query, or a fragment is `INVALID_APP_URL`. Without a URL, `App.OpenAsync` takes absolute URLs only. |
 | `timeout` | `120000` | Per test, ms. |
 | `launchTimeout` | `60000` | Engine start, ms. |
 | `actionTimeout` | `30000` | Each locator action and engine operation, ms. |
