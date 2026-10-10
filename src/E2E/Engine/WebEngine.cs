@@ -1948,6 +1948,7 @@ public sealed partial class WebEngine : IEngine
                 InlineNodes = dto.Inline?.Select(inline => ToNode(inline, testIdAttribute)).ToList() ?? [],
                 OwnText = dto.OwnText,
                 Value = dto.Secure ? null : dto.Value,
+                Selection = dto.Secure ? null : dto.Selection,
                 TestId = dto.TestId,
                 TestIdAttribute = dto.TestId is null ? null : testIdAttribute,
                 Placeholder = dto.Placeholder,
@@ -2129,6 +2130,8 @@ public sealed partial class WebEngine : IEngine
         public string? OwnText { get; set; }
 
         public string? Value { get; set; }
+
+        public string? Selection { get; set; }
 
         public string? TestId { get; set; }
 
