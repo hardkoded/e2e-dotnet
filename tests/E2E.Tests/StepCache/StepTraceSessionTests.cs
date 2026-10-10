@@ -241,6 +241,30 @@ public sealed class StepTraceSessionTests
     }
 
     [Fact]
+    public async Task Stages_nothing_when_the_passing_screen_cannot_be_observed()
+    {
+        var directory = CoreTests.TempCache();
+        var lost = false;
+        var model = new ScriptedModel(request =>
+        {
+            if (Text(request).Contains("tapped", StringComparison.Ordinal))
+            {
+                // The surface fails the look that reads the passing screen, once, then recovers.
+                lost = true;
+                return ModelResponses.Done("passed", "Saved.");
+            }
+
+            return ModelResponses.Tap("button", "Save marker");
+        });
+
+        var step = await StepAsync(StorageWorld(), new FileStepCache(directory), "/storage", Saved, model, wrap: engine => new LosingEngine(engine, () => lost, () => lost = false));
+
+        Assert.Null(step.Error);
+        Assert.False(lost, "the failing look was never taken");
+        Assert.False(Directory.Exists(directory) && Directory.GetFiles(directory, "*.json").Length > 0);
+    }
+
+    [Fact]
     public async Task Degrades_a_hit_that_is_not_a_trace_1_entry_to_a_miss_whichever_store_returned_it()
     {
         var step = await StepAsync(StorageWorld(), new MalformedCache(), "/storage", null, Script(ModelResponses.Tap("button", "Save marker")));
@@ -515,12 +539,12 @@ public sealed class StepTraceSessionTests
     }
 
     // A passing check verifies the act, so it records.
-    private static Task Saved(TestContext ctx) => Expect.That(ctx.Screen.GetByRole("status", "Marker saved")).ToBeVisibleAsync();
+    internal static Task Saved(TestContext ctx) => Expect.That(ctx.Screen.GetByRole("status", "Marker saved")).ToBeVisibleAsync();
 
     private static Task Stored(TestContext ctx) => Expect.That(ctx.Screen.GetByRole("status", "Marker stored")).ToBeVisibleAsync();
 
     // A storage page whose save shows the saved marker.
-    private static DocumentWorld StorageWorld() => new DocumentWorld().Map("/storage", page =>
+    internal static DocumentWorld StorageWorld() => new DocumentWorld().Map("/storage", page =>
     {
         page.Heading("Storage");
         var saved = new DocumentElement { Role = "status", Name = "Marker saved", Hidden = true };
@@ -529,7 +553,7 @@ public sealed class StepTraceSessionTests
     });
 
     // A pricing page, and a customers page that shows the marker.
-    private static DocumentWorld CustomersWorld(bool saved = true, string marker = "Marker saved") => new DocumentWorld()
+    internal static DocumentWorld CustomersWorld(bool saved = true, string marker = "Marker saved") => new DocumentWorld()
         .Map("/pricing", page => page.Heading("Pricing"))
         .Map("/customers", page =>
         {
@@ -540,18 +564,18 @@ public sealed class StepTraceSessionTests
         });
 
     // A pricing page whose link opens the project page at `target`, which shows the saved marker.
-    private static DocumentWorld ProjectWorld(string target) => new DocumentWorld()
+    internal static DocumentWorld ProjectWorld(string target) => new DocumentWorld()
         .Map("/pricing", page => page.Link("Create project", target))
         .Map(target, page => page.Status("Marker saved"));
 
     // Records a navigate from the pricing page to the customers page.
-    private static Task<Step> RecordCustomersAsync(string directory)
+    internal static Task<Step> RecordCustomersAsync(string directory)
     {
         return StepAsync(CustomersWorld(), new FileStepCache(directory), "/pricing", Saved, Script(ModelResponses.Call("navigate", new { url = "/customers" })));
     }
 
     // A model that takes the steps in order, then concludes that the step passed.
-    private static ScriptedModel Script(params ModelResponse[] steps)
+    internal static ScriptedModel Script(params ModelResponse[] steps)
     {
         var next = 0;
         return new ScriptedModel(_ => next < steps.Length ? steps[next++] : ModelResponses.Done("passed", "Done."));
@@ -559,7 +583,7 @@ public sealed class StepTraceSessionTests
 
     private static string Text(ModelRequest request) => string.Join('\n', request.Messages.Select(message => message.Content));
 
-    private static (string?, string?, int?, int?) Info(Step step) => (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions, step.Cache?.TotalActions);
+    internal static (string?, string?, int?, int?) Info(Step step) => (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions, step.Cache?.TotalActions);
 
     private static CacheEntry Entry(string directory)
     {
@@ -579,13 +603,13 @@ public sealed class StepTraceSessionTests
         return StepAsync(world, new FileStepCache(directory), route, check, model);
     }
 
-    private sealed record Step(Exception? Error, CacheInfo? Cache, int Replayed, IReadOnlyList<SettleMode> Looks);
+    internal sealed record Step(Exception? Error, CacheInfo? Cache, int Replayed, IReadOnlyList<SettleMode> Looks);
 
     /// <summary>
     /// One attempt: open <paramref name="route"/>, act once, then run <paramref name="check"/>, which
     /// verifies the act when it passes. A null model is a model outage.
     /// </summary>
-    private static async Task<Step> StepAsync(
+    internal static async Task<Step> StepAsync(
         DocumentWorld world,
         IStepCache cache,
         string route,
@@ -593,15 +617,18 @@ public sealed class StepTraceSessionTests
         IAgentModel? model,
         IReadOnlyDictionary<string, object?>? parameters = null,
         int attempt = 1,
-        CacheMode mode = CacheMode.ReadWrite)
+        CacheMode mode = CacheMode.ReadWrite,
+        bool strict = false,
+        Func<IEngine, IEngine>? wrap = null)
     {
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions
         {
-            Engine = new DocumentEngine(world),
+            Engine = wrap is null ? new DocumentEngine(world) : wrap(new DocumentEngine(world)),
             Model = model,
             BaseUrl = "https://billing.test",
             Cache = cache,
             CacheMode = mode,
+            CacheStrict = strict,
             Attempt = attempt,
             TestTitle = "billing > case",
             AssertionTimeout = TimeSpan.FromSeconds(2),
@@ -631,7 +658,7 @@ public sealed class StepTraceSessionTests
     }
 
     /// <summary>A store whose every read rejects, as a store behind a network can.</summary>
-    private sealed class ThrowingCache : IStepCache
+    internal sealed class ThrowingCache : IStepCache
     {
         public CacheLookup Read(string key) => throw new InvalidOperationException("redis connection refused");
 
@@ -645,7 +672,7 @@ public sealed class StepTraceSessionTests
     }
 
     /// <summary>A store that hits with an entry whose actions are not a list.</summary>
-    private sealed class MalformedCache : IStepCache
+    internal sealed class MalformedCache : IStepCache
     {
         public CacheLookup Read(string key) => new() { Entry = JsonSerializer.Deserialize<CacheEntry>("""{ "schema": 1, "actions": null }""", EntryJson) };
 
@@ -659,7 +686,7 @@ public sealed class StepTraceSessionTests
     }
 
     /// <summary>A file store that counts its reads, writes, and deletes.</summary>
-    private sealed class CountingCache(string directory) : IStepCache
+    internal sealed class CountingCache(string directory) : IStepCache
     {
         private readonly FileStepCache _inner = new(directory);
 
@@ -685,6 +712,43 @@ public sealed class StepTraceSessionTests
         {
             Deletes++;
             _inner.Delete(key);
+        }
+    }
+
+    /// <summary>An engine whose next look fails once <paramref name="lost"/> says so, as a surface that went away can.</summary>
+    private sealed class LosingEngine(IEngine inner, Func<bool> lost, Action recover) : IEngine
+    {
+        public string Platform => inner.Platform;
+
+        public string Version => inner.Version;
+
+        public EngineCapabilities Capabilities => inner.Capabilities;
+
+        public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+            new Session(await inner.StartAsync(options, cancellationToken).ConfigureAwait(false), lost, recover);
+
+        private sealed class Session(IEngineSession inner, Func<bool> lost, Action recover) : IEngineSession
+        {
+            public string Route => inner.Route;
+
+            public Task OpenAsync(string url, CancellationToken cancellationToken) => inner.OpenAsync(url, cancellationToken);
+
+            public Task<Observation> ObserveAsync(CancellationToken cancellationToken)
+            {
+                if (lost())
+                {
+                    recover();
+                    throw new EngineException("ENGINE_FAILURE", "surface went away");
+                }
+
+                return inner.ObserveAsync(cancellationToken);
+            }
+
+            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => inner.PerformAsync(node, action, cancellationToken);
+
+            public Task PressAsync(string key, CancellationToken cancellationToken) => inner.PressAsync(key, cancellationToken);
+
+            public ValueTask DisposeAsync() => inner.DisposeAsync();
         }
     }
 }
