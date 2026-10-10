@@ -18,7 +18,7 @@ public sealed class WebPlatformIntegrationTests
     [InlineData("toHaveAttribute reads the value attribute of plain fields")]
     [InlineData("a viewport set before the first navigation holds through app.open")]
     [InlineData("toHaveURL ignoreCase folds the comparison")]
-    [InlineData("contenteditable hosts are textboxes: reached by label, filled, and read as a value")]
+    [InlineData("contenteditable hosts are textboxes: reached by label and by role (a bare host too), filled, and read as a value")]
     public async Task Passes(string title)
     {
         Assert.Null(await RunAsync(Scenarios[title]));
@@ -193,7 +193,7 @@ public sealed class WebPlatformIntegrationTests
             Assert.Null(await screen.GetByTestId("items").GetAttributeAsync("toString"));
             Assert.Null(await screen.GetByTestId("items").GetAttributeAsync("__proto__"));
         },
-        ["contenteditable hosts are textboxes: reached by label, filled, and read as a value"] = async session =>
+        ["contenteditable hosts are textboxes: reached by label and by role (a bare host too), filled, and read as a value"] = async session =>
         {
             await session.App.OpenAsync("/editor");
             var notes = session.Screen.GetByLabel("Notes");
