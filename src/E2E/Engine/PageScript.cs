@@ -486,8 +486,8 @@ internal static class PageScript
           // zero-width no-break space Slate and Quill pad an empty line with
           // renders nothing, so it is no text either.
           const editorValueOf = (host) => {
-            const rendered = host.innerText.replace(/﻿/g, "");
-            const text = (host.textContent || "").replace(/﻿/g, "");
+            const rendered = host.innerText.replace(/\uFEFF/g, "");
+            const text = (host.textContent || "").replace(/\uFEFF/g, "");
             return text === "" || (text.trim() === "" && rendered === "\n") ? "" : rendered;
           };
           const accessibleName = (el, role) => {
