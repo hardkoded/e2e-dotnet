@@ -33,7 +33,7 @@ public sealed class AgentConfigDefaultsTests
     }
 
     [Fact]
-    public void Bounds_budgets_to_1_through_100_observation_bytes_to_1_KiB_through_16_MiB_and_input_tokens_to_1_through_1000000()
+    public void Bounds_maxSteps_and_maxModelCalls_to_1_through_100()
     {
         Assert.Contains("maxSteps", Invalid("""{ "agents": { "default": { "maxSteps": 0 } } }"""), StringComparison.Ordinal);
         Assert.Contains("maxSteps", Invalid("""{ "agents": { "default": { "maxSteps": 101 } } }"""), StringComparison.Ordinal);

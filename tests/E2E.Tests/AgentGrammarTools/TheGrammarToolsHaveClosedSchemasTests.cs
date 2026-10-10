@@ -12,7 +12,7 @@ namespace E2E.Tests.AgentGrammarTools;
 public sealed class TheGrammarToolsHaveClosedSchemasTests
 {
     [Fact]
-    public async Task Accepts_a_passed_verdict_beside_an_error_code_the_body_records_the_pass_without_the_code_and_says_what_it_dropped()
+    public async Task Accepts_a_passed_verdict_beside_an_error_code_and_records_the_pass_without_the_code()
     {
         var passed = await RunAsync(ModelResponses.Done("passed", "done", "ACTION_FAILED"));
         Assert.Null(passed.Error);

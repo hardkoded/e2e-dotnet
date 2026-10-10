@@ -11,7 +11,7 @@ public sealed class TheBuiltInAgentOptionsTests
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "e2e-agent-config-project");
 
     [Fact]
-    public void Keeps_system_and_the_defineTool_tools()
+    public void Keeps_system_and_rejects_one_that_is_not_a_string()
     {
         var config = E2EConfig.Parse("""{ "agents": { "default": { "system": "Verify every total." } } }""", Root, _ => null);
 
