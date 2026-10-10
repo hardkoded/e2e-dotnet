@@ -60,6 +60,12 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
                 token).ConfigureAwait(false);
         }
 
+        if (Latest is not null && !string.Equals(Latest.Route, observation.Route, StringComparison.Ordinal))
+        {
+            // Refs are per document, so a ref seen on another page names nothing here.
+            _seen.Clear();
+        }
+
         Latest = observation;
         foreach (var node in LocatorResolver.Walk(observation.Roots))
         {

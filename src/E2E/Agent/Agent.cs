@@ -1384,8 +1384,17 @@ public sealed class Agent
     private async Task<SemanticNode?> RelocateAsync(SemanticNode stale, CancellationToken token)
     {
         var observation = await _feed.ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false);
-        var matches = Find(observation, stale.Role, Redact(LabelOf(stale), _scope.Redactor), Redact(stale.TestId, _scope.Redactor), null, _scope.Redactor);
+        var matches = FindLike(observation, stale);
         return matches.Count == 1 ? matches[0] : null;
+    }
+
+    // The nodes that read as <paramref name="node"/> did. A node with no name and no test id has nothing to tell it
+    // from its twins, so it is never found again: a wrong match would act on the wrong control.
+    private List<SemanticNode> FindLike(Observation observation, SemanticNode node)
+    {
+        var name = Redact(LabelOf(node), _scope.Redactor);
+        var testId = Redact(node.TestId, _scope.Redactor);
+        return name is null && testId is null ? [] : Find(observation, node.Role, name, testId, null, _scope.Redactor);
     }
 
     private async Task<SemanticNode> ResolveAsync(JsonElement arguments, CancellationToken token)
@@ -1396,7 +1405,7 @@ public sealed class Agent
         {
             // Several actions of one turn name the screen the turn saw. A ref the newest screen no longer carries,
             // because the element remounted, is the one node that reads the same now.
-            matches = Find(observation, seen.Role, Redact(LabelOf(seen), _scope.Redactor), Redact(seen.TestId, _scope.Redactor), null, _scope.Redactor);
+            matches = FindLike(observation, seen);
         }
 
         if (matches.Count == 0)
