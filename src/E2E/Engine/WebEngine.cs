@@ -32,12 +32,33 @@ public sealed class WebBasicAuth
     public WebBasicAuth(string username, Secret password)
         : this(username, (password ?? throw new ArgumentNullException(nameof(password))).Value)
     {
+        PasswordSecret = password;
     }
 
     /// <summary>The user name. RFC 7617 does not allow <c>:</c> in one.</summary>
     public string Username { get; }
 
     internal string Password { get; }
+
+    internal Secret? PasswordSecret { get; }
+
+    /// <summary>
+    /// What the attempt redacts for a <see cref="Secret"/> password: the password, and the
+    /// <c>Authorization</c> credential the browser sends with it, with and without its <c>=</c> padding.
+    /// A page that echoes its request headers shows that, not the password. A plain password declares nothing.
+    /// </summary>
+    internal IReadOnlyList<Secret> Redactions()
+    {
+        if (PasswordSecret is not { } secret)
+        {
+            return [];
+        }
+
+        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(Username + ":" + Password));
+        var unpadded = encoded.TrimEnd('=');
+        var derived = unpadded == encoded ? new[] { encoded } : [encoded, unpadded];
+        return [secret, .. derived.Select(value => Secret.Create(secret.Name, value, secret.Purpose))];
+    }
 }
 
 /// <summary>
@@ -279,6 +300,11 @@ public sealed partial class WebEngine : IEngine
         try
         {
             var initScripts = await ReadInitScriptsAsync(options.ProjectRoot, cancellationToken).ConfigureAwait(false);
+            foreach (var secret in _options.BasicAuth?.Redactions() ?? [])
+            {
+                options.DeclareSecret?.Invoke(secret);
+            }
+
             if (_options.Connect is null)
             {
                 await EnsureChromiumAsync(!_headless, cancellationToken).ConfigureAwait(false);

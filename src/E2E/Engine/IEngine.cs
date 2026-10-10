@@ -33,6 +33,9 @@ public sealed class EngineStartOptions
 
     /// <summary>Anchors the files the engine options name, such as an init script's <c>Path</c>. Defaults to the working directory.</summary>
     public string? ProjectRoot { get; init; }
+
+    /// <summary>Called for each secret the engine's own options carry, so the attempt redacts it as it does a secret the test passes.</summary>
+    internal Action<Secret>? DeclareSecret { get; init; }
 }
 
 /// <summary>

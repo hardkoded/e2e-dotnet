@@ -84,6 +84,7 @@ public sealed class E2ESession : IAsyncDisposable
 
         var projectRoot = Path.GetFullPath(string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot);
         IEngineSession engine;
+        var declared = new List<Secret>();
         var launch = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token);
         try
         {
@@ -93,7 +94,7 @@ public sealed class E2ESession : IAsyncDisposable
             }
 
             engine = await options.Engine.StartAsync(
-                new EngineStartOptions { BaseUrl = baseUrl, ActionTimeout = options.ActionTimeout, ProjectRoot = projectRoot },
+                new EngineStartOptions { BaseUrl = baseUrl, ActionTimeout = options.ActionTimeout, ProjectRoot = projectRoot, DeclareSecret = declared.Add },
                 launch.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException ex) when (launch.IsCancellationRequested && !timeout.IsCancellationRequested)
@@ -140,6 +141,7 @@ public sealed class E2ESession : IAsyncDisposable
             Token = () => timeout.Token,
             TestFailed = () => softFailures.Any || testFailed(),
         };
+        scope.Remember(declared.Select((secret, index) => (Key: index.ToString(System.Globalization.CultureInfo.InvariantCulture), Value: (object?)secret)).ToDictionary(pair => pair.Key, pair => pair.Value));
         var app = new App(engine, baseUrl, () => timeout.Token);
         var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures);
         var agent = new Agent(scope);
