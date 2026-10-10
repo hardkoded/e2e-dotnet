@@ -8,7 +8,7 @@ namespace E2E.Tests.Visibility;
 public sealed class TheTreeWalkThroughABoxWithNoSizeTests
 {
     [Fact]
-    public async Task Lists_the_fixed_controls_under_a_zero_height_page_and_wrapper_and_neither_the_wrapper_nor_the_root_as_hidden()
+    public async Task Lists_the_fixed_controls_and_the_empty_wrapper_under_a_zero_height_page_and_marks_neither_the_wrapper_nor_the_root_as_hidden()
     {
         var nodes = await VisibilitySupport.ObserveAsync("""
             <nav aria-label="Floating" data-testid="wrapper">
