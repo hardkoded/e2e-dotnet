@@ -141,7 +141,7 @@ public sealed class E2ESession : IAsyncDisposable
             Token = () => timeout.Token,
             TestFailed = () => softFailures.Any || testFailed(),
         };
-        scope.Remember(declared.Select((secret, index) => (Key: index.ToString(System.Globalization.CultureInfo.InvariantCulture), Value: (object?)secret)).ToDictionary(pair => pair.Key, pair => pair.Value));
+        declared.ForEach(scope.Remember);
         var app = new App(engine, baseUrl, () => timeout.Token);
         var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures);
         var agent = new Agent(scope);

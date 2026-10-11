@@ -55,9 +55,7 @@ public sealed class WebBasicAuth
         }
 
         var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(Username + ":" + Password));
-        var unpadded = encoded.TrimEnd('=');
-        var derived = unpadded == encoded ? new[] { encoded } : [encoded, unpadded];
-        return [secret, .. derived.Select(value => Secret.Create(secret.Name, value, secret.Purpose))];
+        return [secret, .. new[] { encoded, encoded.TrimEnd('=') }.Distinct().Select(value => Secret.Create(secret.Name, value, secret.Purpose))];
     }
 }
 

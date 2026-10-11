@@ -2065,7 +2065,7 @@ internal sealed class AttemptScope
     public IReadOnlyList<Secret> Secrets => _secrets;
 
     /// <summary>
-    /// The redactor for <see cref="Secrets"/>, rebuilt only when <see cref="Remember"/>
+    /// The redactor for <see cref="Secrets"/>, rebuilt only when <see cref="Remember(Secret)"/>
     /// has added a secret since the last build: building one costs time linear in
     /// the values' length, so a long value must not pay it on every snapshot.
     /// </summary>
@@ -2137,17 +2137,20 @@ internal sealed class AttemptScope
 
     public void Remember(IReadOnlyDictionary<string, object?>? parameters)
     {
-        if (parameters is null)
+        foreach (var value in parameters?.Values ?? [])
         {
-            return;
-        }
-
-        foreach (var value in parameters.Values)
-        {
-            if (value is Secret secret && !Secrets.Any(item => string.Equals(item.Name, secret.Name, StringComparison.Ordinal) && string.Equals(item.Value, secret.Value, StringComparison.Ordinal)))
+            if (value is Secret secret)
             {
-                _secrets.Add(secret);
+                Remember(secret);
             }
+        }
+    }
+
+    public void Remember(Secret secret)
+    {
+        if (!Secrets.Any(item => string.Equals(item.Name, secret.Name, StringComparison.Ordinal) && string.Equals(item.Value, secret.Value, StringComparison.Ordinal)))
+        {
+            _secrets.Add(secret);
         }
     }
 
