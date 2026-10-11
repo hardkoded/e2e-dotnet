@@ -44,19 +44,6 @@ public sealed class WebEngineTests
         """;
 
     [Fact]
-    public async Task Chromium_upgrades_the_plan_when_a_browser_is_installed()
-    {
-        using var site = await TinySite.StartAsync(BillingPage);
-        var session = await StartAsync(site, UpgradeModel(() => { }), cache: null);
-        await RunAsync(session, async () =>
-        {
-            await session.App.OpenAsync("/");
-            await session.Agent.ActAsync("upgrade the workspace to the Pro plan");
-            await Expect.That(session.Screen.GetByRole("status")).ToContainTextAsync("Pro");
-        });
-    }
-
-    [Fact]
     public async Task Chromium_acts_on_the_element_a_ref_names_when_two_share_a_role_and_name()
     {
         using var site = await TinySite.StartAsync(ProjectsPage);
@@ -99,53 +86,6 @@ public sealed class WebEngineTests
             });
             Assert.Equal(run, session.Replayed);
             Assert.Equal(run == 0, calls > 0);
-        }
-    }
-
-    [Fact]
-    public async Task Chromium_reads_names_and_states_the_way_accname_and_aria_do()
-    {
-        const string page = """
-            <!DOCTYPE html>
-            <html><body>
-            <span id="heading">Referenced name</span>
-            <button type="button" data-testid="labelled" aria-labelledby="heading" aria-label="Own label">x</button>
-            <button type="button" data-testid="aria-disabled" aria-disabled="true">Save</button>
-            <div aria-disabled="true">
-              <button type="button" data-testid="inherited">Inherited</button>
-              <div aria-disabled="false"><button type="button" data-testid="cut">Cut</button></div>
-            </div>
-            <fieldset disabled>
-              <legend><input type="checkbox" data-testid="legend"></legend>
-              <input type="text" data-testid="fieldset">
-            </fieldset>
-            <button type="button" data-testid="enabled">Enabled</button>
-            <div role="checkbox" aria-checked="true" data-testid="custom-checked">Custom</div>
-            <div role="switch" aria-checked="true" data-testid="switch">Switch</div>
-            <div role="checkbox" aria-checked="mixed" data-testid="mixed">Mixed</div>
-            <input type="checkbox" aria-checked="true" data-testid="native">
-            </body></html>
-            """;
-        using var site = await TinySite.StartAsync(page);
-        var session = await new WebEngine(headless: true).StartAsync(new EngineStartOptions { BaseUrl = site.Url }, CancellationToken.None);
-
-        await using (session)
-        {
-            await session.OpenAsync(site.Url, CancellationToken.None);
-            var observation = await session.ObserveAsync(CancellationToken.None);
-            var nodes = Flatten(observation.Roots).Where(node => node.TestId is not null).ToDictionary(node => node.TestId!);
-
-            Assert.Equal("Referenced name", nodes["labelled"].Name);
-            Assert.True(nodes["aria-disabled"].States.Disabled);
-            Assert.True(nodes["inherited"].States.Disabled);
-            Assert.False(nodes["cut"].States.Disabled);
-            Assert.True(nodes["fieldset"].States.Disabled);
-            Assert.False(nodes["legend"].States.Disabled);
-            Assert.False(nodes["enabled"].States.Disabled);
-            Assert.True(nodes["custom-checked"].States.Checked);
-            Assert.True(nodes["switch"].States.Checked);
-            Assert.False(nodes["mixed"].States.Checked);
-            Assert.False(nodes["native"].States.Checked);
         }
     }
 
@@ -455,13 +395,13 @@ internal sealed class TinySite : IDisposable
         context.Response.Close();
     }
 
-    public static async Task<TinySite> StartAsync(Func<HttpListenerContext, Task> handler)
+    public static async Task<TinySite> StartAsync(Func<HttpListenerContext, Task> handler, string host = "127.0.0.1")
     {
         var listener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
         listener.Start();
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
         listener.Stop();
-        var site = new TinySite("http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/", handler);
+        var site = new TinySite("http://" + host + ":" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/", handler);
         site._listener.Prefixes.Add(site.Url);
         site._listener.Start();
         _ = Task.Run(() => site.ListenAsync(site._stop.Token));

@@ -24,7 +24,7 @@ public sealed class BrowserWaitForResponseBodiesTests
     [Theory]
     [InlineData("/api/empty", 200)]
     [InlineData("/api/no-content", 204)]
-    public async Task Resolves_a_genuinely_empty_body_to_an_empty_string(string pathname, int status)
+    public async Task Resolves_a_genuinely_empty_body_at_pathname_to_an_empty_string(string pathname, int status)
     {
         await RunAsync(TimeSpan.FromSeconds(2), async (session, site) =>
         {

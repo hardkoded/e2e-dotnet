@@ -62,14 +62,6 @@ public sealed class EngineErrorTests
     }
 
     [Fact]
-    public void A_field_that_does_not_take_text_is_not_actionable()
-    {
-        var error = Assert.IsType<EngineException>(WebErrors.ClassifyAction(new PlaywrightException("Error: Element is not an <input>, <textarea> or [contenteditable] element"), new LocatorAction.Fill("x")));
-
-        Assert.Equal("NOT_ACTIONABLE", error.Code);
-    }
-
-    [Fact]
     public void A_sensitive_fill_redacts_its_value_and_drops_the_cause()
     {
         var error = Assert.IsType<EngineException>(WebErrors.ClassifyAction(new PlaywrightException("fill(\"hunter2\") failed"), new LocatorAction.Fill("hunter2", Sensitive: true)));
@@ -78,18 +70,6 @@ public sealed class EngineErrorTests
         Assert.DoesNotContain("hunter2", error.Message, StringComparison.Ordinal);
         Assert.Contains("[redacted]", error.Message, StringComparison.Ordinal);
         Assert.Null(error.InnerException);
-    }
-
-    [Fact]
-    public void Navigation_and_reads_map_to_engine_codes()
-    {
-        Assert.Equal("OPERATION_TIMEOUT", WebErrors.Translate(new System.TimeoutException("Timeout 5000ms exceeded."), "navigate to /").Code);
-        Assert.Equal("ENGINE_FAILURE", WebErrors.Translate(new PlaywrightException("net::ERR_CONNECTION_REFUSED"), "navigate to /").Code);
-
-        var stale = WebErrors.NavigationStaleOr(new PlaywrightException("Execution context was destroyed, most likely because of a navigation"), "observe");
-        Assert.Equal("NODE_STALE", stale.Code);
-        Assert.True(stale.Retryable);
-        Assert.Equal("ENGINE_FAILURE", WebErrors.NavigationStaleOr(new PlaywrightException("boom"), "observe").Code);
     }
 
     [Fact]

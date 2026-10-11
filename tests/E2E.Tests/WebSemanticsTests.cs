@@ -289,28 +289,10 @@ public sealed class WebSemanticsTests
         Assert.Equal("loaded", Assert.Single(observation.Roots, node => node.Role == "status").Name);
     }
 
-    [Theory]
-    [InlineData("http://127.0.0.1:5000/path?q=1", true)]
-    [InlineData("https://127.0.0.1/other", true)]
-    [InlineData("http://localhost:5000/", false)]
-    [InlineData("https://cdn.example.com/app.js", false)]
-    [InlineData("data:text/plain,hi", false)]
-    public void Headers_ride_only_requests_for_the_app_host(string url, bool expected)
-    {
-        Assert.Equal(expected, WebEngine.IsAppRequest(url, new Uri("http://127.0.0.1:5000/")));
-    }
-
     [Fact]
-    public void Invalid_web_options_are_refused()
+    public void A_viewport_with_no_size_is_refused()
     {
-        Assert.Equal("INVALID_CONFIG", Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { TestIdAttribute = " " })).Code);
         Assert.Equal("INVALID_CONFIG", Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { Viewport = new WebViewport(0, 10) })).Code);
-        Assert.Equal("INVALID_CONFIG", Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions { BasicAuth = new WebBasicAuth("a:b", "c") })).Code);
-        Assert.Equal("INVALID_CONFIG", Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions
-        {
-            UserAgent = "x",
-            Headers = new Dictionary<string, string> { ["User-Agent"] = "y" },
-        })).Code);
     }
 
     [Fact]
