@@ -1374,7 +1374,7 @@ public sealed class Agent
 
         if (AuthorizeSecretFill(secret, node) is { } denied)
         {
-            return ToolOutcome.Fail("Secret fill refused: " + denied + ".");
+            return ToolOutcome.Fail("Secret fill refused: " + Label(node) + ": " + denied + ".");
         }
 
         await _scope.Session.PerformAsync(node, new LocatorAction.Fill(secret.Value, true), token).ConfigureAwait(false);
