@@ -77,7 +77,9 @@ internal static class PageScript
           const OPAQUE_TAGS = ["svg", "math", "canvas", "video", "audio"];
           const NON_HOST_TAGS = [...OPAQUE_TAGS, "iframe", "img", "hr", "br", "wbr", "area", "a", "button", "input", "textarea", "select"];
           const isEditingHost = (el) => el instanceof HTMLElement && el.isContentEditable && NON_HOST_TAGS.indexOf(el.tagName.toLowerCase()) === -1
-            && !(el.parentElement instanceof HTMLElement && el.parentElement.isContentEditable);
+            && !(el.parentElement instanceof HTMLElement && el.parentElement.isContentEditable)
+            // Port only: a document in designMode makes <html> editable, and the page is not a control.
+            && el !== el.ownerDocument.documentElement;
           const cut = (value, limit) => {
             const text = (value || "").replace(/\s+/g, " ").trim();
             return text.length > limit ? text.slice(0, limit) : text;
