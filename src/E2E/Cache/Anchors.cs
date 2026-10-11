@@ -101,12 +101,12 @@ internal static class Anchors
             var target = new RecordedTarget
             {
                 Role = Field(node.Role),
-                Name = name is null ? null : record(Read(node.Name!, Redactor.NameLimit, name)),
-                Text = text is null ? null : record(Read(node.Text!, Redactor.TextLimit, text)),
+                Name = name is null ? null : record(Read(node.Name!, ObservationLimits.Name, name)),
+                Text = text is null ? null : record(Read(node.Text!, ObservationLimits.Text, text)),
                 TestId = testId is null ? null : redact(testId),
                 Placeholder = placeholder is null ? null : redact(placeholder),
                 InputPurpose = node.InputPurpose is null or "none" ? null : node.InputPurpose,
-                Value = value is null ? null : record(Read(node.Value!, Redactor.TextLimit, value)),
+                Value = value is null ? null : record(Read(node.Value!, ObservationLimits.Text, value)),
                 States = states.Count == 0 ? null : states,
             };
             anchors.Add(new AnchorNode(target, KeyOf(target), node.Children.Count == 0));

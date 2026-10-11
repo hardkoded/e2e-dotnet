@@ -393,17 +393,17 @@ internal sealed class SessionCatalog
         var name = named ? node.Name : node.Text;
         if (!string.IsNullOrEmpty(name))
         {
-            parts.Add(Quote(TextRules.Normalize(redactor.RedactField(name, named ? Redactor.NameLimit : Redactor.TextLimit))));
+            parts.Add(Quote(TextRules.Normalize(redactor.RedactField(name, named ? ObservationLimits.Name : ObservationLimits.Text))));
         }
 
         if (!string.IsNullOrEmpty(node.Name) && !string.IsNullOrEmpty(node.Text) && node.Text != node.Name)
         {
-            parts.Add("text " + Quote(TextRules.Normalize(redactor.RedactField(node.Text, Redactor.TextLimit))));
+            parts.Add("text " + Quote(TextRules.Normalize(redactor.RedactField(node.Text, ObservationLimits.Text))));
         }
 
         if (!node.States.Secure && node.Value is not null)
         {
-            parts.Add("value " + Quote(redactor.RedactField(node.Value, Redactor.TextLimit)));
+            parts.Add("value " + Quote(redactor.RedactField(node.Value, ObservationLimits.Text)));
         }
 
         var states = new List<string>();

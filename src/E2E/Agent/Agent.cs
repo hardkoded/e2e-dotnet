@@ -1235,7 +1235,7 @@ public sealed class Agent
                 return inner;
             }
 
-            if (TextRules.Matches(RedactField(node.Name, Redactor.NameLimit, redactor), text, exact: false) || TextRules.Matches(RedactField(node.Text, Redactor.TextLimit, redactor), text, exact: false))
+            if (TextRules.Matches(RedactField(node.Name, ObservationLimits.Name, redactor), text, exact: false) || TextRules.Matches(RedactField(node.Text, ObservationLimits.Text, redactor), text, exact: false))
             {
                 return node;
             }
@@ -1628,7 +1628,7 @@ public sealed class Agent
     // The label as LabelOf reads it, redacted for the limit of the field it came from.
     private static string? RedactLabel(SemanticNode node, Redactor redactor)
     {
-        return node.Name is not null ? RedactField(node.Name, Redactor.NameLimit, redactor) : RedactField(LabelOf(node), Redactor.TextLimit, redactor);
+        return node.Name is not null ? RedactField(node.Name, ObservationLimits.Name, redactor) : RedactField(LabelOf(node), ObservationLimits.Text, redactor);
     }
 
     private static bool ContainsParam(string name, IReadOnlyDictionary<string, object?>? parameters)
@@ -1733,10 +1733,11 @@ public sealed class Agent
         return builder.ToString();
     }
 
-    private static string Label(SemanticNode node)
+    // A name the engine cut at its limit can end with the leading part of a secret, so it is redacted as a cut field.
+    private string Label(SemanticNode node)
     {
         var role = node.Role ?? "node";
-        return node.Name is null ? role : role + " \"" + node.Name + "\"";
+        return node.Name is null ? role : role + " \"" + _scope.Redactor.RedactField(node.Name, ObservationLimits.Name) + "\"";
     }
 
     private static bool TryProperty(JsonElement element, string name, out JsonElement value)

@@ -20,12 +20,6 @@ internal sealed class Redactor
     /// <summary>The fewest consecutive characters of a value that count as a fragment of it.</summary>
     internal const int FragmentLength = 8;
 
-    /// <summary>The length at which the engine cuts a node's name; a name of exactly this length may be cut.</summary>
-    internal const int NameLimit = 256;
-
-    /// <summary>The length at which the engine cuts a node's text; a text or value of exactly this length may be cut.</summary>
-    internal const int TextLimit = 512;
-
     private static readonly TimeSpan MatchTimeout = TimeSpan.FromSeconds(2);
 
     private static readonly CultureInfo[] CaseCultures =
