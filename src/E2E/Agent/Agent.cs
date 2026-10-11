@@ -158,6 +158,8 @@ public sealed class Agent
 
         var failures = 0;
         string? summary = null;
+        var stopped = false;
+        string? noticed = null;
         for (var call = 0; call < maxCalls; call++)
         {
             if (failures >= 5)
@@ -165,19 +167,37 @@ public sealed class Agent
                 messages.Add(new ModelMessage { Role = "user", Content = "Stop acting. Call done with a verdict." });
             }
 
-            var response = await CallModelAsync(agent.Model, ActSystemFor(agent), messages, AgentTools.ActFor(_scope.EngineCapabilities), agent, token).ConfigureAwait(false);
+            // A repeat warns first. A stop leaves the model only done, so it still writes its own verdict.
+            var (stop, repeat) = stopped ? (true, null) : LoopGuard.Check(LoopGuard.Calls(messages));
+            if (repeat is not null && !string.Equals(repeat, noticed, StringComparison.Ordinal))
+            {
+                noticed = repeat;
+                stopped = stop;
+                messages.Add(new ModelMessage
+                {
+                    Role = "user",
+                    Content = stop
+                        ? "Loop guard: " + repeat + ". Repeating it further will not make progress. Call done now with your best verdict: failed if the application misbehaved, blocked (with a code) if something outside the application stopped you."
+                        : "You appear to be going in circles: " + repeat + ". Change approach, or call done with your best verdict.",
+                });
+            }
+
+            var tools = AgentTools.ActFor(_scope.EngineCapabilities);
+            var response = await CallModelAsync(agent.Model, ActSystemFor(agent), messages, stopped ? tools.Where(tool => string.Equals(tool.Name, "done", StringComparison.Ordinal)).ToList() : tools, agent, token).ConfigureAwait(false);
             if (response.ToolCalls.Count == 0)
             {
-                messages.Add(new ModelMessage { Role = "assistant", Content = response.Content });
+                messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ReasoningItems = response.ReasoningItems });
                 messages.Add(new ModelMessage { Role = "user", Content = "Call a tool. End the step with done." });
                 failures++;
                 continue;
             }
 
-            messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ToolCalls = response.ToolCalls });
+            messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ToolCalls = response.ToolCalls, ReasoningItems = response.ReasoningItems });
             foreach (var toolCall in response.ToolCalls)
             {
-                var outcome = await ExecuteAsync(toolCall, options?.Params, actions, budget, token).ConfigureAwait(false);
+                var outcome = stopped && !string.Equals(toolCall.Name, "done", StringComparison.Ordinal)
+                    ? ToolOutcome.Fail("The loop guard stopped the step. Only done is available.")
+                    : await ExecuteAsync(toolCall, options?.Params, actions, budget, token).ConfigureAwait(false);
                 messages.Add(new ModelMessage
                 {
                     Role = "tool",
@@ -480,7 +500,7 @@ public sealed class Agent
     // A rejected answer stays in the transcript, with a reply to each of its tool calls.
     private static void AddRejected(List<ModelMessage> messages, ModelResponse response)
     {
-        messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ToolCalls = response.ToolCalls });
+        messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ToolCalls = response.ToolCalls, ReasoningItems = response.ReasoningItems });
         foreach (var call in response.ToolCalls)
         {
             messages.Add(new ModelMessage { Role = "tool", ToolCallId = call.Id, Name = call.Name, Content = "rejected" });
