@@ -1341,6 +1341,28 @@ public sealed class Agent
         };
     }
 
+    // The sink policy of upstream's authorizeSecretFill (agent/secrets.ts), with its reasons. The port's tool is
+    // fill_secret where upstream's is type_secret, and a denial is a tool failure the model reads, not a thrown POLICY_DENIED.
+    private static string? AuthorizeSecretFill(Secret secret, SemanticNode node)
+    {
+        if (node.States.Disabled)
+        {
+            return "the target field is disabled";
+        }
+
+        if (!Roles.IsEditable(node))
+        {
+            return "the target is not an editable input (role " + (node.Role ?? "none") + ")";
+        }
+
+        // A password belongs in a password field, where the surface masks it. A generic secret has no field of its
+        // own: it goes wherever the test says, and redaction covers the value the moment it shows on screen.
+        var inputPurpose = string.IsNullOrEmpty(node.InputPurpose) ? "none" : node.InputPurpose;
+        return secret.Purpose == "password" && inputPurpose != "password"
+            ? "field purpose " + inputPurpose + " is incompatible with secret purpose " + secret.Purpose
+            : null;
+    }
+
     private async Task<ToolOutcome> FillSecretAsync(SemanticNode node, JsonElement arguments, List<RecordedAction> actions, CancellationToken token)
     {
         var name = Args.String(arguments, "secret");
@@ -1350,21 +1372,9 @@ public sealed class Agent
             return ToolOutcome.Fail("No secret named '" + (name ?? "") + "' was passed to this step.");
         }
 
-        if (node.States.Disabled)
+        if (AuthorizeSecretFill(secret, node) is { } denied)
         {
-            return ToolOutcome.Fail("Secret fill refused: " + Label(node) + " is disabled.");
-        }
-
-        if (node.Role is not ("textbox" or "searchbox" or "combobox"))
-        {
-            return ToolOutcome.Fail("Secret fill refused: " + Label(node) + " is not an editable input (role " + (node.Role ?? "none") + ").");
-        }
-
-        // A password belongs in a password field, where the surface masks it. A generic secret goes wherever the test says.
-        var purpose = string.IsNullOrEmpty(node.InputPurpose) ? "none" : node.InputPurpose;
-        if (secret.Purpose == "password" && purpose != "password")
-        {
-            return ToolOutcome.Fail("Secret fill refused: field purpose " + purpose + " is incompatible with secret purpose " + secret.Purpose + ".");
+            return ToolOutcome.Fail("Secret fill refused: " + denied + ".");
         }
 
         await _scope.Session.PerformAsync(node, new LocatorAction.Fill(secret.Value, true), token).ConfigureAwait(false);

@@ -34,7 +34,8 @@ internal static class PageScript
           const skip = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE"]);
           const leaves = new Set(["button", "link", "textbox", "checkbox", "radio", "searchbox", "heading", "status", "image", "tab",
             "option", "menuitem", "menuitemcheckbox", "menuitemradio", "switch", "slider", "spinbutton", "progressbar", "meter", "separator", "iframe"]);
-          // An editing host lists its children: the editor's document, and the editors nested in it.
+          // Port only: upstream has no leaf set, since its walk lists every child. An
+          // editing host lists its children (the editor's document, and the editors nested in it).
           const isLeaf = (el, role) => !!role && leaves.has(role) && !isEditingHost(el);
           const maxSelectOptions = 60;
           const textLimit = 512;
@@ -123,7 +124,8 @@ internal static class PageScript
           // embedded surface and a void element hold no DOM text to edit, and a
           // native control has a role and a value of its own. Chromium reports
           // isContentEditable on all of them regardless.
-          const nonHostTags = new Set(["SVG", "MATH", "CANVAS", "VIDEO", "AUDIO", "IFRAME", "IMG", "HR", "BR", "WBR", "AREA", "A",
+          // Uppercase tag names, where upstream's NON_HOST_TAGS lists them lowercase.
+          const NON_HOST_TAGS = new Set(["SVG", "MATH", "CANVAS", "VIDEO", "AUDIO", "IFRAME", "IMG", "HR", "BR", "WBR", "AREA", "A",
             "BUTTON", "INPUT", "TEXTAREA", "SELECT"]);
           // The root of a contenteditable region: editable itself, under a
           // parent that is not. A rich-text editor renders its document as such
@@ -131,8 +133,9 @@ internal static class PageScript
           // into, whatever its tag, and the blocks are its content. A document in
           // designMode makes <html> editable; the page is not a control.
           const isEditingHost = (el) =>
-            el instanceof HTMLElement && el.isContentEditable && el !== el.ownerDocument.documentElement && !nonHostTags.has(el.tagName.toUpperCase()) &&
+            el instanceof HTMLElement && el.isContentEditable && el !== el.ownerDocument.documentElement /* port only: designMode makes <html> editable */ && !NON_HOST_TAGS.has(el.tagName.toUpperCase()) &&
             !(el.parentElement instanceof HTMLElement && el.parentElement.isContentEditable);
+          // Port only: upstream has no paragraph role, so it needs no test for content inside a host.
           const inEditingHost = (el) => {
             if (el.parentElement?.closest("[contenteditable]") == null) return false;
             for (let parent = el.parentElement; parent !== null; parent = parent.parentElement) {
@@ -479,18 +482,6 @@ internal static class PageScript
             }
             return null;
           };
-          // An editor's document is its value, as a textarea's text is: kept as
-          // rendered, spaces and newlines included. An empty editor renders
-          // <p><br></p>, which innerText reads as a newline, so a document with no
-          // text nodes, or with only markup whitespace that renders as that one
-          // newline, is an empty value; typed spaces are text nodes and stay. The
-          // zero-width no-break space Slate and Quill pad an empty line with
-          // renders nothing, so it is no text either.
-          const editorValueOf = (host) => {
-            const rendered = host.innerText.replace(/\uFEFF/g, "");
-            const text = (host.textContent || "").replace(/\uFEFF/g, "");
-            return text === "" || (text.trim() === "" && rendered === "\n") ? "" : rendered;
-          };
           const accessibleName = (el, role) => {
             // accname reads a labelledby reference (2B) before the element's own aria-label (2C).
             const referenced = referencedNamesOf(el, nameWalk([], true));
@@ -818,6 +809,19 @@ internal static class PageScript
               }
               if (textNode) textCount++;
               else count++;
+              // An editor's document is its value, as a textarea's text is: kept as
+              // rendered, spaces and newlines included. An empty editor renders
+              // <p><br></p>, which innerText reads as a newline, so a document with no
+              // text nodes, or with only markup whitespace that renders as that one
+              // newline, is an empty value; typed spaces are text nodes and stay. The
+              // zero-width no-break space Slate and Quill pad an empty line with
+              // renders nothing, so it is no text either.
+              let editorValue = null;
+              if (isEditingHost(el)) {
+                const rendered = el.innerText.replace(/\uFEFF/g, "");
+                const text = (el.textContent || "").replace(/\uFEFF/g, "");
+                editorValue = text === "" || (text.trim() === "" && rendered === "\n") ? "" : rendered;
+              }
               const type = (el.getAttribute("type") || "").toLowerCase();
               const secure = type === "password" || el.getAttribute("autocomplete") === "current-password";
               const ownsChildren = !isLeaf(el, role) && el.tagName !== "SELECT" && !isFrame;
@@ -835,7 +839,7 @@ internal static class PageScript
                 // text it owns, read as a line: its inline words stay in place.
                 ownText: secure || !ownsChildren ? null : cut(lineTextOf(el), textLimit),
                 inline: secure || !ownsChildren || lineTextOf(el) === "" ? null : inlineNodesOf(el, isHidden),
-                value: secure ? null : el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement ? String(el.value ?? "") : isEditingHost(el) ? editorValueOf(el) : null,
+                value: secure ? null : el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement ? String(el.value ?? "") : editorValue,
                 testId,
                 placeholder: el.getAttribute("placeholder"),
                 inputPurpose: secure ? "password" : null,
