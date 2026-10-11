@@ -30,7 +30,7 @@ public sealed class AgentActVerdictMappingTests
     }
 
     [Fact]
-    public async Task Fails_closed_when_the_executor_claims_success_over_an_exhausted_budget()
+    public async Task Fails_closed_when_the_model_claims_success_over_an_exhausted_action_budget()
     {
         var model = new ScriptedModel(request =>
         {
@@ -56,7 +56,7 @@ public sealed class AgentActVerdictMappingTests
     }
 
     [Fact]
-    public async Task Cuts_a_hanging_executor_at_the_step_timeout()
+    public async Task Cuts_a_hanging_model_at_the_step_timeout()
     {
         var watch = System.Diagnostics.Stopwatch.StartNew();
         var result = await RunAsync(
@@ -74,7 +74,7 @@ public sealed class AgentActVerdictMappingTests
     }
 
     [Fact]
-    public async Task Hard_stops_an_executor_that_overspends_the_model_call_budget()
+    public async Task Hard_stops_a_model_that_overspends_the_model_call_budget()
     {
         var result = await RunAsync(
             async ctx =>
@@ -93,7 +93,7 @@ public sealed class AgentActVerdictMappingTests
     }
 
     [Fact]
-    public async Task Stamps_the_runtime_code_onto_a_code_less_failed_verdict_after_a_hard_stop()
+    public async Task Stamps_the_budget_code_onto_a_code_less_failed_verdict_after_a_hard_stop()
     {
         var model = new ScriptedModel(request =>
         {
@@ -113,13 +113,16 @@ public sealed class AgentActVerdictMappingTests
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("STEP_BUDGET_EXHAUSTED", error.Code);
+        Assert.True(error.Blocked);
         Assert.Contains("the counter looked wrong", error.Message, StringComparison.Ordinal);
+        Assert.Equal(error.Message, error.Explanation);
+        Assert.Equal(3, model.CallCount);
     }
 
     // Upstream's generic secret in a plain textbox and its provider-backed secret are not ported: the port has no
     // secret purpose check for a plain field and no credential provider functions.
     [Fact]
-    public async Task Fills_a_declared_secret_through_typeSecret_never_exposing_the_value()
+    public async Task Fills_a_declared_secret_through_fill_secret_and_refuses_an_undeclared_one()
     {
         string? typed = null;
         var world = new DocumentWorld().Map("/", page => page.Roots.Add(new DocumentElement

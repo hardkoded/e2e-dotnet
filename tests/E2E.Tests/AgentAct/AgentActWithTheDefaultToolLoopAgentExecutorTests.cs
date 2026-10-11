@@ -59,24 +59,40 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
     public async Task Accounts_model_calls_and_tokens_in_the_step_metrics()
     {
         ActResult? act = null;
+        ActResult? replayed = null;
+        var directory = TempCache();
         var model = new ScriptedModel(request => new ModelResponse
         {
-            ToolCalls = IncrementThenConcludeTurn(request).ToolCalls,
+            ToolCalls = request.Messages.Any(message => message.Content?.Contains("Statement:", StringComparison.Ordinal) == true) || request.Messages.Any(message => message.Role == "tool") ? ModelResponses.Done("passed", "upgraded").ToolCalls : ModelResponses.Tap("button", "Upgrade to Pro").ToolCalls,
             Usage = new ModelUsage { InputTokens = 11, OutputTokens = 3 },
         });
         var result = await RunAsync(
             async ctx =>
             {
-                await ctx.App.OpenAsync("/");
-                act = await ctx.Agent.ActAsync(Instruction);
+                await ctx.App.OpenAsync("/settings/billing");
+                act = await ctx.Agent.ActAsync("upgrade the workspace to the Pro plan");
+                await ctx.Agent.AssertAsync("the invoice preview shows a prorated amount");
             },
-            CounterPage.World(),
-            model);
+            model: model,
+            cacheDirectory: directory);
+        var second = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/settings/billing");
+                replayed = await ctx.Agent.ActAsync("upgrade the workspace to the Pro plan");
+                await ctx.Agent.AssertAsync("the invoice preview shows a prorated amount");
+            },
+            model: model,
+            cacheDirectory: directory);
 
         Assert.Null(result.Error);
+        Assert.Null(second.Error);
+        Assert.Equal(0, replayed!.ModelCalls);
+        Assert.Equal(1, replayed.Actions);
         Assert.True(act!.ModelCalls >= 2);
         Assert.Equal(1, act.Actions);
-        Assert.Equal(act.ModelCalls, result.ModelCalls);
+        // The session also counts the one judgment of the assertion.
+        Assert.Equal(act.ModelCalls + 1, result.ModelCalls);
         Assert.Equal(11 * result.ModelCalls, result.InputTokens);
         Assert.Equal(3 * result.ModelCalls, result.OutputTokens);
     }

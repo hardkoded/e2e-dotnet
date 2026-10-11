@@ -10,7 +10,7 @@ namespace E2E.Tests.AgentActStress;
 public sealed class InputBoundariesAndAdversarialLoopsTests
 {
     [Fact]
-    public async Task Rejects_params_past_the_canonical_size_and_depth_bounds()
+    public async Task Rejects_params_past_the_size_and_depth_bounds()
     {
         var model = new ScriptedModel(_ => throw new InvalidOperationException("no model call expected"));
         var oversized = await RunAsync(
@@ -42,7 +42,7 @@ public sealed class InputBoundariesAndAdversarialLoopsTests
 
     // The port has no forced-conclusion turn, so the model that keeps tapping meets its loop guard and its call budget.
     [Fact]
-    public async Task Survives_a_model_that_defies_the_forced_conclusion()
+    public async Task Ends_a_model_that_keeps_tapping_past_the_loop_guard_with_a_terminal_code()
     {
         // Always tap, even when only done is offered.
         var model = new ScriptedModel(_ => ModelResponses.Tap("button", "Increment"));
@@ -55,13 +55,14 @@ public sealed class InputBoundariesAndAdversarialLoopsTests
             CounterPage.World(),
             model);
 
-        // Any sane terminal code is fine; hanging or passing is not.
+        // Hanging or passing is not an option: the call budget ends it.
         var error = Assert.IsType<AgentException>(result.Error);
-        Assert.Contains(error.Code, new[] { "STEP_NO_CONCLUSION", "MODEL_PROVIDER_FAILED", "MODEL_OUTPUT_INVALID", "STEP_BUDGET_EXHAUSTED" });
+        Assert.Equal("STEP_BUDGET_EXHAUSTED", error.Code);
+        Assert.Equal(6, model.CallCount);
     }
 
     [Fact]
-    public async Task Runs_sequential_act_steps_with_fresh_budgets_each()
+    public async Task Runs_sequential_act_steps_with_fresh_action_budgets_each()
     {
         var results = new List<ActResult>();
         var model = new ScriptedModel(request => request.Messages.Any(message => message.Role == "tool")

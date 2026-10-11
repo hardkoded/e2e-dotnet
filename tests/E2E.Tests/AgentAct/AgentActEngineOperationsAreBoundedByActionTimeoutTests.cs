@@ -11,7 +11,7 @@ namespace E2E.Tests.AgentAct;
 public sealed class AgentActEngineOperationsAreBoundedByActionTimeoutTests
 {
     [Fact]
-    public async Task A_page_that_never_settles_costs_one_action_timeout_not_the_step_budget()
+    public async Task A_navigation_that_never_settles_costs_one_action_timeout_not_the_step_budget()
     {
         using var site = await TinySite.StartAsync(context => context.Request.Url!.AbsolutePath == "/hang"
             ? Task.Delay(Timeout.Infinite)
