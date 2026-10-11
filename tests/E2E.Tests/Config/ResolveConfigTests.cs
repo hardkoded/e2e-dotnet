@@ -135,15 +135,15 @@ public sealed class ResolveConfigTests
 
     /// <summary>Partial: the port has no password handles or credentials to share a name with.</summary>
     [Theory]
-    [InlineData("""{ "secrets": { "key": "" } }""", null)]
-    [InlineData("""{ "secrets": { "key": 42 } }""", null)]
-    [InlineData("""{ "secrets": { "key": { "value": "v" } } }""", null)]
-    [InlineData("""{ "secrets": { "key": "valid-value" } }""", "E2E_SECRET_KEY")]
-    public void Rejects_an_empty_or_non_string_secret_and_an_empty_override(string json, string? emptyOverride)
+    [InlineData("""{ "secrets": { "key": "" } }""", null, "secret \"key\" must be a non-empty string")]
+    [InlineData("""{ "secrets": { "key": 42 } }""", null, "secret \"key\" must be a non-empty string, or null to read only E2E_SECRET_KEY")]
+    [InlineData("""{ "secrets": { "key": { "value": "v" } } }""", null, "secret \"key\" must be a non-empty string, or null to read only E2E_SECRET_KEY")]
+    [InlineData("""{ "secrets": { "key": "valid-value" } }""", "E2E_SECRET_KEY", "secret \"key\" must be a non-empty string")]
+    public void Rejects_an_empty_or_non_string_secret_and_an_empty_override(string json, string? emptyOverride, string message)
     {
         var environment = emptyOverride is null ? Env() : Env((emptyOverride, ""));
         var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(json, Root, environment));
-        Assert.Contains("secret \"key\" must be", error.Message, StringComparison.Ordinal);
+        Assert.Equal(message, error.Message);
     }
 
     /// <summary>Partial: the port has no credentials, so only the E2E_SECRET_* half is checked.</summary>

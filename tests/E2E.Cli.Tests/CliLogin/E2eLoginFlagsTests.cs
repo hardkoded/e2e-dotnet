@@ -91,8 +91,9 @@ public sealed class E2eLoginFlagsTests : IDisposable
     {
         OAuthProviders.Replacements["github-copilot"] = new CopilotProvider(githubCliToken: (_, _) => Task.FromResult<string?>(null));
 
-        var error = await Assert.ThrowsAsync<OAuthException>(() => LoginAsync("github-copilot", "--from-gh"));
+        var error = await Assert.ThrowsAsync<OAuthException>(() => LoginAsync("github-copilot", "--client-id", "Iv23_my_app", "--from-gh"));
 
+        // With a client id and no --from-gh the flow would run GitHub's device flow, so the error proves the flag arrived.
         Assert.Equal(
             "GitHub Copilot login needs either the GitHub CLI signed in (gh auth login) or the client id of a GitHub OAuth App with the device flow enabled",
             error.Message);

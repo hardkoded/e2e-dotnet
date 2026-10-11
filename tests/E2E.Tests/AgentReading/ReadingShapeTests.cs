@@ -18,11 +18,11 @@ public sealed class ReadingShapeTests
     {
         var moving = await PageAsync(textMoves: 12);
         Assert.Contains("before the screen stopped moving", moving.Result, StringComparison.Ordinal);
-        Assert.True(moving.Swipes >= 12);
+        Assert.True(moving.Swipes >= 15);
 
         var still = await PageAsync(textMoves: 0);
         Assert.Contains("before the screen stopped moving", still.Result, StringComparison.Ordinal);
-        Assert.True(still.Swipes < 6);
+        Assert.True(still.Swipes <= 4);
     }
 
     private static async Task<(string Result, int Swipes)> PageAsync(int textMoves)

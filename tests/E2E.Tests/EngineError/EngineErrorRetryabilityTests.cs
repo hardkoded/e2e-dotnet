@@ -21,7 +21,9 @@ public sealed class EngineErrorRetryabilityTests
     [Fact]
     public void Keeps_a_legal_retryable_claim()
     {
-        foreach (var code in Codes.Where(EngineErrorCodes.IsRetryable))
+        var legal = Codes.Where(EngineErrorCodes.IsRetryable).ToArray();
+        Assert.Equal(["NODE_STALE", "FRAME_NOT_FOUND"], legal.Order(StringComparer.Ordinal).Reverse());
+        foreach (var code in legal)
         {
             var error = new EngineException(code, "again", retryable: true);
             Assert.Equal(code, error.Code);
@@ -48,5 +50,6 @@ public sealed class EngineErrorRetryabilityTests
         var error = new EngineException("ACTION_MAY_HAVE_COMMITTED", "sent", retryable: false);
 
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", error.Code);
+        Assert.False(new EngineException("NODE_STALE", "gone").Retryable);
     }
 }

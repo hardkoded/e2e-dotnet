@@ -33,8 +33,9 @@ public sealed class E2eVersionAndHelpTests
 
         foreach (var args in new[] { new[] { "-h" }, ["help"] })
         {
-            var (code, stdout, _) = await InvokeAsync(args);
+            var (code, stdout, stderr) = await InvokeAsync(args);
             Assert.Equal(expected, stdout);
+            Assert.Equal("", stderr);
             Assert.Equal(0, code);
         }
     }
