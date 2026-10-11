@@ -20,7 +20,7 @@ internal sealed class ScriptedEngine(ScriptedScene scene) : IEngine
     public string Version => "1";
 
     public EngineCapabilities Capabilities =>
-        EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | EngineCapabilities.Keyboard
+        EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location
         | EngineCapabilities.Scroll | EngineCapabilities.History;
 
     public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>

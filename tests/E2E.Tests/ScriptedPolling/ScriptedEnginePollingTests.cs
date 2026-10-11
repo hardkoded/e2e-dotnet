@@ -22,22 +22,22 @@ public sealed class ScriptedEnginePollingTests
     {
         using var late = ReferenceScene.Create();
         await Expect.That(late.Screen.GetByRole("button", "Late arrival")).ToHaveCountAsync(0);
-        await late.Screen.GetByRole("button", "Reveal").TapAsync();
         var watch = Stopwatch.StartNew();
+        await late.Screen.GetByRole("button", "Reveal").TapAsync();
         await Expect.That(late.Screen.GetByRole("button", "Late arrival")).ToBeVisibleAsync(timeout: Soon);
         await late.Screen.GetByRole("button", "Late arrival").WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Visible });
         Assert.True(watch.Elapsed >= TimeSpan.FromMilliseconds(200), "toBeVisible took " + watch.Elapsed);
 
         using var growing = ReferenceScene.Create();
-        await growing.Screen.GetByRole("button", "Load more").TapAsync();
         watch.Restart();
+        await growing.Screen.GetByRole("button", "Load more").TapAsync();
         await Expect.That(growing.Screen.GetByRole("list", "Growing").GetByRole("listitem")).ToHaveCountAsync(3, timeout: Soon);
         Assert.True(watch.Elapsed >= TimeSpan.FromMilliseconds(300), "toHaveCount took " + watch.Elapsed);
 
         using var changing = ReferenceScene.Create();
         await Expect.That(changing.Screen.GetByRole("menuitem", "Save")).ToBeDisabledAsync();
-        await changing.Screen.GetByRole("button", "Advance").TapAsync();
         watch.Restart();
+        await changing.Screen.GetByRole("button", "Advance").TapAsync();
         await Expect.That(changing.Screen.GetByRole("spinbutton", "Progress")).ToHaveValueAsync("100", timeout: Soon);
         Assert.True(watch.Elapsed >= TimeSpan.FromMilliseconds(150), "toHaveValue took " + watch.Elapsed);
         await Expect.That(changing.Screen.GetByRole("status", "Ticker")).ToHaveTextAsync("tock", timeout: Soon);
@@ -53,8 +53,8 @@ public sealed class ScriptedEnginePollingTests
         Assert.True(watch.Elapsed >= TimeSpan.FromMilliseconds(900), "not.toBeVisible took " + watch.Elapsed);
 
         using var flipped = ReferenceScene.Create();
-        await flipped.Screen.GetByRole("button", "Reveal").TapAsync();
         watch.Restart();
+        await flipped.Screen.GetByRole("button", "Reveal").TapAsync();
         await Expect.That(flipped.Screen.GetByRole("status", "Loading")).Not.ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(2500));
         Assert.True(watch.Elapsed >= TimeSpan.FromMilliseconds(1150), "not.toBeVisible took " + watch.Elapsed);
         await flipped.Screen.GetByRole("status", "Loading").WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden });

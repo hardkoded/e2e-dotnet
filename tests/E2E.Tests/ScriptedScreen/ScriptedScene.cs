@@ -17,6 +17,7 @@ internal sealed class ScriptedScene : IDisposable
 {
     private readonly List<ScriptedNode> _nodes;
     private readonly List<Timer> _timers = [];
+    private readonly object _gate = new();
     private bool _opened;
 
     public ScriptedScene(Func<ScriptedScene, IEnumerable<ScriptedNode>> build)
@@ -42,7 +43,7 @@ internal sealed class ScriptedScene : IDisposable
 
     /// <summary>Runs <paramref name="mutate"/> once, <paramref name="milliseconds"/> from now; disposing the scene cancels it.</summary>
     public void After(int milliseconds, Action mutate) =>
-        _timers.Add(new Timer(_ => mutate(), null, milliseconds, Timeout.Infinite));
+        _timers.Add(new Timer(_ => { lock (_gate) { mutate(); } }, null, milliseconds, Timeout.Infinite));
 
     public void Open() => _opened = true;
 
@@ -94,6 +95,14 @@ internal sealed class ScriptedScene : IDisposable
 
     public Observation Observe()
     {
+        lock (_gate)
+        {
+            return ObserveLocked();
+        }
+    }
+
+    private Observation ObserveLocked()
+    {
         if (!_opened)
         {
             throw new EngineException(EngineErrorCodes.InvalidState, "no app is open; call app.open() first");
@@ -103,6 +112,14 @@ internal sealed class ScriptedScene : IDisposable
     }
 
     public void Perform(string id, LocatorAction action)
+    {
+        lock (_gate)
+        {
+            PerformLocked(id, action);
+        }
+    }
+
+    private void PerformLocked(string id, LocatorAction action)
     {
         var node = All(_nodes).FirstOrDefault(entry => entry.Id == id)
             ?? throw new EngineException(EngineErrorCodes.NodeStale, "node " + id + " is no longer in the tree");

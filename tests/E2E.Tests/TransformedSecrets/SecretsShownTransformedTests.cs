@@ -85,7 +85,7 @@ public sealed class SecretsShownTransformedTests
         });
         session.Complete();
 
-        var text = string.Join('\n', model.Requests.SelectMany(request => request.Messages.Select(message => message.Content)));
+        var text = string.Join('\n', model.Requests.SelectMany(request => request.Messages.Select(message => message.Content).Prepend(request.System)));
         Assert.Contains("<secret:token>", text, StringComparison.Ordinal);
         Assert.Contains("<secret:note>", text, StringComparison.Ordinal);
         foreach (var form in Forms)
