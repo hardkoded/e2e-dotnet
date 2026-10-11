@@ -328,7 +328,7 @@ public sealed partial class WebEngine : IEngine
             IBrowser browser;
             if (_options.Connect is { } connect)
             {
-                var endpoint = await connect.CdpEndpoint(cancellationToken).ConfigureAwait(false);
+                var endpoint = await ResolveEndpointAsync(connect, cancellationToken).ConfigureAwait(false);
 
                 // As upstream, a connect that never answers is bounded by the browser launch budget.
                 browser = await ConnectCdp(playwright, endpoint, E2EDefaults.LaunchTimeout, cancellationToken).ConfigureAwait(false);
@@ -353,6 +353,27 @@ public sealed partial class WebEngine : IEngine
         {
             throw new EngineException(EngineErrorCodes.EngineFailure, "browser launch failed: " + WebErrors.Message(ex), ex);
         }
+    }
+
+    /// <summary>
+    /// Asks <c>connect.cdpEndpoint</c> for the endpoint to attach to. A resolver that is still pending when
+    /// <paramref name="cancellationToken"/> fires is abandoned; one that throws or yields nothing fails the start.
+    /// </summary>
+    private static async Task<string> ResolveEndpointAsync(WebConnectOptions connect, CancellationToken cancellationToken)
+    {
+        string endpoint;
+        try
+        {
+            endpoint = await connect.CdpEndpoint(cancellationToken).WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not (OperationCanceledException or EngineException))
+        {
+            throw new EngineException(EngineErrorCodes.EngineFailure, "browser launch failed: connect.cdpEndpoint failed: " + ex.Message, ex);
+        }
+
+        return string.IsNullOrWhiteSpace(endpoint)
+            ? throw new EngineException(EngineErrorCodes.EngineFailure, "connect.cdpEndpoint resolved to an empty CDP endpoint")
+            : endpoint;
     }
 
     /// <summary>True when <paramref name="url"/> is bound for the app's host, the only requests the configured headers ride.</summary>
@@ -400,9 +421,9 @@ public sealed partial class WebEngine : IEngine
 
     private static void Validate(WebEngineOptions options)
     {
-        if (string.IsNullOrWhiteSpace(options.TestIdAttribute))
+        if (!AttributeNamePattern().IsMatch(options.TestIdAttribute ?? ""))
         {
-            throw new EngineException("INVALID_CONFIG", "testIdAttribute must name an attribute.");
+            throw new EngineException("INVALID_CONFIG", "testIdAttribute must be an attribute name such as \"data-testid\", got \"" + options.TestIdAttribute + "\".");
         }
 
         if (options.Viewport is { } viewport && (viewport.Width <= 0 || viewport.Height <= 0))
@@ -410,15 +431,49 @@ public sealed partial class WebEngine : IEngine
             throw new EngineException("INVALID_CONFIG", "viewport width and height must be positive.");
         }
 
-        if (options.BasicAuth is { } auth && auth.Username.Contains(':', StringComparison.Ordinal))
+        foreach (var (name, value) in options.Headers ?? new Dictionary<string, string>())
         {
-            throw new EngineException("INVALID_CONFIG", "basicAuth username cannot contain ':'.");
+            if (!HeaderNamePattern().IsMatch(name))
+            {
+                throw new EngineException("INVALID_CONFIG", "headers has an invalid header name: \"" + name + "\".");
+            }
+
+            if (FieldValueControlPattern().IsMatch(value))
+            {
+                throw new EngineException("INVALID_CONFIG", "headers: header \"" + name + "\" must not contain a control character.");
+            }
         }
 
-        if (options.UserAgent is not null && options.Headers is { } headers
-            && headers.Keys.Any(name => string.Equals(name, "user-agent", StringComparison.OrdinalIgnoreCase)))
+        if (options.BasicAuth is { } auth)
         {
-            throw new EngineException("INVALID_CONFIG", "Set the user agent with userAgent or a user-agent header, not both.");
+            if (auth.Username.Length == 0)
+            {
+                throw new EngineException("INVALID_CONFIG", "basicAuth requires a non-empty username string.");
+            }
+
+            if (auth.Username.Contains(':', StringComparison.Ordinal))
+            {
+                throw new EngineException("INVALID_CONFIG", "basicAuth username must not contain \":\".");
+            }
+        }
+
+        if (options.UserAgent is { } userAgent)
+        {
+            if (userAgent.Length == 0)
+            {
+                throw new EngineException("INVALID_CONFIG", "userAgent must be a non-empty string.");
+            }
+
+            if (FieldValueControlPattern().IsMatch(userAgent))
+            {
+                throw new EngineException("INVALID_CONFIG", "userAgent must not contain a control character.");
+            }
+
+            if (options.Headers is { } headers
+                && headers.Keys.Any(name => string.Equals(name, "user-agent", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new EngineException("INVALID_CONFIG", "userAgent and a user-agent header in headers conflict; set userAgent only.");
+            }
         }
 
         if (options.Locale is { } locale)
@@ -531,6 +586,18 @@ public sealed partial class WebEngine : IEngine
         return true;
     }
 
+    // An HTTP header field name: one or more token characters (RFC 9110).
+    [GeneratedRegex(@"^[!#$%&'*+.^_`|~0-9A-Za-z-]+\z")]
+    private static partial Regex HeaderNamePattern();
+
+    // A control character no HTTP field value may carry; a horizontal tab is the one the grammar allows.
+    [GeneratedRegex(@"[\u0000-\u0008\u000A-\u001F\u007F]")]
+    private static partial Regex FieldValueControlPattern();
+
+    // An attribute name an element could carry, so a test id query can match something.
+    [GeneratedRegex(@"^[A-Za-z_:][A-Za-z0-9_:.-]*\z")]
+    private static partial Regex AttributeNamePattern();
+
     // A Unicode locale identifier, as Intl.Locale parses one: language, then
     // optional script, region, variants, extensions, and private use.
     [GeneratedRegex(@"^(?<language>[a-z]{2,3}|[a-z]{5,8})(-[a-z]{4})?(-([a-z]{2}|[0-9]{3}))?(-([a-z0-9]{5,8}|[0-9][a-z0-9]{3}))*(-[0-9a-wyz](-[a-z0-9]{2,8})+)*(-x(-[a-z0-9]{1,8})+)?\z", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
@@ -554,6 +621,12 @@ public sealed partial class WebEngine : IEngine
         if (options.BasicAuth is { } auth)
         {
             context.HttpCredentials = new HttpCredentials { Username = auth.Username, Password = auth.Password };
+        }
+
+        // Routing never sees a service worker's requests, so a worker would skip the headers.
+        if (options.Headers is not null)
+        {
+            context.ServiceWorkers = ServiceWorkerPolicy.Block;
         }
 
         return context;
@@ -900,21 +973,69 @@ public sealed partial class WebEngine : IEngine
             return Budget("title", cancellationToken).WithinAsync(Page.TitleAsync());
         });
 
-        public Task<System.Text.Json.JsonElement?> EvaluateAsync(string expression, object? arg, bool hasArg, CancellationToken cancellationToken) => RunAsync("evaluate", cancellationToken, async () =>
+        public Task<System.Text.Json.JsonElement?> EvaluateAsync(string expression, object? arg, bool hasArg, CancellationToken cancellationToken) => RunAsync<System.Text.Json.JsonElement?>("evaluate", cancellationToken, async () =>
         {
             var budget = Budget("evaluate", cancellationToken);
+            System.Text.Json.JsonElement? outcome;
             try
             {
-                var call = hasArg
-                    ? Page.EvaluateAsync<System.Text.Json.JsonElement?>(expression, arg)
-                    : Page.EvaluateAsync<System.Text.Json.JsonElement?>(expression);
-                return await budget.WithinAsync(call).ConfigureAwait(false);
+                outcome = await budget.WithinAsync(Page.EvaluateAsync<System.Text.Json.JsonElement?>(EvaluationBoundary(expression, hasArg), arg)).ConfigureAwait(false);
+            }
+            catch (PlaywrightException ex) when (ex.Message.StartsWith("SyntaxError", StringComparison.Ordinal))
+            {
+                throw new TestException("EVALUATE_FAILED", PageMessage(ex), ex);
             }
             catch (PlaywrightException ex)
             {
-                throw new TestException("EVALUATE_FAILED", ex.Message, ex);
+                // A failure of the browser, not of the page code: the page code's own exceptions come back as a result.
+                throw WebErrors.Translate(ex, "evaluate");
             }
+            catch (ArgumentException ex)
+            {
+                // Playwright cannot carry a result that is not JSON, such as Infinity or NaN.
+                throw new TestException("INVALID_ARGUMENT", "evaluate argument or result is not JSON: " + ex.Message, ex);
+            }
+
+            var result = outcome!.Value;
+            if (result.GetProperty("ok").GetBoolean())
+            {
+                return result.TryGetProperty("value", out var value) ? value : default(System.Text.Json.JsonElement?);
+            }
+
+            throw new TestException("EVALUATE_FAILED", result.GetProperty("message").GetString()!);
         });
+
+        // One expression: a function it evaluates to is called with the argument, any other value is the result.
+        // The page code runs inside a try, so an exception it throws comes back as data, apart from the browser's own failures.
+        private static string EvaluationBoundary(string expression, bool hasArg) => $$"""
+            async (arg) => {
+              try {
+                return { ok: true, value: await ((result) => typeof result === 'function' ? result({{(hasArg ? "arg" : "")}}) : result)(({{expression}}
+            )) };
+              } catch (cause) {
+                let message;
+                try {
+                  message = typeof cause?.message === 'string' ? cause.message : String(cause);
+                } catch {
+                  message = 'Page evaluation threw an unprintable value';
+                }
+                return { ok: false, message };
+              }
+            }
+            """;
+
+        // What the page code threw, without the stack Playwright appends or the "Error: " it prefixes to an Error's message.
+        private static string PageMessage(PlaywrightException ex)
+        {
+            var message = ex.Message;
+            var stack = message.IndexOf("\n    at ", StringComparison.Ordinal);
+            if (stack >= 0)
+            {
+                message = message[..stack];
+            }
+
+            return message.StartsWith("Error: ", StringComparison.Ordinal) ? message["Error: ".Length..] : message;
+        }
 
         public Task<BrowserResponse> WaitForResponseAsync(Func<string, bool> matches, TimeSpan timeout, CancellationToken cancellationToken) => RunAsync("waitForResponse", cancellationToken, async () =>
         {
@@ -1011,6 +1132,11 @@ public sealed partial class WebEngine : IEngine
 
         public Task SetViewportAsync(int width, int height, CancellationToken cancellationToken) => RunAsync("setViewport", cancellationToken, async () =>
         {
+            if (width < 0 || height < 0)
+            {
+                throw new ArgumentOutOfRangeException(width < 0 ? nameof(width) : nameof(height), "the viewport needs whole, non-negative pixels, got " + width.ToString(System.Globalization.CultureInfo.InvariantCulture) + "x" + height.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+
             var budget = Budget("setViewport", cancellationToken);
             _viewport = new ViewportSize { Width = width, Height = height };
             if (_page is not null)
@@ -1139,10 +1265,10 @@ public sealed partial class WebEngine : IEngine
                 return [];
             }
 
-            string json;
+            System.Text.Json.JsonElement json;
             try
             {
-                json = await budget.WithinAsync(frame.EvaluateAsync<string>(PageScript.Collect, new { seed = _nextRef, max = walk.Remaining, testIdAttribute = _testIdAttribute })).ConfigureAwait(false);
+                json = await budget.WithinAsync(frame.EvaluateAsync<System.Text.Json.JsonElement>(PageScript.Collect, new { seed = _nextRef, max = walk.Remaining, testIdAttribute = _testIdAttribute })).ConfigureAwait(false);
             }
             catch (PlaywrightException) when (frame != _page?.MainFrame)
             {
@@ -2326,6 +2452,11 @@ internal static partial class WebErrors
     /// <summary>An unexpected failure: a timeout becomes <c>OPERATION_TIMEOUT</c>, anything else <c>ENGINE_FAILURE</c>.</summary>
     public static EngineException Translate(Exception cause, string label)
     {
+        if (cause is EngineException classified)
+        {
+            return classified;
+        }
+
         var text = label + ": " + Message(cause);
         return cause is System.TimeoutException
             ? new EngineException(EngineErrorCodes.OperationTimeout, text, cause)
@@ -2347,7 +2478,7 @@ internal static partial class WebErrors
     /// <summary>A read that lost its document to a navigation is a retryable <c>NODE_STALE</c>, so the caller observes the new document.</summary>
     public static EngineException NavigationStaleOr(Exception cause, string label)
     {
-        if (IsNavigationRace(cause))
+        if (cause is not EngineException && IsNavigationRace(cause))
         {
             return new EngineException(EngineErrorCodes.NodeStale, label + ": " + Message(cause), retryable: true, cause);
         }
