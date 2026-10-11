@@ -57,11 +57,11 @@ public sealed class E2eWebTests
         var calls = new List<string[]>();
         using var stdout = new StringWriter();
         using var stderr = new StringWriter();
-        var code = await InstallCommand.RunAsync(args[1..], stdout, stderr, forwarded =>
+        var code = await E2eWebCli.MainAsync(args[1..], new CliIo(stdout, stderr, forwarded =>
         {
             calls.Add(forwarded);
             return exitCode;
-        });
+        }));
         return (code, calls, stdout.ToString(), stderr.ToString());
     }
 }

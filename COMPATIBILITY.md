@@ -123,6 +123,8 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 
 Upstream's `e2e-web` command (`packages/web/src/cli.ts`) has one subcommand, `install`. It runs the pinned Playwright CLI. The port has it as `e2e install [chromium|firefox|webkit ...] [--with-deps]`, in the tool that already ships the Playwright driver. It installs Chromium when no browser is named, forwards the options before the browsers, exits with the Playwright code, prints usage for `-h` or `--help` anywhere, and exits 2 for an unknown option or browser. As upstream, the install runs with `PLAYWRIGHT_SKIP_BROWSER_GC=1` unless the user set it. The engine itself drives Chromium only.
 
+Upstream's command lives in the web package (`e2e-web`, from `@e2e-dev/web`), apart from the `e2e` command. The port is one tool, and `WebEngine` is in the `E2E` package, so the command is `e2e install` in `E2E.Cli`, the one place the Playwright driver ships. The code follows upstream's split: `E2eWebCli.MainAsync` is `main` and `CliIo` is its `CliIo` (`E2eWebCli` is named for the command; a method called `Main` would be taken for an entry point), `WebEngine.RunPlaywrightCli` is `runPlaywrightCli`, and `BrowserConnection.BrowserNames` and `IsBrowserName` are `BROWSER_NAMES` and `isBrowserName`.
+
 Not ported:
 
 - A command named `e2e-web`, and `npx`, `bunx`, and `pnpm exec` usage lines. `dotnet e2e install` is the local tool form.

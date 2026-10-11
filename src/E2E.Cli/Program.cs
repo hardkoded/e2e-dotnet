@@ -81,7 +81,7 @@ public static class Program
 
         if (args[0] == "install")
         {
-            return await InstallCommand.RunAsync(args[1..], stdout, stderr, Microsoft.Playwright.Program.Main).ConfigureAwait(false);
+            return await E2eWebCli.MainAsync(args[1..], new CliIo(stdout, stderr, forwarded => E2E.Engine.WebEngine.RunPlaywrightCli(forwarded))).ConfigureAwait(false);
         }
 
         var (positional, flags) = Parse(args.Skip(1));
