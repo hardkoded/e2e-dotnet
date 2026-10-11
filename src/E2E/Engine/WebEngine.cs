@@ -2077,7 +2077,6 @@ public sealed partial class WebEngine : IEngine
                 TestId = dto.TestId,
                 TestIdAttribute = dto.TestId is null ? null : testIdAttribute,
                 Placeholder = dto.Placeholder,
-                Href = dto.Href,
                 InputPurpose = dto.InputPurpose,
                 Level = dto.Level,
                 States = new NodeStates
@@ -2093,6 +2092,7 @@ public sealed partial class WebEngine : IEngine
                     Selected = dto.Selected,
                 },
                 Attributes = dto.Attributes ?? new Dictionary<string, string>(StringComparer.Ordinal),
+                WholeHref = dto.WholeHref,
                 Rect = dto.Rect is { } rect ? new BoundingBox(rect.X, rect.Y, rect.Width, rect.Height) : null,
                 Children = dto.Children?.Select(child => ToNode(child, testIdAttribute)).ToList() ?? [],
             };
@@ -2261,8 +2261,6 @@ public sealed partial class WebEngine : IEngine
 
         public string? Placeholder { get; set; }
 
-        public string? Href { get; set; }
-
         public string? InputPurpose { get; set; }
 
         public int? Level { get; set; }
@@ -2288,6 +2286,8 @@ public sealed partial class WebEngine : IEngine
         public bool Frame { get; set; }
 
         public Dictionary<string, string>? Attributes { get; set; }
+
+        public string? WholeHref { get; set; }
 
         public WebRect? Rect { get; set; }
 

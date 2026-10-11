@@ -73,13 +73,6 @@ public sealed class SemanticNode
 
     public string? Placeholder { get; init; }
 
-    /// <summary>
-    /// A link's target as the model reads it: origin and path, with the userinfo dropped, a dropped query or fragment
-    /// marked <c>?…</c> or <c>#…</c>, and a <c>data:</c> or <c>javascript:</c> payload reduced to <c>data:…</c> or
-    /// <c>javascript:…</c>. <see cref="Attributes"/> keeps the whole <c>href</c>, which <c>getAttribute</c> reads.
-    /// </summary>
-    public string? Href { get; init; }
-
     /// <summary>What a field takes: <c>username</c>, <c>password</c>, <c>one-time-code</c>, <c>generic-secret</c>, or <c>none</c>.</summary>
     public string? InputPurpose { get; init; }
 
@@ -93,12 +86,18 @@ public sealed class SemanticNode
     /// </summary>
     public IReadOnlyDictionary<string, string> Attributes { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
 
+    /// <summary>
+    /// The whole <c>href</c> attribute. <see cref="Attributes"/> carries it reduced to origin and path, as upstream's tree does,
+    /// but upstream reads <c>getAttribute</c> from a separate node read that keeps the whole value; here that read comes from this tree.
+    /// </summary>
+    internal string? WholeHref { get; init; }
+
     /// <summary>The attribute that carries <see cref="TestId"/>. The tree reports the id as a field, so <see cref="Attributes"/> leaves it out.</summary>
     internal string? TestIdAttribute { get; init; }
 
     /// <summary>Reads one attribute, the test-id attribute included.</summary>
     internal string? AttributeOf(string name) =>
-        Attributes.TryGetValue(name, out var value) ? value : name == TestIdAttribute ? TestId : null;
+        name == "href" && WholeHref is not null ? WholeHref : Attributes.TryGetValue(name, out var value) ? value : name == TestIdAttribute ? TestId : null;
 
     /// <summary>The node's box in viewport CSS pixels, when the platform measures one.</summary>
     public BoundingBox? Rect { get; init; }

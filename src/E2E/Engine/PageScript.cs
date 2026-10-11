@@ -557,7 +557,9 @@ internal static class PageScript
             for (const attr of el.attributes) {
               if (secure && attr.name === "value") continue;
               if (attr.name === testIdAttribute) continue;
-              out[attr.name] = attr.value;
+              // Observations expose href origin and path only: query strings and
+              // fragments routinely carry tokens.
+              out[attr.name] = attr.name === "href" ? originAndPath(attr.value, el.ownerDocument.baseURI) : attr.value;
             }
             return out;
           };
@@ -829,7 +831,8 @@ internal static class PageScript
                 secure,
                 frame: isFrame,
                 attributes: attributesOf(el, secure),
-                href: el.hasAttribute("href") ? originAndPath(el.getAttribute("href"), el.ownerDocument.baseURI) : null,
+                // Upstream's node read keeps the whole href; here every read comes from this tree.
+                wholeHref: el.getAttribute("href"),
                 rect: rectOf(el),
                 children: []
               };

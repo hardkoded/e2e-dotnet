@@ -27,10 +27,10 @@ public sealed class ObservationHrefsTests(ChromiumPage chromium) : IClassFixture
             <a href="blob:null/0b7c4c1e">Opaque</a>
             """);
 
-        var hrefs = (await chromium.CaptureAsync()).Where(node => node.Role == "link").ToDictionary(node => node.Name!, node => node.Href);
+        var hrefs = (await chromium.CaptureAsync()).Where(node => node.Role == "link").ToDictionary(node => node.Name!, node => node.Attributes["href"]);
 
         Assert.Equal(
-            new Dictionary<string, string?>
+            new Dictionary<string, string>
             {
                 ["Project"] = "http://app.test" + project,
                 ["Docs"] = "https://docs.example.test/guides/setup",
