@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using E2E.Internal;
 
 namespace E2E;
 
@@ -99,5 +100,29 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         {
             _pending = new PendingChange(AgentObservation.Shape(Latest), time.GetUtcNow() + wait);
         }
+    }
+
+    /// <summary>
+    /// Upstream's <c>relocate</c>: finds a node that went stale in one fresh look, exactly one match or null. The look is
+    /// taken directly, as upstream's is, because this runs inside an action. Upstream matches with the trace recorder's
+    /// descriptor rules (<c>cache/relocate.ts</c>), which also read placeholder, input purpose, and container, and
+    /// forgive a changed test id. The port matches the role, name, and test id it records.
+    /// </summary>
+    public async Task<SemanticNode?> Relocate(SemanticNode stale, Redactor redactor, CancellationToken token)
+    {
+        var observation = await ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false);
+        var matches = FindLike(observation, stale, redactor);
+        return matches.Count == 1 ? matches[0] : null;
+    }
+
+    /// <summary>
+    /// The nodes that read as <paramref name="node"/> did. A node with no name and no test id has nothing to tell it
+    /// from its twins, so it is never found again: a wrong match would act on the wrong control.
+    /// </summary>
+    public static List<SemanticNode> FindLike(Observation observation, SemanticNode node, Redactor redactor)
+    {
+        var name = Agent.Redact(Agent.LabelOf(node), redactor);
+        var testId = Agent.Redact(node.TestId, redactor);
+        return name is null && testId is null ? [] : Agent.Find(observation, node.Role, name, testId, null, redactor);
     }
 }

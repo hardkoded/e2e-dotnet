@@ -1001,16 +1001,16 @@ public sealed class Agent
             switch (call.Name)
             {
                 case "tap":
-                    await PerformTargetedAsync(node, new LocatorAction.Tap(), token).ConfigureAwait(false);
+                    await TargetedAsync(node, new LocatorAction.Tap(), token).ConfigureAwait(false);
                     actions.Add(Record(node, "tap"));
                     return ToolOutcome.Ok(await DescribeAsync("tapped " + Label(node), actions[^1], token).ConfigureAwait(false));
                 case "double_tap":
-                    await PerformTargetedAsync(node, new LocatorAction.DoubleTap(), token).ConfigureAwait(false);
+                    await TargetedAsync(node, new LocatorAction.DoubleTap(), token).ConfigureAwait(false);
                     actions.Add(Record(node, "doubleTap"));
                     return ToolOutcome.Ok(await DescribeAsync("double-tapped " + Label(node), actions[^1], token).ConfigureAwait(false));
                 case "fill":
                     var value = Args.String(call.Arguments, "value") ?? "";
-                    await PerformTargetedAsync(node, new LocatorAction.Fill(value, false), token).ConfigureAwait(false);
+                    await TargetedAsync(node, new LocatorAction.Fill(value, false), token).ConfigureAwait(false);
                     actions.Add(new RecordedAction
                     {
                         Kind = "fill",
@@ -1024,24 +1024,24 @@ public sealed class Agent
                     return await FillSecretAsync(node, call.Arguments, actions, token).ConfigureAwait(false);
                 case "press":
                     var key = Args.String(call.Arguments, "key") ?? "Enter";
-                    await PerformTargetedAsync(node, new LocatorAction.Press(key), token).ConfigureAwait(false);
+                    await TargetedAsync(node, new LocatorAction.Press(key), token).ConfigureAwait(false);
                     actions.Add(new RecordedAction { Kind = "press", Role = node.Role, Name = Redact(LabelOf(node), _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Key = key });
                     return ToolOutcome.Ok(await DescribeAsync("pressed " + key + " on " + Label(node), actions[^1], token).ConfigureAwait(false));
                 case "select":
                     var selected = Args.String(call.Arguments, "value") ?? "";
-                    await PerformTargetedAsync(node, new LocatorAction.Select(selected), token).ConfigureAwait(false);
+                    await TargetedAsync(node, new LocatorAction.Select(selected), token).ConfigureAwait(false);
                     actions.Add(new RecordedAction { Kind = "select", Role = node.Role, Name = Redact(LabelOf(node), _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Value = selected });
                     return ToolOutcome.Ok(await DescribeAsync("selected " + selected, actions[^1], token).ConfigureAwait(false));
                 case "check":
-                    await PerformTargetedAsync(node, new LocatorAction.Check(), token).ConfigureAwait(false);
+                    await TargetedAsync(node, new LocatorAction.Check(), token).ConfigureAwait(false);
                     actions.Add(Record(node, "check"));
                     return ToolOutcome.Ok(await DescribeAsync("checked " + Label(node), actions[^1], token).ConfigureAwait(false));
                 case "uncheck":
-                    await PerformTargetedAsync(node, new LocatorAction.Uncheck(), token).ConfigureAwait(false);
+                    await TargetedAsync(node, new LocatorAction.Uncheck(), token).ConfigureAwait(false);
                     actions.Add(Record(node, "uncheck"));
                     return ToolOutcome.Ok(await DescribeAsync("unchecked " + Label(node), actions[^1], token).ConfigureAwait(false));
                 case "clear":
-                    await PerformTargetedAsync(node, new LocatorAction.Clear(), token).ConfigureAwait(false);
+                    await TargetedAsync(node, new LocatorAction.Clear(), token).ConfigureAwait(false);
                     actions.Add(Record(node, "clear"));
                     return ToolOutcome.Ok(await DescribeAsync("cleared " + Label(node), actions[^1], token).ConfigureAwait(false));
                 default:
@@ -1361,7 +1361,7 @@ public sealed class Agent
             return ToolOutcome.Fail("Secret fill refused: " + Label(node) + " is not a secret field.");
         }
 
-        await PerformTargetedAsync(node, new LocatorAction.Fill(secret.Value, true), token).ConfigureAwait(false);
+        await TargetedAsync(node, new LocatorAction.Fill(secret.Value, true), token).ConfigureAwait(false);
         actions.Add(new RecordedAction
         {
             Kind = "fill",
@@ -1374,11 +1374,14 @@ public sealed class Agent
     }
 
     /// <summary>
-    /// Performs one action on a node. A node the engine reports stale is found again by its role, name, and test id in a
-    /// fresh look, and the action runs on it: a list that remounts its rows between the look and the action keeps the
+    /// Upstream's <c>targeted</c> loop: performs one action on a node. A node the engine reports stale is found again
+    /// by its description in a fresh look (<see cref="ObservationFeed.Relocate"/>) and the action retried,
+    /// <see cref="MaxStaleRelocations"/> times: a list that remounts its rows between the look and the action keeps the
     /// control on screen under a dead ref. A description that matches nothing, or several nodes, fails the action.
+    /// Upstream splits this into <c>commitTargeted</c>, which wraps the action in the step's accounting, and
+    /// <c>targeted</c>, which holds the loop. The port has no such wrapper, so each verb calls the loop directly.
     /// </summary>
-    private async Task PerformTargetedAsync(SemanticNode node, LocatorAction action, CancellationToken token)
+    private async Task TargetedAsync(SemanticNode node, LocatorAction action, CancellationToken token)
     {
         for (var relocations = 0; ; relocations++)
         {
@@ -1389,7 +1392,7 @@ public sealed class Agent
             }
             catch (EngineException ex) when (ex.Code == EngineErrorCodes.NodeStale)
             {
-                var relocated = relocations < MaxStaleRelocations ? await RelocateAsync(node, token).ConfigureAwait(false) : null;
+                var relocated = relocations < MaxStaleRelocations ? await _feed.Relocate(node, _scope.Redactor, token).ConfigureAwait(false) : null;
                 if (relocated is null)
                 {
                     throw new TestException("LOCATOR_NOT_FOUND", "The target node left the screen before the action reached it.", ex);
@@ -1400,23 +1403,6 @@ public sealed class Agent
         }
     }
 
-    // The one node of a fresh look that reads as the stale node did, or null.
-    private async Task<SemanticNode?> RelocateAsync(SemanticNode stale, CancellationToken token)
-    {
-        var observation = await _feed.ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false);
-        var matches = FindLike(observation, stale);
-        return matches.Count == 1 ? matches[0] : null;
-    }
-
-    // The nodes that read as <paramref name="node"/> did. A node with no name and no test id has nothing to tell it
-    // from its twins, so it is never found again: a wrong match would act on the wrong control.
-    private List<SemanticNode> FindLike(Observation observation, SemanticNode node)
-    {
-        var name = Redact(LabelOf(node), _scope.Redactor);
-        var testId = Redact(node.TestId, _scope.Redactor);
-        return name is null && testId is null ? [] : Find(observation, node.Role, name, testId, null, _scope.Redactor);
-    }
-
     private async Task<SemanticNode> ResolveAsync(JsonElement arguments, CancellationToken token)
     {
         var observation = await _feed.ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false);
@@ -1425,7 +1411,7 @@ public sealed class Agent
         {
             // Several actions of one turn name the screen the turn saw. A ref the newest screen no longer carries,
             // because the element remounted, is the one node that reads the same now.
-            matches = FindLike(observation, seen);
+            matches = ObservationFeed.FindLike(observation, seen, _scope.Redactor);
         }
 
         if (matches.Count == 0)
@@ -1443,7 +1429,7 @@ public sealed class Agent
     }
 
     // A name or test id is matched in its redacted form, the form the model reads and the cache records.
-    private static List<SemanticNode> Find(Observation observation, string? role, string? name, string? testId, string? reference, Redactor redactor)
+    internal static List<SemanticNode> Find(Observation observation, string? role, string? name, string? testId, string? reference, Redactor redactor)
     {
         var matches = new List<SemanticNode>();
         foreach (var node in LocatorResolver.Walk(observation.Roots))
@@ -1689,7 +1675,7 @@ public sealed class Agent
             redactor.Redact);
     }
 
-    private static string? Redact(string? text, Redactor redactor)
+    internal static string? Redact(string? text, Redactor redactor)
     {
         return text is null ? null : redactor.Redact(text);
     }
@@ -1714,7 +1700,7 @@ public sealed class Agent
 
     // The name the snapshot shows: the accessible name, else the text of a node that has none.
     // The model names a target by it, and the cache records it.
-    private static string? LabelOf(SemanticNode node)
+    internal static string? LabelOf(SemanticNode node)
     {
         return node.Name ?? (string.IsNullOrEmpty(node.Text) ? null : node.Text);
     }
