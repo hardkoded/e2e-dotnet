@@ -70,6 +70,14 @@ internal static class PageScript
             const r = box.getBoundingClientRect();
             return r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
           };
+          // Tags a contenteditable never makes an editing host: a drawn or embedded
+          // surface, a void element, and a native control with a value of its own.
+          // Named and shaped as upstream's OPAQUE_TAGS and NON_HOST_TAGS in read-semantics.ts. Upstream
+          // reads the focused element once per observation (focusedElement); this script's `focused` is that.
+          const OPAQUE_TAGS = ["svg", "math", "canvas", "video", "audio"];
+          const NON_HOST_TAGS = [...OPAQUE_TAGS, "iframe", "img", "hr", "br", "wbr", "area", "a", "button", "input", "textarea", "select"];
+          const isEditingHost = (el) => el instanceof HTMLElement && el.isContentEditable && NON_HOST_TAGS.indexOf(el.tagName.toLowerCase()) === -1
+            && !(el.parentElement instanceof HTMLElement && el.parentElement.isContentEditable);
           const cut = (value, limit) => {
             const text = (value || "").replace(/\s+/g, " ").trim();
             return text.length > limit ? text.slice(0, limit) : text;
@@ -120,21 +128,6 @@ internal static class PageScript
           // visible and paint again; nor is aria-hidden, which only the
           // accessibility tree drops.
           const hidesSubtree = (el, style) => style.display === "none" || style.contentVisibility === "hidden";
-          // Tags a contenteditable never makes an editing host: a drawn or
-          // embedded surface and a void element hold no DOM text to edit, and a
-          // native control has a role and a value of its own. Chromium reports
-          // isContentEditable on all of them regardless.
-          // Uppercase tag names, where upstream's NON_HOST_TAGS lists them lowercase.
-          const NON_HOST_TAGS = new Set(["SVG", "MATH", "CANVAS", "VIDEO", "AUDIO", "IFRAME", "IMG", "HR", "BR", "WBR", "AREA", "A",
-            "BUTTON", "INPUT", "TEXTAREA", "SELECT"]);
-          // The root of a contenteditable region: editable itself, under a
-          // parent that is not. A rich-text editor renders its document as such
-          // a host with block children; the host is the control a person types
-          // into, whatever its tag, and the blocks are its content. A document in
-          // designMode makes <html> editable; the page is not a control.
-          const isEditingHost = (el) =>
-            el instanceof HTMLElement && el.isContentEditable && el !== el.ownerDocument.documentElement /* port only: designMode makes <html> editable */ && !NON_HOST_TAGS.has(el.tagName.toUpperCase()) &&
-            !(el.parentElement instanceof HTMLElement && el.parentElement.isContentEditable);
           // Port only: upstream has no paragraph role, so it needs no test for content inside a host.
           const inEditingHost = (el) => {
             if (el.parentElement?.closest("[contenteditable]") == null) return false;
