@@ -69,8 +69,11 @@ internal static class PageScript
           };
           // Tags a contenteditable never makes an editing host: a drawn or embedded
           // surface, a void element, and a native control with a value of its own.
-          const nonHostTags = ["svg", "math", "canvas", "video", "audio", "iframe", "img", "hr", "br", "wbr", "area", "a", "button", "input", "textarea", "select"];
-          const isEditingHost = (el) => el instanceof HTMLElement && el.isContentEditable && !nonHostTags.includes(el.tagName.toLowerCase())
+          // Named and shaped as upstream's OPAQUE_TAGS and NON_HOST_TAGS in read-semantics.ts. Upstream
+          // reads the focused element once per observation (focusedElement); this script's `focused` is that.
+          const OPAQUE_TAGS = ["svg", "math", "canvas", "video", "audio"];
+          const NON_HOST_TAGS = [...OPAQUE_TAGS, "iframe", "img", "hr", "br", "wbr", "area", "a", "button", "input", "textarea", "select"];
+          const isEditingHost = (el) => el instanceof HTMLElement && el.isContentEditable && NON_HOST_TAGS.indexOf(el.tagName.toLowerCase()) === -1
             && !(el.parentElement instanceof HTMLElement && el.parentElement.isContentEditable);
           // The text selected inside a focused field: the slice between a field's
           // selection ends, or the document selection inside an editing host.
@@ -83,9 +86,9 @@ internal static class PageScript
               return el.value.slice(Math.min(start, end), Math.max(start, end));
             }
             if (!isEditingHost(el)) return null;
-            const range = el.ownerDocument.getSelection();
-            if (range === null || range.rangeCount === 0 || range.isCollapsed || !el.contains(range.getRangeAt(0).commonAncestorContainer)) return null;
-            const text = range.toString();
+            const selection = el.ownerDocument.getSelection();
+            if (selection === null || selection.rangeCount === 0 || selection.isCollapsed || !el.contains(selection.getRangeAt(0).commonAncestorContainer)) return null;
+            const text = selection.toString();
             return text === "" ? null : text;
           };
           const cut = (value, limit) => {
