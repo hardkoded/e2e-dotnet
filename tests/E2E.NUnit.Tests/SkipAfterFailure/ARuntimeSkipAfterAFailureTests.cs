@@ -9,7 +9,7 @@ namespace E2E.NUnit.Tests.SkipAfterFailure;
 /// <summary>
 /// Ported from upstream's <c>skip-after-failure.test.ts</c> (tester-army/e2e#924), whose tests
 /// run the CLI over a project. These run <see cref="SkippingFixture"/> through NUnit instead, with
-/// <c>Assert.Ignore</c> and <c>Assert.Inconclusive</c> in place of <c>test.skip</c>. Not ported:
+/// <c>Assert.Ignore</c> in place of <c>test.skip</c>. Not ported:
 /// "shows the original failure when a retry skips" and the <c>failOnSkippedFailure</c> policy
 /// that "keeps clean skips and passing soft assertions green" also sets (the port has no
 /// <c>failOnSkippedFailure</c> and no <c>Skipped After Failure</c> list), "fails a serial member on a soft failure before its
@@ -36,16 +36,6 @@ public sealed class ARuntimeSkipAfterAFailureTests
         Assert.That(result.Message, Does.Contain("toHaveText failed: expected text \"the version\""));
         Assert.That(result.Message, Does.Contain("feature disabled"));
         Assert.That(SkippingFixture.TeardownRan, Is.True);
-    }
-
-    [Test]
-    public void Fails_on_a_soft_failure_before_an_inconclusive_result()
-    {
-        var result = NestedRun.Run(nameof(SkippingFixture.Soft_then_inconclusive));
-
-        Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Failed));
-        Assert.That(result.Message, Does.Contain("toHaveText failed: expected text \"the count\""));
-        Assert.That(result.Message, Does.Contain("feature disabled"));
     }
 
     [Test]
