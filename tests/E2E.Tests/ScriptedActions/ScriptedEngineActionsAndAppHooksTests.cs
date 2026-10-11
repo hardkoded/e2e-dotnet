@@ -94,7 +94,7 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
     }
 
     [Fact]
-    public async Task Routes_app_open_back_restart_and_clearState_to_the_session_hooks()
+    public async Task Reaches_the_session_hooks_in_order_for_app_open_back_restart_and_clearState()
     {
         using var scene = ReferenceScene.Create(open: false);
         var engine = new ScriptedEngine(scene);

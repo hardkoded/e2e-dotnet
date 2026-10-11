@@ -27,7 +27,7 @@ public sealed class ARuntimeSkipAfterAFailureTests
     }
 
     [Test]
-    public void Fails_on_a_soft_failure_before_the_skip_keeping_the_skip_reason_beside_it()
+    public void Fails_with_the_soft_failures_and_the_skip_reason_and_runs_teardown()
     {
         var result = NestedRun.Run(nameof(SkippingFixture.Soft_then_skip));
 
@@ -39,7 +39,7 @@ public sealed class ARuntimeSkipAfterAFailureTests
     }
 
     [Test]
-    public void Retries_a_soft_failure_before_the_skip_like_any_failure()
+    public void Retries_a_soft_failure_before_the_skip_three_times()
     {
         var result = NestedRun.Run(nameof(SkippingFixture.Soft_then_skip_with_retries));
 
@@ -48,7 +48,7 @@ public sealed class ARuntimeSkipAfterAFailureTests
     }
 
     [Test]
-    public void Shows_a_soft_failure_before_the_skip_when_a_retry_then_skips_cleanly()
+    public void Shows_the_soft_failure_of_the_failed_attempt_when_the_retry_skips_cleanly()
     {
         var result = NestedRun.Run(nameof(SkippingFixture.Soft_skip_then_clean_skip));
 

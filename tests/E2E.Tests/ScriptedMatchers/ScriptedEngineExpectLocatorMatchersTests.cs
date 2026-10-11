@@ -64,7 +64,7 @@ public sealed class ScriptedEngineExpectLocatorMatchersTests
     }
 
     [Fact]
-    public async Task Names_the_observed_state_in_every_failure()
+    public async Task Names_the_expected_and_observed_state_in_every_failure_message()
     {
         using var scene = ReferenceScene.Create();
         var screen = scene.Screen;
@@ -118,7 +118,7 @@ public sealed class ScriptedEngineExpectLocatorMatchersTests
     }
 
     [Fact]
-    public async Task Refuses_to_judge_a_secure_field_with_POLICY_DENIED_negated_and_in_list_form_too()
+    public async Task Refuses_to_judge_a_secure_field_with_POLICY_DENIED_negated_and_in_list_form_without_echoing_the_value()
     {
         using var scene = ReferenceScene.Create();
         var screen = scene.Screen;

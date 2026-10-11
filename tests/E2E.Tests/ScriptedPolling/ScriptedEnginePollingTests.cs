@@ -18,7 +18,7 @@ public sealed class ScriptedEnginePollingTests
     private static readonly TimeSpan Soon = TimeSpan.FromMilliseconds(1500);
 
     [Fact]
-    public async Task Polls_until_the_tree_catches_up()
+    public async Task Polls_a_late_node_a_growing_count_and_a_changing_value_until_the_tree_catches_up()
     {
         using var late = ReferenceScene.Create();
         await Expect.That(late.Screen.GetByRole("button", "Late arrival")).ToHaveCountAsync(0);
@@ -45,7 +45,7 @@ public sealed class ScriptedEnginePollingTests
     }
 
     [Fact]
-    public async Task Holds_a_negated_matcher_for_the_grace_window()
+    public async Task Holds_a_negated_matcher_for_the_grace_window_and_after_a_flip_for_at_least_that_long()
     {
         using var held = ReferenceScene.Create();
         var watch = Stopwatch.StartNew();

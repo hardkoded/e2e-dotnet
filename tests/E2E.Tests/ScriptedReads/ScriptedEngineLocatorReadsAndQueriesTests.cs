@@ -66,7 +66,7 @@ public sealed class ScriptedEngineLocatorReadsAndQueriesTests
     }
 
     [Fact]
-    public async Task Refuses_value_reads_on_a_secure_field_with_POLICY_DENIED()
+    public async Task Refuses_value_reads_on_a_secure_field_with_a_POLICY_DENIED_message()
     {
         using var scene = ReferenceScene.Create();
         var screen = scene.Screen;
