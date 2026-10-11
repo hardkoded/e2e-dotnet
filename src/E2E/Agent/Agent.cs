@@ -1632,7 +1632,7 @@ public sealed class Agent
             text => ContainsParam(text, parameters),
             value => CacheKeys.Template(redactor.Redact(value), parameters),
             redactor.Redact,
-            redactor.RedactField);
+            (text, limit) => AgentObservation.RedactText(text, redactor, limit));
     }
 
     private static string? Redact(string? text, Redactor redactor)
@@ -1640,9 +1640,12 @@ public sealed class Agent
         return text is null ? null : redactor.Redact(text);
     }
 
+    // No upstream equivalent: upstream redacts each node field once, when it builds the observation (redactNode).
+    // The port keeps the raw nodes, since the engine reads a node's name, role, and test id as the page wrote them
+    // (WebEngine.RequireNoNewTwinAsync), so each place that shows or records a field redacts it.
     private static string? RedactField(string? text, int limit, Redactor redactor)
     {
-        return text is null ? null : redactor.RedactField(text, limit);
+        return text is null ? null : AgentObservation.RedactText(text, redactor, limit);
     }
 
     // The label as LabelOf reads it, redacted for the limit of the field it came from.
@@ -1757,7 +1760,7 @@ public sealed class Agent
     private string Label(SemanticNode node)
     {
         var role = node.Role ?? "node";
-        return node.Name is null ? role : role + " \"" + _scope.Redactor.RedactField(node.Name, ObservationLimits.Name) + "\"";
+        return node.Name is null ? role : role + " \"" + AgentObservation.RedactText(node.Name, _scope.Redactor, ObservationLimits.Name) + "\"";
     }
 
     private static bool TryProperty(JsonElement element, string name, out JsonElement value)

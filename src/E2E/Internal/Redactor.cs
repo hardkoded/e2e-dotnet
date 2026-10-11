@@ -104,12 +104,6 @@ internal sealed class Redactor
     }
 
     /// <summary>
-    /// <see cref="Redact"/> for a field the engine cuts at <paramref name="limit"/>: <see cref="RedactCut"/> when the
-    /// text is exactly that long, and so possibly cut there. A shorter text is whole, and a longer one was never cut.
-    /// </summary>
-    public string RedactField(string text, int limit) => text.Length == limit ? RedactCut(text) : Redact(text);
-
-    /// <summary>
     /// <see cref="Redact"/> for text cut short at a length limit, as an engine cuts an observed name or text: a value
     /// the cut stopped partway through leaves its leading part at the end, which no whole-value match sees, so the
     /// longest such part becomes that value's marker too, down to <see cref="FragmentLength"/> characters, or half of
