@@ -84,7 +84,9 @@ public sealed class E2ESession : IAsyncDisposable
 
         var projectRoot = Path.GetFullPath(string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot);
         IEngineSession engine;
-        var declared = new List<Secret>();
+
+        // The values the engine registers while it starts, before the attempt's scope exists to take them.
+        var ledger = new List<(string Name, string Value)>();
         var launch = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token);
         try
         {
@@ -94,7 +96,18 @@ public sealed class E2ESession : IAsyncDisposable
             }
 
             engine = await options.Engine.StartAsync(
-                new EngineStartOptions { BaseUrl = baseUrl, ActionTimeout = options.ActionTimeout, ProjectRoot = projectRoot, DeclareSecret = declared.Add },
+                new EngineStartOptions
+                {
+                    BaseUrl = baseUrl,
+                    ActionTimeout = options.ActionTimeout,
+                    ProjectRoot = projectRoot,
+                    ResolveSecret = (secret, resolve) =>
+                    {
+                        var plaintext = Secrecy.ResolveSecretValue(secret, ledger);
+                        Secrecy.RegisterDerivedSecrets(secret.Name, resolve?.Derived?.Invoke(plaintext) ?? [], ledger);
+                        return Task.FromResult(plaintext);
+                    },
+                },
                 launch.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException ex) when (launch.IsCancellationRequested && !timeout.IsCancellationRequested)
@@ -141,7 +154,11 @@ public sealed class E2ESession : IAsyncDisposable
             Token = () => timeout.Token,
             TestFailed = () => softFailures.Any || testFailed(),
         };
-        declared.ForEach(scope.Remember);
+        foreach (var (name, value) in ledger)
+        {
+            scope.Register(name, value);
+        }
+
         var app = new App(engine, baseUrl, () => timeout.Token);
         var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures);
         var agent = new Agent(scope);

@@ -34,8 +34,18 @@ public sealed class EngineStartOptions
     /// <summary>Anchors the files the engine options name, such as an init script's <c>Path</c>. Defaults to the working directory.</summary>
     public string? ProjectRoot { get; init; }
 
-    /// <summary>Called for each secret the engine's own options carry, so the attempt redacts it as it does a secret the test passes.</summary>
-    internal Action<Secret>? DeclareSecret { get; init; }
+    /// <summary>
+    /// The plaintext of a secret an engine option carries, resolved per attempt. The value is registered for redaction
+    /// before it is returned, with the forms <see cref="ResolveSecretOptions.Derived"/> computes from it.
+    /// </summary>
+    internal Func<Secret, ResolveSecretOptions?, Task<string>>? ResolveSecret { get; init; }
+}
+
+/// <summary>What an engine asks of <see cref="EngineStartOptions.ResolveSecret"/> beside the value.</summary>
+internal sealed record ResolveSecretOptions
+{
+    /// <summary>The forms of the plaintext the engine hands to the app in its place, which are redacted wherever the value is.</summary>
+    public Func<string, IReadOnlyList<string>>? Derived { get; init; }
 }
 
 /// <summary>
