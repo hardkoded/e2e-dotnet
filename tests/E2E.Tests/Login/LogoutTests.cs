@@ -10,7 +10,7 @@ namespace E2E.Tests.Login;
 public sealed class LogoutTests
 {
     [Fact]
-    public async Task Reports_whether_a_login_was_stored_and_writes_nothing_when_there_was_none()
+    public async Task Reports_whether_a_login_was_stored_and_removes_it()
     {
         var store = new MemoryCredentialStore(new Dictionary<string, OAuthCredentials>
         {

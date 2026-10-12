@@ -2,12 +2,20 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using System.Text.Json.Nodes;
 
 namespace E2E.Mobile;
 
-/// <summary>One daemon request: the command, its positional arguments, and its flags.</summary>
-public sealed record DeviceCommand(string Name, IReadOnlyList<string> Positionals, JsonObject Flags);
+/// <summary>One daemon request: the command, its positional arguments, its flags, and the structured input a few commands take beside them.</summary>
+public sealed record DeviceCommand(string Name, IReadOnlyList<string> Positionals, JsonObject Flags, JsonObject? Input = null)
+{
+    /// <summary>
+    /// The JSON-RPC method that carries it. A lease command has a method of its own, <c>agent_device.lease.allocate</c>
+    /// and its two siblings, and takes its fields as params; every other command goes through <c>agent_device.command</c>.
+    /// </summary>
+    public string RpcMethod => DeviceCommands.IsLease(Name) ? $"agent_device.lease.{Name["lease_".Length..]}" : "agent_device.command";
+}
 
 /// <summary>
 /// The translation of a client call (<c>namespace.method</c> with its options object) into the command, positionals,
@@ -43,7 +51,8 @@ public static class DeviceCommands
             case DeviceMethods.SessionsClose:
                 return new DeviceCommand("close", [], flags);
             case DeviceMethods.SettingsUpdate:
-                return new DeviceCommand("settings", Settings(flags), flags);
+                var input = flags["setting"]?.GetValue<string>() == "permission" ? Structured(flags, "app") : null;
+                return new DeviceCommand("settings", Settings(flags), flags, input);
             case DeviceMethods.CaptureSnapshot:
                 if (flags.Remove("interactiveOnly", out var interactive) && interactive is not null)
                 {
@@ -53,9 +62,93 @@ public static class DeviceCommands
                 return new DeviceCommand("snapshot", [], flags);
             case DeviceMethods.CaptureScreenshot:
                 return new DeviceCommand("screenshot", Take(flags, "path"), flags);
+            case DeviceMethods.InteractionsPress:
+                return new DeviceCommand("press", Target(flags), flags);
+            case DeviceMethods.InteractionsLongPress:
+                return new DeviceCommand("longpress", [.. Target(flags), .. Number(flags, "durationMs", remove: false)], flags);
+            case DeviceMethods.InteractionsHover:
+                return new DeviceCommand("hover", Target(flags), flags);
+            case DeviceMethods.InteractionsFill:
+                return new DeviceCommand("fill", [.. Target(flags), .. Take(flags, "text")], flags);
+            case DeviceMethods.InteractionsType:
+                return new DeviceCommand("type", Take(flags, "text"), flags);
+            case DeviceMethods.InteractionsSwipe:
+                return new DeviceCommand("swipe", [], flags, Structured(flags, "from", "to"));
+            case DeviceMethods.InteractionsScroll:
+                return new DeviceCommand("scroll", [.. Take(flags, "direction"), .. Number(flags, "amount")], flags);
+            case DeviceMethods.InteractionsPan:
+                return Gesture("pan", flags, ("origin", Point(flags, "x", "y")), ("delta", Point(flags, "dx", "dy")));
+            case DeviceMethods.InteractionsDrag:
+                return Gesture("drag", flags, ("source", Remove(flags, "source")), ("destination", Remove(flags, "destination")));
+            case DeviceMethods.CommandKeyboard:
+                return new DeviceCommand("keyboard", Take(flags, "action"), flags);
+            case DeviceMethods.CommandAlert:
+                return new DeviceCommand("alert", Take(flags, "action"), flags);
+            case DeviceMethods.CommandHome:
+                return new DeviceCommand("home", [], flags);
+            case DeviceMethods.CommandOrientation:
+                return new DeviceCommand("orientation", Take(flags, "orientation"), flags);
+            case DeviceMethods.CommandFold:
+                return new DeviceCommand("fold", Take(flags, "pose"), flags);
+            case DeviceMethods.CommandAppState:
+                return new DeviceCommand("appstate", [], flags);
+            case DeviceMethods.CommandClipboard:
+                return new DeviceCommand("clipboard", Take(flags, "action", "text"), flags);
+            case DeviceMethods.LeasesAllocate:
+                return new DeviceCommand("lease_allocate", [], flags);
+            case DeviceMethods.LeasesHeartbeat:
+                return new DeviceCommand("lease_heartbeat", [], flags);
+            case DeviceMethods.LeasesRelease:
+                return new DeviceCommand("lease_release", [], flags);
             default:
                 throw new NotSupportedException($"The device client does not support {method} yet.");
         }
+    }
+
+    public static bool IsLease(string command) => command.StartsWith("lease_", StringComparison.Ordinal);
+
+    /// <summary>
+    /// The params of a lease request, as the client's lease writer sends them. Each field is the call's option, else the
+    /// client configuration's: <c>tenant</c> is <c>tenantId</c> on the wire and <c>leaseBackend</c> is <c>backend</c>.
+    /// Allocate carries the lease's life (<c>ttlMs</c>, <c>retainOnClose</c>) and its backend, heartbeat and release the
+    /// lease id, heartbeat also <c>ttlMs</c>. No session is named, so the daemon takes <c>default</c>, as it does for the
+    /// upstream client the engine hands no session to.
+    /// </summary>
+    public static JsonObject LeaseParameters(DeviceCommand command, JsonObject settings)
+    {
+        JsonNode? Field(string name) => command.Flags[name] ?? settings[name];
+
+        var parameters = new JsonObject();
+        void Put(string key, JsonNode? value)
+        {
+            if (value is not null)
+            {
+                parameters[key] = value.DeepClone();
+            }
+        }
+
+        Put("tenantId", Field("tenant"));
+        Put("runId", Field("runId"));
+        Put("leaseProvider", Field("leaseProvider"));
+        Put("clientId", Field("clientId"));
+        Put("deviceKey", Field("deviceKey"));
+        switch (command.Name)
+        {
+            case "lease_allocate":
+                Put("ttlMs", command.Flags["ttlMs"]);
+                Put("retainOnClose", command.Flags["retainOnClose"]);
+                Put("backend", Field("leaseBackend"));
+                break;
+            case "lease_heartbeat":
+                Put("leaseId", Field("leaseId"));
+                Put("ttlMs", command.Flags["ttlMs"]);
+                break;
+            default:
+                Put("leaseId", Field("leaseId"));
+                break;
+        }
+
+        return parameters;
     }
 
     /// <summary>Moves the named options out of the flags, in order, as positional arguments. A missing one is skipped.</summary>
@@ -73,6 +166,67 @@ public static class DeviceCommands
         }
 
         return [.. positionals];
+    }
+
+    /// <summary>The target of an interaction: an <c>@ref</c>, a selector, or a point, as the CLI takes it.</summary>
+    private static string[] Target(JsonObject flags)
+    {
+        if (Take(flags, "ref") is { Length: > 0 } reference)
+        {
+            return reference;
+        }
+
+        if (Take(flags, "selector") is { Length: > 0 } selector)
+        {
+            return selector;
+        }
+
+        return [.. Number(flags, "x"), .. Number(flags, "y")];
+    }
+
+    /// <summary>Moves a number out of the flags as a positional argument, as the client writes it: as text. A missing one is skipped.</summary>
+    private static string[] Number(JsonObject flags, string name, bool remove = true)
+    {
+        var found = remove ? flags.Remove(name, out var taken) ? taken : null : flags[name];
+        return found is JsonValue value && value.TryGetValue<double>(out var number) ? [number.ToString("R", CultureInfo.InvariantCulture)] : [];
+    }
+
+    /// <summary>Moves the named options out of the flags into the structured input a command takes beside its positionals.</summary>
+    private static JsonObject Structured(JsonObject flags, params string[] names)
+    {
+        var input = new JsonObject();
+        foreach (var name in names)
+        {
+            if (Remove(flags, name) is { } value)
+            {
+                input[name] = value;
+            }
+        }
+
+        return input;
+    }
+
+    private static JsonNode? Remove(JsonObject flags, string name) => flags.Remove(name, out var value) ? value : null;
+
+    private static JsonObject Point(JsonObject flags, string x, string y) =>
+        new() { ["x"] = Remove(flags, x), ["y"] = Remove(flags, y) };
+
+    /// <summary>A <c>gesture</c> command: its kind is a flag and a field of the input, as the client writes both.</summary>
+    private static DeviceCommand Gesture(string kind, JsonObject flags, params (string Name, JsonNode? Value)[] fields)
+    {
+        var input = new JsonObject { ["kind"] = kind };
+        foreach (var (name, value) in fields)
+        {
+            input[name] = value;
+        }
+
+        if (flags["durationMs"] is { } duration)
+        {
+            input["durationMs"] = duration.DeepClone();
+        }
+
+        flags["kind"] = kind;
+        return new DeviceCommand("gesture", [], flags, input);
     }
 
     /// <summary>
@@ -97,6 +251,10 @@ public static class DeviceCommands
                 return ["clear-app-state", .. Take(flags, "app")];
             case "reset-keychain":
                 return ["reset-keychain", .. Take(flags, "state")];
+            case "location":
+                return ["location", .. Take(flags, "state"), .. Number(flags, "latitude"), .. Number(flags, "longitude")];
+            case "wifi" or "airplane" or "appearance" or "faceid" or "touchid" or "fingerprint":
+                return [setting[0], .. Take(flags, "state")];
             default:
                 throw new NotSupportedException($"The device client does not support the {setting[0]} setting yet.");
         }
