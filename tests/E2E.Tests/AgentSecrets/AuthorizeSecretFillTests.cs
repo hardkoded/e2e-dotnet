@@ -46,7 +46,7 @@ public sealed class AuthorizeSecretFillTests
 
         await session.Agent.ActAsync(
             "sign in",
-            new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("admin-password", "hunter2") } });
+            new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("admin-password", "hunter2", "password") } });
 
         Assert.Contains("Secret fill refused", refusal, StringComparison.Ordinal);
         Assert.Empty(typed);
