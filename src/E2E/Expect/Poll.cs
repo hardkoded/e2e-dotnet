@@ -106,21 +106,25 @@ public sealed class PollExpectation<T>
                 continue;
             }
 
+            bool holds;
             try
             {
-                if (check(value) != _negated)
-                {
-                    return;
-                }
-
-                last = describe(value);
+                holds = check(value);
             }
             catch (ArgumentException ex)
             {
                 // The matcher refused this value's type, as a sample that does not hold yet.
                 last = ex.Message;
+                await PauseAsync(deadline, interval, clock, cancellationToken).ConfigureAwait(false);
+                continue;
             }
 
+            if (holds != _negated)
+            {
+                return;
+            }
+
+            last = describe(value);
             await PauseAsync(deadline, interval, clock, cancellationToken).ConfigureAwait(false);
         }
 
