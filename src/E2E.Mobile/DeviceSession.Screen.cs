@@ -439,7 +439,7 @@ public sealed partial class DeviceSession
     internal async Task<EngineScreenshot> MaskedScreenshotAsync(CancellationToken cancellationToken)
     {
         var projected = Project(await SnapshotOrEmptyAsync(false, cancellationToken).ConfigureAwait(false));
-        var data = await CaptureScreenshotAsync((shot, file) => Task.FromResult(File.ReadAllBytes(shot.Path ?? file)), normalizeStatusBar: true, cancellationToken).ConfigureAwait(false);
+        var data = await CaptureScreenshotAsync(async (shot, file) => await File.ReadAllBytesAsync(shot.Path ?? file, cancellationToken).ConfigureAwait(false), normalizeStatusBar: true, cancellationToken).ConfigureAwait(false);
         var viewport = projected.Viewport ?? _knownViewport;
         var masked = RedactSecure(data, projected, viewport)
             ?? throw new EngineException(EngineErrorCodes.EngineFailure, "a secure field on screen could not be masked; screenshot withheld", retryable: false);

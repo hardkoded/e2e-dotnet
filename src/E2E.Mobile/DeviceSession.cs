@@ -68,9 +68,6 @@ public sealed partial class DeviceSession : IEngineSession
     /// <summary>The build the target's <c>appPath</c> names, as declared.</summary>
     public string? AppPath => _app.AppPath;
 
-    /// <summary>The projection of the screen the last look read. Refs of its nodes are the ones the session hands out.</summary>
-    internal ProjectedSnapshot? Latest { get; private set; }
-
     /// <summary>
     /// Who acts through this session. A test's step never settles, and it waits out a transition. The agent reads the
     /// screen right after acting, so its actions settle first. The core session does not say who is calling, so the
@@ -200,7 +197,6 @@ public sealed partial class DeviceSession : IEngineSession
         _appIdentity = null;
         InstalledApp = null;
         _knownViewport = null;
-        Latest = null;
         _latestIndex = null;
         _generation = [];
         if (client is null)
@@ -292,7 +288,6 @@ public sealed partial class DeviceSession : IEngineSession
     private ProjectedSnapshot Project(RawSnapshot raw)
     {
         var projected = SnapshotProjection.ProjectSnapshot(raw.Nodes, () => $"n{++_idCounter}", raw.Viewport);
-        Latest = projected;
         _latestIndex = projected.Index;
         if (projected.Viewport is { } measured)
         {
