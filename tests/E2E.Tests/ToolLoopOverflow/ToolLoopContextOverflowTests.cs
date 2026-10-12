@@ -65,11 +65,12 @@ public sealed class ToolLoopContextOverflowTests
     }
 
     /// <summary>
-    /// Partial: the port has no screenshots, so no result carries an image beside its screen. And it has no cache-friendly
+    /// Partial port of upstream's "shrinks a pixel-mode history, where every screen rides a result with its screenshot, and
+    /// retries", so it carries another name. The port has no screenshots, so no result carries an image beside its screen. And it has no cache-friendly
     /// budget that elides superseded screens before a refusal, so every earlier screen is still whole in the refused request.
     /// </summary>
     [Fact]
-    public async Task Shrinks_a_pixel_mode_history_where_every_screen_rides_a_result_with_its_screenshot_and_retries()
+    public async Task Elides_the_superseded_screens_and_clips_the_newest_one_at_a_refusal_and_retries()
     {
         var requests = new List<List<string?>>();
         var model = new ScriptedModel(request =>
