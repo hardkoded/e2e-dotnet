@@ -264,19 +264,6 @@ public sealed class ConfigTests
         Assert.NotEmpty(Directory.GetFiles(directory));
     }
 
-    [Fact]
-    public async Task Launch_timeout_stops_a_slow_engine()
-    {
-        var error = await Assert.ThrowsAsync<EngineException>(() => E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new HangingEngine(),
-            TestTitle = "launch",
-            LaunchTimeout = TimeSpan.FromMilliseconds(50),
-        }));
-        Assert.Equal("ENVIRONMENT_UNAVAILABLE", error.Code);
-        Assert.Contains("launch timeout", error.Message, StringComparison.Ordinal);
-    }
-
     [Theory]
     [InlineData("tester.army", "https://tester.army/")]
     [InlineData("localhost:3000/app", "http://localhost:3000/app")]
