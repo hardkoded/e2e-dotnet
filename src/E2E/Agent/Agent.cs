@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Schema;
+using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using E2E.Cache;
 using E2E.Engine;
@@ -434,7 +435,7 @@ public sealed class Agent
         var token = linked.Token;
         var observation = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
         var snapshot = SnapshotText.Render(observation, _scope.Redactor, _scope.AppOrigin);
-        var schema = JsonSchemaExporter.GetJsonSchemaAsNode(ExtractJson, typeof(T));
+        var schema = JsonSchemaExporter.GetJsonSchemaAsNode(ExtractJson, typeof(T), new JsonSchemaExporterOptions { TreatNullObliviousAsNonNullable = true });
         var tools = AgentTools.ExtractFor(schema);
         var messages = new List<ModelMessage>
         {
@@ -1981,6 +1982,7 @@ public sealed class Agent
         {
             RespectNullableAnnotations = true,
             RespectRequiredConstructorParameters = true,
+            NumberHandling = JsonNumberHandling.Strict,
             WriteIndented = false,
             TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
         };
