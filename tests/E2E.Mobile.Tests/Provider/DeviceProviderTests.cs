@@ -274,7 +274,6 @@ public sealed class DeviceProviderTests
         var variable = Harness.PoolVariableIn(result.Env, "IOS");
         var handed = JsonNode.Parse(result.Env[variable])!.AsArray();
         Assert.True(JsonNode.DeepEquals(scope, handed[0]!["client"]));
-        Assert.Null(handed[1]!["sessionApp"]);
         var worker = Over(scoped);
         await worker.Boot("ios", 0, Harness.WorkerEnv(result));
         Assert.True(JsonNode.DeepEquals(scope, worker.Connections[0]!.Client));

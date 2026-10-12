@@ -380,6 +380,10 @@ public sealed class DeviceSession : IEngineSession
     /// <summary>The snapshot fields this engine reads off agent-device's response.</summary>
     private sealed record RawSnapshot(IReadOnlyList<RawNode> Nodes, bool Truncated, string? AppName, string? AppBundleId, bool Sparse, ViewportSize? Viewport = null)
     {
+        /// <summary>The viewport agent-device measured, when it is a usable size: the same bar <c>ViewportOf</c> sets for a tree.</summary>
+        private static ViewportSize? PublishedViewport(JsonObject? viewport) =>
+            Number(viewport?["width"]) is > 0 and var width && Number(viewport?["height"]) is > 0 and var height ? new ViewportSize(width, height) : null;
+
         public static RawSnapshot Read(JsonNode? response)
         {
             if (response is not JsonObject data)
@@ -403,7 +407,7 @@ public sealed class DeviceSession : IEngineSession
                 Text(data["appName"]),
                 Text(data["appBundleId"]),
                 Text(data["snapshotQuality"]?["state"]) == "sparse",
-                Number(data["viewport"]?["width"]) is { } width && Number(data["viewport"]?["height"]) is { } height ? new ViewportSize(width, height) : null);
+                PublishedViewport(data["viewport"] as JsonObject));
         }
     }
 }

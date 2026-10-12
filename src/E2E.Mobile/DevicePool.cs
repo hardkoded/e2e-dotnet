@@ -242,13 +242,14 @@ public sealed partial class DevicePool
     /// <summary>
     /// Boots every bound device, starts the iOS automation runner on it, and opens the pinned app on it once, so a
     /// test that starts without <c>app.open()</c> finds it on screen. A plain foreground open, with none of the
-    /// engine's launch options. One slot after another, on purpose: workers booting at once contend for the host and the daemon, and one cold boot pushes the
-    /// others past the launch timeout. A device that cannot boot ends the run here. An app that does not open is
+    /// engine's launch options. One slot after another, on purpose: workers booting at once contend for the host and
+    /// the daemon, and one cold boot pushes the others
+    /// past the launch timeout. A device that cannot boot ends the run here. An app that does not open is
     /// logged and left to the first attempt. An automation runner that is busy or wedged from an earlier run ends the
     /// run here too: the first attempt could only meet the same runner and fail its first observation with the app
     /// blamed. A runner that did not start leaves the slot unopened: the open would start it again under a shorter
-    /// budget. A build <c>appPath</c> is not on the device
-    /// yet, so that slot boots and starts the runner only, unless a lease says the build is already there.
+    /// budget. A build <c>appPath</c> is not on the device yet, so that slot boots and starts the runner only, unless a
+    /// lease says the build is already there.
     /// </summary>
     private async Task WarmAsync(IReadOnlyList<SlotBinding> bindings, MobilePrepareInfo info, CancellationToken cancellationToken)
     {
@@ -299,9 +300,8 @@ public sealed partial class DevicePool
     /// <summary>
     /// Starts the slot's iOS automation runner under <c>prepare ios-runner</c>, whose startup budget covers a cold
     /// simulator. Left to the first open, the start runs inside that request's 90 s envelope, which a cold runner on a
-    /// loaded CI Mac outlasts. A
-    /// runner that is busy or wedged ends the run here. Any other failure is logged and left to the first attempt.
-    /// True when the runner is up.
+    /// loaded CI Mac outlasts. A runner that is busy or wedged ends the run
+    /// here. Any other failure is logged and left to the first attempt. True when the runner is up.
     /// </summary>
     private static async Task<bool> PrepareRunnerAsync(IDeviceClient client, DeviceSelection where, MobilePrepareInfo info, string at, CancellationToken cancellationToken)
     {

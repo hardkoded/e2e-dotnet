@@ -79,6 +79,15 @@ public sealed class ObservationTests
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
         Assert.Equal(new BoundingBox(0, 0, 390, 844), (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
         Assert.DoesNotContain("capture.screenshot", h.Fake.Methods());
+
+        // A published size that is not positive is no measurement: the tree decides.
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+        {
+            var snapshot = FakeDeviceClient.SettingsSnapshot();
+            snapshot["viewport"] = new JsonObject { ["width"] = 0, ["height"] = 0 };
+            return snapshot;
+        });
+        Assert.Equal(new BoundingBox(0, 0, 390, 844), (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
     }
 
     [Fact]
