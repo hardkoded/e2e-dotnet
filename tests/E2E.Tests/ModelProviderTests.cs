@@ -130,6 +130,7 @@ public sealed class ModelProviderTests
         {
             System = request.System,
             Tools = request.Tools,
+            ToolLoop = true,
             Messages = [.. request.Messages, new ModelMessage { Role = "user", Content = "Call done." }],
         };
         var response = await model.CompleteAsync(request, CancellationToken.None);
@@ -152,6 +153,20 @@ public sealed class ModelProviderTests
         Assert.Equal("ephemeral", last[1]!["cache_control"]!["type"]!.GetValue<string>());
         Assert.Equal("done", body["tools"]![0]!["name"]!.GetValue<string>());
         Assert.NotNull(body["tools"]![0]!["input_schema"]);
+    }
+
+    [Fact]
+    public async Task Anthropic_model_marks_the_newest_message_only_in_a_tool_loop()
+    {
+        var handler = new RecordingHandler("""{ "content": [{ "type": "text", "text": "ok" }] }""");
+        using var http = new HttpClient(handler);
+        using var model = new AnthropicModel(new AnthropicModelOptions { Model = "claude-test", ApiKey = "ant" }, http);
+
+        await model.CompleteAsync(Conversation(), CancellationToken.None);
+
+        var body = handler.Requests.Single().Json();
+        Assert.Equal("ephemeral", body["system"]![0]!["cache_control"]!["type"]!.GetValue<string>());
+        Assert.All(body["messages"]!.AsArray(), message => Assert.All(message!["content"]!.AsArray(), block => Assert.Null(block!["cache_control"])));
     }
 
     [Fact]

@@ -30,6 +30,12 @@ public sealed class ModelRequest
     /// </summary>
     public IReadOnlyDictionary<string, JsonElement>? ProviderOptions { get; init; }
 
+    /// <summary>
+    /// True for a turn of the act tool loop, where the next turn repeats everything up to the newest message. Only then
+    /// does <see cref="AnthropicModel"/> mark that message for caching. A judgment call has no next turn.
+    /// </summary>
+    public bool ToolLoop { get; init; }
+
     /// <summary>Redacts the secrets of the step from a provider failure that quotes the response body.</summary>
     internal Redactor Redactor { get; init; } = Redactor.None;
 }
