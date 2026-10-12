@@ -33,10 +33,11 @@ public static class ScreenshotMasking
         var image = ImageOps.DecodePng(bytes);
         foreach (var rect in rects)
         {
-            var x0 = Math.Max(0, (int)Math.Floor(rect.X));
-            var y0 = Math.Max(0, (int)Math.Floor(rect.Y));
-            var x1 = (int)Math.Min(image.Width, Math.Ceiling(rect.X + rect.Width));
-            var y1 = (int)Math.Min(image.Height, Math.Ceiling(rect.Y + rect.Height));
+            // Clamp in double before the cast, so a huge or non-finite rect cannot wrap around to an empty box.
+            var x0 = (int)Math.Clamp(Math.Floor(rect.X), 0, image.Width);
+            var y0 = (int)Math.Clamp(Math.Floor(rect.Y), 0, image.Height);
+            var x1 = (int)Math.Clamp(Math.Ceiling(rect.X + rect.Width), 0, image.Width);
+            var y1 = (int)Math.Clamp(Math.Ceiling(rect.Y + rect.Height), 0, image.Height);
             for (var y = y0; y < y1; y++)
             {
                 for (var x = x0; x < x1; x++)

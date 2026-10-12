@@ -695,7 +695,7 @@ internal sealed record LocatorQuery
             "testid" => "getByTestId(" + Value + visible + ")",
             "placeholder" => "getByPlaceholder(" + Value + visible + ")",
             "displayValue" => "getByDisplayValue(" + Value + visible + ")",
-            "selector" => "locator(\"" + Selector + "\")",
+            "selector" => "locator(\"" + Selector?.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\")",
             _ => Kind,
         };
         return Parent is null ? core : Parent.Describe() + "." + core;
