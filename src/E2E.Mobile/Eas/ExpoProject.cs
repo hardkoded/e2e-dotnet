@@ -107,8 +107,17 @@ internal static class ExpoProject
             }
             catch (OperationCanceledException)
             {
-                process.Kill(entireProcessTree: true);
-                throw;
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+
+                throw new InvalidOperationException($"`expo config` timed out after {ExpoConfigTimeout.TotalSeconds} seconds in {projectRoot}");
             }
         }
         catch (Exception cause) when (cause is System.ComponentModel.Win32Exception)

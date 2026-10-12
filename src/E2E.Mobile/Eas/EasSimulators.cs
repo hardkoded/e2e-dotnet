@@ -68,6 +68,11 @@ public sealed class EasSimulators : IDeviceProvider
         _options = options ?? new EasSimulatorsOptions();
         _http = http;
         _clock = clock;
+        if (_options.MaxIdleTimeMinutes < 1 || _options.MaxDurationMinutes < 1)
+        {
+            throw new ConfigurationException("INVALID_CONFIG", "easSimulators: `maxIdleTimeMinutes` and `maxDurationMinutes` must be at least 1");
+        }
+
         if (_options.BuildId is not null && _options.ApplicationArchiveUrl is not null)
         {
             throw new ConfigurationException("INVALID_CONFIG", "easSimulators: pass `buildId` or `applicationArchiveUrl`, not both");

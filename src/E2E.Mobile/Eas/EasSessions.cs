@@ -66,6 +66,8 @@ internal sealed class EasException(string message, string? code) : Exception($"E
 /// </summary>
 internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
 {
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(60);
+
     private static readonly Uri GraphqlUrl = new("https://api.expo.dev/graphql");
 
     private const string Create = """
@@ -134,10 +136,10 @@ internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
     public async Task<EasSessionState> StateAsync(string id, CancellationToken cancellationToken)
     {
         var data = await GraphqlAsync(State, new JsonObject { ["id"] = id }, cancellationToken).ConfigureAwait(false);
-        var session = data["deviceRunSessions"]?["byId"];
-        var status = session?["status"]?.GetValue<string>();
-        var job = session?["turtleJobRun"]?["status"]?.GetValue<string>();
-        var config = session?["remoteConfig"];
+        var session = data["deviceRunSessions"]?["byId"] ?? throw new InvalidOperationException($"EAS: session {id} not found");
+        var status = session["status"]?.GetValue<string>();
+        var job = session["turtleJobRun"]?["status"]?.GetValue<string>();
+        var config = session["remoteConfig"];
         if (status is "STOPPED" or "ERRORED")
         {
             return new EasSessionState(EasPhase.Ended, EndedStatus: status.ToLowerInvariant());
@@ -207,8 +209,12 @@ internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
         };
         var (name, value) = credentials.Header;
         request.Headers.TryAddWithoutValidation(name, value);
-        using var response = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+        // A connection that stalls must not hang a poll, or the startup limits never run.
+        using var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        limit.CancelAfter(RequestTimeout);
+        using var response = await http.SendAsync(request, limit.Token).ConfigureAwait(false);
+        var text = await response.Content.ReadAsStringAsync(limit.Token).ConfigureAwait(false);
         var status = ((int)response.StatusCode).ToString(CultureInfo.InvariantCulture);
         JsonNode? body;
         try
