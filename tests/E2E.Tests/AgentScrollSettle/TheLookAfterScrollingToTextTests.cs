@@ -9,7 +9,9 @@ namespace E2E.Tests.AgentScrollSettle;
 
 /// <summary>
 /// The look after scrolling to text. Upstream's "keeps the stability check without another change wait after N pages"
-/// is not ported: it covers an engine that cannot scroll a node into view, and every port engine can.
+/// is not ported: it covers an engine that cannot scroll a node into view, and every port engine can. Upstream's fake
+/// engine shows nothing of a scroll until the late change, but a browser shows the scroll at once, so the testbed page
+/// keeps changing until the late change lands.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class TheLookAfterScrollingToTextTests
@@ -19,14 +21,27 @@ public sealed class TheLookAfterScrollingToTextTests
         <html>
         <body>
           <p role="status">waiting</p>
+          <p id="progress">idle</p>
           <div style="height:3000px"></div>
           <button id="row">Final row</button>
           <script>
             const result = document.querySelector('[role="status"]');
+            const progress = document.getElementById('progress');
             const row = document.getElementById('row');
-            new IntersectionObserver((entries) => {
-              if (entries[0].isIntersecting) setTimeout(() => { result.textContent = 'in view'; }, 250);
-            }).observe(row);
+            const observer = new IntersectionObserver((entries) => {
+              if (!entries[0].isIntersecting) return;
+              observer.disconnect();
+              // The operation keeps changing the screen while it runs: a real scroll shows at once, so a screen that
+              // only changed once would look held still before the late change lands.
+              let step = 0;
+              const ticker = setInterval(() => { progress.textContent = 'loading ' + (++step); }, 20);
+              setTimeout(() => {
+                clearInterval(ticker);
+                progress.textContent = 'loaded';
+                result.textContent = 'in view';
+              }, 250);
+            });
+            observer.observe(row);
             row.addEventListener('click', () => { result.textContent = 'tapped'; });
           </script>
         </body>
