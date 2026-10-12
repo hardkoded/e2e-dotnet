@@ -376,8 +376,8 @@ public static partial class Program
         return (positional, flags);
     }
 
-    /// <summary>A CSI, OSC, or two-character escape sequence.</summary>
-    [GeneratedRegex(@"\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001b]*(?:\u0007|\u001b\\)?|[@-Z\\-_])")]
+    /// <summary>A CSI sequence, a terminated string sequence (OSC, DCS, SOS, PM, APC), or a two-character escape.</summary>
+    [GeneratedRegex(@"\u001b(?:\[[0-?]*[ -/]*[@-~]|[\]PX^_][^\u0007\u001b]*(?:\u0007|\u001b\\)|[@-Z\\-_])")]
     private static partial Regex EscapeSequence();
 
     /// <summary>Vendor text is untrusted: escape sequences are stripped whole, and the other terminal control characters are dropped.</summary>
