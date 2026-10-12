@@ -16,7 +16,8 @@ public abstract class DelegatingModel : IAgentModel, IDisposable
     private static readonly TimeSpan LookupTimeout = TimeSpan.FromSeconds(10);
 
     private readonly object _lock = new();
-    private IAgentModel? _resolved;
+    private readonly CancellationTokenSource _lifetime = new();
+    private volatile IAgentModel? _resolved;
     private Task<IAgentModel?>? _pending;
 
     protected DelegatingModel(string name, HttpClient http)
@@ -49,6 +50,7 @@ public abstract class DelegatingModel : IAgentModel, IDisposable
 
     public void Dispose()
     {
+        _lifetime.Cancel();
         Http.Dispose();
         GC.SuppressFinalize(this);
     }
@@ -58,7 +60,7 @@ public abstract class DelegatingModel : IAgentModel, IDisposable
     {
         lock (_lock)
         {
-            return _pending ??= Task.Run(LookupAsync);
+            return _resolved is { } resolved ? Task.FromResult<IAgentModel?>(resolved) : _pending ??= Task.Run(LookupAsync);
         }
     }
 
@@ -66,7 +68,8 @@ public abstract class DelegatingModel : IAgentModel, IDisposable
     {
         try
         {
-            using var timeout = new CancellationTokenSource(LookupTimeout);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+            timeout.CancelAfter(LookupTimeout);
             return _resolved = await ResolveAsync(timeout.Token).ConfigureAwait(false);
         }
         finally
