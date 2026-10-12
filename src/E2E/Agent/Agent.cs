@@ -160,6 +160,7 @@ public sealed class Agent
         string? summary = null;
         var stopped = false;
         string? noticed = null;
+        var shrunkOnce = false;
         for (var call = 0; call < maxCalls; call++)
         {
             if (failures >= 5)
@@ -183,7 +184,41 @@ public sealed class Agent
             }
 
             var tools = AgentTools.ActFor(_scope.EngineCapabilities);
-            var response = await CallModelAsync(agent.Model, ActSystemFor(agent), messages, stopped ? tools.Where(tool => string.Equals(tool.Name, "done", StringComparison.Ordinal)).ToList() : tools, agent, token).ConfigureAwait(false);
+            var offered = stopped ? tools.Where(tool => string.Equals(tool.Name, "done", StringComparison.Ordinal)).ToList() : tools;
+            ModelResponse response;
+            try
+            {
+                response = await CallModelAsync(agent.Model, ActSystemFor(agent), messages, offered, agent, token).ConfigureAwait(false);
+            }
+            catch (AgentException overflow) when (string.Equals(overflow.Code, "CONTEXT_OVERFLOW", StringComparison.Ordinal))
+            {
+                // One recovery: the history shrinks and the request goes out again. The refused request was no turn,
+                // so it spends no call of the budget, and a second refusal is the step's verdict.
+                if (shrunkOnce)
+                {
+                    throw Overflowed(overflow, " again after the history was shrunk once");
+                }
+
+                var shrunk = OverflowShrink.ShrinkForOverflow(messages);
+                if (OverflowShrink.TextChars(shrunk) >= OverflowShrink.TextChars(messages))
+                {
+                    // Nothing to elide and nothing to clip: sending the same request again would only spend another call on it.
+                    throw Overflowed(overflow, " and the step history had nothing left to shrink");
+                }
+
+                shrunkOnce = true;
+                messages.Clear();
+                messages.AddRange(shrunk);
+                try
+                {
+                    response = await CallModelAsync(agent.Model, ActSystemFor(agent), messages, offered, agent, token).ConfigureAwait(false);
+                }
+                catch (AgentException again) when (string.Equals(again.Code, "CONTEXT_OVERFLOW", StringComparison.Ordinal))
+                {
+                    throw Overflowed(again, " again after the history was shrunk once");
+                }
+            }
+
             if (response.ToolCalls.Count == 0)
             {
                 messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ReasoningItems = response.ReasoningItems });
@@ -283,6 +318,14 @@ public sealed class Agent
         throw new AgentException("STEP_BUDGET_EXHAUSTED", "agent.act exhausted its model-call budget of " + maxCalls.ToString(CultureInfo.InvariantCulture), blocked: true);
     }
 
+    // The step's verdict on a refusal it could not recover from: the same error, saying what the retry did.
+    private static AgentException Overflowed(AgentException refusal, string note) =>
+        new(
+            refusal.Code,
+            ModelHttp.OverflowMessage + note + (refusal.Message.StartsWith(ModelHttp.OverflowMessage, StringComparison.Ordinal) ? refusal.Message[ModelHttp.OverflowMessage.Length..] : ": " + refusal.Message),
+            blocked: true,
+            refusal);
+
     public Task AssertAsync(string statement, AssertOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(statement);
@@ -312,7 +355,7 @@ public sealed class Agent
         {
             try
             {
-                return SnapshotText.Render(await _scope.Session.ObserveAsync(token).ConfigureAwait(false), _scope.Redactor);
+                return SnapshotText.Render(await _scope.Session.ObserveAsync(token).ConfigureAwait(false), _scope.Redactor, _scope.AppOrigin);
             }
             catch (Exception ex) when (ex is not AgentException
                 && (linked.IsCancellationRequested || DateTime.UtcNow >= deadline)
@@ -390,7 +433,7 @@ public sealed class Agent
         using var linked = Link(cancellationToken, ResolveTimeout(options?.Timeout, agent.JudgmentTimeout));
         var token = linked.Token;
         var observation = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
-        var snapshot = SnapshotText.Render(observation, _scope.Redactor);
+        var snapshot = SnapshotText.Render(observation, _scope.Redactor, _scope.AppOrigin);
         var schema = JsonSchemaExporter.GetJsonSchemaAsNode(ExtractJson, typeof(T));
         var tools = AgentTools.ExtractFor(schema);
         var messages = new List<ModelMessage>
@@ -473,7 +516,7 @@ public sealed class Agent
         using var linked = Link(cancellationToken, timeout);
         var token = linked.Token;
         var observation = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
-        var verdict = await JudgeOnceAsync(statement, SnapshotText.Render(observation, _scope.Redactor), agent, JudgmentModelCalls, token).ConfigureAwait(false);
+        var verdict = await JudgeOnceAsync(statement, SnapshotText.Render(observation, _scope.Redactor, _scope.AppOrigin), agent, JudgmentModelCalls, token).ConfigureAwait(false);
         if (string.Equals(verdict.Status, "passed", StringComparison.Ordinal))
         {
             _scope.MarkVerified();
@@ -1530,7 +1573,7 @@ public sealed class Agent
         }
 
         var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
-        return action + "\n" + SnapshotText.Render(observation, _scope.Redactor);
+        return action + "\n" + SnapshotText.Render(observation, _scope.Redactor, _scope.AppOrigin);
     }
 
     private string Opening(
@@ -1571,7 +1614,7 @@ public sealed class Agent
             }
         }
 
-        builder.Append('\n').Append(SnapshotText.Render(start, _scope.Redactor));
+        builder.Append('\n').Append(SnapshotText.Render(start, _scope.Redactor, _scope.AppOrigin));
         return _scope.Redactor.Redact(builder.ToString());
     }
 
@@ -2148,6 +2191,9 @@ internal sealed class AttemptScope
 
     /// <summary>The base URL a navigate action resolves against, under the same URL rule as <c>app.open</c>.</summary>
     public string? BaseUrl { get; init; }
+
+    /// <summary>The origin of <see cref="BaseUrl"/>, which a link target on it shows without.</summary>
+    public string? AppOrigin => Uri.TryCreate(BaseUrl, UriKind.Absolute, out var url) ? url.GetLeftPart(UriPartial.Authority) : null;
 
     /// <summary>The agents by name. <c>default</c> is always present.</summary>
     public required IReadOnlyDictionary<string, ResolvedAgent> Agents { get; init; }
