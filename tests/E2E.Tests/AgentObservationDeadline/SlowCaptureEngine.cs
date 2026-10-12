@@ -11,7 +11,7 @@ internal sealed class SlowCaptureEngine(DocumentWorld world, TimeSpan captureTim
 {
     private readonly DocumentEngine _inner = new(world);
     private readonly TimeSpan _captureTime = captureTime;
-    private bool _scrolled;
+    private volatile bool _scrolled;
     private int _captures;
 
     /// <summary>The captures taken after the swipe.</summary>

@@ -37,7 +37,9 @@ internal static class TwoTapCounter
             return 0;
         }
 
-        var notice = firstMessage[(start + marker.Length)..firstMessage.IndexOf("Continue from", StringComparison.Ordinal)];
+        var end = firstMessage.IndexOf("Continue from", start, StringComparison.Ordinal);
+        Assert.True(end > start, "the hand-off notice ends with 'Continue from'");
+        var notice = firstMessage[(start + marker.Length)..end];
         return notice.Split('\n').Count(line => line.StartsWith("- ", StringComparison.Ordinal));
     }
 
