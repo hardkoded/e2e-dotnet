@@ -1015,7 +1015,7 @@ public sealed class Agent
                     {
                         Kind = "fill",
                         Role = node.Role,
-                        Name = Redact(LabelOf(node), _scope.Redactor),
+                        Name = RedactLabel(node, _scope.Redactor),
                         TestId = Redact(node.TestId, _scope.Redactor),
                         Value = CacheKeys.Template(value, parameters),
                     });
@@ -1025,12 +1025,12 @@ public sealed class Agent
                 case "press":
                     var key = Args.String(call.Arguments, "key") ?? "Enter";
                     await TargetedAsync(node, new LocatorAction.Press(key), token).ConfigureAwait(false);
-                    actions.Add(new RecordedAction { Kind = "press", Role = node.Role, Name = Redact(LabelOf(node), _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Key = key });
+                    actions.Add(new RecordedAction { Kind = "press", Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Key = key });
                     return ToolOutcome.Ok(await DescribeAsync("pressed " + key + " on " + Label(node), actions[^1], token).ConfigureAwait(false));
                 case "select":
                     var selected = Args.String(call.Arguments, "value") ?? "";
                     await TargetedAsync(node, new LocatorAction.Select(selected), token).ConfigureAwait(false);
-                    actions.Add(new RecordedAction { Kind = "select", Role = node.Role, Name = Redact(LabelOf(node), _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Value = selected });
+                    actions.Add(new RecordedAction { Kind = "select", Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Value = selected });
                     return ToolOutcome.Ok(await DescribeAsync("selected " + selected, actions[^1], token).ConfigureAwait(false));
                 case "check":
                     await TargetedAsync(node, new LocatorAction.Check(), token).ConfigureAwait(false);
@@ -1259,7 +1259,7 @@ public sealed class Agent
                 return inner;
             }
 
-            if (TextRules.Matches(Redact(node.Name, redactor), text, exact: false) || TextRules.Matches(Redact(node.Text, redactor), text, exact: false))
+            if (TextRules.Matches(RedactField(node.Name, ObservationLimits.Name, redactor), text, exact: false) || TextRules.Matches(RedactField(node.Text, ObservationLimits.Text, redactor), text, exact: false))
             {
                 return node;
             }
@@ -1345,6 +1345,28 @@ public sealed class Agent
         };
     }
 
+    // The sink policy of upstream's authorizeSecretFill (agent/secrets.ts), with its reasons. The port's tool is
+    // fill_secret where upstream's is type_secret, and a denial is a tool failure the model reads, not a thrown POLICY_DENIED.
+    private static string? AuthorizeSecretFill(Secret secret, SemanticNode node)
+    {
+        if (node.States.Disabled)
+        {
+            return "the target field is disabled";
+        }
+
+        if (!Roles.IsEditable(node))
+        {
+            return "the target is not an editable input (role " + (node.Role ?? "none") + ")";
+        }
+
+        // A password belongs in a password field, where the surface masks it. A generic secret has no field of its
+        // own: it goes wherever the test says, and redaction covers the value the moment it shows on screen.
+        var inputPurpose = string.IsNullOrEmpty(node.InputPurpose) ? "none" : node.InputPurpose;
+        return secret.Purpose == "password" && inputPurpose != "password"
+            ? "field purpose " + inputPurpose + " is incompatible with secret purpose " + secret.Purpose
+            : null;
+    }
+
     private async Task<ToolOutcome> FillSecretAsync(SemanticNode node, JsonElement arguments, List<RecordedAction> actions, CancellationToken token)
     {
         var name = Args.String(arguments, "secret");
@@ -1354,11 +1376,9 @@ public sealed class Agent
             return ToolOutcome.Fail("No secret named '" + (name ?? "") + "' was passed to this step.");
         }
 
-        var purpose = node.InputPurpose;
-        var allowed = node.States.Secure || purpose is "password" or "one-time-code" or "generic-secret";
-        if (!allowed)
+        if (AuthorizeSecretFill(secret, node) is { } denied)
         {
-            return ToolOutcome.Fail("Secret fill refused: " + Label(node) + " is not a secret field.");
+            return ToolOutcome.Fail("Secret fill refused: " + Label(node) + ": " + denied + ".");
         }
 
         await TargetedAsync(node, new LocatorAction.Fill(secret.Value, true), token).ConfigureAwait(false);
@@ -1366,7 +1386,7 @@ public sealed class Agent
         {
             Kind = "fill",
             Role = node.Role,
-            Name = Redact(LabelOf(node), _scope.Redactor),
+            Name = RedactLabel(node, _scope.Redactor),
             TestId = Redact(node.TestId, _scope.Redactor),
             Value = "<secret:" + secret.Name + ">",
         });
@@ -1454,7 +1474,7 @@ public sealed class Agent
                 continue;
             }
 
-            if (name is not null && !TextRules.Matches(Redact(LabelOf(node), redactor), name, exact: true))
+            if (name is not null && !TextRules.Matches(RedactLabel(node, redactor), name, exact: true))
             {
                 continue;
             }
@@ -1672,12 +1692,27 @@ public sealed class Agent
             observation,
             text => ContainsParam(text, parameters),
             value => CacheKeys.Template(redactor.Redact(value), parameters),
-            redactor.Redact);
+            redactor.Redact,
+            (text, limit) => AgentObservation.RedactText(text, redactor, limit));
     }
 
     internal static string? Redact(string? text, Redactor redactor)
     {
         return text is null ? null : redactor.Redact(text);
+    }
+
+    // No upstream equivalent: upstream redacts each node field once, when it builds the observation (redactNode).
+    // The port keeps the raw nodes, since the engine reads a node's name, role, and test id as the page wrote them
+    // (WebEngine.RequireNoNewTwinAsync), so each place that shows or records a field redacts it.
+    private static string? RedactField(string? text, int limit, Redactor redactor)
+    {
+        return text is null ? null : AgentObservation.RedactText(text, redactor, limit);
+    }
+
+    // The label as LabelOf reads it, redacted for the limit of the field it came from.
+    private static string? RedactLabel(SemanticNode node, Redactor redactor)
+    {
+        return node.Name is not null ? RedactField(node.Name, ObservationLimits.Name, redactor) : RedactField(LabelOf(node), ObservationLimits.Text, redactor);
     }
 
     private static bool ContainsParam(string name, IReadOnlyDictionary<string, object?>? parameters)
@@ -1707,7 +1742,7 @@ public sealed class Agent
 
     private RecordedAction Record(SemanticNode node, string kind)
     {
-        return new RecordedAction { Kind = kind, Role = node.Role, Name = Redact(LabelOf(node), _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor) };
+        return new RecordedAction { Kind = kind, Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor) };
     }
 
     private static RecordedAction Detemplate(RecordedAction action, IReadOnlyDictionary<string, object?>? parameters)
@@ -1782,10 +1817,11 @@ public sealed class Agent
         return builder.ToString();
     }
 
-    private static string Label(SemanticNode node)
+    // A name the engine cut at its limit can end with the leading part of a secret, so it is redacted as a cut field.
+    private string Label(SemanticNode node)
     {
         var role = node.Role ?? "node";
-        return node.Name is null ? role : role + " \"" + node.Name + "\"";
+        return node.Name is null ? role : role + " \"" + AgentObservation.RedactText(node.Name, _scope.Redactor, ObservationLimits.Name) + "\"";
     }
 
     private static bool TryProperty(JsonElement element, string name, out JsonElement value)

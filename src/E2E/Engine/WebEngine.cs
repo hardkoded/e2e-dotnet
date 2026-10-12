@@ -379,9 +379,19 @@ public sealed partial class WebEngine : IEngine
     /// </summary>
     internal static int RunChromiumInstall(bool headed, Func<string[], int> install)
     {
+        return RunPlaywrightCli(["install", .. InstallArgs(headed)], install);
+    }
+
+    /// <summary>
+    /// Runs the Playwright CLI with <paramref name="args"/> and returns its exit code (upstream <c>runPlaywrightCli</c>), keeping
+    /// other tools' browsers as <see cref="RunChromiumInstall"/> does. <paramref name="playwright"/> is a test seam.
+    /// Upstream spawns <c>node cli.js</c> and forwards SIGINT and SIGTERM to it; <c>Program.Main</c> runs in this process.
+    /// </summary>
+    internal static int RunPlaywrightCli(string[] args, Func<string[], int>? playwright = null)
+    {
         // Program.Main starts the driver with this process's environment, so the value is set on the process.
         Environment.SetEnvironmentVariable(SkipBrowserGcVariable, Environment.GetEnvironmentVariable(SkipBrowserGcVariable) ?? "1");
-        return install(["install", .. InstallArgs(headed)]);
+        return (playwright ?? Microsoft.Playwright.Program.Main)(args);
     }
 
     internal static async Task EnsureChromiumAsync(bool headed, CancellationToken cancellationToken)
@@ -2110,6 +2120,7 @@ public sealed partial class WebEngine : IEngine
                 InlineNodes = dto.Inline?.Select(inline => ToNode(inline, testIdAttribute)).ToList() ?? [],
                 OwnText = dto.OwnText,
                 Value = dto.Secure ? null : dto.Value,
+                Selection = dto.Secure ? null : dto.Selection,
                 TestId = dto.TestId,
                 TestIdAttribute = dto.TestId is null ? null : testIdAttribute,
                 Placeholder = dto.Placeholder,
@@ -2128,6 +2139,7 @@ public sealed partial class WebEngine : IEngine
                     Selected = dto.Selected,
                 },
                 Attributes = dto.Attributes ?? new Dictionary<string, string>(StringComparer.Ordinal),
+                WholeHref = dto.WholeHref,
                 Rect = dto.Rect is { } rect ? new BoundingBox(rect.X, rect.Y, rect.Width, rect.Height) : null,
                 Children = dto.Children?.Select(child => ToNode(child, testIdAttribute)).ToList() ?? [],
             };
@@ -2292,6 +2304,8 @@ public sealed partial class WebEngine : IEngine
 
         public string? Value { get; set; }
 
+        public string? Selection { get; set; }
+
         public string? TestId { get; set; }
 
         public string? Placeholder { get; set; }
@@ -2321,6 +2335,8 @@ public sealed partial class WebEngine : IEngine
         public bool Frame { get; set; }
 
         public Dictionary<string, string>? Attributes { get; set; }
+
+        public string? WholeHref { get; set; }
 
         public WebRect? Rect { get; set; }
 

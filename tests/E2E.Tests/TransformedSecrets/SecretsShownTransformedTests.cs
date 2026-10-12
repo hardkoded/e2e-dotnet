@@ -8,9 +8,12 @@ namespace E2E.Tests.TransformedSecrets;
 
 /// <summary>
 /// Ported from upstream's <c>transformed-secrets.test.ts</c>, through the real Chromium engine: a token echoed
-/// under CSS <c>text-transform</c> and a two-line note echoed in a <c>&lt;pre&gt;</c> reach a failed
-/// <c>toHaveText</c>, and no form of either value may survive in its message. The port registers a secret
-/// when it is filled or an <c>act</c> receives it in its params.
+/// under CSS <c>text-transform</c> and a two-line note echoed in a <c>&lt;pre&gt;</c> reach the model's
+/// observation or to a failed <c>toHaveText</c>, and no form of either value may survive there. The port has the
+/// model where upstream has an executor, and registers a secret when it is filled or an <c>act</c> receives it
+/// in its params. Not ported: "matches the transformed text as the page shows it" (the port reads text as
+/// written, so a CSS upper-cased echo is not upper-cased in the observation or to a matcher), and "leaves no
+/// form of either value in the report or any file the reporters write" (no report, no reporters).
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class SecretsShownTransformedTests
@@ -54,6 +57,41 @@ public sealed class SecretsShownTransformedTests
         </body>
         </html>
         """;
+
+    [Fact]
+    public async Task Shows_the_model_each_echo_redacted_with_no_form_of_either_value()
+    {
+        using var site = await TinySite.StartAsync(EchoPage);
+        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "read"));
+        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = new WebEngine(headless: true),
+            Model = model,
+            BaseUrl = site.Url,
+            CacheEnabled = false,
+            TestTitle = "observes the echoes",
+            ActionTimeout = TimeSpan.FromSeconds(5),
+            TestTimeout = TimeSpan.FromSeconds(30),
+        });
+        var token = Secret.Create("token", Token);
+        var note = Secret.Create("note", Note);
+        await session.App.OpenAsync("/");
+        await session.Screen.GetByLabel("Token").FillAsync(token);
+        await session.Screen.GetByLabel("Note").FillAsync(note);
+        await session.Agent.ActAsync("read the echoes", new ActOptions
+        {
+            Params = new Dictionary<string, object?> { ["token"] = token, ["note"] = note },
+        });
+        session.Complete();
+
+        var text = string.Join('\n', model.Requests.SelectMany(request => request.Messages.Select(message => message.Content).Prepend(request.System)));
+        Assert.Contains("<secret:token>", text, StringComparison.Ordinal);
+        Assert.Contains("<secret:note>", text, StringComparison.Ordinal);
+        foreach (var form in Forms)
+        {
+            Assert.DoesNotContain(form, text, StringComparison.Ordinal);
+        }
+    }
 
     [Fact]
     public async Task Fails_on_each_echo_with_the_received_text_redacted()
