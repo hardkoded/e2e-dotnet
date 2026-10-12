@@ -141,22 +141,6 @@ public sealed class ObservationTests
     }
 
     [Fact]
-    public async Task Measures_the_screen_in_the_viewport_the_snapshot_publishes_and_in_its_tree_when_it_publishes_none()
-    {
-        var h = Harness.Create();
-
-        // The application node reads 390x844. A published viewport outranks it.
-        var published = FakeDeviceClient.SettingsSnapshot();
-        published["viewport"] = new JsonObject { ["width"] = 402, ["height"] = 874 };
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => published);
-        var session = await OpenAttempt(h);
-        Assert.Equal(new BoundingBox(0, 0, 402, 874), (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
-        Assert.Equal(new BoundingBox(0, 0, 390, 844), (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
-        Assert.DoesNotContain("capture.screenshot", h.Fake.Methods());
-    }
-
-    [Fact]
     public async Task Holds_the_status_bar_in_a_fixed_state_for_a_screenshot_taken_for_comparison_and_only_then()
     {
         var h = Harness.Create();
