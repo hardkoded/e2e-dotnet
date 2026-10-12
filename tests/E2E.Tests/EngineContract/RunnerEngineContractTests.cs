@@ -15,7 +15,7 @@ public sealed class RunnerEngineContractTests
         // finish. The engine failure that follows describes a truncated budget, not a broken app. Only the second
         // observation stalls, so the first one reads at once.
         var timeout = TimeSpan.FromMilliseconds(300);
-        var engine = new StallingEngine(new DocumentEngine(BillingWorld.Create()), timeout + TimeSpan.FromMilliseconds(50));
+        var engine = new StallingEngine(new DocumentEngine(BillingWorld.Create()), TimeSpan.FromMilliseconds(50));
         var model = new ScriptedModel(_ => ModelResponses.Done("failed", "the Submit button is disabled"));
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions
         {
@@ -47,7 +47,7 @@ public sealed class RunnerEngineContractTests
         Assert.Contains("the Submit button is disabled", failure.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>Wraps an engine so that the second observation outlasts its token, then fails.</summary>
+    /// <summary>Wraps an engine so that the second observation fails 50 ms after its token is cancelled.</summary>
     private sealed class StallingEngine(IEngine inner, TimeSpan stall) : IEngine
     {
         public string Platform => inner.Platform;
@@ -74,7 +74,15 @@ public sealed class RunnerEngineContractTests
                     return await inner.ObserveAsync(cancellationToken).ConfigureAwait(false);
                 }
 
-                await Task.Delay(stall, CancellationToken.None).ConfigureAwait(false);
+                try
+                {
+                    await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    await Task.Delay(stall, CancellationToken.None).ConfigureAwait(false);
+                }
+
                 throw new EngineException("ENGINE_FAILURE", "observation ran out of budget");
             }
 

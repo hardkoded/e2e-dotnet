@@ -315,7 +315,7 @@ public sealed class Agent
                 return SnapshotText.Render(await _scope.Session.ObserveAsync(token).ConfigureAwait(false), _scope.Redactor);
             }
             catch (Exception ex) when (ex is not AgentException
-                && DateTime.UtcNow >= deadline
+                && (linked.IsCancellationRequested || DateTime.UtcNow >= deadline)
                 && !cancellationToken.IsCancellationRequested
                 && !_scope.Token().IsCancellationRequested)
             {
