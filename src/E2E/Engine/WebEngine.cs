@@ -30,14 +30,18 @@ public sealed class WebBasicAuth
     }
 
     public WebBasicAuth(string username, Secret password)
-        : this(username, (password ?? throw new ArgumentNullException(nameof(password))).Value)
     {
+        ArgumentNullException.ThrowIfNull(username);
+        ArgumentNullException.ThrowIfNull(password);
+        Username = username;
+        Password = password;
     }
 
     /// <summary>The user name. RFC 7617 does not allow <c>:</c> in one.</summary>
     public string Username { get; }
 
-    internal string Password { get; }
+    /// <summary>The password: a <see cref="string"/>, or a <see cref="Secret"/> the attempt resolves.</summary>
+    internal object Password { get; }
 }
 
 /// <summary>
@@ -301,6 +305,9 @@ public sealed partial class WebEngine : IEngine
                     cancellationToken).ConfigureAwait(false);
             }
 
+            var credentials = _options.BasicAuth is { } basicAuth
+                ? await HttpCredentialsAsync(basicAuth, options.ResolveSecret ?? ((secret, _) => Task.FromResult(secret.Value))).ConfigureAwait(false)
+                : null;
             IBrowser browser;
             if (_options.Connect is { } connect)
             {
@@ -314,7 +321,7 @@ public sealed partial class WebEngine : IEngine
                 browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless }).ConfigureAwait(false);
             }
 
-            var session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => InstallSiteHeadersAsync(context, app), url => SiteHeadersFor(url, app), seams);
+            var session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => InstallSiteHeadersAsync(context, app), url => SiteHeadersFor(url, app), seams, credentials: credentials);
             await session.NewContextAsync().ConfigureAwait(false);
             return session;
         }
@@ -372,9 +379,19 @@ public sealed partial class WebEngine : IEngine
     /// </summary>
     internal static int RunChromiumInstall(bool headed, Func<string[], int> install)
     {
+        return RunPlaywrightCli(["install", .. InstallArgs(headed)], install);
+    }
+
+    /// <summary>
+    /// Runs the Playwright CLI with <paramref name="args"/> and returns its exit code (upstream <c>runPlaywrightCli</c>), keeping
+    /// other tools' browsers as <see cref="RunChromiumInstall"/> does. <paramref name="playwright"/> is a test seam.
+    /// Upstream spawns <c>node cli.js</c> and forwards SIGINT and SIGTERM to it; <c>Program.Main</c> runs in this process.
+    /// </summary>
+    internal static int RunPlaywrightCli(string[] args, Func<string[], int>? playwright = null)
+    {
         // Program.Main starts the driver with this process's environment, so the value is set on the process.
         Environment.SetEnvironmentVariable(SkipBrowserGcVariable, Environment.GetEnvironmentVariable(SkipBrowserGcVariable) ?? "1");
-        return install(["install", .. InstallArgs(headed)]);
+        return (playwright ?? Microsoft.Playwright.Program.Main)(args);
     }
 
     internal static async Task EnsureChromiumAsync(bool headed, CancellationToken cancellationToken)
@@ -579,9 +596,39 @@ public sealed partial class WebEngine : IEngine
     [GeneratedRegex(@"^(?<language>[a-z]{2,3}|[a-z]{5,8})(-[a-z]{4})?(-([a-z]{2}|[0-9]{3}))?(-([a-z0-9]{5,8}|[0-9][a-z0-9]{3}))*(-[0-9a-wyz](-[a-z0-9]{2,8})+)*(-x(-[a-z0-9]{1,8})+)?\z", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex LanguageTagPattern();
 
+    /// <summary>
+    /// The basic-auth credentials a context answers a challenge with, as Playwright's own <c>HttpCredentials</c> does:
+    /// on a <c>401</c> from any origin. A <see cref="Secret"/> password resolves through the attempt, which registers the
+    /// value for redaction, and the <c>Authorization</c> credential Playwright sends with it too: a page that echoes its
+    /// request headers shows that, not the password.
+    /// </summary>
+    internal static async Task<HttpCredentials> HttpCredentialsAsync(WebBasicAuth basicAuth, Func<Secret, ResolveSecretOptions?, Task<string>> resolveSecret)
+    {
+        var username = basicAuth.Username;
+        if (basicAuth.Password is string password)
+        {
+            return new HttpCredentials { Username = username, Password = password };
+        }
+
+        var resolved = await resolveSecret((Secret)basicAuth.Password, new ResolveSecretOptions { Derived = plaintext => BasicCredentials(username, plaintext) }).ConfigureAwait(false);
+        return new HttpCredentials { Username = username, Password = resolved };
+    }
+
+    /// <summary>
+    /// The credential an <c>Authorization: Basic</c> header carries for <paramref name="username"/> and
+    /// <paramref name="password"/>, base64 of <c>username:password</c> as Playwright encodes it, with and without
+    /// its <c>=</c> padding: an echo may drop or escape the padding.
+    /// </summary>
+    internal static IReadOnlyList<string> BasicCredentials(string username, string password)
+    {
+        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(username + ":" + password));
+        var unpadded = encoded.TrimEnd('=');
+        return unpadded == encoded ? [encoded] : [encoded, unpadded];
+    }
+
     // A clean context: the viewport the session holds now (setViewport
     // outlives restart and clearState), or no emulation when there is none.
-    private static BrowserNewContextOptions ContextOptions(WebEngineOptions options, ViewportSize? viewport)
+    private static BrowserNewContextOptions ContextOptions(WebEngineOptions options, ViewportSize? viewport, HttpCredentials? credentials)
     {
         var context = new BrowserNewContextOptions
         {
@@ -594,10 +641,7 @@ public sealed partial class WebEngine : IEngine
             context.UserAgent = options.UserAgent;
         }
 
-        if (options.BasicAuth is { } auth)
-        {
-            context.HttpCredentials = new HttpCredentials { Username = auth.Username, Password = auth.Password };
-        }
+        context.HttpCredentials = credentials;
 
         // Routing never sees a service worker's requests, so a worker would skip the headers.
         if (options.Headers is not null)
@@ -657,6 +701,7 @@ public sealed partial class WebEngine : IEngine
         private readonly IPlaywright _playwright;
         private readonly TimeSpan _actionTimeout;
         private readonly string _testIdAttribute;
+        private readonly HttpCredentials? _credentials;
         private readonly WebEngineOptions _options;
         private readonly Func<IBrowserContext, Task> _setUpContext;
         private readonly Func<string, IReadOnlyDictionary<string, string>?> _siteHeaders;
@@ -696,7 +741,7 @@ public sealed partial class WebEngine : IEngine
         private bool _firstPage = true;
         private bool _disposed;
 
-        public WebSession(IPlaywright playwright, IBrowser browser, TimeSpan actionTimeout, WebEngineOptions options, List<string> initScripts, Func<IBrowserContext, Task> setUpContext, Func<string, IReadOnlyDictionary<string, string>?> siteHeaders, SessionSeams seams, PersistentConnect? persistent = null)
+        public WebSession(IPlaywright playwright, IBrowser browser, TimeSpan actionTimeout, WebEngineOptions options, List<string> initScripts, Func<IBrowserContext, Task> setUpContext, Func<string, IReadOnlyDictionary<string, string>?> siteHeaders, SessionSeams seams, PersistentConnect? persistent = null, HttpCredentials? credentials = null)
         {
             _playwright = playwright;
             _initScripts = initScripts;
@@ -707,6 +752,7 @@ public sealed partial class WebEngine : IEngine
             _seams = seams;
             _persistent = persistent;
             _testIdAttribute = options.TestIdAttribute;
+            _credentials = credentials;
             _viewport = options.Viewport is { } viewport ? new ViewportSize { Width = viewport.Width, Height = viewport.Height } : null;
             _actionTimeout = actionTimeout;
         }
@@ -949,21 +995,56 @@ public sealed partial class WebEngine : IEngine
             return Budget("title", cancellationToken).WithinAsync(Page.TitleAsync());
         });
 
-        public Task<System.Text.Json.JsonElement?> EvaluateAsync(string expression, object? arg, bool hasArg, CancellationToken cancellationToken) => RunAsync("evaluate", cancellationToken, async () =>
+        public Task<System.Text.Json.JsonElement?> EvaluateAsync(string expression, object? arg, bool hasArg, CancellationToken cancellationToken) => RunAsync<System.Text.Json.JsonElement?>("evaluate", cancellationToken, async () =>
         {
             var budget = Budget("evaluate", cancellationToken);
+            System.Text.Json.JsonElement? outcome;
             try
             {
-                var call = hasArg
-                    ? Page.EvaluateAsync<System.Text.Json.JsonElement?>(expression, arg)
-                    : Page.EvaluateAsync<System.Text.Json.JsonElement?>(expression);
-                return await budget.WithinAsync(call).ConfigureAwait(false);
+                outcome = await budget.WithinAsync(Page.EvaluateAsync<System.Text.Json.JsonElement?>(EvaluationBoundary(expression, hasArg), arg)).ConfigureAwait(false);
             }
-            catch (PlaywrightException ex)
+            catch (PlaywrightException ex) when (ex.Message.StartsWith("SyntaxError", StringComparison.Ordinal))
             {
                 throw new TestException("EVALUATE_FAILED", PageMessage(ex), ex);
             }
+            catch (PlaywrightException ex)
+            {
+                // A failure of the browser, not of the page code: the page code's own exceptions come back as a result.
+                throw WebErrors.Translate(ex, "evaluate");
+            }
+            catch (ArgumentException ex)
+            {
+                // Playwright cannot carry a result that is not JSON, such as Infinity or NaN.
+                throw new TestException("INVALID_ARGUMENT", "evaluate argument or result is not JSON: " + ex.Message, ex);
+            }
+
+            var result = outcome!.Value;
+            if (result.GetProperty("ok").GetBoolean())
+            {
+                return result.TryGetProperty("value", out var value) ? value : default(System.Text.Json.JsonElement?);
+            }
+
+            throw new TestException("EVALUATE_FAILED", result.GetProperty("message").GetString()!);
         });
+
+        // One expression: a function it evaluates to is called with the argument, any other value is the result.
+        // The page code runs inside a try, so an exception it throws comes back as data, apart from the browser's own failures.
+        private static string EvaluationBoundary(string expression, bool hasArg) => $$"""
+            async (arg) => {
+              try {
+                return { ok: true, value: await ((result) => typeof result === 'function' ? result({{(hasArg ? "arg" : "")}}) : result)(({{expression}}
+            )) };
+              } catch (cause) {
+                let message;
+                try {
+                  message = typeof cause?.message === 'string' ? cause.message : String(cause);
+                } catch {
+                  message = 'Page evaluation threw an unprintable value';
+                }
+                return { ok: false, message };
+              }
+            }
+            """;
 
         // What the page code threw, without the stack Playwright appends or the "Error: " it prefixes to an Error's message.
         private static string PageMessage(PlaywrightException ex)
@@ -1112,7 +1193,7 @@ public sealed partial class WebEngine : IEngine
         /// <summary>Opens a clean context at the current viewport. Its first page opens on the first navigation.</summary>
         public async Task NewContextAsync()
         {
-            var context = await _browser.NewContextAsync(ContextOptions(_options, _viewport)).ConfigureAwait(false);
+            var context = await _browser.NewContextAsync(ContextOptions(_options, _viewport, _credentials)).ConfigureAwait(false);
             await ConfigureAsync(context).ConfigureAwait(false);
             _context = context;
         }
@@ -1206,10 +1287,10 @@ public sealed partial class WebEngine : IEngine
                 return [];
             }
 
-            string json;
+            System.Text.Json.JsonElement json;
             try
             {
-                json = await budget.WithinAsync(frame.EvaluateAsync<string>(PageScript.Collect, new { seed = _nextRef, max = walk.Remaining, testIdAttribute = _testIdAttribute })).ConfigureAwait(false);
+                json = await budget.WithinAsync(frame.EvaluateAsync<System.Text.Json.JsonElement>(PageScript.Collect, new { seed = _nextRef, max = walk.Remaining, testIdAttribute = _testIdAttribute })).ConfigureAwait(false);
             }
             catch (PlaywrightException) when (frame != _page?.MainFrame)
             {
@@ -2039,6 +2120,7 @@ public sealed partial class WebEngine : IEngine
                 InlineNodes = dto.Inline?.Select(inline => ToNode(inline, testIdAttribute)).ToList() ?? [],
                 OwnText = dto.OwnText,
                 Value = dto.Secure ? null : dto.Value,
+                Selection = dto.Secure ? null : dto.Selection,
                 TestId = dto.TestId,
                 TestIdAttribute = dto.TestId is null ? null : testIdAttribute,
                 Placeholder = dto.Placeholder,
@@ -2220,6 +2302,8 @@ public sealed partial class WebEngine : IEngine
         public string? OwnText { get; set; }
 
         public string? Value { get; set; }
+
+        public string? Selection { get; set; }
 
         public string? TestId { get; set; }
 
