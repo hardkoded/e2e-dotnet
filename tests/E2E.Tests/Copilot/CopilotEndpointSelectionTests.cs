@@ -95,10 +95,12 @@ public sealed class CopilotEndpointSelectionTests
     public async Task Lets_one_caller_give_up_on_the_listing_without_failing_the_others_waiting_on_it()
     {
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var listing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var api = new Replying(async (request, token) =>
         {
             if (request.RequestUri!.AbsolutePath == "/models")
             {
+                listing.TrySetResult();
                 await release.Task.WaitAsync(token);
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("""{ "data": [{ "id": "m", "supported_endpoints": ["/chat/completions"] }] }""") };
             }
@@ -114,6 +116,7 @@ public sealed class CopilotEndpointSelectionTests
 
         var first = model.CompleteAsync(Request(), quitter.Token);
         var second = model.CompleteAsync(Request(), CancellationToken.None);
+        await listing.Task;
         await quitter.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first);
         release.SetResult();

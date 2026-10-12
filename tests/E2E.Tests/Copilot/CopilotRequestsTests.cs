@@ -37,7 +37,7 @@ public sealed class CopilotRequestsTests
 
     /// <summary>Partial: the port's model messages carry no image parts, so the request has no <c>copilot-vision-request</c> header, and it cannot force a tool choice.</summary>
     [Fact]
-    public async Task Serves_generateText_over_the_chat_protocol_with_the_stored_GitHub_token()
+    public async Task Serves_a_tool_call_over_the_chat_protocol_with_the_stored_GitHub_token()
     {
         var api = new FakeApi(_ => (HttpStatusCode.OK, """
             { "id": "chatcmpl-1", "object": "chat.completion", "created": 1, "model": "gpt-4.1",

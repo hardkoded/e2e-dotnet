@@ -72,7 +72,7 @@ public sealed class AgentExtractTests
 
         Assert.Equal("ASSERTION_INCONCLUSIVE", Assert.IsType<AgentException>(error).Code);
         Assert.Equal(2, model.CallCount);
-        Assert.Contains("count", string.Join('\n', model.Requests[1].Messages.Select(message => message.Content)), StringComparison.Ordinal);
+        Assert.Contains("could not be converted", string.Join('\n', model.Requests[1].Messages.Select(message => message.Content)), StringComparison.Ordinal);
     }
 
     private sealed class TodoCount

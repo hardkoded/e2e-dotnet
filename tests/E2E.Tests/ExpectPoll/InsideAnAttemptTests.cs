@@ -27,6 +27,7 @@ public sealed class InsideAnAttemptTests
         cancel.CancelAfter(TimeSpan.FromMilliseconds(30));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => poll);
 
+        await Task.Delay(20);
         var readsAtCancel = reads;
         await Task.Delay(50);
         Assert.Equal(readsAtCancel, reads);
