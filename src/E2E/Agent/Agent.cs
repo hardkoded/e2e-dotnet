@@ -318,6 +318,9 @@ public sealed class Agent
         throw new AgentException("STEP_BUDGET_EXHAUSTED", "agent.act exhausted its model-call budget of " + maxCalls.ToString(CultureInfo.InvariantCulture), blocked: true);
     }
 
+    // The runtime's own hard stops are the step's truth wherever they land, so a replayed action surfaces them instead of handing off.
+    private static bool IsRuntimeHardStop(E2EException error) => error is AgentException { Code: "STEP_BUDGET_EXHAUSTED" or "STEP_TIMEOUT" or "CANCELLED" };
+
     // The step's verdict on a refusal it could not recover from: the same error, saying what the retry did.
     private static AgentException Overflowed(AgentException refusal, string note) =>
         new(
@@ -825,7 +828,7 @@ public sealed class Agent
                 started = true;
                 previous = action;
             }
-            catch (E2EException)
+            catch (E2EException ex) when (!IsRuntimeHardStop(ex))
             {
                 _scope.HandedOff++;
                 return ReplayAttempt.Hand("action-failed");

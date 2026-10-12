@@ -69,6 +69,20 @@ public sealed class ReplayTraceTests
         Assert.Equal([SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.Raw], looks);
     }
 
+    [Fact]
+    public async Task Rethrows_runtime_hard_stops_untouched()
+    {
+        var directory = CoreTests.TempCache();
+        var taps = 0;
+        await ActAsync(TapWorld(), directory, new ScriptedModel(_ => taps++ == 0 ? ModelResponses.Tap("button", "Upgrade") : ModelResponses.Done("passed", "Done.")));
+
+        var outOfActions = new DocumentWorld().Map("/plan", page => page.Button("Upgrade", () => throw new AgentException("STEP_BUDGET_EXHAUSTED", "out of actions")));
+        await using var session = await StartAsync(outOfActions, directory, new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")));
+        await session.Context.App.OpenAsync("/plan");
+        var error = await Assert.ThrowsAsync<AgentException>(() => session.Context.Agent.ActAsync("work the plan page", new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("password", "hunter2") } }));
+        Assert.Equal("STEP_BUDGET_EXHAUSTED", error.Code);
+    }
+
     // Every action changes what the page shows, so no look waits out a change window.
     private static DocumentWorld TapWorld() => new DocumentWorld().Map("/plan", page =>
     {
@@ -103,20 +117,7 @@ public sealed class ReplayTraceTests
 
     private static async Task<(string? Mode, IReadOnlyList<SettleMode> Looks)> ActAsync(DocumentWorld world, string directory, IAgentModel model)
     {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(world),
-            Model = model,
-            BaseUrl = "https://billing.test",
-            Cache = new FileStepCache(directory),
-            CacheMode = CacheMode.ReadWrite,
-            TestTitle = "replay > looks",
-            AssertionTimeout = TimeSpan.FromSeconds(2),
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            ReplayTimeout = TimeSpan.FromMilliseconds(300),
-            TestTimeout = TimeSpan.FromSeconds(30),
-            StepTimeout = TimeSpan.FromSeconds(20),
-        });
+        await using var session = await StartAsync(world, directory, model);
         Exception? error = null;
         string? mode = null;
         try
@@ -137,4 +138,20 @@ public sealed class ReplayTraceTests
         Assert.Null(error);
         return (mode, [.. session.Context.Agent.Feed.Looks]);
     }
+
+    private static Task<E2ESession> StartAsync(DocumentWorld world, string directory, IAgentModel model) =>
+        E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = new DocumentEngine(world),
+            Model = model,
+            BaseUrl = "https://billing.test",
+            Cache = new FileStepCache(directory),
+            CacheMode = CacheMode.ReadWrite,
+            TestTitle = "replay > looks",
+            AssertionTimeout = TimeSpan.FromSeconds(2),
+            ActionTimeout = TimeSpan.FromMilliseconds(300),
+            ReplayTimeout = TimeSpan.FromMilliseconds(300),
+            TestTimeout = TimeSpan.FromSeconds(30),
+            StepTimeout = TimeSpan.FromSeconds(20),
+        });
 }
