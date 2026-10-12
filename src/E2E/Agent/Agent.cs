@@ -2132,7 +2132,7 @@ internal sealed class AttemptScope
     public string? BaseUrl { get; init; }
 
     /// <summary>The origin of <see cref="BaseUrl"/>, which a link target on it shows without.</summary>
-    public string? AppOrigin => BaseUrl is null ? null : new Uri(BaseUrl).GetLeftPart(UriPartial.Authority);
+    public string? AppOrigin => Uri.TryCreate(BaseUrl, UriKind.Absolute, out var url) ? url.GetLeftPart(UriPartial.Authority) : null;
 
     /// <summary>The agents by name. <c>default</c> is always present.</summary>
     public required IReadOnlyDictionary<string, ResolvedAgent> Agents { get; init; }
