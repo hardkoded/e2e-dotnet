@@ -39,6 +39,9 @@ internal sealed class FakeDeviceClient : IDeviceClient
         return snapshot;
     }
 
+    /// <summary>A snapshot of the given nodes alone: it names no app.</summary>
+    public static JsonObject NodesOnly(IEnumerable<RawNode> nodes) => new() { ["nodes"] = JsonSerializer.SerializeToNode(nodes, CamelCase) };
+
     /// <summary>A snapshot of the given nodes, answered with the Settings screen's app identity.</summary>
     public static JsonObject SnapshotOf(IEnumerable<RawNode> nodes, params (string Key, JsonNode? Value)[] more)
     {
