@@ -71,7 +71,8 @@ public static partial class AgentDeviceDaemon
         }
 
         var protocol = health?["rpcProtocolVersion"] is JsonValue value && value.TryGetValue<int>(out var number) ? number : (int?)null;
-        if (health?["ok"]?.GetValue<bool>() != true || protocol != AgentDeviceVersion.RpcProtocol)
+        var ok = health?["ok"] is JsonValue flag && flag.TryGetValue<bool>(out var healthy) && healthy;
+        if (!ok || protocol != AgentDeviceVersion.RpcProtocol)
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
@@ -91,6 +92,8 @@ public static partial class AgentDeviceDaemon
         Directory.CreateDirectory(stateDirectory);
         if (ReadEndpoint(stateDirectory) is { } running && await IsHealthyAsync(running).ConfigureAwait(false))
         {
+            // A daemon of another version speaks another wire format, even when it answers the same protocol.
+            CheckVersion(stateDirectory);
             return running;
         }
 
@@ -131,7 +134,7 @@ public static partial class AgentDeviceDaemon
         var info = ReadInfo(stateDirectory);
         if (info?["httpPort"] is JsonValue port && port.TryGetValue<int>(out var number))
         {
-            return new DaemonEndpoint(new Uri($"http://127.0.0.1:{number.ToString(CultureInfo.InvariantCulture)}/"), info["token"]?.GetValue<string>());
+            return new DaemonEndpoint(new Uri($"http://127.0.0.1:{number.ToString(CultureInfo.InvariantCulture)}/"), Text(info["token"]));
         }
 
         return null;
@@ -151,7 +154,7 @@ public static partial class AgentDeviceDaemon
 
     private static void CheckVersion(string stateDirectory)
     {
-        var version = ReadInfo(stateDirectory)?["version"]?.GetValue<string>();
+        var version = Text(ReadInfo(stateDirectory)?["version"]);
         if (version != AgentDeviceVersion.Pinned)
         {
             throw new ConfigurationException(
@@ -204,22 +207,31 @@ public static partial class AgentDeviceDaemon
     private static async Task<(int ExitCode, string Output, string Error)> RunAsync(ProcessStartInfo start, TimeSpan timeout)
     {
         using var process = new Process { StartInfo = start };
-        process.Start();
+        try
+        {
+            process.Start();
+        }
+        catch (System.ComponentModel.Win32Exception cause)
+        {
+            throw new ConfigurationException("INVALID_CONFIG", $"Could not run `{start.FileName}`: {cause.Message}. agent-device needs Node {AgentDeviceVersion.MinimumNode} or newer, and npx comes with it.", cause);
+        }
+
         using var expiry = new CancellationTokenSource(timeout);
         var output = process.StandardOutput.ReadToEndAsync(expiry.Token);
         var error = process.StandardError.ReadToEndAsync(expiry.Token);
         try
         {
             await process.WaitForExitAsync(expiry.Token).ConfigureAwait(false);
+            return (process.ExitCode, await output.ConfigureAwait(false), await error.ConfigureAwait(false));
         }
         catch (OperationCanceledException)
         {
             process.Kill(entireProcessTree: true);
             throw new ConfigurationException("INVALID_CONFIG", $"`{start.FileName}` did not finish within {timeout.TotalSeconds:0} seconds.");
         }
-
-        return (process.ExitCode, await output.ConfigureAwait(false), await error.ConfigureAwait(false));
     }
+
+    private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
 
     private static string FirstLine(string text) =>
         text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? "no output";

@@ -185,6 +185,11 @@ public sealed partial class DevicePool
     /// </summary>
     public async Task FinishAsync(MobileFinishInfo info, CancellationToken cancellationToken)
     {
+        lock (_bound)
+        {
+            _bound.Remove(info.TargetName);
+        }
+
         List<IDeviceClient> clients;
         lock (_warmed)
         {
@@ -193,7 +198,7 @@ public sealed partial class DevicePool
         }
 
         var closing = CleanupBudget.WithinAsync(
-            Task.WhenAll(clients.Select(client => CloseQuietlyAsync(client, cancellationToken))),
+            token => Task.WhenAll(clients.Select(client => CloseQuietlyAsync(client, token))),
             info.CleanupTimeout,
             cancellationToken);
         await Task.WhenAll(closing, _source.FinishAsync(info, cancellationToken)).ConfigureAwait(false);

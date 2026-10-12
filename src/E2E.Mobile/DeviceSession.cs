@@ -202,7 +202,7 @@ public sealed class DeviceSession : IEngineSession
             return;
         }
 
-        await CleanupBudget.WithinAsync(CloseQuietlyAsync(client, cancellationToken), timeout, cancellationToken).ConfigureAwait(false);
+        await CleanupBudget.WithinAsync(token => CloseQuietlyAsync(client, token), timeout, cancellationToken).ConfigureAwait(false);
     }
 
     private static async Task CloseQuietlyAsync(IDeviceClient client, CancellationToken cancellationToken)
@@ -287,7 +287,7 @@ public sealed class DeviceSession : IEngineSession
         {
             return await SnapshotAsync(interactiveOnly, cancellationToken).ConfigureAwait(false);
         }
-        catch (EngineException cause) when (PinnedApp is null && cause.Code == EngineErrorCodes.InvalidState)
+        catch (EngineException cause) when (_client is not null && PinnedApp is null && cause.Code == EngineErrorCodes.InvalidState)
         {
             return new RawSnapshot([], false, null, null, false);
         }
@@ -386,7 +386,14 @@ public sealed class DeviceSession : IEngineSession
         }
         finally
         {
-            directory.Delete(recursive: true);
+            try
+            {
+                directory.Delete(recursive: true);
+            }
+            catch (IOException)
+            {
+                // The probe is best effort and so is its cleanup.
+            }
         }
     }
 
