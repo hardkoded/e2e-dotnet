@@ -17,7 +17,7 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | `samples/E2E.Sample` | NUnit tests against the live Dariten demo. The agent test needs a GitHub Copilot login (`dotnet run --project src/E2E.Cli -- login github-copilot`) |
 | `samples/E2E.XUnit.V3.Sample` | The `samples/E2E.Sample` tests, written for xUnit v3 |
 | `samples/MobileApp` | A small .NET MAUI app (iOS and Android) for the mobile sample. It is not in `E2E.slnx`: building it needs the MAUI workload, and CI has none. Build it with `dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64` |
-| `samples/MobileApp.E2ETests` | Tests that drive `samples/MobileApp` on a simulator or emulator with `MobileEngine`. All are `RealModel` and need a device and Node 22.12 or newer. The project builds in `E2E.slnx` |
+| `samples/MobileApp.E2ETests` | Tests that drive `samples/MobileApp` on a simulator or emulator with `MobileEngine`. All are `RealModel` and `Device`, and need a device and Node 22.12 or newer. Leave them out of a local real-model run with `--filter "TestCategory=RealModel&TestCategory!=Device"`. The project builds in `E2E.slnx` |
 
 ## Development
 
