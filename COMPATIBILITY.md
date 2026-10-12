@@ -104,7 +104,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 ## Not ported
 
 - The `e2e` command-line tool apart from `login`, `logout`, `models`, `guide`, and `mcp`: the custom runner, `[E2ETest]` discovery, `--grep`, `test.only`, and the JSON report
-- `@e2e-dev/mobile` apart from its snapshot model and engine (see [Mobile snapshot model](#mobile-snapshot-model) and [Mobile engine](#mobile-engine)), `@e2e-dev/github`, `@e2e-dev/kernel`, `@e2e-dev/eas`
+- `@e2e-dev/mobile` apart from its snapshot model and engine (see [Mobile snapshot model](#mobile-snapshot-model) and [Mobile engine](#mobile-engine)), `@e2e-dev/github`, `@e2e-dev/kernel`
 - `e2e init`
 - Vision, traces, and video. `app.screenshot()` is not ported either. `ToHaveScreenshotAsync` is: see [Visual comparison](#visual-comparison)
 - Parallel workers and serial suites
@@ -132,7 +132,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 
 ## Mobile engine
 
-`MobileEngine` ports `engine.ts`, `options.ts`, `bindings.ts`, `pool.ts`, `provider.ts`, and the parts of `surface.ts` that start, observe, and close a device session. It implements `IEngine` and declares every capability. The node actions, key presses, scrolls, screenshots, the `device` fixture, the tools, and video are not ported yet: `IDeviceActions` is the seam for the first four, and without an implementation each answers `UNSUPPORTED_CAPABILITY`. The `eas`, `limrun`, and `kernel` providers are not ported either. Differences:
+`MobileEngine` ports `engine.ts`, `options.ts`, `bindings.ts`, `pool.ts`, `provider.ts`, `surface.ts`, `actions.ts`, `device.ts`, and `tools.ts`. It implements `IEngine` and declares every capability. `DeviceSession` is the surface, `DeviceActions` (the `IDeviceActions` the engine uses by default) turns a node and an action into commands, `Device` is the `device` fixture, and `MobileTools` is the agent tool pack. The `eas` and `limrun` providers are ported (see [EAS Simulators](#eas-simulators) and [Limrun](#limrun)); the `kernel` provider, video, and provider recording are not. Differences:
 
 - agent-device is a Node program. `IDeviceClient` stands in for upstream's `createAgentDeviceClient`: a call is `namespace.method` with an options object, as upstream's client names them. `AgentDeviceRpcClient` implements it over the daemon's HTTP JSON-RPC 2.0 (`POST /rpc`, method `agent_device.command`, `GET /health`). The wire format was read from agent-device 0.21.22's code and checked against a running 0.21.22 daemon for `devices`, `boot`, `close`, `session_list`, `prepare`, and `snapshot`. It is not a documented protocol, so the version is pinned (`AgentDeviceVersion.Pinned`) and the client checks `rpcProtocolVersion` and the daemon version. `DeviceCommands` turns each call into a command, positionals, and flags. The calls the engine makes today are covered. A call it does not know is refused.
 - A local daemon needs Node 22.12 or newer. The first call starts it the way agent-device's own CLI does (`npx --yes agent-device@0.21.22 session list --json`, with `AGENT_DEVICE_DAEMON_TRANSPORT=http`), in the state directory `~/.agent-device/e2e-dotnet`, and it keeps running after the command. `E2E_AGENT_DEVICE_BIN` names an `agent-device.mjs` to run in place of `npx`. A missing Node, a Node that is too old, an agent-device that does not start, and a daemon of another version fail with `INVALID_CONFIG` and the recovery. Starting a daemon on Windows is not verified.
@@ -140,7 +140,33 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - The core engine contract has no `prepare`, `finish`, `init`, or worker slot. `MobileEngine.PrepareAsync` and `FinishAsync` take their own info records, and `StartAsync(MobileStartInfo)` starts the worker of one slot. `StartAsync(EngineStartOptions)` starts slot 0 of the target. Bindings travel from prepare to a worker through `MobilePrepareResult.Env`, as upstream's environment variable does. In one process the pool also keeps them.
 - `app.open()` is `OpenAsync`: it launches the pinned app fresh. A deep link or any absolute URL is refused. `EngineStartOptions.BaseUrl` is refused as upstream refuses `app.url`.
 - `DeviceSession.BackAsync` always settles (upstream's agent origin), since a test step has no origin here.
-- A device provider cannot record video yet (`record` and the recording tests are not ported).
+- The core session has no attempt hooks, locate member, trace hooks, pixel observations, or artifact directory. So `DeviceSession` is one attempt (it registers on the engine until it closes), locators resolve over the observation in core (`device.locator(selector)` and the engine-side `locate` are not ported), and `ScreenshotAsync` returns the masked, status-bar-normalized PNG for `toHaveScreenshot` instead of writing numbered files. A secure field that cannot be masked still withholds the image with `ENGINE_FAILURE`.
+- The core does not say who calls `PerformAsync`, so `DeviceSession.Origin` does. `ActionOrigin.Agent` (the default) settles after each action. `ActionOrigin.Test` never settles and waits out a transition (`TransitionMilliseconds`) for a control that arrived with the last action. The core `LocatorAction` has no long press, hover, drag, or swipe momentum, so `LongPressAsync`, `HoverAsync`, `DragToAsync`, `SwipeAsync(node, direction, momentum)`, and `PerformAtAsync(point, PointerAction)` are methods of `DeviceSession`. `ScrollIntoView`, `Select`, and `PressSequentially` are `UNSUPPORTED_CAPABILITY`.
+- `Device` is a plain class (`session.Device`) with `...Async` methods that take a cancellation token per call. The harness does not record `device.<method>` steps or labels, and `Device` has no `locator`. `appearance`, `network`, `alert`, and biometric results are enums. A permission name or state cannot be unknown, so the `INVALID_ARGUMENT` check for one is not needed.
+- `MobileTools.Create` returns `DeviceTool` records (name, description, JSON schema, `Mutates`, `Platforms`, `ExecuteAsync`), since the port has no `defineTool`. The agent does not offer them yet. `ai-imports` has no counterpart: there is no `ai` package.
+- agent-device takes no abort signal, so a cancelled command keeps running. Upstream's surface tracks those commands and makes the next attempt wait for them. The port does not: each attempt has its own session and client.
+- The key grammar (`DeviceKeys`) is ported here, since the core has none.
+- Not ported: video (`startVideo`, `stopVideo`, and the recording tests), the tool-pixels test (needs the full runner and a scripted model), and the `device.openApp` check of an unknown permission name.
+
+## EAS Simulators
+
+`EasSimulators` (`E2E.Mobile.Eas`) ports `@e2e-dev/eas`: hosted iOS simulators and Android emulators from Expo, leased through Expo's GraphQL API over `HttpClient`, with no SDK. It lives in the `E2E.Mobile` package, as the other pieces of the device pool. Pass it as `MobileOptions.Provider`. The sessions, the queue and startup limits, the idle backstop, the `EXPO_TOKEN` or eas-cli login, and the project id from the app config follow upstream. Differences:
+
+- Options are the `EasSimulatorsOptions` record, so an unknown option key is a compile error and upstream's `rejectUnknownKeys` has no counterpart. A bad combination (`BuildId` with `ApplicationArchiveUrl`, an idle limit not below the duration) is `INVALID_CONFIG` from the constructor.
+- A dynamic app config (`app.config.ts` and its siblings) is evaluated by running the project's own `expo config` with `node` from the path of the process, so it needs Node. A static `app.json` needs nothing.
+- The request's cancellation is a `CancellationToken`. A cancelled read of the app config is an `OperationCanceledException`; upstream wraps it as "could not read the Expo app config".
+- A device request always carries the project root, so upstream's check for an engine that passes none has no counterpart.
+
+## Limrun
+
+`LimrunSimulators` (`E2E.Mobile.Limrun`) ports `@e2e-dev/limrun`: one hosted iOS simulator or Android emulator per worker slot, created, polled to ready, driven through an agent-device daemon the provider starts for it, and deleted on release. Pass it as `MobileOptions.Provider`. The key and base URL (`LIMRUN_API_KEY`, `LIMRUN_BASE_URL`), the instance spec, the daemon environment, the retained lease, the 20-second heartbeat, and the cleanup follow upstream. The client has the lease commands the provider needs: `leases.allocate`, `leases.heartbeat`, and `leases.release` (`DeviceMethods`), sent as agent-device's `agent_device.lease.*` JSON-RPC methods. Differences:
+
+- Limrun's REST API (`/v1/ios_instances` and `/v1/android_instances`: create, get, delete) is called over `HttpClient`, with no `@limrun/api` SDK. Like upstream's configuration of the SDK, it retries nothing and gives each request 60 seconds.
+- Upstream forks a Node process per device, so the daemon and its lease client get the instance's credentials without changing the runner's environment. The port starts the daemon itself, with exactly the run's environment plus the instance's (`AgentDeviceDaemon.LocalAsync` with an environment), and runs the lease and install calls in the runner. `AgentDeviceDaemon.StopAsync` runs `agent-device daemon stop --clean`.
+- Upstream checks that the installed agent-device matches the engine's. The port always starts the pinned release, so it only checks that the engine asked for that release, and the daemon's own version check runs when it starts.
+- The lease request leaves out `providerCredentialFingerprint`. The daemon only compares it with the credentials of a daemon that was already running, and the port starts a fresh daemon with the right credentials for every device.
+- Options are the `LimrunSimulatorsOptions` record, with enums for the device models, so an unknown option is a compile error and upstream's `rejectUnknownKeys` has no counterpart.
+- Not verified against a live service: the lease wire format was read from agent-device's code (the `agent_device.lease.*` methods and their params in the daemon, and the client that writes them), and Limrun's REST calls from the `@limrun/api` 0.59.0 source. No test reaches Limrun or a daemon.
 
 ## Browser install command
 
