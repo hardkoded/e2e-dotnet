@@ -28,6 +28,9 @@ public sealed record RawNode
     /// <summary>The fallback some platforms send instead of <see cref="Type"/>.</summary>
     public string? Role { get; init; }
 
+    /// <summary>The role agent-device itself presents for the node, when it publishes one.</summary>
+    public string? Kind { get; init; }
+
     public string? Label { get; init; }
 
     public string? Value { get; init; }

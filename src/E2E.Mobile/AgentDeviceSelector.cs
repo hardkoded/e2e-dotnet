@@ -15,9 +15,9 @@ public delegate IReadOnlyList<ProjectedNode> CompiledSelector(IReadOnlyList<Proj
 /// <summary>
 /// agent-device selector support for the <c>selector</c> locator expression:
 /// <c>screen.Locator("id=save role=button")</c> and the structural hint on every observed node. The
-/// grammar is agent-device's own (<c>parseSelectorChain</c>), so a selector that works on the agent-device
-/// CLI works here unchanged; matching runs against the projected snapshot, one immediate pass, every match
-/// returned.
+/// parsing and term rules are agent-device's own (<c>parseSelectorChain</c>,
+/// <c>listSelectorChainMatches</c>); matching runs against the projected snapshot, one immediate pass,
+/// every match returned, and strictness stays with the runner.
 /// </summary>
 public static partial class AgentDeviceSelector
 {
@@ -26,11 +26,11 @@ public static partial class AgentDeviceSelector
     private static readonly HashSet<string> FlagKeys = ["visible", "hidden", "editable", "selected", "focused", "enabled", "hittable"];
 
     /// <summary>
-    /// Compiles one selector string. Alternatives (agent-device's fallback chain) are tried in order and
-    /// the first that matches anything wins, mirroring how agent-device itself resolves a chain; a term's
-    /// text compares exactly after whitespace collapsing, like every other text rule in the runner.
+    /// Compiles one selector string for a platform. Alternatives (agent-device's fallback chain) are tried
+    /// in order and the first that matches anything wins, with every node it matches returned in snapshot
+    /// order.
     /// </summary>
-    public static CompiledSelector Compile(string raw)
+    public static CompiledSelector Compile(string raw, MobilePlatform platform)
     {
         List<List<Term>> chain;
         try
@@ -50,7 +50,7 @@ public static partial class AgentDeviceSelector
         {
             foreach (var alternative in chain)
             {
-                var matches = entries.Where(entry => alternative.All(term => MatchesTerm(entry, term))).ToList();
+                var matches = entries.Where(entry => alternative.All(term => MatchesTerm(entry.Raw, term, platform))).ToList();
                 if (matches.Count > 0)
                 {
                     return matches;
@@ -294,49 +294,177 @@ public static partial class AgentDeviceSelector
 
     private static AgentDeviceError Invalid(string message) => new("INVALID_ARGS", message);
 
-    private static string Normalize(string text) => Whitespace().Replace(text, " ").Trim();
+    private static readonly string[] PackagePrefixes =
+        ["android.widget.", "android.view.", "android.webkit.", "androidx.", "com.google.android.", "com.android."];
 
-    private static bool TextEquals(string? actual, string expected) => actual is not null && Normalize(actual) == Normalize(expected);
-
-    private static bool MatchesTerm(ProjectedNode entry, Term term)
+    /// <summary>agent-device's presented role for each platform type, the <c>kind</c> it publishes on a node.</summary>
+    private static readonly Dictionary<string, string> PresentedKinds = new(StringComparer.Ordinal)
     {
-        var states = entry.Node.States;
+        ["application"] = "application",
+        ["navigationbar"] = "navigation-bar",
+        ["tabbar"] = "tab-bar",
+        ["button"] = "button",
+        ["imagebutton"] = "button",
+        ["link"] = "link",
+        ["cell"] = "cell",
+        ["statictext"] = "text",
+        ["checkedtextview"] = "text",
+        ["textbox"] = "text-field",
+        ["textfield"] = "text-field",
+        ["edittext"] = "text-field",
+        ["textarea"] = "text-view",
+        ["switch"] = "switch",
+        ["slider"] = "slider",
+        ["image"] = "image",
+        ["imageview"] = "image",
+        ["webview"] = "webview",
+        ["framelayout"] = "group",
+        ["linearlayout"] = "group",
+        ["relativelayout"] = "group",
+        ["constraintlayout"] = "group",
+        ["viewgroup"] = "group",
+        ["view"] = "group",
+        ["listview"] = "list",
+        ["recyclerview"] = "list",
+        ["collectionview"] = "collection",
+        ["searchfield"] = "search",
+        ["heading"] = "heading",
+        ["activityindicator"] = "activity-indicator",
+        ["progressindicator"] = "progress-indicator",
+        ["segmentedcontrol"] = "segmented-control",
+        ["group"] = "group",
+        ["window"] = "window",
+        ["checkbox"] = "checkbox",
+        ["radio"] = "radio",
+        ["menuitem"] = "menu-item",
+        ["toolbar"] = "toolbar",
+        ["scrollarea"] = "scroll-area",
+        ["scrollview"] = "scroll-area",
+        ["nestedscrollview"] = "scroll-area",
+        ["table"] = "table",
+    };
+
+    /// <summary>agent-device's text comparison: trimmed, lower-cased, whitespace collapsed.</summary>
+    private static string Normalize(string text) => Whitespace().Replace(text.Trim().ToLowerInvariant(), " ");
+
+    private static bool TextEquals(string? actual, string expected) => Normalize(actual ?? "") == Normalize(expected);
+
+    private static bool MatchesTerm(RawNode node, Term term, MobilePlatform platform)
+    {
         var flag = term.Flag == true;
         switch (term.Key)
         {
             case "id":
-                return TextEquals(entry.Raw.Identifier, term.Value);
+                return TextEquals(node.Identifier, term.Value);
             case "role":
-                var wanted = SnapshotProjection.NormalizeKind(term.Value);
-                return entry.Kind == wanted || entry.Node.Role == wanted;
-            case "text":
-                return TextEquals(entry.Raw.Label, term.Value) || TextEquals(entry.Raw.Value, term.Value);
+                return Kinds(node).Any(kind => Normalize(kind) == Normalize(term.Value));
             case "label":
-                return TextEquals(entry.Raw.Label, term.Value);
+                return TextEquals(node.Label, term.Value);
             case "value":
-                return TextEquals(entry.Raw.Value, term.Value);
+                return TextEquals(node.Value, term.Value);
+            case "text":
+                return TextEquals(FirstText(node), term.Value);
             case "appname":
-                return TextEquals(entry.Raw.AppName, term.Value);
+                return TextEquals(node.AppName, term.Value);
             case "windowtitle":
-                return TextEquals(entry.Raw.WindowTitle, term.Value);
+                return TextEquals(node.WindowTitle, term.Value);
             case "visible":
-                return !states.Hidden == flag;
+                return IsVisible(node) == flag;
             case "hidden":
-                return states.Hidden == flag;
+                return !IsVisible(node) == flag;
             case "editable":
-                return (entry.Node.Role == "textbox") == flag;
+                return (IsFillableType(node.Type ?? "", platform) && node.Enabled != false) == flag;
             case "selected":
-                return states.Selected == flag;
+                return (node.Selected == true) == flag;
             case "focused":
-                return states.Focused == flag;
+                return (node.Focused == true) == flag;
             case "enabled":
-                return !states.Disabled == flag;
+                return (node.Enabled != false) == flag;
             case "hittable":
-                return (entry.Raw.Hittable != false) == flag;
+                return (node.Hittable == true) == flag;
             default:
                 return false;
         }
     }
+
+    /// <summary>The first non-empty of label, value, and identifier, trimmed.</summary>
+    private static string FirstText(RawNode node) =>
+        new[] { node.Label, node.Value, node.Identifier }.Select(text => text?.Trim() ?? "").FirstOrDefault(text => text.Length > 0) ?? "";
+
+    private static bool IsVisible(RawNode node) =>
+        node.Hittable == true || (node.Rect is { } rect && rect.Width > 0 && rect.Height > 0);
+
+    /// <summary>The kinds a <c>role</c> term matches: the node's kind, and its platform type when that differs.</summary>
+    private static List<string> Kinds(RawNode node)
+    {
+        var kind = node.Kind ?? TypeKind(node.Type ?? "Element");
+        var type = NormalizeType(node.Type ?? "");
+        return type.Length > 0 && type != kind ? [kind, type] : [kind];
+    }
+
+    /// <summary>agent-device's lower-cased platform type: no <c>XCUIElementType</c> or <c>AX</c> prefix, no package.</summary>
+    private static string NormalizeType(string type)
+    {
+        var text = XcuiPrefix().Replace(type.Trim(), "");
+        text = AxPrefix().Replace(text, "").ToLowerInvariant();
+        var cut = Math.Max(text.LastIndexOf('.'), text.LastIndexOf('/'));
+        return cut == -1 ? text : text[(cut + 1)..];
+    }
+
+    /// <summary>Whether a platform type takes typed text.</summary>
+    private static bool IsFillableType(string type, MobilePlatform platform)
+    {
+        var text = NormalizeType(type);
+        if (text.Length == 0)
+        {
+            return true;
+        }
+
+        return platform == MobilePlatform.Android
+            ? text.Contains("edittext", StringComparison.Ordinal) || text.Contains("autocompletetextview", StringComparison.Ordinal)
+            : text.Contains("textfield", StringComparison.Ordinal)
+                || text.Contains("searchfield", StringComparison.Ordinal)
+                || text.Contains("textview", StringComparison.Ordinal)
+                || text.Contains("textarea", StringComparison.Ordinal)
+                || text == "search";
+    }
+
+    /// <summary>The role agent-device presents for a platform type, when the node carries no <c>kind</c> of its own.</summary>
+    private static string TypeKind(string type)
+    {
+        var android = type.Contains('.', StringComparison.Ordinal)
+            && (type.StartsWith("android.", StringComparison.Ordinal) || type.StartsWith("androidx.", StringComparison.Ordinal) || type.StartsWith("com.", StringComparison.Ordinal));
+        var text = XcuiPrefix().Replace(type, "").ToLowerInvariant();
+        if (text.Contains('.', StringComparison.Ordinal))
+        {
+            foreach (var prefix in PackagePrefixes)
+            {
+                if (text.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    text = text[prefix.Length..];
+                    break;
+                }
+            }
+
+            if (android && text.Contains('.', StringComparison.Ordinal))
+            {
+                text = text[(text.LastIndexOf('.') + 1)..];
+            }
+        }
+
+        if (text == "textview")
+        {
+            return android ? "text" : "text-view";
+        }
+
+        return PresentedKinds.TryGetValue(text, out var kind) ? kind : text.Length > 0 ? text : "element";
+    }
+
+    [GeneratedRegex("XCUIElementType", RegexOptions.IgnoreCase)]
+    private static partial Regex XcuiPrefix();
+
+    [GeneratedRegex("^AX")]
+    private static partial Regex AxPrefix();
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex Whitespace();

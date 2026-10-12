@@ -21,7 +21,7 @@ public sealed class LocatorExpressionsOverADeviceSnapshotTests
     private static List<string> Names(LocatorQuery expression)
     {
         var index = Project(SettingsNodes).Index;
-        return [.. DeviceLocator.ResolveExpression(expression, index).Select(entry => entry.Node.Name ?? "")];
+        return [.. DeviceLocator.ResolveExpression(expression, index, MobilePlatform.Ios).Select(entry => entry.Node.Name ?? "")];
     }
 
     [Fact]
@@ -62,9 +62,9 @@ public sealed class LocatorExpressionsOverADeviceSnapshotTests
     public void Answers_text_and_label_queries_with_the_innermost_match_when_an_ancestor_echoes_the_text()
     {
         var index = Project(SettingsNodes).Index;
-        var matches = DeviceLocator.ResolveExpression(Text("text", "About"), index);
+        var matches = DeviceLocator.ResolveExpression(Text("text", "About"), index, MobilePlatform.Ios);
         Assert.Equal(["text"], matches.Select(entry => entry.Node.Role));
-        Assert.Equal(["text"], DeviceLocator.ResolveExpression(Text("label", "About"), index).Select(entry => entry.Node.Role));
+        Assert.Equal(["text"], DeviceLocator.ResolveExpression(Text("label", "About"), index, MobilePlatform.Ios).Select(entry => entry.Node.Role));
 
         // The echoing cell still answers role queries, and filters by its subtree text.
         Assert.Equal(["About"], Names(Role("listitem", Exact("About"))));
@@ -80,13 +80,13 @@ public sealed class LocatorExpressionsOverADeviceSnapshotTests
             N("@e3", index: 2, parentIndex: 1, depth: 2, type: "TextField", label: "Name field", value: "Ada", identifier: "name-input"),
             N("@e4", index: 3, parentIndex: 0, depth: 1, type: "Other", label: "Passphrase field"),
             N("@e5", index: 4, parentIndex: 3, depth: 2, type: "SecureTextField", label: "Passphrase field")).Index;
-        var field = DeviceLocator.ResolveExpression(Text("label", "Name field"), index);
+        var field = DeviceLocator.ResolveExpression(Text("label", "Name field"), index, MobilePlatform.Ios);
         Assert.Equal([("textbox", "name-input")], field.Select(entry => (entry.Node.Role!, entry.Node.TestId!)));
         var pattern = LocatorQuery.For("label", TextMatch.FromRegex(new Regex("field$")), new TextMatchOptions(), "value");
-        Assert.Equal(["textbox", "textbox"], DeviceLocator.ResolveExpression(pattern, index).Select(entry => entry.Node.Role));
+        Assert.Equal(["textbox", "textbox"], DeviceLocator.ResolveExpression(pattern, index, MobilePlatform.Ios).Select(entry => entry.Node.Role));
 
         // A role query keeps both, since the host view answers to no vocabulary role of its own.
-        Assert.Equal(2, DeviceLocator.ResolveExpression(Role("textbox"), index).Count);
+        Assert.Equal(2, DeviceLocator.ResolveExpression(Role("textbox"), index, MobilePlatform.Ios).Count);
     }
 
     [Fact]
@@ -103,19 +103,12 @@ public sealed class LocatorExpressionsOverADeviceSnapshotTests
     }
 
     [Fact]
-    public void Resolves_agent_device_selectors_alternatives_first_match_and_rejects_frames()
+    public void Routes_agent_device_selectors_to_the_selector_matcher_and_rejects_frames()
     {
         static LocatorQuery Selector(string selector) => new() { Kind = "selector", Selector = selector };
 
         Assert.Equal(["About"], Names(Selector("id=ABOUT")));
-        Assert.Equal(["Back"], Names(Selector("role=button visible")));
-        Assert.Equal(["About", "Scroller"], Names(Selector("role=cell")));
-        Assert.Equal(["About", "Scroller"], Names(Selector("role=Cell")));
-        Assert.Equal(["General"], Names(Selector("role=NavigationBar")));
-        Assert.Equal(["General"], Names(Selector("role=navigation")));
-        Assert.Equal(["Airplane Mode"], Names(Selector("label=\"Airplane Mode\" role=switch")));
-        Assert.Equal(["Search", "Password"], Names(Selector("editable")));
-        Assert.Equal(["Hidden"], Names(Selector("enabled=false")));
+        Assert.Equal(["Airplane Mode"], Names(Selector("id=NOPE || label=\"Airplane Mode\"")));
         Assert.Matches("invalid agent-device selector", Assert.Throws<EngineException>(() => Names(Selector("@e3"))).Message);
         var frame = Assert.Throws<EngineException>(() => Names(new LocatorQuery { Kind = "frame", Selector = "iframe", Source = Role("button") }));
         Assert.Equal("FRAME_NOT_FOUND", frame.Code);

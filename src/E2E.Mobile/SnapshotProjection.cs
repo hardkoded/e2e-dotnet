@@ -203,7 +203,7 @@ public static partial class SnapshotProjection
     private static readonly HashSet<string> StatusIconKinds = ["text-view", "image-view", "frame-layout", "linear-layout", "view", "view-group"];
 
     /// <summary>One element-type spelling for <c>NavigationBar</c>, <c>navigation-bar</c>, and <c>android.widget.NavigationBar</c> alike.</summary>
-    public static string NormalizeKind(string type)
+    private static string NormalizeKind(string type)
     {
         var simple = type[(type.LastIndexOf('.') + 1)..];
         simple = WordBoundary().Replace(simple, "$1-$2");

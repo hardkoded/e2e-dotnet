@@ -32,6 +32,7 @@ internal static class RawNodes
         bool? hintShowing = null,
         string? placeholder = null,
         bool? visibleToUser = null,
+        bool? hittable = null,
         string? bundleId = null) => new()
         {
             Ref = @ref,
@@ -55,6 +56,7 @@ internal static class RawNodes
             HintShowing = hintShowing,
             Placeholder = placeholder,
             VisibleToUser = visibleToUser,
+            Hittable = hittable,
             BundleId = bundleId,
         };
 

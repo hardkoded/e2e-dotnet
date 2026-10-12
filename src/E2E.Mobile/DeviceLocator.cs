@@ -13,30 +13,30 @@ namespace E2E.Mobile;
 /// </summary>
 internal static class DeviceLocator
 {
-    /// <summary>Resolves one expression to the nodes it currently matches.</summary>
-    public static List<ProjectedNode> ResolveExpression(LocatorQuery expression, IReadOnlyList<ProjectedNode> index)
+    /// <summary>Resolves one expression to the nodes it currently matches; <paramref name="platform"/> is the one agent-device selectors match for.</summary>
+    public static List<ProjectedNode> ResolveExpression(LocatorQuery expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
     {
         switch (expression.Kind)
         {
             case "filter":
-                return Filter(expression, index);
+                return Filter(expression, index, platform);
             case "index":
-                return Pick(expression, index);
+                return Pick(expression, index, platform);
             case "selector":
-                return [.. AgentDeviceSelector.Compile(expression.Selector!)(index)];
+                return [.. AgentDeviceSelector.Compile(expression.Selector!, platform)(index)];
             case "frame":
                 throw new EngineException(
                     EngineErrorCodes.FrameNotFound,
                     "a device surface has no nested documents to scope a query into",
                     retryable: false);
             default:
-                return Query(expression, index);
+                return Query(expression, index, platform);
         }
     }
 
-    private static List<ProjectedNode> Filter(LocatorQuery expression, IReadOnlyList<ProjectedNode> index)
+    private static List<ProjectedNode> Filter(LocatorQuery expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
     {
-        var source = ResolveExpression(expression.Source!, index);
+        var source = ResolveExpression(expression.Source!, index, platform);
         return source.Where(entry =>
         {
             if (expression.HasText is not null && !SubtreeHasText(entry, index, expression.HasText))
@@ -44,20 +44,20 @@ internal static class DeviceLocator
                 return false;
             }
 
-            return expression.Has is null || ResolveExpression(expression.Has, DescendantsOf([entry], index)).Count > 0;
+            return expression.Has is null || ResolveExpression(expression.Has, DescendantsOf([entry], index), platform).Count > 0;
         }).ToList();
     }
 
-    private static List<ProjectedNode> Pick(LocatorQuery expression, IReadOnlyList<ProjectedNode> index)
+    private static List<ProjectedNode> Pick(LocatorQuery expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
     {
-        var source = ResolveExpression(expression.Source!, index);
+        var source = ResolveExpression(expression.Source!, index, platform);
         var position = expression.Index == LocatorQuery.LastIndex ? source.Count - 1 : expression.Index!.Value;
         return position >= 0 && position < source.Count ? [source[position]] : [];
     }
 
-    private static List<ProjectedNode> Query(LocatorQuery expression, IReadOnlyList<ProjectedNode> index)
+    private static List<ProjectedNode> Query(LocatorQuery expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
     {
-        var candidates = expression.Parent is null ? index : DescendantsOf(ResolveExpression(expression.Parent, index), index);
+        var candidates = expression.Parent is null ? index : DescendantsOf(ResolveExpression(expression.Parent, index, platform), index);
         var matches = candidates.Where(entry => MatchesQuery(entry, expression)).ToList();
         return EchoedQueryKinds.Contains(expression.Kind) ? InnermostOnly(matches) : matches;
     }
