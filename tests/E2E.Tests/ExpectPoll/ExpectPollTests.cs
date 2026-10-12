@@ -6,9 +6,10 @@ namespace E2E.Tests.ExpectPoll;
 
 /// <summary>
 /// The port's poll has the toBe and toSatisfy matchers only, so "runs every value matcher", "polls the new
-/// matchers until they hold and reports their last failure", "treats a matcher type complaint as not yet, like
-/// any other failing sample", and "a negated global regexp never passes on an unchanged matching value" are not
-/// ported. The port has no attempt budget, so the nested "inside an attempt" describe is not ported either.
+/// matchers until they hold and reports their last failure", and "a negated global regexp never passes on an
+/// unchanged matching value" are not ported. "treats a matcher type complaint as not yet" is in
+/// <c>E2E.NUnit.Tests.ExpectPoll</c>, where the NUnit constraint is. The port has no attempt budget, so the nested
+/// "inside an attempt" describe is not ported either.
 /// </summary>
 public sealed class ExpectPollTests
 {
