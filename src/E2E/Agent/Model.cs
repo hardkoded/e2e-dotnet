@@ -32,7 +32,7 @@ public sealed class ModelRequest
 
     /// <summary>
     /// True for a turn of the act tool loop, where the next turn repeats everything up to the newest message. Only then
-    /// does <see cref="AnthropicModel"/> mark that message for caching. A judgment call has no next turn.
+    /// does <see cref="AnthropicModel"/> mark that message for caching, as upstream does. Judgments and extractions are not a tool loop.
     /// </summary>
     public bool ToolLoop { get; init; }
 
