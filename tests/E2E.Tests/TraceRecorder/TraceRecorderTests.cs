@@ -2,7 +2,6 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Text.Json.Nodes;
 using E2E.Engine;
 using static E2E.Tests.TraceRecorder.RecordedEntries;
 
@@ -104,7 +103,7 @@ public sealed class TraceRecorderTests
 
     /// <summary>Partial port of "records a secret fill by name only, with page strings redacted": the port has no truncation flag to leave unset.</summary>
     [Fact]
-    public async Task Records_a_secret_fill_by_name_only_with_page_strings_redacted()
+    public async Task Records_a_secret_fill_as_its_marker_with_page_strings_redacted()
     {
         var parameters = new Dictionary<string, object?> { ["password"] = Secret.Create("member-password", "hunter2", "password") };
         var directory = await RecordAsync(

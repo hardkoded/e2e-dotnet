@@ -38,7 +38,7 @@ public sealed class ProviderHintsForAnthropicTests
 
     /// <summary>Partial port of "moves the conversation breakpoint to the newest message each turn": the port builds its body fresh each turn, so each request is read on its own.</summary>
     [Fact]
-    public async Task Moves_the_conversation_breakpoint_to_the_newest_message_each_turn()
+    public async Task Marks_only_the_newest_message_of_each_turns_request()
     {
         var first = await BodyAsync(Request());
         Assert.Equal("ephemeral", first["messages"]![0]!["content"]![0]!["cache_control"]!["type"]!.GetValue<string>());

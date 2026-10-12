@@ -14,7 +14,7 @@ namespace E2E.Tests.ToolLoopToolChoice;
 /// auto on the forced-conclusion turns", the four "downgraded tool choice" cases, "sends the call back as an error and asks
 /// again on the same turn budget", "isForcedToolChoiceRejected" and "isForcedToolCallSkipped" (no forced choice, no AI SDK
 /// warnings or errors), and "fails with STEP_NO_CONCLUSION when the model never calls complete_step" (the port ends on the
-/// call budget with <c>STEP_BUDGET_EXHAUSTED</c>, not <c>STEP_NO_CONCLUSION</c>).
+/// call budget with <c>STEP_BUDGET_EXHAUSTED</c>, not <c>STEP_NO_CONCLUSION</c>), and "leaves a 400 about anything else to the ordinary error translation" (the port has no forced-choice refusal to tell it from, and a scripted model would only test itself).
 /// </summary>
 public sealed class ToolLoopForcedToolChoiceTests
 {
@@ -46,27 +46,5 @@ public sealed class ToolLoopForcedToolChoiceTests
         Assert.Equal(seen[0].Count + 2, seen[1].Count);
         // The prose turn is one the step paid for.
         Assert.Equal(2, result!.ModelCalls);
-    }
-
-    /// <summary>
-    /// Partial port of "leaves a 400 about anything else to the ordinary error translation": the port has no forced choice
-    /// to refuse, so this checks only that a refused request fails the step with the provider code after one call.
-    /// </summary>
-    [Fact]
-    public async Task Fails_the_step_with_the_provider_code_after_one_call_when_the_provider_rejects_the_request()
-    {
-        var model = new ScriptedModel(_ => throw new AgentException("MODEL_PROVIDER_FAILED", "The model provider failed: HTTP 400: Invalid API key provided"));
-
-        var attempt = await RunAsync(
-            async ctx =>
-            {
-                await ctx.App.OpenAsync("/start");
-                await ctx.Agent.ActAsync("do the thing");
-            },
-            Page(),
-            model);
-
-        Assert.Equal("MODEL_PROVIDER_FAILED", Assert.IsType<AgentException>(attempt.Error).Code);
-        Assert.Equal(1, model.CallCount);
     }
 }

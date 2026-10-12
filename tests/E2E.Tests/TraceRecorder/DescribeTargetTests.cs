@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json.Nodes;
-using E2E.Engine;
 using static E2E.Tests.TraceRecorder.RecordedEntries;
 
 namespace E2E.Tests.TraceRecorder;

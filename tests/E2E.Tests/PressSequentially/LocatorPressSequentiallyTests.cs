@@ -13,7 +13,8 @@ namespace E2E.Tests.PressSequentially;
 /// focuses and types, so these tests read the actions the scene received. "cuts a pause at the action deadline and sends
 /// no character past it" is not ported: the port gives the engine the whole text and the delay, and a page operation
 /// that outlives the deadline fails with <c>ACTION_MAY_HAVE_COMMITTED</c>, not <c>ACTION_FAILED</c> naming the characters
-/// typed. "splits by code point, so a surrogate pair is one keystroke" is not ported: the document engine appends one UTF-16 character at a time, so a surrogate pair fires two fill hooks. "refuses a target whose engine has no keyboard before resolving any node" and "refuses a target whose engine
+/// typed. "splits by code point, so a surrogate pair is one keystroke" is not ported: the document engine appends one UTF-16 character at a time, so a surrogate pair fires two fill hooks.
+/// "refuses a target whose engine has no keyboard before resolving any node" and "refuses a target whose engine
 /// does not declare the focus action" are not ported: the port has no per-action capability list and does not check the
 /// keyboard capability. "refuses a Secret with INVALID_ARGUMENT and points at fill" is not ported: the typed API has no
 /// <c>Secret</c> overload, so the call does not compile. The non-string and <c>delayMs</c> cases of the last <c>it</c> cannot be written in C#.

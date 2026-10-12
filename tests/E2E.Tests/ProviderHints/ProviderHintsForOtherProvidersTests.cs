@@ -21,7 +21,7 @@ public sealed class ProviderHintsForOtherProvidersTests
     [InlineData("openai", "gpt-4o")]
     [InlineData("openai-proxy", "openai/gpt-4o")]
     [InlineData("mock-provider", "mock-model")]
-    public async Task Changes_nothing_for(string provider, string model)
+    public async Task Adds_no_hint_fields_and_passes_the_providers_options_through_for(string provider, string model)
     {
         var body = await ChatAsync(
             new OpenAiCompatibleModelOptions { Model = model, Provider = provider, ApiKey = "k" },
