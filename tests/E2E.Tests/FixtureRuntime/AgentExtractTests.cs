@@ -33,6 +33,7 @@ public sealed class AgentExtractTests
         Assert.Equal(3, value.Count);
         var sent = model.Requests[0].Tools.Single(tool => tool.Name == "extract").Parameters.GetRawText();
         Assert.Contains("\"count\":{\"type\":\"integer\"}", sent, StringComparison.Ordinal);
+        Assert.Contains("\"required\":[\"count\"]", sent, StringComparison.Ordinal);
         Assert.Contains("\"label\":{\"type\":\"string\"}", sent, StringComparison.Ordinal);
         foreach (var constraint in new[] { "minimum", "maximum", "minLength", "pattern", "$schema" })
         {
