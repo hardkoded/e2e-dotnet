@@ -52,7 +52,7 @@ public sealed class FileCacheStoreTests : IDisposable
     }
 
     [Fact]
-    public void Misses_on_an_absent_entry_and_rejects_a_malformed_key_hash()
+    public void Misses_on_an_absent_entry_and_throws_on_a_malformed_key_hash()
     {
         var miss = _store.Read(Key);
         Assert.Null(miss.Entry);
@@ -62,7 +62,7 @@ public sealed class FileCacheStoreTests : IDisposable
     }
 
     [Fact]
-    public void Fails_closed_on_unreadable_and_oversized_entries()
+    public void Fails_closed_on_unreadable_entries_and_entries_over_one_MiB()
     {
         Directory.CreateDirectory(_directory);
         var path = Path.Combine(_directory, Key + ".json");
