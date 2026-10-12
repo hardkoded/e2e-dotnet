@@ -305,9 +305,27 @@ public sealed class Agent
         var deadline = DateTime.UtcNow + timeout;
         var callsBefore = _scope.ModelCalls;
         var last = "the statement did not hold";
+
+        // An observation can outlive the deadline that bounded it, and the engine failure it then reports describes
+        // a truncated budget, not a broken app. The wait owns the timeout message, with the last judgment.
+        async Task<string> ObserveAsync()
+        {
+            try
+            {
+                return SnapshotText.Render(await _scope.Session.ObserveAsync(token).ConfigureAwait(false), _scope.Redactor);
+            }
+            catch (Exception ex) when (ex is not AgentException
+                && DateTime.UtcNow >= deadline
+                && !cancellationToken.IsCancellationRequested
+                && !_scope.Token().IsCancellationRequested)
+            {
+                throw new AgentException("STEP_TIMEOUT", "waitFor timed out; last judgment: " + last, ex);
+            }
+        }
+
         try
         {
-            var snapshot = SnapshotText.Render(await _scope.Session.ObserveAsync(token).ConfigureAwait(false), _scope.Redactor);
+            var snapshot = await ObserveAsync().ConfigureAwait(false);
             while (true)
             {
                 var verdict = await JudgeOnceAsync(statement, snapshot, agent, maxCalls - (_scope.ModelCalls - callsBefore), token).ConfigureAwait(false);
@@ -342,7 +360,7 @@ public sealed class Agent
                         await Task.Delay(wait < remaining ? wait : remaining, token).ConfigureAwait(false);
                     }
 
-                    snapshot = SnapshotText.Render(await _scope.Session.ObserveAsync(token).ConfigureAwait(false), _scope.Redactor);
+                    snapshot = await ObserveAsync().ConfigureAwait(false);
                     if (DateTime.UtcNow - judgedAt >= interval && !string.Equals(snapshot, judged, StringComparison.Ordinal))
                     {
                         break;
