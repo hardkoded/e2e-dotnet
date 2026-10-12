@@ -11,7 +11,9 @@ namespace E2E.Tests.AgentScrollSettle;
 /// The look after scrolling to text. Upstream's "keeps the stability check without another change wait after N pages"
 /// is not ported: it covers an engine that cannot scroll a node into view, and every port engine can. Upstream's fake
 /// engine shows nothing of a scroll until the late change, but a browser shows the scroll at once, so the testbed page
-/// keeps changing until the late change lands.
+/// keeps changing until the late change lands. The test therefore checks only part of upstream's "still waits for the
+/// final scrollIntoView operation to change the screen": a single late change after a scroll cannot be shown, because
+/// the settle shape includes the scroll position, so it carries a name of its own.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class TheLookAfterScrollingToTextTests
@@ -49,7 +51,7 @@ public sealed class TheLookAfterScrollingToTextTests
         """;
 
     [Fact]
-    public async Task Still_waits_for_the_final_scroll_into_view_operation_to_change_the_screen()
+    public async Task Waits_for_a_screen_the_final_scroll_into_view_operation_keeps_changing_to_hold_still()
     {
         using var site = await TinySite.StartAsync(context => TinySite.RespondAsync(context, Page));
         string? afterScroll = null;
