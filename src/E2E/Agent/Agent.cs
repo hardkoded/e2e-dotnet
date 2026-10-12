@@ -27,6 +27,10 @@ public sealed class Agent
 
     // A scroll to a text gives up after this many pages, or once the screen stops moving.
     private const int MaxScrollUntilScreens = 800;
+
+    // One relocation covers a re-render between the look and the action. The second covers a render landing between the
+    // fresh look and the action itself. A control that vanishes faster than that is reported as gone.
+    private const int MaxStaleRelocations = 2;
     private const int ScrollUntilStillPages = 3;
     private const int ScrollUntilWrongListPages = 2;
 
@@ -997,21 +1001,21 @@ public sealed class Agent
             switch (call.Name)
             {
                 case "tap":
-                    await _scope.Session.PerformAsync(node, new LocatorAction.Tap(), token).ConfigureAwait(false);
+                    await TargetedAsync(node, new LocatorAction.Tap(), token).ConfigureAwait(false);
                     actions.Add(Record(node, "tap"));
                     return ToolOutcome.Ok(await DescribeAsync("tapped " + Label(node), actions[^1], token).ConfigureAwait(false));
                 case "double_tap":
-                    await _scope.Session.PerformAsync(node, new LocatorAction.DoubleTap(), token).ConfigureAwait(false);
+                    await TargetedAsync(node, new LocatorAction.DoubleTap(), token).ConfigureAwait(false);
                     actions.Add(Record(node, "doubleTap"));
                     return ToolOutcome.Ok(await DescribeAsync("double-tapped " + Label(node), actions[^1], token).ConfigureAwait(false));
                 case "fill":
                     var value = Args.String(call.Arguments, "value") ?? "";
-                    await _scope.Session.PerformAsync(node, new LocatorAction.Fill(value, false), token).ConfigureAwait(false);
+                    await TargetedAsync(node, new LocatorAction.Fill(value, false), token).ConfigureAwait(false);
                     actions.Add(new RecordedAction
                     {
                         Kind = "fill",
                         Role = node.Role,
-                        Name = Redact(LabelOf(node), _scope.Redactor),
+                        Name = RedactLabel(node, _scope.Redactor),
                         TestId = Redact(node.TestId, _scope.Redactor),
                         Value = CacheKeys.Template(value, parameters),
                     });
@@ -1020,24 +1024,24 @@ public sealed class Agent
                     return await FillSecretAsync(node, call.Arguments, actions, token).ConfigureAwait(false);
                 case "press":
                     var key = Args.String(call.Arguments, "key") ?? "Enter";
-                    await _scope.Session.PerformAsync(node, new LocatorAction.Press(key), token).ConfigureAwait(false);
-                    actions.Add(new RecordedAction { Kind = "press", Role = node.Role, Name = Redact(LabelOf(node), _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Key = key });
+                    await TargetedAsync(node, new LocatorAction.Press(key), token).ConfigureAwait(false);
+                    actions.Add(new RecordedAction { Kind = "press", Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Key = key });
                     return ToolOutcome.Ok(await DescribeAsync("pressed " + key + " on " + Label(node), actions[^1], token).ConfigureAwait(false));
                 case "select":
                     var selected = Args.String(call.Arguments, "value") ?? "";
-                    await _scope.Session.PerformAsync(node, new LocatorAction.Select(selected), token).ConfigureAwait(false);
-                    actions.Add(new RecordedAction { Kind = "select", Role = node.Role, Name = Redact(LabelOf(node), _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Value = selected });
+                    await TargetedAsync(node, new LocatorAction.Select(selected), token).ConfigureAwait(false);
+                    actions.Add(new RecordedAction { Kind = "select", Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Value = selected });
                     return ToolOutcome.Ok(await DescribeAsync("selected " + selected, actions[^1], token).ConfigureAwait(false));
                 case "check":
-                    await _scope.Session.PerformAsync(node, new LocatorAction.Check(), token).ConfigureAwait(false);
+                    await TargetedAsync(node, new LocatorAction.Check(), token).ConfigureAwait(false);
                     actions.Add(Record(node, "check"));
                     return ToolOutcome.Ok(await DescribeAsync("checked " + Label(node), actions[^1], token).ConfigureAwait(false));
                 case "uncheck":
-                    await _scope.Session.PerformAsync(node, new LocatorAction.Uncheck(), token).ConfigureAwait(false);
+                    await TargetedAsync(node, new LocatorAction.Uncheck(), token).ConfigureAwait(false);
                     actions.Add(Record(node, "uncheck"));
                     return ToolOutcome.Ok(await DescribeAsync("unchecked " + Label(node), actions[^1], token).ConfigureAwait(false));
                 case "clear":
-                    await _scope.Session.PerformAsync(node, new LocatorAction.Clear(), token).ConfigureAwait(false);
+                    await TargetedAsync(node, new LocatorAction.Clear(), token).ConfigureAwait(false);
                     actions.Add(Record(node, "clear"));
                     return ToolOutcome.Ok(await DescribeAsync("cleared " + Label(node), actions[^1], token).ConfigureAwait(false));
                 default:
@@ -1255,7 +1259,7 @@ public sealed class Agent
                 return inner;
             }
 
-            if (TextRules.Matches(Redact(node.Name, redactor), text, exact: false) || TextRules.Matches(Redact(node.Text, redactor), text, exact: false))
+            if (TextRules.Matches(RedactField(node.Name, ObservationLimits.Name, redactor), text, exact: false) || TextRules.Matches(RedactField(node.Text, ObservationLimits.Text, redactor), text, exact: false))
             {
                 return node;
             }
@@ -1341,6 +1345,28 @@ public sealed class Agent
         };
     }
 
+    // The sink policy of upstream's authorizeSecretFill (agent/secrets.ts), with its reasons. The port's tool is
+    // fill_secret where upstream's is type_secret, and a denial is a tool failure the model reads, not a thrown POLICY_DENIED.
+    private static string? AuthorizeSecretFill(Secret secret, SemanticNode node)
+    {
+        if (node.States.Disabled)
+        {
+            return "the target field is disabled";
+        }
+
+        if (!Roles.IsEditable(node))
+        {
+            return "the target is not an editable input (role " + (node.Role ?? "none") + ")";
+        }
+
+        // A password belongs in a password field, where the surface masks it. A generic secret has no field of its
+        // own: it goes wherever the test says, and redaction covers the value the moment it shows on screen.
+        var inputPurpose = string.IsNullOrEmpty(node.InputPurpose) ? "none" : node.InputPurpose;
+        return secret.Purpose == "password" && inputPurpose != "password"
+            ? "field purpose " + inputPurpose + " is incompatible with secret purpose " + secret.Purpose
+            : null;
+    }
+
     private async Task<ToolOutcome> FillSecretAsync(SemanticNode node, JsonElement arguments, List<RecordedAction> actions, CancellationToken token)
     {
         var name = Args.String(arguments, "secret");
@@ -1350,29 +1376,64 @@ public sealed class Agent
             return ToolOutcome.Fail("No secret named '" + (name ?? "") + "' was passed to this step.");
         }
 
-        var purpose = node.InputPurpose;
-        var allowed = node.States.Secure || purpose is "password" or "one-time-code" or "generic-secret";
-        if (!allowed)
+        if (AuthorizeSecretFill(secret, node) is { } denied)
         {
-            return ToolOutcome.Fail("Secret fill refused: " + Label(node) + " is not a secret field.");
+            return ToolOutcome.Fail("Secret fill refused: " + Label(node) + ": " + denied + ".");
         }
 
-        await _scope.Session.PerformAsync(node, new LocatorAction.Fill(secret.Value, true), token).ConfigureAwait(false);
+        await TargetedAsync(node, new LocatorAction.Fill(secret.Value, true), token).ConfigureAwait(false);
         actions.Add(new RecordedAction
         {
             Kind = "fill",
             Role = node.Role,
-            Name = Redact(LabelOf(node), _scope.Redactor),
+            Name = RedactLabel(node, _scope.Redactor),
             TestId = Redact(node.TestId, _scope.Redactor),
             Value = "<secret:" + secret.Name + ">",
         });
         return ToolOutcome.Ok(await DescribeAsync("filled secret <secret:" + secret.Name + "> into " + Label(node), actions[^1], token).ConfigureAwait(false));
     }
 
+    /// <summary>
+    /// Upstream's <c>targeted</c> loop: performs one action on a node. A node the engine reports stale is found again
+    /// by its description in a fresh look (<see cref="ObservationFeed.Relocate"/>) and the action retried,
+    /// <see cref="MaxStaleRelocations"/> times: a list that remounts its rows between the look and the action keeps the
+    /// control on screen under a dead ref. A description that matches nothing, or several nodes, fails the action.
+    /// Upstream splits this into <c>commitTargeted</c>, which wraps the action in the step's accounting, and
+    /// <c>targeted</c>, which holds the loop. The port has no such wrapper, so each verb calls the loop directly.
+    /// </summary>
+    private async Task TargetedAsync(SemanticNode node, LocatorAction action, CancellationToken token)
+    {
+        for (var relocations = 0; ; relocations++)
+        {
+            try
+            {
+                await _scope.Session.PerformAsync(node, action, token).ConfigureAwait(false);
+                return;
+            }
+            catch (EngineException ex) when (ex.Code == EngineErrorCodes.NodeStale)
+            {
+                var relocated = relocations < MaxStaleRelocations ? await _feed.Relocate(node, _scope.Redactor, token).ConfigureAwait(false) : null;
+                if (relocated is null)
+                {
+                    throw new TestException("LOCATOR_NOT_FOUND", "The target node left the screen before the action reached it.", ex);
+                }
+
+                node = relocated;
+            }
+        }
+    }
+
     private async Task<SemanticNode> ResolveAsync(JsonElement arguments, CancellationToken token)
     {
         var observation = await _feed.ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false);
         var matches = Find(observation, Args.String(arguments, "role"), Args.String(arguments, "name"), Args.String(arguments, "testId"), Args.String(arguments, "ref"), _scope.Redactor);
+        if (matches.Count == 0 && Args.String(arguments, "ref") is { } reference && _feed.LastSeen(reference) is { } seen && !LocatorResolver.Walk(observation.Roots).Any(node => node.Ref == reference))
+        {
+            // Several actions of one turn name the screen the turn saw. A ref the newest screen no longer carries,
+            // because the element remounted, is the one node that reads the same now.
+            matches = ObservationFeed.FindLike(observation, seen, _scope.Redactor);
+        }
+
         if (matches.Count == 0)
         {
             throw new TestException("NOT_FOUND", "No control matched role=" + Args.String(arguments, "role") + " name=" + Args.String(arguments, "name") + ".");
@@ -1388,7 +1449,7 @@ public sealed class Agent
     }
 
     // A name or test id is matched in its redacted form, the form the model reads and the cache records.
-    private static List<SemanticNode> Find(Observation observation, string? role, string? name, string? testId, string? reference, Redactor redactor)
+    internal static List<SemanticNode> Find(Observation observation, string? role, string? name, string? testId, string? reference, Redactor redactor)
     {
         var matches = new List<SemanticNode>();
         foreach (var node in LocatorResolver.Walk(observation.Roots))
@@ -1413,7 +1474,7 @@ public sealed class Agent
                 continue;
             }
 
-            if (name is not null && !TextRules.Matches(Redact(LabelOf(node), redactor), name, exact: true))
+            if (name is not null && !TextRules.Matches(RedactLabel(node, redactor), name, exact: true))
             {
                 continue;
             }
@@ -1631,12 +1692,27 @@ public sealed class Agent
             observation,
             text => ContainsParam(text, parameters),
             value => CacheKeys.Template(redactor.Redact(value), parameters),
-            redactor.Redact);
+            redactor.Redact,
+            (text, limit) => AgentObservation.RedactText(text, redactor, limit));
     }
 
-    private static string? Redact(string? text, Redactor redactor)
+    internal static string? Redact(string? text, Redactor redactor)
     {
         return text is null ? null : redactor.Redact(text);
+    }
+
+    // No upstream equivalent: upstream redacts each node field once, when it builds the observation (redactNode).
+    // The port keeps the raw nodes, since the engine reads a node's name, role, and test id as the page wrote them
+    // (WebEngine.RequireNoNewTwinAsync), so each place that shows or records a field redacts it.
+    private static string? RedactField(string? text, int limit, Redactor redactor)
+    {
+        return text is null ? null : AgentObservation.RedactText(text, redactor, limit);
+    }
+
+    // The label as LabelOf reads it, redacted for the limit of the field it came from.
+    private static string? RedactLabel(SemanticNode node, Redactor redactor)
+    {
+        return node.Name is not null ? RedactField(node.Name, ObservationLimits.Name, redactor) : RedactField(LabelOf(node), ObservationLimits.Text, redactor);
     }
 
     private static bool ContainsParam(string name, IReadOnlyDictionary<string, object?>? parameters)
@@ -1659,14 +1735,14 @@ public sealed class Agent
 
     // The name the snapshot shows: the accessible name, else the text of a node that has none.
     // The model names a target by it, and the cache records it.
-    private static string? LabelOf(SemanticNode node)
+    internal static string? LabelOf(SemanticNode node)
     {
         return node.Name ?? (string.IsNullOrEmpty(node.Text) ? null : node.Text);
     }
 
     private RecordedAction Record(SemanticNode node, string kind)
     {
-        return new RecordedAction { Kind = kind, Role = node.Role, Name = Redact(LabelOf(node), _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor) };
+        return new RecordedAction { Kind = kind, Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor) };
     }
 
     private static RecordedAction Detemplate(RecordedAction action, IReadOnlyDictionary<string, object?>? parameters)
@@ -1741,10 +1817,11 @@ public sealed class Agent
         return builder.ToString();
     }
 
-    private static string Label(SemanticNode node)
+    // A name the engine cut at its limit can end with the leading part of a secret, so it is redacted as a cut field.
+    private string Label(SemanticNode node)
     {
         var role = node.Role ?? "node";
-        return node.Name is null ? role : role + " \"" + node.Name + "\"";
+        return node.Name is null ? role : role + " \"" + AgentObservation.RedactText(node.Name, _scope.Redactor, ObservationLimits.Name) + "\"";
     }
 
     private static bool TryProperty(JsonElement element, string name, out JsonElement value)
@@ -1996,6 +2073,7 @@ internal sealed class AttemptScope
 {
     private readonly Dictionary<string, int> _callIndexes = new(StringComparer.Ordinal);
     private readonly List<Secret> _secrets = [];
+    private readonly List<(string Name, string Value)> _registered = [];
     private Built? _redactor;
 
     /// <summary>
@@ -2085,8 +2163,8 @@ internal sealed class AttemptScope
     public IReadOnlyList<Secret> Secrets => _secrets;
 
     /// <summary>
-    /// The redactor for <see cref="Secrets"/>, rebuilt only when <see cref="Remember"/>
-    /// has added a secret since the last build: building one costs time linear in
+    /// The redactor for <see cref="Secrets"/> and the values <see cref="Register"/> took, rebuilt only when
+    /// <see cref="Remember"/> or <see cref="Register"/> has added one since the last build: building one costs time linear in
     /// the values' length, so a long value must not pay it on every snapshot.
     /// </summary>
     public Redactor Redactor
@@ -2094,13 +2172,13 @@ internal sealed class AttemptScope
         get
         {
             var built = _redactor;
-            if (built is not null && built.Count == _secrets.Count)
+            var count = _secrets.Count + _registered.Count;
+            if (built is not null && built.Count == count)
             {
                 return built.Redactor;
             }
 
-            var secrets = _secrets.ToArray();
-            built = new Built(Redactor.For(secrets), secrets.Length);
+            built = new Built(Redactor.For(_secrets.Select(secret => (secret.Name, secret.Value)).Concat(_registered).ToArray()), count);
             _redactor = built;
             return built.Redactor;
         }
@@ -2168,6 +2246,18 @@ internal sealed class AttemptScope
             {
                 _secrets.Add(secret);
             }
+        }
+    }
+
+    /// <summary>
+    /// Registers one value under a name for redaction alone, as the redaction ledger does: it is not a secret
+    /// the agent may fill, and it does not withhold pixels. An earlier value for the name keeps redacting.
+    /// </summary>
+    public void Register(string name, string value)
+    {
+        if (!_registered.Contains((name, value)))
+        {
+            _registered.Add((name, value));
         }
     }
 

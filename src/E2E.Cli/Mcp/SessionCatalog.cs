@@ -266,7 +266,7 @@ internal sealed class SessionCatalog
     {
         return new CatalogTool
         {
-            Description = "Fill a configured secret into a password or secret field by its name. You never see the value: every output shows the secret as <secret:name>. After a fill, screenshot withholds pixels.",
+            Description = "Fill a configured secret into an editable field by its name. You never see the value: every output shows the secret as <secret:name>. After a fill, screenshot withholds pixels.",
             InputSchema = Schema(Target, ("secret", Property("string", "The secret's name from the config"), true)),
             Execute = async (args, token) =>
             {
@@ -389,20 +389,21 @@ internal sealed class SessionCatalog
     private static string DescribeNode(SemanticNode node, Redactor redactor)
     {
         var parts = new List<string> { node.Role ?? "node" };
-        var name = string.IsNullOrEmpty(node.Name) ? node.Text : node.Name;
+        var named = !string.IsNullOrEmpty(node.Name);
+        var name = named ? node.Name : node.Text;
         if (!string.IsNullOrEmpty(name))
         {
-            parts.Add(Quote(redactor.Redact(TextRules.Normalize(name))));
+            parts.Add(Quote(TextRules.Normalize(AgentObservation.RedactText(name, redactor, named ? ObservationLimits.Name : ObservationLimits.Text))));
         }
 
         if (!string.IsNullOrEmpty(node.Name) && !string.IsNullOrEmpty(node.Text) && node.Text != node.Name)
         {
-            parts.Add("text " + Quote(redactor.Redact(TextRules.Normalize(node.Text))));
+            parts.Add("text " + Quote(TextRules.Normalize(AgentObservation.RedactText(node.Text, redactor, ObservationLimits.Text))));
         }
 
         if (!node.States.Secure && node.Value is not null)
         {
-            parts.Add("value " + Quote(redactor.Redact(node.Value)));
+            parts.Add("value " + Quote(AgentObservation.RedactText(node.Value, redactor, ObservationLimits.Text)));
         }
 
         var states = new List<string>();
