@@ -137,7 +137,7 @@ internal sealed partial class RemoteChrome : IAsyncDisposable
         }
         catch (OperationCanceledException)
         {
-            // The process exited, but a helper still holds the pipes.
+            // A helper still holds the pipes; stop waiting and let the profile cleanup below cope.
         }
         catch (InvalidOperationException)
         {
