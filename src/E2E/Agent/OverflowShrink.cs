@@ -26,7 +26,7 @@ internal static partial class OverflowShrink
 
     public static List<ModelMessage> ShrinkForOverflow(IReadOnlyList<ModelMessage> messages)
     {
-        var stale = messages.Count(message => message.Content is { } text && FullScreenPattern().IsMatch(text)) - ScreenPreserveCount;
+        var stale = messages.Count(message => message.Role is "user" or "tool" && message.Content is { } text && FullScreenPattern().IsMatch(text)) - ScreenPreserveCount;
         var shrunk = new List<ModelMessage>(messages.Count);
         foreach (var message in messages)
         {
@@ -59,11 +59,18 @@ internal static partial class OverflowShrink
         return head + "\n[earlier screen elided; the newest \"Screen\" describes the screen]";
     }
 
-    private static string Clip(string text) =>
-        text.Length <= TextClipChars
-            ? text
-            : text[..TextClipChars] + "\n[" + (text.Length - TextClipChars).ToString(CultureInfo.InvariantCulture)
-                + " more characters cut: the request exceeded the model's context window; observe again for what is missing]";
+    private static string Clip(string text)
+    {
+        if (text.Length <= TextClipChars)
+        {
+            return text;
+        }
+
+        // Never end the head on half of a surrogate pair.
+        var keep = char.IsHighSurrogate(text[TextClipChars - 1]) ? TextClipChars - 1 : TextClipChars;
+        return text[..keep] + "\n[" + (text.Length - keep).ToString(CultureInfo.InvariantCulture)
+            + " more characters cut: the request exceeded the model's context window; observe again for what is missing]";
+    }
 
     private static ModelMessage With(ModelMessage message, string? content) => new()
     {
