@@ -195,11 +195,11 @@ public sealed class ReadsOfANodeReplacedEveryFrameTests
     // calls, as on a loaded CI runner.
     private static async Task<T> StarvedAsync<T>(Func<Task<T>> body)
     {
-        using var stop = new CancellationTokenSource();
+        var stopped = false;
         void Block(object? state)
         {
             Thread.Sleep(20);
-            if (!stop.IsCancellationRequested)
+            if (!Volatile.Read(ref stopped))
             {
                 ThreadPool.QueueUserWorkItem(Block);
             }
@@ -216,7 +216,7 @@ public sealed class ReadsOfANodeReplacedEveryFrameTests
         }
         finally
         {
-            await stop.CancelAsync();
+            Volatile.Write(ref stopped, true);
         }
     }
 

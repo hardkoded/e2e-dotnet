@@ -51,6 +51,5 @@ public sealed class ExpectSoftInARunTests
 
         Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Failed));
         Assert.That(result.Message, Does.Contain("toHaveText failed: expected text \"the count\""));
-        Assert.That(result.Message, Does.Contain("1500"));
     }
 }

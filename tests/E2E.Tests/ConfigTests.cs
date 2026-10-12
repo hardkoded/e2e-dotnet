@@ -296,7 +296,7 @@ public sealed class ConfigTests
     {
         var error = await Assert.ThrowsAsync<ConfigurationException>(() => E2ESession.StartAsync(new E2ESessionOptions
         {
-            Engine = new HangingEngine(),
+            Engine = new E2E.Tests.EngineContract.RunnerEngineContractTests.HangingEngine(),
             TestTitle = "base url",
             BaseUrl = "http://example.test",
         }));
@@ -353,19 +353,4 @@ public sealed class ConfigTests
     }
 
     internal static string TempCache() => Path.Combine(Path.GetTempPath(), "e2e-config-cache", Guid.NewGuid().ToString("n"));
-
-    private sealed class HangingEngine : IEngine
-    {
-        public string Platform => "web";
-
-        public string Version => "1.0";
-
-        public EngineCapabilities Capabilities => EngineCapabilities.None;
-
-        public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
-        {
-            await Task.Delay(Timeout.Infinite, cancellationToken);
-            throw new InvalidOperationException("unreachable");
-        }
-    }
 }

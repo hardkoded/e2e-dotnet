@@ -52,7 +52,7 @@ public sealed class RunnerEngineContractTests
         Assert.Contains("browser.goto needs a browser engine", error.Message, StringComparison.Ordinal);
     }
 
-    private sealed class HangingEngine : IEngine
+    internal sealed class HangingEngine : IEngine
     {
         private CancellationToken _token;
 
