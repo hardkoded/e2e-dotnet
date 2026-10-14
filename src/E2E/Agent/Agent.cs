@@ -117,7 +117,8 @@ public sealed class Agent
             info = new CacheInfo { Mode = replay.Info!.Mode, Reason = replay.Info.Reason, ReplayedActions = actions.Count, TotalActions = pending.RecordedActions };
             handoff = replay.Handoff;
             // A store that could not be read says nothing about a recording, so strict mode runs the step live too.
-            if (_scope.CacheStrict && !replay.Completed && !pending.ReadFailed && info?.Reason is not null and not "no-entry")
+            // So does a recording that stops at a project tool: as upstream, a gap is no stale recording, only a step the cache cannot finish.
+            if (_scope.CacheStrict && !replay.Completed && !pending.ReadFailed && info?.Reason is not null and not ("no-entry" or "gap"))
             {
                 throw new AgentException(
                     "REPLAY_STALE",
@@ -715,7 +716,7 @@ public sealed class Agent
             // A project tool ran here, and the grammar cannot reproduce it: the replay ends and the model takes over.
             if (string.Equals(action.Kind, "tool", StringComparison.Ordinal))
             {
-                return Lost("tool");
+                return Lost("gap");
             }
 
             // An action with no target reads no screen, so the screen the previous action left would go unseen.
