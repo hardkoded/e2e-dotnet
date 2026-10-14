@@ -40,6 +40,12 @@ internal static class OAuthHttp
             throw new OAuthException(OAuthException.FlowFailed, vendor + " did not list its models: " + await TokenEndpoint.DescribeAsync(response, cancellationToken).ConfigureAwait(false));
         }
 
+        return await ReadJsonAsync(response, vendor, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>The JSON object in a response body, or <see cref="OAuthException.FlowFailed"/> naming the vendor when the body is not JSON.</summary>
+    public static async Task<JsonObject> ReadJsonAsync(HttpResponseMessage response, string vendor, CancellationToken cancellationToken)
+    {
         try
         {
             return JsonNode.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false)) as JsonObject ?? [];

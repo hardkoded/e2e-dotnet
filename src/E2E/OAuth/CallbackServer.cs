@@ -111,20 +111,21 @@ internal sealed class CallbackServer : IDisposable
 
         if (query["error"] is { } error)
         {
-            Reply(context, 400, "Login failed", query["error_description"] ?? error);
             _answer.TrySetResult((null, error));
+            Reply(context, 400, "Login failed", query["error_description"] ?? error);
             return;
         }
 
         if (string.IsNullOrEmpty(query["code"]))
         {
-            Reply(context, 400, "Login failed", "The redirect carried no authorization code.");
             _answer.TrySetResult((null, "invalid_callback"));
+            Reply(context, 400, "Login failed", "The redirect carried no authorization code.");
             return;
         }
 
-        Reply(context, 200, "Signed in", "You can close this window and return to the terminal.");
+        // The answer is set first: a browser that drops the connection must not lose the code.
         _answer.TrySetResult((query["code"], null));
+        Reply(context, 200, "Signed in", "You can close this window and return to the terminal.");
     }
 
     private void Reply(HttpListenerContext context, int status, string heading, string message)
@@ -144,7 +145,7 @@ internal sealed class CallbackServer : IDisposable
             context.Response.OutputStream.Write(bytes);
             context.Response.Close();
         }
-        catch (HttpListenerException)
+        catch (Exception ex) when (ex is HttpListenerException or IOException or ObjectDisposedException)
         {
             // The browser went away; the answer still counts.
         }

@@ -119,11 +119,11 @@ public static partial class Program
         {
             OnAuth = info =>
             {
-                stdout.WriteLine(info.Instructions);
-                stdout.WriteLine(info.Url);
+                stdout.WriteLine(Clean(info.Instructions));
+                stdout.WriteLine(Clean(info.Url));
                 if (info.UserCode is not null)
                 {
-                    stdout.WriteLine("Code: " + info.UserCode);
+                    stdout.WriteLine("Code: " + Clean(info.UserCode));
                 }
 
                 if (interactive)
@@ -397,16 +397,40 @@ public static partial class Program
 
     private static void OpenBrowser(string url)
     {
+        if (BrowserStart(url) is not { } start)
+        {
+            return;
+        }
+
         try
         {
-            var start = OperatingSystem.IsWindows()
-                ? new ProcessStartInfo(url) { UseShellExecute = true }
-                : new ProcessStartInfo(OperatingSystem.IsMacOS() ? "open" : "xdg-open", url) { UseShellExecute = false, RedirectStandardError = true, RedirectStandardOutput = true };
             using var _ = Process.Start(start);
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
             // No opener: the URL is printed above.
         }
+    }
+
+    /// <summary>The vendor's URL is untrusted: only an absolute http or https URL reaches the OS, never a file, a protocol handler, or text an opener could read as an option.</summary>
+    internal static ProcessStartInfo? BrowserStart(string url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+        {
+            return null;
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            return new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true };
+        }
+
+        return new ProcessStartInfo(OperatingSystem.IsMacOS() ? "open" : "xdg-open")
+        {
+            ArgumentList = { uri.AbsoluteUri },
+            UseShellExecute = false,
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+        };
     }
 }

@@ -298,7 +298,7 @@ internal static class DeviceFlow
                     throw new OAuthException(OAuthException.FlowFailed, vendor + " device login could not start: " + await TokenEndpoint.DescribeAsync(response, token).ConfigureAwait(false));
                 }
 
-                var json = JsonNode.Parse(await response.Content.ReadAsStringAsync(token).ConfigureAwait(false)) as JsonObject ?? [];
+                var json = await OAuthHttp.ReadJsonAsync(response, vendor, token).ConfigureAwait(false);
                 var deviceCode = TokenEndpoint.Text(json, "device_code");
                 var userCode = TokenEndpoint.Text(json, "user_code");
                 var verification = TokenEndpoint.Text(json, "verification_uri");

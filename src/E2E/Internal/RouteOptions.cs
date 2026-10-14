@@ -163,7 +163,7 @@ internal static partial class RouteOptions
     private static TestException Invalid(string message) => new("INVALID_ARGUMENT", message);
 
     /// <summary>An HTTP header field name: one or more <c>token</c> characters (RFC 9110).</summary>
-    [GeneratedRegex("^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")]
+    [GeneratedRegex("^[!#$%&'*+.^_`|~0-9A-Za-z-]+\\z")]
     private static partial Regex HeaderName();
 
     /// <summary>A control character no HTTP field value may carry; a horizontal tab is the one the grammar allows.</summary>

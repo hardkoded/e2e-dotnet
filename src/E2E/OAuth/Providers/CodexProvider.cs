@@ -371,7 +371,7 @@ public sealed class CodexProvider : IOAuthProvider
                     throw new OAuthException(OAuthException.FlowFailed, "ChatGPT device login could not start: " + await TokenEndpoint.DescribeAsync(response, token).ConfigureAwait(false));
                 }
 
-                var device = JsonNode.Parse(await response.Content.ReadAsStringAsync(token).ConfigureAwait(false)) as JsonObject ?? [];
+                var device = await OAuthHttp.ReadJsonAsync(response, Name, token).ConfigureAwait(false);
                 return new DeviceAuthorization(
                     TokenEndpoint.Text(device, "device_auth_id") ?? throw new OAuthException(OAuthException.FlowFailed, "the ChatGPT device response is missing device_auth_id"),
                     TokenEndpoint.Text(device, "user_code") ?? throw new OAuthException(OAuthException.FlowFailed, "the ChatGPT device response is missing user_code"),
@@ -388,7 +388,7 @@ public sealed class CodexProvider : IOAuthProvider
                     token).ConfigureAwait(false);
                 if (response.IsSuccessStatusCode)
                 {
-                    var grant = JsonNode.Parse(await response.Content.ReadAsStringAsync(token).ConfigureAwait(false)) as JsonObject ?? [];
+                    var grant = await OAuthHttp.ReadJsonAsync(response, Name, token).ConfigureAwait(false);
                     var tokens = await ExchangeCodeAsync(
                         TokenEndpoint.Text(grant, "authorization_code") ?? "",
                         _issuer + "/deviceauth/callback",
