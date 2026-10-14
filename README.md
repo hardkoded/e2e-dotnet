@@ -21,6 +21,8 @@ The library targets `net10.0` and includes `WebEngine`, which drives Chromium th
 pwsh bin/Debug/net10.0/playwright.ps1 install chromium
 ```
 
+Or, with the `e2e` tool (see [Subscriptions](#subscriptions)), `e2e install [chromium|firefox|webkit ...] [--with-deps]`. It downloads the browsers for the Playwright version `E2E` runs, installs Chromium when none is named, and `--with-deps` adds the system libraries on Linux. An unknown option or browser exits 2.
+
 ## A test
 
 ```csharp
@@ -147,7 +149,7 @@ A Claude Pro or Max plan cannot serve the agent. Anthropic allows that login onl
 
 From a clone of this repo, run the tool with `dotnet run --project src/E2E.Cli -- login github-copilot`.
 
-An agent entry also takes `judge` (the model id for `assert`, `waitFor`, and `extract`), `system`, `context`, `maxSteps`, `maxModelCalls`, `judgmentTimeout`, and `providerOptions`. `agents` can name more agents than `default`; a call picks one with its `Agent` option, such as `new ActOptions { Agent = "careful" }`.
+An agent entry also takes `judge` (the model id for `assert`, `waitFor`, and `extract`), `system`, `context`, `maxSteps`, `maxModelCalls`, `judgmentTimeout`, and `providerOptions`. `agents` can name more agents than `default`; a call picks one with its `Agent` option, such as `new ActOptions { Agent = "careful" }`. Project tools (`AgentTools` on the fixture) are code, so they are not config keys; see topic `agent`.
 
 `cache.mode` is `off`, `read-only`, or `read-write`. Unset, it is `read-write` locally and `read-only` when `CI` is set. `cache.strict` fails a recording that no longer matches with `REPLAY_STALE` instead of running the step live. Under `cache.strict`, retries replay too, and the run never writes the cache. `cache.dir` resolves against the config file's directory.
 
