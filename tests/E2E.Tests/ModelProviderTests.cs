@@ -156,7 +156,7 @@ public sealed class ModelProviderTests
     }
 
     [Fact]
-    public async Task Anthropic_model_leaves_the_newest_message_unmarked_unless_the_request_marks_it()
+    public async Task Anthropic_model_leaves_the_newest_message_unmarked_without_MarkLatest()
     {
         var handler = new RecordingHandler("""{ "content": [{ "type": "text", "text": "ok" }] }""");
         using var http = new HttpClient(handler);
@@ -246,18 +246,19 @@ public sealed class ModelProviderTests
                 Tools = Tools(),
                 Messages =
                 [
-                    new ModelMessage { Role = "user", Content = "Goal: pay", ReasoningItems = first.ReasoningItems },
+                    new ModelMessage { Role = "user", Content = "Goal: pay" },
                     new ModelMessage { Role = "assistant", Content = first.Content, ReasoningItems = first.ReasoningItems },
+                    new ModelMessage { Role = "assistant", ToolCalls = Conversation().Messages[1].ToolCalls, ReasoningItems = first.ReasoningItems },
                     new ModelMessage { Role = "assistant", Content = "no reasoning" },
                 ],
             },
             CancellationToken.None);
 
         var messages = handler.Requests[2].Json()["messages"]!.AsArray();
-        Assert.Equal(["system", "user", "assistant", "assistant"], messages.Select(message => message!["role"]!.GetValue<string>()));
-        Assert.Null(messages[1]!["reasoning_content"]);
+        Assert.Equal(["system", "user", "assistant", "assistant", "assistant"], messages.Select(message => message!["role"]!.GetValue<string>()));
         Assert.Equal("step by step", messages[2]!["reasoning_content"]!.GetValue<string>());
-        Assert.Null(messages[3]!["reasoning_content"]);
+        Assert.Equal("step by step", messages[3]!["reasoning_content"]!.GetValue<string>());
+        Assert.Null(messages[4]!["reasoning_content"]);
     }
 
     [Fact]
