@@ -30,7 +30,6 @@ public sealed class CreateOAuthFetchTests
         await provider.Started.Task;
         var active = second.GetAsync(new Uri(Url));
         await cancellation.CancelAsync();
-        await Task.Delay(50);
 
         try
         {
