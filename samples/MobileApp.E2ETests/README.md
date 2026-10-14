@@ -26,6 +26,8 @@ This writes `samples/MobileApp/bin/Debug/net10.0-ios/iossimulator-arm64/MobileAp
 
 The app is not in `E2E.slnx`. A machine without the MAUI workload could not build it, and CI (Linux) has none. The test project is in `E2E.slnx`, because it is plain .NET and builds anywhere.
 
+To see the app and its tests in one solution, open [`samples/MobileApp.slnx`](../MobileApp.slnx) in Rider or Visual Studio. It holds the app, these tests, and the libraries the tests use. CI does not build it. The tests do not build the app: build and install it first, as above, or they run against an older build. The app targets iOS and Android, so a whole-solution build fails without the Android SDK, in the IDE and in `dotnet build samples/MobileApp.slnx`. Build the app on its own with the command above.
+
 ## Run the tests
 
 Boot a simulator, then run the tests:
