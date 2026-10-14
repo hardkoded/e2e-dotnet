@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
 using E2E.Engine;
 using E2E.Internal;
 
@@ -12,6 +14,9 @@ internal static class SnapshotText
 {
     /// <summary>Link target UTF-16 units a line shows; a longer target is cut there and ends with <c>…</c>.</summary>
     private const int MaxHrefLength = 256;
+
+    /// <summary>Writes a selection as a quoted, escaped string, the way upstream's <c>JSON.stringify</c> does: no escaping of non-ASCII or HTML characters.</summary>
+    private static readonly JsonSerializerOptions SelectionJson = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
     /// <summary>
     /// The screen as the model reads it. A link target on <paramref name="appOrigin"/>, the app base URL's, shows as its
@@ -93,6 +98,13 @@ internal static class SnapshotText
                 builder.Append(" value=\"").Append(AgentObservation.RedactText(node.Value, redactor, ObservationLimits.Text)).Append('"');
             }
 
+            // What a Shift+Arrow press selected: without it the model extends a selection blind and cannot tell one word
+            // from its neighbour. Verbatim (escaped), since a selected space or newline is a selection too.
+            if (Selection(node, redactor) is { Length: > 0 } selection)
+            {
+                builder.Append(" selection=").Append(JsonSerializer.Serialize(selection, SelectionJson));
+            }
+
             if (node.States.Secure)
             {
                 builder.Append(" secure");
@@ -161,5 +173,32 @@ internal static class SnapshotText
         // The cut never splits a surrogate pair.
         var end = char.IsHighSurrogate(shown[MaxHrefLength - 1]) ? MaxHrefLength - 1 : MaxHrefLength;
         return shown[..end] + "…";
+    }
+
+    /// <summary>
+    /// The selection a line shows, or null for none. A secure field has none. A selection that may show part of a
+    /// secret is dropped, as upstream's <c>selectionMayHoldSecret</c> does, since no whole-value match sees it: the
+    /// field's value or text holds a secret, whole or cut short at its end; or one of them was cut at its limit and the
+    /// selection lies in neither, so it may come from the cut-off rest, which the runner never sees.
+    /// </summary>
+    private static string? Selection(SemanticNode node, Redactor redactor)
+    {
+        if (string.IsNullOrEmpty(node.Selection) || node.States.Secure)
+        {
+            return null;
+        }
+
+        var fields = new[] { node.Value, node.Text }.OfType<string>().ToList();
+        if (fields.Any(field => !string.Equals(AgentObservation.RedactText(field, redactor, ObservationLimits.Text), field, StringComparison.Ordinal)))
+        {
+            return null;
+        }
+
+        if (fields.Any(field => field.Length == ObservationLimits.Text) && !fields.Any(field => field.Contains(node.Selection, StringComparison.Ordinal)))
+        {
+            return null;
+        }
+
+        return AgentObservation.RedactText(node.Selection, redactor, ObservationLimits.Text);
     }
 }

@@ -84,4 +84,77 @@ public sealed class DisambiguatingAttributesTests
         Assert.Equal($"  - link \"Magic\" href=\"{redactor.Redact(path)[..256]}…\" [ref=n]", line);
         Assert.DoesNotContain("tok-", line, StringComparison.Ordinal);
     }
+
+    private static SemanticNode Field(string refId, string? name = null, string? value = null, string? text = null, string? selection = null, bool focused = false, bool secure = false) =>
+        new() { Ref = refId, Role = "textbox", Name = name, Value = value, Text = text, Selection = selection, States = new NodeStates { Focused = focused, Secure = secure } };
+
+    [Fact]
+    public void Renders_the_selected_text_of_a_focused_field_verbatim_after_its_value_a_lone_space_included_never_for_a_secure_one()
+    {
+        var lines = Lines(
+        [
+            Field("n2", value: "release approved", selection: "approved", focused: true),
+            Field("n3", value: "two\nlines", selection: "two\nli", focused: true),
+            Field("n4", name: "Password", value: "hunter2", selection: "hunter2", focused: true, secure: true),
+            Field("n5", value: "caret only", selection: ""),
+            Field("n6", value: "alpha beta", selection: " ", focused: true),
+        ]);
+
+        Assert.Equal("  - textbox [ref=n2] value=\"release approved\" selection=\"approved\" [focused]", lines[2]);
+        // The port shows a value as it is, newline included; upstream escapes it.
+        Assert.Equal("  - textbox [ref=n3] value=\"two", lines[3]);
+        Assert.Equal("lines\" selection=\"two\\nli\" [focused]", lines[4]);
+        Assert.Equal("  - textbox \"Password\" [ref=n4] secure [focused]", lines[5]);
+        Assert.Equal("  - textbox [ref=n5] value=\"caret only\"", lines[6]);
+        Assert.Equal("  - textbox [ref=n6] value=\"alpha beta\" selection=\" \" [focused]", lines[7]);
+    }
+
+    [Fact]
+    public void Withholds_the_selection_of_a_plain_field_that_holds_a_registered_secret_everywhere_the_tree_goes()
+    {
+        const string secret = "plain-secret-Kq7ZrT2mWx9pLd4sNv8bHc3jFg6yQa1eUo5iRk0tYw2zXn7u";
+        var fragment = secret[5..45];
+        var redactor = Redactor.For([Secret.Create("member", secret)]);
+
+        var lines = Lines(
+            [
+                Field("n2", name: "Token", value: secret, selection: fragment, focused: true),
+                Field("n3", name: "Note", value: "release approved", selection: "approved"),
+                Field("n4", name: "Rich", text: $"key {secret}", selection: fragment),
+            ],
+            redactor: redactor);
+
+        Assert.Equal(
+            [
+                "  - textbox \"Token\" [ref=n2] value=\"<secret:member>\" [focused]",
+                "  - textbox \"Note\" [ref=n3] value=\"release approved\" selection=\"approved\"",
+                "  - textbox \"Rich\" text=\"key <secret:member>\" [ref=n4]",
+            ],
+            lines.Skip(2));
+        Assert.DoesNotContain(lines, line => line.Contains(fragment, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Withholds_the_selection_of_a_field_cut_at_its_limit_that_may_hold_a_secret_the_cut_hides()
+    {
+        const string secret = "plain-secret-Kq7ZrT2mWx9pLd4sNv8bHc3jFg6yQa1eUo5iRk0tYw2zXn7u";
+        var filler = string.Concat(Enumerable.Repeat("lorem ipsum. ", 50));
+        string Cut(string tail) => filler[..(ObservationLimits.Text - tail.Length)] + tail;
+        var redactor = Redactor.For([Secret.Create("member", secret)]);
+
+        var text = string.Join('\n', Lines(
+            [
+                Field("n2", value: Cut(secret[..30]), selection: secret[5..25]),
+                Field("n3", value: Cut(""), selection: secret[5..45]),
+                Field("n4", value: Cut(""), selection: "ipsum"),
+            ],
+            redactor: redactor));
+
+        // The value ends in the start of the secret, cut short there.
+        Assert.DoesNotContain("selection=\"" + secret[5..25], text, StringComparison.Ordinal);
+        Assert.Equal(1, text.Split("selection=").Length - 1);
+        // Nothing shown holds a secret, but the selection is not in what is shown: it came from the cut-off rest.
+        Assert.Contains("selection=\"ipsum\"", text, StringComparison.Ordinal);
+        Assert.DoesNotContain(secret[13..25], text, StringComparison.Ordinal);
+    }
 }

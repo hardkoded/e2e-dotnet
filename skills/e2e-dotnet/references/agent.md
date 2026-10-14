@@ -140,6 +140,13 @@ your `context`. Never raw HTML, cookies, headers, environment values, or a
 screen. Nothing the model returns runs as code or selectors: the runner
 validates every tool call first.
 
+The text selected inside the focused field is listed as `selection="..."`
+after its value, when the engine reports one (the web engine does for an
+input, a textarea, and a `contenteditable` editor). A secure field has
+none, and neither does a field whose value or text holds a registered
+secret, so selected characters of a secret never reach the model. A
+`press` of `Shift+ArrowLeft` shows what it selected.
+
 ## Budgets and cost
 
 | Call | Model calls | Default timeout |
