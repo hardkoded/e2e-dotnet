@@ -3,8 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
-using System.Text.Encodings.Web;
-using System.Text.Json;
 using E2E.Engine;
 using E2E.Internal;
 
@@ -14,9 +12,6 @@ internal static class SnapshotText
 {
     /// <summary>Link target UTF-16 units a line shows; a longer target is cut there and ends with <c>…</c>.</summary>
     private const int MaxHrefLength = 256;
-
-    /// <summary>Writes a selection as a quoted, escaped string, the way upstream's <c>JSON.stringify</c> does: no escaping of non-ASCII or HTML characters.</summary>
-    private static readonly JsonSerializerOptions SelectionJson = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
     /// <summary>
     /// The screen as the model reads it. A link target on <paramref name="appOrigin"/>, the app base URL's, shows as its
@@ -102,7 +97,7 @@ internal static class SnapshotText
             // from its neighbour. Verbatim (escaped), since a selected space or newline is a selection too.
             if (Selection(node, redactor) is { Length: > 0 } selection)
             {
-                builder.Append(" selection=").Append(JsonSerializer.Serialize(selection, SelectionJson));
+                builder.Append(" selection=").Append(Quote(selection));
             }
 
             if (node.States.Secure)
@@ -173,6 +168,41 @@ internal static class SnapshotText
         // The cut never splits a surrogate pair.
         var end = char.IsHighSurrogate(shown[MaxHrefLength - 1]) ? MaxHrefLength - 1 : MaxHrefLength;
         return shown[..end] + "…";
+    }
+
+    /// <summary>
+    /// A string quoted and escaped as upstream's <c>JSON.stringify</c> writes it: lowercase <c>\u</c> escapes, a lone
+    /// surrogate escaped rather than rejected, and no escaping of non-ASCII or HTML characters.
+    /// </summary>
+    private static string Quote(string text)
+    {
+        var builder = new StringBuilder(text.Length + 2).Append('"');
+        for (var index = 0; index < text.Length; index++)
+        {
+            var c = text[index];
+            if (char.IsHighSurrogate(c) && index + 1 < text.Length && char.IsLowSurrogate(text[index + 1]))
+            {
+                builder.Append(c).Append(text[++index]);
+                continue;
+            }
+
+            switch (c)
+            {
+                case '"': builder.Append("\\\""); break;
+                case '\\': builder.Append("\\\\"); break;
+                case '\b': builder.Append("\\b"); break;
+                case '\f': builder.Append("\\f"); break;
+                case '\n': builder.Append("\\n"); break;
+                case '\r': builder.Append("\\r"); break;
+                case '\t': builder.Append("\\t"); break;
+                case < ' ' or (>= '\ud800' and <= '\udfff'):
+                    builder.Append("\\u").Append(((int)c).ToString("x4", System.Globalization.CultureInfo.InvariantCulture));
+                    break;
+                default: builder.Append(c); break;
+            }
+        }
+
+        return builder.Append('"').ToString();
     }
 
     /// <summary>

@@ -110,6 +110,14 @@ public sealed class DisambiguatingAttributesTests
     }
 
     [Fact]
+    public void Escapes_a_selection_as_JSON_does_including_a_lone_surrogate()
+    {
+        var lines = Lines([Field("n2", value: "x", selection: "a\"b\\c\u001f😀\ud83d", focused: true)]);
+
+        Assert.Equal("  - textbox [ref=n2] value=\"x\" selection=\"a\\\"b\\\\c\\u001f😀\\ud83d\" [focused]", lines[2]);
+    }
+
+    [Fact]
     public void Withholds_the_selection_of_a_plain_field_that_holds_a_registered_secret_everywhere_the_tree_goes()
     {
         const string secret = "plain-secret-Kq7ZrT2mWx9pLd4sNv8bHc3jFg6yQa1eUo5iRk0tYw2zXn7u";
