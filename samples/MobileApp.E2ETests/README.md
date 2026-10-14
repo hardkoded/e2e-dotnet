@@ -26,6 +26,8 @@ This writes `samples/MobileApp/bin/Debug/net10.0-ios/iossimulator-arm64/MobileAp
 
 The app is not in `E2E.slnx`. A machine without the MAUI workload could not build it, and CI (Linux) has none. The test project is in `E2E.slnx`, because it is plain .NET and builds anywhere.
 
+To see the app and its tests in one solution, open [`samples/MobileApp.slnx`](../MobileApp.slnx) in Rider or Visual Studio. It holds the app, these tests, and the libraries the tests use. CI does not build it. The tests do not build the app: build and install it first, as above, or they run against an older build. The app targets iOS and Android, so a whole-solution build fails without the Android SDK, in the IDE and in `dotnet build samples/MobileApp.slnx`. Build the app on its own with the command above.
+
 ## Run the tests
 
 Boot a simulator, then run the tests:
@@ -48,5 +50,7 @@ Without `E2E_MOBILE_DEVICE`, the engine drives the booted device of the platform
 `e2e.config.json` has no `targets`: the config only supports the web platform. `MobileAppTest` overrides `CreateEngine()` to return a `MobileEngine` with `MobileOptions` (platform, device, and the app's bundle id and build path). The settings that are not about the device, such as the agent, the model, and the cache, still come from the config.
 
 A device target has no URL, so a test does not call `App.OpenAsync()`. The base class launches the app with `Device.OpenAppAsync(AppId, new OpenAppOptions { Relaunch = true })`. A test reaches the `Device` fixture through the engine's active session.
+
+The agent also gets `open_app`, `swipe`, and `alert` from `MobileTools.Create`, which the base class passes as `AgentTools`. A step that uses one of them is not replayed whole from the cache.
 
 Agent steps take longer on a device than in a browser, so the base class raises `StepTimeout` to 90 seconds. The default of 30 seconds timed out a two-field step.
