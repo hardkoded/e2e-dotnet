@@ -42,15 +42,25 @@ internal sealed class LimrunHost : ILimrunHost
         try
         {
             using var process = Process.Start(start) ?? throw new Win32Exception("adb did not start");
-            var output = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var error = process.StandardError.ReadToEndAsync(cancellationToken);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(30));
+            var output = process.StandardOutput.ReadToEndAsync(timeout.Token);
+            var error = process.StandardError.ReadToEndAsync(timeout.Token);
             try
             {
-                await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+                await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
-                process.Kill(entireProcessTree: true);
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch (InvalidOperationException)
+                {
+                    // It exited on its own first.
+                }
+
                 throw;
             }
 

@@ -96,7 +96,17 @@ public sealed partial class DeviceSession : IEngineSession
         var label = DeviceBindings.DeviceLabel(binding);
         var where = $"session {session}{(label is null ? "" : $" on {label}")}";
         var started = new DeviceSession(engine, info, binding, session, where, createClient(session, binding));
-        await started.BootAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await started.BootAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // The boot may have opened the agent-device session. Close it without hiding why the boot failed.
+            await started.CloseAsync(E2EDefaults.CleanupTimeout, CancellationToken.None).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            throw;
+        }
+
         engine.Register(started);
         return started;
     }

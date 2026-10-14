@@ -111,6 +111,8 @@ public sealed class EasSimulators : IDeviceProvider
         cancellationToken.ThrowIfCancellationRequested();
 
         // Not the request's token: an interrupt that lands after EAS created the session would leave it unknown, and billed.
+        // The 60 s bound can still fire after EAS created it. No id is known then and the client cannot list sessions, so
+        // that session is left to EAS's idle and duration limits.
         using var createTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         var created = await client.CreateAsync(
             new EasSessionParams

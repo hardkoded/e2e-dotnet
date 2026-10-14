@@ -252,11 +252,24 @@ public sealed partial class CopilotProvider : IOAuthProvider
 
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(10));
-            var output = await process.StandardOutput.ReadToEndAsync(timeout.Token).ConfigureAwait(false);
-            await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
-            return process.ExitCode == 0 && output.Trim().Length > 0 ? output.Trim() : null;
+            try
+            {
+                var output = await process.StandardOutput.ReadToEndAsync(timeout.Token).ConfigureAwait(false);
+                await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
+                return process.ExitCode == 0 && output.Trim().Length > 0 ? output.Trim() : null;
+            }
+            catch (OperationCanceledException)
+            {
+                process.Kill(entireProcessTree: true);
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+
+                return null;
+            }
         }
-        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or OperationCanceledException)
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
         {
             return null;
         }

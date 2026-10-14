@@ -172,7 +172,8 @@ public static partial class AgentDeviceDaemon
 
         var endpoint = ReadEndpoint(stateDirectory)
             ?? throw new ConfigurationException("INVALID_CONFIG", $"The agent-device daemon in {stateDirectory} does not serve HTTP. Stop it with `npx agent-device daemon stop --state-dir {stateDirectory}` and run again.");
-        await CheckHealthAsync(endpoint, Http, CancellationToken.None).ConfigureAwait(false);
+        using var health = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await CheckHealthAsync(endpoint, Http, health.Token).ConfigureAwait(false);
         CheckVersion(stateDirectory);
         return endpoint;
     }
@@ -330,13 +331,30 @@ public sealed record DeviceClientConfig
         if (!string.IsNullOrEmpty(DaemonBaseUrl))
         {
             var remote = new DaemonEndpoint(new Uri(DaemonBaseUrl), string.IsNullOrEmpty(DaemonAuthToken) ? null : DaemonAuthToken);
-            var checkedOnce = new Lazy<Task<DaemonEndpoint>>(async () =>
+            async Task<DaemonEndpoint> CheckAsync()
             {
                 using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                 await AgentDeviceDaemon.CheckHealthAsync(remote, AgentDeviceDaemon.SharedHttp, timeout.Token).ConfigureAwait(false);
                 return remote;
-            });
-            return new AgentDeviceRpcClient(Session, Settings, token => checkedOnce.Value.WaitAsync(token), AgentDeviceDaemon.SharedHttp);
+            }
+
+            // A passed check is kept for the life of the client. A failed one is asked again on the next call.
+            var gate = new object();
+            Task<DaemonEndpoint>? checkedOnce = null;
+            Task<DaemonEndpoint> CheckedOnce()
+            {
+                lock (gate)
+                {
+                    if (checkedOnce is null || checkedOnce.IsFaulted || checkedOnce.IsCanceled)
+                    {
+                        checkedOnce = CheckAsync();
+                    }
+
+                    return checkedOnce;
+                }
+            }
+
+            return new AgentDeviceRpcClient(Session, Settings, token => CheckedOnce().WaitAsync(token), AgentDeviceDaemon.SharedHttp);
         }
 
         var stateDirectory = Settings["stateDir"]?.GetValue<string>();
