@@ -21,6 +21,58 @@ public sealed class ParallelChildrenTests
         Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Failed));
         Assert.That(result.Message, Does.Contain("in parallel"));
     }
+
+    [Test]
+    public void Fails_a_test_method_that_opts_into_parallel_runs()
+    {
+        var result = NestedRun.Run(nameof(ParallelMethodFixture.Opts_in));
+
+        Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Failed));
+        Assert.That(result.Message, Does.Contain("in parallel"));
+    }
+
+    [Test]
+    public void Runs_a_parallel_fixture_that_makes_an_instance_per_test()
+    {
+        var result = NestedRun.Run(nameof(ParallelInstancePerTestFixture.Runs_with_its_own_instance));
+
+        Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Passed));
+    }
+}
+
+[Explicit("Run by ParallelChildrenTests")]
+public sealed class ParallelMethodFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+        """{ "cache": { "mode": "off" } }""",
+        AppContext.BaseDirectory,
+        _ => null);
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    [Test]
+    [Parallelizable(ParallelScope.Self)]
+    public void Opts_in()
+    {
+    }
+}
+
+[Explicit("Run by ParallelChildrenTests")]
+[Parallelizable(ParallelScope.Children)]
+[FixtureLifeCycle(LifeCycle.InstancePerTestCase)]
+public sealed class ParallelInstancePerTestFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+        """{ "cache": { "mode": "off" } }""",
+        AppContext.BaseDirectory,
+        _ => null);
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    [Test]
+    public void Runs_with_its_own_instance()
+    {
+    }
 }
 
 [Explicit("Run by ParallelChildrenTests")]

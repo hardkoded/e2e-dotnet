@@ -762,7 +762,7 @@ public sealed class Agent
 
             // A replayed action draws on the step's action budget like a live one. The first always fits.
             // An action with a target reserves its slot once the target is found, so a lost target is a miss.
-            if (action.Kind is "back" or "scroll" or "scrollUntil" or "press" && !HasTarget(action) && !budget.TryReserve())
+            if ((action.Kind is "back" or "scroll" or "scrollUntil" or "press") && !HasTarget(action) && !budget.TryReserve())
             {
                 _scope.HandedOff++;
                 return ReplayAttempt.Hand("action-budget");
