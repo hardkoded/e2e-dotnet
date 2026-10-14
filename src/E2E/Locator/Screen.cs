@@ -762,45 +762,45 @@ internal static class LocatorResolver
         switch (query.Kind)
         {
             case "filter":
-            {
-                if (query.Has is not null && UsesDisplayValue(query.Has))
                 {
-                    throw UnsupportedDisplayValue();
-                }
-
-                var source = Resolve(query.Source!, candidates, tree, includeHidden);
-                var includeValue = !UsesDisplayValue(query.Source!);
-                return source.Where(node =>
-                {
-                    if (query.HasText is not null && !SubtreeHasText(node, query.HasText, includeValue))
+                    if (query.Has is not null && UsesDisplayValue(query.Has))
                     {
-                        return false;
+                        throw UnsupportedDisplayValue();
                     }
 
-                    return query.Has is null || Resolve(query.Has, tree.DescendantsOf([node], candidates), tree, includeHidden).Count > 0;
-                }).ToList();
-            }
+                    var source = Resolve(query.Source!, candidates, tree, includeHidden);
+                    var includeValue = !UsesDisplayValue(query.Source!);
+                    return source.Where(node =>
+                    {
+                        if (query.HasText is not null && !SubtreeHasText(node, query.HasText, includeValue))
+                        {
+                            return false;
+                        }
 
-            case "index":
-            {
-                var source = Resolve(query.Source!, candidates, tree, includeHidden);
-                var position = query.Index == LocatorQuery.LastIndex ? source.Count - 1 : query.Index!.Value;
-                return position >= 0 && position < source.Count ? [source[position]] : [];
-            }
-
-            default:
-            {
-                if (query.Parent is not null && UsesDisplayValue(query.Parent))
-                {
-                    throw UnsupportedDisplayValue();
+                        return query.Has is null || Resolve(query.Has, tree.DescendantsOf([node], candidates), tree, includeHidden).Count > 0;
+                    }).ToList();
                 }
 
-                var pool = query.Parent is null
-                    ? candidates
-                    : tree.DescendantsOf(Resolve(query.Parent, candidates, tree, includeHidden), candidates);
-                var matches = pool.Where(node => Matches(node, query, includeHidden)).ToList();
-                return query.Kind is "text" or "label" ? tree.InnermostOnly(matches) : matches;
-            }
+            case "index":
+                {
+                    var source = Resolve(query.Source!, candidates, tree, includeHidden);
+                    var position = query.Index == LocatorQuery.LastIndex ? source.Count - 1 : query.Index!.Value;
+                    return position >= 0 && position < source.Count ? [source[position]] : [];
+                }
+
+            default:
+                {
+                    if (query.Parent is not null && UsesDisplayValue(query.Parent))
+                    {
+                        throw UnsupportedDisplayValue();
+                    }
+
+                    var pool = query.Parent is null
+                        ? candidates
+                        : tree.DescendantsOf(Resolve(query.Parent, candidates, tree, includeHidden), candidates);
+                    var matches = pool.Where(node => Matches(node, query, includeHidden)).ToList();
+                    return query.Kind is "text" or "label" ? tree.InnermostOnly(matches) : matches;
+                }
         }
     }
 
