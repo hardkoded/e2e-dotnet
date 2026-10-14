@@ -156,6 +156,111 @@ public sealed class ModelProviderTests
     }
 
     [Fact]
+    public async Task Anthropic_model_leaves_the_newest_message_unmarked_unless_the_request_marks_it()
+    {
+        var handler = new RecordingHandler("""{ "content": [{ "type": "text", "text": "ok" }] }""");
+        using var http = new HttpClient(handler);
+        using var model = new AnthropicModel(new AnthropicModelOptions { Model = "claude-test", ApiKey = "ant" }, http);
+
+        await model.CompleteAsync(Conversation(), CancellationToken.None);
+
+        var body = handler.Requests.Single().Json();
+        Assert.Equal("ephemeral", body["system"]![0]!["cache_control"]!["type"]!.GetValue<string>());
+        Assert.DoesNotContain(
+            body["messages"]!.AsArray().SelectMany(message => message!["content"]!.AsArray()),
+            block => block!["cache_control"] is not null);
+    }
+
+    [Fact]
+    public async Task Anthropic_model_returns_signed_thinking_blocks_and_sends_them_back_ahead_of_text_and_tool_calls()
+    {
+        var handler = new RecordingHandler(
+            """
+            {
+              "content": [
+                { "type": "thinking", "thinking": "plan", "signature": "sig-1" },
+                { "type": "thinking", "thinking": "unsigned" },
+                { "type": "redacted_thinking", "data": "enc-1" },
+                { "type": "text", "text": "tapping" },
+                { "type": "tool_use", "id": "toolu_1", "name": "tap", "input": { "role": "button", "name": "Pay" } }
+              ]
+            }
+            """,
+            """{ "content": [{ "type": "text", "text": "ok" }] }""");
+        using var http = new HttpClient(handler);
+        using var model = new AnthropicModel(new AnthropicModelOptions { Model = "claude-test", ApiKey = "ant" }, http);
+
+        var first = await model.CompleteAsync(Conversation(), CancellationToken.None);
+
+        Assert.Equal(2, first.ReasoningItems.Count);
+        Assert.Equal("sig-1", first.ReasoningItems[0].GetProperty("signature").GetString());
+        Assert.Equal("enc-1", first.ReasoningItems[1].GetProperty("data").GetString());
+
+        await model.CompleteAsync(
+            new ModelRequest
+            {
+                System = "rules",
+                Tools = Tools(),
+                Messages =
+                [
+                    new ModelMessage { Role = "user", Content = "Goal: pay" },
+                    new ModelMessage { Role = "assistant", Content = first.Content, ToolCalls = first.ToolCalls, ReasoningItems = first.ReasoningItems },
+                    new ModelMessage { Role = "tool", ToolCallId = "toolu_1", Name = "tap", Content = "tapped" },
+                    new ModelMessage { Role = "assistant", Content = "all paid", ReasoningItems = first.ReasoningItems },
+                ],
+            },
+            CancellationToken.None);
+
+        var messages = handler.Requests[1].Json()["messages"]!.AsArray();
+        var toolTurn = messages[1]!["content"]!.AsArray();
+        Assert.Equal(["thinking", "redacted_thinking", "text", "tool_use"], toolTurn.Select(block => block!["type"]!.GetValue<string>()));
+        Assert.Equal("plan", toolTurn[0]!["thinking"]!.GetValue<string>());
+        Assert.Equal("sig-1", toolTurn[0]!["signature"]!.GetValue<string>());
+        Assert.Equal("enc-1", toolTurn[1]!["data"]!.GetValue<string>());
+        var textTurn = messages[3]!["content"]!.AsArray();
+        Assert.Equal(["thinking", "redacted_thinking", "text"], textTurn.Select(block => block!["type"]!.GetValue<string>()));
+        Assert.Equal("sig-1", textTurn[0]!["signature"]!.GetValue<string>());
+        Assert.Equal("enc-1", textTurn[1]!["data"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task OpenAi_compatible_model_returns_reasoning_content_and_sends_it_back_on_the_assistant_turn()
+    {
+        var handler = new RecordingHandler(
+            """{ "choices": [{ "message": { "content": "hmm", "reasoning_content": "step by step" } }] }""",
+            """{ "choices": [{ "message": { "content": "plain", "reasoning": "other spelling" } }] }""",
+            """{ "choices": [{ "message": { "content": "ok" } }] }""");
+        using var http = new HttpClient(handler);
+        using var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "reasoner", ApiKey = "k" }, http);
+
+        var first = await model.CompleteAsync(Conversation(), CancellationToken.None);
+        var second = await model.CompleteAsync(Conversation(), CancellationToken.None);
+
+        Assert.Equal("step by step", first.ReasoningItems.Single().GetString());
+        Assert.Equal("other spelling", second.ReasoningItems.Single().GetString());
+
+        await model.CompleteAsync(
+            new ModelRequest
+            {
+                System = "rules",
+                Tools = Tools(),
+                Messages =
+                [
+                    new ModelMessage { Role = "user", Content = "Goal: pay", ReasoningItems = first.ReasoningItems },
+                    new ModelMessage { Role = "assistant", Content = first.Content, ReasoningItems = first.ReasoningItems },
+                    new ModelMessage { Role = "assistant", Content = "no reasoning" },
+                ],
+            },
+            CancellationToken.None);
+
+        var messages = handler.Requests[2].Json()["messages"]!.AsArray();
+        Assert.Equal(["system", "user", "assistant", "assistant"], messages.Select(message => message!["role"]!.GetValue<string>()));
+        Assert.Null(messages[1]!["reasoning_content"]);
+        Assert.Equal("step by step", messages[2]!["reasoning_content"]!.GetValue<string>());
+        Assert.Null(messages[3]!["reasoning_content"]);
+    }
+
+    [Fact]
     public async Task Google_model_sends_json_schemas_and_returns_thought_signatures()
     {
         var handler = new RecordingHandler(
