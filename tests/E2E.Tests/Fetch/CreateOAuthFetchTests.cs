@@ -17,6 +17,22 @@ public sealed class CreateOAuthFetchTests
     private const string Url = "https://api.test/";
 
     [Fact]
+    public async Task Does_not_refresh_or_send_a_request_whose_signal_was_already_aborted()
+    {
+        var api = new FakeApi(_ => (HttpStatusCode.OK, "{}"));
+        var store = new MemoryCredentialStore(new() { ["test"] = new OAuthCredentials { Access = "stale", Refresh = "rt-0", Expires = 1 } });
+        var provider = new RotatingProvider();
+        using var http = Client(provider, store, api);
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => http.GetAsync(new Uri(Url), cancellation.Token));
+
+        Assert.Empty(provider.Refreshes);
+        Assert.Empty(api.Requests);
+    }
+
+    [Fact]
     public async Task Swaps_the_SDK_key_header_for_the_bearer_token_and_names_the_product()
     {
         var api = new FakeApi(_ => (HttpStatusCode.OK, """{ "ok": true }"""));
