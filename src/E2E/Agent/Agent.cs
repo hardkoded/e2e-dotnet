@@ -338,7 +338,7 @@ public sealed class Agent
     }
 
     // The runtime's own hard stops are the step's truth wherever they land, so a replayed action surfaces them instead of handing off.
-    private static bool IsRuntimeHardStop(E2EException error) => error is AgentException { Code: "STEP_BUDGET_EXHAUSTED" or "STEP_TIMEOUT" or "CANCELLED" };
+    private static bool IsRuntimeHardStop(E2EException error) => error is AgentException { Code: "STEP_BUDGET_EXHAUSTED" or "STEP_TIMEOUT" or "CANCELLED" } or EngineException { Code: EngineErrorCodes.Cancelled };
 
     // The step's verdict on a refusal it could not recover from: the same error, saying what the retry did.
     private static AgentException Overflowed(AgentException refusal, string note) =>
@@ -762,7 +762,7 @@ public sealed class Agent
 
             // A replayed action draws on the step's action budget like a live one. The first always fits.
             // An action with a target reserves its slot once the target is found, so a lost target is a miss.
-            if ((action.Kind is "back" or "scroll" or "scrollUntil" || (action.Kind == "press" && !HasTarget(action))) && !budget.TryReserve())
+            if (action.Kind is "back" or "scroll" or "scrollUntil" or "press" && !HasTarget(action) && !budget.TryReserve())
             {
                 _scope.HandedOff++;
                 return ReplayAttempt.Hand("action-budget");
@@ -807,6 +807,13 @@ public sealed class Agent
                                 return Lost(list.Reason);
                             }
 
+                            // One slot for the whole scroll, taken once its list is found.
+                            if (repeat == 0 && !budget.TryReserve())
+                            {
+                                _scope.HandedOff++;
+                                return ReplayAttempt.Hand("action-budget");
+                            }
+
                             await _scope.Session.PerformAsync(list.Node, new LocatorAction.Swipe(Direction(action.Direction)), token).ConfigureAwait(false);
                             _feed.ArmAfter(action);
                             started = true;
@@ -820,6 +827,12 @@ public sealed class Agent
                             if (list.Node is null)
                             {
                                 return Lost(list.Reason);
+                            }
+
+                            if (!budget.TryReserve())
+                            {
+                                _scope.HandedOff++;
+                                return ReplayAttempt.Hand("action-budget");
                             }
                         }
 
@@ -853,8 +866,9 @@ public sealed class Agent
                 started = true;
                 previous = action;
             }
-            catch (E2EException ex) when (!IsRuntimeHardStop(ex))
+            catch (E2EException ex) when (!IsRuntimeHardStop(ex) && !token.IsCancellationRequested)
             {
+                // A step or test timeout cancels the token. That is the step's own end, not a stale recording.
                 _scope.HandedOff++;
                 return ReplayAttempt.Hand("action-failed");
             }
@@ -1133,7 +1147,7 @@ public sealed class Agent
                 case "select":
                     var selected = Args.String(call.Arguments, "value") ?? "";
                     await TargetedAsync(node, new LocatorAction.Select(selected), token).ConfigureAwait(false);
-                    actions.Add(new RecordedAction { Kind = "select", Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Value = selected });
+                    actions.Add(new RecordedAction { Kind = "select", Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Value = CacheKeys.Template(selected, parameters) });
                     return ToolOutcome.Ok(await DescribeAsync("selected " + selected, actions[^1], token).ConfigureAwait(false));
                 case "check":
                     await TargetedAsync(node, new LocatorAction.Check(), token).ConfigureAwait(false);

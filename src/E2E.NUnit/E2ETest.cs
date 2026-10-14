@@ -42,6 +42,7 @@ public abstract class E2ETest : E2EFixture
     [SetUp]
     public async Task StartE2ESessionAsync()
     {
+        RejectParallelChildren();
         var current = global::NUnit.Framework.TestContext.CurrentContext;
         await StartSessionAsync(CacheTitle(current.Test), AttemptOf(current), RecordSoftFailure, HasFailed, current.CancellationToken).ConfigureAwait(false);
     }
@@ -64,6 +65,21 @@ public abstract class E2ETest : E2EFixture
         finally
         {
             await session.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    // NUnit shares one fixture instance among its tests, and the session lives on that instance.
+    // Tests that run in parallel on one instance would overwrite each other's session.
+    private void RejectParallelChildren()
+    {
+        var type = GetType();
+        var parallel = type.GetCustomAttributes<ParallelizableAttribute>(true).Any(attribute => (attribute.Scope & ParallelScope.Children) != 0);
+        var perTest = type.GetCustomAttributes<FixtureLifeCycleAttribute>(true).Any(attribute => attribute.LifeCycle == LifeCycle.InstancePerTestCase);
+        if (parallel && !perTest)
+        {
+            throw new InvalidOperationException(
+                $"{type.Name} runs its tests in parallel on one fixture instance, so they would share one E2E session. " +
+                "Use [Parallelizable(ParallelScope.Fixtures)] to run fixtures in parallel, or add [FixtureLifeCycle(LifeCycle.InstancePerTestCase)].");
         }
     }
 
@@ -106,7 +122,7 @@ public abstract class E2ETest : E2EFixture
         return result.Outcome.Status switch
         {
             global::NUnit.Framework.Interfaces.TestStatus.Passed or global::NUnit.Framework.Interfaces.TestStatus.Warning => null,
-            global::NUnit.Framework.Interfaces.TestStatus.Skipped => recorded as SkipException ?? new SkipException(string.IsNullOrWhiteSpace(result.Message) ? "skipped" : result.Message),
+            global::NUnit.Framework.Interfaces.TestStatus.Skipped or global::NUnit.Framework.Interfaces.TestStatus.Inconclusive => recorded as SkipException ?? new SkipException(string.IsNullOrWhiteSpace(result.Message) ? "skipped" : result.Message),
             _ => recorded ?? new TestException("TEST_FAILED", string.IsNullOrWhiteSpace(result.Message) ? "The test failed." : result.Message),
         };
     }

@@ -31,8 +31,23 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         ArgumentNullException.ThrowIfNull(test);
         var name = test.TestCase.TestClassName + "." + test.TestCase.TestMethodName;
         return test is IXunitTest { TestMethodArguments.Length: > 0 } row
-            ? name + "(" + string.Join(", ", row.TestMethodArguments.Select(argument => Convert.ToString(argument, CultureInfo.InvariantCulture))) + ")"
+            ? name + "(" + string.Join(", ", row.TestMethodArguments.Select(FormatArgument)) + ")"
             : name;
+    }
+
+    // A simple argument keeps its plain text. A null, a collection, or a string that could pass for
+    // another row's argument list is written so that no two rows share a title.
+    private static string FormatArgument(object? argument)
+    {
+        return argument switch
+        {
+            null => "null",
+            string text => !text.Contains(',', StringComparison.Ordinal) && !text.Contains('"', StringComparison.Ordinal) && !text.Contains('\\', StringComparison.Ordinal) && !text.StartsWith('[') && text != "null"
+                ? text
+                : "\"" + text.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"",
+            System.Collections.IEnumerable items => "[" + string.Join(", ", items.Cast<object?>().Select(FormatArgument)) + "]",
+            _ => Convert.ToString(argument, CultureInfo.InvariantCulture) ?? "null",
+        };
     }
 
     public virtual async ValueTask InitializeAsync()
