@@ -254,13 +254,23 @@ public sealed partial class CopilotProvider : IOAuthProvider
             timeout.CancelAfter(TimeSpan.FromSeconds(10));
             try
             {
+                var error = process.StandardError.ReadToEndAsync(timeout.Token);
                 var output = await process.StandardOutput.ReadToEndAsync(timeout.Token).ConfigureAwait(false);
+                await error.ConfigureAwait(false);
                 await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
                 return process.ExitCode == 0 && output.Trim().Length > 0 ? output.Trim() : null;
             }
             catch (OperationCanceledException)
             {
-                process.Kill(entireProcessTree: true);
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch (InvalidOperationException)
+                {
+                    // It exited on its own first.
+                }
+
                 if (cancellationToken.IsCancellationRequested)
                 {
                     throw;

@@ -84,6 +84,24 @@ public static partial class AgentDeviceDaemon
         }
     }
 
+    /// <summary>
+    /// <see cref="CheckHealthAsync"/> within <paramref name="bound"/>. A daemon that does not answer in time is a
+    /// <see cref="ConfigurationException"/>; a cancelled <paramref name="cancellationToken"/> stays a cancellation.
+    /// </summary>
+    public static async Task CheckHealthWithinAsync(DaemonEndpoint endpoint, HttpClient http, TimeSpan bound, CancellationToken cancellationToken)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(bound);
+        try
+        {
+            await CheckHealthAsync(endpoint, http, timeout.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException cause) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new ConfigurationException("INVALID_CONFIG", $"The agent-device daemon at {endpoint.BaseUrl} did not answer GET /health within {bound.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s", cause);
+        }
+    }
+
     /// <summary>The Node version a <c>node --version</c> line reports, or null when it names none.</summary>
     public static Version? ParseNodeVersion(string output)
     {
@@ -172,8 +190,7 @@ public static partial class AgentDeviceDaemon
 
         var endpoint = ReadEndpoint(stateDirectory)
             ?? throw new ConfigurationException("INVALID_CONFIG", $"The agent-device daemon in {stateDirectory} does not serve HTTP. Stop it with `npx agent-device daemon stop --state-dir {stateDirectory}` and run again.");
-        using var health = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        await CheckHealthAsync(endpoint, Http, health.Token).ConfigureAwait(false);
+        await CheckHealthWithinAsync(endpoint, Http, TimeSpan.FromSeconds(5), CancellationToken.None).ConfigureAwait(false);
         CheckVersion(stateDirectory);
         return endpoint;
     }
@@ -333,8 +350,7 @@ public sealed record DeviceClientConfig
             var remote = new DaemonEndpoint(new Uri(DaemonBaseUrl), string.IsNullOrEmpty(DaemonAuthToken) ? null : DaemonAuthToken);
             async Task<DaemonEndpoint> CheckAsync()
             {
-                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-                await AgentDeviceDaemon.CheckHealthAsync(remote, AgentDeviceDaemon.SharedHttp, timeout.Token).ConfigureAwait(false);
+                await AgentDeviceDaemon.CheckHealthWithinAsync(remote, AgentDeviceDaemon.SharedHttp, TimeSpan.FromSeconds(30), CancellationToken.None).ConfigureAwait(false);
                 return remote;
             }
 

@@ -205,7 +205,8 @@ public sealed class E2ESession : IAsyncDisposable
         catch
         {
             // The attempt never took ownership, so release what it started.
-            await engine.DisposeAsync().AsTask().ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            var cleanup = engine.DisposeAsync().AsTask();
+            await (Bounded(options.CleanupTimeout) ? cleanup.WaitAsync(options.CleanupTimeout) : cleanup).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
             timeout.Dispose();
             throw;
         }
@@ -246,6 +247,7 @@ public sealed class E2ESession : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        Exception? commitFailure = null;
         try
         {
             if (Interlocked.CompareExchange(ref _state, 1, 0) == 0)
@@ -260,9 +262,25 @@ public sealed class E2ESession : IAsyncDisposable
                 }
             }
         }
-        finally
+#pragma warning disable CA1031 // The engine is released first, then this is rethrown.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            commitFailure = ex;
+        }
+
+        try
         {
             await ReleaseAsync().ConfigureAwait(false);
+        }
+        catch (Exception) when (commitFailure is not null)
+        {
+            // The commit failure is the one to report.
+        }
+
+        if (commitFailure is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(commitFailure);
         }
     }
 

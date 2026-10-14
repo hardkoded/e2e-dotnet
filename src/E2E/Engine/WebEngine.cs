@@ -306,6 +306,7 @@ public sealed partial class WebEngine : IEngine
             }
 
             IBrowser? browser = null;
+            WebSession? session = null;
             try
             {
                 var credentials = _options.BasicAuth is { } basicAuth
@@ -323,14 +324,20 @@ public sealed partial class WebEngine : IEngine
                     browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless }).ConfigureAwait(false);
                 }
 
-                var session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => InstallSiteHeadersAsync(context, app), url => SiteHeadersFor(url, app), seams, credentials: credentials);
+                session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => InstallSiteHeadersAsync(context, app), url => SiteHeadersFor(url, app), seams, credentials: credentials);
                 await session.NewContextAsync().ConfigureAwait(false);
 
                 return session;
             }
             catch
             {
-                // Nothing owns the browser or the driver yet, so release them before the start fails.
+                // Without a session nothing owns the browser or the driver yet, so release them before the start fails.
+                if (session is not null)
+                {
+                    await session.DisposeAsync().AsTask().ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                    throw;
+                }
+
                 if (browser is not null)
                 {
                     await browser.CloseAsync().ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);

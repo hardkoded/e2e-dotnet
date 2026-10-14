@@ -61,7 +61,12 @@ internal sealed class LimrunHost : ILimrunHost
                     // It exited on its own first.
                 }
 
-                throw;
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+
+                throw new TimeoutException("adb version did not finish in 30 s");
             }
 
             await Task.WhenAll(output, error).ConfigureAwait(false);
