@@ -312,8 +312,8 @@ public sealed class Locator
     }
 
     /// <summary>
-    /// Reads whitespace-normalized text once: the node's rendered text (<c>innerText</c> on the web), not its label. Null when the node has no text.
-    /// Does not retry and does not verify an earlier <c>act</c>. Fails with <c>POLICY_DENIED</c> on a secure field.
+    /// Waits up to the action timeout for one match, then reads whitespace-normalized text once: the node's rendered text (<c>innerText</c> on the web), not its label. Null when the node has no text.
+    /// Does not retry for a value and does not verify an earlier <c>act</c>. Fails with <c>POLICY_DENIED</c> on a secure field.
     /// </summary>
     public async Task<string?> TextContentAsync(CancellationToken cancellationToken = default)
     {
@@ -322,7 +322,7 @@ public sealed class Locator
     }
 
     /// <summary>
-    /// Reads an input value once, the empty string when the node has none. Does not retry and does not verify an earlier <c>act</c>. A checkbox or
+    /// Waits up to the action timeout for one match, then reads an input value once, the empty string when the node has none. Does not retry for a value and does not verify an earlier <c>act</c>. A checkbox or
     /// radio reads its value attribute, <c>on</c> when it has none, whatever its checked state. Fails with
     /// <c>POLICY_DENIED</c> on a secure field.
     /// </summary>
@@ -332,7 +332,7 @@ public sealed class Locator
         return node.Value ?? "";
     }
 
-    /// <summary>Reads one platform attribute of exactly one match once, or null when the node does not have it. Fails with <c>POLICY_DENIED</c> on a secure field.</summary>
+    /// <summary>Waits up to the action timeout for one match, then reads one platform attribute once, or null when the node does not have it. Fails with <c>POLICY_DENIED</c> on a secure field.</summary>
     public async Task<string?> GetAttributeAsync(string name, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -352,20 +352,20 @@ public sealed class Locator
         return !await IsVisibleAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Reads the enabled state of exactly one match once.</summary>
+    /// <summary>Waits up to the action timeout for one match, then reads its enabled state once.</summary>
     public async Task<bool> IsEnabledAsync(CancellationToken cancellationToken = default)
     {
         var node = await ResolveStrictAsync(cancellationToken).ConfigureAwait(false);
         return !node.States.Disabled;
     }
 
-    /// <summary>Reads the disabled state of exactly one match once, the negation of <see cref="IsEnabledAsync"/>.</summary>
+    /// <summary>Waits up to the action timeout for one match, then reads its disabled state once, the negation of <see cref="IsEnabledAsync"/>.</summary>
     public async Task<bool> IsDisabledAsync(CancellationToken cancellationToken = default)
     {
         return !await IsEnabledAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Reads the checked state of exactly one match once.</summary>
+    /// <summary>Waits up to the action timeout for one match, then reads its checked state once.</summary>
     public async Task<bool> IsCheckedAsync(CancellationToken cancellationToken = default)
     {
         var node = await ResolveStrictAsync(cancellationToken).ConfigureAwait(false);
@@ -373,7 +373,7 @@ public sealed class Locator
     }
 
     /// <summary>
-    /// Reads the viewport-relative box of exactly one match once, or null when the node lays out no box
+    /// Waits up to the action timeout for one match, then reads its viewport-relative box once, or null when the node lays out no box
     /// (<c>display: none</c> on it or an ancestor, or any <c>display: contents</c> element) or the engine does not report one.
     /// </summary>
     public async Task<BoundingBox?> BoundingBoxAsync(CancellationToken cancellationToken = default)
@@ -513,10 +513,26 @@ public sealed class Locator
         return node;
     }
 
+    /// <summary>Waits up to the action timeout for the one match of a read. More than one match fails at once.</summary>
     private async Task<SemanticNode> ResolveStrictAsync(CancellationToken cancellationToken)
     {
-        var node = await ResolveSingleAsync(_screen.Token(cancellationToken)).ConfigureAwait(false);
-        return node ?? throw NotFound();
+        var token = _screen.Token(cancellationToken);
+        var deadline = DateTime.UtcNow + _screen.ActionTimeout;
+        while (true)
+        {
+            var node = await ResolveSingleAsync(token).ConfigureAwait(false);
+            if (node is not null)
+            {
+                return node;
+            }
+
+            if (DateTime.UtcNow >= deadline)
+            {
+                throw NotFound();
+            }
+
+            await Task.Delay(_screen.PollInterval, token).ConfigureAwait(false);
+        }
     }
 
     /// <summary>Returns the one match, or null when nothing matches. More than one match fails.</summary>

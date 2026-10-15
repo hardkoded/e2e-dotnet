@@ -79,7 +79,10 @@ one; the installed tool prints the same text with `e2e guide <topic>`
 - Text matches are exact by default. A locator that matches two nodes
   fails with `STRICT_MODE`; narrow it (topic `writing-tests`).
 - Actions wait for readiness and `Expect` retries. Reads such as
-  `TextContentAsync` look once; use a matcher when a value has to settle.
+  `TextContentAsync` wait for one match until the action timeout, then answer
+  the current value; `CountAsync` and `IsVisibleAsync` answer from the current
+  screen. Nothing waits for a value to change, so use a matcher when a value
+  has to settle.
 - Secrets never appear in test code. Declare them under `secrets` in the
   config and read them with `Secrets.Get(name)`; accounts come from
   `Credentials.User(name)`. Hand the `Secret` only to `FillAsync` or
