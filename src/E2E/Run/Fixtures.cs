@@ -67,7 +67,7 @@ public sealed class App
     }
 
     private CancellationToken Token(CancellationToken cancellationToken) =>
-        cancellationToken == default ? _token() : cancellationToken;
+        Time.Link(cancellationToken, _token());
 }
 
 /// <summary>The fixtures for one test. Call <see cref="Skip"/> before the first step when a precondition is missing.</summary>

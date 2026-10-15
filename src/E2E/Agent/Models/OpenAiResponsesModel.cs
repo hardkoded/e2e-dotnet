@@ -81,7 +81,7 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
                         ["type"] = "function_call",
                         ["call_id"] = call.Id,
                         ["name"] = call.Name,
-                        ["arguments"] = call.Arguments.GetRawText(),
+                        ["arguments"] = ModelHttp.ArgumentsText(call.Arguments),
                     });
                 }
             }
