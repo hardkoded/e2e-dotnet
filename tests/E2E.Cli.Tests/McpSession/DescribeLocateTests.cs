@@ -30,6 +30,29 @@ public sealed class DescribeLocateTests
     }
 
     [Fact]
+    public void On_no_match_for_a_role_name_points_at_the_text_a_status_shows_in_observe_instead_of_retrying_it_as_a_name()
+    {
+        var exact = SessionCatalog.DescribeLocate(SessionCatalog.LocateQuery(new LocateArgs { Role = "status", Name = "Saved." }), 0, [], Redactor.None);
+        Assert.Contains("NOT_FOUND", exact, StringComparison.Ordinal);
+        Assert.Contains("Screen.GetByRole(\"status\").Filter(\"Saved.\")", exact, StringComparison.Ordinal);
+        Assert.Contains("Screen.GetByText(\"Saved.\")", exact, StringComparison.Ordinal);
+        Assert.DoesNotContain("Check the accessible name in the observation", exact, StringComparison.Ordinal);
+        var loose = SessionCatalog.DescribeLocate(SessionCatalog.LocateQuery(new LocateArgs { Role = "status", Name = "Saved.", Exact = false }), 0, [], Redactor.None);
+        Assert.Contains("Screen.GetByRole(\"status\").Filter(\"Saved.\")", loose, StringComparison.Ordinal);
+        Assert.DoesNotContain("exact: false", loose, StringComparison.Ordinal);
+        var button = SessionCatalog.DescribeLocate(SessionCatalog.LocateQuery(new LocateArgs { Role = "button", Name = "Submitt" }), 0, [], Redactor.None);
+        Assert.Contains("Check the accessible name in the observation", button, StringComparison.Ordinal);
+        Assert.DoesNotContain("Filter", button, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void On_no_match_offers_exact_false_only_when_the_query_is_still_exact()
+    {
+        Assert.Contains("loosen the match with exact: false", SessionCatalog.DescribeLocate(SessionCatalog.LocateQuery(new LocateArgs { Text = "Saved" }), 0, [], Redactor.None), StringComparison.Ordinal);
+        Assert.DoesNotContain("loosen", SessionCatalog.DescribeLocate(SessionCatalog.LocateQuery(new LocateArgs { Text = "Saved", Exact = false }), 0, [], Redactor.None), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Never_shows_the_value_of_a_secure_node()
     {
         var query = SessionCatalog.LocateQuery(new LocateArgs { Label = "Password" });
