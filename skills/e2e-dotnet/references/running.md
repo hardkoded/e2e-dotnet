@@ -27,7 +27,10 @@ e2e mcp                                              # MCP server for a coding a
 
 Selection, retries, and parallelism are the test framework's: `--filter`
 (by name, class, or category), NUnit `[Retry]`, `[Category]`, and
-`[Parallelizable]`, or xUnit v3 traits. There is no `e2e run`, `e2e list`,
+`[Parallelizable(ParallelScope.Fixtures)]`, or xUnit v3 traits. NUnit shares one
+fixture instance among its tests, so a test class with `ParallelScope.Children`
+or `All` fails at setup unless it also has
+`[FixtureLifeCycle(LifeCycle.InstancePerTestCase)]`. There is no `e2e run`, `e2e list`,
 `e2e explore`, `e2e init`, `e2e cache`, or `e2e feedback`.
 
 To rewrite the stored screenshots `ToHaveScreenshotAsync` finds missing or

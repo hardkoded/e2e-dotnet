@@ -185,9 +185,29 @@ public sealed class FileStepCache : IStepCache
         ArgumentNullException.ThrowIfNull(entry);
         Directory.CreateDirectory(_directory);
         var path = PathFor(key);
-        var temp = path + ".tmp";
-        File.WriteAllText(temp, JsonSerializer.Serialize(entry, JsonDefaults.Options));
-        File.Move(temp, path, overwrite: true);
+        var temp = path + "." + Environment.ProcessId + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllText(temp, JsonSerializer.Serialize(entry, JsonDefaults.Options));
+            File.Move(temp, path, overwrite: true);
+        }
+        catch
+        {
+            try
+            {
+                File.Delete(temp);
+            }
+            catch (IOException)
+            {
+                // The write error is the one to report.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // The write error is the one to report.
+            }
+
+            throw;
+        }
     }
 
     public void Delete(string key)
@@ -490,8 +510,31 @@ internal static class CacheKeys
         {
             foreach (var key in parameters.Keys.OrderBy(item => item, StringComparer.Ordinal))
             {
-                builder.Append(key).Append('=').Append(Canonical(parameters[key])).Append('\n');
+                builder.Append(Escape(key, "\\=\n")).Append('=').Append(Escape(Canonical(parameters[key]), "\\\n")).Append('\n');
             }
+        }
+
+        return builder.ToString();
+    }
+
+    // A line is `name=value`. A newline or an `=` inside a part would move the line break or the split,
+    // so two different sets of params could share one key. A part without these characters is unchanged.
+    private static string Escape(string text, string special)
+    {
+        if (text.AsSpan().IndexOfAny(special) < 0)
+        {
+            return text;
+        }
+
+        var builder = new StringBuilder(text.Length + 4);
+        foreach (var character in text)
+        {
+            if (special.Contains(character, StringComparison.Ordinal))
+            {
+                builder.Append('\\');
+            }
+
+            builder.Append(character == '\n' ? 'n' : character);
         }
 
         return builder.ToString();

@@ -106,20 +106,21 @@ internal sealed class SoftFailures
     private readonly Action<TestException>? _handler;
     private readonly Lock _gate = new();
     private bool _open = true;
+    private bool _kept;
 
     public SoftFailures(Action<TestException>? handler = null)
     {
         _handler = handler;
     }
 
-    /// <summary>Whether a failure is kept and not yet closed. Failures sent to a handler are not kept.</summary>
+    /// <summary>Whether any failure was kept, whether it waits for <see cref="Close"/> or went to the handler.</summary>
     public bool Any
     {
         get
         {
             lock (_gate)
             {
-                return _failures.Count > 0;
+                return _kept;
             }
         }
     }
@@ -145,6 +146,7 @@ internal sealed class SoftFailures
                 return false;
             }
 
+            _kept = true;
             if (_handler is null)
             {
                 _failures.Add(error);

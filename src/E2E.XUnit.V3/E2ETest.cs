@@ -31,8 +31,32 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         ArgumentNullException.ThrowIfNull(test);
         var name = test.TestCase.TestClassName + "." + test.TestCase.TestMethodName;
         return test is IXunitTest { TestMethodArguments.Length: > 0 } row
-            ? name + "(" + string.Join(", ", row.TestMethodArguments.Select(argument => Convert.ToString(argument, CultureInfo.InvariantCulture))) + ")"
+            ? name + "(" + string.Join(", ", row.TestMethodArguments.Select(argument => FormatArgument(argument, row.TestMethodArguments.Length > 1))) + ")"
             : name;
+    }
+
+    // A lazy or self-containing collection must not hang the title.
+    private const int MaxTitleDepth = 4;
+    private const int MaxTitleItems = 1000;
+
+    // A simple argument keeps its plain text. A null, a collection, or a string that could pass for
+    // another row's argument list is written so that no two rows share a title. A comma only matters
+    // when the row has several arguments, where ("a, b") and ("a", "b") would read alike.
+    private static string FormatArgument(object? argument, bool quoteComma, int depth = 0)
+    {
+        return argument switch
+        {
+            null => "null",
+            string text => text.Contains('"', StringComparison.Ordinal)
+                || text.Contains('\\', StringComparison.Ordinal)
+                || text.StartsWith('[')
+                || text == "null"
+                || (quoteComma && text.Contains(',', StringComparison.Ordinal))
+                ? "\"" + text.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\""
+                : text,
+            System.Collections.IEnumerable items when depth < MaxTitleDepth => "[" + string.Join(", ", items.Cast<object?>().Take(MaxTitleItems).Select(item => FormatArgument(item, true, depth + 1))) + "]",
+            _ => Convert.ToString(argument, CultureInfo.InvariantCulture) ?? "null",
+        };
     }
 
     public virtual async ValueTask InitializeAsync()

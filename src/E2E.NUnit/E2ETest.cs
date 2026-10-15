@@ -43,6 +43,7 @@ public abstract class E2ETest : E2EFixture
     public async Task StartE2ESessionAsync()
     {
         var current = global::NUnit.Framework.TestContext.CurrentContext;
+        RejectParallelChildren(current.Test.MethodName);
         await StartSessionAsync(CacheTitle(current.Test), AttemptOf(current), RecordSoftFailure, HasFailed, current.CancellationToken).ConfigureAwait(false);
     }
 
@@ -64,6 +65,35 @@ public abstract class E2ETest : E2EFixture
         finally
         {
             await session.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    // NUnit shares one fixture instance among its tests, and the session lives on that instance.
+    // Tests that run in parallel on one instance would overwrite each other's session.
+    private void RejectParallelChildren(string? methodName)
+    {
+        var type = GetType();
+        var methods = methodName is null
+            ? []
+            : type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
+                .Where(method => string.Equals(method.Name, methodName, StringComparison.Ordinal))
+                .ToArray();
+        var sources = new List<ICustomAttributeProvider> { type, type.Assembly };
+        sources.AddRange(methods);
+
+        // A fixture or an assembly that lets children run in parallel, or a test method that opts in itself,
+        // unless the fixture or the method opts out.
+        var parallel = sources.Any(source => source.GetCustomAttributes(typeof(ParallelizableAttribute), true).Cast<ParallelizableAttribute>().Any(attribute => (attribute.Scope & ParallelScope.Children) != 0))
+            || methods.Any(method => method.GetCustomAttributes(typeof(ParallelizableAttribute), true).Cast<ParallelizableAttribute>().Any(attribute => (attribute.Scope & ParallelScope.Self) != 0));
+        var fixtureOptedOut = type.IsDefined(typeof(NonParallelizableAttribute), true)
+            && !type.GetCustomAttributes(typeof(ParallelizableAttribute), true).Cast<ParallelizableAttribute>().Any(attribute => (attribute.Scope & ParallelScope.Children) != 0);
+        var optedOut = fixtureOptedOut || (methods.Length > 0 && methods.All(method => method.IsDefined(typeof(NonParallelizableAttribute), true)));
+        var perTest = sources.Any(source => source.GetCustomAttributes(typeof(FixtureLifeCycleAttribute), true).Cast<FixtureLifeCycleAttribute>().Any(attribute => attribute.LifeCycle == LifeCycle.InstancePerTestCase));
+        if (parallel && !perTest && !optedOut)
+        {
+            throw new InvalidOperationException(
+                $"{type.Name} runs its tests in parallel on one fixture instance, so they would share one E2E session. " +
+                "Use [Parallelizable(ParallelScope.Fixtures)] to run fixtures in parallel, or add [FixtureLifeCycle(LifeCycle.InstancePerTestCase)].");
         }
     }
 
@@ -106,7 +136,7 @@ public abstract class E2ETest : E2EFixture
         return result.Outcome.Status switch
         {
             global::NUnit.Framework.Interfaces.TestStatus.Passed or global::NUnit.Framework.Interfaces.TestStatus.Warning => null,
-            global::NUnit.Framework.Interfaces.TestStatus.Skipped => recorded as SkipException ?? new SkipException(string.IsNullOrWhiteSpace(result.Message) ? "skipped" : result.Message),
+            global::NUnit.Framework.Interfaces.TestStatus.Skipped or global::NUnit.Framework.Interfaces.TestStatus.Inconclusive => recorded as SkipException ?? new SkipException(string.IsNullOrWhiteSpace(result.Message) ? "skipped" : result.Message),
             _ => recorded ?? new TestException("TEST_FAILED", string.IsNullOrWhiteSpace(result.Message) ? "The test failed." : result.Message),
         };
     }
