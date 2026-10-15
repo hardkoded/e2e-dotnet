@@ -1235,6 +1235,19 @@ public sealed partial class WebEngine : IEngine
                 var page = Page;
                 // Every secure field of every frame is covered before the image leaves the engine.
                 var masks = page.Frames.Select(frame => frame.Locator(SecureFieldSelector)).ToList();
+                var masked = 0;
+                foreach (var mask in masks)
+                {
+                    try
+                    {
+                        masked += await budget.WithinAsync(mask.CountAsync()).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+                    {
+                        // A frame that detaches mid-sweep contributes nothing, which can only push a caller toward withholding the image.
+                    }
+                }
+
                 var png = await budget.WithinAsync(page.ScreenshotAsync(new PageScreenshotOptions
                 {
                     Type = ScreenshotType.Png,
@@ -1245,7 +1258,7 @@ public sealed partial class WebEngine : IEngine
                     Timeout = budget.PlaywrightTimeout,
                 })).ConfigureAwait(false);
                 var scale = await budget.WithinAsync(page.EvaluateAsync<double>("() => window.devicePixelRatio")).ConfigureAwait(false);
-                return new EngineScreenshot(png, scale > 0 ? scale : 1);
+                return new EngineScreenshot(png, scale > 0 ? scale : 1, masked);
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {

@@ -441,24 +441,24 @@ public sealed partial class DeviceSession
         var projected = Project(await SnapshotOrEmptyAsync(false, cancellationToken).ConfigureAwait(false));
         var data = await CaptureScreenshotAsync(async (shot, file) => await File.ReadAllBytesAsync(shot.Path ?? file, cancellationToken).ConfigureAwait(false), normalizeStatusBar: true, cancellationToken).ConfigureAwait(false);
         var viewport = projected.Viewport ?? _knownViewport;
-        var masked = RedactSecure(data, projected, viewport)
+        var (masked, regions) = RedactSecure(data, projected, viewport)
             ?? throw new EngineException(EngineErrorCodes.EngineFailure, "a secure field on screen could not be masked; screenshot withheld", retryable: false);
         var scale = viewport is { Width: > 0 } known && DeviceSupport.ReadPngSize(masked) is { } size ? size.Width / known.Width : 1;
-        return new EngineScreenshot(masked, scale);
+        return new EngineScreenshot(masked, scale, regions);
     }
 
     /// <summary>
     /// Paints every secure node's bounds black on a screenshot of the same screen. Returns the masked bytes, or null
     /// when a secure node has no bounds or the image format cannot be edited: the caller then withholds the image
     /// rather than ship one it could not prove redacted. Bounds are in logical points. The image may be at device
-    /// scale, so they are scaled by the image-to-viewport ratio.
+    /// scale, so they are scaled by the image-to-viewport ratio. Also returns how many regions it painted.
     /// </summary>
-    private static byte[]? RedactSecure(byte[] data, ProjectedSnapshot projected, ViewportSize? viewport)
+    private static (byte[] Data, int Masked)? RedactSecure(byte[] data, ProjectedSnapshot projected, ViewportSize? viewport)
     {
         var secure = projected.Index.Where(entry => entry.Node.States.Secure).ToList();
         if (secure.Count == 0)
         {
-            return data;
+            return (data, 0);
         }
 
         if (DeviceSupport.ReadPngSize(data) is not { } size)
@@ -480,7 +480,7 @@ public sealed partial class DeviceSession
 
         try
         {
-            return ScreenshotMasking.MaskPng(data, rects);
+            return (ScreenshotMasking.MaskPng(data, rects), rects.Count);
         }
         catch (Exception cause) when (cause is InvalidDataException or InvalidOperationException)
         {

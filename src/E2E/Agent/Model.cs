@@ -54,7 +54,17 @@ public sealed class ModelMessage
 
     /// <summary>The reasoning the model returned with this turn, sent back as it came: encrypted items for <see cref="OpenAiResponsesModel"/>, signed thinking blocks for <see cref="AnthropicModel"/>, the reasoning text as a JSON string for <see cref="OpenAiCompatibleModel"/>.</summary>
     public IReadOnlyList<JsonElement>? ReasoningItems { get; init; }
+
+    /// <summary>The images that go with a <c>user</c> turn, after its text. A provider sends them as the turn's image parts; on any other role they are not sent.</summary>
+    public IReadOnlyList<ModelImage>? Images { get; init; }
 }
+
+/// <summary>An image a model reads: the encoded bytes of a screenshot, already sized for the model.</summary>
+/// <param name="Data">The encoded image.</param>
+/// <param name="MediaType">The media type of <paramref name="Data"/>, such as <c>image/png</c>.</param>
+/// <param name="Width">Width in image pixels.</param>
+/// <param name="Height">Height in image pixels.</param>
+public sealed record ModelImage(byte[] Data, string MediaType, int Width, int Height);
 
 public sealed class ModelTool
 {

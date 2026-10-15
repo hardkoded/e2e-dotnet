@@ -823,6 +823,9 @@ internal sealed class AttemptScope
 
     public required IEngineSession Session { get; init; }
 
+    /// <summary>How far a secret reached the attempt. A secret fill, by the agent or by a locator, raises it.</summary>
+    public Exposure Exposure { get; init; } = new();
+
     /// <summary>The base URL a navigate action resolves against, under the same URL rule as <c>app.open</c>.</summary>
     public string? BaseUrl { get; init; }
 

@@ -40,6 +40,9 @@ providers and their logins):
   included. `system` is how the acting agent works; judges never see it.
 - In code, `ModelProviders` and `Subscriptions` build the same clients, and a
   fixture can override `CreateModel()` and `CreateJudge()`.
+- A custom `IAgentModel` reads each `ModelMessage.Images` of a `user` turn
+  (`ModelImage`: `Data`, `MediaType`, `Width`, `Height`). The five built-in
+  providers send them after the turn's text. The agent sends none yet.
 
 ### Choose an agent
 

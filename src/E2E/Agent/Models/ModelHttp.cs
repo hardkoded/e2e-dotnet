@@ -32,6 +32,20 @@ internal static class ModelHttp
 
     public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(120);
 
+    /// <summary>The images a provider sends with a message: those of a <c>user</c> turn, none for any other role.</summary>
+    public static IReadOnlyList<ModelImage> UserImages(ModelMessage message) =>
+        string.Equals(message.Role, "user", StringComparison.Ordinal) ? message.Images ?? [] : [];
+
+    /// <summary>An image as a <c>data:</c> URL, the form the OpenAI endpoints take.</summary>
+    public static string DataUrl(ModelImage image) => "data:" + image.MediaType + ";base64," + Convert.ToBase64String(image.Data);
+
+    /// <summary>The image format name Bedrock's Converse API takes: <c>png</c> for <c>image/png</c>, <c>jpeg</c> for <c>image/jpg</c>.</summary>
+    public static string ImageFormat(ModelImage image)
+    {
+        var format = image.MediaType[(image.MediaType.IndexOf('/', StringComparison.Ordinal) + 1)..];
+        return string.Equals(format, "jpg", StringComparison.OrdinalIgnoreCase) ? "jpeg" : format.ToLowerInvariant();
+    }
+
     /// <summary>How a <c>CONTEXT_OVERFLOW</c> message opens; the agent inserts what its retry did after it.</summary>
     internal const string OverflowMessage = "The model request exceeded the context window";
 

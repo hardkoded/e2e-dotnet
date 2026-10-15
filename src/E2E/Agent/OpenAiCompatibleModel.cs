@@ -105,6 +105,22 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
             else
             {
                 var turn = new JsonObject { ["role"] = message.Role, ["content"] = message.Content ?? "" };
+                var images = ModelHttp.UserImages(message);
+                if (images.Count > 0)
+                {
+                    var parts = new JsonArray { new JsonObject { ["type"] = "text", ["text"] = message.Content ?? "" } };
+                    foreach (var image in images)
+                    {
+                        parts.Add(new JsonObject
+                        {
+                            ["type"] = "image_url",
+                            ["image_url"] = new JsonObject { ["url"] = ModelHttp.DataUrl(image) },
+                        });
+                    }
+
+                    turn["content"] = parts;
+                }
+
                 AddReasoning(turn, message);
                 messages.Add(turn);
             }

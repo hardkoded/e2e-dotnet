@@ -70,6 +70,7 @@ internal sealed class ActionDispatcher : IExecutorActions
     {
         var node = target.Node;
         var secret = _scope.Secrets.First(item => string.Equals(item.Name, secretName, StringComparison.Ordinal));
+        _scope.Exposure.RaiseFilled();
         await TargetedAsync(node, new LocatorAction.Fill(secret.Value, true), token).ConfigureAwait(false);
         Commit(new RecordedAction
         {

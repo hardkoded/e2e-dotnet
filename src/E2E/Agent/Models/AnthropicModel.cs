@@ -99,6 +99,15 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
                 var role = string.Equals(message.Role, "assistant", StringComparison.Ordinal) ? "assistant" : "user";
                 var content = role == "assistant" ? Thinking(message) : [];
                 content.Add(new JsonObject { ["type"] = "text", ["text"] = string.IsNullOrEmpty(message.Content) ? "(empty)" : message.Content });
+                foreach (var image in ModelHttp.UserImages(message))
+                {
+                    content.Add(new JsonObject
+                    {
+                        ["type"] = "image",
+                        ["source"] = new JsonObject { ["type"] = "base64", ["media_type"] = image.MediaType, ["data"] = Convert.ToBase64String(image.Data) },
+                    });
+                }
+
                 Append(messages, role, content);
             }
         }

@@ -96,7 +96,13 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
             }
             else
             {
-                input.Add(Text(message.Role, message.Content ?? ""));
+                var turn = Text(message.Role, message.Content ?? "");
+                foreach (var image in ModelHttp.UserImages(message))
+                {
+                    ((JsonArray)turn["content"]!).Add(new JsonObject { ["type"] = "input_image", ["image_url"] = ModelHttp.DataUrl(image) });
+                }
+
+                input.Add(turn);
             }
         }
 
