@@ -343,7 +343,16 @@ public sealed partial class WebEngine : IEngine
                     await browser.CloseAsync().ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
                 }
 
-                playwright.Dispose();
+                try
+                {
+                    playwright.Dispose();
+                }
+#pragma warning disable CA1031 // A driver that fails to stop must not hide why the start failed.
+                catch (Exception)
+#pragma warning restore CA1031
+                {
+                }
+
                 throw;
             }
         }

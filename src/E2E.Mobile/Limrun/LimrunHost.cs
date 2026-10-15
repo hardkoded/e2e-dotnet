@@ -75,7 +75,7 @@ internal sealed class LimrunHost : ILimrunHost
                 throw new InvalidOperationException($"adb version exited with code {process.ExitCode}");
             }
         }
-        catch (Exception cause) when (cause is Win32Exception or InvalidOperationException)
+        catch (Exception cause) when (cause is Win32Exception or InvalidOperationException or TimeoutException)
         {
             throw new InvalidOperationException("Limrun Android requires the Android SDK Platform-Tools adb executable on PATH. The device still runs in Limrun.", cause);
         }
