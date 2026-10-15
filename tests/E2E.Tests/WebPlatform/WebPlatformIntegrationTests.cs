@@ -11,12 +11,16 @@ namespace E2E.Tests.WebPlatform;
 public sealed class WebPlatformIntegrationTests
 {
     // Not ported, the port has no such feature: frameLocator, waitForDownload, browser.route, browser.onDialog,
-    // CSS locators, toHaveClass, click modifiers and secondaryTap, harness step records, and report.json.
+    // CSS locators, toHaveClass, click modifiers and secondaryTap, harness step records, and report.json. That leaves out
+    // the class assertions "class assertions poll for a node that arrives late" and "class assertions on a node that never
+    // arrives fail as assertions", and the browser.locator('#late-card') read of "reads wait for a node that arrives late",
+    // which is ported as a partial test (text read only).
     [Theory]
     [InlineData("deterministic queries and reads")]
     [InlineData("a textarea value compares raw")]
     [InlineData("toHaveAttribute reads the value attribute of plain fields")]
     [InlineData("a viewport set before the first navigation holds through app.open")]
+    [InlineData("reads wait for a node that arrives late (partial: the text read only)")]
     [InlineData("toHaveURL ignoreCase folds the comparison")]
     [InlineData("string and RegExp URL patterns match what they name")]
     [InlineData("routes are attempt-scoped: registered before the first page, kept across restart and clearState")]
@@ -24,6 +28,20 @@ public sealed class WebPlatformIntegrationTests
     public async Task Passes(string title)
     {
         Assert.Null(await RunAsync(Scenarios[title]));
+    }
+
+    [Fact]
+    public async Task Fails_a_read_of_a_node_that_never_arrives_with_LOCATOR_NOT_FOUND_once_the_action_timeout_has_run()
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var error = Assert.IsType<TestException>(await RunAsync(async session =>
+        {
+            await session.App.OpenAsync("/classes");
+            await session.Screen.GetByText("Never card").TextContentAsync();
+        }));
+        Assert.Equal("NOT_FOUND", error.Code);
+        Assert.Contains("Never card", error.Message, StringComparison.Ordinal);
+        Assert.True(watch.Elapsed >= TimeSpan.FromSeconds(5), "failed after " + watch.Elapsed);
     }
 
     [Fact]
@@ -149,6 +167,11 @@ public sealed class WebPlatformIntegrationTests
     // The upstream kitchen-sink tests these assertions read, by title.
     private static readonly Dictionary<string, Func<E2ESession, Task>> Scenarios = new()
     {
+        ["reads wait for a node that arrives late (partial: the text read only)"] = async session =>
+        {
+            await session.App.OpenAsync("/classes");
+            Assert.Equal("Late card", await session.Screen.GetByText("Late card").TextContentAsync());
+        },
         ["toHaveURL ignoreCase folds the comparison"] = async session =>
         {
             await session.App.OpenAsync("/classes");

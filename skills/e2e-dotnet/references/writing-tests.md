@@ -129,10 +129,12 @@ upload, long press, or right click.
 ### Reads
 
 `TextContentAsync`, `InputValueAsync`, `GetAttributeAsync`,
-`IsVisibleAsync`, `IsHiddenAsync`, `IsEnabledAsync`, `IsDisabledAsync`,
-`IsCheckedAsync`, `BoundingBoxAsync`, `CountAsync`, `AllAsync`, and
-`AllTextContentsAsync`. A read looks at the screen once and does not wait
-for a value to change; use a matcher when a value has to settle.
+`IsEnabledAsync`, `IsDisabledAsync`, `IsCheckedAsync`, and `BoundingBoxAsync`
+wait for one match until the action timeout, then read once with no retry for
+a value. A node that never arrives fails with `NOT_FOUND` after the action
+timeout. `IsVisibleAsync`, `IsHiddenAsync`, `CountAsync`, `AllAsync`, and
+`AllTextContentsAsync` answer from the current screen at once. Use a matcher
+when a value has to settle.
 `WaitForAsync` waits for a state (`attached`, `detached`, `visible`,
 `hidden`). `BoundingBoxAsync` is `null` for a node with no layout box
 (`display: none` on it or an ancestor, or any `display: contents`

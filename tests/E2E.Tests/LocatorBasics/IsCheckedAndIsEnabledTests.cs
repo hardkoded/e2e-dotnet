@@ -33,16 +33,25 @@ public sealed class IsCheckedAndIsEnabledTests
     }
 
     [Fact]
-    public async Task Both_fail_at_once_on_zero_matches_where_isVisible_answers_false_and_on_several_like_isVisible()
+    public async Task Both_wait_out_the_action_timeout_on_zero_matches_where_isVisible_answers_false_at_once()
     {
         var none = ScreenFixture.Create().GetByRole("listitem");
-        var several = ScreenFixture.Create(List).GetByRole("listitem");
         var watch = Stopwatch.StartNew();
+        Assert.False(await none.IsVisibleAsync());
+        Assert.True(watch.Elapsed < ScreenFixture.Timeout, "answered after " + watch.Elapsed);
         await FailsWith("NOT_FOUND", () => none.IsCheckedAsync());
         await FailsWith("NOT_FOUND", () => none.IsEnabledAsync());
+        Assert.True(watch.Elapsed >= ScreenFixture.Timeout * 2 - TimeSpan.FromMilliseconds(50), "answered after " + watch.Elapsed);
+    }
+
+    [Fact]
+    public async Task Both_fail_at_once_on_several_matches_like_isVisible()
+    {
+        var several = ScreenFixture.Create(List).GetByRole("listitem");
+        var watch = Stopwatch.StartNew();
         await FailsWith("STRICT_MODE", () => several.IsCheckedAsync());
         await FailsWith("STRICT_MODE", () => several.IsEnabledAsync());
-        Assert.False(await none.IsVisibleAsync());
+        await FailsWith("STRICT_MODE", () => several.IsVisibleAsync());
         Assert.True(watch.Elapsed < ScreenFixture.Timeout, "answered after " + watch.Elapsed);
     }
 }
