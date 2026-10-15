@@ -82,7 +82,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
                         ["functionCall"] = new JsonObject
                         {
                             ["name"] = call.Name,
-                            ["args"] = JsonNode.Parse(call.Arguments.GetRawText()),
+                            ["args"] = ModelHttp.ArgumentsObject(call.Arguments),
                         },
                     };
 

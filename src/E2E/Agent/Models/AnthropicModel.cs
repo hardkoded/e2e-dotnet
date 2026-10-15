@@ -76,7 +76,7 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
                         ["type"] = "tool_use",
                         ["id"] = call.Id,
                         ["name"] = call.Name,
-                        ["input"] = JsonNode.Parse(call.Arguments.GetRawText()),
+                        ["input"] = ModelHttp.ArgumentsObject(call.Arguments),
                     });
                 }
 

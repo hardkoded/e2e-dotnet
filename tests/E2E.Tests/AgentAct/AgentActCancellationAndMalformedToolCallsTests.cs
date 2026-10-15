@@ -125,6 +125,16 @@ public sealed class AgentActCancellationAndMalformedToolCallsTests
         Assert.Equal(2, model.CallCount);
     }
 
+    [Fact]
+    public void Sends_an_empty_object_to_a_provider_that_takes_objects_when_the_arguments_did_not_parse()
+    {
+        var malformed = ModelHttp.Arguments("{\"role\":");
+        var valid = ModelHttp.Arguments("{\"role\":\"button\"}");
+
+        Assert.Equal("{}", ModelHttp.ArgumentsObject(malformed).ToJsonString());
+        Assert.Equal("{\"role\":\"button\"}", ModelHttp.ArgumentsObject(valid).ToJsonString());
+    }
+
     private sealed record Reading(string Count);
 
     private sealed class HangingModel : IAgentModel

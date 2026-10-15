@@ -176,6 +176,10 @@ internal static class ModelHttp
         }
     }
 
+    /// <summary>The argument object a provider that takes objects is sent back: the JSON, or an empty object when the call did not carry one.</summary>
+    public static JsonNode ArgumentsObject(JsonElement arguments) =>
+        arguments.ValueKind == JsonValueKind.Object ? JsonNode.Parse(arguments.GetRawText())! : new JsonObject();
+
     /// <summary>The argument text a provider is sent back: the text of an argument that did not parse, else the JSON.</summary>
     public static string ArgumentsText(JsonElement arguments) =>
         arguments.ValueKind == JsonValueKind.String ? arguments.GetString() ?? "" : arguments.GetRawText();

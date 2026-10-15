@@ -52,7 +52,8 @@ internal static class Time
 {
     /// <summary>
     /// The token a call runs under: the caller's token, ended also by the session's. No source is made when one token
-    /// already stands for both, so a call does not leave a registration on the session token.
+    /// already stands for both, so a call does not leave a registration on the session token. When both can cancel
+    /// and differ, the linked source lives until either token ends.
     /// </summary>
     public static CancellationToken Link(CancellationToken caller, CancellationToken session)
     {
