@@ -92,6 +92,7 @@ public sealed class AttemptSessionTests
             return Task.FromResult(opened);
         };
         contextFake.Members["AddInitScriptAsync"] = _ => Task.FromResult(FakeRemote.Registration);
+        contextFake.Members["add_Page"] = _ => null;
         contextFake.Members["CloseAsync"] = _ => Task.CompletedTask;
         var (browser, browserFake) = Fake<IBrowser>.New();
         browserFake.Members["NewContextAsync"] = _ => Task.FromResult(context);
@@ -134,6 +135,115 @@ public sealed class AttemptSessionTests
         Assert.All(active.ViewportCalls, call => Assert.Equal((390, 600), call));
         await browser.SetViewportAsync(800, 600, None);
         Assert.Equal((800, 600), active.ViewportCalls[^1]);
+    }
+
+    [Fact]
+    public async Task Emulates_the_configured_media_on_each_page_it_opens_and_merges_a_change_into_it_for_the_rest_of_the_attempt()
+    {
+        var current = Remote("current");
+        var initial = FakeTarget.Create("initial");
+        var opened = FakeTarget.Create("opened");
+        current.Pages.Add(initial.Page);
+        current.ContextFake.Members["NewPageAsync"] = _ => Task.FromResult(opened.Page);
+        _connections.Add(current.Browser);
+        await using var owner = await Engine(colorScheme: WebColorScheme.Dark).StartAsync(Start(), None);
+        await owner.OpenAsync(Url, None);
+        Assert.Equal([(ColorScheme.Dark, null)], initial.Emulated);
+        var browser = (IBrowserSession)owner;
+        await browser.EmulateMediaAsync(new WebMedia { ReducedMotion = WebReducedMotion.Reduce }, None);
+        Assert.Equal((ColorScheme.Dark, ReducedMotion.Reduce), initial.Emulated[^1]);
+        await browser.EmulateMediaAsync(new WebMedia { ColorScheme = WebColorScheme.Light }, None);
+        initial.Closed = true;
+        await owner.OpenAsync(Url, None);
+        Assert.Equal([(ColorScheme.Light, ReducedMotion.Reduce)], opened.Emulated);
+    }
+
+    [Fact]
+    public async Task Emulates_the_attempts_media_on_a_tab_the_app_opens_itself_as_it_appears_and_when_a_test_changes_it()
+    {
+        var current = Remote("current");
+        var initial = FakeTarget.Create("initial");
+        current.Pages.Add(initial.Page);
+        _connections.Add(current.Browser);
+        await using var owner = await Engine(colorScheme: WebColorScheme.Dark).StartAsync(Start(), None);
+        await owner.OpenAsync(Url, None);
+        var popup = FakeTarget.Create("popup");
+        current.Popup(popup.Page);
+        Assert.Equal([(ColorScheme.Dark, null)], popup.Emulated);
+        await ((IBrowserSession)owner).EmulateMediaAsync(new WebMedia { ReducedMotion = WebReducedMotion.Reduce }, None);
+        Assert.Equal((ColorScheme.Dark, ReducedMotion.Reduce), initial.Emulated[^1]);
+        Assert.Equal((ColorScheme.Dark, ReducedMotion.Reduce), popup.Emulated[^1]);
+    }
+
+    [Fact]
+    public async Task Ignores_a_tab_the_app_closes_while_the_media_reaches_it_and_reports_one_still_open()
+    {
+        var current = Remote("current");
+        var initial = FakeTarget.Create("initial");
+        current.Pages.Add(initial.Page);
+        _connections.Add(current.Browser);
+        await using var owner = await Engine(colorScheme: WebColorScheme.Dark).StartAsync(Start(), None);
+        await owner.OpenAsync(Url, None);
+        var browser = (IBrowserSession)owner;
+        var closing = FakeTarget.Create("closing");
+        closing.PageFake.Members["EmulateMediaAsync"] = _ =>
+        {
+            closing.Closed = true;
+            throw new PlaywrightException("Target page, context or browser has been closed");
+        };
+        current.Pages.Add(closing.Page);
+        await browser.EmulateMediaAsync(new WebMedia { ReducedMotion = WebReducedMotion.Reduce }, None);
+        var broken = FakeTarget.Create("broken");
+        broken.PageFake.Members["EmulateMediaAsync"] = _ => throw new PlaywrightException("Protocol error");
+        current.Pages.Add(broken.Page);
+        var error = await Assert.ThrowsAsync<EngineException>(() => browser.EmulateMediaAsync(new WebMedia { ColorScheme = WebColorScheme.Light }, None));
+        Assert.Contains("Protocol error", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Keeps_both_concurrent_media_changes_when_the_first_call_finishes_last()
+    {
+        var current = Remote("current");
+        var active = FakeTarget.Create("page");
+        var applied = new List<(ColorScheme? ColorScheme, ReducedMotion? ReducedMotion)>();
+        var firstResponse = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var calls = 0;
+
+        // The first call settles last, as a slow protocol round trip would.
+        active.PageFake.Members["EmulateMediaAsync"] = args =>
+        {
+            var options = (PageEmulateMediaOptions)args[0]!;
+            return ++calls == 1
+                ? firstResponse.Task.ContinueWith(_ => applied.Add((options.ColorScheme, options.ReducedMotion)), TaskScheduler.Default)
+                : Task.Run(() => applied.Add((options.ColorScheme, options.ReducedMotion)));
+        };
+        current.Pages.Add(active.Page);
+        _connections.Add(current.Browser);
+        await using var owner = await Engine().StartAsync(Start(), None);
+        await owner.OpenAsync(Url, None);
+        var browser = (IBrowserSession)owner;
+        var first = browser.EmulateMediaAsync(new WebMedia { ColorScheme = WebColorScheme.Dark }, None);
+        await browser.EmulateMediaAsync(new WebMedia { ReducedMotion = WebReducedMotion.Reduce }, None);
+        firstResponse.SetResult();
+        await first;
+        Assert.Contains((ColorScheme.Dark, ReducedMotion.Reduce), applied);
+        var opened = FakeTarget.Create("opened");
+        current.ContextFake.Members["NewPageAsync"] = _ => Task.FromResult(opened.Page);
+        active.Closed = true;
+        await owner.OpenAsync(Url, None);
+        Assert.Equal([(ColorScheme.Dark, ReducedMotion.Reduce)], opened.Emulated);
+    }
+
+    [Fact]
+    public async Task Leaves_the_browsers_own_media_alone_when_none_is_configured_or_requested()
+    {
+        var current = Remote("current");
+        var active = FakeTarget.Create("page");
+        current.Pages.Add(active.Page);
+        _connections.Add(current.Browser);
+        await using var owner = await Engine().StartAsync(Start(), None);
+        await owner.OpenAsync(Url, None);
+        Assert.Empty(active.Emulated);
     }
 
     [Fact]
@@ -313,6 +423,7 @@ public sealed class AttemptSessionTests
     /// </summary>
     private WebEngine Engine(
         bool followWindow = false,
+        WebColorScheme? colorScheme = null,
         Func<CancellationToken, Task<string>>? provision = null,
         Func<CancellationToken, Task<string>>? reconnect = null,
         TimeProvider? clock = null)
@@ -320,6 +431,7 @@ public sealed class AttemptSessionTests
         return new WebEngine(new WebEngineOptions
         {
             Viewport = followWindow ? null : new WebViewport(320, 200),
+            ColorScheme = colorScheme,
             Connect = new WebConnectOptions
             {
                 CdpEndpoint = provision ?? (_ => Task.FromResult("provisioned")),

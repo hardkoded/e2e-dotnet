@@ -71,6 +71,14 @@ public interface IBrowserSession : IEngineSession
     Task AddInitScriptAsync(string source, CancellationToken cancellationToken) =>
         Task.FromException(new EngineException("UNSUPPORTED_CAPABILITY", "browser.addInitScript is not supported by this engine."));
 
+    /// <summary>
+    /// Emulates media features on every open tab and every tab opened after them, for the rest of the attempt;
+    /// a feature <paramref name="media"/> leaves out keeps its value. A session that does not override it fails
+    /// with <c>UNSUPPORTED_CAPABILITY</c>.
+    /// </summary>
+    Task EmulateMediaAsync(WebMedia media, CancellationToken cancellationToken) =>
+        Task.FromException(new EngineException("UNSUPPORTED_CAPABILITY", "browser.emulateMedia is not supported by this engine."));
+
     Task KeyboardTypeAsync(string text, CancellationToken cancellationToken);
 
     /// <summary>

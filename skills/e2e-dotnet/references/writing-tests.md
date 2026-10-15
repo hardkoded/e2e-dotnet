@@ -259,6 +259,12 @@ with `<secret:name>` in these places:
 - `CookiesAsync()`, `SetCookiesAsync([...])`: a target is an http(s) URL,
   relative to the base URL, or a domain. `SetCookiesAsync` refuses a cookie
   URL that is not http(s), `about:blank` included, with `POLICY_DENIED`.
+- `EmulateMediaAsync(new WebMedia { ColorScheme, ReducedMotion })`: what the
+  page's `@media` rules and `matchMedia` read, for the rest of the test,
+  through `App.RestartAsync` and `App.ClearStateAsync`. Call it before
+  `App.OpenAsync` to load the page with it; a feature left out keeps its
+  value. It sets every open tab and every tab opened after it. For every test,
+  set `ColorScheme` and `ReducedMotion` on the engine.
 - `AddInitScriptAsync(source | WebInitScript)`,
   `AddInitScriptAsync(WebInitScript.FromFunction(fn), arg)`: runs before the
   page's own scripts; call it before `App.OpenAsync`. `arg` is JSON.

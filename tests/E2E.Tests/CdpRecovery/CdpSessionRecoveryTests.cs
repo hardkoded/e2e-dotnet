@@ -76,6 +76,28 @@ public sealed class CdpSessionRecoveryTests
     }
 
     [Fact]
+    public async Task Emulates_the_configured_and_requested_media_on_the_persistent_page_after_reconnect_too()
+    {
+        using var app = await FixtureApp.StartAsync();
+        await using var remote = await RemoteChrome.LaunchAsync();
+        await using var session = await StartAsync(app, new WebEngine(new WebEngineOptions { Connect = Fixed(remote), ColorScheme = WebColorScheme.Dark }));
+        Task<string?> Media() => EvaluateAsync<string>(session, "() => `${matchMedia('(prefers-color-scheme: dark)').matches} ${matchMedia('(prefers-reduced-motion: reduce)').matches}`");
+        await ((IBrowserSession)session).EmulateMediaAsync(new WebMedia { ReducedMotion = WebReducedMotion.Reduce }, None);
+        Assert.Equal("true true", await Media());
+        var live = WebEngine.SurfaceOf(session)!;
+        var popup = await live.Context().RunAndWaitForPageAsync(() => live.Page().EvaluateAsync("() => { window.open('/'); }"));
+        await popup.WaitForLoadStateAsync();
+        Assert.True(await popup.EvaluateAsync<bool>("() => matchMedia('(prefers-reduced-motion: reduce)').matches"));
+        await live.Context().Browser!.CloseAsync();
+        Assert.Equal("Login", await EvaluateAsync<string>(session, "() => document.querySelector('h1').textContent"));
+        Assert.Equal("true true", await Media());
+
+        // The app's own tab outlives the transport, and the new one emulates on it again.
+        var reopened = WebEngine.SurfaceOf(session)!.Context().Pages.Single(page => page.Url.EndsWith('/') && page != WebEngine.SurfaceOf(session)!.Page());
+        Assert.True(await reopened.EvaluateAsync<bool>("() => matchMedia('(prefers-reduced-motion: reduce)').matches"));
+    }
+
+    [Fact]
     public async Task Runs_configured_and_test_init_scripts_once_per_document_after_reconnect_too()
     {
         using var app = await FixtureApp.StartAsync();

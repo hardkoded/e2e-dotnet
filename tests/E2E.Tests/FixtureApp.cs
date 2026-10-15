@@ -4,7 +4,7 @@
 
 namespace E2E.Tests;
 
-/// <summary>The pages of upstream's <c>tests/helpers/fixture-app.ts</c> that the CDP tests use.</summary>
+/// <summary>The pages of upstream's <c>tests/helpers/fixture-app.ts</c> that the CDP and media tests use.</summary>
 internal static class FixtureApp
 {
     private const string Login = """
@@ -32,9 +32,34 @@ internal static class FixtureApp
         </html>
         """;
 
-    /// <summary>Starts the fixture app: <c>/login</c> and <c>/form</c>.</summary>
+    // Styled by the media features the browser reports, and recording what a script in the head read before
+    // first paint, so a test can tell an emulation the page loaded with from one applied after.
+    private const string Media = """
+        <!doctype html>
+        <html>
+        <head>
+        <title>Fixture Media</title>
+        <style>
+          p { color: rgb(0, 0, 0); transition-property: opacity; transition-duration: 0.3s; }
+          @media (prefers-color-scheme: dark) { p { color: rgb(255, 255, 255); } }
+          @media (prefers-reduced-motion: reduce) { p { transition-duration: 0s; } }
+        </style>
+        <script>
+          window.atLoad = { dark: matchMedia('(prefers-color-scheme: dark)').matches, reduce: matchMedia('(prefers-reduced-motion: reduce)').matches };
+        </script>
+        </head>
+        <body><p>media</p></body>
+        </html>
+        """;
+
+    /// <summary>Starts the fixture app: <c>/login</c>, <c>/form</c>, and <c>/media</c>.</summary>
     public static Task<TinySite> StartAsync()
     {
-        return TinySite.StartAsync(context => TinySite.RespondAsync(context, context.Request.Url!.AbsolutePath == "/form" ? Form : Login));
+        return TinySite.StartAsync(context => TinySite.RespondAsync(context, context.Request.Url!.AbsolutePath switch
+        {
+            "/form" => Form,
+            "/media" => Media,
+            _ => Login,
+        }));
     }
 }

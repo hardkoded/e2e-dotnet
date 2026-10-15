@@ -256,6 +256,23 @@ public sealed class Browser
         return Require("setViewport").SetViewportAsync(width, height, Token(cancellationToken));
     }
 
+    /// <summary>
+    /// Emulates CSS media features on every open tab and every tab opened after them, the app's own included,
+    /// for the rest of the attempt, through <c>App.RestartAsync</c> and <c>App.ClearStateAsync</c>: the page's
+    /// <c>@media</c> rules and <c>matchMedia</c> both read them. A feature left out keeps its value. It works
+    /// before the first navigation, so the page loads with them.
+    /// </summary>
+    public Task EmulateMediaAsync(WebMedia media, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(media);
+        if (WebMedia.Problem(name => "browser.emulateMedia({ " + name + " })", media) is { } problem)
+        {
+            throw new TestException("INVALID_ARGUMENT", problem);
+        }
+
+        return Require("emulateMedia").EmulateMediaAsync(media, Token(cancellationToken));
+    }
+
     internal IBrowserSession Require(string operation)
     {
         return _session as IBrowserSession
