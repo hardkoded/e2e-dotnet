@@ -119,7 +119,20 @@ public sealed class BedrockModel : IAgentModel, IDisposable
             else
             {
                 var role = string.Equals(message.Role, "assistant", StringComparison.Ordinal) ? "assistant" : "user";
-                Append(messages, role, new JsonArray { new JsonObject { ["text"] = string.IsNullOrEmpty(message.Content) ? "(empty)" : message.Content } });
+                var content = new JsonArray { new JsonObject { ["text"] = string.IsNullOrEmpty(message.Content) ? "(empty)" : message.Content } };
+                foreach (var image in ModelHttp.UserImages(message))
+                {
+                    content.Add(new JsonObject
+                    {
+                        ["image"] = new JsonObject
+                        {
+                            ["format"] = ModelHttp.ImageFormat(image),
+                            ["source"] = new JsonObject { ["bytes"] = Convert.ToBase64String(image.Data) },
+                        },
+                    });
+                }
+
+                Append(messages, role, content);
             }
         }
 

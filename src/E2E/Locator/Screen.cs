@@ -52,12 +52,12 @@ public sealed class Screen
     /// <summary>Where <c>ToHaveScreenshotAsync</c> keeps screenshots; null for a screen outside a session.</summary>
     internal ScreenshotContext? Screenshots { get; set; }
 
-    /// <summary>A secret was filled in this attempt, so the app may show it outside a secure field and pixels are withheld.</summary>
-    internal bool SecretFilled { get; private set; }
+    /// <summary>How far a secret reached this attempt: a fill lets the app show it outside a secure field, so pixels are withheld. A session shares it with the attempt's agent.</summary>
+    internal Exposure Exposure { get; set; } = new();
 
     internal void MarkSecretFilled(Secret secret)
     {
-        SecretFilled = true;
+        Exposure.RaiseFilled();
         RememberSecret?.Invoke(secret);
     }
 

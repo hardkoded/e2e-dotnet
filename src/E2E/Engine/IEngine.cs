@@ -110,4 +110,7 @@ public interface IEngineSession : IAsyncDisposable
 }
 
 /// <summary>A captured viewport: PNG bytes, and how many image pixels one viewport (CSS) pixel takes.</summary>
-public sealed record EngineScreenshot(byte[] Png, double Scale);
+/// <param name="Png">The image, with every secure field covered.</param>
+/// <param name="Scale">Image pixels per viewport (CSS) pixel.</param>
+/// <param name="MaskedRegionCount">How many regions the engine covered, so a caller can prove the image is at least as redacted as the tree. Null when the engine cannot say.</param>
+public sealed record EngineScreenshot(byte[] Png, double Scale, int? MaskedRegionCount = null);

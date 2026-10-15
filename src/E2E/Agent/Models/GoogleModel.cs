@@ -119,7 +119,16 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             else
             {
                 var role = string.Equals(message.Role, "assistant", StringComparison.Ordinal) ? "model" : "user";
-                Append(contents, role, new JsonArray { new JsonObject { ["text"] = message.Content ?? "" } });
+                var parts = new JsonArray { new JsonObject { ["text"] = message.Content ?? "" } };
+                foreach (var image in ModelHttp.UserImages(message))
+                {
+                    parts.Add(new JsonObject
+                    {
+                        ["inlineData"] = new JsonObject { ["mimeType"] = image.MediaType, ["data"] = Convert.ToBase64String(image.Data) },
+                    });
+                }
+
+                Append(contents, role, parts);
             }
         }
 

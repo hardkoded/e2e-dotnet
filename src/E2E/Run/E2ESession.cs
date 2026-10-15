@@ -173,6 +173,7 @@ public sealed class E2ESession : IAsyncDisposable
                 options.ActionTimeout,
                 options.AssertionTimeout,
                 softFailures);
+            screen.Exposure = scope.Exposure;
             screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });
             screen.Redact = text => scope.Redactor.Redact(text);
             screen.Screenshots = new ScreenshotContext
@@ -189,7 +190,7 @@ public sealed class E2ESession : IAsyncDisposable
                 ScrollsIntoView = (options.Engine.Capabilities & EngineCapabilities.Scroll) != 0,
                 DirectoryOf = options.SnapshotDirectoryOf ?? (static file => file is null ? null : file + "-snapshots"),
                 Capture = token => engine.ScreenshotAsync(token),
-                WithholdsPixels = () => screen.SecretFilled || scope.Secrets.Count > 0,
+                WithholdsPixels = () => scope.Exposure.WithholdsPixels || scope.Secrets.Count > 0,
             };
             var context = new TestContext
             {

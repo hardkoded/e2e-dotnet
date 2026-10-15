@@ -162,6 +162,23 @@ public sealed class ObservationTests
     }
 
     [Fact]
+    public async Task Counts_the_regions_it_paints_over_secure_fields_in_a_screenshot()
+    {
+        var h = Harness.Create();
+        var png = PngCodec.Encode(PngCodec.Solid(195, 422, 4, 255));
+        h.Fake.Respond(DeviceMethods.CaptureScreenshot, options =>
+        {
+            File.WriteAllBytes(options!["path"]!.GetValue<string>(), png);
+            return new JsonObject { ["path"] = options["path"]!.GetValue<string>(), ["logicalWidth"] = 390, ["logicalHeight"] = 844 };
+        });
+        var session = await OpenAttempt(h);
+        var observation = await session.ObserveAsync(CancellationToken.None);
+        var secure = Walk(observation.Roots[0]).Count(node => node.States.Secure);
+        Assert.True(secure > 0);
+        Assert.Equal(secure, (await session.ScreenshotAsync(CancellationToken.None)).MaskedRegionCount);
+    }
+
+    [Fact]
     public async Task Withholds_the_pixels_of_a_screen_with_a_secure_field_when_the_image_cannot_be_read_or_decoded()
     {
         var h = Harness.Create();
