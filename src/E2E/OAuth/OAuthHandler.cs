@@ -47,6 +47,8 @@ public sealed class OAuthHandler : DelegatingHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         // Captured once so the request can be sent again after a refresh.
         var body = request.Content is null ? null : await request.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
         var contentHeaders = request.Content?.Headers.ToList();

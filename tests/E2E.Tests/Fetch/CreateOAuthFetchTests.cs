@@ -17,6 +17,22 @@ public sealed class CreateOAuthFetchTests
     private const string Url = "https://api.test/";
 
     [Fact]
+    public async Task Does_not_refresh_or_send_a_request_whose_signal_was_already_aborted()
+    {
+        var api = new FakeApi(_ => (HttpStatusCode.OK, "{}"));
+        var store = new MemoryCredentialStore(new() { ["test"] = new OAuthCredentials { Access = "stale", Refresh = "rt-0", Expires = 1 } });
+        var provider = new RotatingProvider();
+        using var http = Client(provider, store, api);
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => http.GetAsync(new Uri(Url), cancellation.Token));
+
+        Assert.Empty(provider.Refreshes);
+        Assert.Empty(api.Requests);
+    }
+
+    [Fact]
     public async Task Cancels_one_refresh_waiter_without_cancelling_the_shared_refresh_another_request_needs()
     {
         var api = new FakeApi(_ => (HttpStatusCode.OK, """{ "ok": true }"""));
