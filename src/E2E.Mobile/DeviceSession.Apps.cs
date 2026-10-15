@@ -168,7 +168,7 @@ public sealed partial class DeviceSession
     public async Task CloseAppAsync(CancellationToken cancellationToken = default)
     {
         var app = _appIdentity ?? PinnedApp;
-        await CommandAsync("device.closeApp", DeviceMethods.AppsClose, DeviceArgs.Of(("app", app is null ? null : JsonValue.Create(app))), cancellationToken).ConfigureAwait(false);
+        await CommandAsync("device.closeApp", DeviceMethods.AppsClose, Selection.ToArgs(("app", app is null ? null : JsonValue.Create(app))), cancellationToken).ConfigureAwait(false);
         ScreenReplaced();
     }
 
@@ -221,7 +221,7 @@ public sealed partial class DeviceSession
     public Task FoldAsync(FoldPose pose, CancellationToken cancellationToken = default) =>
         ScreenCommandAsync(
             "device.fold",
-            (client, token) => client.CallAsync(DeviceMethods.CommandFold, DeviceArgs.Of(("pose", JsonValue.Create(pose.WireName()))), token),
+            (client, token) => client.CallAsync(DeviceMethods.CommandFold, Selection.ToArgs(("pose", JsonValue.Create(pose.WireName()))), token),
             cancellationToken);
 
     /// <summary>
@@ -238,7 +238,7 @@ public sealed partial class DeviceSession
         return CommandAsync(
             "device.clearKeychain",
             DeviceMethods.SettingsUpdate,
-            DeviceArgs.Of(("setting", JsonValue.Create("reset-keychain")), ("state", JsonValue.Create("clear"))),
+            Selection.ToArgs(("setting", JsonValue.Create("reset-keychain")), ("state", JsonValue.Create("clear"))),
             cancellationToken);
     }
 }

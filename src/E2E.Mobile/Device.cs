@@ -155,7 +155,7 @@ public sealed class Device
         await _session.CommandAsync(
             "device.setLocation",
             DeviceMethods.SettingsUpdate,
-            DeviceArgs.Of(
+            _session.Selection.ToArgs(
                 ("setting", JsonValue.Create("location")),
                 ("state", JsonValue.Create("set")),
                 ("latitude", JsonValue.Create(coordinates.Latitude)),
@@ -175,7 +175,7 @@ public sealed class Device
     public Task SetOrientationAsync(DeviceOrientation orientation, CancellationToken cancellationToken = default) =>
         _session.ScreenCommandAsync(
             "device.setOrientation",
-            (client, token) => client.CallAsync(DeviceMethods.CommandOrientation, DeviceArgs.Of(("orientation", JsonValue.Create(orientation.WireName()))), token),
+            (client, token) => client.CallAsync(DeviceMethods.CommandOrientation, _session.Selection.ToArgs(("orientation", JsonValue.Create(orientation.WireName()))), token),
             cancellationToken);
 
     /// <summary>
@@ -257,7 +257,7 @@ public sealed class Device
 
     /// <summary>Sends the device to its home screen.</summary>
     public Task HomeAsync(CancellationToken cancellationToken = default) =>
-        _session.ScreenCommandAsync("device.home", (client, token) => client.CallAsync(DeviceMethods.CommandHome, new JsonObject(), token), cancellationToken);
+        _session.ScreenCommandAsync("device.home", (client, token) => client.CallAsync(DeviceMethods.CommandHome, _session.Selection.ToArgs(), token), cancellationToken);
 
     /// <summary>Navigates back once (in-app back).</summary>
     public Task BackAsync(CancellationToken cancellationToken = default) =>
@@ -267,7 +267,7 @@ public sealed class Device
     public Task AlertAsync(AlertAction action, CancellationToken cancellationToken = default) =>
         _session.ScreenCommandAsync(
             "device.alert",
-            (client, token) => client.CallAsync(DeviceMethods.CommandAlert, DeviceArgs.Of(("action", JsonValue.Create(action == AlertAction.Accept ? "accept" : "dismiss"))), token),
+            (client, token) => client.CallAsync(DeviceMethods.CommandAlert, _session.Selection.ToArgs(("action", JsonValue.Create(action == AlertAction.Accept ? "accept" : "dismiss"))), token),
             cancellationToken);
 
     /// <summary>Dismisses the soft keyboard.</summary>
@@ -279,7 +279,7 @@ public sealed class Device
         var result = await _session.CommandAsync(
             "device.clipboard",
             DeviceMethods.CommandClipboard,
-            DeviceArgs.Of(("action", JsonValue.Create("read"))),
+            _session.Selection.ToArgs(("action", JsonValue.Create("read"))),
             cancellationToken).ConfigureAwait(false);
         return Text(result?["action"]) == "read" ? Text(result?["text"]) ?? "" : "";
     }
@@ -291,7 +291,7 @@ public sealed class Device
         return _session.CommandAsync(
             "device.setClipboard",
             DeviceMethods.CommandClipboard,
-            DeviceArgs.Of(("action", JsonValue.Create("write")), ("text", JsonValue.Create(text))),
+            _session.Selection.ToArgs(("action", JsonValue.Create("write")), ("text", JsonValue.Create(text))),
             cancellationToken);
     }
 
@@ -299,7 +299,7 @@ public sealed class Device
         _session.CommandAsync(
             label,
             DeviceMethods.SettingsUpdate,
-            DeviceArgs.Of(("setting", JsonValue.Create(setting)), ("state", JsonValue.Create(state))),
+            _session.Selection.ToArgs(("setting", JsonValue.Create(setting)), ("state", JsonValue.Create(state))),
             cancellationToken);
 
     private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;

@@ -9,7 +9,7 @@ namespace E2E.Mobile.Tests.Tools;
 
 public sealed class AgentToolPackTests
 {
-    private static Harness Android() => Harness.Create(options => options with { Platform = MobilePlatform.Android });
+    private static Harness Android() => Harness.Create(options => options with { Platform = MobilePlatform.Android, Device = "emulator-5554" });
 
     private static Task<string> Run(IReadOnlyDictionary<string, AgentTool> tools, string name, string input) =>
         tools[name].ExecuteAsync((JsonObject)JsonNode.Parse(input)!, CancellationToken.None);
@@ -42,7 +42,10 @@ public sealed class AgentToolPackTests
         Assert.Matches("Swiped", await Run(tools, "swipe", """{"from":{"x":300,"y":200},"to":{"x":20,"y":200}}"""));
         Assert.Equal("Alert dismissed.", await Run(tools, "alert", """{"action":"dismiss"}"""));
         Assert.Equal(["devices.boot", "apps.open", "interactions.swipe", "command.alert"], androidHarness.Fake.Methods());
-        JsonAssert.Args("""{"app":"Clock","platform":"android","relaunch":true}""", androidHarness.Fake.LastArgs("apps.open"));
+        JsonAssert.Args("""{"app":"Clock","platform":"android","serial":"emulator-5554","relaunch":true}""", androidHarness.Fake.LastArgs("apps.open"));
+
+        // The alert carries the worker's device, as it can run with no app open.
+        JsonAssert.Args("""{"platform":"android","serial":"emulator-5554","action":"dismiss"}""", androidHarness.Fake.LastArgs("command.alert"));
         Assert.Empty(iosHarness.Fake.Methods());
         await androidSession.CloseAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
 
