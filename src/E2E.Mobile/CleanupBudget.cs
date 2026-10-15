@@ -24,7 +24,7 @@ internal static class CleanupBudget
 public static class AgentDeviceVersion
 {
     /// <summary>The agent-device release the wire format here was read from.</summary>
-    public const string Pinned = "0.21.22";
+    public const string Pinned = "0.21.25";
 
     /// <summary>The daemon's JSON-RPC protocol version the client speaks, as <c>GET /health</c> reports it.</summary>
     public const int RpcProtocol = 2;
