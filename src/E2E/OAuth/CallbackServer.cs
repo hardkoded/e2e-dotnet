@@ -138,9 +138,16 @@ internal sealed class CallbackServer : IDisposable
             return;
         }
 
-        // The answer is set first: a browser that drops the connection must not lose the code.
-        _answer.TrySetResult((query["code"], null));
-        Reply(context, 200, "Signed in", "You can close this window and return to the terminal.");
+        // The reply goes first, as above. A browser that drops the connection must not lose the code: Reply
+        // ignores that failure and the answer is set either way.
+        try
+        {
+            Reply(context, 200, "Signed in", "You can close this window and return to the terminal.");
+        }
+        finally
+        {
+            _answer.TrySetResult((query["code"], null));
+        }
     }
 
     private void Reply(HttpListenerContext context, int status, string heading, string message)
