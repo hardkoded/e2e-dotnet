@@ -213,8 +213,8 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   of those changed during the replay, and no new alert showed; otherwise
   the agent takes over mid-step. The web engine does not observe Next.js
   App Router's route announcer, so its title echo never counts. Text that
-  reads differently on every run, a date, a time, an id, is not checked. Entries are keyed per agent and
-  per agent `context`. `ActResult.Cache.Reason` says why a replay missed:
+  reads differently on every run, a date, a time, an id, is not checked.
+  Entries are keyed per agent and per agent `context`. `ActResult.Cache.Reason` says why a replay missed:
   `no-entry`, `invalid-entry`, `wrong-context`, `target-not-found`,
   `target-ambiguous`, `end-mismatch`, `gap` (the recording stops at a
   project tool, see below).
