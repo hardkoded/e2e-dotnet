@@ -88,9 +88,10 @@ internal static class ModelHttp
         }
     }
 
-    /// <summary>The failure of a response the provider answered 200 and then failed: a blocked <c>CONTEXT_OVERFLOW</c> when it says the request was too large.</summary>
-    public static AgentException ResponseFailed(string error)
+    /// <summary>The failure of a response the provider answered 200 and then failed: a blocked <c>CONTEXT_OVERFLOW</c> when it says the request was too large. The text is redacted, as an HTTP failure body is.</summary>
+    public static AgentException ResponseFailed(string error, Redactor redactor)
     {
+        error = redactor.Redact(error);
         return ContextOverflow.DescribesOverflow(null, error, null)
             ? new AgentException("CONTEXT_OVERFLOW", OverflowMessage + ": " + error, blocked: true)
             : new AgentException("MODEL_PROVIDER_FAILED", "The model provider failed the response. " + error);

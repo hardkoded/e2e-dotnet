@@ -41,10 +41,10 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
         var folded = ResponsesStream.Fold(body);
         if (folded.Error is not null)
         {
-            throw ModelHttp.ResponseFailed(folded.Error);
+            throw ModelHttp.ResponseFailed(folded.Error, request.Redactor);
         }
 
-        return ModelHttp.Parse(folded.Body, Parse);
+        return ModelHttp.Parse(folded.Body, root => Parse(root, request.Redactor));
     }
 
     public void Dispose()
@@ -177,11 +177,11 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
         };
     }
 
-    internal static ModelResponse Parse(JsonElement root)
+    internal static ModelResponse Parse(JsonElement root, Redactor redactor)
     {
         if (root.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.Object)
         {
-            throw ModelHttp.ResponseFailed(error.GetRawText());
+            throw ModelHttp.ResponseFailed(error.GetRawText(), redactor);
         }
 
         var text = new List<string>();

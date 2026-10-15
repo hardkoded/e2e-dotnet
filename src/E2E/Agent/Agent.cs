@@ -1829,7 +1829,7 @@ public sealed class Agent
 
     /// <summary>
     /// The step an entry is recorded for, as the entry stores it. None of it is replay input, so a
-    /// secret value in the test title or agent name is masked like any other recorded string.
+    /// secret value in the test title, instruction, or agent name is masked like any other recorded string.
     /// </summary>
     private CacheEntry Provenance(string instruction, IReadOnlyDictionary<string, object?>? parameters, int callIndex, string agent)
     {
@@ -1837,7 +1837,7 @@ public sealed class Agent
         {
             Schema = FileStepCache.SchemaVersion,
             Test = _scope.Redactor.Redact(_scope.TestTitle),
-            Instruction = instruction.Trim(),
+            Instruction = _scope.Redactor.Redact(instruction.Trim()),
             Engine = _scope.EnginePlatform,
             ParamsDigest = CacheKeys.ParamsDigest(parameters),
             CallIndex = callIndex,

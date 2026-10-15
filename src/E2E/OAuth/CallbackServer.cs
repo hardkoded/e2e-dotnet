@@ -111,20 +111,43 @@ internal sealed class CallbackServer : IDisposable
 
         if (query["error"] is { } error)
         {
-            Reply(context, 400, "Login failed", query["error_description"] ?? error);
-            _answer.TrySetResult((null, error));
+            // Reply first: the flow disposes this server as soon as it has the answer, which would cut the page.
+            try
+            {
+                Reply(context, 400, "Login failed", query["error_description"] ?? error);
+            }
+            finally
+            {
+                _answer.TrySetResult((null, error));
+            }
+
             return;
         }
 
         if (string.IsNullOrEmpty(query["code"]))
         {
-            Reply(context, 400, "Login failed", "The redirect carried no authorization code.");
-            _answer.TrySetResult((null, "invalid_callback"));
+            try
+            {
+                Reply(context, 400, "Login failed", "The redirect carried no authorization code.");
+            }
+            finally
+            {
+                _answer.TrySetResult((null, "invalid_callback"));
+            }
+
             return;
         }
 
-        Reply(context, 200, "Signed in", "You can close this window and return to the terminal.");
-        _answer.TrySetResult((query["code"], null));
+        // The reply goes first, as above. A browser that drops the connection must not lose the code: Reply
+        // ignores that failure and the answer is set either way.
+        try
+        {
+            Reply(context, 200, "Signed in", "You can close this window and return to the terminal.");
+        }
+        finally
+        {
+            _answer.TrySetResult((query["code"], null));
+        }
     }
 
     private void Reply(HttpListenerContext context, int status, string heading, string message)
@@ -144,7 +167,7 @@ internal sealed class CallbackServer : IDisposable
             context.Response.OutputStream.Write(bytes);
             context.Response.Close();
         }
-        catch (HttpListenerException)
+        catch (Exception ex) when (ex is HttpListenerException or IOException or ObjectDisposedException)
         {
             // The browser went away; the answer still counts.
         }
