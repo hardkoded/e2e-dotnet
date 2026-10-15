@@ -128,77 +128,88 @@ public sealed class E2ESession : IAsyncDisposable
             launch.Dispose();
         }
 
-        // Outside strict mode, a later attempt never replays but still records, so the attempt number does not turn the cache off.
-        // Strict mode treats the store as the reviewed source of truth: every attempt replays, and nothing is written or evicted.
-        var cacheOn = options.CacheEnabled && options.CacheMode != CacheMode.Off && options.Cache is not null;
-        var softFailures = new SoftFailures(options.OnSoftFailure);
-        var testFailed = options.TestFailed ?? (static () => false);
-        var scope = new AttemptScope
+        try
         {
-            Session = engine,
-            BaseUrl = baseUrl,
-            Agents = agents,
-            Cache = options.Cache,
-            CacheEnabled = cacheOn,
-            CacheWrite = cacheOn && options.CacheMode == CacheMode.ReadWrite && !options.CacheStrict,
-            ReplayEligible = options.CacheStrict || options.Attempt == 1,
-            CacheStrict = options.CacheStrict,
-            CleanupTimeout = options.CleanupTimeout,
-            TestTitle = options.TestTitle,
-            EnginePlatform = options.Engine.Platform,
-            EngineCapabilities = options.Engine.Capabilities,
-            Attempt = options.Attempt,
-            ActionTimeout = options.ActionTimeout,
-            ReplayTimeout = options.ReplayTimeout,
-            StepTimeout = options.StepTimeout,
-            Token = () => timeout.Token,
-            TestFailed = () => softFailures.Any || testFailed(),
-        };
-        foreach (var (name, value) in ledger)
-        {
-            scope.Register(name, value);
-        }
+            // Outside strict mode, a later attempt never replays but still records, so the attempt number does not turn the cache off.
+            // Strict mode treats the store as the reviewed source of truth: every attempt replays, and nothing is written or evicted.
+            var cacheOn = options.CacheEnabled && options.CacheMode != CacheMode.Off && options.Cache is not null;
+            var softFailures = new SoftFailures(options.OnSoftFailure);
+            var testFailed = options.TestFailed ?? (static () => false);
+            var scope = new AttemptScope
+            {
+                Session = engine,
+                BaseUrl = baseUrl,
+                Agents = agents,
+                Cache = options.Cache,
+                CacheEnabled = cacheOn,
+                CacheWrite = cacheOn && options.CacheMode == CacheMode.ReadWrite && !options.CacheStrict,
+                ReplayEligible = options.CacheStrict || options.Attempt == 1,
+                CacheStrict = options.CacheStrict,
+                CleanupTimeout = options.CleanupTimeout,
+                TestTitle = options.TestTitle,
+                EnginePlatform = options.Engine.Platform,
+                EngineCapabilities = options.Engine.Capabilities,
+                Attempt = options.Attempt,
+                ActionTimeout = options.ActionTimeout,
+                ReplayTimeout = options.ReplayTimeout,
+                StepTimeout = options.StepTimeout,
+                Token = () => timeout.Token,
+                TestFailed = () => softFailures.Any || testFailed(),
+            };
+            foreach (var (name, value) in ledger)
+            {
+                scope.Register(name, value);
+            }
 
-        var app = new App(engine, baseUrl, () => timeout.Token);
-        var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures);
-        browser.Redact = text => scope.Redactor.Redact(text);
-        var agent = new Agent(scope);
-        var screen = new Screen(
-            token => engine.ObserveAsync(token),
-            (node, action, token) => engine.PerformAsync(node, action, token),
-            () => timeout.Token,
-            scope.MarkVerified,
-            options.ActionTimeout,
-            options.AssertionTimeout,
-            softFailures);
-        screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });
-        screen.Redact = text => scope.Redactor.Redact(text);
-        screen.Screenshots = new ScreenshotContext
+            var app = new App(engine, baseUrl, () => timeout.Token);
+            var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures);
+            browser.Redact = text => scope.Redactor.Redact(text);
+            var agent = new Agent(scope);
+            var screen = new Screen(
+                token => engine.ObserveAsync(token),
+                (node, action, token) => engine.PerformAsync(node, action, token),
+                () => timeout.Token,
+                scope.MarkVerified,
+                options.ActionTimeout,
+                options.AssertionTimeout,
+                softFailures);
+            screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });
+            screen.Redact = text => scope.Redactor.Redact(text);
+            screen.Screenshots = new ScreenshotContext
+            {
+                ProjectRoot = projectRoot,
+                Suffix = "-" + (string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName) + "-" + ScreenshotContext.OperatingSystemName(),
+                Title = options.TestTitle,
+                ResultsDirectory = Path.Combine(
+                    Path.GetFullPath(options.ResultsDirectory ?? Path.Combine(projectRoot, ".e2e", "results")),
+                    ScreenshotAssertion.Slug(options.TestTitle, 100, "test"),
+                    "attempt-" + options.Attempt.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                Update = options.UpdateSnapshots,
+                Ci = options.Ci ?? E2EConfig.IsCi(),
+                ScrollsIntoView = (options.Engine.Capabilities & EngineCapabilities.Scroll) != 0,
+                DirectoryOf = options.SnapshotDirectoryOf ?? (static file => file is null ? null : file + "-snapshots"),
+                Capture = token => engine.ScreenshotAsync(token),
+                WithholdsPixels = () => screen.SecretFilled || scope.Secrets.Count > 0,
+            };
+            var context = new TestContext
+            {
+                App = app,
+                Browser = browser,
+                Platform = options.Engine.Platform,
+                Agent = agent,
+                Screen = screen,
+                CancellationToken = timeout.Token,
+            };
+            return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context);
+        }
+        catch
         {
-            ProjectRoot = projectRoot,
-            Suffix = "-" + (string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName) + "-" + ScreenshotContext.OperatingSystemName(),
-            Title = options.TestTitle,
-            ResultsDirectory = Path.Combine(
-                Path.GetFullPath(options.ResultsDirectory ?? Path.Combine(projectRoot, ".e2e", "results")),
-                ScreenshotAssertion.Slug(options.TestTitle, 100, "test"),
-                "attempt-" + options.Attempt.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-            Update = options.UpdateSnapshots,
-            Ci = options.Ci ?? E2EConfig.IsCi(),
-            ScrollsIntoView = (options.Engine.Capabilities & EngineCapabilities.Scroll) != 0,
-            DirectoryOf = options.SnapshotDirectoryOf ?? (static file => file is null ? null : file + "-snapshots"),
-            Capture = token => engine.ScreenshotAsync(token),
-            WithholdsPixels = () => screen.SecretFilled || scope.Secrets.Count > 0,
-        };
-        var context = new TestContext
-        {
-            App = app,
-            Browser = browser,
-            Platform = options.Engine.Platform,
-            Agent = agent,
-            Screen = screen,
-            CancellationToken = timeout.Token,
-        };
-        return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context);
+            // The attempt never took ownership, so release what it started.
+            var cleanup = engine.DisposeAsync().AsTask();
+            await (Bounded(options.CleanupTimeout) ? cleanup.WaitAsync(options.CleanupTimeout) : cleanup).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            timeout.Dispose();
+            throw;
+        }
     }
 
     /// <summary>
@@ -236,18 +247,45 @@ public sealed class E2ESession : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.CompareExchange(ref _state, 1, 0) == 0)
+        Exception? commitFailure = null;
+        try
         {
-            try
+            if (Interlocked.CompareExchange(ref _state, 1, 0) == 0)
             {
-                Commit(new TestException("TEST_FAILED", "The session ended before it was completed."), CancellationToken.None);
-            }
-            finally
-            {
-                Volatile.Write(ref _state, 2);
+                try
+                {
+                    Commit(new TestException("TEST_FAILED", "The session ended before it was completed."), CancellationToken.None);
+                }
+                finally
+                {
+                    Volatile.Write(ref _state, 2);
+                }
             }
         }
+#pragma warning disable CA1031 // The engine is released first, then this is rethrown.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            commitFailure = ex;
+        }
 
+        try
+        {
+            await ReleaseAsync().ConfigureAwait(false);
+        }
+        catch (Exception) when (commitFailure is not null)
+        {
+            // The commit failure is the one to report.
+        }
+
+        if (commitFailure is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(commitFailure);
+        }
+    }
+
+    private async ValueTask ReleaseAsync()
+    {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;

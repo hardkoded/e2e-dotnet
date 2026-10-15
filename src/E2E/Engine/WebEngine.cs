@@ -305,25 +305,56 @@ public sealed partial class WebEngine : IEngine
                     cancellationToken).ConfigureAwait(false);
             }
 
-            var credentials = _options.BasicAuth is { } basicAuth
-                ? await HttpCredentialsAsync(basicAuth, options.ResolveSecret ?? ((secret, _) => Task.FromResult(secret.Value))).ConfigureAwait(false)
-                : null;
-            IBrowser browser;
-            if (_options.Connect is { } connect)
+            IBrowser? browser = null;
+            WebSession? session = null;
+            try
             {
-                var endpoint = await ResolveEndpointAsync(connect, cancellationToken).ConfigureAwait(false);
+                var credentials = _options.BasicAuth is { } basicAuth
+                    ? await HttpCredentialsAsync(basicAuth, options.ResolveSecret ?? ((secret, _) => Task.FromResult(secret.Value))).ConfigureAwait(false)
+                    : null;
+                if (_options.Connect is { } connect)
+                {
+                    var endpoint = await ResolveEndpointAsync(connect, cancellationToken).ConfigureAwait(false);
 
-                // As upstream, a connect that never answers is bounded by the browser launch budget.
-                browser = await ConnectCdp(playwright, endpoint, E2EDefaults.LaunchTimeout, cancellationToken).ConfigureAwait(false);
+                    // As upstream, a connect that never answers is bounded by the browser launch budget.
+                    browser = await ConnectCdp(playwright, endpoint, E2EDefaults.LaunchTimeout, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless }).ConfigureAwait(false);
+                }
+
+                session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => InstallSiteHeadersAsync(context, app), url => SiteHeadersFor(url, app), seams, credentials: credentials);
+                await session.NewContextAsync().ConfigureAwait(false);
+
+                return session;
             }
-            else
+            catch
             {
-                browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless }).ConfigureAwait(false);
-            }
+                // Without a session nothing owns the browser or the driver yet, so release them before the start fails.
+                if (session is not null)
+                {
+                    await session.DisposeAsync().AsTask().ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                    throw;
+                }
 
-            var session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => InstallSiteHeadersAsync(context, app), url => SiteHeadersFor(url, app), seams, credentials: credentials);
-            await session.NewContextAsync().ConfigureAwait(false);
-            return session;
+                if (browser is not null)
+                {
+                    await browser.CloseAsync().ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                }
+
+                try
+                {
+                    playwright.Dispose();
+                }
+#pragma warning disable CA1031 // A driver that fails to stop must not hide why the start failed.
+                catch (Exception)
+#pragma warning restore CA1031
+                {
+                }
+
+                throw;
+            }
         }
         catch (PlaywrightException ex) when (ex.Message.Contains("Executable doesn't exist", StringComparison.Ordinal) || ex.Message.Contains("browserType.launch", StringComparison.Ordinal))
         {
@@ -1241,9 +1272,15 @@ public sealed partial class WebEngine : IEngine
             }
             finally
             {
-                await _browser.CloseAsync().ConfigureAwait(false);
-                _playwright.Dispose();
-                _lifetime.Dispose();
+                try
+                {
+                    await _browser.CloseAsync().ConfigureAwait(false);
+                }
+                finally
+                {
+                    _playwright.Dispose();
+                    _lifetime.Dispose();
+                }
             }
         }
 

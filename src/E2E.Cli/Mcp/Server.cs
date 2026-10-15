@@ -106,24 +106,27 @@ internal static class Server
         {
             // A signal: the server shuts down as on a disconnect.
         }
-
-        try
+        finally
         {
-            var summary = await host.CloseAllAsync("server shutdown").ConfigureAwait(false);
-            if (summary is not null)
+            try
             {
-                options.Log(summary);
+                var summary = await host.CloseAllAsync("server shutdown").ConfigureAwait(false);
+                if (summary is not null)
+                {
+                    options.Log(summary);
+                }
             }
-        }
 #pragma warning disable CA1031 // The teardown of a session must not keep the server from exiting.
-        catch (Exception ex)
+            catch (Exception ex)
 #pragma warning restore CA1031
-        {
-            options.Log("session teardown failed: " + Tools.CodedMessage(ex));
+            {
+                options.Log("session teardown failed: " + Tools.CodedMessage(ex));
+            }
+
+            // Disposing waits for the stdin read too; a client that keeps stdin open must not hold the exit.
+            await Task.WhenAny(DisposeAsync(server, transport), Task.Delay(CloseGrace, CancellationToken.None)).ConfigureAwait(false);
         }
 
-        // Disposing waits for the stdin read too; a client that keeps stdin open must not hold the exit.
-        await Task.WhenAny(DisposeAsync(server, transport), Task.Delay(CloseGrace, CancellationToken.None)).ConfigureAwait(false);
         return 0;
     }
 

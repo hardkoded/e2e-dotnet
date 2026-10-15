@@ -84,6 +84,24 @@ public static partial class AgentDeviceDaemon
         }
     }
 
+    /// <summary>
+    /// <see cref="CheckHealthAsync"/> within <paramref name="bound"/>. A daemon that does not answer in time is a
+    /// <see cref="ConfigurationException"/>; a cancelled <paramref name="cancellationToken"/> stays a cancellation.
+    /// </summary>
+    public static async Task CheckHealthWithinAsync(DaemonEndpoint endpoint, HttpClient http, TimeSpan bound, CancellationToken cancellationToken)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(bound);
+        try
+        {
+            await CheckHealthAsync(endpoint, http, timeout.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException cause) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new ConfigurationException("INVALID_CONFIG", $"The agent-device daemon at {endpoint.BaseUrl} did not answer GET /health within {bound.TotalSeconds.ToString(CultureInfo.InvariantCulture)} s", cause);
+        }
+    }
+
     /// <summary>The Node version a <c>node --version</c> line reports, or null when it names none.</summary>
     public static Version? ParseNodeVersion(string output)
     {
@@ -172,7 +190,7 @@ public static partial class AgentDeviceDaemon
 
         var endpoint = ReadEndpoint(stateDirectory)
             ?? throw new ConfigurationException("INVALID_CONFIG", $"The agent-device daemon in {stateDirectory} does not serve HTTP. Stop it with `npx agent-device daemon stop --state-dir {stateDirectory}` and run again.");
-        await CheckHealthAsync(endpoint, Http, CancellationToken.None).ConfigureAwait(false);
+        await CheckHealthWithinAsync(endpoint, Http, TimeSpan.FromSeconds(5), CancellationToken.None).ConfigureAwait(false);
         CheckVersion(stateDirectory);
         return endpoint;
     }
@@ -330,13 +348,29 @@ public sealed record DeviceClientConfig
         if (!string.IsNullOrEmpty(DaemonBaseUrl))
         {
             var remote = new DaemonEndpoint(new Uri(DaemonBaseUrl), string.IsNullOrEmpty(DaemonAuthToken) ? null : DaemonAuthToken);
-            var checkedOnce = new Lazy<Task<DaemonEndpoint>>(async () =>
+            async Task<DaemonEndpoint> CheckAsync()
             {
-                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-                await AgentDeviceDaemon.CheckHealthAsync(remote, AgentDeviceDaemon.SharedHttp, timeout.Token).ConfigureAwait(false);
+                await AgentDeviceDaemon.CheckHealthWithinAsync(remote, AgentDeviceDaemon.SharedHttp, TimeSpan.FromSeconds(30), CancellationToken.None).ConfigureAwait(false);
                 return remote;
-            });
-            return new AgentDeviceRpcClient(Session, Settings, token => checkedOnce.Value.WaitAsync(token), AgentDeviceDaemon.SharedHttp);
+            }
+
+            // A passed check is kept for the life of the client. A failed one is asked again on the next call.
+            var gate = new object();
+            Task<DaemonEndpoint>? checkedOnce = null;
+            Task<DaemonEndpoint> CheckedOnce()
+            {
+                lock (gate)
+                {
+                    if (checkedOnce is null || checkedOnce.IsFaulted || checkedOnce.IsCanceled)
+                    {
+                        checkedOnce = CheckAsync();
+                    }
+
+                    return checkedOnce;
+                }
+            }
+
+            return new AgentDeviceRpcClient(Session, Settings, token => CheckedOnce().WaitAsync(token), AgentDeviceDaemon.SharedHttp);
         }
 
         var stateDirectory = Settings["stateDir"]?.GetValue<string>();

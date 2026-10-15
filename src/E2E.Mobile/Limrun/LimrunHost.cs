@@ -42,16 +42,31 @@ internal sealed class LimrunHost : ILimrunHost
         try
         {
             using var process = Process.Start(start) ?? throw new Win32Exception("adb did not start");
-            var output = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var error = process.StandardError.ReadToEndAsync(cancellationToken);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(30));
+            var output = process.StandardOutput.ReadToEndAsync(timeout.Token);
+            var error = process.StandardError.ReadToEndAsync(timeout.Token);
             try
             {
-                await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+                await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
-                process.Kill(entireProcessTree: true);
-                throw;
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch (InvalidOperationException)
+                {
+                    // It exited on its own first.
+                }
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+
+                throw new TimeoutException("adb version did not finish in 30 s");
             }
 
             await Task.WhenAll(output, error).ConfigureAwait(false);
@@ -60,7 +75,7 @@ internal sealed class LimrunHost : ILimrunHost
                 throw new InvalidOperationException($"adb version exited with code {process.ExitCode}");
             }
         }
-        catch (Exception cause) when (cause is Win32Exception or InvalidOperationException)
+        catch (Exception cause) when (cause is Win32Exception or InvalidOperationException or TimeoutException)
         {
             throw new InvalidOperationException("Limrun Android requires the Android SDK Platform-Tools adb executable on PATH. The device still runs in Limrun.", cause);
         }
