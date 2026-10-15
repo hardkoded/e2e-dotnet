@@ -223,7 +223,7 @@ public sealed class E2EConfig
                 CleanupTimeout = Milliseconds(root, "cleanupTimeout", E2EDefaults.CleanupTimeout),
                 Retries = Property(root, "retries") is { } retries ? Integer(retries, "retries", 0, 10) : ci ? 1 : 0,
                 Agents = ReadAgents(Property(root, "agents")),
-                Cache = ReadCache(Property(root, "cache"), projectRoot, ci),
+                Cache = ReadCache(Property(root, "cache"), projectRoot, ci, environment),
                 Secrets = ReadSecrets(Property(root, "secrets"), environment),
             };
         }
@@ -374,9 +374,12 @@ public sealed class E2EConfig
         return new ReadOnlyDictionary<string, JsonElement>(options);
     }
 
-    private static CacheConfig ReadCache(JsonElement? raw, string projectRoot, bool ci)
+    private static CacheConfig ReadCache(JsonElement? raw, string projectRoot, bool ci, Func<string, string?> environment)
     {
-        var defaultDirectory = Path.Combine(projectRoot, ".e2e", "cache");
+        // A non-blank E2E_CACHE_DIR replaces cache.dir and the default; the mode stays as configured.
+        var shared = environment("E2E_CACHE_DIR") is { } variable && !string.IsNullOrWhiteSpace(variable) ? variable : null;
+        var sharedDirectory = shared is null ? null : Path.GetFullPath(Path.Combine(projectRoot, ExpandHome(shared)));
+        var defaultDirectory = sharedDirectory ?? Path.Combine(projectRoot, ".e2e", "cache");
         if (raw is null)
         {
             return new CacheConfig { Mode = ci ? CacheMode.ReadOnly : CacheMode.ReadWrite, Directory = defaultDirectory };
@@ -415,7 +418,7 @@ public sealed class E2EConfig
                 throw Invalid("cache.dir must be a non-empty path");
             }
 
-            directory = Path.GetFullPath(Path.Combine(projectRoot, dir));
+            directory = sharedDirectory ?? Path.GetFullPath(Path.Combine(projectRoot, dir));
         }
 
         var strict = false;
@@ -430,6 +433,20 @@ public sealed class E2EConfig
         }
 
         return new CacheConfig { Mode = mode, Directory = directory, Strict = strict };
+    }
+
+    /// <summary>The value with a leading <c>~</c> or <c>~/</c> read as the home directory, which no shell expands in an env file.</summary>
+    private static string ExpandHome(string value)
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (value == "~")
+        {
+            return home;
+        }
+
+        return value.StartsWith("~/", StringComparison.Ordinal) || value.StartsWith("~" + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            ? Path.Join(home, value[2..])
+            : value;
     }
 
     private static Secrets ReadSecrets(JsonElement? raw, Func<string, string?> environment)
@@ -760,7 +777,7 @@ public sealed class CacheConfig
     /// <summary>Unset, it is <see cref="CacheMode.ReadWrite"/>, or <see cref="CacheMode.ReadOnly"/> in CI.</summary>
     public CacheMode Mode { get; init; } = CacheMode.ReadWrite;
 
-    /// <summary>Absolute cache directory. <c>cache.dir</c> resolves against the config directory; the default is <c>.e2e/cache</c>.</summary>
+    /// <summary>Absolute cache directory. <c>cache.dir</c> resolves against the config directory; the default is <c>.e2e/cache</c>. A non-blank <c>E2E_CACHE_DIR</c> replaces both.</summary>
     public string Directory { get; init; } = Path.Combine(".e2e", "cache");
 
     /// <summary>When true, a recording that no longer matches fails with <c>REPLAY_STALE</c> instead of running live.</summary>

@@ -45,6 +45,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 
 ## Replay cache
 
+- `E2E_CACHE_DIR` replaces `cache.dir` as upstream's does: it resolves from the config directory, a leading `~` or `~/` is the home directory, a blank value is ignored, and the cache mode stays as configured. Not ported: `--cache-dir` on `e2e run` and `e2e cache` (the port has no such commands), the refusal beside `cache.store` (the port rejects `cache.store`), the overlap check against `output` (the port has no `output`), and the `REPLAY_STALE` advice that names the cache directory.
 - A passing locator expectation, `agent.assert`, or `agent.waitFor` after `act` verifies it, and a verified act is written. Locator reads, `locator.waitFor`, and `agent.extract` verify nothing. `agent.assert`, `waitFor`, and `extract` always run live. As upstream, verification stops when the test fails, so a check in a derived `[TearDown]` after a failure records nothing.
 - Replay runs `back` and a viewport scroll as recorded, re-finds a scrolled list before each repeat, and pages again for a `scroll_to` text. Consecutive identical scrolls are recorded as one action with a repeat count. `observe` is not recorded. Upstream scrolls the viewport when a list that filled the screen cannot be re-found. Replay does not use node geometry, so a lost list stops the replay.
 - When a replay ends in `end-mismatch` and the agent repairs it with more actions, the entry is evicted instead of rewritten; the next clean run records the flow again.
