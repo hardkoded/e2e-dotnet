@@ -97,7 +97,9 @@ public sealed class BillingTests : E2ETest
   outcomes worth checking are two goals, so split them into two `ActAsync`
   calls (topic `agent`). Bad: `"add a todo and mark it done"`. Good: `"add a
   todo"`, check, then `"mark the todo as done"`, check. Judge meaning, not
-  phrasing.
+  phrasing. A judgment reads the text snapshot; when the answer is only in
+  pixels (a chart, a canvas, an overlay), pass `Vision = VisionMode.On`, or
+  `VisionMode.Only` for the screenshot alone (topic `agent`).
 - Check each act's outcome. Only a verified act is recorded and replayed
   (topic `agent`).
 - Shape the agent for this app: `context` for the vocabulary the screens

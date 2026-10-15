@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using E2E.Tests.Agent;
 
 namespace E2E.Tests.EngineContract;
 
@@ -13,7 +14,9 @@ namespace E2E.Tests.EngineContract;
 /// (retries, workers, serial suites, exit codes, run errors, plan notices), the report, artifacts, video, sessions and state,
 /// engine-contributed fixtures, or the <c>requires</c> test option. Also not ported, with a feature gap: "names
 /// APP_UNREACHABLE, with the URL, when the network refused the navigation", "re-observes when an engine reports a retryable
-/// observation failure", and "fails an agent call when a non-retryable observation failure repeats".
+/// observation failure", and "fails an agent call when a non-retryable observation failure repeats". The last of the three
+/// vision-hint tests is partial and renamed: the port has no step record, so it cannot read the first judgment's
+/// <c>visionDegraded</c> or <c>visionInput</c>.
 /// </summary>
 public sealed class RunnerEngineContractTests
 {
@@ -86,6 +89,59 @@ public sealed class RunnerEngineContractTests
         var failure = Assert.IsType<AgentException>(error);
         Assert.Equal("STEP_TIMEOUT", failure.Code);
         Assert.Contains("the Submit button is disabled", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Leaves_vision_out_of_an_inconclusive_judgment_on_an_engine_that_declares_no_screenshot_capture()
+    {
+        var error = await InconclusiveAsync(new DocumentEngine(BillingWorld.Create()));
+        Assert.Equal("ASSERTION_INCONCLUSIVE", error.Code);
+        // A retry with Vision = VisionMode.On could only record UnsupportedCapability here.
+        Assert.Equal("the tree lists no state for the Submit button", error.Message);
+    }
+
+    [Fact]
+    public async Task Words_the_vision_hint_as_a_condition_on_an_engine_that_declares_screenshots_but_has_produced_no_pixels()
+    {
+        // The engine declares screenshots but has produced none yet, as one that captures no pixels does until asked.
+        var error = await InconclusiveAsync(new ScreenshotEngine(BillingWorld.Create()));
+        Assert.Equal("ASSERTION_INCONCLUSIVE", error.Code);
+        Assert.Equal("the tree lists no state for the Submit button; " + Vision.HintUnproven, error.Message);
+    }
+
+    [Fact]
+    public async Task Leaves_the_vision_hint_off_once_a_pixel_request_of_the_attempt_was_degraded()
+    {
+        // The engine declares screenshots and returns no pixels: the first judgment asked for them, got the tree, and
+        // recorded the degradation. Asking again could only degrade again, so the hint would send the user down a path
+        // this attempt has already seen fail.
+        var error = await InconclusiveAsync(new ScreenshotEngine(BillingWorld.Create()), vision: true);
+        Assert.Equal("ASSERTION_INCONCLUSIVE", error.Code);
+        Assert.Equal("the tree lists no state for the Submit button", error.Message);
+    }
+
+    private static async Task<AgentException> InconclusiveAsync(IEngine engine, bool vision = false)
+    {
+        var model = new ScriptedModel(request => request.Messages[0].Content!.Contains("Statement: the Submit button is visible", StringComparison.Ordinal)
+            ? ModelResponses.Done("passed", "the Submit button is listed")
+            : ModelResponses.Done("failed", "the tree lists no state for the Submit button", "ASSERTION_INCONCLUSIVE"));
+        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = engine,
+            Judge = model,
+            BaseUrl = "https://billing.test",
+            TestTitle = "inconclusive judgment",
+            TestTimeout = TimeSpan.FromSeconds(10),
+        });
+        await session.App.OpenAsync("/settings/billing");
+        if (vision)
+        {
+            await session.Agent.AssertAsync("the Submit button is visible", new AssertOptions { Vision = VisionMode.On });
+        }
+
+        var failure = await Assert.ThrowsAsync<AgentException>(() => session.Agent.AssertAsync("the Submit button is enabled"));
+        session.Complete(failure);
+        return failure;
     }
 
     internal sealed class HangingEngine : IEngine

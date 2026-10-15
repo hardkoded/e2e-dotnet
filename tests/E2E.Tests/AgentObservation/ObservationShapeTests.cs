@@ -7,7 +7,8 @@ namespace E2E.Tests.AgentObservation;
 /// <summary>
 /// <c>observationShape</c>: what two looks are compared by. The lines use the port's screen text, where a node
 /// reference reads <c>[ref=e1]</c> and each state is its own bracket. Upstream's "is shaped by the pixels when a
-/// capture carries them" is not ported: the port's observations carry no pixels.
+/// capture carries them" is a partial in <c>VisionOnWaitForAndExtractTests</c>: the port compares the looks of a
+/// <c>WaitForAsync</c> there, and the shape of an act's observation carries no pixels.
 /// </summary>
 public sealed class ObservationShapeTests
 {

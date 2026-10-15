@@ -10,7 +10,7 @@ namespace E2E.Agent.Tests.Act;
 /// <summary>
 /// <c>Agent.ActAsync</c> against a real model: multi-action flows planned and executed by the default
 /// executor, verified deterministically after. Ported from upstream's <c>apps/testbed/tests-agent/act.e2e.ts</c>.
-/// "act taps a pin painted on a canvas through the pixel tier" is not ported: the port has no vision tier.
+/// "act taps a pin painted on a canvas through the pixel tier" is not ported: the port has no pixel tools for act, so no pixel tier.
 /// </summary>
 [Category("RealModel")]
 public sealed class ActTests : E2ETest

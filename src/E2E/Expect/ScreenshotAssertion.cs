@@ -72,7 +72,7 @@ internal static partial class ScreenshotAssertion
 
     private static string Subject(Locator? subject) => subject is null ? "screen" : subject.Query.Describe();
 
-    private static string Shown(ScreenshotContext store, string file)
+    internal static string Shown(ScreenshotContext store, string file)
     {
         var relative = Path.GetRelativePath(store.ProjectRoot, file);
         return relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative) ? file : relative.Replace(Path.DirectorySeparatorChar, '/');

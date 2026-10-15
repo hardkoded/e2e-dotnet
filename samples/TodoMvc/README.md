@@ -58,4 +58,4 @@ The first run asks the model to perform each `ActAsync`. A passing run records e
 
 On one machine, the first run of all 20 tests took about 4 minutes. The next run replayed every step and took 17 to 32 seconds.
 
-`AssertAsync` calls the model on every run, so this sample avoids it. The model judges the accessibility tree, not pixels, so it cannot check styling such as strike-through text.
+`AssertAsync` calls the model on every run, so this sample avoids it. By default the model judges the accessibility tree, not pixels, so it cannot check styling such as strike-through text. `Vision = VisionMode.On` shows it a screenshot too, but a locator check on the style is still steadier.

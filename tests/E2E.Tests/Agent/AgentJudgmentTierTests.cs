@@ -118,7 +118,7 @@ public sealed class AgentJudgmentTierTests
         Assert.Contains("Home page, not checkout", error.Message, StringComparison.Ordinal);
     }
 
-    // Upstream also checks the hint that points at vision, which the port does not have.
+    // Upstream also checks the error category, which only its report carries.
     [Fact]
     public async Task Fails_with_ASSERTION_INCONCLUSIVE_and_the_explanation_when_the_screen_shows_too_little_to_judge()
     {
@@ -130,16 +130,61 @@ public sealed class AgentJudgmentTierTests
                 await ctx.App.OpenAsync("/");
                 await ctx.Agent.AssertAsync("the order total equals the sum of the line items");
             },
+            new ScreenshotEngine(World()),
             judge: judge);
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("ASSERTION_INCONCLUSIVE", error.Code);
         Assert.Contains("no order total", error.Message, StringComparison.Ordinal);
+        // The judge read the tree alone on an engine that declares screenshots, but no call of this attempt has received
+        // pixels yet: the remedy the docs give is named where the failure is read, as a condition.
+        Assert.Contains(Vision.HintUnproven, error.Message, StringComparison.Ordinal);
     }
 
-    // Upstream also checks that the timeout points at vision, which the port does not have.
     [Fact]
-    public async Task Times_a_waitFor_out_with_the_explanation_of_its_last_inconclusive_judgment()
+    public async Task Names_vision_outright_once_a_step_of_the_attempt_has_received_pixels()
+    {
+        var judge = new ScriptedModel(request => request.Messages[0].Content!.Contains("Statement: the Home heading is visible", StringComparison.Ordinal)
+            ? ModelResponses.Done("passed", "the Home heading is listed")
+            : ModelResponses.Done("failed", "no order total or line items are on this screen", "ASSERTION_INCONCLUSIVE"));
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/");
+                await ctx.Agent.AssertAsync("the Home heading is visible", new AssertOptions { Vision = VisionMode.On });
+                await ctx.Agent.AssertAsync("the order total equals the sum of the line items");
+            },
+            new ScreenshotEngine(World(), _ => ScreenshotEngine.Png()),
+            judge: judge);
+
+        var error = Assert.IsType<AgentException>(result.Error);
+        Assert.Single(judge.Requests[0].Messages[0].Images!);
+        Assert.Equal("ASSERTION_INCONCLUSIVE", error.Code);
+        Assert.Contains(Vision.Hint, error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("if the engine", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Leaves_the_vision_hint_off_an_inconclusive_judgment_that_already_saw_pixels()
+    {
+        var judge = new ScriptedModel(_ => ModelResponses.Done("failed", "no order total or line items are on this screen", "ASSERTION_INCONCLUSIVE"));
+        var result = await RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/");
+                await ctx.Agent.AssertAsync("the order total equals the sum of the line items", new AssertOptions { Vision = VisionMode.On });
+            },
+            new ScreenshotEngine(World(), _ => ScreenshotEngine.Png()),
+            judge: judge);
+
+        var error = Assert.IsType<AgentException>(result.Error);
+        Assert.Equal("ASSERTION_INCONCLUSIVE", error.Code);
+        Assert.Contains("no order total", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Vision = VisionMode.On", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Points_a_waitFor_timeout_at_vision_when_its_last_round_was_inconclusive()
     {
         var judge = new ScriptedModel(_ => ModelResponses.Done("failed", "no order total is on the About page", "ASSERTION_INCONCLUSIVE"));
         var result = await RunAsync(
@@ -149,11 +194,12 @@ public sealed class AgentJudgmentTierTests
                 await Expect.That(ctx.Screen.GetByRole("heading")).ToHaveTextAsync("About");
                 await ctx.Agent.WaitForAsync("the order total on the About page adds up", new WaitForOptions { Interval = TimeSpan.FromMilliseconds(100), Timeout = TimeSpan.FromMilliseconds(1500) });
             },
+            new ScreenshotEngine(World()),
             judge: judge);
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("STEP_TIMEOUT", error.Code);
-        Assert.Contains("last judgment: no order total is on the About page", error.Message, StringComparison.Ordinal);
+        Assert.Contains("last judgment: no order total is on the About page; " + Vision.HintUnproven, error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

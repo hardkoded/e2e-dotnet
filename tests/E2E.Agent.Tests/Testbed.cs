@@ -13,7 +13,7 @@ namespace E2E.Playground;
 /// test run. A port of upstream's <c>apps/testbed</c> with only the pages these tests use:
 /// the landing page, a plans page of copy with inline links and emphasis (unlisted in the nav), a todo list kept in localStorage, a checkout with one planted bug, a profile
 /// form, a sign-in form that sets a session cookie for the dashboard behind it, the workspace wizard, the swatches page that the screenshot tests compare,
-/// a page that loads users from <c>/api/users</c>, a pointer pad, the controls page, the browser fixture's own page, a counter for the speed floor, and the
+/// a page that loads users from <c>/api/users</c>, a pointer pad, a canvas with a drawn chart, the controls page, the browser fixture's own page, a counter for the speed floor, and the
 /// about page navigation lands on. E2E.NUnit.Tests links this file for its browser fixture tests.
 /// </summary>
 internal static class Testbed
@@ -29,6 +29,7 @@ internal static class Testbed
         ("/wizard", "Wizard"),
         ("/network", "Network"),
         ("/pointer", "Pointer"),
+        ("/canvas", "Canvas"),
         ("/controls", "Controls"),
         ("/browser", "Browser"),
         ("/speed", "Speed"),
@@ -400,6 +401,49 @@ internal static class Testbed
                      });
                      pad.addEventListener('click', (event) => {
                        if (!swiped) padState.textContent = 'tapped at ' + local(event);
+                     });
+                   </script>
+            """),
+
+        // A canvas surface with no accessibility semantics whatsoever: the pins and the bar chart exist only as pixels.
+        // Nothing here is reachable through the semantic tree, so this page is what the vision judgment is run against.
+        // Upstream's other pages of this group (/canvas-flow, /canvas-wizard, /canvas-form) belong to the pixel tools, not ported.
+        ["/canvas"] = ("Canvas map", """
+            <h1>Canvas map</h1>
+                   <p>Every control below is drawn, not marked up.</p>
+                   <canvas id="map" width="480" height="260"></canvas>
+                   <output id="picked" role="status" aria-label="Picked">nothing picked</output>
+                   <script>
+                     const canvas = document.getElementById('map');
+                     const context = canvas.getContext('2d');
+                     const pins = [
+                       { name: 'red', x: 360, y: 70, color: '#d92b2b' },
+                       { name: 'blue', x: 110, y: 190, color: '#2b56d9' },
+                     ];
+                     // An upward-trending bar chart, for judgment assertions about pixels.
+                     const bars = [30, 55, 70, 110, 150, 190];
+                     context.fillStyle = '#f4f4f5';
+                     context.fillRect(0, 0, 480, 260);
+                     context.fillStyle = '#9ca3af';
+                     bars.forEach((height, index) => {
+                       context.fillRect(24 + index * 34, 240 - height, 24, height);
+                     });
+                     for (const pin of pins) {
+                       context.fillStyle = pin.color;
+                       context.beginPath();
+                       context.arc(pin.x, pin.y, 16, 0, Math.PI * 2);
+                       context.fill();
+                     }
+                     canvas.addEventListener('click', (event) => {
+                       const box = canvas.getBoundingClientRect();
+                       const x = event.clientX - box.left;
+                       const y = event.clientY - box.top;
+                       const picked = pins.find(
+                         (pin) => Math.hypot(pin.x - x, pin.y - y) <= 20,
+                       );
+                       document.getElementById('picked').textContent = picked
+                         ? 'picked the ' + picked.name + ' pin'
+                         : 'missed at ' + Math.round(x) + ',' + Math.round(y);
                      });
                    </script>
             """),

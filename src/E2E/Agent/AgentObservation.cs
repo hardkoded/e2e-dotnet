@@ -38,6 +38,9 @@ internal sealed class SettleOptions<T>
     public TimeSpan? Poll { get; init; }
 }
 
+/// <summary>Whether requested pixels became model input: the image sized for the model, or why they did not.</summary>
+internal readonly record struct PixelsOutcome(EngineScreenshot? Pixels, VisionDegradation? Withheld);
+
 /// <summary>An observation as the settle loop reads it: its shape, whether it is a screen in transition, and the loop itself.</summary>
 internal static class AgentObservation
 {
@@ -87,6 +90,43 @@ internal static class AgentObservation
 
         var read = Pass(collapsed);
         return string.Equals(read, collapsed, StringComparison.Ordinal) ? redacted : read;
+    }
+
+    /// <summary>
+    /// Whether requested pixels become model input, decided once per observation for every call that asks. A tainted
+    /// attempt (a secret was filled, which the app may show anywhere on screen) is denied first; then a capture the engine
+    /// could not make; then the proof of masking: every secure node the tree lists must be covered by a masked region, or
+    /// the engine masked less than it saw and the image cannot be proven redacted. The tree still goes out. The image is
+    /// sized for the model here, once, not per capture.
+    /// </summary>
+    public static PixelsOutcome PixelsForModel(Observation observation, EngineScreenshot? screenshot, bool tainted)
+    {
+        if (tainted)
+        {
+            return new PixelsOutcome(null, VisionDegradation.PixelTainted);
+        }
+
+        if (screenshot is null)
+        {
+            return new PixelsOutcome(null, VisionDegradation.UnsupportedCapability);
+        }
+
+        var secure = LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure);
+        return screenshot.MaskedRegionCount is not { } masked || masked < secure
+            ? new PixelsOutcome(null, VisionDegradation.MaskingUnproven)
+            : new PixelsOutcome(Pixels.SizeForModel(screenshot), null);
+    }
+
+    /// <summary>FNV-1a over the image bytes: fast, and equal frames encode to equal bytes.</summary>
+    public static string PixelDigest(ReadOnlySpan<byte> bytes)
+    {
+        var hash = 0x811c9dc5u;
+        foreach (var value in bytes)
+        {
+            hash = (hash ^ value) * 0x01000193u;
+        }
+
+        return hash.ToString("x", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     /// <summary>Whether an observation shows a screen in transition: no node, or only an empty document root.</summary>

@@ -42,7 +42,7 @@ this port. Use the test runner's own output, such as
 | `STRICT_MODE` | Two matches (hidden duplicate, repeated label) | A name, a container scope, `Filter(...)`, or `First()`, `Nth(i)` |
 | `APP_NOT_OPEN` | A `Screen` call before `App.OpenAsync()` | Open the app first |
 | `ASSERTION_FAILED` | Wrong expectation, or the state settles later than 5 s; for `AssertAsync`, a false judgment | Compare with the actual text in the message; `timeout` on the matcher; rewrite the statement. Do not loosen it to pass |
-| `ASSERTION_INCONCLUSIVE` | The judge could not decide from what the screen shows | Reach the right screen first; make the statement concrete and visible |
+| `ASSERTION_INCONCLUSIVE` | The judge could not decide from what the screen shows | Reach the right screen first; make the statement concrete and visible. When the answer is in pixels (a chart, a canvas), pass `Vision = VisionMode.On` |
 | `MODEL_OUTPUT_INVALID` | An `ExtractAsync` or `AssertAsync` answer failed after one repair round | Simplify the type or the question; pick a stronger model |
 | `NOT_ACTIONABLE` | The element is covered, disabled, or does not take that input. The message names the last blocker Playwright logged, such as `<div class="toast">…</div> intercepts pointer events` | `Expect` the condition first. Close the overlay the message names |
 | `NODE_STALE` | The element left the page, or Playwright found more than one element (a strict mode violation) before any input was sent. The step looks again | Usually nothing. If it repeats, make the locator match one element |

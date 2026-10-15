@@ -10,8 +10,7 @@ namespace E2E.Agent.Tests.Judgments;
 /// <summary>
 /// The judgment tier against a real model: <c>AssertAsync</c>, <c>WaitForAsync</c>, and
 /// schema-validated <c>ExtractAsync</c>, each paired with a deterministic check so a wrong
-/// judgment cannot pass silently. "a vision judgment reads drawn pixels the tree cannot show"
-/// is not ported: the port has no vision judgments.
+/// judgment cannot pass silently.
 /// </summary>
 [Category("RealModel")]
 public sealed class JudgmentsTests : E2ETest
@@ -111,6 +110,14 @@ public sealed class JudgmentsTests : E2ETest
         await Agent.ActAsync("fill the profile with the name \"Ada Lovelace\" and the team \"Platform\", then save");
         await Agent.AssertAsync("the profile form reports it was saved");
         await Expect.That(Screen.GetByLabel("Full name")).ToHaveValueAsync("Ada Lovelace");
+    }
+
+    [Test]
+    public async Task A_vision_judgment_reads_drawn_pixels_the_tree_cannot_show()
+    {
+        await Browser.GotoAsync("/canvas");
+        // The chart exists only as canvas pixels, so the tree alone cannot answer.
+        await Agent.AssertAsync("the bar chart trends upward from left to right", new AssertOptions { Vision = VisionMode.On });
     }
 
     /// <summary>The schema upstream's extract test passes: the todo titles and the remaining count.</summary>
