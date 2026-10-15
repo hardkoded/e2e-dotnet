@@ -4,6 +4,15 @@ The `E2E.NUnit` package holds `E2E.NUnit.E2ETest`, an NUnit base class.
 Topic `writing-tests` covers what both frameworks share: locators, reads,
 expectations, agent steps, and the `Browser` member.
 
+## Contents
+
+- Project
+- The base class
+- Attributes
+- Soft checks and polls
+- A complete example
+- Run
+
 ## Project
 
 ```bash

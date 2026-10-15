@@ -38,6 +38,26 @@ public sealed class TheBundledAgentSkillTests
     }
 
     [Fact]
+    public void Opens_every_reference_longer_than_100_lines_with_a_Contents_list_of_its_sections()
+    {
+        // Agents sometimes read only the head of a long file; the list shows them what the rest holds.
+        foreach (var file in BundledSkill.ReadFiles().Where(skillFile => skillFile.Relative.StartsWith("references/", StringComparison.Ordinal)))
+        {
+            if (file.Content.Split('\n').Length <= 100)
+            {
+                continue;
+            }
+
+            var sections = SectionHeadings(file.Content);
+            Assert.True(sections.Count > 0 && sections[0] == "Contents", file.Relative);
+            var listed = Regex.Match(file.Content, @"\n## Contents\r?\n\r?\n((?:- .*\r?\n)+)").Groups[1].Value;
+            Assert.True(
+                listed.TrimEnd().Split('\n').Select(line => line.TrimEnd('\r')["- ".Length..]).SequenceEqual(sections.Skip(1)),
+                file.Relative);
+        }
+    }
+
+    [Fact]
     // Upstream's overview names `npx e2e guide <topic>`; the .NET tool is `e2e` itself.
     public void Prints_the_overview_without_its_frontmatter_and_each_topic_verbatim()
     {
@@ -64,5 +84,26 @@ public sealed class TheBundledAgentSkillTests
             Assert.False(file.Content.Contains("--no-install", StringComparison.Ordinal), file.Relative);
             Assert.False(Regex.IsMatch(file.Content, @"npx @e2edev/e2e (run|guide)\b"), file.Relative);
         }
+    }
+
+    /// <summary>The <c>## </c> headings of a markdown file, in order, skipping fenced code blocks.</summary>
+    private static List<string> SectionHeadings(string markdown)
+    {
+        var headings = new List<string>();
+        var fenced = false;
+        foreach (var line in markdown.Split('\n'))
+        {
+            if (line.StartsWith("```", StringComparison.Ordinal))
+            {
+                fenced = !fenced;
+            }
+
+            if (!fenced && line.StartsWith("## ", StringComparison.Ordinal))
+            {
+                headings.Add(line["## ".Length..].Trim());
+            }
+        }
+
+        return headings;
     }
 }

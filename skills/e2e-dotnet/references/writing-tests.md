@@ -1,5 +1,15 @@
 # Writing tests
 
+## Contents
+
+- Pick your framework
+- Fixtures
+- Locators
+- Expect
+- Sign-in
+- The browser fixture
+- Habits
+
 ## Pick your framework
 
 A test class derives from an `E2ETest` base class. Its setup, attributes,

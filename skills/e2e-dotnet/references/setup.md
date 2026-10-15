@@ -1,5 +1,16 @@
 # Setting up e2e for .NET
 
+## Contents
+
+- Requirements
+- Scaffold
+- Subscriptions and API keys
+- The config
+- The app under test
+- Environment variables
+- Mobile targets
+- Done when
+
 ## Requirements
 
 - The .NET 10 SDK. The packages target `net10.0`.

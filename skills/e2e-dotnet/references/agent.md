@@ -5,6 +5,19 @@ app. Each call is one bounded invocation: a fresh redacted observation, a
 deadline, a model-call budget, and no shared transcript. A test with no agent
 step makes no model calls and needs no model in the config.
 
+## Contents
+
+- Configure a model
+- ActAsync: one goal
+- AssertAsync, WaitForAsync, ExtractAsync: one question
+- Write instructions the model can execute
+- What the model sees
+- Budgets and cost
+- The replay cache
+- Make the agent yours
+- Project tools
+- In CI
+
 ## Configure a model
 
 Set `provider` and `model` under `agents.default` (topic `setup` lists the
