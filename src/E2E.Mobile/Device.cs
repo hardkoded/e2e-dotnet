@@ -181,10 +181,13 @@ public sealed class Device
     /// <summary>
     /// Puts a foldable simulator or emulator in a hinge pose. On the iPhone Duo it resolves once agent-device reads the
     /// angle back from CoreDevice at that pose, typically 10 to 16 seconds later. <see cref="FoldPose.Closed"/> lights
-    /// the outer display, <see cref="FoldPose.HalfOpen"/> (a 130 degree book) and <see cref="FoldPose.Open"/> light the
-    /// inner one. On a foldable Android emulator it sets the emulator console posture and resolves once the guest
-    /// commits the matching device state, within a few seconds. Either way the app window changes size, so the next
-    /// observation reads a new screen. Any device without a hinge is <c>UNSUPPORTED_CAPABILITY</c>.
+    /// the outer display, <see cref="FoldPose.HalfOpen"/> (a 130 degree book there) and <see cref="FoldPose.Open"/>
+    /// light the inner one. On a foldable Android emulator (a Pixel Fold profile, or the generic "7.6in Foldable") it
+    /// sets the emulator console posture and resolves once the guest commits the matching device state, within a few
+    /// seconds. <see cref="FoldPose.HalfOpen"/> is the profile's own angle there (90 degrees on the Pixel folds), and a
+    /// fold to the cover display dismisses the "Swipe up to continue" lock screen the emulator raises. Either way the app
+    /// window changes size, so the next observation reads a new screen. Any device without a hinge is
+    /// <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
     public Task FoldAsync(FoldPose pose, CancellationToken cancellationToken = default) => _session.FoldAsync(pose, cancellationToken);
 
