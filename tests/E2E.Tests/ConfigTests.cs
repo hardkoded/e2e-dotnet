@@ -138,7 +138,7 @@ public sealed class ConfigTests
     [InlineData("""{ "agent": { "model": "m" } }""", "unknown config key \"agent\"; agents are named")]
     [InlineData("""{ "timeouts": { "testMs": 1 } }""", "unknown config key \"timeouts\"; timeouts are top-level milliseconds")]
     [InlineData("""{ "workers": 2 }""", "config key \"workers\" is not supported by the .NET port")]
-    [InlineData("""{ "cache": { "mod": "off" } }""", "unknown cache key \"mod\"; did you mean \"mode\"?")]
+    [InlineData("""{ "cache": { "mod": "off" } }""", "unknown cache config key \"mod\"; did you mean \"mode\"?")]
     [InlineData("""{ "cache": { "mode": "on" } }""", "cache.mode must be \"off\", \"read-only\", or \"read-write\"")]
     [InlineData("""{ "cache": { "strict": "yes" } }""", "cache.strict must be a boolean")]
     [InlineData("""{ "targets": [] }""", "targets must be a non-empty array")]

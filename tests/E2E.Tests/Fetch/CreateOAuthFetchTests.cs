@@ -33,6 +33,41 @@ public sealed class CreateOAuthFetchTests
     }
 
     [Fact]
+    public async Task Cancels_one_refresh_waiter_without_cancelling_the_shared_refresh_another_request_needs()
+    {
+        var api = new FakeApi(_ => (HttpStatusCode.OK, """{ "ok": true }"""));
+        var store = new MemoryCredentialStore(new() { ["test"] = new OAuthCredentials { Access = "stale", Refresh = "rt-0", Expires = 1 } });
+        var provider = new GatedProvider();
+        using var first = Client(provider, store, api);
+        using var second = Client(provider, store, api);
+        using var cancellation = new CancellationTokenSource();
+
+        var abandoned = first.GetAsync(new Uri(Url), cancellation.Token);
+        await provider.Started.Task;
+        var active = second.GetAsync(new Uri(Url));
+        await cancellation.CancelAsync();
+
+        try
+        {
+            var cancelled = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => abandoned);
+            Assert.Equal(cancellation.Token, cancelled.CancellationToken);
+            Assert.Empty(api.Requests);
+        }
+        finally
+        {
+            provider.Release.SetResult(new OAuthCredentials { Access = "fresh", Refresh = "rotated", Expires = RotatingProvider.Later() });
+        }
+
+        using var response = await active;
+        Assert.Equal("""{ "ok": true }""", await response.Content.ReadAsStringAsync());
+        Assert.Equal(1, provider.RefreshCount);
+        var sent = Assert.Single(api.Requests);
+        Assert.Equal("Bearer fresh", sent.Header("authorization"));
+        var stored = await store.GetAsync("test");
+        Assert.Equal(("fresh", "rotated"), (stored!.Access, stored.Refresh));
+    }
+
+    [Fact]
     public async Task Swaps_the_SDK_key_header_for_the_bearer_token_and_names_the_product()
     {
         var api = new FakeApi(_ => (HttpStatusCode.OK, """{ "ok": true }"""));
@@ -187,4 +222,35 @@ public sealed class CreateOAuthFetchTests
 
     private static HttpClient Client(IOAuthProvider provider, ICredentialStore store, HttpMessageHandler api, string? loginHint = null) =>
         new(new OAuthHandler(provider, store, loginHint, api));
+
+    /// <summary>A provider whose refresh waits until the test releases it, so a second request can queue behind it.</summary>
+    private sealed class GatedProvider : IOAuthProvider
+    {
+        private int _refreshCount;
+
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource<OAuthCredentials> Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int RefreshCount => _refreshCount;
+
+        public string Id => "test";
+
+        public string Name => "Test";
+
+        public Task<OAuthCredentials> LoginAsync(OAuthLoginCallbacks callbacks, OAuthLoginOptions options, CancellationToken cancellationToken) =>
+            Task.FromResult(new OAuthCredentials { Access = "x", Refresh = "y" });
+
+        public Task<OAuthCredentials> RefreshAsync(OAuthCredentials credentials, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _refreshCount);
+            Started.TrySetResult();
+            return Release.Task;
+        }
+
+        public Task PrepareAsync(HttpRequestMessage request, OAuthCredentials credentials, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(HttpClient http, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<SubscriptionModel>>([]);
+    }
 }

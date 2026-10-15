@@ -8,7 +8,8 @@
   launches (the headless shell for a headless run), so the first run needs
   network access. Firefox and WebKit are not exposed yet.
 - On a CI image that already has the browser, or with no network, set
-  `E2E_SKIP_BROWSER_INSTALL=1` and install it yourself from the build output:
+  `E2E_SKIP_BROWSER_INSTALL=1` and install it yourself with the `e2e` tool:
+  `e2e install` (below), or from the build output:
   `pwsh bin/Debug/net10.0/playwright.ps1 install chromium`.
 
 ## Scaffold
@@ -32,6 +33,14 @@ dotnet tool install --global E2E.Cli
 
 In a clone of the e2e-dotnet repo, run it as
 `dotnet run --project src/E2E.Cli -- <command>`.
+
+`e2e install [chromium|firefox|webkit ...] [--with-deps]` downloads browsers
+for the Playwright version `E2E` runs, upstream's `e2e-web install`. It
+installs Chromium when no browser is named, and `--with-deps` also installs
+the system libraries on Linux. It keeps the other browsers in the Playwright
+cache, as upstream does, and exits with Playwright's exit code. An unknown
+option or browser exits 2. A local tool runs it as `dotnet e2e install`. The
+engine itself drives Chromium only.
 
 ## Subscriptions and API keys
 
