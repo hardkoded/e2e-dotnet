@@ -388,7 +388,7 @@ public sealed class E2EConfig
         }
 
         var value = raw.Value;
-        CheckKeys(value, "cache", CacheKeys, UnsupportedCacheKeys, null);
+        CheckKeys(value, "cache config", CacheKeys, UnsupportedCacheKeys, null);
         CacheMode mode;
         if (Property(value, "mode") is { } rawMode)
         {
@@ -515,53 +515,11 @@ public sealed class E2EConfig
             }
             else
             {
-                var suggestion = DidYouMean(key, allowed);
-                hint = suggestion is null ? "" : "; did you mean \"" + suggestion + "\"?";
+                hint = Suggestions.DidYouMean(key, allowed);
             }
 
             throw Invalid("unknown " + where + " \"" + key + "\"" + hint);
         }
-    }
-
-    private static string? DidYouMean(string key, string[] candidates)
-    {
-        string? best = null;
-        var bestDistance = int.MaxValue;
-        foreach (var candidate in candidates)
-        {
-            var distance = Distance(key.ToLowerInvariant(), candidate.ToLowerInvariant());
-            if (distance < bestDistance)
-            {
-                best = candidate;
-                bestDistance = distance;
-            }
-        }
-
-        return bestDistance <= Math.Max(2, key.Length / 3) && bestDistance < key.Length ? best : null;
-    }
-
-    private static int Distance(string a, string b)
-    {
-        var previous = new int[b.Length + 1];
-        var current = new int[b.Length + 1];
-        for (var j = 0; j <= b.Length; j++)
-        {
-            previous[j] = j;
-        }
-
-        for (var i = 1; i <= a.Length; i++)
-        {
-            current[0] = i;
-            for (var j = 1; j <= b.Length; j++)
-            {
-                var cost = a[i - 1] == b[j - 1] ? 0 : 1;
-                current[j] = Math.Min(Math.Min(current[j - 1] + 1, previous[j] + 1), previous[j - 1] + cost);
-            }
-
-            (previous, current) = (current, previous);
-        }
-
-        return previous[b.Length];
     }
 
     private static JsonElement? Property(JsonElement value, string name)
