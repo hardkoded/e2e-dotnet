@@ -35,6 +35,7 @@ public class Fake<T> : DispatchProxy
 /// <summary>A remote browser whose context identity may arrive after cancellation.</summary>
 internal sealed class FakeRemote
 {
+    private readonly List<EventHandler<IPage>> _appeared = [];
     private bool _connected = true;
 
     private FakeRemote(string? identity, Task<JsonElement?>? response)
@@ -45,6 +46,11 @@ internal sealed class FakeRemote
         contextFake.Members["get_Pages"] = _ => (IReadOnlyList<IPage>)Pages.ToList();
         contextFake.Members["NewPageAsync"] = _ => Task.FromResult(Pages[^1]);
         contextFake.Members["AddInitScriptAsync"] = _ => Task.FromResult(Registration);
+        contextFake.Members["add_Page"] = args =>
+        {
+            _appeared.Add((EventHandler<IPage>)args[0]!);
+            return null;
+        };
 
         var (session, sessionFake) = Fake<ICDPSession>.New();
         sessionFake.Members["SendAsync"] = _ =>
@@ -98,6 +104,16 @@ internal sealed class FakeRemote
 
     public static JsonElement Json(string json) => JsonDocument.Parse(json).RootElement.Clone();
 
+    /// <summary>The app opens a tab of its own.</summary>
+    public void Popup(IPage page)
+    {
+        Pages.Add(page);
+        foreach (var listener in _appeared)
+        {
+            listener(Context, page);
+        }
+    }
+
     /// <summary>Drops the transport, as the engine sees it.</summary>
     public void Disconnect() => _connected = false;
 
@@ -131,6 +147,12 @@ internal sealed class FakeTarget
             return Task.CompletedTask;
         };
         pageFake.Members["get_ViewportSize"] = _ => null;
+        pageFake.Members["EmulateMediaAsync"] = args =>
+        {
+            var options = (PageEmulateMediaOptions)args[0]!;
+            Emulated.Add((options.ColorScheme, options.ReducedMotion));
+            return Task.CompletedTask;
+        };
         pageFake.Members["get_IsClosed"] = _ => Closed;
         pageFake.Members["SetDefaultTimeout"] = _ => null;
         pageFake.Members["GotoAsync"] = args =>
@@ -148,6 +170,9 @@ internal sealed class FakeTarget
     public bool Closed { get; set; }
 
     public List<(int Width, int Height)> ViewportCalls { get; } = [];
+
+    /// <summary>The media each <c>EmulateMediaAsync</c> call carried; a feature it left out is null.</summary>
+    public List<(ColorScheme? ColorScheme, ReducedMotion? ReducedMotion)> Emulated { get; } = [];
 
     /// <summary>Each navigation's URL and the Playwright timeout it was given.</summary>
     public List<(string Url, float? Timeout)> Gotos { get; } = [];

@@ -67,7 +67,7 @@ In this mode, `CdpEndpoint` provisions a fresh, dedicated browser at every attem
 
 After a disconnect, the next operation calls `ReconnectEndpoint` once, bounded by the action timeout and its cancellation token. This resolver must return the existing browser's endpoint. The engine verifies the default context id and the original page's target id; a URL match is not enough to pick a replacement tab. Recovery also requires the page's frames to keep the closed shadow root hook, which a document that navigated while disconnected lost. A different browser, a missing page, or a resolver that runs out of time fails the attempt, and every later operation fails the same way. Recovery never repeats an operation that was already dispatched. Route handlers and init scripts, configured and added, are reattached, and each document still runs every init script once. After a reconnect, `PerformAsync`, the agent's key press, and the viewport swipe fail with `NODE_STALE` until the screen is observed again; the `Browser` keyboard and mouse keep working.
 
-Persistent recovery does not support `Headers`, `BasicAuth`, `UserAgent`, `Locale`, or `TimezoneId` (`INVALID_CONFIG`), or `App.ClearStateAsync` (`UNSUPPORTED_CAPABILITY`). `App.RestartAsync` remains available. Omit `ReconnectEndpoint` to keep a new, isolated context per attempt.
+Persistent recovery does not support `Headers`, `BasicAuth`, `UserAgent`, `Locale`, or `TimezoneId` (`INVALID_CONFIG`), or `App.ClearStateAsync` (`UNSUPPORTED_CAPABILITY`). `App.RestartAsync` remains available. `ColorScheme` and `ReducedMotion` work in this mode: the engine sets them on each page it opens. Omit `ReconnectEndpoint` to keep a new, isolated context per attempt.
 
 ### xUnit v3
 

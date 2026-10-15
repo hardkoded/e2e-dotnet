@@ -195,6 +195,21 @@ public sealed class WebEngineOptions
     /// </summary>
     public string? TimezoneId { get; init; }
 
+    /// <summary>
+    /// The <c>prefers-color-scheme</c> every page reports from its first paint, to its <c>@media</c> rules and
+    /// to <c>matchMedia</c>, as Playwright's own <c>colorScheme</c> context option sets it. Defaults to the
+    /// browser's own. <c>Browser.EmulateMediaAsync</c> changes it for the rest of one attempt.
+    /// </summary>
+    public WebColorScheme? ColorScheme { get; init; }
+
+    /// <summary>
+    /// The <c>prefers-reduced-motion</c> every page reports from its first paint, as Playwright's own
+    /// <c>reducedMotion</c> context option sets it: <see cref="WebReducedMotion.Reduce"/> lets an app's own rule
+    /// turn its animations off, so none races an assertion. Defaults to the browser's own.
+    /// <c>Browser.EmulateMediaAsync</c> changes it for the rest of one attempt.
+    /// </summary>
+    public WebReducedMotion? ReducedMotion { get; init; }
+
     /// <summary>Scripts every document runs before the page's own, in every tab and frame, in order.</summary>
     public IReadOnlyList<WebInitScript>? InitScripts { get; init; }
 
@@ -510,6 +525,8 @@ public sealed partial class WebEngine : IEngine
             throw new EngineException("INVALID_CONFIG", "timezoneId must be an IANA time zone such as \"Europe/Berlin\", got \"" + timezoneId + "\".");
         }
 
+        ValidateMedia(options);
+
         for (var index = 0; index < (options.InitScripts?.Count ?? 0); index++)
         {
             var script = options.InitScripts![index];
@@ -536,6 +553,16 @@ public sealed partial class WebEngine : IEngine
                     "INVALID_CONFIG",
                     "connect.reconnectEndpoint uses a persistent context; " + string.Join(", ", creationOptions) + (creationOptions.Count == 1 ? " requires" : " require") + " a newly created context");
             }
+        }
+    }
+
+    // Refuses a media feature value the browser does not emulate, at config load rather than at the first page.
+    // A persistent context takes these too: they are set on each page, not only on a context the engine creates.
+    private static void ValidateMedia(WebEngineOptions options)
+    {
+        if (WebMedia.Problem(name => "web({ " + name + " })", new WebMedia { ColorScheme = options.ColorScheme, ReducedMotion = options.ReducedMotion }) is { } problem)
+        {
+            throw new EngineException("INVALID_CONFIG", problem);
         }
     }
 
@@ -659,6 +686,9 @@ public sealed partial class WebEngine : IEngine
             Locale = options.Locale,
             TimezoneId = options.TimezoneId,
         };
+
+        // On the context too, so a tab the app opens itself paints with the configured values before the session reaches it.
+        ConfiguredMedia(options).ApplyTo(context);
         if (options.UserAgent is not null)
         {
             context.UserAgent = options.UserAgent;
@@ -674,6 +704,8 @@ public sealed partial class WebEngine : IEngine
 
         return context;
     }
+
+    private static WebMedia ConfiguredMedia(WebEngineOptions options) => new() { ColorScheme = options.ColorScheme, ReducedMotion = options.ReducedMotion };
 
     /// <summary>
     /// The configured headers, names lower-cased, that a request to <paramref name="url"/>
@@ -746,6 +778,12 @@ public sealed partial class WebEngine : IEngine
         private Exception? _pending;
         private IPage? _page;
         private ViewportSize? _viewport;
+
+        // The media features every page the attempt opens emulates: the configured ones, until EmulateMediaAsync changes them.
+        private WebMedia _media;
+
+        // The emulation each page got as it appeared, so the attempt's own page is ready before it shows.
+        private readonly System.Runtime.CompilerServices.ConditionalWeakTable<IPage, Task> _emulated = new();
         private Dictionary<string, IFrame> _frames = new(StringComparer.Ordinal);
         private int _nextRef = 1;
 
@@ -776,6 +814,7 @@ public sealed partial class WebEngine : IEngine
             _persistent = persistent;
             _testIdAttribute = options.TestIdAttribute;
             _credentials = credentials;
+            _media = ConfiguredMedia(options);
             _viewport = options.Viewport is { } viewport ? new ViewportSize { Width = viewport.Width, Height = viewport.Height } : null;
             _actionTimeout = actionTimeout;
         }
@@ -1171,6 +1210,64 @@ public sealed partial class WebEngine : IEngine
             }
         });
 
+        public Task EmulateMediaAsync(WebMedia media, CancellationToken cancellationToken) => RunAsync("emulateMedia", cancellationToken, async () =>
+        {
+            ArgumentNullException.ThrowIfNull(media);
+            var context = RequireContext();
+            var budget = Budget("emulateMedia", cancellationToken);
+
+            // Merged before the first await, so a second call made meanwhile builds on this one instead of the old value.
+            var merged = _media = _media.Merge(media);
+            try
+            {
+                if (_page is { IsClosed: false } page)
+                {
+                    await budget.WithinAsync(page.EmulateMediaAsync(merged.ToPageOptions())).ConfigureAwait(false);
+                }
+
+                await EmulateOnOthersAsync(context, _page, other => budget.WithinAsync(other.EmulateMediaAsync(merged.ToPageOptions()))).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.Translate(ex, "emulateMedia");
+            }
+        });
+
+        /// <summary>
+        /// Runs <paramref name="emulate"/> on every open tab but the attempt's own. A tab the app closes
+        /// meanwhile fails its own call only; an error on a tab still open propagates.
+        /// </summary>
+        private static Task EmulateOnOthersAsync(IBrowserContext context, IPage? own, Func<IPage, Task> emulate)
+        {
+            return Task.WhenAll(context.Pages.Where(page => page != own && !page.IsClosed).Select(async page =>
+            {
+                try
+                {
+                    await emulate(page).ConfigureAwait(false);
+                }
+                catch (Exception) when (page.IsClosed)
+                {
+                }
+            }));
+        }
+
+        // Sets the attempt's media features on a page before it shows anything; a page with none set keeps the browser's own.
+        private Task ApplyMediaAsync(IPage page) => _media.IsEmpty ? Task.CompletedTask : page.EmulateMediaAsync(_media.ToPageOptions());
+
+        // Emulates the attempt's media on each tab as it appears, so a tab the app opens itself follows a test's change
+        // too, on a persistent context as well, where the engine sets no context options. It paints with the context's
+        // configured values first: Playwright emulates per page, so a test's change reaches it once it exists. A tab the
+        // attempt opens awaits the same work in NewPageAsync; a tab the app opens is not awaited.
+        private void WatchPages(IBrowserContext context)
+        {
+            context.Page += (_, page) =>
+            {
+                var applied = ApplyMediaAsync(page);
+                _emulated.AddOrUpdate(page, applied);
+                _ = applied.ContinueWith(static task => task.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+            };
+        }
+
         public Task AddInitScriptAsync(string source, CancellationToken cancellationToken) => RunAsync("addInitScript", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1556,6 +1653,8 @@ public sealed partial class WebEngine : IEngine
                 await page.SetViewportSizeAsync(viewport.Width, viewport.Height).ConfigureAwait(false);
             }
 
+            await (_emulated.TryGetValue(page, out var emulated) ? emulated : ApplyMediaAsync(page)).ConfigureAwait(false);
+
             if (_persistent is not null)
             {
                 var target = await TargetIdentityAsync(page).ConfigureAwait(false);
@@ -1611,6 +1710,8 @@ public sealed partial class WebEngine : IEngine
             {
                 await context.RouteAsync(matches, playwrightHandler).ConfigureAwait(false);
             }
+
+            WatchPages(context);
         }
 
         /// <summary>
@@ -1758,6 +1859,10 @@ public sealed partial class WebEngine : IEngine
                         {
                             await page.SetViewportSizeAsync(viewport.Width, viewport.Height).ConfigureAwait(false);
                         }
+
+                        // Emulation belongs to the CDP session that set it, so the new transport sets it again, on the app's own tabs too.
+                        await ApplyMediaAsync(page).ConfigureAwait(false);
+                        await EmulateOnOthersAsync(candidate.Context, page, ApplyMediaAsync).ConfigureAwait(false);
                     }
                 }).ConfigureAwait(false);
                 _browser = binding.Browser;
