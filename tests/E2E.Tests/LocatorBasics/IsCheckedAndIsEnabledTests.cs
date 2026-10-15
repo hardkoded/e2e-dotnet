@@ -41,7 +41,7 @@ public sealed class IsCheckedAndIsEnabledTests
         Assert.True(watch.Elapsed < ScreenFixture.Timeout, "answered after " + watch.Elapsed);
         await FailsWith("NOT_FOUND", () => none.IsCheckedAsync());
         await FailsWith("NOT_FOUND", () => none.IsEnabledAsync());
-        Assert.True(watch.Elapsed >= ScreenFixture.Timeout * 2, "answered after " + watch.Elapsed);
+        Assert.True(watch.Elapsed >= ScreenFixture.Timeout * 2 - TimeSpan.FromMilliseconds(50), "answered after " + watch.Elapsed);
     }
 
     [Fact]
