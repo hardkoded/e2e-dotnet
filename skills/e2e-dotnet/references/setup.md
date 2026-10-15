@@ -75,6 +75,8 @@ Pick the model in `agents.<name>.provider` and `model`:
 - A Claude Pro or Max plan cannot serve the agent. Use Copilot or an API key.
 - Logins live in `~/.config/e2e/oauth.json`, the file upstream's
   `npx e2e login` writes, so a login made with either tool serves both.
+- A cancelled model call stops waiting for a token refresh. The refresh keeps
+  running for the other calls that share it.
 - Subscriptions are for local runs. Use API keys in CI.
 
 ## The config
