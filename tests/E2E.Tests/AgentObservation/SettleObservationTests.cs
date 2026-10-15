@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using Microsoft.Extensions.Time.Testing;
 
 namespace E2E.Tests.AgentObservation;
@@ -24,8 +25,9 @@ public sealed class SettleObservationTests
     [Fact]
     public async Task Waits_for_the_screen_to_leave_the_pre_action_shape_before_settling_on_it()
     {
+        var time = new SteppingTime();
         var source = new Scripted("old", "old", "old", "new", "new", "new");
-        var value = await SettleAsync(source, TimeProvider.System, Fast(TimeProvider.System, changedFrom: true));
+        var value = await RunAllTimersAsync(time, SettleAsync(source, time, Fast(time, changedFrom: true)));
         Assert.Equal("new", value);
     }
 
@@ -43,15 +45,16 @@ public sealed class SettleObservationTests
     [Fact]
     public async Task Never_settles_on_a_transitional_capture_while_the_change_wait_lasts()
     {
+        var time = new SteppingTime();
         var source = new Scripted("old", "", "", "new", "new");
         var options = new SettleOptions<string>
         {
-            ChangedFrom = Leaving(TimeProvider.System),
+            ChangedFrom = Leaving(time),
             Transitional = value => value.Length == 0,
             Poll = FastPoll,
             StableWait = FastStableWait,
         };
-        Assert.Equal("new", await SettleAsync(source, TimeProvider.System, options));
+        Assert.Equal("new", await RunAllTimersAsync(time, SettleAsync(source, time, options)));
     }
 
     [Fact]
@@ -66,9 +69,10 @@ public sealed class SettleObservationTests
     [Fact]
     public async Task Accepts_a_stable_empty_screen_when_no_action_is_pending()
     {
+        var time = new SteppingTime();
         var source = new Scripted("", "", "new");
         var options = new SettleOptions<string> { Transitional = value => value.Length == 0, Poll = FastPoll, StableWait = FastStableWait };
-        Assert.Equal("", await SettleAsync(source, TimeProvider.System, options));
+        Assert.Equal("", await RunAllTimersAsync(time, SettleAsync(source, time, options)));
         Assert.Equal(2, source.Calls);
     }
 
@@ -171,12 +175,14 @@ public sealed class SettleObservationTests
     /// </summary>
     private static async Task<T> RunAllTimersAsync<T>(SteppingTime time, Task<T> pending)
     {
+        var giveUp = Stopwatch.StartNew();
         while (true)
         {
             var due = TimeSpan.Zero;
             while (!pending.IsCompleted && !time.Due.TryDequeue(out due))
             {
                 await Task.Delay(1);
+                ThrowWhenTooLong(giveUp);
             }
 
             if (pending.IsCompleted)
@@ -184,7 +190,16 @@ public sealed class SettleObservationTests
                 return await pending;
             }
 
+            ThrowWhenTooLong(giveUp);
             time.Advance(due);
+        }
+    }
+
+    private static void ThrowWhenTooLong(Stopwatch giveUp)
+    {
+        if (giveUp.Elapsed > TimeSpan.FromSeconds(30))
+        {
+            throw new TimeoutException("The settle did not return within 30 seconds.");
         }
     }
 
@@ -195,8 +210,11 @@ public sealed class SettleObservationTests
 
         public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
         {
+            // Queue the due time only once the timer exists: the test advances the clock as soon as it reads the queue,
+            // and an advance before the timer is created would leave that timer waiting forever.
+            var timer = base.CreateTimer(callback, state, dueTime, period);
             Due.Enqueue(dueTime);
-            return base.CreateTimer(callback, state, dueTime, period);
+            return timer;
         }
     }
 
