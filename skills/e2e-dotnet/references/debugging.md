@@ -65,6 +65,10 @@ the outcome was already on screen before the replay; or the replay raised
 an alert the recording never saw). Leftover data from an earlier run, a
 banner that comes and goes, or a regression causes it.
 `ActResult.Cache.ReplayedActions` and `TotalActions` say how far it got.
+After an `end-mismatch`, `ActResult.Cache.Detail` names the recorded nodes that
+did not show (`missing alert "Acme Notes"`), the ones that did not go away
+(`still showing ...`), and any alert the recording never saw (`unrecorded
+alert ...`), or says the outcome already showed before the replay acted.
 
 ## Tools
 

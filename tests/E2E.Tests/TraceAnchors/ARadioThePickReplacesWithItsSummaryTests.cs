@@ -20,7 +20,7 @@ public sealed class ARadioThePickReplacesWithItsSummaryTests
     [Fact]
     public void Holds_on_the_screen_it_was_recorded_on_so_a_faithful_replay_passes()
     {
-        Assert.True(Anchors.Holds(Recorded, Project(End), Project(Start)));
+        Assert.Null(Anchors.Mismatch(Recorded, Project(End), Project(Start)));
     }
 
     [Fact]
@@ -35,8 +35,8 @@ public sealed class ARadioThePickReplacesWithItsSummaryTests
     [Fact]
     public void Still_fails_a_replay_whose_pick_left_the_radios_on_screen()
     {
-        Assert.False(Anchors.Holds(Recorded, Project(Start), Project(Start)));
-        Assert.False(Anchors.Holds(Recorded, Project([Heading, .. Picker, .. Summary, DeliveryState("Express")]), Project(Start)));
+        Assert.NotNull(Anchors.Mismatch(Recorded, Project(Start), Project(Start)));
+        Assert.NotNull(Anchors.Mismatch(Recorded, Project([Heading, .. Picker, .. Summary, DeliveryState("Express")]), Project(Start)));
     }
 
     private static SemanticNode DeliveryState(string text) => Node("status", "Delivery state", text: text);

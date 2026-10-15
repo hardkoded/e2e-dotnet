@@ -64,6 +64,9 @@ public sealed class Agent
     // How often waitFor looks for a changed screen once its interval has passed.
     private static readonly TimeSpan WaitForTick = TimeSpan.FromMilliseconds(250);
 
+    // Quotes a label in a detail as JSON.stringify does: text stays readable, not escaped to \u codes.
+    private static readonly JsonSerializerOptions JsonQuote = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
     private static readonly JsonSerializerOptions ExtractJson = CreateExtractJson(JsonDefaults.Options.NumberHandling);
 
     // The schema the model sees names a number as a number. Reading stays lenient: a model may still answer "3" for 3.
@@ -129,7 +132,7 @@ public sealed class Agent
         if (_scope.CacheEnabled && _scope.ReplayEligible && _scope.Cache is not null)
         {
             var replay = await TryReplayAsync(pending, start, actions, budget, options?.Params, token).ConfigureAwait(false);
-            info = new CacheInfo { Mode = replay.Info!.Mode, Reason = replay.Info.Reason, ReplayedActions = actions.Count, TotalActions = pending.RecordedActions };
+            info = new CacheInfo { Mode = replay.Info!.Mode, Reason = replay.Info.Reason, ReplayedActions = actions.Count, TotalActions = pending.RecordedActions, Detail = replay.Info.Detail };
             handoff = replay.Handoff;
             // A store that could not be read says nothing about a recording, so strict mode runs the step live too.
             // So does a recording that stops at a project tool: as upstream, a gap is no stale recording, only a step the cache cannot finish.
@@ -302,7 +305,7 @@ public sealed class Agent
                     if (info is not null && pending.ParamCollision && pending.Entry is not null)
                     {
                         // The recording cannot be templated safely, so it is not written, and the result says why.
-                        info = new CacheInfo { Mode = info.Mode, Reason = info.Reason, ReplayedActions = info.ReplayedActions, TotalActions = info.TotalActions, NotRecorded = "param-collision" };
+                        info = new CacheInfo { Mode = info.Mode, Reason = info.Reason, ReplayedActions = info.ReplayedActions, TotalActions = info.TotalActions, Detail = info.Detail, NotRecorded = "param-collision" };
                     }
 
                     return new ActResult { Summary = summary, Cache = info, ModelCalls = _scope.ModelCalls - callsBefore, Actions = budget.Used };
@@ -874,10 +877,11 @@ public sealed class Agent
             }
         }
 
-        if (!await WaitForEndAsync(entry, start, screens, parameters, token).ConfigureAwait(false))
+        var end = await WaitForEndAsync(entry, start, screens, parameters, token).ConfigureAwait(false);
+        if (!end.Matches)
         {
             _scope.HandedOff++;
-            return ReplayAttempt.Hand("end-mismatch");
+            return ReplayAttempt.Hand("end-mismatch", StopDetail(entry, end, parameters));
         }
 
         _scope.Replayed++;
@@ -886,7 +890,9 @@ public sealed class Agent
 
     // The last action may start a navigation or a slow render, so the end route and anchors get the replay timeout to show up.
     // The replay must also have produced the delta: an outcome already on screen before the actions proves nothing.
-    private async Task<bool> WaitForEndAsync(
+    // A failure says which of these failed, for the report: an outcome that already showed, or the anchors that
+    // did not hold on the last look the wait took on the recorded end route.
+    private async Task<EndStateCheck> WaitForEndAsync(
         CacheEntry entry,
         Observation start,
         List<Observation> screens,
@@ -903,27 +909,93 @@ public sealed class Agent
         var inputTargets = entry.Actions.Where(HasTarget).Select(action => new RecordedTarget { Role = action.Role, Name = action.Name, TestId = action.TestId });
         if (!Anchors.Evidenced(entry, baselineAnchors, inputTargets))
         {
-            return false;
+            // A recording with no delta fails the evidence too, but nothing of it showed before the replay
+            // acted: that is the generic detail.
+            return entry.Appeared.Count > 0 || entry.Gone.Count > 0 ? new EndStateCheck(false, AlreadyShowing: true) : new EndStateCheck(false);
         }
 
         var before = baselineAnchors ?? Project(actedOn, parameters);
         var deadline = DateTime.UtcNow + _scope.ReplayTimeout;
+        DeltaMismatch? mismatch = null;
         while (true)
         {
             // Every look must still be on the recorded end route: a screen that moved on is another screen.
             var end = await _feed.ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false);
-            if (CacheRoute.Same(Recorded(entry.EndRoute, parameters), end.Route) && Anchors.Holds(entry, Project(end, parameters), before))
+            if (CacheRoute.Same(Recorded(entry.EndRoute, parameters), end.Route))
             {
-                return true;
+                mismatch = Anchors.Mismatch(entry, Project(end, parameters), before);
+                if (mismatch is null)
+                {
+                    return new EndStateCheck(true);
+                }
             }
 
             if (DateTime.UtcNow >= deadline)
             {
-                return false;
+                return new EndStateCheck(false, Failure: mismatch);
             }
 
             await Task.Delay(TimeSpan.FromMilliseconds(20), token).ConfigureAwait(false);
         }
+    }
+
+    // Where and why a replay handed the step back, for the report: for an end state that did not hold, why: the
+    // outcome already showed before the replay acted, or the anchors that failed on the last look. With neither
+    // known, the screen was never read on the recorded route, and the detail says what the recording expected there.
+    private static string StopDetail(CacheEntry entry, EndStateCheck end, IReadOnlyDictionary<string, object?>? parameters)
+    {
+        var route = Recorded(entry.EndRoute, parameters);
+        var where = string.IsNullOrEmpty(route) ? "" : " on " + route;
+        if (end.AlreadyShowing)
+        {
+            return "every recorded action ran, but the recorded outcome already showed" + where + " before the replay acted there, so nothing proves the replay produced it";
+        }
+
+        var what = end.Failure is { } failure
+            ? MismatchParts(failure)
+            : entry.Appeared.Count > 0 ? "expected " + string.Join(", ", entry.Appeared.Take(2).Select(DescribeAnchor)) : "";
+        return "every recorded action ran, but the recorded end state did not show" + where + (what.Length == 0 ? "" : ": " + what);
+    }
+
+    // A recorded anchor as the detail names it: the node, then its text when the name alone would hide the state
+    // the recording expects (status "Marker" text="saved").
+    private static string DescribeAnchor(RecordedTarget anchor)
+    {
+        return anchor.Text is not null && anchor.Name is not null && anchor.Text != anchor.Name
+            ? TargetLabel(anchor) + " text=" + Quote(TextRules.Bound(anchor.Text, 40))
+            : TargetLabel(anchor);
+    }
+
+    // A node as every report line that names one reads it: its role, then its label in quotes.
+    private static string TargetLabel(RecordedTarget target)
+    {
+        var label = target.Name ?? target.Text ?? target.Placeholder ?? target.TestId ?? "";
+        var role = target.Role ?? "node";
+        return label.Length == 0 ? role : role + " " + Quote(TextRules.Bound(label, 40));
+    }
+
+    private static string Quote(string text)
+    {
+        return JsonSerializer.Serialize(text, JsonQuote);
+    }
+
+    // The anchors a mismatch names, two of each kind at most: those the replay did not bring up, those it did not
+    // clear, and alerts it raised that the recording never saw. Kinds are joined with commas, never semicolons: a
+    // report line already separates its own parts with those.
+    private static string MismatchParts(DeltaMismatch mismatch)
+    {
+        static IEnumerable<string> Part(string label, IReadOnlyList<RecordedTarget> anchors)
+        {
+            if (anchors.Count == 0)
+            {
+                yield break;
+            }
+
+            var more = anchors.Count > 2 ? " (+" + (anchors.Count - 2).ToString(CultureInfo.InvariantCulture) + " more)" : "";
+            yield return label + " " + string.Join(" and ", anchors.Take(2).Select(DescribeAnchor)) + more;
+        }
+
+        return string.Join(", ", Part("missing", mismatch.Missing).Concat(Part("still showing", mismatch.Present)).Concat(Part("unrecorded", mismatch.UnrecordedAlerts)));
     }
 
     // The first screen of the replay's last stretch on the end route, or null when its last screen before the end
@@ -2257,6 +2329,9 @@ public sealed class CacheInfo
     /// <summary>The actions the recording holds. 0 when there was no recording to read.</summary>
     public int TotalActions { get; init; }
 
+    /// <summary>Where the replay stopped and why, after a hand-off. After an <c>end-mismatch</c> it names the recorded nodes that did not show, the ones that did not go away, and any alert the recording never saw, or says the outcome already showed before the replay acted. Null when the replay gave no detail.</summary>
+    public string? Detail { get; init; }
+
     /// <summary><c>param-collision</c> when the step passed but its recording was not written, because a <c>unique()</c> value is spelled by another param.</summary>
     public string? NotRecorded { get; init; }
 }
@@ -2542,8 +2617,14 @@ internal readonly record struct ReplayAttempt(bool Completed, bool Handoff, Cach
 
     public static ReplayAttempt Miss(string reason) => new(false, false, new CacheInfo { Mode = "missed", Reason = reason });
 
-    public static ReplayAttempt Hand(string reason) => new(false, true, new CacheInfo { Mode = "agent-concluded", Reason = reason });
+    public static ReplayAttempt Hand(string reason, string? detail = null) => new(false, true, new CacheInfo { Mode = "agent-concluded", Reason = reason, Detail = detail });
 }
+
+/// <summary>
+/// The end check's verdict and, when it is known, why it failed: the recorded outcome already showed before the
+/// replay acted, or the anchors that did not hold.
+/// </summary>
+internal readonly record struct EndStateCheck(bool Matches, bool AlreadyShowing = false, DeltaMismatch? Failure = null);
 
 internal sealed class ToolOutcome
 {

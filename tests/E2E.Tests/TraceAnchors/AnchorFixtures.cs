@@ -56,7 +56,7 @@ internal static class AnchorFixtures
 
     internal static bool Holds(List<RecordedTarget> appeared, IEnumerable<SemanticNode> live, IEnumerable<SemanticNode>? before = null, List<RecordedTarget>? gone = null)
     {
-        return Anchors.Holds(new CacheEntry { Appeared = appeared, Gone = gone ?? [] }, Project(live), Project(before ?? []));
+        return Anchors.Mismatch(new CacheEntry { Appeared = appeared, Gone = gone ?? [] }, Project(live), Project(before ?? [])) is null;
     }
 
     /// <summary>An anchor as one line: <c>role|name</c>, then <c>~text</c>, <c>#testId</c>, <c>=value</c>, and <c>|states</c> when present.</summary>
