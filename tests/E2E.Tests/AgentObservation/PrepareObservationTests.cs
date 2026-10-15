@@ -11,11 +11,12 @@ namespace E2E.Tests.AgentObservation;
 /// The port renders the screen as one text block in its own format, with no pixel evidence, executor tree, node
 /// index, byte budget, or cut fields. So these upstream its are not ported: "keeps unavailable semantics separate from
 /// an empty tree and requires permitted masked evidence", "returns evidence without a comparable shape without
-/// repeating capture", "withholds pixels whose masking the engine cannot prove and keeps the tree", "redacts the leading
+/// repeating capture", "redacts the leading
 /// part of a secret a field cut at its limit ends with, and leaves a cut plain value and a whole field alone", "redacts
 /// every string field a node carries, in the text, the executor tree, and the node index alike", "redacts an earlier
 /// capture again with a secret resolved since, keeping which nodes are leaves", "truncates at the byte limit while
-/// keeping the root and flagging truncation", and "reports the byte cut, not the engine cut, when both apply".
+/// keeping the root and flagging truncation", and "reports the byte cut, not the engine cut, when both apply". The last three
+/// tests below are .NET-only: upstream proves a granted, tainted, or uncounted capture through its runner.
 /// </summary>
 public sealed class PrepareObservationTests
 {
@@ -28,6 +29,53 @@ public sealed class PrepareObservationTests
         Assert.Contains("button \"One\"", text, StringComparison.Ordinal);
         Assert.EndsWith("\n(More of the page is off screen. Scroll to reach it.)", text, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Withholds_pixels_whose_masking_the_engine_cannot_prove_and_keeps_the_tree()
+    {
+        // One secure node, zero masked regions: the image is not provably redacted.
+        var observation = WithASecureNode();
+        var outcome = global::E2E.AgentObservation.PixelsForModel(observation, Shot(maskedRegionCount: 0), tainted: false);
+
+        Assert.Null(outcome.Pixels);
+        Assert.Equal(VisionDegradation.MaskingUnproven, outcome.Withheld);
+        Assert.Contains("textbox \"Password\"", SnapshotText.Render(observation, Redactor.None), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Grants_pixels_that_cover_every_secure_node_sized_for_the_model()
+    {
+        var outcome = global::E2E.AgentObservation.PixelsForModel(WithASecureNode(), Shot(maskedRegionCount: 1), tainted: false);
+
+        Assert.Null(outcome.Withheld);
+        Assert.Equal(1, outcome.Pixels!.MaskedRegionCount);
+        Assert.Equal((4, 2), Pixels.ReadPngSize(outcome.Pixels.Png));
+    }
+
+    [Fact]
+    public void Withholds_pixels_the_engine_cannot_count_the_masks_of_and_a_tainted_attempt_before_anything_else()
+    {
+        var observation = WithASecureNode();
+        Assert.Equal(VisionDegradation.MaskingUnproven, global::E2E.AgentObservation.PixelsForModel(observation, Shot(maskedRegionCount: null), tainted: false).Withheld);
+        Assert.Equal(VisionDegradation.UnsupportedCapability, global::E2E.AgentObservation.PixelsForModel(observation, null, tainted: false).Withheld);
+        Assert.Equal(VisionDegradation.PixelTainted, global::E2E.AgentObservation.PixelsForModel(observation, Shot(maskedRegionCount: 1), tainted: true).Withheld);
+        Assert.Equal(VisionDegradation.PixelTainted, global::E2E.AgentObservation.PixelsForModel(observation, null, tainted: true).Withheld);
+    }
+
+    private static Observation WithASecureNode() => new()
+    {
+        Route = "/",
+        Roots =
+        [
+            new SemanticNode
+            {
+                Ref = "n1",
+                Children = [new SemanticNode { Ref = "n2", Role = "textbox", Name = "Password", InputPurpose = "password", States = new NodeStates { Secure = true } }],
+            },
+        ],
+    };
+
+    private static EngineScreenshot Shot(int? maskedRegionCount) => new(E2E.Tests.Agent.ScreenshotEngine.Png(), 1, maskedRegionCount);
 
     [Fact]
     public void Serializes_the_tree_with_node_references_and_indentation()

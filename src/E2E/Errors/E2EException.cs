@@ -66,6 +66,12 @@ public sealed class AgentException : E2EException
     public string Explanation => Message;
 
     /// <summary>
+    /// Where a failed <c>AssertAsync</c> kept its redacted screenshot, relative to the project root. Null when none was taken:
+    /// <c>Screenshot = false</c>, a secret was filled, or the engine captures no pixels.
+    /// </summary>
+    public string? Screenshot { get; init; }
+
+    /// <summary>
     /// True when credentials, the environment, test setup, or the agent's own budget stopped the step,
     /// rather than the app misbehaving.
     /// </summary>

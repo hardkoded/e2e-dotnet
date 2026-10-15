@@ -11,7 +11,7 @@ namespace E2E.Agent.Tests.PixelTools;
 /// The todo flow from upstream's <c>apps/testbed/tests-agent/pixel-tools.e2e.ts</c>: an ordinary marked-up page
 /// where the tree alone should carry the step. Not ported: the four tests on pages drawn on a canvas
 /// (<c>/canvas</c>, <c>/canvas-flow</c>, <c>/canvas-wizard</c>, <c>/canvas-form</c>), because the port has no pixel
-/// tools or vision tier.
+/// tools for act, so no pixel tier. The <c>/canvas</c> page itself is ported for the vision judgment.
 /// </summary>
 [Category("RealModel")]
 public sealed class PixelToolsTests : E2ETest

@@ -135,7 +135,25 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
   of `T`, and the answer must deserialize into `T`. Data the screen does not
   show is `ASSERTION_INCONCLUSIVE`; to accept absence, make the member
   nullable and ask for it (`"the phone, or null when none is shown"`).
-- There is no `vision`: judgments read the text snapshot, never pixels.
+- `Vision` says what the judge is shown: `VisionMode.Off` (the default) is the
+  text snapshot, `On` adds a masked screenshot, and `Only` sends the screenshot
+  and no snapshot. Use `On` when the answer is in pixels, such as a chart, a
+  canvas, or an overlay. Use `Only` when the snapshot would answer the wrong
+  question, such as whether an overlay covers a form the snapshot lists as
+  present. All three take it: `AssertOptions.Vision`, `WaitForOptions.Vision`,
+  `ExtractOptions.Vision`.
+- After a `Secret` is filled, no pixels leave the session. `On` then judges the
+  snapshot alone. `Only` fails with `POLICY_DENIED` rather than answer from the
+  snapshot, and so does an engine that captures no pixels or masks fewer
+  regions than the snapshot has secure fields.
+- An inconclusive judgment made without pixels ends with a hint to pass
+  `Vision = VisionMode.On`, unless pixels cannot help (a secret was filled, or
+  the engine captures none).
+- `AssertAsync` keeps a redacted screenshot of the screen it judged under
+  `.e2e/results/<test>/attempt-<n>/screenshots/`, and
+  `AgentException.Screenshot` names it on a failure. Set
+  `AssertOptions.Screenshot = false` to keep none. After a secret fill none is
+  kept.
 
 ## Write instructions the model can execute
 

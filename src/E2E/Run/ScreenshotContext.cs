@@ -17,6 +17,8 @@ internal sealed class ScreenshotContext
 
     private int _unnamed;
 
+    private int _evidence;
+
     /// <summary>The project root; stored screenshots are reported relative to it.</summary>
     public required string ProjectRoot { get; init; }
 
@@ -62,6 +64,19 @@ internal sealed class ScreenshotContext
 
     /// <summary>Counts an unnamed call, from 1 in each attempt.</summary>
     public int NextUnnamed() => Interlocked.Increment(ref _unnamed);
+
+    /// <summary>
+    /// Keeps a screenshot a judgment took as evidence under the attempt's results, at <c>screenshots/&lt;n&gt;-&lt;label&gt;.png</c>, and
+    /// returns its path as a failure names it: relative to the project root.
+    /// </summary>
+    public string KeepEvidence(string label, byte[] png)
+    {
+        var name = Path.Combine("screenshots", Interlocked.Increment(ref _evidence).ToString("000", System.Globalization.CultureInfo.InvariantCulture) + "-" + label + ".png");
+        var file = Path.Combine(ResultsDirectory, name);
+        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+        File.WriteAllBytes(file, png);
+        return ScreenshotAssertion.Shown(this, file);
+    }
 
     /// <summary>The operating system as upstream names it: <c>darwin</c>, <c>linux</c>, or <c>win32</c>.</summary>
     public static string OperatingSystemName() =>

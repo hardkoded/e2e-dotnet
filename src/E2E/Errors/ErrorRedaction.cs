@@ -67,8 +67,8 @@ internal static class ErrorRedaction
         return cause switch
         {
             EngineException engine => new EngineException(engine.Code, message, engine.Retryable, inner),
-            AgentException agent when inner is null => new AgentException(agent.Code, message, agent.Blocked),
-            AgentException agent => new AgentException(agent.Code, message, agent.Blocked, inner),
+            AgentException agent when inner is null => new AgentException(agent.Code, message, agent.Blocked) { Screenshot = agent.Screenshot },
+            AgentException agent => new AgentException(agent.Code, message, agent.Blocked, inner) { Screenshot = agent.Screenshot },
             ConfigurationException config when inner is null => new ConfigurationException(config.Code, message),
             ConfigurationException config => new ConfigurationException(config.Code, message, inner),
             E2EException e2e when inner is null => new TestException(e2e.Code, message),
