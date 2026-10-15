@@ -6,12 +6,14 @@ using System.Net;
 using System.Web;
 using E2E.OAuth;
 using E2E.Tests.Fetch;
+using E2E.Tests.Store;
 
 namespace E2E.Tests.LoginRequired;
 
 /// <summary>
 /// An expired sign-in names the login command. The provider's token endpoint is a fake that rejects the refresh for good.
 /// </summary>
+[Collection(ProcessEnvironment.Name)]
 public sealed class ConstructorTests
 {
     /// <summary>
@@ -22,7 +24,7 @@ public sealed class ConstructorTests
     [Theory]
     [InlineData("openai", "/oauth/token", "ChatGPT token request failed (401: invalid_grant); run `e2e login openai`")]
     [InlineData("spacexai", "/oauth2/token", "SpaceXAI token request failed (401: invalid_grant); run `e2e login spacexai`")]
-    [InlineData("opencode-console", "/console/auth/device/token", "OpenCode Console token request failed (401: invalid_grant); run `e2e login opencode-console`")]
+    [InlineData("opencode-console", "/console/auth/device/token", "OpenCode Console token request failed (401: invalid_grant); run `e2e login opencode-console` or set OPENCODE_API_KEY")]
     public async Task Fails_with_LOGIN_REQUIRED_naming_the_login_command_when_the_token_endpoint_rejects_the_refresh(string id, string tokenPath, string message)
     {
         var issuer = new FakeApi(request => (request.Uri.AbsolutePath == tokenPath ? HttpStatusCode.Unauthorized : HttpStatusCode.InternalServerError, """{ "error": "invalid_grant" }"""));
@@ -37,7 +39,9 @@ public sealed class ConstructorTests
         {
             [id] = new() { Access = "stale", Refresh = "rt-0", Expires = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + 1_000 },
         });
-        using var client = Subscriptions.Client(provider, store);
+        using var noKey = ProcessEnvironment.Set("OPENCODE_API_KEY", null);
+        var (source, hint) = OAuthProviders.CredentialSource(provider, store);
+        using var client = Subscriptions.Client(provider, source, hint);
 
         var error = await Assert.ThrowsAsync<OAuthException>(() => client.GetAsync("https://api.test/v1/responses"));
 

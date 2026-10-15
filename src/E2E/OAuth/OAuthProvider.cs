@@ -17,6 +17,9 @@ public interface IOAuthProvider
     /// <summary>The vendor's name for messages.</summary>
     string Name { get; }
 
+    /// <summary>The variable whose API key the provider's calls and model list read in place of the stored login.</summary>
+    string? ApiKeyEnv => null;
+
     Task<OAuthCredentials> LoginAsync(OAuthLoginCallbacks callbacks, OAuthLoginOptions options, CancellationToken cancellationToken);
 
     /// <summary>Renews the credentials, or throws <see cref="OAuthException.LoginRequired"/> when the user has to sign in again.</summary>

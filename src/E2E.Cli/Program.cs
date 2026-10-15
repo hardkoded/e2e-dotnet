@@ -182,10 +182,11 @@ public static partial class Program
         IReadOnlyList<string> ids;
         if (providerId is null)
         {
-            ids = (await store.ListAsync(cancellationToken).ConfigureAwait(false)).Where(OAuthProviders.Ids.Contains).ToList();
+            var stored = await store.ListAsync(cancellationToken).ConfigureAwait(false);
+            ids = OAuthProviders.Ids.Where(id => stored.Contains(id) || OAuthProviders.ApiKeyFor(OAuthProviders.Get(id)) is not null).ToList();
             if (ids.Count == 0)
             {
-                throw new OAuthException(OAuthException.NotLoggedIn, "no login is stored; sign in with e2e login <" + string.Join('|', OAuthProviders.Ids) + ">");
+                throw new OAuthException(OAuthException.NotLoggedIn, "no login is stored; sign in with e2e login <" + string.Join('|', OAuthProviders.Ids) + ">" + ApiKeyHint());
             }
         }
         else
@@ -225,6 +226,13 @@ public static partial class Program
         }
 
         return failed ? 1 : 0;
+    }
+
+    /// <summary>The API key variables that stand in for a login, as a suffix to the sign-in hint.</summary>
+    private static string ApiKeyHint()
+    {
+        var variables = OAuthProviders.Ids.Select(id => OAuthProviders.Get(id).ApiKeyEnv).OfType<string>().ToList();
+        return variables.Count == 0 ? "" : ", or set " + string.Join(" or ", variables);
     }
 
     /// <summary><c>e2e guide</c>: prints the bundled skill's overview, or one topic. An unknown topic exits 2.</summary>

@@ -22,16 +22,19 @@ public sealed class E2eModelsTests : IDisposable
         """;
 
     private readonly string? _credentials = Environment.GetEnvironmentVariable(CredentialStores.EnvironmentVariable);
+    private readonly string? _apiKey = Environment.GetEnvironmentVariable("OPENCODE_API_KEY");
 
     public E2eModelsTests()
     {
         Environment.SetEnvironmentVariable(CredentialStores.EnvironmentVariable, "{}");
+        Environment.SetEnvironmentVariable("OPENCODE_API_KEY", null);
     }
 
     public void Dispose()
     {
         OAuthProviders.Replacements.Clear();
         Environment.SetEnvironmentVariable(CredentialStores.EnvironmentVariable, _credentials);
+        Environment.SetEnvironmentVariable("OPENCODE_API_KEY", _apiKey);
     }
 
     /// <summary>Partial: the command raises the missing-login error and <c>Main</c> prints it as one line and exits 1, so the test reads the raised error.</summary>
@@ -39,10 +42,24 @@ public sealed class E2eModelsTests : IDisposable
     public async Task Lists_models_only_for_stored_logins_and_says_how_to_sign_in_when_there_is_none()
     {
         var none = await Assert.ThrowsAsync<OAuthException>(() => RunAsync("models"));
-        Assert.Equal("no login is stored; sign in with e2e login <openai|github-copilot|opencode-console|spacexai>", none.Message);
+        Assert.Equal("no login is stored; sign in with e2e login <openai|github-copilot|opencode-console|spacexai>, or set OPENCODE_API_KEY", none.Message);
 
         var named = await Assert.ThrowsAsync<OAuthException>(() => RunAsync("models", "spacexai"));
         Assert.Equal("no SpaceXAI login is stored; run `e2e login spacexai`", named.Message);
+    }
+
+    [Fact]
+    public async Task Lists_a_provider_whose_API_key_is_set_alongside_the_stored_logins()
+    {
+        Environment.SetEnvironmentVariable(CredentialStores.EnvironmentVariable, """{ "spacexai": { "access": "x", "refresh": "", "expires": 0 } }""");
+        Environment.SetEnvironmentVariable("OPENCODE_API_KEY", "oc_sk_env");
+        OAuthProviders.Replacements["opencode-console"] = new ModelsDouble("opencode-console", "OpenCode Console", () => [new SubscriptionModel("go/deepseek-v4.1-flash")]) { KeyVariable = "OPENCODE_API_KEY" };
+        OAuthProviders.Replacements["spacexai"] = new ModelsDouble("spacexai", "SpaceXAI", () => [new SubscriptionModel("grok-4")]);
+
+        var (code, stdout, _) = await RunAsync("models");
+
+        Assert.Equal(0, code);
+        Assert.Equal("OpenCode Console (opencode-console): 1 model\n  go/deepseek-v4.1-flash\n\nSpaceXAI (spacexai): 1 model\n  grok-4\n", stdout);
     }
 
     [Fact]
@@ -90,6 +107,10 @@ public sealed class E2eModelsTests : IDisposable
         public string Id => id;
 
         public string Name => name;
+
+        public string? KeyVariable { get; init; }
+
+        public string? ApiKeyEnv => KeyVariable;
 
         public Task<OAuthCredentials> LoginAsync(OAuthLoginCallbacks callbacks, OAuthLoginOptions options, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("a login is never started here");
