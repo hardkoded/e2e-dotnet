@@ -168,6 +168,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - Upstream checks that the installed agent-device matches the engine's. The port always starts the pinned release, so it only checks that the engine asked for that release, and the daemon's own version check runs when it starts.
 - The lease request leaves out `providerCredentialFingerprint`. The daemon only compares it with the credentials of a daemon that was already running, and the port starts a fresh daemon with the right credentials for every device.
 - Options are the `LimrunSimulatorsOptions` record, with enums for the device models, so an unknown option is a compile error and upstream's `rejectUnknownKeys` has no counterpart.
+- Upstream's Limrun page (`docs/integrations/limrun.mdx`) and its `examples/with-limrun` app-flow example are not ported. The port documents the provider in the skill's `setup` reference, and `samples/MobileApp` is its mobile example.
 - Not verified against a live service: the lease wire format was read from agent-device's code (the `agent_device.lease.*` methods and their params in the daemon, and the client that writes them), and Limrun's REST calls from the `@limrun/api` 0.59.0 source. No test reaches Limrun or a daemon.
 
 ## Browser install command
