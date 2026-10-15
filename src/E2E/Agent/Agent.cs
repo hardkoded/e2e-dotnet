@@ -2349,6 +2349,14 @@ internal sealed class AttemptScope
     /// </summary>
     public bool KeepCache { get; private set; }
 
+    /// <summary>
+    /// A failure on the app landed in this attempt, such as a failed assertion. A model outage that came before it no
+    /// longer spares the entries nothing confirmed.
+    /// </summary>
+    public bool ImplicatesUnconfirmed { get; private set; }
+
+    public void Implicate() => ImplicatesUnconfirmed = true;
+
     public static bool KeepsCache(Exception? error) => error is AgentException { Code: "MODEL_UNAVAILABLE" or "MODEL_PROVIDER_FAILED" or "REPLAY_STALE" };
 
     public async Task Track(Task call)
@@ -2360,6 +2368,11 @@ internal sealed class AttemptScope
         catch (AgentException ex) when (KeepsCache(ex))
         {
             KeepCache = true;
+            throw;
+        }
+        catch (AgentException)
+        {
+            Implicate();
             throw;
         }
         catch (EngineException ex) when (AppNotOpen.Is(ex))
@@ -2377,6 +2390,11 @@ internal sealed class AttemptScope
         catch (AgentException ex) when (KeepsCache(ex))
         {
             KeepCache = true;
+            throw;
+        }
+        catch (AgentException)
+        {
+            Implicate();
             throw;
         }
         catch (EngineException ex) when (AppNotOpen.Is(ex))

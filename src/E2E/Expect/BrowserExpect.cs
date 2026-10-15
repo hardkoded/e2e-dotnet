@@ -133,6 +133,11 @@ public sealed class BrowserExpect
             }).ConfigureAwait(false);
             _browser.NotifyVerified();
         }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _browser.NotifyFailed();
+            throw;
+        }
         catch (OperationCanceledException ex) when (token.IsCancellationRequested)
         {
             throw new TestException(EngineErrorCodes.Cancelled, "operation cancelled", ex);
