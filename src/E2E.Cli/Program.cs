@@ -119,16 +119,22 @@ public static partial class Program
         {
             OnAuth = info =>
             {
-                stdout.WriteLine(Clean(info.Instructions));
+                // The URL gets a line of its own, with nothing before or after it on that line, so a line copy takes it whole.
+                if (interactive)
+                {
+                    stdout.WriteLine("Opening your browser. If it does not open, use this link" + (info.UserCode is null ? "" : " and enter the code") + ":");
+                }
+
                 stdout.WriteLine(Clean(info.Url));
                 if (info.UserCode is not null)
                 {
                     stdout.WriteLine("Code: " + Clean(info.UserCode));
                 }
 
+                stdout.WriteLine(Clean(info.Instructions));
                 if (interactive)
                 {
-                    OpenBrowser(info.Url);
+                    OpenUrl(info.Url);
                 }
             },
             OnPrompt = async (message, token) =>
@@ -394,6 +400,9 @@ public static partial class Program
 
         return builder.ToString();
     }
+
+    /// <summary>Opens the sign-in URL in the browser. A test seam, as upstream's <c>io.openUrl</c>.</summary>
+    internal static Action<string> OpenUrl { get; set; } = OpenBrowser;
 
     private static void OpenBrowser(string url)
     {

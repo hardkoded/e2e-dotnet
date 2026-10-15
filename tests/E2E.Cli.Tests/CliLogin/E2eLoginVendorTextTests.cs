@@ -42,7 +42,7 @@ public sealed class E2eLoginVendorTextTests : IDisposable
         Assert.Equal(0, code);
         var printed = stdout.ToString();
         Assert.DoesNotContain('\u001b', printed);
-        Assert.Contains("Enter the code now\nhttps://vendor.test/device\nCode: ABCD\n", printed, StringComparison.Ordinal);
+        Assert.Contains("https://vendor.test/device\nCode: ABCD\nEnter the code now\n", printed, StringComparison.Ordinal);
     }
 
     [Theory]
