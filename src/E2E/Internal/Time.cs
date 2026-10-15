@@ -50,6 +50,21 @@ internal sealed class PollConditionOptions
 /// <summary>Deadline and polling helpers, as upstream's <c>internal/time.ts</c>.</summary>
 internal static class Time
 {
+    /// <summary>
+    /// The token a call runs under: the caller's token, ended also by the session's. No source is made when one token
+    /// already stands for both, so a call does not leave a registration on the session token. When both can cancel
+    /// and differ, the linked source lives until either token ends.
+    /// </summary>
+    public static CancellationToken Link(CancellationToken caller, CancellationToken session)
+    {
+        if (caller == session || !caller.CanBeCanceled)
+        {
+            return session;
+        }
+
+        return session.CanBeCanceled ? CancellationTokenSource.CreateLinkedTokenSource(caller, session).Token : caller;
+    }
+
     /// <summary>Canonical polling cadence for locator and assertion loops.</summary>
     public static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
 

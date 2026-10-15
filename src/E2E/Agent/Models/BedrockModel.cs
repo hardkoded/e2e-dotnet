@@ -95,7 +95,7 @@ public sealed class BedrockModel : IAgentModel, IDisposable
                         {
                             ["toolUseId"] = call.Id,
                             ["name"] = call.Name,
-                            ["input"] = JsonNode.Parse(call.Arguments.GetRawText()),
+                            ["input"] = ModelHttp.ArgumentsObject(call.Arguments),
                         },
                     });
                 }

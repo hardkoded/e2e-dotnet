@@ -154,7 +154,11 @@ internal static class ModelHttp
         return new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
     }
 
-    /// <summary>Tool arguments as a JSON element; an empty string is an empty object.</summary>
+    /// <summary>
+    /// Tool arguments as a JSON element; an empty string is an empty object. Text that is not valid JSON, such as a
+    /// truncated answer, comes back as a JSON string of that text: the act loop fails that tool call and the model sees the
+    /// failure, instead of the whole step ending on one bad call.
+    /// </summary>
     public static JsonElement Arguments(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -162,9 +166,24 @@ internal static class ModelHttp
             text = "{}";
         }
 
-        using var parsed = JsonDocument.Parse(text);
-        return parsed.RootElement.Clone();
+        try
+        {
+            using var parsed = JsonDocument.Parse(text);
+            return parsed.RootElement.Clone();
+        }
+        catch (JsonException)
+        {
+            return JsonSerializer.SerializeToElement(text);
+        }
     }
+
+    /// <summary>The argument object a provider that takes objects is sent back: the JSON, or an empty object when the call did not carry one.</summary>
+    public static JsonNode ArgumentsObject(JsonElement arguments) =>
+        arguments.ValueKind == JsonValueKind.Object ? JsonNode.Parse(arguments.GetRawText())! : new JsonObject();
+
+    /// <summary>The argument text a provider is sent back: the text of an argument that did not parse, else the JSON.</summary>
+    public static string ArgumentsText(JsonElement arguments) =>
+        arguments.ValueKind == JsonValueKind.String ? arguments.GetString() ?? "" : arguments.GetRawText();
 
     /// <summary>
     /// Adds the agent's provider options under <paramref name="provider"/> to <paramref name="payload"/>, as

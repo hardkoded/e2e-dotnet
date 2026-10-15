@@ -265,7 +265,7 @@ public sealed class Browser
     }
 
     internal CancellationToken Token(CancellationToken cancellationToken) =>
-        cancellationToken == default ? _token() : cancellationToken;
+        Time.Link(cancellationToken, _token());
 
     private async Task AddInitScriptCoreAsync(WebInitScript script, object? arg, bool hasArg, CancellationToken cancellationToken)
     {

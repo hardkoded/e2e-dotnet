@@ -79,7 +79,7 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
                         ["function"] = new JsonObject
                         {
                             ["name"] = call.Name,
-                            ["arguments"] = call.Arguments.GetRawText(),
+                            ["arguments"] = ModelHttp.ArgumentsText(call.Arguments),
                         },
                     });
                 }

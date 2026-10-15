@@ -145,7 +145,7 @@ public sealed class Screen
 
     internal CancellationToken Token(CancellationToken cancellationToken)
     {
-        return cancellationToken == default ? _cancellation() : cancellationToken;
+        return Time.Link(cancellationToken, _cancellation());
     }
 
     internal void NotifyVerified() => _verified();

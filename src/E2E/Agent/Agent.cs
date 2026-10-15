@@ -207,7 +207,7 @@ public sealed class Agent
             ModelResponse response;
             try
             {
-                response = await CallModelAsync(agent.Model, ActSystemFor(agent), messages, offered, agent, token).ConfigureAwait(false);
+                response = await CallModelAsync(agent.Model, ActSystemFor(agent), messages, offered, agent, token, cancellationToken, markLatest: true).ConfigureAwait(false);
             }
             catch (AgentException overflow) when (string.Equals(overflow.Code, "CONTEXT_OVERFLOW", StringComparison.Ordinal))
             {
@@ -230,7 +230,7 @@ public sealed class Agent
                 messages.AddRange(shrunk);
                 try
                 {
-                    response = await CallModelAsync(agent.Model, ActSystemFor(agent), messages, offered, agent, token).ConfigureAwait(false);
+                    response = await CallModelAsync(agent.Model, ActSystemFor(agent), messages, offered, agent, token, cancellationToken, markLatest: true).ConfigureAwait(false);
                 }
                 catch (AgentException again) when (string.Equals(again.Code, "CONTEXT_OVERFLOW", StringComparison.Ordinal))
                 {
@@ -393,7 +393,7 @@ public sealed class Agent
             var snapshot = await ObserveAsync().ConfigureAwait(false);
             while (true)
             {
-                var verdict = await JudgeOnceAsync(statement, snapshot, agent, maxCalls - (_scope.ModelCalls - callsBefore), token).ConfigureAwait(false);
+                var verdict = await JudgeOnceAsync(statement, snapshot, agent, maxCalls - (_scope.ModelCalls - callsBefore), token, cancellationToken).ConfigureAwait(false);
                 if (string.Equals(verdict.Status, "passed", StringComparison.Ordinal))
                 {
                     _scope.MarkVerified();
@@ -468,7 +468,7 @@ public sealed class Agent
         };
         for (var call = 1; ; call++)
         {
-            var response = await CallModelAsync(agent.Judge, ExtractSystemFor(agent), messages, tools, agent, token).ConfigureAwait(false);
+            var response = await CallModelAsync(agent.Judge, ExtractSystemFor(agent), messages, tools, agent, token, cancellationToken).ConfigureAwait(false);
             var extract = response.ToolCalls.FirstOrDefault(item => string.Equals(item.Name, "extract", StringComparison.Ordinal));
             string issue;
             string? previous = null;
@@ -484,7 +484,7 @@ public sealed class Agent
                 issue = "call extract with the data, or done when the screen does not show it";
                 previous = response.Content;
             }
-            else if (!extract.Arguments.TryGetProperty("data", out var data) && !TryProperty(extract.Arguments, "data", out data))
+            else if (!TryProperty(extract.Arguments, "data", out var data))
             {
                 issue = "extract takes the data in a data field";
                 previous = JsonSerializer.Serialize(extract.Arguments);
@@ -538,7 +538,7 @@ public sealed class Agent
         using var linked = Link(cancellationToken, timeout);
         var token = linked.Token;
         var observation = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
-        var verdict = await JudgeOnceAsync(statement, SnapshotText.Render(observation, _scope.Redactor, _scope.AppOrigin), agent, JudgmentModelCalls, token).ConfigureAwait(false);
+        var verdict = await JudgeOnceAsync(statement, SnapshotText.Render(observation, _scope.Redactor, _scope.AppOrigin), agent, JudgmentModelCalls, token, cancellationToken).ConfigureAwait(false);
         if (string.Equals(verdict.Status, "passed", StringComparison.Ordinal))
         {
             _scope.MarkVerified();
@@ -549,14 +549,14 @@ public sealed class Agent
     }
 
     // One judgment, with a repair round when the judge did not call done and the budget has a call left.
-    private async Task<Verdict> JudgeOnceAsync(string statement, string snapshot, ResolvedAgent agent, int callsLeft, CancellationToken token)
+    private async Task<Verdict> JudgeOnceAsync(string statement, string snapshot, ResolvedAgent agent, int callsLeft, CancellationToken token, CancellationToken cancellationToken)
     {
         var messages = new List<ModelMessage>
         {
             new() { Role = "user", Content = _scope.Redactor.Redact("Statement: " + statement + "\n\n") + snapshot },
         };
         var system = JudgeSystemFor(agent);
-        var response = await CallModelAsync(agent.Judge, system, messages, AgentTools.Judge, agent, token).ConfigureAwait(false);
+        var response = await CallModelAsync(agent.Judge, system, messages, AgentTools.Judge, agent, token, cancellationToken).ConfigureAwait(false);
         var verdict = ReadVerdict(response);
         if (verdict is not null)
         {
@@ -570,7 +570,7 @@ public sealed class Agent
 
         AddRejected(messages, response);
         messages.Add(new ModelMessage { Role = "user", Content = "Call done with status passed or failed." });
-        response = await CallModelAsync(agent.Judge, system, messages, AgentTools.Judge, agent, token).ConfigureAwait(false);
+        response = await CallModelAsync(agent.Judge, system, messages, AgentTools.Judge, agent, token, cancellationToken).ConfigureAwait(false);
         verdict = ReadVerdict(response);
         if (verdict is null)
         {
@@ -1055,7 +1055,13 @@ public sealed class Agent
             return ToolOutcome.Fail("Unknown tool " + call.Name + ".");
         }
 
-        // Every action claims a budget slot before it runs. A failed action was still an attempt.
+        // Arguments that are no JSON object (text that did not parse, an array, a bare value) run nothing: a missing key would fall back to a default.
+        if (call.Arguments.ValueKind is not (JsonValueKind.Object or JsonValueKind.Undefined or JsonValueKind.Null))
+        {
+            return ToolOutcome.Fail(call.Name + " takes a JSON object of arguments.");
+        }
+
+        // Every action that runs claims a budget slot before it runs. A failed action was still an attempt.
         if (!budget.TryReserve())
         {
             return ToolOutcome.Fail(budget.Message + ". Take no more actions. Call done with a verdict.");
@@ -1084,7 +1090,7 @@ public sealed class Agent
             }
 
             actions.Add(new RecordedAction { Kind = "navigate", Url = CacheKeys.Template(url, parameters) });
-            return ToolOutcome.Ok(await DescribeAsync("navigated to " + Routes.PathOf(url), actions[^1], token).ConfigureAwait(false));
+            return await DescribeOutcomeAsync("navigated to " + Routes.PathOf(url), actions[^1], token).ConfigureAwait(false);
         }
 
         if (string.Equals(call.Name, "press", StringComparison.Ordinal) && !HasTarget(call.Arguments))
@@ -1100,7 +1106,7 @@ public sealed class Agent
             }
 
             actions.Add(new RecordedAction { Kind = "press", Key = key });
-            return ToolOutcome.Ok(await DescribeAsync("pressed " + key, actions[^1], token).ConfigureAwait(false));
+            return await DescribeOutcomeAsync("pressed " + key, actions[^1], token).ConfigureAwait(false);
         }
 
         SemanticNode node;
@@ -1214,7 +1220,7 @@ public sealed class Agent
         }
 
         output = output.Length > OverflowShrink.TextClipChars ? output[..OverflowShrink.TextClipChars] + "\n[output cut]" : output;
-        return ToolOutcome.Ok(gap is null ? output : await DescribeAsync(output, gap, token).ConfigureAwait(false));
+        return gap is null ? ToolOutcome.Ok(output) : await DescribeOutcomeAsync(output, gap, token).ConfigureAwait(false);
     }
 
     private async Task<ToolOutcome> BackAsync(List<RecordedAction> actions, CancellationToken token)
@@ -1229,7 +1235,7 @@ public sealed class Agent
         }
 
         actions.Add(new RecordedAction { Kind = "back" });
-        return ToolOutcome.Ok(await DescribeAsync("navigated back", actions[^1], token).ConfigureAwait(false));
+        return await DescribeOutcomeAsync("navigated back", actions[^1], token).ConfigureAwait(false);
     }
 
     private async Task<ToolOutcome> ScrollAsync(JsonElement arguments, List<RecordedAction> actions, CancellationToken token)
@@ -1658,6 +1664,19 @@ public sealed class Agent
         return matches;
     }
 
+    // An action that ran but whose look failed is a failed tool for the model, as in the targeted paths, not the end of the act.
+    private async Task<ToolOutcome> DescribeOutcomeAsync(string action, RecordedAction? committed, CancellationToken token)
+    {
+        try
+        {
+            return ToolOutcome.Ok(await DescribeAsync(action, committed, token).ConfigureAwait(false));
+        }
+        catch (E2EException ex) when (!token.IsCancellationRequested && !IsRuntimeHardStop(ex))
+        {
+            return ToolOutcome.Fail(ex);
+        }
+    }
+
     // The screen after a committed action, as the model reads it: the action's change wait armed, then a held-still look.
     private async Task<string> DescribeAsync(string action, RecordedAction? committed, CancellationToken token)
     {
@@ -1718,7 +1737,9 @@ public sealed class Agent
         List<ModelMessage> messages,
         IReadOnlyList<ModelTool> tools,
         ResolvedAgent agent,
-        CancellationToken token)
+        CancellationToken token,
+        CancellationToken cancellationToken,
+        bool markLatest = false)
     {
         if (model is null)
         {
@@ -1734,11 +1755,12 @@ public sealed class Agent
                 Messages = messages,
                 Tools = tools,
                 ProviderOptions = agent.ProviderOptions,
+                MarkLatest = markLatest,
                 Redactor = _scope.Redactor,
             };
             response = await model.CompleteAsync(request, token).ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (!_scope.Token().IsCancellationRequested)
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && !_scope.Token().IsCancellationRequested)
         {
             throw new AgentException("STEP_TIMEOUT", "Agent step timed out.");
         }
@@ -2115,8 +2137,7 @@ public sealed class Agent
 
     private CancellationTokenSource Link(CancellationToken cancellationToken, TimeSpan timeout)
     {
-        var caller = cancellationToken == default ? _scope.Token() : cancellationToken;
-        var linked = CancellationTokenSource.CreateLinkedTokenSource(caller);
+        var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _scope.Token());
         linked.CancelAfter(timeout);
         return linked;
     }
