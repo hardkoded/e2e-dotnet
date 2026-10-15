@@ -440,6 +440,73 @@ public sealed class StepTraceSessionTests
 
         Assert.Contains("Replay stopped (end-mismatch) after these actions:\n- navigate /customers\n", Text(model.Requests[0]), StringComparison.Ordinal);
         Assert.Equal(("agent-concluded", "end-mismatch", 1, 1), Info(step));
+        Assert.Equal("every recorded action ran, but the recorded end state did not show on /customers: missing status \"Marker saved\"", step.Cache?.Detail);
+    }
+
+    [Fact]
+    public async Task Names_the_anchors_that_did_not_hold_on_an_end_mismatch_not_the_first_ones_recorded()
+    {
+        const string Prefix = "every recorded action ran, but the recorded end state did not show on /customers: ";
+        var saved = new RecordedTarget { Role = "status", Name = "Marker saved" };
+        static DocumentWorld Customers(params DocumentElement[] extra) => CustomersWorld().Map("/customers", page =>
+        {
+            page.Status("Marker saved");
+            page.Roots.AddRange(extra);
+        });
+
+        var quiet = CoreTests.TempCache();
+        await RecordCustomersAsync(quiet);
+        Rewrite(quiet, entry => entry.Appeared = [new RecordedTarget { Role = "alert", Name = "Acme Notes" }, saved]);
+        var absent = await StepAsync(Customers(), new FileStepCache(quiet), "/pricing", null, Script());
+        Assert.Equal(("agent-concluded", "end-mismatch"), (absent.Cache?.Mode, absent.Cache?.Reason));
+        Assert.Equal(Prefix + "missing alert \"Acme Notes\"", absent.Cache?.Detail);
+
+        var raised = CoreTests.TempCache();
+        await RecordCustomersAsync(raised);
+        Rewrite(raised, entry => entry.Appeared = [saved]);
+        var declined = await StepAsync(Customers(new DocumentElement { Role = "alert", Name = "Card declined" }), new FileStepCache(raised), "/pricing", null, Script());
+        Assert.Equal(("agent-concluded", "end-mismatch"), (declined.Cache?.Mode, declined.Cache?.Reason));
+        Assert.Equal(Prefix + "unrecorded alert \"Card declined\"", declined.Cache?.Detail);
+
+        var kept = CoreTests.TempCache();
+        await RecordCustomersAsync(kept);
+        Rewrite(kept, entry =>
+        {
+            entry.Appeared = new[] { "Alpha", "Beta", "Gamma" }.Select(name => new RecordedTarget { Role = "link", Name = name }).ToList();
+            entry.Gone = [saved];
+        });
+        var stuck = await StepAsync(Customers(), new FileStepCache(kept), "/pricing", null, Script());
+        Assert.Equal(Prefix + "missing link \"Alpha\" and link \"Beta\" (+1 more), still showing status \"Marker saved\"", stuck.Cache?.Detail);
+    }
+
+    [Fact]
+    public async Task Says_the_outcome_already_showed_when_the_replay_cannot_have_produced_it_rather_than_that_it_did_not_show()
+    {
+        var directory = CoreTests.TempCache();
+        await RecordCustomersAsync(directory);
+
+        // The customers page already shows the marker when the step starts.
+        var step = await StepAsync(CustomersWorld(), new FileStepCache(directory), "/customers", null, Script());
+
+        Assert.Equal(("agent-concluded", "end-mismatch"), (step.Cache?.Mode, step.Cache?.Reason));
+        Assert.Equal("every recorded action ran, but the recorded outcome already showed on /customers before the replay acted there, so nothing proves the replay produced it", step.Cache?.Detail);
+    }
+
+    [Fact]
+    public async Task Does_not_say_the_outcome_already_showed_when_the_recording_has_no_delta_to_show()
+    {
+        var directory = CoreTests.TempCache();
+        await RecordCustomersAsync(directory);
+        Rewrite(directory, entry =>
+        {
+            entry.Appeared = [];
+            entry.Gone = [];
+        });
+
+        var step = await StepAsync(CustomersWorld(), new FileStepCache(directory), "/customers", null, Script());
+
+        Assert.Equal(("agent-concluded", "end-mismatch"), (step.Cache?.Mode, step.Cache?.Reason));
+        Assert.Equal("every recorded action ran, but the recorded end state did not show on /customers", step.Cache?.Detail);
     }
 
     [Fact]
@@ -638,6 +705,14 @@ public sealed class StepTraceSessionTests
     private static string Text(ModelRequest request) => string.Join('\n', request.Messages.Select(message => message.Content));
 
     internal static (string?, string?, int?, int?) Info(Step step) => (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions, step.Cache?.TotalActions);
+
+    // Changes the one recording in the directory, as if it had been recorded with other anchors.
+    private static void Rewrite(string directory, Action<CacheEntry> change)
+    {
+        var entry = Entry(directory);
+        change(entry);
+        File.WriteAllText(Assert.Single(Directory.GetFiles(directory, "*.json")), JsonSerializer.Serialize(entry, EntryJson));
+    }
 
     private static CacheEntry Entry(string directory)
     {

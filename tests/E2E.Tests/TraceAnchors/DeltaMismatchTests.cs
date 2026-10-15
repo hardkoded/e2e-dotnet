@@ -7,8 +7,8 @@ using static E2E.Tests.TraceAnchors.AnchorFixtures;
 
 namespace E2E.Tests.TraceAnchors;
 
-/// <summary><c>deltaHolds</c>: whether the recorded end state holds on a fresh screen.</summary>
-public sealed class DeltaHoldsTests
+/// <summary><c>deltaMismatch</c>: whether the recorded end state holds on a fresh screen.</summary>
+public sealed class DeltaMismatchTests
 {
     [Fact]
     public void Requires_every_recorded_field_text_included_unlike_target_relocation()

@@ -217,6 +217,10 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   `no-entry`, `invalid-entry`, `wrong-context`, `target-not-found`,
   `target-ambiguous`, `end-mismatch`, `gap` (the recording stops at a
   project tool, see below).
+  After an `end-mismatch`, `ActResult.Cache.Detail` names what did not hold:
+  the recorded nodes that did not show, the ones that did not go away, and
+  any alert the recording never saw, or says the outcome already showed
+  before the replay acted.
 - A step recording no actions, or changing nothing on screen or in the
   route, creates no entry. The screen it passed on is read once it holds
   still, so a late render still counts. One whose `Values.Unique` value

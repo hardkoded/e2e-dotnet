@@ -14,7 +14,7 @@ namespace E2E;
 /// sets on a control it leaves on screen. A replay passes on its own only when the delta happened again:
 /// everything that appeared is there, everything that vanished is gone, at least one of those changes
 /// happened during the replay (<see cref="Evidenced"/>), and no alert shows that the recording never saw
-/// (<see cref="Holds"/>). Presence is enough; uniqueness is not asked.
+/// (<see cref="Mismatch"/>). Presence is enough; uniqueness is not asked.
 /// </summary>
 internal static class Anchors
 {
@@ -121,7 +121,7 @@ internal static class Anchors
     /// usually its children's names joined, so it repeats what the leaves already say, and on a list-heavy
     /// screen those repeats would crowd the one status line that names the effect out of the cap. A node counts as appeared only when no start
     /// node matches its anchor, so the anchor cannot hold before the step ran. A node counts as gone only when no end node
-    /// matches its anchor the way <see cref="Holds"/> checks one: a radio "Express" the pick replaced
+    /// matches its anchor the way <see cref="Mismatch"/> checks one: a radio "Express" the pick replaced
     /// with a status reading "Express" vanished, but an anchor of that name would still match the status,
     /// and the recording would fail its own check on every replay. <paramref name="routeMoved"/> says the step
     /// ended on another route than it began on, whose counts are that screen's data rather than the step's result.
@@ -136,22 +136,24 @@ internal static class Anchors
     }
 
     /// <summary>
-    /// Whether the recorded end state holds on <paramref name="live"/>: every appeared anchor present,
-    /// no gone anchor present, and no alert on screen that was not on <paramref name="before"/> and is
-    /// not one the recording saw appear.
+    /// The anchors that keep the recorded end state from holding on <paramref name="live"/>, or null when
+    /// it holds. It holds with every appeared anchor present, no gone anchor present, and no alert on
+    /// screen that was not on <paramref name="before"/> and is not one the recording saw appear. The
+    /// report names the anchors that failed, not the first ones recorded, so it says which part of the
+    /// outcome did not happen again.
     /// </summary>
-    public static bool Holds(CacheEntry entry, IReadOnlyList<AnchorNode> live, IReadOnlyList<AnchorNode> before)
+    public static DeltaMismatch? Mismatch(CacheEntry entry, IReadOnlyList<AnchorNode> live, IReadOnlyList<AnchorNode> before)
     {
-        if (!entry.Appeared.All(anchor => In(anchor, live)) || entry.Gone.Any(anchor => In(anchor, live)))
-        {
-            return false;
-        }
-
+        var missing = entry.Appeared.Where(anchor => !In(anchor, live)).ToList();
+        var present = entry.Gone.Where(anchor => In(anchor, live)).ToList();
         var earlier = before.Where(anchor => IsAlert(anchor.Target)).ToList();
-        return live.All(anchor =>
-            !IsAlert(anchor.Target)
-            || In(anchor.Target, earlier)
-            || entry.Appeared.Any(recorded => Matches(recorded, anchor.Target)));
+        var unrecordedAlerts = live
+            .Where(anchor => IsAlert(anchor.Target)
+                && !In(anchor.Target, earlier)
+                && !entry.Appeared.Any(recorded => Matches(recorded, anchor.Target)))
+            .Select(anchor => anchor.Target)
+            .ToList();
+        return missing.Count == 0 && present.Count == 0 && unrecordedAlerts.Count == 0 ? null : new DeltaMismatch(missing, present, unrecordedAlerts);
     }
 
     /// <summary>
@@ -359,3 +361,9 @@ internal static class Anchors
 
 /// <summary>One node projected as an anchor, with its set key and whether it has no children.</summary>
 internal sealed record AnchorNode(RecordedTarget Target, string Key, bool Leaf);
+
+/// <summary>What kept a recorded end state from holding on a fresh observation (<see cref="Anchors.Mismatch"/>), anchor by anchor.</summary>
+/// <param name="Missing">Appeared anchors no node matches.</param>
+/// <param name="Present">Gone anchors some node still matches.</param>
+/// <param name="UnrecordedAlerts">Alerts on screen that were not there before and the recording never saw appear.</param>
+internal sealed record DeltaMismatch(IReadOnlyList<RecordedTarget> Missing, IReadOnlyList<RecordedTarget> Present, IReadOnlyList<RecordedTarget> UnrecordedAlerts);
