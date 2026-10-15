@@ -22,6 +22,7 @@ public sealed class TraceCacheDivergenceHandsTheStepOverMidStepTests
         }
 
         Assert.Equal(("agent-concluded", "target-not-found", 1, 2), (result.Cache?.Mode, result.Cache?.Reason, result.Cache?.ReplayedActions, result.Cache?.TotalActions));
+        Assert.Matches("^at action 2 of 2, ", result.Cache?.Detail);
         var notice = model.Requests[0].Messages[0].Content!;
         Assert.Contains("Replay stopped (target-not-found) after these actions:\n- tap", notice, StringComparison.Ordinal);
         Assert.Equal(1, TwoTapCounter.Replayed(notice));
