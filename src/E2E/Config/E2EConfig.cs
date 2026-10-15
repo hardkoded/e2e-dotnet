@@ -378,9 +378,8 @@ public sealed class E2EConfig
     {
         // A non-blank E2E_CACHE_DIR replaces cache.dir and the default; the mode stays as configured.
         var shared = environment("E2E_CACHE_DIR") is { } variable && !string.IsNullOrWhiteSpace(variable) ? variable : null;
-        var defaultDirectory = shared is null
-            ? Path.Combine(projectRoot, ".e2e", "cache")
-            : Path.GetFullPath(Path.Combine(projectRoot, ExpandHome(shared)));
+        var sharedDirectory = shared is null ? null : Path.GetFullPath(Path.Combine(projectRoot, ExpandHome(shared)));
+        var defaultDirectory = sharedDirectory ?? Path.Combine(projectRoot, ".e2e", "cache");
         if (raw is null)
         {
             return new CacheConfig { Mode = ci ? CacheMode.ReadOnly : CacheMode.ReadWrite, Directory = defaultDirectory };
@@ -419,7 +418,7 @@ public sealed class E2EConfig
                 throw Invalid("cache.dir must be a non-empty path");
             }
 
-            directory = shared is null ? Path.GetFullPath(Path.Combine(projectRoot, dir)) : defaultDirectory;
+            directory = sharedDirectory ?? Path.GetFullPath(Path.Combine(projectRoot, dir));
         }
 
         var strict = false;
@@ -446,7 +445,7 @@ public sealed class E2EConfig
         }
 
         return value.StartsWith("~/", StringComparison.Ordinal) || value.StartsWith("~" + Path.DirectorySeparatorChar, StringComparison.Ordinal)
-            ? Path.Combine(home, value[2..])
+            ? Path.Join(home, value[2..])
             : value;
     }
 
