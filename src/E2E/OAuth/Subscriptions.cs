@@ -48,8 +48,8 @@ public static class Subscriptions
 
     /// <summary>
     /// An OpenCode Console workspace: OpenCode Zen for a bare id, OpenCode Go for a <c>go/</c> id. The first call
-    /// reads the workspace config for the model's protocol. <c>OPENCODE_API_KEY</c> (a Console service account key)
-    /// replaces the stored login when set.
+    /// reads the workspace config for the model's protocol. <c>OPENCODE_API_KEY</c> (a Console service account API key
+    /// or an OpenCode Go subscription API key) replaces the stored login when set.
     /// </summary>
     public static OpenCodeConsoleModel OpenCodeConsole(string model, ICredentialStore? store = null)
     {
@@ -58,18 +58,8 @@ public static class Subscriptions
 
     internal static OpenCodeConsoleModel OpenCodeConsole(string model, ICredentialStore? store, OpenCodeConsoleProvider provider, HttpMessageHandler? inner)
     {
-        var apiKey = ModelHttp.Environment("OPENCODE_API_KEY");
-        string? hint = null;
-        if (apiKey is not null)
-        {
-            store = new EnvironmentCredentialStore(new JsonObject
-            {
-                [provider.Id] = new OAuthCredentials { Access = apiKey, Refresh = "", Expires = 0 }.ToJson(),
-            }.ToJsonString());
-            hint = "check OPENCODE_API_KEY";
-        }
-
-        return new OpenCodeConsoleModel(model, provider, Client(provider, store, hint, inner));
+        var (source, hint) = OAuthProviders.CredentialSource(provider, store);
+        return new OpenCodeConsoleModel(model, provider, Client(provider, source, hint, inner));
     }
 
     /// <summary>An <see cref="HttpClient"/> that carries <paramref name="provider"/>'s stored login on every request.</summary>
@@ -104,6 +94,40 @@ public static class OAuthProviders
             "spacexai" => new XaiProvider(),
             _ => throw new OAuthException(OAuthException.Misconfigured, "unknown provider \"" + id + "\"; expected one of " + string.Join(", ", Ids)),
         };
+    }
+
+    /// <summary>How a missing login is described to the user: the CLI command that fixes it, and the API key variable that does too.</summary>
+    public static string LoginHint(IOAuthProvider provider)
+    {
+        ArgumentNullException.ThrowIfNull(provider);
+        var command = "run `e2e login " + provider.Id + "`";
+        return provider.ApiKeyEnv is null ? command : command + " or set " + provider.ApiKeyEnv;
+    }
+
+    /// <summary>The provider's API key from its <see cref="IOAuthProvider.ApiKeyEnv"/> variable, when that is set.</summary>
+    public static string? ApiKeyFor(IOAuthProvider provider)
+    {
+        ArgumentNullException.ThrowIfNull(provider);
+        return provider.ApiKeyEnv is null ? null : ModelHttp.Environment(provider.ApiKeyEnv);
+    }
+
+    /// <summary>
+    /// Where <paramref name="provider"/>'s calls read their credential: the API key, when set, as a login with nothing to
+    /// refresh, else <paramref name="store"/>, the default store unless given. The default store is only opened without a
+    /// key, so a malformed <c>E2E_OAUTH_CREDENTIALS</c> does not block the key. The hint names the remedy for the
+    /// credential actually read.
+    /// </summary>
+    public static (ICredentialStore Store, string LoginHint) CredentialSource(IOAuthProvider provider, ICredentialStore? store = null)
+    {
+        var apiKey = ApiKeyFor(provider);
+        if (apiKey is null)
+        {
+            return (store ?? CredentialStores.Default(), LoginHint(provider));
+        }
+
+        return (
+            new EnvironmentCredentialStore(new JsonObject { [provider.Id] = new OAuthCredentials { Access = apiKey, Refresh = "", Expires = 0 }.ToJson() }.ToJsonString()),
+            "check " + provider.ApiKeyEnv);
     }
 
     /// <summary>A short description of each subscription, for pickers and help.</summary>
@@ -162,11 +186,19 @@ public static class OAuthProviders
         return true;
     }
 
-    /// <summary>The models <paramref name="providerId"/>'s stored login serves; <see cref="OAuthException.NotLoggedIn"/> without one.</summary>
+    /// <summary>
+    /// The models <paramref name="providerId"/>'s credential serves: its API key when set, as its model constructor reads it,
+    /// else the stored login; <see cref="OAuthException.NotLoggedIn"/> without either.
+    /// </summary>
     public static async Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(string providerId, ICredentialStore? store = null, CancellationToken cancellationToken = default)
     {
-        var provider = Get(providerId);
-        using var http = Subscriptions.Client(provider, store);
+        return await ListModelsAsync(Get(providerId), store, inner: null, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal static async Task<IReadOnlyList<SubscriptionModel>> ListModelsAsync(IOAuthProvider provider, ICredentialStore? store, HttpMessageHandler? inner, CancellationToken cancellationToken)
+    {
+        var (source, hint) = CredentialSource(provider, store);
+        using var http = Subscriptions.Client(provider, source, hint, inner);
         return await provider.ListModelsAsync(http, cancellationToken).ConfigureAwait(false);
     }
 }

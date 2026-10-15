@@ -147,6 +147,23 @@ public sealed class OpencodeConsoleTests
     private static IEnumerable<string?> MarkedTexts(JsonNode body) =>
         body["messages"]!.AsArray().SelectMany(message => message!["content"]!.AsArray()).Where(part => part!["cache_control"] is not null).Select(part => part!["text"]?.GetValue<string>());
 
+    /// <summary>
+    /// Partial: the port's model takes no per-call output cap, so the model always asks for its own 8192 and the half of the
+    /// test that leaves a caller's own <c>maxOutputTokens</c> alone has nothing to check.
+    /// </summary>
+    [Fact]
+    public async Task Asks_for_8192_output_tokens_on_the_Anthropic_route()
+    {
+        var api = OpencodeConsoleWorkspace.Serve();
+        var provider = new OpenCodeConsoleProvider(consoleUrl: OpencodeConsoleWorkspace.ConsoleUrl);
+        using var model = new OpenCodeConsoleModel("claude-sonnet-5", provider, Subscriptions.Client(provider, Login(), inner: api));
+
+        await model.CompleteAsync(OpencodeConsoleWorkspace.Prompt("hi"), CancellationToken.None);
+
+        var call = Assert.Single(OpencodeConsoleWorkspace.Inference(api));
+        Assert.Equal(8192, JsonNode.Parse(call.Body)!["max_tokens"]!.GetValue<int>());
+    }
+
     [Fact]
     public async Task Says_what_to_do_when_the_login_reaches_no_Go_subscription_or_the_workspace_does_not_serve_the_model()
     {

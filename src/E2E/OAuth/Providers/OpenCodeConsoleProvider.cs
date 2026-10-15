@@ -39,6 +39,8 @@ public sealed class OpenCodeConsoleProvider : IOAuthProvider
 
     public string Name => "OpenCode Console";
 
+    public string? ApiKeyEnv => "OPENCODE_API_KEY";
+
     internal string ConsoleUrl { get; }
 
     public async Task<OAuthCredentials> LoginAsync(OAuthLoginCallbacks callbacks, OAuthLoginOptions options, CancellationToken cancellationToken)

@@ -61,13 +61,14 @@ Pick the model in `agents.<name>.provider` and `model`:
 | --- | --- | --- |
 | Claude on a subscription | `copilot` | `e2e login github-copilot` (reuses `gh auth token`, or your own `--client-id`) |
 | OpenAI on a subscription | `chatgpt` | `e2e login openai` (`--device` without a browser) |
-| OpenCode Console (Zen and Go) | `opencode-console` | `e2e login opencode-console`, or `OPENCODE_API_KEY` |
+| OpenCode Console (Zen and Go) | `opencode-console` | `e2e login opencode-console`, or `OPENCODE_API_KEY`: a Console service account API key or an OpenCode Go subscription API key. `e2e models opencode-console` reads the key when it is set |
 | SuperGrok or X Premium+ | `grok` | `e2e login spacexai` |
 | Claude on an API key | `anthropic` | `ANTHROPIC_API_KEY`, a workspace key (`sk-ant-api03-...`) |
 | OpenAI on an API key | `openai` (the default) | `OPENAI_API_KEY` |
 | Other | `openai-responses`, `azure`, `google`, `bedrock`, `xai`, `openrouter`, `gateway`, `openai-compatible` | The provider's key; see the README |
 
-- Get model ids from `e2e models <login>`. Copilot uses a dot
+- Get model ids from `e2e models <login>`. `e2e models` with no login also lists
+  OpenCode Console when only `OPENCODE_API_KEY` is set. Copilot uses a dot
   (`claude-sonnet-5.5`). The Anthropic API uses a dash (`claude-sonnet-5-5`).
 - `apiKeyEnv` overrides the provider's variable. Remove it when you change
   `provider`, or the client sends no key and gets a 401.
@@ -170,6 +171,7 @@ To test without a browser or model, override `CreateEngine()` to return a
 | `E2E_USER_<NAME>_USERNAME`, `E2E_USER_<NAME>_PASSWORD` | The account `Credentials.User(name)` returns; the name is uppercased and `-` becomes `_`. |
 | `E2E_SECRET_<NAME>` | Overrides `secrets.<name>`. |
 | `E2E_OAUTH_CREDENTIALS` | The login JSON, in place of the credentials file. |
+| `OPENCODE_API_KEY` | An OpenCode Console service account API key or an OpenCode Go subscription API key, in place of the `opencode-console` login. `Subscriptions.OpenCodeConsole` and `e2e models opencode-console` use it. |
 | `CI` | CI defaults: a `read-only` cache. |
 | `E2E_HEADLESS` | `0` or `false` shows the browser. |
 | `E2E_SKIP_BROWSER_INSTALL` | `1` skips the Chromium install. |
