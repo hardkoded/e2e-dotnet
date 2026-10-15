@@ -113,6 +113,9 @@ internal sealed class SoftFailures
         _handler = handler;
     }
 
+    /// <summary>Replaces the secrets the attempt knows when the failures are reported; the text as it is outside a session.</summary>
+    internal Func<string, string> Redact { get; set; } = static text => text;
+
     /// <summary>Whether any failure was kept, whether it waits for <see cref="Close"/> or went to the handler.</summary>
     public bool Any
     {
@@ -183,6 +186,6 @@ internal sealed class SoftFailures
             lines.Add((i + 1).ToString(CultureInfo.InvariantCulture) + ". " + failures[i].Message.Replace("\n", "\n   ", StringComparison.Ordinal));
         }
 
-        return new TestException("ASSERTION_FAILED", string.Join('\n', lines), failures[0]);
+        return ErrorRedaction.Failure("ASSERTION_FAILED", string.Join('\n', lines), failures[0], Redact);
     }
 }

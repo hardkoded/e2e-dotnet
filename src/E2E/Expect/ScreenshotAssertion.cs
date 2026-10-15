@@ -47,7 +47,7 @@ internal static partial class ScreenshotAssertion
 
         if (store.WithholdsPixels())
         {
-            throw new TestException("POLICY_DENIED", "expect(" + Subject(subject) + ")." + api + " is denied after a secret fill because the app may display the secret outside a secure field");
+            throw ErrorRedaction.Failure("POLICY_DENIED", "expect(" + Subject(subject) + ")." + api + " is denied after a secret fill because the app may display the secret outside a secure field", null, screen.Redact);
         }
 
         var capturer = new Capturer(screen, store, subject, call, deadline);
@@ -281,7 +281,7 @@ internal static partial class ScreenshotAssertion
     private static TestException Failure(Run run, Locator? subject, string message, Exception? cause = null)
     {
         var text = "expect(" + Subject(subject) + ")." + run.Api + " failed\n" + message;
-        return cause is null ? new TestException("ASSERTION_FAILED", text) : new TestException("ASSERTION_FAILED", text, cause);
+        return ErrorRedaction.Failure("ASSERTION_FAILED", text, cause, run.Screen.Redact);
     }
 
     /// <summary>A share as a percentage with two significant digits at most: <c>0.04%</c>, <c>12%</c>.</summary>

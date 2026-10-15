@@ -139,7 +139,7 @@ public sealed class PollExpectation<T>
         }
 
         lines.Add("last: " + (last ?? "no read completed"));
-        throw new TestException("ASSERTION_FAILED", string.Join('\n', lines));
+        throw new TestException("ASSERTION_FAILED", ErrorRedaction.Redact(string.Join('\n', lines)));
     }
 
     private static Task PauseAsync(DateTimeOffset deadline, TimeSpan interval, TimeProvider clock, CancellationToken cancellationToken)
