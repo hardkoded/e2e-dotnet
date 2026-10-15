@@ -5,6 +5,11 @@ then a verification pass that turns every claimed bug into a repro test that
 fails for the reason reported. `e2e explore` is not ported (topic
 `explore`), so the fan-out part is not available in this port.
 
+## Contents
+
+- What still applies
+- Rules
+
 ## What still applies
 
 The verification half works with plain tests. For each suspected bug:

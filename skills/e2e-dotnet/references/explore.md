@@ -5,6 +5,11 @@ of a test file: it plans one charter at a time, reports findings, and ends
 with a verdict. It is not ported. The .NET port has no `explore` command and
 no `report_finding` tool.
 
+## Contents
+
+- What to do instead
+- When it does not fit
+
 ## What to do instead
 
 - To learn the screens before writing a test, read the app's markup for

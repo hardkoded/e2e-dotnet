@@ -51,7 +51,10 @@ each call.
 ## ActAsync: one goal
 
 ```csharp
-await Agent.ActAsync("add a todo named \"Buy milk\" and mark it done");
+await Agent.ActAsync("add a todo named \"Buy milk\"");
+await Expect.That(Screen.GetByRole("listitem", "Buy milk")).ToBeVisibleAsync();
+await Agent.ActAsync("mark the \"Buy milk\" todo as done");
+await Expect.That(Screen.GetByRole("checkbox", "Buy milk")).ToBeCheckedAsync();
 
 var member = Credentials.User("member");
 await Agent.ActAsync("sign in with the given credentials", new ActOptions
@@ -135,6 +138,34 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
 
 - One goal per `ActAsync`. The test sets the order of goals; the model finds
   the path.
+- Keep each goal atomic: one outcome that one check confirms. When two
+  parts of an instruction each leave a state worth checking, they are two
+  goals: give each its own `ActAsync` and check. Steps toward a single
+  outcome are the path, not more goals: scrolling to a control, closing a
+  banner, opening the menu that holds it, filling the fields of one form.
+- A split flow fails at the goal that broke. Each goal replays from its own
+  recording and gets its own `MaxSteps` and `MaxModelCalls`; the test
+  timeout still caps them all.
+
+```csharp
+// BAD: three goals in one instruction, one recording, no check between them.
+await Agent.ActAsync("open the Pro plan, set the seats to {seats}, and check out", new ActOptions
+{
+    Params = new Dictionary<string, object?> { ["seats"] = 3 },
+});
+
+// GOOD: three atomic goals, each pinned before the next.
+await Agent.ActAsync("open the Pro plan");
+await Expect.That(Screen.GetByRole("heading", "Pro plan")).ToBeVisibleAsync();
+await Agent.ActAsync("set the seats to {seats}", new ActOptions
+{
+    Params = new Dictionary<string, object?> { ["seats"] = 3 },
+});
+await Expect.That(Screen.GetByRole("status", "Seats")).ToHaveTextAsync("3 seats");
+await Agent.ActAsync("check out");
+await Expect.That(Screen.GetByText("Order confirmed")).ToBeVisibleAsync();
+```
+
 - Use the words on screen: `"open the Billing tab"`, not `"upgrade"`.
 - Values go in `Params`, never pasted into the instruction.
 - Do not describe mechanics the runner handles: waiting, scrolling, retries.
