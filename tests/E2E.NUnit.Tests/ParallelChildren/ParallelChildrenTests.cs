@@ -38,6 +38,32 @@ public sealed class ParallelChildrenTests
 
         Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Passed));
     }
+
+    [Test]
+    public void Runs_a_fixture_that_opts_out_of_parallel_runs()
+    {
+        var result = NestedRun.Run(nameof(NonParallelFixture.Runs_in_sequence));
+
+        Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Passed));
+    }
+}
+
+[Explicit("Run by ParallelChildrenTests")]
+[NonParallelizable]
+public sealed class NonParallelFixture : E2ETest
+{
+    private static readonly E2EConfig FixtureConfig = E2EConfig.Parse(
+        """{ "cache": { "mode": "off" } }""",
+        AppContext.BaseDirectory,
+        _ => null);
+
+    protected override E2EConfig Config => FixtureConfig;
+
+    [Test]
+    [Parallelizable(ParallelScope.Self)]
+    public void Runs_in_sequence()
+    {
+    }
 }
 
 [Explicit("Run by ParallelChildrenTests")]

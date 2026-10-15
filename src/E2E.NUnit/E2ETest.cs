@@ -82,10 +82,12 @@ public abstract class E2ETest : E2EFixture
         sources.AddRange(methods);
 
         // A fixture or an assembly that lets children run in parallel, or a test method that opts in itself,
-        // unless the method opts out.
+        // unless the fixture or the method opts out.
         var parallel = sources.Any(source => source.GetCustomAttributes(typeof(ParallelizableAttribute), true).Cast<ParallelizableAttribute>().Any(attribute => (attribute.Scope & ParallelScope.Children) != 0))
             || methods.Any(method => method.GetCustomAttributes(typeof(ParallelizableAttribute), true).Cast<ParallelizableAttribute>().Any(attribute => (attribute.Scope & ParallelScope.Self) != 0));
-        var optedOut = methods.Length > 0 && methods.All(method => method.IsDefined(typeof(NonParallelizableAttribute), true));
+        var fixtureOptedOut = type.IsDefined(typeof(NonParallelizableAttribute), true)
+            && !type.GetCustomAttributes(typeof(ParallelizableAttribute), true).Cast<ParallelizableAttribute>().Any(attribute => (attribute.Scope & ParallelScope.Children) != 0);
+        var optedOut = fixtureOptedOut || (methods.Length > 0 && methods.All(method => method.IsDefined(typeof(NonParallelizableAttribute), true)));
         var perTest = sources.Any(source => source.GetCustomAttributes(typeof(FixtureLifeCycleAttribute), true).Cast<FixtureLifeCycleAttribute>().Any(attribute => attribute.LifeCycle == LifeCycle.InstancePerTestCase));
         if (parallel && !perTest && !optedOut)
         {

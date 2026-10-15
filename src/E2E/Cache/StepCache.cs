@@ -193,7 +193,19 @@ public sealed class FileStepCache : IStepCache
         }
         catch
         {
-            File.Delete(temp);
+            try
+            {
+                File.Delete(temp);
+            }
+            catch (IOException)
+            {
+                // The write error is the one to report.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // The write error is the one to report.
+            }
+
             throw;
         }
     }
