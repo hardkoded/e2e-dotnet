@@ -11,8 +11,39 @@ public sealed class RoleMappingTests
 {
     private const string Pixel = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAAAAAAALAAAAAABAAEAAAIBRAA7";
 
+    private const string Nbsp = " ";
+
     // An empty block lays out to no height and is hidden; the role fixtures below are about roles, so their empty elements get a box.
     private const string EmptyBoxes = "[data-testid]:empty { min-width: 1px; min-height: 1px }";
+
+    [Fact]
+    public async Task Uses_the_first_recognized_role_token_and_falls_back_to_native_semantics()
+    {
+        using var site = await TinySite.StartAsync(Page($"""
+            <button role="unknown button" data-testid="fallback">Save</button>
+            <button role="unknown widget" data-testid="native">Submit</button>
+            <a href="/next" role="unknown button link" data-testid="first">Continue</a>
+            <div role="unknown img" aria-label="Chart" data-testid="image" style="width:10px;height:10px"></div>
+            <div role="unknown{Nbsp}button" aria-label="Not a role" data-testid="nbsp" style="width:10px;height:10px"></div>
+            <table role="unknown grid"><tr><td data-testid="grid-cell">Cell</td></tr></table>
+            """));
+        var nodes = ByTestId(await CaptureAsync(site.Url));
+        Assert.Equal(("button", "Save"), (nodes["fallback"].Role, nodes["fallback"].Name));
+        Assert.Equal(("button", "Submit"), (nodes["native"].Role, nodes["native"].Name));
+        Assert.Equal(("button", "Continue"), (nodes["first"].Role, nodes["first"].Name));
+        Assert.Equal(("image", "Chart"), (nodes["image"].Role, nodes["image"].Name));
+        Assert.Equal(("gridcell", "Cell"), (nodes["grid-cell"].Role, nodes["grid-cell"].Name));
+        Assert.Contains("nbsp", nodes.Keys);
+        Assert.Null(nodes["nbsp"].Role);
+
+        var session = await WebSemanticsTests.StartSessionAsync(site.Url);
+        await WebSemanticsTests.RunAsync(session, async () =>
+        {
+            await session.App.OpenAsync("/");
+            Assert.Equal(["Save", "Submit", "Continue"], await session.Screen.GetByRole("button").AllTextContentsAsync());
+            Assert.Equal(["Cell"], await session.Screen.GetByRole("gridcell").AllTextContentsAsync());
+        });
+    }
 
     [Theory]
     [InlineData("open")]

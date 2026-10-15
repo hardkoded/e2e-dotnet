@@ -154,11 +154,28 @@ internal static class PageScript
             }
             return false;
           };
+          // Concrete WAI-ARIA roles, excluding abstract roles that cannot label an element.
+          const ARIA_ROLES = [
+            "alert", "alertdialog", "application", "article", "banner", "blockquote", "button", "caption",
+            "cell", "checkbox", "code", "columnheader", "combobox", "complementary", "contentinfo", "definition",
+            "deletion", "dialog", "directory", "document", "emphasis", "feed", "figure", "form",
+            "generic", "grid", "gridcell", "group", "heading", "img", "insertion", "link",
+            "list", "listbox", "listitem", "log", "main", "mark", "marquee", "math",
+            "meter", "menu", "menubar", "menuitem", "menuitemcheckbox", "menuitemradio", "navigation", "none",
+            "note", "option", "paragraph", "presentation", "progressbar", "radio", "radiogroup", "region",
+            "row", "rowgroup", "rowheader", "scrollbar", "search", "searchbox", "separator", "slider",
+            "spinbutton", "status", "strong", "subscript", "superscript", "switch", "tab", "table",
+            "tablist", "tabpanel", "term", "textbox", "time", "timer", "toolbar", "tooltip",
+            "tree", "treegrid", "treeitem",
+          ];
+          // ARIA uses the first recognized token, then native semantics if none is recognized.
+          const explicitRole = (el) =>
+            (el.getAttribute("role") ?? "").split(/[ \t\n\f\r]+/).find((role) => ARIA_ROLES.indexOf(role) !== -1) ?? null;
           const roleOf = (el) => {
-            const explicit = (el.getAttribute("role") || "").trim();
-            if (explicit) {
-              const first = explicit.split(/\s+/)[0];
-              return first === "img" ? "image" : first;
+            const explicit = explicitRole(el);
+            if (explicit !== null) {
+              // The vocabulary spells ARIA's `img` as `image`.
+              return explicit === "img" ? "image" : explicit;
             }
             // Ahead of the tag: an editor's host is the control, whatever landmark or structure its tag would otherwise be.
             if (isEditingHost(el)) return "textbox";
@@ -192,7 +209,8 @@ internal static class PageScript
               case "THEAD": case "TBODY": case "TFOOT": return "rowgroup";
               case "TR": return "row";
               case "TD": {
-                const tableRole = (el.closest("table")?.getAttribute("role") || "").trim().split(/\s+/)[0];
+                const table = el.closest("table");
+                const tableRole = table === null ? null : explicitRole(table);
                 return tableRole === "grid" || tableRole === "treegrid" ? "gridcell" : "cell";
               }
               case "TH": {
