@@ -66,6 +66,11 @@ public sealed class Browser
 
     internal void NotifyVerified() => _verified();
 
+    /// <summary>Tells the attempt that an assertion failed on the app. Nothing outside a session listens.</summary>
+    internal Action Failed { get; set; } = static () => { };
+
+    internal void NotifyFailed() => Failed();
+
     /// <summary>
     /// Navigates to <paramref name="url"/>, resolved against the base URL like <c>App.OpenAsync</c>,
     /// and waits for <see cref="GotoOptions.WaitUntil"/> within <see cref="GotoOptions.Timeout"/>.

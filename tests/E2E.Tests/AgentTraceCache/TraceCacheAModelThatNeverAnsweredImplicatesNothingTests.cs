@@ -53,6 +53,29 @@ public sealed class TraceCacheAModelThatNeverAnsweredImplicatesNothingTests
         Assert.Equal(handedOff, TwoTapCounter.FileState(directory));
     }
 
+    [Fact]
+    public async Task Still_evicts_the_replayed_entry_when_a_later_assertion_fails_on_the_app()
+    {
+        var directory = TwoTapCounter.NewDirectory();
+        await RecordAsync(directory);
+
+        ActResult result;
+        AgentException error;
+        await using (var session = await TwoTapCounter.StartAsync(directory, TwoTapCounter.Model(), TwoTapCounter.UnreachableModel()))
+        {
+            await session.App.OpenAsync("/");
+            result = await session.Agent.ActAsync(TwoTapCounter.Instruction);
+            error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.AssertAsync("the counter shows 2"));
+            // The afterEach hook of the upstream test: the counter shows 2, so this fails on the app.
+            await Assert.ThrowsAsync<TestException>(() => Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("3", timeout: TimeSpan.FromMilliseconds(500)));
+            session.Complete(error);
+        }
+
+        Assert.Equal("self-finalized", result.Cache?.Mode);
+        Assert.Equal("MODEL_PROVIDER_FAILED", error.Code);
+        Assert.Empty(Directory.GetFiles(directory));
+    }
+
     private static async Task RecordAsync(string directory)
     {
         await using var session = await TwoTapCounter.StartAsync(directory, TwoTapCounter.Model());

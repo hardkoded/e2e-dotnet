@@ -167,6 +167,7 @@ public sealed class E2ESession : IAsyncDisposable
             var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures);
             softFailures.Redact = text => scope.Redactor.Redact(text);
             browser.Redact = text => scope.Redactor.Redact(text);
+            browser.Failed = scope.Implicate;
             var agent = new Agent(scope);
             var screen = new Screen(
                 token => engine.ObserveAsync(token),
@@ -179,6 +180,7 @@ public sealed class E2ESession : IAsyncDisposable
             screen.Exposure = scope.Exposure;
             screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });
             screen.Redact = text => scope.Redactor.Redact(text);
+            screen.Failed = scope.Implicate;
             screen.Screenshots = new ScreenshotContext
             {
                 ProjectRoot = projectRoot,
@@ -229,7 +231,7 @@ public sealed class E2ESession : IAsyncDisposable
     /// replayed. A passed or skipped attempt confirms only what a later check verified.
     /// An act that missed the cache and never passed leaves its key alone. An entry a
     /// verified replay finished, or one that already holds the same flow, is not
-    /// rewritten. A model outage leaves existing entries in place. A cancelled
+    /// rewritten. A model outage leaves existing entries in place, unless a failure on the app implicated them too. A cancelled
     /// <paramref name="cancellationToken"/> writes nothing.
     /// </summary>
     public void Complete(Exception? error = null, CancellationToken cancellationToken = default)
@@ -373,8 +375,9 @@ public sealed class E2ESession : IAsyncDisposable
             return;
         }
 
-        // A model outage says nothing about the recording, so it stays. Strict mode never reaches here: it writes nothing.
-        var preserve = AttemptScope.KeepsCache(error) || _scope.KeepCache;
+        // A model outage says nothing about the recording, so it stays, unless a failure on the app implicated it too.
+        // Strict mode never reaches here: it writes nothing.
+        var preserve = (AttemptScope.KeepsCache(error) || _scope.KeepCache) && !_scope.ImplicatesUnconfirmed;
         Flush(_scope.Cache, _scope.Acts, preserve);
     }
 

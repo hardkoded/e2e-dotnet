@@ -407,6 +407,11 @@ public sealed class LocatorExpect
             }).ConfigureAwait(false);
             _locator.Screen.NotifyVerified();
         }
+        catch (TestException)
+        {
+            _locator.Screen.NotifyFailed();
+            throw;
+        }
         catch (OperationCanceledException ex) when (token.IsCancellationRequested)
         {
             throw new TestException(EngineErrorCodes.Cancelled, "operation cancelled", ex);

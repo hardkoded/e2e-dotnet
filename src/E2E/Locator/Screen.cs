@@ -149,6 +149,11 @@ public sealed class Screen
     }
 
     internal void NotifyVerified() => _verified();
+
+    /// <summary>Tells the attempt that an assertion failed on the app. Nothing outside a session listens.</summary>
+    internal Action Failed { get; set; } = static () => { };
+
+    internal void NotifyFailed() => Failed();
 }
 
 /// <summary>A query that resolves against a fresh observation every time it is used.</summary>
