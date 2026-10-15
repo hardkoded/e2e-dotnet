@@ -111,15 +111,30 @@ internal sealed class CallbackServer : IDisposable
 
         if (query["error"] is { } error)
         {
-            _answer.TrySetResult((null, error));
-            Reply(context, 400, "Login failed", query["error_description"] ?? error);
+            // Reply first: the flow disposes this server as soon as it has the answer, which would cut the page.
+            try
+            {
+                Reply(context, 400, "Login failed", query["error_description"] ?? error);
+            }
+            finally
+            {
+                _answer.TrySetResult((null, error));
+            }
+
             return;
         }
 
         if (string.IsNullOrEmpty(query["code"]))
         {
-            _answer.TrySetResult((null, "invalid_callback"));
-            Reply(context, 400, "Login failed", "The redirect carried no authorization code.");
+            try
+            {
+                Reply(context, 400, "Login failed", "The redirect carried no authorization code.");
+            }
+            finally
+            {
+                _answer.TrySetResult((null, "invalid_callback"));
+            }
+
             return;
         }
 
