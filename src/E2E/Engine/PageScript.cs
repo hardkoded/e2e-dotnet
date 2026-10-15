@@ -31,7 +31,10 @@ internal static class PageScript
             elements.set(id, el);
             return id;
           };
-          const skip = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE"]);
+          // Named as upstream's SKIP_TAGS in read-semantics.ts, which also lists next-route-announcer: Next.js App
+          // Router's route announcer echoes the title on a hydration schedule of its own, which an observation must
+          // not read as an alert.
+          const skip = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "NEXT-ROUTE-ANNOUNCER"]);
           const leaves = new Set(["button", "link", "textbox", "checkbox", "radio", "searchbox", "heading", "status", "image", "tab",
             "option", "menuitem", "menuitemcheckbox", "menuitemradio", "switch", "slider", "spinbutton", "progressbar", "meter", "separator", "iframe"]);
           // Port only: upstream has no leaf set, since its walk lists every child. An
