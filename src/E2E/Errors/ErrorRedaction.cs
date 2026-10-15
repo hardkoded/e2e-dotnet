@@ -42,7 +42,7 @@ internal static class ErrorRedaction
     /// <summary>
     /// A failure with its message and the messages of its causes redacted. A cause that carries no secret stays the
     /// exception that was thrown; one that does is rebuilt with the redacted text, and keeps its type and code when
-    /// it is one of this library's.
+    /// it is an engine, agent, or configuration exception.
     /// </summary>
     public static TestException Failure(string code, string message, Exception? cause, Func<string, string> redact)
     {
@@ -69,6 +69,8 @@ internal static class ErrorRedaction
             EngineException engine => new EngineException(engine.Code, message, engine.Retryable, inner),
             AgentException agent when inner is null => new AgentException(agent.Code, message, agent.Blocked),
             AgentException agent => new AgentException(agent.Code, message, agent.Blocked, inner),
+            ConfigurationException config when inner is null => new ConfigurationException(config.Code, message),
+            ConfigurationException config => new ConfigurationException(config.Code, message, inner),
             E2EException e2e when inner is null => new TestException(e2e.Code, message),
             E2EException e2e => new TestException(e2e.Code, message, inner),
             _ when inner is null => new TestException("ERROR", message),
