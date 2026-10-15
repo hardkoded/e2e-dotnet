@@ -54,6 +54,7 @@ public sealed class E2eLoginLogoutTests : IDisposable
         var previous = Program.OpenUrl;
         var configHome = Directory.CreateTempSubdirectory("e2e-login-").FullName;
         var xdg = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
+        var credentials = Environment.GetEnvironmentVariable(CredentialStores.EnvironmentVariable);
         Environment.SetEnvironmentVariable("XDG_CONFIG_HOME", configHome);
         Environment.SetEnvironmentVariable(CredentialStores.EnvironmentVariable, "");
         Program.OpenUrl = _ => { };
@@ -68,11 +69,11 @@ public sealed class E2eLoginLogoutTests : IDisposable
             Program.OpenUrl = previous;
             OAuthProviders.Replacements.Clear();
             Environment.SetEnvironmentVariable("XDG_CONFIG_HOME", xdg);
-            Environment.SetEnvironmentVariable(CredentialStores.EnvironmentVariable, "{}");
+            Environment.SetEnvironmentVariable(CredentialStores.EnvironmentVariable, credentials);
             Directory.Delete(configHome, recursive: true);
         }
 
-        Assert.Contains(url, stdout.ToString().Split('\n'));
+        Assert.Contains(url, stdout.ToString().Split(Environment.NewLine));
         Assert.Contains("ABCD-1234", stdout.ToString(), StringComparison.Ordinal);
     }
 
