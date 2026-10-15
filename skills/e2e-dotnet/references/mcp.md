@@ -101,7 +101,11 @@ The loop is:
 2. `call {tool: "locate", args: {...}}` for each locator you intend to write.
    One match: use the printed `Screen.GetByRole(...)` call. Zero or several:
    adjust before writing the test; the same failure would hit the test as
-   `LOCATOR_NOT_FOUND` or `STRICT_MODE`.
+   `LOCATOR_NOT_FOUND` or `STRICT_MODE`. A role query's `name` matches
+   the accessible name only, while `observe` shows a `status`, `alert`, or
+   `listitem` by its text: `status "Saved."` on an unlabelled status is its
+   text, so match it with `Screen.GetByRole("status").Filter("Saved.")`
+   or `Screen.GetByText`.
 3. Write an `E2ETest` class (topic `writing-tests`). Deterministic steps where
    you saw exact names; `Agent.ActAsync` where the flow varies.
 4. Run it from the shell: `dotnet test --filter "FullyQualifiedName~<Class>"`,

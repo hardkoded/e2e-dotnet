@@ -110,12 +110,14 @@ internal sealed class SessionCatalog
         }
 
         var suffix = exact ? "" : ", exact: false";
+        var notFound = "Check the accessible name in the observation (observe)" + (exact ? ", or loosen the match with exact: false" : "") + ".";
         if (args.Role is { } role)
         {
             var name = args.Name is null ? "" : ", " + Quote(args.Name) + suffix;
             return new LocateQuery(
                 LocatorQuery.ForRole(role, args.Name, new RoleOptions { Exact = exact }),
-                "Screen.GetByRole(" + Quote(role) + name + ")");
+                "Screen.GetByRole(" + Quote(role) + name + ")",
+                args.Name is not null && ContentNamedRoles.Contains(role) ? ContentNameNotFound(role, args.Name, exact) : notFound);
         }
 
         if (args.Name is not null)
@@ -125,18 +127,33 @@ internal sealed class SessionCatalog
 
         if (args.TestId is { } testId)
         {
-            return new LocateQuery(LocatorQuery.For("testid", testId, new TextMatchOptions(), nameof(testId)), "Screen.GetByTestId(" + Quote(testId) + ")");
+            return new LocateQuery(LocatorQuery.For("testid", testId, new TextMatchOptions(), nameof(testId)), "Screen.GetByTestId(" + Quote(testId) + ")", notFound);
         }
 
         var options = new TextMatchOptions { Exact = exact };
         if (args.Text is { } text)
         {
-            return new LocateQuery(LocatorQuery.For("text", text, options, nameof(text)), "Screen.GetByText(" + Quote(text) + suffix + ")");
+            return new LocateQuery(LocatorQuery.For("text", text, options, nameof(text)), "Screen.GetByText(" + Quote(text) + suffix + ")", notFound);
         }
 
         return args.Label is { } label
-            ? new LocateQuery(LocatorQuery.For("label", label, options, nameof(label)), "Screen.GetByLabel(" + Quote(label) + suffix + ")")
-            : new LocateQuery(LocatorQuery.For("placeholder", args.Placeholder!, options, "placeholder"), "Screen.GetByPlaceholder(" + Quote(args.Placeholder!) + suffix + ")");
+            ? new LocateQuery(LocatorQuery.For("label", label, options, nameof(label)), "Screen.GetByLabel(" + Quote(label) + suffix + ")", notFound)
+            : new LocateQuery(LocatorQuery.For("placeholder", args.Placeholder!, options, "placeholder"), "Screen.GetByPlaceholder(" + Quote(args.Placeholder!) + suffix + ")", notFound);
+    }
+
+    /// <summary>
+    /// Roles <c>observe</c> names from their text even though the platform gives them no accessible name, so a message
+    /// or list row reads as one line. A name read off such a node is text no role query matches.
+    /// </summary>
+    private static readonly HashSet<string> ContentNamedRoles = new(["status", "alert", "listitem"], StringComparer.Ordinal);
+
+    /// <summary>The zero-match advice for a content-named role: match the text instead of retrying it as a name.</summary>
+    private static string ContentNameNotFound(string role, string name, bool exact)
+    {
+        var quoted = Quote(name);
+        return "A role query matches the accessible name only, and observe shows a " + role + " by its text in its place. If " + quoted
+            + " is that text, use Screen.GetByRole(" + Quote(role) + ").Filter(" + quoted + ") or Screen.GetByText(" + quoted + ")."
+            + (exact ? " Otherwise loosen the match with exact: false." : "");
     }
 
     /// <summary>Renders a locate result: the count, the verdict a test would get, and the nodes, each through the attempt's redactor.</summary>
@@ -155,7 +172,7 @@ internal sealed class SessionCatalog
         }
         else if (count == 0)
         {
-            lines.Add("A test using this locator would fail with NOT_FOUND. Check the accessible name in the observation (observe), or loosen the match with exact: false.");
+            lines.Add("A test using this locator would fail with NOT_FOUND. " + redactor.Redact(query.NotFound));
         }
         else
         {
@@ -452,5 +469,5 @@ internal sealed class LocateArgs
     public bool? Exact { get; init; }
 }
 
-/// <summary>A locator and the <c>Screen</c> call that builds it.</summary>
-internal sealed record LocateQuery(LocatorQuery Query, string Code);
+/// <summary>A locator, the <c>Screen</c> call that builds it, and what to try when nothing matches.</summary>
+internal sealed record LocateQuery(LocatorQuery Query, string Code, string NotFound);
