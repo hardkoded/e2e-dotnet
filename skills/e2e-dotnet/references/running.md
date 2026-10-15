@@ -13,6 +13,7 @@ e2e guide [topic]                                    # print this skill; topics:
                                                      # writing-tests-nunit, writing-tests-xunit
 e2e login|logout|models [provider]                   # subscription logins: openai,
                                                      # github-copilot, opencode-console, spacexai
+e2e install [chromium ...] [--with-deps]             # download browsers (topic setup)
 e2e mcp                                              # MCP server for a coding agent (topic mcp)
 ```
 
@@ -99,7 +100,7 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - run: dotnet build -c Release
-      - run: pwsh MyApp.E2E/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+      - run: pwsh MyApp.E2E/bin/Release/net10.0/playwright.ps1 install --with-deps chromium  # or: e2e install --with-deps chromium
       - run: dotnet test -c Release --no-build --logger "trx;LogFileName=e2e.trx"
         env:
           E2E_SKIP_BROWSER_INSTALL: '1'

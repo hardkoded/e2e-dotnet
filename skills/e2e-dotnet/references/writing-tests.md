@@ -91,6 +91,17 @@ Members of `E2ETest` in both frameworks:
   `display: contents` element is visible when something under it is. An
   `aria-hidden` node that paints is visible, as upstream, but role queries skip
   it. Unlike upstream, a box with no size reads as visible.
+- On the web a `contenteditable` editing host, the root a TipTap, ProseMirror,
+  Lexical, or Slate editor renders into, is a `textbox` for the agent and the
+  locators. Its value is its text as rendered, spaces and newlines kept, so
+  `ToHaveValueAsync` and `InputValueAsync` read it and `FillAsync` fills it;
+  an empty editor reads `""`. It is named by its `aria-label`,
+  `aria-placeholder`, or the `data-placeholder` its editor paints, and the
+  blocks inside it are content, not textboxes. A native control or a drawn
+  surface made editable keeps its own role. `GetByRole("textbox", name)` finds
+  a bare host; upstream's finds it only with `role="textbox"`. Anchor a test
+  on a label or a test id, since a name taken from a block's
+  `data-placeholder` goes once the editor has content.
 - `GetByDisplayValue` never matches a checkbox or radio. An accessible name
   includes an embedded control's value (`<button>Flash the screen
   <input value="3"> times</button>` is "Flash the screen 3 times") and leaves
@@ -118,6 +129,11 @@ for a value to change; use a matcher when a value has to settle.
 element). `InputValueAsync` on a checkbox or
 radio reads its value attribute, `on` when it has none, whatever its checked
 state; `IsCheckedAsync` reads the state.
+
+`TextContentAsync` is `null` for a node with no text and never falls back to
+the node's name: an image reads `null`, not its alt text. `InputValueAsync`
+returns a `string`, `""` for a node with no value (a heading, a cleared
+field), never `null`. A caller that tested it for null tests for `""` now.
 
 Text reads (`ToHaveTextAsync`, `ToContainTextAsync`, `TextContentAsync`, and
 `AllTextContentsAsync`) read the node's rendered text, whitespace
@@ -155,7 +171,10 @@ matcher.
 - `Expect.Soft(locator)` records a failure and lets the test go on; the
   test fails at its end with every failure listed.
 - `Expect.Poll(read)` retries any value: `ToBeAsync`, `ToSatisfyAsync`, and,
-  in `E2E.NUnit`, `ToMatchAsync` with any NUnit constraint.
+  in `E2E.NUnit`, `ToMatchAsync` with any NUnit constraint. A read that
+  throws, or a matcher that refuses the value's type (`Is.GreaterThan` on a
+  string), is one failing sample, not the end of the poll. At the deadline
+  the last one is reported.
 - For plain values, use the framework's asserts (`Assert.That`).
 
 ## Sign-in
@@ -175,6 +194,23 @@ await Screen.GetByRole("button", "Sign in").ClickAsync();
 A password field's value never reaches the model, and a text, value, or
 attribute expectation on it fails with `POLICY_DENIED`: assert the outcome,
 not the value.
+
+A secret from `Secrets.Get(name)` is a generic one: the agent fills it into
+any editable field, a rich-text editor included. A `Credentials.User` password
+is a password secret and needs a password field. Redaction replaces a secret
+with `<secret:name>` in these places:
+
+- A failed matcher quotes the text it read from the page. A secret the page
+  echoed, even upper-cased by CSS or folded onto one line, shows as its
+  marker. The attempt knows every secret a `FillAsync` filled, so this holds
+  for a secret that never went through `ActAsync`.
+- A name or text the engine cuts at its limit (256 and 512 characters) can end
+  with the start of a secret. When the cut part is the first 8 or more
+  characters of a secret (half of one shorter than 16), it shows the marker.
+- `new WebBasicAuth(username, secret)` in `WebEngineOptions.BasicAuth`: the
+  attempt redacts the password and the `Authorization` credential the
+  browser sends with it. This is text only. Screenshots stay on, and the agent
+  cannot fill the value by name. A plain string password is not redacted.
 
 ## The browser fixture
 
