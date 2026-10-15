@@ -317,7 +317,7 @@ public sealed class LifecycleTests
         await session.RestartAsync(CancellationToken.None);
         JsonAssert.Args("""{"app":"com.example.app","platform":"ios","relaunch":true}""", h.Fake.LastArgs("apps.open"));
         await session.ClearStateAsync(CancellationToken.None);
-        JsonAssert.Args("""{"setting":"clear-app-state","state":"clear","app":"com.example.app"}""", h.Fake.LastArgs("settings.update"));
+        JsonAssert.Args("""{"platform":"ios","setting":"clear-app-state","state":"clear","app":"com.example.app"}""", h.Fake.LastArgs("settings.update"));
         Assert.Single(Methods(h, "apps.install"));
 
         // A build named by path that is the engine's own counts the same. Another path pins nothing.
