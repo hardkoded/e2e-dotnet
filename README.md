@@ -233,4 +233,4 @@ Most unit tests use `DocumentEngine` and a scripted model. No test needs an API 
 | `@e2e-dev/limrun` | `E2E.Mobile` (`LimrunSimulators`) |
 | `e2e login`, `e2e logout`, `e2e models`, `e2e guide`, `e2e mcp`, `e2e-web install` (as `e2e install`) | `E2E.Cli` (the `e2e` .NET tool) |
 
-`@e2e-dev/mobile` is ported in part (the snapshot model, the engine, and the EAS and Limrun providers) as `E2E.Mobile`, which is not on NuGet yet. `@e2e-dev/github` and `@e2e-dev/kernel` are not ported. Details are in [COMPATIBILITY.md](COMPATIBILITY.md).
+`@e2e-dev/mobile` is ported in part (the snapshot model, the engine, and the EAS and Limrun providers) as `E2E.Mobile`. `@e2e-dev/github` and `@e2e-dev/kernel` are not ported. Details are in [COMPATIBILITY.md](COMPATIBILITY.md).
