@@ -2350,7 +2350,7 @@ internal sealed class AttemptScope
     public bool KeepCache { get; private set; }
 
     /// <summary>
-    /// A failure on the app landed in this attempt, such as a failed assertion. A model outage that came before it no
+    /// A failure on the app landed in this attempt, such as a failed assertion. A model outage in the same attempt no
     /// longer spares the entries nothing confirmed.
     /// </summary>
     public bool ImplicatesUnconfirmed { get; private set; }

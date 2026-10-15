@@ -407,7 +407,7 @@ public sealed class LocatorExpect
             }).ConfigureAwait(false);
             _locator.Screen.NotifyVerified();
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (TestException)
         {
             _locator.Screen.NotifyFailed();
             throw;

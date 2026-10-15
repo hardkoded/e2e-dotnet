@@ -133,7 +133,7 @@ public sealed class BrowserExpect
             }).ConfigureAwait(false);
             _browser.NotifyVerified();
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (TestException)
         {
             _browser.NotifyFailed();
             throw;
