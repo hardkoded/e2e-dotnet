@@ -38,6 +38,10 @@ Or declare it in the client's project config (`.mcp.json` for Claude Code,
 In a clone of the e2e-dotnet repo, run it as
 `dotnet run --project src/E2E.Cli -- mcp`.
 
+Sessions run on the project's config (`e2e.config.json`): in a project
+without one, `open_session` fails with `CONFIG_NOT_FOUND`, so set it up
+first (topic `setup`).
+
 Flags: `--config <path>` names the default config file, `--target <name>`
 fixes the target every session opens on, `--headed` shows the browser in
 sessions that do not set `headed` (sessions are headless by default),
@@ -49,7 +53,10 @@ stderr.
 
 ## Tools
 
-Four tools; everything a session can do is a catalog behind `call`.
+Four tools, all on the server registered as `e2e`; everything a session can
+do is a catalog behind `call`. Clients show them with the server name, such
+as `mcp__e2e__open_session` in Claude Code; when another MCP server offers a
+tool with the same name, use the `e2e` server's.
 
 | Tool | Does |
 | --- | --- |

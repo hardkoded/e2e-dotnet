@@ -1,6 +1,6 @@
 ---
 name: e2e-dotnet
-description: Write, run, and debug agentic end-to-end tests with the .NET port of e2e (NuGet packages E2E, E2E.NUnit, E2E.XUnit.V3, E2E.Cli). Use when adding an E2E test, setting up e2e.config.json or a model provider, or fixing a failing agent step, locator expectation, or replay-cache miss.
+description: Writes, runs, and debugs end-to-end tests for web apps with the .NET port of e2e (NuGet packages E2E, E2E.NUnit, E2E.XUnit.V3, E2E.Cli), which mixes Agent.ActAsync goals with exact locator assertions in Chromium. Also drives a project's running app live over the e2e MCP server to look at a screen, check a UI change, take a screenshot, and try a locator. Use when adding an E2E test, setting up e2e.config.json or a model provider, checking a change in the running app, or fixing a failing agent step, locator expectation, or replay-cache miss.
 ---
 
 # e2e for .NET
@@ -10,8 +10,34 @@ a model; `Agent.AssertAsync`, `Agent.WaitForAsync`, and `Agent.ExtractAsync`
 judge the screen. `Screen`, `App`, `Browser`, and `Expect` make exact
 interactions and checks without a model. A verified agent step is recorded
 and replayed on the next run with no model call; judgments still run live.
-Model sign-in commands are in
-[setup](references/setup.md#subscriptions-and-api-keys).
+
+## Start here: pick the reference for the job
+
+Read the one reference that matches the request before doing anything else.
+Each stands on its own; a reference names another topic only for a side
+trip. The installed tool prints the same text with `e2e guide <topic>`
+(`e2e guide` alone prints this page), and `e2e mcp` serves it as
+`e2e://guide/<topic>`. Differences from the TypeScript
+[tester-army/e2e](https://github.com/tester-army/e2e) are listed in
+`COMPATIBILITY.md` in the e2e-dotnet repo.
+
+| When you are | Topic | Read |
+| --- | --- | --- |
+| Adding e2e to a project, writing `e2e.config.json`, signing in to a model, picking a model provider, browser options | `setup` | [references/setup.md](references/setup.md) |
+| Looking at the running app, checking a UI change, taking a screenshot, or trying a locator before writing it, over `e2e mcp` | `mcp` | [references/mcp.md](references/mcp.md) |
+| Writing or fixing a test: fixture members, locators, actions, matchers, sign-in, the `Browser` member | `writing-tests` | [references/writing-tests.md](references/writing-tests.md) |
+| Writing a test with NUnit: the `E2E.NUnit` base class, `[Test]`, `[Category("RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-nunit` | [references/writing-tests-nunit.md](references/writing-tests-nunit.md) |
+| Writing a test with xUnit v3: the `E2E.XUnit.V3` base class, `[Fact]`, `[Trait("TestCategory", "RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-xunit` | [references/writing-tests-xunit.md](references/writing-tests-xunit.md) |
+| Adding `Agent` steps, picking a model, budgets, the replay cache | `agent` | [references/agent.md](references/agent.md) |
+| Running tests: `dotnet test` filters, the `e2e` tool, exit codes, CI | `running` | [references/running.md](references/running.md) |
+| Handling a failed run: error codes and their fixes, a visible browser, replay misses | `debugging` | [references/debugging.md](references/debugging.md) |
+| Exploring an app toward a goal without a test file (not ported) | `explore` | [references/explore.md](references/explore.md) |
+| Asked to bug bash or hunt for bugs: proving each bug with a repro test | `bug-bash` | [references/bug-bash.md](references/bug-bash.md) |
+
+## Quick start
+
+A config with one web target and a model, and a test that drives one goal
+and pins the outcome:
 
 ```json
 {
@@ -36,38 +62,17 @@ public sealed class BillingTests : E2ETest
 }
 ```
 
-## Topics
-
-Read the topic for the job before writing code. The files sit next to this
-one; the installed tool prints the same text with `e2e guide <topic>`
-(`e2e guide` alone prints this page), and `e2e mcp` serves it as
-`e2e://guide/<topic>`. Differences from the TypeScript
-[tester-army/e2e](https://github.com/tester-army/e2e) are listed in
-`COMPATIBILITY.md` in the e2e-dotnet repo.
-
-| Topic | File | Read it when |
-| --- | --- | --- |
-| `setup` | [references/setup.md](references/setup.md) | Adding e2e to a project, writing `e2e.config.json`, picking a model provider, browser options |
-| `writing-tests` | [references/writing-tests.md](references/writing-tests.md) | Writing or fixing tests: fixture members, locators, actions, matchers, sign-in, the `Browser` member |
-| `writing-tests-nunit` | [references/writing-tests-nunit.md](references/writing-tests-nunit.md) | NUnit: the `E2E.NUnit` base class, `[Test]`, `[Category("RealModel")]`, `dotnet test --filter`, a complete test |
-| `writing-tests-xunit` | [references/writing-tests-xunit.md](references/writing-tests-xunit.md) | xUnit v3: the `E2E.XUnit.V3` base class, `[Fact]`, `[Trait("TestCategory", "RealModel")]`, `dotnet test --filter`, a complete test |
-| `agent` | [references/agent.md](references/agent.md) | Adding `Agent` steps, picking a model, budgets, the replay cache |
-| `running` | [references/running.md](references/running.md) | `dotnet test` filters, the `e2e` tool, exit codes, CI |
-| `explore` | [references/explore.md](references/explore.md) | Exploring an app toward a goal without a test file (not ported) |
-| `debugging` | [references/debugging.md](references/debugging.md) | A run failed: error codes and their fixes, a visible browser, replay misses |
-| `mcp` | [references/mcp.md](references/mcp.md) | Driving the live app from a coding agent over MCP: `e2e mcp`, its tools, and the explore-then-write loop |
-| `bug-bash` | [references/bug-bash.md](references/bug-bash.md) | Asked to bug bash or hunt for bugs: proving each bug with a repro test |
-
-## Workflow
+## Workflow: writing a test
 
 1. Look at what exists: `e2e.config.json`, a test project that references
    `E2E.NUnit` or `E2E.XUnit.V3`. Nothing there: follow `setup`.
 2. Learn the screens before writing a test: routes, labels, roles, button
    text. Semantic locators need the accessible names the app renders, so read
    the components or watch a run with `E2E_HEADLESS=0`.
-3. Write an `E2ETest` class. Drive the flow with `Agent.ActAsync`, one goal
-   per call, and pin each outcome right after with `Expect.That` or
-   `Agent.AssertAsync`. Exact values go through `Screen`.
+3. Write an `E2ETest` class. Drive the flow with `Agent.ActAsync`, one
+   atomic goal per call, and pin each outcome right after with `Expect.That`
+   or `Agent.AssertAsync`. A test with three goals makes three calls. Exact
+   values go through `Screen`.
 4. Run one class: `dotnet test --filter "FullyQualifiedName~<Class>"`. Agent
    steps need a model in the config and that provider's authentication.
    Tests without agent steps need no model.
@@ -85,7 +90,11 @@ one; the installed tool prints the same text with `e2e guide <topic>`
   `Credentials.User(name)`. Hand the `Secret` only to `FillAsync` or
   `ActOptions.Params`.
 - Agent instructions: one goal per act, the wording on screen, real values
-  in `Params`. Judge meaning, not phrasing.
+  in `Params`. A goal is atomic: one outcome that one check confirms. Two
+  outcomes worth checking are two goals, so split them into two `ActAsync`
+  calls (topic `agent`). Bad: `"add a todo and mark it done"`. Good: `"add a
+  todo"`, check, then `"mark the todo as done"`, check. Judge meaning, not
+  phrasing.
 - Check each act's outcome. Only a verified act is recorded and replayed
   (topic `agent`).
 - Shape the agent for this app: `context` for the vocabulary the screens
