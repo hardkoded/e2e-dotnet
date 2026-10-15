@@ -181,12 +181,8 @@ public sealed class SettleObservationTests
             var due = TimeSpan.Zero;
             while (!pending.IsCompleted && !time.Due.TryDequeue(out due))
             {
-                if (giveUp.Elapsed > TimeSpan.FromSeconds(30))
-                {
-                    throw new TimeoutException("The settle neither returned nor started a timer within 30 seconds.");
-                }
-
                 await Task.Delay(1);
+                ThrowWhenTooLong(giveUp);
             }
 
             if (pending.IsCompleted)
@@ -194,7 +190,16 @@ public sealed class SettleObservationTests
                 return await pending;
             }
 
+            ThrowWhenTooLong(giveUp);
             time.Advance(due);
+        }
+    }
+
+    private static void ThrowWhenTooLong(Stopwatch giveUp)
+    {
+        if (giveUp.Elapsed > TimeSpan.FromSeconds(30))
+        {
+            throw new TimeoutException("The settle did not return within 30 seconds.");
         }
     }
 
