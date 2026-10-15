@@ -147,9 +147,15 @@ The page reduces it first to origin and path, with `?…` for a dropped query,
 `#…` for a fragment, and `data:…` or `javascript:…` for an inline payload,
 so a token in a link never reaches the model. A target over 256 characters
 is redacted, then cut and ends with `…`. `GetAttributeAsync("href")` still
-reads the whole value. The snapshot does not show the text selected in the
-focused field. Nothing the model returns runs as code or selectors: the runner
+reads the whole value. Nothing the model returns runs as code or selectors: the runner
 validates every tool call first.
+
+The text selected inside the focused field is listed as `selection="..."`
+after its value, when the engine reports one (the web engine does for an
+input, a textarea, and a `contenteditable` editor). A secure field has
+none, and neither does a field whose value or text holds a registered
+secret, so selected characters of a secret never reach the model. A
+`press` of `Shift+ArrowLeft` shows what it selected.
 
 ## Budgets and cost
 
