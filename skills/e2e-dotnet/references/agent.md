@@ -78,6 +78,9 @@ The tools the model can call: `observe`, `tap`, `double_tap`, `fill`,
 `back` with one that has history. There is no `hover`, `drag`, `upload`,
 `long_press`, `right_click`, `screenshot`, or point tool: a step that needs
 one is `AUTOMATION_UNSUPPORTED`. Do that part with `Screen` actions instead.
+A project tool adds its own name to this list (see "Project tools").
+`fill_secret` fills any editable field, a rich-text editor included, with a
+generic secret; a password secret needs a password field.
 
 ## AssertAsync, WaitForAsync, ExtractAsync: one question
 
@@ -137,7 +140,15 @@ Off-screen state (a database row) can land after `ActAsync` returns; use
 A redacted text snapshot of the screen (roles, names, text, states), and
 your `context`. Never raw HTML, cookies, headers, environment values, or a
 `Secret`'s value; password fields are masked. Each model turn gets the whole
-screen. Nothing the model returns runs as code or selectors: the runner
+screen. A line lists a node's `testid`, a link's `href`, and the
+`placeholder` of a field with no name, so the model can tell twins apart. An
+`href` on the app's origin shows as its path, any other as the whole URL.
+The page reduces it first to origin and path, with `?…` for a dropped query,
+`#…` for a fragment, and `data:…` or `javascript:…` for an inline payload,
+so a token in a link never reaches the model. A target over 256 characters
+is redacted, then cut and ends with `…`. `GetAttributeAsync("href")` still
+reads the whole value. The snapshot does not show the text selected in the
+focused field. Nothing the model returns runs as code or selectors: the runner
 validates every tool call first.
 
 ## Budgets and cost
@@ -153,6 +164,13 @@ Slow model calls: raise `Timeout` on the call or the fixture's
 `StepTimeout` for acts, `judgmentTimeout` for judgments, and `actionTimeout`
 for slow UI. `STEP_TIMEOUT` and `STEP_BUDGET_EXHAUSTED` fail the test;
 smaller goals help.
+
+A model request the provider refuses as too large ends a judgment with
+`CONTEXT_OVERFLOW`. `ActAsync` shrinks its history once first: it drops every
+superseded screen, cuts any text past 16,384 characters to its head with a
+notice, and sends the request again. The refused request spends no model
+call. A second refusal, or a first one with nothing to shrink, is
+`CONTEXT_OVERFLOW`.
 
 ## The replay cache
 
@@ -178,7 +196,8 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   a date, a time, an id, is not checked. Entries are keyed per agent and
   per agent `context`. `ActResult.Cache.Reason` says why a replay missed:
   `no-entry`, `invalid-entry`, `wrong-context`, `target-not-found`,
-  `target-ambiguous`, `end-mismatch`.
+  `target-ambiguous`, `end-mismatch`, `gap` (the recording stops at a
+  project tool, see below).
 - A step recording no actions, or changing nothing on screen or in the
   route, creates no entry. The screen it passed on is read once it holds
   still, so a late render still counts. One whose `Values.Unique` value
@@ -200,12 +219,81 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
 3. **`system`.** How carefully the agent verifies and what it never does.
    A careful QA persona and a fast smoke agent are two `system` prompts on
    one model.
-4. **The model and its options.** `providerOptions` for reasoning effort
+4. **Tools.** A test API the agent may call mid-flow (seed a cart, mint a
+   coupon), as a project tool (below).
+5. **The model and its options.** `providerOptions` for reasoning effort
    (wire names, such as `reasoning_effort`), or another model for one
    agent.
 
-Not ported: project `tools`, a custom `executor`, decision models,
-`maxObservationBytes`, `maxInputTokens`, `--debug`, and `--ai-trace`.
+## Project tools
+
+A project tool is a function the model can call during a goal, such as a
+request to your test API or a data setup step. Build an `AgentTool` and give
+it to the default agent in a fixture, keyed by the name the model calls it
+by:
+
+```csharp
+using System.Text.Json.Nodes;
+using E2E;
+using E2E.NUnit;
+
+public sealed class CheckoutTests : E2ETest
+{
+    private static readonly HttpClient Http = new();
+
+    protected override IReadOnlyDictionary<string, AgentTool>? AgentTools { get; } =
+        new Dictionary<string, AgentTool>
+        {
+            ["seed_cart"] = new AgentTool(
+                description: "Seed the cart with a SKU via the store test API",
+                inputSchema: JsonNode.Parse("""
+                    { "type": "object", "properties": { "sku": { "type": "string" } }, "required": ["sku"] }
+                    """)!.AsObject(),
+                mutates: true,
+                executeAsync: async (input, token) =>
+                    await Http.GetStringAsync($"http://localhost:3000/api/test/cart?sku={Uri.EscapeDataString((string)input["sku"]!)}", token)),
+        };
+
+    [Test]
+    public async Task Member_checks_out()
+    {
+        await Agent.ActAsync("seed the cart with SKU {sku}, then check out", new ActOptions
+        {
+            Params = new Dictionary<string, object?> { ["sku"] = "SHIRT-BLUE-M" },
+        });
+        await Expect.That(Screen.GetByText("Order confirmed")).ToBeVisibleAsync();
+    }
+}
+```
+
+Outside a fixture, `AgentOptions.Tools` and `E2ESession.AgentTools` take the
+same dictionary. A config file cannot declare one, since a tool is code.
+
+- `mutates: true` marks a tool that changes state. The call takes a slot of
+  the step's action budget, and the replay cache cannot replay it: the
+  recording stops at the tool (`ActResult.Cache.Reason` `gap`), a replay runs
+  the actions before it, and the agent runs the rest live. Under `cache.strict`
+  that is not `REPLAY_STALE`: a recording that stops at a project tool is a
+  step the cache cannot finish. The recording keeps the tool's name, never its
+  arguments.
+- `platforms: ["ios", "android"]` offers the tool only on those platforms.
+  Leave it out to offer the tool everywhere.
+- The tool's output is redacted and cut at 16384 characters.
+- A name the agent already uses (`observe`, `done`, `navigate`, `back`,
+  `scroll`, `scroll_to`, or an action verb) is `INVALID_CONFIG`.
+- Not ported from upstream: building a tool from an AI SDK tool
+  (`defineTool`, `toModelOutput`), and `getToolContext`, so a tool cannot
+  observe the screen.
+
+On a device, `MobileTools.Create(engine)` from `E2E.Mobile` builds the tool pack
+upstream calls `mobileTools`: `open_app`, `swipe`, and `alert`, offered only on
+the platforms of the engines you pass. Return it from `AgentTools` beside your
+own tools. A step that stays within the grammar verbs replays with no model
+call, so prefer the target's `App.BundleId` over `open_app` when every test
+starts in the same app. `samples/MobileApp.E2ETests` shows it in use.
+
+Not ported: a custom `executor`, decision models, `maxObservationBytes`,
+`maxInputTokens`, `--debug`, and `--ai-trace`.
 
 ## In CI
 
