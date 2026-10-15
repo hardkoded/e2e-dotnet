@@ -215,7 +215,14 @@ with `<secret:name>` in these places:
 - A failed matcher quotes the text it read from the page. A secret the page
   echoed, even upper-cased by CSS or folded onto one line, shows as its
   marker. The attempt knows every secret a `FillAsync` filled, so this holds
-  for a secret that never went through `ActAsync`.
+  for a secret that never went through `ActAsync`. The same holds for the
+  messages of `Expect.That(Browser)`, a `ToHaveScreenshotAsync` failure, a
+  `WaitForAsync` timeout, and the messages of the exceptions under any of
+  them (`InnerException`).
+- The aggregate of soft failures redacts its text when the test ends, so a
+  secret the attempt learned after a failure was kept is covered.
+- An `Expect.Poll` failure redacts the secrets of every live session in the
+  process, since a poll has no session of its own.
 - A name or text the engine cuts at its limit (256 and 512 characters) can end
   with the start of a secret. When the cut part is the first 8 or more
   characters of a secret (half of one shorter than 16), it shows the marker.

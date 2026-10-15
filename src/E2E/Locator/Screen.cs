@@ -449,9 +449,11 @@ public sealed class Locator
 
             if (DateTime.UtcNow >= deadline)
             {
-                throw new TestException(
+                throw ErrorRedaction.Failure(
                     "TIMEOUT",
-                    Query.Describe() + ".waitFor(" + StateName(state) + ") timed out: matched " + matches.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " nodes.");
+                    Query.Describe() + ".waitFor(" + StateName(state) + ") timed out: matched " + matches.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " nodes.",
+                    null,
+                    _screen.Redact);
             }
 
             await Task.Delay(_screen.PollInterval, token).ConfigureAwait(false);

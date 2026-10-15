@@ -420,8 +420,7 @@ public sealed class LocatorExpect
         var code = verdict.StrictCount > 1 ? "STRICT_MODE" : "ASSERTION_FAILED";
         var message = "expect(" + _locator.Query.Describe() + ")." + name + " failed: expected " + (_negated ? "not " : "") + describeExpected
             + "; observed " + verdict.Observed + " (match count " + Number(matches.Count) + ")";
-        message = _locator.Screen.Redact(message);
-        return cause is null ? new TestException(code, message) : new TestException(code, message, cause);
+        return ErrorRedaction.Failure(code, message, cause, _locator.Screen.Redact);
     }
 
     private static bool MatchesPositionally(IReadOnlyList<SemanticNode> nodes, List<TextMatch> patterns, Func<SemanticNode, TextMatch, bool> satisfies)

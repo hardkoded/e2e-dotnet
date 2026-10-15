@@ -18,11 +18,13 @@ public sealed class E2ESession : IAsyncDisposable
     private readonly AttemptScope _scope;
     private readonly CancellationTokenSource _timeout;
     private readonly IEngineSession _engine;
+    private readonly IDisposable _errorRedaction;
     private int _state;
     private int _disposed;
 
-    private E2ESession(AttemptScope scope, CancellationTokenSource timeout, IEngineSession engine, App app, Browser browser, Agent agent, Screen screen, TestContext context)
+    private E2ESession(AttemptScope scope, CancellationTokenSource timeout, IEngineSession engine, App app, Browser browser, Agent agent, Screen screen, TestContext context, IDisposable errorRedaction)
     {
+        _errorRedaction = errorRedaction;
         _scope = scope;
         _timeout = timeout;
         _engine = engine;
@@ -163,6 +165,7 @@ public sealed class E2ESession : IAsyncDisposable
 
             var app = new App(engine, baseUrl, () => timeout.Token);
             var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures);
+            softFailures.Redact = text => scope.Redactor.Redact(text);
             browser.Redact = text => scope.Redactor.Redact(text);
             var agent = new Agent(scope);
             var screen = new Screen(
@@ -200,7 +203,7 @@ public sealed class E2ESession : IAsyncDisposable
                 Screen = screen,
                 CancellationToken = timeout.Token,
             };
-            return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context);
+            return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact));
         }
         catch
         {
@@ -312,6 +315,7 @@ public sealed class E2ESession : IAsyncDisposable
         }
         finally
         {
+            _errorRedaction.Dispose();
             _timeout.Dispose();
         }
     }
