@@ -123,7 +123,7 @@ internal sealed class ActionDispatcher : IExecutorActions
     public async Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? target, CancellationToken token)
     {
         var list = target is null ? null : Record(target.Node, "scrollUntil");
-        await ScrollUntilAsync(text, direction, list, token).ConfigureAwait(false);
+        await PageUntilAsync(text, direction, list, token).ConfigureAwait(false);
         Commit(new RecordedAction
         {
             Kind = "scrollUntil",
@@ -192,7 +192,7 @@ internal sealed class ActionDispatcher : IExecutorActions
     /// list that does not move hands the paging to the viewport. The list is re-found before
     /// every page.
     /// </summary>
-    internal async Task ScrollUntilAsync(string text, ScrollDirection direction, RecordedAction? list, CancellationToken token)
+    internal async Task PageUntilAsync(string text, ScrollDirection direction, RecordedAction? list, CancellationToken token)
     {
         string? previous = null;
         var still = 0;

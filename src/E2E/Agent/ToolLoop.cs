@@ -55,7 +55,7 @@ internal sealed class ToolLoopExecutorOptions
     public required IReadOnlyList<ModelTool> OfferedProject { get; init; }
 
     /// <summary>The caller's token, apart from the step's linked one: a model call told them apart to say a timeout from a cancel.</summary>
-    public CancellationToken CancellationToken { get; init; }
+    public required CancellationToken CancellationToken { get; init; }
 }
 
 internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepExecutor
@@ -154,7 +154,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             {
                 var outcome = stopped && !string.Equals(toolCall.Name, "done", StringComparison.Ordinal)
                     ? ToolOutcome.Fail("The loop guard stopped the step. Only done is available.")
-                    : await tools.ExecuteAsync(toolCall, context.Step.Params, context.Actions, budget, options.ProjectTools, token).ConfigureAwait(false);
+                    : await tools.ExecuteAsync(toolCall, context.Actions, budget, options.ProjectTools, token).ConfigureAwait(false);
                 messages.Add(new ModelMessage
                 {
                     Role = "tool",
@@ -215,7 +215,6 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
 
     public async Task<ToolOutcome> ExecuteAsync(
         ModelToolCall call,
-        IReadOnlyDictionary<string, object?>? parameters,
         IExecutorActions actions,
         StepAccounting budget,
         IReadOnlyDictionary<string, AgentTool>? projectTools,

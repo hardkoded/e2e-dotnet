@@ -104,7 +104,7 @@ public sealed partial class Agent
             new StepExecutorContext
             {
                 Step = new ExecutorStep { Kind = ExecutorStepKind.Act, Instruction = instruction, Params = options?.Params },
-                ReplayedPrefix = handoff ? new ReplayedPrefix(actions, ReplayHandOffReasons.Parse(info?.Reason)) : null,
+                ReplayedPrefix = handoff ? new ReplayedPrefix(actions.ToList(), ReplayHandOffReasons.Parse(info?.Reason)) : null,
                 Start = new ExecutorObservation(SnapshotText.Render(start, _scope.Redactor, _scope.AppOrigin)),
                 Actions = dispatcher,
                 Budgets = budget,
@@ -343,7 +343,7 @@ public sealed partial class Agent
                         }
 
                         var text = CacheKeys.Detemplate(action.Text ?? "", parameters);
-                        await dispatcher.ScrollUntilAsync(text, Direction(action.Direction), HasTarget(action) ? action : null, token).ConfigureAwait(false);
+                        await dispatcher.PageUntilAsync(text, Direction(action.Direction), HasTarget(action) ? action : null, token).ConfigureAwait(false);
                         break;
                     default:
                         var found = await WaitForTargetAsync(action, Look(), screens, token).ConfigureAwait(false);

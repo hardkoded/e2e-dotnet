@@ -23,7 +23,7 @@ internal sealed class BuiltInAgentOptions
 
     public required IReadOnlyList<ModelTool> OfferedProject { get; init; }
 
-    public CancellationToken CancellationToken { get; init; }
+    public required CancellationToken CancellationToken { get; init; }
 }
 
 /// <summary>Upstream's <c>createBuiltInAgent</c> (<c>agent/default-agent.ts</c>): the tool loop with the built-in rules and opening prompt.</summary>
