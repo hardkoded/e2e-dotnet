@@ -157,7 +157,7 @@ public sealed partial class DeviceSession : IEngineSession
         await CommandAsync(
             "clear app state",
             DeviceMethods.SettingsUpdate,
-            DeviceArgs.Of(("setting", JsonValue.Create("clear-app-state")), ("state", JsonValue.Create("clear")), ("app", JsonValue.Create(app))),
+            Selection.ToArgs(("setting", JsonValue.Create("clear-app-state")), ("state", JsonValue.Create("clear")), ("app", JsonValue.Create(app))),
             cancellationToken).ConfigureAwait(false);
         await OpenAppAsync(app, new OpenAppOptions { Relaunch = true }, cancellationToken).ConfigureAwait(false);
     }

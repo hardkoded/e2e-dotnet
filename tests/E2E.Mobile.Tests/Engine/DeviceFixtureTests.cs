@@ -132,25 +132,25 @@ public sealed class DeviceFixtureTests
             h.Fake.Calls,
             before,
             ("settings.update", """{"setting":"permission","permission":"camera","state":"grant","platform":"ios","app":"Settings"}"""),
-            ("settings.update", """{"setting":"location","state":"set","latitude":37.3349,"longitude":-122.009}"""),
-            ("settings.update", """{"setting":"location","state":"off"}"""),
-            ("settings.update", """{"setting":"appearance","state":"dark"}"""),
-            ("command.orientation", """{"orientation":"landscape-left"}"""),
-            ("command.fold", """{"pose":"half-open"}"""),
-            ("settings.update", """{"setting":"faceid","state":"match"}"""),
-            ("settings.update", """{"setting":"fingerprint","state":"nonmatch"}"""),
-            ("settings.update", """{"setting":"touchid","state":"enroll"}"""),
+            ("settings.update", """{"platform":"ios","setting":"location","state":"set","latitude":37.3349,"longitude":-122.009}"""),
+            ("settings.update", """{"platform":"ios","setting":"location","state":"off"}"""),
+            ("settings.update", """{"platform":"ios","setting":"appearance","state":"dark"}"""),
+            ("command.orientation", """{"platform":"ios","orientation":"landscape-left"}"""),
+            ("command.fold", """{"platform":"ios","pose":"half-open"}"""),
+            ("settings.update", """{"platform":"ios","setting":"faceid","state":"match"}"""),
+            ("settings.update", """{"platform":"ios","setting":"fingerprint","state":"nonmatch"}"""),
+            ("settings.update", """{"platform":"ios","setting":"touchid","state":"enroll"}"""),
             ("apps.open", """{"app":"Reminders","platform":"ios","relaunch":true}"""),
 
             // The close names the app the session observed, so agent-device terminates it before the session ends.
-            ("apps.close", """{"app":"com.apple.Preferences"}"""),
+            ("apps.close", """{"platform":"ios","app":"com.apple.Preferences"}"""),
             ("command.appState", "{}"),
-            ("command.home", "{}"),
+            ("command.home", """{"platform":"ios"}"""),
             ("command.back", """{"settle":true,"settleQuietMs":150}"""),
-            ("command.alert", """{"action":"accept"}"""),
+            ("command.alert", """{"platform":"ios","action":"accept"}"""),
             ("command.keyboard", """{"action":"dismiss"}"""),
-            ("command.clipboard", """{"action":"read"}"""),
-            ("command.clipboard", """{"action":"write","text":"x"}"""));
+            ("command.clipboard", """{"platform":"ios","action":"read"}"""),
+            ("command.clipboard", """{"platform":"ios","action":"write","text":"x"}"""));
     }
 
     [Fact]
@@ -170,7 +170,7 @@ public sealed class DeviceFixtureTests
             before,
             ("settings.update", """{"setting":"permission","permission":"microphone","state":"reset","platform":"ios","device":"iPhone 16e","app":"Settings"}"""),
             ("apps.open", """{"app":"com.other","platform":"ios","device":"iPhone 16e","relaunch":true}"""),
-            ("apps.close", """{"app":"com.apple.Preferences"}"""),
+            ("apps.close", """{"platform":"ios","device":"iPhone 16e","app":"com.apple.Preferences"}"""),
             ("settings.update", """{"setting":"permission","permission":"camera","state":"grant","platform":"ios","device":"iPhone 16e","app":"Settings"}"""));
     }
 
@@ -198,9 +198,9 @@ public sealed class DeviceFixtureTests
         JsonAssert.Calls(
             h.Fake.Calls,
             before,
-            ("settings.update", """{"setting":"location","state":"on"}"""),
-            ("settings.update", """{"setting":"location","state":"set","latitude":52.2297,"longitude":21.0122}"""),
-            ("settings.update", """{"setting":"location","state":"off"}"""));
+            ("settings.update", """{"platform":"android","setting":"location","state":"on"}"""),
+            ("settings.update", """{"platform":"android","setting":"location","state":"set","latitude":52.2297,"longitude":21.0122}"""),
+            ("settings.update", """{"platform":"android","setting":"location","state":"off"}"""));
     }
 
     [Fact]
@@ -275,6 +275,118 @@ public sealed class DeviceFixtureTests
         JsonAssert.Calls(h.Fake.Calls, before, ("apps.open", """{"app":"com.apple.mobilesafari","platform":"ios"}"""));
     }
 
+    [Theory]
+    [InlineData("ios", "73329AAC-8EB6-4AAD-B33C-8A8E911CD2A6", """{"platform":"ios","udid":"73329AAC-8EB6-4AAD-B33C-8A8E911CD2A6"}""")]
+    [InlineData("android", "emulator-5554", """{"platform":"android","serial":"emulator-5554"}""")]
+    [InlineData("ios", "iPhone 17 Pro", """{"platform":"ios","device":"iPhone 17 Pro"}""")]
+    [InlineData("ios", null, """{"platform":"ios"}""")]
+    public async Task Keeps_device_commands_on_the_selected_platform_device_after_closeApp_ends_the_previous_session(string platformName, string? device, string selectionJson)
+    {
+        var platform = platformName == "android" ? MobilePlatform.Android : MobilePlatform.Ios;
+        var selection = JsonNode.Parse(selectionJson)!.AsObject();
+        var h = Harness.Create(options => options with { Platform = platform, Device = device }, app: app => app with { BundleId = "com.example.app" });
+        await h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None);
+        var session = await OpenAttempt(h);
+        h.Fake.Respond(DeviceMethods.CommandAppState, _ => new JsonObject { ["platform"] = platformName, ["appName"] = "Example", ["appBundleId"] = "com.example.app", ["package"] = platform == MobilePlatform.Android ? "com.example.app" : null });
+        h.Fake.Respond(DeviceMethods.CommandClipboard, args =>
+            args?["action"]?.GetValue<string>() == "read" ? new JsonObject { ["action"] = "read", ["text"] = "pasted" } : new JsonObject { ["action"] = "write", ["textLength"] = 1 });
+        var selected = session.Device;
+        await selected.HomeAsync();
+        JsonAssert.Args(selectionJson, h.Fake.LastArgs("command.home"));
+
+        // foregroundApp reads the open session, so it carries no selection.
+        await selected.ForegroundAppAsync();
+        JsonAssert.Args("{}", h.Fake.LastArgs("command.appState"));
+        await selected.CloseAppAsync();
+        Func<Task>[] commands =
+        [
+            () => selected.SetLocationAsync(new Coordinates(37.3349, -122.009)),
+            () => selected.ClearLocationAsync(),
+            () => selected.SetAppearanceAsync(Appearance.Dark),
+            () => selected.SetOrientationAsync(DeviceOrientation.LandscapeLeft),
+            () => selected.FoldAsync(FoldPose.HalfOpen),
+            () => selected.SetBiometricsAsync(platform == MobilePlatform.Ios ? BiometricSensor.FaceId : BiometricSensor.Fingerprint, BiometricResult.Match),
+            () => selected.AlertAsync(AlertAction.Accept),
+            () => selected.ClipboardAsync(),
+            () => selected.SetClipboardAsync("x"),
+            () => selected.SetPermissionAsync(DevicePermission.Camera, PermissionState.Grant),
+
+            // iOS refuses going offline before any command, so the radios are Android's.
+            .. platform == MobilePlatform.Ios
+                ? new Func<Task>[] { () => selected.EnrollBiometricsAsync(BiometricSensor.TouchId, true), () => selected.ClearKeychainAsync() }
+                : [() => selected.SetNetworkAsync(NetworkState.Offline), () => selected.SetAirplaneModeAsync(true)],
+        ];
+        foreach (var command in commands)
+        {
+            // With no session open, the close itself picks the device from the selection.
+            await selected.CloseAppAsync();
+            AssertSelected(selection, h.Fake.LastArgs("apps.close"));
+            var before = h.Fake.Calls.Count;
+            await command();
+            Assert.True(h.Fake.Calls.Count > before);
+            foreach (var call in h.Fake.Calls.Skip(before))
+            {
+                AssertSelected(selection, call.Args);
+            }
+        }
+
+        await selected.CloseAppAsync();
+        await session.ClearStateAsync(CancellationToken.None);
+        var reset = new JsonObject { ["setting"] = "clear-app-state", ["state"] = "clear", ["app"] = "com.example.app" };
+        var open = new JsonObject { ["app"] = "com.example.app", ["relaunch"] = true };
+        foreach (var (key, value) in selection)
+        {
+            reset[key] = value!.DeepClone();
+            open[key] = value.DeepClone();
+        }
+
+        JsonAssert.Args(reset.ToJsonString(), h.Fake.LastArgs("settings.update"));
+        JsonAssert.Args(open.ToJsonString(), h.Fake.LastArgs("apps.open"));
+    }
+
+    private static void AssertSelected(JsonObject selection, JsonNode? args)
+    {
+        foreach (var (key, value) in selection)
+        {
+            Assert.True(JsonNode.DeepEquals(value, args?[key]), $"expected {key} {value} in {args?.ToJsonString() ?? "null"}");
+        }
+    }
+
+    [Fact]
+    public async Task Names_the_pinned_device_on_device_commands_so_the_ones_after_closeApp_still_reach_it_when_other_devices_are_booted_and_leaves_app_commands_to_the_session_PARTIAL_no_video_recording()
+    {
+        const string udid = "2BBF3F07-AF66-4F95-82AB-BF442506FC89";
+        var h = Harness.Create(options => options with { Device = udid });
+        await h.Engine.PrepareAsync(h.PrepareInfo(1), CancellationToken.None);
+        h.Fake.Respond(DeviceMethods.CommandAppState, _ => new JsonObject { ["platform"] = "ios", ["appName"] = "Settings", ["appBundleId"] = "com.apple.Preferences" });
+        var session = await OpenAttempt(h);
+        var device = session.Device;
+        var before = h.Fake.Calls.Count;
+
+        // closeApp ends agent-device's session, so from here on only the selection says which device is meant.
+        await device.CloseAppAsync();
+        await device.ClearKeychainAsync();
+        await device.SetAppearanceAsync(Appearance.Dark);
+        await session.ClearStateAsync(CancellationToken.None);
+
+        // These read the app the session has open: with a selection, Android would answer for the launcher after a closeApp.
+        await device.ForegroundAppAsync();
+        await session.ObserveAsync(CancellationToken.None);
+        await session.DisposeAsync();
+        const string selection = "\"platform\":\"ios\",\"udid\":\"" + udid + "\"";
+        JsonAssert.Calls(
+            h.Fake.Calls,
+            before,
+            ("apps.close", "{" + selection + ",\"app\":\"com.apple.Preferences\"}"),
+            ("settings.update", "{" + selection + ",\"setting\":\"reset-keychain\",\"state\":\"clear\"}"),
+            ("settings.update", "{" + selection + ",\"setting\":\"appearance\",\"state\":\"dark\"}"),
+            ("settings.update", "{" + selection + ",\"setting\":\"clear-app-state\",\"state\":\"clear\",\"app\":\"Settings\"}"),
+            ("apps.open", "{" + selection + ",\"app\":\"Settings\",\"relaunch\":true}"),
+            ("command.appState", "{}"),
+            ("capture.snapshot", """{"interactiveOnly":false}"""),
+            ("sessions.close", "null"));
+    }
+
     [Fact]
     public async Task Presets_the_configured_permissions_and_passes_the_launch_arguments_on_every_fresh_launch_of_the_pinned_app_and_on_no_other_open()
     {
@@ -314,7 +426,7 @@ public sealed class DeviceFixtureTests
             fresh,
 
             // A state clear resets the permissions with the data. They are put back before the relaunch.
-            ("settings.update", """{"setting":"clear-app-state","state":"clear","app":"com.example.app"}"""),
+            ("settings.update", """{"platform":"ios","setting":"clear-app-state","state":"clear","app":"com.example.app"}"""),
             Permission("camera", "grant"),
             Permission("location", "deny"),
             fresh,
@@ -322,7 +434,7 @@ public sealed class DeviceFixtureTests
             // A foreground-only open, and another app, take none of the engine's options.
             Open("\"app\":\"com.example.app\""),
             Open("\"app\":\"com.other\",\"relaunch\":true"),
-            ("apps.close", """{"app":"com.example.app"}"""),
+            ("apps.close", """{"platform":"ios","app":"com.example.app"}"""),
             Permission("camera", "grant"),
             Permission("location", "deny"),
             fresh);
@@ -388,10 +500,10 @@ public sealed class DeviceFixtureTests
         JsonAssert.Calls(
             android.Fake.Calls,
             count,
-            ("settings.update", """{"setting":"wifi","state":"off"}"""),
-            ("settings.update", """{"setting":"wifi","state":"on"}"""),
-            ("settings.update", """{"setting":"airplane","state":"on"}"""),
-            ("settings.update", """{"setting":"airplane","state":"off"}"""));
+            ("settings.update", """{"platform":"android","setting":"wifi","state":"off"}"""),
+            ("settings.update", """{"platform":"android","setting":"wifi","state":"on"}"""),
+            ("settings.update", """{"platform":"android","setting":"airplane","state":"on"}"""),
+            ("settings.update", """{"platform":"android","setting":"airplane","state":"off"}"""));
     }
 
     [Fact]
@@ -401,7 +513,7 @@ public sealed class DeviceFixtureTests
         var iosSession = await OpenAttempt(ios);
         var before = ios.Fake.Calls.Count;
         await iosSession.Device.ClearKeychainAsync();
-        JsonAssert.Calls(ios.Fake.Calls, before, ("settings.update", """{"setting":"reset-keychain","state":"clear"}"""));
+        JsonAssert.Calls(ios.Fake.Calls, before, ("settings.update", """{"platform":"ios","setting":"reset-keychain","state":"clear"}"""));
 
         var android = Android("com.example.app");
         var androidSession = await OpenAttempt(android);
@@ -425,6 +537,6 @@ public sealed class DeviceFixtureTests
         var androidSession = await OpenAttempt(android);
         var count = android.Fake.Calls.Count;
         await androidSession.Device.FoldAsync(FoldPose.HalfOpen);
-        JsonAssert.Calls(android.Fake.Calls, count, ("command.fold", """{"pose":"half-open"}"""));
+        JsonAssert.Calls(android.Fake.Calls, count, ("command.fold", """{"platform":"android","pose":"half-open"}"""));
     }
 }

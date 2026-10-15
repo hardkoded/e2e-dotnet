@@ -86,7 +86,8 @@ public static class MobileTools
                         throw new TestException("INVALID_ARGUMENT", "alert takes an action of accept or dismiss");
                     }
 
-                    await Active().CommandAsync("alert", DeviceMethods.CommandAlert, DeviceArgs.Of(("action", JsonValue.Create(action))), token).ConfigureAwait(false);
+                    var session = Active();
+                    await session.CommandAsync("alert", DeviceMethods.CommandAlert, session.Selection.ToArgs(("action", JsonValue.Create(action))), token).ConfigureAwait(false);
                     return $"Alert {action}ed.";
                 },
                 platforms)),
