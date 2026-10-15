@@ -155,7 +155,7 @@ public sealed class Device
         await _session.CommandAsync(
             "device.setLocation",
             DeviceMethods.SettingsUpdate,
-            DeviceArgs.Of(
+            _session.Selection.ToArgs(
                 ("setting", JsonValue.Create("location")),
                 ("state", JsonValue.Create("set")),
                 ("latitude", JsonValue.Create(coordinates.Latitude)),
@@ -175,16 +175,19 @@ public sealed class Device
     public Task SetOrientationAsync(DeviceOrientation orientation, CancellationToken cancellationToken = default) =>
         _session.ScreenCommandAsync(
             "device.setOrientation",
-            (client, token) => client.CallAsync(DeviceMethods.CommandOrientation, DeviceArgs.Of(("orientation", JsonValue.Create(orientation.WireName()))), token),
+            (client, token) => client.CallAsync(DeviceMethods.CommandOrientation, _session.Selection.ToArgs(("orientation", JsonValue.Create(orientation.WireName()))), token),
             cancellationToken);
 
     /// <summary>
     /// Puts a foldable simulator or emulator in a hinge pose. On the iPhone Duo it resolves once agent-device reads the
     /// angle back from CoreDevice at that pose, typically 10 to 16 seconds later. <see cref="FoldPose.Closed"/> lights
-    /// the outer display, <see cref="FoldPose.HalfOpen"/> (a 130 degree book) and <see cref="FoldPose.Open"/> light the
-    /// inner one. On a foldable Android emulator it sets the emulator console posture and resolves once the guest
-    /// commits the matching device state, within a few seconds. Either way the app window changes size, so the next
-    /// observation reads a new screen. Any device without a hinge is <c>UNSUPPORTED_CAPABILITY</c>.
+    /// the outer display, <see cref="FoldPose.HalfOpen"/> (a 130 degree book there) and <see cref="FoldPose.Open"/>
+    /// light the inner one. On a foldable Android emulator (a Pixel Fold profile, or the generic "7.6in Foldable") it
+    /// sets the emulator console posture and resolves once the guest commits the matching device state, within a few
+    /// seconds. <see cref="FoldPose.HalfOpen"/> is the profile's own angle there (90 degrees on the Pixel folds), and a
+    /// fold to the cover display dismisses the "Swipe up to continue" lock screen the emulator raises. Either way the app
+    /// window changes size, so the next observation reads a new screen. Any device without a hinge is
+    /// <c>UNSUPPORTED_CAPABILITY</c>.
     /// </summary>
     public Task FoldAsync(FoldPose pose, CancellationToken cancellationToken = default) => _session.FoldAsync(pose, cancellationToken);
 
@@ -257,7 +260,7 @@ public sealed class Device
 
     /// <summary>Sends the device to its home screen.</summary>
     public Task HomeAsync(CancellationToken cancellationToken = default) =>
-        _session.ScreenCommandAsync("device.home", (client, token) => client.CallAsync(DeviceMethods.CommandHome, new JsonObject(), token), cancellationToken);
+        _session.ScreenCommandAsync("device.home", (client, token) => client.CallAsync(DeviceMethods.CommandHome, _session.Selection.ToArgs(), token), cancellationToken);
 
     /// <summary>Navigates back once (in-app back).</summary>
     public Task BackAsync(CancellationToken cancellationToken = default) =>
@@ -267,7 +270,7 @@ public sealed class Device
     public Task AlertAsync(AlertAction action, CancellationToken cancellationToken = default) =>
         _session.ScreenCommandAsync(
             "device.alert",
-            (client, token) => client.CallAsync(DeviceMethods.CommandAlert, DeviceArgs.Of(("action", JsonValue.Create(action == AlertAction.Accept ? "accept" : "dismiss"))), token),
+            (client, token) => client.CallAsync(DeviceMethods.CommandAlert, _session.Selection.ToArgs(("action", JsonValue.Create(action == AlertAction.Accept ? "accept" : "dismiss"))), token),
             cancellationToken);
 
     /// <summary>Dismisses the soft keyboard.</summary>
@@ -279,7 +282,7 @@ public sealed class Device
         var result = await _session.CommandAsync(
             "device.clipboard",
             DeviceMethods.CommandClipboard,
-            DeviceArgs.Of(("action", JsonValue.Create("read"))),
+            _session.Selection.ToArgs(("action", JsonValue.Create("read"))),
             cancellationToken).ConfigureAwait(false);
         return Text(result?["action"]) == "read" ? Text(result?["text"]) ?? "" : "";
     }
@@ -291,7 +294,7 @@ public sealed class Device
         return _session.CommandAsync(
             "device.setClipboard",
             DeviceMethods.CommandClipboard,
-            DeviceArgs.Of(("action", JsonValue.Create("write")), ("text", JsonValue.Create(text))),
+            _session.Selection.ToArgs(("action", JsonValue.Create("write")), ("text", JsonValue.Create(text))),
             cancellationToken);
     }
 
@@ -299,7 +302,7 @@ public sealed class Device
         _session.CommandAsync(
             label,
             DeviceMethods.SettingsUpdate,
-            DeviceArgs.Of(("setting", JsonValue.Create(setting)), ("state", JsonValue.Create(state))),
+            _session.Selection.ToArgs(("setting", JsonValue.Create(setting)), ("state", JsonValue.Create(state))),
             cancellationToken);
 
     private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
