@@ -9,7 +9,9 @@ namespace E2E.Tests.RouteAnnouncerCache;
 /// <summary>
 /// Ported from upstream's <c>route-announcer-cache.test.ts</c>: record and replay around Next.js App Router's route
 /// announcer in real Chromium. Upstream drives the step with an executor that taps the link; the port's step is a
-/// scripted model that taps it, which records and replays the same entry.
+/// scripted model that taps it, which records and replays the same entry. The test is partial: upstream asserts that the
+/// executor ran exactly once while recording, and the port asserts only that the model was called, since a scripted
+/// step makes a tap call and a done call.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class RouteAnnouncerCacheTests
@@ -41,7 +43,7 @@ public sealed class RouteAnnouncerCacheTests
     [InlineData("announced", "silent", true)]
     [InlineData("silent", "announced", true)]
     [InlineData("announced", "app-alert", false)]
-    public async Task Records_a_variant_replays_a_variant_and_passes_or_goes_stale(string recordVariant, string replayVariant, bool passes)
+    public async Task Partial_records_a_variant_with_a_scripted_tap_and_replays_another_without_counting_executor_runs(string recordVariant, string replayVariant, bool passes)
     {
         var variant = recordVariant;
         using var site = await TinySite.StartAsync(context => TinySite.RespondAsync(context, Page.Replace("__VARIANT__", variant, StringComparison.Ordinal)));
