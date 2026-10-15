@@ -1027,7 +1027,7 @@ internal readonly record struct ReplayAttempt(bool Completed, bool Handoff, Cach
 {
     public static ReplayAttempt Done(CacheEntry entry) => new(true, false, new CacheInfo { Mode = "self-finalized" }, entry);
 
-    public static ReplayAttempt Miss(string reason) => new(false, false, new CacheInfo { Mode = "missed", Reason = reason });
+    public static ReplayAttempt Miss(string reason, string? detail = null) => new(false, false, new CacheInfo { Mode = "missed", Reason = reason, Detail = detail });
 
     public static ReplayAttempt Hand(string reason, string? detail = null) => new(false, true, new CacheInfo { Mode = "agent-concluded", Reason = reason, Detail = detail });
 }

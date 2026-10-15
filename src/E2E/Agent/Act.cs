@@ -222,21 +222,31 @@ public sealed partial class Agent
         // The look before an action: the start serves the first one; after that, the previous action's settle policy
         // says how far a fresh capture settles.
         SettleMode? Look() => previous is null ? null : SettlePolicy.For(previous).Look;
+
+        // Where the replay stopped, for the report: the recorded action, one-based, and what went wrong there when
+        // more than the reason says.
+        var position = 0;
+        RecordedAction? current = null;
+        string StoppedAt(string? why = null) =>
+            "at action " + position.ToString(CultureInfo.InvariantCulture) + " of " + entry.Actions.Count.ToString(CultureInfo.InvariantCulture) + ", " + DefaultAgent.Describe(current!) + (why is null ? "" : ": " + why);
+
         ReplayAttempt Lost(string? reason)
         {
             if (!started)
             {
                 _scope.Missed++;
                 actions.Clear();
-                return ReplayAttempt.Miss(reason ?? "target-not-found");
+                return ReplayAttempt.Miss(reason ?? "target-not-found", StoppedAt());
             }
 
             _scope.HandedOff++;
-            return ReplayAttempt.Hand(reason ?? "target-not-found");
+            return ReplayAttempt.Hand(reason ?? "target-not-found", StoppedAt());
         }
 
         foreach (var action in entry.Actions)
         {
+            current = action;
+            position++;
             // A project tool ran here, and the grammar cannot reproduce it: the replay ends and the model takes over.
             if (string.Equals(action.Kind, "tool", StringComparison.Ordinal))
             {
@@ -255,7 +265,7 @@ public sealed partial class Agent
                 if (!budget.TryReserve())
                 {
                     _scope.HandedOff++;
-                    return ReplayAttempt.Hand("action-budget");
+                    return ReplayAttempt.Hand("action-budget", StoppedAt());
                 }
 
                 await _scope.Session.OpenAsync(Routes.Resolve(_scope.BaseUrl, CacheKeys.Detemplate(action.Url ?? "/", parameters)), token).ConfigureAwait(false);
@@ -271,7 +281,7 @@ public sealed partial class Agent
             if ((action.Kind is "back" or "scroll" or "scrollUntil" or "press") && !HasTarget(action) && !budget.TryReserve())
             {
                 _scope.HandedOff++;
-                return ReplayAttempt.Hand("action-budget");
+                return ReplayAttempt.Hand("action-budget", StoppedAt());
             }
 
             try
@@ -317,7 +327,7 @@ public sealed partial class Agent
                             if (repeat == 0 && !budget.TryReserve())
                             {
                                 _scope.HandedOff++;
-                                return ReplayAttempt.Hand("action-budget");
+                                return ReplayAttempt.Hand("action-budget", StoppedAt());
                             }
 
                             await _scope.Session.PerformAsync(list.Node, new LocatorAction.Swipe(Direction(action.Direction)), token).ConfigureAwait(false);
@@ -338,7 +348,7 @@ public sealed partial class Agent
                             if (!budget.TryReserve())
                             {
                                 _scope.HandedOff++;
-                                return ReplayAttempt.Hand("action-budget");
+                                return ReplayAttempt.Hand("action-budget", StoppedAt());
                             }
                         }
 
@@ -355,7 +365,7 @@ public sealed partial class Agent
                         if (!budget.TryReserve())
                         {
                             _scope.HandedOff++;
-                            return ReplayAttempt.Hand("action-budget");
+                            return ReplayAttempt.Hand("action-budget", StoppedAt());
                         }
 
                         var performed = ResolveSecret(Detemplate(action, parameters));
@@ -376,7 +386,7 @@ public sealed partial class Agent
             {
                 // A step or test timeout cancels the token. That is the step's own end, not a stale recording.
                 _scope.HandedOff++;
-                return ReplayAttempt.Hand("action-failed");
+                return ReplayAttempt.Hand("action-failed", StoppedAt(_scope.Redactor.Redact(FirstLine(ex.Message))));
             }
         }
 
@@ -467,6 +477,12 @@ public sealed partial class Agent
         return anchor.Text is not null && anchor.Name is not null && anchor.Text != anchor.Name
             ? TargetLabel(anchor) + " text=" + Quote(TextRules.Bound(anchor.Text, 40))
             : TargetLabel(anchor);
+    }
+
+    private static string FirstLine(string text)
+    {
+        var end = text.IndexOfAny(['\r', '\n']);
+        return (end < 0 ? text : text[..end]).Trim();
     }
 
     // A node as every report line that names one reads it: its role, then its label in quotes.

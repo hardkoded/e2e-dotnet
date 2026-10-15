@@ -133,7 +133,7 @@ internal static class DefaultAgent
         return text;
     }
 
-    private static string Describe(RecordedAction action)
+    internal static string Describe(RecordedAction action)
     {
         var builder = new StringBuilder(action.Kind);
         if (action.Role is not null || action.Name is not null || action.TestId is not null)
