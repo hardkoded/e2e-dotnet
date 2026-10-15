@@ -11,6 +11,14 @@ and `screenshot`. Not ported: recording a video, the project's own tools,
 and the tap, hover, and type at a point. `e2e init` does not exist, so
 register the server yourself (below).
 
+## Contents
+
+- Setup
+- Tools
+- The catalog
+- Workflow
+- Rules
+
 ## Setup
 
 The server ships with the `E2E.Cli` tool (`dotnet tool install --global E2E.Cli`).

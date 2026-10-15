@@ -5,6 +5,15 @@ class. xUnit v2 is not supported. Topic `writing-tests` covers what both
 frameworks share: locators, reads, expectations, agent steps, and the
 `Browser` member.
 
+## Contents
+
+- Project
+- The base class
+- Attributes
+- Soft checks and polls
+- A complete example
+- Run
+
 ## Project
 
 ```bash
