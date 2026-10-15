@@ -1182,6 +1182,12 @@ public sealed partial class WebEngine : IEngine
         public Task KeyboardTypeAsync(string text, CancellationToken cancellationToken) => RunAsync("keyboard.type", cancellationToken, () =>
             InputAsync(() => Page.Keyboard.TypeAsync(text), "keyboard.type", cancellationToken));
 
+        public Task KeyboardDownAsync(string key, CancellationToken cancellationToken) => RunAsync("keyboard.down", cancellationToken, () =>
+            InputAsync(() => Page.Keyboard.DownAsync(key), "keyboard.down " + key, cancellationToken));
+
+        public Task KeyboardUpAsync(string key, CancellationToken cancellationToken) => RunAsync("keyboard.up", cancellationToken, () =>
+            InputAsync(() => Page.Keyboard.UpAsync(key), "keyboard.up " + key, cancellationToken));
+
         public Task MouseMoveAsync(float x, float y, CancellationToken cancellationToken) => RunAsync("mouse.move", cancellationToken, () =>
             InputAsync(() => Page.Mouse.MoveAsync(x, y), "mouse.move", cancellationToken));
 

@@ -496,6 +496,20 @@ public sealed class BrowserKeyboard
         return AppNotOpen.GuardAsync(() => _browser.Require("keyboard.press").KeyboardPressAsync(key, _browser.Token(cancellationToken)));
     }
 
+    /// <summary>Holds one key until <see cref="UpAsync"/>; a repeated down sends a repeat event.</summary>
+    public Task DownAsync(string key, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(key);
+        return AppNotOpen.GuardAsync(() => _browser.Require("keyboard.down").KeyboardDownAsync(key, _browser.Token(cancellationToken)));
+    }
+
+    /// <summary>Releases a held key.</summary>
+    public Task UpAsync(string key, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(key);
+        return AppNotOpen.GuardAsync(() => _browser.Require("keyboard.up").KeyboardUpAsync(key, _browser.Token(cancellationToken)));
+    }
+
     /// <summary>Types plain text.</summary>
     public Task TypeAsync(string text, CancellationToken cancellationToken = default)
     {

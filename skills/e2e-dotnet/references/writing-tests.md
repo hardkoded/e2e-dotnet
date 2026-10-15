@@ -230,6 +230,12 @@ with `<secret:name>` in these places:
 - `GotoAsync(url, new GotoOptions { WaitUntil, Timeout })`, `ReloadAsync`, `BackAsync`, `ForwardAsync`, `UrlAsync`, `TitleAsync`,
   `WaitForURLAsync`, `EvaluateAsync<T>`, `SetViewportAsync`, and the raw
   keyboard and mouse.
+- `Keyboard.PressAsync(key)`, `Keyboard.TypeAsync(text)`,
+  `Keyboard.DownAsync(key)`, `Keyboard.UpAsync(key)`, and `Mouse.*`: unfocused
+  input. Only `DownAsync(key)` holds a key or modifier until `UpAsync(key)`;
+  a second `DownAsync` of the same key sends a repeat event. `PressAsync(key)`
+  presses and releases within the call. Prefer `PressAsync` and `FillAsync` on a
+  locator.
 - `WaitForResponseAsync(pattern, timeout?)` resolves once the headers
   arrive, with a `WebResponse` (`Url`, `Status`, `Headers`, `TextAsync()`,
   `JsonAsync<T>()`). `TextAsync` and `JsonAsync` wait for the body (up to

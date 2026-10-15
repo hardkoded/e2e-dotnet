@@ -79,6 +79,12 @@ public interface IBrowserSession : IEngineSession
     /// </summary>
     Task KeyboardPressAsync(string key, CancellationToken cancellationToken) => PressAsync(key, cancellationToken);
 
+    /// <summary>Holds one key as direct test input; a repeated down sends a repeat event.</summary>
+    Task KeyboardDownAsync(string key, CancellationToken cancellationToken);
+
+    /// <summary>Releases a key held by <see cref="KeyboardDownAsync"/>.</summary>
+    Task KeyboardUpAsync(string key, CancellationToken cancellationToken);
+
     Task MouseMoveAsync(float x, float y, CancellationToken cancellationToken);
 
     Task MouseWheelAsync(float deltaX, float deltaY, CancellationToken cancellationToken);
