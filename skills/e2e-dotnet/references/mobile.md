@@ -1,6 +1,6 @@
 # Mobile tests
 
-iOS and Android apps run on `MobileEngine` (project `E2E.Mobile`, not on NuGet yet). The engine drives a simulator or emulator through [agent-device](https://github.com/callstack/agent-device). It needs Node 22.12 or newer. `samples/MobileApp.E2ETests` is a complete, working example with a MAUI app to drive. Read its README for the full steps.
+iOS and Android apps run on `MobileEngine` (project `E2E.Mobile`, not on NuGet yet). The engine drives a simulator or emulator through [agent-device](https://github.com/callstack/agent-device). It needs Node 22.12 or newer. [`samples/MobileApp.E2ETests`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp.E2ETests) is a complete, working example with a MAUI app to drive. Read its README for the full steps.
 
 ## Contents
 
@@ -108,14 +108,14 @@ using E2E.Limrun;
 var provider = new LimrunSimulators(new LimrunSimulatorsOptions { HardTimeout = "15m" });
 ```
 
-The provider leases one Limrun iOS simulator or Android emulator per worker, installs `App.AppPath` before the tests start, and deletes the device when the run ends. Set `LIMRUN_API_KEY` in the environment that starts the tests. `LIMRUN_BASE_URL` reaches another API. `LimrunSimulatorsOptions` sets `Region`, `HardTimeout` (default `1h`, a Go duration such as `30m`), `Ios.Model`, `Android.Model`, and `Android.OsVersion` (default `15`). Set a short `HardTimeout`, so an interrupted run does not stay billed. The sample turns this on with `E2E_MOBILE_PROVIDER=limrun`:
+The provider leases one Limrun iOS simulator or Android emulator when the engine prepares, installs `App.AppPath` before the tests start, and deletes the device when the run ends. Set `LIMRUN_API_KEY` in the environment that starts the tests. `LIMRUN_BASE_URL` reaches another API. `LimrunSimulatorsOptions` sets `Region`, `HardTimeout` (default `1h`, a Go duration such as `30m`), `Ios.Model`, `Android.Model`, and `Android.OsVersion` (default `15`). Set a short `HardTimeout`, so an interrupted run does not stay billed. The sample turns this on with `E2E_MOBILE_PROVIDER=limrun`:
 
 ```bash
 export LIMRUN_API_KEY=...
 E2E_MOBILE_PROVIDER=limrun dotnet test samples/MobileApp.E2ETests
 ```
 
-The NUnit adapter does not run the engine's prepare and finish hooks. `samples/MobileApp.E2ETests/HostedDeviceSetup.cs` runs them once per run, so that every test shares the one leased device. Copy it for a hosted run.
+The NUnit adapter does not run the engine's prepare and finish hooks, so without help each test would lease its own billed device. [`HostedDeviceSetup.cs`](https://github.com/hardkoded/e2e-dotnet/blob/main/samples/MobileApp.E2ETests/HostedDeviceSetup.cs) in the sample runs them once per run, so that every test shares the one leased device. Copy it for a hosted run.
 
 A provider that drives its devices without agent-device implements `IDeviceClientSource` as well as `IDeviceProvider`. `MobileEngine` then asks it for the `IDeviceClient` of each session. The client finds its device through `DeviceConnection.Client`, which is the `DeviceLease.Client` the provider returned. This has no upstream counterpart.
 
