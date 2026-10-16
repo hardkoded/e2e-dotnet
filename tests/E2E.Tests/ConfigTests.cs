@@ -85,7 +85,7 @@ public sealed class ConfigTests
         // No agent inherits another's values.
         Assert.Null(config.Agent.Judge);
         Assert.Null(config.Agent.CreateJudge());
-        Assert.Equal(E2EDefaults.MaxSteps, config.Agent.MaxSteps);
+        Assert.Null(config.Agent.MaxSteps);
         Assert.Equal(E2EDefaults.JudgmentTimeout, config.Agent.JudgmentTimeout);
     }
 
@@ -103,8 +103,8 @@ public sealed class ConfigTests
         Assert.Equal(TimeSpan.FromSeconds(30), config.CleanupTimeout);
         Assert.Equal(0, config.Retries);
         Assert.Null(config.Agent.CreateModel());
-        Assert.Equal(25, config.Agent.MaxSteps);
-        Assert.Equal(25, config.Agent.MaxModelCalls);
+        Assert.Null(config.Agent.MaxSteps);
+        Assert.Null(config.Agent.MaxModelCalls);
         Assert.Equal(TimeSpan.FromSeconds(30), config.Agent.JudgmentTimeout);
         Assert.Equal(CacheMode.ReadWrite, config.Cache.Mode);
         Assert.Equal(Path.Combine(Root, ".e2e", "cache"), config.Cache.Directory);

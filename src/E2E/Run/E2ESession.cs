@@ -58,6 +58,9 @@ public sealed class E2ESession : IAsyncDisposable
     internal void Remember(IEnumerable<Secret> secrets) =>
         _scope.Remember(secrets.ToDictionary(secret => secret.Name, secret => (object?)secret, StringComparer.Ordinal));
 
+    /// <summary>Registers a value for redaction alone, as the redaction ledger does: the agent may not fill it, and it withholds no pixels.</summary>
+    internal void Register(string name, string value) => _scope.Register(name, value);
+
     public int Replayed => _scope.Replayed;
 
     public int HandedOff => _scope.HandedOff;

@@ -123,10 +123,10 @@ public abstract class E2EFixture
     protected virtual TimeSpan ReplayTimeout => E2EDefaults.ReplayTimeout;
 
     /// <summary><c>agents.default.maxModelCalls</c>.</summary>
-    protected virtual int MaxModelCalls => Config.Agent.MaxModelCalls;
+    protected virtual int MaxModelCalls => Config.Agent.MaxModelCalls ?? E2EDefaults.MaxModelCalls;
 
     /// <summary><c>agents.default.maxSteps</c>: actions one <c>ActAsync</c> may take. <c>ActOptions.MaxSteps</c> can only lower it.</summary>
-    protected virtual int MaxSteps => Config.Agent.MaxSteps;
+    protected virtual int MaxSteps => Config.Agent.MaxSteps ?? E2EDefaults.MaxSteps;
 
     private E2ESession Session => _session ?? throw new InvalidOperationException("The E2E session is available after setup, during the test.");
 

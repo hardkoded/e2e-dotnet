@@ -150,6 +150,16 @@ internal static class AgentTools
         return tools;
     }
 
+    /// <summary>
+    /// The tools the harness adds beside the grammar, each where it adds them: <c>report_finding</c> under <c>e2e explore</c>. A
+    /// project tool named like one would be replaced there, so the name is refused. Upstream's <c>HARNESS_TOOL_NAMES</c>; the
+    /// port's other harness tool, <c>done</c>, is reserved with the grammar's names.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> HarnessToolNames = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        [ExploreExecutor.FindingToolName] = "e2e explore",
+    };
+
     /// <summary>True when <paramref name="name"/> is a tool the agent offers itself, whatever the engine.</summary>
     public static bool IsReserved(string name) =>
         string.Equals(name, VerdictTool.Name, StringComparison.Ordinal) ||
