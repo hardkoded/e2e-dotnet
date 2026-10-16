@@ -163,7 +163,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 
 ## EAS Simulators
 
-`EasSimulators` (`E2E.Mobile.Eas`) ports `@e2e-dev/eas`: hosted iOS simulators and Android emulators from Expo, leased through Expo's GraphQL API over `HttpClient`, with no SDK. It lives in the `E2E.Mobile` package, as the other pieces of the device pool. Pass it as `MobileOptions.Provider`. The sessions, the queue and startup limits, the idle backstop, the `EXPO_TOKEN` or eas-cli login, and the project id from the app config follow upstream. Differences:
+`EasSimulators` (the `E2E.Eas` package, namespace `E2E.Eas`) ports `@e2e-dev/eas`: hosted iOS simulators and Android emulators from Expo, leased through Expo's GraphQL API over `HttpClient`, with no SDK. The provider is its own package, `E2E.Eas`, which depends on `E2E.Mobile`, as upstream's `@e2e-dev/eas` is a package of its own. It keeps a private copy of the shared `HttpClient`, so `E2E.Mobile` exposes nothing extra for it. Pass it as `MobileOptions.Provider`. The sessions, the queue and startup limits, the idle backstop, the `EXPO_TOKEN` or eas-cli login, and the project id from the app config follow upstream. Differences:
 
 - Options are the `EasSimulatorsOptions` record, so an unknown option key is a compile error and upstream's `rejectUnknownKeys` has no counterpart. A bad combination (`BuildId` with `ApplicationArchiveUrl`, an idle limit not below the duration) is `INVALID_CONFIG` from the constructor.
 - A dynamic app config (`app.config.ts` and its siblings) is evaluated by running the project's own `expo config` with `node` from the path of the process, so it needs Node. A static `app.json` needs nothing.

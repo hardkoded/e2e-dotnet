@@ -6,6 +6,7 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/E2E.Cli/E2E.Cli.csproj" />
+    <Project Path="src/E2E.Eas/E2E.Eas.csproj" />
     <Project Path="src/E2E.Limrun/E2E.Limrun.csproj" />
     <Project Path="src/E2E.Mobile/E2E.Mobile.csproj" />
     <Project Path="src/E2E.NUnit/E2E.NUnit.csproj" />
@@ -15,6 +16,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/E2E.Agent.Tests/E2E.Agent.Tests.csproj" />
     <Project Path="tests/E2E.Cli.Tests/E2E.Cli.Tests.csproj" />
+    <Project Path="tests/E2E.Eas.Tests/E2E.Eas.Tests.csproj" />
     <Project Path="tests/E2E.Limrun.Tests/E2E.Limrun.Tests.csproj" />
     <Project Path="tests/E2E.Mobile.Tests/E2E.Mobile.Tests.csproj" />
     <Project Path="tests/E2E.NUnit.Tests/E2E.NUnit.Tests.csproj" />

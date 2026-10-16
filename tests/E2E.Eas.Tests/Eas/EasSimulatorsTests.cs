@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json.Nodes;
-using E2E.Mobile.Eas;
+using E2E.Mobile;
 
-namespace E2E.Mobile.Tests.Eas;
+namespace E2E.Eas.Tests.Eas;
 
 /// <summary>
 /// <see cref="EasSimulators"/> against a fake Expo GraphQL API: the create input, polling to ready and the queue line, the

@@ -7,8 +7,9 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using E2E.Mobile;
 
-namespace E2E.Mobile.Eas;
+namespace E2E.Eas;
 
 /// <summary>What the provider asks EAS for: one agent-device session on one platform.</summary>
 internal sealed record EasSessionParams

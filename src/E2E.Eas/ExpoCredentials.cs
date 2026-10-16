@@ -5,7 +5,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace E2E.Mobile.Eas;
+namespace E2E.Eas;
 
 /// <summary>An access token goes out as <c>Authorization: Bearer</c>, an eas-cli session secret as <c>expo-session</c>.</summary>
 internal sealed record ExpoCredentials(string? AccessToken, string? SessionSecret)
