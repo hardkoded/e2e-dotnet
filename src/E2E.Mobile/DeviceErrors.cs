@@ -38,6 +38,14 @@ public static partial class DeviceErrors
     /// </summary>
     private const string NoSessionReason = "session_or_device_selector_required";
 
+    /// <summary>
+    /// The code agent-device answers with when a command matches several devices and no selector narrows it
+    /// down. Upstream adds nothing to it. The port adds a line that names the engine's option (.NET-only).
+    /// </summary>
+    private const string AmbiguousMatchCode = "AMBIGUOUS_MATCH";
+
+    private const string AmbiguousMatchHint = "Set MobileOptions.Device to a device id, or boot exactly one device.";
+
     private static readonly HashSet<string> UnsupportedCodes = ["UNSUPPORTED_OPERATION", "NOT_IMPLEMENTED", "UNSUPPORTED_PLATFORM"];
 
     /// <summary>
@@ -205,12 +213,12 @@ public static partial class DeviceErrors
     /// </summary>
     private static string WithHint(Exception cause, string text)
     {
-        if (Details(cause).GetValueOrDefault("hint") is not string hint || hint.Trim().Length == 0 || CliAdvice().IsMatch(hint))
+        if (Details(cause).GetValueOrDefault("hint") is string hint && hint.Trim().Length > 0 && !CliAdvice().IsMatch(hint))
         {
-            return text;
+            text = $"{text} Hint: {hint.Trim()}";
         }
 
-        return $"{text} Hint: {hint.Trim()}";
+        return AgentDeviceErrors.Normalize(cause).Code == AmbiguousMatchCode ? $"{text} {AmbiguousMatchHint}" : text;
     }
 
     /// <summary>The runner-state entry for a failure, by top-level code or the folded runner wire code.</summary>
