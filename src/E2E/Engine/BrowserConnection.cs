@@ -6,7 +6,7 @@ using Microsoft.Playwright;
 
 namespace E2E.Engine;
 
-/// <summary>The browser connection, as upstream <c>browser-connection.ts</c>: every CDP attach goes through one bounded dial.</summary>
+/// <summary>The browser connection, as upstream <c>browser-connection.ts</c>: every attach goes through one bounded dial.</summary>
 internal static class BrowserConnection
 {
     /// <summary>Every browser Playwright installs, in the order the CLI lists them (upstream <c>BROWSER_NAMES</c>). The engine launches Chromium only.</summary>
@@ -27,5 +27,15 @@ internal static class BrowserConnection
         // Upstream registers its Playwright selector engines first; the port reads the page with its own script and registers none.
         cancellationToken.ThrowIfCancellationRequested();
         return playwright.Chromium.ConnectOverCDPAsync(endpoint, new BrowserTypeConnectOverCDPOptions { Timeout = (float)timeout.TotalMilliseconds });
+    }
+
+    /// <summary>
+    /// Attaches to a Playwright server, or a grid that hosts one, with Playwright's own protocol, under the same bound as
+    /// <see cref="ConnectCdpAsync"/>. .NET-only. The browser has no context yet: the caller opens its own.
+    /// </summary>
+    public static Task<IBrowser> ConnectPlaywrightAsync(IPlaywright playwright, string endpoint, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return playwright.Chromium.ConnectAsync(endpoint, new BrowserTypeConnectOptions { Timeout = (float)timeout.TotalMilliseconds });
     }
 }

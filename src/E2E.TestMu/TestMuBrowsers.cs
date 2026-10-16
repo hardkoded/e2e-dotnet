@@ -9,7 +9,8 @@ namespace E2E.TestMu;
 
 /// <summary>
 /// TestMu AI (formerly LambdaTest) web grid for <see cref="WebEngineOptions.Browser"/>: one hosted Chromium session per
-/// lease, reached at <c>wss://cdp.lambdatest.com/playwright</c>. The grid starts the session when the engine connects,
+/// lease, reached at <c>wss://cdp.lambdatest.com/playwright</c> with Playwright's own protocol (the URL is named
+/// for CDP, but the grid does not answer it). The grid starts the session when the engine connects,
 /// so acquire only builds the endpoint, and it reads <c>LT_USERNAME</c> and <c>LT_ACCESS_KEY</c> (or
 /// <c>TESTMU_USERNAME</c> and <c>TESTMU_ACCESS_KEY</c>) from the run's environment. The grid ends the session when the
 /// connection closes, so release calls nothing. The dashboard shows the sessions without a Passed or Failed mark,
@@ -34,6 +35,7 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
         return Task.FromResult(new BrowserLease
         {
             Id = name,
+            Protocol = BrowserProtocol.Playwright,
             CdpEndpoint = $"{Endpoint}?capabilities={Uri.EscapeDataString(capabilities.ToJsonString())}",
         });
     }

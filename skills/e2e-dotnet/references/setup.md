@@ -151,7 +151,7 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
 | `TimezoneId` | The IANA time zone every attempt runs in. Spell it with its exact case (`Europe/Berlin`), or it is `INVALID_CONFIG`. |
 | `ColorScheme`, `ReducedMotion` | The `prefers-color-scheme` (`WebColorScheme.Light`, `Dark`, `NoPreference`) and `prefers-reduced-motion` (`WebReducedMotion.Reduce`, `NoPreference`) every page reports to its `@media` rules and `matchMedia`, from first paint. A persistent context takes them too. Each defaults to the browser's own. |
 | `InitScripts` | Scripts every document runs before the page's own (topic `writing-tests`). |
-| `Browser` | An `IBrowserProvider` that leases hosted Chromium browsers over CDP and releases them when their scope ends. Excludes `Connect`. See below. |
+| `Browser` | An `IBrowserProvider` that leases hosted Chromium browsers (over CDP, or Playwright's protocol for a lease with `Protocol = BrowserProtocol.Playwright`) and releases them when their scope ends. Excludes `Connect`. See below. |
 | `Connect` | Attach to a remote Chromium over CDP. `CdpEndpoint` and `ReconnectEndpoint` are resolvers (`ct => Task<string>`), not strings. With `ReconnectEndpoint` it rides one persistent default context and reconnects only to the original browser and page. |
 
 - `ReconnectEndpoint` rides one persistent context without `Headers`,
@@ -163,8 +163,9 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
   `ReconnectEndpoint` each attempt attaches and creates a new context.
 
 - A provider implements `Name`, `AcquireAsync(BrowserRequest, ct)` returning a
-  `BrowserLease` (`Id`, `CdpEndpoint`, and `ReconnectEndpoint` for a per-attempt
-  lease), and `ReleaseAsync(lease, BrowserReleaseContext, ct)`. Read its token
+  `BrowserLease` (`Id`, `CdpEndpoint`, `ReconnectEndpoint` for a per-attempt
+  lease, and `Protocol`: `BrowserProtocol.Cdp` by default, or `Playwright` for a
+  Playwright server or grid, which needs `Worker` scope), and `ReleaseAsync(lease, BrowserReleaseContext, ct)`. Read its token
   from `request.Env`, not the process environment. `Scope` is
   `BrowserProviderScope.Worker` (default: a browser per worker slot, leased
   when the run starts) or `Attempt` (a fresh browser per attempt, released with
@@ -184,6 +185,8 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
   `TestMuBrowsersOptions` sets `BrowserName` (a Chromium browser), `BrowserVersion`,
   `Platform`, `Build`, `Video`, `Network`, `Console`, `TunnelName`,
   `GeoLocation`, and `Capabilities` for any other `LT:Options` entry. The
+  engine connects with Playwright's own protocol (`BrowserLease.Protocol` is
+  `Playwright`), not CDP, and opens its own browser context. The
   dashboard shows the sessions without a Passed or Failed mark, because e2e
   passes no test result to a provider.
 

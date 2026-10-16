@@ -284,6 +284,9 @@ public sealed partial class WebEngine : IEngine
     /// <summary>Attaches to a CDP endpoint; tests replace it to stand in for the remote browser.</summary>
     internal Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp { get; init; } = BrowserConnection.ConnectCdpAsync;
 
+    /// <summary>Attaches to a Playwright-protocol endpoint (.NET-only); tests replace it to stand in for the remote browser.</summary>
+    internal Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectPlaywright { get; init; } = BrowserConnection.ConnectPlaywrightAsync;
+
     /// <summary>Starts the Playwright driver; tests replace it so a fake remote needs no driver process.</summary>
     internal Func<Task<IPlaywright>> CreatePlaywright { get; init; } = Playwright.CreateAsync;
 
@@ -363,7 +366,8 @@ public sealed partial class WebEngine : IEngine
                     var endpoint = await ResolveEndpointAsync(connect, cancellationToken).ConfigureAwait(false);
 
                     // As upstream, a connect that never answers is bounded by the browser launch budget.
-                    browser = await ConnectCdp(playwright, endpoint, E2EDefaults.LaunchTimeout, cancellationToken).ConfigureAwait(false);
+                    var dial = lease?.Protocol == BrowserProtocol.Playwright ? ConnectPlaywright : ConnectCdp;
+                    browser = await dial(playwright, endpoint, E2EDefaults.LaunchTimeout, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {

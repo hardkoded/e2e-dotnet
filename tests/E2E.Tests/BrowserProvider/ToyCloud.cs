@@ -220,6 +220,9 @@ internal sealed class Dialer
 
     public List<string> Endpoints { get; } = [];
 
+    /// <summary>The endpoints dialed with Playwright's own protocol; <see cref="Endpoints"/> holds the CDP ones.</summary>
+    public List<string> PlaywrightEndpoints { get; } = [];
+
     public List<FakeBrowser> Browsers { get; } = [];
 
     public Exception? Failure { get; set; }
@@ -231,13 +234,22 @@ internal sealed class Dialer
         {
             CreatePlaywright = FakeRemote.Playwright,
             ConnectCdp = (playwright, endpoint, timeout, cancellationToken) => DialAsync(provider, endpoint),
+            ConnectPlaywright = (playwright, endpoint, timeout, cancellationToken) =>
+            {
+                PlaywrightEndpoints.Add(endpoint);
+                return DialAsync(provider, endpoint, record: false);
+            },
             Clock = new FakeTimeProvider(),
         };
     }
 
-    private Task<IBrowser> DialAsync(IBrowserProvider provider, string endpoint)
+    private Task<IBrowser> DialAsync(IBrowserProvider provider, string endpoint, bool record = true)
     {
-        Endpoints.Add(endpoint);
+        if (record)
+        {
+            Endpoints.Add(endpoint);
+        }
+
         if (Failure is { } failure)
         {
             return Task.FromException<IBrowser>(failure);

@@ -40,6 +40,8 @@ public sealed class TestMuBrowsersTests
     {
         var lease = await new TestMuBrowsers().AcquireAsync(Request(), CancellationToken.None);
 
+        // The grid answers Playwright's protocol on this URL, not CDP: a live account refused the CDP attach.
+        Assert.Equal(BrowserProtocol.Playwright, lease.Protocol);
         var capabilities = Capabilities(lease);
         Assert.Equal("Chrome", (string?)capabilities["browserName"]);
         Assert.Equal("latest", (string?)capabilities["browserVersion"]);
@@ -170,7 +172,7 @@ public sealed class TestMuBrowsersTests
         Assert.Contains("secret%20key", refused, StringComparison.Ordinal);
         using var playwright = await Playwright.CreateAsync();
 
-        var error = await Assert.ThrowsAsync<PlaywrightException>(() => playwright.Chromium.ConnectOverCDPAsync(refused, new BrowserTypeConnectOverCDPOptions { Timeout = 5000 }));
+        var error = await Assert.ThrowsAsync<PlaywrightException>(() => playwright.Chromium.ConnectAsync(refused, new BrowserTypeConnectOptions { Timeout = 5000 }));
 
         Assert.DoesNotContain("secret", error.ToString(), StringComparison.OrdinalIgnoreCase);
     }

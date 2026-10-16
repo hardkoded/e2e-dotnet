@@ -22,6 +22,21 @@ public enum BrowserProviderScope
     Attempt = 1,
 }
 
+/// <summary>
+/// The protocol a leased browser's endpoint speaks. .NET-only: upstream's lease always carries a CDP endpoint.
+/// </summary>
+public enum BrowserProtocol
+{
+    /// <summary>The Chrome DevTools Protocol, dialed with Playwright's <c>connectOverCDP</c>. A browser the engine finds with a default context.</summary>
+    Cdp = 0,
+
+    /// <summary>
+    /// Playwright's own protocol, dialed with Playwright's <c>connect</c>: a Playwright server or a grid that hosts one.
+    /// The browser has no context yet, so the engine opens its own, and a dropped connection cannot be reattached.
+    /// </summary>
+    Playwright = 1,
+}
+
 /// <summary>What the engine asks a provider for: one browser for one worker slot, or for one attempt, of a run.</summary>
 public sealed record BrowserRequest
 {
@@ -57,8 +72,14 @@ public class BrowserLease
     /// <summary>The provider's handle on the lease (a session id), named in progress lines and handed back to release.</summary>
     public string Id { get; init; } = "";
 
-    /// <summary><c>ws://</c>, <c>wss://</c>, or <c>http://</c> DevTools endpoint to attach to over CDP.</summary>
+    /// <summary><c>ws://</c>, <c>wss://</c>, or <c>http://</c> endpoint to attach to, over CDP unless <see cref="Protocol"/> says otherwise.</summary>
     public string CdpEndpoint { get; init; } = "";
+
+    /// <summary>
+    /// What <see cref="CdpEndpoint"/> speaks. A <see cref="BrowserProtocol.Playwright"/> lease needs <see cref="BrowserProviderScope.Worker"/>
+    /// scope and no <see cref="ReconnectEndpoint"/>: its connection cannot be reattached. .NET-only.
+    /// </summary>
+    public BrowserProtocol Protocol { get; init; }
 
     /// <summary>
     /// Endpoint to reattach to the same browser after a transport drop, when it differs from <see cref="CdpEndpoint"/>;
@@ -190,6 +211,9 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
     /// third-party code, and an oversized environment fails the worker spawn with an opaque error.
     /// </summary>
     private const int MaxHandoffEnvBytes = 16 * 1024;
+
+    /// <summary>How the hand-off names <see cref="BrowserProtocol.Playwright"/>; a CDP lease leaves the field out.</summary>
+    private const string PlaywrightProtocol = "playwright";
 
     private static readonly JsonSerializerOptions HandoffJson = new()
     {
@@ -402,19 +426,19 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
     }
 
     /// <summary>
-    /// The endpoint the worker's shared browser attaches to, in <see cref="BrowserProviderScope.Worker"/> scope: the
+    /// The lease the worker's shared browser attaches to, in <see cref="BrowserProviderScope.Worker"/> scope: the
     /// slot's lease while its browser holds, and a replacement the worker leases itself once <see cref="ConnectionEnded"/>
     /// found the browser dropped. A dead lease is released by the side that acquired it: the worker here, best effort, or
     /// the runner in finish. A replacement that arrives once the attempt was cancelled or the worker disposed is given
     /// straight back and never committed.
     /// </summary>
-    public async Task<string> EndpointAsync(CancellationToken cancellationToken)
+    public async Task<BrowserLease> EndpointAsync(CancellationToken cancellationToken)
     {
         var run = RequireRun();
         var previous = _current;
         if (previous is not null && !_dropped)
         {
-            return previous.Lease.CdpEndpoint;
+            return previous.Lease;
         }
 
         var tenure = _tenure;
@@ -432,7 +456,7 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
             await GiveBackAsync(previous.Lease, run).ConfigureAwait(false);
         }
 
-        return lease.CdpEndpoint;
+        return lease;
     }
 
     /// <summary>
@@ -703,7 +727,9 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
         lease is not null
         && !string.IsNullOrWhiteSpace(lease.Id)
         && !string.IsNullOrWhiteSpace(lease.CdpEndpoint)
-        && (lease.ReconnectEndpoint is null || !string.IsNullOrWhiteSpace(lease.ReconnectEndpoint));
+        && (lease.ReconnectEndpoint is null || !string.IsNullOrWhiteSpace(lease.ReconnectEndpoint))
+        && Enum.IsDefined(lease.Protocol)
+        && (lease.Protocol == BrowserProtocol.Cdp || lease.ReconnectEndpoint is null);
 
     /// <summary>
     /// The environment variable a target's hand-off travels to the workers in: the name made environment-safe for
@@ -720,7 +746,7 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
     private static string EncodeHandoff(int slots, IReadOnlyList<BrowserLease> leases)
     {
         var encoded = JsonSerializer.Serialize(
-            new HandoffWire(slots, [.. leases.Select(lease => new LeaseWire(lease.Id, lease.CdpEndpoint, lease.ReconnectEndpoint))]),
+            new HandoffWire(slots, [.. leases.Select(lease => new LeaseWire(lease.Id, lease.CdpEndpoint, lease.ReconnectEndpoint, lease.Protocol == BrowserProtocol.Playwright ? PlaywrightProtocol : null))]),
             HandoffJson);
         var bytes = Encoding.UTF8.GetByteCount(encoded);
         return bytes > MaxHandoffEnvBytes
@@ -758,9 +784,9 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
             foreach (var entry in leases.EnumerateArray())
             {
                 var lease = entry.ValueKind == JsonValueKind.Object
-                    ? new BrowserLease { Id = ReadString(entry, "id") ?? "", CdpEndpoint = ReadString(entry, "cdpEndpoint") ?? "", ReconnectEndpoint = ReadString(entry, "reconnectEndpoint") }
+                    ? new BrowserLease { Id = ReadString(entry, "id") ?? "", CdpEndpoint = ReadString(entry, "cdpEndpoint") ?? "", ReconnectEndpoint = ReadString(entry, "reconnectEndpoint"), Protocol = ReadString(entry, "protocol") == PlaywrightProtocol ? BrowserProtocol.Playwright : BrowserProtocol.Cdp }
                     : null;
-                if (!IsBrowserLease(lease) || HasNonString(entry, "reconnectEndpoint"))
+                if (!IsBrowserLease(lease) || HasNonString(entry, "reconnectEndpoint") || HasNonString(entry, "protocol") || ReadString(entry, "protocol") is not (null or PlaywrightProtocol))
                 {
                     return null;
                 }
@@ -792,7 +818,7 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
 
     private sealed record HandoffWire(int Slots, IReadOnlyList<LeaseWire> Leases);
 
-    private sealed record LeaseWire(string Id, string CdpEndpoint, string? ReconnectEndpoint);
+    private sealed record LeaseWire(string Id, string CdpEndpoint, string? ReconnectEndpoint, string? Protocol);
 
     /// <summary>The run a worker serves, as init reported it: what every request and release from the worker names.</summary>
     private sealed record WorkerRun(string RunId, string TargetName, IReadOnlyDictionary<string, string?> Env, int Slot, int Slots, Action<string> Log);
