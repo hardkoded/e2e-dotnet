@@ -85,9 +85,9 @@ public sealed class RecordingTests : IDisposable
         Assert.Equal("ENGINE_FAILURE", (await Assert.ThrowsAsync<EngineException>(() => leases.Recorder("a1")(None))).Code);
     }
 
-    /// <summary>Adapted: the start and the stop run through <c>Recorder</c> and <c>StopProviderRecordingAsync</c>, not <c>startVideo</c> and <c>stopVideo</c>.</summary>
+    /// <summary>Partial: the start and the stop run through <c>Recorder</c> and <c>StopProviderRecordingAsync</c>, not <c>startVideo</c> and <c>stopVideo</c>.</summary>
     [Fact]
-    public async Task Names_the_provider_when_a_recording_cannot_start_and_refuses_a_stop_that_names_no_file_it_wrote()
+    public async Task Names_the_provider_when_a_recording_cannot_start_and_refuses_a_stop_that_names_no_file_it_wrote_PARTIAL_it_runs_through_Recorder_not_startVideo()
     {
         var failing = new ToyCloud { OnRecord = (lease, context, token) => throw new InvalidOperationException("recordings unavailable") };
         var (_, env) = await Runner.PreparedAsync(failing, 1);
