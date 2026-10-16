@@ -228,6 +228,8 @@ agent-device needs Node 22.12 or newer, and a booted simulator or emulator. `sam
 
 To run on hosted devices, set `MobileOptions.Provider`. `new LimrunSimulators()` (add the `E2E.Limrun` package, `using E2E.Limrun;`) leases one Limrun iOS simulator or Android emulator per worker, installs `App.AppPath` before the tests start, and deletes the device when the run ends. Set `LIMRUN_API_KEY` in the environment that starts the tests, and `LIMRUN_BASE_URL` to reach another API. Android needs `adb` from the Android SDK Platform-Tools on `PATH`, for the tunnel. `LimrunSimulatorsOptions` sets `Region`, `HardTimeout` (default `1h`, a Go duration such as `30m`), `Ios.Model`, `Android.Model`, and `Android.OsVersion` (default `15`). With the pinned agent-device version, iOS keyboard actions such as `Locator.PressAsync("Enter")` fail with `UNSUPPORTED_CAPABILITY`. Tap an app button when the flow has one.
 
+A provider that drives its devices without agent-device (no upstream counterpart) implements `IDeviceClientSource` as well as `IDeviceProvider`: `MobileEngine` then asks it for the `IDeviceClient` of each session, and the client finds its device through `DeviceConnection.Client`, which is the `DeviceLease.Client` the provider returned. `E2E.TestMu.Mobile` (preview) is the first.
+
 ## Done when
 
 - `dotnet test` passes against the app.

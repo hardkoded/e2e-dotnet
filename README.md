@@ -351,6 +351,7 @@ Most unit tests use `DocumentEngine` and a scripted model. No test needs an API 
 | `@e2e-dev/eas` | `E2E.Eas` (`EasSimulators`) |
 | `@e2e-dev/kernel` | `E2E.Kernel` (`KernelProvider`), hosted browsers for `WebEngineOptions.Browser` |
 | `@e2e-dev/limrun` | `E2E.Limrun` (`LimrunSimulators`) |
+| none (.NET only) | `E2E.TestMu.Mobile` (TestMu AI real and virtual mobile devices through Appium; in progress) |
 | none (TestMu AI has no upstream package) | `E2E.TestMu` (`TestMuBrowsers`), hosted browsers for `WebEngineOptions.Browser` |
 | `e2e login`, `e2e logout`, `e2e models`, `e2e guide`, `e2e mcp`, `e2e-web install` (as `e2e install`) | `E2E.Cli` (the `e2e` .NET tool) |
 

@@ -58,9 +58,12 @@ public sealed class MobileEngine : IEngine
 
     private readonly DeviceClientFactory _createClient;
 
-    /// <summary>Creates the engine over the local agent-device daemon, or the daemon a lease names. Needs Node 22.12 or newer at run time.</summary>
+    /// <summary>
+    /// Creates the engine over the local agent-device daemon, or the daemon a lease names. Needs Node 22.12 or newer at
+    /// run time. A provider that implements <see cref="IDeviceClientSource"/> makes the clients itself instead.
+    /// </summary>
     public MobileEngine(MobileOptions options)
-        : this(options, static (session, connection) => DeviceClientConfig.For(session, connection).Connect())
+        : this(options, ClientsOf(options))
     {
     }
 
@@ -186,6 +189,14 @@ public sealed class MobileEngine : IEngine
     {
         ArgumentNullException.ThrowIfNull(info);
         return await DeviceSession.StartAsync(this, info, _createClient, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static DeviceClientFactory ClientsOf(MobileOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return options.Provider is IDeviceClientSource source
+            ? source.CreateClient
+            : static (session, connection) => DeviceClientConfig.For(session, connection).Connect();
     }
 
     private static void Validate(MobileOptions options)
