@@ -118,7 +118,7 @@ public static class Explore
     /// <see cref="ExploreOptions.Agent"/> names, so the target, the agent the explorer is built from, and the credential inventory are
     /// what the run uses; a config that does not resolve, an unknown agent, or an unknown target is an error before anything starts,
     /// as a bad flag is. A step the app or the model fails is not thrown: it ends the run, and the outcome carries the error.
-    /// A cancelled <paramref name="cancellationToken"/> throws <see cref="OperationCanceledException"/>.
+    /// A cancelled <paramref name="cancellationToken"/> throws <see cref="OperationCanceledException"/>; the run's own timeout ends it as an outcome whose error is <c>CANCELLED</c>.
     /// </summary>
     public static async Task<ExploreOutcome> ExploreAsync(ExploreOptions options, CancellationToken cancellationToken = default)
     {
@@ -133,7 +133,7 @@ public static class Explore
         var projectRoot = options.RawConfig is null ? config.ProjectRoot : Path.GetFullPath(options.Cwd ?? config.ProjectRoot);
         var target = PickTarget(config.Targets, options.Target);
         var credentials = NormalizeCredentials(options.Credentials);
-        var accounts = CredentialAccounts(credentials);
+        CheckCredentialInventory(credentials);
 
         // An exploration runs as exactly one agent: the one named, else `default`.
         var entries = config.Agents.ToDictionary(pair => pair.Key, pair => pair.Value.CreateOptions(), StringComparer.Ordinal);
@@ -339,9 +339,8 @@ public static class Explore
     /// The accounts every charter carries, bounded to what a step parameter holds. Measured as the step sees them: the usernames and
     /// the secret placeholders the passwords become there.
     /// </summary>
-    private static List<PlanAccount> CredentialAccounts(IReadOnlyDictionary<string, UserCredential> credentials)
+    private static void CheckCredentialInventory(IReadOnlyDictionary<string, UserCredential> credentials)
     {
-        var accounts = credentials.Select(pair => new PlanAccount(pair.Key, pair.Value.Username)).ToList();
         var carried = new JsonObject();
         foreach (var (name, credential) in credentials)
         {
@@ -353,12 +352,13 @@ public static class Explore
         }
 
         var bytes = Encoding.UTF8.GetByteCount(new JsonObject { ["credentials"] = carried }.ToJsonString());
-        return bytes > MaxCredentialBytes
-            ? throw new ConfigurationException(
+        if (bytes > MaxCredentialBytes)
+        {
+            throw new ConfigurationException(
                 "INVALID_CONFIG",
-                "explore carries every configured credential into each step: " + accounts.Count.ToString(CultureInfo.InvariantCulture) + " account(s) serialize to "
-                + bytes.ToString(CultureInfo.InvariantCulture) + " bytes, the maximum is " + MaxCredentialBytes.ToString(CultureInfo.InvariantCulture) + "; explore with fewer credentials")
-            : accounts;
+                "explore carries every configured credential into each step: " + credentials.Count.ToString(CultureInfo.InvariantCulture) + " account(s) serialize to "
+                + bytes.ToString(CultureInfo.InvariantCulture) + " bytes, the maximum is " + MaxCredentialBytes.ToString(CultureInfo.InvariantCulture) + "; explore with fewer credentials");
+        }
     }
 
     /// <summary>The session's <see cref="Agent"/> as the exploration body reads it.</summary>

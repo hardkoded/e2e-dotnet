@@ -217,6 +217,12 @@ internal static class ExploreBody
                     throw;
                 }
             }
+            catch (E2EException cause)
+            {
+                // An engine or app failure ends the run, and the record keeps the step it ended in.
+                state.EndStep(ReportExploreStepStatus.Failed, cause.Message, cause.Code);
+                throw;
+            }
         }
     }
 

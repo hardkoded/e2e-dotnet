@@ -53,7 +53,7 @@ internal static class ActParams
     /// <summary>The secrets the params declare at any depth, one per name, as upstream's walk of the params finds them.</summary>
     public static List<Secret> SecretsIn(IReadOnlyDictionary<string, object?>? parameters)
     {
-        var found = new Dictionary<string, Secret>(StringComparer.Ordinal);
+        var found = new Dictionary<(string Name, string Value), Secret>();
         if (parameters is not null)
         {
             Project(parameters, 0, new HashSet<object>(ReferenceEqualityComparer.Instance), found);
@@ -62,7 +62,7 @@ internal static class ActParams
         return [.. found.Values];
     }
 
-    private static JsonNode? Project(object? value, int depth, HashSet<object> ancestors, Dictionary<string, Secret>? found)
+    private static JsonNode? Project(object? value, int depth, HashSet<object> ancestors, Dictionary<(string Name, string Value), Secret>? found)
     {
         if (depth > MaxDepth)
         {
@@ -76,7 +76,7 @@ internal static class ActParams
             case Secret secret:
                 if (found is not null)
                 {
-                    found[secret.Name] = secret;
+                    found[(secret.Name, secret.Value)] = secret;
                 }
 
                 var projected = new JsonObject { ["kind"] = "secret", ["name"] = secret.Name };

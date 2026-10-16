@@ -191,7 +191,12 @@ internal static class ExplorePlan
             PlanInstruction(state, request),
             new ExtractOptions { Timeout = request.Timeout, Agent = request.Agent },
             cancellationToken).ConfigureAwait(false);
-        return RepairPlan(answer);
+        var decision = RepairPlan(answer);
+
+        // An answer that was only padding has no charter left: it counts as an answer outside the grammar.
+        return decision is PlanDecision.Step { Instruction.Length: 0 }
+            ? throw new AgentException("MODEL_OUTPUT_INVALID", "the planner's step has no instruction once padding is removed")
+            : decision;
     }
 
     /// <summary>
