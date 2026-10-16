@@ -167,8 +167,8 @@ internal static class Replay
                 return Stop(ReplayHandOffReason.ActionBudget);
             }
 
-            // Repeats of a folded scroll done before it failed moved the screen: the hand-off counts them as executed, so the
-            // executor is not told the screen is untouched.
+            // Repeats of a folded scroll done before it failed moved the screen: the outcome counts them as executed. The host
+            // commits whole actions only, so the act's recording and hand-off prefix leave the partial scroll out.
             var repeated = 0;
             string? Partial() => repeated == 0 ? null : summary + " (" + repeated.ToString(CultureInfo.InvariantCulture) + " of " + (action.Times ?? 1).ToString(CultureInfo.InvariantCulture) + " repeats)";
             try
