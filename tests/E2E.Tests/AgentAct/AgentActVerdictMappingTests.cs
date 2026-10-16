@@ -169,7 +169,7 @@ public sealed class AgentActVerdictMappingTests
     /// executor's summary alone, not <c>agent.act blocked: &lt;summary&gt;</c>.
     /// </summary>
     [Fact]
-    public async Task Maps_a_blocked_verdict_onto_its_error_code_and_the_configuration_exit_code()
+    public async Task Partial_Maps_a_blocked_verdict_onto_its_error_code_and_the_configuration_exit_code()
     {
         var executor = new TestExecutor("blocked-executor", (_, _) => Task.FromResult(Blocked("the staging credential is not configured", "AUTH_CREDENTIAL_UNAVAILABLE")));
         var result = await RunAsync(
@@ -388,7 +388,7 @@ public sealed class AgentActVerdictMappingTests
 
     /// <summary>Partial: the port declares the secret's purpose as free text, so the purposes this reads are the ones the test gave.</summary>
     [Fact]
-    public async Task Fills_a_generic_secret_into_a_plain_textbox_through_typeSecret_and_refuses_a_password_there()
+    public async Task Partial_Fills_a_generic_secret_into_a_plain_textbox_through_typeSecret_and_refuses_a_password_there()
     {
         var executor = new TestExecutor("api-key-executor", async (context, _) =>
         {

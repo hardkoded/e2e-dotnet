@@ -74,7 +74,7 @@ public sealed class ACustomExecutorTests
 
     /// <summary>Partial: the types keep any value that is no executor out, so the one thing left to reject is an executor with no name.</summary>
     [Fact]
-    public void Rejects_an_executor_value_that_is_not_a_StepExecutor()
+    public void Partial_Rejects_an_executor_value_that_is_not_a_StepExecutor()
     {
         var error = Assert.Throws<ConfigurationException>(() => ResolvedAgent.From("default", new AgentOptions { Executor = new TestExecutor(" ", (_, _) => throw new InvalidOperationException("not called")) }));
 

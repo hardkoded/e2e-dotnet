@@ -21,7 +21,7 @@ public sealed partial class EngineTargetsTests
     /// platform from. The verbs are the ones the engine's capabilities allow: the port's engines declare capabilities, not action kinds.
     /// </summary>
     [Fact]
-    public async Task Runs_an_agent_step_over_the_adapter_with_lifecycle_and_honest_provenance()
+    public async Task Partial_Runs_an_agent_step_over_the_adapter_with_lifecycle_and_honest_provenance()
     {
         var toy = new ToyEngine();
         var executor = new TestExecutor("toy-tapper", async (context, _) =>

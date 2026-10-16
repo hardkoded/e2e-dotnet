@@ -56,7 +56,7 @@ public sealed class TheExecutorContextAttemptAndMemoryTests : IAsyncLifetime
     /// is step 0 and the first act is step 1.
     /// </summary>
     [Fact]
-    public void Names_the_test_and_attempt_and_numbers_the_step_in_the_attempt_timeline()
+    public void Partial_Names_the_test_and_attempt_and_numbers_the_step_in_the_attempt_timeline()
     {
         Assert.Equal("first test runs two steps", _probes[0].TestId);
         Assert.NotEmpty(_probes[0].AttemptId);

@@ -28,7 +28,7 @@ public sealed class ASecretValuePassedAsAPlainStringTests
     /// types it runs before the act that spells the value as plain strings, so the secret is known to the redaction by then.
     /// </summary>
     [Fact]
-    public async Task Hands_the_executor_the_instruction_params_and_agent_context_redacted()
+    public async Task Partial_Hands_the_executor_the_instruction_params_and_agent_context_redacted()
     {
         var inputs = new List<(string Instruction, string Params, string? AgentContext)>();
         var recording = new TestExecutor("recording", async (context, _) =>

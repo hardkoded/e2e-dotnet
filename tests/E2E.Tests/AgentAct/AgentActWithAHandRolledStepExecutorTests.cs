@@ -54,7 +54,7 @@ public sealed partial class AgentActWithAHandRolledStepExecutorTests
     /// the port does not record.
     /// </summary>
     [Fact]
-    public async Task Records_the_act_step_with_harness_owned_accounting()
+    public async Task Partial_Records_the_act_step_with_harness_owned_accounting()
     {
         ActResult? act = null;
         var result = await RunAsync(

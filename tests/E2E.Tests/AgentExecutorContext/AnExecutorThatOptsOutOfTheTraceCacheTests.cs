@@ -14,7 +14,7 @@ public sealed class AnExecutorThatOptsOutOfTheTraceCacheTests
     /// Partial: the port reads the step's cache participation from <see cref="ActResult.Cache"/>, since it has no step record.
     /// </summary>
     [Fact]
-    public async Task Leaves_no_cache_participation_on_its_steps_where_the_default_executor_has_one()
+    public async Task Partial_Leaves_no_cache_participation_on_its_steps_where_the_default_executor_has_one()
     {
         var cached = await ActWithAsync(ExecutorCache.Inherit);
         var uncached = await ActWithAsync(ExecutorCache.Off);

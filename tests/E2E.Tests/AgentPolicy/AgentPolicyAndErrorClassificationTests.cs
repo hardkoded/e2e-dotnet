@@ -81,7 +81,7 @@ public sealed class AgentPolicyAndErrorClassificationTests
 
     /// <summary>Partial: the port has no step record, so the model that judged is read from the model itself, which answered once.</summary>
     [Fact]
-    public async Task Judges_with_the_model_a_custom_executor_brought_with_no_entry_model()
+    public async Task Partial_Judges_with_the_model_a_custom_executor_brought_with_no_entry_model()
     {
         var brought = new ScriptedModel(_ => ModelResponses.Call("extract", new { data = new { counter = "0" } }));
         var executor = new TestExecutor("house-brain", (_, _) => Task.FromResult(Passed("unused"))) { Model = brought };

@@ -41,7 +41,7 @@ public sealed class AssertEvidenceUnderACustomExecutorTests
     /// and the failed assertion's path on its exception.
     /// </summary>
     [Fact]
-    public async Task Takes_the_screenshot_after_the_verdict_on_a_pass_and_on_a_failure_alike_and_none_with_screenshot_false()
+    public async Task Partial_Takes_the_screenshot_after_the_verdict_on_a_pass_and_on_a_failure_alike_and_none_with_screenshot_false()
     {
         var root = TempRoot();
         await using var session = await StartAsync(root, ExecutorKit.WorldWithAPassword(_ => { }));
@@ -62,7 +62,7 @@ public sealed class AssertEvidenceUnderACustomExecutorTests
     /// is relative to the project root, and names the file.
     /// </summary>
     [Fact]
-    public async Task Hands_the_failed_verdict_the_path_of_its_screenshot_and_the_runner_keeps_its_own_failure_capture_beside_it()
+    public async Task Partial_Hands_the_failed_verdict_the_path_of_its_screenshot_and_the_runner_keeps_its_own_failure_capture_beside_it()
     {
         var root = TempRoot();
         await using var session = await StartAsync(root, ExecutorKit.WorldWithAPassword(_ => { }));
@@ -80,7 +80,7 @@ public sealed class AssertEvidenceUnderACustomExecutorTests
     /// category belong to its runner.
     /// </summary>
     [Fact]
-    public async Task Refuses_vision_with_UNSUPPORTED_CAPABILITY_before_the_executor_is_asked_what_its_model_sees_is_its_own_call()
+    public async Task Partial_Refuses_vision_with_UNSUPPORTED_CAPABILITY_before_the_executor_is_asked_what_its_model_sees_is_its_own_call()
     {
         var root = TempRoot();
         await using var session = await StartAsync(root, ExecutorKit.WorldWithAPassword(_ => { }));
@@ -99,7 +99,7 @@ public sealed class AssertEvidenceUnderACustomExecutorTests
     /// no file kept.
     /// </summary>
     [Fact]
-    public async Task Denies_the_screenshot_as_PIXEL_TAINTED_after_a_secret_fill_on_both_verdicts_and_the_failure_capture_keeps_no_pixels_either()
+    public async Task Partial_Denies_the_screenshot_as_PIXEL_TAINTED_after_a_secret_fill_on_both_verdicts_and_the_failure_capture_keeps_no_pixels_either()
     {
         var root = TempRoot();
         await using var session = await StartAsync(root, ExecutorKit.WorldWithAPassword(_ => { }));

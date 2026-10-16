@@ -20,7 +20,7 @@ public sealed class TaxonomyAndRunDerivationUnderMixedOutcomesTests
     /// verdict: the ones with an outside owner, and never a code that describes the app.
     /// </summary>
     [Fact]
-    public void Every_blockable_code_names_a_category_others_name_none()
+    public void Partial_Every_blockable_code_names_a_category_others_name_none()
     {
         Assert.All(StepExecutors.BlockableCodes, code => Assert.Contains(code, StepExecutors.AgentCodes));
         Assert.DoesNotContain("CANCELLED", StepExecutors.BlockableCodes);
@@ -34,7 +34,7 @@ public sealed class TaxonomyAndRunDerivationUnderMixedOutcomesTests
     /// one is a failure of the app that no blocked result hides.
     /// </summary>
     [Fact]
-    public async Task Blocks_the_run_on_a_new_code_but_one_real_failure_keeps_it_failed()
+    public async Task Partial_Blocks_the_run_on_a_new_code_but_one_real_failure_keeps_it_failed()
     {
         var executor = new TestExecutor("mixed-executor", (context, _) => Task.FromResult(
             context.Step.Instruction.Contains("seed", StringComparison.Ordinal)

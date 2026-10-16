@@ -21,7 +21,7 @@ public sealed class ProjectToolDispatchTests
 
     /// <summary>Partial: the port reads the slot count of the step from the tool bodies that ran, since a failed step has no result.</summary>
     [Fact]
-    public async Task Reserves_the_only_action_slot_before_parallel_model_tool_calls_can_mutate()
+    public async Task Partial_Reserves_the_only_action_slot_before_parallel_model_tool_calls_can_mutate()
     {
         var started = 0;
         var turns = 0;
@@ -61,7 +61,7 @@ public sealed class ProjectToolDispatchTests
 
     /// <summary>Partial: the port has no tool event, so it reads the failed tool from the exception it threw and the step's actions from its result.</summary>
     [Fact]
-    public async Task Serializes_grammar_actions_with_project_mutations_and_records_failed_tools_accurately()
+    public async Task Partial_Serializes_grammar_actions_with_project_mutations_and_records_failed_tools_accurately()
     {
         var order = new List<string>();
         var world = new DocumentWorld().Map("/", page => page.Button("Go", () => order.Add("tap")));

@@ -14,7 +14,7 @@ public sealed class ProjectTreeTests
     /// where upstream redacts it, since a selection that is only part of a secret is not one a redaction can find.
     /// </summary>
     [Fact]
-    public void Redacts_names_text_values_selections_and_attributes_and_drops_secure_values_secure_selections_and_selectors()
+    public void Partial_Redacts_names_text_values_selections_and_attributes_and_drops_secure_values_secure_selections_and_selectors()
     {
         var redactor = Redactor.For([Secret.Create("password", "hunter2")]);
         var rect = new BoundingBox(1, 2, 3, 4);

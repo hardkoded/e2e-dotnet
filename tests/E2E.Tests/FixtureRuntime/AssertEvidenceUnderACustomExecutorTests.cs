@@ -38,7 +38,7 @@ public sealed class AssertEvidenceUnderACustomExecutorTests
     /// abandoned at the action timeout, 300 ms here, long before the 20 s of the assertion's own timeout.
     /// </summary>
     [Fact]
-    public async Task Abandons_a_screenshot_the_engine_never_delivers_at_the_operation_budget_not_the_step_timeout_and_keeps_the_verdict()
+    public async Task Partial_Abandons_a_screenshot_the_engine_never_delivers_at_the_operation_budget_not_the_step_timeout_and_keeps_the_verdict()
     {
         var root = TempRoot();
         var engine = new HungScreenshotEngine(new DocumentWorld().Map("/", page => page.Paragraph("holds")));

@@ -144,7 +144,7 @@ public sealed class ReplayTraceTests
 
     /// <summary>Partial: the port reads the action as the hand-off notice words it, and the reason from the act's cache detail.</summary>
     [Fact]
-    public async Task Surfaces_an_unknown_commit_state_as_action_uncertain_with_the_action_named()
+    public async Task Partial_replay_through_the_agent_stops_at_action_uncertain_and_the_notice_names_the_action()
     {
         var uncertain = false;
         DocumentWorld World() => new DocumentWorld().Map("/home", page => page.Heading("Home")).Map("/plan", page =>
