@@ -21,8 +21,9 @@ public sealed class WorkerScopeTests
 {
     private static readonly CancellationToken None = CancellationToken.None;
 
+    /// <summary>Partial: the two slots lease at once, and the port's leases settle in the order the code runs them, so the lines they log are compared without their order.</summary>
     [Fact]
-    public async Task Leases_one_browser_per_slot_at_prepare_hands_the_declared_fields_to_the_workers_and_each_worker_attaches_to_its_own()
+    public async Task Leases_one_browser_per_slot_at_prepare_hands_the_declared_fields_to_the_workers_and_each_worker_attaches_to_its_own_PARTIAL_the_order_of_the_concurrent_lines_is_not_checked()
     {
         var cloud = new ToyCloud();
         var dialer = new Dialer();
@@ -172,8 +173,9 @@ public sealed class WorkerScopeTests
         Assert.Empty(dialer.Endpoints);
     }
 
+    /// <summary>Partial: the port keeps no browser connection between attempts, so the browser drops while an attempt rides it and the replacement is leased at the next start; upstream drops it between attempts.</summary>
     [Fact]
-    public async Task Leases_a_replacement_in_the_worker_once_its_browser_dropped_releases_only_what_the_worker_acquired_and_the_rest_on_dispose()
+    public async Task Leases_a_replacement_in_the_worker_once_its_browser_dropped_releases_only_what_the_worker_acquired_and_the_rest_on_dispose_PARTIAL_the_drop_is_seen_when_the_attempt_ends_not_at_the_next_start()
     {
         var cloud = new ToyCloud();
         var dialer = new Dialer();
@@ -215,8 +217,9 @@ public sealed class WorkerScopeTests
         Assert.Equal(["lease-2", "lease-3", "lease-0", "lease-1"], cloud.ReleasedIds.Take(4));
     }
 
+    /// <summary>Partial: the port keeps no browser connection between attempts, so the browser drops while an attempt rides it and the replacement is leased at the next start; upstream drops it between attempts.</summary>
     [Fact]
-    public async Task Reports_the_progress_a_replacement_lease_logs_through_the_workers_line_to_the_reporter()
+    public async Task Reports_the_progress_a_replacement_lease_logs_through_the_workers_line_to_the_reporter_PARTIAL_the_drop_is_seen_when_the_attempt_ends_not_at_the_next_start()
     {
         var cloud = new ToyCloud();
         var dialer = new Dialer();
@@ -234,8 +237,9 @@ public sealed class WorkerScopeTests
         await worker.DisposeAsync();
     }
 
+    /// <summary>Partial: the port keeps no browser connection between attempts, so the browser drops while an attempt rides it and the replacement is leased at the next start; upstream drops it between attempts.</summary>
     [Fact]
-    public async Task Gives_back_a_replacement_that_arrives_after_the_worker_was_disposed_and_never_commits_it()
+    public async Task Gives_back_a_replacement_that_arrives_after_the_worker_was_disposed_and_never_commits_it_PARTIAL_the_drop_is_seen_when_the_attempt_ends_not_at_the_next_start()
     {
         var cloud = new ToyCloud();
         var dialer = new Dialer();
@@ -264,8 +268,9 @@ public sealed class WorkerScopeTests
         Assert.Equal(["wss://0.example"], dialer.Endpoints);
     }
 
+    /// <summary>Partial: the port keeps no browser connection between attempts, so the browser drops while an attempt rides it and the replacement is leased at the next start; upstream drops it between attempts.</summary>
     [Fact]
-    public async Task Fails_the_attempt_start_naming_the_provider_when_no_replacement_can_be_leased()
+    public async Task Fails_the_attempt_start_naming_the_provider_when_no_replacement_can_be_leased_PARTIAL_the_drop_is_seen_when_the_attempt_ends_not_at_the_next_start()
     {
         var cloud = new ToyCloud();
         var dialer = new Dialer();
