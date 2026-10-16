@@ -102,7 +102,7 @@ public sealed partial class Agent
         var stepIndex = _scope.NextStepIndex();
         budget.Attach(_scope, timeout, outer.Token, stop, _scope.Redactor.Redact, feed.ArmAfter);
         _scope.Remember(spec.Params);
-        var declared = spec.Params?.Values.OfType<Secret>().ToList() ?? [];
+        var declared = ActParams.SecretsIn(spec.Params);
         var dispatcher = new ActionDispatcher(_scope, feed, budget, spec.Params, () => declared);
         ActContext? context = null;
         try

@@ -67,6 +67,9 @@ public sealed class AgentTool
 
     public bool Mutates { get; }
 
+    /// <summary>True for a tool the harness adds itself, such as the finding tool of <see cref="Explore"/>, which may take a name no project tool can.</summary>
+    internal bool IsHarness { get; init; }
+
     /// <summary>The platforms the tool is offered on. Null means every platform.</summary>
     public IReadOnlyList<string>? Platforms { get; }
 

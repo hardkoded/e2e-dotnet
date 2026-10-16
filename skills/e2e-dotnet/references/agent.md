@@ -84,8 +84,9 @@ list: topic `debugging`.
 
 `ActOptions`:
 
-- `Params`: values the instruction names. The runner fills a `Secret`, and a
-  `Values.Unique(...)` value keeps the cache working across runs.
+- `Params`: values the instruction names. The runner fills a `Secret`, at any
+  depth of the params, and a `Values.Unique(...)` value keeps the cache
+  working across runs.
 - `Timeout`: 30 s by default (`StepTimeout` on the fixture).
 - `MaxSteps` (default 25 actions), `MaxModelCalls` (default 25): may only
   lower the agent's limits, else `INVALID_ARGUMENT`.
@@ -358,7 +359,8 @@ same dictionary. A config file cannot declare one, since a tool is code.
   Leave it out to offer the tool everywhere.
 - The tool's output is redacted and cut at 16384 characters.
 - A name the agent already uses (`observe`, `done`, `navigate`, `back`,
-  `scroll`, `scroll_to`, or an action verb) is `INVALID_CONFIG`.
+  `scroll`, `scroll_to`, or an action verb) is `INVALID_CONFIG`, and so is
+  `report_finding`, the tool `Explore.ExploreAsync` adds (topic `explore`).
 - A tool that needs the screen takes the second `AgentTool` constructor,
   whose delegate also gets an `AgentToolContext`: `ObserveAsync` (a read-only
   tool only; a mutating tool gets `POLICY_DENIED`) and `AttachScreenshotAsync`.

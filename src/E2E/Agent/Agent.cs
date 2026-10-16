@@ -1197,14 +1197,9 @@ internal sealed class AttemptScope
 
     public void Remember(IReadOnlyDictionary<string, object?>? parameters)
     {
-        if (parameters is null)
+        foreach (var secret in ActParams.SecretsIn(parameters))
         {
-            return;
-        }
-
-        foreach (var value in parameters.Values)
-        {
-            if (value is Secret secret && !Secrets.Any(item => string.Equals(item.Name, secret.Name, StringComparison.Ordinal) && string.Equals(item.Value, secret.Value, StringComparison.Ordinal)))
+            if (!Secrets.Any(item => string.Equals(item.Name, secret.Name, StringComparison.Ordinal) && string.Equals(item.Value, secret.Value, StringComparison.Ordinal)))
             {
                 _secrets.Add(secret);
             }

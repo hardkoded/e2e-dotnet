@@ -291,6 +291,25 @@ await Expect.That(Screen).ToHaveScreenshotAsync("feed.png", new ScreenshotOption
 - **Options.** `Threshold` (0 to 1, default 0.2), `MaxDiffPixels`, `MaxDiffPixelRatio` (the smaller wins when both are set), `Mask`, `MaskColor` (`#rrggbb`, default `#ff00ff`), and `Timeout`. `.Not` passes once the screen differs from a stored screenshot.
 - **Secrets.** Secure fields are covered in every screenshot. After a test fills a `Secret`, the matcher fails with `POLICY_DENIED`.
 
+## Exploring an app
+
+`Explore.ExploreAsync` gives the agent a goal instead of a test. It plans one step at a time, drives the app, and reports each defect it has evidence of, with a screenshot. It reads the same `e2e.config.json` and needs a target and an agent with a model.
+
+```csharp
+var outcome = await Explore.ExploreAsync(new ExploreOptions
+{
+    Goal = "Explore checkout like a first-time buyer and report anything off",
+    MaxSteps = 4,
+});
+
+foreach (var finding in outcome.Explore.Findings)
+{
+    Console.WriteLine($"{finding.Kind} {finding.Severity}: {finding.Title}");
+}
+```
+
+`outcome.Status` is `Failed` when the agent reported an `issue` (a `warning` does not fail the run) and `Blocked` when it could not explore. The budgets are 1 to 12 steps and 3 to 15 minutes. `OnProgress` follows the run as it happens, and `Credentials` gives the accounts the agent can sign in with. There is no `e2e explore` command yet. See [COMPATIBILITY.md](COMPATIBILITY.md#explore) and topic `explore`.
+
 ## Coding agents (MCP)
 
 `e2e mcp` serves the project to a coding agent such as Claude Code or Cursor over MCP (stdio). Register it once:

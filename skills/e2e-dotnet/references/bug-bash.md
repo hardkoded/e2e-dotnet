@@ -2,8 +2,9 @@
 
 Upstream's bug bash is many `e2e explore` runs at once, one charter each,
 then a verification pass that turns every claimed bug into a repro test that
-fails for the reason reported. `e2e explore` is not ported (topic
-`explore`), so the fan-out part is not available in this port.
+fails for the reason reported. The port has no `e2e explore` command or
+fan-out (topic `explore` has the one-exploration library call), so the
+fan-out part is not available in this port.
 
 ## Contents
 

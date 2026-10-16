@@ -177,6 +177,13 @@ internal sealed class ResolvedAgent
         return brought;
     }
 
+    /// <summary>
+    /// The failure for an agent that needs a model and has none: <paramref name="needs"/> names what needs it, and the message
+    /// names the entry to write, under that agent's own key.
+    /// </summary>
+    internal static AgentException MissingModelError(string name, string needs = "the agent fixture requires a model") =>
+        new("MODEL_UNAVAILABLE", needs + ", and agents." + name + " has none: set Model on it to an IAgentModel, or model and provider in e2e.config.json");
+
     internal static void Check(int value, string label)
     {
         if (value is < 1 or > MaxBudget)
@@ -210,11 +217,18 @@ internal sealed class ResolvedAgent
             return;
         }
 
-        foreach (var name in tools.Keys)
+        foreach (var (name, tool) in tools)
         {
             if (AgentTools.IsReserved(name))
             {
                 throw new ConfigurationException("INVALID_CONFIG", label + ".tools." + name + ": the " + name + " tool name is reserved for the agent's own tools");
+            }
+
+            if (!tool.IsHarness && AgentTools.HarnessToolNames.TryGetValue(name, out var surface))
+            {
+                throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    label + ".tools." + name + ": the " + name + " tool name is reserved for the tool the harness adds in " + surface + "; rename it");
             }
         }
     }

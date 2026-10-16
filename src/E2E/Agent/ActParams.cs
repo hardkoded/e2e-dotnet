@@ -38,7 +38,7 @@ internal static class ActParams
             return;
         }
 
-        var projected = Project(parameters, 0, new HashSet<object>(ReferenceEqualityComparer.Instance));
+        var projected = Project(parameters, 0, new HashSet<object>(ReferenceEqualityComparer.Instance), null);
         var bytes = Encoding.UTF8.GetByteCount(projected?.ToJsonString(Json) ?? "null");
         if (bytes > MaxBytes)
         {
@@ -48,9 +48,21 @@ internal static class ActParams
 
     /// <summary>The params as the JSON an executor reads them: a <see cref="Secret"/> as its name and purpose, a <see cref="UniqueValue"/> as its value.</summary>
     public static JsonObject? Projected(IReadOnlyDictionary<string, object?> parameters) =>
-        Project(parameters, 0, new HashSet<object>(ReferenceEqualityComparer.Instance)) as JsonObject;
+        Project(parameters, 0, new HashSet<object>(ReferenceEqualityComparer.Instance), null) as JsonObject;
 
-    private static JsonNode? Project(object? value, int depth, HashSet<object> ancestors)
+    /// <summary>The secrets the params declare at any depth, one per name, as upstream's walk of the params finds them.</summary>
+    public static List<Secret> SecretsIn(IReadOnlyDictionary<string, object?>? parameters)
+    {
+        var found = new Dictionary<string, Secret>(StringComparer.Ordinal);
+        if (parameters is not null)
+        {
+            Project(parameters, 0, new HashSet<object>(ReferenceEqualityComparer.Instance), found);
+        }
+
+        return [.. found.Values];
+    }
+
+    private static JsonNode? Project(object? value, int depth, HashSet<object> ancestors, Dictionary<string, Secret>? found)
     {
         if (depth > MaxDepth)
         {
@@ -62,6 +74,11 @@ internal static class ActParams
             case null:
                 return null;
             case Secret secret:
+                if (found is not null)
+                {
+                    found[secret.Name] = secret;
+                }
+
                 var projected = new JsonObject { ["kind"] = "secret", ["name"] = secret.Name };
                 if (secret.Purpose is not null)
                 {
@@ -108,7 +125,7 @@ internal static class ActParams
                     var map = new JsonObject();
                     foreach (var (key, entry) in Entries((IEnumerable)value))
                     {
-                        map[key] = Project(entry, depth + 1, ancestors);
+                        map[key] = Project(entry, depth + 1, ancestors, found);
                     }
 
                     return map;
@@ -116,7 +133,7 @@ internal static class ActParams
                     var list = new JsonArray();
                     foreach (var entry in (IEnumerable)value)
                     {
-                        list.Add(Project(entry, depth + 1, ancestors));
+                        list.Add(Project(entry, depth + 1, ancestors, found));
                     }
 
                     return list;
@@ -126,7 +143,7 @@ internal static class ActParams
                     {
                         if (property.Get is { } get)
                         {
-                            shape[property.Name] = Project(get(value), depth + 1, ancestors);
+                            shape[property.Name] = Project(get(value), depth + 1, ancestors, found);
                         }
                     }
 
