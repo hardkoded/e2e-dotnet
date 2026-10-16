@@ -39,6 +39,18 @@ public sealed class EngineStartOptions
     /// before it is returned, with the forms <see cref="ResolveSecretOptions.Derived"/> computes from it.
     /// </summary>
     internal Func<Secret, ResolveSecretOptions?, Task<string>>? ResolveSecret { get; init; }
+
+    /// <summary>
+    /// The attempt's id, for naming what an engine leases for it at a hosted service. Defaults to a new one per start.
+    /// Upstream's <c>EngineAttemptContext.attemptId</c>.
+    /// </summary>
+    public string? AttemptId { get; init; }
+
+    /// <summary>
+    /// The run's environment: where a hosted service's provider reads its token from. Only an engine that starts without
+    /// a runner reads it, to prepare the run of its one attempt; it defaults to the process environment.
+    /// </summary>
+    public IReadOnlyDictionary<string, string?>? Env { get; init; }
 }
 
 /// <summary>What an engine asks of <see cref="EngineStartOptions.ResolveSecret"/> beside the value.</summary>
@@ -114,3 +126,57 @@ public interface IEngineSession : IAsyncDisposable
 /// <param name="Scale">Image pixels per viewport (CSS) pixel.</param>
 /// <param name="MaskedRegionCount">How many regions the engine covered, so a caller can prove the image is at least as redacted as the tree. Null when the engine cannot say.</param>
 public sealed record EngineScreenshot(byte[] Png, double Scale, int? MaskedRegionCount = null);
+
+/// <summary>What an engine's prepare is given, once per run and target, before any worker starts. Upstream's <c>EnginePrepareInfo</c>.</summary>
+public sealed record EnginePrepareInfo
+{
+    public required string RunId { get; init; }
+
+    public required string TargetName { get; init; }
+
+    /// <summary>Worker slots the run will use for this target.</summary>
+    public required int Slots { get; init; }
+
+    public required IReadOnlyDictionary<string, string?> Env { get; init; }
+
+    /// <summary>Reports one line of progress to the run's reporter.</summary>
+    public required Action<string> Log { get; init; }
+}
+
+/// <summary>What prepare reports back. Upstream's <c>EnginePrepareResult</c>.</summary>
+public sealed record EnginePrepareResult
+{
+    /// <summary>The worker cap of the target for this run, one per leased resource. Null when prepare bound nothing.</summary>
+    public int? Workers { get; init; }
+
+    /// <summary>The environment the target's workers read.</summary>
+    public IReadOnlyDictionary<string, string> Env { get; init; } = new Dictionary<string, string>();
+}
+
+/// <summary>What an engine's finish is given, once per run and target, after the last worker ended. Upstream's <c>EngineFinishInfo</c>.</summary>
+public sealed record EngineFinishInfo
+{
+    public required string RunId { get; init; }
+
+    public required string TargetName { get; init; }
+
+    public required IReadOnlyDictionary<string, string?> Env { get; init; }
+
+    public required Action<string> Log { get; init; }
+}
+
+/// <summary>What a worker's init is given, once per worker, before its first attempt. Upstream's <c>EngineInitInfo</c>.</summary>
+public sealed record EngineInitInfo
+{
+    public required string RunId { get; init; }
+
+    public required string TargetName { get; init; }
+
+    /// <summary>The worker slot this worker serves, <c>0</c> to the target's workers minus one.</summary>
+    public required int WorkerSlot { get; init; }
+
+    /// <summary>The run's environment with what prepare left in it.</summary>
+    public required IReadOnlyDictionary<string, string?> Env { get; init; }
+
+    public required Action<string> Log { get; init; }
+}

@@ -215,6 +215,15 @@ public sealed class WebEngineOptions
 
     /// <summary>Attach to a remote Chromium over CDP instead of launching a local one.</summary>
     public WebConnectOptions? Connect { get; init; }
+
+    /// <summary>
+    /// Leases hosted browsers from a provider instead of launching one: the engine attaches over CDP the way
+    /// <see cref="Connect"/> does, and adds the lifecycle <see cref="Connect"/> lacks. It asks the provider for a browser
+    /// when one is needed and gives it back when its scope ends, on every exit path. A provider implies Chromium and
+    /// cannot be combined with <see cref="Connect"/>. With <see cref="BrowserProviderScope.Attempt"/> scope the attempt
+    /// rides a persistent context, with the limits of <see cref="WebConnectOptions.ReconnectEndpoint"/>.
+    /// </summary>
+    public IBrowserProvider? Browser { get; init; }
 }
 
 /// <summary>
@@ -255,6 +264,7 @@ public sealed partial class WebEngine : IEngine
         ArgumentNullException.ThrowIfNull(options);
         Validate(options);
         _options = options;
+        _leases = options.Browser is { } provider ? new LeasedBrowsers(provider) : null;
         _siteHeaders = options.Headers is { Count: > 0 } headers
             ? headers.ToDictionary(pair => pair.Key.ToLowerInvariant(), pair => pair.Value, StringComparer.Ordinal)
             : null;
@@ -295,10 +305,30 @@ public sealed partial class WebEngine : IEngine
     {
         ArgumentNullException.ThrowIfNull(options);
         cancellationToken.ThrowIfCancellationRequested();
+        if (_leases is null)
+        {
+            return await StartSessionAsync(options, _options.Connect, UsedContexts, null, cancellationToken).ConfigureAwait(false);
+        }
+
+        // A leased browser is given back on every path: here when the start fails, and by the session when it ends.
+        var lease = await OpenLeaseAsync(options, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await StartSessionAsync(options, lease.Connect, lease.UsedContexts, lease, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            await lease.CloseAsync(connected: false).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            throw;
+        }
+    }
+
+    private async Task<IEngineSession> StartSessionAsync(EngineStartOptions options, WebConnectOptions? connect, HashSet<string> usedContexts, LeaseScope? lease, CancellationToken cancellationToken)
+    {
         try
         {
             var initScripts = await ReadInitScriptsAsync(options.ProjectRoot, cancellationToken).ConfigureAwait(false);
-            if (_options.Connect is null)
+            if (connect is null)
             {
                 await EnsureChromiumAsync(!_headless, cancellationToken).ConfigureAwait(false);
             }
@@ -306,17 +336,18 @@ public sealed partial class WebEngine : IEngine
             var playwright = await CreatePlaywright().ConfigureAwait(false);
             var app = Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var parsed) ? parsed : null;
             var seams = new SessionSeams(Clock, ConnectCdp);
-            if (_options.Connect is { ReconnectEndpoint: { } reconnect } persistent)
+            if (connect is { ReconnectEndpoint: { } reconnect } persistent)
             {
                 return await WebSession.StartPersistentAsync(
                     playwright,
-                    new PersistentConnect(persistent.CdpEndpoint, reconnect, UsedContexts),
+                    new PersistentConnect(persistent.CdpEndpoint, reconnect, usedContexts, _options.Browser),
                     options.ActionTimeout,
                     _options,
                     initScripts,
                     context => InstallSiteHeadersAsync(context, app),
                     url => SiteHeadersFor(url, app),
                     seams,
+                    lease,
                     cancellationToken).ConfigureAwait(false);
             }
 
@@ -327,7 +358,7 @@ public sealed partial class WebEngine : IEngine
                 var credentials = _options.BasicAuth is { } basicAuth
                     ? await HttpCredentialsAsync(basicAuth, options.ResolveSecret ?? ((secret, _) => Task.FromResult(secret.Value))).ConfigureAwait(false)
                     : null;
-                if (_options.Connect is { } connect)
+                if (connect is not null)
                 {
                     var endpoint = await ResolveEndpointAsync(connect, cancellationToken).ConfigureAwait(false);
 
@@ -339,7 +370,7 @@ public sealed partial class WebEngine : IEngine
                     browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless }).ConfigureAwait(false);
                 }
 
-                session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => InstallSiteHeadersAsync(context, app), url => SiteHeadersFor(url, app), seams, credentials: credentials);
+                session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => InstallSiteHeadersAsync(context, app), url => SiteHeadersFor(url, app), seams, credentials: credentials, lease: lease);
                 await session.NewContextAsync().ConfigureAwait(false);
 
                 return session;
@@ -460,6 +491,11 @@ public sealed partial class WebEngine : IEngine
 
     private static void Validate(WebEngineOptions options)
     {
+        if (options.Browser is { } browser)
+        {
+            ValidateProvider(browser, options.Connect);
+        }
+
         if (!AttributeNamePattern().IsMatch(options.TestIdAttribute ?? ""))
         {
             throw new EngineException("INVALID_CONFIG", "testIdAttribute must be an attribute name such as \"data-testid\", got \"" + options.TestIdAttribute + "\".");
@@ -537,7 +573,8 @@ public sealed partial class WebEngine : IEngine
         }
 
         // The options applied when the engine creates a browser context, which a persistent context never is.
-        if (options.Connect?.ReconnectEndpoint is not null)
+        // A per-attempt lease rides the same persistent context as reconnectEndpoint, with the same limits.
+        if (options.Connect?.ReconnectEndpoint is not null || options.Browser?.Scope == BrowserProviderScope.Attempt)
         {
             var creationOptions = new (string Name, bool Set)[]
             {
@@ -551,8 +588,35 @@ public sealed partial class WebEngine : IEngine
             {
                 throw new EngineException(
                     "INVALID_CONFIG",
-                    "connect.reconnectEndpoint uses a persistent context; " + string.Join(", ", creationOptions) + (creationOptions.Count == 1 ? " requires" : " require") + " a newly created context");
+                    PersistentMode(options.Browser) + " uses a persistent context; " + string.Join(", ", creationOptions) + (creationOptions.Count == 1 ? " requires" : " require") + " a newly created context");
             }
+        }
+    }
+
+    /// <summary>What puts an attempt on a persistent context, as an error message names it.</summary>
+    private static string PersistentMode(IBrowserProvider? provider) =>
+        provider is null ? "connect.reconnectEndpoint" : $"browser provider \"{provider.Name}\" with scope \"attempt\"";
+
+    /// <summary>Refuses a provider the engine could not lease from, at config load: what an interface cannot say for itself.</summary>
+    private static void ValidateProvider(IBrowserProvider provider, WebConnectOptions? connect)
+    {
+        if (string.IsNullOrWhiteSpace(provider.Name))
+        {
+            throw new EngineException("INVALID_CONFIG", "a browser provider needs a non-empty Name.");
+        }
+
+        if (connect is not null)
+        {
+            throw new EngineException(
+                "INVALID_CONFIG",
+                $"Browser and Connect name two browser sources; browser provider \"{provider.Name}\" leases its own browsers, so remove Connect.");
+        }
+
+        if (!Enum.IsDefined(provider.Scope))
+        {
+            throw new EngineException(
+                "INVALID_CONFIG",
+                $"browser provider \"{provider.Name}\" has scope {(int)provider.Scope}; use Worker or Attempt.");
         }
     }
 
@@ -762,6 +826,9 @@ public sealed partial class WebEngine : IEngine
         private readonly Func<string, IReadOnlyDictionary<string, string>?> _siteHeaders;
         private readonly SessionSeams _seams;
         private readonly PersistentConnect? _persistent;
+
+        // The browser lease the session rides, given back once its connection closes.
+        private readonly LeaseScope? _lease;
         private readonly CancellationTokenSource _lifetime = new();
         private readonly Lock _recoveryLock = new();
 
@@ -802,8 +869,9 @@ public sealed partial class WebEngine : IEngine
         private bool _firstPage = true;
         private bool _disposed;
 
-        public WebSession(IPlaywright playwright, IBrowser browser, TimeSpan actionTimeout, WebEngineOptions options, List<string> initScripts, Func<IBrowserContext, Task> setUpContext, Func<string, IReadOnlyDictionary<string, string>?> siteHeaders, SessionSeams seams, PersistentConnect? persistent = null, HttpCredentials? credentials = null)
+        public WebSession(IPlaywright playwright, IBrowser browser, TimeSpan actionTimeout, WebEngineOptions options, List<string> initScripts, Func<IBrowserContext, Task> setUpContext, Func<string, IReadOnlyDictionary<string, string>?> siteHeaders, SessionSeams seams, PersistentConnect? persistent = null, HttpCredentials? credentials = null, LeaseScope? lease = null)
         {
+            _lease = lease;
             _playwright = playwright;
             _initScripts = initScripts;
             _browser = browser;
@@ -1028,9 +1096,11 @@ public sealed partial class WebEngine : IEngine
             cancellationToken.ThrowIfCancellationRequested();
             if (_persistent is not null)
             {
+                // A per-attempt lease starts every attempt on a fresh browser already, and worker scope has the reset.
+                var remedy = _persistent.Provider is null ? "" : "; every attempt already starts on a fresh browser, and scope \"worker\" can clear one mid-test";
                 throw new EngineException(
                     EngineErrorCodes.UnsupportedCapability,
-                    "app.clearState() is unavailable with connect.reconnectEndpoint: it replaces the browser context, and the attempt rides one persistent context");
+                    $"app.clearState() is unavailable with {PersistentMode(_persistent.Provider)}: it replaces the browser context, and the attempt rides one persistent context{remedy}");
             }
 
             ThrowPending();
@@ -1372,6 +1442,7 @@ public sealed partial class WebEngine : IEngine
 
             // Late recovery and page work can only reach this retired session.
             _disposed = true;
+            var connected = _lease is not null && _browser.IsConnected;
             await _lifetime.CancelAsync().ConfigureAwait(false);
             try
             {
@@ -1396,6 +1467,12 @@ public sealed partial class WebEngine : IEngine
                 {
                     _playwright.Dispose();
                     _lifetime.Dispose();
+
+                    // A leased browser is released after its connection closes, whether or not the close succeeded.
+                    if (_lease is not null)
+                    {
+                        await _lease.CloseAsync(connected).ConfigureAwait(false);
+                    }
                 }
             }
         }
@@ -1728,6 +1805,7 @@ public sealed partial class WebEngine : IEngine
             Func<IBrowserContext, Task> setUpContext,
             Func<string, IReadOnlyDictionary<string, string>?> siteHeaders,
             SessionSeams seams,
+            LeaseScope? lease,
             CancellationToken cancellationToken)
         {
             SessionBinding binding;
@@ -1742,7 +1820,7 @@ public sealed partial class WebEngine : IEngine
                 throw;
             }
 
-            var session = new WebSession(playwright, binding.Browser, actionTimeout, options, initScripts, setUpContext, siteHeaders, seams, persistent);
+            var session = new WebSession(playwright, binding.Browser, actionTimeout, options, initScripts, setUpContext, siteHeaders, seams, persistent, lease: lease);
             try
             {
                 if (!persistent.Claim(binding.ContextId))
@@ -2384,7 +2462,8 @@ public sealed partial class WebEngine : IEngine
     private sealed record PersistentConnect(
         Func<CancellationToken, Task<string>> Provision,
         Func<CancellationToken, Task<string>> Reconnect,
-        HashSet<string> UsedContexts)
+        HashSet<string> UsedContexts,
+        IBrowserProvider? Provider = null)
     {
         /// <summary>Claims a provisioned browser's default context for this attempt; false when an earlier attempt rode it.</summary>
         public bool Claim(string contextId)
