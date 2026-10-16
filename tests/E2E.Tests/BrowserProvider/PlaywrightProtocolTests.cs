@@ -79,7 +79,7 @@ public sealed class PlaywrightProtocolTests
                 },
             };
             var (runner, env) = await Runner.PreparedAsync(cloud, 1);
-            var worker = new WebEngine(new WebEngineOptions { Browser = cloud, Viewport = new WebViewport(412, 300) });
+            var worker = new WebEngine(new WebEngineOptions { Browser = cloud, Locale = "fr-FR", Viewport = new WebViewport(412, 300) });
             worker.Init(Runner.InitInfo(0, env));
             var options = new EngineStartOptions { AttemptId = "a", BaseUrl = app.Url, ActionTimeout = TimeSpan.FromSeconds(30) };
 
@@ -93,7 +93,7 @@ public sealed class PlaywrightProtocolTests
             await using (var second = await worker.StartAsync(options, None))
             {
                 await second.OpenAsync(app.Url, None);
-                Assert.StartsWith("en-US|", await HeadingAsync(second), StringComparison.Ordinal);
+                Assert.StartsWith("fr-FR|", await HeadingAsync(second), StringComparison.Ordinal);
             }
 
             Assert.Equal(2, grids.Count);

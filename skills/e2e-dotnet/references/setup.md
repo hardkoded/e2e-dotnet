@@ -151,7 +151,7 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
 | `TimezoneId` | The IANA time zone every attempt runs in. Spell it with its exact case (`Europe/Berlin`), or it is `INVALID_CONFIG`. |
 | `ColorScheme`, `ReducedMotion` | The `prefers-color-scheme` (`WebColorScheme.Light`, `Dark`, `NoPreference`) and `prefers-reduced-motion` (`WebReducedMotion.Reduce`, `NoPreference`) every page reports to its `@media` rules and `matchMedia`, from first paint. A persistent context takes them too. Each defaults to the browser's own. |
 | `InitScripts` | Scripts every document runs before the page's own (topic `writing-tests`). |
-| `Browser` | An `IBrowserProvider` that leases hosted Chromium browsers over CDP and releases them when their scope ends. Excludes `Connect`. See below. |
+| `Browser` | An `IBrowserProvider` that leases hosted Chromium browsers (over CDP, or Playwright's protocol for a lease with `Protocol = BrowserProtocol.Playwright`) and releases them when their scope ends. Excludes `Connect`. See below. |
 | `Connect` | Attach to a remote Chromium over CDP. `CdpEndpoint` and `ReconnectEndpoint` are resolvers (`ct => Task<string>`), not strings. With `ReconnectEndpoint` it rides one persistent default context and reconnects only to the original browser and page. |
 
 - `ReconnectEndpoint` rides one persistent context without `Headers`,
