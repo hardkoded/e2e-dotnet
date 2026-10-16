@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.RegularExpressions;
+using E2E.Engine;
 
 namespace E2E.Tests.AgentAct;
 
@@ -27,6 +28,31 @@ internal sealed class TestExecutor(string name, Func<StepExecutorContext, Cancel
 
 internal static class ExecutorKit
 {
+    /// <summary>
+    /// The home page of upstream's fixture app that the secret tests use: the counter, an Email and a Focus target field, and a
+    /// Password field the engine masks. <paramref name="typed"/> reads what was typed into the password field.
+    /// </summary>
+    public static DocumentWorld WorldWithAPassword(Action<string> typed)
+    {
+        return new DocumentWorld().Map("/", page =>
+        {
+            var count = 0;
+            var counter = page.Status("Counter");
+            counter.Text = "0";
+            page.Button("Increment", () => counter.Text = (++count).ToString(System.Globalization.CultureInfo.InvariantCulture));
+            page.Textbox("Email");
+            page.Textbox("Focus target");
+            page.Roots.Add(new DocumentElement
+            {
+                Role = "textbox",
+                Name = "Password",
+                Secure = true,
+                InputPurpose = "password",
+                OnFill = typed,
+            });
+        });
+    }
+
     public static StepVerdict Passed(string summary) => new(StepVerdictStatus.Passed, summary);
 
     public static StepVerdict Failed(string summary, string? code = null) => new(StepVerdictStatus.Failed, summary, code);

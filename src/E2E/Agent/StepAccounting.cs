@@ -32,6 +32,9 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
 
     public List<RecordedAction> Recorded { get; } = [];
 
+    /// <summary>The one queue the step's observations and actions run in, in call order.</summary>
+    public OperationQueue Queue { get; } = new();
+
     public int Used { get; private set; }
 
     public int ModelCalls { get; private set; }
@@ -208,17 +211,21 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
 
         // A mutating tool takes an action slot and is recorded as a gap: the grammar cannot reproduce it, so a replay ends there and
         // hands the step to the executor. The gap is recorded before the tool runs, since a failed tool may have changed the app.
-        Reserve();
-        var gap = new RecordedAction { Kind = "tool", Text = _redact(name) };
-        Recorded.Add(gap);
-        try
+        // Mutations run one at a time with the grammar actions, in call order.
+        return await Queue.RunAsync(async () =>
         {
-            return await body().ConfigureAwait(false);
-        }
-        finally
-        {
-            _committed?.Invoke(gap);
-        }
+            Reserve();
+            var gap = new RecordedAction { Kind = "tool", Text = _redact(name) };
+            Recorded.Add(gap);
+            try
+            {
+                return await body().ConfigureAwait(false);
+            }
+            finally
+            {
+                _committed?.Invoke(gap);
+            }
+        }).ConfigureAwait(false);
     }
 
     /// <summary>

@@ -147,6 +147,7 @@ public sealed class ConfigTests
     [InlineData("""{ "agents": { "default": { "modle": "m" } } }""", "unknown agents.default key \"modle\"; did you mean \"model\"?")]
     [InlineData("""{ "agents": { "default": { "maxInputTokens": 3 } } }""", "agents.default key \"maxInputTokens\" is not supported by the .NET port")]
     [InlineData("""{ "agents": { "default": { "tools": {} } } }""", "agents.default key \"tools\" is not supported by the .NET port")]
+    [InlineData("""{ "agents": { "default": { "executor": {} } } }""", "agents.default key \"executor\" is not supported by the .NET port: an executor is code, so set AgentOptions.Executor")]
     [InlineData("""{ "agents": { "default": { "maxSteps": 101 } } }""", "agents.default.maxSteps must be an integer from 1 to 100")]
     [InlineData("""{ "agents": { "fast": { "maxModelCalls": 0 } } }""", "agents.fast.maxModelCalls must be an integer from 1 to 100")]
     [InlineData("""{ "agents": { "default": { "judgmentTimeout": 0 } } }""", "agents.default.judgmentTimeout must be a positive integer")]

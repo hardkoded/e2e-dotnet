@@ -204,7 +204,7 @@ public sealed partial class Agent
 
             // Evidence for an assert is taken after the verdict, on a pass and on a failure alike.
             var kept = spec.Kind == ExecutorStepKind.Assert && spec.Screenshot != false && budget.HardStop is null
-                ? await KeepEvidenceAsync(outer.Token, cancellationToken).ConfigureAwait(false)
+                ? await KeepBoundedEvidenceAsync(budget, outer.Token, cancellationToken).ConfigureAwait(false)
                 : null;
             Settle(verdict, budget, spec, executor, kept, out var summary);
             if (spec.Kind == ExecutorStepKind.Assert)
@@ -247,6 +247,25 @@ public sealed partial class Agent
         finally
         {
             budget.Close();
+        }
+    }
+
+    // The evidence of a judgment an executor made, best effort and bounded as upstream bounds it: it waits no longer than one action may
+    // take, or than the step has left, and a capture that outlives that is abandoned, so the verdict stands without it.
+    private async Task<string?> KeepBoundedEvidenceAsync(StepAccounting budget, CancellationToken attempt, CancellationToken cancellationToken)
+    {
+        var bound = TimeSpan.FromMilliseconds(Math.Min(_scope.ActionTimeout.TotalMilliseconds, budget.RemainingMs()));
+        using var limit = CancellationTokenSource.CreateLinkedTokenSource(attempt);
+        limit.CancelAfter(bound);
+        var capture = KeepEvidenceAsync(limit.Token, cancellationToken);
+        try
+        {
+            return await capture.WaitAsync(bound, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            _ = capture.ContinueWith(static task => _ = task.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+            return null;
         }
     }
 
@@ -297,7 +316,6 @@ public sealed partial class Agent
             AgentException or OperationCanceledException or SkipException => error,
             E2EException { Code: var code } e2e when StepExecutors.AgentCodes.Contains(code) => new AgentException(code, e2e.Message, e2e),
             E2EException { Code: "UNSUPPORTED_CAPABILITY" or "INVALID_CONFIG" } e2e => new AgentException("POLICY_DENIED", e2e.Message, blocked: true, e2e),
-            EngineException engine => new AgentException("APP_UNREACHABLE", engine.Message, blocked: true, engine),
             _ => new AgentException("ACTION_FAILED", error.Message, error),
         };
     }

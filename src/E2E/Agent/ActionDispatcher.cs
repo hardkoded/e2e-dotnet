@@ -122,7 +122,11 @@ internal sealed class ActionDispatcher : IExecutorActions
 
     public Task PressAsync(ExecutorTarget? target, string key, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            throw new TestException("INVALID_ARGUMENT", "press requires a key");
+        }
+
         return RunAsync(
             async token =>
             {
@@ -278,18 +282,21 @@ internal sealed class ActionDispatcher : IExecutorActions
     /// Runs one grammar action against the action budget: the slot is taken before anything else, since a failed action was
     /// still an attempt. A failure of an action that ran past the step's end is the step's own hard stop, not the action's.
     /// </summary>
-    private async Task RunAsync(Func<CancellationToken, Task> body, CancellationToken cancellationToken)
-    {
-        _accounting.Reserve();
-        try
+    private Task RunAsync(Func<CancellationToken, Task> body, CancellationToken cancellationToken) =>
+        _accounting.Queue.RunAsync(async () =>
         {
-            await body(cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception) when (CheckStep())
-        {
-            throw;
-        }
-    }
+            _accounting.Reserve();
+            // The call runs under the step's own token as well as the caller's, so a step that ends stops an action in flight.
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(_accounting.Token, cancellationToken);
+            try
+            {
+                await body(linked.Token).ConfigureAwait(false);
+            }
+            catch (Exception) when (CheckStep())
+            {
+                throw;
+            }
+        });
 
     // Throws the step's hard stop when the clock or the cancel ended it. Otherwise the action's own failure goes through.
     private bool CheckStep()

@@ -20,6 +20,10 @@ public sealed class NamedAgentsTests
         Assert.Null(config.Agent.Model);
         Assert.Null(config.Agent.CreateModel());
         Assert.Equal("gpt-4.1-mini", config.Agents["ux"].Model);
+        // A custom brain on another agent leaves the default one built in. The config file cannot name an executor, so it comes with the options.
+        var ux = ResolvedAgent.From("ux", new AgentOptions { Executor = new AgentAct.TestExecutor("ux-brain", (_, _) => throw new InvalidOperationException("not called")) });
+        Assert.Equal("ux-brain", ux.Executor!.Name);
+        Assert.Null(ResolvedAgent.From("default", config.Agent.CreateOptions()).Executor);
     }
 
     [Fact]

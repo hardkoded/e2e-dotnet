@@ -83,16 +83,19 @@ internal sealed partial class ActContext : StepExecutorContext
 
     public override async Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options = null, CancellationToken cancellationToken = default)
     {
-        _budget.Checkpoint();
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(_budget.Token, cancellationToken);
-        try
+        return await _budget.Queue.RunAsync(async () =>
         {
-            return await _feed.ObserveAsync(options, linked.Token).ConfigureAwait(false);
-        }
-        catch (Exception) when (CheckStep())
-        {
-            throw;
-        }
+            _budget.Checkpoint();
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(_budget.Token, cancellationToken);
+            try
+            {
+                return await _feed.ObserveAsync(options, linked.Token).ConfigureAwait(false);
+            }
+            catch (Exception) when (CheckStep())
+            {
+                throw;
+            }
+        }).ConfigureAwait(false);
     }
 
     public override void AttachTranscript(string text)

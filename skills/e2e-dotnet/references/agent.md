@@ -16,6 +16,7 @@ step makes no model calls and needs no model in the config.
 - The replay cache
 - Make the agent yours
 - Project tools
+- Custom executors
 - In CI
 
 ## Configure a model
@@ -358,9 +359,11 @@ same dictionary. A config file cannot declare one, since a tool is code.
 - The tool's output is redacted and cut at 16384 characters.
 - A name the agent already uses (`observe`, `done`, `navigate`, `back`,
   `scroll`, `scroll_to`, or an action verb) is `INVALID_CONFIG`.
+- A tool that needs the screen takes the second `AgentTool` constructor,
+  whose delegate also gets an `AgentToolContext`: `ObserveAsync` (a read-only
+  tool only; a mutating tool gets `POLICY_DENIED`) and `AttachScreenshotAsync`.
 - Not ported from upstream: building a tool from an AI SDK tool
-  (`defineTool`, `toModelOutput`), and `getToolContext`, so a tool cannot
-  observe the screen.
+  (`defineTool`, `toModelOutput`).
 
 On a device, `MobileTools.Create(engine)` from `E2E.Mobile` builds the tool pack
 upstream calls `mobileTools`: `open_app`, `swipe`, and `alert`, offered only on
@@ -369,8 +372,136 @@ own tools. A step that stays within the grammar verbs replays with no model
 call, so prefer the target's `App.BundleId` over `open_app` when every test
 starts in the same app. `samples/MobileApp.E2ETests` shows it in use.
 
-Not ported: a custom `executor`, decision models, `maxObservationBytes`,
+Not ported: decision models, `maxObservationBytes`,
 `maxInputTokens`, `--debug`, and `--ai-trace`.
+
+## Custom executors
+
+An executor runs the `ActAsync` and `AssertAsync` steps of an agent. Write one
+when `System` and project tools are not enough.
+
+| Option | You write | The runtime keeps |
+| --- | --- | --- |
+| `ToolLoop.CreateToolLoopExecutor` | The tools and the prompt. The loop adds only `done`. | Budgets, loop guards, verdicts, and usage counts |
+| `IStepExecutor` | `RunStepAsync(context, token)`. A model is optional. | The step deadline, redacted observations, checked actions, and the verdict |
+
+Set one as `AgentOptions.Executor` for a named agent, `E2ESessionOptions.AgentExecutor`
+for the default agent, or override `AgentExecutor` in the fixture. A config
+file cannot hold one: an executor is code. The entry still takes `Model`,
+`Judge`, `Context`, and the budgets, and refuses `System` and `Tools` beside an
+executor (`INVALID_CONFIG`): pass those to the executor. A model or judge the
+executor brings is the agent's, and an entry that names another is
+`INVALID_CONFIG`. `WaitForAsync` and `ExtractAsync` keep using the judge.
+
+Keep the loop, change the vocabulary. This agent has two tools: one reads the
+screen, one taps a node by its ref.
+
+```csharp
+using System.Text.Json;
+using E2E;
+using E2E.NUnit;
+
+public sealed class TapOnlyTests : E2ETest
+{
+    private static JsonElement Schema(string json) => JsonDocument.Parse(json).RootElement;
+
+    protected override IAgentModel? CreateModel() => /* your model */ null;
+
+    protected override IStepExecutor? AgentExecutor => ToolLoop.CreateToolLoopExecutor(new ToolLoopExecutorOptions
+    {
+        Name = "tap-only",
+        System = _ => "Read the screen before acting. Tap controls by their ref from the latest read.",
+        BuildPrompt = context => Task.FromResult(context.Step.Instruction),
+        Tools = (context, _) =>
+        [
+            new ToolLoopTool(
+                new ModelTool { Name = "read_screen", Description = "Read the screen as text", Parameters = Schema("""{ "type": "object", "properties": {} }""") },
+                async (_, token) => new ToolLoopResult((await context.ObserveAsync(cancellationToken: token)).Text)),
+            new ToolLoopTool(
+                new ModelTool { Name = "tap", Description = "Tap a node by its ref from the latest read_screen", Parameters = Schema("""{ "type": "object", "properties": { "ref": { "type": "string" } }, "required": ["ref"] }""") },
+                async (call, token) =>
+                {
+                    await context.Actions.TapAsync(new ExecutorTarget(call.Arguments.GetProperty("ref").GetString()!), token);
+                    return new ToolLoopResult("Tapped.");
+                }),
+        ],
+    });
+}
+```
+
+The loop runs at most `MaxModelCalls` model turns per step. A tool that throws
+is a failed call the model reads, except a hard stop of the step, which ends
+the loop. `ToolLoopHelpers.GuardAsync` gives a tool the same rule for work of its
+own. `PrepareMessages` runs between turns to shorten the history, or stops the
+step when it makes no progress. `context.Actions` checks, counts, and records
+each action, so these steps replay from the cache and run on every engine that
+supports the verb. A tool that works outside `context.Actions` wraps its body in
+`context.Budgets.RunToolAsync(name, mutates, body)`, which takes an action slot
+and records the call. Do not call `context.Actions` or `context.ObserveAsync` inside a
+mutating body: the call waits behind itself.
+
+Replace the executor. This one uses no model and supports one assertion:
+
+```csharp
+public sealed class ReadyExecutor : IStepExecutor
+{
+    public string Name => "scripted";
+
+    public ExecutorCache Cache => ExecutorCache.Off;
+
+    public async Task<StepVerdict> RunStepAsync(StepExecutorContext context, CancellationToken cancellationToken)
+    {
+        if (context.Step.Kind != ExecutorStepKind.Assert || context.Step.Instruction != "the screen says Ready")
+        {
+            return new StepVerdict(StepVerdictStatus.Blocked, "This executor only checks whether the screen says Ready.", "AUTOMATION_UNSUPPORTED");
+        }
+
+        var screen = await context.ObserveAsync(cancellationToken: cancellationToken);
+        return screen.Text.Contains("Ready", StringComparison.Ordinal)
+            ? new StepVerdict(StepVerdictStatus.Passed, "The screen says Ready.")
+            : new StepVerdict(StepVerdictStatus.Failed, "Ready is absent from the screen.");
+    }
+}
+```
+
+What the context holds:
+
+| Member | What it is |
+| --- | --- |
+| `Step` | The `Kind`, `Instruction`, `Params`, `Index`, and `Secrets`. A secret value the attempt knows reads `<secret:name>`, and a `Secret` in the params is its name and purpose, never its value |
+| `ObserveAsync(options)` | Redacted screen text, and with `Tree` the node tree (`ExecutorNode`, whose `Id` is the ref) and with `Pixels` a masked screenshot, or `PixelsWithheld` with the reason |
+| `Actions` | Checked and recorded verbs: `TapAsync`, `DoubleTapAsync`, `TypeAsync`, `TypeSecretAsync`, `ClearAsync`, `PressAsync`, `SelectAsync`, `CheckAsync`, `ScrollToAsync`, `ScrollUntilAsync`, `ScrollAsync`, `NavigateAsync`, `BackAsync`. A node is `new ExecutorTarget(ref)` |
+| `Target` | The target's `Name`, `Platform`, and `Verbs`, the verbs its engine supports. Offer a model only these |
+| `PixelsTainted` | True after a secret fill. Then no screenshots are available |
+| `ReplayedPrefix` | Set when a cache replay ran part of the step first. The actions and why it stopped. Continue from the current screen without repeating them |
+| `Model`, `ProviderOptions`, `AgentContext`, `Ledger` | The agent's model and provider options, its project context, and the steps completed before this one |
+| `Attempt` | `TestId`, `AttemptId`, `Index`, a `CancellationToken` that ends with the attempt, and a `Memory` dictionary the runtime never reads |
+| `Budgets` | `MaxActions`, `MaxModelCalls`, `ActionsUsed()`, `RemainingMs()`, `RecordModelCall`, and `RunToolAsync` |
+| `AttachTranscript`, `AttachScreenshotAsync` | Keep a model transcript, or observed pixels, under the attempt's results directory |
+
+`RunStepAsync` gets a token that ends on cancellation, at the step deadline, and
+on any other hard stop. An executor that ignores it still cannot outlive the
+clock: a second after the stop, the runtime settles the step without it.
+
+The verdict is `Passed`, `Failed`, or `Blocked` with a summary. A blocked
+verdict needs a code from `StepExecutors.BlockableCodes`, and a passed one has
+none. Return `STEP_BUDGET_EXHAUSTED`, `STEP_TIMEOUT`, or `CANCELLED` only when
+that budget is spent, the deadline passed, or the test was cancelled: any other
+use is `MODEL_OUTPUT_INVALID`, and so is an empty summary. A verdict never
+outranks a hard stop of the step.
+
+`Cache` sets how the executor's act steps use the replay cache. `Inherit`, the
+default, follows the configured mode: a recorded step replays without calling
+the executor, and when a replay stops part way the executor gets
+`ReplayedPrefix`. `Off` never replays or records. An assert is never cached.
+
+On an agent with an executor, `AssertAsync` goes to it as a step with `Kind`
+`Assert`. `Vision` is refused with `UNSUPPORTED_CAPABILITY`, since the executor
+decides what its model sees. `Screenshot` still keeps evidence after the
+verdict.
+
+Not ported: the point verbs, long press, hover, drag, and upload (the port's
+engines have none), `attachTurns`, and the observation's `Revision`.
 
 ## In CI
 

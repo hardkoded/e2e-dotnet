@@ -197,8 +197,9 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             if (options.PrepareMessages is { } prepare)
             {
                 var prepared = prepare(messages, new PreparedTurn(call, previous));
+                var next = prepared.Messages.ToList();
                 messages.Clear();
-                messages.AddRange(prepared.Messages);
+                messages.AddRange(next);
                 preparedStop = prepared.Stop;
             }
 
