@@ -5,9 +5,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
-using E2E.Mobile.Limrun;
-
-namespace E2E.Mobile.Tests.LimrunProvider;
+namespace E2E.Limrun.Tests.Provider;
 
 /// <summary>One request the fake Limrun API saw, with whether the caller's token had been cancelled when it arrived.</summary>
 internal sealed record LimrunCall(string Method, Uri Uri, string? Authorization, JsonObject? Body, bool Cancelled)

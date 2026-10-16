@@ -3,8 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json.Nodes;
+using E2E.Mobile;
 
-namespace E2E.Mobile.Limrun;
+namespace E2E.Limrun;
 
 /// <summary>Renews a device's idle lease while other targets run: retaining the lease across sessions does not keep it from expiring.</summary>
 internal static class LimrunHeartbeat

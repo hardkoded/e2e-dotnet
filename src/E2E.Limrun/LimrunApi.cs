@@ -6,8 +6,9 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json.Nodes;
+using E2E.Mobile;
 
-namespace E2E.Mobile.Limrun;
+namespace E2E.Limrun;
 
 /// <summary>A Limrun instance as the API reports it: its id, whether it is ready, and the address and token that control it.</summary>
 internal sealed record LimrunInstance(string Id, string State, string? ApiUrl, string? Token, string? AdbWebSocketUrl, string? ErrorMessage, string? TerminationReason)

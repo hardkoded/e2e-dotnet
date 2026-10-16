@@ -2,7 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-namespace E2E.Mobile.Limrun;
+namespace E2E.Limrun;
 
 /// <summary>The iOS device a Limrun simulator imitates.</summary>
 public enum LimrunIosModel
