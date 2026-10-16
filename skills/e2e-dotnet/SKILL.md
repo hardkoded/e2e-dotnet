@@ -32,6 +32,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | Running tests: `dotnet test` filters, the `e2e` tool, exit codes, CI | `running` | [references/running.md](references/running.md) |
 | Handling a failed run: error codes and their fixes, a visible browser, replay misses | `debugging` | [references/debugging.md](references/debugging.md) |
 | Exploring an app toward a goal without a test file, from code with `Explore.ExploreAsync` (no `e2e explore` command yet) | `explore` | [references/explore.md](references/explore.md) |
+| Testing an iOS or Android app: `MobileEngine`, the `Device` fixture, picking a simulator, Limrun hosted devices, known limits | `mobile` | [references/mobile.md](references/mobile.md) |
 | Asked to bug bash or hunt for bugs: proving each bug with a repro test | `bug-bash` | [references/bug-bash.md](references/bug-bash.md) |
 
 ## Quick start

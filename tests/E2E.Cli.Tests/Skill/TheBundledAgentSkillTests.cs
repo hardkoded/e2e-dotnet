@@ -27,7 +27,7 @@ public sealed class TheBundledAgentSkillTests
     public void Offers_one_topic_per_reference_file_and_lists_every_topic_in_SKILL_md()
     {
         var topics = BundledSkill.Topics();
-        Assert.Equal(["agent", "bug-bash", "debugging", "explore", "mcp", "running", "setup", "writing-tests", "writing-tests-nunit", "writing-tests-xunit"], topics);
+        Assert.Equal(["agent", "bug-bash", "debugging", "explore", "mcp", "mobile", "running", "setup", "writing-tests", "writing-tests-nunit", "writing-tests-xunit"], topics);
         var overview = BundledSkill.ReadGuide(null) ?? "";
         var linked = Regex.Matches(overview, @"\[references/([a-z-]+)\.md\]\(references/\1\.md\)").Select(match => match.Groups[1].Value).Order(StringComparer.Ordinal);
         Assert.Equal(topics, linked);

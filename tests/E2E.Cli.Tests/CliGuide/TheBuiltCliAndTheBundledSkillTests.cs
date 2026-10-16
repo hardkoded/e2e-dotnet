@@ -21,7 +21,7 @@ public sealed class TheBuiltCliAndTheBundledSkillTests
             Assert.Equal(await File.ReadAllTextAsync(Path.Combine(RepoSkill(), "references", "writing-tests.md")), topic.Stdout);
             var unknown = await RunAsync(dir, "guide", "nope");
             Assert.Equal(2, unknown.Code);
-            Assert.Contains("unknown topic \"nope\"; topics: agent, bug-bash, debugging, explore, mcp, running, setup, writing-tests, writing-tests-nunit, writing-tests-xunit", unknown.Stderr, StringComparison.Ordinal);
+            Assert.Contains("unknown topic \"nope\"; topics: agent, bug-bash, debugging, explore, mcp, mobile, running, setup, writing-tests, writing-tests-nunit, writing-tests-xunit", unknown.Stderr, StringComparison.Ordinal);
             var help = await RunAsync(dir, "--help");
             Assert.Contains("guide [topic]", help.Stdout, StringComparison.Ordinal);
         }
