@@ -80,13 +80,20 @@ public sealed class LimrunLiveTests
             }
         }
 
-        var state = "gone";
-        try
+        // Limrun may finish the delete a moment after it answers.
+        var api = new LimrunApi(http, key, new Uri("https://api.limrun.com"));
+        var state = "unknown";
+        for (var attempt = 0; attempt < 10 && state is not ("terminated" or "gone"); attempt++)
         {
-            state = (await new LimrunApi(http, key, new Uri("https://api.limrun.com")).GetAsync(MobilePlatform.Ios, id, CancellationToken.None)).State;
-        }
-        catch (LimrunApiException cause) when (cause.Status == HttpStatusCode.NotFound)
-        {
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            try
+            {
+                state = (await api.GetAsync(MobilePlatform.Ios, id, CancellationToken.None)).State;
+            }
+            catch (LimrunApiException cause) when (cause.Status == HttpStatusCode.NotFound)
+            {
+                state = "gone";
+            }
         }
 
         Assert.Contains(state, new[] { "terminated", "gone" });
