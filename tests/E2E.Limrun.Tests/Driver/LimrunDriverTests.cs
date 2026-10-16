@@ -40,4 +40,29 @@ public sealed class LimrunDriverTests
             $$"""{"appPath":"/build","{{(platform == MobilePlatform.Ios ? "udid" : "serial")}}":"limrun:{{platform.WireName()}}:lease","app":"com.example.app","platform":"{{platform.WireName()}}"}""",
             client.LastArgs(DeviceMethods.AppsInstall));
     }
+
+    [Fact]
+    public async Task Scopes_the_worker_client_to_the_lease_the_daemon_allocated()
+    {
+        var client = new FakeDeviceClient();
+        client.Respond(DeviceMethods.LeasesAllocate, _ => new JsonObject
+        {
+            ["retainOnClose"] = true,
+            ["tenantId"] = "e2e",
+            ["runId"] = "run",
+            ["leaseId"] = "lease",
+            ["backend"] = "ios-instance",
+            ["deviceKey"] = "key",
+            ["clientId"] = "worker-3",
+        });
+
+        var binding = await LimrunDriver.AttachAsync(
+            new LimrunDriverRequest("/daemon", "run", 3, MobilePlatform.Ios, null, null),
+            (_, _) => client,
+            CancellationToken.None);
+
+        JsonAssert.Args(
+            """{"stateDir":"/daemon","tenant":"e2e","runId":"run","leaseId":"lease","leaseBackend":"ios-instance","leaseProvider":"limrun","deviceKey":"key","clientId":"worker-3"}""",
+            binding.Client);
+    }
 }
