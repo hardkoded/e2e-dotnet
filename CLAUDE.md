@@ -23,12 +23,17 @@ This repo is a .NET port of [tester-army/e2e](https://github.com/tester-army/e2e
   - Before you add a symbol, find its upstream counterpart. Read tester-army/e2e with `gh api`. Reuse its name and place.
   - A name upstream does not have is allowed only for a .NET-only concern (dependency injection, nullable handling, test fixtures, and the .NET-only code listed above, such as model providers and the SigV4 signer). An `Async` suffix is fine. The PR report names each such symbol and the reason.
   - Example: PR #249 first added `PerformTargetedAsync`. Upstream has `commitTargeted` calling a private `targeted` in `agent/action-dispatcher.ts`, and `feed.relocate` on the observation feed. The port uses those.
+- Extract each upstream function that upstream's tests call directly (for example `replayTrace` and `ReplayHost`). Put it in the equivalent file, so those tests port as written.
+  - Before you port a test, open the upstream `it`. Check what it calls and what it asserts, not only its name.
+  - If the port lacks a function the upstream test calls, the port test checks only part of it. Rename it, list it as partial in the PR report, and file an issue to extract the function.
+  - Example: PR #380 first had a test named like upstream's action-uncertain `it`. It ran through the whole agent, because the port had no `replayTrace`.
 
 ## Before you push
 
 - If the change can affect the agent, run every real-model test: `dotnet test E2E.slnx --filter "TestCategory=RealModel"`. This covers the agent, prompts, cache, replay, the web engine, and the page script. Doc-only and config-only changes skip this step.
 - The tests use the GitHub Copilot login (`dotnet run --project src/E2E.Cli -- login github-copilot`). If you cannot log in, say so in your report. Do not skip the tests silently.
 - Real-model tests can be flaky. Rerun a failed test once. If it fails twice, treat it as a real failure and report it.
+- Run `/code-review` on every PR, including a PR that changes only docs or test names. This rule has no exception for small or docs-only changes.
 
 ## Reviewing .NET and C# code
 
