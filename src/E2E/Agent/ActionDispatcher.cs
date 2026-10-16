@@ -31,161 +31,326 @@ internal sealed class ActionDispatcher : IExecutorActions
     private readonly ObservationFeed _feed;
     private readonly StepAccounting _accounting;
     private readonly IReadOnlyDictionary<string, object?>? _parameters;
+    private readonly Func<IReadOnlyList<Secret>> _secrets;
 
-    public ActionDispatcher(AttemptScope scope, ObservationFeed feed, StepAccounting accounting, IReadOnlyDictionary<string, object?>? parameters)
+    // secrets: what TypeSecretAsync may fill, the secrets the step's params declare.
+    public ActionDispatcher(AttemptScope scope, ObservationFeed feed, StepAccounting accounting, IReadOnlyDictionary<string, object?>? parameters, Func<IReadOnlyList<Secret>> secrets)
     {
         _scope = scope;
         _feed = feed;
         _accounting = accounting;
         _parameters = parameters;
+        _secrets = secrets;
     }
 
-    public async Task TapAsync(ExecutorTarget target, CancellationToken token)
-    {
-        await TargetedAsync(target.Node, new LocatorAction.Tap(), token).ConfigureAwait(false);
-        Commit(Record(target.Node, "tap"));
-    }
-
-    public async Task DoubleTapAsync(ExecutorTarget target, CancellationToken token)
-    {
-        await TargetedAsync(target.Node, new LocatorAction.DoubleTap(), token).ConfigureAwait(false);
-        Commit(Record(target.Node, "doubleTap"));
-    }
-
-    public async Task TypeAsync(ExecutorTarget target, string value, CancellationToken token)
-    {
-        var node = target.Node;
-        await TargetedAsync(node, new LocatorAction.Fill(value, false), token).ConfigureAwait(false);
-        Commit(new RecordedAction
-        {
-            Kind = "fill",
-            Role = node.Role,
-            Name = RedactLabel(node, _scope.Redactor),
-            TestId = Redact(node.TestId, _scope.Redactor),
-            Value = CacheKeys.Template(value, _parameters),
-        });
-    }
-
-    public async Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken token)
-    {
-        var node = target.Node;
-        var secret = _scope.Secrets.First(item => string.Equals(item.Name, secretName, StringComparison.Ordinal));
-        _scope.Exposure.RaiseFilled();
-        await TargetedAsync(node, new LocatorAction.Fill(secret.Value, true), token).ConfigureAwait(false);
-        Commit(new RecordedAction
-        {
-            Kind = "fill",
-            Role = node.Role,
-            Name = RedactLabel(node, _scope.Redactor),
-            TestId = Redact(node.TestId, _scope.Redactor),
-            Value = "<secret:" + secret.Name + ">",
-        });
-    }
-
-    public async Task ClearAsync(ExecutorTarget target, CancellationToken token)
-    {
-        await TargetedAsync(target.Node, new LocatorAction.Clear(), token).ConfigureAwait(false);
-        Commit(Record(target.Node, "clear"));
-    }
-
-    public async Task PressAsync(ExecutorTarget? target, string key, CancellationToken token)
-    {
-        if (target is null)
-        {
-            await _scope.Session.PressAsync(key, token).ConfigureAwait(false);
-            Commit(new RecordedAction { Kind = "press", Key = key });
-            return;
-        }
-
-        var node = target.Node;
-        await TargetedAsync(node, new LocatorAction.Press(key), token).ConfigureAwait(false);
-        Commit(new RecordedAction { Kind = "press", Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Key = key });
-    }
-
-    public async Task SelectAsync(ExecutorTarget target, string value, CancellationToken token)
-    {
-        var node = target.Node;
-        await TargetedAsync(node, new LocatorAction.Select(value), token).ConfigureAwait(false);
-        Commit(new RecordedAction { Kind = "select", Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Value = CacheKeys.Template(value, _parameters) });
-    }
-
-    public async Task CheckAsync(ExecutorTarget target, bool check, CancellationToken token)
-    {
-        await TargetedAsync(target.Node, check ? new LocatorAction.Check() : new LocatorAction.Uncheck(), token).ConfigureAwait(false);
-        Commit(Record(target.Node, check ? "check" : "uncheck"));
-    }
-
-    public async Task ScrollToAsync(ExecutorTarget target, CancellationToken token)
-    {
-        await _scope.Session.PerformAsync(target.Node, new LocatorAction.ScrollIntoView(), token).ConfigureAwait(false);
-        Commit(Record(target.Node, "scrollTo"));
-    }
-
-    public async Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? target, CancellationToken token)
-    {
-        var list = target is null ? null : Record(target.Node, "scrollUntil");
-        await PageUntilAsync(text, direction, list, token).ConfigureAwait(false);
-        Commit(new RecordedAction
-        {
-            Kind = "scrollUntil",
-            Role = list?.Role,
-            Name = list?.Name,
-            TestId = list?.TestId,
-            Direction = DirectionName(direction),
-            Text = CacheKeys.Template(text, _parameters),
-        });
-    }
-
-    public async Task ScrollAsync(ExecutorTarget? target, ScrollDirection direction, int times, CancellationToken token)
-    {
-        var actions = _accounting.Recorded;
-        var list = target?.Node;
-        var recorded = list is null ? null : Record(list, "scroll");
-        for (var repeat = 0; repeat < times; repeat++)
-        {
-            if (repeat > 0)
+    public Task TapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+        RunAsync(
+            async token =>
             {
-                // Each later repeat reads a settled screen first, and pages the list as that screen shows it.
-                _feed.ArmAfter(actions[^1]);
-                var look = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
-                if (recorded is not null)
+                var node = Resolve(target);
+                await TargetedAsync(node, new LocatorAction.Tap(), token).ConfigureAwait(false);
+                Commit(Record(node, "tap"));
+            },
+            cancellationToken);
+
+    public Task DoubleTapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+        RunAsync(
+            async token =>
+            {
+                var node = Resolve(target);
+                await TargetedAsync(node, new LocatorAction.DoubleTap(), token).ConfigureAwait(false);
+                Commit(Record(node, "doubleTap"));
+            },
+            cancellationToken);
+
+    public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        return RunAsync(
+            async token =>
+            {
+                var node = Resolve(target);
+                await TargetedAsync(node, new LocatorAction.Fill(value, false), token).ConfigureAwait(false);
+                Commit(new RecordedAction
                 {
-                    list = Single(Find(look, recorded.Role, recorded.Name, recorded.TestId, null, _scope.Redactor))
-                        ?? throw new TestException("NOT_FOUND", "The scrolled list is no longer on the screen.");
-                }
-            }
+                    Kind = "fill",
+                    Role = node.Role,
+                    Name = RedactLabel(node, _scope.Redactor),
+                    TestId = Redact(node.TestId, _scope.Redactor),
+                    Value = CacheKeys.Template(value, _parameters),
+                });
+            },
+            cancellationToken);
+    }
 
-            if (list is null)
+    public async Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken = default)
+    {
+        // Checked before a slot is taken: the name must come from the step's own params, so an executor can never fill a
+        // secret the test did not hand it.
+        var secret = _secrets().FirstOrDefault(item => string.Equals(item.Name, secretName, StringComparison.Ordinal))
+            ?? throw new AgentException("POLICY_DENIED", "secret \"" + secretName + "\" was not declared in this step's params; only declared secrets can be filled", blocked: true);
+        await RunAsync(
+            async token =>
             {
-                await _scope.Session.SwipeAsync(direction, token).ConfigureAwait(false);
-            }
-            else
+                var node = Resolve(target);
+                AuthorizeSecretFill(secret, node);
+                // Before the engine call: a fill that types the value and then fails has still put it on screen.
+                _scope.Exposure.RaiseFilled();
+                await TargetedAsync(node, new LocatorAction.Fill(secret.Value, true), token).ConfigureAwait(false);
+                // Recorded by stable name only; replay runs the full authorization again.
+                Commit(new RecordedAction
+                {
+                    Kind = "fill",
+                    Role = node.Role,
+                    Name = RedactLabel(node, _scope.Redactor),
+                    TestId = Redact(node.TestId, _scope.Redactor),
+                    Value = "<secret:" + secret.Name + ">",
+                });
+            },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+        RunAsync(
+            async token =>
             {
-                await _scope.Session.PerformAsync(list, new LocatorAction.Swipe(direction), token).ConfigureAwait(false);
-            }
+                var node = Resolve(target);
+                await TargetedAsync(node, new LocatorAction.Clear(), token).ConfigureAwait(false);
+                Commit(Record(node, "clear"));
+            },
+            cancellationToken);
 
-            RecordScroll(actions, direction, list);
-        }
-
-        if (target is not null && list is not null)
+    public Task PressAsync(ExecutorTarget? target, string key, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(key))
         {
-            target.Node = list;
+            throw new TestException("INVALID_ARGUMENT", "press requires a key");
         }
 
-        _feed.ArmAfter(actions[^1]);
+        return RunAsync(
+            async token =>
+            {
+                if (target is null)
+                {
+                    await _scope.Session.PressAsync(key, token).ConfigureAwait(false);
+                    Commit(new RecordedAction { Kind = "press", Key = key });
+                    return;
+                }
+
+                var node = Resolve(target);
+                await TargetedAsync(node, new LocatorAction.Press(key), token).ConfigureAwait(false);
+                Commit(new RecordedAction { Kind = "press", Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Key = key });
+            },
+            cancellationToken);
     }
 
-    public async Task NavigateAsync(string url, CancellationToken token)
+    public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default)
     {
-        await _scope.Session.OpenAsync(Routes.Resolve(_scope.BaseUrl, url), token).ConfigureAwait(false);
-        Commit(new RecordedAction { Kind = "navigate", Url = CacheKeys.Template(url, _parameters) });
+        ArgumentNullException.ThrowIfNull(value);
+        return RunAsync(
+            async token =>
+            {
+                var node = Resolve(target);
+                await TargetedAsync(node, new LocatorAction.Select(value), token).ConfigureAwait(false);
+                Commit(new RecordedAction { Kind = "select", Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Value = CacheKeys.Template(value, _parameters) });
+            },
+            cancellationToken);
     }
 
-    public async Task BackAsync(CancellationToken token)
+    public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) =>
+        RunAsync(
+            async token =>
+            {
+                var node = Resolve(target);
+                await TargetedAsync(node, check ? new LocatorAction.Check() : new LocatorAction.Uncheck(), token).ConfigureAwait(false);
+                Commit(Record(node, check ? "check" : "uncheck"));
+            },
+            cancellationToken);
+
+    public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+        RunAsync(
+            async token =>
+            {
+                var node = Resolve(target);
+                await _scope.Session.PerformAsync(node, new LocatorAction.ScrollIntoView(), token).ConfigureAwait(false);
+                Commit(Record(node, "scrollTo"));
+            },
+            cancellationToken);
+
+    public Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default)
     {
-        await _scope.Session.BackAsync(token).ConfigureAwait(false);
-        Commit(new RecordedAction { Kind = "back" });
+        if (string.IsNullOrWhiteSpace(text) || text.Length > AgentTools.MaxScrollToText)
+        {
+            throw new TestException("INVALID_ARGUMENT", "scroll to a text requires the text to reach, up to " + AgentTools.MaxScrollToText.ToString(CultureInfo.InvariantCulture) + " characters");
+        }
+
+        CheckDirection(direction);
+        return RunAsync(
+            async token =>
+            {
+                var recorded = list is null ? null : Record(Resolve(list), "scrollUntil");
+                await PageUntilAsync(text, direction, recorded, token).ConfigureAwait(false);
+                Commit(new RecordedAction
+                {
+                    Kind = "scrollUntil",
+                    Role = recorded?.Role,
+                    Name = recorded?.Name,
+                    TestId = recorded?.TestId,
+                    Direction = DirectionName(direction),
+                    Text = CacheKeys.Template(text, _parameters),
+                });
+            },
+            cancellationToken);
     }
+
+    public Task ScrollAsync(ExecutorTarget? list, ScrollDirection direction, int times = 1, CancellationToken cancellationToken = default)
+    {
+        CheckDirection(direction);
+        if (times is < 1 or > AgentTools.MaxScrollTimes)
+        {
+            throw new TestException("INVALID_ARGUMENT", "scroll times must be 1 to " + AgentTools.MaxScrollTimes.ToString(CultureInfo.InvariantCulture));
+        }
+
+        return RunAsync(
+            async token =>
+            {
+                var actions = _accounting.Recorded;
+                var node = list is null ? null : Resolve(list);
+                var recorded = node is null ? null : Record(node, "scroll");
+                for (var repeat = 0; repeat < times; repeat++)
+                {
+                    if (repeat > 0)
+                    {
+                        // Each later repeat reads a settled screen first, and pages the list as that screen shows it.
+                        _feed.ArmAfter(actions[^1]);
+                        var look = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
+                        if (recorded is not null)
+                        {
+                            node = Single(Find(look, recorded.Role, recorded.Name, recorded.TestId, null, _scope.Redactor))
+                                ?? throw new TestException("NOT_FOUND", "The scrolled list is no longer on the screen.");
+                        }
+                    }
+
+                    if (node is null)
+                    {
+                        await _scope.Session.SwipeAsync(direction, token).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await _scope.Session.PerformAsync(node, new LocatorAction.Swipe(direction), token).ConfigureAwait(false);
+                    }
+
+                    RecordScroll(actions, direction, node);
+                }
+
+                if (list is not null && node is not null)
+                {
+                    list.Node = node;
+                }
+
+                _feed.ArmAfter(actions[^1]);
+            },
+            cancellationToken);
+    }
+
+    public Task NavigateAsync(string url, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            throw new TestException("INVALID_ARGUMENT", "navigate requires a URL");
+        }
+
+        return RunAsync(
+            async token =>
+            {
+                await _scope.Session.OpenAsync(Routes.Resolve(_scope.BaseUrl, url), token).ConfigureAwait(false);
+                Commit(new RecordedAction { Kind = "navigate", Url = CacheKeys.Template(url, _parameters) });
+            },
+            cancellationToken);
+    }
+
+    public Task BackAsync(CancellationToken cancellationToken = default) =>
+        RunAsync(
+            async token =>
+            {
+                await _scope.Session.BackAsync(token).ConfigureAwait(false);
+                Commit(new RecordedAction { Kind = "back" });
+            },
+            cancellationToken);
+
+    /// <summary>
+    /// Runs one grammar action against the action budget: the slot is taken before anything else, since a failed action was
+    /// still an attempt. A failure of an action that ran past the step's end is the step's own hard stop, not the action's.
+    /// </summary>
+    private Task RunAsync(Func<CancellationToken, Task> body, CancellationToken cancellationToken) =>
+        _accounting.Queue.RunAsync(async () =>
+        {
+            _accounting.Reserve();
+            // The call runs under the step's own token as well as the caller's, so a step that ends stops an action in flight.
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(_accounting.Token, cancellationToken);
+            try
+            {
+                await body(linked.Token).ConfigureAwait(false);
+            }
+            catch (Exception) when (CheckStep())
+            {
+                throw;
+            }
+        });
+
+    // Throws the step's hard stop when the clock or the cancel ended it. Otherwise the action's own failure goes through.
+    private bool CheckStep()
+    {
+        _accounting.Checkpoint();
+        return false;
+    }
+
+    private static void CheckDirection(ScrollDirection direction)
+    {
+        if (!Enum.IsDefined(direction))
+        {
+            throw new TestException("INVALID_ARGUMENT", "invalid scroll direction \"" + direction + "\"");
+        }
+    }
+
+    // The node an id names on the screens the step has seen. The tool loop's targets hold theirs already.
+    private SemanticNode Resolve(ExecutorTarget target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return target.Node
+            ?? (target.Node = _feed.LastSeen(target.Id))
+            ?? throw new TestException("LOCATOR_NOT_FOUND", "node " + target.Id + " is not on the current screen; it was removed or never existed");
+    }
+
+    // The sink policy of upstream's authorizeSecretFill (agent/secrets.ts), with its reasons: a secret the attempt
+    // knows, an enabled editable field, and a password field for a password. There is no origin check.
+    private void AuthorizeSecretFill(Secret secret, SemanticNode node)
+    {
+        if (!_scope.Secrets.Any(item => string.Equals(item.Name, secret.Name, StringComparison.Ordinal)))
+        {
+            throw new AgentException("AUTH_CREDENTIAL_UNAVAILABLE", "secret \"" + secret.Name + "\" is not configured", blocked: true);
+        }
+
+        if (node.States.Disabled)
+        {
+            throw Denied("the target field is disabled");
+        }
+
+        if (!Roles.IsEditable(node))
+        {
+            throw Denied("the target is not an editable input (role " + (node.Role ?? "none") + ")");
+        }
+
+        // A password belongs in a password field, where the surface masks it. A generic secret has no field of its
+        // own: it goes wherever the test says, and redaction covers the value the moment it shows on screen.
+        var inputPurpose = string.IsNullOrEmpty(node.InputPurpose) ? "none" : node.InputPurpose;
+        if (secret.Purpose == "password" && inputPurpose != "password")
+        {
+            throw Denied("field purpose " + inputPurpose + " is incompatible with secret purpose " + secret.Purpose);
+        }
+    }
+
+    private static AgentException Denied(string reason) => new("POLICY_DENIED", reason, blocked: true);
 
     /// <summary>
     /// Pages a list, or the viewport, until a node reading <paramref name="text"/> is on the

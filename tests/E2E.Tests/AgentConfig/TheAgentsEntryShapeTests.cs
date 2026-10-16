@@ -4,7 +4,8 @@
 
 namespace E2E.Tests.AgentConfig;
 
-// Upstream's StepExecutor and createToolLoopExecutor cases have no port: a custom executor is not ported (see COMPATIBILITY.md, Agents).
+// Upstream's "rejects a bare StepExecutor, pointing at { executor }" and "rejects maxTurns on createToolLoopExecutor, naming maxModelCalls"
+// have nothing to reject here: an entry is an AgentOptions, and ToolLoopExecutorOptions has no maxTurns (see ACustomExecutorTests).
 public sealed class TheAgentsEntryShapeTests
 {
     private static readonly string Root = Path.Combine(Path.GetTempPath(), "e2e-agent-config-project");

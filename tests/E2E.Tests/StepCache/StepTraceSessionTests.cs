@@ -242,6 +242,24 @@ public sealed class StepTraceSessionTests
     }
 
     [Fact]
+    public async Task Lets_an_engine_independent_executor_run_when_the_baseline_cannot_be_observed_and_stages_nothing()
+    {
+        var directory = CoreTests.TempCache();
+        var lost = true;
+        var executor = new AgentAct.TestExecutor("blind-executor", async (context, _) =>
+        {
+            await context.Actions.NavigateAsync("/customers");
+            return AgentAct.ExecutorKit.Passed("done without looking");
+        });
+
+        var step = await StepAsync(CustomersWorld(), new FileStepCache(directory), "/pricing", null, null, executor: executor, wrap: engine => new LosingEngine(engine, () => lost, () => lost = false));
+
+        Assert.Null(step.Error);
+        Assert.False(lost, "the failing look was never taken");
+        Assert.False(Directory.Exists(directory) && Directory.GetFiles(directory, "*.json").Length > 0);
+    }
+
+    [Fact]
     public async Task Stages_nothing_when_the_passing_screen_cannot_be_observed()
     {
         var directory = CoreTests.TempCache();
@@ -748,12 +766,14 @@ public sealed class StepTraceSessionTests
         int attempt = 1,
         CacheMode mode = CacheMode.ReadWrite,
         bool strict = false,
-        Func<IEngine, IEngine>? wrap = null)
+        Func<IEngine, IEngine>? wrap = null,
+        IStepExecutor? executor = null)
     {
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions
         {
             Engine = wrap is null ? new DocumentEngine(world) : wrap(new DocumentEngine(world)),
             Model = model,
+            AgentExecutor = executor,
             BaseUrl = "https://billing.test",
             Cache = cache,
             CacheMode = mode,

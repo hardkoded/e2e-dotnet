@@ -28,7 +28,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | Writing or fixing a test: fixture members, locators, actions, matchers, sign-in, the `Browser` member | `writing-tests` | [references/writing-tests.md](references/writing-tests.md) |
 | Writing a test with NUnit: the `E2E.NUnit` base class, `[Test]`, `[Category("RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-nunit` | [references/writing-tests-nunit.md](references/writing-tests-nunit.md) |
 | Writing a test with xUnit v3: the `E2E.XUnit.V3` base class, `[Fact]`, `[Trait("TestCategory", "RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-xunit` | [references/writing-tests-xunit.md](references/writing-tests-xunit.md) |
-| Adding `Agent` steps, picking a model, budgets, the replay cache | `agent` | [references/agent.md](references/agent.md) |
+| Adding `Agent` steps, picking a model, budgets, the replay cache, custom executors | `agent` | [references/agent.md](references/agent.md) |
 | Running tests: `dotnet test` filters, the `e2e` tool, exit codes, CI | `running` | [references/running.md](references/running.md) |
 | Handling a failed run: error codes and their fixes, a visible browser, replay misses | `debugging` | [references/debugging.md](references/debugging.md) |
 | Exploring an app toward a goal without a test file (not ported) | `explore` | [references/explore.md](references/explore.md) |
@@ -103,5 +103,7 @@ public sealed class BillingTests : E2ETest
 - Check each act's outcome. Only a verified act is recorded and replayed
   (topic `agent`).
 - Shape the agent for this app: `context` for the vocabulary the screens
-  use, `system` for how it works, named agents under `agents`.
+  use, `system` for how it works, named agents under `agents`. A different brain
+  is an executor: your own tools in a `ToolLoop`, or an `IStepExecutor` (topic
+  `agent`).
 - `.e2e/cache/` is output; commit it to share replays, never edit it.

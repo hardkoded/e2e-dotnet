@@ -14,7 +14,7 @@ namespace E2E.Tests.AgentSecrets;
 /// </summary>
 public sealed class AuthorizeSecretFillTests
 {
-    /// <summary>Partial: the port refuses with its own message and records no policy decision.</summary>
+    /// <summary>Partial: the port records no policy decision, and the refusal reaches the model as the failed call it is.</summary>
     [Fact]
     public async Task Refuses_a_secret_fill_into_a_plain_textbox_and_never_types_into_it()
     {
@@ -48,7 +48,7 @@ public sealed class AuthorizeSecretFillTests
             "sign in",
             new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("admin-password", "hunter2", "password") } });
 
-        Assert.Contains("Secret fill refused", refusal, StringComparison.Ordinal);
+        Assert.Contains("failed: field purpose none is incompatible with secret purpose password", refusal, StringComparison.Ordinal);
         Assert.Empty(typed);
         Assert.DoesNotContain(model.Requests, request => request.Messages.Any(message => message.Content?.Contains("hunter2", StringComparison.Ordinal) == true));
         session.Complete();

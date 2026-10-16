@@ -149,6 +149,8 @@ public sealed class E2ESession : IAsyncDisposable
                 CacheStrict = options.CacheStrict,
                 CleanupTimeout = options.CleanupTimeout,
                 TestTitle = options.TestTitle,
+                TargetName = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName,
+                Ended = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token),
                 EnginePlatform = options.Engine.Platform,
                 EngineCapabilities = options.Engine.Capabilities,
                 Attempt = options.Attempt,
@@ -247,6 +249,7 @@ public sealed class E2ESession : IAsyncDisposable
         }
         finally
         {
+            EndAttempt();
             Volatile.Write(ref _state, 2);
         }
     }
@@ -264,6 +267,7 @@ public sealed class E2ESession : IAsyncDisposable
                 }
                 finally
                 {
+                    EndAttempt();
                     Volatile.Write(ref _state, 2);
                 }
             }
@@ -319,7 +323,25 @@ public sealed class E2ESession : IAsyncDisposable
         finally
         {
             _errorRedaction.Dispose();
+            _scope.Ended.Dispose();
             _timeout.Dispose();
+        }
+    }
+
+    // Tells the executors that hold state for the attempt it is over.
+    private void EndAttempt()
+    {
+        try
+        {
+            _scope.Ended.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The attempt was released already.
+        }
+        catch (AggregateException)
+        {
+            // An executor's own release callback failed. That is its failure to report, and it must not hide the attempt's result.
         }
     }
 
@@ -332,6 +354,7 @@ public sealed class E2ESession : IAsyncDisposable
             {
                 Model = options.Model,
                 Judge = options.Judge,
+                Executor = options.AgentExecutor,
                 System = options.AgentSystem,
                 Context = options.AgentContext,
                 MaxSteps = options.MaxSteps,
@@ -357,7 +380,7 @@ public sealed class E2ESession : IAsyncDisposable
             {
                 throw new ConfigurationException(
                     "INVALID_CONFIG",
-                    "Agents cannot hold \"default\"; the session's Model, Judge, AgentSystem, AgentTools, AgentContext, MaxSteps, MaxModelCalls, JudgmentTimeout, and ProviderOptions are the default agent");
+                    "Agents cannot hold \"default\"; the session's Model, Judge, AgentExecutor, AgentSystem, AgentTools, AgentContext, MaxSteps, MaxModelCalls, JudgmentTimeout, and ProviderOptions are the default agent");
             }
 
             agents[pair.Key] = ResolvedAgent.From(pair.Key, pair.Value);
@@ -458,6 +481,9 @@ public sealed class E2ESessionOptions
 
     /// <summary>The default agent's project tools, offered to the model beside the agent's own. See <see cref="AgentOptions.Tools"/>.</summary>
     public IReadOnlyDictionary<string, AgentTool>? AgentTools { get; init; }
+
+    /// <summary>The default agent's custom brain, upstream's <c>executor</c>. See <see cref="AgentOptions.Executor"/>.</summary>
+    public IStepExecutor? AgentExecutor { get; init; }
 
     /// <summary>The default agent's upstream <c>context</c>: told to every model call, at most 16384 UTF-8 bytes.</summary>
     public string? AgentContext { get; init; }

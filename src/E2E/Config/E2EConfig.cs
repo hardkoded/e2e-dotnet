@@ -522,7 +522,7 @@ public sealed class E2EConfig
             var where = label == "config" ? "config key" : label + " key";
             if (unsupported.Contains(key, StringComparer.Ordinal))
             {
-                throw Invalid(where + " \"" + key + "\" is not supported by the .NET port");
+                throw Invalid(where + " \"" + key + "\" is not supported by the .NET port" + (key == "executor" ? ": an executor is code, so set AgentOptions.Executor" : ""));
             }
 
             string hint;

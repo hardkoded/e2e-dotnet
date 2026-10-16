@@ -14,8 +14,8 @@ namespace E2E.Tests.TraceReplay;
 /// raw look. The port's replay has no gaps, drags, bare points, or lost-list
 /// fallback, and always looks before a free action until it reaches the recorded end route, so those <c>it</c>s are not ported.
 /// Not ported either: "relocates by semantic identity when a recorded test id churned" (the port finds a test id exactly),
-/// "surfaces an unknown commit state as action-uncertain" (the port has no such reason), and "hands off with
-/// action-failed when the look before the second action throws" (the port's look before an action is outside the replay's catch).
+/// and "hands off with action-failed when the look before the second action throws" (the port's look before an action is
+/// outside the replay's catch).
 /// </summary>
 public sealed class ReplayTraceTests
 {
@@ -140,6 +140,38 @@ public sealed class ReplayTraceTests
 
         Assert.Null(replay.Error);
         Assert.Equal(("agent-concluded", "action-failed", 1), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
+    }
+
+    /// <summary>Partial: the port reads the action as the hand-off notice words it, and the reason from the act's cache detail.</summary>
+    [Fact]
+    public async Task Partial_replay_through_the_agent_stops_at_action_uncertain_and_the_notice_names_the_action()
+    {
+        var uncertain = false;
+        DocumentWorld World() => new DocumentWorld().Map("/home", page => page.Heading("Home")).Map("/plan", page =>
+        {
+            var status = page.Status("Idle");
+            page.Button("Upgrade", () =>
+            {
+                if (uncertain)
+                {
+                    throw new EngineException(EngineErrorCodes.ActionMayHaveCommitted, "input may have reached the app");
+                }
+
+                status.Name = status.Text = "Upgraded";
+            });
+        });
+        var directory = await RecordAsync(World, NavigateThenUpgrade);
+        uncertain = true;
+        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "Done."));
+
+        var replay = await StepAsync(World(), new FileStepCache(directory), "/home", null, model);
+
+        Assert.Null(replay.Error);
+        Assert.Equal(("agent-concluded", "action-uncertain", 1), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
+        Assert.Contains("tap button \"Upgrade\"", replay.Cache?.Detail, StringComparison.Ordinal);
+        var opening = model.Requests[0].Messages[0].Content!;
+        Assert.Contains("Replay stopped (action-uncertain) after these actions:", opening, StringComparison.Ordinal);
+        Assert.Contains("WARNING: the next action (tap button \"Upgrade\") failed with an UNKNOWN commit state", opening, StringComparison.Ordinal);
     }
 
     [Fact]

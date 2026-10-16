@@ -7,11 +7,6 @@ using E2E.Internal;
 
 namespace E2E.Tests.AgentObservation;
 
-/// <summary>
-/// The port has no executor tree, so two upstream its are not ported: "gives an executor tree an app link absolute, cut
-/// no shorter than the line cuts its path", and the half of "never splits a surrogate pair at the cut, and bounds the
-/// target an executor tree carries the same way" that reads the tree. The line half is ported.
-/// </summary>
 public sealed class DisambiguatingAttributesTests
 {
     private static SemanticNode Link(string name, string href) =>
@@ -64,13 +59,28 @@ public sealed class DisambiguatingAttributesTests
         Assert.Contains("href=\"https://app.test/settings\"", Lines(nodes)[3], StringComparison.Ordinal);
     }
 
+    private static IReadOnlyList<ExecutorNode> Tree(IEnumerable<SemanticNode> nodes, string? appOrigin = null, Redactor? redactor = null) =>
+        global::E2E.AgentObservation.ProjectTree(nodes.ToList(), redactor ?? Redactor.None, appOrigin);
+
     [Fact]
-    public void Never_splits_a_surrogate_pair_at_the_cut()
+    public void Never_splits_a_surrogate_pair_at_the_cut_and_bounds_the_target_an_executor_tree_carries_the_same_way()
     {
         var href = "https://cdn.example.test/" + new string('a', 230) + "😀tail";
         Assert.True(char.IsHighSurrogate(href[255]));
 
         Assert.Equal($"  - link \"Emoji\" href=\"{href[..255]}…\" [ref=n]", Lines([Link("Emoji", href)])[2]);
+        Assert.Equal(href[..255] + "…", Tree([Link("Emoji", href)])[0].Attributes!["href"]);
+    }
+
+    [Fact]
+    public void Gives_an_executor_tree_an_app_link_absolute_cut_no_shorter_than_the_line_cuts_its_path()
+    {
+        var path = "/" + new string('p', 240);
+        var @long = "/" + new string('q', 300);
+
+        var hrefs = Tree([Link("Fits", "https://app.test" + path), Link("Long", "https://app.test" + @long)], "https://app.test").Select(node => node.Attributes!["href"]);
+
+        Assert.Equal(["https://app.test" + path, "https://app.test" + @long[..256] + "…"], hrefs);
     }
 
     [Fact]
@@ -140,6 +150,13 @@ public sealed class DisambiguatingAttributesTests
             ],
             lines.Skip(2));
         Assert.DoesNotContain(lines, line => line.Contains(fragment, StringComparison.Ordinal));
+        Assert.DoesNotContain(fragment, System.Text.Json.JsonSerializer.Serialize(Tree(
+            [
+                Field("n2", name: "Token", value: secret, selection: fragment, focused: true),
+                Field("n3", name: "Note", value: "release approved", selection: "approved"),
+                Field("n4", name: "Rich", text: $"key {secret}", selection: fragment),
+            ],
+            redactor: redactor)), StringComparison.Ordinal);
     }
 
     [Fact]

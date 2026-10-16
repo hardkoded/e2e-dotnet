@@ -70,7 +70,7 @@ public sealed partial class Agent
     internal Agent(AttemptScope scope)
     {
         _scope = scope;
-        _feed = new ObservationFeed(scope.Session, TimeProvider.System);
+        _feed = new ObservationFeed(scope.Session, TimeProvider.System) { Scope = scope };
     }
 
     public Task<ActResult> ActAsync(string instruction, ActOptions? options = null, CancellationToken cancellationToken = default) =>
@@ -80,6 +80,12 @@ public sealed partial class Agent
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(statement);
         var agent = _scope.Select(options?.Agent);
+        // The brain that plans the flows judges the assertions too, so a custom executor takes the assert.
+        if (agent.Executor is not null)
+        {
+            return _scope.Track(AssertWithExecutorAsync(statement, options, agent, cancellationToken));
+        }
+
         var vision = ResolveVision(options?.Vision ?? VisionMode.Off);
         return _scope.Track(JudgeAsync(statement, ResolveTimeout(options?.Timeout, agent.JudgmentTimeout), agent, vision, options?.Screenshot, cancellationToken));
     }
@@ -348,7 +354,7 @@ public sealed partial class Agent
             return new Look(tree, null, tree, tree);
         }
 
-        var outcome = AgentObservation.PixelsForModel(observation, await CaptureAsync(token).ConfigureAwait(false), _scope.Exposure.WithholdsPixels);
+        var outcome = AgentObservation.PixelsForModel(observation, await _scope.CaptureAsync(token).ConfigureAwait(false), _scope.Exposure.WithholdsPixels);
         if (outcome.Pixels is not { } pixels)
         {
             LoseVision(api, vision, outcome.Withheld!.Value);
@@ -361,24 +367,6 @@ public sealed partial class Agent
         var note = DescribePixels(image, pixels.MaskedRegionCount ?? 0, vision == VisionMode.Only);
         var shape = tree + "\n<pixels " + AgentObservation.PixelDigest(pixels.Png) + ">";
         return new Look(tree, image, vision == VisionMode.Only ? note : tree + "\n\n" + note, shape);
-    }
-
-    // The engine's masked screenshot, or null when it captures none: a capability it does not declare, or one it declares and cannot produce.
-    private async Task<EngineScreenshot?> CaptureAsync(CancellationToken token)
-    {
-        if ((_scope.EngineCapabilities & EngineCapabilities.Screenshot) == 0)
-        {
-            return null;
-        }
-
-        try
-        {
-            return await _scope.Session.ScreenshotAsync(token).ConfigureAwait(false);
-        }
-        catch (EngineException ex) when (string.Equals(ex.Code, EngineErrorCodes.UnsupportedCapability, StringComparison.Ordinal))
-        {
-            return null;
-        }
     }
 
     // Describes the attached screenshot and its relation to the tree.
@@ -473,7 +461,7 @@ public sealed partial class Agent
 
         try
         {
-            return await CaptureAsync(token).ConfigureAwait(false) is { } shot ? screenshots.KeepEvidence("assert", shot.Png) : null;
+            return await _scope.CaptureAsync(token).ConfigureAwait(false) is { } shot ? screenshots.KeepEvidence("assert", shot.Png) : null;
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested && !_scope.Token().IsCancellationRequested && ex is EngineException or IOException or UnauthorizedAccessException or OperationCanceledException)
         {
@@ -567,7 +555,7 @@ public sealed partial class Agent
     internal Task<ToolOutcome> RunToolAsync(string name, JsonElement arguments, CancellationToken token)
     {
         var budget = new StepAccounting(int.MaxValue, int.MaxValue);
-        return _scope.Track(new ActTools(_scope, _feed).ExecuteAsync(new ModelToolCall { Id = name, Name = name, Arguments = arguments }, new ActionDispatcher(_scope, _feed, budget, null), budget, null, token));
+        return _scope.Track(new ActTools(_scope, _feed).ExecuteAsync(new ModelToolCall { Id = name, Name = name, Arguments = arguments }, new ActionDispatcher(_scope, _feed, budget, null, () => _scope.Secrets), budget, null, token));
     }
 
     internal static bool HasTarget(JsonElement arguments)
@@ -1048,6 +1036,24 @@ internal sealed class AttemptScope
     /// <summary>Where a judgment keeps its screenshot evidence; null for an attempt that keeps no results.</summary>
     public ScreenshotContext? Screenshots { get; set; }
 
+    /// <summary>The engine's masked screenshot, or null when it captures none: a capability it does not declare, or one it declares and cannot produce.</summary>
+    public async Task<EngineScreenshot?> CaptureAsync(CancellationToken token)
+    {
+        if ((EngineCapabilities & EngineCapabilities.Screenshot) == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            return await Session.ScreenshotAsync(token).ConfigureAwait(false);
+        }
+        catch (EngineException ex) when (string.Equals(ex.Code, EngineErrorCodes.UnsupportedCapability, StringComparison.Ordinal))
+        {
+            return null;
+        }
+    }
+
     /// <summary>A judgment of this attempt received a masked screenshot as model input.</summary>
     public bool VisionInput { get; set; }
 
@@ -1080,6 +1086,25 @@ internal sealed class AttemptScope
     public required string TestTitle { get; init; }
 
     public required string EnginePlatform { get; init; }
+
+    /// <summary>The target's name, which an executor reads. Defaults to the engine's platform.</summary>
+    public string TargetName { get => _targetName ?? EnginePlatform; init => _targetName = value; }
+
+    /// <summary>This attempt's identity, which an executor tells it from a retry's by.</summary>
+    public string AttemptId { get; } = Guid.NewGuid().ToString("n");
+
+    /// <summary>Ends when the attempt does: the test is cancelled or timed out, or the session is completed or disposed.</summary>
+    public CancellationTokenSource Ended { get; init; } = new();
+
+    /// <summary>The scratch space executors keep for the attempt. Never persisted, reported, or shown to a model.</summary>
+    public Dictionary<string, object?> ExecutorMemory { get; } = new(StringComparer.Ordinal);
+
+    private int _steps;
+
+    private readonly string? _targetName;
+
+    /// <summary>The zero-based place of the next agent step in the attempt.</summary>
+    public int NextStepIndex() => Interlocked.Increment(ref _steps) - 1;
 
     /// <summary>What the engine declared. Scroll and back tools are offered only when it can honor them.</summary>
     public EngineCapabilities EngineCapabilities { get; init; }
@@ -1251,13 +1276,14 @@ internal sealed class PendingAct
 
 internal readonly record struct Verdict(string Status, string? Summary, string? Code);
 
-internal readonly record struct ReplayAttempt(bool Completed, bool Handoff, CacheInfo? Info, CacheEntry? Entry = null)
+// Uncertain: for a hand-off at action-uncertain, the summary of the action whose input may have reached the app.
+internal readonly record struct ReplayAttempt(bool Completed, bool Handoff, CacheInfo? Info, CacheEntry? Entry = null, string? Uncertain = null)
 {
     public static ReplayAttempt Done(CacheEntry entry) => new(true, false, new CacheInfo { Mode = "self-finalized" }, entry);
 
     public static ReplayAttempt Miss(string reason, string? detail = null) => new(false, false, new CacheInfo { Mode = "missed", Reason = reason, Detail = detail });
 
-    public static ReplayAttempt Hand(string reason, string? detail = null) => new(false, true, new CacheInfo { Mode = "agent-concluded", Reason = reason, Detail = detail });
+    public static ReplayAttempt Hand(string reason, string? detail = null, string? uncertain = null) => new(false, true, new CacheInfo { Mode = "agent-concluded", Reason = reason, Detail = detail }, null, uncertain);
 }
 
 /// <summary>

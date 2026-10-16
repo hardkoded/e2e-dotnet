@@ -14,154 +14,430 @@ namespace E2E;
 // verdict the step ends with. What thinks is the step's executor (see Executor.cs), which a built-in tool loop is.
 public sealed partial class Agent
 {
-    private async Task<ActResult> RunActStepAsync(string instruction, ActOptions? options, CancellationToken cancellationToken)
+    /// <summary>How long an executor that was told to stop gets to unwind before the runtime settles the step without it.</summary>
+    private static readonly TimeSpan ExecutorUnwindGrace = TimeSpan.FromSeconds(1);
+
+    private Task<ActResult> RunActStepAsync(string instruction, ActOptions? options, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(instruction);
         CheckInstruction(instruction);
-        var agent = _scope.Select(options?.Agent);
-        var maxCalls = Budget(options?.MaxModelCalls, agent.MaxModelCalls, "MaxModelCalls");
-        var budget = new StepAccounting(Budget(options?.MaxSteps, agent.MaxSteps, "MaxSteps"), maxCalls);
-        var timeout = ResolveTimeout(options?.Timeout, _scope.StepTimeout);
         ActParams.Validate(options?.Params);
-        var callsBefore = _scope.ModelCalls;
-        var projectTools = DefaultAgent.ProjectToolsFor(agent, _scope.EnginePlatform);
-        var offeredProject = projectTools.Select(pair => AgentTools.Project(pair.Key, pair.Value)).ToList();
-        using var linked = Link(cancellationToken, timeout);
-        var token = linked.Token;
-        _scope.Remember(options?.Params);
-        var key = _scope.ClaimKey(instruction, options?.Params, agent, out var callIndex);
-        var pending = new PendingAct
-        {
-            Key = key,
-            ParamCollision = CacheKeys.Collides(options?.Params),
-            Step = Provenance(instruction, options?.Params, callIndex, agent.Name),
-        };
-        if (_scope.CacheEnabled)
-        {
-            _scope.Acts.Add(pending);
-        }
-
-        // The baseline a recording's delta is read from, the screen a replay starts on, and the model's first look:
-        // a settled screen, as upstream's start capture is.
-        _feed = new ObservationFeed(_scope.Session, TimeProvider.System);
-        var start = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
-        var actions = budget.Recorded;
-        var dispatcher = new ActionDispatcher(_scope, _feed, budget, options?.Params);
-        CacheInfo? info = null;
-        var handoff = false;
-        var actionsAtEndMismatch = -1;
-        if (_scope.CacheEnabled && _scope.ReplayEligible && _scope.Cache is not null)
-        {
-            var replay = await TryReplayAsync(pending, start, actions, budget, dispatcher, options?.Params, token).ConfigureAwait(false);
-            info = new CacheInfo { Mode = replay.Info!.Mode, Reason = replay.Info.Reason, ReplayedActions = actions.Count, TotalActions = pending.RecordedActions, Detail = replay.Info.Detail };
-            handoff = replay.Handoff;
-            // A store that could not be read says nothing about a recording, so strict mode runs the step live too.
-            // So does a recording that stops at a project tool: as upstream, a gap is no stale recording, only a step the cache cannot finish.
-            if (_scope.CacheStrict && !replay.Completed && !pending.ReadFailed && info?.Reason is not null and not ("no-entry" or "gap"))
+        var agent = _scope.Select(options?.Agent);
+        return DispatchStepAsync(
+            new StepSpec
             {
-                throw new AgentException(
-                    "REPLAY_STALE",
-                    "The recording for '" + instruction + "' no longer matches (" + info.Reason + "). Strict cache mode does not run it live; re-record it without cache.strict.");
-            }
-
-            if (_scope.CacheStrict && string.Equals(info?.Reason, "no-entry", StringComparison.Ordinal))
-            {
-                FailIfRekeyed(pending, instruction);
-            }
-
-            if (replay.Completed)
-            {
-                pending.Completed = true;
-                pending.ReplayedWhole = true;
-                pending.Entry = replay.Entry;
-                _scope.Completed.Add("Replayed: " + instruction);
-                return new ActResult { Summary = "Replayed recorded actions.", Cache = info, ModelCalls = 0, Actions = budget.Used };
-            }
-
-            if (handoff && string.Equals(info?.Reason, "end-mismatch", StringComparison.Ordinal))
-            {
-                actionsAtEndMismatch = actions.Count;
-            }
-        }
-        else if (_scope.CacheEnabled && _scope.Cache is not null)
-        {
-            // Outside strict mode, a retry records like any attempt but never replays.
-            _scope.Missed++;
-            info = ReplayAttempt.Miss("retry").Info;
-        }
-
-        var executor = DefaultAgent.CreateBuiltInAgent(new BuiltInAgentOptions
-        {
-            Host = this,
-            Scope = _scope,
-            Feed = _feed,
-            Agent = agent,
-            ProjectTools = projectTools,
-            OfferedProject = offeredProject,
-            CancellationToken = cancellationToken,
-        });
-        var verdict = await executor.RunStepAsync(
-            new StepExecutorContext
-            {
-                Step = new ExecutorStep { Kind = ExecutorStepKind.Act, Instruction = instruction, Params = options?.Params },
-                ReplayedPrefix = handoff ? new ReplayedPrefix(actions.ToList(), ReplayHandOffReasons.Parse(info?.Reason)) : null,
-                Start = new ExecutorObservation(SnapshotText.Render(start, _scope.Redactor, _scope.AppOrigin)),
-                Actions = dispatcher,
-                Budgets = budget,
+                Kind = ExecutorStepKind.Act,
+                Instruction = instruction,
+                Params = options?.Params,
+                Timeout = options?.Timeout,
+                MaxSteps = options?.MaxSteps,
+                MaxModelCalls = options?.MaxModelCalls,
             },
-            token).ConfigureAwait(false);
+            agent,
+            cancellationToken);
+    }
 
-        var summary = verdict.Summary;
-        var code = verdict.ErrorCode;
-        if (budget.Exhausted && verdict.Status == StepVerdictStatus.Passed)
+    /// <summary>
+    /// Upstream's <c>runAssertStep</c>: routes one <c>assert</c> through the agent's custom executor. The brain that plans the
+    /// flows judges the assertions too, so swapping brains swaps all the thinking. <c>Screenshot</c> is evidence the runtime
+    /// takes after the verdict, so it is honored here as on the built-in path. <c>Vision</c> is what the executor's model
+    /// sees, which only the executor decides, so the call is refused.
+    /// </summary>
+    private async Task AssertWithExecutorAsync(string statement, AssertOptions? options, ResolvedAgent agent, CancellationToken cancellationToken)
+    {
+        if ((options?.Vision ?? VisionMode.Off) != VisionMode.Off)
         {
-            // The model cannot declare success over the runtime's own accounting.
-            throw budget.Stop(summary);
+            throw new ConfigurationException("UNSUPPORTED_CAPABILITY", "agent.assert vision (AssertOptions.Vision) is not supported with a custom executor: the executor decides what its model sees");
         }
 
-        if (verdict.Status == StepVerdictStatus.Passed)
+        await DispatchStepAsync(
+            new StepSpec
+            {
+                Kind = ExecutorStepKind.Assert,
+                Instruction = statement,
+                Timeout = options?.Timeout,
+                Screenshot = options?.Screenshot,
+            },
+            agent,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Upstream's <c>dispatchAgentStep</c>: opens the step, tries a cached replay, hands the executor the step when the cache
+    /// misses or diverges, settles its verdict, and stages the recording. An assert is a verification step: its passing is
+    /// what confirms the recordings staged before it.
+    /// </summary>
+    private async Task<ActResult> DispatchStepAsync(StepSpec spec, ResolvedAgent agent, CancellationToken cancellationToken)
+    {
+        try
         {
+            return await DispatchCoreAsync(spec, agent, cancellationToken).ConfigureAwait(false);
+        }
+        catch (AgentException ex) when (string.Equals(ex.Code, "CANCELLED", StringComparison.Ordinal) && (cancellationToken.IsCancellationRequested || _scope.Token().IsCancellationRequested))
+        {
+            // The caller's own cancel reads as cancellation, not as a failed step.
+            throw new OperationCanceledException(ex.Message, ex, cancellationToken.IsCancellationRequested ? cancellationToken : _scope.Token());
+        }
+    }
+
+    private async Task<ActResult> DispatchCoreAsync(StepSpec spec, ResolvedAgent agent, CancellationToken cancellationToken)
+    {
+        var api = spec.Kind == ExecutorStepKind.Act ? "agent.act" : "agent.assert";
+        var custom = agent.Executor is not null;
+        var executor = agent.Executor ?? DefaultAgent.CreateBuiltInAgent(new BuiltInAgentOptions { System = agent.System, Tools = agent.Tools });
+        var instruction = spec.Instruction;
+        var maxCalls = Budget(spec.MaxModelCalls, agent.MaxModelCalls, "MaxModelCalls");
+        var budget = new StepAccounting(Budget(spec.MaxSteps, agent.MaxSteps, "MaxSteps"), maxCalls, api);
+        var timeout = ResolveTimeout(spec.Timeout, spec.Kind == ExecutorStepKind.Act ? _scope.StepTimeout : agent.JudgmentTimeout);
+
+        // The caller's token and the attempt's end the step as a cancel. The step's own token also ends on any hard stop, so a timeout
+        // and a cancel are told apart by what the budget recorded.
+        using var outer = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _scope.Token());
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(outer.Token);
+        using var clock = new CancellationTokenSource(timeout);
+        using var expiry = clock.Token.Register(() => budget.Fatalize(budget.TimedOut()));
+        var token = stop.Token;
+        var feed = new ObservationFeed(_scope.Session, TimeProvider.System) { Scope = _scope };
+        _feed = feed;
+        var stepIndex = _scope.NextStepIndex();
+        budget.Attach(_scope, timeout, outer.Token, stop, _scope.Redactor.Redact, feed.ArmAfter);
+        _scope.Remember(spec.Params);
+        var declared = spec.Params?.Values.OfType<Secret>().ToList() ?? [];
+        var dispatcher = new ActionDispatcher(_scope, feed, budget, spec.Params, () => declared);
+        ActContext? context = null;
+        try
+        {
+            // An act is cacheable unless its executor opted out. An assert must not change the app, so its recording would be empty.
+            var cacheable = spec.Kind == ExecutorStepKind.Act && executor.Cache != ExecutorCache.Off;
+            PendingAct? pending = null;
+            var key = "";
+            if (cacheable)
+            {
+                key = _scope.ClaimKey(instruction, spec.Params, agent, out var callIndex);
+                pending = new PendingAct
+                {
+                    Key = key,
+                    ParamCollision = CacheKeys.Collides(spec.Params),
+                    Step = Provenance(instruction, spec.Params, callIndex, agent.Name),
+                };
+                if (_scope.CacheEnabled)
+                {
+                    _scope.Acts.Add(pending);
+                }
+            }
+
+            // The baseline a recording's delta is read from, the screen a replay starts on, and the built-in agent's first look:
+            // a settled screen, as upstream's start capture is. An executor that brings its own eyes owes the cache nothing
+            // when the screen cannot be read: it runs, and nothing is recorded.
+            Observation? start = null;
+            if (!custom || (cacheable && _scope.CacheEnabled))
+            {
+                try
+                {
+                    start = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
+                }
+                catch (EngineException ex) when (custom && !StepExecutors.IsRuntimeHardStop(ex) && !token.IsCancellationRequested)
+                {
+                    start = null;
+                }
+            }
+
+            var actions = budget.Recorded;
+            CacheInfo? info = null;
+            string? uncertain = null;
+            var handoff = false;
+            var actionsAtEndMismatch = -1;
+            if (pending is not null && start is not null && _scope.CacheEnabled && _scope.ReplayEligible && _scope.Cache is not null)
+            {
+                var replay = await TryReplayAsync(pending, start, actions, budget, dispatcher, spec.Params, token).ConfigureAwait(false);
+                info = new CacheInfo { Mode = replay.Info!.Mode, Reason = replay.Info.Reason, ReplayedActions = actions.Count, TotalActions = pending.RecordedActions, Detail = replay.Info.Detail };
+                handoff = replay.Handoff;
+                // A store that could not be read says nothing about a recording, so strict mode runs the step live too.
+                // So does a recording that stops at a project tool: as upstream, a gap is no stale recording, only a step the cache cannot finish.
+                if (_scope.CacheStrict && !replay.Completed && !pending.ReadFailed && info?.Reason is not null and not ("no-entry" or "gap"))
+                {
+                    throw new AgentException(
+                        "REPLAY_STALE",
+                        "The recording for '" + instruction + "' no longer matches (" + info.Reason + "). Strict cache mode does not run it live; re-record it without cache.strict.");
+                }
+
+                if (_scope.CacheStrict && string.Equals(info?.Reason, "no-entry", StringComparison.Ordinal))
+                {
+                    FailIfRekeyed(pending, instruction);
+                }
+
+                if (replay.Completed)
+                {
+                    pending.Completed = true;
+                    pending.ReplayedWhole = true;
+                    pending.Entry = replay.Entry;
+                    _scope.Completed.Add("Replayed: " + instruction);
+                    return new ActResult { Summary = "Replayed recorded actions.", Cache = info, ModelCalls = 0, Actions = budget.Used };
+                }
+
+                if (handoff && string.Equals(info?.Reason, "end-mismatch", StringComparison.Ordinal))
+                {
+                    actionsAtEndMismatch = actions.Count;
+                }
+
+                uncertain = replay.Uncertain;
+            }
+            else if (pending is not null && start is not null && _scope.CacheEnabled && _scope.Cache is not null)
+            {
+                // Outside strict mode, a retry records like any attempt but never replays.
+                _scope.Missed++;
+                info = ReplayAttempt.Miss("retry").Info;
+            }
+
+            // The screen the step began on is stale once a replay acted, so the executor takes a fresh look.
+            context = new ActContext(_scope, feed, budget, dispatcher, spec, agent, stepIndex, declared, handoff && actions.Count > 0 ? null : start, handoff ? PrefixOf(actions, pending!, info!.Reason, uncertain) : null);
+            StepVerdict verdict;
+            try
+            {
+                verdict = await RunExecutorAsync(executor, context, budget, stop, outer.Token).ConfigureAwait(false);
+                // A verdict that comes after the caller's cancel is not trusted over it.
+                outer.Token.ThrowIfCancellationRequested();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException || budget.HardStop is not null)
+            {
+                throw SettleThrown(ToAgentException(ex, budget), budget, executor);
+            }
+
+            if (custom)
+            {
+                verdict = ValidateVerdict(verdict, executor.Name);
+            }
+
+            // Evidence for an assert is taken after the verdict, on a pass and on a failure alike.
+            var kept = spec.Kind == ExecutorStepKind.Assert && spec.Screenshot != false && budget.HardStop is null
+                ? await KeepBoundedEvidenceAsync(budget, outer.Token, cancellationToken).ConfigureAwait(false)
+                : null;
+            Settle(verdict, budget, spec, executor, kept, out var summary);
+            if (spec.Kind == ExecutorStepKind.Assert)
+            {
+                _scope.MarkVerified();
+                return new ActResult { Summary = summary, ModelCalls = budget.ModelCalls, Actions = budget.Used };
+            }
+
             if (actionsAtEndMismatch >= 0 && actions.Count > actionsAtEndMismatch)
             {
                 // The recorded actions ran but did not reach the recorded end, so they are proven
                 // not to produce it. Evict the entry and let a clean run record the flow again.
-                if (_scope.CacheWrite)
+                if (_scope.CacheWrite && pending is not null)
                 {
                     _scope.Cache!.Delete(key);
                 }
 
                 _scope.Completed.Add(summary.Length == 0 ? instruction : summary);
-                return new ActResult { Summary = summary, Cache = info, ModelCalls = _scope.ModelCalls - callsBefore, Actions = budget.Used };
+                return new ActResult { Summary = summary, Cache = info, ModelCalls = budget.ModelCalls, Actions = budget.Used };
             }
 
-            pending.Completed = true;
-            // Only a cache that writes keeps the recording, so only it waits for the screen to settle: after the
-            // last action's change, held still.
-            pending.Entry = _scope.CacheWrite
-                ? await StageAsync(pending.Step!, start, actions, options?.Params, token).ConfigureAwait(false)
-                : null;
             _scope.Completed.Add(summary.Length == 0 ? instruction : summary);
-            if (info is not null && pending.ParamCollision && pending.Entry is not null)
+            if (pending is not null)
             {
-                // The recording cannot be templated safely, so it is not written, and the result says why.
-                info = new CacheInfo { Mode = info.Mode, Reason = info.Reason, ReplayedActions = info.ReplayedActions, TotalActions = info.TotalActions, Detail = info.Detail, NotRecorded = "param-collision" };
+                pending.Completed = true;
+                // Only a cache that writes keeps the recording, so only it waits for the screen to settle: after the
+                // last action's change, held still. A step that took no action has nothing to record.
+                pending.Entry = _scope.CacheWrite && start is not null && actions.Count > 0
+                    ? await StageAsync(pending.Step!, start, actions, spec.Params, token).ConfigureAwait(false)
+                    : null;
+                if (info is not null && pending.ParamCollision && pending.Entry is not null)
+                {
+                    // The recording cannot be templated safely, so it is not written, and the result says why.
+                    info = new CacheInfo { Mode = info.Mode, Reason = info.Reason, ReplayedActions = info.ReplayedActions, TotalActions = info.TotalActions, Detail = info.Detail, NotRecorded = "param-collision" };
+                }
             }
 
-            return new ActResult { Summary = summary, Cache = info, ModelCalls = _scope.ModelCalls - callsBefore, Actions = budget.Used };
+            return new ActResult { Summary = summary, Cache = info, ModelCalls = budget.ModelCalls, Actions = budget.Used };
         }
-
-        if (verdict.Status == StepVerdictStatus.Blocked)
+        catch (Exception ex) when (budget.HardStop is { } hardStop && (ex is OperationCanceledException || (ex is EngineException { Code: EngineErrorCodes.Cancelled })))
         {
-            throw new AgentException(code!, summary.Length == 0 ? "The step is blocked." : summary, blocked: true);
+            // The clock or a cancel ended the step while it looked at the screen or replayed a recording.
+            throw hardStop;
         }
-
-        // A failure the model gave no code for inherits the exhausted budget, so the report names it.
-        if (code is null && budget.Exhausted)
+        finally
         {
-            throw budget.Stop(summary);
+            budget.Close();
+            context?.WriteTranscript();
+        }
+    }
+
+    // The evidence of a judgment an executor made, best effort and bounded as upstream bounds it: it waits no longer than one action may
+    // take, or than the step has left, and a capture that outlives that is abandoned, so the verdict stands without it.
+    private async Task<string?> KeepBoundedEvidenceAsync(StepAccounting budget, CancellationToken attempt, CancellationToken cancellationToken)
+    {
+        var bound = TimeSpan.FromMilliseconds(Math.Min(_scope.ActionTimeout.TotalMilliseconds, budget.RemainingMs()));
+        using var limit = CancellationTokenSource.CreateLinkedTokenSource(attempt);
+        limit.CancelAfter(bound);
+        var capture = KeepEvidenceAsync(limit.Token, cancellationToken);
+        try
+        {
+            return await capture.WaitAsync(bound, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            _ = capture.ContinueWith(static task => _ = task.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+            return null;
+        }
+    }
+
+    // What the replay ran before it handed the step over, in the words an executor reads.
+    private static ReplayedPrefix PrefixOf(List<RecordedAction> actions, PendingAct pending, string? reason, string? uncertain) =>
+        new(actions.Select(DefaultAgent.Describe).ToList(), pending.RecordedActions, ReplayHandOffReasons.Parse(reason), uncertain);
+
+    /// <summary>
+    /// Runs the executor against the step's clock. An executor that ignores every call to the context still cannot outlive the
+    /// deadline: once the step is stopped it gets <see cref="ExecutorUnwindGrace"/> to unwind, and then the runtime settles the step
+    /// without it and abandons what it was doing.
+    /// </summary>
+    private static async Task<StepVerdict> RunExecutorAsync(IStepExecutor executor, StepExecutorContext context, StepAccounting budget, CancellationTokenSource stop, CancellationToken attemptCancellation)
+    {
+        var running = Task.Run(() => executor.RunStepAsync(context, stop.Token), CancellationToken.None);
+        var stopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var registration = stop.Token.Register(() => stopped.TrySetResult());
+        if (await Task.WhenAny(running, stopped.Task).ConfigureAwait(false) == running)
+        {
+            return await running.ConfigureAwait(false);
         }
 
-        throw new AgentException(code ?? "ACTION_FAILED", summary.Length == 0 ? "The step failed." : summary);
+        if (await Task.WhenAny(running, Task.Delay(ExecutorUnwindGrace)).ConfigureAwait(false) == running)
+        {
+            return await running.ConfigureAwait(false);
+        }
+
+        // The abandoned run must not fault unobserved.
+        _ = running.ContinueWith(static task => _ = task.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+        if (budget.HardStop is { } hardStop)
+        {
+            throw hardStop;
+        }
+
+        throw new OperationCanceledException(attemptCancellation);
+    }
+
+    // Maps a failure of the executor, or of a call it made, onto the closed agent codes. Cancellation stays cancellation.
+    private static Exception ToAgentException(Exception error, StepAccounting budget)
+    {
+        if (budget.HardStop is { } hardStop && (error is OperationCanceledException || StepExecutors.IsRuntimeHardStop(error as E2EException ?? new AgentException("ACTION_FAILED", error.Message))))
+        {
+            return hardStop;
+        }
+
+        return error switch
+        {
+            AgentException or OperationCanceledException or SkipException => error,
+            E2EException { Code: var code } e2e when StepExecutors.AgentCodes.Contains(code) => new AgentException(code, e2e.Message, e2e),
+            E2EException { Code: "UNSUPPORTED_CAPABILITY" or "INVALID_CONFIG" } e2e => new AgentException("POLICY_DENIED", e2e.Message, blocked: true, e2e),
+            _ => new AgentException("ACTION_FAILED", error.Message, error),
+        };
+    }
+
+    // The recorded hard stop wins over any derived failure, and a runtime code the runtime cannot corroborate is an invalid
+    // verdict, not a runtime failure.
+    private static Exception SettleThrown(Exception error, StepAccounting budget, IStepExecutor executor)
+    {
+        if (error is not AgentException agent || !StepExecutors.RuntimeCodes.Contains(agent.Code))
+        {
+            return error;
+        }
+
+        // A loop that spent its model calls on actions the budget turned away names the action budget, which is the cause.
+        if (budget.HardStop is null && budget.Exhausted && string.Equals(agent.Code, "STEP_BUDGET_EXHAUSTED", StringComparison.Ordinal))
+        {
+            return budget.Stop(null);
+        }
+
+        if (budget.HardStop is { } hardStop)
+        {
+            return hardStop;
+        }
+
+        return budget.Vouches(agent.Code) ? error : Invented(agent.Code, executor, agent);
+    }
+
+    private static AgentException Invented(string code, IStepExecutor executor, Exception? cause = null) =>
+        cause is null
+            ? new("MODEL_OUTPUT_INVALID", "executor \"" + executor.Name + "\" reported runtime code " + code + ", which the runtime never assigned")
+            : new("MODEL_OUTPUT_INVALID", "executor \"" + executor.Name + "\" reported runtime code " + code + ", which the runtime never assigned", cause);
+
+    /// <summary>Upstream's <c>validateVerdict</c>: closes the verdict grammar, so an executor cannot invent a status or a code.</summary>
+    private static StepVerdict ValidateVerdict(StepVerdict verdict, string executorName)
+    {
+        static AgentException Invalid(string executorName, string issue) =>
+            new("MODEL_OUTPUT_INVALID", "executor \"" + executorName + "\" returned an invalid verdict: " + issue);
+
+        if (!Enum.IsDefined(verdict.Status))
+        {
+            throw Invalid(executorName, "status must be passed, failed, or blocked, got " + verdict.Status);
+        }
+
+        if (string.IsNullOrWhiteSpace(verdict.Summary))
+        {
+            throw Invalid(executorName, "summary must be a non-empty string");
+        }
+
+        var code = verdict.ErrorCode;
+        if (code is not null && !StepExecutors.AgentCodes.Contains(code))
+        {
+            throw Invalid(executorName, "unknown errorCode \"" + code + "\"");
+        }
+
+        if (verdict.Status == StepVerdictStatus.Passed && code is not null)
+        {
+            throw Invalid(executorName, "a passed verdict cannot carry an errorCode");
+        }
+
+        if (verdict.Status == StepVerdictStatus.Blocked && (code is null || !StepExecutors.BlockableCodes.Contains(code)))
+        {
+            throw Invalid(executorName, "blocked requires a blockable errorCode (one of " + string.Join(", ", StepExecutors.BlockableCodes.Order(StringComparer.Ordinal)) + ")");
+        }
+
+        return verdict with { Summary = verdict.Summary.Trim() };
+    }
+
+    /// <summary>
+    /// Maps the executor's verdict onto the step's outcome, carrying the evidence on a failure. A hard stop of the step, a
+    /// spent budget, a timeout, or a cancel, is the step's truth: no verdict outranks it.
+    /// </summary>
+    private static void Settle(StepVerdict verdict, StepAccounting budget, StepSpec spec, IStepExecutor executor, string? screenshot, out string summary)
+    {
+        summary = verdict.Summary ?? "";
+        var code = verdict.ErrorCode;
+        var stop = budget.HardStop ?? (budget.Exhausted ? budget.Stop(null) : null);
+        if (stop is not null)
+        {
+            if (string.Equals(stop.Code, "CANCELLED", StringComparison.Ordinal))
+            {
+                throw stop;
+            }
+
+            // The model cannot declare success over the runtime's own accounting, and a failure it gave no code for
+            // inherits the hard stop, so the step names it.
+            if (verdict.Status == StepVerdictStatus.Passed || code is null)
+            {
+                var reason = stop.Message.TrimEnd('.');
+                throw new AgentException(stop.Code, summary.Length == 0 ? reason + "." : reason + ": " + summary, blocked: true);
+            }
+        }
+
+        if (code is not null && StepExecutors.RuntimeCodes.Contains(code) && !budget.Vouches(code))
+        {
+            throw Invented(code, executor);
+        }
+
+        if (verdict.Status == StepVerdictStatus.Passed)
+        {
+            return;
+        }
+
+        var blocked = verdict.Status == StepVerdictStatus.Blocked;
+        if (blocked)
+        {
+            throw new AgentException(code!, summary.Length == 0 ? "The step is blocked." : summary, blocked: true) { Screenshot = screenshot };
+        }
+
+        var failure = code is not null && StepExecutors.AgentCodes.Contains(code) ? code : spec.Kind == ExecutorStepKind.Assert ? "ASSERTION_FAILED" : "ACTION_FAILED";
+        throw new AgentException(failure, summary.Length == 0 ? "The step failed." : summary) { Screenshot = screenshot };
     }
 
     private async Task<ReplayAttempt> TryReplayAsync(
@@ -381,6 +657,12 @@ public sealed partial class Agent
                 actions.Add(action);
                 started = true;
                 previous = action;
+            }
+            catch (EngineException ex) when (ex.Code == EngineErrorCodes.ActionMayHaveCommitted && !token.IsCancellationRequested)
+            {
+                // The action's input may have reached the app. The executor verifies the state before it tries anything like it again.
+                _scope.HandedOff++;
+                return ReplayAttempt.Hand("action-uncertain", StoppedAt(_scope.Redactor.Redact(FirstLine(ex.Message))), DefaultAgent.Describe(current!));
             }
             catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex) && !token.IsCancellationRequested)
             {

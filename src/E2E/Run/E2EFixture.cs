@@ -64,6 +64,12 @@ public abstract class E2EFixture
     /// <summary>The project tools of <c>agents.default</c>, offered to the model beside the agent's own. None by default; a device test passes <c>MobileTools.Create(engine)</c>.</summary>
     protected virtual IReadOnlyDictionary<string, AgentTool>? AgentTools => null;
 
+    /// <summary>
+    /// The custom brain of <c>agents.default</c>, upstream's <c>executor</c>. None by default: an executor is code, so the config file cannot name one.
+    /// With one, <see cref="AgentSystem"/> and <see cref="AgentTools"/> must be unset.
+    /// </summary>
+    protected virtual IStepExecutor? AgentExecutor => null;
+
     /// <summary><c>agents.default.context</c>: project context told to every model call.</summary>
     protected virtual string? AgentContext => Config.Agent.Context;
 
@@ -144,6 +150,7 @@ public abstract class E2EFixture
                 Engine = CreateEngine(),
                 Model = CreateModel(),
                 Judge = CreateJudge(),
+                AgentExecutor = AgentExecutor,
                 AgentSystem = AgentSystem,
                 AgentTools = AgentTools,
                 AgentContext = AgentContext,

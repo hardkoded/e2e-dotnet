@@ -119,6 +119,9 @@ internal static class AgentTools
         Tool("clear", "Clear a field.", Target),
     ];
 
+    /// <summary>The verdict tool every loop offers, whatever its vocabulary.</summary>
+    internal static ModelTool DoneTool { get; } = Tool("done", "End the step with a verdict. blocked requires a code naming what blocked you.", Done);
+
     private static readonly ModelTool Navigate = Tool("navigate", "Open a path or URL.", Parse("""{ "type": "object", "properties": { "url": { "type": "string" } }, "required": ["url"] }"""));
 
     /// <summary>The act tools an engine with these capabilities can honor. Scroll and back tools need their capability.</summary>
@@ -143,7 +146,7 @@ internal static class AgentTools
             tools.AddRange(project);
         }
 
-        tools.Add(Tool("done", "End the step with a verdict. blocked requires a code naming what blocked you.", Done));
+        tools.Add(DoneTool);
         return tools;
     }
 

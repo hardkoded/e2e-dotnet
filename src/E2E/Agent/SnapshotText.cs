@@ -156,7 +156,7 @@ internal static class SnapshotText
     /// site would send the model back to the app. Redacted first, then cut at <see cref="MaxHrefLength"/> with a trailing
     /// <c>…</c>, so a cut target never reads as whole and no part of a secret survives the cut.
     /// </summary>
-    private static string Href(string href, Redactor redactor, string? appOrigin)
+    internal static string Href(string href, Redactor redactor, string? appOrigin)
     {
         var redacted = AgentObservation.RedactText(href, redactor);
         var shown = appOrigin is not null && redacted.StartsWith(appOrigin + "/", StringComparison.Ordinal) ? redacted[appOrigin.Length..] : redacted;
@@ -211,7 +211,7 @@ internal static class SnapshotText
     /// field's value or text holds a secret, whole or cut short at its end; or one of them was cut at its limit and the
     /// selection lies in neither, so it may come from the cut-off rest, which the runner never sees.
     /// </summary>
-    private static string? Selection(SemanticNode node, Redactor redactor)
+    internal static string? Selection(SemanticNode node, Redactor redactor)
     {
         if (string.IsNullOrEmpty(node.Selection) || node.States.Secure)
         {
