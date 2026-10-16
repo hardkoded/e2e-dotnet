@@ -492,183 +492,32 @@ public sealed partial class Agent
         // Every screen the replay looks at, in order. The end check measures the recorded delta from the first of them
         // on the route the replay ends on.
         var screens = new List<Observation> { start };
-        var started = false;
-        RecordedAction? previous = null;
-
-        // The look before an action: the start serves the first one; after that, the previous action's settle policy
-        // says how far a fresh capture settles.
-        SettleMode? Look() => previous is null ? null : SettlePolicy.For(previous).Look;
+        var host = new ActReplayHost(_scope, _feed, budget, dispatcher, parameters, Recorded(entry.EndRoute, parameters), screens, token);
+        var outcome = await Replay.ReplayTrace(host, entry.Actions, new ReplayOptions { Initial = start }).ConfigureAwait(false);
 
         // Where the replay stopped, for the report: the recorded action, one-based, and what went wrong there when
         // more than the reason says.
-        var position = 0;
-        RecordedAction? current = null;
         string StoppedAt(string? why = null) =>
-            "at action " + position.ToString(CultureInfo.InvariantCulture) + " of " + entry.Actions.Count.ToString(CultureInfo.InvariantCulture) + ", " + DefaultAgent.Describe(current!) + (why is null ? "" : ": " + why);
+            "at action " + (actions.Count + 1).ToString(CultureInfo.InvariantCulture) + " of " + entry.Actions.Count.ToString(CultureInfo.InvariantCulture) + ", " + DefaultAgent.Describe(entry.Actions[actions.Count]) + (why is null ? "" : ": " + why);
 
-        ReplayAttempt Lost(string? reason)
+        if (!outcome.Completed)
         {
-            if (!started)
+            var reason = ReplayHandOffReasons.Name(outcome.StopReason!.Value);
+            switch (outcome.StopReason)
             {
-                _scope.Missed++;
-                actions.Clear();
-                return ReplayAttempt.Miss(reason ?? "target-not-found", StoppedAt());
-            }
-
-            _scope.HandedOff++;
-            return ReplayAttempt.Hand(reason ?? "target-not-found", StoppedAt());
-        }
-
-        foreach (var action in entry.Actions)
-        {
-            current = action;
-            position++;
-            // A project tool ran here, and the grammar cannot reproduce it: the replay ends and the model takes over.
-            if (string.Equals(action.Kind, "tool", StringComparison.Ordinal))
-            {
-                return Lost("gap");
-            }
-
-            // An action with no target reads no screen, so the screen the previous action left would go unseen.
-            // Look at it, settled as the previous action's policy asks, until one on the recorded end route has been seen.
-            if (Look() is { } before && !HasTarget(action) && !CacheRoute.Same(screens[^1].Route, Recorded(entry.EndRoute, parameters)))
-            {
-                screens.Add(await _feed.ObserveAsync(before, token).ConfigureAwait(false));
-            }
-
-            if (string.Equals(action.Kind, "navigate", StringComparison.Ordinal))
-            {
-                if (!budget.TryReserve())
-                {
+                case ReplayHandOffReason.Gap or ReplayHandOffReason.TargetNotFound or ReplayHandOffReason.TargetAmbiguous or ReplayHandOffReason.InvalidEntry when outcome.Executed == 0:
+                    _scope.Missed++;
+                    actions.Clear();
+                    return ReplayAttempt.Miss(reason, StoppedAt());
+                case ReplayHandOffReason.ActionUncertain:
                     _scope.HandedOff++;
-                    return ReplayAttempt.Hand("action-budget", StoppedAt());
-                }
-
-                await _scope.Session.OpenAsync(Routes.Resolve(_scope.BaseUrl, CacheKeys.Detemplate(action.Url ?? "/", parameters)), token).ConfigureAwait(false);
-                _feed.ArmAfter(action);
-                actions.Add(action);
-                started = true;
-                previous = action;
-                continue;
-            }
-
-            // A replayed action draws on the step's action budget like a live one. The first always fits.
-            // An action with a target reserves its slot once the target is found, so a lost target is a miss.
-            if ((action.Kind is "back" or "scroll" or "scrollUntil" or "press") && !HasTarget(action) && !budget.TryReserve())
-            {
-                _scope.HandedOff++;
-                return ReplayAttempt.Hand("action-budget", StoppedAt());
-            }
-
-            try
-            {
-                // back, a viewport scroll, and a key press on the focused control target nothing, so they replay as given.
-                // A scroll on a list re-finds the list before each repeat.
-                switch (action.Kind)
-                {
-                    case "back":
-                        await _scope.Session.BackAsync(token).ConfigureAwait(false);
-                        break;
-                    case "press" when !HasTarget(action):
-                        await _scope.Session.PressAsync(action.Key ?? "Enter", token).ConfigureAwait(false);
-                        break;
-                    case "scroll" or "scrollUntil" when !TryDirection(action.Direction, out _):
-                        return Lost("invalid-entry");
-                    case "scroll" when !HasTarget(action):
-                        // A viewport scroll relocates nothing, so each later repeat takes a settled look of its own, as
-                        // the live loop did between them.
-                        for (var repeat = 0; repeat < (action.Times ?? 1); repeat++)
-                        {
-                            if (repeat > 0)
-                            {
-                                screens.Add(await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false));
-                            }
-
-                            await _scope.Session.SwipeAsync(Direction(action.Direction), token).ConfigureAwait(false);
-                            _feed.ArmAfter(action);
-                        }
-
-                        break;
-                    case "scroll":
-                        // A scroll on a list is paced by the relocation before each repeat.
-                        for (var repeat = 0; repeat < (action.Times ?? 1); repeat++)
-                        {
-                            var list = await WaitForTargetAsync(action, repeat == 0 ? Look() : SettleMode.HeldStill, screens, token).ConfigureAwait(false);
-                            if (list.Node is null)
-                            {
-                                return Lost(list.Reason);
-                            }
-
-                            // One slot for the whole scroll, taken once its list is found.
-                            if (repeat == 0 && !budget.TryReserve())
-                            {
-                                _scope.HandedOff++;
-                                return ReplayAttempt.Hand("action-budget", StoppedAt());
-                            }
-
-                            await _scope.Session.PerformAsync(list.Node, new LocatorAction.Swipe(Direction(action.Direction)), token).ConfigureAwait(false);
-                            _feed.ArmAfter(action);
-                            started = true;
-                        }
-
-                        break;
-                    case "scrollUntil":
-                        if (HasTarget(action))
-                        {
-                            var list = await WaitForTargetAsync(action, Look(), screens, token).ConfigureAwait(false);
-                            if (list.Node is null)
-                            {
-                                return Lost(list.Reason);
-                            }
-
-                            if (!budget.TryReserve())
-                            {
-                                _scope.HandedOff++;
-                                return ReplayAttempt.Hand("action-budget", StoppedAt());
-                            }
-                        }
-
-                        var text = CacheKeys.Detemplate(action.Text ?? "", parameters);
-                        await dispatcher.PageUntilAsync(text, Direction(action.Direction), HasTarget(action) ? action : null, token).ConfigureAwait(false);
-                        break;
-                    default:
-                        var found = await WaitForTargetAsync(action, Look(), screens, token).ConfigureAwait(false);
-                        if (found.Node is null)
-                        {
-                            return Lost(found.Reason);
-                        }
-
-                        if (!budget.TryReserve())
-                        {
-                            _scope.HandedOff++;
-                            return ReplayAttempt.Hand("action-budget", StoppedAt());
-                        }
-
-                        var performed = ResolveSecret(Detemplate(action, parameters));
-                        await PerformRecordedAsync(found.Node, performed, token).ConfigureAwait(false);
-                        break;
-                }
-
-                if (action.Kind is not "scroll")
-                {
-                    _feed.ArmAfter(action);
-                }
-
-                actions.Add(action);
-                started = true;
-                previous = action;
-            }
-            catch (EngineException ex) when (ex.Code == EngineErrorCodes.ActionMayHaveCommitted && !token.IsCancellationRequested)
-            {
-                // The action's input may have reached the app. The executor verifies the state before it tries anything like it again.
-                _scope.HandedOff++;
-                return ReplayAttempt.Hand("action-uncertain", StoppedAt(_scope.Redactor.Redact(FirstLine(ex.Message))), DefaultAgent.Describe(current!));
-            }
-            catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex) && !token.IsCancellationRequested)
-            {
-                // A step or test timeout cancels the token. That is the step's own end, not a stale recording.
-                _scope.HandedOff++;
-                return ReplayAttempt.Hand("action-failed", StoppedAt(_scope.Redactor.Redact(FirstLine(ex.Message))));
+                    return ReplayAttempt.Hand(reason, StoppedAt(outcome.Detail), outcome.UncertainAction);
+                case ReplayHandOffReason.ActionFailed:
+                    _scope.HandedOff++;
+                    return ReplayAttempt.Hand(reason, StoppedAt(outcome.Detail));
+                default:
+                    _scope.HandedOff++;
+                    return ReplayAttempt.Hand(reason, StoppedAt());
             }
         }
 
@@ -761,12 +610,6 @@ public sealed partial class Agent
             : TargetLabel(anchor);
     }
 
-    private static string FirstLine(string text)
-    {
-        var end = text.IndexOfAny(['\r', '\n']);
-        return (end < 0 ? text : text[..end]).Trim();
-    }
-
     // A node as every report line that names one reads it: its role, then its label in quotes.
     private static string TargetLabel(RecordedTarget target)
     {
@@ -810,66 +653,6 @@ public sealed partial class Agent
         }
 
         return baseline;
-    }
-
-    // Re-finds a recorded target. The first look is settled as far as <paramref name="look"/> asks, or is the newest
-    // screen, in hand, when it is null; the looks after it read the screen as it is.
-    private async Task<(SemanticNode? Node, string? Reason)> WaitForTargetAsync(RecordedAction action, SettleMode? look, List<Observation> screens, CancellationToken token)
-    {
-        var deadline = DateTime.UtcNow + _scope.ReplayTimeout;
-        var first = true;
-        while (true)
-        {
-            Observation observation;
-            if (first && look is null && _feed.Latest is { } latest)
-            {
-                // The first action reads the start screen, which the replay has already seen.
-                observation = latest;
-            }
-            else
-            {
-                observation = await _feed.ObserveAsync(first ? look ?? SettleMode.Raw : SettleMode.Raw, token).ConfigureAwait(false);
-                screens.Add(observation);
-            }
-
-            first = false;
-            var matches = Find(observation, action.Role, action.Name, action.TestId, null, _scope.Redactor);
-            if (matches.Count == 1)
-            {
-                _feed.MarkActing();
-                return (matches[0], null);
-            }
-
-            if (matches.Count > 1)
-            {
-                return (null, "target-ambiguous");
-            }
-
-            if (DateTime.UtcNow >= deadline)
-            {
-                return (null, "target-not-found");
-            }
-
-            await Task.Delay(TimeSpan.FromMilliseconds(20), token).ConfigureAwait(false);
-        }
-    }
-
-    private async Task PerformRecordedAsync(SemanticNode node, RecordedAction action, CancellationToken token)
-    {
-        LocatorAction locatorAction = action.Kind switch
-        {
-            "tap" => new LocatorAction.Tap(),
-            "doubleTap" => new LocatorAction.DoubleTap(),
-            "fill" => new LocatorAction.Fill(action.Value ?? "", false),
-            "press" => new LocatorAction.Press(action.Key ?? "Enter"),
-            "select" => new LocatorAction.Select(action.Value ?? ""),
-            "check" => new LocatorAction.Check(),
-            "uncheck" => new LocatorAction.Uncheck(),
-            "clear" => new LocatorAction.Clear(),
-            "scrollTo" => new LocatorAction.ScrollIntoView(),
-            _ => throw new AgentException("AUTOMATION_UNSUPPORTED", "Cannot replay " + action.Kind + "."),
-        };
-        await _scope.Session.PerformAsync(node, locatorAction, token).ConfigureAwait(false);
     }
 
     /// <summary>

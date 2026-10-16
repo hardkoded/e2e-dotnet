@@ -8,15 +8,20 @@ using static E2E.Tests.StepCache.StepTraceSessionTests;
 namespace E2E.Tests.TraceReplay;
 
 /// <summary>
-/// <c>verifyEndState</c> is the end check of a replay. Not ported: "treats a surface that cannot be observed as a mismatch"
-/// (the port's end check does not catch a failed look), and the three waits that size the end wait from the recording or
-/// give it up when the surface turns to pixels (the port waits its replay timeout and has no pixels). The other cases are covered
-/// by <c>StepTraceSessionTests</c>, the end check being part of a replayed act.
+/// <c>verifyAnchors</c> is upstream's end check of a replay: every recorded end anchor must be present again. The port's cache
+/// entry records the nodes that appeared and went (<c>Appeared</c> and <c>Gone</c>),
+/// not end anchors, and its end check reads that delta from the replay's own screens inside the act. So the port has no
+/// <c>verifyAnchors</c>, and its upstream <c>it</c>s are not ported: "holds trivially for a trace without anchors, without
+/// observing", "holds when every anchor is present, counting an ambiguous match as presence", "fails when any anchor is
+/// missing once the clock leaves no room to wait", "treats a surface that cannot be observed as a mismatch, never as a step
+/// failure", and "waits out a slow effect before giving up". <c>StepTraceSessionTests</c> covers the delta check through a
+/// replayed act.
 /// </summary>
-public sealed class VerifyEndStateTests
+public sealed class VerifyAnchorsTests
 {
+    /// <summary>Partial: the hard stop is raised in the look of the act's end check, not in <c>verifyAnchors</c>.</summary>
     [Fact]
-    public async Task Rethrows_a_runtime_hard_stop_raised_while_looking()
+    public async Task Partial_Rethrows_a_runtime_hard_stop_raised_while_looking()
     {
         var directory = CoreTests.TempCache();
         var stopping = false;
