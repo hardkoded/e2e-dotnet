@@ -220,6 +220,98 @@ public sealed class ReplayThroughTheActTests
         Assert.Equal((0, 0), (scrolled, viewportScrolls));
     }
 
+    private static DocumentWorld Signup() => new DocumentWorld().Map("/signup", page => page.Textbox("Email"));
+
+    private static ScriptedModel FillsEmail(string email) => new(request =>
+        string.Join('\n', request.Messages.Select(message => message.Content)).Contains("filled", StringComparison.Ordinal)
+            ? ModelResponses.Done("passed", "filled")
+            : ModelResponses.Fill("textbox", "Email", email));
+
+    private static Task<CoreTests.Attempt> SignupAsync(string directory, IAgentModel model, Func<TestContext, ActResult, Task> after, IReadOnlyDictionary<string, object?> parameters) =>
+        CoreTests.RunAsync(
+            async ctx =>
+            {
+                await ctx.App.OpenAsync("/signup");
+                var result = await ctx.Agent.ActAsync("sign up with {email}", new ActOptions { Params = parameters });
+                await after(ctx, result);
+            },
+            Signup(),
+            model,
+            directory);
+
+    /// <summary>A recorded value that a param expands to a secret's marker fills that secret, as replay always did.</summary>
+    [Fact]
+    public async Task A_param_that_expands_to_a_secret_marker_fills_the_declared_secret()
+    {
+        var directory = CoreTests.TempCache();
+        IReadOnlyDictionary<string, object?> Params(string email) => new Dictionary<string, object?> { ["email"] = Values.Unique(email), ["password"] = Secret.Create("password", "hunter2-long") };
+        var first = await SignupAsync(directory, FillsEmail("ada+1@example.test"), (ctx, _) => Expect.That(ctx.Screen.GetByLabel("Email")).ToHaveValueAsync("ada+1@example.test"), Params("ada+1@example.test"));
+        Assert.Null(first.Error);
+
+        var second = await SignupAsync(directory, FillsEmail("unused"), (ctx, _) => Expect.That(ctx.Screen.GetByLabel("Email")).ToHaveValueAsync("hunter2-long"), Params("<secret:password>"));
+
+        Assert.Null(second.Error);
+        Assert.Equal((1, 0), (second.Replayed, second.ModelCalls));
+    }
+
+    [Fact]
+    public async Task A_literal_value_is_typed_as_recorded()
+    {
+        var directory = CoreTests.TempCache();
+        var none = new Dictionary<string, object?>();
+        var first = await SignupAsync(directory, FillsEmail("plain@example.test"), (ctx, _) => Expect.That(ctx.Screen.GetByLabel("Email")).ToHaveValueAsync("plain@example.test"), none);
+        Assert.Null(first.Error);
+
+        var second = await SignupAsync(directory, FillsEmail("unused"), (ctx, _) => Expect.That(ctx.Screen.GetByLabel("Email")).ToHaveValueAsync("plain@example.test"), none);
+
+        Assert.Null(second.Error);
+        Assert.Equal((1, 0), (second.Replayed, second.ModelCalls));
+    }
+
+    [Fact]
+    public async Task A_secret_marker_the_step_did_not_declare_hands_off_as_action_failed()
+    {
+        var directory = CoreTests.TempCache();
+        IReadOnlyDictionary<string, object?> Params(string email) => new Dictionary<string, object?> { ["email"] = Values.Unique(email) };
+        var first = await SignupAsync(directory, FillsEmail("ada+1@example.test"), (ctx, _) => Expect.That(ctx.Screen.GetByLabel("Email")).ToHaveValueAsync("ada+1@example.test"), Params("ada+1@example.test"));
+        Assert.Null(first.Error);
+        CacheInfo? cache = null;
+
+        var second = await SignupAsync(directory, new ScriptedModel(_ => ModelResponses.Done("passed", "ok")), (_, result) =>
+        {
+            cache = result.Cache;
+            return Task.CompletedTask;
+        }, Params("<secret:absent>"));
+
+        Assert.Null(second.Error);
+        Assert.Equal(("agent-concluded", "action-failed"), (cache?.Mode, cache?.Reason));
+        Assert.Contains("Replay needs secret 'absent'", cache?.Detail, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_scroll_to_text_replays_on_the_list_it_was_recorded_on_or_on_the_viewport(bool onList)
+    {
+        var directory = CoreTests.TempCache();
+        async Task Body(TestContext ctx)
+        {
+            await ctx.App.OpenAsync("/rows");
+            await ctx.Agent.ActAsync("open row 12");
+            await Expect.That(ctx.Screen.GetByRole("status")).ToContainTextAsync("Opened Row 12");
+        }
+
+        object scroll = onList ? new { text = "Row 12", role = "list", name = "Rows" } : new { text = "Row 12" };
+        var first = await ScrollTests.RunAsync(Body, ScrollTests.Rows(), ScrollTests.Sequence(ModelResponses.Call("scroll_to", scroll), ModelResponses.Tap("button", "Row 12"), ModelResponses.Done("passed", "opened")), directory);
+        Assert.Null(first.Error);
+        Assert.Equal(onList ? "list" : null, ScrollTests.ReadEntry(directory).Actions[0].Role);
+
+        var second = await ScrollTests.RunAsync(Body, ScrollTests.Rows(), ScrollTests.Sequence(), directory);
+
+        Assert.Null(second.Error);
+        Assert.Equal((1, 0), (second.Replayed, second.ModelCalls));
+    }
+
     // Every action changes what the page shows, so no look waits out a change window.
     private static DocumentWorld TapWorld() => new DocumentWorld().Map("/plan", page =>
     {

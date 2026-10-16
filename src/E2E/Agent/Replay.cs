@@ -240,7 +240,7 @@ internal static class Replay
                             return Stop(ReplayHandOffReason.ActionBudget);
                         }
 
-                        await host.Actions.ScrollUntilAsync(text, Direction(action.Direction), new ExecutorTarget(scrolled.Node), token).ConfigureAwait(false);
+                        await host.Actions.ScrollUntilAsync(text, Direction(action.Direction), new ExecutorTarget(scrolled.Node) { Recorded = action }, token).ConfigureAwait(false);
                         break;
                     default:
                         var found = await Relocate(host, action, look).ConfigureAwait(false);
