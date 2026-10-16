@@ -15,6 +15,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 | Vercel AI SDK model | `OpenAiCompatibleModel`, `OpenAiResponsesModel`, `AnthropicModel`, `GoogleModel`, and `BedrockModel`, built from `provider` in JSON or `ModelProviders` in code. See [Models](#models) |
 | `e2e/oauth/chatgpt`, `copilot`, `grok`, `opencode-console` | `E2E.OAuth.Subscriptions` |
 | `e2e login`, `e2e logout`, `e2e models`, `e2e guide`, `e2e mcp`, `e2e-web install` | `E2E.Cli`, a .NET tool whose command is `e2e`. `e2e guide [topic]` prints the bundled skill, as upstream; an unknown topic exits 2. `e2e-web install` is `e2e install`: see [Browser install command](#browser-install-command). `e2e mcp` is ported apart from video, project tools, and `e2e init`: see [MCP server](#mcp-server) |
+| — | `E2E.TestMu.Mobile`, TestMu AI mobile devices through Appium. Not in upstream: see [TestMu mobile](#testmu-mobile-not-in-upstream) |
 | — | `DocumentEngine`, an in-memory page for hosts that do not want a browser |
 
 ## Ported
@@ -182,6 +183,18 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - Options are the `LimrunSimulatorsOptions` record, with enums for the device models, so an unknown option is a compile error and upstream's `rejectUnknownKeys` has no counterpart.
 - Upstream's Limrun page (`docs/integrations/limrun.mdx`) and its `examples/with-limrun` app-flow example are not ported. The port documents the provider in the skill's `setup` reference, and `samples/MobileApp` is its mobile example.
 - Not verified against a live service: the lease wire format was read from agent-device's code (the `agent_device.lease.*` methods and their params in the daemon, and the client that writes them), and Limrun's REST calls from the `@limrun/api` 0.59.0 source. No test reaches Limrun or a daemon.
+
+## TestMu mobile (not in upstream)
+
+`E2E.TestMu.Mobile` drives TestMu AI real and virtual mobile devices through Appium. Upstream has no counterpart, so every type here is .NET-only. The package depends on `E2E.Mobile` and holds an `IDeviceClient` over a W3C WebDriver session on TestMu's hub (`https://mobile-hub.lambdatest.com/wd/hub`), with the flat `LT:Options` capabilities TestMu documents. It is a preview: no provider leases a device yet, and the page source is not converted to a snapshot yet, so `capture.snapshot` fails with `NOT_IMPLEMENTED` (`UNSUPPORTED_CAPABILITY` in a test). What it does:
+
+- `E2E.Mobile` gets one new public interface, `IDeviceClientSource`, which has no upstream counterpart. A `MobileOptions.Provider` that implements it makes the `IDeviceClient` for each session, in place of the agent-device client. A worker in another process builds its engine from the same options, so its provider object makes the client there. What the client needs to find the leased device travels in `DeviceLease.Client`, which reaches the worker as `DeviceConnection.Client`. Any other provider is unchanged.
+- Supported: launch and terminate an app, deep links, tap, double tap, long press, fill, type, swipe, pan, drag, scroll, screenshot, home, back, native alerts, the keyboard (Enter and dismiss), orientation (portrait and landscape), and the clipboard. A `ref` finds the node's rect in the newest snapshot, and a tap lands on its centre. A ref of an older snapshot is stale (`NODE_STALE`).
+- Refused as `UNSUPPORTED_OPERATION`, which a test sees as `UNSUPPORTED_CAPABILITY`: permissions, appearance, biometrics, location, wifi and airplane mode, clearing app state, the keychain, hover, folding, the foreground app, installing a build from a test, and launch arguments on Android. The provider will install the app when it leases the device.
+- `sessions.close` does nothing. The engine closes at the end of every attempt, and the next attempt drives the same device, so only the provider's release will end the session.
+- `fill` taps the field and writes to the focused element, because a snapshot ref is not an Appium element id. `back` on iOS taps the first button in the navigation bar, as agent-device does, and fails when the screen has none; Android uses the system back.
+- `settle` options are ignored: the engine settles on observe. `normalizeStatusBar` is ignored, so a screenshot shows the device's real status bar.
+- Not verified against a live account: every wire detail was read from TestMu's and Appium's documentation, and the `mobile:` script names and arguments were not sent to a real hub. The unit tests use a fake hub. Among them: whether the hub accepts the `LT:Options`-only capabilities without a top-level `platformName`, the session id field, and which `mobile:` commands it forwards.
 
 ## Browser install command
 
