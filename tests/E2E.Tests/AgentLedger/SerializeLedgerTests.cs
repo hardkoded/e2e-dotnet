@@ -7,13 +7,22 @@ using E2E.Engine;
 namespace E2E.Tests.AgentLedger;
 
 /// <summary>
-/// The port hands later steps a list of the summaries of the steps before them, with no api, status, byte limit, or
-/// step record behind it. So these upstream its are not ported: "drops the oldest entries and reports how many were
+/// The port hands later steps a list of the summaries of the steps before them (<c>Ledger.SerializeLedger</c>), with no
+/// api, status, byte limit, or step record behind it. So these upstream its are not ported: "drops the oldest entries and reports how many were
 /// omitted", "quotes the step explanation as a bounded handoff", "hands later steps the recorded verdict of a replayed
 /// step, not the replay notice", and "strips control characters from untrusted labels and handoffs".
 /// </summary>
 public sealed class SerializeLedgerTests
 {
+    /// <summary>Partial of "presents entries in chronological order": the port lists each summary, with no step number, api, or status.</summary>
+    [Fact]
+    public void Lists_the_summaries_oldest_first()
+    {
+        var text = Ledger.SerializeLedger(["opened the app", "clicked the buy button"]);
+
+        Assert.Equal("- opened the app\n- clicked the buy button", text);
+    }
+
     /// <summary>Partial: the port lists each step's summary under "Completed steps:", with no step number, api, or status.</summary>
     [Fact]
     public async Task Lists_the_summaries_of_the_completed_steps_in_the_order_they_ran()
