@@ -120,6 +120,16 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - Asymmetric matchers (`expect.any`, `anything`, `objectContaining`, `arrayContaining`, `stringContaining`, `stringMatching`). Use NUnit constraints such as `Is.InstanceOf`, `Is.Not.Null`, `Has.Property`, `Is.SupersetOf`, `Does.Contain`, and `Does.Match`
 - The upstream reporter, GitHub pull request comment, and trace viewer
 
+## Verification skill
+
+`skills/create-verification-skill/` ports upstream's skill of the same name (commit `d85702a2`, `feat(skills): create-verification-skill generates a verify-<app> skill on e2e (#981)`). Like upstream, it is not bundled in `E2E.Cli` and `e2e guide` does not read it; install it with `npx skills add hardkoded/e2e-dotnet --skill create-verification-skill`. Differences:
+
+- The steps use what the port has. The launch is the app started by hand (the port has no `app.command`), the doctor is a smoke test run with `dotnet test --filter`, and the evidence is the `dotnet test` result and the test's own checks, since the port writes no report, trace page, or video.
+- Not ported: the generated bug bash fan-out. It depends on `e2e explore` and `e2e.bugbash.config.ts`, which the port lacks, so a feature's charters are goals for a live MCP walk, and a finding is a bug once a repro test fails with `ASSERTION_FAILED`.
+- Not ported: `npx e2e init` as the setup step, `e2e list` as a config check, `--output` for proofs, and the `.gitignore` lines for `.e2e/bugbash/` and `.e2e/proof/`. The repo already ignores `.e2e/`.
+- The example under `references/example/` is `verify-todomvc` for `samples/TodoMvc`, in place of `verify-playground` for upstream's `apps/testbed`, which the port does not have. It has three features (adding, completing, filtering), not the playground's three (todos, forms, login).
+- Upstream added no tests for this skill, so none are ported.
+
 ## Mobile snapshot model
 
 `E2E.Mobile` ports the pure logic of `@e2e-dev/mobile`: the projection of an agent-device accessibility snapshot onto `SemanticNode` (`SnapshotProjection`), locator expressions and agent-device selectors over it (`DeviceLocator`, `AgentDeviceSelector`), error translation (`DeviceErrors`), links, screenshot masking, and the shared helpers (`DeviceSupport`). The client, pool, provider, and engine are in [Mobile engine](#mobile-engine). Differences:
