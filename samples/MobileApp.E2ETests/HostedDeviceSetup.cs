@@ -19,6 +19,7 @@ public sealed class HostedDeviceSetup
     private static MobileEngine? s_engine;
     private static Dictionary<string, string?> s_env = [];
     private static string s_runId = "";
+    private static string s_target = "";
 
     /// <summary>The engine that owns the leased device, or null when the tests drive a local one.</summary>
     internal static MobileEngine? Engine => s_engine;
@@ -41,6 +42,7 @@ public sealed class HostedDeviceSetup
         var options = MobileAppTest.Options(new LimrunSimulators(new LimrunSimulatorsOptions { HardTimeout = "15m", Ios = new LimrunIosOptions { Model = LimrunIosModel.Iphone } }));
         s_env = Environment.GetEnvironmentVariables().Cast<DictionaryEntry>().ToDictionary(entry => (string)entry.Key, entry => (string?)entry.Value, StringComparer.Ordinal);
         s_runId = Guid.NewGuid().ToString("N")[..12];
+        s_target = options.TargetName;
         var engine = new MobileEngine(options);
         try
         {
@@ -50,7 +52,16 @@ public sealed class HostedDeviceSetup
         }
         catch
         {
-            await FinishAsync(engine, options.TargetName);
+            // Release what prepare got to, and let the failure of prepare reach the user, not a failure of the release.
+            try
+            {
+                await FinishAsync(engine);
+            }
+            catch (Exception cleanup)
+            {
+                NUnit.Framework.TestContext.Progress.WriteLine($"Releasing the hosted device failed: {cleanup.Message}");
+            }
+
             throw;
         }
 
@@ -63,10 +74,10 @@ public sealed class HostedDeviceSetup
         if (s_engine is { } engine)
         {
             s_engine = null;
-            await FinishAsync(engine, "mobileapp");
+            await FinishAsync(engine);
         }
     }
 
-    private static Task FinishAsync(MobileEngine engine, string targetName) =>
-        engine.FinishAsync(new MobileFinishInfo { RunId = s_runId, TargetName = targetName, Env = s_env, Log = NUnit.Framework.TestContext.Progress.WriteLine }, CancellationToken.None);
+    private static Task FinishAsync(MobileEngine engine) =>
+        engine.FinishAsync(new MobileFinishInfo { RunId = s_runId, TargetName = s_target, Env = s_env, Log = NUnit.Framework.TestContext.Progress.WriteLine }, CancellationToken.None);
 }
