@@ -24,6 +24,28 @@ public sealed class WebBrowserProviderTests
     }
 
     [Fact]
+    public void Rejects_downloads_that_are_not_a_directory_and_a_read_PARTIAL_null_downloads_are_none()
+    {
+        static Task<byte[]> Read(BrowserLease lease, string file, BrowserDownloadContext context, CancellationToken token) => Task.FromResult(Array.Empty<byte>());
+        var empty = new NamedProvider("toy-cloud") { Downloads = new BrowserProviderDownloads { Dir = "", ReadAsync = Read } };
+        var unread = new NamedProvider("toy-cloud") { Downloads = new BrowserProviderDownloads { Dir = "/downloads", ReadAsync = null! } };
+        Assert.Contains("provider \"toy-cloud\" has downloads that are not a Dir and a ReadAsync", Refused(empty), StringComparison.Ordinal);
+        Assert.Contains("provider \"toy-cloud\" has downloads that are not a Dir and a ReadAsync", Refused(unread), StringComparison.Ordinal);
+        _ = new WebEngine(new WebEngineOptions { Browser = new NamedProvider("toy-cloud") { Downloads = new BrowserProviderDownloads { Dir = "/downloads", ReadAsync = Read } } });
+    }
+
+    [Fact]
+    public void Rejects_a_relative_downloads_dir_and_takes_an_absolute_one_in_either_the_POSIX_or_the_Windows_form()
+    {
+        static Task<byte[]> Read(BrowserLease lease, string file, BrowserDownloadContext context, CancellationToken token) => Task.FromResult(Array.Empty<byte>());
+        Assert.Contains(
+            "provider \"toy-cloud\" has Downloads.Dir \"downloads\"; name an absolute path on the browser's machine",
+            Refused(new NamedProvider("toy-cloud") { Downloads = new BrowserProviderDownloads { Dir = "downloads", ReadAsync = Read } }),
+            StringComparison.Ordinal);
+        _ = new WebEngine(new WebEngineOptions { Browser = new NamedProvider("toy-cloud") { Downloads = new BrowserProviderDownloads { Dir = "C:\\Users\\kernel\\Downloads", ReadAsync = Read } } });
+    }
+
+    [Fact]
     public void Rejects_a_provider_together_with_connect_two_browser_sources()
     {
         var refused = Assert.Throws<EngineException>(() => new WebEngine(new WebEngineOptions
@@ -98,6 +120,8 @@ public sealed class WebBrowserProviderTests
         public string Name => name;
 
         public BrowserProviderScope Scope => scope;
+
+        public BrowserProviderDownloads? Downloads { get; init; }
 
         public Task<BrowserLease> AcquireAsync(BrowserRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 

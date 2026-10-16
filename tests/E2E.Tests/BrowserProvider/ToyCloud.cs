@@ -49,6 +49,8 @@ internal sealed class ToyCloud : IBrowserProvider
 
     public ToySweep Sweep { get; }
 
+    public BrowserProviderDownloads? Downloads { get; init; }
+
     public List<BrowserRequest> Acquired { get; } = [];
 
     public List<BrowserLease> Released { get; } = [];
@@ -59,6 +61,9 @@ internal sealed class ToyCloud : IBrowserProvider
 
     /// <summary>Replaces the scripted acquire, as a test that needs one to wait or fail does.</summary>
     public Func<BrowserRequest, CancellationToken, Task<BrowserLease>>? OnAcquire { get; set; }
+
+    /// <summary>Replaces the answer to <see cref="RecordAsync"/>, which is that the provider does not record.</summary>
+    public Func<BrowserLease, ProviderRecordContext, CancellationToken, Task<E2E.Engine.ProviderRecording?>>? OnRecord { get; set; }
 
     /// <summary>The ids of what was released, in order.</summary>
     public IEnumerable<string> ReleasedIds => Released.Select(lease => lease.Id);
@@ -109,6 +114,9 @@ internal sealed class ToyCloud : IBrowserProvider
         return Task.CompletedTask;
     }
 
+    public Task<E2E.Engine.ProviderRecording?> RecordAsync(BrowserLease lease, ProviderRecordContext context, CancellationToken cancellationToken) =>
+        OnRecord is { } record ? record(lease, context, cancellationToken) : Task.FromResult<E2E.Engine.ProviderRecording?>(null);
+
     public Task<IReadOnlyList<string>> SweepAsync(BrowserReleaseContext context, CancellationToken cancellationToken)
     {
         if (Sweep == ToySweep.None)
@@ -126,6 +134,14 @@ internal sealed class ToyCloud : IBrowserProvider
         Open.Clear();
         return Task.FromResult(ids);
     }
+}
+
+/// <summary>A recording that starts at a fixed time and ends by running the test's own stop.</summary>
+internal sealed class ToyRecording(string startedAt, Func<string, Task<ProviderRecordingResult>> stop) : E2E.Engine.ProviderRecording
+{
+    public override DateTimeOffset StartedAt { get; } = DateTimeOffset.Parse(startedAt, System.Globalization.CultureInfo.InvariantCulture);
+
+    public override Task<ProviderRecordingResult> StopAsync(ProviderRecordingStopContext context, CancellationToken cancellationToken) => stop(context.Dir);
 }
 
 /// <summary>What a test needs to run the hooks a runner would: the run's infos, and an engine whose CDP attach is the fakes'.</summary>

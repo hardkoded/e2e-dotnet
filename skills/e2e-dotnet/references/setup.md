@@ -170,7 +170,10 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
   when the run starts) or `Attempt` (a fresh browser per attempt, released with
   the session). `Attempt` rides one persistent context, with the limits of
   `ReconnectEndpoint` above. Optional `SweepAsync` releases the leases a dead
-  worker left open. A test fixture needs no runner: an engine that was never
+  worker left open. `Downloads` (`Dir`, `ReadAsync`) and `RecordAsync`
+  (returning a `ProviderRecording`) are for a service that holds the browser's
+  files and screen; the engine does not call them yet (no `waitForDownload` or
+  video). A test fixture needs no runner: an engine that was never
   `Init`ed leases for its one attempt and gives the lease back when the session
   ends.
 

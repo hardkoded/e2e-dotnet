@@ -80,6 +80,31 @@ public sealed record BrowserReleaseContext
     public required Action<string> Log { get; init; }
 }
 
+/// <summary>Handed to <see cref="BrowserProviderDownloads.ReadAsync"/>, once per file.</summary>
+public sealed record BrowserDownloadContext
+{
+    public required string RunId { get; init; }
+
+    public required string TargetName { get; init; }
+
+    /// <summary>The run's environment, the same acquire saw.</summary>
+    public required IReadOnlyDictionary<string, string?> Env { get; init; }
+}
+
+/// <summary>
+/// How a download reaches the runner from a browser on another machine. The browser saves every file to its own disk,
+/// where the runner cannot open it, so the engine points the browser's downloads at <see cref="Dir"/> there and reads
+/// each finished file back through <see cref="ReadAsync"/>.
+/// </summary>
+public sealed record BrowserProviderDownloads
+{
+    /// <summary>Absolute directory on the browser's machine the browser saves downloads to; created by the browser if missing.</summary>
+    public required string Dir { get; init; }
+
+    /// <summary>The bytes of one finished download, <c>file</c> an absolute path under <see cref="Dir"/>, read off the leased browser's disk.</summary>
+    public required Func<BrowserLease, string, BrowserDownloadContext, CancellationToken, Task<byte[]>> ReadAsync { get; init; }
+}
+
 /// <summary>
 /// A source of hosted browsers: the seam a hosted browser service plugs into (upstream <c>BrowserProvider</c>). In
 /// <see cref="BrowserProviderScope.Worker"/> scope <see cref="AcquireAsync"/> is called once per worker slot, for every
@@ -97,9 +122,25 @@ public interface IBrowserProvider
     /// <summary>How long a lease lives; <see cref="BrowserProviderScope.Worker"/> by default.</summary>
     BrowserProviderScope Scope => BrowserProviderScope.Worker;
 
+    /// <summary>
+    /// Serves <c>browser.waitForDownload</c> for a browser that runs on another machine. Without it a download on such
+    /// a browser fails, since the file lands on the browser's disk; a provider whose browsers run on the runner's own
+    /// machine leaves it out.
+    /// </summary>
+    BrowserProviderDownloads? Downloads => null;
+
     Task<BrowserLease> AcquireAsync(BrowserRequest request, CancellationToken cancellationToken);
 
     Task ReleaseAsync(BrowserLease lease, BrowserReleaseContext context, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Records the leased browser for an attempt that records video, in place of the engine's screencast of the page: the
+    /// service's own recording of the browser, called from the worker when the attempt starts its video. A provider that
+    /// cannot record its browsers (a headless session the service cannot replay) returns null, and the engine records the
+    /// screencast.
+    /// </summary>
+    Task<ProviderRecording?> RecordAsync(BrowserLease lease, ProviderRecordContext context, CancellationToken cancellationToken) =>
+        Task.FromResult<ProviderRecording?>(null);
 
     /// <summary>
     /// Releases every lease of the run and target the provider still holds open, and resolves to their ids. Called once
@@ -110,6 +151,28 @@ public interface IBrowserProvider
     /// </summary>
     Task<IReadOnlyList<string>> SweepAsync(BrowserReleaseContext context, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<string>>([]);
+}
+
+/// <summary>The downloads of the browser an attempt rides, read through its provider.</summary>
+internal sealed record LeaseDownloads
+{
+    /// <summary>The provider as error messages name it: <c>browser provider "kernel"</c>.</summary>
+    public required string Provider { get; init; }
+
+    public required string Dir { get; init; }
+
+    public required Func<string, CancellationToken, Task<byte[]>> ReadAsync { get; init; }
+}
+
+/// <summary>A provider recording the attempt started, with who made it and which lease it covers, for stopping it.</summary>
+internal sealed record LeaseRecording
+{
+    public required ProviderRecording Recording { get; init; }
+
+    /// <summary>The provider as error messages name it: <c>browser provider "kernel"</c>.</summary>
+    public required string Provider { get; init; }
+
+    public required string LeaseId { get; init; }
 }
 
 /// <summary>
@@ -434,6 +497,95 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
 
         await ReleaseAsync(current.Lease, cleanup).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// How the attempt records its browser when the provider records: starts the provider's recording of the browser the
+    /// attempt rides, the attempt's lease in <see cref="BrowserProviderScope.Attempt"/> scope and the worker's current
+    /// one in <see cref="BrowserProviderScope.Worker"/> scope. Null when the provider does not record this browser. A
+    /// start that fails is named after the provider, or is the cancellation when the attempt gave up first;
+    /// <see cref="ProviderRecordings.StopProviderRecordingAsync"/> checks the stop.
+    /// </summary>
+    public Func<CancellationToken, Task<LeaseRecording?>> Recorder(string attemptId)
+    {
+        var label = $"browser provider \"{Name}\"";
+        return async cancellationToken =>
+        {
+            var run = RequireRun();
+            var lease = CurrentLease();
+            if (lease is null)
+            {
+                throw new EngineException(EngineErrorCodes.InvalidState, $"{label} was asked to record before the attempt had a browser");
+            }
+
+            ProviderRecording? recording;
+            try
+            {
+                recording = await provider.RecordAsync(
+                    lease,
+                    new ProviderRecordContext { RunId = run.RunId, TargetName = run.TargetName, AttemptId = attemptId, Env = run.Env },
+                    cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception cause)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    throw ConnectionAbort($"recording from \"{Name}\"");
+                }
+
+                throw new EngineException(EngineErrorCodes.EngineFailure, $"{label} could not start recording browser {lease.Id}: {cause.Message}", retryable: false, cause);
+            }
+
+            return recording is null ? null : new LeaseRecording { Recording = recording, Provider = label, LeaseId = lease.Id };
+        };
+    }
+
+    /// <summary>
+    /// The downloads of the browser the attempt rides, when the provider serves them: the attempt's lease in
+    /// <see cref="BrowserProviderScope.Attempt"/> scope and the worker's current one in <see cref="BrowserProviderScope.Worker"/>
+    /// scope. A read that fails is named after the provider, or is the cancellation when the caller gave up first.
+    /// </summary>
+    public LeaseDownloads? Downloads()
+    {
+        if (provider.Downloads is not { } served)
+        {
+            return null;
+        }
+
+        var label = $"browser provider \"{Name}\"";
+        return new LeaseDownloads
+        {
+            Provider = label,
+            Dir = served.Dir,
+            ReadAsync = async (file, cancellationToken) =>
+            {
+                var run = RequireRun();
+                var lease = CurrentLease();
+                if (lease is null)
+                {
+                    throw new EngineException(EngineErrorCodes.InvalidState, $"{label} was asked for a download before the attempt had a browser");
+                }
+
+                try
+                {
+                    return await served.ReadAsync(lease, file, new BrowserDownloadContext { RunId = run.RunId, TargetName = run.TargetName, Env = run.Env }, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception cause)
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        throw ConnectionAbort($"download from \"{Name}\"");
+                    }
+
+                    throw new EngineException(EngineErrorCodes.EngineFailure, $"{label} could not read download {file} from browser {lease.Id}: {cause.Message}", retryable: false, cause);
+                }
+            },
+        };
+    }
+
+    /// <summary>The browser the attempt rides: the attempt's lease in attempt scope, the worker's current one in worker scope.</summary>
+    private BrowserLease? CurrentLease() => Scope == BrowserProviderScope.Attempt ? _attempt : _current?.Lease;
+
+    private static EngineException ConnectionAbort(string label) => new(EngineErrorCodes.Cancelled, label + " cancelled", retryable: false);
 
     private WorkerRun RequireRun() =>
         _run ?? throw new EngineException(EngineErrorCodes.EngineFailure, $"browser provider \"{Name}\" was asked for a browser before init", retryable: false);
