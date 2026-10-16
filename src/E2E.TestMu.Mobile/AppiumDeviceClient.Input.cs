@@ -34,7 +34,8 @@ internal sealed partial class AppiumDeviceClient
     private Task<JsonNode?> PressAsync(JsonObject options, CancellationToken cancellationToken)
     {
         var (x, y) = PointOf(options);
-        return ActAsync(PointerActions.Tap(x, y, Number(options["count"]) is 2 ? 2 : 1), cancellationToken);
+        var count = Number(options["count"]) ?? 1;
+        return count is 1 or 2 ? ActAsync(PointerActions.Tap(x, y, (int)count), cancellationToken) : throw AppiumErrors.InvalidArgument("a press takes a count of 1 or 2");
     }
 
     private Task<JsonNode?> LongPressAsync(JsonObject options, CancellationToken cancellationToken)
@@ -114,8 +115,15 @@ internal sealed partial class AppiumDeviceClient
 
         if (await ActiveElementAsync(cancellationToken).ConfigureAwait(false) is { } element)
         {
-            await SendValueAsync(element, text, cancellationToken).ConfigureAwait(false);
-            return null;
+            try
+            {
+                await SendValueAsync(element, text, cancellationToken).ConfigureAwait(false);
+                return null;
+            }
+            catch (WebDriverException failure) when (failure.Error == "invalid element state")
+            {
+                // The focused element takes no text (a button): the keys go to the device.
+            }
         }
 
         return await ActAsync(PointerActions.Keys(text), cancellationToken).ConfigureAwait(false);

@@ -306,4 +306,26 @@ public sealed class InputTests
 
         Assert.Equal("COMMAND_FAILED", error.Code);
     }
+
+    [Fact]
+    public async Task Types_as_key_presses_when_the_focused_element_takes_no_text()
+    {
+        var (client, hub, _) = Appium.Over();
+        hub.Script("POST", "element/el-1/value", _ => FakeAppium.Failure(System.Net.HttpStatusCode.BadRequest, "invalid element state", "not editable"));
+
+        await client.CallAsync(DeviceMethods.InteractionsType, """{"text":"a"}""");
+
+        Assert.Equal("key a | release", Gesture.Describe(hub.Calls[2].Body));
+    }
+
+    [Fact]
+    public async Task A_press_count_other_than_one_or_two_is_refused()
+    {
+        var (client, hub, _) = Appium.Over();
+
+        var error = await client.FailureAsync(DeviceMethods.InteractionsPress, """{"x":1,"y":2,"count":3}""");
+
+        Assert.Equal("INVALID_ARGS", error.Code);
+        Assert.Empty(hub.Calls);
+    }
 }

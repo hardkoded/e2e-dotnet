@@ -50,7 +50,8 @@ internal sealed class WebDriverClient
     public string SessionId { get; }
 
     /// <summary>
-    /// Starts a session. The call blocks while TestMu queues the request for a free device, so <paramref name="timeout"/>
+    /// Starts a session. <paramref name="http"/> must have an infinite <see cref="HttpClient.Timeout"/>: the limits here
+    /// are per call, and the default 100 seconds would end a queued create early. The call blocks while TestMu queues the request for a free device, so <paramref name="timeout"/>
     /// must cover the queue wait. <paramref name="capabilities"/> is the whole <c>capabilities</c> object.
     /// </summary>
     public static async Task<WebDriverClient> CreateSessionAsync(HttpClient http, Uri hub, HubCredentials credentials, JsonObject capabilities, TimeSpan timeout, CancellationToken cancellationToken)
@@ -126,9 +127,10 @@ internal sealed class WebDriverClient
 
         var root = Parse(text);
         var value = root?["value"];
-        if ((int)status >= 400 || (value is JsonObject failure && Text(failure["error"]) is not null))
+        if ((int)status >= 400)
         {
-            var code = Text(value?["error"]) ?? (status == HttpStatusCode.NotFound ? "unknown command" : "unknown error");
+            // A bare 404 on a session URL is a hub that no longer has the session, not an unknown command.
+            var code = Text(value?["error"]) ?? (status == HttpStatusCode.NotFound ? "invalid session id" : "unknown error");
             var detail = Text(value?["message"]) ?? Text(root?["message"]) ?? Short(text);
             throw new WebDriverException(status, code, Redact($"HTTP {(int)status}: {detail}", credentials));
         }

@@ -178,4 +178,25 @@ public sealed class WebDriverClientTests
             return new HttpResponseMessage();
         }
     }
+
+    [Fact]
+    public async Task A_bare_404_is_a_session_the_hub_no_longer_has()
+    {
+        var hub = new FakeAppium();
+        hub.Script("GET", "source", _ => new HttpResponseMessage(HttpStatusCode.NotFound) { Content = new StringContent("<html>Not Found</html>") });
+
+        var failure = await Assert.ThrowsAsync<WebDriverException>(() => hub.Driver().GetAsync("source", CancellationToken.None));
+        Assert.Equal("invalid session id", failure.Error);
+    }
+
+    [Fact]
+    public async Task A_script_result_with_an_error_field_is_a_result_not_a_failure()
+    {
+        var hub = new FakeAppium();
+        hub.ScriptValue("POST", "execute/sync", new JsonObject { ["error"] = "mine", ["message"] = "data" });
+
+        var result = await hub.Driver().ExecuteAsync("mobile: x", null, CancellationToken.None);
+
+        Assert.Equal("mine", result!["error"]!.GetValue<string>());
+    }
 }

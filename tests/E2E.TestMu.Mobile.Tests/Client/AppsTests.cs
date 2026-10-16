@@ -101,4 +101,26 @@ public sealed class AppsTests
 
         Assert.Equal(["mobile: terminateApp {\"appId\":\"com.example.app\"}"], Scripts(hub));
     }
+
+    [Fact]
+    public async Task Refuses_launch_arguments_it_cannot_pass_instead_of_dropping_them()
+    {
+        var (client, hub, _) = Appium.Over();
+
+        var error = await client.FailureAsync(DeviceMethods.AppsOpen, """{"app":"com.example.app","launchArgs":["-reset"]}""");
+
+        Assert.Equal("UNSUPPORTED_OPERATION", error.Code);
+        Assert.Empty(hub.Calls);
+    }
+
+    [Fact]
+    public async Task Launch_arguments_must_be_strings()
+    {
+        var (client, hub, _) = Appium.Over();
+
+        var error = await client.FailureAsync(DeviceMethods.AppsOpen, """{"app":"com.example.app","relaunch":true,"launchArgs":[1]}""");
+
+        Assert.Equal("INVALID_ARGS", error.Code);
+        Assert.Empty(hub.Calls);
+    }
 }

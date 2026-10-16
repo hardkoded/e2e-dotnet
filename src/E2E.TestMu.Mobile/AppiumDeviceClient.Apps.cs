@@ -42,13 +42,17 @@ internal sealed partial class AppiumDeviceClient
             throw AppiumErrors.InvalidArgument("apps.open needs an app or a url");
         }
 
-        var launchArguments = options["launchArgs"] is JsonArray array ? array.Select(argument => argument?.GetValue<string>()).OfType<string>().ToList() : [];
-        if (options["relaunch"] is JsonValue relaunch && relaunch.TryGetValue<bool>(out var fresh) && fresh)
+        var launchArguments = options["launchArgs"] is JsonArray array
+            ? array.Select(argument => argument is JsonValue value && value.TryGetValue<string>(out var text) ? text : throw AppiumErrors.InvalidArgument("launch arguments are strings")).ToList()
+            : [];
+        var fresh = options["relaunch"] is JsonValue relaunch && relaunch.TryGetValue<bool>(out var wanted) && wanted;
+        if (launchArguments.Count > 0 && !(fresh && platform == MobilePlatform.Ios))
         {
-            if (platform == MobilePlatform.Android && launchArguments.Count > 0)
-            {
-                throw AppiumErrors.Unsupported("launch arguments are not supported on TestMu Android devices");
-            }
+            throw AppiumErrors.Unsupported("launch arguments are only supported when an iOS app is relaunched on TestMu devices");
+        }
+
+        if (fresh)
+        {
 
             await ExecuteAsync("mobile: terminateApp", cancellationToken, (AppKey, Json(app))).ConfigureAwait(false);
             if (platform == MobilePlatform.Ios)
