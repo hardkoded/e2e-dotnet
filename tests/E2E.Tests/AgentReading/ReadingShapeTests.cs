@@ -9,54 +9,22 @@ namespace E2E.Tests.AgentReading;
 public sealed class ReadingShapeTests
 {
     /// <summary>
-    /// Partial: the port compares the rendered screen and the scroll position between pages, and has no reading shape to
-    /// compare directly. A row that keeps its name and its place but changes its text keeps the paging going. The same
-    /// row, unchanged, stops it.
+    /// Partial: upstream also expects a node with no name and no text to add nothing, so the shape of one is empty. The
+    /// port's shape is the rendered screen and the scroll position, and is never empty.
     /// </summary>
     [Fact]
-    public async Task Keeps_paging_while_a_rows_text_moves_on_and_stops_when_it_stays_the_same()
+    public void Differs_when_a_row_keeps_its_name_and_its_place_but_its_text_moves_on_and_matches_for_the_same_row()
     {
-        var moving = await PageAsync(textMoves: 12);
-        Assert.Contains("before the screen stopped moving", moving.Result, StringComparison.Ordinal);
-        Assert.True(moving.Swipes >= 15);
-
-        var still = await PageAsync(textMoves: 0);
-        Assert.Contains("before the screen stopped moving", still.Result, StringComparison.Ordinal);
-        Assert.True(still.Swipes <= 4);
+        var before = Screen("Product 1");
+        Assert.NotEqual(Reading.ReadingShape(before), Reading.ReadingShape(Screen("Product 2")));
+        Assert.Equal(Reading.ReadingShape(before), Reading.ReadingShape(Screen("Product 1")));
+        Assert.NotEqual(Reading.ReadingShape(before), Reading.ReadingShape(Screen("Product 1", "y=400")));
     }
 
-    private static async Task<(string Result, int Swipes)> PageAsync(int textMoves)
+    private static Observation Screen(string text, string? scroll = null) => new()
     {
-        var swipes = 0;
-        var world = new DocumentWorld().Map("/products", page =>
-        {
-            var row = new DocumentElement { Role = "listitem", Name = "Product", Text = "Product 1" };
-            page.Roots.Add(row);
-            page.OnScroll = _ =>
-            {
-                swipes++;
-                if (swipes <= textMoves)
-                {
-                    row.Text = "Product " + (swipes + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
-                }
-            };
-        });
-        string? result = null;
-        var calls = 0;
-        var model = new ScriptedModel(request =>
-        {
-            if (calls++ == 0)
-            {
-                return ModelResponses.Call("scroll_to", new { text = "Golden" });
-            }
-
-            result = request.Messages.Last(message => message.Role == "tool").Content;
-            return ModelResponses.Done("passed", "gave up");
-        });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions { Engine = new ScrollLogEngine(world), Model = model, BaseUrl = "https://shop.test", TestTitle = "reading shape" });
-        await session.App.OpenAsync("/products");
-        await session.Agent.ActAsync("reach the golden product");
-        session.Complete();
-        return (result ?? "", swipes);
-    }
+        Route = "/",
+        ScrollPosition = scroll,
+        Roots = [new SemanticNode { Ref = "r", Role = "listitem", Name = "Product", Text = text, Rect = new BoundingBox(0, 100, 300, 40) }],
+    };
 }

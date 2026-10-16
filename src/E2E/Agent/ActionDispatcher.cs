@@ -373,7 +373,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             }
 
             var within = list is null ? null : Single(Find(observation, list.Role, list.Name, list.TestId, null, _scope.Redactor));
-            var found = Reading(within is null ? observation.Roots : within.Children, text, _scope.Redactor);
+            var found = Reading.NodeReading(observation, text, _scope.Redactor, within);
             if (found is not null)
             {
                 await _scope.Session.PerformAsync(found, new LocatorAction.ScrollIntoView(), token).ConfigureAwait(false);
@@ -385,9 +385,7 @@ internal sealed class ActionDispatcher : IExecutorActions
                 throw new TestException("LOCATOR_NOT_FOUND", "Nothing reading \"" + text + "\" came into view within " + MaxScrollUntilScreens.ToString(CultureInfo.InvariantCulture) + " screens.");
             }
 
-            // The tree can stay the same while the page moves under it (every node
-            // already fits the budget), so the scroll position counts too.
-            var shape = SnapshotText.Render(observation, Redactor.None) + "\n" + observation.ScrollPosition;
+            var shape = Reading.ReadingShape(observation);
             still = string.Equals(shape, previous, StringComparison.Ordinal) ? still + 1 : 0;
             if (still >= ScrollUntilStillPages)
             {
@@ -414,31 +412,6 @@ internal sealed class ActionDispatcher : IExecutorActions
                 await _scope.Session.PerformAsync(within, new LocatorAction.Swipe(direction), token).ConfigureAwait(false);
             }
         }
-    }
-
-    // The innermost visible node whose redacted name or text contains the text.
-    private static SemanticNode? Reading(IReadOnlyList<SemanticNode> nodes, string text, Redactor redactor)
-    {
-        foreach (var node in nodes)
-        {
-            if (node.States.Hidden || node.States.AriaHidden)
-            {
-                continue;
-            }
-
-            var inner = Reading(node.Children, text, redactor);
-            if (inner is not null)
-            {
-                return inner;
-            }
-
-            if (TextRules.Matches(RedactField(node.Name, ObservationLimits.Name, redactor), text, exact: false) || TextRules.Matches(RedactField(node.Text, ObservationLimits.Text, redactor), text, exact: false))
-            {
-                return node;
-            }
-        }
-
-        return null;
     }
 
     private static SemanticNode? Single(List<SemanticNode> matches)
