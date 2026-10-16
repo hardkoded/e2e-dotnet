@@ -3,10 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json.Nodes;
-using E2E.Mobile.Limrun;
-using Driver = E2E.Mobile.Limrun.LimrunDriver;
+using E2E.Mobile;
 
-namespace E2E.Mobile.Tests.LimrunDriver;
+namespace E2E.Limrun.Tests.Driver;
 
 /// <summary>The driver against a scripted agent-device client. Ports <c>packages/limrun/tests/unit/driver.test.ts</c>.</summary>
 public sealed class LimrunDriverTests
@@ -27,7 +26,7 @@ public sealed class LimrunDriverTests
         });
         client.Respond(DeviceMethods.AppsInstall, _ => new JsonObject());
 
-        var binding = await Driver.AttachAsync(
+        var binding = await LimrunDriver.AttachAsync(
             new LimrunDriverRequest("/daemon", "run", 0, platform, "com.example.app", "/build"),
             (_, _) => client,
             CancellationToken.None);

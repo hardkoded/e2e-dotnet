@@ -3,8 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json.Nodes;
+using E2E.Mobile;
 
-namespace E2E.Mobile.Limrun;
+namespace E2E.Limrun;
 
 /// <summary>What the driver attaches to a Limrun device: the daemon's state directory, the run, and the build to install.</summary>
 internal sealed record LimrunDriverRequest(string StateDirectory, string RunId, int Slot, MobilePlatform Platform, string? App, string? AppPath);

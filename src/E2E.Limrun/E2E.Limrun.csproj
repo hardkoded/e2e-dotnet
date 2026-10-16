@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>E2E.Limrun</RootNamespace>
+    <AssemblyName>E2E.Limrun</AssemblyName>
+    <Description>Limrun cloud iOS and Android simulators for the community .NET port of the e2e agentic testing framework. Not an official TesterArmy product.</Description>
+    <PackageId>E2E.Limrun</PackageId>
+    <PackageTags>e2e;testing;agent;mobile;ios;android;limrun</PackageTags>
+    <IsPackable>true</IsPackable>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\E2E.Mobile\E2E.Mobile.csproj" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <InternalsVisibleTo Include="E2E.Limrun.Tests" />
+  </ItemGroup>
+</Project>
