@@ -349,8 +349,9 @@ Most unit tests use `DocumentEngine` and a scripted model. No test needs an API 
 | NUnit | `E2E.NUnit` (`E2ETest`) |
 | xUnit v3 | `E2E.XUnit.V3` (`E2ETest`) |
 | `@e2e-dev/eas` | `E2E.Eas` (`EasSimulators`) |
+| `@e2e-dev/kernel` | `E2E.Kernel` (`KernelProvider`), hosted browsers for `WebEngineOptions.Browser` |
 | `@e2e-dev/limrun` | `E2E.Limrun` (`LimrunSimulators`) |
 | none (TestMu AI has no upstream package) | `E2E.TestMu` (`TestMuBrowsers`), hosted browsers for `WebEngineOptions.Browser` |
 | `e2e login`, `e2e logout`, `e2e models`, `e2e guide`, `e2e mcp`, `e2e-web install` (as `e2e install`) | `E2E.Cli` (the `e2e` .NET tool) |
 
-`@e2e-dev/mobile` is ported in part (the snapshot model and the engine) as `E2E.Mobile`. The EAS and Limrun providers are their own packages, `E2E.Eas` and `E2E.Limrun`. `E2E.TestMu` has no upstream counterpart. `@e2e-dev/github` and `@e2e-dev/kernel` are not ported. Details are in [COMPATIBILITY.md](COMPATIBILITY.md).
+`@e2e-dev/mobile` is ported in part (the snapshot model and the engine) as `E2E.Mobile`. The EAS and Limrun providers are their own packages, `E2E.Eas` and `E2E.Limrun`. `E2E.TestMu` has no upstream counterpart. The Kernel provider is its own package, `E2E.Kernel`. `@e2e-dev/github` is not ported. Details are in [COMPATIBILITY.md](COMPATIBILITY.md).

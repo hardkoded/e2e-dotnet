@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>E2E.Kernel</RootNamespace>
+    <AssemblyName>E2E.Kernel</AssemblyName>
+    <Description>Kernel hosted browsers for the community .NET port of the e2e agentic testing framework. Not an official TesterArmy product.</Description>
+    <PackageId>E2E.Kernel</PackageId>
+    <PackageTags>e2e;testing;agent;web;browser;kernel;hosted-browsers;chromium</PackageTags>
+    <IsPackable>true</IsPackable>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\E2E\E2E.csproj" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <InternalsVisibleTo Include="E2E.Kernel.Tests" />
+  </ItemGroup>
+</Project>

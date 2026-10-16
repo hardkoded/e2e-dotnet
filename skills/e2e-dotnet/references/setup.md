@@ -177,6 +177,23 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
   `Init`ed leases for its one attempt and gives the lease back when the session
   ends.
 
+- To run on Kernel's hosted Chromium, add the `E2E.Kernel` package and set
+  `Browser = new KernelProvider()` (`using E2E.Kernel;`), with `Viewport = null`
+  when Kernel's screen sets the size. Set `KERNEL_API_KEY` in the environment
+  that starts the tests. By default each worker slot gets its own browser, created
+  when the run starts and deleted when it ends; `new KernelOptions { Scope =
+  BrowserProviderScope.Attempt }` leases one per attempt instead, with the limits
+  of `ReconnectEndpoint` above. `KernelOptions` takes Kernel's create-browser
+  body (`Stealth`, `Headless`, `Gpu`, `TimeoutSeconds`, `Profile`, `ProxyId`,
+  `Viewport`, `Tags`, and `Extra` for any other field), plus `Replay` (a Kernel
+  replay of the screen for an attempt that records video, the default; `false`
+  keeps the screencast) and `ReplayParams` (`Framerate`, `MaxDurationInSeconds`,
+  `RecordAudio`). Every browser is tagged `e2e_run`, `e2e_target`, `e2e_slot`, and
+  `e2e_attempt`, `TimeoutSeconds` defaults to 600, and a sweep at the end of the
+  run deletes the browsers a dead worker left. Downloads and replays are
+  implemented, but the engine does not call them yet (no `waitForDownload` or
+  video). The calls were not checked against a live Kernel account.
+
 - To run on the TestMu AI web grid, add the `E2E.TestMu` package and set
   `Browser = new TestMuBrowsers()` (`using E2E.TestMu;`) with `Viewport = null`.
   Set `LT_USERNAME` and `LT_ACCESS_KEY` (or `TESTMU_USERNAME` and
