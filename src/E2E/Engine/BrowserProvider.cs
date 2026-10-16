@@ -511,7 +511,7 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
         return async cancellationToken =>
         {
             var run = RequireRun();
-            var lease = Scope == BrowserProviderScope.Attempt ? _attempt : _current?.Lease;
+            var lease = CurrentLease();
             if (lease is null)
             {
                 throw new EngineException(EngineErrorCodes.InvalidState, $"{label} was asked to record before the attempt had a browser");
@@ -559,7 +559,7 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
             ReadAsync = async (file, cancellationToken) =>
             {
                 var run = RequireRun();
-                var lease = Scope == BrowserProviderScope.Attempt ? _attempt : _current?.Lease;
+                var lease = CurrentLease();
                 if (lease is null)
                 {
                     throw new EngineException(EngineErrorCodes.InvalidState, $"{label} was asked for a download before the attempt had a browser");
@@ -581,6 +581,9 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
             },
         };
     }
+
+    /// <summary>The browser the attempt rides: the attempt's lease in attempt scope, the worker's current one in worker scope.</summary>
+    private BrowserLease? CurrentLease() => Scope == BrowserProviderScope.Attempt ? _attempt : _current?.Lease;
 
     private static EngineException ConnectionAbort(string label) => new(EngineErrorCodes.Cancelled, label + " cancelled", retryable: false);
 
