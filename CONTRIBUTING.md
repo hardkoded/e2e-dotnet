@@ -10,6 +10,7 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | `src/E2E.Eas` | EAS hosted simulators and emulators for `MobileEngine`, packed as `E2E.Eas` |
 | `src/E2E.Mobile` | Mobile engine: the snapshot model, locators, errors, the agent-device client, the device pool and providers, and the session over agent-device |
 | `src/E2E.Limrun` | Limrun hosted simulators and emulators for `MobileEngine`, packed as `E2E.Limrun` |
+| `src/E2E.TestMu.Mobile` | TestMu AI real and virtual mobile devices for `MobileEngine`, driven through Appium, packed as `E2E.TestMu.Mobile`. No upstream counterpart |
 | `src/E2E.NUnit` | NUnit fixture `E2ETest` |
 | `src/E2E.TestMu` | TestMu AI hosted browsers for `WebEngineOptions.Browser`, packed as `E2E.TestMu`. No upstream counterpart |
 | `src/E2E.XUnit.V3` | xUnit v3 fixture `E2ETest` |
@@ -17,6 +18,7 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | `tests/E2E.Cli.Tests` | Tests of the `e2e` tool: the bundled skill, the MCP server, its sessions, and its tools. The server tests start `e2e mcp` as a child process, open a session on a fixture app in Chromium, and talk to it over stdio. No API key |
 | `tests/E2E.Eas.Tests` | Unit tests of `src/E2E.Eas`, with a fake EAS service. No device, no API key. The tests that evaluate a dynamic app config run a stand-in `expo` with `node`, so they need Node on the path |
 | `tests/E2E.Limrun.Tests` | Unit tests of `src/E2E.Limrun`, with a fake Limrun API and a scripted device client. No device, no API key |
+| `tests/E2E.TestMu.Mobile.Tests` | Unit tests of `src/E2E.TestMu.Mobile`, with a fake Appium hub. No device, no account, no key |
 | `tests/E2E.TestMu.Tests` | Unit tests of `src/E2E.TestMu`: the endpoint, the capabilities, and the credentials. No API key. One live test attaches to the real grid and is skipped unless `LT_USERNAME` and `LT_ACCESS_KEY` are set. All are .NET-only |
 | `tests/E2E.Mobile.Tests` | Unit tests of `src/E2E.Mobile`, with snapshots captured from a real iOS simulator and Android emulator, and a scripted agent-device client. No device, no API key |
 | `tests/E2E.Agent.Tests` | Agent tests against a real model, ported from upstream's `apps/testbed/tests-agent`. They serve upstream's playground pages on a loopback port. All are in the `RealModel` category and need a GitHub Copilot login |
