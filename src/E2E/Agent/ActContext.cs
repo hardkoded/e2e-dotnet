@@ -70,7 +70,7 @@ internal sealed partial class ActContext : StepExecutorContext
         ReplayedPrefix = prefix;
         Model = agent.Model;
         ProviderOptions = agent.ProviderOptions;
-        Ledger = string.Join('\n', scope.Completed.Select(step => "- " + step));
+        Ledger = E2E.Ledger.SerializeLedger(scope.Completed);
         AgentContext = agent.Context is null ? null : scope.Redactor.Redact(agent.Context);
         Budgets = budget;
         Actions = dispatcher;
