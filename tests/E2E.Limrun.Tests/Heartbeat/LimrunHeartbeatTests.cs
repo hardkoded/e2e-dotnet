@@ -5,10 +5,9 @@
 using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
-using E2E.Mobile.Limrun;
-using Heartbeat = E2E.Mobile.Limrun.LimrunHeartbeat;
+using E2E.Mobile;
 
-namespace E2E.Mobile.Tests.LimrunHeartbeat;
+namespace E2E.Limrun.Tests.Heartbeat;
 
 /// <summary>The lease heartbeat on a clock the test moves. Ports <c>packages/limrun/tests/unit/heartbeat.test.ts</c>.</summary>
 public sealed class LimrunHeartbeatTests
@@ -54,7 +53,7 @@ public sealed class LimrunHeartbeatTests
             var created = new List<DeviceClientConfig>();
 
             // The real client over a fake daemon, so the request that reaches it is the one a real daemon would get.
-            var stop = await Heartbeat.StartAsync(
+            var stop = await LimrunHeartbeat.StartAsync(
                 binding,
                 (session, connection) =>
                 {
@@ -109,7 +108,7 @@ public sealed class LimrunHeartbeatTests
                     return null;
             }
         });
-        var stop = await Heartbeat.StartAsync(
+        var stop = await LimrunHeartbeat.StartAsync(
             new LimrunBinding(new JsonObject { ["leaseId"] = "lease" }, "device"),
             (_, _) => client,
             log.Add,

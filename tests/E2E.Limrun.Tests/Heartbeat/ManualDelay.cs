@@ -2,7 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-namespace E2E.Mobile.Tests.LimrunHeartbeat;
+namespace E2E.Limrun.Tests.Heartbeat;
 
 /// <summary>Time the test moves by hand: a delay completes when <see cref="AdvanceAsync"/> reaches it, so minutes of waiting take no time.</summary>
 internal sealed class ManualDelay

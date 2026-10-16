@@ -5,9 +5,9 @@
 using System.Collections;
 using System.Net;
 using System.Text.Json.Nodes;
-using E2E.Mobile.Limrun;
+using E2E.Mobile;
 
-namespace E2E.Mobile.Tests.LimrunProvider;
+namespace E2E.Limrun.Tests.Provider;
 
 /// <summary>
 /// <see cref="LimrunSimulators"/> against a fake Limrun API and a fake host for the daemon and the lease: what it
