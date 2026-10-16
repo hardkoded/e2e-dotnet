@@ -123,9 +123,9 @@ internal static class AgentTools
 
     /// <summary>The verdict tool every loop offers, whatever its vocabulary, with the policy that accepts or refuses a verdict.</summary>
     internal static VerdictTool CreateVerdictTool() =>
-        new(Tool("done", "End the step with a verdict. blocked requires a code naming what blocked you.", Done));
+        new(Tool(VerdictTool.Name, "End the step with a verdict. blocked requires a code naming what blocked you.", Done));
 
-    /// <summary>The act tools an engine with these capabilities can honor. Scroll and back tools need their capability.</summary>
+    /// <summary>The act tools an engine with these capabilities can honor, without the verdict tool. Scroll and back tools need their capability.</summary>
     public static IReadOnlyList<ModelTool> CreateGrammarTools(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null)
     {
         var tools = new List<ModelTool> { Observe };

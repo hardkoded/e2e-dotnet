@@ -154,6 +154,8 @@ public sealed record PreparedMessages(IReadOnlyList<ModelMessage> Messages, stri
 
 internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepExecutor
 {
+    private static readonly VerdictTool Verdict = AgentTools.CreateVerdictTool();
+
     public string Name => options.Name;
 
     public string? Version => options.Version;
@@ -359,8 +361,6 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         });
         return response;
     }
-
-    private static readonly VerdictTool Verdict = AgentTools.CreateVerdictTool();
 
     private static async Task<ToolOutcome> RunToolAsync(ModelToolCall call, IReadOnlyList<ToolLoopTool> tools, CancellationToken token)
     {

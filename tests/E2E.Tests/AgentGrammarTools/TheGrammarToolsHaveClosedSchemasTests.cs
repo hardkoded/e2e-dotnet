@@ -6,8 +6,8 @@ using E2E.Engine;
 
 namespace E2E.Tests.AgentGrammarTools;
 
-// The port's act tools do not close their schemas, so upstream's closed-schema, scroll_to shape, keyboard-only,
-// and point verb cases have no port. The act loop reads the first done of a turn; upstream's tool result text
+// The port's act tools do not close their schemas and have no point verbs, so upstream's closed-schema, keyboard-only,
+// point verb, and provider-schema cases have no full port; the vocabulary, scroll_to, and verdict cases are partial. The act loop reads the first done of a turn; upstream's tool result text
 // ("the errorCode you sent ... was ignored", "The step already concluded.") is not sent back, because the step ends.
 public sealed class TheGrammarToolsHaveClosedSchemasTests
 {
@@ -36,7 +36,6 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.Equal(AgentTools.MaxScrollToText, properties.GetProperty("text").GetProperty("maxLength").GetInt32());
         Assert.True(properties.TryGetProperty("direction", out _));
         Assert.True(properties.TryGetProperty("ref", out _));
-        Assert.False(scrollTo.Parameters.TryGetProperty("required", out _));
     }
 
     // Partial of upstream's "accepts a passed verdict beside an error code": the port sends no tool result text that says what it dropped.
