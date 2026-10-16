@@ -170,6 +170,22 @@ public sealed class LifecycleTests
     }
 
     [Fact]
+    public async Task Logs_a_runner_prepare_a_provider_owned_device_does_not_support_instead_of_failing_the_run()
+    {
+        // A cloud device runs its own automation, so agent-device refuses to prepare a runner on it. Upstream's prepareRunner
+        // treats that like any failure that is not a busy or wedged runner: logged, the slot left to the first attempt.
+        var h = Harness.Create(options => options with { Device = "iPhone 16e" });
+        h.Fake.Respond(DeviceMethods.CommandPrepare, _ => throw new AgentDeviceError(
+            "UNSUPPORTED_OPERATION",
+            "prepare is not supported on this device",
+            new Dictionary<string, object?> { ["reason"] = "unsupported-provider-mode", ["hint"] = "Apple runner preparation is unavailable for Limrun-owned devices." }));
+        var lines = new List<string>();
+        await h.Engine.PrepareAsync(h.PrepareInfo(1, log: lines.Add), CancellationToken.None);
+        Assert.Matches(@"runner not prepared.*prepare is not supported on this device", lines[1]);
+        Assert.Equal(["devices.boot", "command.prepare"], h.Fake.Methods());
+    }
+
+    [Fact]
     public async Task Discovers_every_booted_device_of_the_platform_when_no_device_is_named_boots_as_many_as_the_run_has_slots_and_reports_the_pool()
     {
         var inventory = Inventory(

@@ -24,7 +24,8 @@ public record DeviceConnection
 
     /// <summary>
     /// Client configuration for that daemon: the lease scope a daemon resolves a hosted device by
-    /// (<c>tenant</c>, <c>runId</c>, <c>leaseId</c>, <c>leaseBackend</c>, <c>leaseProvider</c>), the
+    /// (<c>tenant</c>, <c>runId</c>, <c>leaseId</c>, <c>leaseBackend</c>, <c>leaseProvider</c>, <c>deviceKey</c>,
+    /// <c>clientId</c>; every one the lease has must be here, as the daemon reads none from elsewhere), the
     /// <c>stateDir</c> of a daemon other than the default one, provider options. JSON data only, since it travels
     /// to the worker through the environment. <c>session</c>, <c>daemonBaseUrl</c>, <c>daemonAuthToken</c>, and
     /// <c>daemonTransport</c> are not part of it.

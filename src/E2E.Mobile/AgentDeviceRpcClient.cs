@@ -22,7 +22,11 @@ public sealed record DaemonEndpoint(Uri BaseUrl, string? Token);
 /// </summary>
 public sealed class AgentDeviceRpcClient : IDeviceClient
 {
-    private static readonly string[] LeaseMetaKeys = ["tenant", "runId", "leaseId", "sessionIsolation"];
+    /// <summary>
+    /// The client settings the daemon reads as the lease scope of a command, from <c>meta</c> only: agent-device's own
+    /// client sends exactly these, and without the backend and provider it scopes a command to the default backend.
+    /// </summary>
+    private static readonly string[] LeaseMetaKeys = ["tenant", "runId", "leaseId", "leaseBackend", "leaseProvider", "deviceKey", "clientId", "sessionIsolation"];
 
     private readonly string _session;
     private readonly JsonObject _settings;
