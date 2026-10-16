@@ -53,7 +53,7 @@ public record KernelBrowserParams
 
     public IReadOnlyDictionary<string, string>? Tags { get; init; }
 
-    /// <summary>Any other field of Kernel's create-browser body (<c>proxy</c>, <c>extensions</c>, <c>region</c>, ...), by its wire name. It wins over the properties above.</summary>
+    /// <summary>Any other field of Kernel's create-browser body (<c>proxy</c>, <c>extensions</c>, <c>region</c>, ...), by its wire name. The properties above win over it; set <c>headless</c> and <c>tags</c> through them.</summary>
     public JsonObject? Extra { get; init; }
 }
 
@@ -142,11 +142,13 @@ internal sealed class KernelClient(HttpClient http, string apiKey, Uri baseUrl) 
 
         var ids = new List<string>();
         var offset = 0;
+        var previous = 0;
         while (true)
         {
             var path = offset == 0 ? $"/browsers?{query}" : $"/browsers?{query}&offset={offset}";
             var reply = await SendJsonAsync(HttpMethod.Get, path, null, cancellationToken).ConfigureAwait(false);
-            ids.AddRange(reply.Body is JsonArray items ? items.Select(item => Text(item?["session_id"])).OfType<string>() : []);
+            var items = reply.Body as JsonArray ?? throw new KernelApiException(HttpStatusCode.OK, "Kernel answered the list of browsers with something other than an array");
+            ids.AddRange(items.Select(item => Text(item?["session_id"])).OfType<string>());
 
             // Kernel pages with X-Has-More and X-Next-Offset, the absolute start of the next page; 0 is its stop sentinel.
             var more = Header(reply.Headers, "X-Has-More");
@@ -161,6 +163,13 @@ internal sealed class KernelClient(HttpClient http, string apiKey, Uri baseUrl) 
             {
                 return ids;
             }
+
+            if (offset <= previous)
+            {
+                throw new KernelApiException(HttpStatusCode.OK, "Kernel did not advance X-Next-Offset; refusing to list the same page again");
+            }
+
+            previous = offset;
         }
     }
 
@@ -191,10 +200,15 @@ internal sealed class KernelClient(HttpClient http, string apiKey, Uri baseUrl) 
         return await reply.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>The create-browser body: the properties, then <see cref="KernelBrowserParams.Extra"/> over them.</summary>
+    /// <summary>The create-browser body: <see cref="KernelBrowserParams.Extra"/>, then the properties over it, so the run's tags and timeout are never replaced.</summary>
     private static JsonObject Body(KernelBrowserParams parameters)
     {
         var body = new JsonObject();
+        foreach (var (key, value) in parameters.Extra ?? [])
+        {
+            body[key] = value?.DeepClone();
+        }
+
         Set(body, "stealth", parameters.Stealth);
         Set(body, "headless", parameters.Headless);
         Set(body, "gpu", parameters.Gpu);
@@ -219,11 +233,6 @@ internal sealed class KernelClient(HttpClient http, string apiKey, Uri baseUrl) 
         if (parameters.Tags is { } tags)
         {
             body["tags"] = new JsonObject(tags.Select(tag => KeyValuePair.Create<string, JsonNode?>(tag.Key, tag.Value)));
-        }
-
-        foreach (var (key, value) in parameters.Extra ?? [])
-        {
-            body[key] = value?.DeepClone();
         }
 
         return body;
@@ -264,7 +273,15 @@ internal sealed class KernelClient(HttpClient http, string apiKey, Uri baseUrl) 
         // The body of an answer that arrived is read even when the caller has since cancelled: a created browser must be known to be deleted.
         using var timeout = new CancellationTokenSource(RequestTimeout);
         var text = await reply.Content.ReadAsStringAsync(timeout.Token).ConfigureAwait(false);
-        return (string.IsNullOrWhiteSpace(text) ? null : JsonNode.Parse(text), reply.Headers);
+        try
+        {
+            return (string.IsNullOrWhiteSpace(text) ? null : JsonNode.Parse(text), reply.Headers);
+        }
+        catch (JsonException)
+        {
+            // An answer to a delete or stop needs no body; a request that needs one finds it missing.
+            return (null, reply.Headers);
+        }
     }
 
     /// <summary>Sends one request and returns its answer once the headers arrive, or throws <see cref="KernelApiException"/> for an error status.</summary>

@@ -40,7 +40,7 @@ public sealed class KernelRestApiTests
     }
 
     [Fact]
-    public async Task Sends_the_create_browser_fields_by_their_wire_names_and_lets_Extra_override_them()
+    public async Task Sends_the_create_browser_fields_by_their_wire_names_and_keeps_the_run_tags_and_timeout_over_Extra()
     {
         var fake = new FakeKernel();
         var options = new KernelOptions
@@ -51,7 +51,7 @@ public sealed class KernelRestApiTests
             Profile = new KernelBrowserProfile { Name = "qa", SaveChanges = true },
             Viewport = new KernelBrowserViewport { Width = 1920, Height = 1080, RefreshRate = 60 },
             TimeoutSeconds = 30,
-            Extra = new JsonObject { ["region"] = "eu-west", ["timeout_seconds"] = 45 },
+            Extra = new JsonObject { ["region"] = "eu-west", ["timeout_seconds"] = 45, ["tags"] = new JsonObject { ["x"] = "y" } },
         };
 
         await Provider(fake, options).AcquireAsync(Request(), CancellationToken.None);
@@ -62,7 +62,7 @@ public sealed class KernelRestApiTests
             {
                 ["stealth"] = true,
                 ["gpu"] = true,
-                ["timeout_seconds"] = 45,
+                ["timeout_seconds"] = 30,
                 ["proxy_id"] = "proxy-1",
                 ["profile"] = new JsonObject { ["name"] = "qa", ["save_changes"] = true },
                 ["viewport"] = new JsonObject { ["width"] = 1920, ["height"] = 1080, ["refresh_rate"] = 60 },
