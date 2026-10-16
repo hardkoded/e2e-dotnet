@@ -163,8 +163,9 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
   `ReconnectEndpoint` each attempt attaches and creates a new context.
 
 - A provider implements `Name`, `AcquireAsync(BrowserRequest, ct)` returning a
-  `BrowserLease` (`Id`, `CdpEndpoint`, and `ReconnectEndpoint` for a per-attempt
-  lease), and `ReleaseAsync(lease, BrowserReleaseContext, ct)`. Read its token
+  `BrowserLease` (`Id`, `CdpEndpoint`, `ReconnectEndpoint` for a per-attempt
+  lease, and `Protocol`: `BrowserProtocol.Cdp` by default, or `Playwright` for a
+  Playwright server or grid, which needs `Worker` scope), and `ReleaseAsync(lease, BrowserReleaseContext, ct)`. Read its token
   from `request.Env`, not the process environment. `Scope` is
   `BrowserProviderScope.Worker` (default: a browser per worker slot, leased
   when the run starts) or `Attempt` (a fresh browser per attempt, released with
@@ -184,6 +185,8 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
   `TestMuBrowsersOptions` sets `BrowserName` (a Chromium browser), `BrowserVersion`,
   `Platform`, `Build`, `Video`, `Network`, `Console`, `TunnelName`,
   `GeoLocation`, and `Capabilities` for any other `LT:Options` entry. The
+  engine connects with Playwright's own protocol (`BrowserLease.Protocol` is
+  `Playwright`), not CDP, and opens its own browser context. The
   dashboard shows the sessions without a Passed or Failed mark, because e2e
   passes no test result to a provider.
 

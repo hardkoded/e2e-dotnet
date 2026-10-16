@@ -147,8 +147,12 @@ public sealed partial class WebEngine : IAsyncDisposable
     {
         private int _closed;
         private bool _attached;
+        private BrowserProtocol _protocol;
 
         public WebConnectOptions? Connect { get; private set; }
+
+        /// <summary>What the endpoint <see cref="Connect"/> last resolved speaks.</summary>
+        public BrowserProtocol Protocol => _protocol;
 
         /// <summary>A leased browser is fresh by the provider's contract, so no earlier attempt's context is checked against it.</summary>
         public HashSet<string> UsedContexts { get; } = new(StringComparer.Ordinal);
@@ -160,9 +164,10 @@ public sealed partial class WebEngine : IAsyncDisposable
             {
                 CdpEndpoint = async cancellationToken =>
                 {
-                    var endpoint = await leases.EndpointAsync(cancellationToken).ConfigureAwait(false);
+                    var lease = await leases.EndpointAsync(cancellationToken).ConfigureAwait(false);
                     _attached = true;
-                    return endpoint;
+                    _protocol = lease.Protocol;
+                    return lease.CdpEndpoint;
                 },
             };
             return this;
@@ -171,6 +176,11 @@ public sealed partial class WebEngine : IAsyncDisposable
         /// <summary>Attempt scope: the browser leased for this attempt, reconnected through the lease's own endpoint.</summary>
         public LeaseScope Persistent(BrowserLease lease)
         {
+            if (lease.Protocol != BrowserProtocol.Cdp)
+            {
+                throw new EngineException(EngineErrorCodes.EngineFailure, $"browser lease {lease.Id} speaks the {lease.Protocol} protocol, which cannot be reattached after a drop; lease it in Worker scope", retryable: false);
+            }
+
             Connect = new WebConnectOptions
             {
                 CdpEndpoint = _ => Task.FromResult(lease.CdpEndpoint),
