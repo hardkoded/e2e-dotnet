@@ -14,7 +14,7 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | `tests/E2E.Tests` | Unit tests. No API key. The Chromium tests install the browser on the first launch |
 | `tests/E2E.Cli.Tests` | Tests of the `e2e` tool: the bundled skill, the MCP server, its sessions, and its tools. The server tests start `e2e mcp` as a child process, open a session on a fixture app in Chromium, and talk to it over stdio. No API key |
 | `tests/E2E.Eas.Tests` | Unit tests of `src/E2E.Eas`, with a fake EAS service. No device, no API key. The tests that evaluate a dynamic app config run a stand-in `expo` with `node`, so they need Node on the path |
-| `tests/E2E.Mobile.Tests` | Unit tests of `src/E2E.Mobile`, with snapshots captured from a real iOS simulator and Android emulator, a scripted agent-device client, and fakes for the Limrun service. No device, no API key. |
+| `tests/E2E.Mobile.Tests` | Unit tests of `src/E2E.Mobile`, with snapshots captured from a real iOS simulator and Android emulator, a scripted agent-device client, and fakes for the Limrun service. No device, no API key |
 | `tests/E2E.Agent.Tests` | Agent tests against a real model, ported from upstream's `apps/testbed/tests-agent`. They serve upstream's playground pages on a loopback port. All are in the `RealModel` category and need a GitHub Copilot login |
 | `skills/e2e-dotnet` | The agent skill bundled in `E2E.Cli` and printed by `e2e guide` |
 | `skills/create-verification-skill` | A generator skill for consumers that writes a project-local `verify-<app>` skill. Not bundled. Its example, `references/example/verify-todomvc`, names `samples/TodoMvc` tests and locators: update it when they change |
