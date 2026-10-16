@@ -86,7 +86,7 @@ public sealed class PollConditionTests
         var issued = new List<TimeSpan>();
         var screen = Slow(issued, first: 80, rest: 10);
         await Drive(Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(500)));
-        Assert.InRange(_time.Elapsed, TimeSpan.FromMilliseconds(500), Grace);
+        Assert.Equal(TimeSpan.FromMilliseconds(500), _time.Elapsed);
         Assert.All(issued, at => Assert.True(at < TimeSpan.FromMilliseconds(500), "a read was issued at " + at));
     }
 
@@ -103,11 +103,15 @@ public sealed class PollConditionTests
     {
         var screen = Slow([], first: 0, rest: 0);
         await Drive(Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(500)));
-        Assert.InRange(_time.Elapsed, TimeSpan.FromMilliseconds(500), Grace);
+        Assert.Equal(TimeSpan.FromMilliseconds(500), _time.Elapsed);
     }
 
+    /// <summary>
+    /// Partial: upstream counts exactly 5 reads on its 100 ms sample. The port samples every 50 ms, so this checks
+    /// that the poll fails and that its reads stop at the deadline (8 to 11), not the exact count.
+    /// </summary>
     [Fact]
-    public async Task Negated_a_budget_shorter_than_the_grace_window_still_fails_when_the_positive_state_was_seen()
+    public async Task Negated_a_budget_shorter_than_the_grace_window_fails_after_the_positive_state_was_seen_and_reads_once_per_50_ms_sample_up_to_the_deadline()
     {
         var calls = 0;
         var screen = Scripted(call =>
