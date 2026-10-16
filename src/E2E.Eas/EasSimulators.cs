@@ -3,8 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Concurrent;
+using E2E.Mobile;
 
-namespace E2E.Mobile.Eas;
+namespace E2E.Eas;
 
 /// <summary>The clock and sleep the provider polls with: a test swaps them so a run of minutes takes no time.</summary>
 internal sealed record EasClock(Func<long> NowMilliseconds, Func<TimeSpan, CancellationToken, Task> Delay)
@@ -52,6 +53,8 @@ public sealed class EasSimulators : IDeviceProvider
     /// </summary>
     private static readonly ConcurrentDictionary<string, Task<string>> ProjectIds = new(StringComparer.Ordinal);
 
+    private static readonly HttpClient SharedHttp = new() { Timeout = Timeout.InfiniteTimeSpan };
+
     private readonly EasSimulatorsOptions _options;
     private readonly int? _maxIdleTimeMinutes;
     private readonly HttpClient _http;
@@ -59,7 +62,7 @@ public sealed class EasSimulators : IDeviceProvider
     private readonly ConcurrentDictionary<string, EasSessions> _clients = new(StringComparer.Ordinal);
 
     public EasSimulators(EasSimulatorsOptions? options = null)
-        : this(options, AgentDeviceDaemon.SharedHttp, EasClock.Real)
+        : this(options, SharedHttp, EasClock.Real)
     {
     }
 

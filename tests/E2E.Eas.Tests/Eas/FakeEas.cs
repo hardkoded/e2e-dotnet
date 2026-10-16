@@ -5,9 +5,8 @@
 using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
-using E2E.Mobile.Eas;
 
-namespace E2E.Mobile.Tests.Eas;
+namespace E2E.Eas.Tests.Eas;
 
 internal enum EasOperation
 {
