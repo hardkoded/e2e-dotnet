@@ -35,6 +35,7 @@ jobs:
           dotnet pack src/E2E.XUnit.V3/E2E.XUnit.V3.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Cli/E2E.Cli.csproj -c Release -o artifacts --nologo
           dotnet pack src/E2E.Mobile/E2E.Mobile.csproj -c Release -o artifacts --nologo
+          dotnet pack src/E2E.Limrun/E2E.Limrun.csproj -c Release -o artifacts --nologo
 
       - name: NuGet login
         uses: NuGet/login@v1

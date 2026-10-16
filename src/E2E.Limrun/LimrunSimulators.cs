@@ -5,8 +5,9 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Text.Json.Nodes;
+using E2E.Mobile;
 
-namespace E2E.Mobile.Limrun;
+namespace E2E.Limrun;
 
 /// <summary>
 /// Limrun for <see cref="MobileOptions.Provider"/>: one hosted iOS simulator or Android emulator per worker slot, each
@@ -26,6 +27,8 @@ public sealed class LimrunSimulators : IDeviceProvider
 
     private static readonly TimeSpan ReadyPoll = TimeSpan.FromMilliseconds(500);
 
+    private static readonly HttpClient SharedHttp = new() { Timeout = Timeout.InfiniteTimeSpan };
+
     private readonly LimrunSimulatorsOptions _options;
     private readonly ILimrunHost _host;
     private readonly HttpClient _http;
@@ -33,7 +36,7 @@ public sealed class LimrunSimulators : IDeviceProvider
     private readonly ConcurrentDictionary<string, Held> _held = new(StringComparer.Ordinal);
 
     public LimrunSimulators(LimrunSimulatorsOptions? options = null)
-        : this(options, LimrunHost.Instance, AgentDeviceDaemon.SharedHttp, static (delay, token) => Task.Delay(delay, token))
+        : this(options, LimrunHost.Instance, SharedHttp, static (delay, token) => Task.Delay(delay, token))
     {
     }
 

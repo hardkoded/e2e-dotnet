@@ -8,8 +8,12 @@ namespace E2E.Tests.BrowserProvider;
 
 /// <summary>
 /// .NET-only: no upstream <c>it</c> covers these. An engine started without a runner leases for the one attempt it starts (upstream
+<<<<<<< HEAD
 /// runs that through <c>standalone.ts</c>, which has no unit test of its own), and <c>LeasedBrowsers.Downloads</c> is read by
 /// the browser fixture's <c>waitForDownload</c> upstream, which the port does not have.
+=======
+/// runs that through <c>standalone.ts</c>, which has no unit test of its own).
+>>>>>>> origin/main
 /// </summary>
 public sealed class BrowserProviderTests
 {
@@ -107,6 +111,7 @@ public sealed class BrowserProviderTests
         }
     }
 
+<<<<<<< HEAD
     [Fact]
     public async Task Offers_no_downloads_when_the_provider_has_none()
     {
@@ -180,4 +185,8 @@ public sealed class BrowserProviderTests
         leases.Init(Runner.InitInfo(0, env));
         return leases;
     }
+=======
+    private static EngineStartOptions Alone(string attemptId) =>
+        new() { AttemptId = attemptId, BaseUrl = "http://app.test/", ActionTimeout = TimeSpan.FromSeconds(1), Env = Runner.Token };
+>>>>>>> origin/main
 }

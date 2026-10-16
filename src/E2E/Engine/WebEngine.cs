@@ -618,6 +618,7 @@ public sealed partial class WebEngine : IEngine
                 "INVALID_CONFIG",
                 $"browser provider \"{provider.Name}\" has scope {(int)provider.Scope}; use Worker or Attempt.");
         }
+<<<<<<< HEAD
 
         if (provider.Downloads is { } downloads)
         {
@@ -639,6 +640,10 @@ public sealed partial class WebEngine : IEngine
     private static bool IsAbsoluteOnEitherSystem(string path) =>
         path.StartsWith('/') || path.StartsWith('\\') || (path.Length >= 3 && char.IsAsciiLetter(path[0]) && path[1] == ':' && path[2] is '/' or '\\');
 
+=======
+    }
+
+>>>>>>> origin/main
     // Refuses a media feature value the browser does not emulate, at config load rather than at the first page.
     // A persistent context takes these too: they are set on each page, not only on a context the engine creates.
     private static void ValidateMedia(WebEngineOptions options)

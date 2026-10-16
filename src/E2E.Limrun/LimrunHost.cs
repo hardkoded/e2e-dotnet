@@ -4,8 +4,9 @@
 
 using System.ComponentModel;
 using System.Diagnostics;
+using E2E.Mobile;
 
-namespace E2E.Mobile.Limrun;
+namespace E2E.Limrun;
 
 /// <summary>What the provider needs of the machine it runs on: the Android tools, the daemon beside each device, and its lease. A test swaps it for a fake.</summary>
 internal interface ILimrunHost
