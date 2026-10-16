@@ -101,6 +101,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 | A locator action, read, or expectation matched more than one node | `LOCATOR_AMBIGUOUS` | `STRICT_MODE` |
 | A locator action or read matched no node | `LOCATOR_NOT_FOUND` | `NOT_FOUND` |
 | `locator.waitFor` timed out | `LOCATOR_NOT_FOUND` | `TIMEOUT` |
+| An `expect.poll` was not awaited before its test body, hook, or fixture teardown returned | `STEP_NOT_AWAITED`, which fails that phase and cancels the poll | Not applicable: the poll is a `Task`, and the compiler warns about a `Task` that is not awaited (CS4014). A poll left running is cancelled only with its `CancellationToken` |
 
 ## Not ported
 
