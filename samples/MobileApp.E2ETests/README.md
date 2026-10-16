@@ -65,6 +65,8 @@ export LIMRUN_API_KEY=...
 E2E_MOBILE_PROVIDER=limrun dotnet test samples/MobileApp.E2ETests
 ```
 
+A relative build path, the default or `E2E_MOBILE_APP_PATH`, is relative to the test project, on a local and on a hosted device. `dotnet test` reads a `.runsettings` file only with `--settings`, so pass it there if you use one.
+
 `-p:ValidateXcodeVersion=false` is only needed when the installed Xcode is newer than the one the .NET iOS pack expects. `HostedDeviceSetup` leases one Limrun device for the whole run, installs the build on it, and deletes it when the run ends. The device has a hard timeout of 15 minutes, so an interrupted run does not stay billed. `E2E_MOBILE_DEVICE` does not apply. On Android, set `E2E_MOBILE_PLATFORM=android` and `E2E_MOBILE_APP_PATH` to the `.apk`; the provider also needs `adb` from the Android SDK Platform-Tools on `PATH`. The Android path was not run. A run longer than the 15 minute timeout loses the device, so run a subset with `--filter` if the whole project is slow.
 
 On a Limrun iOS device, keyboard actions such as `Locator.PressAsync("Enter")` fail with `UNSUPPORTED_CAPABILITY`. These tests tap the Greet button and do not press keys.
