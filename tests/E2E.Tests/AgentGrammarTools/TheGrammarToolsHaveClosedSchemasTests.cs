@@ -11,8 +11,57 @@ namespace E2E.Tests.AgentGrammarTools;
 // ("the errorCode you sent ... was ignored", "The step already concluded.") is not sent back, because the step ends.
 public sealed class TheGrammarToolsHaveClosedSchemasTests
 {
+    // Partial of upstream's "offers the whole vocabulary over the full grammar, and every tool refuses a field it does not declare":
+    // the port has no point verbs and its schemas are not closed, so only the vocabulary is checked.
     [Fact]
-    public async Task Accepts_a_passed_verdict_beside_an_error_code_and_records_the_pass_without_the_code()
+    public void Offers_the_node_verbs_and_the_scroll_and_history_tools_their_capabilities_unlock()
+    {
+        var full = AgentTools.CreateGrammarTools(EngineCapabilities.Scroll | EngineCapabilities.History);
+        Assert.Equal(
+            ["back", "check", "clear", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "scroll", "scroll_to", "select", "tap", "uncheck"],
+            full.Select(tool => tool.Name).Order(StringComparer.Ordinal));
+
+        var bare = AgentTools.CreateGrammarTools(EngineCapabilities.None);
+        Assert.Equal(
+            ["check", "clear", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "select", "tap", "uncheck"],
+            bare.Select(tool => tool.Name).Order(StringComparer.Ordinal));
+    }
+
+    // Partial of upstream's scroll_to "it": the port checks the text ceiling and the declared fields, not the closed shape.
+    [Fact]
+    public void Declares_the_text_of_scroll_to_with_a_ceiling_beside_a_target_and_a_direction()
+    {
+        var scrollTo = AgentTools.CreateGrammarTools(EngineCapabilities.Scroll).Single(tool => tool.Name == "scroll_to");
+        var properties = scrollTo.Parameters.GetProperty("properties");
+        Assert.Equal(AgentTools.MaxScrollToText, properties.GetProperty("text").GetProperty("maxLength").GetInt32());
+        Assert.True(properties.TryGetProperty("direction", out _));
+        Assert.True(properties.TryGetProperty("ref", out _));
+        Assert.False(scrollTo.Parameters.TryGetProperty("required", out _));
+    }
+
+    // Partial of upstream's "accepts a passed verdict beside an error code": the port sends no tool result text that says what it dropped.
+    [Fact]
+    public void Records_a_passed_verdict_beside_an_error_code_without_the_code()
+    {
+        var verdict = AgentTools.CreateVerdictTool();
+
+        var passed = verdict.Execute(Done("passed", "ACTION_FAILED"));
+        Assert.True(passed.Done);
+        Assert.Equal("passed", passed.Status);
+        Assert.Equal("done", passed.Summary);
+        Assert.Null(passed.Code);
+
+        var failed = verdict.Execute(Done("failed", "ACTION_FAILED"));
+        Assert.Equal("failed", failed.Status);
+        Assert.Equal("ACTION_FAILED", failed.Code);
+
+        var blocked = verdict.Execute(Done("blocked", "ENVIRONMENT_UNAVAILABLE"));
+        Assert.Equal("blocked", blocked.Status);
+        Assert.Equal("ENVIRONMENT_UNAVAILABLE", blocked.Code);
+    }
+
+    [Fact]
+    public async Task Ends_the_step_with_the_code_of_a_verdict_beside_a_passed_one_dropped()
     {
         var passed = await RunAsync(ModelResponses.Done("passed", "done", "ACTION_FAILED"));
         Assert.Null(passed.Error);
@@ -70,6 +119,8 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.Equal(3, rejections.Length);
         Assert.All(rejections, content => Assert.StartsWith("failed: a blocked verdict requires a code naming what blocked you", content, StringComparison.Ordinal));
     }
+
+    private static ModelToolCall Done(string status, string code) => ModelResponses.Done(status, "done", code).ToolCalls[0];
 
     private static Task<Outcome> RunAsync(ModelResponse response) => RunAsync(new ScriptedModel(_ => response));
 

@@ -174,7 +174,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         AgentException? hardStop = null;
         var concluded = false;
         var tools = options.Tools(context, new ToolLoopHelpers(() => concluded || hardStop is not null, error => hardStop ??= error));
-        var definitions = tools.Select(tool => tool.Definition).Append(AgentTools.DoneTool).ToList();
+        var definitions = tools.Select(tool => tool.Definition).Append(Verdict.Tool).ToList();
         var system = SystemFor(context);
         var messages = new List<ModelMessage>
         {
@@ -360,11 +360,13 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         return response;
     }
 
+    private static readonly VerdictTool Verdict = AgentTools.CreateVerdictTool();
+
     private static async Task<ToolOutcome> RunToolAsync(ModelToolCall call, IReadOnlyList<ToolLoopTool> tools, CancellationToken token)
     {
         if (string.Equals(call.Name, "done", StringComparison.Ordinal))
         {
-            return Done(call);
+            return Verdict.Execute(call);
         }
 
         var tool = tools.FirstOrDefault(item => string.Equals(item.Definition.Name, call.Name, StringComparison.Ordinal));
@@ -386,30 +388,5 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         {
             return ToolOutcome.Fail(call.Name + " failed: " + ex.Message);
         }
-    }
-
-    // The verdict tool: the model picks only from a closed set of codes, and the runtime assigns the rest.
-    private static ToolOutcome Done(ModelToolCall call)
-    {
-        var status = Args.String(call.Arguments, "status");
-        if (status is not ("passed" or "failed" or "blocked"))
-        {
-            return ToolOutcome.Fail("done status must be passed, failed, or blocked.");
-        }
-
-        var code = Args.String(call.Arguments, "code");
-        if (string.Equals(status, "passed", StringComparison.Ordinal) || !AgentTools.ModelErrorCodes.Contains(code))
-        {
-            code = null;
-        }
-
-        if (string.Equals(status, "blocked", StringComparison.Ordinal) && !AgentTools.BlockableCodes.Contains(code))
-        {
-            return ToolOutcome.Fail(
-                "a blocked verdict requires a code naming what blocked you (one of " + string.Join(", ", AgentTools.BlockableCodes) + "). " +
-                "If the application itself misbehaved, use status failed instead.");
-        }
-
-        return ToolOutcome.Finish(status, Args.String(call.Arguments, "summary"), code);
     }
 }

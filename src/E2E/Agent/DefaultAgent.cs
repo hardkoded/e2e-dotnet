@@ -65,8 +65,7 @@ public static class DefaultAgent
             : tools.Where(pair => pair.Value.AppliesTo(context.Target.Platform)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         var offered = project.Select(pair => AgentTools.Project(pair.Key, pair.Value)).ToList();
         var act = new ActTools(host.Scope, host.Feed);
-        return AgentTools.ActFor(host.Scope.EngineCapabilities, offered)
-            .Where(definition => !string.Equals(definition.Name, "done", StringComparison.Ordinal))
+        return AgentTools.CreateGrammarTools(host.Scope.EngineCapabilities, offered)
             .Select(definition => new ToolLoopTool(
                 definition,
                 async (call, token) =>
