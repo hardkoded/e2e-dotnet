@@ -160,7 +160,7 @@ public sealed class AgentActVerdictMappingTests
         Assert.DoesNotContain("admin-pass-1", CounterPage.Everything(model), StringComparison.Ordinal);
         var results = CounterPage.ToolResults(model);
         Assert.Contains("<secret:admin.password>", results[0], StringComparison.Ordinal);
-        Assert.Contains("No secret named 'stripe-key'", results[1], StringComparison.Ordinal);
+        Assert.Contains("secret \"stripe-key\" was not declared in this step's params; only declared secrets can be filled", results[1], StringComparison.Ordinal);
     }
 
     private sealed class HangingModel : IAgentModel

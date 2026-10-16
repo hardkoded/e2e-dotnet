@@ -46,6 +46,10 @@ internal static class ActParams
         }
     }
 
+    /// <summary>The params as the JSON an executor reads them: a <see cref="Secret"/> as its name and purpose, a <see cref="UniqueValue"/> as its value.</summary>
+    public static JsonObject? Projected(IReadOnlyDictionary<string, object?> parameters) =>
+        Project(parameters, 0, new HashSet<object>(ReferenceEqualityComparer.Instance)) as JsonObject;
+
     private static JsonNode? Project(object? value, int depth, HashSet<object> ancestors)
     {
         if (depth > MaxDepth)

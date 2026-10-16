@@ -76,6 +76,45 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         return observation;
     }
 
+    /// <summary>
+    /// The attempt the looks belong to, for what an executor's look is redacted and cleared with: the secrets, the app origin,
+    /// the engine's capture, and the pixel taint. Null for a feed that serves no executor.
+    /// </summary>
+    public AttemptScope? Scope { get; init; }
+
+    /// <summary>
+    /// Upstream's executor-facing <c>observe</c>: the options checked before anything is captured, then one settled look,
+    /// redacted and viewed. The text is always there, and the tree and the pixels when asked for. Pixels go out only when the
+    /// engine captures them, its masking is proven, and no secret was filled in the attempt; otherwise the look says why not.
+    /// </summary>
+    public async Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options, CancellationToken token)
+    {
+        var scope = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
+        var observation = await ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
+        var view = new ExecutorObservation(SnapshotText.Render(observation, scope.Redactor, scope.AppOrigin))
+        {
+            Truncated = observation.Truncated,
+            Path = scope.Redactor.Redact(observation.Route),
+            Tree = options?.Tree == true ? AgentObservation.ProjectTree(observation.Roots, scope.Redactor, scope.AppOrigin) : null,
+        };
+        if (options?.Pixels != true)
+        {
+            return view;
+        }
+
+        var tainted = scope.Exposure.WithholdsPixels;
+        var outcome = AgentObservation.PixelsForModel(observation, tainted ? null : await scope.CaptureAsync(token).ConfigureAwait(false), tainted);
+        if (outcome.Pixels is not { } pixels)
+        {
+            scope.VisionDegraded = true;
+            return view with { PixelsWithheld = outcome.Withheld };
+        }
+
+        scope.VisionInput = true;
+        var size = Pixels.ReadPngSize(pixels.Png);
+        return view with { Pixels = new ExecutorPixels(pixels.Png, "image/png", size?.Width ?? 0, size?.Height ?? 0, pixels.Scale, pixels.MaskedRegionCount ?? 0) };
+    }
+
     /// <summary>The newest node an observation of the step listed under <paramref name="reference"/>, if any.</summary>
     public SemanticNode? LastSeen(string reference) => _seen.GetValueOrDefault(reference);
 

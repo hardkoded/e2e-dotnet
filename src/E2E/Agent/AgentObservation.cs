@@ -117,6 +117,51 @@ internal static class AgentObservation
             : new PixelsOutcome(Pixels.SizeForModel(screenshot), null);
     }
 
+    /// <summary>
+    /// Upstream's <c>projectTree</c>: the nodes the screen lists as an executor reads them. Every string field is
+    /// redacted, a secure node carries no value and no selection at all, and a link target is bounded as a line bounds it:
+    /// a target on <paramref name="appOrigin"/> keeps that origin and loses no more of its path than the line does. A node
+    /// the screen hides is left out and its children take its place, as the text leaves it out.
+    /// </summary>
+    public static IReadOnlyList<ExecutorNode> ProjectTree(IReadOnlyList<SemanticNode> nodes, Redactor redactor, string? appOrigin)
+    {
+        var projected = new List<ExecutorNode>();
+        foreach (var node in nodes)
+        {
+            var children = ProjectTree(node.Children, redactor, appOrigin);
+            if (node.States.Hidden || node.States.AriaHidden)
+            {
+                projected.AddRange(children);
+                continue;
+            }
+
+            projected.Add(new ExecutorNode
+            {
+                Id = node.Ref,
+                Role = node.Role,
+                Name = node.Name is null ? null : RedactText(node.Name, redactor, ObservationLimits.Name),
+                Text = node.Text is null ? null : RedactText(node.Text, redactor, ObservationLimits.Text),
+                Value = node.Value is null || node.States.Secure ? null : RedactText(node.Value, redactor, ObservationLimits.Text),
+                Selection = node.States.Secure ? null : SnapshotText.Selection(node, redactor),
+                InputPurpose = node.InputPurpose,
+                States = node.States,
+                Attributes = node.Attributes.Count == 0
+                    ? null
+                    : node.Attributes.ToDictionary(pair => pair.Key, pair => string.Equals(pair.Key, "href", StringComparison.Ordinal) ? TreeHref(pair.Value, redactor, appOrigin) : RedactText(pair.Value, redactor), StringComparer.Ordinal),
+                Rect = node.Rect,
+                Children = children,
+            });
+        }
+
+        return projected;
+    }
+
+    // A link target as an executor tree carries it: absolute, and bounded exactly as the line bounds it.
+    private static string TreeHref(string href, Redactor redactor, string? appOrigin) =>
+        appOrigin is not null && RedactText(href, redactor).StartsWith(appOrigin + "/", StringComparison.Ordinal)
+            ? appOrigin + SnapshotText.Href(href, redactor, appOrigin)
+            : SnapshotText.Href(href, redactor, null);
+
     /// <summary>FNV-1a over the image bytes: fast, and equal frames encode to equal bytes.</summary>
     public static string PixelDigest(ReadOnlySpan<byte> bytes)
     {

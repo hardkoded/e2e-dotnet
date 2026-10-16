@@ -14,7 +14,10 @@ namespace E2E;
 /// </summary>
 public sealed class AgentOptions
 {
-    /// <summary>The model behind <c>act</c>. There is no implicit default.</summary>
+    /// <summary>
+    /// The model behind <c>act</c>. There is no implicit default. A custom <see cref="Executor"/> that brought a model of its
+    /// own supplies it; naming a different one here is <c>INVALID_CONFIG</c>.
+    /// </summary>
     public IAgentModel? Model { get; init; }
 
     /// <summary>
@@ -22,6 +25,13 @@ public sealed class AgentOptions
     /// <see cref="Model"/>. A judge of its own separates the model that grades a flow from the one that drove it.
     /// </summary>
     public IAgentModel? Judge { get; init; }
+
+    /// <summary>
+    /// The custom brain <c>act</c> and <c>assert</c> dispatch to, upstream's <c>executor</c>. Without one, the built-in agent
+    /// acts. An executor replaces the built-in agent's prompt and tools, so it cannot be combined with <see cref="System"/> or
+    /// <see cref="Tools"/>. It cannot be written in <c>e2e.config.json</c>: an executor is code.
+    /// </summary>
+    public IStepExecutor? Executor { get; init; }
 
     /// <summary>
     /// How the acting agent should work, appended to the built-in execution rules. Only the act loop
@@ -76,6 +86,9 @@ internal sealed class ResolvedAgent
 
     public string? Context { get; init; }
 
+    /// <summary>The custom brain, or null for the built-in agent.</summary>
+    public IStepExecutor? Executor { get; init; }
+
     public int MaxSteps { get; init; } = E2EDefaults.MaxSteps;
 
     public int MaxModelCalls { get; init; } = E2EDefaults.MaxModelCalls;
@@ -101,11 +114,14 @@ internal sealed class ResolvedAgent
         CheckContext(options.Context, label + ".context");
         CheckProviderOptions(options.ProviderOptions, label);
         CheckTools(options.Tools, label);
+        var executor = CheckExecutor(options, label);
+        var model = Canonical(options.Model, executor?.Model, label, "model");
         return new ResolvedAgent
         {
             Name = name,
-            Model = options.Model,
-            Judge = options.Judge ?? options.Model,
+            Model = model,
+            Judge = Canonical(options.Judge, executor?.Judge, label, "judge") ?? model,
+            Executor = executor,
             System = options.System,
             Context = options.Context,
             MaxSteps = options.MaxSteps,
@@ -114,6 +130,51 @@ internal sealed class ResolvedAgent
             ProviderOptions = options.ProviderOptions,
             Tools = options.Tools,
         };
+    }
+
+    // A custom brain replaces the built-in agent, so the options only the built-in agent reads are refused beside it.
+    private static IStepExecutor? CheckExecutor(AgentOptions options, string label)
+    {
+        if (options.Executor is not { } executor)
+        {
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(executor.Name))
+        {
+            throw new ConfigurationException("INVALID_CONFIG", label + ".executor must be a StepExecutor: an IStepExecutor with a name, such as ToolLoop.CreateToolLoopExecutor(...)");
+        }
+
+        foreach (var (key, set, brings) in new[] { ("system", options.System is not null, "prompt"), ("tools", options.Tools is not null, "tools") })
+        {
+            if (set)
+            {
+                throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    label + "." + key + " is an option of the built-in agent, and " + label + ".executor replaces it: a custom executor brings its own " + brings + "; drop " + key + " or drop executor");
+            }
+        }
+
+        return executor;
+    }
+
+    // One model per slot: the model a custom executor brought is it, and without one the entry's own. An entry naming another
+    // model than the executor's is refused: two configured models for one slot would split the run silently.
+    private static IAgentModel? Canonical(IAgentModel? configured, IAgentModel? brought, string label, string slot)
+    {
+        if (brought is null)
+        {
+            return configured;
+        }
+
+        if (configured is not null && !ReferenceEquals(configured, brought) && !string.Equals(configured.Name, brought.Name, StringComparison.Ordinal))
+        {
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                label + "." + slot + " (" + configured.Name + ") and the executor's own " + slot + " (" + brought.Name + ") differ; configure the " + slot + " in one place");
+        }
+
+        return brought;
     }
 
     internal static void Check(int value, string label)
