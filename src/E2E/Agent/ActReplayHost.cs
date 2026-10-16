@@ -54,14 +54,23 @@ public sealed partial class Agent
 
         public Task DoubleTapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => PerformAsync(target, new LocatorAction.DoubleTap(), "doubleTap", cancellationToken);
 
-        public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) =>
-            PerformAsync(target, new LocatorAction.Fill(CacheKeys.Detemplate(value, parameters), false), "fill", cancellationToken);
+        // A value is expanded with this call's params before it is read: one that expands to a secret's marker fills that secret.
+        public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default)
+        {
+            var expanded = CacheKeys.Detemplate(value, parameters);
+            return expanded.StartsWith("<secret:", StringComparison.Ordinal) && expanded.EndsWith('>')
+                ? TypeSecretAsync(target, expanded["<secret:".Length..^1], cancellationToken, armed: null)
+                : PerformAsync(target, new LocatorAction.Fill(expanded, false), "fill", cancellationToken);
+        }
 
-        public Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken = default)
+        public Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken = default) =>
+            TypeSecretAsync(target, secretName, cancellationToken, armed: "<secret:" + secretName + ">");
+
+        private Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken, string? armed)
         {
             var secret = scope.Secrets.FirstOrDefault(item => string.Equals(item.Name, secretName, StringComparison.Ordinal))
                 ?? throw new AgentException("AUTH_CREDENTIAL_UNAVAILABLE", "Replay needs secret '" + secretName + "', and this step did not declare it.");
-            return PerformAsync(target, new LocatorAction.Fill(secret.Value, false), "fill", cancellationToken, "<secret:" + secretName + ">");
+            return PerformAsync(target, new LocatorAction.Fill(secret.Value, false), "fill", cancellationToken, armed);
         }
 
         public Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => PerformAsync(target, new LocatorAction.Clear(), "clear", cancellationToken);
@@ -89,7 +98,7 @@ public sealed partial class Agent
         public async Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default)
         {
             var node = list is null ? null : Resolve(list);
-            var recorded = node is null ? null : new RecordedAction { Role = node.Role, Name = RedactLabel(node, scope.Redactor), TestId = Agent.Redact(node.TestId, scope.Redactor) };
+            var recorded = list?.Recorded ?? (node is null ? null : new RecordedAction { Role = node.Role, Name = RedactLabel(node, scope.Redactor), TestId = Agent.Redact(node.TestId, scope.Redactor) });
             await dispatcher.PageUntilAsync(CacheKeys.Detemplate(text, parameters), direction, recorded, cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "scrollUntil" });
         }

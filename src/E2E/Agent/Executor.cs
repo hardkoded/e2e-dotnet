@@ -324,6 +324,9 @@ public sealed class ExecutorTarget
     /// node again after the page changed it (a scroll that pages a list) leaves the node it found last there.
     /// </summary>
     internal SemanticNode? Node { get; set; }
+
+    /// <summary>The recorded action a replay found this node for, so the action that follows reads its target as recorded.</summary>
+    internal RecordedAction? Recorded { get; init; }
 }
 
 /// <summary>
