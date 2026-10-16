@@ -5,6 +5,7 @@
 using System.Text.Json.Nodes;
 using System.Web;
 using E2E.Engine;
+using Microsoft.Playwright;
 
 namespace E2E.TestMu.Tests.Browsers;
 
@@ -175,5 +176,18 @@ public sealed class TestMuBrowsersTests
 
         await provider.ReleaseAsync(lease, context, CancellationToken.None);
         await provider.ReleaseAsync(lease, context, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task A_refused_connection_does_not_carry_the_access_key()
+    {
+        var lease = await new TestMuBrowsers().AcquireAsync(Request(), CancellationToken.None);
+        var refused = lease.CdpEndpoint.Replace("wss://cdp.lambdatest.com", "ws://127.0.0.1:9", StringComparison.Ordinal);
+        Assert.Contains("secret%20key", refused, StringComparison.Ordinal);
+        using var playwright = await Playwright.CreateAsync();
+
+        var error = await Assert.ThrowsAsync<PlaywrightException>(() => playwright.Chromium.ConnectOverCDPAsync(refused, new BrowserTypeConnectOverCDPOptions { Timeout = 5000 }));
+
+        Assert.DoesNotContain("secret", error.ToString(), StringComparison.OrdinalIgnoreCase);
     }
 }
