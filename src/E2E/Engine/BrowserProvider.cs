@@ -80,7 +80,6 @@ public sealed record BrowserReleaseContext
     public required Action<string> Log { get; init; }
 }
 
-<<<<<<< HEAD
 /// <summary>Handed to <see cref="BrowserProviderDownloads.ReadAsync"/>, once per file.</summary>
 public sealed record BrowserDownloadContext
 {
@@ -106,8 +105,6 @@ public sealed record BrowserProviderDownloads
     public required Func<BrowserLease, string, BrowserDownloadContext, CancellationToken, Task<byte[]>> ReadAsync { get; init; }
 }
 
-=======
->>>>>>> origin/main
 /// <summary>
 /// A source of hosted browsers: the seam a hosted browser service plugs into (upstream <c>BrowserProvider</c>). In
 /// <see cref="BrowserProviderScope.Worker"/> scope <see cref="AcquireAsync"/> is called once per worker slot, for every
@@ -125,7 +122,6 @@ public interface IBrowserProvider
     /// <summary>How long a lease lives; <see cref="BrowserProviderScope.Worker"/> by default.</summary>
     BrowserProviderScope Scope => BrowserProviderScope.Worker;
 
-<<<<<<< HEAD
     /// <summary>
     /// Serves <c>browser.waitForDownload</c> for a browser that runs on another machine. Without it a download on such
     /// a browser fails, since the file lands on the browser's disk; a provider whose browsers run on the runner's own
@@ -133,14 +129,11 @@ public interface IBrowserProvider
     /// </summary>
     BrowserProviderDownloads? Downloads => null;
 
-=======
->>>>>>> origin/main
     Task<BrowserLease> AcquireAsync(BrowserRequest request, CancellationToken cancellationToken);
 
     Task ReleaseAsync(BrowserLease lease, BrowserReleaseContext context, CancellationToken cancellationToken);
 
     /// <summary>
-<<<<<<< HEAD
     /// Records the leased browser for an attempt that records video, in place of the engine's screencast of the page: the
     /// service's own recording of the browser, called from the worker when the attempt starts its video. A provider that
     /// cannot record its browsers (a headless session the service cannot replay) returns null, and the engine records the
@@ -150,8 +143,6 @@ public interface IBrowserProvider
         Task.FromResult<ProviderRecording?>(null);
 
     /// <summary>
-=======
->>>>>>> origin/main
     /// Releases every lease of the run and target the provider still holds open, and resolves to their ids. Called once
     /// per target from finish, in the runner, after every worker exited and the leases prepare made were released:
     /// whatever it finds is a lease a worker acquired (a per-attempt browser, a replacement) and never gave back,
@@ -162,7 +153,6 @@ public interface IBrowserProvider
         Task.FromResult<IReadOnlyList<string>>([]);
 }
 
-<<<<<<< HEAD
 /// <summary>The downloads of the browser an attempt rides, read through its provider.</summary>
 internal sealed record LeaseDownloads
 {
@@ -185,8 +175,6 @@ internal sealed record LeaseRecording
     public required string LeaseId { get; init; }
 }
 
-=======
->>>>>>> origin/main
 /// <summary>
 /// Browsers a provider leases for one target, on both sides of the worker boundary. In the runner, prepare leases one
 /// per slot, all at once (hosted browsers start in parallel and are billed from the moment they do), and holds every
@@ -510,7 +498,6 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
         await ReleaseAsync(current.Lease, cleanup).ConfigureAwait(false);
     }
 
-<<<<<<< HEAD
     /// <summary>
     /// How the attempt records its browser when the provider records: starts the provider's recording of the browser the
     /// attempt rides, the attempt's lease in <see cref="BrowserProviderScope.Attempt"/> scope and the worker's current
@@ -600,8 +587,6 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
 
     private static EngineException ConnectionAbort(string label) => new(EngineErrorCodes.Cancelled, label + " cancelled", retryable: false);
 
-=======
->>>>>>> origin/main
     private WorkerRun RequireRun() =>
         _run ?? throw new EngineException(EngineErrorCodes.EngineFailure, $"browser provider \"{Name}\" was asked for a browser before init", retryable: false);
 
