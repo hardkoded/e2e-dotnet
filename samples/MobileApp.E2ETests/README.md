@@ -30,19 +30,27 @@ To see the app and its tests in one solution, open [`samples/MobileApp.slnx`](..
 
 ## Run the tests
 
-Boot a simulator, then run the tests:
+Boot one simulator, then run the tests without `E2E_MOBILE_DEVICE`. The engine drives the booted device of the platform:
 
 ```bash
 xcrun simctl boot "iPhone 17"
-E2E_MOBILE_DEVICE="iPhone 17" dotnet test samples/MobileApp.E2ETests
+dotnet test samples/MobileApp.E2ETests
 ```
 
-Without `E2E_MOBILE_DEVICE`, the engine drives the booted device of the platform. The first test installs the build, and every test launches the app fresh. When you are done, run `xcrun simctl shutdown all`. The agent-device daemon keeps running after the tests, in `~/.agent-device/e2e-dotnet`. Stop it with its `daemon.json` pid if you want it gone.
+To pick a device yourself, set `E2E_MOBILE_DEVICE` to its UDID. List the UDIDs with `xcrun simctl list devices available`:
+
+```bash
+E2E_MOBILE_DEVICE=<UDID> dotnet test samples/MobileApp.E2ETests
+```
+
+A name such as `"iPhone 17"` works only when exactly one simulator has that name. Many machines have two simulators with the same name, one per runtime. If no device is booted and the variable is unset or ambiguous, the run fails with `AgentDeviceError` code `AMBIGUOUS_MATCH` and a message like `10 devices match this request equally; select one explicitly.` The details list the devices. Boot one simulator, or set `E2E_MOBILE_DEVICE` to a UDID from the list.
+
+The first test installs the build, and every test launches the app fresh. When you are done, run `xcrun simctl shutdown all`. The agent-device daemon keeps running after the tests, in `~/.agent-device/e2e-dotnet`. Stop it with its `daemon.json` pid if you want it gone.
 
 | Variable | Meaning |
 | --- | --- |
 | `E2E_MOBILE_PLATFORM` | `ios` (default) or `android`. |
-| `E2E_MOBILE_DEVICE` | Simulator or emulator name or UDID. |
+| `E2E_MOBILE_DEVICE` | Simulator or emulator UDID, or its name when only one device has that name. Unset: use the booted device. |
 | `E2E_MOBILE_APP_PATH` | A build to install in place of the default. |
 | `E2E_MOBILE_PROVIDER` | `local` (default) or `limrun`. See [Run on Limrun](#run-on-limrun). |
 | `LIMRUN_API_KEY` | The Limrun API key, for `E2E_MOBILE_PROVIDER=limrun`. |
