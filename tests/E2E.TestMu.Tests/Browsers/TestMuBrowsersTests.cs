@@ -1,0 +1,179 @@
+// Copyright 2026 TesterArmy.
+// Modified by Dario Kondratiuk.
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Text.Json.Nodes;
+using System.Web;
+using E2E.Engine;
+
+namespace E2E.TestMu.Tests.Browsers;
+
+/// <summary>
+/// <see cref="TestMuBrowsers"/>: the endpoint and capabilities it builds, the credentials it reads from the run's
+/// environment, and what it keeps out of progress lines. .NET-only: TestMu has no upstream package.
+/// </summary>
+public sealed class TestMuBrowsersTests
+{
+    private static readonly IReadOnlyDictionary<string, string?> Credentials = new Dictionary<string, string?> { ["LT_USERNAME"] = "ada", ["LT_ACCESS_KEY"] = "secret key" };
+
+    private static BrowserRequest Request(IReadOnlyDictionary<string, string?>? env = null, string? attemptId = null, int slot = 0, int slots = 1) => new()
+    {
+        RunId = "run-a",
+        TargetName = "web",
+        Slot = slot,
+        Slots = slots,
+        AttemptId = attemptId,
+        Env = env ?? Credentials,
+        Log = _ => { },
+    };
+
+    private static JsonObject Capabilities(BrowserLease lease)
+    {
+        Assert.StartsWith("wss://cdp.lambdatest.com/playwright?capabilities=", lease.CdpEndpoint, StringComparison.Ordinal);
+        var query = HttpUtility.ParseQueryString(new Uri(lease.CdpEndpoint).Query);
+        return JsonNode.Parse(query["capabilities"]!)!.AsObject();
+    }
+
+    [Fact]
+    public async Task Leases_a_chrome_session_with_the_documented_capabilities()
+    {
+        var lease = await new TestMuBrowsers().AcquireAsync(Request(), CancellationToken.None);
+
+        var capabilities = Capabilities(lease);
+        Assert.Equal("Chrome", (string?)capabilities["browserName"]);
+        Assert.Equal("latest", (string?)capabilities["browserVersion"]);
+        var lt = capabilities["LT:Options"]!.AsObject();
+        Assert.Equal("Windows 10", (string?)lt["platform"]);
+        Assert.Equal("e2e-run-a", (string?)lt["build"]);
+        Assert.Equal("web slot 1 of 1", (string?)lt["name"]);
+        Assert.Equal("ada", (string?)lt["user"]);
+        Assert.Equal("secret key", (string?)lt["accessKey"]);
+        Assert.Equal(["platform", "build", "name", "user", "accessKey"], lt.Select(pair => pair.Key));
+    }
+
+    [Fact]
+    public async Task Sends_the_options_it_was_given()
+    {
+        var provider = new TestMuBrowsers(new TestMuBrowsersOptions
+        {
+            BrowserName = "MicrosoftEdge",
+            BrowserVersion = "130",
+            Platform = "Windows 11",
+            Build = "nightly",
+            Video = true,
+            Network = false,
+            Console = true,
+            TunnelName = "office",
+            GeoLocation = "US",
+            Capabilities = new Dictionary<string, JsonNode?> { ["name"] = "mine", ["resolution"] = "1920x1080" },
+        });
+
+        var capabilities = Capabilities(await provider.AcquireAsync(Request(), CancellationToken.None));
+
+        Assert.Equal("MicrosoftEdge", (string?)capabilities["browserName"]);
+        Assert.Equal("130", (string?)capabilities["browserVersion"]);
+        var lt = capabilities["LT:Options"]!.AsObject();
+        Assert.Equal("Windows 11", (string?)lt["platform"]);
+        Assert.Equal("nightly", (string?)lt["build"]);
+        Assert.True((bool?)lt["video"]);
+        Assert.False((bool?)lt["network"]);
+        Assert.True((bool?)lt["console"]);
+        Assert.True((bool?)lt["tunnel"]);
+        Assert.Equal("office", (string?)lt["tunnelName"]);
+        Assert.Equal("US", (string?)lt["geoLocation"]);
+        Assert.Equal("mine", (string?)lt["name"]);
+        Assert.Equal("1920x1080", (string?)lt["resolution"]);
+    }
+
+    [Fact]
+    public async Task Names_the_session_after_the_slot_or_the_attempt()
+    {
+        var provider = new TestMuBrowsers();
+
+        var slot = Capabilities(await provider.AcquireAsync(Request(slot: 1, slots: 3), CancellationToken.None));
+        var attempt = Capabilities(await provider.AcquireAsync(Request(attemptId: "a-7"), CancellationToken.None));
+
+        Assert.Equal("web slot 2 of 3", (string?)slot["LT:Options"]!["name"]);
+        Assert.Equal("web a-7", (string?)attempt["LT:Options"]!["name"]);
+    }
+
+    [Fact]
+    public async Task Reads_the_credentials_from_the_testmu_names_when_the_lt_names_are_unset()
+    {
+        var env = new Dictionary<string, string?> { ["TESTMU_USERNAME"] = "grace", ["TESTMU_ACCESS_KEY"] = "other", ["LT_USERNAME"] = "" };
+
+        var lt = Capabilities(await new TestMuBrowsers().AcquireAsync(Request(env), CancellationToken.None))["LT:Options"]!;
+
+        Assert.Equal("grace", (string?)lt["user"]);
+        Assert.Equal("other", (string?)lt["accessKey"]);
+    }
+
+    [Theory]
+    [InlineData("LT_USERNAME")]
+    [InlineData("LT_ACCESS_KEY")]
+    public async Task Fails_naming_the_variable_when_a_credential_is_missing(string missing)
+    {
+        var env = Credentials.Where(pair => pair.Key != missing).ToDictionary(pair => pair.Key, pair => pair.Value);
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => new TestMuBrowsers().AcquireAsync(Request(env), CancellationToken.None));
+
+        Assert.Contains(missing, error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret key", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Ignores_the_process_environment()
+    {
+        var previous = Environment.GetEnvironmentVariable("LT_USERNAME");
+        Environment.SetEnvironmentVariable("LT_USERNAME", "from-process");
+        try
+        {
+            var env = new Dictionary<string, string?> { ["LT_ACCESS_KEY"] = "k" };
+            await Assert.ThrowsAsync<InvalidOperationException>(() => new TestMuBrowsers().AcquireAsync(Request(env), CancellationToken.None));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("LT_USERNAME", previous);
+        }
+    }
+
+    [Fact]
+    public async Task Keeps_the_access_key_out_of_the_lease_id()
+    {
+        var lease = await new TestMuBrowsers().AcquireAsync(Request(), CancellationToken.None);
+
+        Assert.DoesNotContain("secret key", lease.Id, StringComparison.Ordinal);
+        Assert.DoesNotContain("ada", lease.Id, StringComparison.Ordinal);
+        Assert.Null(lease.ReconnectEndpoint);
+    }
+
+    [Fact]
+    public async Task Stops_before_building_an_endpoint_when_cancelled()
+    {
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => new TestMuBrowsers().AcquireAsync(Request(), cancelled.Token));
+    }
+
+    [Fact]
+    public async Task Leases_per_worker_and_has_nothing_to_sweep()
+    {
+        IBrowserProvider provider = new TestMuBrowsers();
+
+        Assert.Equal("testmu", provider.Name);
+        Assert.Equal(BrowserProviderScope.Worker, provider.Scope);
+        Assert.Empty(await provider.SweepAsync(new BrowserReleaseContext { RunId = "r", TargetName = "web", Env = Credentials, Log = _ => { } }, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Release_calls_nothing_and_can_run_twice()
+    {
+        var provider = new TestMuBrowsers();
+        var lease = await provider.AcquireAsync(Request(), CancellationToken.None);
+        var context = new BrowserReleaseContext { RunId = "run-a", TargetName = "web", Env = Credentials, Log = _ => { } };
+
+        await provider.ReleaseAsync(lease, context, CancellationToken.None);
+        await provider.ReleaseAsync(lease, context, CancellationToken.None);
+    }
+}
