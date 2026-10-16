@@ -119,13 +119,14 @@ internal static class AgentTools
         Tool("clear", "Clear a field.", Target),
     ];
 
-    /// <summary>The verdict tool every loop offers, whatever its vocabulary.</summary>
-    internal static ModelTool DoneTool { get; } = Tool("done", "End the step with a verdict. blocked requires a code naming what blocked you.", Done);
-
     private static readonly ModelTool Navigate = Tool("navigate", "Open a path or URL.", Parse("""{ "type": "object", "properties": { "url": { "type": "string" } }, "required": ["url"] }"""));
 
-    /// <summary>The act tools an engine with these capabilities can honor. Scroll and back tools need their capability.</summary>
-    public static IReadOnlyList<ModelTool> ActFor(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null)
+    /// <summary>The verdict tool every loop offers, whatever its vocabulary, with the policy that accepts or refuses a verdict.</summary>
+    internal static VerdictTool CreateVerdictTool() =>
+        new(Tool(VerdictTool.Name, "End the step with a verdict. blocked requires a code naming what blocked you.", Done));
+
+    /// <summary>The act tools an engine with these capabilities can honor, without the verdict tool. Scroll and back tools need their capability.</summary>
+    public static IReadOnlyList<ModelTool> CreateGrammarTools(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null)
     {
         var tools = new List<ModelTool> { Observe };
         tools.AddRange(Verbs);
@@ -146,13 +147,13 @@ internal static class AgentTools
             tools.AddRange(project);
         }
 
-        tools.Add(DoneTool);
         return tools;
     }
 
     /// <summary>True when <paramref name="name"/> is a tool the agent offers itself, whatever the engine.</summary>
     public static bool IsReserved(string name) =>
-        ActFor(EngineCapabilities.Scroll | EngineCapabilities.History).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
+        string.Equals(name, VerdictTool.Name, StringComparison.Ordinal) ||
+        CreateGrammarTools(EngineCapabilities.Scroll | EngineCapabilities.History).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
 
     /// <summary>The model's view of a project tool: its name, description, and input schema.</summary>
     public static ModelTool Project(string name, AgentTool tool) =>
@@ -244,6 +245,41 @@ internal static class AgentTools
     {
         using var document = JsonDocument.Parse(json);
         return document.RootElement.Clone();
+    }
+}
+
+/// <summary>The conclusion tool: its definition, and the policy that accepts or refuses the verdict a call carries.</summary>
+internal sealed class VerdictTool(ModelTool tool)
+{
+    /// <summary>The name the model calls to end a step.</summary>
+    public const string Name = "done";
+
+    /// <summary>The <c>done</c> tool; offer it beside the grammar tools.</summary>
+    public ModelTool Tool { get; } = tool;
+
+    // The model picks only from a closed set of codes, and the runtime assigns the rest.
+    public ToolOutcome Execute(ModelToolCall call)
+    {
+        var status = Args.String(call.Arguments, "status");
+        if (status is not ("passed" or "failed" or "blocked"))
+        {
+            return ToolOutcome.Fail("done status must be passed, failed, or blocked.");
+        }
+
+        var code = Args.String(call.Arguments, "code");
+        if (string.Equals(status, "passed", StringComparison.Ordinal) || !AgentTools.ModelErrorCodes.Contains(code))
+        {
+            code = null;
+        }
+
+        if (string.Equals(status, "blocked", StringComparison.Ordinal) && !AgentTools.BlockableCodes.Contains(code))
+        {
+            return ToolOutcome.Fail(
+                "a blocked verdict requires a code naming what blocked you (one of " + string.Join(", ", AgentTools.BlockableCodes) + "). " +
+                "If the application itself misbehaved, use status failed instead.");
+        }
+
+        return ToolOutcome.Finish(status, Args.String(call.Arguments, "summary"), code);
     }
 }
 
