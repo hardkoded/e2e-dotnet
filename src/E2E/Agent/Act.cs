@@ -479,12 +479,11 @@ public sealed partial class Agent
         }
 
         pending.RecordedActions = entry.Actions.Count;
-        // A recording that opens with navigate sets up its own start screen.
-        var opensWithNavigate = string.Equals(entry.Actions[0].Kind, "navigate", StringComparison.Ordinal);
-        if (!opensWithNavigate && !CacheRoute.Same(Recorded(entry.Route, parameters), start.Route))
+        var decision = Decide.DecideTraceReplay(entry, start.Route, parameters);
+        if (decision.Action == "miss")
         {
             _scope.Missed++;
-            return ReplayAttempt.Miss("wrong-context");
+            return ReplayAttempt.Miss(decision.Reason!);
         }
 
         pending.ConsumedReplay = true;
