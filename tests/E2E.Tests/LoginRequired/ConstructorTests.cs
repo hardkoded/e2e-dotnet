@@ -17,7 +17,7 @@ namespace E2E.Tests.LoginRequired;
 public sealed class ConstructorTests
 {
     /// <summary>
-    /// Partial: the test builds the HTTP client the model constructors <c>Subscriptions.ChatGpt</c>, <c>Grok</c>, and
+    /// Partial: upstream "fails with LOGIN_REQUIRED naming the login command when the token endpoint rejects the refresh" builds the model through the real constructor. The test builds the HTTP client the model constructors <c>Subscriptions.ChatGpt</c>, <c>Grok</c>, and
     /// <c>OpenCodeConsole</c> build, over a provider that points at the fake endpoint, because those constructors take no
     /// endpoint. The login command is the port's <c>e2e login</c>, where upstream names <c>npx e2e login</c>.
     /// </summary>
@@ -25,7 +25,7 @@ public sealed class ConstructorTests
     [InlineData("openai", "/oauth/token", "ChatGPT token request failed (401: invalid_grant); run `e2e login openai`")]
     [InlineData("spacexai", "/oauth2/token", "SpaceXAI token request failed (401: invalid_grant); run `e2e login spacexai`")]
     [InlineData("opencode-console", "/console/auth/device/token", "OpenCode Console token request failed (401: invalid_grant); run `e2e login opencode-console` or set OPENCODE_API_KEY")]
-    public async Task Fails_with_LOGIN_REQUIRED_naming_the_login_command_when_the_token_endpoint_rejects_the_refresh(string id, string tokenPath, string message)
+    public async Task Rejected_refresh_from_a_fake_token_endpoint_fails_with_LOGIN_REQUIRED_naming_the_login_command(string id, string tokenPath, string message)
     {
         var issuer = new FakeApi(request => (request.Uri.AbsolutePath == tokenPath ? HttpStatusCode.Unauthorized : HttpStatusCode.InternalServerError, """{ "error": "invalid_grant" }"""));
         IOAuthProvider provider = id switch

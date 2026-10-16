@@ -20,9 +20,9 @@ namespace E2E.Tests.AgentObservation;
 /// </summary>
 public sealed class PrepareObservationTests
 {
-    /// <summary>The port renders the screen in its own format and marker, and counts no bytes or nodes beside the text.</summary>
+    /// <summary>Partial: upstream "carries an engine-reported cut through as truncated" checks its own marker and format. The port renders the screen in its own format and marker, and counts no bytes or nodes beside the text.</summary>
     [Fact]
-    public void Carries_an_engine_reported_cut_through_as_truncated_with_its_own_marker()
+    public void Marks_an_engine_reported_cut_as_truncated_with_the_ports_marker()
     {
         var tree = new SemanticNode { Ref = "n1", Role = "document", Children = [new SemanticNode { Ref = "n2", Role = "button", Name = "One" }] };
         var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree], Truncated = true }, Redactor.None);

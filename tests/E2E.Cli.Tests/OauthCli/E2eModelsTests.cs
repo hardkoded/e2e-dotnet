@@ -37,9 +37,9 @@ public sealed class E2eModelsTests : IDisposable
         Environment.SetEnvironmentVariable("OPENCODE_API_KEY", _apiKey);
     }
 
-    /// <summary>Partial: the command raises the missing-login error and <c>Main</c> prints it as one line and exits 1, so the test reads the raised error.</summary>
+    /// <summary>Partial: upstream "lists models only for stored logins and says how to sign in when there is none" reads the printed line and the exit code. The command raises the missing-login error and <c>Main</c> prints it as one line and exits 1, so the test reads the raised error.</summary>
     [Fact]
-    public async Task Lists_models_only_for_stored_logins_and_says_how_to_sign_in_when_there_is_none()
+    public async Task Raises_the_missing_login_error_naming_how_to_sign_in_when_there_is_none()
     {
         var none = await Assert.ThrowsAsync<OAuthException>(() => RunAsync("models"));
         Assert.Equal("no login is stored; sign in with e2e login <openai|github-copilot|opencode-console|spacexai>, or set OPENCODE_API_KEY", none.Message);
