@@ -339,6 +339,10 @@ public sealed class E2ESession : IAsyncDisposable
         {
             // The attempt was released already.
         }
+        catch (AggregateException)
+        {
+            // An executor's own release callback failed. That is its failure to report, and it must not hide the attempt's result.
+        }
     }
 
     // The session's own agent settings are the default agent. Agents names the others.

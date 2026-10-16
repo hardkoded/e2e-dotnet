@@ -97,11 +97,14 @@ public sealed partial class Agent
         using var clock = new CancellationTokenSource(timeout);
         using var expiry = clock.Token.Register(() => budget.Fatalize(budget.TimedOut()));
         var token = stop.Token;
-        _feed = new ObservationFeed(_scope.Session, TimeProvider.System) { Scope = _scope };
-        budget.Attach(_scope, timeout, outer.Token, stop, _scope.Redactor.Redact, action => _feed.ArmAfter(action));
+        var feed = new ObservationFeed(_scope.Session, TimeProvider.System) { Scope = _scope };
+        _feed = feed;
+        var stepIndex = _scope.NextStepIndex();
+        budget.Attach(_scope, timeout, outer.Token, stop, _scope.Redactor.Redact, feed.ArmAfter);
         _scope.Remember(spec.Params);
         var declared = spec.Params?.Values.OfType<Secret>().ToList() ?? [];
-        var dispatcher = new ActionDispatcher(_scope, _feed, budget, spec.Params, () => declared);
+        var dispatcher = new ActionDispatcher(_scope, feed, budget, spec.Params, () => declared);
+        ActContext? context = null;
         try
         {
             // An act is cacheable unless its executor opted out. An assert must not change the app, so its recording would be empty.
@@ -186,11 +189,14 @@ public sealed partial class Agent
                 info = ReplayAttempt.Miss("retry").Info;
             }
 
-            var context = new ActContext(_scope, _feed, budget, dispatcher, spec, agent, start, handoff ? PrefixOf(actions, pending!, info!.Reason, uncertain) : null);
+            // The screen the step began on is stale once a replay acted, so the executor takes a fresh look.
+            context = new ActContext(_scope, feed, budget, dispatcher, spec, agent, stepIndex, declared, handoff && actions.Count > 0 ? null : start, handoff ? PrefixOf(actions, pending!, info!.Reason, uncertain) : null);
             StepVerdict verdict;
             try
             {
                 verdict = await RunExecutorAsync(executor, context, budget, stop, outer.Token).ConfigureAwait(false);
+                // A verdict that comes after the caller's cancel is not trusted over it.
+                outer.Token.ThrowIfCancellationRequested();
             }
             catch (Exception ex) when (ex is not OperationCanceledException || budget.HardStop is not null)
             {
@@ -244,9 +250,15 @@ public sealed partial class Agent
 
             return new ActResult { Summary = summary, Cache = info, ModelCalls = budget.ModelCalls, Actions = budget.Used };
         }
+        catch (Exception ex) when (budget.HardStop is { } hardStop && (ex is OperationCanceledException || (ex is EngineException { Code: EngineErrorCodes.Cancelled })))
+        {
+            // The clock or a cancel ended the step while it looked at the screen or replayed a recording.
+            throw hardStop;
+        }
         finally
         {
             budget.Close();
+            context?.WriteTranscript();
         }
     }
 

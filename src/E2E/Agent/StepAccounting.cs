@@ -55,7 +55,8 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
     {
         _scope = scope;
         _timeout = timeout;
-        _deadline = DateTimeOffset.UtcNow + timeout;
+        // A step with no timeout has no deadline.
+        _deadline = timeout > TimeSpan.Zero && timeout != Timeout.InfiniteTimeSpan ? DateTimeOffset.UtcNow + timeout : null;
         _cancellation = cancellation;
         _stop = stop;
         _redact = redact;

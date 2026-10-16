@@ -38,7 +38,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         // observe looks and records nothing, so it takes no action slot.
         if (string.Equals(call.Name, "observe", StringComparison.Ordinal))
         {
-            return ToolOutcome.Ok(await DescribeAsync("observed", null, token).ConfigureAwait(false));
+            return ToolOutcome.Ok(await DescribeAsync("observed", token).ConfigureAwait(false));
         }
 
         if (projectTools is not null && projectTools.TryGetValue(call.Name, out var projectTool))
@@ -98,7 +98,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
                 return ToolOutcome.Fail(ex);
             }
 
-            return await DescribeOutcomeAsync("navigated to " + Routes.PathOf(url), null, token).ConfigureAwait(false);
+            return await DescribeOutcomeAsync("navigated to " + Routes.PathOf(url), token).ConfigureAwait(false);
         }
 
         if (string.Equals(call.Name, "press", StringComparison.Ordinal) && !HasTarget(call.Arguments))
@@ -113,7 +113,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
                 return ToolOutcome.Fail(ex);
             }
 
-            return await DescribeOutcomeAsync("pressed " + key, null, token).ConfigureAwait(false);
+            return await DescribeOutcomeAsync("pressed " + key, token).ConfigureAwait(false);
         }
 
         SemanticNode node;
@@ -133,33 +133,33 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
             {
                 case "tap":
                     await actions.TapAsync(target, token).ConfigureAwait(false);
-                    return ToolOutcome.Ok(await DescribeAsync("tapped " + Label(node), null, token).ConfigureAwait(false));
+                    return ToolOutcome.Ok(await DescribeAsync("tapped " + Label(node), token).ConfigureAwait(false));
                 case "double_tap":
                     await actions.DoubleTapAsync(target, token).ConfigureAwait(false);
-                    return ToolOutcome.Ok(await DescribeAsync("double-tapped " + Label(node), null, token).ConfigureAwait(false));
+                    return ToolOutcome.Ok(await DescribeAsync("double-tapped " + Label(node), token).ConfigureAwait(false));
                 case "fill":
                     var value = Args.String(call.Arguments, "value") ?? "";
                     await actions.TypeAsync(target, value, token).ConfigureAwait(false);
-                    return ToolOutcome.Ok(await DescribeAsync("filled " + Label(node), null, token).ConfigureAwait(false));
+                    return ToolOutcome.Ok(await DescribeAsync("filled " + Label(node), token).ConfigureAwait(false));
                 case "fill_secret":
                     return await FillSecretAsync(target, call.Arguments, actions, token).ConfigureAwait(false);
                 case "press":
                     var key = Args.String(call.Arguments, "key") ?? "Enter";
                     await actions.PressAsync(target, key, token).ConfigureAwait(false);
-                    return ToolOutcome.Ok(await DescribeAsync("pressed " + key + " on " + Label(node), null, token).ConfigureAwait(false));
+                    return ToolOutcome.Ok(await DescribeAsync("pressed " + key + " on " + Label(node), token).ConfigureAwait(false));
                 case "select":
                     var selected = Args.String(call.Arguments, "value") ?? "";
                     await actions.SelectAsync(target, selected, token).ConfigureAwait(false);
-                    return ToolOutcome.Ok(await DescribeAsync("selected " + selected, null, token).ConfigureAwait(false));
+                    return ToolOutcome.Ok(await DescribeAsync("selected " + selected, token).ConfigureAwait(false));
                 case "check":
                     await actions.CheckAsync(target, true, token).ConfigureAwait(false);
-                    return ToolOutcome.Ok(await DescribeAsync("checked " + Label(node), null, token).ConfigureAwait(false));
+                    return ToolOutcome.Ok(await DescribeAsync("checked " + Label(node), token).ConfigureAwait(false));
                 case "uncheck":
                     await actions.CheckAsync(target, false, token).ConfigureAwait(false);
-                    return ToolOutcome.Ok(await DescribeAsync("unchecked " + Label(node), null, token).ConfigureAwait(false));
+                    return ToolOutcome.Ok(await DescribeAsync("unchecked " + Label(node), token).ConfigureAwait(false));
                 case "clear":
                     await actions.ClearAsync(target, token).ConfigureAwait(false);
-                    return ToolOutcome.Ok(await DescribeAsync("cleared " + Label(node), null, token).ConfigureAwait(false));
+                    return ToolOutcome.Ok(await DescribeAsync("cleared " + Label(node), token).ConfigureAwait(false));
                 default:
                     return ToolOutcome.Fail("Unknown tool " + call.Name + ".");
             }
@@ -205,7 +205,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         }
 
         output = output.Length > OverflowShrink.TextClipChars ? output[..OverflowShrink.TextClipChars] + "\n[output cut]" : output;
-        return tool.Mutates ? await DescribeOutcomeAsync(output, null, token).ConfigureAwait(false) : ToolOutcome.Ok(output);
+        return tool.Mutates ? await DescribeOutcomeAsync(output, token).ConfigureAwait(false) : ToolOutcome.Ok(output);
     }
 
     private async Task<ToolOutcome> BackAsync(IExecutorActions actions, CancellationToken token)
@@ -219,7 +219,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
             return ToolOutcome.Fail(ex);
         }
 
-        return await DescribeOutcomeAsync("navigated back", null, token).ConfigureAwait(false);
+        return await DescribeOutcomeAsync("navigated back", token).ConfigureAwait(false);
     }
 
     private async Task<ToolOutcome> ScrollAsync(JsonElement arguments, IExecutorActions actions, CancellationToken token)
@@ -246,7 +246,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
                 done += " " + times.ToString(CultureInfo.InvariantCulture) + " screens";
             }
 
-            return ToolOutcome.Ok(await DescribeAsync(done, null, token).ConfigureAwait(false));
+            return ToolOutcome.Ok(await DescribeAsync(done, token).ConfigureAwait(false));
         }
         catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
         {
@@ -275,7 +275,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
 
                 var list = HasTarget(arguments) ? new ExecutorTarget(await ResolveAsync(arguments, token).ConfigureAwait(false)) : null;
                 await actions.ScrollUntilAsync(text, direction, list, token).ConfigureAwait(false);
-                return ToolOutcome.Ok(await DescribeAsync("scrolled " + DirectionName(direction) + " until \"" + text + "\" was in view", null, token).ConfigureAwait(false));
+                return ToolOutcome.Ok(await DescribeAsync("scrolled " + DirectionName(direction) + " until \"" + text + "\" was in view", token).ConfigureAwait(false));
             }
 
             if (!HasTarget(arguments))
@@ -285,7 +285,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
 
             var node = await ResolveAsync(arguments, token).ConfigureAwait(false);
             await actions.ScrollToAsync(new ExecutorTarget(node), token).ConfigureAwait(false);
-            return ToolOutcome.Ok(await DescribeAsync("scrolled " + Label(node) + " into view", null, token).ConfigureAwait(false));
+            return ToolOutcome.Ok(await DescribeAsync("scrolled " + Label(node) + " into view", token).ConfigureAwait(false));
         }
         catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
         {
@@ -297,7 +297,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
     {
         var name = Args.String(arguments, "secret") ?? "";
         await actions.TypeSecretAsync(target, name, token).ConfigureAwait(false);
-        return ToolOutcome.Ok(await DescribeAsync("filled secret <secret:" + name + "> into " + Label(target.Node!), null, token).ConfigureAwait(false));
+        return ToolOutcome.Ok(await DescribeAsync("filled secret <secret:" + name + "> into " + Label(target.Node!), token).ConfigureAwait(false));
     }
 
     private async Task<SemanticNode> ResolveAsync(JsonElement arguments, CancellationToken token)
@@ -326,11 +326,11 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
     }
 
     // An action that ran but whose look failed is a failed tool for the model, as in the targeted paths, not the end of the act.
-    private async Task<ToolOutcome> DescribeOutcomeAsync(string action, RecordedAction? committed, CancellationToken token)
+    private async Task<ToolOutcome> DescribeOutcomeAsync(string action, CancellationToken token)
     {
         try
         {
-            return ToolOutcome.Ok(await DescribeAsync(action, committed, token).ConfigureAwait(false));
+            return ToolOutcome.Ok(await DescribeAsync(action, token).ConfigureAwait(false));
         }
         catch (E2EException ex) when (!token.IsCancellationRequested && !StepExecutors.IsRuntimeHardStop(ex))
         {
@@ -338,15 +338,10 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         }
     }
 
-    // The screen after a committed action, as the model reads it: the action's change wait armed, then a held-still look.
-    // An action the dispatcher ran armed its own wait already; a project tool's gap arms here.
-    private async Task<string> DescribeAsync(string action, RecordedAction? committed, CancellationToken token)
+    // The screen after an action, as the model reads it: a held-still look. An action the dispatcher ran armed its own change wait already,
+    // and so did a project tool's gap.
+    private async Task<string> DescribeAsync(string action, CancellationToken token)
     {
-        if (committed is not null)
-        {
-            _feed.ArmAfter(committed);
-        }
-
         var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
         return action + "\n" + SnapshotText.Render(observation, _scope.Redactor, _scope.AppOrigin);
     }

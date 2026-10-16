@@ -45,16 +45,15 @@ internal sealed partial class ActContext : StepExecutorContext
     private string? _transcript;
 
     [SetsRequiredMembers]
-    public ActContext(AttemptScope scope, ObservationFeed feed, StepAccounting budget, ActionDispatcher dispatcher, StepSpec spec, ResolvedAgent agent, Observation? start, ReplayedPrefix? prefix)
+    public ActContext(AttemptScope scope, ObservationFeed feed, StepAccounting budget, ActionDispatcher dispatcher, StepSpec spec, ResolvedAgent agent, int stepIndex, IReadOnlyList<Secret> declared, Observation? start, ReplayedPrefix? prefix)
     {
         _scope = scope;
         _feed = feed;
         _budget = budget;
-        var declared = spec.Params?.Values.OfType<Secret>().ToList() ?? [];
         Step = new ExecutorStep
         {
             Kind = spec.Kind,
-            Index = scope.NextStepIndex(),
+            Index = stepIndex,
             Instruction = scope.Redactor.Redact(spec.Instruction),
             Params = ProjectParams(spec.Params, scope.Redactor),
             Secrets = declared.Select(secret => new ExecutorSecret(secret.Name, secret.Purpose)).ToList(),
