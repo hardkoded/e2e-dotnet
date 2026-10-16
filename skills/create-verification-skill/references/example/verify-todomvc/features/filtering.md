@@ -15,9 +15,9 @@ list has a todo. No account.
 
 ## Driving it with e2e
 
-`FilteringTodosTests` pins it. Locators: `Todo("<title>")` for a row,
-`Todo("<title>")` with `ToBeHiddenAsync` for a filtered-out row, and
-`Browser.UrlAsync()` polled for the hash. The footer filters are list items
+`FilteringTodosTests` pins it. Locator: `Todo("<title>")` for a row, which
+`ToBeVisibleAsync` and `ToBeHiddenAsync` check. The hash is
+`Browser.UrlAsync()`, polled. The footer filters are list items
 too, so find rows by the `todo-item` test id, never by `listitem`. Live:
 click the footer link, `observe`, and read the URL.
 

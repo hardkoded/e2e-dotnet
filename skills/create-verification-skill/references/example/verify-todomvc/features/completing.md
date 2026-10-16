@@ -39,6 +39,6 @@ complete-toggle-all|todomvc|Starting at /todomvc with three todos, use toggle-al
 
 - `Clear completed` is hidden while no todo is complete. Its absence on a
   fresh list is not a bug.
-- The strike-through on a completed title is style. The model judges the
-  accessibility tree, so check it with a locator on the style, not a
-  judgment.
+- The strike-through on a completed title is style. Locators cannot read
+  style and the model judges the accessibility tree, so pin it with
+  `ToHaveScreenshotAsync` or leave it unchecked.
