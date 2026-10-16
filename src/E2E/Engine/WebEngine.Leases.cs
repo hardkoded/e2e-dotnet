@@ -192,25 +192,26 @@ public sealed partial class WebEngine : IAsyncDisposable
                 return;
             }
 
-            using var budget = new CancellationTokenSource(E2EDefaults.CleanupTimeout);
             if (_attached)
             {
                 leases.ConnectionEnded(connected);
             }
 
             Exception? failure = null;
-            var steps = new List<Func<Task>> { () => leases.EndAttemptAsync(budget.Token) };
+            var steps = new List<Func<CancellationToken, Task>> { leases.EndAttemptAsync };
             if (standalone is not null)
             {
-                steps.Add(() => leases.DisposeAsync(budget.Token));
-                steps.Add(() => leases.FinishAsync(standalone, budget.Token));
+                steps.Add(leases.DisposeAsync);
+                steps.Add(token => leases.FinishAsync(standalone, token));
             }
 
             foreach (var step in steps)
             {
+                // Each step has the cleanup budget to itself: a slow release must not cancel the ones after it.
+                using var budget = new CancellationTokenSource(E2EDefaults.CleanupTimeout);
                 try
                 {
-                    await step().ConfigureAwait(false);
+                    await step(budget.Token).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {

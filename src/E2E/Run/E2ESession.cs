@@ -112,7 +112,7 @@ public sealed class E2ESession : IAsyncDisposable
                 },
                 launch.Token).ConfigureAwait(false);
         }
-        catch (OperationCanceledException ex) when (launch.IsCancellationRequested && !timeout.IsCancellationRequested)
+        catch (Exception ex) when ((ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled }) && launch.IsCancellationRequested && !timeout.IsCancellationRequested)
         {
             timeout.Dispose();
             throw new EngineException(

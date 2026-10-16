@@ -91,7 +91,7 @@ public class BrowserLease
 }
 ```
 
-`AcquireAsync` receives the run id, target, worker slot and slot count, the attempt id for a per-attempt lease, the run's environment, and a `Log` that reaches the reporter. Read tokens from `request.Env`, not from the process environment. A lease is data: only `Id`, `CdpEndpoint`, and `ReconnectEndpoint` travel to a worker, and `ReleaseAsync` gets back the object `AcquireAsync` returned, so a provider can derive from `BrowserLease` and keep its own fields on it. Every lease is released exactly once, by the side that acquired it.
+`AcquireAsync` receives the run id, target, worker slot and slot count, the attempt id for a per-attempt lease, the run's environment, and a `Log` that reaches the reporter (an engine started without a runner has no reporter and drops those lines). Read tokens from `request.Env`, not from the process environment. A lease is data: only `Id`, `CdpEndpoint`, and `ReconnectEndpoint` travel to a worker, and `ReleaseAsync` gets back the object `AcquireAsync` returned, so a provider can derive from `BrowserLease` and keep its own fields on it. Every lease is released exactly once, by the side that acquired it.
 
 `BrowserProviderScope.Worker`, the default, leases one browser per worker slot when the run starts, all slots at once, and each worker attaches to its own for every attempt it runs. A runner calls `WebEngine.PrepareAsync` once per target before any worker starts, `Init` in each worker, and `FinishAsync` after the last worker ended. Every lease granted is held, so a slot that fails to lease ends the run before any test and the leases that succeeded are still released. When a worker's browser drops, the worker leases a replacement itself at its next attempt and releases it when the worker is disposed (`DisposeAsync`); the dead lease stays with the runner, which releases it in `FinishAsync`. A worker that dies cannot release what it acquired. Implement `SweepAsync` to have `FinishAsync` release those too: it runs once per target after the leases the runner holds were released, finds every lease tagged with the run id and the target at the service, releases it, and returns the ids, which are logged. A sweep that fails is logged and fails nothing.
 
@@ -130,30 +130,43 @@ public sealed class HostedBrowsers(string serviceUrl) : IBrowserProvider
         created.EnsureSuccessStatusCode();
         var id = (await created.Content.ReadFromJsonAsync<Session>(cancellationToken))!.Id;
 
-        // 2. Wait until the session exposes its DevTools endpoint.
-        while (true)
+        // 2. Wait until the session exposes its DevTools endpoint. A lease the engine never receives is never released, so stop the session on any failure.
+        try
         {
-            using var response = await Http.SendAsync(Authorized(HttpMethod.Get, $"{serviceUrl}/sessions/{id}", token), cancellationToken);
-            var session = (await response.Content.ReadFromJsonAsync<Session>(cancellationToken))!;
-            if (session.Status == "ready" && session.CdpUrl is not null)
+            while (true)
             {
-                return new BrowserLease { Id = id, CdpEndpoint = session.CdpUrl };
-            }
+                using var response = await Http.SendAsync(Authorized(HttpMethod.Get, $"{serviceUrl}/sessions/{id}", token), cancellationToken);
+                response.EnsureSuccessStatusCode();
+                var session = (await response.Content.ReadFromJsonAsync<Session>(cancellationToken))!;
+                if (session.Status == "ready" && session.CdpUrl is not null)
+                {
+                    return new BrowserLease { Id = id, CdpEndpoint = session.CdpUrl };
+                }
 
-            if (session.Status != "starting")
-            {
-                throw new InvalidOperationException($"browser service: session {id} is {session.Status}");
-            }
+                if (session.Status != "starting")
+                {
+                    throw new InvalidOperationException($"browser service: session {id} is {session.Status}");
+                }
 
-            await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+                await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+            }
+        }
+        catch
+        {
+            await StopAsync(id, token);
+            throw;
         }
     }
 
     public async Task ReleaseAsync(BrowserLease lease, BrowserReleaseContext context, CancellationToken cancellationToken)
     {
         // 3. Stop the session; the run waits for this within the cleanup timeout.
-        var token = context.Env.GetValueOrDefault("BROWSER_SERVICE_TOKEN") ?? "";
-        using var response = await Http.SendAsync(Authorized(HttpMethod.Post, $"{serviceUrl}/sessions/{lease.Id}/stop", token), cancellationToken);
+        await StopAsync(lease.Id, context.Env.GetValueOrDefault("BROWSER_SERVICE_TOKEN") ?? "", cancellationToken);
+    }
+
+    private async Task StopAsync(string id, string token, CancellationToken cancellationToken = default)
+    {
+        using var response = await Http.SendAsync(Authorized(HttpMethod.Post, $"{serviceUrl}/sessions/{id}/stop", token), cancellationToken);
     }
 
     private static HttpRequestMessage Authorized(HttpMethod method, string url, string token, HttpContent? content = null) =>
