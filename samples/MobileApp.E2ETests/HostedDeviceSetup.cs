@@ -45,11 +45,12 @@ public sealed class HostedDeviceSetup
         s_runId = Guid.NewGuid().ToString("N")[..12];
         s_target = options.TargetName;
         // The root the local path uses: the folder of e2e.config.json. The test run's current directory is the build output.
+        var projectRoot = E2EConfig.Discover().ProjectRoot;
         var engine = new MobileEngine(options);
         try
         {
             await engine.PrepareAsync(
-                new MobilePrepareInfo { RunId = s_runId, TargetName = options.TargetName, ProjectRoot = E2EConfig.Discover().ProjectRoot, Slots = 1, Env = s_env, App = options.App, Log = NUnit.Framework.TestContext.Progress.WriteLine },
+                new MobilePrepareInfo { RunId = s_runId, TargetName = options.TargetName, ProjectRoot = projectRoot, Slots = 1, Env = s_env, App = options.App, Log = NUnit.Framework.TestContext.Progress.WriteLine },
                 NUnit.Framework.TestContext.CurrentContext.CancellationToken);
         }
         catch
