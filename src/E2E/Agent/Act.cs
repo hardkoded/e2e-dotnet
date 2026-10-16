@@ -479,11 +479,10 @@ public sealed partial class Agent
         }
 
         pending.RecordedActions = entry.Actions.Count;
-        var decision = Decide.DecideTraceReplay(entry, start.Route, parameters);
-        if (decision.Action == "miss")
+        if (Decide.DecideTraceReplay(entry, start.Route, parameters) is { Reason: { } missReason })
         {
             _scope.Missed++;
-            return ReplayAttempt.Miss(decision.Reason!);
+            return ReplayAttempt.Miss(missReason);
         }
 
         pending.ConsumedReplay = true;
