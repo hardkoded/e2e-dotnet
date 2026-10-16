@@ -24,6 +24,46 @@ public sealed class CapturedDeviceSnapshotsTests
 
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
 
+    /// <summary>
+    /// The title each iOS capture's location carries. A pushed screen's bar is labelled with the back button
+    /// (<c>Benchmark Examples</c>) and identified by its own title; the tab bar and the PaymentSheet show no
+    /// navigation bar. The <c>swiftui-*</c> captures (<c>tests-capture/swiftui-bar</c> upstream) give the bar
+    /// no label, and identify an untitled screen's bar by a Swift class name.
+    /// </summary>
+    private static readonly Dictionary<string, string?> IosTitles = new()
+    {
+        ["apple-pay"] = "Apple Pay",
+        ["apple-pay-billing-address"] = "Apple Pay Billing Address",
+        ["async-states"] = "Async States",
+        ["bottom-tabs"] = null,
+        ["broken-accessibility"] = "Broken Accessibility",
+        ["choice-controls"] = "Choice Controls",
+        ["control-inventory"] = "Control Inventory",
+        ["debounced-search"] = "Debounced Search",
+        ["error-recovery"] = "Error Recovery",
+        ["flattened-login"] = "Flattened Login",
+        ["flattened-registration-form"] = "Flattened Registration Form",
+        ["gestures"] = "Gestures",
+        ["home"] = "Benchmark Examples",
+        ["huge-virtualized-list"] = "Huge Virtualized List",
+        ["infinite-scroll-list"] = "Infinite Scroll List",
+        ["login-form"] = "Login Form",
+        ["modal-flow"] = "Modal Flow",
+        ["permission-prompt"] = "Permission Prompt",
+        ["photo-picker"] = "Photo Picker",
+        ["product-catalog"] = "Product Catalog",
+        ["sequential-onboarding"] = "Sequential Onboarding",
+        ["sticky-chrome-target"] = "Sticky Chrome Target",
+        ["stripe-paymentsheet"] = null,
+        ["swiftui-compose"] = "Compose",
+        ["swiftui-inbox"] = "Inbox",
+        ["swiftui-message"] = "Message",
+        ["swiftui-untitled"] = null,
+        ["text-input-variations"] = "Text Input Variations",
+        ["vision-only"] = "Vision Only",
+        ["webview-accessibility"] = "WebView Accessibility",
+    };
+
     private static readonly bool Update = Environment.GetEnvironmentVariable("E2E_GOLDEN_UPDATE") == "1";
 
     public static TheoryData<string> Platforms => [.. PlatformNames()];
@@ -44,6 +84,8 @@ public sealed class CapturedDeviceSnapshotsTests
             return data;
         }
     }
+
+    public static TheoryData<string> IosCaptures => [.. CaptureNames("ios")];
 
     [Fact]
     public void Has_captures_for_both_platforms()
@@ -72,6 +114,15 @@ public sealed class CapturedDeviceSnapshotsTests
     }
 
     [Theory]
+    [MemberData(nameof(IosCaptures))]
+    public void Takes_its_title_from_the_navigation_bar(string capture)
+    {
+        var scenario = capture.Replace(".json", "", StringComparison.Ordinal);
+        Assert.True(IosTitles.ContainsKey(scenario), $"add {scenario} to IosTitles");
+        Assert.Equal(IosTitles[scenario], SnapshotProjection.ScreenTitle(Project(Path.Combine(Root, "ios", capture)).Projected));
+    }
+
+    [Theory]
     [MemberData(nameof(Platforms))]
     public void Keeps_no_tree_without_its_capture(string platform)
     {
@@ -90,12 +141,18 @@ public sealed class CapturedDeviceSnapshotsTests
     private static string[] CaptureNames(string platform) =>
         [.. Directory.GetFiles(Path.Combine(Root, platform), "*.json").Select(path => Path.GetFileName(path)).Order(StringComparer.Ordinal)];
 
-    /// <summary>The tree <c>observe</c> would report for a captured snapshot.</summary>
-    private static string TreeOf(string file)
+    /// <summary>A captured snapshot projected the way <c>observe</c> projects it.</summary>
+    private static (Capture Raw, ProjectedSnapshot Projected) Project(string file)
     {
         var raw = JsonSerializer.Deserialize<Capture>(File.ReadAllText(file), Json)!;
         var counter = 0;
-        var projected = SnapshotProjection.ProjectSnapshot(raw.Nodes, () => $"n{++counter}", raw.Viewport);
+        return (raw, SnapshotProjection.ProjectSnapshot(raw.Nodes, () => $"n{++counter}", raw.Viewport));
+    }
+
+    /// <summary>The tree <c>observe</c> would report for a captured snapshot.</summary>
+    private static string TreeOf(string file)
+    {
+        var (raw, projected) = Project(file);
         var root = SnapshotProjection.ScreenRoot(projected.Roots, projected.Viewport ?? new ViewportSize(0, 0));
         return $"{(raw.Truncated == true ? "# truncated\n" : "")}{string.Join('\n', Render(root, 0, []))}\n";
     }

@@ -429,10 +429,12 @@ public static partial class SnapshotProjection
     };
 
     /// <summary>
-    /// The visible screen's title: the navigation bar's (iOS) or toolbar's (Android) own label, else the
-    /// first text inside it, else its identifier (UIKit names the bar after its title). Null when the
-    /// screen has no title bar, which is the honest answer for a launch screen, a full-screen sheet, or
-    /// Android's Settings home.
+    /// The visible screen's title. On iOS, the navigation bar's identifier when a text inside the bar shows
+    /// it: UIKit and SwiftUI put the title in both, while the bar's label is the back button on a pushed
+    /// screen and an untitled screen's identifier is a class name with no such text. On Android, the
+    /// toolbar's own label, else the first text inside it. A toolbar's resource id is never a title. Null
+    /// when the screen has no title bar, which is the honest answer for a launch screen, a full-screen
+    /// sheet, or Android's Settings home.
     /// </summary>
     public static string? ScreenTitle(ProjectedSnapshot snapshot)
     {
@@ -443,19 +445,24 @@ public static partial class SnapshotProjection
             return null;
         }
 
-        if (!string.IsNullOrWhiteSpace(bar.Raw.Label))
+        // Whitespace is not a title. Trimming stays here: the name of every node is read without it.
+        static string? TextOf(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+
+        if (bar.Kind == "navigation-bar")
         {
-            return bar.Raw.Label;
+            var identifier = TextOf(bar.Raw.Identifier);
+            var shown = identifier is not null
+                && snapshot.Index.Any(entry => entry.Node.Role == "text" && entry.Raw.Label == identifier && IsWithin(entry, bar));
+            return shown ? identifier : null;
         }
 
-        var text = snapshot.Index.FirstOrDefault(entry =>
-            entry.Node.Role == "text" && !string.IsNullOrWhiteSpace(entry.Raw.Label) && IsWithin(entry, bar));
-        if (text is not null)
+        var label = TextOf(bar.Raw.Label);
+        if (label is not null)
         {
-            return text.Raw.Label;
+            return label;
         }
 
-        return string.IsNullOrWhiteSpace(bar.Raw.Identifier) ? null : bar.Raw.Identifier;
+        return snapshot.Index.FirstOrDefault(entry => entry.Node.Role == "text" && TextOf(entry.Raw.Label) is not null && IsWithin(entry, bar))?.Raw.Label;
     }
 
     /// <summary>True when <paramref name="entry"/> is a strict descendant of <paramref name="ancestor"/>.</summary>
