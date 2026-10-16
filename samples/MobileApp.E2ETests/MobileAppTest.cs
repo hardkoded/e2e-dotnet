@@ -37,14 +37,19 @@ public abstract class MobileAppTest : E2ETest
     /// <summary>
     /// A <see cref="MobileEngine"/> for the pinned app. <c>E2E_MOBILE_DEVICE</c> names a simulator or emulator.
     /// Without it, the engine drives the booted device of the platform. <c>E2E_MOBILE_APP_PATH</c> names another build.
+    /// With <c>E2E_MOBILE_PROVIDER=limrun</c>, every test drives the one hosted device that <see cref="HostedDeviceSetup"/> leased.
     /// </summary>
-    protected override IEngine CreateEngine() => _engine = new MobileEngine(new MobileOptions
+    protected override IEngine CreateEngine() => _engine = HostedDeviceSetup.Engine ?? new MobileEngine(Options(provider: null));
+
+    /// <summary>The options of the engine: the local device, or the provider's hosted device.</summary>
+    internal static MobileOptions Options(IDeviceProvider? provider) => new()
     {
         Platform = DevicePlatform,
-        Device = Environment.GetEnvironmentVariable("E2E_MOBILE_DEVICE") is { Length: > 0 } device ? device : null,
+        Device = provider is null && Environment.GetEnvironmentVariable("E2E_MOBILE_DEVICE") is { Length: > 0 } device ? device : null,
+        Provider = provider,
         TargetName = "mobileapp",
         App = new E2E.Mobile.MobileApp { BundleId = AppId, AppPath = BuildPath() },
-    });
+    };
 
     /// <summary>The agent can open another app, swipe from point to point, and answer a system alert.</summary>
     protected override IReadOnlyDictionary<string, AgentTool>? AgentTools => MobileTools.Create(_engine ?? throw new InvalidOperationException("The engine starts with the test session."));

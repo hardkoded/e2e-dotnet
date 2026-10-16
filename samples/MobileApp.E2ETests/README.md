@@ -44,10 +44,28 @@ Without `E2E_MOBILE_DEVICE`, the engine drives the booted device of the platform
 | `E2E_MOBILE_PLATFORM` | `ios` (default) or `android`. |
 | `E2E_MOBILE_DEVICE` | Simulator or emulator name or UDID. |
 | `E2E_MOBILE_APP_PATH` | A build to install in place of the default. |
+| `E2E_MOBILE_PROVIDER` | `local` (default) or `limrun`. See [Run on Limrun](#run-on-limrun). |
+| `LIMRUN_API_KEY` | The Limrun API key, for `E2E_MOBILE_PROVIDER=limrun`. |
+
+## Run on Limrun
+
+The tests can run on a hosted [Limrun](https://limrun.com) iOS simulator instead of a local one. You need a Limrun API key and a build of the app for the simulator.
+
+```bash
+dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64 -p:ValidateXcodeVersion=false
+export LIMRUN_API_KEY=...
+E2E_MOBILE_PROVIDER=limrun dotnet test samples/MobileApp.E2ETests
+```
+
+`-p:ValidateXcodeVersion=false` is only needed when the installed Xcode is newer than the one the .NET iOS pack expects. `HostedDeviceSetup` leases one Limrun device for the whole run, installs the build on it, and deletes it when the run ends. The device has a hard timeout of 15 minutes, so an interrupted run does not stay billed. `E2E_MOBILE_DEVICE` does not apply. On Android, set `E2E_MOBILE_PLATFORM=android`; the provider also needs `adb` from the Android SDK Platform-Tools on `PATH`.
+
+On a Limrun iOS device, keyboard actions such as `Locator.PressAsync("Enter")` fail with `UNSUPPORTED_CAPABILITY`. These tests tap the Greet button and do not press keys.
 
 ## How the fixture works
 
 `e2e.config.json` has no `targets`: the config only supports the web platform. `MobileAppTest` overrides `CreateEngine()` to return a `MobileEngine` with `MobileOptions` (platform, device, and the app's bundle id and build path). The settings that are not about the device, such as the agent, the model, and the cache, still come from the config.
+
+`HostedDeviceSetup` runs the engine's prepare and finish hooks, which the NUnit adapter does not, so that a hosted run leases the device once and every test shares it. The local run is unchanged: each test makes its own engine.
 
 A device target has no URL, so a test does not call `App.OpenAsync()`. The base class launches the app with `Device.OpenAppAsync(AppId, new OpenAppOptions { Relaunch = true })`. A test reaches the `Device` fixture through the engine's active session.
 
