@@ -80,9 +80,9 @@ public sealed class AttemptScopeTests
         await worker.DisposeAsync();
     }
 
-    /// <summary>Adapted: the failed start releases the lease itself, where upstream's <c>endAttempt</c> does.</summary>
+    /// <summary>Partial: the failed start releases the lease itself, where upstream's <c>endAttempt</c> does.</summary>
     [Fact]
-    public async Task Releases_the_lease_at_endAttempt_after_a_start_that_failed_to_attach()
+    public async Task Releases_the_lease_at_endAttempt_after_a_start_that_failed_to_attach_PARTIAL_the_failed_start_releases_the_lease_itself()
     {
         var cloud = new ToyCloud(BrowserProviderScope.Attempt);
         var dialer = new Dialer { Failure = new PlaywrightException("endpoint refused") };
@@ -95,9 +95,9 @@ public sealed class AttemptScopeTests
         Assert.Equal(["lease-0"], cloud.ReleasedIds);
     }
 
-    /// <summary>Adapted: there is no <c>endAttempt</c> to call, so it checks that nothing was released.</summary>
+    /// <summary>Partial: there is no <c>endAttempt</c> to call, so it checks that nothing was released.</summary>
     [Fact]
-    public async Task Fails_the_attempt_start_naming_the_provider_when_the_lease_is_refused_and_endAttempt_has_nothing_to_release()
+    public async Task Fails_the_attempt_start_naming_the_provider_when_the_lease_is_refused_and_endAttempt_has_nothing_to_release_PARTIAL_there_is_no_endAttempt_to_call_after_a_failed_start()
     {
         var cloud = new ToyCloud(BrowserProviderScope.Attempt, failSlot: 0);
         var dialer = new Dialer();
@@ -135,8 +135,9 @@ public sealed class AttemptScopeTests
         Assert.Empty(cloud.Released);
     }
 
+    /// <summary>Partial: the engine ends an attempt only by disposing its session, so the case where the attempt ended while the lease was pending drives the lease bookkeeping directly.</summary>
     [Fact]
-    public async Task Gives_back_a_lease_that_arrives_after_the_attempt_was_cancelled_or_ended_and_never_commits_it()
+    public async Task Gives_back_a_lease_that_arrives_after_the_attempt_was_cancelled_or_ended_and_never_commits_it_PARTIAL_the_ended_case_ends_the_lease_bookkeeping_not_an_attempt()
     {
         // Cancelled: the engine's start gets a lease from a provider that ignored the abort.
         {
@@ -211,10 +212,11 @@ public sealed class AttemptScopeTests
         Assert.Single(cloud.Released);
     }
 
+    /// <summary>Partial: upstream probes with the internal <c>guard</c>; the port reconnects inside the next operation, here <c>OpenAsync</c>.</summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task Reattaches_through_the_leases_reconnectEndpoint_after_the_transport_drops_and_through_cdpEndpoint_without_one(bool reconnect)
+    public async Task Reattaches_through_the_leases_reconnectEndpoint_after_the_transport_drops_and_through_cdpEndpoint_without_one_PARTIAL_the_probe_is_an_OpenAsync(bool reconnect)
     {
         // One browser identity: recovery must land on the same persistent context.
         var dialer = new Dialer(_ => FakeBrowser.Persistent("same-browser"));
