@@ -3,293 +3,224 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
-using static E2E.Tests.StepCache.StepTraceSessionTests;
+using static E2E.Tests.TraceReplay.TestHost;
 
 namespace E2E.Tests.TraceReplay;
 
 /// <summary>
-/// <c>replayTrace</c>: how far each look of a replay settles. Upstream drives <c>replayTrace</c> with a fake host; the
-/// port replays inside an act, so each test records a flow on a document page, replays it, and reads the act's looks.
-/// They open with the act's held-still start capture, which serves the first action, and close with the end check's
-/// raw look. The port's replay has no gaps, drags, bare points, or lost-list
-/// fallback, and always looks before a free action until it reaches the recorded end route, so those <c>it</c>s are not ported.
-/// Not ported either: "relocates by semantic identity when a recorded test id churned" (the port finds a test id exactly),
-/// and "hands off with action-failed when the look before the second action throws" (the port's look before an action is
-/// outside the replay's catch).
+/// <c>describe('replayTrace')</c> of <c>trace-replay.test.ts</c>, against <c>Replay.ReplayTrace</c> and a <see cref="TestHost"/>.
+/// The port's recording has no drag, bare point (<c>tapAt</c>, <c>hoverAt</c>), <c>hover</c>, <c>longPress</c>,
+/// <c>secondaryTap</c>, <c>upload</c>, <c>typeText</c>, recorded position, or <c>derived</c> reason, and its relocation finds a
+/// test id exactly, so these <c>it</c>s are not ported: "names the rule behind a run-time value gap, so the report can cite
+/// it", "re-finds both ends of a drag on one screen before dragging", "hands a drag off when either end cannot be re-found,
+/// never dragging half of it", "replays a bare-point hover through hoverAt, on the recorded viewport only", "keeps looking
+/// while a positioned target is ambiguous, since a form still rendering shows fewer twins", and "relocates by semantic
+/// identity when a recorded test id churned". The port records no <c>derived</c>, so "ends the prefix at a gap without
+/// executing it" has nothing to check there.
 /// </summary>
 public sealed class ReplayTraceTests
 {
+    internal static RecordedAction Scroll(string? role, string? name, string direction, int? times) =>
+        new() { Kind = "scroll", Role = role, Name = name, Direction = direction, Times = times };
+
     [Fact]
-    public async Task Reads_the_start_capture_for_the_first_look_instead_of_observing_the_same_screen_again()
+    public async Task Replays_a_full_trace_and_reports_completion()
     {
-        var looks = await RecordThenReplayAsync(TapWorld, ModelResponses.Tap("button", "Upgrade"));
-        Assert.Equal([SettleMode.HeldStill, SettleMode.Raw], looks);
+        var host = MakeHost();
+
+        var outcome = await Replay.ReplayTrace(
+            host,
+            [new RecordedAction { Kind = "navigate", Url = "/" }, TapUpgrade, TypeEmail, Scroll(null, null, "down", null)]);
+
+        Assert.True(outcome.Completed);
+        Assert.Equal((4, 4), (outcome.Executed, outcome.Total));
+        Assert.Equal(["navigate", "tap", "type", "scroll"], host.Calls);
+        Assert.Equal(4, outcome.Summaries.Count);
     }
 
     [Fact]
-    public async Task Settles_each_look_as_far_as_the_previous_actions_policy_asks_held_still_after_a_tap_after_the_change_after_a_fill()
+    public async Task Reads_the_start_capture_for_the_first_look_instead_of_observing_the_same_screen_again()
     {
-        var tap = ModelResponses.Tap("button", "Upgrade");
-        var looks = await RecordThenReplayAsync(
-            TapWorld,
-            tap,
-            ModelResponses.Fill("textbox", "Email", "a@b.c"),
-            tap,
-            ModelResponses.Call("fill_secret", new { role = "textbox", name = "Password", secret = "password" }),
-            tap,
-            ModelResponses.Call("select", new { role = "combobox", name = "Plan", value = "Pro" }),
-            tap);
+        var host = MakeHost();
 
-        // The start holds still and serves the first tap; so does the look after each tap or select. The look
-        // after a typed fill waits for its value only. A secret fill is masked out of the tree, so the look after
-        // it holds still: there is no change to wait for.
+        var outcome = await Replay.ReplayTrace(host, [TapUpgrade], new ReplayOptions { Initial = Screen([Upgrade, Email]) });
+
+        Assert.True(outcome.Completed);
+        Assert.Equal(1, outcome.Executed);
+        Assert.Equal(["tap"], host.Calls);
+        Assert.Equal(0, host.Observations);
+    }
+
+    /// <summary>Partial: the port has no <c>typeText</c>, so the look after it is not checked.</summary>
+    [Fact]
+    public async Task Partial_settles_each_look_as_far_as_the_previous_actions_policy_asks_held_still_after_a_tap_after_the_change_after_a_fill()
+    {
+        var host = MakeHost();
+        var secret = new RecordedAction { Kind = "fill", Role = "textbox", Name = "Email", Value = "<secret:password>" };
+        var select = new RecordedAction { Kind = "select", Role = "textbox", Name = "Email", Value = "Pro" };
+
+        var outcome = await Replay.ReplayTrace(host, [TapUpgrade, TypeEmail, TapUpgrade, secret, TapUpgrade, select, TapUpgrade]);
+
+        Assert.True(outcome.Completed);
+        Assert.Equal(7, outcome.Executed);
+        Assert.Equal(["tap", "type", "tap", "typeSecret", "tap", "select", "tap"], host.Calls);
+        // The first look holds still; so does the look after each tap or select. The look after a typed fill waits for its
+        // value only. A secret fill is masked out of the tree, so the look after it holds still: there is no change to wait for.
         Assert.Equal(
-            [
-                SettleMode.HeldStill,
-                SettleMode.HeldStill,
-                SettleMode.AfterChange,
-                SettleMode.HeldStill,
-                SettleMode.HeldStill,
-                SettleMode.HeldStill,
-                SettleMode.HeldStill,
-                SettleMode.Raw,
-            ],
-            looks);
+            [SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.AfterChange, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill],
+            host.Looks);
     }
 
     [Fact]
     public async Task Takes_one_look_per_repeat_of_a_folded_scroll_on_a_list()
     {
-        var looks = await RecordThenReplayAsync(ScrollWorld, ModelResponses.Call("scroll", new { role = "group", name = "Rows 1 to 12", direction = "down", times = 3 }));
-        Assert.Equal([SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.Raw], looks);
+        var list = new SemanticNode { Ref = "g1", Role = "group", Name = "Rows 1 to 12" };
+        var host = MakeHost([list, Email]);
+
+        var outcome = await Replay.ReplayTrace(host, [Scroll("group", "Rows 1 to 12", "down", 3)]);
+
+        Assert.True(outcome.Completed);
+        Assert.Equal(1, outcome.Executed);
+        Assert.Equal(["scroll", "scroll", "scroll"], host.Calls);
+        Assert.Equal(3, host.Observations);
+        Assert.Equal([SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill], host.Looks);
     }
 
     [Fact]
-    public async Task Repeats_a_folded_viewport_scroll_as_many_times_as_recorded_with_a_settled_look_between_repeats()
+    public async Task Ends_the_prefix_at_a_gap_without_executing_it()
     {
-        var looks = await RecordThenReplayAsync(ScrollWorld, ModelResponses.Call("scroll", new { direction = "down", times = 4 }));
+        var host = MakeHost();
 
-        // Nothing to relocate, so the first repeat takes no look; each later one holds still first.
-        Assert.Equal([SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.Raw], looks);
+        var outcome = await Replay.ReplayTrace(host, [TapUpgrade, new RecordedAction { Kind = "tool" }, TapUpgrade]);
+
+        Assert.False(outcome.Completed);
+        Assert.Equal(1, outcome.Executed);
+        Assert.Equal(ReplayHandOffReason.Gap, outcome.StopReason);
+        Assert.Equal(["tap"], host.Calls);
     }
 
-    private static readonly ModelResponse[] NavigateThenUpgrade = [ModelResponses.Call("navigate", new { url = "/plan" }), ModelResponses.Tap("button", "Upgrade")];
-
-    private static Task<Step> ReplayStepAsync(DocumentWorld world, string directory, Func<TestContext, Task>? check, params ModelResponse[] steps)
+    [Fact]
+    public async Task Hands_off_with_action_failed_when_the_look_before_the_second_action_throws_leaving_the_first_action_done()
     {
-        var next = 0;
-        var model = new ScriptedModel(_ => next < steps.Length ? steps[next++] : ModelResponses.Done("passed", "Done."));
-        return StepAsync(world, new FileStepCache(directory), "/home", check, model);
+        var host = MakeHost();
+        host.Capture = () => throw new EngineException("ACTION_FAILED", "the surface went away");
+
+        var outcome = await Replay.ReplayTrace(host, [TapUpgrade, TypeEmail], new ReplayOptions { Initial = Screen([Upgrade, Email]) });
+
+        Assert.False(outcome.Completed);
+        Assert.Equal(1, outcome.Executed);
+        Assert.Equal(ReplayHandOffReason.ActionFailed, outcome.StopReason);
+        Assert.Equal(["tap button \"Upgrade\""], outcome.Summaries);
+        Assert.Equal(["tap"], host.Calls);
+        // The first look was the start capture; the failed one was the fill's.
+        Assert.Equal([SettleMode.HeldStill], host.Looks);
     }
 
-    private static async Task<string> RecordAsync(Func<DocumentWorld> world, params ModelResponse[] steps)
+    /// <summary>Partial: the port has no <c>hover</c>, <c>longPress</c>, <c>secondaryTap</c>, or <c>upload</c>.</summary>
+    [Fact]
+    public async Task Partial_replays_every_node_verb_through_its_own_grammar_call_with_the_recorded_state_and_files()
     {
-        var directory = CoreTests.TempCache();
-        var recorded = await ReplayStepAsync(world(), directory, ctx => Expect.That(ctx.Screen.GetByRole("status")).ToBeVisibleAsync(), steps);
-        Assert.Null(recorded.Error);
-        Assert.Equal("missed", recorded.Cache?.Mode);
-        return directory;
+        var details = new List<object?>();
+        var host = MakeHost(onAction: (_, detail) => details.Add(detail));
+
+        var outcome = await Replay.ReplayTrace(
+            host,
+            [
+                new RecordedAction { Kind = "doubleTap", Role = "button", Name = "Upgrade" },
+                new RecordedAction { Kind = "scrollTo", Role = "button", Name = "Upgrade" },
+                new RecordedAction { Kind = "uncheck", Role = "button", Name = "Upgrade" },
+                new RecordedAction { Kind = "back" },
+            ]);
+
+        Assert.True(outcome.Completed);
+        Assert.Equal((4, 4), (outcome.Executed, outcome.Total));
+        Assert.Equal(["doubleTap", "scrollTo", "check", "back"], host.Calls);
+        Assert.Equal(("n1", false), details[2]);
+    }
+
+    [Fact]
+    public async Task Diverges_with_target_not_found_when_relocation_never_matches()
+    {
+        var host = MakeHost([Email]);
+
+        var outcome = await Replay.ReplayTrace(host, [TapUpgrade]);
+
+        Assert.False(outcome.Completed);
+        Assert.Equal(0, outcome.Executed);
+        Assert.Equal(ReplayHandOffReason.TargetNotFound, outcome.StopReason);
     }
 
     [Fact]
     public async Task Still_diverges_at_once_on_ambiguity_for_a_target_with_no_recorded_position()
     {
-        var tapped = 0;
-        var directory = await RecordAsync(
-            () => new DocumentWorld().Map("/home", page =>
-            {
-                var status = page.Status("Idle");
-                page.Button("Upgrade", () => status.Name = status.Text = "Upgraded " + ++tapped);
-            }),
-            ModelResponses.Tap("button", "Upgrade"));
-        tapped = 0;
-        var twins = new DocumentWorld().Map("/home", page =>
-        {
-            page.Status("Idle");
-            page.Button("Upgrade", () => tapped++);
-            page.Button("Upgrade", () => tapped++);
-        });
+        var twin = new SemanticNode { Ref = "n9", Role = "button", Name = "Upgrade" };
+        var host = MakeHost([Upgrade, twin, Email]);
 
-        var replay = await ReplayStepAsync(twins, directory, null, ModelResponses.Done("passed", "Done."));
+        var outcome = await Replay.ReplayTrace(host, [TapUpgrade]);
 
-        Assert.Equal(("missed", "target-ambiguous", 0), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
-        Assert.Equal(0, tapped);
+        Assert.False(outcome.Completed);
+        Assert.Equal(0, outcome.Executed);
+        Assert.Equal(ReplayHandOffReason.TargetAmbiguous, outcome.StopReason);
+        Assert.True(host.Observations < 3);
+    }
+
+    [Fact]
+    public async Task Diverges_immediately_on_ambiguity()
+    {
+        var twin = new SemanticNode { Ref = "n9", Role = "button", Name = "Upgrade" };
+        var host = MakeHost([Upgrade, twin]);
+
+        var outcome = await Replay.ReplayTrace(host, [TapUpgrade]);
+
+        Assert.False(outcome.Completed);
+        Assert.Equal(ReplayHandOffReason.TargetAmbiguous, outcome.StopReason);
+        Assert.Empty(host.Calls);
     }
 
     [Fact]
     public async Task Absorbs_an_action_failure_as_divergence_never_as_a_step_failure()
     {
-        var failing = false;
-        DocumentWorld World() => new DocumentWorld().Map("/home", page => page.Heading("Home")).Map("/plan", page =>
+        var host = MakeHost(onAction: (name, _) =>
         {
-            var status = page.Status("Idle");
-            page.Button("Upgrade", () =>
+            if (name == "tap")
             {
-                if (failing)
-                {
-                    throw new EngineException("ACTION_FAILED", "element detached");
-                }
-
-                status.Name = status.Text = "Upgraded";
-            });
+                throw new AgentException("ACTION_FAILED", "element detached");
+            }
         });
-        var directory = await RecordAsync(World, NavigateThenUpgrade);
-        failing = true;
 
-        var replay = await ReplayStepAsync(World(), directory, null, ModelResponses.Done("passed", "Done."));
+        var outcome = await Replay.ReplayTrace(host, [new RecordedAction { Kind = "navigate", Url = "/" }, TapUpgrade]);
 
-        Assert.Null(replay.Error);
-        Assert.Equal(("agent-concluded", "action-failed", 1), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
+        Assert.False(outcome.Completed);
+        Assert.Equal(1, outcome.Executed);
+        Assert.Equal(ReplayHandOffReason.ActionFailed, outcome.StopReason);
     }
 
-    /// <summary>Partial: the port reads the action as the hand-off notice words it, and the reason from the act's cache detail.</summary>
     [Fact]
-    public async Task Partial_replay_through_the_agent_stops_at_action_uncertain_and_the_notice_names_the_action()
+    public async Task Surfaces_an_unknown_commit_state_as_action_uncertain_with_the_action_named()
     {
-        var uncertain = false;
-        DocumentWorld World() => new DocumentWorld().Map("/home", page => page.Heading("Home")).Map("/plan", page =>
+        var host = MakeHost(onAction: (name, _) =>
         {
-            var status = page.Status("Idle");
-            page.Button("Upgrade", () =>
+            if (name == "tap")
             {
-                if (uncertain)
-                {
-                    throw new EngineException(EngineErrorCodes.ActionMayHaveCommitted, "input may have reached the app");
-                }
-
-                status.Name = status.Text = "Upgraded";
-            });
+                throw new EngineException(EngineErrorCodes.ActionMayHaveCommitted, "input may have reached the app");
+            }
         });
-        var directory = await RecordAsync(World, NavigateThenUpgrade);
-        uncertain = true;
-        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "Done."));
 
-        var replay = await StepAsync(World(), new FileStepCache(directory), "/home", null, model);
+        var outcome = await Replay.ReplayTrace(host, [new RecordedAction { Kind = "navigate", Url = "/" }, TapUpgrade]);
 
-        Assert.Null(replay.Error);
-        Assert.Equal(("agent-concluded", "action-uncertain", 1), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
-        Assert.Contains("tap button \"Upgrade\"", replay.Cache?.Detail, StringComparison.Ordinal);
-        var opening = model.Requests[0].Messages[0].Content!;
-        Assert.Contains("Replay stopped (action-uncertain) after these actions:", opening, StringComparison.Ordinal);
-        Assert.Contains("WARNING: the next action (tap button \"Upgrade\") failed with an UNKNOWN commit state", opening, StringComparison.Ordinal);
+        Assert.False(outcome.Completed);
+        Assert.Equal(1, outcome.Executed);
+        Assert.Equal(ReplayHandOffReason.ActionUncertain, outcome.StopReason);
+        Assert.Equal("tap button \"Upgrade\"", outcome.UncertainAction);
     }
 
     [Fact]
     public async Task Rethrows_runtime_hard_stops_untouched()
     {
-        var exhausted = false;
-        DocumentWorld World() => new DocumentWorld().Map("/home", page => page.Heading("Home")).Map("/plan", page =>
-        {
-            var status = page.Status("Idle");
-            page.Button("Upgrade", () =>
-            {
-                if (exhausted)
-                {
-                    throw new AgentException("STEP_BUDGET_EXHAUSTED", "out of actions");
-                }
+        var host = MakeHost(onAction: (_, _) => throw new AgentException("STEP_BUDGET_EXHAUSTED", "out of actions"));
 
-                status.Name = status.Text = "Upgraded";
-            });
-        });
-        var directory = await RecordAsync(World, NavigateThenUpgrade);
-        exhausted = true;
+        var error = await Assert.ThrowsAsync<AgentException>(() => Replay.ReplayTrace(host, [TapUpgrade]));
 
-        var replay = await ReplayStepAsync(World(), directory, null, ModelResponses.Done("passed", "Done."));
-
-        Assert.Equal("STEP_BUDGET_EXHAUSTED", Assert.IsType<AgentException>(replay.Error).Code);
-    }
-
-    [Fact]
-    public async Task Hands_off_when_a_smaller_scrolled_region_cannot_be_re_found_never_scrolling_the_viewport_for_it()
-    {
-        var scrolled = 0;
-        var directory = await RecordAsync(
-            () => new DocumentWorld().Map("/home", page =>
-            {
-                var status = page.Status("Idle");
-                page.Roots.Add(new DocumentElement { Role = "group", Name = "Recommended", OnScroll = _ => status.Name = status.Text = "Scrolled " + ++scrolled });
-            }),
-            ModelResponses.Call("scroll", new { role = "group", name = "Recommended", direction = "right" }));
-        scrolled = 0;
-        var viewportScrolls = 0;
-        var without = new DocumentWorld().Map("/home", page =>
-        {
-            page.Button("Upgrade");
-            page.OnScroll = _ => viewportScrolls++;
-        });
-
-        var replay = await ReplayStepAsync(without, directory, null, ModelResponses.Done("passed", "Done."));
-
-        Assert.Equal(("missed", "target-not-found", 0), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
-        Assert.Equal((0, 0), (scrolled, viewportScrolls));
-    }
-
-    // Every action changes what the page shows, so no look waits out a change window.
-    private static DocumentWorld TapWorld() => new DocumentWorld().Map("/plan", page =>
-    {
-        var taps = 0;
-        var status = page.Status("Taps 0");
-        page.Button("Upgrade", () => status.Name = status.Text = "Taps " + ++taps);
-        page.Textbox("Email");
-        page.Textbox("Password", secure: true);
-        page.Roots.Add(new DocumentElement { Role = "combobox", Name = "Plan", Value = "Free" });
-    });
-
-    private static DocumentWorld ScrollWorld() => new DocumentWorld().Map("/plan", page =>
-    {
-        var scrolls = 0;
-        var status = page.Status("Scrolled 0");
-        page.Roots.Add(new DocumentElement { Role = "group", Name = "Rows 1 to 12", OnScroll = _ => status.Name = status.Text = "Scrolled " + ++scrolls });
-        page.OnScroll = _ => status.Name = status.Text = "Scrolled " + ++scrolls;
-    });
-
-    /// <summary>Records the steps live on a fresh cache, then replays them, and returns the replaying act's looks.</summary>
-    private static async Task<IReadOnlyList<SettleMode>> RecordThenReplayAsync(Func<DocumentWorld> world, params ModelResponse[] steps)
-    {
-        var directory = CoreTests.TempCache();
-        var next = 0;
-        var recorded = await ActAsync(world(), directory, new ScriptedModel(_ => next < steps.Length ? steps[next++] : ModelResponses.Done("passed", "Done.")));
-        Assert.Equal("missed", recorded.Mode);
-
-        var replayed = await ActAsync(world(), directory, new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")));
-        Assert.Equal("self-finalized", replayed.Mode);
-        return replayed.Looks;
-    }
-
-    private static async Task<(string? Mode, IReadOnlyList<SettleMode> Looks)> ActAsync(DocumentWorld world, string directory, IAgentModel model)
-    {
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new DocumentEngine(world),
-            Model = model,
-            BaseUrl = "https://billing.test",
-            Cache = new FileStepCache(directory),
-            CacheMode = CacheMode.ReadWrite,
-            TestTitle = "replay > looks",
-            AssertionTimeout = TimeSpan.FromSeconds(2),
-            ActionTimeout = TimeSpan.FromMilliseconds(300),
-            ReplayTimeout = TimeSpan.FromMilliseconds(300),
-            TestTimeout = TimeSpan.FromSeconds(30),
-            StepTimeout = TimeSpan.FromSeconds(20),
-        });
-        Exception? error = null;
-        string? mode = null;
-        try
-        {
-            await session.Context.App.OpenAsync("/plan");
-            var parameters = new Dictionary<string, object?> { ["password"] = Secret.Create("password", "hunter2") };
-            mode = (await session.Context.Agent.ActAsync("work the plan page", new ActOptions { Params = parameters })).Cache?.Mode;
-
-            // A passing check verifies the act, so its recording is written.
-            await Expect.That(session.Context.Screen.GetByRole("heading", "Missing")).ToBeHiddenAsync();
-        }
-        catch (Exception ex)
-        {
-            error = ex;
-        }
-
-        session.Complete(error);
-        Assert.Null(error);
-        return (mode, [.. session.Context.Agent.Feed.Looks]);
+        Assert.Equal("STEP_BUDGET_EXHAUSTED", error.Code);
     }
 }
