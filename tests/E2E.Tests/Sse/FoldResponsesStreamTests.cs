@@ -49,8 +49,9 @@ public sealed class FoldResponsesStreamTests
         return record;
     }
 
+    /// <summary>Partial: upstream "returns the completed response object as JSON" also checks the status and the content type. The port folds the body text only.</summary>
     [Fact]
-    public void Returns_the_completed_response_object_as_JSON()
+    public void Folds_the_completed_response_into_its_JSON_text()
     {
         var (body, error) = ResponsesStream.Fold(Sse(
             ("response.created", Event("response.created", new JsonObject { ["response"] = new JsonObject { ["id"] = "resp_1" } })),
@@ -84,8 +85,9 @@ public sealed class FoldResponsesStreamTests
         Assert.Equal("the stream ended without a completed response", error);
     }
 
+    /// <summary>Partial: upstream "assembles the output from the streamed items when the final event carries none" also checks the response object, the status, and the content type. The port folds the body text only.</summary>
     [Fact]
-    public void Assembles_the_output_from_the_streamed_items_when_the_final_event_carries_none()
+    public void Folds_the_streamed_output_items_when_the_final_event_carries_none()
     {
         var message = new JsonObject
         {
@@ -132,9 +134,9 @@ public sealed class FoldResponsesStreamTests
         Assert.Null(error);
     }
 
-    /// <summary>Partial: the port reads the data of each event and has no event name to return.</summary>
+    /// <summary>Partial: upstream "parses CRLF streams and multi-line data" also checks the event name. The port reads the data of each event and has no event name to return.</summary>
     [Fact]
-    public void Parses_CRLF_streams_and_multi_line_data()
+    public void Reads_the_data_of_each_event_in_a_CRLF_stream_with_multi_line_data()
     {
         Assert.Equal(["1\n2", """{"b":1}"""], ResponsesStream.Events("event: a\r\ndata: 1\r\ndata: 2\r\n\r\ndata: {\"b\":1}\r\n\r\n"));
     }

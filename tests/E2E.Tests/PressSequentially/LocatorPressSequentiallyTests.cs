@@ -60,9 +60,9 @@ public sealed class LocatorPressSequentiallyTests
         Assert.Empty(scene.Performs);
     }
 
-    // Upstream reads the keyboard log; the document engine has no keyboard, so this reads the values its fill hook saw.
+    /// <summary>Partial: upstream "splits by code point so a surrogate pair is one keystroke" reads the keyboard log. The document engine has no keyboard, so this reads the values its fill hook saw.</summary>
     [Fact]
-    public async Task Splits_by_code_point_so_a_surrogate_pair_is_one_keystroke()
+    public async Task Fill_hook_values_split_by_code_point_so_a_surrogate_pair_is_one_value()
     {
         var typed = new List<string>();
         var world = new DocumentWorld().Map("/city", page =>

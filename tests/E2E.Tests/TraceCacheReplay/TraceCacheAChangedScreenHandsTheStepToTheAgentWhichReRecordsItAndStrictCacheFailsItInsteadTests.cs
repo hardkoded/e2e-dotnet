@@ -81,9 +81,12 @@ public sealed class TraceCacheAChangedScreenHandsTheStepToTheAgentWhichReRecords
         }
     }
 
-    // Upstream also reads the entry the lenient run leaves, which keeps the renamed button's old name. The port rewrites the entry after a hand-off.
+    /// <summary>
+    /// Partial: upstream "replays the typing, hands off at the renamed button, and tells the model what already ran" also reads the entry the
+    /// lenient run leaves, which keeps the renamed button's old name. The port rewrites the entry after a hand-off.
+    /// </summary>
     [Fact]
-    public async Task Replays_the_typing_hands_off_at_the_renamed_button_and_tells_the_model_what_already_ran()
+    public async Task Hands_off_at_the_renamed_button_after_the_typing_and_tells_the_model_what_already_ran()
     {
         var directory = TempCache();
         await RunAsync(Company, directory, replay: false, strict: false);

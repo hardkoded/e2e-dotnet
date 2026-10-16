@@ -10,6 +10,7 @@ namespace E2E.Tests.WebPlatform;
 [Collection(BrowserCollection.Name)]
 public sealed class WebPlatformIntegrationTests
 {
+    // Partial: upstream "passes" also checks the class assertions, frameLocator, downloads, route, dialogs, CSS locators, and report.json.
     // Not ported, the port has no such feature: frameLocator, waitForDownload, browser.route, browser.onDialog,
     // CSS locators, toHaveClass, click modifiers and secondaryTap, harness step records, and report.json. That leaves out
     // the class assertions "class assertions poll for a node that arrives late" and "class assertions on a node that never
@@ -25,7 +26,7 @@ public sealed class WebPlatformIntegrationTests
     [InlineData("string and RegExp URL patterns match what they name")]
     [InlineData("routes are attempt-scoped: registered before the first page, kept across restart and clearState")]
     [InlineData("contenteditable hosts are textboxes: reached by label and by role (a bare host too), filled, and read as a value")]
-    public async Task Passes(string title)
+    public async Task Ported_scenario_passes(string title)
     {
         Assert.Null(await RunAsync(Scenarios[title]));
     }

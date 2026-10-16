@@ -25,9 +25,9 @@ public sealed class GetByRoleWithANameTests
             await _screen.GetByRole("button", "Cancel").TextContentAsync());
     }
 
-    /// <summary>Options with no name before them cannot be written against the port's typed overloads, so only the name in both places is checked.</summary>
+    /// <summary>Partial: upstream "refuses a name in both places and options with no name before them" also checks options with no name. Options with no name before them cannot be written against the port's typed overloads, so only the name in both places is checked.</summary>
     [Fact]
-    public void Refuses_a_name_in_both_places_and_options_with_no_name_before_them()
+    public void Refuses_a_name_given_both_as_the_argument_and_in_the_options()
     {
         var error = Assert.Throws<TestException>(() => _screen.GetByRole("button", "Save", new RoleOptions { Name = "Cancel" }));
         Assert.Equal("INVALID_LOCATOR", error.Code);

@@ -175,9 +175,9 @@ public sealed class ResolveConfigTests
         Assert.Contains("secret \"pin\" must be at least 6 characters (code points), not 1", overridden.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>Partial: the port has no credentials, so only the secrets are checked.</summary>
+    /// <summary>Partial: upstream "counts a secret in code points so three emoji are three characters and not six" also checks the credentials. The port has no credentials, so only the secrets are checked.</summary>
     [Fact]
-    public void Counts_a_secret_in_code_points_so_three_emoji_are_three_characters_and_not_six()
+    public void Secret_length_is_counted_in_code_points_so_three_emoji_are_three_characters_and_not_six()
     {
         Assert.Equal(6, "🔐🔐🔐".Length);
         var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "secrets": { "pin": "🔐🔐🔐" } }""", Root, Env()));
