@@ -54,7 +54,7 @@ Members of `E2ETest` in both frameworks:
   `about:blank`; any other scheme is `POLICY_DENIED`. `RestartAsync` keeps
   cookies and storage, `ClearStateAsync` drops them, and both reopen the
   target URL. `ClearStateAsync` is `UNSUPPORTED_CAPABILITY` with
-  `Connect.ReconnectEndpoint`.
+  `Connect.ReconnectEndpoint` or an attempt-scoped `Browser` provider.
 - `Agent`: `ActAsync`, `AssertAsync`, `WaitForAsync`, `ExtractAsync<T>`
   (topic `agent`).
 - `Screen`: the locators below.

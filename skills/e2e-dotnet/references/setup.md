@@ -151,6 +151,7 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
 | `TimezoneId` | The IANA time zone every attempt runs in. Spell it with its exact case (`Europe/Berlin`), or it is `INVALID_CONFIG`. |
 | `ColorScheme`, `ReducedMotion` | The `prefers-color-scheme` (`WebColorScheme.Light`, `Dark`, `NoPreference`) and `prefers-reduced-motion` (`WebReducedMotion.Reduce`, `NoPreference`) every page reports to its `@media` rules and `matchMedia`, from first paint. A persistent context takes them too. Each defaults to the browser's own. |
 | `InitScripts` | Scripts every document runs before the page's own (topic `writing-tests`). |
+| `Browser` | An `IBrowserProvider` that leases hosted Chromium browsers over CDP and releases them when their scope ends. Excludes `Connect`. See below. |
 | `Connect` | Attach to a remote Chromium over CDP. `CdpEndpoint` and `ReconnectEndpoint` are resolvers (`ct => Task<string>`), not strings. With `ReconnectEndpoint` it rides one persistent default context and reconnects only to the original browser and page. |
 
 - `ReconnectEndpoint` rides one persistent context without `Headers`,
@@ -160,6 +161,18 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
   operation, and exhausting the action timeout is `OPERATION_TIMEOUT`. After a
   reconnect, observe again before acting on an observed node. Without
   `ReconnectEndpoint` each attempt attaches and creates a new context.
+
+- A provider implements `Name`, `AcquireAsync(BrowserRequest, ct)` returning a
+  `BrowserLease` (`Id`, `CdpEndpoint`, and `ReconnectEndpoint` for a per-attempt
+  lease), and `ReleaseAsync(lease, BrowserReleaseContext, ct)`. Read its token
+  from `request.Env`, not the process environment. `Scope` is
+  `BrowserProviderScope.Worker` (default: a browser per worker slot, leased
+  when the run starts) or `Attempt` (a fresh browser per attempt, released with
+  the session). `Attempt` rides one persistent context, with the limits of
+  `ReconnectEndpoint` above. Optional `SweepAsync` releases the leases a dead
+  worker left open. A test fixture needs no runner: an engine that was never
+  `Init`ed leases for its one attempt and gives the lease back when the session
+  ends.
 
 To test without a browser or model, override `CreateEngine()` to return a
 `DocumentEngine`, and `CreateModel()` to return a scripted `IAgentModel`.

@@ -46,7 +46,7 @@ public sealed class BillingTests : E2ETest
 }
 ```
 
-`E2ETest` starts a `WebEngine` session for each `[Test]`. Override `CreateEngine` with a `DocumentEngine` when the test should not open a browser, or with a `WebEngine` whose `Connect` attaches to a remote Chromium over CDP (see [Recovering a CDP transport](#recovering-a-cdp-transport)). An `act` that a later `assert`, `waitFor`, or locator `Expect` verifies is recorded. The next run replays those actions with no model calls until the screen no longer matches. When the test ends, verified acts are written and unverified acts that recorded or replayed are evicted, whether it passed, failed, or was skipped. `[Retry]` runs the later attempts live, and they still record. Tests that never call the agent need no model. A judgment (`AssertAsync`, `WaitForAsync`, `ExtractAsync`) reads the text snapshot of the screen. Pass `Vision = VisionMode.On` to show it a masked screenshot too, or `VisionMode.Only` for the screenshot alone, when the answer is in pixels. After a test fills a `Secret`, no pixels leave the session.
+`E2ETest` starts a `WebEngine` session for each `[Test]`. Override `CreateEngine` with a `DocumentEngine` when the test should not open a browser, or with a `WebEngine` whose `Connect` attaches to a remote Chromium over CDP (see [Recovering a CDP transport](#recovering-a-cdp-transport)), or whose `Browser` leases hosted browsers (see [Hosted browsers](#hosted-browsers)). An `act` that a later `assert`, `waitFor`, or locator `Expect` verifies is recorded. The next run replays those actions with no model calls until the screen no longer matches. When the test ends, verified acts are written and unverified acts that recorded or replayed are evicted, whether it passed, failed, or was skipped. `[Retry]` runs the later attempts live, and they still record. Tests that never call the agent need no model. A judgment (`AssertAsync`, `WaitForAsync`, `ExtractAsync`) reads the text snapshot of the screen. Pass `Vision = VisionMode.On` to show it a masked screenshot too, or `VisionMode.Only` for the screenshot alone, when the answer is in pixels. After a test fills a `Secret`, no pixels leave the session.
 
 ### Recovering a CDP transport
 
@@ -68,6 +68,100 @@ In this mode, `CdpEndpoint` provisions a fresh, dedicated browser at every attem
 After a disconnect, the next operation calls `ReconnectEndpoint` once, bounded by the action timeout and its cancellation token. This resolver must return the existing browser's endpoint. The engine verifies the default context id and the original page's target id; a URL match is not enough to pick a replacement tab. Recovery also requires the page's frames to keep the closed shadow root hook, which a document that navigated while disconnected lost. A different browser, a missing page, or a resolver that runs out of time fails the attempt, and every later operation fails the same way. Recovery never repeats an operation that was already dispatched. Route handlers and init scripts, configured and added, are reattached, and each document still runs every init script once. After a reconnect, `PerformAsync`, the agent's key press, and the viewport swipe fail with `NODE_STALE` until the screen is observed again; the `Browser` keyboard and mouse keep working.
 
 Persistent recovery does not support `Headers`, `BasicAuth`, `UserAgent`, `Locale`, or `TimezoneId` (`INVALID_CONFIG`), or `App.ClearStateAsync` (`UNSUPPORTED_CAPABILITY`). `App.RestartAsync` remains available. `ColorScheme` and `ReducedMotion` work in this mode: the engine sets them on each page it opens. Omit `ReconnectEndpoint` to keep a new, isolated context per attempt.
+
+### Hosted browsers
+
+`WebEngineOptions.Browser` takes an `IBrowserProvider`: an object that leases a browser from a service and hands back the CDP endpoint to attach to. The engine attaches over CDP the way `Connect` does, and adds the lifecycle `Connect` lacks: it asks for a browser when one is needed and gives it back when its scope ends, on every exit path, so a session billed by the minute stops when the run no longer uses it. The engine knows no vendor; for any service a provider is a few dozen lines in your project. A provider implies Chromium and cannot be combined with `Connect`. Add `Viewport = null` when the service shows the window in a live view, so the page fills the window.
+
+```csharp
+public interface IBrowserProvider
+{
+    string Name { get; }                                       // label in progress lines and error messages
+    BrowserProviderScope Scope => BrowserProviderScope.Worker; // Worker: a browser per worker slot. Attempt: a fresh browser per attempt.
+    Task<BrowserLease> AcquireAsync(BrowserRequest request, CancellationToken cancellationToken);
+    Task ReleaseAsync(BrowserLease lease, BrowserReleaseContext context, CancellationToken cancellationToken);
+    Task<IReadOnlyList<string>> SweepAsync(BrowserReleaseContext context, CancellationToken cancellationToken); // optional
+}
+
+public class BrowserLease
+{
+    public string Id { get; init; }                 // the provider's handle (a session id), handed back to ReleaseAsync
+    public string CdpEndpoint { get; init; }        // ws://, wss://, or http:// DevTools endpoint to attach to
+    public string? ReconnectEndpoint { get; init; } // to reattach to the same browser after a transport drop; per-attempt leases only
+}
+```
+
+`AcquireAsync` receives the run id, target, worker slot and slot count, the attempt id for a per-attempt lease, the run's environment, and a `Log` that reaches the reporter. Read tokens from `request.Env`, not from the process environment. A lease is data: only `Id`, `CdpEndpoint`, and `ReconnectEndpoint` travel to a worker, and `ReleaseAsync` gets back the object `AcquireAsync` returned, so a provider can derive from `BrowserLease` and keep its own fields on it. Every lease is released exactly once, by the side that acquired it.
+
+`BrowserProviderScope.Worker`, the default, leases one browser per worker slot when the run starts, all slots at once, and each worker attaches to its own for every attempt it runs. A runner calls `WebEngine.PrepareAsync` once per target before any worker starts, `Init` in each worker, and `FinishAsync` after the last worker ended. Every lease granted is held, so a slot that fails to lease ends the run before any test and the leases that succeeded are still released. When a worker's browser drops, the worker leases a replacement itself at its next attempt and releases it when the worker is disposed (`DisposeAsync`); the dead lease stays with the runner, which releases it in `FinishAsync`. A worker that dies cannot release what it acquired. Implement `SweepAsync` to have `FinishAsync` release those too: it runs once per target after the leases the runner holds were released, finds every lease tagged with the run id and the target at the service, releases it, and returns the ids, which are logged. A sweep that fails is logged and fails nothing.
+
+`BrowserProviderScope.Attempt` leases a fresh browser at every attempt start, retries included, and releases it when the session is disposed, also after a start that failed. A lease that arrives once the attempt was cancelled or ended is given straight back. The attempt rides the browser's persistent default context, so the remote must contain only that context, and the limits of [`Connect.ReconnectEndpoint`](#recovering-a-cdp-transport) apply: no `Headers`, `BasicAuth`, `UserAgent`, `Locale`, or `TimezoneId` (`INVALID_CONFIG`), and no `App.ClearStateAsync` (`UNSUPPORTED_CAPABILITY`). After a transport drop the next operation reattaches through the lease's `ReconnectEndpoint`, or `CdpEndpoint` when it has none, and the engine checks that it is the same browser.
+
+The test base classes need no runner. A `WebEngine` whose `Init` never ran leases for the one attempt it starts, reading the process environment, and gives the lease back when the session ends:
+
+```csharp
+protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
+{
+    Browser = new HostedBrowsers("https://browsers.example.com"),
+    Viewport = null,
+});
+```
+
+A provider against a typical session API has three requests: create a session, poll it until it exposes a DevTools endpoint, stop it.
+
+```csharp
+public sealed class HostedBrowsers(string serviceUrl) : IBrowserProvider
+{
+    private static readonly HttpClient Http = new();
+
+    public string Name => "hosted-browsers";
+
+    public async Task<BrowserLease> AcquireAsync(BrowserRequest request, CancellationToken cancellationToken)
+    {
+        var token = request.Env.GetValueOrDefault("BROWSER_SERVICE_TOKEN");
+        if (string.IsNullOrEmpty(token))
+        {
+            throw new InvalidOperationException("BROWSER_SERVICE_TOKEN is not set");
+        }
+
+        // 1. Ask for a browser; name the session after the run so it can be found later.
+        var name = $"e2e {request.RunId} {request.TargetName} {request.AttemptId ?? $"slot {request.Slot + 1} of {request.Slots}"}";
+        using var created = await Http.SendAsync(Authorized(HttpMethod.Post, $"{serviceUrl}/sessions", token, JsonContent.Create(new { name })), cancellationToken);
+        created.EnsureSuccessStatusCode();
+        var id = (await created.Content.ReadFromJsonAsync<Session>(cancellationToken))!.Id;
+
+        // 2. Wait until the session exposes its DevTools endpoint.
+        while (true)
+        {
+            using var response = await Http.SendAsync(Authorized(HttpMethod.Get, $"{serviceUrl}/sessions/{id}", token), cancellationToken);
+            var session = (await response.Content.ReadFromJsonAsync<Session>(cancellationToken))!;
+            if (session.Status == "ready" && session.CdpUrl is not null)
+            {
+                return new BrowserLease { Id = id, CdpEndpoint = session.CdpUrl };
+            }
+
+            if (session.Status != "starting")
+            {
+                throw new InvalidOperationException($"browser service: session {id} is {session.Status}");
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+        }
+    }
+
+    public async Task ReleaseAsync(BrowserLease lease, BrowserReleaseContext context, CancellationToken cancellationToken)
+    {
+        // 3. Stop the session; the run waits for this within the cleanup timeout.
+        var token = context.Env.GetValueOrDefault("BROWSER_SERVICE_TOKEN") ?? "";
+        using var response = await Http.SendAsync(Authorized(HttpMethod.Post, $"{serviceUrl}/sessions/{lease.Id}/stop", token), cancellationToken);
+    }
+
+    private static HttpRequestMessage Authorized(HttpMethod method, string url, string token, HttpContent? content = null) =>
+        new(method, url) { Content = content, Headers = { Authorization = new("Bearer", token) } };
+
+    private sealed record Session(string Id, string Status, string? CdpUrl);
+}
+```
 
 ### xUnit v3
 
