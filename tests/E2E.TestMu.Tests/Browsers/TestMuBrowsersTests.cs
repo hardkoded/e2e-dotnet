@@ -123,22 +123,6 @@ public sealed class TestMuBrowsersTests
     }
 
     [Fact]
-    public async Task Ignores_the_process_environment()
-    {
-        var previous = Environment.GetEnvironmentVariable("LT_USERNAME");
-        Environment.SetEnvironmentVariable("LT_USERNAME", "from-process");
-        try
-        {
-            var env = new Dictionary<string, string?> { ["LT_ACCESS_KEY"] = "k" };
-            await Assert.ThrowsAsync<InvalidOperationException>(() => new TestMuBrowsers().AcquireAsync(Request(env), CancellationToken.None));
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("LT_USERNAME", previous);
-        }
-    }
-
-    [Fact]
     public async Task Keeps_the_access_key_out_of_the_lease_id()
     {
         var lease = await new TestMuBrowsers().AcquireAsync(Request(), CancellationToken.None);

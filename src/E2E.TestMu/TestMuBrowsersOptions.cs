@@ -7,8 +7,8 @@ using System.Text.Json.Nodes;
 namespace E2E.TestMu;
 
 /// <summary>
-/// What <see cref="TestMuBrowsers"/> asks the TestMu AI grid for. Every property is optional and a property left out
-/// is not sent, so the grid's own default applies. Each one is a capability of the grid's <c>LT:Options</c>, except
+/// What <see cref="TestMuBrowsers"/> asks the TestMu AI grid for. Every property is optional. Those with a default below are always sent, and
+/// the others are sent only when set. Each one is a capability of the grid's <c>LT:Options</c>, except
 /// <see cref="BrowserName"/> and <see cref="BrowserVersion"/>.
 /// </summary>
 public sealed record TestMuBrowsersOptions

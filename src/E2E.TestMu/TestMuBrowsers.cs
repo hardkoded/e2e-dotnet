@@ -70,11 +70,19 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
         };
     }
 
-    private static void Set(JsonObject target, string key, object? value)
+    private static void Set(JsonObject target, string key, bool? value)
+    {
+        if (value is { } flag)
+        {
+            target[key] = flag;
+        }
+    }
+
+    private static void Set(JsonObject target, string key, string? value)
     {
         if (value is not null)
         {
-            target[key] = value switch { bool flag => flag, string text => text, _ => throw new ArgumentException("Not a capability value.", nameof(value)) };
+            target[key] = value;
         }
     }
 
