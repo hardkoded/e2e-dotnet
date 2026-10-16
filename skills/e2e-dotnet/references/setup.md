@@ -177,6 +177,16 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
   `Init`ed leases for its one attempt and gives the lease back when the session
   ends.
 
+- To run on the TestMu AI web grid, add the `E2E.TestMu` package and set
+  `Browser = new TestMuBrowsers()` (`using E2E.TestMu;`) with `Viewport = null`.
+  Set `LT_USERNAME` and `LT_ACCESS_KEY` (or `TESTMU_USERNAME` and
+  `TESTMU_ACCESS_KEY`) in the environment that starts the tests.
+  `TestMuBrowsersOptions` sets `BrowserName` (a Chromium browser), `BrowserVersion`,
+  `Platform`, `Build`, `Video`, `Network`, `Console`, `TunnelName`,
+  `GeoLocation`, and `Capabilities` for any other `LT:Options` entry. The
+  dashboard shows the sessions without a Passed or Failed mark, because e2e
+  passes no test result to a provider.
+
 To test without a browser or model, override `CreateEngine()` to return a
 `DocumentEngine`, and `CreateModel()` to return a scripted `IAgentModel`.
 

@@ -16,6 +16,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 | `e2e/oauth/chatgpt`, `copilot`, `grok`, `opencode-console` | `E2E.OAuth.Subscriptions` |
 | `e2e login`, `e2e logout`, `e2e models`, `e2e guide`, `e2e mcp`, `e2e-web install` | `E2E.Cli`, a .NET tool whose command is `e2e`. `e2e guide [topic]` prints the bundled skill, as upstream; an unknown topic exits 2. `e2e-web install` is `e2e install`: see [Browser install command](#browser-install-command). `e2e mcp` is ported apart from video, project tools, and `e2e init`: see [MCP server](#mcp-server) |
 | — | `E2E.TestMu.Mobile`, TestMu AI mobile devices through Appium. Not in upstream: see [TestMu mobile](#testmu-mobile-not-in-upstream) |
+| — | `E2E.TestMu`, `TestMuBrowsers`: TestMu AI hosted browsers on the `IBrowserProvider` seam. No upstream counterpart: see [TestMu](#testmu) |
 | — | `DocumentEngine`, an in-memory page for hosts that do not want a browser |
 
 ## Ported
@@ -195,6 +196,16 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - `fill` taps the field and writes to the focused element, because a snapshot ref is not an Appium element id. `back` on iOS taps the first button in the navigation bar, as agent-device does, and fails when the screen has none; Android uses the system back.
 - `settle` options are ignored: the engine settles on observe. `normalizeStatusBar` is ignored, so a screenshot shows the device's real status bar.
 - The package is in CI's pack step but not in the release workflow until the provider lands. Not verified against a live account: every wire detail was read from TestMu's and Appium's documentation, and the `mobile:` script names and arguments were not sent to a real hub. The unit tests use a fake hub. Among them: whether the hub accepts the `LT:Options`-only capabilities without a top-level `platformName`, the session id field, and which `mobile:` commands it forwards.
+
+## TestMu
+
+`TestMuBrowsers` (the `E2E.TestMu` package, namespace `E2E.TestMu`) is not in upstream: tester-army/e2e has no TestMu package. It is a `WebEngineOptions.Browser` provider for the TestMu AI (formerly LambdaTest) web grid. The port keeps the seam's names (`IBrowserProvider`, `BrowserLease`) and adds only the provider, `TestMuBrowsers`, and its options record, `TestMuBrowsersOptions`. Only the web grid is covered; TestMu's real devices are not. Differences from a provider like upstream's `kernel`:
+
+- It calls no TestMu API. `AcquireAsync` builds `wss://cdp.lambdatest.com/playwright?capabilities=<JSON>` from `browserName`, `browserVersion`, and `LT:Options` (`platform`, `build`, `name`, `user`, `accessKey`, and the options that were set). The grid starts the session when the engine connects. `ReleaseAsync` calls nothing, because the grid is expected to end a session when its connection closes. `SweepAsync` is the interface default.
+- The TestMu dashboard shows these sessions without a Passed or Failed mark. TestMu marks a session through its Automation API or a `lambdatest_action` call, which needs the test result, and e2e passes no test result to a provider (upstream's `BrowserReleaseContext` has none either). The provider also does not look up the session id.
+- The credentials are `LT_USERNAME` and `LT_ACCESS_KEY`, or the aliases `TESTMU_USERNAME` and `TESTMU_ACCESS_KEY`, read from the run's environment. The access key is part of the endpoint, so the lease id is the session name (`<target> slot <n> of <m>` or `<target> <attempt id>`), which is what progress lines print. The engine puts no endpoint in an error or a log line, and Playwright drops the query string from the URL it prints when a `ws://` or `wss://` connection fails, so a refused connection does not show the key (a test checks it). Each lease endpoint is about 650 bytes, and a worker's leases travel in one environment variable capped at 16384 bytes, so a target with more than about 20 worker slots fails at prepare.
+- Not verified against a real account, because none was available. TestMu's documentation connects to this URL with Playwright's own protocol (`chromium.connect`), and the engine attaches with `ConnectOverCDP`. Whether the grid accepts a CDP attach on this URL is open. The attach lives in `BrowserConnection`, so a fix would be a second dial there and not a change to the provider. Nor was it checked that the grid ends the session when the connection closes; check the dashboard after a run. `TestMuLiveTests` checks the attach with a real account, and is skipped without `LT_USERNAME` and `LT_ACCESS_KEY`.
+- All tests are .NET-only (`TestMuBrowsersTests`, `TestMuLiveTests` in `tests/E2E.TestMu.Tests`).
 
 ## Browser install command
 
