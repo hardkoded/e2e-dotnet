@@ -502,15 +502,34 @@ public sealed class SnapshotProjectionTests
     }
 
     [Fact]
-    public void Reads_the_screen_title_from_the_navigation_bar_its_inner_text_its_identifier_or_nothing()
+    public void Reads_an_iOS_title_from_the_bar_identifier_only_when_the_bar_shows_that_text()
     {
         Assert.Equal("General", SnapshotProjection.ScreenTitle(Project(SettingsNodes)));
-        Assert.Equal("About", SnapshotProjection.ScreenTitle(Project(N("@e1", type: "navigation-bar", identifier: "About"))));
-        var innerText = Project(
+        var pushed = Project(
+            N("@e1", depth: 0, type: "NavigationBar", label: "Benchmark Examples", identifier: "Today"),
+            N("@e2", depth: 1, type: "Button", label: "Benchmark Examples"),
+            N("@e3", depth: 1, type: "StaticText", label: "Today"));
+        Assert.Equal("Today", SnapshotProjection.ScreenTitle(pushed));
+        Assert.Null(SnapshotProjection.ScreenTitle(Project(N("@e1", type: "NavigationBar", identifier: "About"))));
+        Assert.Null(SnapshotProjection.ScreenTitle(Project(
+            N("@e1", depth: 0, type: "NavigationBar", identifier: "MyApp.InboxController"),
+            N("@e2", depth: 1, type: "Button", label: "Back"))));
+        var untitled = Project(
+            N("@e1", depth: 0, type: "NavigationBar", identifier: "_TtGC7SwiftUI32NavigationStackHosting"),
+            N("@e2", depth: 1, type: "Button", label: "Share"));
+        Assert.Null(SnapshotProjection.ScreenTitle(untitled));
+        var textOnly = Project(
             N("@e1", depth: 0, type: "navigation-bar"),
-            N("@e2", depth: 1, type: "button", label: "Back"),
-            N("@e3", depth: 1, type: "static-text", label: "About"));
-        Assert.Equal("About", SnapshotProjection.ScreenTitle(innerText));
+            N("@e2", depth: 1, type: "static-text", label: "About"));
+        Assert.Null(SnapshotProjection.ScreenTitle(textOnly));
+        Assert.Null(SnapshotProjection.ScreenTitle(Project(N("@e1", type: "NavigationBar", label: "Settings", identifier: " "))));
         Assert.Null(SnapshotProjection.ScreenTitle(Project(N("@e1", type: "button", label: "Go"))));
+    }
+
+    [Fact]
+    public void Never_reads_an_Android_toolbar_resource_id_as_its_title()
+    {
+        var untitled = Project(N("e1", type: "android.view.ViewGroup", identifier: "com.example:id/toolbar"));
+        Assert.Null(SnapshotProjection.ScreenTitle(untitled));
     }
 }

@@ -73,19 +73,20 @@ internal static class RawNodes
     public static IReadOnlyDictionary<string, bool> S(params (string State, bool Value)[] states) =>
         states.ToDictionary(state => state.State, state => state.Value);
 
-    /// <summary>An iOS Settings-like screen: app root, navigation bar, a cell, a switch, two fields, a hidden button.</summary>
+    /// <summary>An iOS Settings-like screen: app root, a titled navigation bar, a cell, a switch, two fields, a hidden button.</summary>
     public static readonly RawNode[] SettingsNodes =
     [
         N("@e1", index: 0, depth: 0, type: "application", label: "Settings", rect: R(0, 0, 390, 844)),
-        N("@e2", index: 1, parentIndex: 0, depth: 1, type: "navigation-bar", label: "General", rect: Row(47, 44)),
+        N("@e2", index: 1, parentIndex: 0, depth: 1, type: "navigation-bar", label: "General", identifier: "General", rect: Row(47, 44)),
         N("@e3", index: 2, parentIndex: 1, depth: 2, type: "button", label: "Back", identifier: "BackButton", rect: Row(47)),
-        N("@e4", index: 3, parentIndex: 0, depth: 1, type: "cell", label: "About", identifier: "ABOUT", rect: Row(120)),
-        N("@e5", index: 4, parentIndex: 3, depth: 2, type: "static-text", label: "About", rect: Row(120)),
-        N("@e6", index: 5, parentIndex: 0, depth: 1, type: "switch", label: "Airplane Mode", value: "0", rect: Row(170)),
-        N("@e7", index: 6, parentIndex: 0, depth: 1, type: "text-field", label: "Search", value: "wifi", rect: Row(220)),
-        N("@e8", index: 7, parentIndex: 0, depth: 1, type: "secure-text-field", label: "Password", value: "hunter2", rect: Row(270)),
-        N("@e9", index: 8, parentIndex: 0, depth: 1, type: "button", label: "Hidden", visibleToUser: false, enabled: false, rect: Row(900)),
-        N("@e10", index: 9, parentIndex: 0, depth: 1, type: "cell", label: "Scroller", rect: Row(320, 400)),
+        N("@e2t", index: 3, parentIndex: 1, depth: 2, type: "static-text", label: "General", rect: Row(47)),
+        N("@e4", index: 4, parentIndex: 0, depth: 1, type: "cell", label: "About", identifier: "ABOUT", rect: Row(120)),
+        N("@e5", index: 5, parentIndex: 4, depth: 2, type: "static-text", label: "About", rect: Row(120)),
+        N("@e6", index: 6, parentIndex: 0, depth: 1, type: "switch", label: "Airplane Mode", value: "0", rect: Row(170)),
+        N("@e7", index: 7, parentIndex: 0, depth: 1, type: "text-field", label: "Search", value: "wifi", rect: Row(220)),
+        N("@e8", index: 8, parentIndex: 0, depth: 1, type: "secure-text-field", label: "Password", value: "hunter2", rect: Row(270)),
+        N("@e9", index: 9, parentIndex: 0, depth: 1, type: "button", label: "Hidden", visibleToUser: false, enabled: false, rect: Row(900)),
+        N("@e10", index: 10, parentIndex: 0, depth: 1, type: "cell", label: "Scroller", rect: Row(320, 400)),
     ];
 
     private static Rect Row(double y, double height = 44) => new(0, y, 390, height);

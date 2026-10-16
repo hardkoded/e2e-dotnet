@@ -108,7 +108,7 @@ public sealed class ObservationTests
         var session = await OpenAttempt(h);
         var snapshot = await session.ObserveAsync(CancellationToken.None);
         Assert.Equal(2, calls);
-        Assert.Equal(10, Walk(snapshot.Roots[0]).Count());
+        Assert.Equal(11, Walk(snapshot.Roots[0]).Count());
         Assert.Equal([TimeSpan.FromMilliseconds(1200)], h.Delays);
     }
 
