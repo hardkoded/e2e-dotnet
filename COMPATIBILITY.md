@@ -101,7 +101,6 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 | A locator action, read, or expectation matched more than one node | `LOCATOR_AMBIGUOUS` | `STRICT_MODE` |
 | A locator action or read matched no node | `LOCATOR_NOT_FOUND` | `NOT_FOUND` |
 | `locator.waitFor` timed out | `LOCATOR_NOT_FOUND` | `TIMEOUT` |
-| An `expect.poll` was not awaited before its test body, hook, or fixture teardown returned | `STEP_NOT_AWAITED`, which fails that phase and cancels the poll | Not applicable: the poll is a `Task`, and the compiler warns about a `Task` that is not awaited (CS4014). A poll left running is cancelled only with its `CancellationToken` |
 
 ## Not ported
 
@@ -116,6 +115,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - Route patterns that ignore a record id. This port compares the URL path exactly and ignores the query and fragment
 - Diff-only observations. Each model turn receives a full text snapshot
 - Telemetry
+- `STEP_NOT_AWAITED`, the error that fails a test body, hook, or fixture teardown that returns before its `expect.poll` finished, and cancels that poll. It is not applicable: the port has no step runner that owns a poll. Nothing cancels a poll the test does not await, so it keeps reading until its timeout or the `CancellationToken` passed to it. The compiler warns (CS4014) only for a bare, un-awaited `Task` call in an `async` method
 - Browser fixture members `locator`, `frameLocator`, `onDialog`, and `waitForDownload`, and the `expect(browser)` matcher `toHaveClass` (it needs `browser.locator`)
 - Value expectations (`expect(value).toBe`, `toEqual`, `toMatchObject`, `toHaveProperty`, `toMatchSchema`, and the rest) and their `expect.soft` form. Use NUnit `Assert.That` with constraints, and `Assert.EnterMultipleScope` (or `Assert.Multiple`) for soft value checks. `expect.poll` takes NUnit constraints through `ToMatchAsync` in their place
 - Asymmetric matchers (`expect.any`, `anything`, `objectContaining`, `arrayContaining`, `stringContaining`, `stringMatching`). Use NUnit constraints such as `Is.InstanceOf`, `Is.Not.Null`, `Has.Property`, `Is.SupersetOf`, `Does.Contain`, and `Does.Match`
