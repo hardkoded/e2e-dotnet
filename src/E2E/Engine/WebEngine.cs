@@ -618,7 +618,26 @@ public sealed partial class WebEngine : IEngine
                 "INVALID_CONFIG",
                 $"browser provider \"{provider.Name}\" has scope {(int)provider.Scope}; use Worker or Attempt.");
         }
+
+        if (provider.Downloads is { } downloads)
+        {
+            if (string.IsNullOrWhiteSpace(downloads.Dir) || downloads.ReadAsync is null)
+            {
+                throw new EngineException("INVALID_CONFIG", $"browser provider \"{provider.Name}\" has downloads that are not a Dir and a ReadAsync.");
+            }
+
+            // The browser's own machine may be POSIX or Windows, whatever the runner's is.
+            if (!IsAbsoluteOnEitherSystem(downloads.Dir))
+            {
+                throw new EngineException(
+                    "INVALID_CONFIG",
+                    $"browser provider \"{provider.Name}\" has Downloads.Dir \"{downloads.Dir}\"; name an absolute path on the browser's machine.");
+            }
+        }
     }
+
+    private static bool IsAbsoluteOnEitherSystem(string path) =>
+        path.StartsWith('/') || path.StartsWith('\\') || (path.Length >= 3 && char.IsAsciiLetter(path[0]) && path[1] == ':' && path[2] is '/' or '\\');
 
     // Refuses a media feature value the browser does not emulate, at config load rather than at the first page.
     // A persistent context takes these too: they are set on each page, not only on a context the engine creates.

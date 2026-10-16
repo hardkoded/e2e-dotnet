@@ -8,7 +8,8 @@ namespace E2E.Tests.BrowserProvider;
 
 /// <summary>
 /// .NET-only: no upstream <c>it</c> covers these. An engine started without a runner leases for the one attempt it starts (upstream
-/// runs that through <c>standalone.ts</c>, which has no unit test of its own).
+/// runs that through <c>standalone.ts</c>, which has no unit test of its own), and <c>LeasedBrowsers.Downloads</c> is read by
+/// the browser fixture's <c>waitForDownload</c> upstream, which the port does not have.
 /// </summary>
 public sealed class BrowserProviderTests
 {
@@ -106,6 +107,77 @@ public sealed class BrowserProviderTests
         }
     }
 
+    [Fact]
+    public async Task Offers_no_downloads_when_the_provider_has_none()
+    {
+        var leases = await WorkerAsync(new ToyCloud());
+        Assert.Null(leases.Downloads());
+    }
+
+    [Fact]
+    public async Task Reads_a_download_through_the_provider_for_the_lease_the_worker_holds()
+    {
+        var reads = new List<(string Lease, string File, string Run, string Target, string? Token)>();
+        var cloud = new ToyCloud
+        {
+            Downloads = new BrowserProviderDownloads
+            {
+                Dir = "/tmp/e2e-downloads",
+                ReadAsync = (lease, file, context, token) =>
+                {
+                    reads.Add((lease.Id, file, context.RunId, context.TargetName, context.Env["BROWSER_TOKEN"]));
+                    return Task.FromResult<byte[]>([1, 2, 3]);
+                },
+            },
+        };
+        var downloads = (await WorkerAsync(cloud)).Downloads()!;
+        Assert.Equal("/tmp/e2e-downloads", downloads.Dir);
+        Assert.Equal("browser provider \"toy-cloud\"", downloads.Provider);
+        Assert.Equal<byte[]>([1, 2, 3], await downloads.ReadAsync("/tmp/e2e-downloads/guid", None));
+        Assert.Equal([("lease-0", "/tmp/e2e-downloads/guid", "run-1", "web", "t")], reads);
+    }
+
+    [Fact]
+    public async Task Names_the_provider_when_a_download_cannot_be_read_and_reports_a_cancelled_read_as_CANCELLED()
+    {
+        var cloud = new ToyCloud
+        {
+            Downloads = new BrowserProviderDownloads
+            {
+                Dir = "/tmp/e2e-downloads",
+                ReadAsync = (lease, file, context, token) => throw new InvalidOperationException("file API down"),
+            },
+        };
+        var downloads = (await WorkerAsync(cloud)).Downloads()!;
+        var failed = await Assert.ThrowsAsync<EngineException>(() => downloads.ReadAsync("/tmp/e2e-downloads/guid", None));
+        Assert.Equal("ENGINE_FAILURE", failed.Code);
+        Assert.Equal("browser provider \"toy-cloud\" could not read download /tmp/e2e-downloads/guid from browser lease-0: file API down", failed.Message);
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+        Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => downloads.ReadAsync("/tmp/e2e-downloads/guid", cancelled.Token))).Code);
+    }
+
+    [Fact]
+    public async Task Refuses_a_download_before_an_attempt_scoped_worker_has_a_browser()
+    {
+        var cloud = new ToyCloud(BrowserProviderScope.Attempt)
+        {
+            Downloads = new BrowserProviderDownloads { Dir = "/tmp/e2e-downloads", ReadAsync = (lease, file, context, token) => Task.FromResult<byte[]>([]) },
+        };
+        var downloads = (await WorkerAsync(cloud)).Downloads()!;
+        var error = await Assert.ThrowsAsync<EngineException>(() => downloads.ReadAsync("/tmp/e2e-downloads/guid", None));
+        Assert.Equal("INVALID_STATE", error.Code);
+    }
+
     private static EngineStartOptions Alone(string attemptId) =>
         new() { AttemptId = attemptId, BaseUrl = "http://app.test/", ActionTimeout = TimeSpan.FromSeconds(1), Env = Runner.Token };
+
+    private static async Task<LeasedBrowsers> WorkerAsync(ToyCloud cloud)
+    {
+        var (_, env) = await Runner.PreparedAsync(cloud, 1);
+        var leases = new LeasedBrowsers(cloud);
+        env["BROWSER_TOKEN"] = "t";
+        leases.Init(Runner.InitInfo(0, env));
+        return leases;
+    }
 }
