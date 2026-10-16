@@ -334,8 +334,8 @@ public sealed class E2EConfig
                     Context = context,
                     BaseUrl = baseUrl,
                     ApiKeyEnv = apiKeyEnv,
-                    MaxSteps = Property(value, "maxSteps") is { } steps ? Integer(steps, label + ".maxSteps", 1, ResolvedAgent.MaxBudget) : E2EDefaults.MaxSteps,
-                    MaxModelCalls = Property(value, "maxModelCalls") is { } calls ? Integer(calls, label + ".maxModelCalls", 1, ResolvedAgent.MaxBudget) : E2EDefaults.MaxModelCalls,
+                    MaxSteps = Property(value, "maxSteps") is { } steps ? Integer(steps, label + ".maxSteps", 1, ResolvedAgent.MaxBudget) : null,
+                    MaxModelCalls = Property(value, "maxModelCalls") is { } calls ? Integer(calls, label + ".maxModelCalls", 1, ResolvedAgent.MaxBudget) : null,
                     JudgmentTimeout = Property(value, "judgmentTimeout") is { } judgment
                         ? TimeSpan.FromMilliseconds(Integer(judgment, label + ".judgmentTimeout", 1, int.MaxValue))
                         : E2EDefaults.JudgmentTimeout,
@@ -662,11 +662,11 @@ public sealed class AgentConfig
     /// <summary>The environment variable holding the key. Unset, the one the provider reads, such as <c>ANTHROPIC_API_KEY</c>.</summary>
     public string? ApiKeyEnv { get; init; }
 
-    /// <summary>1 through 100.</summary>
-    public int MaxSteps { get; init; } = E2EDefaults.MaxSteps;
+    /// <summary>1 through 100. Null when the entry leaves it out: <see cref="E2EDefaults.MaxSteps"/> applies, and <c>Explore</c> sets its own.</summary>
+    public int? MaxSteps { get; init; }
 
-    /// <summary>1 through 100.</summary>
-    public int MaxModelCalls { get; init; } = E2EDefaults.MaxModelCalls;
+    /// <summary>1 through 100. Null when the entry leaves it out: <see cref="E2EDefaults.MaxModelCalls"/> applies, and <c>Explore</c> sets its own.</summary>
+    public int? MaxModelCalls { get; init; }
 
     public TimeSpan JudgmentTimeout { get; init; } = E2EDefaults.JudgmentTimeout;
 

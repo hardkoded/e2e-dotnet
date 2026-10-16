@@ -183,8 +183,8 @@ public static class Explore
             AgentSystem = defaultAgent.System,
             AgentTools = defaultAgent.Tools,
             AgentContext = defaultAgent.Context,
-            MaxSteps = defaultAgent.MaxSteps,
-            MaxModelCalls = defaultAgent.MaxModelCalls,
+            MaxSteps = defaultAgent.MaxSteps ?? E2EDefaults.MaxSteps,
+            MaxModelCalls = defaultAgent.MaxModelCalls ?? E2EDefaults.MaxModelCalls,
             JudgmentTimeout = defaultAgent.JudgmentTimeout,
             ProviderOptions = defaultAgent.ProviderOptions,
             Agents = entries.Where(pair => !string.Equals(pair.Key, "default", StringComparison.Ordinal)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal),
@@ -313,16 +313,16 @@ public static class Explore
 
     /// <summary>
     /// The explorer's agent with per-step budgets that default higher than a scripted step's, a charter being longer. An agent that
-    /// left a budget at its default has set none.
+    /// left a budget out has set none, whatever number it would default to.
     /// </summary>
-    private static AgentOptions WithStepBudgets(AgentOptions explorer) => new()
+    internal static AgentOptions WithStepBudgets(AgentOptions explorer) => new()
     {
         Model = explorer.Model,
         Judge = explorer.Judge,
         System = explorer.System,
         Context = explorer.Context,
-        MaxSteps = explorer.MaxSteps == E2EDefaults.MaxSteps ? DefaultStepBudget : explorer.MaxSteps,
-        MaxModelCalls = explorer.MaxModelCalls == E2EDefaults.MaxModelCalls ? DefaultStepBudget : explorer.MaxModelCalls,
+        MaxSteps = explorer.MaxSteps ?? DefaultStepBudget,
+        MaxModelCalls = explorer.MaxModelCalls ?? DefaultStepBudget,
         JudgmentTimeout = explorer.JudgmentTimeout,
         ProviderOptions = explorer.ProviderOptions,
         Tools = explorer.Tools,

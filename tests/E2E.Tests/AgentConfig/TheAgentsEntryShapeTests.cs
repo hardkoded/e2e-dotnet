@@ -37,7 +37,7 @@ public sealed class TheAgentsEntryShapeTests
         Assert.Null(ux.Judge);
         Assert.Null(ux.System);
         Assert.Null(ux.Context);
-        Assert.Equal(E2EDefaults.MaxSteps, ux.MaxSteps);
+        Assert.Null(ux.MaxSteps);
         Assert.Equal(E2EDefaults.JudgmentTimeout, ux.JudgmentTimeout);
         Assert.Equal(5, config.Agent.MaxSteps);
     }

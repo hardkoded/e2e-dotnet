@@ -66,7 +66,7 @@ there, since `e2e.config.json` names only a provider and a model id.
 | --- | --- | --- | --- |
 | Exploration steps | 8 | 1 to 12 | `MaxSteps` |
 | Wall clock | 10 minutes | 3 to 15 minutes | `Timeout` |
-| Actions and model calls per step | 40 each, unless the agent sets `maxSteps` or `maxModelCalls` | 1 to 100 | config |
+| Actions and model calls per step | 40 each, unless the agent sets `maxSteps` or `maxModelCalls` (a 25 it sets is kept) | 1 to 100 | config |
 
 Start with the defaults. Increase the step or time budget when the result
 shows the run stopped before the part of the flow you need. The last minute

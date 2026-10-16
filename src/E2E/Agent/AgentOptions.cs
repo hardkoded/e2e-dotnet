@@ -45,11 +45,11 @@ public sealed class AgentOptions
     /// </summary>
     public string? Context { get; init; }
 
-    /// <summary>Committed actions per <c>act</c>, 1 through 100.</summary>
-    public int MaxSteps { get; init; } = E2EDefaults.MaxSteps;
+    /// <summary>Committed actions per <c>act</c>, 1 through 100. Null leaves it unset: <see cref="E2EDefaults.MaxSteps"/> applies, and <c>Explore</c> sets its own.</summary>
+    public int? MaxSteps { get; init; }
 
-    /// <summary>Model requests per agent call, 1 through 100.</summary>
-    public int MaxModelCalls { get; init; } = E2EDefaults.MaxModelCalls;
+    /// <summary>Model requests per agent call, 1 through 100. Null leaves it unset: <see cref="E2EDefaults.MaxModelCalls"/> applies, and <c>Explore</c> sets its own.</summary>
+    public int? MaxModelCalls { get; init; }
 
     /// <summary>Deadline of one <c>assert</c>, <c>waitFor</c>, or <c>extract</c>.</summary>
     public TimeSpan JudgmentTimeout { get; init; } = E2EDefaults.JudgmentTimeout;
@@ -104,8 +104,8 @@ internal sealed class ResolvedAgent
     {
         ArgumentNullException.ThrowIfNull(options);
         var label = "agents." + name;
-        Check(options.MaxSteps, label + ".maxSteps");
-        Check(options.MaxModelCalls, label + ".maxModelCalls");
+        Check(options.MaxSteps ?? E2EDefaults.MaxSteps, label + ".maxSteps");
+        Check(options.MaxModelCalls ?? E2EDefaults.MaxModelCalls, label + ".maxModelCalls");
         if (options.JudgmentTimeout <= TimeSpan.Zero)
         {
             throw new ConfigurationException("INVALID_CONFIG", label + ".judgmentTimeout must be a positive integer of milliseconds");
@@ -124,8 +124,8 @@ internal sealed class ResolvedAgent
             Executor = executor,
             System = options.System,
             Context = options.Context,
-            MaxSteps = options.MaxSteps,
-            MaxModelCalls = options.MaxModelCalls,
+            MaxSteps = options.MaxSteps ?? E2EDefaults.MaxSteps,
+            MaxModelCalls = options.MaxModelCalls ?? E2EDefaults.MaxModelCalls,
             JudgmentTimeout = options.JudgmentTimeout,
             ProviderOptions = options.ProviderOptions,
             Tools = options.Tools,
