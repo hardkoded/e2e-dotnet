@@ -122,6 +122,7 @@ public sealed class E2ESession : IAsyncDisposable
         catch (Exception ex) when ((ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled }) && launch.IsCancellationRequested && !timeout.IsCancellationRequested)
         {
             timeout.Dispose();
+            WriteDebug(debug, options.DebugOutput);
             throw new EngineException(
                 "ENVIRONMENT_UNAVAILABLE",
                 "The engine did not start within the launch timeout (" + options.LaunchTimeout.TotalMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " ms).",
@@ -130,6 +131,7 @@ public sealed class E2ESession : IAsyncDisposable
         catch
         {
             timeout.Dispose();
+            WriteDebug(debug, options.DebugOutput);
             throw;
         }
         finally
@@ -335,14 +337,10 @@ public sealed class E2ESession : IAsyncDisposable
         }
         finally
         {
-            if (_scope.Debug.Enabled)
-            {
-                (_debugOutput ?? Console.Error).Write(_scope.Debug.Summary());
-            }
-
             _errorRedaction.Dispose();
             _scope.Ended.Dispose();
             _timeout.Dispose();
+            WriteDebug(_scope.Debug, _debugOutput);
         }
     }
 
@@ -405,6 +403,24 @@ public sealed class E2ESession : IAsyncDisposable
         }
 
         return agents;
+    }
+
+    // A table is a courtesy: a stderr that cannot be written must not hide the test's own result.
+    private static void WriteDebug(DebugTrace debug, TextWriter? output)
+    {
+        if (!debug.Enabled)
+        {
+            return;
+        }
+
+        try
+        {
+            (output ?? Console.Error).Write(debug.Summary());
+        }
+        catch (IOException)
+        {
+            // Nothing reads the table.
+        }
     }
 
     private static bool Bounded(TimeSpan timeout) => timeout > TimeSpan.Zero && timeout != Timeout.InfiniteTimeSpan;
