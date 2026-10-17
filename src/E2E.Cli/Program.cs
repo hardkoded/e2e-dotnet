@@ -26,6 +26,7 @@ public static partial class Program
           e2e guide [topic]
           e2e install [chromium|firefox|webkit ...] [--with-deps]
           e2e mcp [--config <path>] [--target <name>] [--headed] [--max-sessions <n>]
+          e2e explore [goal] [--config <path>] [--target <id>] [--agent <name>] [--max-steps <n>] [--timeout <ms>] [--headed] [--output <dir>]
 
         e2e install downloads browsers for the Playwright version E2E runs. It installs chromium when no browser is named.
 
@@ -34,6 +35,8 @@ public static partial class Program
           github-copilot    GitHub Copilot (gh signed in, or --client-id of your OAuth App; --enterprise-url for GHE)
           opencode-console  OpenCode Console workspace (OpenCode Zen and Go)
           spacexai          SuperGrok or X Premium+
+
+        e2e explore runs the agent against the app toward a goal, without a test file, and reports its findings. e2e explore --help lists its options.
 
         e2e mcp serves a coding agent such as Claude Code over MCP (stdio): the fixed tools and the guide
         resources. Register it with: claude mcp add e2e -- e2e mcp
@@ -78,6 +81,11 @@ public static partial class Program
         if (args[0] == "mcp")
         {
             return await McpAsync(args.Skip(1), stdout, stderr, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (args[0] == "explore")
+        {
+            return await ExploreCommand.RunAsync(args.Skip(1), stdout, stderr, interactive, Explore.ExploreAsync, cancellationToken).ConfigureAwait(false);
         }
 
         if (args[0] == "install")
@@ -395,7 +403,7 @@ public static partial class Program
     private static partial Regex EscapeSequence();
 
     /// <summary>Vendor text is untrusted: escape sequences are stripped whole, and the other terminal control characters are dropped.</summary>
-    private static string Clean(string text)
+    internal static string Clean(string text)
     {
         var builder = new StringBuilder(text.Length);
         foreach (var c in EscapeSequence().Replace(text, string.Empty))

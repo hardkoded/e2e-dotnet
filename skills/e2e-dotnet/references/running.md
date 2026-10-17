@@ -23,6 +23,7 @@ e2e login|logout|models [provider]                   # subscription logins: open
                                                      # github-copilot, opencode-console, spacexai
 e2e install [chromium ...] [--with-deps]             # download browsers (topic setup)
 e2e mcp                                              # MCP server for a coding agent (topic mcp)
+e2e explore [goal] [--max-steps <n>] [--timeout <ms>] # explore the app toward a goal (topic explore)
 ```
 
 Selection, retries, and parallelism are the test framework's: `--filter`
@@ -87,8 +88,10 @@ Use the test runner's loggers, such as
 
 `dotnet test` exits 0 when every test passed or was skipped, and 1
 otherwise. The `e2e` tool exits 0 on success and 1 on an error or an unknown
-command. `e2e guide` exits 2 on an unknown topic, and `e2e mcp` exits 2 on a
-bad flag.
+command. `e2e guide` exits 2 on an unknown topic, and `e2e mcp` and `e2e
+explore` exit 2 on a bad flag. `e2e explore` exits 0 when it reported no
+issue, 1 when it reported one, 3 for an engine or model provider failure, and
+130 when interrupted.
 
 ## Continuous integration
 

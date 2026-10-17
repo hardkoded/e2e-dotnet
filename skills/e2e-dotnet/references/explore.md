@@ -4,6 +4,7 @@
 
 - What a run does
 - Run one
+- The command
 - Budgets
 - The verdict
 - Reading the result
@@ -11,12 +12,18 @@
 - Writing a good goal
 - When it does not fit
 
-`Explore.ExploreAsync` runs the agent against the app with a goal instead of
-a test: see what it can do with an app before tests exist, hunt for
-regressions on a branch, or find what is worth turning into a test. It needs
-an `e2e.config.json` with a target and an agent that holds a model, nothing
-else. There is no `e2e explore` command yet, so an exploration runs from
-code.
+`e2e explore` and `Explore.ExploreAsync` run the agent against the app with a
+goal instead of a test: see what it can do with an app before tests exist,
+hunt for regressions on a branch, or find what is worth turning into a test.
+It needs an `e2e.config.json` with a target and an agent that holds a model,
+nothing else. The command runs from the project directory; the library call
+runs from code.
+
+```bash
+e2e explore   # goal: "Explore the app and find bugs"
+e2e explore "Explore checkout like a first-time buyer and report anything off"
+e2e explore --target web --max-steps 4 --headed
+```
 
 ## What a run does
 
@@ -59,6 +66,39 @@ or target, a goal over 2000 characters, a budget out of range, and an agent
 with no model throw before anything starts. `Agents` gives agents in code,
 by name, over the config's: a model of your own or a project tool is set
 there, since `e2e.config.json` names only a provider and a model id.
+
+## The command
+
+| Flag | Default | Effect |
+| --- | --- | --- |
+| `[goal]` | `Explore the app and find bugs` | One quoted sentence: the area and the posture. |
+| `--config <path>` | the nearest `e2e.config.json` | The config file. |
+| `--target <id>` | the config's target | The target to explore. |
+| `--agent <name>` | `default` | Build the explorer from another configured agent (`agents.<name>`). |
+| `--max-steps <n>` | 8 (1 to 12) | Exploration steps at most. |
+| `--timeout <ms>` | 600000 (180000 to 900000) | Wall clock; the last minute is for the assessment. |
+| `--headed` | off | Show the browser while the agent explores. |
+| `--output <dir>` | `.e2e/results` | Where finding screenshots are kept. |
+
+A flag out of range exits 2 and names the range. `--session` and `--reporter`
+exit 2: the port has no saved sessions or reporters. `--trace`, `--video`,
+`--debug`, and `--ai-trace` print a notice on stderr and the run goes on
+without them.
+
+Every `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD` pair in the
+environment is an account the explorer can sign in with, named `<name>` in
+lower case; a username with no password (or a short one) exits 2.
+
+The terminal shows each step by its title with its duration and findings, and
+each finding the moment it is reported as `⚑ high issue  Title (/path)`. At
+the end a `Findings` section lists every finding, issues first and the most
+severe first, each with where it was seen, expected against actual, the steps
+that reach it, and its screenshot path; then the `Assessment` and a summary
+with `Findings` and `Steps`. Severity words: critical 5, high 4, medium 3,
+low 2, trivial 1. The exit code is the verdict's: 0 when no issue was reported
+(warnings do not count), 1 for an issue or nothing explored, 2 for a
+configuration or policy error, 3 for an engine, app, or model provider
+failure, and 130 when interrupted. The port writes no `report.json`.
 
 ## Budgets
 
@@ -136,5 +176,6 @@ the record, or a model.
 Findings are the model's claims plus evidence, not verified reproductions:
 read `Actual` against the screenshot before filing a bug. The port has no
 saved sessions (`--session`), traces, video, or report file, so an
-exploration starts signed out and its record is the outcome only. A whole-app
+exploration starts signed out and its record is the outcome (or what the
+command prints). A whole-app
 bug hunt (topic `bug-bash`) still has no fan-out.

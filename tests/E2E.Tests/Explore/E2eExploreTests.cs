@@ -14,7 +14,7 @@ namespace E2E.Tests.Explore;
 
 /// <summary>
 /// <c>e2e explore</c> end to end against the counter page, with one scripted model serving both surfaces: the planner's
-/// structured call and the explorer's tool loop. The port has no runner, report, or CLI here, so these tests read the outcome
+/// structured call and the explorer's tool loop. The port has no runner or report here, so these tests read the outcome
 /// <see cref="Explorer.ExploreAsync"/> returns where upstream's read the run's report. The tests of <c>--session</c>
 /// (runs only the setup, keeps the pixels of a tainted session, an agentic setup, an unknown session) and the one that
 /// tells a user to pass <c>--trace on</c> and <c>--video on</c> are not ported: the port has no saved sessions, traces, or video.

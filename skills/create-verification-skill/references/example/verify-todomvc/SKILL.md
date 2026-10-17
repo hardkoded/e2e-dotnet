@@ -56,7 +56,7 @@ it.
 
 ## Bug bash
 
-`e2e explore` is not ported, so a bash is a live MCP walk of a feature's
+The bug bash fan-out is not ported, so a bash is a live MCP walk of a feature's
 charter from [features/](features/), one H2 per feature, in the
 `slug|target|charter` line format. A finding is a bug once a repro test
 fails with `ASSERTION_FAILED` on the assertion that encodes it (topic
