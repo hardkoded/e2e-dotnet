@@ -74,6 +74,15 @@ internal sealed class TestHost : IReplayHost
 
     public void Commit(RecordedAction action) => Committed.Add(action);
 
+    /// <summary>The options of each tap and double tap, in call order.</summary>
+    public List<ClickOptions?> Clicks { get; } = [];
+
+    private Task Click(string name, ExecutorTarget target, ClickOptions? options)
+    {
+        Clicks.Add(options);
+        return Act(name, target.Id);
+    }
+
     private Task Act(string name, object? detail = null)
     {
         Calls.Add(name);
@@ -83,9 +92,9 @@ internal sealed class TestHost : IReplayHost
 
     private sealed class Grammar(TestHost host) : IExecutorActions
     {
-        public Task TapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => host.Act("tap", target.Id);
+        public Task TapAsync(ExecutorTarget target, ClickOptions? options = null, CancellationToken cancellationToken = default) => host.Click("tap", target, options);
 
-        public Task DoubleTapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => host.Act("doubleTap", target.Id);
+        public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options = null, CancellationToken cancellationToken = default) => host.Click("doubleTap", target, options);
 
         public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) => host.Act("type", (target.Id, value));
 

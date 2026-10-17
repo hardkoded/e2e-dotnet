@@ -200,9 +200,9 @@ internal sealed class StepHost : IStepCacheHost
 
     private sealed class Grammar : IExecutorActions
     {
-        public Task TapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task TapAsync(ExecutorTarget target, ClickOptions? options = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public Task DoubleTapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) => Task.CompletedTask;
 

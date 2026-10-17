@@ -11,9 +11,11 @@ public abstract record LocatorAction
     {
     }
 
-    public sealed record Tap : LocatorAction;
+    /// <summary>A tap. <paramref name="Modifiers"/> are held for the click, and only an engine that declares <see cref="EngineCapabilities.TapModifiers"/> receives them.</summary>
+    public sealed record Tap(IReadOnlyList<KeyModifier>? Modifiers = null) : LocatorAction;
 
-    public sealed record DoubleTap : LocatorAction;
+    /// <summary>A double tap. <paramref name="Modifiers"/> are held for both clicks, as for <see cref="Tap"/>.</summary>
+    public sealed record DoubleTap(IReadOnlyList<KeyModifier>? Modifiers = null) : LocatorAction;
 
     public sealed record Fill(string Value, bool Sensitive = false) : LocatorAction;
 

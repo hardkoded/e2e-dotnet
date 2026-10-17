@@ -93,7 +93,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
             "observe", "tap", "double_tap", "type", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "screenshot", "type_secret", "locate",
         ];
         Assert.Equal(names, ServedCli.CatalogNames(opened.Text));
-        Assert.Contains("- tap {target}: Tap or click one node: the gesture for a button, link, menu item, tab, checkbox, row, or field.\n", opened.Text, StringComparison.Ordinal);
+        Assert.Contains("- tap {target, modifiers?}: Tap or click one node: the gesture for a button, link, menu item, tab, checkbox, row, or field.\n", opened.Text, StringComparison.Ordinal);
         Assert.Matches(new Regex(@"^- locate \{role\?, name\?, text\?, label\?, placeholder\?, testId\?, exact\?\}: .* \[read-only\]$", RegexOptions.Multiline, TimeSpan.FromSeconds(5)), opened.Text);
         Assert.Contains("Screen (/):", opened.Text, StringComparison.Ordinal);
         Assert.Contains("button \"Increment\"", opened.Text, StringComparison.Ordinal);

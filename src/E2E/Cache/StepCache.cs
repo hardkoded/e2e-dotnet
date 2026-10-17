@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using E2E.Engine;
 using E2E.Internal;
 
 namespace E2E;
@@ -87,6 +88,20 @@ public sealed class RecordedAction
 
     /// <summary>The text a <c>scrollUntil</c> paged toward.</summary>
     public string? Text { get; set; }
+
+    /// <summary>Keys a <c>tap</c> or <c>doubleTap</c> held for the click, replayed with it. Null holds none.</summary>
+    public List<string>? Modifiers { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="Modifiers"/> is well formed: absent, or on a <c>tap</c> or <c>doubleTap</c> as a non-empty list of
+    /// distinct key modifier names. Upstream's <c>readModifiers</c>, which makes a malformed entry a miss.
+    /// </summary>
+    internal bool HasValidModifiers() =>
+        Modifiers is null
+        || (Kind is "tap" or "doubleTap"
+            && Modifiers.Count > 0
+            && Modifiers.Distinct(StringComparer.Ordinal).Count() == Modifiers.Count
+            && Modifiers.All(name => KeyModifiers.TryParse(name, out _)));
 }
 
 public sealed class RecordedTarget

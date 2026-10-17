@@ -204,6 +204,9 @@ public sealed class ExecutorTargetInfo
     public required string Platform { get; init; }
 
     public IReadOnlySet<ExecutorVerb> Verbs { get; init; } = new HashSet<ExecutorVerb>();
+
+    /// <summary>True when <see cref="IExecutorActions.TapAsync"/> and <see cref="IExecutorActions.DoubleTapAsync"/> take <see cref="ClickOptions.Modifiers"/>.</summary>
+    public bool TapModifiers { get; init; }
 }
 
 /// <summary>One verb of <see cref="IExecutorActions"/>. The port has the verbs its engines can perform.</summary>
@@ -299,6 +302,13 @@ public sealed record ExecutorObservation(string Text)
     public VisionDegradation? PixelsWithheld { get; init; }
 }
 
+/// <summary>What a tap-family action takes. Upstream's <c>ClickOptions</c>, of which the port has the <c>modifiers</c>.</summary>
+public sealed class ClickOptions
+{
+    /// <summary>Keys held for the click, distinct. An empty list holds nothing.</summary>
+    public IReadOnlyList<KeyModifier>? Modifiers { get; init; }
+}
+
 /// <summary>
 /// A node named by its id from the newest observation (upstream's <c>{ id }</c>). The id is the node's ref in the text and in
 /// <see cref="ExecutorNode.Id"/>. A ref the screen no longer lists fails the action instead of acting on the wrong node.
@@ -339,10 +349,14 @@ public sealed class ExecutorTarget
 /// </summary>
 public interface IExecutorActions
 {
-    Task TapAsync(ExecutorTarget target, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Taps one node. <see cref="ClickOptions.Modifiers"/> holds keys for the click, as a Shift-click extends a selection; it
+    /// needs <see cref="ExecutorTargetInfo.TapModifiers"/>, <c>UNSUPPORTED_CAPABILITY</c> otherwise.
+    /// </summary>
+    Task TapAsync(ExecutorTarget target, ClickOptions? options = null, CancellationToken cancellationToken = default);
 
-    /// <summary>Double-taps one node.</summary>
-    Task DoubleTapAsync(ExecutorTarget target, CancellationToken cancellationToken = default);
+    /// <summary>Double-taps one node. Takes the tap's <paramref name="options"/>.</summary>
+    Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options = null, CancellationToken cancellationToken = default);
 
     Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default);
 

@@ -153,6 +153,11 @@ public static class DefaultAgent
             }
         }
 
+        if (action.Modifiers is { Count: > 0 })
+        {
+            builder.Append(" with ").Append(string.Join('+', action.Modifiers)).Append(" held");
+        }
+
         if (action.Url is not null)
         {
             builder.Append(' ').Append(action.Url);

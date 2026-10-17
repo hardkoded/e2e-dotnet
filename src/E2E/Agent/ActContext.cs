@@ -66,7 +66,7 @@ internal sealed partial class ActContext : StepExecutorContext
             CancellationToken = scope.Ended.Token,
             Memory = scope.ExecutorMemory,
         };
-        Target = new ExecutorTargetInfo { Name = scope.TargetName, Platform = scope.EnginePlatform, Verbs = VerbsOf(scope.EngineCapabilities) };
+        Target = new ExecutorTargetInfo { Name = scope.TargetName, Platform = scope.EnginePlatform, Verbs = VerbsOf(scope.EngineCapabilities), TapModifiers = scope.EngineCapabilities.HasFlag(EngineCapabilities.TapModifiers) };
         ReplayedPrefix = prefix;
         Model = agent.Model;
         ProviderOptions = agent.ProviderOptions;

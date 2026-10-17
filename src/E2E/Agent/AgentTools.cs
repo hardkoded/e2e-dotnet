@@ -119,6 +119,27 @@ internal static class AgentTools
         Tool("clear", "Clear a field.", Target),
     ];
 
+    // The tap family names the keys it holds for the click, on an engine that declares them.
+    private static ModelTool HoldingModifiers(ModelTool verb) =>
+        verb.Name is "tap" or "double_tap"
+            ? new ModelTool
+            {
+                Name = verb.Name,
+                Description = verb.Description + " Pass modifiers to hold keys for the click.",
+                Parameters = Extend(
+                    Target,
+                    $$"""
+                    {
+                      "modifiers": {
+                        "type": "array",
+                        "items": { "type": "string", "enum": {{JsonSerializer.Serialize(KeyModifiers.Names)}} },
+                        "description": "Keys held while the pointer clicks: Shift, Control, Alt, Meta, or ControlOrMeta. A Shift-click extends a selection, a Control-click (Meta on macOS) toggles one item."
+                      }
+                    }
+                    """),
+            }
+            : verb;
+
     private static readonly ModelTool Navigate = Tool("navigate", "Open a path or URL.", Parse("""{ "type": "object", "properties": { "url": { "type": "string" } }, "required": ["url"] }"""));
 
     /// <summary>The verdict tool every loop offers, whatever its vocabulary, with the policy that accepts or refuses a verdict.</summary>
@@ -129,7 +150,7 @@ internal static class AgentTools
     public static IReadOnlyList<ModelTool> CreateGrammarTools(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null)
     {
         var tools = new List<ModelTool> { Observe };
-        tools.AddRange(Verbs);
+        tools.AddRange(capabilities.HasFlag(EngineCapabilities.TapModifiers) ? Verbs.Select(HoldingModifiers) : Verbs);
         if (capabilities.HasFlag(EngineCapabilities.Scroll))
         {
             tools.Add(ScrollTo);
