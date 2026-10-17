@@ -293,7 +293,13 @@ await Expect.That(Screen).ToHaveScreenshotAsync("feed.png", new ScreenshotOption
 
 ## Exploring an app
 
-`Explore.ExploreAsync` gives the agent a goal instead of a test. It plans one step at a time, drives the app, and reports each defect it has evidence of, with a screenshot. It reads the same `e2e.config.json` and needs a target and an agent with a model.
+`e2e explore` and `Explore.ExploreAsync` give the agent a goal instead of a test. It plans one step at a time, drives the app, and reports each defect it has evidence of, with a screenshot. It reads the same `e2e.config.json` and needs a target and an agent with a model.
+
+```bash
+e2e explore "Explore checkout like a first-time buyer and report anything off" --max-steps 4
+```
+
+The command prints each step and finding as it happens, then the findings with their evidence, the agent's assessment, and a summary. It exits 0 when no issue was reported, 1 when one was, 2 for a configuration error, and 3 for an engine or model provider failure. Flags: `--config`, `--target`, `--agent`, `--max-steps`, `--timeout` (milliseconds), `--headed`, and `--output`. Each `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD` pair in the environment is an account the agent can sign in with. From code:
 
 ```csharp
 var outcome = await Explore.ExploreAsync(new ExploreOptions
@@ -308,7 +314,7 @@ foreach (var finding in outcome.Explore.Findings)
 }
 ```
 
-`outcome.Status` is `Failed` when the agent reported an `issue` (a `warning` does not fail the run) and `Blocked` when it could not explore. The budgets are 1 to 12 steps and 3 to 15 minutes. `OnProgress` follows the run as it happens, and `Credentials` gives the accounts the agent can sign in with. There is no `e2e explore` command yet. See [COMPATIBILITY.md](COMPATIBILITY.md#explore) and topic `explore`.
+`outcome.Status` is `Failed` when the agent reported an `issue` (a `warning` does not fail the run) and `Blocked` when it could not explore. The budgets are 1 to 12 steps and 3 to 15 minutes. `OnProgress` follows the run as it happens, and `Credentials` gives the accounts the agent can sign in with. The command has no `--session`, `--reporter`, `--trace`, `--video`, `--debug`, or `--ai-trace`. See [COMPATIBILITY.md](COMPATIBILITY.md#explore) and topic `explore`.
 
 ## Coding agents (MCP)
 
@@ -372,6 +378,6 @@ Most unit tests use `DocumentEngine` and a scripted model. No test needs an API 
 | `@e2e-dev/limrun` | `E2E.Limrun` (`LimrunSimulators`) |
 | none (.NET only) | `E2E.TestMu.Mobile` (TestMu AI real and virtual mobile devices through Appium; in progress) |
 | none (TestMu AI has no upstream package) | `E2E.TestMu` (`TestMuBrowsers`), hosted browsers for `WebEngineOptions.Browser` |
-| `e2e login`, `e2e logout`, `e2e models`, `e2e guide`, `e2e mcp`, `e2e-web install` (as `e2e install`) | `E2E.Cli` (the `e2e` .NET tool) |
+| `e2e login`, `e2e logout`, `e2e models`, `e2e guide`, `e2e mcp`, `e2e explore`, `e2e-web install` (as `e2e install`) | `E2E.Cli` (the `e2e` .NET tool) |
 
 `@e2e-dev/mobile` is ported in part (the snapshot model and the engine) as `E2E.Mobile`. The EAS and Limrun providers are their own packages, `E2E.Eas` and `E2E.Limrun`. `E2E.TestMu` has no upstream counterpart. The Kernel provider is its own package, `E2E.Kernel`. `@e2e-dev/github` is not ported. Details are in [COMPATIBILITY.md](COMPATIBILITY.md).

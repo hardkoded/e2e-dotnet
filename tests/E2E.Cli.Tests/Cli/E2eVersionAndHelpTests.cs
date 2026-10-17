@@ -11,7 +11,7 @@ namespace E2E.Cli.Tests.Cli;
 /// </summary>
 public sealed class E2eVersionAndHelpTests
 {
-    /// <summary>Partial: the port's help lists its five commands and the providers, with no version line, examples, or docs link.</summary>
+    /// <summary>Partial: the port's help lists its six commands and the providers, with no version line, examples, or docs link.</summary>
     [Fact]
     public async Task Opens_the_help_with_the_usage_and_every_command_and_exits_0()
     {
@@ -19,7 +19,7 @@ public sealed class E2eVersionAndHelpTests
 
         Assert.Equal(0, code);
         Assert.StartsWith("Usage:", stdout, StringComparison.Ordinal);
-        foreach (var command in new[] { "e2e login", "e2e logout", "e2e models", "e2e guide", "e2e mcp" })
+        foreach (var command in new[] { "e2e login", "e2e logout", "e2e models", "e2e guide", "e2e mcp", "e2e explore" })
         {
             Assert.Contains(command, stdout, StringComparison.Ordinal);
         }
