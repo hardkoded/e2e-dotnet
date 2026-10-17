@@ -100,7 +100,7 @@ public sealed partial class Agent
         var feed = new ObservationFeed(_scope.Session, TimeProvider.System) { Scope = _scope };
         _feed = feed;
         var stepIndex = _scope.NextStepIndex();
-        budget.Attach(_scope, timeout, outer.Token, stop, _scope.Redactor.Redact, feed.ArmAfter);
+        budget.Attach(_scope, timeout, outer.Token, stop, feed.ArmAfter);
         _scope.Remember(spec.Params);
         var declared = ActParams.SecretsIn(spec.Params);
         var dispatcher = new ActionDispatcher(_scope, feed, budget, spec.Params, () => declared);
@@ -142,15 +142,15 @@ public sealed partial class Agent
                 }
             }
 
-            var actions = budget.Recorded;
+            var recorder = budget.Recorder;
             CacheInfo? info = null;
             string? uncertain = null;
             var handoff = false;
             var actionsAtEndMismatch = -1;
             if (pending is not null && start is not null && _scope.CacheEnabled && _scope.ReplayEligible && _scope.Cache is not null)
             {
-                var replay = await TryReplayAsync(pending, start, actions, budget, dispatcher, spec.Params, token).ConfigureAwait(false);
-                info = new CacheInfo { Mode = replay.Info!.Mode, Reason = replay.Info.Reason, ReplayedActions = actions.Count, TotalActions = pending.RecordedActions, Detail = replay.Info.Detail };
+                var replay = await TryReplayAsync(pending, start, recorder, budget, dispatcher, spec.Params, token).ConfigureAwait(false);
+                info = new CacheInfo { Mode = replay.Info!.Mode, Reason = replay.Info.Reason, ReplayedActions = recorder.RecordedCount, TotalActions = pending.RecordedActions, Detail = replay.Info.Detail };
                 handoff = replay.Handoff;
                 // A store that could not be read says nothing about a recording, so strict mode runs the step live too.
                 // So does a recording that stops at a project tool: as upstream, a gap is no stale recording, only a step the cache cannot finish.
@@ -177,7 +177,7 @@ public sealed partial class Agent
 
                 if (handoff && string.Equals(info?.Reason, "end-mismatch", StringComparison.Ordinal))
                 {
-                    actionsAtEndMismatch = actions.Count;
+                    actionsAtEndMismatch = recorder.RecordedCount;
                 }
 
                 uncertain = replay.Uncertain;
@@ -190,7 +190,7 @@ public sealed partial class Agent
             }
 
             // The screen the step began on is stale once a replay acted, so the executor takes a fresh look.
-            context = new ActContext(_scope, feed, budget, dispatcher, spec, agent, stepIndex, declared, handoff && actions.Count > 0 ? null : start, handoff ? PrefixOf(actions, pending!, info!.Reason, uncertain) : null);
+            context = new ActContext(_scope, feed, budget, dispatcher, spec, agent, stepIndex, declared, handoff && recorder.RecordedCount > 0 ? null : start, handoff ? PrefixOf(recorder.Actions, pending!, info!.Reason, uncertain) : null);
             StepVerdict verdict;
             try
             {
@@ -219,7 +219,7 @@ public sealed partial class Agent
                 return new ActResult { Summary = summary, ModelCalls = budget.ModelCalls, Actions = budget.Used };
             }
 
-            if (actionsAtEndMismatch >= 0 && actions.Count > actionsAtEndMismatch)
+            if (actionsAtEndMismatch >= 0 && recorder.RecordedCount > actionsAtEndMismatch)
             {
                 // The recorded actions ran but did not reach the recorded end, so they are proven
                 // not to produce it. Evict the entry and let a clean run record the flow again.
@@ -238,8 +238,8 @@ public sealed partial class Agent
                 pending.Completed = true;
                 // Only a cache that writes keeps the recording, so only it waits for the screen to settle: after the
                 // last action's change, held still. A step that took no action has nothing to record.
-                pending.Entry = _scope.CacheWrite && start is not null && actions.Count > 0
-                    ? await StageAsync(pending.Step!, start, actions, spec.Params, token).ConfigureAwait(false)
+                pending.Entry = _scope.CacheWrite && start is not null && recorder.RecordedCount > 0
+                    ? await StageAsync(pending.Step!, start, recorder, spec.Params, token).ConfigureAwait(false)
                     : null;
                 if (info is not null && pending.ParamCollision && pending.Entry is not null)
                 {
@@ -282,7 +282,7 @@ public sealed partial class Agent
     }
 
     // What the replay ran before it handed the step over, in the words an executor reads.
-    private static ReplayedPrefix PrefixOf(List<RecordedAction> actions, PendingAct pending, string? reason, string? uncertain) =>
+    private static ReplayedPrefix PrefixOf(IReadOnlyList<RecordedAction> actions, PendingAct pending, string? reason, string? uncertain) =>
         new(actions.Select(DefaultAgent.Describe).ToList(), pending.RecordedActions, ReplayHandOffReasons.Parse(reason), uncertain);
 
     /// <summary>
@@ -443,7 +443,7 @@ public sealed partial class Agent
     private async Task<ReplayAttempt> TryReplayAsync(
         PendingAct pending,
         Observation start,
-        List<RecordedAction> actions,
+        TraceRecorder recorder,
         StepAccounting budget,
         ActionDispatcher dispatcher,
         IReadOnlyDictionary<string, object?>? parameters,
@@ -496,7 +496,7 @@ public sealed partial class Agent
         // Where the replay stopped, for the report: the recorded action, one-based, and what went wrong there when
         // more than the reason says.
         string StoppedAt(string? why = null) =>
-            "at action " + (actions.Count + 1).ToString(CultureInfo.InvariantCulture) + " of " + entry.Actions.Count.ToString(CultureInfo.InvariantCulture) + ", " + DefaultAgent.Describe(entry.Actions[actions.Count]) + (why is null ? "" : ": " + why);
+            "at action " + (recorder.RecordedCount + 1).ToString(CultureInfo.InvariantCulture) + " of " + entry.Actions.Count.ToString(CultureInfo.InvariantCulture) + ", " + DefaultAgent.Describe(entry.Actions[recorder.RecordedCount]) + (why is null ? "" : ": " + why);
 
         if (!outcome.Completed)
         {
@@ -505,7 +505,7 @@ public sealed partial class Agent
             {
                 case ReplayHandOffReason.Gap or ReplayHandOffReason.TargetNotFound or ReplayHandOffReason.TargetAmbiguous or ReplayHandOffReason.InvalidEntry when outcome.Executed == 0:
                     _scope.Missed++;
-                    actions.Clear();
+                    recorder.Clear();
                     return ReplayAttempt.Miss(reason, StoppedAt());
                 case ReplayHandOffReason.ActionUncertain:
                     _scope.HandedOff++;
@@ -683,7 +683,7 @@ public sealed partial class Agent
     private async Task<CacheEntry?> StageAsync(
         CacheEntry step,
         Observation start,
-        List<RecordedAction> actions,
+        TraceRecorder recorder,
         IReadOnlyDictionary<string, object?>? parameters,
         CancellationToken token)
     {
@@ -697,7 +697,7 @@ public sealed partial class Agent
             return null;
         }
 
-        return BuildEntry(step, start.Route, _feed.FirstActedOn ?? start, end, actions, parameters);
+        return BuildEntry(step, start.Route, _feed.FirstActedOn ?? start, end, recorder, parameters);
     }
 
     // A step that changed nothing a replay could check, no node and no route, records nothing:
@@ -707,7 +707,7 @@ public sealed partial class Agent
         string route,
         Observation baseline,
         Observation end,
-        List<RecordedAction> actions,
+        TraceRecorder recorder,
         IReadOnlyDictionary<string, object?>? parameters)
     {
         var routeMoved = !CacheRoute.Same(baseline.Route, end.Route);
@@ -717,14 +717,7 @@ public sealed partial class Agent
             return null;
         }
 
-        var entry = new CacheEntry { Schema = step.Schema };
-        entry.SetStep(step);
-        entry.Route = Template(route, parameters);
-        entry.EndRoute = Template(end.Route, parameters);
-        entry.Actions = actions.ToList();
-        entry.Appeared = appeared;
-        entry.Gone = gone;
-        return entry;
+        return recorder.Finalize(step, Template(route, parameters), Template(end.Route, parameters), appeared, gone);
     }
 
     /// <summary>
