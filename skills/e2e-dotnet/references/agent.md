@@ -427,7 +427,7 @@ public sealed class TapOnlyTests : E2ETest
                 new ModelTool { Name = "tap", Description = "Tap a node by its ref from the latest read_screen", Parameters = Schema("""{ "type": "object", "properties": { "ref": { "type": "string" } }, "required": ["ref"] }""") },
                 async (call, token) =>
                 {
-                    await context.Actions.TapAsync(new ExecutorTarget(call.Arguments.GetProperty("ref").GetString()!), cancellationToken: token);
+                    await context.Actions.TapAsync(new ExecutorTarget(call.Arguments.GetProperty("ref").GetString()!), token);
                     return new ToolLoopResult("Tapped.");
                 }),
         ],

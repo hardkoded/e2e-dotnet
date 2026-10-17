@@ -119,6 +119,14 @@ internal static class AgentTools
         Tool("clear", "Clear a field.", Target),
     ];
 
+    /// <summary>The <c>modifiers</c> property of a tap-family tool: the keys held while the pointer clicks.</summary>
+    internal static JsonObject ModifiersSchema() => new()
+    {
+        ["type"] = "array",
+        ["items"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray([.. KeyModifiers.Names.Select(name => (JsonNode)name)]) },
+        ["description"] = "Keys held while the pointer clicks. A Shift-click extends a selection, a Control-click (Meta on macOS) toggles one item",
+    };
+
     // The tap family names the keys it holds for the click, on an engine that declares them.
     private static ModelTool HoldingModifiers(ModelTool verb) =>
         verb.Name is "tap" or "double_tap"
@@ -126,17 +134,7 @@ internal static class AgentTools
             {
                 Name = verb.Name,
                 Description = verb.Description + " Pass modifiers to hold keys for the click.",
-                Parameters = Extend(
-                    Target,
-                    $$"""
-                    {
-                      "modifiers": {
-                        "type": "array",
-                        "items": { "type": "string", "enum": {{JsonSerializer.Serialize(KeyModifiers.Names)}} },
-                        "description": "Keys held while the pointer clicks: Shift, Control, Alt, Meta, or ControlOrMeta. A Shift-click extends a selection, a Control-click (Meta on macOS) toggles one item."
-                      }
-                    }
-                    """),
+                Parameters = Extend(Target, new JsonObject { ["modifiers"] = ModifiersSchema() }.ToJsonString()),
             }
             : verb;
 

@@ -61,7 +61,7 @@ internal sealed class SessionCatalog
         void Add(string name, CatalogTool tool) => tools.Add(new(name, tool));
 
         Add("observe", Observe(context));
-        var holdable = capabilities.HasFlag(EngineCapabilities.TapModifiers) ? new[] { ("modifiers", Modifiers, false) } : [];
+        var holdable = capabilities.HasFlag(EngineCapabilities.TapModifiers) ? new (string Name, JsonNode Schema, bool Required)[] { ("modifiers", AgentTools.ModifiersSchema(), false) } : [];
         Add("tap", Verb(context, "tap", "tap", "Tap or click one node: the gesture for a button, link, menu item, tab, checkbox, row, or field.", Schema(Target, holdable)));
         Add("double_tap", Verb(context, "double_tap", "double_tap", "Double-click one node. Use it only when a tap does nothing, such as a label that opens an editor on a double-click.", Schema(Target, holdable)));
         Add("type", Verb(context, "type", "fill", "Replace the text in a field with text.", Schema(Target, ("text", Property("string", "The text the field should hold"), true)), ("text", "value")));
@@ -200,13 +200,6 @@ internal sealed class SessionCatalog
         [("target", Property("string", "Node ref from the newest observation, such as the value after ref= in observe"), false)];
 
     private static JsonNode Direction => new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("up", "down", "left", "right") };
-
-    private static JsonNode Modifiers => new JsonObject
-    {
-        ["type"] = "array",
-        ["items"] = new JsonObject { ["type"] = "string", ["enum"] = new JsonArray([.. KeyModifiers.Names.Select(name => (JsonNode)name)]) },
-        ["description"] = "Keys held while the pointer clicks. A Shift-click extends a selection, a Control-click (Meta on macOS) toggles one item",
-    };
 
     private static JsonNode TimesProperty => new JsonObject
     {

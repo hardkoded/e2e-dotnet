@@ -43,9 +43,9 @@ public sealed partial class Agent
 
         public void Commit(RecordedAction action) => budget.Recorder.Record(action);
 
-        public Task TapAsync(ExecutorTarget target, ClickOptions? options = null, CancellationToken cancellationToken = default) => ClickAsync("tap", target, options, cancellationToken);
+        public Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => ClickAsync("tap", target, options, cancellationToken);
 
-        public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options = null, CancellationToken cancellationToken = default) => ClickAsync("doubleTap", target, options, cancellationToken);
+        public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => ClickAsync("doubleTap", target, options, cancellationToken);
 
         private Task ClickAsync(string kind, ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken) =>
             PerformAsync(target, ActionDispatcher.ClickAction(kind, ActionDispatcher.RequireClickModifiers(options, kind, scope.EngineCapabilities)), kind, cancellationToken);

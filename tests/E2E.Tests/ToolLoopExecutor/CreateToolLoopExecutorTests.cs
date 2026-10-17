@@ -31,7 +31,7 @@ public sealed partial class CreateToolLoopExecutorTests
         new ModelTool { Name = "tap", Description = "Tap a node by its ref", Parameters = Schema("""{ "type": "object", "properties": { "ref": { "type": "string" } }, "required": ["ref"] }""") },
         async (call, token) =>
         {
-            await context.Actions.TapAsync(new ExecutorTarget(call.Arguments.GetProperty("ref").GetString()!), cancellationToken: token);
+            await context.Actions.TapAsync(new ExecutorTarget(call.Arguments.GetProperty("ref").GetString()!), token);
             return new ToolLoopResult("Tapped.");
         });
 
@@ -140,8 +140,8 @@ public sealed partial class CreateToolLoopExecutorTests
                 {
                     var observation = await context.ObserveAsync(cancellationToken: token);
                     var increment = TargetFor(observation.Text, "button \"Increment\"");
-                    await context.Actions.TapAsync(increment, cancellationToken: token);
-                    await context.Actions.TapAsync(increment, cancellationToken: token);
+                    await context.Actions.TapAsync(increment, token);
+                    await context.Actions.TapAsync(increment, token);
                     return new ToolLoopResult("Tapped twice.");
                 }),
         ]);

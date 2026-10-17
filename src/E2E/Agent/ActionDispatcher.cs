@@ -43,10 +43,10 @@ internal sealed class ActionDispatcher : IExecutorActions
         _secrets = secrets;
     }
 
-    public Task TapAsync(ExecutorTarget target, ClickOptions? options = null, CancellationToken cancellationToken = default) =>
+    public Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) =>
         ClickAsync("tap", target, options, cancellationToken);
 
-    public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options = null, CancellationToken cancellationToken = default) =>
+    public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) =>
         ClickAsync("doubleTap", target, options, cancellationToken);
 
     // Upstream's nodeVerb for the tap family: the modifiers are checked before a slot is taken, and recorded with the action.

@@ -309,7 +309,7 @@ internal static class Replay
 
     // The keys a recorded tap held, which it replays with. Null for a tap that held none.
     private static ClickOptions? ClickOptionsOf(RecordedAction action) =>
-        action.Modifiers is { } names ? new ClickOptions { Modifiers = [.. names.Select(name => Enum.Parse<KeyModifier>(name))] } : null;
+        action.Modifiers is { } names ? new ClickOptions { Modifiers = [.. names.Select(name => KeyModifiers.TryParse(name, out var modifier) ? modifier : throw new AgentException("AUTOMATION_UNSUPPORTED", "Cannot replay modifier " + name + "."))] } : null;
 
     /// <summary>
     /// Re-finds a recorded target. The first look is the one in hand, or a capture settled as far as the previous action

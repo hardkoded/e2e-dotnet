@@ -205,7 +205,7 @@ public sealed class ExecutorTargetInfo
 
     public IReadOnlySet<ExecutorVerb> Verbs { get; init; } = new HashSet<ExecutorVerb>();
 
-    /// <summary>True when <see cref="IExecutorActions.TapAsync"/> and <see cref="IExecutorActions.DoubleTapAsync"/> take <see cref="ClickOptions.Modifiers"/>.</summary>
+    /// <summary>True when <see cref="IExecutorActions.TapAsync(ExecutorTarget, ClickOptions, CancellationToken)"/> and <see cref="IExecutorActions.DoubleTapAsync(ExecutorTarget, ClickOptions, CancellationToken)"/> take <see cref="ClickOptions.Modifiers"/>.</summary>
     public bool TapModifiers { get; init; }
 }
 
@@ -353,10 +353,16 @@ public interface IExecutorActions
     /// Taps one node. <see cref="ClickOptions.Modifiers"/> holds keys for the click, as a Shift-click extends a selection; it
     /// needs <see cref="ExecutorTargetInfo.TapModifiers"/>, <c>UNSUPPORTED_CAPABILITY</c> otherwise.
     /// </summary>
-    Task TapAsync(ExecutorTarget target, ClickOptions? options = null, CancellationToken cancellationToken = default);
+    Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default);
+
+    /// <summary>Taps one node, holding no keys.</summary>
+    Task TapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => TapAsync(target, null, cancellationToken);
 
     /// <summary>Double-taps one node. Takes the tap's <paramref name="options"/>.</summary>
-    Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options = null, CancellationToken cancellationToken = default);
+    Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default);
+
+    /// <summary>Double-taps one node, holding no keys.</summary>
+    Task DoubleTapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => DoubleTapAsync(target, null, cancellationToken);
 
     Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default);
 

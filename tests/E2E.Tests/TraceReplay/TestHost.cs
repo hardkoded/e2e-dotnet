@@ -92,9 +92,9 @@ internal sealed class TestHost : IReplayHost
 
     private sealed class Grammar(TestHost host) : IExecutorActions
     {
-        public Task TapAsync(ExecutorTarget target, ClickOptions? options = null, CancellationToken cancellationToken = default) => host.Click("tap", target, options);
+        public Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => host.Click("tap", target, options);
 
-        public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options = null, CancellationToken cancellationToken = default) => host.Click("doubleTap", target, options);
+        public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => host.Click("doubleTap", target, options);
 
         public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) => host.Act("type", (target.Id, value));
 
