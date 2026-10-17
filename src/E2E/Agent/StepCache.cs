@@ -127,8 +127,14 @@ internal sealed class StepTraceSession
     {
         // Outside strict mode, a retry records like any step but never replays; the report says so instead of looking
         // like a step that ran with caching off.
-        var read = _options.ReplayEligible ? ReadEntry() : new EntryRead(null, "retry");
+        // A screen that cannot be read is the executor's business: the step runs, nothing is replayed or recorded.
         _start = await ProbeAsync(SettleMode.HeldStill).ConfigureAwait(false);
+        if (_start is null)
+        {
+            return null;
+        }
+
+        var read = _options.ReplayEligible ? ReadEntry() : new EntryRead(null, "retry");
         if (read.Entry is null)
         {
             _info = Missed(read.Reason!, 0);

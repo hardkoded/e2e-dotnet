@@ -56,7 +56,7 @@ internal sealed class ReplayOptions
     public Observation? Initial { get; init; }
 
     /// <summary>
-    /// Whether a free action takes a look first. A free action reads no screen, so without it the screen the previous
+    /// Upstream's <c>looksBeforeFree</c>: whether a free action takes a look first. A free action reads no screen, so without it the screen the previous
     /// action left goes unseen.
     /// </summary>
     public Func<bool>? LooksBeforeFree { get; init; }

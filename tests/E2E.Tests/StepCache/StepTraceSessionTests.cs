@@ -157,7 +157,7 @@ public sealed class StepTraceSessionTests
         Assert.Null(await session.BeginAsync());
 
         Assert.Equal(ReplayHandOffReason.EndMismatch, session.ReplayedPrefix?.StopReason);
-        Assert.Equal(["navigate to \"/customers\""], session.ReplayedPrefix?.ReplayedActions);
+        Assert.Equal(["navigate /customers"], session.ReplayedPrefix?.ReplayedActions);
         var info = session.CacheInfo!;
         Assert.Equal(("agent-concluded", "end-mismatch", 1, 1), (info.Mode, info.Reason, info.ReplayedActions, info.TotalActions));
         Assert.Equal("every recorded action ran, but the recorded end state did not show on /customers: missing status \"Marker\" text=\"saved\"", info.Detail);
