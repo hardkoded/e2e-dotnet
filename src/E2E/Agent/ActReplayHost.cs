@@ -41,7 +41,7 @@ public sealed partial class Agent
 
         public void MarkActing() => feed.MarkActing();
 
-        public void Commit(RecordedAction action) => budget.Recorded.Add(action);
+        public void Commit(RecordedAction action) => budget.Recorder.Record(action);
 
         public Task TapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => PerformAsync(target, new LocatorAction.Tap(), "tap", cancellationToken);
 

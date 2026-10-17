@@ -98,7 +98,7 @@ public sealed partial class Agent
         var feed = new ObservationFeed(_scope.Session, TimeProvider.System) { Scope = _scope };
         _feed = feed;
         var stepIndex = _scope.NextStepIndex();
-        budget.Attach(_scope, timeout, outer.Token, stop, _scope.Redactor.Redact, feed.ArmAfter);
+        budget.Attach(_scope, timeout, outer.Token, stop, feed.ArmAfter);
         _scope.Remember(spec.Params);
         var declared = ActParams.SecretsIn(spec.Params);
         var dispatcher = new ActionDispatcher(_scope, feed, budget, spec.Params, () => declared);
@@ -121,7 +121,7 @@ public sealed partial class Agent
                         Claim = new ClaimedKey(key, Provenance(instruction, spec.Params, callIndex, agent.Name)),
                         Instruction = instruction,
                         Params = spec.Params,
-                        Actions = budget.Recorded,
+                        Recorder = budget.Recorder,
                     });
                 _scope.Acts.Add(session.Pending);
             }
@@ -130,7 +130,7 @@ public sealed partial class Agent
             // a settled screen, as upstream's start capture is. An executor that brings its own eyes owes the cache nothing
             // when the screen cannot be read: it runs, and nothing is recorded.
             var replayed = session is null ? null : await BeginAsync(session).ConfigureAwait(false);
-            var actions = budget.Recorded;
+            var recorder = budget.Recorder;
             if (replayed is { } finished)
             {
                 _scope.Completed.Add("Replayed: " + instruction);
@@ -146,7 +146,7 @@ public sealed partial class Agent
 
             // The screen the step began on is stale once a replay acted, so the executor takes a fresh look.
             var prefix = session?.ReplayedPrefix;
-            context = new ActContext(_scope, feed, budget, dispatcher, spec, agent, stepIndex, declared, prefix is not null && actions.Count > 0 ? null : start, prefix);
+            context = new ActContext(_scope, feed, budget, dispatcher, spec, agent, stepIndex, declared, prefix is not null && recorder.RecordedCount > 0 ? null : start, prefix);
             StepVerdict verdict;
             try
             {

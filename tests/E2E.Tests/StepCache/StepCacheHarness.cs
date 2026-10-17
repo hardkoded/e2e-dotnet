@@ -11,7 +11,7 @@ namespace E2E.Tests.StepCache;
 /// Upstream's <c>makeHost</c>, <c>makeSession</c>, <c>fakeContext</c>, and <c>entryContext</c> of <c>step-cache.test.ts</c>. The host's
 /// locations come from <c>paths</c> in order and its screens from <c>screens</c> in order, each repeating its last once spent
 /// (upstream's spent location is a surface without a URL, which the port's screens never are). Every action the replay
-/// performs is committed to the session's actions, as the act's host does.
+/// performs is committed to the session's recorder, as the act's host does.
 /// </summary>
 internal static class StepCacheHarness
 {
@@ -48,7 +48,7 @@ internal static class StepCacheHarness
                 Claim = new ClaimedKey(Key, step ?? ExampleStep),
                 Instruction = "open billing",
                 Params = parameters,
-                Actions = host.Committed,
+                Recorder = host.Recorder,
             });
     }
 
@@ -150,7 +150,7 @@ internal sealed class StepHost : IStepCacheHost
         Actions = new Grammar();
     }
 
-    public List<RecordedAction> Committed { get; } = [];
+    public E2E.Cache.TraceRecorder Recorder { get; } = new(() => Redactor.None);
 
     /// <summary>How far each look asked to settle, in order.</summary>
     public List<SettleMode> Looks { get; } = [];
@@ -196,7 +196,7 @@ internal sealed class StepHost : IStepCacheHost
 
     public void MarkActing() => FirstActedOn ??= Latest;
 
-    public void Commit(RecordedAction action) => Committed.Add(action);
+    public void Commit(RecordedAction action) => Recorder.Record(action);
 
     private sealed class Grammar : IExecutorActions
     {
