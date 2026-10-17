@@ -8,11 +8,27 @@ using static E2E.Tests.AgentAct.ExecutorKit;
 
 namespace E2E.Tests.AgentExecutorContext;
 
-/// <summary>.NET-only: upstream keeps an executor's transcript only under <c>--debug</c>. The port keeps it whenever the attempt keeps results.</summary>
+/// <summary>An executor's transcript is kept only under debug, as upstream's <c>--debug</c> does.</summary>
 public sealed class AttachedTranscriptTests
 {
     [Fact]
+    public async Task Keeps_nothing_when_debug_is_off()
+    {
+        var root = await RunAsync(debug: false);
+
+        Assert.Empty(Directory.GetFiles(root, "transcript-*.txt", SearchOption.AllDirectories));
+    }
+
+    [Fact]
     public async Task Keeps_the_transcript_an_executor_attached_with_a_secret_it_knows_redacted()
+    {
+        var root = await RunAsync(debug: true);
+
+        var file = Assert.Single(Directory.GetFiles(root, "transcript-*.txt", SearchOption.AllDirectories));
+        Assert.Equal("the model said <secret:admin.password>", await File.ReadAllTextAsync(file));
+    }
+
+    private static async Task<string> RunAsync(bool debug)
     {
         var root = Path.Combine(Path.GetTempPath(), "e2e-transcript-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -28,6 +44,7 @@ public sealed class AttachedTranscriptTests
             BaseUrl = "https://counter.test",
             ProjectRoot = root,
             TestTitle = "transcript",
+            Debug = debug,
         });
         await session.App.OpenAsync("/");
 
@@ -35,8 +52,6 @@ public sealed class AttachedTranscriptTests
             "talk",
             new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("admin.password", "admin-pass", "password") } });
         session.Complete();
-
-        var file = Assert.Single(Directory.GetFiles(Path.Combine(root, ".e2e"), "transcript-*.txt", SearchOption.AllDirectories));
-        Assert.Equal("the model said <secret:admin.password>", await File.ReadAllTextAsync(file));
+        return root;
     }
 }

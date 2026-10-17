@@ -99,7 +99,8 @@ internal sealed partial class ActContext : StepExecutorContext
 
     public override void AttachTranscript(string text)
     {
-        if (!string.IsNullOrEmpty(text))
+        // Debug detail only: transcripts are model prose and can be large.
+        if (_scope.Debug.Enabled && !string.IsNullOrEmpty(text))
         {
             _transcript = text;
         }
