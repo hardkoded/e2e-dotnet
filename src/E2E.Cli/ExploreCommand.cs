@@ -121,8 +121,14 @@ internal static partial class ExploreCommand
             return 2;
         }
 
-        var redactor = Redactor.For(accounts.Select(account => account.Credential.Password));
+        // The record is the model's and the app's text. Upstream redacts it at its report boundary, which here is this printer, so
+        // every field is redacted for the config's secrets and the accounts' passwords before the view sees it.
+        var config = TryLoadConfig(parsed);
+        var redactor = Redactor.For(
+            (config?.Secrets.Names.Select(config.Secrets.Get) ?? []).Concat(accounts.Select(account => account.Credential.Password)));
         var pc = new Colors(interactive && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")));
+        var target = parsed.Target ?? config?.Target.Name;
+        var badge = target is null ? "" : pc.Badge("|" + Format.Bounded(target) + "|");
         var columns = interactive ? WindowWidth() : DefaultColumns;
         var gate = new object();
         ExploreView? view = null;
@@ -133,15 +139,16 @@ internal static partial class ExploreCommand
             stdout.WriteLine(line);
         }
 
-        void OnProgress(ExploreProgress progress)
+        void OnProgress(ExploreProgress moment)
         {
             lock (gate)
             {
+                var progress = Redact(moment, redactor);
                 if (progress is ExploreProgress.Started started)
                 {
                     view = new ExploreView(pc, started, columns);
                     Print("");
-                    Print(view.Header(pc.Badge(Badge(parsed))));
+                    Print(view.Header(badge));
                     return;
                 }
 
@@ -261,25 +268,45 @@ internal static partial class ExploreCommand
         }
     }
 
-    /// <summary>The target the exploration runs on: the one named, else the config's.</summary>
-    private static string Badge(ExploreArgs args)
+    /// <summary>The config the exploration will load, for its target name and secrets. A config that does not load is the run's error to report.</summary>
+    private static E2EConfig? TryLoadConfig(ExploreArgs args)
     {
-        if (args.Target is not null)
-        {
-            return "|" + Format.Bounded(args.Target) + "|";
-        }
-
         try
         {
             var cwd = Directory.GetCurrentDirectory();
             var path = args.Config is null ? E2EConfig.Find(cwd) : Path.GetFullPath(args.Config, cwd);
-            return path is null ? "" : "|" + Format.Bounded(E2EConfig.Load(path).Target.Name) + "|";
+            return path is not null && File.Exists(path) ? E2EConfig.Load(path) : null;
         }
-        catch (E2EException)
+        catch (Exception ex) when (ex is E2EException or IOException or UnauthorizedAccessException or ArgumentException)
         {
-            // The run reports the config's error itself.
-            return "";
+            return null;
         }
+    }
+
+    /// <summary>The moment with every text field of the record redacted.</summary>
+    private static ExploreProgress Redact(ExploreProgress progress, Redactor redactor)
+    {
+        string? R(string? text) => text is null ? null : redactor.Redact(text);
+        ReportExploreStep Step(ReportExploreStep step) => step with { Title = R(step.Title)!, Instruction = R(step.Instruction)!, Summary = R(step.Summary) };
+        return progress switch
+        {
+            ExploreProgress.Started started => started with { Goal = R(started.Goal)! },
+            ExploreProgress.StepStarted opened => opened with { Step = opened.Step with { Title = R(opened.Step.Title)!, Instruction = R(opened.Step.Instruction)! } },
+            ExploreProgress.StepFinished finished => finished with { Step = Step(finished.Step) },
+            ExploreProgress.FindingReported reported => reported with
+            {
+                Finding = reported.Finding with
+                {
+                    Title = R(reported.Finding.Title)!,
+                    Expected = R(reported.Finding.Expected)!,
+                    Actual = R(reported.Finding.Actual)!,
+                    Reproduction = [.. reported.Finding.Reproduction.Select(action => R(action)!)],
+                    Path = R(reported.Finding.Path),
+                },
+            },
+            ExploreProgress.Finished finished => finished with { Summary = R(finished.Summary) },
+            _ => progress,
+        };
     }
 
     private static ExploreArgs Parse(IEnumerable<string> args, out List<string> notices)

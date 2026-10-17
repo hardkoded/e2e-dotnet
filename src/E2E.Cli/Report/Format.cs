@@ -67,15 +67,17 @@ internal static partial class Format
         var clean = Program.Clean(text);
         if (Encoding.UTF8.GetByteCount(clean) > MaxFieldBytes)
         {
-            var end = clean.Length;
-            while (end > 0 && Encoding.UTF8.GetByteCount(clean.AsSpan(0, end)) > MaxFieldBytes)
+            // Whole characters only, in one pass.
+            int bytes = 0, end = 0;
+            foreach (var rune in clean.EnumerateRunes())
             {
-                end--;
-            }
+                if (bytes + rune.Utf8SequenceLength > MaxFieldBytes)
+                {
+                    break;
+                }
 
-            if (end > 0 && char.IsHighSurrogate(clean[end - 1]))
-            {
-                end--;
+                bytes += rune.Utf8SequenceLength;
+                end += rune.Utf16SequenceLength;
             }
 
             clean = clean[..end];

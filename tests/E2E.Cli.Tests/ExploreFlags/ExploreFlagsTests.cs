@@ -205,6 +205,56 @@ public sealed class ExploreFlagsTests
     }
 
     [Fact]
+    public async Task Redacts_an_account_password_the_record_echoes_wherever_it_is_printed()
+    {
+        const string Password = "hunter2-secret-pw";
+        using var _ = Env("E2E_USER_EXPLORE_ECHO_USERNAME", "carol@example.com");
+        using var __ = Env("E2E_USER_EXPLORE_ECHO_PASSWORD", Password);
+        var finding = new ReportExploreFinding(
+            "f-1",
+            0,
+            1,
+            ReportExploreFindingKind.Issue,
+            3,
+            "The page shows " + Password,
+            "No password on the page",
+            "The banner reads " + Password,
+            ["Sign in", "Read " + Password],
+            DateTimeOffset.UnixEpoch);
+        var step = new ReportExploreStep(1, "Sign in " + Password, "Sign in", ReportExploreStepStatus.Failed, DateTimeOffset.UnixEpoch, TimeSpan.FromSeconds(1), "It printed " + Password, "STEP_FAILED");
+        var fake = new FakeExplore(
+            [
+                new ExploreProgress.Started("Explore", Budgets),
+                new ExploreProgress.StepStarted(new OpenedStep(1, step.Title, step.Instruction)),
+                new ExploreProgress.FindingReported(finding),
+                new ExploreProgress.StepFinished(step),
+                new ExploreProgress.Finished(ReportExploreEnded.Finished, "The assessment kept " + Password),
+            ],
+            new ExploreOutcome(RunStatus.Failed, 1, null, Passed().Explore with { Findings = [finding], Steps = [step] }));
+
+        var (_, stdout, stderr) = await fake.InvokeAsync();
+
+        Assert.DoesNotContain(Password, stdout + stderr, StringComparison.Ordinal);
+        Assert.Contains("The page shows <secret:", stdout, StringComparison.Ordinal);
+        Assert.Contains("It printed <secret:", stdout, StringComparison.Ordinal);
+        Assert.Contains("The assessment kept <secret:", stdout, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Bounds_a_very_long_field_before_it_reaches_the_terminal()
+    {
+        var title = new string('x', 100_000);
+        var finding = new ReportExploreFinding("f-1", 0, null, ReportExploreFindingKind.Warning, 1, title, "e", "a", [], DateTimeOffset.UnixEpoch);
+        var fake = new FakeExplore(
+            [new ExploreProgress.Started("Explore", Budgets), new ExploreProgress.FindingReported(finding)],
+            new ExploreOutcome(RunStatus.Passed, 0, null, Passed().Explore));
+
+        var (_, stdout, _) = await fake.InvokeAsync();
+
+        Assert.True(stdout.Split('\n').Max(line => line.Length) <= 8_192 + 40);
+    }
+
+    [Fact]
     public async Task Refuses_an_account_without_a_password_with_exit_code_2()
     {
         using var _ = Env("E2E_USER_EXPLORE_HALF_USERNAME", "bob@example.com");

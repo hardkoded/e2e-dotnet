@@ -96,7 +96,7 @@ internal sealed class ExploreView
 
     /// <summary>` ❯ |web| Exploring  goal`.</summary>
     public string Header(string badge) =>
-        " " + _pc.Bold(_pc.Yellow(Format.Pointer)) + " " + badge + " " + _pc.Bold("Exploring") + "  " + Format.Bounded(TextRules.Collapse(_goal));
+        " " + _pc.Bold(_pc.Yellow(Format.Pointer)) + " " + (badge.Length == 0 ? "" : badge + " ") + _pc.Bold("Exploring") + "  " + Format.Bounded(TextRules.Collapse(_goal));
 
     /// <summary>One finished step: glyph, number, title, then duration, findings, and a non-passed status; its explanation under it.</summary>
     public IReadOnlyList<string> StepLines((ReportExploreStep Step, int Findings) finished, string indent = RowIndent)
