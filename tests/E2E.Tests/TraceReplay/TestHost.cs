@@ -54,8 +54,6 @@ internal sealed class TestHost : IReplayHost
 
     public TimeSpan ReplayTimeout => TimeSpan.FromMilliseconds(100);
 
-    public bool OnEndRoute => true;
-
     public static TestHost MakeHost(IReadOnlyList<SemanticNode>? nodes = null, Action<string, object?>? onAction = null) =>
         new(nodes ?? [Upgrade, Email], onAction);
 

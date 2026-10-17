@@ -49,9 +49,6 @@ public sealed partial class Agent
     // How often waitFor looks for a changed screen once its interval has passed.
     private static readonly TimeSpan WaitForTick = TimeSpan.FromMilliseconds(250);
 
-    // Quotes a label in a detail as JSON.stringify does: text stays readable, not escaped to \u codes.
-    private static readonly JsonSerializerOptions JsonQuote = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
-
     private static readonly JsonSerializerOptions ExtractJson = CreateExtractJson(JsonDefaults.Options.NumberHandling);
 
     // The schema the model sees names a number as a number. Reading stays lenient: a model may still answer "3" for 3.
@@ -982,7 +979,7 @@ internal sealed class AttemptScope
 
     public void Implicate() => ImplicatesUnconfirmed = true;
 
-    public static bool KeepsCache(Exception? error) => error is AgentException { Code: "MODEL_UNAVAILABLE" or "MODEL_PROVIDER_FAILED" or "REPLAY_STALE" };
+    public static bool KeepsCache(Exception? error) => StepTraceSession.FailedStepOutcome(error) == StepOutcome.NoVerdict;
 
     public async Task Track(Task call)
     {
@@ -1270,22 +1267,6 @@ internal sealed class PendingAct
 }
 
 internal readonly record struct Verdict(string Status, string? Summary, string? Code);
-
-// Uncertain: for a hand-off at action-uncertain, the summary of the action whose input may have reached the app.
-internal readonly record struct ReplayAttempt(bool Completed, bool Handoff, CacheInfo? Info, CacheEntry? Entry = null, string? Uncertain = null)
-{
-    public static ReplayAttempt Done(CacheEntry entry) => new(true, false, new CacheInfo { Mode = "self-finalized" }, entry);
-
-    public static ReplayAttempt Miss(string reason, string? detail = null) => new(false, false, new CacheInfo { Mode = "missed", Reason = reason, Detail = detail });
-
-    public static ReplayAttempt Hand(string reason, string? detail = null, string? uncertain = null) => new(false, true, new CacheInfo { Mode = "agent-concluded", Reason = reason, Detail = detail }, null, uncertain);
-}
-
-/// <summary>
-/// The end check's verdict and, when it is known, why it failed: the recorded outcome already showed before the
-/// replay acted, or the anchors that did not hold.
-/// </summary>
-internal readonly record struct EndStateCheck(bool Matches, bool AlreadyShowing = false, DeltaMismatch? Failure = null);
 
 internal sealed class ToolOutcome
 {
