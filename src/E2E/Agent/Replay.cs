@@ -12,7 +12,7 @@ namespace E2E;
 /// <summary>
 /// Upstream's <c>ReplayHost</c> (<c>agent/replay.ts</c>): what the replay engine needs from the act, and nothing more. The
 /// members after <see cref="Redact"/> have no upstream counterpart. They carry what the port's act does around a replayed
-/// action (its action slots, its recording, the screens its end check reads), where upstream's dispatcher does it inside the
+/// action (its action slots, its recording), where upstream's dispatcher does it inside the
 /// actions it hands the replay.
 /// </summary>
 internal interface IReplayHost
@@ -44,12 +44,6 @@ internal interface IReplayHost
 
     /// <summary>Records one action the replay finished, for the step's cache entry.</summary>
     void Commit(RecordedAction action);
-
-    /// <summary>
-    /// Whether the newest screen is already on the route the recording ends on. An action that reads no screen takes a look
-    /// of its own until it is, so the end check has a screen on the end route to measure the recorded delta from.
-    /// </summary>
-    bool OnEndRoute { get; }
 }
 
 /// <summary>Upstream's <c>ReplayOptions</c>.</summary>
@@ -60,6 +54,12 @@ internal sealed class ReplayOptions
     /// since it was taken.
     /// </summary>
     public Observation? Initial { get; init; }
+
+    /// <summary>
+    /// Upstream's <c>looksBeforeFree</c>: whether a free action takes a look first. A free action reads no screen, so without it the screen the previous
+    /// action left goes unseen.
+    /// </summary>
+    public Func<bool>? LooksBeforeFree { get; init; }
 }
 
 /// <summary>Upstream's <c>ReplayOutcome</c>.</summary>
@@ -140,7 +140,7 @@ internal static class Replay
             var look = previous is not null ? new Look(null, SettlePolicy.For(previous).Look) : options?.Initial is { } initial ? new Look(initial, SettleMode.Raw) : HeldStill;
 
             // An action with no target reads no screen, so the screen the previous action left would go unseen.
-            if (previous is not null && !HasTarget(action) && !host.OnEndRoute)
+            if (previous is not null && !HasTarget(action) && options?.LooksBeforeFree?.Invoke() == true)
             {
                 await host.ObserveAsync(look.Settle).ConfigureAwait(false);
             }

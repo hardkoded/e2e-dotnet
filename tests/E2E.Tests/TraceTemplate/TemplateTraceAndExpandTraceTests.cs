@@ -4,7 +4,7 @@
 
 using System.Text.Json;
 using E2E.Engine;
-using static E2E.Tests.StepCache.StepTraceSessionTests;
+using static E2E.Tests.StepCache.StepCachePipelineTests;
 
 namespace E2E.Tests.TraceTemplate;
 
