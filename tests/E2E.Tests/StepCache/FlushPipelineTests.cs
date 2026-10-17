@@ -5,10 +5,10 @@
 namespace E2E.Tests.StepCache;
 
 /// <summary>"leaves an entry untouched when only the rule that flagged a typed value differs" is not ported: the port records no run-time value gaps.</summary>
-public sealed class FlushStagedTracesAndAReRecordedFlowTests
+public sealed class FlushPipelineTests
 {
     [Fact]
-    public async Task Leaves_an_entry_the_same_flow_re_recorded_untouched_and_replaces_it_when_the_actions_change()
+    public async Task Leaves_an_entry_the_same_flow_re_recorded_untouched_and_replaces_it_when_the_actions_change_through_the_pipeline()
     {
         var directory = BillingSession.TempCache();
         await BillingSession.RecordAsync(directory);

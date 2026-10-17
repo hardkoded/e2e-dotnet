@@ -12,7 +12,7 @@ namespace E2E;
 public sealed partial class Agent
 {
     /// <summary>
-    /// The host an act replays a recording through (upstream builds it in <c>agent/step-cache.ts</c>). Its actions perform one
+    /// The host an act replays a recording through (upstream builds it in <c>agent/step-cache.ts</c>, as <c>StepCacheHost</c>). Its actions perform one
     /// recorded action on the engine and arm the change wait its settle policy asks for, like the dispatcher's, but take no
     /// action slot and record nothing: the replay takes the slot and records the action as the recording holds it, with the
     /// slots of its params in it. Values arrive as recorded and are expanded with this call's params here.
@@ -23,9 +23,7 @@ public sealed partial class Agent
         StepAccounting budget,
         ActionDispatcher dispatcher,
         IReadOnlyDictionary<string, object?>? parameters,
-        string? endRoute,
-        List<Observation> screens,
-        CancellationToken token) : IReplayHost, IExecutorActions
+        CancellationToken token) : IStepCacheHost, IExecutorActions
     {
         public IExecutorActions Actions => this;
 
@@ -35,14 +33,9 @@ public sealed partial class Agent
 
         public TimeSpan ReplayTimeout => scope.ReplayTimeout;
 
-        public bool OnEndRoute => CacheRoute.Same(screens[^1].Route, endRoute);
+        public Observation? FirstActedOn => feed.FirstActedOn;
 
-        public async Task<Observation> ObserveAsync(SettleMode mode)
-        {
-            var observation = await feed.ObserveAsync(mode, token).ConfigureAwait(false);
-            screens.Add(observation);
-            return observation;
-        }
+        public Task<Observation> ObserveAsync(SettleMode mode) => feed.ObserveAsync(mode, token);
 
         public bool TryReserve() => budget.TryReserve();
 
