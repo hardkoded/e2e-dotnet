@@ -132,10 +132,10 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
             switch (call.Name)
             {
                 case "tap":
-                    await actions.TapAsync(target, token).ConfigureAwait(false);
+                    await actions.TapAsync(target, ClickOptionsOf(call.Arguments), token).ConfigureAwait(false);
                     return ToolOutcome.Ok(await DescribeAsync("tapped " + Label(node), token).ConfigureAwait(false));
                 case "double_tap":
-                    await actions.DoubleTapAsync(target, token).ConfigureAwait(false);
+                    await actions.DoubleTapAsync(target, ClickOptionsOf(call.Arguments), token).ConfigureAwait(false);
                     return ToolOutcome.Ok(await DescribeAsync("double-tapped " + Label(node), token).ConfigureAwait(false));
                 case "fill":
                     var value = Args.String(call.Arguments, "value") ?? "";
@@ -298,6 +298,34 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         var name = Args.String(arguments, "secret") ?? "";
         await actions.TypeSecretAsync(target, name, token).ConfigureAwait(false);
         return ToolOutcome.Ok(await DescribeAsync("filled secret <secret:" + name + "> into " + Label(target.Node!), token).ConfigureAwait(false));
+    }
+
+    // The keys a tap call holds: absent for none. A value that is no list of key modifier names is the model's error.
+    private static ClickOptions? ClickOptionsOf(JsonElement arguments)
+    {
+        if (arguments.ValueKind != JsonValueKind.Object || !arguments.TryGetProperty("modifiers", out var held) || held.ValueKind == JsonValueKind.Null)
+        {
+            return null;
+        }
+
+        var invalid = new TestException("INVALID_ARGUMENT", "modifiers must be an array of " + string.Join(", ", KeyModifiers.Names));
+        if (held.ValueKind != JsonValueKind.Array)
+        {
+            throw invalid;
+        }
+
+        var modifiers = new List<KeyModifier>();
+        foreach (var item in held.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String || !KeyModifiers.TryParse(item.GetString(), out var modifier))
+            {
+                throw invalid;
+            }
+
+            modifiers.Add(modifier);
+        }
+
+        return new ClickOptions { Modifiers = modifiers };
     }
 
     private async Task<SemanticNode> ResolveAsync(JsonElement arguments, CancellationToken token)

@@ -43,25 +43,72 @@ internal sealed class ActionDispatcher : IExecutorActions
         _secrets = secrets;
     }
 
-    public Task TapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
-        RunAsync(
-            async token =>
-            {
-                var node = Resolve(target);
-                await TargetedAsync(node, new LocatorAction.Tap(), token).ConfigureAwait(false);
-                Commit("tap", node);
-            },
-            cancellationToken);
+    public Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) =>
+        ClickAsync("tap", target, options, cancellationToken);
 
-    public Task DoubleTapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
-        RunAsync(
+    public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) =>
+        ClickAsync("doubleTap", target, options, cancellationToken);
+
+    // Upstream's nodeVerb for the tap family: the modifiers are checked before a slot is taken, and recorded with the action.
+    private Task ClickAsync(string kind, ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken)
+    {
+        var modifiers = RequireClickModifiers(options, kind, _scope.EngineCapabilities);
+        return RunAsync(
             async token =>
             {
                 var node = Resolve(target);
-                await TargetedAsync(node, new LocatorAction.DoubleTap(), token).ConfigureAwait(false);
-                Commit("doubleTap", node);
+                await TargetedAsync(node, ClickAction(kind, modifiers), token).ConfigureAwait(false);
+                var recorded = Target(node, kind);
+                recorded.Modifiers = modifiers?.Select(modifier => modifier.ToString()).ToList();
+                Commit(recorded);
             },
             cancellationToken);
+    }
+
+    /// <summary>
+    /// The <c>modifiers</c> of a tap-family action, validated: distinct key modifiers, on an engine that declares
+    /// <see cref="EngineCapabilities.TapModifiers"/>. An empty list holds nothing and is dropped, so the recorded action stays
+    /// clean. Upstream's <c>requireClickModifiers</c>; the capability check is its session's <c>perform</c>.
+    /// </summary>
+    internal static IReadOnlyList<KeyModifier>? RequireClickModifiers(ClickOptions? options, string verb, EngineCapabilities capabilities)
+    {
+        if (options?.Modifiers is not { } given)
+        {
+            return null;
+        }
+
+        var modifiers = new List<KeyModifier>();
+        foreach (var modifier in given)
+        {
+            if (!Enum.IsDefined(modifier))
+            {
+                throw new TestException("INVALID_ARGUMENT", verb + "() modifiers must be an array of " + string.Join(", ", KeyModifiers.Names));
+            }
+
+            if (modifiers.Contains(modifier))
+            {
+                throw new TestException("INVALID_ARGUMENT", verb + "() names a modifier twice");
+            }
+
+            modifiers.Add(modifier);
+        }
+
+        if (modifiers.Count == 0)
+        {
+            return null;
+        }
+
+        if (!capabilities.HasFlag(EngineCapabilities.TapModifiers))
+        {
+            throw new EngineException(EngineErrorCodes.UnsupportedCapability, "The engine cannot hold modifiers on " + verb + ".");
+        }
+
+        return modifiers;
+    }
+
+    /// <summary>The engine action of a <c>tap</c> or <c>doubleTap</c> holding <paramref name="modifiers"/>.</summary>
+    internal static LocatorAction ClickAction(string kind, IReadOnlyList<KeyModifier>? modifiers) =>
+        string.Equals(kind, "doubleTap", StringComparison.Ordinal) ? new LocatorAction.DoubleTap(modifiers) : new LocatorAction.Tap(modifiers);
 
     public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default)
     {

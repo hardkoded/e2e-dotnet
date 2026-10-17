@@ -283,9 +283,9 @@ internal static class Replay
         switch (action.Kind)
         {
             case "tap":
-                return actions.TapAsync(target, token);
+                return actions.TapAsync(target, ClickOptionsOf(action), token);
             case "doubleTap":
-                return actions.DoubleTapAsync(target, token);
+                return actions.DoubleTapAsync(target, ClickOptionsOf(action), token);
             case "fill" when action.Value is { } value && value.StartsWith("<secret:", StringComparison.Ordinal) && value.EndsWith('>'):
                 return actions.TypeSecretAsync(target, value["<secret:".Length..^1], token);
             case "fill":
@@ -306,6 +306,10 @@ internal static class Replay
                 throw new AgentException("AUTOMATION_UNSUPPORTED", "Cannot replay " + action.Kind + ".");
         }
     }
+
+    // The keys a recorded tap held, which it replays with. Null for a tap that held none.
+    private static ClickOptions? ClickOptionsOf(RecordedAction action) =>
+        action.Modifiers is { } names ? new ClickOptions { Modifiers = [.. names.Select(name => KeyModifiers.TryParse(name, out var modifier) ? modifier : throw new AgentException("AUTOMATION_UNSUPPORTED", "Cannot replay modifier " + name + "."))] } : null;
 
     /// <summary>
     /// Re-finds a recorded target. The first look is the one in hand, or a capture settled as far as the previous action

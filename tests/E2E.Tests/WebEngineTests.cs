@@ -43,6 +43,36 @@ public sealed class WebEngineTests
         </body></html>
         """;
 
+    private const string SelectionPage = """
+        <!DOCTYPE html>
+        <html><body>
+        <button type="button">Row</button>
+        <div role="status"></div>
+        <script>
+          document.querySelector("button").addEventListener("click", (event) => {
+            document.querySelector("[role=status]").textContent = "Clicked" + (event.shiftKey ? " with Shift" : "") + (event.altKey ? " with Alt" : "");
+          });
+        </script>
+        </body></html>
+        """;
+
+    /// <summary>.NET-only: the web engine adapter holds the keys a tap names. Upstream's <c>agent-tap-modifiers.test.ts</c> has no browser.</summary>
+    [Fact]
+    public async Task Chromium_holds_the_modifiers_of_a_tap_the_agent_sends()
+    {
+        using var site = await TinySite.StartAsync(SelectionPage);
+        var model = new ScriptedModel(request => request.Messages.Any(message => message.Role == "tool")
+            ? ModelResponses.Done("passed", "clicked")
+            : ModelResponses.Call("tap", new { role = "button", name = "Row", modifiers = new[] { "Shift", "Alt" } }));
+        var session = await StartAsync(site, model, cache: null);
+        await RunAsync(session, async () =>
+        {
+            await session.App.OpenAsync("/");
+            await session.Agent.ActAsync("select the row with Shift and Alt held");
+            await Expect.That(session.Screen.GetByRole("status")).ToContainTextAsync("Clicked with Shift with Alt");
+        });
+    }
+
     [Fact]
     public async Task Chromium_acts_on_the_element_a_ref_names_when_two_share_a_role_and_name()
     {

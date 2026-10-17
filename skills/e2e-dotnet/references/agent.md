@@ -99,6 +99,10 @@ The tools the model can call: `observe`, `tap`, `double_tap`, `fill`,
 `back` with one that has history. There is no `hover`, `drag`, `upload`,
 `long_press`, `right_click`, `screenshot`, or point tool: a step that needs
 one is `AUTOMATION_UNSUPPORTED`. Do that part with `Screen` actions instead.
+On an engine that declares `EngineCapabilities.TapModifiers` (the web engine),
+`tap` and `double_tap` take an optional `modifiers` list (`Shift`, `Control`,
+`Alt`, `Meta`, `ControlOrMeta`) to hold keys for the click, as a Shift-click
+extends a selection. The held keys are recorded and replayed from the cache.
 A project tool adds its own name to this list (see "Project tools").
 `fill_secret` fills any editable field, a rich-text editor included, with a
 generic secret; a password secret needs a password field.
@@ -472,8 +476,8 @@ What the context holds:
 | --- | --- |
 | `Step` | The `Kind`, `Instruction`, `Params`, `Index`, and `Secrets`. A secret value the attempt knows reads `<secret:name>`, and a `Secret` in the params is its name and purpose, never its value |
 | `ObserveAsync(options)` | Redacted screen text, and with `Tree` the node tree (`ExecutorNode`, whose `Id` is the ref) and with `Pixels` a masked screenshot, or `PixelsWithheld` with the reason |
-| `Actions` | Checked and recorded verbs: `TapAsync`, `DoubleTapAsync`, `TypeAsync`, `TypeSecretAsync`, `ClearAsync`, `PressAsync`, `SelectAsync`, `CheckAsync`, `ScrollToAsync`, `ScrollUntilAsync`, `ScrollAsync`, `NavigateAsync`, `BackAsync`. A node is `new ExecutorTarget(ref)` |
-| `Target` | The target's `Name`, `Platform`, and `Verbs`, the verbs its engine supports. Offer a model only these |
+| `Actions` | Checked and recorded verbs: `TapAsync` and `DoubleTapAsync` (both take `new ClickOptions { Modifiers = [KeyModifier.Shift] }` when `Target.TapModifiers`), `TypeAsync`, `TypeSecretAsync`, `ClearAsync`, `PressAsync`, `SelectAsync`, `CheckAsync`, `ScrollToAsync`, `ScrollUntilAsync`, `ScrollAsync`, `NavigateAsync`, `BackAsync`. A node is `new ExecutorTarget(ref)` |
+| `Target` | The target's `Name`, `Platform`, and `Verbs`, the verbs its engine supports, and `TapModifiers`, true when `TapAsync` and `DoubleTapAsync` take `ClickOptions.Modifiers`. Offer a model only these |
 | `PixelsTainted` | True after a secret fill. Then no screenshots are available |
 | `ReplayedPrefix` | Set when a cache replay ran part of the step first. The actions and why it stopped. Continue from the current screen without repeating them |
 | `Model`, `ProviderOptions`, `AgentContext`, `Ledger` | The agent's model and provider options, its project context, and the steps completed before this one |

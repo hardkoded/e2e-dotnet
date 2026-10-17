@@ -84,7 +84,7 @@ config declares a `secrets` entry.
 | Tool | Does |
 | --- | --- |
 | `observe` | The whole current screen |
-| `tap`, `double_tap`, `check`, `uncheck`, `clear` `{target}` | Act on one node |
+| `tap`, `double_tap`, `check`, `uncheck`, `clear` `{target}` | Act on one node. On an engine that declares `TapModifiers` (the web engine), `tap` and `double_tap` also take an optional `modifiers` list (`Shift`, `Control`, `Alt`, `Meta`, `ControlOrMeta`) to hold keys for the click, as a Shift-click extends a selection |
 | `type {target, text}` | Replace the text in a field |
 | `type_secret {target, secret}` | Fill a configured secret into an editable field by name; you never see the value |
 | `press {key, target?}` | Press a key on a node, or on whatever has focus |

@@ -225,7 +225,7 @@ internal sealed class StepTraceSession
         Pending.ReadEntry = true;
 
         // Any store can return a hit, so its shape is checked here, at the one read site.
-        return entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null
+        return entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null || !entry.Actions.All(action => action.HasValidModifiers())
             ? new EntryRead(null, "invalid-entry")
             : new EntryRead(entry, null);
     }

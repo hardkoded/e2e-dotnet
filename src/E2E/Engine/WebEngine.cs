@@ -302,7 +302,8 @@ public sealed partial class WebEngine : IEngine
         | EngineCapabilities.Keyboard
         | EngineCapabilities.Scroll
         | EngineCapabilities.History
-        | EngineCapabilities.Screenshot;
+        | EngineCapabilities.Screenshot
+        | EngineCapabilities.TapModifiers;
 
     public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {
@@ -1633,11 +1634,11 @@ public sealed partial class WebEngine : IEngine
         {
             switch (action)
             {
-                case LocatorAction.Tap:
-                    await element.ClickAsync(new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+                case LocatorAction.Tap tap:
+                    await element.ClickAsync(new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout, Modifiers = Held(tap.Modifiers) }).ConfigureAwait(false);
                     break;
-                case LocatorAction.DoubleTap:
-                    await element.DblClickAsync(new ElementHandleDblClickOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+                case LocatorAction.DoubleTap doubleTap:
+                    await element.DblClickAsync(new ElementHandleDblClickOptions { Timeout = budget.PlaywrightTimeout, Modifiers = Held(doubleTap.Modifiers) }).ConfigureAwait(false);
                     break;
                 case LocatorAction.Fill fill:
                     await element.FillAsync(fill.Value, new ElementHandleFillOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
@@ -2332,6 +2333,17 @@ public sealed partial class WebEngine : IEngine
                 await budget.DelayAsync(wait < CheckPollInterval ? wait : CheckPollInterval).ConfigureAwait(false);
             }
         }
+
+        // The keys Playwright holds for a click. Null holds none.
+        private static IEnumerable<KeyboardModifier>? Held(IReadOnlyList<KeyModifier>? modifiers) =>
+            modifiers?.Select(modifier => modifier switch
+            {
+                KeyModifier.Shift => KeyboardModifier.Shift,
+                KeyModifier.Control => KeyboardModifier.Control,
+                KeyModifier.Alt => KeyboardModifier.Alt,
+                KeyModifier.Meta => KeyboardModifier.Meta,
+                _ => KeyboardModifier.ControlOrMeta,
+            });
 
         private static string Direction(ScrollDirection direction)
         {

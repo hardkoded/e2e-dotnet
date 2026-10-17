@@ -22,6 +22,9 @@ public enum EngineCapabilities
 
     /// <summary><see cref="IEngineSession.ScreenshotAsync"/>, which <c>toHaveScreenshot</c> compares.</summary>
     Screenshot = 64,
+
+    /// <summary>The <c>Modifiers</c> of <see cref="LocatorAction.Tap"/> and <see cref="LocatorAction.DoubleTap"/>: keys held for the click.</summary>
+    TapModifiers = 128,
 }
 
 /// <summary>Passed to <see cref="IEngine.StartAsync"/> once per test attempt.</summary>
