@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using E2E.Cache;
+using E2E.Internal;
 
 namespace E2E;
 
@@ -10,8 +12,8 @@ namespace E2E;
 /// Upstream's <c>StepAccounting</c> (<c>agent/step-accounting.ts</c>): the clock, the budgets, and the books of one
 /// dispatched step. Everything the runtime enforces against an executor is enforced here: the deadline and the stop that
 /// ends the step, the action and model-call budgets, and the first hard stop, which outranks whatever the executor says
-/// afterwards. The action slots are drawn on by replayed and live actions alike. <see cref="Recorded"/> holds the actions
-/// the step took, in order, for its cache entry; the port has no step record, so the accounting keeps them.
+/// afterwards. The action slots are drawn on by replayed and live actions alike. <see cref="Recorder"/> holds the actions
+/// the step took, in order, for its cache entry; the port has no step record, so the accounting keeps it.
 /// </summary>
 internal sealed class StepAccounting(int maxActions, int maxModelCalls, string api = "agent.act") : IExecutorBudgets
 {
@@ -21,7 +23,7 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
     private CancellationToken _cancellation;
     private CancellationTokenSource? _stop;
     private AgentException? _hardStop;
-    private Func<string, string> _redact = static text => text;
+    private TraceRecorder? _recorder;
     private Action<RecordedAction>? _committed;
     private int _prepaid;
     private bool _ended;
@@ -30,7 +32,7 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
 
     public int MaxModelCalls => maxModelCalls;
 
-    public List<RecordedAction> Recorded { get; } = [];
+    public TraceRecorder Recorder => LazyInitializer.EnsureInitialized(ref _recorder, () => new TraceRecorder(() => _scope?.Redactor ?? Redactor.None));
 
     /// <summary>The one queue the step's observations and actions run in, in call order.</summary>
     public OperationQueue Queue { get; } = new();
@@ -49,9 +51,9 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
     /// <summary>
     /// Puts the step on a clock. <paramref name="stop"/> is cancelled on a hard stop other than a spent budget, so the executor
     /// and every engine operation of the step end with it. <paramref name="cancellation"/> is the caller's and the attempt's,
-    /// without the step's own deadline. <paramref name="redact"/> and <paramref name="committed"/> serve a project tool's gap.
+    /// without the step's own deadline. <paramref name="committed"/> serves a project tool's gap.
     /// </summary>
-    public void Attach(AttemptScope scope, TimeSpan timeout, CancellationToken cancellation, CancellationTokenSource stop, Func<string, string> redact, Action<RecordedAction> committed)
+    public void Attach(AttemptScope scope, TimeSpan timeout, CancellationToken cancellation, CancellationTokenSource stop, Action<RecordedAction> committed)
     {
         _scope = scope;
         _timeout = timeout;
@@ -59,7 +61,6 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
         _deadline = timeout > TimeSpan.Zero && timeout != Timeout.InfiniteTimeSpan ? DateTimeOffset.UtcNow + timeout : null;
         _cancellation = cancellation;
         _stop = stop;
-        _redact = redact;
         _committed = committed;
     }
 
@@ -216,8 +217,7 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
         return await Queue.RunAsync(async () =>
         {
             Reserve();
-            var gap = new RecordedAction { Kind = "tool", Text = _redact(name) };
-            Recorded.Add(gap);
+            var gap = Recorder.RecordGap(name);
             try
             {
                 return await body().ConfigureAwait(false);

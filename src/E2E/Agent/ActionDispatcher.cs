@@ -13,7 +13,7 @@ namespace E2E;
 /// <summary>
 /// Upstream's action dispatcher (<c>agent/action-dispatcher.ts</c>): the <see cref="IExecutorActions"/> of one act step. Each
 /// verb performs the action on the engine, records it in the step's accounting, and arms the change wait its settle policy
-/// asks for. Upstream's <c>commitTargeted</c> is <see cref="Commit"/>, and its private <c>targeted</c> is
+/// asks for. Upstream's <c>commitTargeted</c> is <see cref="Commit(RecordedAction)"/>, and its private <c>targeted</c> is
 /// <see cref="TargetedAsync"/>.
 /// </summary>
 internal sealed class ActionDispatcher : IExecutorActions
@@ -49,7 +49,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Tap(), token).ConfigureAwait(false);
-                Commit(Record(node, "tap"));
+                Commit("tap", node);
             },
             cancellationToken);
 
@@ -59,7 +59,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.DoubleTap(), token).ConfigureAwait(false);
-                Commit(Record(node, "doubleTap"));
+                Commit("doubleTap", node);
             },
             cancellationToken);
 
@@ -71,14 +71,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Fill(value, false), token).ConfigureAwait(false);
-                Commit(new RecordedAction
-                {
-                    Kind = "fill",
-                    Role = node.Role,
-                    Name = RedactLabel(node, _scope.Redactor),
-                    TestId = Redact(node.TestId, _scope.Redactor),
-                    Value = CacheKeys.Template(value, _parameters),
-                });
+                Commit("fill", node, value: CacheKeys.Template(value, _parameters));
             },
             cancellationToken);
     }
@@ -98,14 +91,7 @@ internal sealed class ActionDispatcher : IExecutorActions
                 _scope.Exposure.RaiseFilled();
                 await TargetedAsync(node, new LocatorAction.Fill(secret.Value, true), token).ConfigureAwait(false);
                 // Recorded by stable name only; replay runs the full authorization again.
-                Commit(new RecordedAction
-                {
-                    Kind = "fill",
-                    Role = node.Role,
-                    Name = RedactLabel(node, _scope.Redactor),
-                    TestId = Redact(node.TestId, _scope.Redactor),
-                    Value = "<secret:" + secret.Name + ">",
-                });
+                Commit("fill", node, value: "<secret:" + secret.Name + ">");
             },
             cancellationToken).ConfigureAwait(false);
     }
@@ -116,7 +102,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Clear(), token).ConfigureAwait(false);
-                Commit(Record(node, "clear"));
+                Commit("clear", node);
             },
             cancellationToken);
 
@@ -139,7 +125,7 @@ internal sealed class ActionDispatcher : IExecutorActions
 
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Press(key), token).ConfigureAwait(false);
-                Commit(new RecordedAction { Kind = "press", Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Key = key });
+                Commit("press", node, key: key);
             },
             cancellationToken);
     }
@@ -152,7 +138,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Select(value), token).ConfigureAwait(false);
-                Commit(new RecordedAction { Kind = "select", Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor), Value = CacheKeys.Template(value, _parameters) });
+                Commit("select", node, value: CacheKeys.Template(value, _parameters));
             },
             cancellationToken);
     }
@@ -163,7 +149,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, check ? new LocatorAction.Check() : new LocatorAction.Uncheck(), token).ConfigureAwait(false);
-                Commit(Record(node, check ? "check" : "uncheck"));
+                Commit(check ? "check" : "uncheck", node);
             },
             cancellationToken);
 
@@ -173,7 +159,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await _scope.Session.PerformAsync(node, new LocatorAction.ScrollIntoView(), token).ConfigureAwait(false);
-                Commit(Record(node, "scrollTo"));
+                Commit("scrollTo", node);
             },
             cancellationToken);
 
@@ -188,7 +174,7 @@ internal sealed class ActionDispatcher : IExecutorActions
         return RunAsync(
             async token =>
             {
-                var recorded = list is null ? null : Record(Resolve(list), "scrollUntil");
+                var recorded = list is null ? null : Target(Resolve(list), "scrollUntil");
                 await PageUntilAsync(text, direction, recorded, token).ConfigureAwait(false);
                 Commit(new RecordedAction
                 {
@@ -214,9 +200,9 @@ internal sealed class ActionDispatcher : IExecutorActions
         return RunAsync(
             async token =>
             {
-                var actions = _accounting.Recorded;
+                var actions = _accounting.Recorder.Actions;
                 var node = list is null ? null : Resolve(list);
-                var recorded = node is null ? null : Record(node, "scroll");
+                var recorded = node is null ? null : Target(node, "scroll");
                 for (var repeat = 0; repeat < times; repeat++)
                 {
                     if (repeat > 0)
@@ -240,7 +226,7 @@ internal sealed class ActionDispatcher : IExecutorActions
                         await _scope.Session.PerformAsync(node, new LocatorAction.Swipe(direction), token).ConfigureAwait(false);
                     }
 
-                    RecordScroll(actions, direction, node);
+                    RecordScroll(direction, node);
                 }
 
                 if (list is not null && node is not null)
@@ -419,37 +405,25 @@ internal sealed class ActionDispatcher : IExecutorActions
         return matches.Count == 1 ? matches[0] : null;
     }
 
-    // Consecutive identical scrolls fold into one recorded action with a repeat count.
-    private void RecordScroll(List<RecordedAction> actions, ScrollDirection direction, SemanticNode? list)
+    private void RecordScroll(ScrollDirection direction, SemanticNode? list)
     {
-        var way = DirectionName(direction);
-        var scroll = list is null ? new RecordedAction { Kind = "scroll" } : Record(list, "scroll");
-        if (actions.Count > 0
-            && actions[^1] is { Kind: "scroll" } last
-            && string.Equals(last.Direction, way, StringComparison.Ordinal)
-            && string.Equals(last.Role, scroll.Role, StringComparison.Ordinal)
-            && string.Equals(last.Name, scroll.Name, StringComparison.Ordinal)
-            && string.Equals(last.TestId, scroll.TestId, StringComparison.Ordinal))
-        {
-            last.Times = (last.Times ?? 1) + 1;
-            return;
-        }
-
-        scroll.Direction = way;
-        actions.Add(scroll);
+        var scroll = list is null ? new RecordedAction { Kind = "scroll" } : Target(list, "scroll");
+        scroll.Direction = DirectionName(direction);
+        _accounting.Recorder.RecordScroll(scroll);
     }
 
-    private RecordedAction Record(SemanticNode node, string kind)
+    // The node as the target an action names it by, not yet recorded.
+    private RecordedAction Target(SemanticNode node, string kind)
     {
-        return new RecordedAction { Kind = kind, Role = node.Role, Name = RedactLabel(node, _scope.Redactor), TestId = Redact(node.TestId, _scope.Redactor) };
+        var target = TraceRecorder.DescribeTarget(node, _scope.Redactor);
+        return new RecordedAction { Kind = kind, Role = target.Role, Name = target.Name, TestId = target.TestId };
     }
 
     // Upstream's commitTargeted: the action is the step's own once it ran, so it is recorded and arms the next look.
-    private void Commit(RecordedAction action)
-    {
-        _accounting.Recorded.Add(action);
-        _feed.ArmAfter(action);
-    }
+    private void Commit(string kind, SemanticNode node, string? value = null, string? key = null) =>
+        _feed.ArmAfter(_accounting.Recorder.Record(kind, node, value, key));
+
+    private void Commit(RecordedAction action) => _feed.ArmAfter(_accounting.Recorder.Record(action));
 
     /// <summary>
     /// Upstream's <c>targeted</c> loop: performs one action on a node. A node the engine reports stale is found again
