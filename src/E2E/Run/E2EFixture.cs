@@ -106,6 +106,18 @@ public abstract class E2EFixture
     /// <summary><c>targets[0].name</c>: the target part of a stored screenshot's file name.</summary>
     protected virtual string TargetName => Config.Target.Name;
 
+    /// <summary>
+    /// <c>trace</c> for the target: <c>E2E_TRACE</c>, else <c>targets[0].trace</c>, else the config's <c>trace</c>, else
+    /// <c>retain-on-failure</c>. Override to set it for one fixture.
+    /// </summary>
+    protected virtual ResolvedRecording Trace => Config.Target.Trace;
+
+    /// <summary>
+    /// <c>video</c> for the target: <c>E2E_VIDEO</c>, else <c>targets[0].video</c>, else the config's <c>video</c>, else
+    /// <c>off</c>. Override to set it for one fixture.
+    /// </summary>
+    protected virtual ResolvedRecording Video => Config.Target.Video;
+
     protected virtual TimeSpan TestTimeout => Config.Timeout;
 
     protected virtual TimeSpan LaunchTimeout => Config.LaunchTimeout;
@@ -167,6 +179,8 @@ public abstract class E2EFixture
                 CacheMode = cacheMode,
                 CacheStrict = CacheStrict,
                 TestTitle = title,
+                Trace = Trace,
+                Video = Video,
                 TestTimeout = TestTimeout,
                 LaunchTimeout = LaunchTimeout,
                 CleanupTimeout = CleanupTimeout,

@@ -32,18 +32,18 @@ public sealed class E2EConfig
     private static readonly string[] TopLevelKeys =
     [
         "targets", "timeout", "launchTimeout", "actionTimeout", "assertionTimeout", "cleanupTimeout",
-        "retries", "agents", "cache", "secrets",
+        "retries", "agents", "cache", "secrets", "trace", "video",
     ];
 
     // Upstream keys the .NET port does not implement. They fail loudly rather than being ignored.
     private static readonly string[] UnsupportedTopLevelKeys =
     [
-        "projectId", "tests", "failOnSkippedFailure", "workers", "artifacts", "output", "trace", "video", "reporters", "credentials",
+        "projectId", "tests", "failOnSkippedFailure", "workers", "artifacts", "output", "reporters", "credentials",
     ];
 
-    private static readonly string[] TargetKeys = ["name", "platform", "app"];
+    private static readonly string[] TargetKeys = ["name", "platform", "app", "trace", "video"];
 
-    private static readonly string[] UnsupportedTargetKeys = ["engine", "trace", "video"];
+    private static readonly string[] UnsupportedTargetKeys = ["engine"];
 
     private static readonly string[] AppKeys = ["url"];
 
@@ -210,12 +210,14 @@ public sealed class E2EConfig
 
             CheckKeys(root, "config", TopLevelKeys, UnsupportedTopLevelKeys, MovedKeys);
             var ci = IsCi(environment);
+            var trace = ReadRun(root, RecordingKind.Trace, environment);
+            var video = ReadRun(root, RecordingKind.Video, environment);
             return new E2EConfig
             {
                 ConfigPath = configPath,
                 ProjectRoot = projectRoot,
                 Ci = ci,
-                Targets = ReadTargets(Property(root, "targets")),
+                Targets = ReadTargets(Property(root, "targets"), trace, video),
                 Timeout = Milliseconds(root, "timeout", E2EDefaults.TestTimeout),
                 LaunchTimeout = Milliseconds(root, "launchTimeout", E2EDefaults.LaunchTimeout),
                 ActionTimeout = Milliseconds(root, "actionTimeout", E2EDefaults.ActionTimeout),
@@ -229,11 +231,11 @@ public sealed class E2EConfig
         }
     }
 
-    private static List<TargetConfig> ReadTargets(JsonElement? raw)
+    private static List<TargetConfig> ReadTargets(JsonElement? raw, RunRecording trace, RunRecording video)
     {
         if (raw is null)
         {
-            return [new TargetConfig { Name = "web", Platform = "web", App = new AppConfig() }];
+            return [new TargetConfig { Name = "web", Platform = "web", App = new AppConfig(), Trace = trace.For(null), Video = video.For(null) }];
         }
 
         if (raw.Value.ValueKind != JsonValueKind.Array || raw.Value.GetArrayLength() == 0)
@@ -265,6 +267,8 @@ public sealed class E2EConfig
             throw Invalid("targets[0].name must use ASCII letters, numbers, \"_\", \"-\", and \".\", and cannot be only dots");
         }
 
+        var ownTrace = ReadMode(Property(target, "trace"), "targets[0].trace", RecordingKind.Trace);
+        var ownVideo = ReadMode(Property(target, "video"), "targets[0].video", RecordingKind.Video);
         var app = new AppConfig();
         if (Property(target, "app") is { } rawApp)
         {
@@ -277,7 +281,50 @@ public sealed class E2EConfig
             app = new AppConfig { Url = OptionalString(rawApp, "url", "targets[0].app.url") is { } url ? Urls.NormalizeAppUrl(url, "targets[0].app.url").Href : null };
         }
 
-        return [new TargetConfig { Name = name, Platform = platform, App = app }];
+        return [new TargetConfig { Name = name, Platform = platform, App = app, Trace = trace.For(ownTrace), Video = video.For(ownVideo) }];
+    }
+
+    // The run's trace or video mode before any target speaks: the environment variable, the config root, and the default under both.
+    // A failed attempt keeps its trace by default. The video is off.
+    private static RunRecording ReadRun(JsonElement root, RecordingKind kind, Func<string, string?> environment)
+    {
+        var key = kind == RecordingKind.Trace ? "trace" : "video";
+        var variable = "E2E_" + key.ToUpperInvariant();
+        RecordingMode? flag = null;
+        if (environment(variable) is { } text && !string.IsNullOrWhiteSpace(text))
+        {
+            flag = ReadMode(JsonSerializer.SerializeToElement(text.Trim()), variable, kind);
+        }
+
+        return new RunRecording(flag, ReadMode(Property(root, key), key, kind), kind == RecordingKind.Trace ? RecordingMode.RetainOnFailure : RecordingMode.Off);
+    }
+
+    // Checks one trace or video value: a mode, or null when the key is unset.
+    private static RecordingMode? ReadMode(JsonElement? raw, string where, RecordingKind kind)
+    {
+        if (raw is not { } value)
+        {
+            return null;
+        }
+
+        var text = value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+        if (RecordingModes.TryParse(text, out var mode))
+        {
+            return mode;
+        }
+
+        if (kind == RecordingKind.Trace)
+        {
+            var block = value.ValueKind == JsonValueKind.Object;
+            var record = block ? (value.TryGetProperty("record", out var inner) && inner.ValueKind == JsonValueKind.String ? inner.GetString() : null) : text;
+            if (RecordingModes.TryLegacyTraceSpelling(record, block, out var was, out var meant))
+            {
+                var spelled = where.StartsWith("E2E_", StringComparison.Ordinal) ? where + "=" + RecordingModes.Name(meant) : "trace: '" + RecordingModes.Name(meant) + "'";
+                throw Invalid(where + " " + was + " is the old spelling of " + spelled + "; the modes are " + RecordingModes.List);
+            }
+        }
+
+        throw Invalid(where + " must be one of " + RecordingModes.List + ", got " + value.GetRawText());
     }
 
     private static ReadOnlyDictionary<string, AgentConfig> ReadAgents(JsonElement? raw)
@@ -611,6 +658,32 @@ public sealed class TargetConfig
     public required string Platform { get; init; }
 
     public required AppConfig App { get; init; }
+
+    /// <summary>Which attempts write <c>trace.md</c>: <c>E2E_TRACE</c>, else this target's <c>trace</c>, else the config's, else <c>retain-on-failure</c>.</summary>
+    public ResolvedRecording Trace { get; init; } = new(RecordingMode.RetainOnFailure, RecordingSource.Default);
+
+    /// <summary>Which attempts record a video: <c>E2E_VIDEO</c>, else this target's <c>video</c>, else the config's, else <c>off</c>.</summary>
+    public ResolvedRecording Video { get; init; } = new(RecordingMode.Off, RecordingSource.Default);
+}
+
+/// <summary>One kind's modes before any target speaks: the environment variable, the config root, and the default under both.</summary>
+internal sealed record RunRecording(RecordingMode? Flag, RecordingMode? Config, RecordingMode Fallback)
+{
+    /// <summary>A target's effective mode and where it came from: the variable, else the target's own, else the config root's, else the default.</summary>
+    public ResolvedRecording For(RecordingMode? own)
+    {
+        if (Flag is { } flag)
+        {
+            return new ResolvedRecording(flag, RecordingSource.Run);
+        }
+
+        if (own is { } target)
+        {
+            return new ResolvedRecording(target, RecordingSource.Target);
+        }
+
+        return Config is { } config ? new ResolvedRecording(config, RecordingSource.Run) : new ResolvedRecording(Fallback, RecordingSource.Default);
+    }
 }
 
 public sealed class AppConfig

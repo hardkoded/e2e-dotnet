@@ -37,6 +37,12 @@ or `All` fails at setup unless it also has
 To rewrite the stored screenshots `ToHaveScreenshotAsync` finds missing or
 different, and pass, set `E2E_UPDATE_SNAPSHOTS=1`.
 
+`--trace` and `--video` are the variables `E2E_TRACE` and `E2E_VIDEO`, for
+example `E2E_VIDEO=on dotnet test`, or `<EnvironmentVariables>` in a
+`.runsettings` file. The modes are `off`, `on`, `retain-on-failure`,
+`on-first-retry`, and `on-all-retries`. The port reads them and records
+nothing yet.
+
 To watch a run, set `E2E_HEADLESS=0`. A fixture can also pass
 `new WebEngineOptions { Headless = false }` in `CreateEngine()`.
 

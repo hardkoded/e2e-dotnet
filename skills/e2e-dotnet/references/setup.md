@@ -113,9 +113,15 @@ unknown key fails with `INVALID_CONFIG`.
 | `agents` | none | `default` and any other named agent. Options: topic `agent`. |
 | `cache` | `read-write` | `{ mode, dir, strict }`. CI demotes the mode to `read-only`. |
 | `secrets` | `{}` | Named values the model never sees; `null` requires `E2E_SECRET_<NAME>`. |
+| `trace`, `video` | `retain-on-failure`, `off` | Which attempts record: `off`, `on`, `retain-on-failure`, `on-first-retry`, or `on-all-retries`. Also allowed on the target. Read and carried, but the port records nothing yet. The old `all` and `retries` spellings of `trace` are `INVALID_CONFIG`. |
+
+For `trace` and `video`, `E2E_TRACE` and `E2E_VIDEO` win over the target's
+key, which wins over the config root's key. A fixture reads the result in
+its `Trace` and `Video` properties. A video keeps whatever the screen shows,
+secrets included, so keep it `off` unless you need it.
 
 There are no `credentials`, `tests`, `workers`, `reporters`, `output`,
-`trace`, `video`, or `artifacts` keys; each is `INVALID_CONFIG`. Accounts
+or `artifacts` keys; each is `INVALID_CONFIG`. Accounts
 come from `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD`, read
 with `Credentials.User(name)`.
 
@@ -220,6 +226,7 @@ To test without a browser or model, override `CreateEngine()` to return a
 | `E2E_OAUTH_CREDENTIALS` | The login JSON, in place of the credentials file. |
 | `OPENCODE_API_KEY` | An OpenCode Console service account API key or an OpenCode Go subscription API key, in place of the `opencode-console` login. `Subscriptions.OpenCodeConsole` and `e2e models opencode-console` use it. |
 | `CI` | CI defaults: a `read-only` cache. |
+| `E2E_TRACE`, `E2E_VIDEO` | A recording mode (`off`, `on`, `retain-on-failure`, `on-first-retry`, `on-all-retries`) for the run, over the config. Upstream sets these with `--trace` and `--video`. A bad value is `INVALID_CONFIG`. A blank value is ignored. |
 | `E2E_HEADLESS` | `0` or `false` shows the browser. |
 | `E2E_SKIP_BROWSER_INSTALL` | `1` skips the Chromium install. |
 
