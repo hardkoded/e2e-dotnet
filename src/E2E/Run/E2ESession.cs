@@ -578,6 +578,12 @@ public sealed class E2ESessionOptions
     /// <summary>Overrides the <c>CI</c> environment variable for <c>ToHaveScreenshotAsync</c>.</summary>
     internal bool? Ci { get; init; }
 
+    /// <summary>Which attempts record a trace. The session only carries the setting; <see cref="Attempt"/> says which attempt this is.</summary>
+    public ResolvedRecording Trace { get; init; } = new(RecordingMode.RetainOnFailure, RecordingSource.Default);
+
+    /// <summary>Which attempts record a video. The session only carries the setting; <see cref="Attempt"/> says which attempt this is.</summary>
+    public ResolvedRecording Video { get; init; } = new(RecordingMode.Off, RecordingSource.Default);
+
     /// <summary>1 is the first try. Later attempts do not replay, and still record verified acts.</summary>
     public int Attempt { get; init; } = 1;
 }

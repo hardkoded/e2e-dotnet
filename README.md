@@ -218,6 +218,8 @@ xUnit v2 is not supported. It cannot read a test's result during cleanup, and th
 
 There is no default model and no shared API key. `baseUrl` can point at any OpenAI-compatible server, including a local one. Tests without agent steps ignore it.
 
+`trace` and `video` choose which attempts record: `off`, `on`, `retain-on-failure`, `on-first-retry`, or `on-all-retries`. They go at the config root or on the target, and `E2E_TRACE` and `E2E_VIDEO` replace them for one run. The defaults are `retain-on-failure` and `off`. The port reads these settings and does not record yet.
+
 `provider` picks who serves `model` and `judge`. Unset, it is `openai` (chat completions). `baseUrl` and `apiKeyEnv` default to the provider's own:
 
 | `provider` | Key | Notes |

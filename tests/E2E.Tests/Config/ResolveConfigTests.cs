@@ -185,6 +185,16 @@ public sealed class ResolveConfigTests
         E2EConfig.Parse("""{ "secrets": { "pin": "🔐🔐🔐🔐🔐🔐" } }""", Root, Env());
     }
 
+    /// <summary>Partial: upstream "uses CI defaults for retries and workers, and the same trace and video as locally" also checks workers. The port has no workers, so only retries, trace, and video are checked.</summary>
+    [Fact]
+    public void Uses_CI_defaults_for_retries_and_the_same_trace_and_video_as_locally()
+    {
+        var config = E2EConfig.Parse("{}", Root, Env(("CI", "1")));
+        Assert.Equal(1, config.Retries);
+        Assert.Equal(new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Default), config.Target.Trace);
+        Assert.Equal(new ResolvedRecording(RecordingMode.Off, RecordingSource.Default), config.Target.Video);
+    }
+
     private static Func<string, string?> Env(params (string Name, string Value)[] values)
     {
         var map = values.ToDictionary(pair => pair.Name, pair => pair.Value, StringComparer.Ordinal);
