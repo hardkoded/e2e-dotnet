@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
-using static E2E.Tests.StepCache.StepTraceSessionTests;
+using static E2E.Tests.StepCache.StepCachePipelineTests;
 
 namespace E2E.Tests.TraceReplay;
 

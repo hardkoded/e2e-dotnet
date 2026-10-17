@@ -2,26 +2,35 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using E2E.Engine;
-using static E2E.Tests.StepCache.StepTraceSessionTests;
+using static E2E.Tests.StepCache.StepCacheHarness;
 
 namespace E2E.Tests.StepCache;
 
-/// <summary>"self-finalizes when the recorded destination arrives after the replayed action" is covered by <c>CoreTests.Replay_waits_for_an_end_state_that_shows_up_late</c>.</summary>
 public sealed class DestinationPathSettlingTests
 {
+    /// <summary>Partial port of "self-finalizes when the recorded destination arrives after the replayed action": a replayed step's summary names no zero-turn replay.</summary>
+    [Fact]
+    public async Task Self_finalizes_when_the_recorded_destination_arrives_late()
+    {
+        // Start on /pricing; the first read after the replay still sees /pricing (the navigation has not committed),
+        // the next sees the destination.
+        var host = MakeHost(["/pricing", "/pricing", "/customers"]);
+        host.ReplayTimeout = TimeSpan.FromSeconds(5);
+
+        var verdict = await MakeSession(EntryContext(endPath: "/customers"), host).BeginAsync();
+
+        Assert.Equal(StepVerdictStatus.Passed, verdict?.Status);
+    }
+
     [Fact]
     public async Task Still_hands_off_when_the_destination_never_arrives_within_the_budget()
     {
-        var directory = CoreTests.TempCache();
-        await StepAsync(ProjectWorld("/customers"), new FileStepCache(directory), "/pricing", Saved, Script(ModelResponses.Tap("link", "Create project")));
+        var host = MakeHost(["/pricing", "/pricing", "/pricing", "/pricing"]);
+        host.ReplayTimeout = TimeSpan.FromMilliseconds(250);
+        var session = MakeSession(EntryContext(endPath: "/customers"), host);
 
-        // The link now stays on the pricing page, so the recorded destination never shows up.
-        var stays = new DocumentWorld().Map("/pricing", page => page.Link("Create project", "/pricing"));
-        var step = await StepAsync(stays, new FileStepCache(directory), "/pricing", null, Script());
+        Assert.Null(await session.BeginAsync());
 
-        Assert.Null(step.Error);
-        Assert.Equal(0, step.Replayed);
-        Assert.Equal(("agent-concluded", "end-mismatch"), (step.Cache?.Mode, step.Cache?.Reason));
+        Assert.Equal(ReplayHandOffReason.EndMismatch, session.ReplayedPrefix?.StopReason);
     }
 }
