@@ -149,10 +149,24 @@ internal sealed class DevFlowAgentClient
         using var response = await SendAsync(HttpMethod.Get, path, null, "image/png", limit.Token, cancellationToken).ConfigureAwait(false);
         if ((int)response.StatusCode >= 400)
         {
-            throw await FailureAsync(response, limit.Token).ConfigureAwait(false);
+            var text = await ReadTextAsync(response, limit.Token, cancellationToken).ConfigureAwait(false);
+            throw Failure(response.StatusCode, Parse(text), text);
         }
 
-        var bytes = await response.Content.ReadAsByteArrayAsync(limit.Token).ConfigureAwait(false);
+        byte[] bytes;
+        try
+        {
+            bytes = await response.Content.ReadAsByteArrayAsync(limit.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new DevFlowAgentException(null, "timeout", $"the DevFlow agent did not finish sending the screenshot within {CommandTimeout.TotalSeconds:0} seconds");
+        }
+        catch (HttpRequestException cause)
+        {
+            throw new DevFlowAgentException(null, "unreachable", $"the DevFlow agent closed the connection: {cause.Message}");
+        }
+
         long? epoch = response.Headers.TryGetValues("X-DevFlow-Capture-Epoch", out var values) && long.TryParse(values.FirstOrDefault(), out var parsed) ? parsed : null;
         return (bytes, epoch);
     }
@@ -226,12 +240,6 @@ internal sealed class DevFlowAgentClient
         {
             throw new DevFlowAgentException(null, "unreachable", $"the DevFlow agent closed the connection: {cause.Message}");
         }
-    }
-
-    private static async Task<DevFlowAgentException> FailureAsync(HttpResponseMessage response, CancellationToken cancellationToken)
-    {
-        var text = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        return Failure(response.StatusCode, Parse(text), text);
     }
 
     /// <summary>

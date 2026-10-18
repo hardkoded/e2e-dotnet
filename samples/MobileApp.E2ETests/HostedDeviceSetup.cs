@@ -34,6 +34,14 @@ public sealed class HostedDeviceSetup
     /// </summary>
     internal static bool AttachesToRunningApp { get; private set; }
 
+    /// <summary><c>E2E_DEVFLOW_PORT</c>, or null when it is unset. A value that is not a port fails the run, not falls back to discovery.</summary>
+    private static int? DevFlowPort() => Environment.GetEnvironmentVariable("E2E_DEVFLOW_PORT") switch
+    {
+        null or "" => null,
+        var text when int.TryParse(text, out var port) && port is > 0 and <= 65535 => port,
+        var text => throw new InvalidOperationException($"E2E_DEVFLOW_PORT must be a port number, not {text}."),
+    };
+
     [OneTimeSetUp]
     public async Task LeaseDeviceAsync()
     {
@@ -48,7 +56,7 @@ public sealed class HostedDeviceSetup
             // A hosted device that outlives an interrupted run is billed until its hard timeout.
             "limrun" => new LimrunSimulators(new LimrunSimulatorsOptions { HardTimeout = "15m", Ios = new LimrunIosOptions { Model = LimrunIosModel.Iphone } }),
             // The agent inside the running Debug build of samples/MobileApp. E2E_DEVFLOW_PORT names its port; without it the broker is asked, then 9223.
-            "devflow" => new DevFlowAgents(new DevFlowAgentsOptions { Port = int.TryParse(Environment.GetEnvironmentVariable("E2E_DEVFLOW_PORT"), out var port) ? port : null, AppName = "MobileApp" }),
+            "devflow" => new DevFlowAgents(new DevFlowAgentsOptions { Port = DevFlowPort(), AppName = "MobileApp" }),
             _ => throw new InvalidOperationException($"E2E_MOBILE_PROVIDER must be local, limrun, or devflow, not {name}."),
         };
         AttachesToRunningApp = name == "devflow";

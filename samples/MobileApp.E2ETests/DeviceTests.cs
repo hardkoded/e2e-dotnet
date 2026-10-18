@@ -12,9 +12,12 @@ public sealed class DeviceTests : MobileAppTest
     [Test]
     public async Task The_agent_counts_taps()
     {
+        // A run that attaches to a running app starts from whatever count the app already has.
+        var before = int.Parse((await Screen.GetByTestId("counter").TextContentAsync())!.Split(':')[1]);
+
         await Agent.ActAsync("press Add one three times");
 
-        await Expect.That(Screen.GetByTestId("counter")).ToHaveTextAsync("Count: 3");
+        await Expect.That(Screen.GetByTestId("counter")).ToHaveTextAsync($"Count: {before + 3}");
     }
 
     [Test]
