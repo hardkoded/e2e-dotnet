@@ -12,14 +12,18 @@ public sealed class DeviceTests : MobileAppTest
     [Test]
     public async Task The_agent_counts_taps()
     {
+        // A run that attaches to a running app starts from whatever count the app already has.
+        var before = int.Parse((await Screen.GetByTestId("counter").TextContentAsync())!.Split(':')[1]);
+
         await Agent.ActAsync("press Add one three times");
 
-        await Expect.That(Screen.GetByTestId("counter")).ToHaveTextAsync("Count: 3");
+        await Expect.That(Screen.GetByTestId("counter")).ToHaveTextAsync($"Count: {before + 3}");
     }
 
     [Test]
     public async Task Keeps_the_count_after_the_app_goes_to_the_background()
     {
+        Assume.That(!HostedDeviceSetup.AttachesToRunningApp, "The DevFlow agent runs inside the app and cannot send it to the background.");
         await Screen.GetByTestId("increment").TapAsync();
         await Expect.That(Screen.GetByTestId("counter")).ToHaveTextAsync("Count: 1");
 
@@ -33,6 +37,7 @@ public sealed class DeviceTests : MobileAppTest
     [Test]
     public async Task Starts_again_from_zero_after_a_fresh_launch()
     {
+        Assume.That(!HostedDeviceSetup.AttachesToRunningApp, "The DevFlow agent runs inside the app and cannot relaunch it yet.");
         await Screen.GetByTestId("increment").TapAsync();
 
         await Device.OpenAppAsync(AppId, new OpenAppOptions { Relaunch = true });

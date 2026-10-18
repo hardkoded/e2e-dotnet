@@ -12,6 +12,7 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | `src/E2E.Kernel` | Kernel hosted browsers for `WebEngineOptions.Browser`, packed as `E2E.Kernel` |
 | `src/E2E.Limrun` | Limrun hosted simulators and emulators for `MobileEngine`, packed as `E2E.Limrun` |
 | `src/E2E.TestMu.Mobile` | TestMu AI real and virtual mobile devices for `MobileEngine`, driven through Appium, packed as `E2E.TestMu.Mobile`. No upstream counterpart |
+| `src/E2E.Mobile.DevFlow` | .NET MAUI apps for `MobileEngine`, driven through the MAUI DevFlow agent inside the app, packed as `E2E.Mobile.DevFlow`. No upstream counterpart |
 | `src/E2E.NUnit` | NUnit fixture `E2ETest` |
 | `src/E2E.TestMu` | TestMu AI hosted browsers for `WebEngineOptions.Browser`, packed as `E2E.TestMu`. No upstream counterpart |
 | `src/E2E.XUnit.V3` | xUnit v3 fixture `E2ETest` |
@@ -21,6 +22,7 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | `tests/E2E.Kernel.Tests` | Unit tests of `src/E2E.Kernel`, with a fake Kernel REST API. No browser, no API key. Ported from upstream's `packages/kernel/tests`, plus a few tests of the REST requests that are .NET-only |
 | `tests/E2E.Limrun.Tests` | Unit tests of `src/E2E.Limrun`, with a fake Limrun API and a scripted device client. No device, no API key |
 | `tests/E2E.TestMu.Mobile.Tests` | Unit tests of `src/E2E.TestMu.Mobile`, with a fake Appium hub. No device, no account, no key |
+| `tests/E2E.Mobile.DevFlow.Tests` | Unit tests of `src/E2E.Mobile.DevFlow`, with a fake DevFlow agent and broker. No device, no app |
 | `tests/E2E.TestMu.Tests` | Unit tests of `src/E2E.TestMu`: the endpoint, the capabilities, and the credentials. No API key. One live test attaches to the real grid and is skipped unless `LT_USERNAME` and `LT_ACCESS_KEY` are set. All are .NET-only |
 | `tests/E2E.Mobile.Tests` | Unit tests of `src/E2E.Mobile`, with snapshots captured from a real iOS simulator and Android emulator, and a scripted agent-device client. No device, no API key |
 | `tests/E2E.Agent.Tests` | Agent tests against a real model, ported from upstream's `apps/testbed/tests-agent`. They serve upstream's playground pages on a loopback port. All are in the `RealModel` category and need a GitHub Copilot login |
@@ -49,6 +51,6 @@ Do not commit API keys.
 
 ## Release
 
-Push a version tag such as `v0.1.0` (previews use `v0.1.0-preview.1`). `.github/workflows/publish.yml` tests, packs `E2E`, `E2E.NUnit`, `E2E.XUnit.V3`, `E2E.Cli`, `E2E.Mobile`, `E2E.Limrun`, `E2E.Eas`, `E2E.TestMu`, and `E2E.Kernel`, and pushes them to nuget.org with trusted publishing. The policy is repository owner `hardkoded`, repository `e2e-dotnet`, workflow file `publish.yml`. The workflow has to be on the default branch before the tag is pushed.
+Push a version tag such as `v0.1.0` (previews use `v0.1.0-preview.1`). `.github/workflows/publish.yml` tests, packs `E2E`, `E2E.NUnit`, `E2E.XUnit.V3`, `E2E.Cli`, `E2E.Mobile`, `E2E.Mobile.DevFlow`, `E2E.Limrun`, `E2E.Eas`, `E2E.TestMu`, and `E2E.Kernel`, and pushes them to nuget.org with trusted publishing. The policy is repository owner `hardkoded`, repository `e2e-dotnet`, workflow file `publish.yml`. The workflow has to be on the default branch before the tag is pushed.
 
 The same tag runs `.github/workflows/docs.yml`, which builds the DocFX site in `docs/` and deploys it to GitHub Pages. Build it locally with `dotnet tool install --global docfx`, then `docfx docs/docfx.json --serve`.

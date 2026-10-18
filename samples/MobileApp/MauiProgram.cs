@@ -1,4 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
+#if DEBUG
+using Microsoft.Maui.DevFlow.Agent;
+#endif
 
 namespace MobileApp;
 
@@ -17,6 +20,8 @@ public static class MauiProgram
 
 #if DEBUG
 		builder.Logging.AddDebug();
+		// Starts the DevFlow agent with the app, so E2E.Mobile.DevFlow can read the visual tree and drive the controls.
+		builder.AddMauiDevFlowAgent();
 #endif
 
 		return builder.Build();
