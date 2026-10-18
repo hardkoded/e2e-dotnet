@@ -35,6 +35,8 @@
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+		<!-- The MAUI DevFlow agent: an HTTP server inside the app that E2E.Mobile.DevFlow drives. Debug builds only, as Microsoft ships it. -->
+		<PackageReference Include="Microsoft.Maui.DevFlow.Agent" Version="0.1.0-preview.13.26512.5" Condition="'$(Configuration)' == 'Debug'" />
 	</ItemGroup>
 
 </Project>

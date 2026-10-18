@@ -52,8 +52,9 @@ The first test installs the build, and every test launches the app fresh. When y
 | `E2E_MOBILE_PLATFORM` | `ios` (default) or `android`. |
 | `E2E_MOBILE_DEVICE` | Simulator or emulator UDID, or its name when only one device has that name. Unset: use the booted device. |
 | `E2E_MOBILE_APP_PATH` | A build to install in place of the default. |
-| `E2E_MOBILE_PROVIDER` | `local` (default) or `limrun`. See [Run on Limrun](#run-on-limrun). |
+| `E2E_MOBILE_PROVIDER` | `local` (default), `limrun`, or `devflow`. See [Run on Limrun](#run-on-limrun) and [Run through the DevFlow agent](#run-through-the-devflow-agent). |
 | `LIMRUN_API_KEY` | The Limrun API key, for `E2E_MOBILE_PROVIDER=limrun`. |
+| `E2E_DEVFLOW_PORT` | The DevFlow agent's port, for `E2E_MOBILE_PROVIDER=devflow`. Unset: the broker is asked, then 9223. |
 
 ## Run on Limrun
 
@@ -70,6 +71,17 @@ A relative build path, the default or `E2E_MOBILE_APP_PATH`, is relative to the 
 `-p:ValidateXcodeVersion=false` is only needed when the installed Xcode is newer than the one the .NET iOS pack expects. `HostedDeviceSetup` leases one Limrun device for the whole run, installs the build on it, and deletes it when the run ends. The device has a hard timeout of 15 minutes, so an interrupted run does not stay billed. `E2E_MOBILE_DEVICE` does not apply. On Android, set `E2E_MOBILE_PLATFORM=android` and `E2E_MOBILE_APP_PATH` to the `.apk`; the provider also needs `adb` from the Android SDK Platform-Tools on `PATH`. The Android path was not run. A run longer than the 15 minute timeout loses the device, so run a subset with `--filter` if the whole project is slow.
 
 On a Limrun iOS device, keyboard actions such as `Locator.PressAsync("Enter")` fail with `UNSUPPORTED_CAPABILITY`. These tests tap the Greet button and do not press keys.
+
+## Run through the DevFlow agent
+
+The Debug build of the app registers the [MAUI DevFlow](https://github.com/dotnet/maui-labs/tree/main/src/DevFlow) agent (`builder.AddMauiDevFlowAgent()` in `MauiProgram.cs`). With `E2E_MOBILE_PROVIDER=devflow`, the tests drive the app through that agent instead of agent-device: no Node, and the MAUI visual tree with every `AutomationId`. The tests attach to a running app, so launch it first:
+
+```bash
+dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64 -t:Run
+E2E_MOBILE_PROVIDER=devflow dotnet test samples/MobileApp.E2ETests
+```
+
+`HostedDeviceSetup` finds the agent (through the DevFlow broker when one runs, `maui devflow list`, else on port 9223, or `E2E_DEVFLOW_PORT`), waits up to a minute for it, and holds its mutation lease for the run. Nothing is installed, and the app is not relaunched between tests, so each test starts from the state the last one left. The two device tests that send the app to the background or relaunch it are inconclusive in this mode. On Android, forward the agent's port with `adb forward tcp:<port> tcp:<port>` first. This mode has not been run against a device yet: it is the spike of the DevFlow integration.
 
 ## How the fixture works
 

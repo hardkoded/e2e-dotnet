@@ -8,6 +8,7 @@ iOS and Android apps run on `MobileEngine` (project `E2E.Mobile`, not on NuGet y
 - A test
 - Device controls
 - Choosing a device
+- A MAUI app with DevFlow
 - Known limits
 
 ## The fixture
@@ -76,6 +77,7 @@ public abstract class MobileAppTest : E2ETest
     [Test]
     public async Task Keeps_the_count_after_the_app_goes_to_the_background()
     {
+        // ...
         await Screen.GetByTestId("increment").TapAsync();
         await Expect.That(Screen.GetByTestId("counter")).ToHaveTextAsync("Count: 1");
 
@@ -118,6 +120,33 @@ E2E_MOBILE_PROVIDER=limrun dotnet test samples/MobileApp.E2ETests
 The NUnit adapter does not run the engine's prepare and finish hooks, so without help each test would lease its own billed device. [`HostedDeviceSetup.cs`](https://github.com/hardkoded/e2e-dotnet/blob/main/samples/MobileApp.E2ETests/HostedDeviceSetup.cs) in the sample runs them once per run, so that every test shares the one leased device. Copy it for a hosted run.
 
 A provider that drives its devices without agent-device implements `IDeviceClientSource` as well as `IDeviceProvider`. `MobileEngine` then asks it for the `IDeviceClient` of each session. The client finds its device through `DeviceConnection.Client`, which is the `DeviceLease.Client` the provider returned. This has no upstream counterpart.
+
+## A MAUI app with DevFlow
+
+A .NET MAUI app can be driven through the [MAUI DevFlow](https://github.com/dotnet/maui-labs/tree/main/src/DevFlow) agent instead of agent-device. The agent is an HTTP server inside the app, so no Node is needed, and every control reports its `AutomationId`. Add `Microsoft.Maui.DevFlow.Agent` to the app and register it in `MauiProgram.cs`:
+
+```csharp
+#if DEBUG
+builder.AddMauiDevFlowAgent();
+#endif
+```
+
+Then add the `E2E.Mobile.DevFlow` package to the tests and set `MobileOptions.Provider`:
+
+```csharp
+using E2E.Mobile.DevFlow;
+
+var provider = new DevFlowAgents(new DevFlowAgentsOptions { AppName = "MobileApp" });
+```
+
+Launch the Debug build of the app on a simulator or emulator yourself, then run the tests. The provider finds the agent through the DevFlow broker when one runs (`maui devflow list` shows it), else on port 9223; `DevFlowAgentsOptions.Port` names a port outright. It waits up to `ConnectTimeout` (60 seconds) for the agent, checks that it runs the target's platform and app, and holds the agent's mutation lease while the run lasts. The sample turns this on with `E2E_MOBILE_PROVIDER=devflow`:
+
+```bash
+dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64 -t:Run
+E2E_MOBILE_PROVIDER=devflow dotnet test samples/MobileApp.E2ETests
+```
+
+Limits of the preview: the tests attach to the running app, so `Device.InstallAppAsync()`, `OpenAppAsync` with `Relaunch`, `OpenLinkAsync`, `HomeAsync`, `AlertAsync`, permissions, and orientation fail with `UNSUPPORTED_CAPABILITY`. Open the app without `Relaunch`. `SetAppearanceAsync` changes the app's theme, not the device's. The agent exists only in Debug builds. On Android, forward the agent's port first (`adb forward tcp:<port> tcp:<port>`), and `adb reverse tcp:19223 tcp:19223` before the app starts if a broker runs.
 
 ## Known limits
 

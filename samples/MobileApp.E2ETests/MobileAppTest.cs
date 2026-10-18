@@ -38,6 +38,7 @@ public abstract class MobileAppTest : E2ETest
     /// A <see cref="MobileEngine"/> for the pinned app. <c>E2E_MOBILE_DEVICE</c> names a simulator or emulator.
     /// Without it, the engine drives the booted device of the platform. <c>E2E_MOBILE_APP_PATH</c> names another build.
     /// With <c>E2E_MOBILE_PROVIDER=limrun</c>, every test drives the one hosted device that <see cref="HostedDeviceSetup"/> leased.
+    /// With <c>E2E_MOBILE_PROVIDER=devflow</c>, every test drives the running app through the MAUI DevFlow agent it attached to.
     /// </summary>
     protected override IEngine CreateEngine() => _engine = HostedDeviceSetup.Engine ?? new MobileEngine(Options(provider: null));
 
@@ -60,6 +61,13 @@ public abstract class MobileAppTest : E2ETest
     [SetUp]
     public async Task InstallAndOpenAppAsync()
     {
+        if (HostedDeviceSetup.AttachesToRunningApp)
+        {
+            // The DevFlow agent runs inside the app you launched: there is no build to install, and no relaunch yet.
+            await Device.OpenAppAsync(AppId);
+            return;
+        }
+
         await InstallLock.WaitAsync();
         try
         {
