@@ -1561,10 +1561,18 @@ public sealed partial class WebEngine : IEngine
                 return [];
             }
 
+            // A read the budget abandons keeps minting refs in the page. The trace's read reserves the most it can mint up front,
+            // so the next read never starts from a number the abandoned one is still handing out.
+            var seed = _nextRef;
+            if (!walk.Publish)
+            {
+                _nextRef = seed + walk.Remaining;
+            }
+
             System.Text.Json.JsonElement json;
             try
             {
-                json = await budget.WithinAsync(frame.EvaluateAsync<System.Text.Json.JsonElement>(PageScript.Collect, new { seed = _nextRef, max = walk.Remaining, testIdAttribute = _testIdAttribute, publish = walk.Publish })).ConfigureAwait(false);
+                json = await budget.WithinAsync(frame.EvaluateAsync<System.Text.Json.JsonElement>(PageScript.Collect, new { seed, max = walk.Remaining, testIdAttribute = _testIdAttribute, publish = walk.Publish })).ConfigureAwait(false);
             }
             catch (PlaywrightException) when (frame != _page?.MainFrame)
             {
@@ -1577,7 +1585,7 @@ public sealed partial class WebEngine : IEngine
                 return [];
             }
 
-            _nextRef = dto.Next;
+            _nextRef = Math.Max(_nextRef, dto.Next);
             walk.Remaining -= dto.Count;
             walk.Truncated |= dto.Truncated;
             if (frame.ParentFrame is null)
