@@ -41,7 +41,7 @@ different, and pass, set `E2E_UPDATE_SNAPSHOTS=1`.
 example `E2E_VIDEO=on dotnet test`, or `<EnvironmentVariables>` in a
 `.runsettings` file. The modes are `off`, `on`, `retain-on-failure`,
 `on-first-retry`, and `on-all-retries`. The web engine records `video` into
-`.e2e/results/<test>/attempt-<n>/video/` (topic `debugging`); the port writes no
+`.e2e/results/<test>/attempt-<n>/video/`, or links to a provider's recording (topic `debugging`); the port writes no
 trace page yet. The retry modes need NUnit `[Retry]`.
 
 `--debug` is `E2E_DEBUG=1` (or `true`). Each test writes its phase timings to
