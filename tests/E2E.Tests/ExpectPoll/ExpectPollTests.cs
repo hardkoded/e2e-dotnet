@@ -79,11 +79,11 @@ public sealed class ExpectPollTests
         Assert.Equal(3, reads);
 
         var failures = 0;
-        Func<Task<string>> refused = async () =>
+        // A read that fails at once: if it completed on another thread, a busy pool could keep it pending while the stepping clock fires the read's own timeout.
+        Func<Task<string>> refused = () =>
         {
-            await Task.Yield();
             failures++;
-            throw new InvalidOperationException("connection refused");
+            return Task.FromException<string>(new InvalidOperationException("connection refused"));
         };
         var message = await FailsWith(() => Expect.Poll(refused, Options(80, 10)).ToBeAsync("done"));
         Assert.EndsWith("last: connection refused", message, StringComparison.Ordinal);
