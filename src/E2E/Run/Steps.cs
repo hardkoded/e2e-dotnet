@@ -182,6 +182,9 @@ internal sealed class StepRecord
     public SerializedError? Error { get; set; }
 
     public List<string> Artifacts { get; } = [];
+
+    /// <summary>How the last screen the step saw differs from the step before's; null when it saw none.</summary>
+    public StepScreen? Screen { get; set; }
 }
 
 /// <summary>Whose progress a notification is: IDs join live progress to the report. Step indexes are local to each test.</summary>

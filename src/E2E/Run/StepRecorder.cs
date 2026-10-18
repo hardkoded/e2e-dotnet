@@ -12,7 +12,7 @@ namespace E2E;
 /// Upstream's <c>StepRecorder</c> (<c>run/steps.ts</c>): the attempt-scoped step timeline. Every public API call that touches the app
 /// runs as one recorded step, whose record keeps what it was, where the test called it from, how long it took, and how it ended.
 /// Work a step starts is attributed to it through an <see cref="AsyncLocal{T}"/>, so overlapping steps and nested ones keep their
-/// own events and artifacts. Not ported yet: the app log and the screen comparison, which come with the trace feed.
+/// own events and artifacts. Not ported yet: the app log.
 /// </summary>
 internal sealed class StepRecorder
 {
@@ -48,6 +48,12 @@ internal sealed class StepRecorder
 
     // Highest timeline index among passed verification steps, or -1 when none has.
     private int _lastVerified = -1;
+
+    // The last screen each running step saw, read only when the step ends.
+    private readonly Dictionary<string, Func<ScreenText?>> _seenScreens = [];
+
+    // The last screen a finished step saw, the one the next step's is compared with.
+    private (int Step, ScreenText Screen)? _lastScreen;
 
     public StepRecorder(string attemptId, StepRecorderOptions? options = null)
     {
@@ -200,10 +206,15 @@ internal sealed class StepRecorder
 
                 // An abandoned step reported its end when the body returned; what it did since is not the test's.
                 wasAbandoned = _abandoned.Remove(record.Id);
+                if (wasAbandoned)
+                {
+                    _seenScreens.Remove(record.Id);
+                }
             }
 
             if (!wasAbandoned)
             {
+                SettleScreen(record);
                 PublishEnd(record);
             }
         }
@@ -348,6 +359,56 @@ internal sealed class StepRecorder
         if (details.Explanation is not null)
         {
             current.Explanation = RedactText(details.Explanation);
+        }
+    }
+
+    /// <summary>
+    /// Notes a screen the running step saw; the newest one stands. <paramref name="read"/> renders it, redacted, and runs once, when
+    /// the step ends, so a step that observes many times pays for one. A screen no step is running for (the failure evidence, a
+    /// launch) is the trace's only through the screen at failure.
+    /// </summary>
+    public void RecordScreen(Func<ScreenText?> read)
+    {
+        lock (_gate)
+        {
+            if (CurrentLocked() is { } target)
+            {
+                _seenScreens[target.Id] = read;
+            }
+        }
+    }
+
+    // Compares the last screen a step saw with the one before it, once the step has ended.
+    private void SettleScreen(StepRecord record)
+    {
+        Func<ScreenText?>? read;
+        lock (_gate)
+        {
+            if (!_seenScreens.Remove(record.Id, out read))
+            {
+                return;
+            }
+        }
+
+        ScreenText? screen;
+        try
+        {
+            screen = read();
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
+        if (screen is null)
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            record.Screen = StepScreens.CompareScreens(_lastScreen, screen);
+            _lastScreen = (record.Index, screen);
         }
     }
 

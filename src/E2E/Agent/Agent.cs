@@ -1055,11 +1055,25 @@ internal sealed class AttemptScope
     /// <summary>The scope every model call of the attempt is attributed to; null when the attempt is not traced. See <see cref="AiTraceScopes"/>.</summary>
     public AiTraceScope? AiTraceScope { get; init; }
 
+    /// <summary>The screens the attempt hands its trace. They are taken only when the attempt keeps a trace.</summary>
+    public SessionScreens Screens { get; init; } = new(false);
+
+    /// <summary>What the engine told about what the attempt runs on.</summary>
+    public EnvironmentFacts Environment { get; init; } = new();
+
     /// <summary>How far a secret reached the attempt. A secret fill, by the agent or by a locator, raises it.</summary>
     public Exposure Exposure { get; init; } = new();
 
     /// <summary>Where a judgment keeps its screenshot evidence; null for an attempt that keeps no results.</summary>
     public ScreenshotContext? Screenshots { get; set; }
+
+    /// <summary>One look at the screen, shown to the trace. Upstream's <c>session.observe</c> shows each observation it takes.</summary>
+    public async Task<Observation> ObserveAsync(CancellationToken token)
+    {
+        var observation = await Session.ObserveAsync(token).ConfigureAwait(false);
+        Screens.Push(observation);
+        return observation;
+    }
 
     /// <summary>The engine's masked screenshot, or null when it captures none: a capability it does not declare, or one it declares and cannot produce.</summary>
     public async Task<EngineScreenshot?> CaptureAsync(CancellationToken token)

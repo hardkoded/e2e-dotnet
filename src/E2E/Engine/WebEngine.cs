@@ -363,7 +363,7 @@ public sealed partial class WebEngine : IEngine
             var seams = new SessionSeams(Clock, ConnectCdp);
             if (connect is { ReconnectEndpoint: { } reconnect } persistent)
             {
-                return await WebSession.StartPersistentAsync(
+                var persistentSession = await WebSession.StartPersistentAsync(
                     playwright,
                     new PersistentConnect(persistent.CdpEndpoint, reconnect, usedContexts, _options.Browser),
                     options.ActionTimeout,
@@ -375,6 +375,7 @@ public sealed partial class WebEngine : IEngine
                     lease,
                     VideoSetupOf(options, lease),
                     cancellationToken).ConfigureAwait(false);
+                return persistentSession.TraceTo(options);
             }
 
             IBrowser? browser = null;
@@ -398,6 +399,7 @@ public sealed partial class WebEngine : IEngine
                 }
 
                 session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => InstallSiteHeadersAsync(context, app), url => SiteHeadersFor(url, app), seams, credentials: credentials, lease: lease) { Video = VideoSetupOf(options, lease) };
+                session.TraceTo(options);
                 await session.NewContextAsync().ConfigureAwait(false);
 
                 return session;
@@ -965,7 +967,7 @@ public sealed partial class WebEngine : IEngine
 
         public string Route => Routes.LocationOf(Page.Url);
 
-        public Task OpenAsync(string url, CancellationToken cancellationToken) => RunAsync("navigation", cancellationToken, async () =>
+        public Task OpenAsync(string url, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("navigation", cancellationToken, async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
@@ -991,7 +993,9 @@ public sealed partial class WebEngine : IEngine
             {
                 throw WebErrors.Translate(ex, "navigate to " + url);
             }
-        });
+
+            _trace?.TellEnvironment();
+        }));
 
         public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => RunAsync("observe", cancellationToken, async () =>
         {
@@ -1013,7 +1017,7 @@ public sealed partial class WebEngine : IEngine
             return new Observation { Route = Route, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll };
         });
 
-        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => RunAsync("perform", cancellationToken, async () =>
+        public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("perform", cancellationToken, async () =>
         {
             ArgumentNullException.ThrowIfNull(node);
             ArgumentNullException.ThrowIfNull(action);
@@ -1059,19 +1063,19 @@ public sealed partial class WebEngine : IEngine
             {
                 throw WebErrors.ClassifyAction(ex, action);
             }
-        });
+        }));
 
-        public Task PressAsync(string key, CancellationToken cancellationToken) => RunAsync("keyboard.press", cancellationToken, () =>
+        public Task PressAsync(string key, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("keyboard.press", cancellationToken, () =>
         {
             RequireObservation();
             return InputAsync(() => Page.Keyboard.PressAsync(key), "press " + key, cancellationToken);
-        });
+        }));
 
         // Direct test input: it needs no observation, so it stays available after a reconnect.
         public Task KeyboardPressAsync(string key, CancellationToken cancellationToken) => RunAsync("keyboard.press", cancellationToken, () =>
             InputAsync(() => Page.Keyboard.PressAsync(key), "press " + key, cancellationToken));
 
-        public Task BackAsync(CancellationToken cancellationToken) => RunAsync("back", cancellationToken, async () =>
+        public Task BackAsync(CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("back", cancellationToken, async () =>
         {
             var budget = Budget("back", cancellationToken);
             try
@@ -1082,7 +1086,9 @@ public sealed partial class WebEngine : IEngine
             {
                 throw WebErrors.Translate(ex, "back");
             }
-        });
+
+            _trace?.TellEnvironment();
+        }));
 
         public Task ForwardAsync(CancellationToken cancellationToken) => RunAsync("forward", cancellationToken, async () =>
         {
@@ -1438,7 +1444,7 @@ public sealed partial class WebEngine : IEngine
             _context = context;
         }
 
-        public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => RunAsync("scroll", cancellationToken, async () =>
+        public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("scroll", cancellationToken, async () =>
         {
             RequireObservation();
             var budget = Budget("scroll", cancellationToken);
@@ -1455,7 +1461,7 @@ public sealed partial class WebEngine : IEngine
                 // As upstream's viewport swipe, a scroll the deadline cut off may have moved the page.
                 throw WebErrors.ClassifyAction(ex, new LocatorAction.Swipe(direction));
             }
-        });
+        }));
 
         public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) => RunAsync("screenshot", cancellationToken, async () =>
         {
@@ -1574,7 +1580,7 @@ public sealed partial class WebEngine : IEngine
             _nextRef = dto.Next;
             walk.Remaining -= dto.Count;
             walk.Truncated |= dto.Truncated;
-            if (frame == Page.MainFrame)
+            if (frame == _page?.MainFrame)
             {
                 walk.Scroll = dto.Scroll;
             }

@@ -63,6 +63,20 @@ public sealed class EngineStartOptions
     /// <c>EngineAttemptContext.artifactsDir</c>. An engine that records video needs it.
     /// </summary>
     public string? ArtifactsDir { get; init; }
+
+    /// <summary>
+    /// Takes the screen an action left, for the attempt's trace. Upstream's <c>EngineAttemptContext.screen</c>. Null when the
+    /// attempt keeps no trace, and an engine then takes no screen. An engine may read the screen on the action's path; it never
+    /// fails the action for it, and a sink that throws never fails the attempt.
+    /// </summary>
+    public Action<Observation>? Screen { get; init; }
+
+    /// <summary>
+    /// Takes the facts the engine learns about what the attempt runs on, such as the browser and its user agent, for the attempt's
+    /// trace. Upstream's <c>EngineAttemptContext.environment</c>. An engine tells it at most a few times an attempt, and never
+    /// fails the attempt for it.
+    /// </summary>
+    public Action<IReadOnlyDictionary<string, string>>? Environment { get; init; }
 }
 
 /// <summary>What an engine asks of <see cref="EngineStartOptions.ResolveSecret"/> beside the value.</summary>
