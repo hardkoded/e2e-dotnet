@@ -159,6 +159,7 @@ If several agents match at step 2, the run fails and names them. Set `AppName` o
 - **One agent is one app.** A target with more than one worker slot fails with `INVALID_CONFIG`.
 - **Only one host holds the lease.** If the DevFlow Inspector or another test run holds it, the run fails and names the holder. Close that host, or wait ten seconds after it stops.
 - **A tree read that fails with 409 is tried again.** The agent answers 409 when the screen moves during a read, as it does during an animation. The read is tried up to four times.
+- **Set `E2E_DEVFLOW_TRACE=1` to see the calls.** Each call to the agent prints its method, URL, and status to stderr. Calls go to localhost, so a system proxy such as Proxyman does not show them. Bodies are not printed: they hold typed text.
 
 ### When it fails
 

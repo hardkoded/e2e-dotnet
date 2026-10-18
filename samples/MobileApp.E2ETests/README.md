@@ -54,6 +54,7 @@ The first test installs the build, and every test launches the app fresh. When y
 | `E2E_MOBILE_APP_PATH` | A build to install in place of the default. |
 | `E2E_MOBILE_PROVIDER` | `local` (default), `limrun`, or `devflow`. See [Run on Limrun](#run-on-limrun) and [Run through the DevFlow agent](#run-through-the-devflow-agent). |
 | `LIMRUN_API_KEY` | The Limrun API key, for `E2E_MOBILE_PROVIDER=limrun`. |
+| `E2E_DEVFLOW_TRACE` | `1` or `true` prints each call to the DevFlow agent (method, URL, status) to stderr. Run with `--logger "console;verbosity=detailed"` to see it. |
 | `E2E_DEVFLOW_PORT` | The DevFlow agent's port, for `E2E_MOBILE_PROVIDER=devflow`. Unset: the broker is asked, then 9223. |
 
 ## Run on Limrun

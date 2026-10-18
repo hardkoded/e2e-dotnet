@@ -47,6 +47,13 @@ internal sealed class DevFlowAgentClient
     /// <summary>How long one command may take. A tree of a large screen on a slow emulator can take seconds.</summary>
     internal static readonly TimeSpan CommandTimeout = TimeSpan.FromMinutes(2);
 
+    /// <summary>
+    /// <c>E2E_DEVFLOW_TRACE</c>: when set to <c>1</c> or <c>true</c>, every call to the agent prints its method and URL, then its
+    /// status, to stderr. Loopback calls do not go through a system proxy, so this is the way to see them. Bodies are never printed:
+    /// they hold the text a test types.
+    /// </summary>
+    private static bool Trace { get; } = Environment.GetEnvironmentVariable("E2E_DEVFLOW_TRACE") is "1" or "true";
+
     private const string LeasePath = "api/v1/agent/lease";
 
     private readonly HttpClient _http;
@@ -214,7 +221,18 @@ internal sealed class DevFlowAgentClient
 
         try
         {
-            return await _http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, limit).ConfigureAwait(false);
+            if (Trace)
+            {
+                Console.Error.WriteLine($"[devflow] -> {method} {message.RequestUri}");
+            }
+
+            var response = await _http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, limit).ConfigureAwait(false);
+            if (Trace)
+            {
+                Console.Error.WriteLine($"[devflow] <- {(int)response.StatusCode} {method} {path}");
+            }
+
+            return response;
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
