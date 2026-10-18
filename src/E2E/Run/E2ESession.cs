@@ -150,6 +150,9 @@ public sealed class E2ESession : IAsyncDisposable
             {
                 Session = engine,
                 Debug = debug,
+                AiTrace = options.AiTrace ? new AiTraceRecorder() : null,
+                AiTraceScope = options.AiTrace ? new AiTraceScope { Test = options.TestTitle, TestId = options.TestTitle, Target = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName, Agent = "default", Attempt = options.Attempt - 1 } : null,
+                AiTracePath = options.AiTrace ? AiTrace.PathFor(options.ResultsDirectory is null ? Path.Combine(projectRoot, ".e2e") : Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(options.ResultsDirectory))) ?? projectRoot) : null,
                 BaseUrl = baseUrl,
                 Agents = agents,
                 Cache = options.Cache,
@@ -343,6 +346,7 @@ public sealed class E2ESession : IAsyncDisposable
             _scope.Ended.Dispose();
             _timeout.Dispose();
             WriteDebug(_scope.Debug, _debugOutput);
+            WriteAiTrace(_scope);
         }
     }
 
@@ -422,6 +426,24 @@ public sealed class E2ESession : IAsyncDisposable
         catch (IOException)
         {
             // Nothing reads the table.
+        }
+    }
+
+    // The trace is a courtesy as well: a file that cannot be written must not hide the test's own result.
+    private static void WriteAiTrace(AttemptScope scope)
+    {
+        if (scope.AiTrace is null || scope.AiTracePath is null)
+        {
+            return;
+        }
+
+        try
+        {
+            AiTrace.Collect(scope.AiTrace, scope.AiTracePath);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Console.Error.WriteLine("[e2e] could not record the AI trace " + scope.AiTracePath + ": " + ex.Message);
         }
     }
 
@@ -622,6 +644,12 @@ public sealed class E2ESessionOptions
     /// and action phases, writes the table to stderr when it is released, and keeps each agent step's transcript.
     /// </summary>
     public bool Debug { get; init; }
+
+    /// <summary>
+    /// <c>E2E_AI_TRACE=1</c>, the port's counterpart of <c>--ai-trace</c>: every model call of the test is recorded in the AI SDK devtools
+    /// shape and added to <c>ai-trace-&lt;process id&gt;.json</c> next to the results directory (<c>.e2e</c> by default) when the session is released.
+    /// </summary>
+    public bool AiTrace { get; init; }
 
     /// <summary>Where the phase table goes when <see cref="Debug"/> is on. Defaults to stderr.</summary>
     internal TextWriter? DebugOutput { get; init; }

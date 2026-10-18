@@ -342,7 +342,9 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         var started = DateTimeOffset.UtcNow;
         var response = await (context.Host?.Scope.Debug ?? DebugTrace.Off).Time(
             Phases.Model,
-            () => model.CompleteAsync(
+            () => AiTraceModel.CompleteAsync(
+                context.Host?.Scope.AiTrace,
+                model,
                 new ModelRequest
                 {
                     System = redactor.Redact(system),

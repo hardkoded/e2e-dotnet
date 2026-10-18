@@ -697,7 +697,7 @@ public sealed partial class Agent
                 MarkLatest = markLatest,
                 Redactor = _scope.Redactor,
             };
-            response = await _scope.Debug.Time(Phases.Model, () => model.CompleteAsync(request, token)).ConfigureAwait(false);
+            response = await _scope.Debug.Time(Phases.Model, () => AiTraceModel.CompleteAsync(_scope.AiTrace, model, request, token)).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && !_scope.Token().IsCancellationRequested)
         {
@@ -1046,6 +1046,15 @@ internal sealed class AttemptScope
     /// <summary>The attempt's phase timings under <c>E2E_DEBUG=1</c>; a disabled trace otherwise.</summary>
     public DebugTrace Debug { get; init; } = DebugTrace.Off;
 
+    /// <summary>The attempt's AI trace recorder under <c>E2E_AI_TRACE=1</c>; null otherwise.</summary>
+    public AiTraceRecorder? AiTrace { get; init; }
+
+    /// <summary>The file <see cref="AiTrace"/> is collected into when the session is released.</summary>
+    public string? AiTracePath { get; init; }
+
+    /// <summary>The scope every model call of the attempt is attributed to; null when the attempt is not traced. See <see cref="AiTraceScopes"/>.</summary>
+    public AiTraceScope? AiTraceScope { get; init; }
+
     /// <summary>How far a secret reached the attempt. A secret fill, by the agent or by a locator, raises it.</summary>
     public Exposure Exposure { get; init; } = new();
 
@@ -1170,7 +1179,7 @@ internal sealed class AttemptScope
     /// <summary>The attempt's step timeline: every public call that touches the app is a step, and the ledger later steps read is derived from it.</summary>
     public StepRecorder Steps => LazyInitializer.EnsureInitialized(
         ref _recorder,
-        () => new StepRecorder(AttemptId, new StepRecorderOptions { Attempt = (AttemptId, Attempt - 1), ProjectRoot = ProjectRoot, Redact = text => Redactor.Redact(text) }));
+        () => new StepRecorder(AttemptId, new StepRecorderOptions { Attempt = (AttemptId, Attempt - 1), ProjectRoot = ProjectRoot, Redact = text => Redactor.Redact(text), AiTrace = AiTraceScope }));
 
     public List<PendingAct> Acts { get; } = [];
 
