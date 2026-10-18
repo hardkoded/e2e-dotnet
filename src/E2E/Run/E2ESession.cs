@@ -23,6 +23,8 @@ public sealed class E2ESession : IAsyncDisposable
     private readonly long _bodyStarted = System.Diagnostics.Stopwatch.GetTimestamp();
     private int _state;
     private int _disposed;
+    private ExecuteVideo? _video;
+    private AttemptStatus _status = AttemptStatus.Failed;
 
     private E2ESession(AttemptScope scope, CancellationTokenSource timeout, IEngineSession engine, App app, Browser browser, Agent agent, Screen screen, TestContext context, IDisposable errorRedaction, TextWriter? debugOutput)
     {
@@ -64,6 +66,12 @@ public sealed class E2ESession : IAsyncDisposable
     /// <summary>Registers a value for redaction alone, as the redaction ledger does: the agent may not fill it, and it withholds no pixels.</summary>
     internal void Register(string name, string value) => _scope.Register(name, value);
 
+    /// <summary>
+    /// The video segments this attempt kept, set once the session is disposed: files in the attempt's <c>video</c>
+    /// directory, or links to recordings a hosted service keeps. The port has no report to register them in.
+    /// </summary>
+    internal IReadOnlyList<VideoSegment> Videos { get; private set; } = [];
+
     public int Replayed => _scope.Replayed;
 
     public int HandedOff => _scope.HandedOff;
@@ -83,6 +91,7 @@ public sealed class E2ESession : IAsyncDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(options.TestTitle);
         var agents = ResolveAgents(options);
         var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl) ? null : Urls.NormalizeAppUrl(options.BaseUrl, "the base URL").Href;
+        var recording = ExecuteVideo.Plan(options);
 
         var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         if (options.TestTimeout > TimeSpan.Zero && options.TestTimeout != Timeout.InfiniteTimeSpan)
@@ -92,6 +101,10 @@ public sealed class E2ESession : IAsyncDisposable
 
         var debug = new DebugTrace(options.Debug);
         var projectRoot = Path.GetFullPath(string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot);
+        var attemptDir = Path.Combine(
+            Path.GetFullPath(options.ResultsDirectory ?? Path.Combine(projectRoot, ".e2e", "results")),
+            ScreenshotAssertion.Slug(options.TestTitle, 100, "test"),
+            "attempt-" + options.Attempt.ToString(System.Globalization.CultureInfo.InvariantCulture));
         IEngineSession engine;
 
         // The values the engine registers while it starts, before the attempt's scope exists to take them.
@@ -110,6 +123,7 @@ public sealed class E2ESession : IAsyncDisposable
                     BaseUrl = baseUrl,
                     ActionTimeout = options.ActionTimeout,
                     ProjectRoot = projectRoot,
+                    ArtifactsDir = attemptDir,
                     ResolveSecret = (secret, resolve) =>
                     {
                         var plaintext = Secrecy.ResolveSecretValue(secret, ledger);
@@ -141,6 +155,8 @@ public sealed class E2ESession : IAsyncDisposable
 
         try
         {
+            var video = await ExecuteVideo.StartAsync(recording, engine, attemptDir, options.LaunchTimeout, timeout.Token).ConfigureAwait(false);
+
             // Outside strict mode, a later attempt never replays but still records, so the attempt number does not turn the cache off.
             // Strict mode treats the store as the reviewed source of truth: every attempt replays, and nothing is written or evicted.
             var cacheOn = options.CacheEnabled && options.CacheMode != CacheMode.Off && options.Cache is not null;
@@ -203,10 +219,7 @@ public sealed class E2ESession : IAsyncDisposable
                 ProjectRoot = projectRoot,
                 Suffix = "-" + (string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName) + "-" + ScreenshotContext.OperatingSystemName(),
                 Title = options.TestTitle,
-                ResultsDirectory = Path.Combine(
-                    Path.GetFullPath(options.ResultsDirectory ?? Path.Combine(projectRoot, ".e2e", "results")),
-                    ScreenshotAssertion.Slug(options.TestTitle, 100, "test"),
-                    "attempt-" + options.Attempt.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                ResultsDirectory = attemptDir,
                 Update = options.UpdateSnapshots,
                 Ci = options.Ci ?? E2EConfig.IsCi(),
                 ScrollsIntoView = (options.Engine.Capabilities & EngineCapabilities.Scroll) != 0,
@@ -223,7 +236,7 @@ public sealed class E2ESession : IAsyncDisposable
                 Screen = screen,
                 CancellationToken = timeout.Token,
             };
-            return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput);
+            return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video };
         }
         catch
         {
@@ -318,8 +331,26 @@ public sealed class E2ESession : IAsyncDisposable
             return;
         }
 
+        // The video is finalized before the engine goes, and a required one that cannot be is reported once the engine is released.
+        Exception? videoFailure = null;
         try
         {
+            if (_video is not null)
+            {
+                try
+                {
+                    await _video.StopAsync(_status, _scope.CleanupTimeout).ConfigureAwait(false);
+                }
+#pragma warning disable CA1031 // The engine is released first, then this is rethrown.
+                catch (Exception ex)
+#pragma warning restore CA1031
+                {
+                    videoFailure = ex;
+                }
+
+                Videos = _video.Kept;
+            }
+
             await _scope.Debug.Time("session.close", async () =>
             {
                 var cleanup = _engine.DisposeAsync().AsTask();
@@ -347,6 +378,11 @@ public sealed class E2ESession : IAsyncDisposable
             _timeout.Dispose();
             WriteDebug(_scope.Debug, _debugOutput);
             WriteAiTrace(_scope);
+        }
+
+        if (videoFailure is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(videoFailure);
         }
     }
 
@@ -451,6 +487,7 @@ public sealed class E2ESession : IAsyncDisposable
 
     private void Commit(Exception? error, CancellationToken cancellationToken)
     {
+        _status = ExecuteVideo.StatusOf(error);
         if (!_scope.CacheWrite || _scope.Cache is null || cancellationToken.IsCancellationRequested)
         {
             return;

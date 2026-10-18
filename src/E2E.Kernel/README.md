@@ -39,7 +39,7 @@ What the provider does:
 - Logs `browser <id>, watch at <live view URL>` as each browser is created.
 - Deletes a browser that arrives after its request was cancelled, and treats one Kernel no longer knows as already deleted.
 - Saves downloads under `/tmp/e2e-downloads` on the browser's own disk and reads a finished file back through Kernel's browser filesystem API. The engine does not call this yet: the port has no `waitForDownload`.
-- Kernel replays headed browsers only. With `Headless = true`, or `Replay = false`, the provider does not record. The engine does not call the recording yet either: the port has no video.
+- Kernel replays headed browsers only. With `Headless = true`, or `Replay = false`, the provider does not record. An attempt that records video starts the replay and saves it as `video/replay.mp4`; a browser that is not replayed gets the engine's screencast of the page.
 
 There is no Kernel .NET SDK, so the provider calls Kernel's REST API with `HttpClient`. The wire format was read from the `@onkernel/sdk` source and has not been checked against a live Kernel account.
 

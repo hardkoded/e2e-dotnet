@@ -40,8 +40,9 @@ different, and pass, set `E2E_UPDATE_SNAPSHOTS=1`.
 `--trace` and `--video` are the variables `E2E_TRACE` and `E2E_VIDEO`, for
 example `E2E_VIDEO=on dotnet test`, or `<EnvironmentVariables>` in a
 `.runsettings` file. The modes are `off`, `on`, `retain-on-failure`,
-`on-first-retry`, and `on-all-retries`. The port reads them and records
-nothing yet.
+`on-first-retry`, and `on-all-retries`. The web engine records `video` into
+`.e2e/results/<test>/attempt-<n>/video/`, or links to a provider's recording (topic `debugging`); the port writes no
+trace page yet. The retry modes need NUnit `[Retry]`.
 
 `--debug` is `E2E_DEBUG=1` (or `true`). Each test writes its phase timings to
 stderr when it ends and keeps its executor transcripts. Run with
@@ -93,7 +94,8 @@ stored. Entries recorded before these fields existed count once a
 
 ## Output
 
-The port writes no report, trace page, video, or `junit.xml` of its own.
+The port writes no report, trace page, or `junit.xml` of its own; a video only
+when `video` is on (topic `debugging`).
 Use the test runner's loggers, such as
 `dotnet test --logger "trx;LogFileName=e2e.trx"` or
 `--logger "console;verbosity=detailed"`.

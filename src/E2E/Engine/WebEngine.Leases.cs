@@ -76,7 +76,7 @@ public sealed partial class WebEngine : IAsyncDisposable
             standalone = await PrepareAloneAsync(leases, options, cancellationToken).ConfigureAwait(false);
         }
 
-        var scope = new LeaseScope(leases, standalone);
+        var scope = new LeaseScope(leases, standalone) { AttemptId = attemptId };
         try
         {
             if (leases.Scope == BrowserProviderScope.Attempt)
@@ -148,6 +148,12 @@ public sealed partial class WebEngine : IAsyncDisposable
         private int _closed;
         private bool _attached;
         private BrowserProtocol _protocol;
+
+        /// <summary>The attempt the lease serves, for naming a recording of its browser.</summary>
+        public string? AttemptId { get; init; }
+
+        /// <summary>Starts the provider's recording of the attempt's browser; the provider may answer with none, and the attempt then records the screencast.</summary>
+        public Func<CancellationToken, Task<LeaseRecording?>> Recorder() => leases.Recorder(AttemptId ?? "");
 
         public WebConnectOptions? Connect { get; private set; }
 

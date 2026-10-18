@@ -24,7 +24,7 @@ internal enum ToySweep
 }
 
 /// <summary>A scripted provider: leases <c>lease-&lt;n&gt;</c> against <c>wss://&lt;n&gt;.example</c>, remembering every call.</summary>
-internal sealed class ToyCloud : IBrowserProvider
+internal class ToyCloud : IBrowserProvider
 {
     private int _sequence;
 

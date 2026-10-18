@@ -18,6 +18,20 @@ public sealed record WebViewport(int Width, int Height)
     public static WebViewport Default { get; } = new(1280, 720);
 }
 
+/// <summary>
+/// How the engine's own screencast of the page records an attempt that records video: the frame size and the JPEG quality
+/// of the frames it encodes. Which attempts record is the config's <c>video</c>, not an engine option. Upstream's
+/// <c>WebScreencastOptions</c>.
+/// </summary>
+public sealed record WebScreencastOptions
+{
+    /// <summary>The frame size in whole pixels. Defaults to the page's viewport size when the segment starts.</summary>
+    public WebViewport? Size { get; init; }
+
+    /// <summary>The JPEG quality of the frames, 0 through 100. Defaults to Playwright's.</summary>
+    public int? Quality { get; init; }
+}
+
 /// <summary>HTTP basic authentication the browser answers a <c>401</c> challenge with.</summary>
 public sealed class WebBasicAuth
 {
@@ -213,6 +227,12 @@ public sealed class WebEngineOptions
     /// <summary>Scripts every document runs before the page's own, in every tab and frame, in order.</summary>
     public IReadOnlyList<WebInitScript>? InitScripts { get; init; }
 
+    /// <summary>
+    /// How the engine's own screencast records an attempt that records video, when the browser provider does not record
+    /// it. Which attempts record is the config's <c>video</c>.
+    /// </summary>
+    public WebScreencastOptions? Screencast { get; init; }
+
     /// <summary>Attach to a remote Chromium over CDP instead of launching a local one.</summary>
     public WebConnectOptions? Connect { get; init; }
 
@@ -303,7 +323,8 @@ public sealed partial class WebEngine : IEngine
         | EngineCapabilities.Scroll
         | EngineCapabilities.History
         | EngineCapabilities.Screenshot
-        | EngineCapabilities.TapModifiers;
+        | EngineCapabilities.TapModifiers
+        | EngineCapabilities.Video;
 
     public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {
@@ -352,6 +373,7 @@ public sealed partial class WebEngine : IEngine
                     url => SiteHeadersFor(url, app),
                     seams,
                     lease,
+                    VideoSetupOf(options, lease),
                     cancellationToken).ConfigureAwait(false);
             }
 
@@ -375,7 +397,7 @@ public sealed partial class WebEngine : IEngine
                     browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless }).ConfigureAwait(false);
                 }
 
-                session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => InstallSiteHeadersAsync(context, app), url => SiteHeadersFor(url, app), seams, credentials: credentials, lease: lease);
+                session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => InstallSiteHeadersAsync(context, app), url => SiteHeadersFor(url, app), seams, credentials: credentials, lease: lease) { Video = VideoSetupOf(options, lease) };
                 await session.NewContextAsync().ConfigureAwait(false);
 
                 return session;
@@ -567,6 +589,7 @@ public sealed partial class WebEngine : IEngine
         }
 
         ValidateMedia(options);
+        ValidateScreencast(options.Screencast);
 
         for (var index = 0; index < (options.InitScripts?.Count ?? 0); index++)
         {
@@ -595,6 +618,20 @@ public sealed partial class WebEngine : IEngine
                     "INVALID_CONFIG",
                     PersistentMode(options.Browser) + " uses a persistent context; " + string.Join(", ", creationOptions) + (creationOptions.Count == 1 ? " requires" : " require") + " a newly created context");
             }
+        }
+    }
+
+    /// <summary><c>web({ Screencast })</c>: a whole-pixel frame size of at least 1 and a 0-100 JPEG quality, each optional.</summary>
+    private static void ValidateScreencast(WebScreencastOptions? screencast)
+    {
+        if (screencast?.Size is { } size && (size.Width < 1 || size.Height < 1))
+        {
+            throw new EngineException("INVALID_CONFIG", "web({ Screencast: { Size } }) must be { Width, Height } in whole pixels, each at least 1");
+        }
+
+        if (screencast?.Quality is < 0 or > 100)
+        {
+            throw new EngineException("INVALID_CONFIG", "web({ Screencast: { Quality } }) must be an integer from 0 through 100");
         }
     }
 
@@ -836,7 +873,7 @@ public sealed partial class WebEngine : IEngine
         }).ConfigureAwait(false);
     }
 
-    private sealed class WebSession : IBrowserSession
+    private sealed partial class WebSession : IBrowserSession
     {
         // The fields the page script marks secure.
         private const string SecureFieldSelector = "input[type=password i], input[autocomplete=current-password]";
@@ -1106,6 +1143,7 @@ public sealed partial class WebEngine : IEngine
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = RequireContext();
+            await VideoPageClosingAsync().ConfigureAwait(false);
             _page = null;
             foreach (var page in context.Pages.ToList())
             {
@@ -1128,6 +1166,7 @@ public sealed partial class WebEngine : IEngine
             }
 
             ThrowPending();
+            await VideoPageClosingAsync().ConfigureAwait(false);
             var context = _context;
             _context = null;
             _page = null;
@@ -1475,6 +1514,8 @@ public sealed partial class WebEngine : IEngine
                     await recovery.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
                 }
 
+                await AbandonVideoAsync().ConfigureAwait(false);
+
                 // An ordinary context is engine-owned; a persistent browser belongs to the host, so only the connection closes.
                 if (_context is not null && _persistent is null)
                 {
@@ -1769,6 +1810,16 @@ public sealed partial class WebEngine : IEngine
                 _target = target;
             }
 
+            try
+            {
+                await VideoPageOpenedAsync(page).ConfigureAwait(false);
+            }
+            catch
+            {
+                await page.CloseAsync().ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                throw;
+            }
+
             _page = page;
         }
 
@@ -1830,6 +1881,7 @@ public sealed partial class WebEngine : IEngine
             Func<string, IReadOnlyDictionary<string, string>?> siteHeaders,
             SessionSeams seams,
             LeaseScope? lease,
+            VideoSetup video,
             CancellationToken cancellationToken)
         {
             SessionBinding binding;
@@ -1844,7 +1896,7 @@ public sealed partial class WebEngine : IEngine
                 throw;
             }
 
-            var session = new WebSession(playwright, binding.Browser, actionTimeout, options, initScripts, setUpContext, siteHeaders, seams, persistent, lease: lease);
+            var session = new WebSession(playwright, binding.Browser, actionTimeout, options, initScripts, setUpContext, siteHeaders, seams, persistent, lease: lease) { Video = video };
             try
             {
                 if (!persistent.Claim(binding.ContextId))
@@ -1951,6 +2003,7 @@ public sealed partial class WebEngine : IEngine
             _twins = new(StringComparer.Ordinal);
             try
             {
+                await VideoPageClosingAsync().ConfigureAwait(false);
                 var binding = await AttachWithinAsync(_playwright, _seams, _persistent!.Reconnect, _actionTimeout, started, previous, label, cancellationToken, _lifetime.Token, async candidate =>
                 {
                     await ConfigureAsync(candidate.Context).ConfigureAwait(false);
@@ -1965,6 +2018,7 @@ public sealed partial class WebEngine : IEngine
                         // Emulation belongs to the CDP session that set it, so the new transport sets it again, on the app's own tabs too.
                         await ApplyMediaAsync(page).ConfigureAwait(false);
                         await EmulateOnOthersAsync(candidate.Context, page, ApplyMediaAsync).ConfigureAwait(false);
+                        await VideoPageOpenedAsync(page).ConfigureAwait(false);
                     }
                 }).ConfigureAwait(false);
                 _browser = binding.Browser;

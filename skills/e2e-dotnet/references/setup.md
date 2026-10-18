@@ -113,12 +113,14 @@ unknown key fails with `INVALID_CONFIG`.
 | `agents` | none | `default` and any other named agent. Options: topic `agent`. |
 | `cache` | `read-write` | `{ mode, dir, strict }`. CI demotes the mode to `read-only`. |
 | `secrets` | `{}` | Named values the model never sees; `null` requires `E2E_SECRET_<NAME>`. |
-| `trace`, `video` | `retain-on-failure`, `off` | Which attempts record: `off`, `on`, `retain-on-failure`, `on-first-retry`, or `on-all-retries`. Also allowed on the target. Read and carried, but the port records nothing yet. The old `all` and `retries` spellings of `trace` are `INVALID_CONFIG`. |
+| `trace`, `video` | `retain-on-failure`, `off` | Which attempts record: `off`, `on`, `retain-on-failure`, `on-first-retry`, or `on-all-retries`. Also allowed on the target. The web engine records `video` (topic `debugging`, "Watch it happen"); the port writes no trace page yet. The old `all` and `retries` spellings of `trace` are `INVALID_CONFIG`. |
 
 For `trace` and `video`, `E2E_TRACE` and `E2E_VIDEO` win over the target's
 key, which wins over the config root's key. A fixture reads the result in
 its `Trace` and `Video` properties. A video keeps whatever the screen shows,
-secrets included, so keep it `off` unless you need it.
+secrets included, so keep it `off` unless you need it. A `video` mode on a
+target is required of its engine (`UNSUPPORTED_ARTIFACT` when it cannot
+record); one at the config root or in `E2E_VIDEO` skips an engine that cannot.
 
 There are no `credentials`, `tests`, `workers`, `reporters`, `output`,
 or `artifacts` keys; each is `INVALID_CONFIG`. Accounts
@@ -157,6 +159,7 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
 | `TimezoneId` | The IANA time zone every attempt runs in. Spell it with its exact case (`Europe/Berlin`), or it is `INVALID_CONFIG`. |
 | `ColorScheme`, `ReducedMotion` | The `prefers-color-scheme` (`WebColorScheme.Light`, `Dark`, `NoPreference`) and `prefers-reduced-motion` (`WebReducedMotion.Reduce`, `NoPreference`) every page reports to its `@media` rules and `matchMedia`, from first paint. A persistent context takes them too. Each defaults to the browser's own. |
 | `InitScripts` | Scripts every document runs before the page's own (topic `writing-tests`). |
+| `Screencast` | `new WebScreencastOptions { Size, Quality }` for the engine's own video: the frame size in whole pixels (default the viewport's) and the JPEG quality, 0 to 100. Which attempts record is `video`, not this. A browser provider that records ignores it (topic `debugging`). |
 | `Browser` | An `IBrowserProvider` that leases hosted Chromium browsers (over CDP, or Playwright's protocol for a lease with `Protocol = BrowserProtocol.Playwright`) and releases them when their scope ends. Excludes `Connect`. See below. |
 | `Connect` | Attach to a remote Chromium over CDP. `CdpEndpoint` and `ReconnectEndpoint` are resolvers (`ct => Task<string>`), not strings. With `ReconnectEndpoint` it rides one persistent default context and reconnects only to the original browser and page. |
 
@@ -179,8 +182,8 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
   `ReconnectEndpoint` above. Optional `SweepAsync` releases the leases a dead
   worker left open. `Downloads` (`Dir`, `ReadAsync`) and `RecordAsync`
   (returning a `ProviderRecording`) are for a service that holds the browser's
-  files and screen; the engine does not call them yet (no `waitForDownload` or
-  video). A test fixture needs no runner: an engine that was never
+  files and screen; the engine calls `RecordAsync` for an attempt that records
+  video, and not `Downloads` yet (no `waitForDownload`). A test fixture needs no runner: an engine that was never
   `Init`ed leases for its one attempt and gives the lease back when the session
   ends.
 
@@ -197,9 +200,9 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
   keeps the screencast) and `ReplayParams` (`Framerate`, `MaxDurationInSeconds`,
   `RecordAudio`). Every browser is tagged `e2e_run`, `e2e_target`, `e2e_slot`, and
   `e2e_attempt`, `TimeoutSeconds` defaults to 600, and a sweep at the end of the
-  run deletes the browsers a dead worker left. Downloads and replays are
-  implemented, but the engine does not call them yet (no `waitForDownload` or
-  video). The calls were not checked against a live Kernel account.
+  run deletes the browsers a dead worker left. A replay is
+  the attempt's `video/replay.mp4`. Downloads are implemented, but the engine
+  does not call them yet (no `waitForDownload`). The calls were not checked against a live Kernel account.
 
 - To run on the TestMu AI web grid, add the `E2E.TestMu` package and set
   `Browser = new TestMuBrowsers()` (`using E2E.TestMu;`) with `Viewport = null`.
@@ -226,7 +229,7 @@ To test without a browser or model, override `CreateEngine()` to return a
 | `E2E_OAUTH_CREDENTIALS` | The login JSON, in place of the credentials file. |
 | `OPENCODE_API_KEY` | An OpenCode Console service account API key or an OpenCode Go subscription API key, in place of the `opencode-console` login. `Subscriptions.OpenCodeConsole` and `e2e models opencode-console` use it. |
 | `CI` | CI defaults: a `read-only` cache. |
-| `E2E_TRACE`, `E2E_VIDEO` | A recording mode (`off`, `on`, `retain-on-failure`, `on-first-retry`, `on-all-retries`) for the run, over the config. Upstream sets these with `--trace` and `--video`. A bad value is `INVALID_CONFIG`. A blank value is ignored. |
+| `E2E_TRACE`, `E2E_VIDEO` | A recording mode (`off`, `on`, `retain-on-failure`, `on-first-retry`, `on-all-retries`) for the run, over the config. Upstream sets these with `--trace` and `--video`. `E2E_VIDEO` records on the web engine. A bad value is `INVALID_CONFIG`. A blank value is ignored. |
 | `E2E_HEADLESS` | `0` or `false` shows the browser. |
 | `E2E_SKIP_BROWSER_INSTALL` | `1` skips the Chromium install. |
 

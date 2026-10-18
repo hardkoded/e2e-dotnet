@@ -25,6 +25,9 @@ public enum EngineCapabilities
 
     /// <summary>The <c>Modifiers</c> of <see cref="LocatorAction.Tap"/> and <see cref="LocatorAction.DoubleTap"/>: keys held for the click.</summary>
     TapModifiers = 128,
+
+    /// <summary><see cref="IEngineSession.StartVideoAsync"/> and <see cref="IEngineSession.StopVideoAsync"/>: the engine can record the attempt as video.</summary>
+    Video = 256,
 }
 
 /// <summary>Passed to <see cref="IEngine.StartAsync"/> once per test attempt.</summary>
@@ -54,6 +57,12 @@ public sealed class EngineStartOptions
     /// a runner reads it, to prepare the run of its one attempt; it defaults to the process environment.
     /// </summary>
     public IReadOnlyDictionary<string, string?>? Env { get; init; }
+
+    /// <summary>
+    /// The attempt's artifact directory: where a recording of the attempt is written, under <c>video</c>. Upstream's
+    /// <c>EngineAttemptContext.artifactsDir</c>. An engine that records video needs it.
+    /// </summary>
+    public string? ArtifactsDir { get; init; }
 }
 
 /// <summary>What an engine asks of <see cref="EngineStartOptions.ResolveSecret"/> beside the value.</summary>
@@ -119,6 +128,20 @@ public interface IEngineSession : IAsyncDisposable
     /// </summary>
     Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) =>
         Task.FromException<EngineScreenshot>(new EngineException("UNSUPPORTED_CAPABILITY", "toHaveScreenshot is not supported by this engine."));
+
+    /// <summary>
+    /// Starts recording the attempt as video, once its page can be recorded. Engines that declare
+    /// <see cref="EngineCapabilities.Video"/> implement it. Upstream's <c>startVideo</c>.
+    /// </summary>
+    Task StartVideoAsync(CancellationToken cancellationToken) => Unsupported("video recording");
+
+    /// <summary>
+    /// Stops the recording and returns the segments written, in order: files in the attempt's <c>video</c> directory, or
+    /// links to recordings a hosted service keeps. Engines that declare <see cref="EngineCapabilities.Video"/> implement
+    /// it. Upstream's <c>stopVideo</c>.
+    /// </summary>
+    Task<IReadOnlyList<VideoSegment>> StopVideoAsync(CancellationToken cancellationToken) =>
+        Task.FromException<IReadOnlyList<VideoSegment>>(new EngineException("UNSUPPORTED_CAPABILITY", "video recording is not supported by this engine."));
 
     private static Task Unsupported(string operation) =>
         Task.FromException(new EngineException("UNSUPPORTED_CAPABILITY", operation + " is not supported by this engine."));

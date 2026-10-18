@@ -46,7 +46,7 @@ name the row first: `Todo("Task 2").GetByRole("button", "Delete")`.
 
 The proof is the `dotnet test` result: add `--logger
 "trx;LogFileName=todomvc.trx"` and keep the `.trx` file (topic `running`).
-The port writes no report, trace page, or video. A proof drives the page
+The port writes no report or trace page. A proof drives the page
 the way a user does, the typed text, the checkbox, the footer filter, and
 pins the action and the state after it: the row, the `N items left`
 counter, the URL hash. Side effects: the list is the browser's local

@@ -14,11 +14,13 @@ public sealed class E2ESessionCleanupTests
     public async Task Disposes_the_started_engine_session_when_the_start_fails_afterwards()
     {
         var engine = new CountingEngine();
-        await Assert.ThrowsAnyAsync<ArgumentException>(() => E2ESession.StartAsync(new E2ESessionOptions
+
+        // A video somebody asked for fails the start once the engine is up.
+        await Assert.ThrowsAnyAsync<InvalidOperationException>(() => E2ESession.StartAsync(new E2ESessionOptions
         {
             Engine = engine,
             TestTitle = "cleanup > case",
-            ResultsDirectory = "bad\0path",
+            Video = new ResolvedRecording(RecordingMode.On, RecordingSource.Target),
         }));
 
         Assert.Equal(1, engine.Disposed);
@@ -32,7 +34,7 @@ public sealed class E2ESessionCleanupTests
 
         public string Version => "test";
 
-        public EngineCapabilities Capabilities => EngineCapabilities.Observation;
+        public EngineCapabilities Capabilities => EngineCapabilities.Observation | EngineCapabilities.Video;
 
         public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
         {
@@ -54,7 +56,7 @@ public sealed class E2ESessionCleanupTests
                 return default(ValueTask);
             }
 
-            return null;
+            return targetMethod?.Name == nameof(IEngineSession.StartVideoAsync) ? Task.FromException(new InvalidOperationException("the video would not start")) : null;
         }
     }
 }
