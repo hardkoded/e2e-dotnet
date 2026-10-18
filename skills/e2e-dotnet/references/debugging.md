@@ -96,12 +96,13 @@ in a fixture's `Video` property. The modes are `off`, `on`,
 need NUnit `[Retry]`, and xUnit v3 has no retry. The web engine records the
 page with Playwright's screencast.
 
-Each recording goes into its attempt's directory,
+The screencast goes into its attempt's directory,
 `.e2e/results/<test>/attempt-<n>/video/`: `video.webm`, and one
 `video-part<n>.webm` for each later page the attempt opened (after
 `App.RestartAsync`, `App.ClearStateAsync`, or a reconnect). A browser provider
-that records, such as Kernel, writes its own file (`replay.mp4`) in place of the
-screencast. `retain-on-failure` deletes the recording of an attempt that
+that records, such as Kernel, records in place of the screencast: it writes its
+own file (`replay.mp4`) into that directory, or a service that keeps the
+recording gives a link and no local file. `retain-on-failure` deletes the recording of an attempt that
 passed. `new WebEngineOptions { Screencast = ... }` sets the frame size and the
 JPEG quality.
 
