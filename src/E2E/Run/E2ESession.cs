@@ -152,7 +152,7 @@ public sealed class E2ESession : IAsyncDisposable
                 Debug = debug,
                 AiTrace = options.AiTrace ? new AiTraceRecorder() : null,
                 AiTraceScope = options.AiTrace ? new AiTraceScope { Test = options.TestTitle, TestId = options.TestTitle, Target = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName, Agent = "default", Attempt = options.Attempt - 1 } : null,
-                AiTracePath = options.AiTrace ? AiTrace.PathFor(options.ResultsDirectory is null ? Path.Combine(projectRoot, ".e2e") : Path.GetDirectoryName(Path.GetFullPath(options.ResultsDirectory)) ?? projectRoot) : null,
+                AiTracePath = options.AiTrace ? AiTrace.PathFor(options.ResultsDirectory is null ? Path.Combine(projectRoot, ".e2e") : Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(options.ResultsDirectory))) ?? projectRoot) : null,
                 BaseUrl = baseUrl,
                 Agents = agents,
                 Cache = options.Cache,
@@ -441,9 +441,9 @@ public sealed class E2ESession : IAsyncDisposable
         {
             AiTrace.Collect(scope.AiTrace, scope.AiTracePath);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            Console.Error.WriteLine("[e2e] could not write the AI trace " + scope.AiTracePath + ": " + ex.Message);
+            Console.Error.WriteLine("[e2e] could not record the AI trace " + scope.AiTracePath + ": " + ex.Message);
         }
     }
 

@@ -41,7 +41,7 @@ internal static class AiTraceModel
         }
         catch (Exception ex)
         {
-            recorder.OnError(new AiTraceErrorEvent(callId, redactor.Redact(ex.Message)));
+            recorder.OnError(new AiTraceErrorEvent(callId, ex is OperationCanceledException ? "the call was cancelled" : redactor.Redact(ex.Message)));
             throw;
         }
 
@@ -106,7 +106,7 @@ internal static class AiTraceModel
         Obj("tool-call", ("toolCallId", call.Id), ("toolName", call.Name), ("input", Tree(call.Arguments, redactor)));
 
     private static Dictionary<string, object?> Tool(ModelTool tool) =>
-        Obj(null, ("name", tool.Name), ("description", tool.Description), ("inputSchema", tool.Parameters.Clone()));
+        Obj(null, ("name", tool.Name), ("description", tool.Description), ("inputSchema", tool.Parameters.ValueKind == JsonValueKind.Undefined ? null : tool.Parameters.Clone()));
 
     // The JSON a model produced or was sent, with every string redacted: a secret the model echoed stops here.
     private static object? Tree(JsonElement element, Redactor redactor) => element.ValueKind switch

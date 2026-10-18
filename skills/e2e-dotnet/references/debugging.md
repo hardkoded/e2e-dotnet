@@ -126,7 +126,7 @@ results. Without debug it is dropped.
 `--ai-trace` is the variable `E2E_AI_TRACE=1` (or `true`). A fixture can
 override the `AiTrace` property instead. Each test records every model round
 trip, and the test process writes them to `ai-trace-<process id>.json` next to
-the results directory (`.e2e/` by default) when a test ends. Each test project
+the results directory (`.e2e/` by default) every few seconds and when the process exits. Each test project
 runs in its own process, so a run of several projects writes several files.
 Delete old ones: a new process does not clear them.
 

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -160,7 +161,10 @@ internal static class AiTraceScopes
     /// <summary>The scope of the calling async context, when inside an attempt.</summary>
     public static AiTraceScope? Current => Storage.Value;
 
-    /// <summary>Runs <paramref name="work"/> with <paramref name="scope"/> as the attribution for every model call inside.</summary>
+    /// <summary>
+    /// Runs <paramref name="work"/> with <paramref name="scope"/> as the attribution for every model call inside. The change stays with this
+    /// call and what it starts, because both helpers are <c>async</c>: the caller's own context is restored when the call yields.
+    /// </summary>
     public static async Task<T> WithAiTraceScope<T>(AiTraceScope scope, Func<Task<T>> work)
     {
         Storage.Value = scope;
@@ -797,8 +801,11 @@ internal static class AiTrace
         Converters = { new BinaryNoteConverter(), new MemoryNoteConverter(), new BigIntegerConverter() },
     };
 
-    // One collector per trace file: the sessions of a test process write one document, and the file is rewritten whole.
-    private static readonly ConcurrentDictionary<string, AiTraceCollector> Files = new(StringComparer.Ordinal);
+    // The sessions of a test process write one document per file, which is rewritten whole. A rewrite costs the size of the whole
+    // document, so a busy process rewrites it at most every FlushInterval and once more when it exits.
+    private static readonly ConcurrentDictionary<string, TraceFile> Files = new(StringComparer.Ordinal);
+    private static readonly TimeSpan FlushInterval = TimeSpan.FromSeconds(2);
+    private static int _exitHooked;
 
     /// <summary>JSON with binary views omitted; arbitrary strings and raw tool JSON are preserved. Upstream's <c>stringify</c>.</summary>
     public static string Stringify(object? value) => JsonSerializer.Serialize(value, Options);
@@ -810,7 +817,7 @@ internal static class AiTrace
     public static string PathFor(string outputDirectory) =>
         Path.Combine(outputDirectory, "ai-trace-" + Environment.ProcessId.ToString(CultureInfo.InvariantCulture) + ".json");
 
-    /// <summary>Takes everything the recorder holds, adds it to the process's document for <paramref name="path"/>, and rewrites the file.</summary>
+    /// <summary>Takes everything the recorder holds and adds it to the process's document for <paramref name="path"/>, which is written soon after.</summary>
     public static void Collect(AiTraceRecorder recorder, string path)
     {
         var snapshot = recorder.Drain(all: true);
@@ -820,22 +827,69 @@ internal static class AiTrace
             return;
         }
 
-        var collector = Files.GetOrAdd(path, static _ => new AiTraceCollector());
-        collector.Merge(snapshot);
-
-        // Sessions release in parallel; the last writer holds every record merged so far.
-        lock (collector)
+        if (Interlocked.Exchange(ref _exitHooked, 1) == 0)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            var temp = path + "." + Guid.NewGuid().ToString("n") + ".tmp";
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => FlushAll();
+        }
+
+        var file = Files.GetOrAdd(path, static key => new TraceFile(key));
+        file.Collector.Merge(snapshot);
+        file.Flush(force: false);
+    }
+
+    // A process that exits cleanly writes what the interval held back. A file that cannot be written is the trace's loss, not the run's.
+    private static void FlushAll()
+    {
+        foreach (var file in Files.Values)
+        {
             try
             {
-                File.WriteAllText(temp, JsonSerializer.Serialize(collector.Document(), Options));
-                File.Move(temp, path, overwrite: true);
+                file.Flush(force: true);
             }
-            finally
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                File.Delete(temp);
+                Console.Error.WriteLine("[e2e] could not write the AI trace " + file.Path + ": " + ex.Message);
+            }
+        }
+    }
+
+    private sealed class TraceFile(string path)
+    {
+        private readonly Lock _gate = new();
+        private long _written;
+        private bool _dirty;
+
+        public string Path { get; } = path;
+
+        public AiTraceCollector Collector { get; } = new();
+
+        public void Flush(bool force)
+        {
+            lock (_gate)
+            {
+                if (!force)
+                {
+                    _dirty = true;
+                }
+
+                if (!_dirty || (!force && _written != 0 && Stopwatch.GetElapsedTime(_written) < FlushInterval))
+                {
+                    return;
+                }
+
+                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
+                var temp = Path + "." + Guid.NewGuid().ToString("n") + ".tmp";
+                try
+                {
+                    File.WriteAllText(temp, JsonSerializer.Serialize(Collector.Document(), Options));
+                    File.Move(temp, Path, overwrite: true);
+                    _dirty = false;
+                }
+                finally
+                {
+                    File.Delete(temp);
+                    _written = Stopwatch.GetTimestamp();
+                }
             }
         }
     }

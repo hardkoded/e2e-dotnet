@@ -52,7 +52,11 @@ public sealed class AiTraceOnTheInProcessTransportTests : IAsyncLifetime
 
     public Task DisposeAsync()
     {
-        Directory.Delete(_output, recursive: true);
+        if (Directory.Exists(_output))
+        {
+            Directory.Delete(_output, recursive: true);
+        }
+
         return Task.CompletedTask;
     }
 
