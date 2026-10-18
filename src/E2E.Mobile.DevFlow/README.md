@@ -46,6 +46,8 @@ The provider finds the agent in this order: `DevFlowAgentsOptions.Port`, the one
 
 The app is not relaunched between tests, so a test starts from the state the last one left. Write tests that do not depend on a fresh launch, or relaunch the app yourself before the run.
 
+Set `E2E_DEVFLOW_TRACE=1` to print each call to the agent (method, URL, and status) to stderr. Calls go to localhost, so a system proxy such as Proxyman does not show them.
+
 The [sample](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp.E2ETests) runs this way with `E2E_MOBILE_PROVIDER=devflow`.
 
 This is a preview. It attaches to an app that is already running: start the app yourself, then run the tests. `device.installApp()`, a relaunch, deep links, the home screen, alerts, permissions, and orientation are not supported yet, and the agent exists only in Debug builds.
