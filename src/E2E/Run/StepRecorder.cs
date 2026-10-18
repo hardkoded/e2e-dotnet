@@ -29,6 +29,7 @@ internal sealed class StepRecorder
     private readonly string? _projectRoot;
     private readonly Func<string, string>? _redact;
     private readonly CancellationToken _cancellation;
+    private readonly AiTraceScope? _aiTrace;
     private readonly Lock _gate = new();
     private readonly List<StepRecord> _steps = [];
     private readonly AsyncLocal<StepRecord?> _scope = new();
@@ -58,6 +59,7 @@ internal sealed class StepRecorder
         _projectRoot = options.ProjectRoot;
         _redact = options.Redact;
         _cancellation = options.Cancellation;
+        _aiTrace = options.AiTrace;
     }
 
     /// <summary>The hook steps run in from now on; null while the test body runs.</summary>
@@ -153,7 +155,11 @@ internal sealed class StepRecorder
         {
             // The change stays with this call and what it starts: the caller's own context is restored when the call yields.
             _scope.Value = record;
-            var result = await CutAsync(body(), record).ConfigureAwait(false);
+            // Model calls made inside the body are attributed to this step.
+            var work = _aiTrace is { } attempt
+                ? AiTraceScopes.WithAiTraceScope(attempt with { Agent = options.Agent ?? attempt.Agent }, () => AiTraceScopes.WithAiTraceStep(record.Api, record.Label, body))
+                : body();
+            var result = await CutAsync(work, record).ConfigureAwait(false);
             if (IsAbandoned(record))
             {
                 return result;

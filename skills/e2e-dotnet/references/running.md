@@ -47,6 +47,10 @@ nothing yet.
 stderr when it ends and keeps its executor transcripts. Run with
 `--logger "console;verbosity=detailed"` to see them (topic `debugging`).
 
+`--ai-trace` is `E2E_AI_TRACE=1` (or `true`). Each test records every model
+call, and the test process writes them to `.e2e/ai-trace-<process id>.json`
+(topic `debugging`).
+
 To watch a run, set `E2E_HEADLESS=0`. A fixture can also pass
 `new WebEngineOptions { Headless = false }` in `CreateEngine()`.
 

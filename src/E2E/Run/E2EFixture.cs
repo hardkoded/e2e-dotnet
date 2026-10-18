@@ -122,7 +122,16 @@ public abstract class E2EFixture
     /// <c>E2E_DEBUG</c>: when set to <c>1</c> or <c>true</c>, the port's counterpart of <c>--debug</c>. Each test prints its phase
     /// timings to stderr and keeps the transcript of every agent step. Override to turn it on in code.
     /// </summary>
-    protected virtual bool Debug => Environment.GetEnvironmentVariable("E2E_DEBUG")?.Trim() is { } value && (value == "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase));
+    protected virtual bool Debug => IsOn("E2E_DEBUG");
+
+    /// <summary>
+    /// <c>E2E_AI_TRACE</c>: when set to <c>1</c> or <c>true</c>, the port's counterpart of <c>--ai-trace</c>. Each test records every model call
+    /// in the AI SDK devtools shape. The process writes them to <c>ai-trace-&lt;process id&gt;.json</c> next to the results directory
+    /// (<c>.e2e</c> by default); read it with <c>npx unbox-ai</c>. Override to turn it on in code.
+    /// </summary>
+    protected virtual bool AiTrace => IsOn("E2E_AI_TRACE");
+
+    private static bool IsOn(string variable) => Environment.GetEnvironmentVariable(variable)?.Trim() is { } value && (value == "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase));
 
     protected virtual TimeSpan TestTimeout => Config.Timeout;
 
@@ -186,6 +195,7 @@ public abstract class E2EFixture
                 CacheStrict = CacheStrict,
                 TestTitle = title,
                 Debug = Debug,
+                AiTrace = AiTrace,
                 Trace = Trace,
                 Video = Video,
                 TestTimeout = TestTimeout,
