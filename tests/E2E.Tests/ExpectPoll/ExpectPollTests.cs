@@ -79,7 +79,8 @@ public sealed class ExpectPollTests
         Assert.Equal(3, reads);
 
         var failures = 0;
-        // A read that fails at once: if it completed on another thread, a busy pool could keep it pending while the stepping clock fires the read's own timeout.
+        // Upstream's async read throws without awaiting, so the task is faulted when it returns. Do not add an await:
+        // its continuation can wait on a busy thread pool, and the stepping clock would fire the read's timeout first.
         Func<Task<string>> refused = () =>
         {
             failures++;
