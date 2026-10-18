@@ -82,6 +82,21 @@ public sealed class InputTests
     }
 
     [Fact]
+    public async Task A_hit_test_the_screen_changed_under_is_tried_again()
+    {
+        var (client, agent) = await DevFlow.ReadAsync();
+        var changing = 1;
+        agent.Script("GET", "/api/v1/ui/hit-test", _ => changing-- > 0
+            ? FakeAgent.Failure(HttpStatusCode.Conflict, "The UI changed while it was being captured. Retry the tree, query, or hit-test request.", "capture-changed-during-read")
+            : FakeAgent.Json(new JsonObject { ["x"] = 100, ["y"] = 270.5, ["captureEpoch"] = 7, ["elements"] = new JsonArray(new JsonObject { ["id"] = "btn_greet" }) }));
+
+        await client.CallAsync(DeviceMethods.InteractionsPress, """{"x":100,"y":270.5}""");
+
+        Assert.Equal(2, agent.Sent("GET /api/v1/ui/hit-test").Count());
+        Assert.Single(agent.Sent("POST /api/v1/ui/actions/tap"));
+    }
+
+    [Fact]
     public async Task A_tap_at_a_point_with_nothing_under_it_fails()
     {
         var (client, agent) = await DevFlow.ReadAsync();

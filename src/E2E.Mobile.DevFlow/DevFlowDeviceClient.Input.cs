@@ -96,7 +96,7 @@ internal sealed partial class DevFlowDeviceClient
             throw DevFlowErrors.Unsupported("a double tap at a bare point is not supported by the DevFlow agent; double tap a node");
         }
 
-        var hit = await agent.GetAsync(Api + $"ui/hit-test?x={x.ToString(CultureInfo.InvariantCulture)}&y={y.ToString(CultureInfo.InvariantCulture)}", cancellationToken).ConfigureAwait(false);
+        var hit = await ReadScreenPartAsync(Api + $"ui/hit-test?x={x.ToString(CultureInfo.InvariantCulture)}&y={y.ToString(CultureInfo.InvariantCulture)}", cancellationToken).ConfigureAwait(false);
         var topmost = (hit?["elements"] as JsonArray)?.OfType<JsonObject>().FirstOrDefault();
         var id = Text(topmost?["id"]) ?? throw DevFlowErrors.Failed($"nothing on the screen takes a tap at ({x}, {y})");
         var body = new JsonObject { ["elementId"] = id };

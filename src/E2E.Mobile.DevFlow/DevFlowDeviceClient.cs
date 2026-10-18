@@ -24,6 +24,12 @@ internal sealed partial class DevFlowDeviceClient(DevFlowAgentClient agent, Mobi
 {
     private const string Api = "api/v1/";
 
+    /// <summary>How many times a read is tried when the screen changes under it.</summary>
+    private const int ReadAttempts = 4;
+
+    /// <summary>The wait between read attempts; a seam for the tests.</summary>
+    internal Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = static (span, token) => Task.Delay(span, token);
+
     /// <summary>The platform the target declares: given up front, else read off the <c>devices.boot</c> the engine sends first.</summary>
     private MobilePlatform? _platform = platform;
 

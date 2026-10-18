@@ -15,7 +15,7 @@ internal static class DevFlow
     public static (DevFlowDeviceClient Client, FakeAgent Agent) Over(MobilePlatform? platform = MobilePlatform.Ios, LeaseIdentity? lease = null)
     {
         var agent = new FakeAgent();
-        return (new DevFlowDeviceClient(new DevFlowAgentClient(agent.Http, FakeAgent.Agent, lease ?? Lease), platform), agent);
+        return (new DevFlowDeviceClient(new DevFlowAgentClient(agent.Http, FakeAgent.Agent, lease ?? Lease), platform) { Delay = static (_, _) => Task.CompletedTask }, agent);
     }
 
     /// <summary>A client that has read the screen, so its refs are live.</summary>

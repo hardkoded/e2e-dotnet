@@ -121,6 +121,33 @@ public sealed class SnapshotTests
     }
 
     [Fact]
+    public async Task A_tree_read_the_screen_changed_under_is_tried_again()
+    {
+        var (client, agent) = DevFlow.Over();
+        var changing = 2;
+        agent.Script("GET", "/api/v1/ui/tree", _ => changing-- > 0
+            ? FakeAgent.Failure(System.Net.HttpStatusCode.Conflict, "The UI changed while it was being captured. Retry the tree, query, or hit-test request.", "capture-changed-during-read")
+            : FakeAgent.Json(FakeAgent.Envelope()));
+
+        var snapshot = await client.CallAsync(DeviceMethods.CaptureSnapshot, "{}");
+
+        Assert.Equal(3, agent.Sent("GET /api/v1/ui/tree").Count());
+        Assert.Equal(14, snapshot!["nodes"]!.AsArray().Count);
+    }
+
+    [Fact]
+    public async Task A_screen_that_keeps_changing_fails_after_the_attempts_run_out()
+    {
+        var (client, agent) = DevFlow.Over();
+        agent.ScriptFailure("GET", "/api/v1/ui/tree", System.Net.HttpStatusCode.Conflict, "The UI changed while it was being captured.", "capture-changed-during-read");
+
+        var error = await client.FailureAsync(DeviceMethods.CaptureSnapshot, "{}");
+
+        Assert.Equal(4, agent.Sent("GET /api/v1/ui/tree").Count());
+        Assert.Equal("COMMAND_FAILED", error.Code);
+    }
+
+    [Fact]
     public async Task A_tree_the_agent_cannot_give_is_an_unsupported_capability()
     {
         var (client, agent) = DevFlow.Over();

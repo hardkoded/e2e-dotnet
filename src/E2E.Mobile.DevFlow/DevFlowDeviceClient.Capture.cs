@@ -24,9 +24,34 @@ internal sealed partial class DevFlowDeviceClient
             await StatusAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        var tree = await agent.GetAsync(Api + "ui/tree?envelope=true", cancellationToken).ConfigureAwait(false);
+        var tree = await ReadTreeAsync(cancellationToken).ConfigureAwait(false);
         _screen = ElementTree.Read(tree, interactiveOnly, _app.Name, _app.PackageId);
         return _screen;
+    }
+
+    private Task<JsonNode?> ReadTreeAsync(CancellationToken cancellationToken) =>
+        ReadScreenPartAsync(Api + "ui/tree?envelope=true", cancellationToken);
+
+    /// <summary>
+    /// Reads a part of the screen (the tree or a hit-test). The agent answers 409 <c>capture-changed-during-read</c> ("the
+    /// UI changed while it was being captured, retry") when the screen moves during the read, as it does while an animation
+    /// runs. A read changes nothing, so it is tried again after a short wait; the last attempt's failure is the caller's.
+    /// </summary>
+    private async Task<JsonNode?> ReadScreenPartAsync(string path, CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; attempt < ReadAttempts; attempt++)
+        {
+            try
+            {
+                return await agent.GetAsync(path, cancellationToken).ConfigureAwait(false);
+            }
+            catch (DevFlowAgentException failure) when (failure.Status == System.Net.HttpStatusCode.Conflict && failure.Code == "capture-changed-during-read")
+            {
+                await Delay(TimeSpan.FromMilliseconds(100 * attempt), cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        return await agent.GetAsync(path, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
