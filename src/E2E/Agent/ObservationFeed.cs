@@ -39,20 +39,23 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     public Task<Observation> ObserveAsync(SettleMode mode, CancellationToken token) =>
         (Scope?.Debug ?? DebugTrace.Off).Time(Phases.Observe, () => LookAsync(mode, token));
 
+    // The engine's look, shown to the attempt's trace when the feed belongs to an attempt.
+    private Task<Observation> SeeAsync(CancellationToken token) => Scope is { } scope ? scope.ObserveAsync(token) : session.ObserveAsync(token);
+
     private async Task<Observation> LookAsync(SettleMode mode, CancellationToken token)
     {
         Looks.Add(mode);
         Observation observation;
         if (mode == SettleMode.Raw)
         {
-            observation = await session.ObserveAsync(token).ConfigureAwait(false);
+            observation = await SeeAsync(token).ConfigureAwait(false);
         }
         else
         {
             var changedFrom = _pending;
             _pending = null;
             observation = await AgentObservation.SettleAsync(
-                session.ObserveAsync,
+                SeeAsync,
                 AgentObservation.Shape,
                 new SettleOptions<Observation>
                 {

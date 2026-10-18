@@ -50,96 +50,7 @@ internal static class SnapshotText
             builder.AppendLine();
             builder.Append(' ', depth * 2);
             builder.Append("- ");
-            builder.Append(node.Role ?? "text");
-            // A node with no accessible name, such as one listed for its text
-            // or its test id, shows the text it owns, so a container does not repeat its children's.
-            // A named node shows its text too, when it differs.
-            var shown = node.OwnText ?? node.Text;
-            var name = TextRules.Collapse(string.IsNullOrEmpty(node.Name) ? AgentObservation.RedactText(shown ?? "", redactor, ObservationLimits.Text) : AgentObservation.RedactText(node.Name, redactor, ObservationLimits.Name));
-            if (name.Length > 0)
-            {
-                builder.Append(" \"").Append(name).Append('"');
-            }
-
-            if (!string.IsNullOrEmpty(node.Name))
-            {
-                var text = TextRules.Collapse(AgentObservation.RedactText(shown ?? "", redactor, ObservationLimits.Text));
-                if (text.Length > 0 && text != name)
-                {
-                    builder.Append(" text=\"").Append(text).Append('"');
-                }
-            }
-
-            // The disambiguators the model needs when role and name repeat. The tree has already reduced the href to origin and path.
-            if (!string.IsNullOrEmpty(node.TestId))
-            {
-                builder.Append(" testid=\"").Append(TextRules.Collapse(AgentObservation.RedactText(node.TestId, redactor))).Append('"');
-            }
-
-            if (node.Attributes.TryGetValue("href", out var href) && href.Length > 0)
-            {
-                builder.Append(" href=\"").Append(Href(href, redactor, appOrigin)).Append('"');
-            }
-
-            if (!string.IsNullOrEmpty(node.Placeholder) && string.IsNullOrEmpty(node.Name))
-            {
-                builder.Append(" placeholder=\"").Append(TextRules.Collapse(AgentObservation.RedactText(node.Placeholder, redactor))).Append('"');
-            }
-
-            builder.Append(" [ref=").Append(node.Ref).Append(']');
-            // A checkbox's or radio's value is an app token its checked state already says more than.
-            if (!node.States.Secure && !string.IsNullOrEmpty(node.Value) && !LocatorResolver.IsCheckable(node))
-            {
-                builder.Append(" value=\"").Append(AgentObservation.RedactText(node.Value, redactor, ObservationLimits.Text)).Append('"');
-            }
-
-            // What a Shift+Arrow press selected: without it the model extends a selection blind and cannot tell one word
-            // from its neighbour. Verbatim (escaped), since a selected space or newline is a selection too.
-            if (Selection(node, redactor) is { Length: > 0 } selection)
-            {
-                builder.Append(" selection=").Append(Quote(selection));
-            }
-
-            if (node.States.Secure)
-            {
-                builder.Append(" secure");
-            }
-
-            if (node.InputPurpose is not (null or "" or "none"))
-            {
-                builder.Append(" purpose=").Append(node.InputPurpose);
-            }
-
-            if (node.States.Checked)
-            {
-                builder.Append(" [checked]");
-            }
-
-            if (node.States.Disabled)
-            {
-                builder.Append(" [disabled]");
-            }
-
-            if (node.States.Expanded)
-            {
-                builder.Append(" [expanded]");
-            }
-
-            if (node.States.Selected)
-            {
-                builder.Append(" [selected]");
-            }
-
-            if (node.States.Pressed)
-            {
-                builder.Append(" [pressed]");
-            }
-
-            if (node.States.Focused)
-            {
-                builder.Append(" [focused]");
-            }
-
+            builder.Append(Describe(node, redactor, appOrigin, listing: true));
             wrote = true;
         }
 
@@ -149,6 +60,112 @@ internal static class SnapshotText
         }
 
         return wrote;
+    }
+
+    /// <summary>
+    /// One node as a line names it, after its <c>- </c> and indent: role, name, text, the disambiguators, value, and the states
+    /// that hold. Upstream's <c>describeNode</c> (<c>agent/observation.ts</c>). A <paramref name="listing"/> line is the one the model
+    /// reads, with the node's reference and focus; without it, the line is the node as a reader comparing two screens counts it:
+    /// ids are minted per observation and focus moves with every action.
+    /// </summary>
+    internal static string Describe(SemanticNode node, Redactor redactor, string? appOrigin, bool listing = true)
+    {
+        var builder = new StringBuilder();
+        builder.Append(node.Role ?? "text");
+        // A node with no accessible name, such as one listed for its text
+        // or its test id, shows the text it owns, so a container does not repeat its children's.
+        // A named node shows its text too, when it differs.
+        var shown = node.OwnText ?? node.Text;
+        var name = TextRules.Collapse(string.IsNullOrEmpty(node.Name) ? AgentObservation.RedactText(shown ?? "", redactor, ObservationLimits.Text) : AgentObservation.RedactText(node.Name, redactor, ObservationLimits.Name));
+        if (name.Length > 0)
+        {
+            builder.Append(" \"").Append(name).Append('"');
+        }
+
+        if (!string.IsNullOrEmpty(node.Name))
+        {
+            var text = TextRules.Collapse(AgentObservation.RedactText(shown ?? "", redactor, ObservationLimits.Text));
+            if (text.Length > 0 && text != name)
+            {
+                builder.Append(" text=\"").Append(text).Append('"');
+            }
+        }
+
+        // The disambiguators the model needs when role and name repeat. The tree has already reduced the href to origin and path.
+        if (!string.IsNullOrEmpty(node.TestId))
+        {
+            builder.Append(" testid=\"").Append(TextRules.Collapse(AgentObservation.RedactText(node.TestId, redactor))).Append('"');
+        }
+
+        if (node.Attributes.TryGetValue("href", out var href) && href.Length > 0)
+        {
+            builder.Append(" href=\"").Append(Href(href, redactor, appOrigin)).Append('"');
+        }
+
+        if (!string.IsNullOrEmpty(node.Placeholder) && string.IsNullOrEmpty(node.Name))
+        {
+            builder.Append(" placeholder=\"").Append(TextRules.Collapse(AgentObservation.RedactText(node.Placeholder, redactor))).Append('"');
+        }
+
+        if (listing)
+        {
+            builder.Append(" [ref=").Append(node.Ref).Append(']');
+        }
+
+        // A checkbox's or radio's value is an app token its checked state already says more than.
+        if (!node.States.Secure && !string.IsNullOrEmpty(node.Value) && !LocatorResolver.IsCheckable(node))
+        {
+            builder.Append(" value=\"").Append(AgentObservation.RedactText(node.Value, redactor, ObservationLimits.Text)).Append('"');
+        }
+
+        // What a Shift+Arrow press selected: without it the model extends a selection blind and cannot tell one word
+        // from its neighbour. Verbatim (escaped), since a selected space or newline is a selection too.
+        if (Selection(node, redactor) is { Length: > 0 } selection)
+        {
+            builder.Append(" selection=").Append(Quote(selection));
+        }
+
+        if (node.States.Secure)
+        {
+            builder.Append(" secure");
+        }
+
+        if (node.InputPurpose is not (null or "" or "none"))
+        {
+            builder.Append(" purpose=").Append(node.InputPurpose);
+        }
+
+        if (node.States.Checked)
+        {
+            builder.Append(" [checked]");
+        }
+
+        if (node.States.Disabled)
+        {
+            builder.Append(" [disabled]");
+        }
+
+        if (node.States.Expanded)
+        {
+            builder.Append(" [expanded]");
+        }
+
+        if (node.States.Selected)
+        {
+            builder.Append(" [selected]");
+        }
+
+        if (node.States.Pressed)
+        {
+            builder.Append(" [pressed]");
+        }
+
+        if (node.States.Focused && listing)
+        {
+            builder.Append(" [focused]");
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>

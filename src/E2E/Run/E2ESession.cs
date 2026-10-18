@@ -53,6 +53,12 @@ public sealed class E2ESession : IAsyncDisposable
     /// <summary>The engine session, for a host that drives the app without a test body.</summary>
     internal IEngineSession Engine => _engine;
 
+    /// <summary>The attempt's step timeline, with the screen each step left when the attempt keeps a trace.</summary>
+    internal IReadOnlyList<StepRecord> Steps => _scope.Steps.All();
+
+    /// <summary>What the engine said the attempt runs on, redacted and bounded; null when it said nothing.</summary>
+    internal IReadOnlyDictionary<string, string>? Environment => _scope.Environment.Read(_scope.Redactor.Redact);
+
     /// <summary>Redacts the values of the secrets this attempt knows.</summary>
     internal Redactor Redactor => _scope.Redactor;
 
@@ -107,6 +113,10 @@ public sealed class E2ESession : IAsyncDisposable
             "attempt-" + options.Attempt.ToString(System.Globalization.CultureInfo.InvariantCulture));
         IEngineSession engine;
 
+        // An attempt that keeps a trace takes the screen each action leaves; one that does not asks the engine for none.
+        var screens = new SessionScreens(RecordingModes.AttemptKeep(options.Trace.Mode, options.Attempt - 1) is not null);
+        var environment = new EnvironmentFacts();
+
         // The values the engine registers while it starts, before the attempt's scope exists to take them.
         var ledger = new List<(string Name, string Value)>();
         var launch = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token);
@@ -124,6 +134,8 @@ public sealed class E2ESession : IAsyncDisposable
                     ActionTimeout = options.ActionTimeout,
                     ProjectRoot = projectRoot,
                     ArtifactsDir = attemptDir,
+                    Screen = screens.Traced ? screens.Push : null,
+                    Environment = environment.Push,
                     ResolveSecret = (secret, resolve) =>
                     {
                         var plaintext = Secrecy.ResolveSecretValue(secret, ledger);
@@ -165,6 +177,8 @@ public sealed class E2ESession : IAsyncDisposable
             var scope = new AttemptScope
             {
                 Session = engine,
+                Screens = screens,
+                Environment = environment,
                 Debug = debug,
                 AiTrace = options.AiTrace ? new AiTraceRecorder() : null,
                 AiTraceScope = options.AiTrace ? new AiTraceScope { Test = options.TestTitle, TestId = options.TestTitle, Target = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName, Agent = "default", Attempt = options.Attempt - 1 } : null,
@@ -195,6 +209,9 @@ public sealed class E2ESession : IAsyncDisposable
                 scope.Register(name, value);
             }
 
+            // A screen is read once, when its step ends, redacted with what the attempt knows by then.
+            screens.Route(screen => scope.Steps.RecordScreen(() => StepScreens.TraceScreen(screen, new TraceScreenOptions(scope.Redactor, StepScreens.DefaultObservationBytes, scope.AppOrigin))));
+
             var app = new App(engine, baseUrl, () => timeout.Token, scope.Steps);
             var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures) { Steps = scope.Steps };
             softFailures.Redact = text => scope.Redactor.Redact(text);
@@ -202,7 +219,7 @@ public sealed class E2ESession : IAsyncDisposable
             browser.Failed = scope.Implicate;
             var agent = new Agent(scope);
             var screen = new Screen(
-                token => engine.ObserveAsync(token),
+                scope.ObserveAsync,
                 (node, action, token) => engine.PerformAsync(node, action, token),
                 () => timeout.Token,
                 scope.MarkVerified,
