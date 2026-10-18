@@ -4,6 +4,7 @@
 
 - Read the failure
 - Error codes
+- Watch it happen
 - Tools
 - Flaky tests
 - Is it the app?
@@ -23,7 +24,8 @@
 
 There is no trace page, `report.json`, `--debug` step table, or AI trace in
 this port. Use the test runner's own output, such as
-`dotnet test --logger "console;verbosity=detailed"` or a `trx` logger.
+`dotnet test --logger "console;verbosity=detailed"` or a `trx` logger. To see
+what the page did, record it (topic section "Watch it happen").
 
 ## Error codes
 
@@ -58,6 +60,7 @@ this port. Use the test runner's own output, such as
 | `APP_UNREACHABLE` | The agent found the app down or not loading | Start the app, or fix `targets[].app.url` |
 | `POLICY_DENIED` | A URL whose scheme is not `http:` or `https:` (`file:`, `view-source:`, `data:`), from `OpenAsync`, the agent's navigate step, or `SetCookiesAsync`; a read or expectation of a password field's text, value, or attributes | http(s) or `about:blank` only; assert the outcome, not the value |
 | `UNSUPPORTED_CAPABILITY` | A `Browser` member on the document engine, or an action the engine lacks | Use `WebEngine`, or drop the call |
+| `UNSUPPORTED_ARTIFACT` | A `video` mode set on a target, or for a test, whose engine cannot record video | Drop it there, or set it at the config root or in `E2E_VIDEO`, which skip such an engine |
 
 A failed fill of a `Secret` never shows the value. The message reads
 `[redacted]` in its place, and the Playwright error is dropped.
@@ -78,12 +81,42 @@ banner that comes and goes, or a regression causes it.
 did not show, did not go away, or the alert never recorded, or says it showed
 already.
 
+## Watch it happen
+
+```bash
+E2E_HEADLESS=0 dotnet test --filter ...                 # a visible browser
+E2E_VIDEO=on dotnet test --filter ...                   # record every attempt
+E2E_VIDEO=retain-on-failure dotnet test --filter ...    # record every attempt, keep the failures
+```
+
+`video` is `off` by default. Set it with `E2E_VIDEO` for one run (the port's
+stand-in for `--video`), or with `video` at the config root, on a target, or
+in a fixture's `Video` property. The modes are `off`, `on`,
+`retain-on-failure`, `on-first-retry`, and `on-all-retries`; the retry modes
+need NUnit `[Retry]`, and xUnit v3 has no retry. The web engine records the
+page with Playwright's screencast.
+
+Each recording goes into its attempt's directory,
+`.e2e/results/<test>/attempt-<n>/video/`: `video.webm`, and one
+`video-part<n>.webm` for each later page the attempt opened (after
+`App.RestartAsync`, `App.ClearStateAsync`, or a reconnect). A browser provider
+that records, such as Kernel, writes its own file (`replay.mp4`) in place of the
+screencast. `retain-on-failure` deletes the recording of an attempt that
+passed. `new WebEngineOptions { Screencast = ... }` sets the frame size and the
+JPEG quality.
+
+A video masks nothing. It shows whatever the screen showed, secrets included,
+so keep `video` off unless you need it, and do not share the files. A mode set
+on a target is required: an engine that cannot record it (`DocumentEngine`,
+`MobileEngine`) fails the start with `UNSUPPORTED_ARTIFACT`.
+
 ## Tools
 
 | Do | When |
 | --- | --- |
 | `E2E_HEADLESS=0 dotnet test --filter ...` | Watch the failing test in a visible browser |
 | `"cache": { "mode": "off" }` | Rule out a stale replay |
+| `E2E_VIDEO=retain-on-failure` | Watch the failed attempt |
 | `CI=1 dotnet test` | Reproduce CI-only behavior (`read-only` cache) |
 | `Browser.WaitForResponseAsync` | Check what the app's API answered |
 

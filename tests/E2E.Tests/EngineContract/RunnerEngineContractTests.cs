@@ -11,8 +11,9 @@ namespace E2E.Tests.EngineContract;
 /// Ported from upstream's <c>engine-contract.test.ts</c>, whose tests run a project through the CLI over a fake engine. The
 /// port runs each body in a session over a custom <see cref="IEngine"/>. Not ported, because the port has no such feature:
 /// every other test of the file needs the <c>defineEngine</c> hooks (init, dispose, endAttempt, settleAttempt), the runner
-/// (retries, workers, serial suites, exit codes, run errors, plan notices), the report, artifacts, video, sessions and state,
-/// engine-contributed fixtures, or the <c>requires</c> test option. Also not ported, with a feature gap: "names
+/// (retries, workers, serial suites, exit codes, run errors, plan notices), the report, artifacts, sessions and state,
+/// engine-contributed fixtures, or the <c>requires</c> test option. The video tests of the file are in
+/// <c>VideoArtifactsTests</c>. Also not ported, with a feature gap: "names
 /// APP_UNREACHABLE, with the URL, when the network refused the navigation", "re-observes when an engine reports a retryable
 /// observation failure", and "fails an agent call when a non-retryable observation failure repeats". The last of the three
 /// vision-hint tests is partial and renamed: the port has no step record, so it cannot read the first judgment's
@@ -35,6 +36,21 @@ public sealed class RunnerEngineContractTests
         Assert.Equal("ENVIRONMENT_UNAVAILABLE", error.Code);
         Assert.Contains("launch timeout", error.Message, StringComparison.Ordinal);
         Assert.True(engine.Stopped);
+    }
+
+    [Fact]
+    public async Task Surfaces_UNSUPPORTED_ARTIFACT_before_any_attempt_when_a_target_demands_more_than_the_engine_offers_PARTIAL_a_session_is_refused_where_a_run_has_no_attempt_started()
+    {
+        // The engine hangs when started, so a refusal that comes back at all came before the engine started.
+        var error = await Assert.ThrowsAsync<ConfigurationException>(() => E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = new HangingEngine(),
+            TestTitle = "artifact",
+            TargetName = "fake",
+            Video = new ResolvedRecording(RecordingMode.On, RecordingSource.Target),
+        }));
+        Assert.Equal("UNSUPPORTED_ARTIFACT", error.Code);
+        Assert.Equal("target \"fake\" (engine web) cannot record video, and the target sets video: 'on'", error.Message);
     }
 
     [Fact]
