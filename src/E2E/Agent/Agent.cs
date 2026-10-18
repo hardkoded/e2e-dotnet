@@ -360,7 +360,7 @@ public sealed partial class Agent
             LoseVision(api, vision, VisionDegradation.PixelTainted);
         }
 
-        var observation = await _scope.Session.ObserveAsync(token).ConfigureAwait(false);
+        var observation = await _scope.ObserveAsync(token).ConfigureAwait(false);
         var tree = SnapshotText.Render(observation, _scope.Redactor, _scope.AppOrigin);
         if (vision == VisionMode.Off || tainted)
         {
