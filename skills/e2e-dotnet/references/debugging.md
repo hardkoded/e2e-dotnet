@@ -6,6 +6,7 @@
 - Error codes
 - Watch it happen
 - Tools
+- Timings and transcripts
 - Flaky tests
 - Is it the app?
 
@@ -24,8 +25,10 @@
 
 There is no trace page, `report.json`, `--debug` step table, or AI trace in
 this port. Use the test runner's own output, such as
-`dotnet test --logger "console;verbosity=detailed"` or a `trx` logger. To see
-what the page did, record it (topic section "Watch it happen").
+`dotnet test --logger "console;verbosity=detailed"` or a `trx` logger.
+To see where a slow test spends its time, set `E2E_DEBUG=1`
+("Timings and transcripts"). To see what the page did, record it
+("Watch it happen").
 
 ## Error codes
 
@@ -120,6 +123,35 @@ on a target is required: an engine that cannot record it (`DocumentEngine`,
 | `E2E_VIDEO=retain-on-failure` | Watch the failed attempt |
 | `CI=1 dotnet test` | Reproduce CI-only behavior (`read-only` cache) |
 | `Browser.WaitForResponseAsync` | Check what the app's API answered |
+| `E2E_DEBUG=1 dotnet test` | Phase timings per test, and each agent step's transcript |
+
+## Timings and transcripts
+
+`--debug` is the variable `E2E_DEBUG=1` (or `true`), for example
+`E2E_DEBUG=1 dotnet test --logger "console;verbosity=detailed"`. A fixture can
+override the `Debug` property instead. Each test then writes a table of its
+phase timings to stderr when it ends, slowest phase first:
+
+```console
+[e2e debug] phase timings (wall 4.2s)
+  phase           count  total    avg    max
+  test.body           1   4.0s   4.0s   4.0s
+  agent.model         3   2.8s  933ms   1.1s
+  session.launch      1  610ms  610ms  610ms
+  agent.action        2  240ms  120ms  150ms
+  agent.observe       4  180ms   45ms   88ms
+  session.close       1   95ms   95ms   95ms
+```
+
+The phases are `session.launch` (the engine's start), `test.body` (the session
+start until the test settles), `session.close`, and the agent's
+`agent.observe`, `agent.model`, and `agent.action`. `test.body` holds the
+agent phases, so the rows do not add up to the wall time. The port has no
+`--debug` agent step table (one row per step with tokens and cost) yet.
+
+Under debug, the transcript a custom executor passes to `AttachTranscript`
+is also kept, redacted, as `transcript-<n>.txt` beside the attempt's other
+results. Without debug it is dropped.
 
 ## Flaky tests
 

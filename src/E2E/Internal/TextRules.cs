@@ -2,6 +2,9 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text;
+using System.Text.RegularExpressions;
+
 namespace E2E.Internal;
 
 /// <summary>
@@ -9,7 +12,7 @@ namespace E2E.Internal;
 /// case-sensitive after whitespace is collapsed. Inexact matches are
 /// case-insensitive substrings, which is how <c>exact: false</c> behaves upstream.
 /// </summary>
-internal static class TextRules
+internal static partial class TextRules
 {
     /// <summary>
     /// App text as one line, as upstream's <c>collapseText</c> reads it: whitespace collapsed, and a control
@@ -77,4 +80,59 @@ internal static class TextRules
 
         return text[..end] + "…";
     }
+
+    /// <summary>
+    /// Upstream's <c>sanitizeText</c> (<c>internal/errors.ts</c>): strips ANSI escape sequences, then every C0 and C1
+    /// control character except tab and newline becomes U+FFFD. Libraries color their own messages; left in, the color codes
+    /// reach a report as literal text.
+    /// </summary>
+    public static string SanitizeText(string text) => ControlCharacters().Replace(AnsiSequences().Replace(text, ""), "�");
+
+    /// <summary>Upstream's <c>truncateUtf8</c>: cuts the text so its UTF-8 encoding fits <paramref name="maxBytes"/>, never inside a character.</summary>
+    public static string TruncateUtf8(string text, int maxBytes)
+    {
+        if (Encoding.UTF8.GetByteCount(text) <= maxBytes)
+        {
+            return text;
+        }
+
+        var bytes = 0;
+        var end = 0;
+        while (end < text.Length)
+        {
+            // A surrogate pair is one character: the cut never lands between its halves.
+            var width = char.IsHighSurrogate(text[end]) && end + 1 < text.Length && char.IsLowSurrogate(text[end + 1]) ? 2 : 1;
+            var size = Encoding.UTF8.GetByteCount(text.AsSpan(end, width));
+            if (bytes + size > maxBytes)
+            {
+                break;
+            }
+
+            bytes += size;
+            end += width;
+        }
+
+        return text[..end];
+    }
+
+    /// <summary>
+    /// Upstream's <c>withHint</c>: appends a remedy to a message, as a clause after a one-line message and on its own line after a
+    /// multi-line one, so the hint never dangles off a sentence that already ended.
+    /// </summary>
+    public static string WithHint(string message, string hint)
+    {
+        if (hint.Length == 0)
+        {
+            return message;
+        }
+
+        var text = message.TrimEnd();
+        return text + (text.Contains('\n', StringComparison.Ordinal) ? "\n" : "; ") + hint;
+    }
+
+    [GeneratedRegex("\\u001B\\[[0-?]*[ -/]*[@-~]|\\u001B\\][^\\u0007\\u001B]*(?:\\u0007|\\u001B\\\\)|\\u009B[0-?]*[ -/]*[@-~]|\\u001B[@-Z\\\\-_]")]
+    private static partial Regex AnsiSequences();
+
+    [GeneratedRegex("[\\u0000-\\u0008\\u000b-\\u001f\\u007f-\\u009f]")]
+    private static partial Regex ControlCharacters();
 }

@@ -36,7 +36,10 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// consumes the pending change: it waits for the screen to leave the pre-action shape once, so later looks read the
     /// screen as it is; held still, it then proves the new shape holds for a beat.
     /// </summary>
-    public async Task<Observation> ObserveAsync(SettleMode mode, CancellationToken token)
+    public Task<Observation> ObserveAsync(SettleMode mode, CancellationToken token) =>
+        (Scope?.Debug ?? DebugTrace.Off).Time(Phases.Observe, () => LookAsync(mode, token));
+
+    private async Task<Observation> LookAsync(SettleMode mode, CancellationToken token)
     {
         Looks.Add(mode);
         Observation observation;

@@ -340,17 +340,19 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         CancellationToken token)
     {
         var started = DateTimeOffset.UtcNow;
-        var response = await model.CompleteAsync(
-            new ModelRequest
-            {
-                System = redactor.Redact(system),
-                Messages = messages,
-                Tools = tools,
-                ProviderOptions = options.ProviderOptions ?? context.ProviderOptions,
-                MarkLatest = true,
-                Redactor = redactor,
-            },
-            token).ConfigureAwait(false);
+        var response = await (context.Host?.Scope.Debug ?? DebugTrace.Off).Time(
+            Phases.Model,
+            () => model.CompleteAsync(
+                new ModelRequest
+                {
+                    System = redactor.Redact(system),
+                    Messages = messages,
+                    Tools = tools,
+                    ProviderOptions = options.ProviderOptions ?? context.ProviderOptions,
+                    MarkLatest = true,
+                    Redactor = redactor,
+                },
+                token)).ConfigureAwait(false);
         context.Budgets.RecordModelCall(new ExecutorModelCall
         {
             InputTokens = response.Usage?.InputTokens,

@@ -32,7 +32,15 @@ internal static partial class ScreenshotAssertion
     }
 
     /// <summary>Runs one call as an assertion: of the whole screen when <paramref name="subject"/> is null, else of the one node it matches.</summary>
-    public static async Task ExpectScreenshotAsync(Screen screen, Locator? subject, bool negated, string? name, ScreenshotOptions? options, string? callerFile, CancellationToken cancellationToken)
+    public static Task ExpectScreenshotAsync(Screen screen, Locator? subject, bool negated, string? name, ScreenshotOptions? options, string? callerFile, CancellationToken cancellationToken) =>
+        screen.RunStepAsync(
+            StepKind.Assertion,
+            "expect." + (negated ? "not." : "") + "toHaveScreenshot",
+            Subject(subject),
+            () => ExpectScreenshotCoreAsync(screen, subject, negated, name, options, callerFile, cancellationToken),
+            verifies: true);
+
+    private static async Task ExpectScreenshotCoreAsync(Screen screen, Locator? subject, bool negated, string? name, ScreenshotOptions? options, string? callerFile, CancellationToken cancellationToken)
     {
         var api = (negated ? "not." : "") + "toHaveScreenshot";
         var store = screen.Screenshots

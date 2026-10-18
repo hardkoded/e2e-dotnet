@@ -150,6 +150,13 @@ public sealed class Screen
 
     internal void NotifyVerified() => _verified();
 
+    /// <summary>The attempt's step timeline; null for a screen outside a session, whose calls then run unrecorded.</summary>
+    internal StepRecorder? Steps { get; set; }
+
+    /// <summary>Runs one call that touches the app as a recorded step of the attempt, or as it is without a timeline.</summary>
+    internal Task RunStepAsync(StepKind kind, string api, string label, Func<Task> body, bool verifies = false) =>
+        Steps is null ? body() : Steps.RunAsync(kind, api, label, body, new StepRunOptions { Verifies = verifies });
+
     /// <summary>Tells the attempt that an assertion failed on the app. Nothing outside a session listens.</summary>
     internal Action Failed { get; set; } = static () => { };
 
@@ -425,7 +432,15 @@ public sealed class Locator
     /// or a hidden one. The timeout defaults to the action timeout. More than one match fails at once.
     /// Does not verify an earlier <c>act</c>.
     /// </summary>
-    public async Task WaitForAsync(LocatorWaitForOptions? options = null, CancellationToken cancellationToken = default)
+    public Task WaitForAsync(LocatorWaitForOptions? options = null, CancellationToken cancellationToken = default) =>
+        _screen.RunStepAsync(
+            StepKind.Locator,
+            "locator.waitFor",
+            Query.Describe() + " → " + StateName(options?.State ?? WaitForState.Visible),
+            () => WaitForCoreAsync(options, cancellationToken),
+            verifies: true);
+
+    private async Task WaitForCoreAsync(LocatorWaitForOptions? options, CancellationToken cancellationToken)
     {
         var state = options?.State ?? WaitForState.Visible;
         var token = _screen.Token(cancellationToken);
@@ -479,7 +494,28 @@ public sealed class Locator
     /// Waits up to the action timeout for exactly one enabled match, then acts on it.
     /// More than one match fails at once.
     /// </summary>
-    private async Task ActAsync(LocatorAction action, ActionOptions? options, CancellationToken cancellationToken)
+    private Task ActAsync(LocatorAction action, ActionOptions? options, CancellationToken cancellationToken) =>
+        _screen.RunStepAsync(StepKind.Locator, "locator." + ApiName(action), Query.Describe(), () => PerformAsync(action, options, cancellationToken));
+
+    // The method the test called, as upstream names it: tap, doubleTap, fill, selectOption.
+    private static string ApiName(LocatorAction action) => action switch
+    {
+        LocatorAction.Tap => "tap",
+        LocatorAction.DoubleTap => "doubleTap",
+        LocatorAction.Fill => "fill",
+        LocatorAction.Press => "press",
+        LocatorAction.PressSequentially => "pressSequentially",
+        LocatorAction.Select => "selectOption",
+        LocatorAction.Check => "check",
+        LocatorAction.Uncheck => "uncheck",
+        LocatorAction.Clear => "clear",
+        LocatorAction.Focus => "focus",
+        LocatorAction.ScrollIntoView => "scrollIntoView",
+        LocatorAction.Swipe => "swipe",
+        _ => throw new ArgumentOutOfRangeException(nameof(action), action, "unknown locator action"),
+    };
+
+    private async Task PerformAsync(LocatorAction action, ActionOptions? options, CancellationToken cancellationToken)
     {
         var token = _screen.Token(cancellationToken);
         var deadline = DateTime.UtcNow + TimeoutOf(options?.Timeout);

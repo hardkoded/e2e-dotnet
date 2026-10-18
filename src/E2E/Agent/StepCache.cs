@@ -114,6 +114,24 @@ internal sealed class StepTraceSession
     public static StepOutcome FailedStepOutcome(Exception? cause) =>
         cause is AgentException { Code: "CANCELLED" or "MODEL_UNAVAILABLE" or "MODEL_PROVIDER_FAILED" or "REPLAY_STALE" } ? StepOutcome.NoVerdict : StepOutcome.Failed;
 
+    private const string ReplayNoticeStart = "replayed ";
+    private const string RecordedVerdictSeparator = "; recorded verdict: ";
+
+    /// <summary>
+    /// Upstream's <c>recordedVerdictOf</c>: the recorded verdict alone, for the ledger later steps read. How the step was served is
+    /// the report's business, not context a model should reason about. A summary that is not a replay notice is returned as it is.
+    /// </summary>
+    public static string RecordedVerdictOf(string summary)
+    {
+        if (!summary.StartsWith(ReplayNoticeStart, StringComparison.Ordinal))
+        {
+            return summary;
+        }
+
+        var at = summary.IndexOf(RecordedVerdictSeparator, StringComparison.Ordinal);
+        return at == -1 ? summary : summary[(at + RecordedVerdictSeparator.Length)..];
+    }
+
     /// <summary>Records one committed grammar action into the step trace.</summary>
     public void Record(RecordedAction action) => _recorder.Record(action);
 

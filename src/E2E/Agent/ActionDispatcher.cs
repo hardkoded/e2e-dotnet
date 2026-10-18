@@ -323,7 +323,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(_accounting.Token, cancellationToken);
             try
             {
-                await body(linked.Token).ConfigureAwait(false);
+                await _scope.Debug.Time(Phases.Action, () => body(linked.Token)).ConfigureAwait(false);
             }
             catch (Exception) when (CheckStep())
             {
