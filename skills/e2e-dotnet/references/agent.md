@@ -379,7 +379,7 @@ call, so prefer the target's `App.BundleId` over `open_app` when every test
 starts in the same app. `samples/MobileApp.E2ETests` shows it in use.
 
 Not ported: decision models, `maxObservationBytes`,
-`maxInputTokens`, `--debug`, and `--ai-trace`.
+`maxInputTokens`, the `--debug` agent step table, and `--ai-trace`.
 
 ## Custom executors
 

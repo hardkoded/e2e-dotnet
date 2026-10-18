@@ -19,11 +19,14 @@ public sealed class E2ESession : IAsyncDisposable
     private readonly CancellationTokenSource _timeout;
     private readonly IEngineSession _engine;
     private readonly IDisposable _errorRedaction;
+    private readonly TextWriter? _debugOutput;
+    private readonly long _bodyStarted = System.Diagnostics.Stopwatch.GetTimestamp();
     private int _state;
     private int _disposed;
 
-    private E2ESession(AttemptScope scope, CancellationTokenSource timeout, IEngineSession engine, App app, Browser browser, Agent agent, Screen screen, TestContext context, IDisposable errorRedaction)
+    private E2ESession(AttemptScope scope, CancellationTokenSource timeout, IEngineSession engine, App app, Browser browser, Agent agent, Screen screen, TestContext context, IDisposable errorRedaction, TextWriter? debugOutput)
     {
+        _debugOutput = debugOutput;
         _errorRedaction = errorRedaction;
         _scope = scope;
         _timeout = timeout;
@@ -87,6 +90,7 @@ public sealed class E2ESession : IAsyncDisposable
             timeout.CancelAfter(options.TestTimeout);
         }
 
+        var debug = new DebugTrace(options.Debug);
         var projectRoot = Path.GetFullPath(string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot);
         IEngineSession engine;
 
@@ -100,7 +104,7 @@ public sealed class E2ESession : IAsyncDisposable
                 launch.CancelAfter(options.LaunchTimeout);
             }
 
-            engine = await options.Engine.StartAsync(
+            engine = await debug.Time("session.launch", () => options.Engine.StartAsync(
                 new EngineStartOptions
                 {
                     BaseUrl = baseUrl,
@@ -113,11 +117,12 @@ public sealed class E2ESession : IAsyncDisposable
                         return Task.FromResult(plaintext);
                     },
                 },
-                launch.Token).ConfigureAwait(false);
+                launch.Token)).ConfigureAwait(false);
         }
         catch (Exception ex) when ((ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled }) && launch.IsCancellationRequested && !timeout.IsCancellationRequested)
         {
             timeout.Dispose();
+            WriteDebug(debug, options.DebugOutput);
             throw new EngineException(
                 "ENVIRONMENT_UNAVAILABLE",
                 "The engine did not start within the launch timeout (" + options.LaunchTimeout.TotalMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " ms).",
@@ -126,6 +131,7 @@ public sealed class E2ESession : IAsyncDisposable
         catch
         {
             timeout.Dispose();
+            WriteDebug(debug, options.DebugOutput);
             throw;
         }
         finally
@@ -143,6 +149,7 @@ public sealed class E2ESession : IAsyncDisposable
             var scope = new AttemptScope
             {
                 Session = engine,
+                Debug = debug,
                 BaseUrl = baseUrl,
                 Agents = agents,
                 Cache = options.Cache,
@@ -213,7 +220,7 @@ public sealed class E2ESession : IAsyncDisposable
                 Screen = screen,
                 CancellationToken = timeout.Token,
             };
-            return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact));
+            return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput);
         }
         catch
         {
@@ -248,6 +255,7 @@ public sealed class E2ESession : IAsyncDisposable
             return;
         }
 
+        _scope.Debug.Record("test.body", System.Diagnostics.Stopwatch.GetElapsedTime(_bodyStarted).TotalMilliseconds);
         try
         {
             Commit(error, cancellationToken);
@@ -266,6 +274,7 @@ public sealed class E2ESession : IAsyncDisposable
         {
             if (Interlocked.CompareExchange(ref _state, 1, 0) == 0)
             {
+                _scope.Debug.Record("test.body", System.Diagnostics.Stopwatch.GetElapsedTime(_bodyStarted).TotalMilliseconds);
                 try
                 {
                     Commit(new TestException("TEST_FAILED", "The session ended before it was completed."), CancellationToken.None);
@@ -308,15 +317,18 @@ public sealed class E2ESession : IAsyncDisposable
 
         try
         {
-            var cleanup = _engine.DisposeAsync().AsTask();
-            if (Bounded(_scope.CleanupTimeout))
+            await _scope.Debug.Time("session.close", async () =>
             {
-                await cleanup.WaitAsync(_scope.CleanupTimeout).ConfigureAwait(false);
-            }
-            else
-            {
-                await cleanup.ConfigureAwait(false);
-            }
+                var cleanup = _engine.DisposeAsync().AsTask();
+                if (Bounded(_scope.CleanupTimeout))
+                {
+                    await cleanup.WaitAsync(_scope.CleanupTimeout).ConfigureAwait(false);
+                }
+                else
+                {
+                    await cleanup.ConfigureAwait(false);
+                }
+            }).ConfigureAwait(false);
         }
         catch (TimeoutException ex)
         {
@@ -330,6 +342,7 @@ public sealed class E2ESession : IAsyncDisposable
             _errorRedaction.Dispose();
             _scope.Ended.Dispose();
             _timeout.Dispose();
+            WriteDebug(_scope.Debug, _debugOutput);
         }
     }
 
@@ -392,6 +405,24 @@ public sealed class E2ESession : IAsyncDisposable
         }
 
         return agents;
+    }
+
+    // A table is a courtesy: a stderr that cannot be written must not hide the test's own result.
+    private static void WriteDebug(DebugTrace debug, TextWriter? output)
+    {
+        if (!debug.Enabled)
+        {
+            return;
+        }
+
+        try
+        {
+            (output ?? Console.Error).Write(debug.Summary());
+        }
+        catch (IOException)
+        {
+            // Nothing reads the table.
+        }
     }
 
     private static bool Bounded(TimeSpan timeout) => timeout > TimeSpan.Zero && timeout != Timeout.InfiniteTimeSpan;
@@ -585,6 +616,15 @@ public sealed class E2ESessionOptions
 
     /// <summary>Which attempts record a video. The session only carries the setting; <see cref="Attempt"/> says which attempt this is.</summary>
     public ResolvedRecording Video { get; init; } = new(RecordingMode.Off, RecordingSource.Default);
+
+    /// <summary>
+    /// <c>E2E_DEBUG=1</c>, the port's counterpart of <c>--debug</c>: the session times its phases and the agent's observe, model,
+    /// and action phases, writes the table to stderr when it is released, and keeps each agent step's transcript.
+    /// </summary>
+    public bool Debug { get; init; }
+
+    /// <summary>Where the phase table goes when <see cref="Debug"/> is on. Defaults to stderr.</summary>
+    internal TextWriter? DebugOutput { get; init; }
 
     /// <summary>1 is the first try. Later attempts do not replay, and still record verified acts.</summary>
     public int Attempt { get; init; } = 1;

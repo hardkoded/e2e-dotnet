@@ -697,7 +697,7 @@ public sealed partial class Agent
                 MarkLatest = markLatest,
                 Redactor = _scope.Redactor,
             };
-            response = await model.CompleteAsync(request, token).ConfigureAwait(false);
+            response = await _scope.Debug.Time(Phases.Model, () => model.CompleteAsync(request, token)).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && !_scope.Token().IsCancellationRequested)
         {
@@ -1042,6 +1042,9 @@ internal sealed class AttemptScope
     }
 
     public required IEngineSession Session { get; init; }
+
+    /// <summary>The attempt's phase timings under <c>E2E_DEBUG=1</c>; a disabled trace otherwise.</summary>
+    public DebugTrace Debug { get; init; } = DebugTrace.Off;
 
     /// <summary>How far a secret reached the attempt. A secret fill, by the agent or by a locator, raises it.</summary>
     public Exposure Exposure { get; init; } = new();

@@ -118,6 +118,12 @@ public abstract class E2EFixture
     /// </summary>
     protected virtual ResolvedRecording Video => Config.Target.Video;
 
+    /// <summary>
+    /// <c>E2E_DEBUG</c>: when set to <c>1</c> or <c>true</c>, the port's counterpart of <c>--debug</c>. Each test prints its phase
+    /// timings to stderr and keeps the transcript of every agent step. Override to turn it on in code.
+    /// </summary>
+    protected virtual bool Debug => Environment.GetEnvironmentVariable("E2E_DEBUG")?.Trim() is { } value && (value == "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase));
+
     protected virtual TimeSpan TestTimeout => Config.Timeout;
 
     protected virtual TimeSpan LaunchTimeout => Config.LaunchTimeout;
@@ -179,6 +185,7 @@ public abstract class E2EFixture
                 CacheMode = cacheMode,
                 CacheStrict = CacheStrict,
                 TestTitle = title,
+                Debug = Debug,
                 Trace = Trace,
                 Video = Video,
                 TestTimeout = TestTimeout,

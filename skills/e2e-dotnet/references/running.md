@@ -43,6 +43,10 @@ example `E2E_VIDEO=on dotnet test`, or `<EnvironmentVariables>` in a
 `on-first-retry`, and `on-all-retries`. The port reads them and records
 nothing yet.
 
+`--debug` is `E2E_DEBUG=1` (or `true`). Each test writes its phase timings to
+stderr when it ends and keeps its executor transcripts. Run with
+`--logger "console;verbosity=detailed"` to see them (topic `debugging`).
+
 To watch a run, set `E2E_HEADLESS=0`. A fixture can also pass
 `new WebEngineOptions { Headless = false }` in `CreateEngine()`.
 

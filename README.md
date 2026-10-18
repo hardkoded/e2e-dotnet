@@ -220,6 +220,8 @@ There is no default model and no shared API key. `baseUrl` can point at any Open
 
 `trace` and `video` choose which attempts record: `off`, `on`, `retain-on-failure`, `on-first-retry`, or `on-all-retries`. They go at the config root or on the target, and `E2E_TRACE` and `E2E_VIDEO` replace them for one run. The defaults are `retain-on-failure` and `off`. The port reads these settings and does not record yet.
 
+`E2E_DEBUG=1` (or `true`) is the port's `--debug`. Each test then writes a table of its phase timings (`session.launch`, `test.body`, `session.close`, `agent.observe`, `agent.model`, `agent.action`) to stderr when it ends, and keeps the transcript of each agent step. The agent step table is not ported yet. See [COMPATIBILITY.md](COMPATIBILITY.md#debug).
+
 `provider` picks who serves `model` and `judge`. Unset, it is `openai` (chat completions). `baseUrl` and `apiKeyEnv` default to the provider's own:
 
 | `provider` | Key | Notes |
