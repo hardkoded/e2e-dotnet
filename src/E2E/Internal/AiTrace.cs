@@ -858,8 +858,21 @@ internal static class AiTrace
         private readonly Lock _gate = new();
         private long _written;
         private bool _dirty;
+        private Timer? _pending;
 
         public string Path { get; } = path;
+
+        public void FlushQuietly()
+        {
+            try
+            {
+                Flush(force: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Console.Error.WriteLine("[e2e] could not write the AI trace " + Path + ": " + ex.Message);
+            }
+        }
 
         public AiTraceCollector Collector { get; } = new();
 
@@ -872,10 +885,20 @@ internal static class AiTrace
                     _dirty = true;
                 }
 
-                if (!_dirty || (!force && _written != 0 && Stopwatch.GetElapsedTime(_written) < FlushInterval))
+                if (!_dirty)
                 {
                     return;
                 }
+
+                if (!force && _written != 0 && Stopwatch.GetElapsedTime(_written) is var since && since < FlushInterval)
+                {
+                    // One pending write at a time: a process that is killed before it exits still leaves the last sessions' records.
+                    _pending ??= new Timer(_ => FlushQuietly(), null, FlushInterval - since, Timeout.InfiniteTimeSpan);
+                    return;
+                }
+
+                _pending?.Dispose();
+                _pending = null;
 
                 Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
                 var temp = Path + "." + Guid.NewGuid().ToString("n") + ".tmp";
