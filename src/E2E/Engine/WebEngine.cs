@@ -1564,7 +1564,7 @@ public sealed partial class WebEngine : IEngine
             System.Text.Json.JsonElement json;
             try
             {
-                json = await budget.WithinAsync(frame.EvaluateAsync<System.Text.Json.JsonElement>(PageScript.Collect, new { seed = _nextRef, max = walk.Remaining, testIdAttribute = _testIdAttribute })).ConfigureAwait(false);
+                json = await budget.WithinAsync(frame.EvaluateAsync<System.Text.Json.JsonElement>(PageScript.Collect, new { seed = _nextRef, max = walk.Remaining, testIdAttribute = _testIdAttribute, publish = walk.Publish })).ConfigureAwait(false);
             }
             catch (PlaywrightException) when (frame != _page?.MainFrame)
             {
@@ -1580,7 +1580,7 @@ public sealed partial class WebEngine : IEngine
             _nextRef = dto.Next;
             walk.Remaining -= dto.Count;
             walk.Truncated |= dto.Truncated;
-            if (frame == _page?.MainFrame)
+            if (frame.ParentFrame is null)
             {
                 walk.Scroll = dto.Scroll;
             }
@@ -2576,6 +2576,9 @@ public sealed partial class WebEngine : IEngine
 
     private sealed class FrameWalk
     {
+        /// <summary>False for a read that must leave the page's element map as the last observation set it: the trace's.</summary>
+        public bool Publish { get; init; } = true;
+
         public int Remaining { get; set; } = ObservationLimits.Nodes;
 
         public bool Truncated { get; set; }

@@ -46,6 +46,28 @@ public sealed class WebTraceFeedTests
     }
 
     [Fact]
+    public async Task Leaves_the_pages_element_map_as_the_last_observation_set_it()
+    {
+        using var site = await TinySite.StartAsync(Page);
+        var screens = new List<Observation>();
+        await using var session = await new WebEngine(headless: true).StartAsync(
+            new EngineStartOptions { BaseUrl = site.Url, Screen = screens.Add },
+            CancellationToken.None);
+        await session.OpenAsync(site.Url, CancellationToken.None);
+        await session.ObserveAsync(CancellationToken.None);
+        var page = WebEngine.SurfaceOf(session)!.Page();
+        await page.EvaluateAsync("window.__map = window[Symbol.for('e2e.observation.elements')]");
+
+        screens.Clear();
+
+        // A key press reads no tree of its own, so any new map would be the trace's.
+        await session.PressAsync("Tab", CancellationToken.None);
+
+        Assert.Single(screens);
+        Assert.True(await page.EvaluateAsync<bool>("window.__map === window[Symbol.for('e2e.observation.elements')]"));
+    }
+
+    [Fact]
     public async Task Acts_as_before_when_the_attempt_gave_no_sink()
     {
         using var site = await TinySite.StartAsync(Page);

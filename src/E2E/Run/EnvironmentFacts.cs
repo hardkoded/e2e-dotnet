@@ -49,9 +49,19 @@ internal sealed class EnvironmentFacts
     {
         lock (_gate)
         {
-            return _facts.Count == 0
-                ? null
-                : _facts.ToDictionary(fact => TextRules.Bound(redact(fact.Key), MaxKeyChars), fact => TextRules.Bound(redact(fact.Value), MaxValueChars), StringComparer.Ordinal);
+            if (_facts.Count == 0)
+            {
+                return null;
+            }
+
+            // Two names that redact or clip to the same text keep the later value.
+            var facts = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var (name, value) in _facts)
+            {
+                facts[TextRules.Bound(redact(name), MaxKeyChars)] = TextRules.Bound(redact(value), MaxValueChars);
+            }
+
+            return facts;
         }
     }
 }

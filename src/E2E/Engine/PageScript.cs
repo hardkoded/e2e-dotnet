@@ -17,7 +17,7 @@ internal static class PageScript
     // kept first and the rest of the budget goes to the others in document
     // order, so scrolling brings the cut ones in. It says when it cut nodes.
     public const string Collect = """
-        ({ seed, max, testIdAttribute }) => {
+        ({ seed, max, testIdAttribute, publish }) => {
           const refKey = Symbol.for("e2e.observation.ref");
           const elements = new Map();
           let next = seed;
@@ -966,7 +966,8 @@ internal static class PageScript
           } finally {
             document.adoptedStyleSheets = sheets;
           }
-          window[Symbol.for("e2e.observation.elements")] = elements;
+          // A read for the trace leaves the elements the test and the model act on as the last real observation set them.
+          if (publish) window[Symbol.for("e2e.observation.elements")] = elements;
           // The object itself, not JSON.stringify of it: the application may have replaced that, or added a toJSON.
           return { next, count, truncated: truncated || full || textCut, scroll, roots };
         }

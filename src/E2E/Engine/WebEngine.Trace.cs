@@ -33,12 +33,12 @@ public sealed partial class WebEngine
 
         /// <summary>
         /// Captures the page as an observation without publishing it: the refs, frames, and twins the test and the model act on
-        /// stay as the last real observation left them.
+        /// stay as the last real observation left them, in the page too.
         /// </summary>
         private async Task<Observation> CaptureScreenAsync(OperationBudget budget)
         {
             var page = OpenPage() ?? throw new EngineException(EngineErrorCodes.InvalidState, "no app page is open");
-            var walk = new FrameWalk();
+            var walk = new FrameWalk { Publish = false };
             var roots = await CollectAsync(page.MainFrame, walk, budget).ConfigureAwait(false);
             return new Observation { Route = Routes.LocationOf(page.Url), Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll };
         }
