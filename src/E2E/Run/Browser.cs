@@ -66,6 +66,13 @@ public sealed class Browser
 
     internal void NotifyVerified() => _verified();
 
+    /// <summary>The attempt's step timeline; null for a browser outside a session, whose calls then run unrecorded.</summary>
+    internal StepRecorder? Steps { get; set; }
+
+    /// <summary>Runs one call that touches the app as a recorded step of the attempt, or as it is without a timeline.</summary>
+    internal Task RunStepAsync(StepKind kind, string api, string label, Func<Task> body, bool verifies = false) =>
+        Steps is null ? body() : Steps.RunAsync(kind, api, label, body, new StepRunOptions { Verifies = verifies });
+
     /// <summary>Tells the attempt that an assertion failed on the app. Nothing outside a session listens.</summary>
     internal Action Failed { get; set; } = static () => { };
 

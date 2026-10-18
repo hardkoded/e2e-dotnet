@@ -70,13 +70,18 @@ internal sealed partial class ActContext : StepExecutorContext
         ReplayedPrefix = prefix;
         Model = agent.Model;
         ProviderOptions = agent.ProviderOptions;
-        Ledger = E2E.Ledger.SerializeLedger(scope.Completed);
+        var ledger = E2E.Ledger.SerializeLedger(E2E.Ledger.ProjectPriorSteps(scope.Steps.Completed()), E2E.Ledger.MaxLedgerBytes);
+        Ledger = ledger.Text;
+        LedgerBytes = ledger.Bytes;
         AgentContext = agent.Context is null ? null : scope.Redactor.Redact(agent.Context);
         Budgets = budget;
         Actions = dispatcher;
         Host = new ActHost(scope, feed, budget, spec.Params);
         Start = start is null ? null : new ExecutorObservation(SnapshotText.Render(start, scope.Redactor, scope.AppOrigin));
     }
+
+    /// <summary>Bytes of <see cref="StepExecutorContext.Ledger"/>, which the step's metrics keep.</summary>
+    public int LedgerBytes { get; }
 
     public override bool PixelsTainted => _scope.Exposure.WithholdsPixels;
 

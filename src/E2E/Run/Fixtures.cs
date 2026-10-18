@@ -17,11 +17,14 @@ public sealed class App
     private readonly string? _baseUrl;
     private readonly Func<CancellationToken> _token;
 
-    internal App(IEngineSession session, string? baseUrl, Func<CancellationToken> token)
+    private readonly StepRecorder? _steps;
+
+    internal App(IEngineSession session, string? baseUrl, Func<CancellationToken> token, StepRecorder? steps = null)
     {
         _session = session;
         _baseUrl = baseUrl;
         _token = token;
+        _steps = steps;
     }
 
     /// <summary>The target base URL relative URLs resolve against, or null when the test declares none.</summary>
@@ -34,26 +37,30 @@ public sealed class App
     /// </summary>
     public Task OpenAsync(string? url = null, CancellationToken cancellationToken = default)
     {
-        return _session.OpenAsync(Routes.Resolve(_baseUrl, url), Token(cancellationToken));
+        return RunStepAsync("app.open", url ?? "/", () => _session.OpenAsync(Routes.Resolve(_baseUrl, url), Token(cancellationToken)));
     }
 
     /// <summary>Goes back one entry in the history. With no earlier entry it does nothing.</summary>
     public Task BackAsync(CancellationToken cancellationToken = default)
     {
-        return _session.BackAsync(Token(cancellationToken));
+        return RunStepAsync("app.back", "", () => _session.BackAsync(Token(cancellationToken)));
     }
 
     /// <summary>Closes the current document and reopens the app at <see cref="BaseUrl"/>. Cookies and storage are kept.</summary>
     public Task RestartAsync(CancellationToken cancellationToken = default)
     {
-        return SteerAsync(_session.RestartAsync, Token(cancellationToken));
+        return RunStepAsync("app.restart", "", () => SteerAsync(_session.RestartAsync, Token(cancellationToken)));
     }
 
     /// <summary>Discards cookies, storage, and history, and reopens the app at <see cref="BaseUrl"/>.</summary>
     public Task ClearStateAsync(CancellationToken cancellationToken = default)
     {
-        return SteerAsync(_session.ClearStateAsync, Token(cancellationToken));
+        return RunStepAsync("app.clearState", "", () => SteerAsync(_session.ClearStateAsync, Token(cancellationToken)));
     }
+
+    // Each call that steers the app is a recorded step of the attempt, or runs as it is without a timeline.
+    private Task RunStepAsync(string api, string label, Func<Task> body) =>
+        _steps is null ? body() : _steps.RunAsync(StepKind.App, api, label, body);
 
     // A steering hook ends at a blank surface, so the app is reopened at its base URL
     // through the same path as OpenAsync. Without a base URL there is nothing to reopen.
