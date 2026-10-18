@@ -152,6 +152,7 @@ public sealed class E2ESession : IAsyncDisposable
                 CacheStrict = options.CacheStrict,
                 CleanupTimeout = options.CleanupTimeout,
                 TestTitle = options.TestTitle,
+                ProjectRoot = projectRoot,
                 TargetName = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName,
                 Ended = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token),
                 EnginePlatform = options.Engine.Platform,
@@ -168,8 +169,8 @@ public sealed class E2ESession : IAsyncDisposable
                 scope.Register(name, value);
             }
 
-            var app = new App(engine, baseUrl, () => timeout.Token);
-            var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures);
+            var app = new App(engine, baseUrl, () => timeout.Token, scope.Steps);
+            var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures) { Steps = scope.Steps };
             softFailures.Redact = text => scope.Redactor.Redact(text);
             browser.Redact = text => scope.Redactor.Redact(text);
             browser.Failed = scope.Implicate;
@@ -182,6 +183,7 @@ public sealed class E2ESession : IAsyncDisposable
                 options.ActionTimeout,
                 options.AssertionTimeout,
                 softFailures);
+            screen.Steps = scope.Steps;
             screen.Exposure = scope.Exposure;
             screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });
             screen.Redact = text => scope.Redactor.Redact(text);

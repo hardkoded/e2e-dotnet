@@ -370,7 +370,21 @@ public sealed class LocatorExpect
     /// (see <see cref="Time.PollConditionAsync"/>). A sample that cannot answer resets the negation clock:
     /// <c>not.toBeChecked</c> on no node is not a pass.
     /// </summary>
-    private async Task PollAsync(
+    private Task PollAsync(
+        string matcher,
+        string describeExpected,
+        TimeSpan? timeout,
+        bool includeHidden,
+        Func<IReadOnlyList<SemanticNode>, Verdict> evaluate,
+        CancellationToken cancellationToken) =>
+        _locator.Screen.RunStepAsync(
+            StepKind.Assertion,
+            "expect." + (_negated ? "not." : "") + matcher,
+            _locator.Query.Describe(),
+            () => PollCoreAsync(matcher, describeExpected, timeout, includeHidden, evaluate, cancellationToken),
+            verifies: true);
+
+    private async Task PollCoreAsync(
         string matcher,
         string describeExpected,
         TimeSpan? timeout,

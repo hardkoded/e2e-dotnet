@@ -80,15 +80,22 @@ public sealed partial class Agent
         // The brain that plans the flows judges the assertions too, so a custom executor takes the assert.
         if (agent.Executor is not null)
         {
-            return _scope.Track(AssertWithExecutorAsync(statement, options, agent, cancellationToken));
+            return _scope.Track(StepAsync("agent.assert", statement, agent, verifies: true, () => AssertWithExecutorAsync(statement, options, agent, cancellationToken)));
         }
 
         var vision = ResolveVision(options?.Vision ?? VisionMode.Off);
-        return _scope.Track(JudgeAsync(statement, ResolveTimeout(options?.Timeout, agent.JudgmentTimeout), agent, vision, options?.Screenshot, cancellationToken));
+        return _scope.Track(StepAsync("agent.assert", statement, agent, verifies: true, () => JudgeAsync(statement, ResolveTimeout(options?.Timeout, agent.JudgmentTimeout), agent, vision, options?.Screenshot, cancellationToken)));
     }
 
     public Task WaitForAsync(string statement, WaitForOptions? options = null, CancellationToken cancellationToken = default) =>
-        _scope.Track(WaitForCoreAsync(statement, options, cancellationToken));
+        _scope.Track(WaitForStepAsync(statement, options, cancellationToken));
+
+    private async Task WaitForStepAsync(string statement, WaitForOptions? options, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(statement);
+        var agent = _scope.Select(options?.Agent);
+        await StepAsync("agent.waitFor", statement, agent, verifies: true, () => WaitForCoreAsync(statement, options, cancellationToken)).ConfigureAwait(false);
+    }
 
     private async Task WaitForCoreAsync(string statement, WaitForOptions? options, CancellationToken cancellationToken)
     {
@@ -129,6 +136,7 @@ public sealed partial class Agent
                 var verdict = await JudgeOnceAsync(statement, look, agent, maxCalls - (_scope.ModelCalls - callsBefore), token, cancellationToken).ConfigureAwait(false);
                 if (string.Equals(verdict.Status, "passed", StringComparison.Ordinal))
                 {
+                    _scope.Steps.AttachAgentDetails(new StepAgentDetails { Explanation = verdict.Summary });
                     _scope.MarkVerified();
                     return;
                 }
@@ -179,7 +187,14 @@ public sealed partial class Agent
     /// <c>MODEL_OUTPUT_INVALID</c>.
     /// </summary>
     public Task<T> ExtractAsync<T>(string instruction, ExtractOptions? options = null, CancellationToken cancellationToken = default) =>
-        _scope.Track(ExtractCoreAsync<T>(instruction, options, cancellationToken));
+        _scope.Track(ExtractStepAsync<T>(instruction, options, cancellationToken));
+
+    private async Task<T> ExtractStepAsync<T>(string instruction, ExtractOptions? options, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(instruction);
+        var agent = _scope.Select(options?.Agent);
+        return await StepAsync("agent.extract", instruction, agent, verifies: false, () => ExtractCoreAsync<T>(instruction, options, cancellationToken)).ConfigureAwait(false);
+    }
 
     private async Task<T> ExtractCoreAsync<T>(string instruction, ExtractOptions? options, CancellationToken cancellationToken)
     {
@@ -278,6 +293,7 @@ public sealed partial class Agent
         var kept = screenshot == false ? null : await KeepEvidenceAsync(token, cancellationToken).ConfigureAwait(false);
         if (string.Equals(verdict.Status, "passed", StringComparison.Ordinal))
         {
+            _scope.Steps.AttachAgentDetails(new StepAgentDetails { Explanation = verdict.Summary });
             _scope.MarkVerified();
             return;
         }
@@ -1143,7 +1159,15 @@ internal sealed class AttemptScope
         }
     }
 
-    public List<string> Completed { get; } = [];
+    /// <summary>The project root, which the steps name the test line they were called from against.</summary>
+    public string? ProjectRoot { get; init; }
+
+    private StepRecorder? _recorder;
+
+    /// <summary>The attempt's step timeline: every public call that touches the app is a step, and the ledger later steps read is derived from it.</summary>
+    public StepRecorder Steps => LazyInitializer.EnsureInitialized(
+        ref _recorder,
+        () => new StepRecorder(AttemptId, new StepRecorderOptions { Attempt = (AttemptId, Attempt - 1), ProjectRoot = ProjectRoot, Redact = text => Redactor.Redact(text) }));
 
     public List<PendingAct> Acts { get; } = [];
 

@@ -94,7 +94,10 @@ public sealed class BrowserExpect
     /// Polls until the condition holds, or, negated, until it has been false for the negation grace in a row, as
     /// the locator matchers do (see <see cref="Time.PollConditionAsync"/>). Each read is bounded by the time left.
     /// </summary>
-    private async Task PollAsync(string matcher, string describeExpected, TimeSpan? timeout, Func<CancellationToken, Task<(bool Holds, string Observed)>> read, CancellationToken cancellationToken)
+    private Task PollAsync(string matcher, string describeExpected, TimeSpan? timeout, Func<CancellationToken, Task<(bool Holds, string Observed)>> read, CancellationToken cancellationToken) =>
+        _browser.RunStepAsync(StepKind.Assertion, "expect." + (_negated ? "not." : "") + matcher, "page", () => PollCoreAsync(matcher, describeExpected, timeout, read, cancellationToken), verifies: true);
+
+    private async Task PollCoreAsync(string matcher, string describeExpected, TimeSpan? timeout, Func<CancellationToken, Task<(bool Holds, string Observed)>> read, CancellationToken cancellationToken)
     {
         if (timeout is { } given)
         {

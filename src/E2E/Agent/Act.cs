@@ -21,19 +21,60 @@ public sealed partial class Agent
         CheckInstruction(instruction);
         ActParams.Validate(options?.Params);
         var agent = _scope.Select(options?.Agent);
-        return DispatchStepAsync(
-            new StepSpec
-            {
-                Kind = ExecutorStepKind.Act,
-                Instruction = instruction,
-                Params = options?.Params,
-                Timeout = options?.Timeout,
-                MaxSteps = options?.MaxSteps,
-                MaxModelCalls = options?.MaxModelCalls,
-            },
+        return StepAsync(
+            "agent.act",
+            instruction,
             agent,
-            cancellationToken);
+            verifies: false,
+            () => DispatchStepAsync(
+                new StepSpec
+                {
+                    Kind = ExecutorStepKind.Act,
+                    Instruction = instruction,
+                    Params = options?.Params,
+                    Timeout = options?.Timeout,
+                    MaxSteps = options?.MaxSteps,
+                    MaxModelCalls = options?.MaxModelCalls,
+                },
+                agent,
+                cancellationToken));
     }
+
+    /// <summary>
+    /// Runs one agent call as a recorded step of the attempt (upstream's <c>runtime.steps.run('agent', ...)</c>). A failed call keeps its
+    /// explanation on the step, so the steps after it read why it ended. A judgment (assert, waitFor) is a verification step.
+    /// </summary>
+    private Task<T> StepAsync<T>(string api, string label, ResolvedAgent agent, bool verifies, Func<Task<T>> body) =>
+        _scope.Steps.RunAsync(
+            StepKind.Agent,
+            api,
+            label,
+            async () =>
+            {
+                try
+                {
+                    return await body().ConfigureAwait(false);
+                }
+                catch (AgentException ex)
+                {
+                    _scope.Steps.AttachAgentDetails(new StepAgentDetails { Explanation = ex.Message });
+                    throw;
+                }
+            },
+            new StepRunOptions { Verifies = verifies, Agent = agent.Name });
+
+    /// <inheritdoc cref="StepAsync{T}(string, string, ResolvedAgent, bool, Func{Task{T}})"/>
+    private Task StepAsync(string api, string label, ResolvedAgent agent, bool verifies, Func<Task> body) =>
+        StepAsync(
+            api,
+            label,
+            agent,
+            verifies,
+            async () =>
+            {
+                await body().ConfigureAwait(false);
+                return true;
+            });
 
     /// <summary>
     /// Upstream's <c>runAssertStep</c>: routes one <c>assert</c> through the agent's custom executor. The brain that plans the
@@ -103,10 +144,10 @@ public sealed partial class Agent
         var declared = ActParams.SecretsIn(spec.Params);
         var dispatcher = new ActionDispatcher(_scope, feed, budget, spec.Params, () => declared);
         ActContext? context = null;
+        StepTraceSession? session = null;
         try
         {
             // An act is cacheable unless its executor opted out. An assert must not change the app, so its recording would be empty.
-            StepTraceSession? session = null;
             if (spec.Kind == ExecutorStepKind.Act && executor.Cache != ExecutorCache.Off && _scope.CacheEnabled && _scope.Cache is { } cache)
             {
                 var key = _scope.ClaimKey(instruction, spec.Params, agent, out var callIndex);
@@ -133,7 +174,7 @@ public sealed partial class Agent
             var recorder = budget.Recorder;
             if (replayed is { } finished)
             {
-                _scope.Completed.Add("Replayed: " + instruction);
+                _scope.Steps.AttachAgentDetails(new StepAgentDetails { Explanation = finished.Summary });
                 await session!.ConcludeAsync(StepOutcome.Passed).ConfigureAwait(false);
                 return new ActResult { Summary = finished.Summary, Cache = session.CacheInfo, ModelCalls = 0, Actions = budget.Used };
             }
@@ -169,13 +210,17 @@ public sealed partial class Agent
                 ? await KeepBoundedEvidenceAsync(budget, outer.Token, cancellationToken).ConfigureAwait(false)
                 : null;
             Settle(verdict, budget, spec, executor, kept, out var summary);
+            if (summary.Length > 0)
+            {
+                _scope.Steps.AttachAgentDetails(new StepAgentDetails { Explanation = summary });
+            }
+
             if (spec.Kind == ExecutorStepKind.Assert)
             {
                 _scope.MarkVerified();
                 return new ActResult { Summary = summary, ModelCalls = budget.ModelCalls, Actions = budget.Used };
             }
 
-            _scope.Completed.Add(summary.Length == 0 ? instruction : summary);
             if (session is not null)
             {
                 await session.ConcludeAsync(StepOutcome.Passed).ConfigureAwait(false);
@@ -191,6 +236,17 @@ public sealed partial class Agent
         finally
         {
             budget.Close();
+            _scope.Steps.AttachAgentDetails(new StepAgentDetails
+            {
+                Metrics = new StepMetrics
+                {
+                    ModelCalls = budget.ModelCalls,
+                    ActionSteps = budget.Used,
+                    ContextBytes = agent.Context is null ? 0 : System.Text.Encoding.UTF8.GetByteCount(agent.Context),
+                    LedgerBytes = context?.LedgerBytes ?? 0,
+                },
+                Cache = session?.CacheInfo,
+            });
             context?.WriteTranscript();
         }
     }
