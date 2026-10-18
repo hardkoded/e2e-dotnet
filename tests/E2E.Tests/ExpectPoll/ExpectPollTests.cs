@@ -79,11 +79,12 @@ public sealed class ExpectPollTests
         Assert.Equal(3, reads);
 
         var failures = 0;
-        Func<Task<string>> refused = async () =>
+        // Upstream's async read throws without awaiting, so the task is faulted when it returns. Do not add an await:
+        // its continuation can wait on a busy thread pool, and the stepping clock would fire the read's timeout first.
+        Func<Task<string>> refused = () =>
         {
-            await Task.Yield();
             failures++;
-            throw new InvalidOperationException("connection refused");
+            return Task.FromException<string>(new InvalidOperationException("connection refused"));
         };
         var message = await FailsWith(() => Expect.Poll(refused, Options(80, 10)).ToBeAsync("done"));
         Assert.EndsWith("last: connection refused", message, StringComparison.Ordinal);

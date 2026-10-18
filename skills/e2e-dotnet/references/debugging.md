@@ -7,6 +7,7 @@
 - Watch it happen
 - Tools
 - Timings and transcripts
+- Model calls
 - Flaky tests
 - Is it the app?
 
@@ -23,7 +24,7 @@
    `ActResult.Cache` tells whether the step replayed, and why a replay
    missed.
 
-There is no trace page, `report.json`, `--debug` step table, or AI trace in
+There is no trace page, `report.json`, or `--debug` step table in
 this port. Use the test runner's own output, such as
 `dotnet test --logger "console;verbosity=detailed"` or a `trx` logger.
 To see where a slow test spends its time, set `E2E_DEBUG=1`
@@ -124,6 +125,7 @@ on a target is required: an engine that cannot record it (`DocumentEngine`,
 | `CI=1 dotnet test` | Reproduce CI-only behavior (`read-only` cache) |
 | `Browser.WaitForResponseAsync` | Check what the app's API answered |
 | `E2E_DEBUG=1 dotnet test` | Phase timings per test, and each agent step's transcript |
+| `E2E_AI_TRACE=1 dotnet test`, then `npx unbox-ai runs .e2e/ai-trace-<pid>.json` | What the model saw and called |
 
 ## Timings and transcripts
 
@@ -152,6 +154,31 @@ agent phases, so the rows do not add up to the wall time. The port has no
 Under debug, the transcript a custom executor passes to `AttachTranscript`
 is also kept, redacted, as `transcript-<n>.txt` beside the attempt's other
 results. Without debug it is dropped.
+
+## Model calls
+
+`--ai-trace` is the variable `E2E_AI_TRACE=1` (or `true`). A fixture can
+override the `AiTrace` property instead. Each test records every model round
+trip, and the test process writes them to `ai-trace-<process id>.json` next to
+the results directory (`.e2e/` by default) every few seconds and when the process exits. Each test project
+runs in its own process, so a run of several projects writes several files.
+Delete old ones: a new process does not clear them.
+
+The file has the AI SDK devtools shape, `{ runs[], steps[] }`. One run is one
+agent step, named `<test title> · <api> "<label>"`. One step is one model call
+of it (an `ActAsync` turn, an `AssertAsync` judgment, a repair round). A step
+holds the prompt as sent, the tool schemas, the response, the usage, and any
+error. Screenshots are replaced by their byte count, and secrets by their
+markers. A step that replays from the cache makes no model call, so it leaves
+nothing. Pair it with `"cache": { "mode": "off" }` to capture every call.
+
+```console
+npx unbox-ai .e2e/ai-trace-1234.json        # viewer: treemap, waterfall, diffed turns
+npx unbox-ai runs .e2e/ai-trace-1234.json   # one line per agent step
+```
+
+Do not open the raw file in an agent's context. It repeats the prompt on every
+turn and can be several megabytes. Add `.e2e/ai-trace-*.json` to `.gitignore`.
 
 ## Flaky tests
 

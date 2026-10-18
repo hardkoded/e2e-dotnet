@@ -226,6 +226,8 @@ With `video` on, an attempt on the web engine writes `video/video.webm` under `.
 
 `E2E_DEBUG=1` (or `true`) is the port's `--debug`. Each test then writes a table of its phase timings (`session.launch`, `test.body`, `session.close`, `agent.observe`, `agent.model`, `agent.action`) to stderr when it ends, and keeps the transcript of each agent step. The agent step table is not ported yet. See [COMPATIBILITY.md](COMPATIBILITY.md#debug).
 
+`E2E_AI_TRACE=1` (or `true`) is the port's `--ai-trace`. Each test then records every model call, and the test process writes them to `.e2e/ai-trace-<process id>.json` in the shape `npx unbox-ai` reads. See [COMPATIBILITY.md](COMPATIBILITY.md#ai-trace).
+
 `provider` picks who serves `model` and `judge`. Unset, it is `openai` (chat completions). `baseUrl` and `apiKeyEnv` default to the provider's own:
 
 | `provider` | Key | Notes |
