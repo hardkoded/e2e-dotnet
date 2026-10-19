@@ -260,10 +260,14 @@ public static class Explore
         {
             error = ex;
         }
+        finally
+        {
+            // Set whatever ended the body, so the release never writes a page for the verdict.
+            session.Exploration = state.Snapshot();
+        }
 
         session.Complete(error, cancellationToken);
         var record = state.Snapshot();
-        session.Exploration = record;
         return new ExploreOutcome(Runner.StatusOf(error), Runner.ExitCodeOf(error), error, record);
     }
 

@@ -54,20 +54,30 @@ internal static class TracePages
         }
 
         Dictionary<string, string> pages = new(StringComparer.Ordinal);
-        foreach (var result in report.Run.Results.Where(result => traced.Contains(result.Id) && report.Run.Explore is { } explore && IsExploreVerdict(Outcome.Of(result), explore)))
-        {
-            // A page an earlier run left for the same goal would pass as evidence of this one.
-            File.Delete(Path.Combine(options.ResultsRoot, result.Directory ?? ArtifactPaths.ResultSegment(result.Id, result.File, result.TitlePath), TracePage));
-        }
-
-        foreach (var result in TracedResults(report, traced))
+        foreach (var result in report.Run.Results.Where(result => traced.Contains(result.Id)))
         {
             var dir = result.Directory ?? ArtifactPaths.ResultSegment(result.Id, result.File, result.TitlePath);
             var file = Path.Combine(options.ResultsRoot, dir, TracePage);
+            var outcome = Outcome.Of(result);
+            if (report.Run.Explore is { } explore && IsExploreVerdict(outcome, explore))
+            {
+                // A page an earlier run left for the same goal would pass as evidence of this one.
+                try
+                {
+                    File.Delete(file);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // A page that cannot be removed is stale, not a failure of the run.
+                }
+
+                continue;
+            }
+
             var page = FailureText.RenderTracePage(
                 report,
                 result,
-                Outcome.Of(result),
+                outcome,
                 new TracePageOptions
                 {
                     ArtifactsDir = Source.ProjectRelativePath(options.ProjectRoot, options.ResultsRoot) ?? options.ResultsRoot.Replace('\\', '/'),
@@ -88,10 +98,6 @@ internal static class TracePages
     /// </summary>
     internal static bool IsExploreVerdict(Outcome final, ReportExplore explore) =>
         final.Final.Error?.Code == "ASSERTION_FAILED" && explore.Findings.Any(finding => finding.Kind == ReportExploreFindingKind.Issue);
-
-    // The results that get a page: every one an attempt kept a trace for, except an exploration's own verdict.
-    private static IEnumerable<ReportResult> TracedResults(Report1Document report, IReadOnlySet<string> traced) =>
-        report.Run.Results.Where(result => traced.Contains(result.Id) && (report.Run.Explore is not { } explore || !IsExploreVerdict(Outcome.Of(result), explore)));
 
     // Through a unique temp name, then moved, so a reader never sees half a page.
     internal static async Task WriteTextAsync(string file, string text, CancellationToken cancellationToken)
