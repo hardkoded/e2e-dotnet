@@ -24,8 +24,8 @@ internal sealed record FindingInput(
 /// One instance is shared by the planner, the explorer's finding tool, the exploration body, and the progress listeners,
 /// and its snapshot is <see cref="ExploreOutcome.Explore"/>. The state is the report boundary: every free text is bounded
 /// to the report's ceilings here, and nowhere else. A finding's text comes from the model and may echo a secret value, so the
-/// redactor runs over it here, before it reaches the outcome, the report, a progress event, or the next step's parameters. Each change is announced to the listeners <see cref="Subscribe"/> registered, as
-/// <see cref="ExploreProgress"/>.
+/// redactor runs over it here, before it reaches the outcome, the report, a progress event, or the next step's parameters. Each change is announced to
+/// the listeners <see cref="Subscribe"/> registered, as <see cref="ExploreProgress"/>.
 /// </summary>
 internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProvider? time = null, Redactor? redactor = null)
 {
