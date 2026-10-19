@@ -15,8 +15,8 @@ namespace E2E;
 /// answers instead. The first method outside the library that carries a test framework's mark names it: NUnit's <c>[SetUp]</c> is
 /// <c>beforeEach</c> and its <c>[TearDown]</c> is <c>afterEach</c>, and a test method (<c>[Test]</c>, <c>[Fact]</c>) is the body.
 /// With xUnit, which has no such marks, an <c>InitializeAsync</c> or <c>DisposeAsync</c> of a class that implements <c>IAsyncLifetime</c>, or of an <see cref="E2EFixture"/>, is the same pair. A <c>[OneTimeSetUp]</c> or a constructor names no hook. The
-/// stack shows the methods a call is still running in, so a step called after an <c>await</c> in a helper the hook called
-/// belongs to the body, as the helper is the first method found.
+/// stack shows only the methods a call is still running in, so a step called after an <c>await</c> in a helper the hook called
+/// belongs to the body, as the hook's own frame is gone by then.
 /// </summary>
 internal static class StepHooks
 {
