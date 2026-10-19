@@ -907,6 +907,8 @@ public sealed partial class WebEngine : IEngine
         private IBrowserContext? _context;
         private Exception? _pending;
         private IPage? _page;
+        private readonly object _pageLock = new();
+        private Task<IPage>? _pendingPage;
         private ViewportSize? _viewport;
 
         // The media features every page the attempt opens emulates: the configured ones, until EmulateMediaAsync changes them.
@@ -972,10 +974,7 @@ public sealed partial class WebEngine : IEngine
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                if (_page is null || _page.IsClosed)
-                {
-                    await NewPageAsync(RequireContext()).ConfigureAwait(false);
-                }
+                await EnsurePageAsync().ConfigureAwait(false);
 
                 // The budget is the navigation's: opening the first page does not spend it.
                 var budget = Budget("navigate to " + url, cancellationToken);
@@ -1108,10 +1107,7 @@ public sealed partial class WebEngine : IEngine
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                if (_page is null || _page.IsClosed)
-                {
-                    await NewPageAsync(RequireContext()).ConfigureAwait(false);
-                }
+                await EnsurePageAsync().ConfigureAwait(false);
 
                 var budget = Budget("goto " + url, cancellationToken, timeout);
                 var until = waitUntil switch
@@ -1247,9 +1243,13 @@ public sealed partial class WebEngine : IEngine
             IResponse response;
             try
             {
-                response = await Page.WaitForResponseAsync(
-                    candidate => matches(candidate.Url),
-                    new PageWaitForResponseOptions { Timeout = (float)timeout.TotalMilliseconds }).ConfigureAwait(false);
+                // Before the first page exists, the wait listens on the context, which needs no page and
+                // starts listening in this call, so a navigation started right after it cannot get ahead.
+                response = await (_page is { IsClosed: false }
+                    ? Page.WaitForResponseAsync(
+                        candidate => matches(candidate.Url),
+                        new PageWaitForResponseOptions { Timeout = (float)timeout.TotalMilliseconds })
+                    : WaitForContextResponseAsync(matches, timeout, cancellationToken)).ConfigureAwait(false);
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
@@ -1268,6 +1268,38 @@ public sealed partial class WebEngine : IEngine
                 Body = ReadBodyAsync(response),
             };
         });
+
+        /// <summary>Waits for a response on any page of the context. It listens from the call on, so no page has to exist yet.</summary>
+        private Task<IResponse> WaitForContextResponseAsync(Func<string, bool> matches, TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            var context = RequireContext();
+            var found = new TaskCompletionSource<IResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+            EventHandler<IResponse> listener = (_, candidate) =>
+            {
+                if (matches(candidate.Url))
+                {
+                    found.TrySetResult(candidate);
+                }
+            };
+            context.Response += listener;
+            return Wait();
+
+            async Task<IResponse> Wait()
+            {
+                try
+                {
+                    return await found.Task.WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    throw new TimeoutException($"Timeout {timeout.TotalMilliseconds}ms exceeded while waiting for event \"Response\"");
+                }
+                finally
+                {
+                    context.Response -= listener;
+                }
+            }
+        }
 
         public Task RouteAsync(Func<string, bool> matches, Func<IBrowserRoute, Task> handler, CancellationToken cancellationToken) => RunAsync("route", cancellationToken, async () =>
         {
@@ -1800,7 +1832,21 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
-        private async Task NewPageAsync(IBrowserContext context)
+        /// <summary>Opens the active page once; concurrent callers share it.</summary>
+        private Task<IPage> EnsurePageAsync()
+        {
+            lock (_pageLock)
+            {
+                if (_page is { IsClosed: false } open)
+                {
+                    return Task.FromResult(open);
+                }
+
+                return _pendingPage is { IsCompleted: false } pending ? pending : _pendingPage = NewPageAsync(RequireContext());
+            }
+        }
+
+        private async Task<IPage> NewPageAsync(IBrowserContext context)
         {
             var page = await NextPageAsync(context).ConfigureAwait(false);
             page.SetDefaultTimeout(ActionMs);
@@ -1835,6 +1881,7 @@ public sealed partial class WebEngine : IEngine
             }
 
             _page = page;
+            return page;
         }
 
         /// <summary>
