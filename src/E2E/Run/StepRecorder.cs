@@ -12,7 +12,7 @@ namespace E2E;
 /// Upstream's <c>StepRecorder</c> (<c>run/steps.ts</c>): the attempt-scoped step timeline. Every public API call that touches the app
 /// runs as one recorded step, whose record keeps what it was, where the test called it from, how long it took, and how it ended.
 /// Work a step starts is attributed to it through an <see cref="AsyncLocal{T}"/>, so overlapping steps and nested ones keep their
-/// own events and artifacts. Not ported yet: the app log, and the turns of an agent step.
+/// own events and artifacts. Not ported yet: the turns of an agent step.
 /// </summary>
 internal sealed class StepRecorder
 {
@@ -49,6 +49,16 @@ internal sealed class StepRecorder
     // Highest timeline index among passed verification steps, or -1 when none has.
     private int _lastVerified = -1;
 
+    // What the app logged this attempt, within AppLogLimits.
+    private readonly List<AppLogRecord> _logged = [];
+
+    // App log entries of each kind AppLogLimits counts, kept so far: errors and warnings, then info.
+    private int _loggedErrorsAndWarnings;
+    private int _loggedInfo;
+
+    // Where the app went before the attempt's first step, told under it once it starts.
+    private readonly List<(string Line, DateTimeOffset At)> _earlyNavigations = [];
+
     // The last screen each running step saw, read only when the step ends.
     private readonly Dictionary<string, Func<ScreenText?>> _seenScreens = [];
 
@@ -68,7 +78,10 @@ internal sealed class StepRecorder
         _aiTrace = options.AiTrace;
     }
 
-    /// <summary>The hook steps run in from now on; null while the test body runs.</summary>
+    /// <summary>
+    /// The hook steps run in from now on; null while the test body runs. A step recorded while this is null runs in the hook its
+    /// call stack names, when a test framework's setup or teardown method called it (see <see cref="StepHooks"/>).
+    /// </summary>
     public StepPhase? Phase { get; set; }
 
     /// <summary>The step currently executing, when inside <see cref="RunAsync{T}"/>.</summary>
@@ -111,7 +124,9 @@ internal sealed class StepRecorder
         var startedAt = DateTimeOffset.UtcNow;
 
         // Every step pays the capture, since the failing one is not known until it fails, and a report that names the line is worth it.
-        var source = _projectRoot is null ? null : Source.Locate(new StackTrace(1, fNeedFileInfo: true), _projectRoot);
+        var stack = new StackTrace(1, fNeedFileInfo: true);
+        var source = _projectRoot is null ? null : Source.Locate(stack, _projectRoot);
+        var phase = Phase ?? StepHooks.PhaseOf(stack);
         StepRecord record;
         lock (_gate)
         {
@@ -126,12 +141,13 @@ internal sealed class StepRecorder
                 Source = source,
                 StartedAt = startedAt,
                 Agent = options.Agent,
-                Phase = Phase,
+                Phase = phase,
             };
             _steps.Add(record);
             _running.Add(record.Id);
         }
 
+        FileEarlyNavigations(record);
         Publish(record, new StepProgress { Phase = StepProgressPhase.Start, Api = api, Kind = kind, Label = label });
         var task = ExecuteAsync(record, body, options);
         lock (_gate)
@@ -321,6 +337,91 @@ internal sealed class StepRecorder
             Push(current, stepEvent);
         }
     }
+
+    /// <summary>
+    /// Keeps one thing the app did on its own, with the step running in this async context, else the step that started last: an
+    /// engine reports from its own event callbacks, outside any step's context, so a request that fails after a tap resolved lands
+    /// with the tap. A log line goes to the attempt's app log (<see cref="AppLog"/>), within <see cref="AppLogLimits"/>; where the
+    /// app went is an event of the step, and one before the first step waits for it.
+    /// </summary>
+    public void RecordAppEvent(AppEvent appEvent, DateTimeOffset? at = null)
+    {
+        ArgumentNullException.ThrowIfNull(appEvent);
+        var when = at ?? DateTimeOffset.UtcNow;
+        StepRecord? target;
+        lock (_gate)
+        {
+            target = CurrentLocked() ?? _steps.LastOrDefault();
+            if (appEvent is AppEvent.Navigation waiting && target is null)
+            {
+                // A step takes no more events than this, so no more wait for one.
+                if (_earlyNavigations.Count < _maxEventsPerStep)
+                {
+                    _earlyNavigations.Add((waiting.Line, when));
+                }
+
+                return;
+            }
+        }
+
+        switch (appEvent)
+        {
+            case AppEvent.Navigation went:
+                FileNavigation(target!, went.Line, when);
+                break;
+            case AppEvent.Log { Entry: var entry }:
+                // Redacted before it is cut, so no cut leaves the head of a secret behind.
+                var text = TextRules.Bound(RedactText(TextRules.Normalize(entry.Text)), MaxEventDetailChars);
+                var info = entry.Level == AppLogLevel.Info;
+                lock (_gate)
+                {
+                    if ((info ? _loggedInfo : _loggedErrorsAndWarnings) >= (info ? AppLogLimits.Info : AppLogLimits.ErrorsAndWarnings))
+                    {
+                        return;
+                    }
+
+                    if (info)
+                    {
+                        _loggedInfo++;
+                    }
+                    else
+                    {
+                        _loggedErrorsAndWarnings++;
+                    }
+
+                    _logged.Add(new AppLogRecord(entry.Source, entry.Level, text, when, target?.Index));
+                }
+
+                break;
+        }
+    }
+
+    /// <summary>What the app logged this attempt, oldest first.</summary>
+    public IReadOnlyList<AppLogRecord> AppLog()
+    {
+        lock (_gate)
+        {
+            return [.. _logged];
+        }
+    }
+
+    private void FileEarlyNavigations(StepRecord record)
+    {
+        List<(string Line, DateTimeOffset At)> waiting;
+        lock (_gate)
+        {
+            waiting = [.. _earlyNavigations];
+            _earlyNavigations.Clear();
+        }
+
+        foreach (var (line, at) in waiting)
+        {
+            FileNavigation(record, line, at);
+        }
+    }
+
+    private void FileNavigation(StepRecord target, string line, DateTimeOffset at) =>
+        Push(target, new StepEvent { Kind = StepEventKind.Navigation, StartedAt = at, Status = StepEventStatus.Passed, Detail = TextRules.Normalize(line) });
 
     /// <summary>
     /// Tells reporters the trace cache has the running step (<c>true</c>), or has handed it to the model (<c>false</c>). Nothing is

@@ -60,6 +60,16 @@ public sealed class E2ESession : IAsyncDisposable
     /// <summary>The attempt's step timeline, with the screen each step left when the attempt keeps a trace.</summary>
     internal IReadOnlyList<StepRecord> Steps => _scope.Steps.All();
 
+    /// <summary>The hook steps run in from now on; null for the test body (upstream's <c>enter</c>). A test framework's hook methods name theirs themselves.</summary>
+    internal StepPhase? Phase
+    {
+        get => _scope.Steps.Phase;
+        set => _scope.Steps.Phase = value;
+    }
+
+    /// <summary>What the app logged this attempt, each line under the step it happened in.</summary>
+    internal IReadOnlyList<AppLogRecord> AppLog => _scope.Steps.AppLog();
+
     /// <summary>What the engine said the attempt runs on, redacted and bounded; null when it said nothing.</summary>
     internal IReadOnlyDictionary<string, string>? Environment => _scope.Environment.Read(_scope.Redactor.Redact);
 
@@ -131,6 +141,7 @@ public sealed class E2ESession : IAsyncDisposable
         // An attempt that keeps a trace takes the screen each action leaves; one that does not asks the engine for none.
         var screens = new SessionScreens(RecordingModes.AttemptKeep(options.Trace.Mode, options.Attempt - 1) is not null);
         var environment = new EnvironmentFacts();
+        var appLog = new AppLogRoute();
 
         // The values the engine registers while it starts, before the attempt's scope exists to take them.
         var ledger = new List<(string Name, string Value)>();
@@ -151,6 +162,8 @@ public sealed class E2ESession : IAsyncDisposable
                     ArtifactsDir = attemptDir,
                     Screen = screens.Traced ? screens.Push : null,
                     Environment = environment.Push,
+                    AppLog = appLog.Push,
+                    Navigation = appLog.Navigated,
                     ResolveSecret = (secret, resolve) =>
                     {
                         var plaintext = Secrecy.ResolveSecretValue(secret, ledger);
@@ -227,6 +240,9 @@ public sealed class E2ESession : IAsyncDisposable
 
             // A screen is read once, when its step ends, redacted with what the attempt knows by then.
             screens.Route(screen => scope.Steps.RecordScreen(() => StepScreens.TraceScreen(screen, new TraceScreenOptions(scope.Redactor, StepScreens.DefaultObservationBytes, scope.AppOrigin))));
+
+            // What the app did on its own while the engine launched waits here, and goes under the step it happened in.
+            appLog.Route((appEvent, at) => scope.Steps.RecordAppEvent(appEvent, at));
 
             var app = new App(engine, baseUrl, () => timeout.Token, scope.Steps);
             var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures) { Steps = scope.Steps };

@@ -10,7 +10,7 @@ namespace E2E.Tests.AttemptSession;
 
 /// <summary>
 /// A Playwright interface answered by the members a test sets, by name; any other
-/// member throws. It stands in for the remote browser, as upstream mocks <c>connectCdp</c>.
+/// member throws, but for a subscription to an event (the app log listens to several), which nobody hears. It stands in for the remote browser, as upstream mocks <c>connectCdp</c>.
 /// </summary>
 public class Fake<T> : DispatchProxy
     where T : class
@@ -26,8 +26,13 @@ public class Fake<T> : DispatchProxy
     protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
     {
         ArgumentNullException.ThrowIfNull(targetMethod);
-        return Members.TryGetValue(targetMethod.Name, out var member)
-            ? member(args ?? [])
+        if (Members.TryGetValue(targetMethod.Name, out var member))
+        {
+            return member(args ?? []);
+        }
+
+        return targetMethod.Name.StartsWith("add_", StringComparison.Ordinal) || targetMethod.Name.StartsWith("remove_", StringComparison.Ordinal)
+            ? null
             : throw new NotSupportedException(typeof(T).Name + "." + targetMethod.Name);
     }
 }

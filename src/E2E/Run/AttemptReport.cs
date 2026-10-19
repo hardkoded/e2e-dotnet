@@ -63,6 +63,7 @@ internal static class AttemptReport
                 .. failed && evidence?.Screenshot is { } shot ? new[] { new ReportArtifact(shot, "screenshot", directory + "/" + attemptSegment + "/" + FailureEvidence.ScreenshotFile) } : [],
             ],
             Environment = scope.Environment.Read(scope.Redactor.Redact),
+            AppLog = scope.Steps.AppLog(),
         };
         var result = new ReportResult
         {

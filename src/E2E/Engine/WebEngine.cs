@@ -969,7 +969,7 @@ public sealed partial class WebEngine : IEngine
 
         public string Route => Routes.LocationOf(Page.Url);
 
-        public Task OpenAsync(string url, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("navigation", cancellationToken, async () =>
+        public Task OpenAsync(string url, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("navigation", cancellationToken, () => NavigatingAsync(async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
@@ -993,8 +993,7 @@ public sealed partial class WebEngine : IEngine
                 throw WebErrors.Translate(ex, "navigate to " + url);
             }
 
-            _trace?.TellEnvironment();
-        }));
+        })));
 
         public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => RunAsync("observe", cancellationToken, async () =>
         {
@@ -1074,7 +1073,7 @@ public sealed partial class WebEngine : IEngine
         public Task KeyboardPressAsync(string key, CancellationToken cancellationToken) => RunAsync("keyboard.press", cancellationToken, () =>
             InputAsync(() => Page.Keyboard.PressAsync(key), "press " + key, cancellationToken));
 
-        public Task BackAsync(CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("back", cancellationToken, async () =>
+        public Task BackAsync(CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("back", cancellationToken, () => NavigatingAsync(async () =>
         {
             var budget = Budget("back", cancellationToken);
             try
@@ -1086,10 +1085,9 @@ public sealed partial class WebEngine : IEngine
                 throw WebErrors.Translate(ex, "back");
             }
 
-            _trace?.TellEnvironment();
-        }));
+        })));
 
-        public Task ForwardAsync(CancellationToken cancellationToken) => RunAsync("forward", cancellationToken, async () =>
+        public Task ForwardAsync(CancellationToken cancellationToken) => RunAsync("forward", cancellationToken, () => NavigatingAsync(async () =>
         {
             var budget = Budget("forward", cancellationToken);
             try
@@ -1100,9 +1098,9 @@ public sealed partial class WebEngine : IEngine
             {
                 throw WebErrors.Translate(ex, "forward");
             }
-        });
+        }));
 
-        public Task GotoAsync(string url, GotoWaitUntil waitUntil, TimeSpan timeout, CancellationToken cancellationToken) => RunAsync("goto", cancellationToken, async () =>
+        public Task GotoAsync(string url, GotoWaitUntil waitUntil, TimeSpan timeout, CancellationToken cancellationToken) => RunAsync("goto", cancellationToken, () => NavigatingAsync(async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
@@ -1126,9 +1124,9 @@ public sealed partial class WebEngine : IEngine
             {
                 throw WebErrors.Translate(ex, "goto " + url);
             }
-        });
+        }));
 
-        public Task ReloadAsync(CancellationToken cancellationToken) => RunAsync("reload", cancellationToken, async () =>
+        public Task ReloadAsync(CancellationToken cancellationToken) => RunAsync("reload", cancellationToken, () => NavigatingAsync(async () =>
         {
             var budget = Budget("reload", cancellationToken);
             try
@@ -1139,7 +1137,7 @@ public sealed partial class WebEngine : IEngine
             {
                 throw WebErrors.Translate(ex, "reload");
             }
-        });
+        }));
 
         public Task RestartAsync(CancellationToken cancellationToken) => RunAsync("restart", cancellationToken, async () =>
         {
@@ -1919,6 +1917,10 @@ public sealed partial class WebEngine : IEngine
             }
 
             await _setUpContext(context).ConfigureAwait(false);
+            AppLog.Install(
+                context,
+                entry => _appLog?.Invoke(entry),
+                new NavigationLog(line => _navigation?.Invoke(line), _ => Volatile.Read(ref _ownNavigations) > 0, OpenPage));
             foreach (var (matches, playwrightHandler, _) in _routes)
             {
                 await context.RouteAsync(matches, playwrightHandler).ConfigureAwait(false);

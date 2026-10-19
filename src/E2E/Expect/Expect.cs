@@ -401,10 +401,11 @@ public sealed class LocatorExpect
         var clock = _locator.Screen.Clock;
         Verdict last = default;
         IReadOnlyList<SemanticNode> lastMatches = [];
+        var samples = new SampleHistory("expect", _locator.Screen.Redact);
         try
         {
             var deadline = new Deadline(timeout ?? _locator.Screen.AssertionTimeout, clock);
-            await Time.PollConditionAsync(new PollConditionOptions
+            await samples.RecordAsync(_locator.Screen.Steps, token, () => Time.PollConditionAsync(new PollConditionOptions
             {
                 Deadline = deadline,
                 Clock = clock,
@@ -416,10 +417,11 @@ public sealed class LocatorExpect
                     var matches = await _locator.ResolveAsync(token, includeHidden, deadline).ConfigureAwait(false);
                     last = evaluate(matches);
                     lastMatches = matches;
+                    samples.Add(last.Observed + " (" + Number(matches.Count) + (matches.Count == 1 ? " match)" : " matches)"));
                     return last.Holds;
                 },
                 OnTimeout = cause => Failure(matcher, describeExpected, last, lastMatches, cause),
-            }).ConfigureAwait(false);
+            })).ConfigureAwait(false);
             _locator.Screen.NotifyVerified();
         }
         catch (TestException)

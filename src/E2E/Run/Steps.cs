@@ -163,7 +163,7 @@ internal sealed record StepModelInfo
 internal sealed record StepTurn(int Index, IReadOnlyList<string> Calls, string Outcome);
 
 /// <summary>Where a line the app logged came from (upstream's <c>AppLogSource</c>).</summary>
-internal enum AppLogSource
+public enum AppLogSource
 {
     Console,
     Error,
@@ -172,7 +172,7 @@ internal enum AppLogSource
 }
 
 /// <summary>How bad a line the app logged was.</summary>
-internal enum AppLogLevel
+public enum AppLogLevel
 {
     Info,
     Warning,
@@ -246,7 +246,8 @@ internal sealed class StepRecord
     /// <summary>The model turns of an agent step, most recent last, bounded.</summary>
     public IReadOnlyList<StepTurn>? Turns { get; set; }
 
-    public List<StepEvent> Events { get; } = [];
+    /// <summary>The step's child events. An engine reports from its own threads, even after the step ended, while reports read the list.</summary>
+    public StepEvents Events { get; } = new();
 
     /// <summary>The configured agent an agent step ran with, by name.</summary>
     public string? Agent { get; init; }
@@ -360,4 +361,35 @@ internal sealed record StepRecorderOptions
 
     /// <summary>The attempt's AI trace attribution; each step narrows it to its own api and label. Null when the attempt is not traced.</summary>
     public AiTraceScope? AiTrace { get; init; }
+}
+
+/// <summary>A step's events, safe to append to while another thread reads: a read sees the events as of that moment.</summary>
+internal sealed class StepEvents : IReadOnlyList<StepEvent>
+{
+    private readonly Lock _gate = new();
+    private StepEvent[] _items = [];
+
+    public int Count => Volatile.Read(ref _items).Length;
+
+    public StepEvent this[int index] => Volatile.Read(ref _items)[index];
+
+    public void Add(StepEvent item)
+    {
+        lock (_gate)
+        {
+            _items = [.. _items, item];
+        }
+    }
+
+    public void AddRange(IEnumerable<StepEvent> items)
+    {
+        lock (_gate)
+        {
+            _items = [.. _items, .. items];
+        }
+    }
+
+    public IEnumerator<StepEvent> GetEnumerator() => ((IEnumerable<StepEvent>)Volatile.Read(ref _items)).GetEnumerator();
+
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 }

@@ -74,8 +74,6 @@ internal sealed class StepCacheOptions
 internal sealed class StepTraceSession
 {
     // Quotes a label in a detail as JSON.stringify does: text stays readable, not escaped to \u codes.
-    private static readonly JsonSerializerOptions JsonQuote = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
-
     private readonly IStepCacheHost _host;
     private readonly StepCacheOptions _options;
     private readonly TraceRecorder _recorder;
@@ -521,19 +519,11 @@ internal sealed class StepTraceSession
     private static string DescribeAnchor(RecordedTarget anchor)
     {
         return anchor.Text is not null && anchor.Name is not null && anchor.Text != anchor.Name
-            ? TargetLabel(anchor) + " text=" + Quote(TextRules.Bound(anchor.Text, 40))
-            : TargetLabel(anchor);
+            ? RecordedTarget.TargetLabel(anchor) + " text=" + Quote(TextRules.Bound(anchor.Text, 40))
+            : RecordedTarget.TargetLabel(anchor);
     }
 
-    // A node as every report line that names one reads it: its role, then its label in quotes.
-    private static string TargetLabel(RecordedTarget target)
-    {
-        var label = target.Name ?? target.Text ?? target.Placeholder ?? target.TestId ?? "";
-        var role = target.Role ?? "node";
-        return label.Length == 0 ? role : role + " " + Quote(TextRules.Bound(label, 40));
-    }
-
-    private static string Quote(string text) => JsonSerializer.Serialize(text, JsonQuote);
+    private static string Quote(string text) => LocatorExpect.Quote(text);
 
     // The anchors a mismatch names, two of each kind at most: those the replay did not bring up, those it did not
     // clear, and alerts it raised that the recording never saw. Kinds are joined with commas, never semicolons: a
