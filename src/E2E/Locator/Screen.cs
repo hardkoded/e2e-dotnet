@@ -444,7 +444,8 @@ public sealed class Locator
     {
         var state = options?.State ?? WaitForState.Visible;
         var token = _screen.Token(cancellationToken);
-        var deadline = DateTime.UtcNow + TimeoutOf(options?.Timeout);
+        var started = DateTime.UtcNow;
+        var deadline = started + TimeoutOf(options?.Timeout);
         while (true)
         {
             token.ThrowIfCancellationRequested();
@@ -473,7 +474,8 @@ public sealed class Locator
                     "TIMEOUT",
                     Query.Describe() + ".waitFor(" + StateName(state) + ") timed out: matched " + matches.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " nodes.",
                     null,
-                    _screen.Redact);
+                    _screen.Redact,
+                    LocatorResolver.LocatorDetails(Query, DateTime.UtcNow - started));
             }
 
             await Task.Delay(_screen.PollInterval, token).ConfigureAwait(false);
@@ -518,7 +520,8 @@ public sealed class Locator
     private async Task PerformAsync(LocatorAction action, ActionOptions? options, CancellationToken cancellationToken)
     {
         var token = _screen.Token(cancellationToken);
-        var deadline = DateTime.UtcNow + TimeoutOf(options?.Timeout);
+        var started = DateTime.UtcNow;
+        var deadline = started + TimeoutOf(options?.Timeout);
         while (true)
         {
             var node = await ResolveSingleAsync(token).ConfigureAwait(false);
@@ -531,7 +534,7 @@ public sealed class Locator
             if (DateTime.UtcNow >= deadline)
             {
                 throw node is null
-                    ? NotFound()
+                    ? NotFound(DateTime.UtcNow - started)
                     : new TestException("NOT_ACTIONABLE", Query.Describe() + (node.States.Hidden ? " is hidden." : " is disabled."));
             }
 
@@ -560,7 +563,8 @@ public sealed class Locator
     private async Task<SemanticNode> ResolveStrictAsync(CancellationToken cancellationToken)
     {
         var token = _screen.Token(cancellationToken);
-        var deadline = DateTime.UtcNow + _screen.ActionTimeout;
+        var started = DateTime.UtcNow;
+        var deadline = started + _screen.ActionTimeout;
         while (true)
         {
             var node = await ResolveSingleAsync(token).ConfigureAwait(false);
@@ -571,7 +575,7 @@ public sealed class Locator
 
             if (DateTime.UtcNow >= deadline)
             {
-                throw NotFound();
+                throw NotFound(DateTime.UtcNow - started);
             }
 
             await Task.Delay(_screen.PollInterval, token).ConfigureAwait(false);
@@ -609,9 +613,10 @@ public sealed class Locator
         _ => "visible",
     };
 
-    private TestException Ambiguous(int count) => new("STRICT_MODE", Query.Describe() + " matched " + count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " nodes.");
+    private TestException Ambiguous(int count) =>
+        new("STRICT_MODE", Query.Describe() + " matched " + count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " nodes.") { Details = LocatorResolver.LocatorDetails(Query) with { Matches = count } };
 
-    private TestException NotFound() => new("NOT_FOUND", Query.Describe() + " matched 0 nodes.");
+    private TestException NotFound(TimeSpan waited) => new("NOT_FOUND", Query.Describe() + " matched 0 nodes.") { Details = LocatorResolver.LocatorDetails(Query, waited) };
 }
 
 /// <summary>Options for one locator action.</summary>
@@ -731,6 +736,29 @@ internal sealed record LocatorQuery
         return new LocatorQuery { Kind = kind, Value = value, Exact = options.Exact, Visible = options.Visible };
     }
 
+    /// <summary>
+    /// What the locator asked for, as an error reports it (upstream's <c>expressionHints</c>): the role and name of a role query, a
+    /// test id given as a string, or the text another query kind looks for. A filter or an index answers for the query under it. A
+    /// selector has no hint to give.
+    /// </summary>
+    public ErrorDetails ExpressionHints()
+    {
+        static string? PatternText(TextMatch? match) => match is null ? null : match.Pattern is null ? match.Text : match.Pattern.ToString();
+        switch (Kind)
+        {
+            case "filter" or "index":
+                return Source!.ExpressionHints();
+            case "role":
+                return new ErrorDetails { Role = Role, Name = PatternText(Value) };
+            case "testid":
+                return new ErrorDetails { TestId = Value?.Pattern is null ? Value?.Text : null };
+            case "selector":
+                return new ErrorDetails();
+            default:
+                return new ErrorDetails { Name = PatternText(Value) };
+        }
+    }
+
     public string Describe()
     {
         switch (Kind)
@@ -793,6 +821,13 @@ internal sealed record LocatorQuery
 /// </summary>
 internal static class LocatorResolver
 {
+    /// <summary>
+    /// The facts of a locator failure an error keeps beside the message (upstream's <c>locatorDetails</c>): the locator as written,
+    /// what it asked for, and how long it waited, when it waited.
+    /// </summary>
+    public static ErrorDetails LocatorDetails(LocatorQuery query, TimeSpan? waited = null) =>
+        query.ExpressionHints() with { Locator = query.Describe(), WaitedMs = waited is { } elapsed ? (long)elapsed.TotalMilliseconds : null };
+
     /// <summary>
     /// Returns the nodes <paramref name="query"/> names. <paramref name="includeHidden"/>
     /// asks for every attached node, so role queries match hidden nodes too.

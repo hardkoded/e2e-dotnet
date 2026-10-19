@@ -84,7 +84,7 @@ public sealed class RenderTracePageTests
                             ]),
                     ],
                     [screen, shot],
-                    new FailureEvidence { Url = "http://app.test/todos", Viewport = new StepViewport(1280, 720, 1), Nodes = 2, Screen = "a:0", Screenshot = "a:1" }),
+                    new E2E.FailureEvidence { Url = "http://app.test/todos", Viewport = new StepViewport(1280, 720, 1), Nodes = 2, Screen = "a:0", Screenshot = "a:1" }),
             ],
             reportPath => reportPath == "t/screen-at-failure.txt" ? "#n1 document \"Todos\"\n #n19 button \"Add\"\n" : null);
 
@@ -147,10 +147,10 @@ public sealed class RenderTracePageTests
     {
         var screen = new ReportArtifact("a:0", "log", "t/screen-at-failure.txt");
 
-        var unread = Page([Failed(artifacts: [screen], failure: new FailureEvidence { Screen = "a:0", Candidates = ["#n2 button \"Add\""] })]);
+        var unread = Page([Failed(artifacts: [screen], failure: new E2E.FailureEvidence { Screen = "a:0", Candidates = ["#n2 button \"Add\""] })]);
         Assert.Contains("Closest to what the locator asked for:  \n- `#n2 button \"Add\"`\nscreen `.e2e/artifacts/t/screen-at-failure.txt`  ", unread, StringComparison.Ordinal);
 
-        var huge = Page([Failed(artifacts: [screen], failure: new FailureEvidence { Screen = "a:0" })], _ => new string('x', 30_000));
+        var huge = Page([Failed(artifacts: [screen], failure: new E2E.FailureEvidence { Screen = "a:0" })], _ => new string('x', 30_000));
         Assert.Contains("…[cut at 24000 characters; the file has the rest]", huge, StringComparison.Ordinal);
     }
 

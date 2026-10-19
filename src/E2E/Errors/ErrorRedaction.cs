@@ -42,13 +42,26 @@ internal static class ErrorRedaction
     /// <summary>
     /// A failure with its message and the messages of its causes redacted. A cause that carries no secret stays the
     /// exception that was thrown; one that does is rebuilt with the redacted text, and keeps its type and code when
-    /// it is an engine, agent, or configuration exception.
+    /// it is an engine, agent, or configuration exception. The <paramref name="details"/> text is redacted too.
     /// </summary>
-    public static TestException Failure(string code, string message, Exception? cause, Func<string, string> redact)
+    public static TestException Failure(string code, string message, Exception? cause, Func<string, string> redact, ErrorDetails? details = null)
     {
         var inner = Cause(cause, redact);
-        return inner is null ? new TestException(code, redact(message)) : new TestException(code, redact(message), inner);
+        var redacted = details is null ? null : Redact(details, redact);
+        return inner is null
+            ? new TestException(code, redact(message)) { Details = redacted }
+            : new TestException(code, redact(message), inner) { Details = redacted };
     }
+
+    private static ErrorDetails Redact(ErrorDetails details, Func<string, string> redact) => details with
+    {
+        Locator = details.Locator is null ? null : redact(details.Locator),
+        Expected = details.Expected is null ? null : redact(details.Expected),
+        Observed = details.Observed is null ? null : redact(details.Observed),
+        Role = details.Role is null ? null : redact(details.Role),
+        Name = details.Name is null ? null : redact(details.Name),
+        TestId = details.TestId is null ? null : redact(details.TestId),
+    };
 
     internal static Exception? Cause(Exception? cause, Func<string, string> redact)
     {
@@ -66,17 +79,19 @@ internal static class ErrorRedaction
 
         return cause switch
         {
-            EngineException engine => new EngineException(engine.Code, message, engine.Retryable, inner),
-            AgentException agent when inner is null => new AgentException(agent.Code, message, agent.Blocked) { Screenshot = agent.Screenshot },
-            AgentException agent => new AgentException(agent.Code, message, agent.Blocked, inner) { Screenshot = agent.Screenshot },
-            ConfigurationException config when inner is null => new ConfigurationException(config.Code, message),
-            ConfigurationException config => new ConfigurationException(config.Code, message, inner),
-            E2EException e2e when inner is null => new TestException(e2e.Code, message),
-            E2EException e2e => new TestException(e2e.Code, message, inner),
+            EngineException engine => new EngineException(engine.Code, message, engine.Retryable, inner) { Details = Detail(engine, redact) },
+            AgentException agent when inner is null => new AgentException(agent.Code, message, agent.Blocked) { Screenshot = agent.Screenshot, Details = Detail(agent, redact) },
+            AgentException agent => new AgentException(agent.Code, message, agent.Blocked, inner) { Screenshot = agent.Screenshot, Details = Detail(agent, redact) },
+            ConfigurationException config when inner is null => new ConfigurationException(config.Code, message) { Details = Detail(config, redact) },
+            ConfigurationException config => new ConfigurationException(config.Code, message, inner) { Details = Detail(config, redact) },
+            E2EException e2e when inner is null => new TestException(e2e.Code, message) { Details = Detail(e2e, redact) },
+            E2EException e2e => new TestException(e2e.Code, message, inner) { Details = Detail(e2e, redact) },
             _ when inner is null => new TestException("ERROR", message),
             _ => new TestException("ERROR", message, inner),
         };
     }
+
+    private static ErrorDetails? Detail(E2EException error, Func<string, string> redact) => error.Details is { } details ? Redact(details, redact) : null;
 
     private sealed class Installed(Func<string, string> redact) : IDisposable
     {

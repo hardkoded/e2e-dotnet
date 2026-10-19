@@ -58,21 +58,25 @@ public sealed class AssertEvidenceUnderACustomExecutorTests
     }
 
     /// <summary>
-    /// Partial: the port has no runner, so it keeps no capture of its own beside the evidence. The path the test body is handed
-    /// is relative to the project root, and names the file.
+    /// The path the test body is handed is relative to the project root, and names the file. The step's report is the
+    /// session's evidence and the page.
     /// </summary>
     [Fact]
-    public async Task Partial_Hands_the_failed_verdict_the_path_of_its_screenshot_and_the_runner_keeps_its_own_failure_capture_beside_it()
+    public async Task Hands_the_failed_verdict_the_path_of_its_screenshot_and_the_runner_keeps_its_own_failure_capture_beside_it()
     {
         var root = TempRoot();
-        await using var session = await StartAsync(root, ExecutorKit.WorldWithAPassword(_ => { }));
-        await session.App.OpenAsync("/");
-        var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.AssertAsync("the checkout page is visible"));
+        var (session, error) = await FailAsync(root, "the checkout page is visible");
 
         Assert.Equal("ASSERTION_FAILED", error.Code);
         Assert.Matches(@"^\.e2e/results/.+/screenshots/\d+-assert\.png$", error.Screenshot);
         Assert.Equal(ScreenshotEngine.Png(), await File.ReadAllBytesAsync(Path.Combine(root, error.Screenshot!)));
         Assert.Single(Screenshots(root));
+
+        // What the runner saw when the failure landed is a capture of its own, not the step's evidence.
+        var evidence = session.Evidence!;
+        Assert.NotNull(evidence.Screen);
+        Assert.Equal(E2E.FailureEvidence.ScreenshotArtifactId, evidence.Screenshot);
+        Assert.True(File.Exists(Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(Path.Combine(root, error.Screenshot!)))!, "screenshots", "failure.png")));
     }
 
     /// <summary>
@@ -96,24 +100,52 @@ public sealed class AssertEvidenceUnderACustomExecutorTests
 
     /// <summary>
     /// Partial: the port records no policy event, so the denial shows as the missing screenshot: no path on either verdict, and
-    /// no file kept.
+    /// no file kept. Upstream keeps the failure capture's screenshot after a secret fill; the port keeps its screen text and no pixels.
     /// </summary>
     [Fact]
     public async Task Partial_Denies_the_screenshot_as_PIXEL_TAINTED_after_a_secret_fill_on_both_verdicts_and_the_failure_capture_keeps_no_pixels_either()
     {
         var root = TempRoot();
-        await using var session = await StartAsync(root, ExecutorKit.WorldWithAPassword(_ => { }));
-        await session.App.OpenAsync("/");
-        await session.Agent.ActAsync(
-            "sign in with the given credentials",
-            new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("admin.password", "admin-pass", "password") } });
+        var session = await StartAsync(root, ExecutorKit.WorldWithAPassword(_ => { }));
+        AgentException error;
+        try
+        {
+            await session.App.OpenAsync("/");
+            await session.Agent.ActAsync(
+                "sign in with the given credentials",
+                new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("admin.password", "admin-pass", "password") } });
 
-        await session.Agent.AssertAsync("the counter shows zero");
-        var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.AssertAsync("the checkout page is visible"));
+            await session.Agent.AssertAsync("the counter shows zero");
+            error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.AssertAsync("the checkout page is visible"));
+            session.Complete(error);
+        }
+        finally
+        {
+            await session.DisposeAsync();
+        }
 
         Assert.Equal("ASSERTION_FAILED", error.Code);
         Assert.Null(error.Screenshot);
         Assert.Empty(Screenshots(root));
+        Assert.NotNull(session.Evidence?.Screen);
+        Assert.Null(session.Evidence?.Screenshot);
+        Assert.Empty(Directory.GetFiles(Path.Combine(root, ".e2e"), "failure.png", SearchOption.AllDirectories));
+    }
+
+    private async Task<(E2ESession Session, AgentException Error)> FailAsync(string root, string statement)
+    {
+        var session = await StartAsync(root, ExecutorKit.WorldWithAPassword(_ => { }));
+        try
+        {
+            await session.App.OpenAsync("/");
+            var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.AssertAsync(statement));
+            session.Complete(error);
+            return (session, error);
+        }
+        finally
+        {
+            await session.DisposeAsync();
+        }
     }
 
     private static string TempRoot()

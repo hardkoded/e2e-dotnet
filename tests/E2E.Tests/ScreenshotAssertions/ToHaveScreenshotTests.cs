@@ -58,6 +58,7 @@ public sealed class ToHaveScreenshotTests
         Assert.Equal("ASSERTION_FAILED", third?.Code);
         Assert.Contains(ButtonPixels + " pixels", third!.Message, StringComparison.Ordinal);
         Assert.Contains("differ from tests/home.e2e.ts-snapshots/home" + Suffix + ".png", third.Message, StringComparison.Ordinal);
+        Assert.Equal("tests/home.e2e.ts-snapshots/home" + Suffix + ".png", third.Details?.Expected);
         var results = project.ResultsOf("home");
         foreach (var label in new[] { "diff", "actual", "expected" })
         {
