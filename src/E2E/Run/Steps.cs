@@ -127,6 +127,72 @@ internal sealed record StepMetrics
     public int LedgerBytes { get; init; }
 }
 
+/// <summary>
+/// Model usage for one model-backed step (upstream's <c>StepModelInfo</c>). The port does not keep the provenance fields upstream also
+/// reports (<c>endpoint</c>, <c>adapterVersion</c>, <c>policyVersion</c>, <c>tokenAccounting</c>, <c>peakTokensPerCall</c>).
+/// <see cref="IAgentModel.Name"/> already spells provider and model id together, so a step normally carries it in <see cref="Model"/>
+/// and no <see cref="Provider"/>.
+/// </summary>
+internal sealed record StepModelInfo
+{
+    /// <summary>Who answered; absent when the executor reported none.</summary>
+    public string? Provider { get; init; }
+
+    /// <summary>Which model answered; absent when the executor reported none.</summary>
+    public string? Model { get; init; }
+
+    public int Calls { get; init; }
+
+    public int InputTokens { get; init; }
+
+    public int OutputTokens { get; init; }
+
+    /// <summary>Input tokens the provider served from its prompt cache, summed over the step's calls; null unless the provider reports the split. They are part of <see cref="InputTokens"/>.</summary>
+    public int? CacheReadTokens { get; init; }
+
+    public int? CacheWriteTokens { get; init; }
+
+    /// <summary>The summed cost of the calls that reported one; null when none did.</summary>
+    public double? EstimatedCostUsd { get; init; }
+}
+
+/// <summary>One model turn of an agent step: the tool calls the model made and what came back, each bounded (upstream's <c>StepTurn</c>).</summary>
+/// <param name="Index">One-based turn number within the step.</param>
+/// <param name="Calls"><c>tap({"target":"n19"})</c>, one per tool call, arguments clipped.</param>
+/// <param name="Outcome">The tool results of the turn, clipped.</param>
+internal sealed record StepTurn(int Index, IReadOnlyList<string> Calls, string Outcome);
+
+/// <summary>Where a line the app logged came from (upstream's <c>AppLogSource</c>).</summary>
+internal enum AppLogSource
+{
+    Console,
+    Error,
+    Network,
+    System,
+}
+
+/// <summary>How bad a line the app logged was.</summary>
+internal enum AppLogLevel
+{
+    Info,
+    Warning,
+    Error,
+}
+
+/// <summary>One line the app logged during an attempt, redacted and bounded, with the index of the step that was running (upstream's <c>AppLogRecord</c>).</summary>
+internal sealed record AppLogRecord(AppLogSource Source, AppLogLevel Level, string Text, DateTimeOffset At, int? Step = null);
+
+/// <summary>What became of a step's recording once the attempt settled (upstream's <c>CacheWrite</c>).</summary>
+internal enum CacheWrite
+{
+    Saved,
+    Kept,
+    Unconfirmed,
+    Evicted,
+    NoChange,
+    NotWritten,
+}
+
 /// <summary>Agent-specific step detail attached while the step is still running.</summary>
 internal sealed record StepAgentDetails
 {
@@ -170,6 +236,15 @@ internal sealed class StepRecord
     public StepMetrics? Metrics { get; set; }
 
     public CacheInfo? Cache { get; set; }
+
+    /// <summary>What became of the step's recording once the attempt settled; null until then, and for a step with no recording.</summary>
+    public CacheWrite? CacheWrite { get; set; }
+
+    /// <summary>The model's usage across the step's calls; null for a step that made none.</summary>
+    public StepModelInfo? Model { get; set; }
+
+    /// <summary>The model turns of an agent step, most recent last, bounded.</summary>
+    public IReadOnlyList<StepTurn>? Turns { get; set; }
 
     public List<StepEvent> Events { get; } = [];
 

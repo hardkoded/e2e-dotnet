@@ -124,8 +124,9 @@ The loop is:
 - A session ends when you close it, after 30 minutes without a call, or after
   4 hours. A secret value never leaves the server: every output shows it as
   `<secret:name>`.
-- Nothing a session does is recorded as a test or into the replay cache. A
-  session is for looking and trying; the test is what you write afterwards.
+- Nothing a session does is recorded as a test or into the replay cache, and
+  it writes no trace page. A session is for looking and trying; the test is
+  what you write afterwards.
 - Parallel agents (subagents) share one server: each opens its own session
   and passes its session id to every `tools`, `call`, and `close_session`.
   A call may leave `session` out only while one session is open.

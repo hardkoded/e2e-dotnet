@@ -310,6 +310,9 @@ internal sealed class SessionHost : IDisposable
                     CleanupTimeout = config.CleanupTimeout,
                     ActionTimeout = config.ActionTimeout,
                     AssertionTimeout = config.AssertionTimeout,
+
+                    // An MCP session writes no trace page: the agent that drives it reads each answer as it comes.
+                    Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
                 },
                 abort.Token).ConfigureAwait(false);
 

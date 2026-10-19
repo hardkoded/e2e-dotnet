@@ -84,6 +84,9 @@ public sealed class AssertScreenshotEvidenceTests
             AssertionTimeout = TimeSpan.FromSeconds(2),
             TestTimeout = TimeSpan.FromSeconds(10),
             StepTimeout = TimeSpan.FromSeconds(5),
+
+            // The tests look for what the assertion writes, so no trace page is written beside it.
+            Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
         });
         Exception? error = null;
         try

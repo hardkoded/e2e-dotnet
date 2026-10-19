@@ -190,6 +190,7 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
         ModelCalls++;
         if (_scope is { } scope)
         {
+            scope.Steps.AddModelCall(usage);
             scope.ModelCalls++;
             scope.InputTokens += usage?.InputTokens ?? 0;
             scope.OutputTokens += usage?.OutputTokens ?? 0;

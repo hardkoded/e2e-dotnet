@@ -161,6 +161,9 @@ public sealed class FileStepCache : IStepCache
         _directory = directory;
     }
 
+    /// <summary>The directory the entry files are in, where a trace page names a step's entry.</summary>
+    internal string CacheDirectory => _directory;
+
     public CacheLookup Read(string key)
     {
         var path = PathFor(key);

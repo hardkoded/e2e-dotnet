@@ -41,11 +41,15 @@ different, and pass, set `E2E_UPDATE_SNAPSHOTS=1`.
 example `E2E_VIDEO=on dotnet test`, or `<EnvironmentVariables>` in a
 `.runsettings` file. The modes are `off`, `on`, `retain-on-failure`,
 `on-first-retry`, and `on-all-retries`. The web engine records `video` into
-`.e2e/results/<test>/attempt-<n>/video/`, or links to a provider's recording (topic `debugging`); the port writes no
-trace page yet. The retry modes need NUnit `[Retry]`.
+`.e2e/results/<test>/attempt-<n>/video/`, or links to a provider's recording (topic `debugging`). `trace` is
+`retain-on-failure` by default: every attempt that does not pass writes
+`.e2e/results/<test>/trace.md`, a markdown page of its steps (topic
+`debugging`). `E2E_TRACE=on` writes one for a passing attempt too, and
+`E2E_TRACE=off` writes none. The retry modes need NUnit `[Retry]`.
 
-`--debug` is `E2E_DEBUG=1` (or `true`). Each test writes its phase timings to
-stderr when it ends and keeps its executor transcripts. Run with
+`--debug` is `E2E_DEBUG=1` (or `true`). Each test writes its phase timings and
+a table of its agent steps to stderr when it ends, and keeps its executor
+transcripts. Run with
 `--logger "console;verbosity=detailed"` to see them (topic `debugging`).
 
 `--ai-trace` is `E2E_AI_TRACE=1` (or `true`). Each test records every model
@@ -94,8 +98,9 @@ stored. Entries recorded before these fields existed count once a
 
 ## Output
 
-The port writes no report, trace page, or `junit.xml` of its own; a video only
-when `video` is on (topic `debugging`).
+The port writes no report or `junit.xml` of its own. It writes a trace page,
+`.e2e/results/<test>/trace.md`, for each attempt its `trace` mode keeps, and a
+video when `video` is on (topic `debugging`).
 Use the test runner's loggers, such as
 `dotnet test --logger "trx;LogFileName=e2e.trx"` or
 `--logger "console;verbosity=detailed"`.

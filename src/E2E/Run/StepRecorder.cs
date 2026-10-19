@@ -12,7 +12,7 @@ namespace E2E;
 /// Upstream's <c>StepRecorder</c> (<c>run/steps.ts</c>): the attempt-scoped step timeline. Every public API call that touches the app
 /// runs as one recorded step, whose record keeps what it was, where the test called it from, how long it took, and how it ended.
 /// Work a step starts is attributed to it through an <see cref="AsyncLocal{T}"/>, so overlapping steps and nested ones keep their
-/// own events and artifacts. Not ported yet: the app log.
+/// own events and artifacts. Not ported yet: the app log, and the turns of an agent step.
 /// </summary>
 internal sealed class StepRecorder
 {
@@ -359,6 +359,61 @@ internal sealed class StepRecorder
         if (details.Explanation is not null)
         {
             current.Explanation = RedactText(details.Explanation);
+        }
+    }
+
+    /// <summary>
+    /// Adds one model call to the running step's usage (upstream's <c>StepAccounting.usage</c>, which the step's model info reports),
+    /// and records it as a <c>model</c> event, as upstream's <c>recordModelCall</c> does. Outside a running step this does nothing.
+    /// </summary>
+    public void AddModelCall(ExecutorModelCall? call)
+    {
+        StepRecord current;
+        lock (_gate)
+        {
+            if (CurrentLocked() is not { } running)
+            {
+                return;
+            }
+
+            current = running;
+            var before = current.Model;
+            current.Model = new StepModelInfo
+            {
+                Provider = call?.Provider ?? before?.Provider,
+                Model = call?.ModelId ?? before?.Model,
+                Calls = (before?.Calls ?? 0) + 1,
+                InputTokens = (before?.InputTokens ?? 0) + (call?.InputTokens ?? 0),
+                OutputTokens = (before?.OutputTokens ?? 0) + (call?.OutputTokens ?? 0),
+                CacheReadTokens = Sum(before?.CacheReadTokens, call?.CacheReadTokens),
+                CacheWriteTokens = Sum(before?.CacheWriteTokens, call?.CacheWriteTokens),
+                EstimatedCostUsd = call?.EstimatedCostUsd is { } cost ? (before?.EstimatedCostUsd ?? 0) + cost : before?.EstimatedCostUsd,
+            };
+        }
+
+        Push(
+            current,
+            new StepEvent
+            {
+                Kind = StepEventKind.Model,
+                StartedAt = call?.StartedAt ?? DateTimeOffset.UtcNow,
+                DurationMs = Math.Max(0, call?.DurationMs ?? 0),
+                Name = "executor",
+                Count = (call?.InputTokens ?? 0) + (call?.OutputTokens ?? 0),
+            });
+    }
+
+    private static int? Sum(int? left, int? right) => left is null && right is null ? null : (left ?? 0) + (right ?? 0);
+
+    /// <summary>The last screen a finished step saw; null when none did.</summary>
+    public ScreenText? LastScreen
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _lastScreen?.Screen;
+            }
         }
     }
 

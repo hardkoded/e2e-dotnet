@@ -31,6 +31,24 @@ public sealed class SessionDebugTests
     }
 
     [Fact]
+    public async Task Prints_a_row_for_each_agent_step_after_the_phases_when_debug_is_on()
+    {
+        using var output = new StringWriter();
+        await using (var session = await StartAsync(debug: true, output))
+        {
+            await session.App.OpenAsync("/");
+            await session.Agent.ActAsync("increment the counter once");
+            session.Complete();
+        }
+
+        var text = output.ToString();
+        var table = text[text.IndexOf("[e2e debug] agent steps", StringComparison.Ordinal)..];
+        Assert.StartsWith("[e2e debug] agent steps (execution order, model scripted)\n", table, StringComparison.Ordinal);
+        Assert.Contains("agent.act \"increment the counter once\"", table, StringComparison.Ordinal);
+        Assert.Contains("tokens in/out", table, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Prints_nothing_when_debug_is_off()
     {
         using var output = new StringWriter();
