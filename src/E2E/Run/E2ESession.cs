@@ -536,7 +536,7 @@ public sealed class E2ESession : IAsyncDisposable
                 Capture = token => _scope.CaptureAsync(token),
                 Error = error,
                 Redactor = _scope.Redactor,
-                WithholdsPixels = _scope.Exposure.WithholdsPixels,
+                WithholdsPixels = _scope.Exposure.WithholdsPixels || _scope.Secrets.Count > 0,
                 AppOrigin = _scope.AppOrigin,
                 AttemptDir = trace.AttemptDir,
             }).ConfigureAwait(false);

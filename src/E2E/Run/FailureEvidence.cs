@@ -95,7 +95,7 @@ internal sealed partial record FailureEvidence
         Observation? observation = null;
         try
         {
-            observation = await options.Observe(token).WaitAsync(token).ConfigureAwait(false);
+            observation = await Bounded(options.Observe(token), token).ConfigureAwait(false);
         }
 #pragma warning disable CA1031 // Evidence is best effort: the session may be gone with the failure (a crashed page, a closed app).
         catch (Exception)
@@ -125,7 +125,8 @@ internal sealed partial record FailureEvidence
             }
         }
 
-        if (!token.IsCancellationRequested && !options.WithholdsPixels)
+        // A screenshot taken with no look at the screen cannot be checked against its secure nodes.
+        if (observation is not null && !token.IsCancellationRequested && !options.WithholdsPixels)
         {
             evidence = await WithScreenshotAsync(evidence, observation, options, token).ConfigureAwait(false);
         }
@@ -133,13 +134,20 @@ internal sealed partial record FailureEvidence
         return evidence == new FailureEvidence() ? null : evidence;
     }
 
+    // The wait ends with the budget even when the engine ignores it. The abandoned call may still fail once the engine closes; nobody reads that.
+    private static Task<T> Bounded<T>(Task<T> work, CancellationToken token)
+    {
+        _ = work.ContinueWith(static finished => _ = finished.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        return work.WaitAsync(token);
+    }
+
     // A screenshot the engine could not take is not evidence the report claims. One whose masking cannot be proven holds a secret the tree does not.
     private static async Task<FailureEvidence> WithScreenshotAsync(FailureEvidence evidence, Observation? observation, FailureEvidenceOptions options, CancellationToken token)
     {
         try
         {
-            var shot = await options.Capture(token).WaitAsync(token).ConfigureAwait(false);
-            var secure = observation is null ? 0 : LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure);
+            var shot = await Bounded(options.Capture(token), token).ConfigureAwait(false);
+            var secure = LocatorResolver.Walk(observation!.Roots).Count(node => node.States.Secure);
             if (shot is null || shot.MaskedRegionCount is not { } masked || masked < secure)
             {
                 return evidence;
