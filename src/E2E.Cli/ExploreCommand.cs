@@ -352,9 +352,11 @@ internal static partial class ExploreCommand
                     case "--debug":
                         result.Debug = true;
                         break;
-                    default:
+                    case "--ai-trace":
                         result.AiTrace = true;
                         break;
+                    default:
+                        throw new InvalidOperationException("no handler for switch " + name);
                 }
 
                 continue;

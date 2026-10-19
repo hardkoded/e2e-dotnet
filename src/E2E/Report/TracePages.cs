@@ -77,8 +77,8 @@ internal static class TracePages
     }
 
     /// <summary>
-    /// Whether a result's failure is the exploration's verdict, which its findings already tell; such a result gets no page and no
-    /// failure block. Upstream's <c>isExploreVerdict</c>.
+    /// Whether a result's failure is the exploration's verdict, which its findings already tell; such a result gets no page.
+    /// Upstream's <c>isExploreVerdict</c>.
     /// </summary>
     internal static bool IsExploreVerdict(Outcome final, ReportExplore explore) =>
         final.Final.Error?.Code == "ASSERTION_FAILED" && explore.Findings.Any(finding => finding.Kind == ReportExploreFindingKind.Issue);
