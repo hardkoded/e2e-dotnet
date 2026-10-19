@@ -143,7 +143,10 @@ public sealed class ConfigTests
     [InlineData("""{ "cache": { "strict": "yes" } }""", "cache.strict must be a boolean")]
     [InlineData("""{ "targets": [] }""", "targets must be a non-empty array")]
     [InlineData("""{ "targets": [{ "app": { "url": "https://x", "port": 1 } }] }""", "unknown targets[0].app key \"port\"")]
-    [InlineData("""{ "targets": [{ "platform": "ios" }] }""", "targets[0].platform \"ios\" is not supported")]
+    [InlineData("""{ "targets": [{ "platform": "windows" }] }""", "targets[0].platform \"windows\" is not supported")]
+    [InlineData("""{ "targets": [{ "platform": "ios", "app": { "url": "https://x" } }] }""", "unknown targets[0].app key \"url\"")]
+    [InlineData("""{ "targets": [{ "platform": "web", "app": { "bundleId": "dev.x" } }] }""", "unknown targets[0].app key \"bundleId\"")]
+    [InlineData("""{ "targets": [{ "platform": "android", "app": { "appPath": "" } }] }""", "targets[0].app.appPath must be a non-empty string")]
     [InlineData("""{ "agents": { "default": { "modle": "m" } } }""", "unknown agents.default key \"modle\"; did you mean \"model\"?")]
     [InlineData("""{ "agents": { "default": { "maxInputTokens": 3 } } }""", "agents.default key \"maxInputTokens\" is not supported by the .NET port")]
     [InlineData("""{ "agents": { "default": { "tools": {} } } }""", "agents.default key \"tools\" is not supported by the .NET port")]
@@ -164,6 +167,17 @@ public sealed class ConfigTests
         var error = Assert.Throws<ConfigurationException>(() => Parse(json));
         Assert.Equal("INVALID_CONFIG", error.Code);
         Assert.Contains(message, error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_device_target_names_its_app_by_bundle_id_and_build_path()
+    {
+        var config = Parse("""{ "targets": [{ "platform": "android", "app": { "bundleId": "dev.x.app", "appPath": "build/app.apk" } }] }""");
+
+        Assert.Equal("android", config.Target.Platform);
+        Assert.Equal("dev.x.app", config.Target.App.BundleId);
+        Assert.Equal("build/app.apk", config.Target.App.AppPath);
+        Assert.Null(config.Target.App.Url);
     }
 
     [Fact]

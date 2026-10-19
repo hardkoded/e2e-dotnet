@@ -11,13 +11,10 @@
   </ItemGroup>
   <ItemGroup>
     <Using Include="E2E" />
+    <Using Include="E2E.Mobile.NUnit" />
     <Using Include="NUnit.Framework" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\E2E\E2E.csproj" />
-    <ProjectReference Include="..\..\src\E2E.Limrun\E2E.Limrun.csproj" />
-    <ProjectReference Include="..\..\src\E2E.Mobile\E2E.Mobile.csproj" />
-    <ProjectReference Include="..\..\src\E2E.Mobile.DevFlow\E2E.Mobile.DevFlow.csproj" />
-    <ProjectReference Include="..\..\src\E2E.NUnit\E2E.NUnit.csproj" />
+    <ProjectReference Include="..\..\src\E2E.Mobile.NUnit\E2E.Mobile.NUnit.csproj" />
   </ItemGroup>
 </Project>

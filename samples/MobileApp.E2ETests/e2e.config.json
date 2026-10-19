@@ -1,4 +1,14 @@
 {
+  "targets": [
+    {
+      "name": "mobileapp",
+      "platform": "ios",
+      "app": {
+        "bundleId": "dev.hardkoded.e2e.mobileapp",
+        "appPath": "../MobileApp/bin/Debug/net10.0-ios/iossimulator-arm64/MobileApp.app"
+      }
+    }
+  ],
   "actionTimeout": 15000,
   "assertionTimeout": 10000,
   "agents": {

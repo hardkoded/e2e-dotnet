@@ -218,6 +218,8 @@ xUnit v2 is not supported. It cannot read a test's result during cleanup, and th
 
 There is no default model and no shared API key. `baseUrl` can point at any OpenAI-compatible server, including a local one. Tests without agent steps ignore it.
 
+A device test declares its app on the target, `"targets": [{ "platform": "ios", "app": { "bundleId": "com.example.app", "appPath": "build/App.app" } }]`, and derives from `MobileAppTest` of `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3`.
+
 `trace` and `video` choose which attempts record: `off`, `on`, `retain-on-failure`, `on-first-retry`, or `on-all-retries`. They go at the config root or on the target, and `E2E_TRACE` and `E2E_VIDEO` replace them for one run. The defaults are `retain-on-failure` and `off`. The port records `video` on the web engine and writes a trace page, `trace.md`, for each attempt that keeps one (see Trace page below).
 
 ### Trace page
@@ -387,6 +389,7 @@ Most unit tests use `DocumentEngine` and a scripted model. No test needs an API 
 | `e2e` test, expect, agent, cache, and `@e2e-dev/web` | `E2E` (`WebEngine`) |
 | NUnit | `E2E.NUnit` (`E2ETest`) |
 | xUnit v3 | `E2E.XUnit.V3` (`E2ETest`) |
+| none (.NET only) | `E2E.Mobile.NUnit` and `E2E.Mobile.XUnit.V3` (`MobileAppTest`), a ready base class for a device test |
 | `@e2e-dev/eas` | `E2E.Eas` (`EasSimulators`) |
 | `@e2e-dev/kernel` | `E2E.Kernel` (`KernelProvider`), hosted browsers for `WebEngineOptions.Browser` |
 | `@e2e-dev/limrun` | `E2E.Limrun` (`LimrunSimulators`) |
