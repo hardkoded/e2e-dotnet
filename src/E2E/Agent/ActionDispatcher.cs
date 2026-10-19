@@ -504,7 +504,7 @@ internal sealed class ActionDispatcher : IExecutorActions
         try
         {
             await _feed.ObserveAsync(look, _accounting.Token).ConfigureAwait(false);
-            await hook(new ActionEvent(_accounting.Used, action, _scope.Redactor.Redact(summary()), source)).ConfigureAwait(false);
+            await hook(new ActionEvent(_accounting.Used, action, _scope.Redactor.Redact(summary()), source)).WaitAsync(_accounting.Token).ConfigureAwait(false);
         }
         catch (Exception cause) when (!ReferenceEquals(cause, _accounting.HardStop) && !_accounting.Token.IsCancellationRequested)
         {

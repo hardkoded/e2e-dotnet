@@ -211,6 +211,28 @@ public sealed class AgentActOnActionTests
     }
 
     [Fact]
+    public async Task Times_out_a_replayed_step_whose_hook_never_completes()
+    {
+        var directory = TwoTapCounter.NewDirectory();
+        await using (var session = await StartAsync(directory, TwoTapExecutor()))
+        {
+            await RunAsync(session, _ => Task.CompletedTask);
+            await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("2");
+            session.Complete();
+        }
+
+        await using (var session = await StartAsync(directory, TwoTapExecutor()))
+        {
+            await session.App.OpenAsync("/");
+            var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync(
+                TwoTapCounter.Instruction,
+                new ActOptions { Timeout = TimeSpan.FromMilliseconds(700), OnAction = _ => new TaskCompletionSource().Task }));
+            Assert.Equal("STEP_TIMEOUT", error.Code);
+            session.Complete(error);
+        }
+    }
+
+    [Fact]
     public async Task Fails_the_step_with_the_hook_error_after_the_first_action()
     {
         await using var session = await StartAsync(TwoTapCounter.NewDirectory(), TwoTapExecutor());
