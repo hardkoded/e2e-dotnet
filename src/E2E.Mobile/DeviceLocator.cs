@@ -15,7 +15,7 @@ namespace E2E.Mobile;
 internal static partial class DeviceLocator
 {
     /// <summary>Resolves one expression to the nodes it currently matches; <paramref name="platform"/> is the one agent-device selectors match for.</summary>
-    public static List<ProjectedNode> ResolveExpression(LocatorQuery expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
+    public static List<ProjectedNode> ResolveExpression(LocatorExpression expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
     {
         switch (expression.Kind)
         {
@@ -35,7 +35,7 @@ internal static partial class DeviceLocator
         }
     }
 
-    private static List<ProjectedNode> Filter(LocatorQuery expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
+    private static List<ProjectedNode> Filter(LocatorExpression expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
     {
         var source = ResolveExpression(expression.Source!, index, platform);
         return source.Where(entry =>
@@ -49,14 +49,14 @@ internal static partial class DeviceLocator
         }).ToList();
     }
 
-    private static List<ProjectedNode> Pick(LocatorQuery expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
+    private static List<ProjectedNode> Pick(LocatorExpression expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
     {
         var source = ResolveExpression(expression.Source!, index, platform);
-        var position = expression.Index == LocatorQuery.LastIndex ? source.Count - 1 : expression.Index!.Value;
+        var position = expression.Index == LocatorExpression.LastIndex ? source.Count - 1 : expression.Index!.Value;
         return position >= 0 && position < source.Count ? [source[position]] : [];
     }
 
-    private static List<ProjectedNode> Query(LocatorQuery expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
+    private static List<ProjectedNode> Query(LocatorExpression expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
     {
         var candidates = expression.Parent is null ? index : DescendantsOf(ResolveExpression(expression.Parent, index, platform), index);
         var full = candidates.Where(entry => MatchesQuery(entry, expression, withoutPackage: false)).ToList();
@@ -124,7 +124,7 @@ internal static partial class DeviceLocator
     /// query says <c>visible</c>, which drops hidden nodes for every kind.
     /// <paramref name="withoutPackage"/> matches a test id by its short form (<see cref="AndroidResourceId"/>).
     /// </summary>
-    private static bool MatchesQuery(ProjectedNode entry, LocatorQuery query, bool withoutPackage)
+    private static bool MatchesQuery(ProjectedNode entry, LocatorExpression query, bool withoutPackage)
     {
         var node = entry.Node;
         if (query.Visible && node.States.Hidden)

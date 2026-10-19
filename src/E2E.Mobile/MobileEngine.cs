@@ -40,6 +40,12 @@ public sealed record MobileStartInfo
 
     /// <summary>The attempt's artifact directory: where a video is written. Null for a worker started without one.</summary>
     public string? ArtifactsDir { get; init; }
+
+    /// <summary>Takes the screen a locate matched against, for the attempt's trace. Upstream's <c>EngineAttemptContext.screen</c>.</summary>
+    public Action<Observation>? Screen { get; init; }
+
+    /// <summary>Takes the facts about what the attempt runs on. Upstream's <c>EngineAttemptContext.environment</c>.</summary>
+    public Action<IReadOnlyDictionary<string, string>>? Environment { get; init; }
 }
 
 /// <summary>
@@ -185,7 +191,7 @@ public sealed class MobileEngine : IEngine
     {
         ArgumentNullException.ThrowIfNull(options);
         ValidateApp(Options.App, options.BaseUrl, Options.TargetName, Options.Platform);
-        return await StartAsync(new MobileStartInfo { TargetName = Options.TargetName, ProjectRoot = options.ProjectRoot ?? Directory.GetCurrentDirectory(), ArtifactsDir = options.ArtifactsDir }, cancellationToken).ConfigureAwait(false);
+        return await StartAsync(new MobileStartInfo { TargetName = Options.TargetName, ProjectRoot = options.ProjectRoot ?? Directory.GetCurrentDirectory(), ArtifactsDir = options.ArtifactsDir, Screen = options.Screen, Environment = options.Environment }, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Starts the worker of one slot: boots its device under its session and resumes the app prepare opened there.</summary>

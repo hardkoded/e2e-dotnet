@@ -22,9 +22,9 @@ public sealed class AndroidResourceIdsWithoutTheirPackageTests
         N("@e6", index: 5, parentIndex: 0, depth: 1, type: "android.widget.TextView", identifier: "greeting", label: "Hello, Ada!", rect: new Rect(0, 480, 390, 44)),
     ];
 
-    private static LocatorQuery TestId(string value) => LocatorQuery.For("testid", TextMatch.FromString(value), new TextMatchOptions(), nameof(value));
+    private static LocatorExpression TestId(string value) => LocatorExpression.For("testid", TextMatch.FromString(value), new TextMatchOptions(), nameof(value));
 
-    private static List<string> TestIds(LocatorQuery expression, MobilePlatform platform = MobilePlatform.Android, IEnumerable<RawNode>? extra = null)
+    private static List<string> TestIds(LocatorExpression expression, MobilePlatform platform = MobilePlatform.Android, IEnumerable<RawNode>? extra = null)
     {
         var index = Project([.. AndroidIdNodes(), .. extra ?? []]).Index;
         return [.. DeviceLocator.ResolveExpression(expression, index, platform).Select(entry => entry.Node.TestId ?? "")];
@@ -88,7 +88,7 @@ public sealed class AndroidResourceIdsWithoutTheirPackageTests
     [Fact]
     public void Tests_a_Regex_against_the_id_without_the_prefix_too()
     {
-        static LocatorQuery Pattern(string source) => LocatorQuery.For("testid", TextMatch.FromRegex(new Regex(source)), new TextMatchOptions(), "value");
+        static LocatorExpression Pattern(string source) => LocatorExpression.For("testid", TextMatch.FromRegex(new Regex(source)), new TextMatchOptions(), "value");
 
         Assert.Equal([$"{App}:id/greet"], TestIds(Pattern("^greet$")));
         Assert.Equal([$"{App}:id/greet"], TestIds(Pattern(@"^dev\.e2e\.examples\.maui:id/gr")));
@@ -100,7 +100,7 @@ public sealed class AndroidResourceIdsWithoutTheirPackageTests
         var form = TestId("form");
         var scoped = TestId("greet") with { Parent = form };
         Assert.Equal([$"{App}:id/greet"], TestIds(scoped));
-        Assert.Equal([$"{App}:id/form"], TestIds(new LocatorQuery { Kind = "filter", Source = form, Has = TestId("name") }));
+        Assert.Equal([$"{App}:id/form"], TestIds(new LocatorExpression { Kind = "filter", Source = form, Has = TestId("name") }));
     }
 
     [Fact]
