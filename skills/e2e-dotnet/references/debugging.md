@@ -51,8 +51,23 @@ no viewer. It tells, in this order:
    attempt failed alike.
 3. `## Steps`: one line per step, `2. ✗ \`locator.tap\` \`getByRole("button", "Save")\`
    (108ms) — **TIMEOUT** — \`Tests/CheckoutTests.cs:42\``, with the model calls
-   of an agent step, and the offset into the video (`, video 0:12`) when one
-   is recorded. Under a step:
+   of an agent step, the hook the step ran in (`in beforeEach` for a step
+   called from an NUnit `[SetUp]`, `in afterEach` from a `[TearDown]`, or from
+   an xUnit `InitializeAsync` or `DisposeAsync`), and the offset into the
+   video (`, video 0:12`) when one is recorded. Under a step:
+   - for a locator action, the node it landed on (`tap button "Save" (12ms)`,
+     or `✗` and its code), with `appeared after 340ms` when the node was not
+     there at once;
+   - for an assertion or a `WaitForAsync`, what it read while it waited
+     (`expect gave up after 16 reads in 1.6s: text "0 remaining" (1 match)
+     x16`). One value throughout points at a wrong expectation, a broken app,
+     or one slower than the timeout. Changing values (`"2 remaining" x3 -> at
+     410ms "1 remaining"`) point at a race;
+   - what the app logged meanwhile (`✗ network error: POST /api/save 500`,
+     `✗ uncaught error: ...`, `⚠ console warning: ...`, `ℹ console: ...`);
+   - where the page went (`↪ navigated to /login`, a new tab the app opened,
+     a frame that loaded). A navigation the test asked for (`App.OpenAsync`,
+     `Browser.GotoAsync`, `ReloadAsync`) is the step itself and is not listed;
    - for an agent step, the cache's decision (`cache: replayed 1 of 3 recorded
      actions, then the agent took over: a recorded target is not on the screen;
      at action 2 of 3, tap button "Apply"`) and the entry file;
@@ -61,16 +76,21 @@ no viewer. It tells, in this order:
      action means it had no visible effect;
    - the explanation of a step that failed.
 4. `## App log`, `## Agent turns of step N`, and `## Screen at failure`, when
-   the port recorded them. `Screen at failure` gives the last URL, the node
-   count, the viewport, and the last screen the test saw, one node per line
-   (also in `attempt-<n>/screen-at-failure.txt`).
+   the port recorded them. `App log` lists up to 50 lines with their step,
+   errors and warnings first, and counts the rest. A line from before the
+   first step says `before step 1`. An attempt keeps at most 200 errors and
+   warnings and 100 other lines, each cut to 300 characters. `Screen at
+   failure` gives the last URL, the node count, the viewport, and the last
+   screen the test saw, one node per line (also in
+   `attempt-<n>/screen-at-failure.txt`).
 5. `## Also failed` (another error, such as one from cleanup) and
    `## Evidence` (the video).
 
-Not recorded yet, so the page leaves them out: what each action landed on, what
-an assertion read while it waited, where the app went, what the app logged, the
-agent's turns, the screenshot at failure, and what
-became of a step's recording. A mention, a URL, or markup from the app is shown
+Not recorded yet, so the page leaves them out: the agent's turns, the
+screenshot at failure, and what became of a step's recording. The app log is
+what the web engine collects: console output, uncaught exceptions, failed
+requests, and 4xx and 5xx responses. The mobile and document engines report none.
+A mention, a URL, or markup from the app is shown
 as code or escaped, and a secret is redacted. Add `.e2e/results/` to
 `.gitignore`.
 

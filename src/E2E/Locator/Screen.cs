@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using E2E.Engine;
 using E2E.Internal;
 
@@ -156,6 +157,9 @@ public sealed class Screen
     /// <summary>Runs one call that touches the app as a recorded step of the attempt, or as it is without a timeline.</summary>
     internal Task RunStepAsync(StepKind kind, string api, string label, Func<Task> body, bool verifies = false) =>
         Steps is null ? body() : Steps.RunAsync(kind, api, label, body, new StepRunOptions { Verifies = verifies });
+
+    /// <summary>Records one child event under the running step; nothing outside a session listens.</summary>
+    internal void RecordEvent(StepEvent stepEvent) => Steps?.RecordEvent(stepEvent);
 
     /// <summary>Tells the attempt that an assertion failed on the app. Nothing outside a session listens.</summary>
     internal Action Failed { get; set; } = static () => { };
@@ -445,6 +449,12 @@ public sealed class Locator
         var state = options?.State ?? WaitForState.Visible;
         var token = _screen.Token(cancellationToken);
         var deadline = DateTime.UtcNow + TimeoutOf(options?.Timeout);
+        var samples = new SampleHistory("waitFor", _screen.Redact);
+        await samples.RecordAsync(_screen.Steps, token, () => WaitForPollAsync(state, deadline, samples, token)).ConfigureAwait(false);
+    }
+
+    private async Task WaitForPollAsync(WaitForState state, DateTime deadline, SampleHistory samples, CancellationToken token)
+    {
         while (true)
         {
             token.ThrowIfCancellationRequested();
@@ -454,6 +464,8 @@ public sealed class Locator
             {
                 throw Ambiguous(matches.Count);
             }
+
+            samples.Add(matches.Count == 0 ? "absent" : matches[0].States.Hidden ? "hidden" : "visible");
 
             var done = state switch
             {
@@ -519,12 +531,27 @@ public sealed class Locator
     {
         var token = _screen.Token(cancellationToken);
         var deadline = DateTime.UtcNow + TimeoutOf(options?.Timeout);
+        var startedAt = DateTimeOffset.UtcNow;
+        var started = Stopwatch.GetTimestamp();
+        var rounds = 0;
         while (true)
         {
             var node = await ResolveSingleAsync(token).ConfigureAwait(false);
+            rounds++;
             if (node is { States.Disabled: false, States.Hidden: false })
             {
-                await _screen.PerformAsync(node, action, token).ConfigureAwait(false);
+                var waitedMs = rounds > 1 ? (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds : 0;
+                try
+                {
+                    await _screen.PerformAsync(node, action, token).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    RecordAction(node, action, startedAt, started, waitedMs, token.IsCancellationRequested ? StepEventStatus.Cancelled : StepEventStatus.Failed, ErrorSerializer.Classify(ex).Code);
+                    throw;
+                }
+
+                RecordAction(node, action, startedAt, started, waitedMs, StepEventStatus.Passed, null);
                 return;
             }
 
@@ -537,6 +564,46 @@ public sealed class Locator
 
             await Task.Delay(_screen.PollInterval, token).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Records one performed action as an <c>engine</c> event of the running step (upstream's <c>recordAction</c>, <c>locator/engine.ts</c>):
+    /// the node it landed on as the resolve read it, and how long the node took to appear. The port retries no stale node, so the
+    /// event never says one went stale.
+    /// </summary>
+    private void RecordAction(SemanticNode node, LocatorAction action, DateTimeOffset startedAt, long started, long waitedMs, StepEventStatus status, string? code)
+    {
+        if (_screen.Steps is null)
+        {
+            return;
+        }
+
+        string? Field(string? value)
+        {
+            var text = value is null ? "" : _screen.Redact(TextRules.Normalize(value));
+            return text.Length == 0 ? null : text;
+        }
+
+        var target = RecordedTarget.TargetLabel(new RecordedTarget
+        {
+            Role = node.Role,
+            Name = Field(node.Name),
+            Text = Field(node.Text),
+            Placeholder = Field(node.AttributeOf("placeholder")),
+            TestId = Field(node.TestId),
+        });
+        // The action kind the engine contract names, which is the method's name but for selectOption.
+        var kind = action is LocatorAction.Select ? "select" : ApiName(action);
+        _screen.RecordEvent(new StepEvent
+        {
+            Kind = StepEventKind.Engine,
+            Name = kind,
+            StartedAt = startedAt,
+            DurationMs = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+            Status = status,
+            Code = code,
+            Detail = kind + " " + target + (waitedMs > 0 ? " (appeared after " + waitedMs.ToString(System.Globalization.CultureInfo.InvariantCulture) + "ms)" : ""),
+        });
     }
 
     /// <summary>A secure field's text, value, and attributes are withheld, so reading them is denied rather than read as empty.</summary>

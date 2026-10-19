@@ -62,6 +62,7 @@ internal static class AttemptReport
                 .. failed && screenListed ? new[] { new ReportArtifact(ScreenArtifactId, "log", directory + "/" + attemptSegment + "/" + ScreenFile) } : [],
             ],
             Environment = scope.Environment.Read(scope.Redactor.Redact),
+            AppLog = scope.Steps.AppLog(),
         };
         var result = new ReportResult
         {

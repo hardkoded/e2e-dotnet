@@ -77,6 +77,19 @@ public sealed class EngineStartOptions
     /// fails the attempt for it.
     /// </summary>
     public Action<IReadOnlyDictionary<string, string>>? Environment { get; init; }
+
+    /// <summary>
+    /// Takes one line of what the app did on its own, such as console output, an exception nothing caught, or a failed request, for
+    /// the attempt's trace. Upstream's <c>EngineAttemptContext.appLog</c>. An engine may report from the moment it starts, before any
+    /// step records; the harness redacts and bounds each line, and a sink that throws never fails the attempt.
+    /// </summary>
+    public Action<AppLogEntry>? AppLog { get; init; }
+
+    /// <summary>
+    /// Takes one line saying where the app went on its own, such as <c>navigated to /checkout</c> or <c>the app opened a new tab at /help</c>.
+    /// Upstream's <c>EngineAttemptContext.navigation</c>. A navigation the engine started itself is not told: its step says it.
+    /// </summary>
+    public Action<string>? Navigation { get; init; }
 }
 
 /// <summary>What an engine asks of <see cref="EngineStartOptions.ResolveSecret"/> beside the value.</summary>

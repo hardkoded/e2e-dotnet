@@ -521,16 +521,8 @@ internal sealed class StepTraceSession
     private static string DescribeAnchor(RecordedTarget anchor)
     {
         return anchor.Text is not null && anchor.Name is not null && anchor.Text != anchor.Name
-            ? TargetLabel(anchor) + " text=" + Quote(TextRules.Bound(anchor.Text, 40))
-            : TargetLabel(anchor);
-    }
-
-    // A node as every report line that names one reads it: its role, then its label in quotes.
-    private static string TargetLabel(RecordedTarget target)
-    {
-        var label = target.Name ?? target.Text ?? target.Placeholder ?? target.TestId ?? "";
-        var role = target.Role ?? "node";
-        return label.Length == 0 ? role : role + " " + Quote(TextRules.Bound(label, 40));
+            ? RecordedTarget.TargetLabel(anchor) + " text=" + Quote(TextRules.Bound(anchor.Text, 40))
+            : RecordedTarget.TargetLabel(anchor);
     }
 
     private static string Quote(string text) => JsonSerializer.Serialize(text, JsonQuote);

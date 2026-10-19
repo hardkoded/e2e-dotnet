@@ -163,7 +163,7 @@ internal sealed record StepModelInfo
 internal sealed record StepTurn(int Index, IReadOnlyList<string> Calls, string Outcome);
 
 /// <summary>Where a line the app logged came from (upstream's <c>AppLogSource</c>).</summary>
-internal enum AppLogSource
+public enum AppLogSource
 {
     Console,
     Error,
@@ -172,7 +172,7 @@ internal enum AppLogSource
 }
 
 /// <summary>How bad a line the app logged was.</summary>
-internal enum AppLogLevel
+public enum AppLogLevel
 {
     Info,
     Warning,

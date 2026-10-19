@@ -26,28 +26,53 @@ public sealed class TracesTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    // Partial: upstream also checks each step's events (the node an action landed on, the readings a poll took), what the app logged under
-    // the step it happened in, the hook a step ran in, and reads the page from the run's last event. The port records none of those yet.
+    // Partial: upstream also reads the page from the run's last event, which the port has no run to emit.
     [Fact]
-    public async Task Writes_the_trace_page_into_the_tests_directory_with_each_step_it_took()
+    public async Task Keeps_each_steps_events_and_files_what_the_app_logged_under_the_step_it_happened_in_on_the_page()
     {
         var results = Results();
         const string title = "save > saves, then expects two buttons";
-        await using (var session = await StartAsync(results, title))
+        await using (var session = await StartAsync(results, title, engine: new ReportingEngine(logs: true)))
         {
+            // The suite opens the app in a beforeEach hook.
+            session.Phase = StepPhase.BeforeEach;
             await session.App.OpenAsync("/");
+            session.Phase = null;
             await session.Screen.GetByRole("button", new() { Name = "Submit" }).TapAsync();
             var failure = await Assert.ThrowsAnyAsync<E2EException>(() => Expect.That(session.Screen.GetByRole("button")).ToHaveCountAsync(2, TimeSpan.FromMilliseconds(300)));
+
+            var (open, tap, count) = (session.Steps[0], session.Steps[1], session.Steps[2]);
+            Assert.Equal(("app.open", StepPhase.BeforeEach), (open.Api, open.Phase));
+            Assert.Empty(open.Events);
+            Assert.Null(tap.Phase);
+            var acted = Assert.Single(tap.Events);
+            Assert.Equal((StepEventKind.Engine, "tap", StepEventStatus.Passed, "tap button \"Submit\""), (acted.Kind, acted.Name, acted.Status, acted.Detail));
+
+            // Launched before any step, the warning belongs to none; the failed request to the tap that sent it.
+            Assert.Equal(
+                [
+                    (AppLogSource.Console, AppLogLevel.Warning, "booting", (int?)null),
+                    (AppLogSource.Network, AppLogLevel.Error, "POST http://127.0.0.1:4100/api/save 500 Internal Server Error", tap.Index),
+                ],
+                session.AppLog.Select(entry => (entry.Source, entry.Level, entry.Text, entry.Step)));
+            var polled = Assert.Single(count.Events);
+            Assert.Equal((StepEventKind.Poll, "expect", StepEventStatus.Failed), (polled.Kind, polled.Name, polled.Status));
+            Assert.Matches(@"^count 1 \(1 match\) x\d+$", polled.Detail!);
+            Assert.True(polled.Count > 1);
             session.Complete(failure);
         }
 
         var page = ReadTrace(results, title)!;
         Assert.Contains("1. ✓ `app.open` `/` (", page, StringComparison.Ordinal);
-        Assert.Contains("2. ✓ `locator.tap` ", page, StringComparison.Ordinal);
-        Assert.Contains("3. ✗ `expect.toHaveCount` ", page, StringComparison.Ordinal);
-        Assert.Contains("**ASSERTION_FAILED**", page, StringComparison.Ordinal);
+        Assert.Contains("in beforeEach)", page, StringComparison.Ordinal);
+        Assert.Contains("   - ✗ network error: `POST /api/save 500 Internal Server Error`", page, StringComparison.Ordinal);
+        Assert.Contains("- before step 1 · ⚠ console warning: `booting`", page, StringComparison.Ordinal);
+        Assert.Contains("   - tap button \"Submit\" (", page, StringComparison.Ordinal);
+        Assert.Matches(@" {3}- expect gave up after \d+ reads in [\d.]+m?s: count 1 \(1 match\) x\d+", page);
 
         // The page quotes the last screen the test saw, as a file beside the attempt's others.
+        Assert.Contains("3. ✗ `expect.toHaveCount` ", page, StringComparison.Ordinal);
+        Assert.Contains("**ASSERTION_FAILED**", page, StringComparison.Ordinal);
         Assert.Contains("The screen as the agent reads it", page, StringComparison.Ordinal);
         Assert.Contains("button \"Submit\"", page[page.IndexOf("```text\n#", StringComparison.Ordinal)..], StringComparison.Ordinal);
         Assert.Contains("- [screen](attempt-1/screen-at-failure.txt) `", page, StringComparison.Ordinal);
@@ -259,7 +284,7 @@ public sealed class TracesTests : IDisposable
         return File.Exists(page) ? File.ReadAllText(page) : null;
     }
 
-    private sealed class ReportingEngine : IEngine
+    private sealed class ReportingEngine(bool logs = false) : IEngine
     {
         public bool AskedForScreens { get; private set; }
 
@@ -273,11 +298,16 @@ public sealed class TracesTests : IDisposable
         {
             AskedForScreens = options.Screen is not null;
             options.Environment?.Invoke(new Dictionary<string, string> { ["device"] = "Pixel 9", ["os"] = "Android 16" });
-            return Task.FromResult<IEngineSession>(new Session(options));
+            if (logs)
+            {
+                options.AppLog?.Invoke(new AppLogEntry(AppLogSource.Console, AppLogLevel.Warning, "booting"));
+            }
+
+            return Task.FromResult<IEngineSession>(new Session(options, logs));
         }
     }
 
-    private sealed class Session(EngineStartOptions options) : IEngineSession
+    private sealed class Session(EngineStartOptions options, bool logs) : IEngineSession
     {
         private int _taps;
 
@@ -290,6 +320,11 @@ public sealed class TracesTests : IDisposable
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
         {
             _taps++;
+            if (logs)
+            {
+                options.AppLog?.Invoke(new AppLogEntry(AppLogSource.Network, AppLogLevel.Error, "POST http://127.0.0.1:4100/api/save 500 Internal Server Error"));
+            }
+
             options.Screen?.Invoke(Screen(_taps == 1 ? ["Submit"] : ["Submit", "Undo"], $"t{_taps}"));
             return Task.CompletedTask;
         }

@@ -126,6 +126,14 @@ public sealed class RecordedTarget
 
     /// <summary>An anchor's <c>checked</c>, <c>expanded</c>, <c>pressed</c>, and <c>selected</c> states that are on. Null for none.</summary>
     public List<string>? States { get; set; }
+
+    /// <summary>A node as every report line that names one reads it (upstream's <c>targetLabel</c>): its role, then its label in quotes.</summary>
+    internal static string TargetLabel(RecordedTarget target)
+    {
+        var label = target.Name ?? target.Text ?? target.Placeholder ?? target.TestId ?? "";
+        var role = target.Role ?? "node";
+        return label.Length == 0 ? role : role + " " + LocatorExpect.Quote(TextRules.Bound(label, 40));
+    }
 }
 
 public sealed class CacheLookup
