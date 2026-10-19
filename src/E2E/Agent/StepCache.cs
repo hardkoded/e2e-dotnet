@@ -112,7 +112,7 @@ internal sealed class StepTraceSession
 
     /// <summary>Upstream's <c>failedStepOutcome</c>: the outcome of a step that threw <paramref name="cause"/>.</summary>
     public static StepOutcome FailedStepOutcome(Exception? cause) =>
-        cause is AgentException { Code: "CANCELLED" or "MODEL_UNAVAILABLE" or "MODEL_PROVIDER_FAILED" or "REPLAY_STALE" } ? StepOutcome.NoVerdict : StepOutcome.Failed;
+        cause is AgentException { Code: "CANCELLED" or "MODEL_UNAVAILABLE" or "MODEL_PROVIDER_FAILED" or "REPLAY_STALE" } or AgentException { FromActionHook: true } ? StepOutcome.NoVerdict : StepOutcome.Failed;
 
     private const string ReplayNoticeStart = "replayed ";
     private const string RecordedVerdictSeparator = "; recorded verdict: ";
@@ -582,7 +582,7 @@ internal sealed class StepTraceSession
 
         public void MarkActing() => inner.MarkActing();
 
-        public void Commit(RecordedAction action) => inner.Commit(action);
+        public Task CommitAsync(RecordedAction action) => inner.CommitAsync(action);
     }
 }
 

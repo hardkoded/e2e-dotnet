@@ -35,6 +35,7 @@ public sealed partial class Agent
                     Timeout = options?.Timeout,
                     MaxSteps = options?.MaxSteps,
                     MaxModelCalls = options?.MaxModelCalls,
+                    OnAction = options?.OnAction,
                 },
                 agent,
                 cancellationToken));
@@ -139,10 +140,10 @@ public sealed partial class Agent
         var feed = new ObservationFeed(_scope.Session, TimeProvider.System) { Scope = _scope };
         _feed = feed;
         var stepIndex = _scope.NextStepIndex();
-        budget.Attach(_scope, timeout, outer.Token, stop, feed.ArmAfter);
         _scope.Remember(spec.Params);
         var declared = ActParams.SecretsIn(spec.Params);
-        var dispatcher = new ActionDispatcher(_scope, feed, budget, spec.Params, () => declared);
+        var dispatcher = new ActionDispatcher(_scope, feed, budget, spec.Params, () => declared, spec.OnAction);
+        budget.Attach(_scope, timeout, outer.Token, stop, feed.ArmAfter, dispatcher.NotifyToolAsync);
         ActContext? context = null;
         StepTraceSession? session = null;
         try
@@ -416,6 +417,12 @@ public sealed partial class Agent
         if (stop is not null)
         {
             if (string.Equals(stop.Code, "CANCELLED", StringComparison.Ordinal))
+            {
+                throw stop;
+            }
+
+            // The test's own hook failed the step: its error stands, so the recording is neither kept nor evicted for it.
+            if (stop.FromActionHook)
             {
                 throw stop;
             }

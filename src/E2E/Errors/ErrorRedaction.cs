@@ -80,8 +80,8 @@ internal static class ErrorRedaction
         return cause switch
         {
             EngineException engine => new EngineException(engine.Code, message, engine.Retryable, inner) { Details = Detail(engine, redact) },
-            AgentException agent when inner is null => new AgentException(agent.Code, message, agent.Blocked) { Screenshot = agent.Screenshot, Details = Detail(agent, redact) },
-            AgentException agent => new AgentException(agent.Code, message, agent.Blocked, inner) { Screenshot = agent.Screenshot, Details = Detail(agent, redact) },
+            AgentException agent when inner is null => new AgentException(agent.Code, message, agent.Blocked) { Screenshot = agent.Screenshot, FromActionHook = agent.FromActionHook, Details = Detail(agent, redact) },
+            AgentException agent => new AgentException(agent.Code, message, agent.Blocked, inner) { Screenshot = agent.Screenshot, FromActionHook = agent.FromActionHook, Details = Detail(agent, redact) },
             ConfigurationException config when inner is null => new ConfigurationException(config.Code, message) { Details = Detail(config, redact) },
             ConfigurationException config => new ConfigurationException(config.Code, message, inner) { Details = Detail(config, redact) },
             E2EException e2e when inner is null => new TestException(e2e.Code, message) { Details = Detail(e2e, redact) },
