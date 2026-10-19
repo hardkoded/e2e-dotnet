@@ -4,6 +4,7 @@
 
 using System.Globalization;
 using System.Text;
+using E2E.Internal;
 
 namespace E2E;
 
@@ -22,10 +23,11 @@ internal sealed record FindingInput(
 /// The record of one exploration: the goal, its budgets, the steps the agent planned and ran, and the findings it reported.
 /// One instance is shared by the planner, the explorer's finding tool, the exploration body, and the progress listeners,
 /// and its snapshot is <see cref="ExploreOutcome.Explore"/>. The state is the report boundary: every free text is bounded
-/// to the report's ceilings here, and nowhere else. Each change is announced to the listeners <see cref="Subscribe"/> registered, as
-/// <see cref="ExploreProgress"/>.
+/// to the report's ceilings here, and nowhere else. A finding's text comes from the model and may echo a secret value, so the
+/// redactor runs over it here, before it reaches the outcome, the report, a progress event, or the next step's parameters. Each change is announced to
+/// the listeners <see cref="Subscribe"/> registered, as <see cref="ExploreProgress"/>.
 /// </summary>
-internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProvider? time = null)
+internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProvider? time = null, Redactor? redactor = null)
 {
     /// <summary>Ceilings the report keeps, as upstream's schema does.</summary>
     public const int MaxTitleChars = 200;
@@ -39,6 +41,7 @@ internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProv
 
     private readonly object _gate = new();
     private readonly TimeProvider _time = time ?? TimeProvider.System;
+    private readonly Redactor _redactor = redactor ?? Redactor.None;
     private readonly List<ReportExploreStep> _steps = [];
     private readonly List<ReportExploreFinding> _findings = [];
     private readonly List<ExploreListener> _listeners = [];
@@ -157,6 +160,11 @@ internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProv
     /// <summary>Records one finding against the step in progress, with its evidence screenshot when one was kept.</summary>
     public ReportExploreFinding AddFinding(FindingInput input)
     {
+        // Redacted before the lock, so a slow match never holds the listeners up.
+        var title = _redactor.Redact(input.Title);
+        var expected = _redactor.Redact(input.Expected);
+        var actual = _redactor.Redact(input.Actual);
+        var reproduction = input.Reproduction.Take(MaxReproductionSteps).Select(_redactor.Redact).ToList();
         lock (_gate)
         {
             var now = _time.GetUtcNow();
@@ -166,10 +174,10 @@ internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProv
                 _open?.Index,
                 input.Kind,
                 input.Severity,
-                Clip(input.Title, MaxTitleChars),
-                Clip(input.Expected, MaxDetailChars),
-                Clip(input.Actual, MaxDetailChars),
-                [.. input.Reproduction.Take(MaxReproductionSteps).Select(entry => Clip(entry, MaxReproductionChars))],
+                Clip(title, MaxTitleChars),
+                Clip(expected, MaxDetailChars),
+                Clip(actual, MaxDetailChars),
+                [.. reproduction.Select(entry => Clip(entry, MaxReproductionChars))],
                 now,
                 input.Path is null ? null : Clip(input.Path, MaxPathChars),
                 input.ArtifactId);
