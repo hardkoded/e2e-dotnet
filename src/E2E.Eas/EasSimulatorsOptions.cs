@@ -27,13 +27,13 @@ public sealed record EasSimulatorsOptions
     public string? Device { get; init; }
 
     /// <summary>
-    /// Minutes without an agent-device command after which EAS stops the session. Defaults to 10, or one less than
+    /// Minutes without an agent-device command after which EAS stops the session. A non-negative integer; zero omits the idle limit. Defaults to 10, or one less than
     /// <see cref="MaxDurationMinutes"/> when that is shorter, since EAS wants it below the duration. A session still
     /// queued once another session of the run has been ready for that one's limit fails the lease: EAS is stopping that one.
     /// </summary>
     public int? MaxIdleTimeMinutes { get; init; }
 
-    /// <summary>Minutes a session may run once ready before EAS stops it. Absent, the account's cap: 40, or 115 on a high-priority plan.</summary>
+    /// <summary>Non-negative integer minutes a session may run once ready before EAS stops it. Absent, the account's cap: 40, or 115 on a high-priority plan.</summary>
     public int? MaxDurationMinutes { get; init; }
 
     /// <summary>
