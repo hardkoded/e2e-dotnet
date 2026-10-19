@@ -223,6 +223,24 @@ public sealed class TheExplorationBodyTests
         Assert.DoesNotContain("bookworm", ActParams.Projected(parameters)!.ToJsonString(), StringComparison.Ordinal);
     }
 
+    // .NET-only: upstream lists every title.
+    [Fact]
+    public async Task Carries_only_the_newest_finding_titles_to_a_charter()
+    {
+        var state = new State("goal", Budgets);
+        for (var number = 1; number <= 60; number++)
+        {
+            state.AddFinding(new FindingInput(ReportExploreFindingKind.Warning, 2, "Finding " + number, "aligned", "off", ["look"]));
+        }
+
+        var agent = new ScriptedExploreAgent([PlanScript.Step("Cart", "open the cart"), PlanScript.Finish("Done.")], [ActOutcome.Passed("cart opened")]);
+        await RunAsync(Options(state), agent);
+        var titles = Assert.IsAssignableFrom<IReadOnlyList<string>>(Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(agent.ActParams[0])["reportedFindings"]);
+        Assert.Equal(50, titles.Count);
+        Assert.Equal("Finding 11", titles[0]);
+        Assert.Equal("Finding 60", titles[^1]);
+    }
+
     [Fact]
     public async Task Fails_the_run_for_issues_naming_them()
     {
