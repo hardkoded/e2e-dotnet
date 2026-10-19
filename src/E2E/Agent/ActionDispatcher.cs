@@ -510,7 +510,7 @@ internal sealed class ActionDispatcher : IExecutorActions
         {
             // A nested step's own budget or deadline is not this step's: the runtime vouches only for the stops it recorded itself.
             var code = cause is E2EException { Code: var named } && StepExecutors.AgentCodes.Contains(named) && !StepExecutors.RuntimeCodes.Contains(named) ? named : "ACTION_FAILED";
-            throw _accounting.Fatalize(new AgentException(code, _accounting.Api + " onAction failed: " + cause.Message, cause) { FromActionHook = true });
+            throw _accounting.Fatalize(new AgentException(code, _accounting.Api + " onAction failed: " + _scope.Redactor.Redact(cause.Message), cause) { FromActionHook = true });
         }
     }
 
