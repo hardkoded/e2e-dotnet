@@ -44,7 +44,7 @@ public abstract class E2ETest : E2EFixture
     {
         var current = global::NUnit.Framework.TestContext.CurrentContext;
         RejectParallelChildren(current.Test.MethodName);
-        await StartSessionAsync(CacheTitle(current.Test), AttemptOf(current), RecordSoftFailure, HasFailed, current.CancellationToken).ConfigureAwait(false);
+        await StartSessionAsync(CacheTitle(current.Test), AttemptOf(current), RecordSoftFailure, HasFailed, current.CancellationToken, TestExecutionContext.CurrentContext.CurrentTest.Method?.MethodInfo).ConfigureAwait(false);
     }
 
     [TearDown]

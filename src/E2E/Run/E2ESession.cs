@@ -102,6 +102,11 @@ public sealed class E2ESession : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(options.Engine);
         ArgumentException.ThrowIfNullOrWhiteSpace(options.TestTitle);
         var agents = ResolveAgents(options);
+        if (options.Agent is { } pinned && !agents.ContainsKey(pinned))
+        {
+            throw new TestException("INVALID_ARGUMENT", "unknown agent \"" + pinned + "\"; configured: " + string.Join(", ", agents.Keys));
+        }
+
         var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl) ? null : Urls.NormalizeAppUrl(options.BaseUrl, "the base URL").Href;
         var recording = ExecuteVideo.Plan(options);
 
@@ -187,10 +192,11 @@ public sealed class E2ESession : IAsyncDisposable
                 Environment = environment,
                 Debug = debug,
                 AiTrace = options.AiTrace ? new AiTraceRecorder() : null,
-                AiTraceScope = options.AiTrace ? new AiTraceScope { Test = options.TestTitle, TestId = options.TestTitle, Target = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName, Agent = "default", Attempt = options.Attempt - 1 } : null,
+                AiTraceScope = options.AiTrace ? new AiTraceScope { Test = options.TestTitle, TestId = options.TestTitle, Target = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName, Agent = options.Agent ?? "default", Attempt = options.Attempt - 1 } : null,
                 AiTracePath = options.AiTrace ? AiTrace.PathFor(options.ResultsDirectory is null ? Path.Combine(projectRoot, ".e2e") : Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(options.ResultsDirectory))) ?? projectRoot) : null,
                 BaseUrl = baseUrl,
                 Agents = agents,
+                AgentName = options.Agent ?? "default",
                 Cache = options.Cache,
                 CacheEnabled = cacheOn,
                 CacheWrite = cacheOn && options.CacheMode == CacheMode.ReadWrite && !options.CacheStrict,
@@ -450,7 +456,7 @@ public sealed class E2ESession : IAsyncDisposable
         };
         if (options.Agents is null)
         {
-            return agents;
+            return WithTestContext(agents, options.TestAgentContext);
         }
 
         foreach (var pair in options.Agents)
@@ -470,7 +476,15 @@ public sealed class E2ESession : IAsyncDisposable
             agents[pair.Key] = ResolvedAgent.From(pair.Key, pair.Value);
         }
 
-        return agents;
+        return WithTestContext(agents, options.TestAgentContext);
+    }
+
+    // The test's agentContext follows the agent's own context, whichever agent a call picks.
+    private static Dictionary<string, ResolvedAgent> WithTestContext(Dictionary<string, ResolvedAgent> agents, string? testContext)
+    {
+        return string.IsNullOrWhiteSpace(testContext)
+            ? agents
+            : agents.ToDictionary(pair => pair.Key, pair => pair.Value.WithTestContext(testContext), StringComparer.Ordinal);
     }
 
     // A table is a courtesy: a stderr that cannot be written must not hide the test's own result.
@@ -674,6 +688,12 @@ public sealed class E2ESessionOptions
     /// Each starts from the built-in defaults, not from the default agent.
     /// </summary>
     public IReadOnlyDictionary<string, AgentOptions>? Agents { get; init; }
+
+    /// <summary>The agent a call that names none uses, upstream's <c>agent</c> option of a test or run. Unset, it is <c>default</c>. An unknown name is <c>INVALID_ARGUMENT</c>.</summary>
+    public string? Agent { get; init; }
+
+    /// <summary>Upstream's <c>agentContext</c> of a test or group: appended to the context of every agent, after its own.</summary>
+    public string? TestAgentContext { get; init; }
 
     public string? BaseUrl { get; init; }
 

@@ -63,7 +63,7 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
     {
         var current = Xunit.TestContext.Current;
         var test = current.Test ?? throw new InvalidOperationException("The E2E session starts inside a running xUnit test.");
-        await StartSessionAsync(CacheTitle(test), 1, null, HasFailed, current.CancellationToken).ConfigureAwait(false);
+        await StartSessionAsync(CacheTitle(test), 1, null, HasFailed, current.CancellationToken, (test.TestCase as IXunitTestCase)?.TestMethod?.Method).ConfigureAwait(false);
     }
 
     public virtual async ValueTask DisposeAsync()
