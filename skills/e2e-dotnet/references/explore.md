@@ -78,12 +78,23 @@ there, since `e2e.config.json` names only a provider and a model id.
 | `--max-steps <n>` | 8 (1 to 12) | Exploration steps at most. |
 | `--timeout <ms>` | 600000 (180000 to 900000) | Wall clock; the last minute is for the assessment. |
 | `--headed` | off | Show the browser while the agent explores. |
-| `--output <dir>` | `.e2e/results` | Where finding screenshots are kept. |
+| `--output <dir>` | `.e2e/results` | Where finding screenshots, trace pages, and videos are kept. |
+| `--debug` | off | Print the phase timings and the agent step table to stderr. `E2E_DEBUG=1` does the same. |
+| `--ai-trace` | off | Record every model call to `ai-trace-<process id>.json` next to the results directory (`.e2e/`), for `npx unbox-ai`. `E2E_AI_TRACE=1` does the same. |
+| `--trace [mode]` | the config's `trace`, else `retain-on-failure` | Which attempts keep a trace page, `<output>/<goal slug>/trace.md`. A bare flag is `on`. `E2E_TRACE` sets it too. |
+| `--video [mode]` | the config's `video`, else `off` | Which attempts record a video, when the engine can. A bare flag is `on`. `E2E_VIDEO` sets it too. |
 
 A flag out of range exits 2 and names the range. `--session` and `--reporter`
-exit 2: the port has no saved sessions or reporters. `--trace`, `--video`,
-`--debug`, and `--ai-trace` print a notice on stderr and the run goes on
-without them.
+exit 2: the port has no saved sessions or reporters. The modes of `--trace`
+and `--video` are `off`, `on`, `retain-on-failure`, `on-first-retry`, and
+`on-all-retries`; a value that is not one exits 2. `--trace` and `--video` take
+the next word as the mode, so write `--video=on "Explore checkout"` or put the
+goal first. An exploration is one attempt, so a retry mode keeps nothing, and a
+notice says to pass `--trace on` or `--video on`. The exploration's own verdict, the
+issues its findings tell, gets no trace page. Videos mask nothing: they can show
+a password the explorer filled. `ExploreOptions` has the same four as `Trace`,
+`Video`, `Debug`, and `AiTrace`. `e2e mcp` takes none of them: its sessions
+write no trace page.
 
 Every `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD` pair in the
 environment is an account the explorer can sign in with, named `<name>` in

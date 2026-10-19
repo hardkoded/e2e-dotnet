@@ -27,6 +27,7 @@ public static partial class Program
           e2e install [chromium|firefox|webkit ...] [--with-deps]
           e2e mcp [--config <path>] [--target <name>] [--headed] [--max-sessions <n>]
           e2e explore [goal] [--config <path>] [--target <id>] [--agent <name>] [--max-steps <n>] [--timeout <ms>] [--headed] [--output <dir>]
+                       [--debug] [--ai-trace] [--trace [mode]] [--video [mode]]
 
         e2e install downloads browsers for the Playwright version E2E runs. It installs chromium when no browser is named.
 

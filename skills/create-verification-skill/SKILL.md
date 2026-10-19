@@ -22,8 +22,8 @@ named below (`setup`, `writing-tests`, `writing-tests-nunit`,
 `writing-tests-xunit`, `mcp`, `bug-bash`, `running`, `debugging`) are its
 reference files.
 
-In the .NET port there is no `e2e init`, `e2e run`, `e2e list`, or
-`e2e explore`, and no trace page or report. Tests run with
+In the .NET port there is no `e2e init`, `e2e run`, or `e2e list`, and no
+run report. Tests run with
 `dotnet test`. The sections below say what stands in for each.
 
 ## Contents

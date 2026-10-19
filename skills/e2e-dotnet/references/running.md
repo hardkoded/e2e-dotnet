@@ -23,7 +23,7 @@ e2e login|logout|models [provider]                   # subscription logins: open
                                                      # github-copilot, opencode-console, spacexai
 e2e install [chromium ...] [--with-deps]             # download browsers (topic setup)
 e2e mcp                                              # MCP server for a coding agent (topic mcp)
-e2e explore [goal] [--max-steps <n>] [--timeout <ms>] # explore the app toward a goal (topic explore)
+e2e explore [goal] [--max-steps <n>] [--timeout <ms>] [--video|--trace|--debug|--ai-trace] # explore the app toward a goal (topic explore)
 ```
 
 Selection, retries, and parallelism are the test framework's: `--filter`
@@ -32,12 +32,13 @@ Selection, retries, and parallelism are the test framework's: `--filter`
 fixture instance among its tests, so a test class with `ParallelScope.Children`
 or `All` fails at setup unless it also has
 `[FixtureLifeCycle(LifeCycle.InstancePerTestCase)]`. There is no `e2e run`, `e2e list`,
-`e2e explore`, `e2e init`, `e2e cache`, or `e2e feedback`.
+`e2e init`, `e2e cache`, or `e2e feedback`.
 
 To rewrite the stored screenshots `ToHaveScreenshotAsync` finds missing or
 different, and pass, set `E2E_UPDATE_SNAPSHOTS=1`.
 
-`--trace` and `--video` are the variables `E2E_TRACE` and `E2E_VIDEO`, for
+`--trace` and `--video` are the variables `E2E_TRACE` and `E2E_VIDEO` for a
+test run (`e2e explore` has the flags themselves), for
 example `E2E_VIDEO=on dotnet test`, or `<EnvironmentVariables>` in a
 `.runsettings` file. The modes are `off`, `on`, `retain-on-failure`,
 `on-first-retry`, and `on-all-retries`. The web engine records `video` into
@@ -47,12 +48,12 @@ example `E2E_VIDEO=on dotnet test`, or `<EnvironmentVariables>` in a
 `debugging`). `E2E_TRACE=on` writes one for a passing attempt too, and
 `E2E_TRACE=off` writes none. The retry modes need NUnit `[Retry]`.
 
-`--debug` is `E2E_DEBUG=1` (or `true`). Each test writes its phase timings and
+`--debug` is `E2E_DEBUG=1` (or `true`) for a test run. Each test writes its phase timings and
 a table of its agent steps to stderr when it ends, and keeps its executor
 transcripts. Run with
 `--logger "console;verbosity=detailed"` to see them (topic `debugging`).
 
-`--ai-trace` is `E2E_AI_TRACE=1` (or `true`). Each test records every model
+`--ai-trace` is `E2E_AI_TRACE=1` (or `true`) for a test run. Each test records every model
 call, and the test process writes them to `.e2e/ai-trace-<process id>.json`
 (topic `debugging`).
 

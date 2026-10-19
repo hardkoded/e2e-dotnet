@@ -54,7 +54,7 @@ internal static class TracePages
         }
 
         Dictionary<string, string> pages = new(StringComparer.Ordinal);
-        foreach (var result in report.Run.Results.Where(result => traced.Contains(result.Id)))
+        foreach (var result in TracedResults(report, traced))
         {
             var dir = result.Directory ?? ArtifactPaths.ResultSegment(result.Id, result.File, result.TitlePath);
             var file = Path.Combine(options.ResultsRoot, dir, TracePage);
@@ -75,6 +75,17 @@ internal static class TracePages
 
         return pages;
     }
+
+    /// <summary>
+    /// Whether a result's failure is the exploration's verdict, which its findings already tell; such a result gets no page and no
+    /// failure block. Upstream's <c>isExploreVerdict</c>.
+    /// </summary>
+    internal static bool IsExploreVerdict(Outcome final, ReportExplore explore) =>
+        final.Final.Error?.Code == "ASSERTION_FAILED" && explore.Findings.Any(finding => finding.Kind == ReportExploreFindingKind.Issue);
+
+    // The results that get a page: every one an attempt kept a trace for, except an exploration's own verdict.
+    private static IEnumerable<ReportResult> TracedResults(Report1Document report, IReadOnlySet<string> traced) =>
+        report.Run.Results.Where(result => traced.Contains(result.Id) && (report.Run.Explore is not { } explore || !IsExploreVerdict(Outcome.Of(result), explore)));
 
     // Through a unique temp name, then moved, so a reader never sees half a page.
     internal static async Task WriteTextAsync(string file, string text, CancellationToken cancellationToken)

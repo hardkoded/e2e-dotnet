@@ -19,7 +19,8 @@ internal sealed record Report1Document(ReportRun Run);
 /// <param name="RunnerVersion">The version of the runner (upstream's <c>runner.version</c>).</param>
 /// <param name="Targets">The names of the targets the run used; a page names a result's target only when there is more than one.</param>
 /// <param name="Results">One per test.</param>
-internal sealed record ReportRun(string Id, string RunnerVersion, IReadOnlyList<string> Targets, IReadOnlyList<ReportResult> Results);
+/// <param name="Explore">What the run explored, when it was an exploration (upstream's <c>run.explore</c>).</param>
+internal sealed record ReportRun(string Id, string RunnerVersion, IReadOnlyList<string> Targets, IReadOnlyList<ReportResult> Results, ReportExplore? Explore = null);
 
 /// <summary>How a test ended, over all its attempts.</summary>
 internal enum ResultStatus

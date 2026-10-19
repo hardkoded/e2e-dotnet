@@ -4,6 +4,7 @@
 
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using E2E.Engine;
 using E2E.Tests.Agent;
 using E2E.Tests.AgentAct;
 using static E2E.Tests.AgentAct.ExecutorKit;
@@ -16,8 +17,7 @@ namespace E2E.Tests.Explore;
 /// <c>e2e explore</c> end to end against the counter page, with one scripted model serving both surfaces: the planner's
 /// structured call and the explorer's tool loop. The port has no runner or report here, so these tests read the outcome
 /// <see cref="Explorer.ExploreAsync"/> returns where upstream's read the run's report. The tests of <c>--session</c>
-/// (runs only the setup, keeps the pixels of a tainted session, an agentic setup, an unknown session) and the one that
-/// tells a user to pass <c>--trace on</c> and <c>--video on</c> are not ported: the port has no saved sessions, traces, or video.
+/// (runs only the setup, keeps the pixels of a tainted session, an agentic setup, an unknown session) are not ported: the port has no saved sessions.
 /// </summary>
 public sealed class E2eExploreTests
 {
@@ -364,6 +364,18 @@ public sealed class E2eExploreTests
         Assert.DoesNotContain("bookworm", Everything(model.Model.Requests), StringComparison.Ordinal);
     }
 
+    // Upstream reads the notice from the run's events, and its engine is the web engine, which records video. The port's notice sink is
+    // ExploreOptions.Notice, and a scripted engine that declares the video capability stands in for the web engine.
+    [Fact]
+    public async Task Says_to_pass_video_on_when_a_retry_mode_would_record_nothing_explore_running_once()
+    {
+        var model = Model(_ => ExploreModel.Finish("Nothing here."), _ => ExploreModel.Done("passed", "unused"));
+        var notices = new List<string>();
+        await Explorer.ExploreAsync(Options(TempRoot(), model.Model, notices, engine: new RecordingEngine(ExploreHarness.Engine()), video: RecordingMode.OnFirstRetry));
+
+        Assert.Equal(["video: 'on-first-retry' records retries only, and explore runs its goal once, so no videos will be recorded; pass --video on"], notices);
+    }
+
     [Fact]
     public async Task Rejects_a_goal_past_the_ceiling_a_budget_out_of_range_and_a_credential_inventory_that_would_not_fit_a_step_before_anything_starts()
     {
@@ -384,5 +396,17 @@ public sealed class E2eExploreTests
         Assert.Equal("INVALID_CONFIG", inventory.Code);
         Assert.Contains("400 account(s) serialize to", inventory.Message, StringComparison.Ordinal);
         Assert.Equal(0, model.Model.CallCount);
+    }
+
+    /// <summary>An engine that declares it can record video and runs the attempt as <paramref name="inner"/> does: the attempt is the first, and a retry mode records no first attempt.</summary>
+    private sealed class RecordingEngine(IEngine inner) : IEngine
+    {
+        public string Platform => inner.Platform;
+
+        public string Version => inner.Version;
+
+        public EngineCapabilities Capabilities => inner.Capabilities | EngineCapabilities.Video;
+
+        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) => inner.StartAsync(options, cancellationToken);
     }
 }

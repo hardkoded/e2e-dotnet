@@ -97,7 +97,10 @@ internal static class ExploreHarness
         IEngine? engine = null,
         IReadOnlyDictionary<string, UserCredential>? credentials = null,
         string? agentName = null,
-        string? target = null) =>
+        string? target = null,
+        RecordingMode? trace = null,
+        RecordingMode? video = null,
+        bool aiTrace = false) =>
         new()
         {
             Cwd = root,
@@ -111,6 +114,9 @@ internal static class ExploreHarness
             Credentials = credentials,
             Agent = agentName,
             Target = target,
+            Trace = trace,
+            Video = video,
+            AiTrace = aiTrace,
         };
 
     /// <summary>Every file the run kept under the project's results directory.</summary>

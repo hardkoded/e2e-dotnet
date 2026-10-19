@@ -131,7 +131,8 @@ public abstract class E2EFixture
     /// </summary>
     protected virtual bool AiTrace => IsOn("E2E_AI_TRACE");
 
-    private static bool IsOn(string variable) => Environment.GetEnvironmentVariable(variable)?.Trim() is { } value && (value == "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase));
+    /// <summary>Whether <paramref name="variable"/> is <c>1</c> or <c>true</c>.</summary>
+    internal static bool IsOn(string variable) => Environment.GetEnvironmentVariable(variable)?.Trim() is { } value && (value == "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase));
 
     protected virtual TimeSpan TestTimeout => Config.Timeout;
 
