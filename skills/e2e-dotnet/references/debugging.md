@@ -22,7 +22,9 @@
    the step rather than the app.
 2. A failed locator expectation says what it expected and the last value it
    read, with the match count. Compare that value with the expectation
-   before you change either.
+   before you change either. The exception's `Details` holds the same facts
+   one per field: `Locator`, `Expected`, `Observed`, `Matches`, and for a locator
+   `Role`, `Name`, `TestId`, and `WaitedMs` (how long it waited).
 3. A failed agent step carries the model's explanation. A passing act's
    `ActResult.Cache` tells whether the step replayed, and why a replay
    missed.
@@ -46,9 +48,10 @@ no viewer. It tells, in this order:
 
 1. The title, the test file, the status, and how long the attempt took, then
    `Ran on:` (the browser and its user agent, the device).
-2. The error code and message, `Look at:` (the test line the failure unwound
-   through, else the failing step's line), and, after a retry, whether every
-   attempt failed alike.
+2. The error code and message, then the facts of its `Details` (`Expected:`,
+   `Observed: ... (1 match)`, `Asked for: button "Save"`, `Waited:`), `Look at:`
+   (the test line the failure unwound through, else the failing step's line),
+   and, after a retry, whether every attempt failed alike.
 3. `## Steps`: one line per step, `2. ✗ \`locator.tap\` \`getByRole("button", "Save")\`
    (108ms) — **TIMEOUT** — \`Tests/CheckoutTests.cs:42\``, with the model calls
    of an agent step, and the offset into the video (`, video 0:12`) when one
@@ -61,16 +64,23 @@ no viewer. It tells, in this order:
      action means it had no visible effect;
    - the explanation of a step that failed.
 4. `## App log`, `## Agent turns of step N`, and `## Screen at failure`, when
-   the port recorded them. `Screen at failure` gives the last URL, the node
-   count, the viewport, and the last screen the test saw, one node per line
-   (also in `attempt-<n>/screen-at-failure.txt`).
+   the port recorded them. When the attempt fails, the session looks at the app
+   once more before it closes. `Screen at failure` gives the URL, the viewport,
+   the node count, a screenshot (`attempt-<n>/screenshots/failure.png`; none
+   when the attempt knows a secret, the engine captures no pixels, or it cannot
+   show that every secure field was masked), for a locator that matched nothing or too much
+   the nodes closest to what it asked for (`Closest to what the locator asked
+   for`), and the screen as the agent reads it, one node per line:
+   `#id role "name" text="..." [states]` (also in
+   `attempt-<n>/screen-at-failure.txt`). A test's own `TearDown` runs first, so
+   one that navigates away shows its page here. When the look fails (a crashed
+   page) the section is left out.
 5. `## Also failed` (another error, such as one from cleanup) and
    `## Evidence` (the video).
 
 Not recorded yet, so the page leaves them out: what each action landed on, what
 an assertion read while it waited, where the app went, what the app logged, the
-agent's turns, the screenshot at failure, and what
-became of a step's recording. A mention, a URL, or markup from the app is shown
+agent's turns, and what became of a step's recording. A mention, a URL, or markup from the app is shown
 as code or escaped, and a secret is redacted. Add `.e2e/results/` to
 `.gitignore`.
 

@@ -77,8 +77,10 @@ public sealed class BillingTests : E2ETest
 4. Run one class: `dotnet test --filter "FullyQualifiedName~<Class>"`. Agent
    steps need a model in the config and that provider's authentication.
    Tests without agent steps need no model.
-5. Read the exception's `Code` and message (topic `debugging`). Fix the
-   locator, the expectation, or the app. Never add a sleep.
+5. Read the exception's `Code`, message, and `Details` (what was expected and
+   observed, what the locator asked for, how long it waited), then the failed
+   attempt's trace page (topic `debugging`). Fix the locator, the expectation,
+   or the app. Never add a sleep.
 
 ## Rules
 

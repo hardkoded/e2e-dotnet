@@ -63,7 +63,7 @@ internal static partial class ScreenshotAssertion
         var expected = System.IO.File.Exists(file) ? ReadStored(run) : null;
         if (expected is not null && (negated || !store.Update) && store.HasWritten(file))
         {
-            throw Failure(run, subject, shown + " was written earlier in this run and is not reviewed yet: look at it, commit it, and run again");
+            throw Failure(run, subject, shown + " was written earlier in this run and is not reviewed yet: look at it, commit it, and run again", "unreviewed stored screenshot");
         }
 
         if (negated)
@@ -165,7 +165,7 @@ internal static partial class ScreenshotAssertion
             {
                 if (latest is null)
                 {
-                    return Failure(run, subject, missing ?? "no screenshot was taken", cause);
+                    return Failure(run, subject, missing ?? "no screenshot was taken", "no screenshot", cause);
                 }
 
                 if (!settles && expected is not null && latestComparison is { } comparison and not ImageComparison.Match)
@@ -188,7 +188,7 @@ internal static partial class ScreenshotAssertion
                 var message = captures < 2
                     ? "took " + Number(captures) + " screenshot" + (captures == 1 ? "" : "s") + " before the timeout and needs two the same; give it a longer timeout"
                     : "the screen never held still: no two of " + Number(captures) + " screenshots in a row were the same";
-                return Failure(run, subject, string.Join('\n', new[] { message }.Concat(images)), cause);
+                return Failure(run, subject, string.Join('\n', new[] { message }.Concat(images)), "no stable screenshot", cause);
             },
             negated: false).ConfigureAwait(false);
         return settled;
@@ -199,7 +199,7 @@ internal static partial class ScreenshotAssertion
     {
         if (expected is null)
         {
-            throw Failure(run, subject, "no stored screenshot at " + run.Shown + " to differ from");
+            throw Failure(run, subject, "no stored screenshot at " + run.Shown + " to differ from", "no stored screenshot");
         }
 
         var compared = false;
@@ -221,8 +221,8 @@ internal static partial class ScreenshotAssertion
                 return ImageOps.CompareImages(expected, capture.Image, run.Call.Tolerance) is ImageComparison.Match;
             },
             cause => compared
-                ? Failure(run, subject, "the screen still matches " + run.Shown, cause)
-                : Failure(run, subject, missing ?? "no screenshot was taken", cause),
+                ? Failure(run, subject, "the screen still matches " + run.Shown, "matching", cause)
+                : Failure(run, subject, missing ?? "no screenshot was taken", "no screenshot", cause),
             negated: true).ConfigureAwait(false);
     }
 
@@ -254,7 +254,7 @@ internal static partial class ScreenshotAssertion
         if (expected is null && !store.Update && store.Ci)
         {
             var kept = Attach(run, Path.Combine("snapshots", Path.IsPathRooted(run.Shown) ? Path.GetFileName(run.File) : run.Shown), settled);
-            throw Failure(run, subject, "no stored screenshot at " + run.Shown + ", and CI writes none without E2E_UPDATE_SNAPSHOTS=1; commit this run's there\nactual: " + kept);
+            throw Failure(run, subject, "no stored screenshot at " + run.Shown + ", and CI writes none without E2E_UPDATE_SNAPSHOTS=1; commit this run's there\nactual: " + kept, "no stored screenshot");
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(run.File)!);
@@ -264,7 +264,7 @@ internal static partial class ScreenshotAssertion
         store.MarkWritten(run.File);
         if (expected is null && !store.Update)
         {
-            throw Failure(run, subject, "no stored screenshot at " + run.Shown + "; wrote this run's there. Look at it, commit it, and run again");
+            throw Failure(run, subject, "no stored screenshot at " + run.Shown + "; wrote this run's there. Look at it, commit it, and run again", "no stored screenshot");
         }
     }
 
@@ -283,13 +283,14 @@ internal static partial class ScreenshotAssertion
         var observed = comparison is ImageComparison.SizeMismatch size
             ? "a " + Number(size.Actual.Width) + "x" + Number(size.Actual.Height) + " screenshot where " + run.Shown + " is " + Number(size.Expected.Width) + "x" + Number(size.Expected.Height)
             : Number(((ImageComparison.Pixels)comparison).DiffPixels) + " pixels (" + FormatRatio(((ImageComparison.Pixels)comparison).Ratio) + " of the image) differ from " + run.Shown;
-        return Failure(run, subject, string.Join('\n', new[] { observed + "; run with E2E_UPDATE_SNAPSHOTS=1 to keep this run's" }.Concat(images)), cause);
+        return Failure(run, subject, string.Join('\n', new[] { observed + "; run with E2E_UPDATE_SNAPSHOTS=1 to keep this run's" }.Concat(images)), observed, cause);
     }
 
-    private static TestException Failure(Run run, Locator? subject, string message, Exception? cause = null)
+    /// <summary>An assertion failure naming the stored screenshot.</summary>
+    private static TestException Failure(Run run, Locator? subject, string message, string observed, Exception? cause = null)
     {
         var text = "expect(" + Subject(subject) + ")." + run.Api + " failed\n" + message;
-        return ErrorRedaction.Failure("ASSERTION_FAILED", text, cause, run.Screen.Redact);
+        return ErrorRedaction.Failure("ASSERTION_FAILED", text, cause, run.Screen.Redact, new ErrorDetails { Expected = run.Shown, Observed = observed });
     }
 
     /// <summary>A share as a percentage with two significant digits at most: <c>0.04%</c>, <c>12%</c>.</summary>

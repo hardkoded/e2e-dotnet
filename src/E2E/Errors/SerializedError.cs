@@ -8,15 +8,16 @@ using E2E.Internal;
 namespace E2E;
 
 /// <summary>
-/// A failure as a report keeps it (upstream's <c>SerializedError</c>): classified, redacted, and bounded. The structured
-/// <c>details</c> and the stack text are not carried: the port's exceptions have no details, and no report reads a stack yet.
+/// A failure as a report keeps it (upstream's <c>SerializedError</c>): classified, redacted, and bounded. The stack text is not
+/// carried: no report reads a stack yet.
 /// </summary>
 /// <param name="Category"><c>test</c>, <c>configuration</c>, <c>infrastructure</c>, or <c>interrupted</c>.</param>
 /// <param name="Code">The stable code of the failure.</param>
 /// <param name="Message">The message, redacted, sanitized, and cut to 8 KiB.</param>
 /// <param name="Retryable">Whether the caller may observe again and repeat the operation.</param>
 /// <param name="Source">The line in the test file the failure unwound through, when the stack named one.</param>
-internal sealed record SerializedError(string Category, string Code, string Message, bool Retryable, SourceLocation? Source);
+/// <param name="Details">The structured facts of the failure, redacted, sanitized, and bounded; null when there are none.</param>
+internal sealed record SerializedError(string Category, string Code, string Message, bool Retryable, SourceLocation? Source, ErrorDetails? Details = null);
 
 /// <summary>
 /// Upstream's <c>classifyError</c> and <c>serializeError</c> (<c>internal/errors.ts</c>): what a thrown value is, in the
@@ -27,6 +28,9 @@ internal static class ErrorSerializer
     private const int MaxMessageBytes = 8192;
 
     private const int MaxCauseDepth = 3;
+
+    /// <summary>Bytes one detail text keeps.</summary>
+    private const int MaxDetailBytes = 2048;
 
     /// <summary>The code a cancelled step carries.</summary>
     public const string Cancelled = "CANCELLED";
@@ -60,7 +64,26 @@ internal static class ErrorSerializer
             code,
             TextRules.TruncateUtf8(TextRules.SanitizeText(redact(message)), MaxMessageBytes),
             retryable,
-            source ?? LocateIn(cause, projectRoot));
+            source ?? LocateIn(cause, projectRoot),
+            cause is E2EException { Details: { } details } ? BoundedDetails(details, redact) : null);
+    }
+
+    // Details as the report carries them: text redacted, sanitized, and bounded, empty text dropped, nothing when nothing is left.
+    private static ErrorDetails? BoundedDetails(ErrorDetails details, Func<string, string> redact)
+    {
+        string? Text(string? text) => string.IsNullOrEmpty(text) ? null : TextRules.TruncateUtf8(TextRules.SanitizeText(redact(text)), MaxDetailBytes);
+        var bounded = new ErrorDetails
+        {
+            Locator = Text(details.Locator),
+            Expected = Text(details.Expected),
+            Observed = Text(details.Observed),
+            Matches = details.Matches,
+            Role = Text(details.Role),
+            Name = Text(details.Name),
+            TestId = Text(details.TestId),
+            WaitedMs = details.WaitedMs,
+        };
+        return bounded == new ErrorDetails() ? null : bounded;
     }
 
     // The failure's own frames first, then those of the causes it wraps, innermost last.

@@ -25,6 +25,7 @@ public sealed class E2ESession : IAsyncDisposable
     private int _disposed;
     private ExecuteVideo? _video;
     private TraceOutput? _trace;
+    private FailureEvidence? _evidence;
     private Exception? _error;
     private long _bodyMs;
     private AttemptStatus _status = AttemptStatus.Failed;
@@ -61,6 +62,9 @@ public sealed class E2ESession : IAsyncDisposable
 
     /// <summary>What the engine said the attempt runs on, redacted and bounded; null when it said nothing.</summary>
     internal IReadOnlyDictionary<string, string>? Environment => _scope.Environment.Read(_scope.Redactor.Redact);
+
+    /// <summary>What the attempt saw the moment it failed, once the session is released and the trace page keeps the attempt; null otherwise.</summary>
+    internal FailureEvidence? Evidence => _evidence;
 
     /// <summary>Redacts the values of the secrets this attempt knows.</summary>
     internal Redactor Redactor => _scope.Redactor;
@@ -360,6 +364,7 @@ public sealed class E2ESession : IAsyncDisposable
         Exception? videoFailure = null;
         try
         {
+            await CaptureFailureEvidenceAsync().ConfigureAwait(false);
             if (_video is not null)
             {
                 try
@@ -514,6 +519,36 @@ public sealed class E2ESession : IAsyncDisposable
         }
     }
 
+    // One more look at the app the moment the failure is known, while the engine is still open: what the screen held then is the
+    // evidence the message lacks. Only an attempt whose trace page is kept looks, since the page is all that reads it.
+    private async Task CaptureFailureEvidenceAsync()
+    {
+        if (_error is not { } error || _status == AttemptStatus.Passed || _trace is not { Keep: { } keep } trace || !RecordingModes.Keeps(keep, _status))
+        {
+            return;
+        }
+
+        try
+        {
+            _evidence = await FailureEvidence.CaptureAsync(new FailureEvidenceOptions
+            {
+                Observe = token => _scope.Session.ObserveAsync(token),
+                Capture = token => _scope.CaptureAsync(token),
+                Error = error,
+                Redactor = _scope.Redactor,
+                WithholdsPixels = _scope.Exposure.WithholdsPixels || _scope.Secrets.Count > 0,
+                AppOrigin = _scope.AppOrigin,
+                AttemptDir = trace.AttemptDir,
+            }).ConfigureAwait(false);
+        }
+#pragma warning disable CA1031 // Evidence is a courtesy: a look that fails must not hide the test's own result.
+        catch (Exception ex) when (ex is not OperationCanceledException)
+#pragma warning restore CA1031
+        {
+            _evidence = null;
+        }
+    }
+
     // The page is a courtesy as well: one that cannot be written must not hide the test's own result.
     private async Task WriteTracePageAsync()
     {
@@ -542,13 +577,7 @@ public sealed class E2ESession : IAsyncDisposable
 
         try
         {
-            // The screen the failure left is a file beside the attempt's others, which the page quotes.
-            if (_error is not null && _status != AttemptStatus.Passed && _scope.Steps.LastScreen is { } screen)
-            {
-                await TracePages.WriteTextAsync(Path.Combine(trace.AttemptDir, AttemptReport.ScreenFile), TextRules.TruncateUtf8(AttemptReport.ScreenListing(screen), StepScreens.DefaultObservationBytes), CancellationToken.None).ConfigureAwait(false);
-            }
-
-            var (report, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Videos, Exploration);
+            var (report, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Videos, Exploration, _evidence);
             await TracePages.WriteTracePagesAsync(
                 report,
                 new HashSet<string>(StringComparer.Ordinal) { id },

@@ -62,13 +62,23 @@ internal static class SnapshotText
         return wrote;
     }
 
+    /// <summary>Levels of indent a <see cref="FormatNode"/> line keeps; deeper nodes line up with the tenth.</summary>
+    private const int MaxIndentDepth = 10;
+
+    /// <summary>
+    /// One node as <c>#id role "name" text="…" value="…" selection="…" [states]</c>, indented by its depth (upstream's <c>formatNode</c>,
+    /// <c>agent/observation.ts</c>). A node with no role reads as <c>text</c>, as in the lines the model reads. Focus is listed.
+    /// </summary>
+    internal static string FormatNode(SemanticNode node, int depth, Redactor redactor, string? appOrigin) =>
+        new string(' ', Math.Min(depth, MaxIndentDepth)) + "#" + node.Ref + " " + Describe(node, redactor, appOrigin, listing: false, focus: true);
+
     /// <summary>
     /// One node as a line names it, after its <c>- </c> and indent: role, name, text, the disambiguators, value, and the states
     /// that hold. Upstream's <c>describeNode</c> (<c>agent/observation.ts</c>). A <paramref name="listing"/> line is the one the model
     /// reads, with the node's reference and focus; without it, the line is the node as a reader comparing two screens counts it:
-    /// ids are minted per observation and focus moves with every action.
+    /// ids are minted per observation and focus moves with every action. <paramref name="focus"/> lists focus without the reference.
     /// </summary>
-    internal static string Describe(SemanticNode node, Redactor redactor, string? appOrigin, bool listing = true)
+    internal static string Describe(SemanticNode node, Redactor redactor, string? appOrigin, bool listing = true, bool focus = false)
     {
         var builder = new StringBuilder();
         builder.Append(node.Role ?? "text");
@@ -160,7 +170,7 @@ internal static class SnapshotText
             builder.Append(" [pressed]");
         }
 
-        if (node.States.Focused && listing)
+        if (node.States.Focused && (listing || focus))
         {
             builder.Append(" [focused]");
         }

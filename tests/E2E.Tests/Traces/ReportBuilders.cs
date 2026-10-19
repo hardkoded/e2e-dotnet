@@ -16,7 +16,7 @@ internal static class ReportBuilders
 
     private static readonly SourceLocation Origin = new("tests/auth.e2e.ts", 3, 1);
 
-    public static ReportError Error(string code = "ASSERTION_FAILED", string message = "expected \"Sign in\" to be visible", string? phase = null, SourceLocation? source = null, ReportErrorDetails? details = null) =>
+    public static ReportError Error(string code = "ASSERTION_FAILED", string message = "expected \"Sign in\" to be visible", string? phase = null, SourceLocation? source = null, ErrorDetails? details = null) =>
         new(code, message, phase, source, details);
 
     public static StepRecord Step(

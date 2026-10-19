@@ -48,6 +48,8 @@ internal sealed class ScreenProject : IDisposable
             UpdateSnapshots = update,
             Ci = ci,
             Attempt = attempt,
+            // The tests count the captures the matcher takes; a failed run's own look at the screen is not one of them.
+            Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Target),
             AssertionTimeout = TimeSpan.FromSeconds(5),
             SnapshotDirectoryOf = _ => Snapshots(file),
         });
