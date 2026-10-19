@@ -117,6 +117,27 @@ list: topic `debugging`.
 - `MaxSteps` (default 25 actions), `MaxModelCalls` (default 25): may only
   lower the agent's limits, else `INVALID_ARGUMENT`.
 - `Agent`: the named agent that runs the step.
+- `OnAction`: an `ActionHook` (`Task` from an `ActionEvent`) that runs after
+  each action the step completes, once the screen settles, and before the next
+  action. That includes actions the replay cache replays. The step waits for
+  it, and its time counts toward `Timeout`. Use it to observe, never to drive
+  the app. If it throws, the step fails with a message that starts with
+  `agent.act onAction failed`. A check inside it never confirms the step's
+  recording. The event has `Index` (1-based, the action's slot in the step's
+  budget), `Action` (`tap`, `navigate`, and so on; a mutating project tool
+  reads `tool:<name>`), `Summary` (what the action did, secrets redacted), and
+  `Source` (`ActionSource.Model`, or `ActionSource.Replay` for a cached action).
+
+```csharp
+await Agent.ActAsync("open settings and turn on dark mode", new ActOptions
+{
+    OnAction = e =>
+    {
+        Console.WriteLine($"{e.Index} {e.Action}: {e.Summary}");
+        return Task.CompletedTask;
+    },
+});
+```
 
 The tools the model can call: `observe`, `tap`, `double_tap`, `fill`,
 `fill_secret` (a `Secret` from `Params`, by name), `press`, `select`,

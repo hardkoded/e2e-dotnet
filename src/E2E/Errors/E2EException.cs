@@ -107,6 +107,12 @@ public sealed class AgentException : E2EException
     public string? Screenshot { get; init; }
 
     /// <summary>
+    /// True when the step failed because the test's own <c>OnAction</c> hook threw. That failure says nothing about the
+    /// actions, so the step's recording is neither kept nor evicted for it. Upstream's <c>ActionHookError</c>.
+    /// </summary>
+    internal bool FromActionHook { get; init; }
+
+    /// <summary>
     /// True when credentials, the environment, test setup, or the agent's own budget stopped the step,
     /// rather than the app misbehaving.
     /// </summary>

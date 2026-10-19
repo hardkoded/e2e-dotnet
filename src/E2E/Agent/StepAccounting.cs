@@ -25,8 +25,12 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
     private AgentException? _hardStop;
     private TraceRecorder? _recorder;
     private Action<RecordedAction>? _committed;
+    private Func<string, Task>? _toolRan;
     private int _prepaid;
     private bool _ended;
+
+    /// <summary>The call the step is: the name its errors carry.</summary>
+    public string Api => api;
 
     public int MaxActions => maxActions;
 
@@ -51,9 +55,10 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
     /// <summary>
     /// Puts the step on a clock. <paramref name="stop"/> is cancelled on a hard stop other than a spent budget, so the executor
     /// and every engine operation of the step end with it. <paramref name="cancellation"/> is the caller's and the attempt's,
-    /// without the step's own deadline. <paramref name="committed"/> serves a project tool's gap.
+    /// without the step's own deadline. <paramref name="committed"/> serves a project tool's gap, and <paramref name="toolRan"/>
+    /// hands the name of a mutating tool that ran to the test's <c>OnAction</c> hook.
     /// </summary>
-    public void Attach(AttemptScope scope, TimeSpan timeout, CancellationToken cancellation, CancellationTokenSource stop, Action<RecordedAction> committed)
+    public void Attach(AttemptScope scope, TimeSpan timeout, CancellationToken cancellation, CancellationTokenSource stop, Action<RecordedAction> committed, Func<string, Task>? toolRan = null)
     {
         _scope = scope;
         _timeout = timeout;
@@ -62,7 +67,11 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
         _cancellation = cancellation;
         _stop = stop;
         _committed = committed;
+        _toolRan = toolRan;
     }
+
+    /// <summary>Whether the books are closed.</summary>
+    public bool Closed => _ended;
 
     /// <summary>Closes the books: what an executor that outlived the step reports afterwards belongs to no step.</summary>
     public void Close() => _ended = true;
@@ -110,9 +119,14 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
     public AgentException TimedOut() =>
         new("STEP_TIMEOUT", api + " exceeded its " + _timeout.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture) + " ms timeout", blocked: true);
 
-    /// <summary>Fails when the step is cancelled or out of time, and records the hard stop.</summary>
+    /// <summary>Fails when the step is cancelled, out of time, or already hard-stopped, and records the hard stop.</summary>
     public void Checkpoint()
     {
+        if (_hardStop is { } firstStop && (_stop?.IsCancellationRequested ?? false))
+        {
+            throw firstStop;
+        }
+
         if (_cancellation.IsCancellationRequested || (_scope?.Token().IsCancellationRequested ?? false))
         {
             throw Fatalize(new AgentException("CANCELLED", "the step was cancelled"));
@@ -219,14 +233,22 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
         {
             Reserve();
             var gap = Recorder.RecordGap(name);
+            T value;
             try
             {
-                return await body().ConfigureAwait(false);
+                value = await body().ConfigureAwait(false);
             }
             finally
             {
                 _committed?.Invoke(gap);
             }
+
+            if (_toolRan is { } ran)
+            {
+                await ran(name).ConfigureAwait(false);
+            }
+
+            return value;
         }).ConfigureAwait(false);
     }
 

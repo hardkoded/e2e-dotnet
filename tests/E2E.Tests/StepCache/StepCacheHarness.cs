@@ -196,7 +196,11 @@ internal sealed class StepHost : IStepCacheHost
 
     public void MarkActing() => FirstActedOn ??= Latest;
 
-    public void Commit(RecordedAction action) => Recorder.Record(action);
+    public Task CommitAsync(RecordedAction action)
+    {
+        Recorder.Record(action);
+        return Task.CompletedTask;
+    }
 
     private sealed class Grammar : IExecutorActions
     {

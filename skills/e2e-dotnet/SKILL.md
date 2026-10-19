@@ -103,6 +103,11 @@ public sealed class BillingTests : E2ETest
   phrasing. A judgment reads the text snapshot; when the answer is only in
   pixels (a chart, a canvas, an overlay), pass `Vision = VisionMode.On`, or
   `VisionMode.Only` for the screenshot alone (topic `agent`).
+- `ActOptions.OnAction` runs after each action of an act, once the screen
+  settles, replayed actions included. Use it to observe (log, screenshot),
+  never to drive the app. It is awaited and counts toward `Timeout`. A throw
+  fails the step with `agent.act onAction failed: ...`, and a check inside it
+  never confirms the act (topic `agent`).
 - Check each act's outcome. Only a verified act is recorded and replayed
   (topic `agent`).
 - Shape the agent for this app: `context` for the vocabulary the screens
