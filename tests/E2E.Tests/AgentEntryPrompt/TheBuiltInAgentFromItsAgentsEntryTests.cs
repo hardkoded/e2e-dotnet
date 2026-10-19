@@ -6,8 +6,6 @@ using E2E.Engine;
 
 namespace E2E.Tests.AgentEntryPrompt;
 
-// Upstream's "joins the context with the test-level agentContext" has no port: the port's AgentContext replaces
-// agents.default.context instead of joining it.
 public sealed class TheBuiltInAgentFromItsAgentsEntryTests
 {
     [Fact]
@@ -21,6 +19,18 @@ public sealed class TheBuiltInAgentFromItsAgentsEntryTests
         var system = model.Requests[0].System;
         Assert.Contains("Be careful.", system, StringComparison.Ordinal);
         Assert.Contains("Project context:\nPlans are called tiers.", system, StringComparison.Ordinal);
+        session.Complete();
+    }
+
+    [Fact]
+    public async Task Joins_the_context_with_the_test_level_agentContext()
+    {
+        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "done"));
+        await using var session = await StartAsync(model, context: "Plans are called tiers.", testContext: "Billing lives under Settings.");
+
+        await session.Agent.ActAsync("open billing");
+
+        Assert.Contains("Project context:\nPlans are called tiers.\nBilling lives under Settings.", model.Requests[0].System, StringComparison.Ordinal);
         session.Complete();
     }
 
@@ -40,7 +50,7 @@ public sealed class TheBuiltInAgentFromItsAgentsEntryTests
         session.Complete();
     }
 
-    private static async Task<E2ESession> StartAsync(ScriptedModel model, string? system = null, string? context = null, Dictionary<string, AgentOptions>? agents = null)
+    private static async Task<E2ESession> StartAsync(ScriptedModel model, string? system = null, string? context = null, Dictionary<string, AgentOptions>? agents = null, string? testContext = null)
     {
         var session = await E2ESession.StartAsync(new E2ESessionOptions
         {
@@ -48,6 +58,7 @@ public sealed class TheBuiltInAgentFromItsAgentsEntryTests
             Model = model,
             AgentSystem = system,
             AgentContext = context,
+            TestAgentContext = testContext,
             Agents = agents,
             BaseUrl = "https://billing.test",
             TestTitle = "entry prompt",

@@ -1120,6 +1120,9 @@ internal sealed class AttemptScope
     /// <summary>The agents by name. <c>default</c> is always present.</summary>
     public required IReadOnlyDictionary<string, ResolvedAgent> Agents { get; init; }
 
+    /// <summary>The agent a call that names none uses: the test's pin, else the run's agent, else <c>default</c>.</summary>
+    public string AgentName { get; init; } = "default";
+
     public required IStepCache? Cache { get; init; }
 
     public required bool CacheEnabled { get; init; }
@@ -1245,7 +1248,7 @@ internal sealed class AttemptScope
             throw new TestException("INVALID_ARGUMENT", "agent must be the name of a configured agent");
         }
 
-        name ??= "default";
+        name ??= AgentName;
         if (Agents.TryGetValue(name, out var agent))
         {
             return agent;

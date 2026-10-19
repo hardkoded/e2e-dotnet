@@ -47,10 +47,36 @@ providers and their logins):
 
 ### Choose an agent
 
-Tests use `agents.default`. A call picks another with its `Agent` option:
-`new ActOptions { Agent = "buyer" }`. An unknown name is `INVALID_ARGUMENT`.
-There is no `--agent` flag and no pin for a whole test; name the agent on
-each call.
+Tests use `agents.default`. Pin another to a test or a class, or name one on
+a call. The closest setting wins: the call, then the method, then the class
+(a nested class after its enclosing class), then the run.
+
+```csharp
+[Agent("buyer")]
+public class CheckoutTests : E2ETest
+{
+    [Test]
+    public async Task PaysForOneItem() { /* acts as buyer */ }
+
+    [Test]
+    public async Task ReordersAndTheAdminApproves()
+    {
+        await Agent.ActAsync("reorder the most recent order");
+        await Agent.ActAsync("approve the pending reorder", new ActOptions { Agent = "admin" });
+    }
+}
+```
+
+`E2E_AGENT=thorough dotnet test` sets the run's agent for tests that pin none.
+It takes one name; a pin is never replaced. An unknown name, on a pin, a call,
+or `E2E_AGENT`, is `INVALID_ARGUMENT`. There is no list of agents that runs
+one test once per persona. Each agent records its own replay entries, keyed by
+its name and context.
+
+`[AgentContext("The seeded workspace is called \"Acme Trial\".")]` on a class
+or a method adds facts only that test knows. It joins the agent's `context`,
+outer layer first, one per line, and reaches the judges too, so keep
+instructions out of it. A changed text records again.
 
 ## ActAsync: one goal
 
