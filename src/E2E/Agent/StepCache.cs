@@ -217,7 +217,7 @@ internal sealed class StepTraceSession
         if (_info is not null && Pending.ParamCollision && Pending.Entry is not null)
         {
             // The recording cannot be templated safely, so it is not written, and the result says why.
-            _info = new CacheInfo { Mode = _info.Mode, Reason = _info.Reason, ReplayedActions = _info.ReplayedActions, TotalActions = _info.TotalActions, Detail = _info.Detail, NotRecorded = "param-collision" };
+            _info = new CacheInfo { Mode = _info.Mode, Reason = _info.Reason, ReplayedActions = _info.ReplayedActions, TotalActions = _info.TotalActions, Detail = _info.Detail, NotRecorded = "param-collision", Entry = _info.Entry };
         }
     }
 
@@ -344,7 +344,7 @@ internal sealed class StepTraceSession
         }
 
         _wholeReplay = entry;
-        _info = new CacheInfo { Mode = "self-finalized", ReplayedActions = _recorder.RecordedCount, TotalActions = entry.Actions.Count };
+        _info = new CacheInfo { Mode = "self-finalized", Entry = Pending.Key, ReplayedActions = _recorder.RecordedCount, TotalActions = entry.Actions.Count };
         return new StepVerdict(StepVerdictStatus.Passed, "Replayed recorded actions.");
     }
 
@@ -356,11 +356,11 @@ internal sealed class StepTraceSession
         }
 
         _prefix = new ReplayedPrefix(_recorder.Actions.Select(DefaultAgent.Describe).ToList(), Pending.RecordedActions, ReplayHandOffReasons.Parse(reason), uncertain);
-        _info = new CacheInfo { Mode = "agent-concluded", Reason = reason, ReplayedActions = _recorder.RecordedCount, TotalActions = Pending.RecordedActions, Detail = detail };
+        _info = new CacheInfo { Mode = "agent-concluded", Entry = Pending.Key, Reason = reason, ReplayedActions = _recorder.RecordedCount, TotalActions = Pending.RecordedActions, Detail = detail };
     }
 
     private CacheInfo Missed(string reason, int totalActions, string? detail = null) =>
-        new() { Mode = "missed", Reason = reason, ReplayedActions = _recorder.RecordedCount, TotalActions = totalActions, Detail = detail };
+        new() { Mode = "missed", Entry = Pending.Key, Reason = reason, ReplayedActions = _recorder.RecordedCount, TotalActions = totalActions, Detail = detail };
 
     // The last action may start a navigation or a slow render, so the end route and anchors get the replay timeout to show up.
     // The replay must also have produced the delta: an outcome already on screen before the actions proves nothing.

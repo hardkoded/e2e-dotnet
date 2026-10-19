@@ -201,6 +201,9 @@ public static class Explore
             ActionTimeout = config.ActionTimeout,
             AssertionTimeout = config.AssertionTimeout,
             StepTimeout = StepTimeout,
+
+            // The command has no --trace yet, so an exploration writes no trace page.
+            Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
         };
 
         await using var session = await E2ESession.StartAsync(sessionOptions, cancellationToken).ConfigureAwait(false);

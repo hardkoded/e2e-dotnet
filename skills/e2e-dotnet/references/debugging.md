@@ -3,6 +3,7 @@
 ## Contents
 
 - Read the failure
+- The trace page
 - Error codes
 - Watch it happen
 - Tools
@@ -13,7 +14,9 @@
 
 ## Read the failure
 
-1. The test runner prints the exception. An `E2EException` has a `Code`;
+1. Open the trace page of the failed attempt, `.e2e/results/<test>/trace.md`
+   ("The trace page"). It names the error and the line to look at, and lists
+   every step. The test runner prints the exception too. An `E2EException` has a `Code`;
    read it first, then the message. `AgentException.Blocked` is true when
    credentials, the environment, test setup, or the step's budget stopped
    the step rather than the app.
@@ -24,12 +27,52 @@
    `ActResult.Cache` tells whether the step replayed, and why a replay
    missed.
 
-There is no trace page, `report.json`, or `--debug` step table in
-this port. Use the test runner's own output, such as
+There is no `report.json` in this port. For more than the page tells, use the
+test runner's own output, such as
 `dotnet test --logger "console;verbosity=detailed"` or a `trx` logger.
 To see where a slow test spends its time, set `E2E_DEBUG=1`
 ("Timings and transcripts"). To see what the page did, record it
 ("Watch it happen").
+
+## The trace page
+
+`trace` is the variable `E2E_TRACE` for one run, or `trace` at the config root,
+on a target, or in a fixture's `Trace` property. The modes are `off`, `on`,
+`retain-on-failure` (the default), `on-first-retry`, and `on-all-retries`. An
+attempt that the mode keeps writes `.e2e/results/<test>/trace.md` when its
+session is released, beside the `attempt-<n>` directories. A retry is its own
+attempt and overwrites the page of the one before it. Open the file; there is
+no viewer. It tells, in this order:
+
+1. The title, the test file, the status, and how long the attempt took, then
+   `Ran on:` (the browser and its user agent, the device).
+2. The error code and message, `Look at:` (the test line the failure unwound
+   through, else the failing step's line), and, after a retry, whether every
+   attempt failed alike.
+3. `## Steps`: one line per step, `2. ✗ \`locator.tap\` \`getByRole("button", "Save")\`
+   (108ms) — **TIMEOUT** — \`Tests/CheckoutTests.cs:42\``, with the model calls
+   of an agent step, and the offset into the video (`, video 0:12`) when one
+   is recorded. Under a step:
+   - for an agent step, the cache's decision (`cache: replayed 1 of 3 recorded
+     actions, then the agent took over: a recorded target is not on the screen;
+     at action 2 of 3, tap button "Apply"`) and the entry file;
+   - how the screen changed since the step before (`screen: 2 changes since
+     step 3` with the added, removed, and changed nodes). `unchanged` after an
+     action means it had no visible effect;
+   - the explanation of a step that failed.
+4. `## App log`, `## Agent turns of step N`, and `## Screen at failure`, when
+   the port recorded them. `Screen at failure` gives the last URL, the node
+   count, the viewport, and the last screen the test saw, one node per line
+   (also in `attempt-<n>/screen-at-failure.txt`).
+5. `## Also failed` (another error, such as one from cleanup) and
+   `## Evidence` (the video).
+
+Not recorded yet, so the page leaves them out: what each action landed on, what
+an assertion read while it waited, where the app went, what the app logged, the
+agent's turns, the screenshot at failure, and what
+became of a step's recording. A mention, a URL, or markup from the app is shown
+as code or escaped, and a secret is redacted. Add `.e2e/results/` to
+`.gitignore`.
 
 ## Error codes
 
@@ -122,9 +165,10 @@ on a target is required: an engine that cannot record it (`DocumentEngine`,
 | `E2E_HEADLESS=0 dotnet test --filter ...` | Watch the failing test in a visible browser |
 | `"cache": { "mode": "off" }` | Rule out a stale replay |
 | `E2E_VIDEO=retain-on-failure` | Watch the failed attempt |
+| `E2E_TRACE=on` | Keep a trace page for a passing attempt too |
 | `CI=1 dotnet test` | Reproduce CI-only behavior (`read-only` cache) |
 | `Browser.WaitForResponseAsync` | Check what the app's API answered |
-| `E2E_DEBUG=1 dotnet test` | Phase timings per test, and each agent step's transcript |
+| `E2E_DEBUG=1 dotnet test` | Phase timings and a table of agent steps per test, and each agent step's transcript |
 | `E2E_AI_TRACE=1 dotnet test`, then `npx unbox-ai runs .e2e/ai-trace-<pid>.json` | What the model saw and called |
 
 ## Timings and transcripts
@@ -148,8 +192,20 @@ phase timings to stderr when it ends, slowest phase first:
 The phases are `session.launch` (the engine's start), `test.body` (the session
 start until the test settles), `session.close`, and the agent's
 `agent.observe`, `agent.model`, and `agent.action`. `test.body` holds the
-agent phases, so the rows do not add up to the wall time. The port has no
-`--debug` agent step table (one row per step with tokens and cost) yet.
+agent phases, so the rows do not add up to the wall time.
+
+A second table follows, with one row per agent step in execution order: its
+total time, the time in its model, observe, and action work, the model calls,
+the tokens in and out, the share of the input the provider served from its
+prompt cache, and the cost. A `via` column names the model when the steps used
+more than one. `cached` and `cost` read `-` when the provider does not report
+them.
+
+```console
+[e2e debug] agent steps (execution order, model openai/gpt-5)
+  step                                        total  model  observe  action  calls  tokens in/out  cached  cost
+  agent.act "increment the counter once"      2.3s   1.9s    180ms    95ms      2        3120/84       -     -
+```
 
 Under debug, the transcript a custom executor passes to `AttachTranscript`
 is also kept, redacted, as `transcript-<n>.txt` beside the attempt's other

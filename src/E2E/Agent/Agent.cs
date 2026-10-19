@@ -686,6 +686,7 @@ public sealed partial class Agent
         }
 
         ModelResponse response;
+        var started = DateTimeOffset.UtcNow;
         try
         {
             var request = new ModelRequest
@@ -705,6 +706,14 @@ public sealed partial class Agent
         }
 
         _scope.ModelCalls++;
+        _scope.Steps.AddModelCall(new ExecutorModelCall
+        {
+            InputTokens = response.Usage?.InputTokens,
+            OutputTokens = response.Usage?.OutputTokens,
+            StartedAt = started,
+            DurationMs = (int)(DateTimeOffset.UtcNow - started).TotalMilliseconds,
+            ModelId = model.Name,
+        });
         if (response.Usage is { } usage)
         {
             _scope.InputTokens += usage.InputTokens;
@@ -962,6 +971,9 @@ public sealed class CacheInfo
 
     /// <summary><c>param-collision</c> when the step passed but its recording was not written, because a <c>unique()</c> value is spelled by another param.</summary>
     public string? NotRecorded { get; init; }
+
+    /// <summary>The step's cache key, which names its entry file (<c>&lt;directory&gt;/&lt;entry&gt;.json</c> in a <see cref="FileStepCache"/>).</summary>
+    public string? Entry { get; init; }
 }
 
 /// <summary>The vision hint a judgment made from the tree alone carries, so the failing test names the remedy where it is read.</summary>

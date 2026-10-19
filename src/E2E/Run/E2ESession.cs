@@ -24,6 +24,9 @@ public sealed class E2ESession : IAsyncDisposable
     private int _state;
     private int _disposed;
     private ExecuteVideo? _video;
+    private TraceOutput? _trace;
+    private Exception? _error;
+    private long _bodyMs;
     private AttemptStatus _status = AttemptStatus.Failed;
 
     private E2ESession(AttemptScope scope, CancellationTokenSource timeout, IEngineSession engine, App app, Browser browser, Agent agent, Screen screen, TestContext context, IDisposable errorRedaction, TextWriter? debugOutput)
@@ -253,7 +256,9 @@ public sealed class E2ESession : IAsyncDisposable
                 Screen = screen,
                 CancellationToken = timeout.Token,
             };
-            return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video };
+            var keep = RecordingModes.AttemptKeep(options.Trace.Mode, options.Attempt - 1);
+            var trace = new TraceOutput(keep, attemptDir, (options.Cache as FileStepCache)?.CacheDirectory);
+            return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _trace = trace };
         }
         catch
         {
@@ -393,8 +398,9 @@ public sealed class E2ESession : IAsyncDisposable
             _errorRedaction.Dispose();
             _scope.Ended.Dispose();
             _timeout.Dispose();
-            WriteDebug(_scope.Debug, _debugOutput);
+            WriteDebug(_scope.Debug, _debugOutput, _scope.Steps.All());
             WriteAiTrace(_scope);
+            await WriteTracePageAsync().ConfigureAwait(false);
         }
 
         if (videoFailure is not null)
@@ -465,7 +471,7 @@ public sealed class E2ESession : IAsyncDisposable
     }
 
     // A table is a courtesy: a stderr that cannot be written must not hide the test's own result.
-    private static void WriteDebug(DebugTrace debug, TextWriter? output)
+    private static void WriteDebug(DebugTrace debug, TextWriter? output, IReadOnlyList<StepRecord>? steps = null)
     {
         if (!debug.Enabled)
         {
@@ -474,7 +480,12 @@ public sealed class E2ESession : IAsyncDisposable
 
         try
         {
-            (output ?? Console.Error).Write(debug.Summary());
+            var writer = output ?? Console.Error;
+            writer.Write(debug.Summary());
+            if (steps is not null)
+            {
+                writer.Write(DebugSteps.AgentStepTable([steps]));
+            }
         }
         catch (IOException)
         {
@@ -500,11 +511,60 @@ public sealed class E2ESession : IAsyncDisposable
         }
     }
 
+    // The page is a courtesy as well: one that cannot be written must not hide the test's own result.
+    private async Task WriteTracePageAsync()
+    {
+        if (_trace is not { } trace)
+        {
+            return;
+        }
+
+        if (trace.Keep is not { } keep || !RecordingModes.Keeps(keep, _status))
+        {
+            // Upstream empties the results directory when a run starts. A first attempt that keeps nothing clears the page an earlier run left.
+            if (_scope.Attempt == 1)
+            {
+                try
+                {
+                    File.Delete(Path.Combine(trace.TestDir, TracePages.TracePage));
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // A page that cannot be removed is stale, not a failure of the test.
+                }
+            }
+
+            return;
+        }
+
+        try
+        {
+            // The screen the failure left is a file beside the attempt's others, which the page quotes.
+            if (_error is not null && _status != AttemptStatus.Passed && _scope.Steps.LastScreen is { } screen)
+            {
+                await TracePages.WriteTextAsync(Path.Combine(trace.AttemptDir, AttemptReport.ScreenFile), TextRules.TruncateUtf8(AttemptReport.ScreenListing(screen), StepScreens.DefaultObservationBytes), CancellationToken.None).ConfigureAwait(false);
+            }
+
+            var (report, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Videos);
+            await TracePages.WriteTracePagesAsync(
+                report,
+                new HashSet<string>(StringComparer.Ordinal) { id },
+                new WriteTracePagesOptions(_scope.ProjectRoot!, trace.ResultsRoot, trace.CacheDir),
+                _scope.Redactor.Redact).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Console.Error.WriteLine("[e2e] could not write the trace page for " + _scope.TestTitle + ": " + _scope.Redactor.Redact(ex.Message));
+        }
+    }
+
     private static bool Bounded(TimeSpan timeout) => timeout > TimeSpan.Zero && timeout != Timeout.InfiniteTimeSpan;
 
     private void Commit(Exception? error, CancellationToken cancellationToken)
     {
         _status = ExecuteVideo.StatusOf(error);
+        _error = error;
+        _bodyMs = (long)System.Diagnostics.Stopwatch.GetElapsedTime(_bodyStarted).TotalMilliseconds;
         if (!_scope.CacheWrite || _scope.Cache is null || cancellationToken.IsCancellationRequested)
         {
             return;
