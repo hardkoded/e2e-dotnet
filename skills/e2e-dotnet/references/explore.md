@@ -186,7 +186,7 @@ the record, or a model.
 
 Findings are the model's claims plus evidence, not verified reproductions:
 read `Actual` against the screenshot before filing a bug. The port has no
-saved sessions (`--session`), traces, or report file, so an
+saved sessions (`--session`) or report file, so an
 exploration starts signed out and its record is the outcome (or what the
 command prints). A whole-app
 bug hunt (topic `bug-bash`) still has no fan-out.

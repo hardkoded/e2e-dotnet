@@ -54,6 +54,12 @@ internal static class TracePages
         }
 
         Dictionary<string, string> pages = new(StringComparer.Ordinal);
+        foreach (var result in report.Run.Results.Where(result => traced.Contains(result.Id) && report.Run.Explore is { } explore && IsExploreVerdict(Outcome.Of(result), explore)))
+        {
+            // A page an earlier run left for the same goal would pass as evidence of this one.
+            File.Delete(Path.Combine(options.ResultsRoot, result.Directory ?? ArtifactPaths.ResultSegment(result.Id, result.File, result.TitlePath), TracePage));
+        }
+
         foreach (var result in TracedResults(report, traced))
         {
             var dir = result.Directory ?? ArtifactPaths.ResultSegment(result.Id, result.File, result.TitlePath);

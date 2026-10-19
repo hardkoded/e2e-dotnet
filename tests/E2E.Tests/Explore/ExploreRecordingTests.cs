@@ -44,6 +44,11 @@ public sealed class ExploreRecordingTests
             _ => ++plans == 1 ? ExploreModel.Step("Counter", "Look at the counter") : ExploreModel.Finish("One defect."),
             call => call.Turn == 1 ? ExploreModel.ReportFinding(ExploreModel.CounterFinding()) : ExploreModel.Done("passed", "Looked"));
         var root = TempRoot();
+
+        // A page an earlier run left for the same goal is removed, not left as evidence of this one.
+        var earlier = Path.Combine(root, ".e2e", "results", "explore-the-home-page-and-find-bugs");
+        Directory.CreateDirectory(earlier);
+        await File.WriteAllTextAsync(Path.Combine(earlier, "trace.md"), "stale");
         var outcome = await Explorer.ExploreAsync(Options(root, model.Model, [], trace: RecordingMode.On));
 
         Assert.Equal(1, outcome.ExitCode);
