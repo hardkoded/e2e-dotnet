@@ -27,6 +27,18 @@ public sealed class BrowserWaitForResponseBodiesTests
     }
 
     [Fact]
+    public async Task Surfaces_a_cancel_before_any_page_is_open_as_cancellation()
+    {
+        await RunAsync(TimeSpan.FromSeconds(2), async (session, _) =>
+        {
+            using var cancel = new CancellationTokenSource();
+            var waiting = session.Browser.WaitForResponseAsync("**/never", cancellationToken: cancel.Token);
+            await cancel.CancelAsync();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting.WaitAsync(TimeSpan.FromSeconds(2)));
+        });
+    }
+
+    [Fact]
     public async Task Reads_a_full_body_as_text_and_JSON()
     {
         await RunAsync(TimeSpan.FromSeconds(2), async (session, site) =>

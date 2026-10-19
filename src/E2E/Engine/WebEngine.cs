@@ -1249,7 +1249,7 @@ public sealed partial class WebEngine : IEngine
                     ? Page.WaitForResponseAsync(
                         candidate => matches(candidate.Url),
                         new PageWaitForResponseOptions { Timeout = (float)timeout.TotalMilliseconds })
-                    : WaitForContextResponseAsync(matches, timeout)).ConfigureAwait(false);
+                    : WaitForContextResponseAsync(matches, timeout, cancellationToken)).ConfigureAwait(false);
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
@@ -1270,7 +1270,7 @@ public sealed partial class WebEngine : IEngine
         });
 
         /// <summary>Waits for a response on any page of the context. It listens from the call on, so no page has to exist yet.</summary>
-        private Task<IResponse> WaitForContextResponseAsync(Func<string, bool> matches, TimeSpan timeout)
+        private Task<IResponse> WaitForContextResponseAsync(Func<string, bool> matches, TimeSpan timeout, CancellationToken cancellationToken)
         {
             var context = RequireContext();
             var found = new TaskCompletionSource<IResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -1288,7 +1288,7 @@ public sealed partial class WebEngine : IEngine
             {
                 try
                 {
-                    return await found.Task.WaitAsync(timeout).ConfigureAwait(false);
+                    return await found.Task.WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
                 }
                 catch (TimeoutException)
                 {
