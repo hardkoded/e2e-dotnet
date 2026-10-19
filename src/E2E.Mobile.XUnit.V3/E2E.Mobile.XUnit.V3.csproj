@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>E2E.Mobile.XUnit.V3</RootNamespace>
+    <AssemblyName>E2E.Mobile.XUnit.V3</AssemblyName>
+    <PackageId>E2E.Mobile.XUnit.V3</PackageId>
+    <Description>MobileAppTest for the E2E .NET port: a ready base class that installs the app, launches it fresh before each test, and shares one hosted device per run.</Description>
+    <PackageTags>e2e;testing;agent;mobile;xunit</PackageTags>
+    <IsPackable>true</IsPackable>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\E2E.XUnit.V3\E2E.XUnit.V3.csproj" />
+    <ProjectReference Include="..\E2E.Mobile\E2E.Mobile.csproj" />
+    <ProjectReference Include="..\E2E.Limrun\E2E.Limrun.csproj" />
+    <ProjectReference Include="..\E2E.Mobile.DevFlow\E2E.Mobile.DevFlow.csproj" />
+    <Compile Include="..\Shared\MobileAppHost.cs" Link="MobileAppHost.cs" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>
