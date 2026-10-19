@@ -180,6 +180,20 @@ public sealed class TracesTests : IDisposable
         }
 
         Assert.Null(ReadTrace(results, "stale > test"));
+
+        await using (var failing = await StartAsync(results, "stale > test"))
+        {
+            await failing.App.OpenAsync("/");
+            failing.Complete(new TestException("TEST_FAILED", "nope"));
+        }
+
+        await using (var off = await StartAsync(results, "stale > test", RecordingMode.Off))
+        {
+            await off.App.OpenAsync("/");
+            off.Complete(new TestException("TEST_FAILED", "nope"));
+        }
+
+        Assert.Null(ReadTrace(results, "stale > test"));
     }
 
     [Fact]

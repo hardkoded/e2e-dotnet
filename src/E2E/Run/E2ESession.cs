@@ -257,7 +257,7 @@ public sealed class E2ESession : IAsyncDisposable
                 CancellationToken = timeout.Token,
             };
             var keep = RecordingModes.AttemptKeep(options.Trace.Mode, options.Attempt - 1);
-            var trace = keep is { } kept ? new TraceOutput(kept, attemptDir, (options.Cache as FileStepCache)?.CacheDirectory) : null;
+            var trace = new TraceOutput(keep, attemptDir, (options.Cache as FileStepCache)?.CacheDirectory);
             return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _trace = trace };
         }
         catch
@@ -519,7 +519,7 @@ public sealed class E2ESession : IAsyncDisposable
             return;
         }
 
-        if (!RecordingModes.Keeps(trace.Keep, _status))
+        if (trace.Keep is not { } keep || !RecordingModes.Keeps(keep, _status))
         {
             // Upstream empties the results directory when a run starts. A first attempt that keeps nothing clears the page an earlier run left.
             if (_scope.Attempt == 1)

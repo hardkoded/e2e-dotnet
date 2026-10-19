@@ -11,10 +11,10 @@ using E2E.Internal;
 namespace E2E;
 
 /// <summary>Where one attempt's trace page goes, and which attempts keep one.</summary>
-/// <param name="Keep">Which verdicts keep the page, from the attempt's <c>trace</c> mode.</param>
+/// <param name="Keep">Which verdicts keep the page, from the attempt's <c>trace</c> mode; null when the mode keeps none for this attempt.</param>
 /// <param name="AttemptDir">The attempt's artifact directory, <c>&lt;results&gt;/&lt;test&gt;/attempt-&lt;n&gt;</c>.</param>
 /// <param name="CacheDir">The replay cache directory when a <see cref="FileStepCache"/> holds the cache.</param>
-internal sealed record TraceOutput(Keep Keep, string AttemptDir, string? CacheDir)
+internal sealed record TraceOutput(Keep? Keep, string AttemptDir, string? CacheDir)
 {
     /// <summary>The test's directory under the results directory, where the page goes beside the attempts.</summary>
     public string TestDir => Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(AttemptDir))!;
