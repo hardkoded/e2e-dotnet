@@ -74,8 +74,6 @@ internal sealed class StepCacheOptions
 internal sealed class StepTraceSession
 {
     // Quotes a label in a detail as JSON.stringify does: text stays readable, not escaped to \u codes.
-    private static readonly JsonSerializerOptions JsonQuote = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
-
     private readonly IStepCacheHost _host;
     private readonly StepCacheOptions _options;
     private readonly TraceRecorder _recorder;
@@ -525,7 +523,7 @@ internal sealed class StepTraceSession
             : RecordedTarget.TargetLabel(anchor);
     }
 
-    private static string Quote(string text) => JsonSerializer.Serialize(text, JsonQuote);
+    private static string Quote(string text) => LocatorExpect.Quote(text);
 
     // The anchors a mismatch names, two of each kind at most: those the replay did not bring up, those it did not
     // clear, and alerts it raised that the recording never saw. Kinds are joined with commas, never semicolons: a

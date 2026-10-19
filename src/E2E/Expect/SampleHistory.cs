@@ -26,6 +26,8 @@ internal sealed class SampleHistory
     private readonly DateTimeOffset _startedAt = DateTimeOffset.UtcNow;
     private readonly long _started = Stopwatch.GetTimestamp();
     private readonly List<Run> _runs = [];
+    private string? _lastRaw;
+    private bool _dropped;
     private int _reads;
 
     /// <param name="name">What polled, as the event names it (<c>expect</c>, <c>waitFor</c>).</param>
@@ -44,7 +46,15 @@ internal sealed class SampleHistory
     {
         _reads++;
 
+        // The reading the last round took folds without being redacted again.
+        if (_runs.Count > 0 && string.Equals(_lastRaw, value, StringComparison.Ordinal))
+        {
+            _runs[^1].Count++;
+            return;
+        }
+
         // Folded whole, so two long readings that differ past the clip stay two.
+        _lastRaw = value;
         var redacted = _redact(value);
         if (_runs.Count > 0 && string.Equals(_runs[^1].Value, redacted, StringComparison.Ordinal))
         {
@@ -53,6 +63,13 @@ internal sealed class SampleHistory
         }
 
         _runs.Add(new Run(redacted, (long)Stopwatch.GetElapsedTime(_started).TotalMilliseconds));
+
+        // Only the first reading and the latest ones are told, so a value that keeps changing keeps no more than those.
+        if (_runs.Count > MaxRuns)
+        {
+            _runs.RemoveAt(1);
+            _dropped = true;
+        }
     }
 
     /// <summary>
@@ -67,7 +84,7 @@ internal sealed class SampleHistory
         DurationMs = (long)Stopwatch.GetElapsedTime(_started).TotalMilliseconds,
         Status = status,
         Count = _reads,
-        Detail = (_runs.Count > 1 || status != StepEventStatus.Passed) && _runs.Count > 0 ? Detail() : null,
+        Detail = (_runs.Count > 1 || _dropped || status != StepEventStatus.Passed) && _runs.Count > 0 ? Detail() : null,
     };
 
     /// <summary>
@@ -90,17 +107,17 @@ internal sealed class SampleHistory
 
     private string Detail()
     {
-        var shown = _runs.Count <= MaxRuns ? _runs : [_runs[0], .. _runs.Skip(_runs.Count - (MaxRuns - 1))];
+        var shown = _runs;
         var parts = shown.Select((run, index) =>
         {
-            var skipped = index == 1 && shown.Count < _runs.Count ? "… -> " : "";
+            var skipped = index == 1 && _dropped ? "… -> " : "";
             var at = index == 0 ? "" : "at " + run.AtMs.ToString(CultureInfo.InvariantCulture) + "ms ";
             return skipped + at + TextRules.Bound(run.Value, MaxValueChars) + (run.Count > 1 ? " x" + run.Count.ToString(CultureInfo.InvariantCulture) : "");
         });
         return TextRules.Bound(string.Join(" -> ", parts), StepRecorder.MaxEventDetailChars);
     }
 
-    /// <summary>One distinct reading, how many rounds in a row read it, and the milliseconds from the first read to its first read.</summary>
+    /// <summary>One distinct reading, how many rounds in a row read it, and the milliseconds from the poll's start to its first read.</summary>
     private sealed class Run(string value, long atMs)
     {
         public string Value { get; } = value;

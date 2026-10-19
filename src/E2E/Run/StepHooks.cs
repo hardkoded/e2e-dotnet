@@ -14,7 +14,7 @@ namespace E2E;
 /// (<c>enter</c> in <c>run/execute.ts</c>). The port has no runner: a test framework calls the hooks. So the step's call stack
 /// answers instead. The first method outside the library that carries a test framework's mark names it: NUnit's <c>[SetUp]</c> is
 /// <c>beforeEach</c> and its <c>[TearDown]</c> is <c>afterEach</c>, and a test method (<c>[Test]</c>, <c>[Fact]</c>) is the body.
-/// With xUnit, which has no such marks, an <c>InitializeAsync</c> or <c>DisposeAsync</c> of a test class is the same pair. The
+/// With xUnit, which has no such marks, an <c>InitializeAsync</c> or <c>DisposeAsync</c> of a class that implements <c>IAsyncLifetime</c>, or of an <see cref="E2EFixture"/>, is the same pair. A <c>[OneTimeSetUp]</c> or a constructor names no hook. The
 /// stack shows the methods a call is still running in, so a step called after an <c>await</c> in a helper the hook called
 /// belongs to the body, as the helper is the first method found.
 /// </summary>
@@ -82,13 +82,13 @@ internal static class StepHooks
             return Role.AfterEach;
         }
 
-        if (marks.Contains("NUnit.Framework.TestAttribute") || marks.Contains("NUnit.Framework.TestCaseAttribute") || marks.Contains("Xunit.FactAttribute"))
+        if (new[] { "NUnit.Framework.TestAttribute", "NUnit.Framework.TestCaseAttribute", "NUnit.Framework.TestCaseSourceAttribute", "NUnit.Framework.TheoryAttribute", "Xunit.FactAttribute" }.Any(marks.Contains))
         {
             return Role.Body;
         }
 
         // An xUnit test class sets up and tears down through IAsyncLifetime, which no attribute marks.
-        if (method.DeclaringType is { } type && typeof(E2EFixture).IsAssignableFrom(type))
+        if (method.DeclaringType is { } type && (typeof(E2EFixture).IsAssignableFrom(type) || type.GetInterfaces().Any(static contract => contract.FullName == "Xunit.IAsyncLifetime")))
         {
             return method.Name switch
             {
