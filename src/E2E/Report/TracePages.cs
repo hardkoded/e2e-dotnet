@@ -77,7 +77,7 @@ internal static class TracePages
     }
 
     // Through a unique temp name, then moved, so a reader never sees half a page.
-    private static async Task WriteTextAsync(string file, string text, CancellationToken cancellationToken)
+    internal static async Task WriteTextAsync(string file, string text, CancellationToken cancellationToken)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(file)!);
         var temp = file + "." + Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture) + "." + Guid.NewGuid().ToString("N") + ".tmp";

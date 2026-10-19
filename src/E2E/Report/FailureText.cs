@@ -486,7 +486,8 @@ internal static partial class FailureText
         // A video a hosted service keeps is its own link, wherever the run's files are.
         if (artifact.Url is not null)
         {
-            return Link(kind, artifact.Url);
+            // A link from outside text is a link only for http and https; anything else shows as the kind alone.
+            return Uri.TryCreate(artifact.Url, UriKind.Absolute, out var url) && url.Scheme is "http" or "https" ? Link(kind, artifact.Url) : kind;
         }
 
         var fromPage = artifact.Path is null ? null : PageHref(artifact.Path, options);

@@ -514,8 +514,26 @@ public sealed class E2ESession : IAsyncDisposable
     // The page is a courtesy as well: one that cannot be written must not hide the test's own result.
     private async Task WriteTracePageAsync()
     {
-        if (_trace is not { } trace || !RecordingModes.Keeps(trace.Keep, _status))
+        if (_trace is not { } trace)
         {
+            return;
+        }
+
+        if (!RecordingModes.Keeps(trace.Keep, _status))
+        {
+            // Upstream empties the results directory when a run starts. A first attempt that keeps nothing clears the page an earlier run left.
+            if (_scope.Attempt == 1)
+            {
+                try
+                {
+                    File.Delete(Path.Combine(trace.TestDir, TracePages.TracePage));
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // A page that cannot be removed is stale, not a failure of the test.
+                }
+            }
+
             return;
         }
 
@@ -524,8 +542,7 @@ public sealed class E2ESession : IAsyncDisposable
             // The screen the failure left is a file beside the attempt's others, which the page quotes.
             if (_error is not null && _status != AttemptStatus.Passed && _scope.Steps.LastScreen is { } screen)
             {
-                Directory.CreateDirectory(trace.AttemptDir);
-                await File.WriteAllTextAsync(Path.Combine(trace.AttemptDir, AttemptReport.ScreenFile), AttemptReport.ScreenListing(screen)).ConfigureAwait(false);
+                await TracePages.WriteTextAsync(Path.Combine(trace.AttemptDir, AttemptReport.ScreenFile), TextRules.TruncateUtf8(AttemptReport.ScreenListing(screen), StepScreens.DefaultObservationBytes), CancellationToken.None).ConfigureAwait(false);
             }
 
             var (report, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Videos);

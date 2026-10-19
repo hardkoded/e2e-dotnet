@@ -162,6 +162,27 @@ public sealed class TracesTests : IDisposable
     }
 
     [Fact]
+    public async Task Clears_the_page_an_earlier_run_left_when_the_first_attempt_keeps_none()
+    {
+        var results = Results();
+        await using (var failing = await StartAsync(results, "stale > test"))
+        {
+            await failing.App.OpenAsync("/");
+            failing.Complete(new TestException("TEST_FAILED", "nope"));
+        }
+
+        Assert.NotNull(ReadTrace(results, "stale > test"));
+
+        await using (var passing = await StartAsync(results, "stale > test"))
+        {
+            await passing.App.OpenAsync("/");
+            passing.Complete();
+        }
+
+        Assert.Null(ReadTrace(results, "stale > test"));
+    }
+
+    [Fact]
     public async Task Keeps_the_traces_the_mode_asks_for_none_under_off_a_passing_test_under_on_a_retry_under_trace_on_first_retry()
     {
         Assert.Equal([], await TracedAsync(RecordingMode.Off, retries: 0));

@@ -29,6 +29,19 @@ public sealed class TracePageRedactionTests : TracePageKit
     }
 
     [Fact]
+    public async Task Links_a_video_only_when_its_url_is_http_or_https()
+    {
+        ReportResult Failed(string id, string url) =>
+            ReportBuilders.Result(id: id, status: ResultStatus.Failed, attempts: [ReportBuilders.Attempt(AttemptStatus.Failed, ReportBuilders.Error()) with { Artifacts = [new("v:0", "video", Url: url)] }]);
+
+        var unsafePage = Assert.Single(await PagesOfAsync(Failed("bbbbbbbb22", "javascript:alert(1)"))).Text;
+        var safePage = Assert.Single(await PagesOfAsync(Failed("cccccccc33", "https://replay.example/a.mp4"))).Text;
+
+        Assert.DoesNotContain("javascript:", unsafePage, StringComparison.Ordinal);
+        Assert.Contains("[video](https://replay.example/a.mp4)", safePage, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Shows_a_token_github_would_link_as_code_and_escapes_what_could_open_markdown()
     {
         Assert.Equal("see `@mallory` and `https://evil.example/x`", MarkdownText.Cell("see @mallory and https://evil.example/x"));
