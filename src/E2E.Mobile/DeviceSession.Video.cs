@@ -35,8 +35,8 @@ public sealed partial class DeviceSession
             throw DeviceSupport.InvalidState("a video is already recording");
         }
 
-        var relative = Path.Combine("video", "video.mp4");
-        var absolute = Path.Combine(artifactsDir, relative);
+        const string relative = "video/video.mp4";
+        var absolute = Path.Combine(artifactsDir, "video", "video.mp4");
         Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
 
         // Marked before the device is asked: a start that outlives its budget still records, and closing the session must be able to stop it.

@@ -79,7 +79,7 @@ public sealed class VideoTests : IDisposable
         var segments = await session.StopVideoAsync(CancellationToken.None);
         AssertStop(h, """{"platform":"ios"}""");
         var segment = Assert.IsType<VideoFile>(Assert.Single(segments));
-        Assert.Equal(Path.Combine("video", "video.mp4"), segment.Path);
+        Assert.Equal("video/video.mp4", segment.Path);
         Assert.True(DateTime.TryParse(segment.StartedAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _));
         Assert.True(File.Exists(VideoPath));
         await session.DisposeAsync();
@@ -123,7 +123,7 @@ public sealed class VideoTests : IDisposable
         var session = await OpenAttempt(h, _artifactsDir);
         await session.StartVideoAsync(CancellationToken.None);
         var segments = await session.StopVideoAsync(CancellationToken.None);
-        Assert.Equal(Path.Combine("video", "video.mp4"), Assert.IsType<VideoFile>(Assert.Single(segments)).Path);
+        Assert.Equal("video/video.mp4", Assert.IsType<VideoFile>(Assert.Single(segments)).Path);
         Assert.True(File.Exists(VideoPath));
         Assert.False(File.Exists(elsewhere));
         await session.DisposeAsync();
