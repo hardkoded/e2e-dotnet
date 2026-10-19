@@ -37,6 +37,9 @@ public sealed record MobileStartInfo
     public IReadOnlyDictionary<string, string?> Env { get; init; } = new Dictionary<string, string?>();
 
     public Action<string> Log { get; init; } = static _ => { };
+
+    /// <summary>The attempt's artifact directory: where a video is written. Null for a worker started without one.</summary>
+    public string? ArtifactsDir { get; init; }
 }
 
 /// <summary>
@@ -133,7 +136,8 @@ public sealed class MobileEngine : IEngine
         | EngineCapabilities.Keyboard
         | EngineCapabilities.Scroll
         | EngineCapabilities.History
-        | EngineCapabilities.Screenshot;
+        | EngineCapabilities.Screenshot
+        | EngineCapabilities.Video;
 
     /// <summary>
     /// A device target launches an installed app or a build: one of the bundle id and the build path is required. A URL
@@ -181,7 +185,7 @@ public sealed class MobileEngine : IEngine
     {
         ArgumentNullException.ThrowIfNull(options);
         ValidateApp(Options.App, options.BaseUrl, Options.TargetName, Options.Platform);
-        return await StartAsync(new MobileStartInfo { TargetName = Options.TargetName, ProjectRoot = options.ProjectRoot ?? Directory.GetCurrentDirectory() }, cancellationToken).ConfigureAwait(false);
+        return await StartAsync(new MobileStartInfo { TargetName = Options.TargetName, ProjectRoot = options.ProjectRoot ?? Directory.GetCurrentDirectory(), ArtifactsDir = options.ArtifactsDir }, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Starts the worker of one slot: boots its device under its session and resumes the app prepare opened there.</summary>

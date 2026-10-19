@@ -8,6 +8,7 @@ iOS and Android apps run on `MobileEngine` (project `E2E.Mobile`, not on NuGet y
 - A test
 - Device controls
 - Choosing a device
+- Video
 - A MAUI app with DevFlow
 - Known limits
 
@@ -120,6 +121,10 @@ E2E_MOBILE_PROVIDER=limrun dotnet test samples/MobileApp.E2ETests
 The NUnit adapter does not run the engine's prepare and finish hooks, so without help each test would lease its own billed device. [`HostedDeviceSetup.cs`](https://github.com/hardkoded/e2e-dotnet/blob/main/samples/MobileApp.E2ETests/HostedDeviceSetup.cs) in the sample runs them once per run, so that every test shares the one leased device. Copy it for a hosted run.
 
 A provider that drives its devices without agent-device implements `IDeviceClientSource` as well as `IDeviceProvider`. `MobileEngine` then asks it for the `IDeviceClient` of each session. The client finds its device through `DeviceConnection.Client`, which is the `DeviceLease.Client` the provider returned. This has no upstream counterpart.
+
+## Video
+
+With `video` on (see `references/debugging.md`), a local simulator or emulator attempt writes `video/video.mp4` under `.e2e/results/<test>/attempt-<n>/`: agent-device records the whole device screen, not one app, and its segment carries `StartedAt`. Taps show as a touch indicator. `new MobileOptions { VideoTouches = false }` records the plain screen. An iPhone video is built from screenshots at about 15 frames a second. A physical iPhone that `xcrun devicectl list devices` does not list cannot record. A hosted device provider's own recording is not used yet, and the MAUI DevFlow engine cannot record.
 
 ## A MAUI app with DevFlow
 

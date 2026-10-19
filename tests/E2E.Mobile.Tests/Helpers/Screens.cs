@@ -10,9 +10,9 @@ namespace E2E.Mobile.Tests;
 internal static class Screens
 {
     /// <summary>Boots a worker and launches the pinned app the way a test's <c>app.open()</c> does.</summary>
-    public static async Task<DeviceSession> OpenAttempt(Harness h)
+    public static async Task<DeviceSession> OpenAttempt(Harness h, string? artifactsDir = null)
     {
-        var session = await h.Boot();
+        var session = await h.Boot(artifactsDir: artifactsDir);
         if (h.App.BundleId is not null || h.App.AppPath is not null)
         {
             await session.RestartAsync(CancellationToken.None);

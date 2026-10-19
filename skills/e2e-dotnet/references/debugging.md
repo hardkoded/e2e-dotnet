@@ -141,7 +141,9 @@ stand-in for `--video`; `e2e explore --video` is the flag itself), or with `vide
 in a fixture's `Video` property. The modes are `off`, `on`,
 `retain-on-failure`, `on-first-retry`, and `on-all-retries`; the retry modes
 need NUnit `[Retry]`, and xUnit v3 has no retry. The web engine records the
-page with Playwright's screencast.
+page with Playwright's screencast. `MobileEngine` records the device screen to
+`video/video.mp4` (`MobileOptions.VideoTouches = false` hides the touch
+indicator).
 
 The screencast goes into its attempt's directory,
 `.e2e/results/<test>/attempt-<n>/video/`: `video.webm`, and one
@@ -156,7 +158,7 @@ JPEG quality.
 A video masks nothing. It shows whatever the screen showed, secrets included,
 so keep `video` off unless you need it, and do not share the files. A mode set
 on a target is required: an engine that cannot record it (`DocumentEngine`,
-`MobileEngine`) fails the start with `UNSUPPORTED_ARTIFACT`.
+the MAUI DevFlow engine) fails the start with `UNSUPPORTED_ARTIFACT`.
 
 ## Tools
 
