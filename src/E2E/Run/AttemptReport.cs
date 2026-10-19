@@ -47,14 +47,19 @@ internal static class AttemptReport
         var directory = Path.GetFileName(output.TestDir);
         var attemptSegment = Path.GetFileName(output.AttemptDir);
         var failed = error is not null && status != AttemptStatus.Passed;
+        var screenListed = failed && scope.Steps.LastScreen is not null && File.Exists(Path.Combine(output.AttemptDir, ScreenFile));
         var attempt = new ReportAttempt
         {
             Status = status,
             DurationMs = durationMs,
             Error = error is null ? null : ReportError.Of(ErrorSerializer.Serialize(error, scope.ProjectRoot, scope.Redactor.Redact)),
             Steps = steps,
-            Failure = failed ? FailureAt(scope.Steps, steps) : null,
-            Artifacts = [.. videos.Select((video, index) => Artifact(video, index, directory, attemptSegment))],
+            Failure = failed ? FailureAt(scope.Steps, steps, screenListed) : null,
+            Artifacts =
+            [
+                .. videos.Select((video, index) => Artifact(video, index, directory, attemptSegment)),
+                .. failed && screenListed ? new[] { new ReportArtifact(ScreenArtifactId, "log", directory + "/" + attemptSegment + "/" + ScreenFile) } : [],
+            ],
             Environment = scope.Environment.Read(scope.Redactor.Redact),
         };
         var result = new ReportResult
@@ -78,8 +83,14 @@ internal static class AttemptReport
         return (new Report1Document(new ReportRun(RunId, ModelHttp.PackageVersion(), [scope.TargetName], [result])), id);
     }
 
+    /// <summary>What the screen file of a failed attempt is called, beside the attempt's other files.</summary>
+    internal const string ScreenFile = "screen-at-failure.txt";
+
+    /// <summary>The screen as the page quotes it, one node per line: the node's id, then the line the trace compares. Redacted when the screen was taken.</summary>
+    internal static string ScreenListing(ScreenText screen) => string.Join('\n', screen.Lines.Select(line => "#" + line.Id + " " + line.Text)) + "\n";
+
     // What the app showed when the failure landed: the last screen a step saw, since the port captures no evidence at failure.
-    private static FailureEvidence? FailureAt(StepRecorder recorder, IReadOnlyList<StepRecord> steps)
+    private static FailureEvidence? FailureAt(StepRecorder recorder, IReadOnlyList<StepRecord> steps, bool listed)
     {
         if (recorder.LastScreen is not { } screen)
         {
@@ -91,8 +102,11 @@ internal static class AttemptReport
             Url = screen.Location,
             Nodes = screen.Lines.Count,
             Viewport = steps.LastOrDefault(step => step.Viewport is not null)?.Viewport,
+            Screen = listed ? ScreenArtifactId : null,
         };
     }
+
+    private const string ScreenArtifactId = "screen-at-failure";
 
     // A video file is registered under the results directory, as upstream registers an attempt's artifacts; a link stays a link.
     private static ReportArtifact Artifact(VideoSegment video, int index, string directory, string attemptSegment)

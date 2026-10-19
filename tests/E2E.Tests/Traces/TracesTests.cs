@@ -46,6 +46,11 @@ public sealed class TracesTests : IDisposable
         Assert.Contains("2. ✓ `locator.tap` ", page, StringComparison.Ordinal);
         Assert.Contains("3. ✗ `expect.toHaveCount` ", page, StringComparison.Ordinal);
         Assert.Contains("**ASSERTION_FAILED**", page, StringComparison.Ordinal);
+
+        // The page quotes the last screen the test saw, as a file beside the attempt's others.
+        Assert.Contains("The screen as the agent reads it", page, StringComparison.Ordinal);
+        Assert.Contains("button \"Submit\"", page[page.IndexOf("```text\n#", StringComparison.Ordinal)..], StringComparison.Ordinal);
+        Assert.Contains("- [screen](attempt-1/screen-at-failure.txt) `", page, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -64,7 +64,7 @@ internal static class TracePages
                 Outcome.Of(result),
                 new TracePageOptions
                 {
-                    ArtifactsDir = Relative(options.ResultsRoot),
+                    ArtifactsDir = Source.ProjectRelativePath(options.ProjectRoot, options.ResultsRoot) ?? options.ResultsRoot.Replace('\\', '/'),
                     PageDir = dir,
                     ReadArtifact = ReadArtifact,
                     CacheDir = options.CacheDir is null ? null : Source.ProjectRelativePath(options.ProjectRoot, options.CacheDir) ?? options.CacheDir.Replace('\\', '/'),

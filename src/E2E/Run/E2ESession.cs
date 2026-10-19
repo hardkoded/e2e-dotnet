@@ -521,6 +521,13 @@ public sealed class E2ESession : IAsyncDisposable
 
         try
         {
+            // The screen the failure left is a file beside the attempt's others, which the page quotes.
+            if (_error is not null && _status != AttemptStatus.Passed && _scope.Steps.LastScreen is { } screen)
+            {
+                Directory.CreateDirectory(trace.AttemptDir);
+                await File.WriteAllTextAsync(Path.Combine(trace.AttemptDir, AttemptReport.ScreenFile), AttemptReport.ScreenListing(screen)).ConfigureAwait(false);
+            }
+
             var (report, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Videos);
             await TracePages.WriteTracePagesAsync(
                 report,
@@ -530,7 +537,7 @@ public sealed class E2ESession : IAsyncDisposable
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            Console.Error.WriteLine("[e2e] could not write the trace page for " + _scope.TestTitle + ": " + ex.Message);
+            Console.Error.WriteLine("[e2e] could not write the trace page for " + _scope.TestTitle + ": " + _scope.Redactor.Redact(ex.Message));
         }
     }
 

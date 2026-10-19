@@ -62,13 +62,14 @@ no viewer. It tells, in this order:
    - the explanation of a step that failed.
 4. `## App log`, `## Agent turns of step N`, and `## Screen at failure`, when
    the port recorded them. `Screen at failure` gives the last URL, the node
-   count, and the viewport.
+   count, the viewport, and the last screen the test saw, one node per line
+   (also in `attempt-<n>/screen-at-failure.txt`).
 5. `## Also failed` (another error, such as one from cleanup) and
    `## Evidence` (the video).
 
 Not recorded yet, so the page leaves them out: what each action landed on, what
 an assertion read while it waited, where the app went, what the app logged, the
-agent's turns, the accessibility tree and the screenshot at failure, and what
+agent's turns, the screenshot at failure, and what
 became of a step's recording. A mention, a URL, or markup from the app is shown
 as code or escaped, and a secret is redacted. Add `.e2e/results/` to
 `.gitignore`.
