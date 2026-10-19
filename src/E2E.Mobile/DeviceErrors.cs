@@ -95,6 +95,14 @@ public static partial class DeviceErrors
         "invalid-quality-payload",
     ];
 
+    /// <summary>
+    /// The <c>details.androidSnapshotHelperFailureReason</c> values agent-device gives up on a capture with when the foreground
+    /// holds too little to read: the helper returned nothing, only a system window, or an app window with almost no content. A
+    /// cold-starting app on a slow emulator does this until it renders. Mirrors agent-device's <c>isUnreadableCaptureContentError</c>,
+    /// which its root entry does not export (0.21.25).
+    /// </summary>
+    private static readonly HashSet<string> UnreadableCaptureReasons = ["empty-helper-output", "system-window-only", "content-poor-app-window"];
+
     private static readonly RunnerStateText Presentation =
         new("the iOS automation runner could not present the accessibility snapshot", "Rerun.");
 
@@ -154,6 +162,13 @@ public static partial class DeviceErrors
     /// capture and the capture is a read, so one retry is safe and usually enough.
     /// </summary>
     public static bool IsSnapshotPresentationFailure(Exception? error) => error?.InnerException is { } cause && IsPresentationFailure(cause);
+
+    /// <summary>
+    /// True for a translated snapshot agent-device took on Android but found too little foreground content in to read. The
+    /// screen is still arriving, so a caller that polls may read it as nothing there yet.
+    /// </summary>
+    public static bool IsUnreadableCapture(Exception? error) =>
+        error?.InnerException is { } cause && Details(cause).GetValueOrDefault("androidSnapshotHelperFailureReason") is string reason && UnreadableCaptureReasons.Contains(reason);
 
     /// <summary>
     /// Runs one agent-device command under a cancellation token and translates its failure onto the engine

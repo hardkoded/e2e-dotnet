@@ -33,35 +33,16 @@ internal enum ResultStatus
     Skipped,
 }
 
-/// <summary>The structured facts of an error: what an assertion expected and observed, what a locator asked for, how long it waited.</summary>
-internal sealed record ReportErrorDetails
-{
-    public string? Expected { get; init; }
-
-    public string? Observed { get; init; }
-
-    /// <summary>How many nodes the locator matched.</summary>
-    public int? Matches { get; init; }
-
-    public string? Role { get; init; }
-
-    public string? Name { get; init; }
-
-    public string? TestId { get; init; }
-
-    public long? WaitedMs { get; init; }
-}
-
 /// <summary>The error of an attempt or a step as a page tells it. Upstream's <c>ReportError</c>.</summary>
 /// <param name="Code">The error code, such as <c>ASSERTION_FAILED</c>.</param>
 /// <param name="Message">The message, redacted.</param>
 /// <param name="Phase">The hook the error came from (<c>cleanup</c>, say); null for the test body.</param>
 /// <param name="Source">The line the failure unwound through, when the stack named one.</param>
-/// <param name="Details">The structured facts of the error, when the thrower had them. The port's errors carry none yet.</param>
-internal sealed record ReportError(string Code, string Message, string? Phase = null, SourceLocation? Source = null, ReportErrorDetails? Details = null)
+/// <param name="Details">The structured facts of the error, when the thrower had them.</param>
+internal sealed record ReportError(string Code, string Message, string? Phase = null, SourceLocation? Source = null, ErrorDetails? Details = null)
 {
     /// <summary>The report's error for a serialized one.</summary>
-    public static ReportError Of(SerializedError error, string? phase = null) => new(error.Code, error.Message, phase, error.Source);
+    public static ReportError Of(SerializedError error, string? phase = null) => new(error.Code, error.Message, phase, error.Source, error.Details);
 }
 
 /// <summary>A file or link an attempt kept (upstream's <c>ReportArtifact</c>).</summary>
@@ -73,7 +54,7 @@ internal sealed record ReportError(string Code, string Message, string? Phase = 
 internal sealed record ReportArtifact(string Id, string Kind, string? Path = null, string? Url = null, DateTimeOffset? StartedAt = null);
 
 /// <summary>What was seen when a failure landed (upstream's <c>FailureEvidence</c>).</summary>
-internal sealed record FailureEvidence
+internal sealed partial record FailureEvidence
 {
     /// <summary>The page or screen the app was on.</summary>
     public string? Url { get; init; }

@@ -250,4 +250,18 @@ public sealed class ObservationTests
         var cancelled = await Assert.ThrowsAsync<EngineException>(() => pending);
         Assert.Equal("CANCELLED", cancelled.Code);
     }
+
+    [Fact]
+    public async Task Lets_a_locate_outlive_its_budget_a_poll_keeps_its_last_read_so_a_slow_screen_reads_as_missing_not_as_a_timeout()
+    {
+        var h = Harness.Create();
+        var session = await Screens.OpenAttempt(h);
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
+        {
+            h.Clock.Advance(TimeSpan.FromSeconds(3));
+            return FakeDeviceClient.SettingsSnapshot();
+        });
+        var about = LocatorExpression.For("text", TextMatch.FromString("About"), new TextMatchOptions(), "value");
+        Assert.Single(await session.LocateAsync(about, TimeSpan.FromSeconds(1), CancellationToken.None));
+    }
 }

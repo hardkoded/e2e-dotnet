@@ -25,6 +25,7 @@ public sealed class E2ESession : IAsyncDisposable
     private int _disposed;
     private ExecuteVideo? _video;
     private TraceOutput? _trace;
+    private FailureEvidence? _evidence;
     private Exception? _error;
     private long _bodyMs;
     private AttemptStatus _status = AttemptStatus.Failed;
@@ -72,6 +73,9 @@ public sealed class E2ESession : IAsyncDisposable
     /// <summary>What the engine said the attempt runs on, redacted and bounded; null when it said nothing.</summary>
     internal IReadOnlyDictionary<string, string>? Environment => _scope.Environment.Read(_scope.Redactor.Redact);
 
+    /// <summary>What the attempt saw the moment it failed, once the session is released and the trace page keeps the attempt; null otherwise.</summary>
+    internal FailureEvidence? Evidence => _evidence;
+
     /// <summary>Redacts the values of the secrets this attempt knows.</summary>
     internal Redactor Redactor => _scope.Redactor;
 
@@ -112,6 +116,11 @@ public sealed class E2ESession : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(options.Engine);
         ArgumentException.ThrowIfNullOrWhiteSpace(options.TestTitle);
         var agents = ResolveAgents(options);
+        if (options.Agent is { } pinned && !agents.ContainsKey(pinned))
+        {
+            throw new TestException("INVALID_ARGUMENT", "unknown agent \"" + pinned + "\"; configured: " + string.Join(", ", agents.Keys));
+        }
+
         var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl) ? null : Urls.NormalizeAppUrl(options.BaseUrl, "the base URL").Href;
         var recording = ExecuteVideo.Plan(options);
 
@@ -200,10 +209,11 @@ public sealed class E2ESession : IAsyncDisposable
                 Environment = environment,
                 Debug = debug,
                 AiTrace = options.AiTrace ? new AiTraceRecorder() : null,
-                AiTraceScope = options.AiTrace ? new AiTraceScope { Test = options.TestTitle, TestId = options.TestTitle, Target = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName, Agent = "default", Attempt = options.Attempt - 1 } : null,
+                AiTraceScope = options.AiTrace ? new AiTraceScope { Test = options.TestTitle, TestId = options.TestTitle, Target = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName, Agent = options.Agent ?? "default", Attempt = options.Attempt - 1 } : null,
                 AiTracePath = options.AiTrace ? AiTrace.PathFor(options.ResultsDirectory is null ? Path.Combine(projectRoot, ".e2e") : Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(options.ResultsDirectory))) ?? projectRoot) : null,
                 BaseUrl = baseUrl,
                 Agents = agents,
+                AgentName = options.Agent ?? "default",
                 Cache = options.Cache,
                 CacheEnabled = cacheOn,
                 CacheWrite = cacheOn && options.CacheMode == CacheMode.ReadWrite && !options.CacheStrict,
@@ -247,7 +257,8 @@ public sealed class E2ESession : IAsyncDisposable
                 scope.MarkVerified,
                 options.ActionTimeout,
                 options.AssertionTimeout,
-                softFailures);
+                softFailures,
+                locate: engine.CanLocate ? engine.LocateAsync : null);
             screen.Steps = scope.Steps;
             screen.Exposure = scope.Exposure;
             screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });
@@ -376,6 +387,7 @@ public sealed class E2ESession : IAsyncDisposable
         Exception? videoFailure = null;
         try
         {
+            await CaptureFailureEvidenceAsync().ConfigureAwait(false);
             if (_video is not null)
             {
                 try
@@ -466,7 +478,7 @@ public sealed class E2ESession : IAsyncDisposable
         };
         if (options.Agents is null)
         {
-            return agents;
+            return WithTestContext(agents, options.TestAgentContext);
         }
 
         foreach (var pair in options.Agents)
@@ -486,7 +498,15 @@ public sealed class E2ESession : IAsyncDisposable
             agents[pair.Key] = ResolvedAgent.From(pair.Key, pair.Value);
         }
 
-        return agents;
+        return WithTestContext(agents, options.TestAgentContext);
+    }
+
+    // The test's agentContext follows the agent's own context, whichever agent a call picks.
+    private static Dictionary<string, ResolvedAgent> WithTestContext(Dictionary<string, ResolvedAgent> agents, string? testContext)
+    {
+        return string.IsNullOrWhiteSpace(testContext)
+            ? agents
+            : agents.ToDictionary(pair => pair.Key, pair => pair.Value.WithTestContext(testContext), StringComparer.Ordinal);
     }
 
     // A table is a courtesy: a stderr that cannot be written must not hide the test's own result.
@@ -530,6 +550,36 @@ public sealed class E2ESession : IAsyncDisposable
         }
     }
 
+    // One more look at the app the moment the failure is known, while the engine is still open: what the screen held then is the
+    // evidence the message lacks. Only an attempt whose trace page is kept looks, since the page is all that reads it.
+    private async Task CaptureFailureEvidenceAsync()
+    {
+        if (_error is not { } error || _status == AttemptStatus.Passed || _trace is not { Keep: { } keep } trace || !RecordingModes.Keeps(keep, _status))
+        {
+            return;
+        }
+
+        try
+        {
+            _evidence = await FailureEvidence.CaptureAsync(new FailureEvidenceOptions
+            {
+                Observe = token => _scope.Session.ObserveAsync(token),
+                Capture = token => _scope.CaptureAsync(token),
+                Error = error,
+                Redactor = _scope.Redactor,
+                WithholdsPixels = _scope.Exposure.WithholdsPixels || _scope.Secrets.Count > 0,
+                AppOrigin = _scope.AppOrigin,
+                AttemptDir = trace.AttemptDir,
+            }).ConfigureAwait(false);
+        }
+#pragma warning disable CA1031 // Evidence is a courtesy: a look that fails must not hide the test's own result.
+        catch (Exception ex) when (ex is not OperationCanceledException)
+#pragma warning restore CA1031
+        {
+            _evidence = null;
+        }
+    }
+
     // The page is a courtesy as well: one that cannot be written must not hide the test's own result.
     private async Task WriteTracePageAsync()
     {
@@ -558,13 +608,7 @@ public sealed class E2ESession : IAsyncDisposable
 
         try
         {
-            // The screen the failure left is a file beside the attempt's others, which the page quotes.
-            if (_error is not null && _status != AttemptStatus.Passed && _scope.Steps.LastScreen is { } screen)
-            {
-                await TracePages.WriteTextAsync(Path.Combine(trace.AttemptDir, AttemptReport.ScreenFile), TextRules.TruncateUtf8(AttemptReport.ScreenListing(screen), StepScreens.DefaultObservationBytes), CancellationToken.None).ConfigureAwait(false);
-            }
-
-            var (report, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Videos, Exploration);
+            var (report, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Videos, Exploration, _evidence);
             await TracePages.WriteTracePagesAsync(
                 report,
                 new HashSet<string>(StringComparer.Ordinal) { id },
@@ -690,6 +734,12 @@ public sealed class E2ESessionOptions
     /// Each starts from the built-in defaults, not from the default agent.
     /// </summary>
     public IReadOnlyDictionary<string, AgentOptions>? Agents { get; init; }
+
+    /// <summary>The agent a call that names none uses, upstream's <c>agent</c> option of a test or run. Unset, it is <c>default</c>. An unknown name is <c>INVALID_ARGUMENT</c>.</summary>
+    public string? Agent { get; init; }
+
+    /// <summary>Upstream's <c>agentContext</c> of a test or group: appended to the context of every agent, after its own.</summary>
+    public string? TestAgentContext { get; init; }
 
     public string? BaseUrl { get; init; }
 

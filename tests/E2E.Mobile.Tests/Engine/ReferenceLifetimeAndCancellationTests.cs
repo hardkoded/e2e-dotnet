@@ -10,6 +10,26 @@ namespace E2E.Mobile.Tests.Engine;
 public sealed class ReferenceLifetimeAndCancellationTests
 {
     [Fact]
+    public async Task Bounds_located_bindings_while_preserving_current_observation_ids()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        var observation = await Observed(session, "About");
+        var expression = new LocatorExpression { Kind = "selector", Selector = "id=ABOUT" };
+        var oldest = (await session.LocateAsync(expression, TimeSpan.FromSeconds(5), CancellationToken.None))[0];
+        var newest = oldest;
+        for (var i = 0; i < 2050; i++)
+        {
+            newest = (await session.LocateAsync(expression, TimeSpan.FromSeconds(5), CancellationToken.None))[0];
+        }
+
+        var stale = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(oldest, new LocatorAction.Tap(), CancellationToken.None));
+        Assert.Equal("NODE_STALE", stale.Code);
+        await session.PerformAsync(newest, new LocatorAction.Tap(), CancellationToken.None);
+        await session.PerformAsync(observation, new LocatorAction.Tap(), CancellationToken.None);
+    }
+
+    [Fact]
     public async Task Reads_the_observation_location_off_the_same_snapshot_as_the_tree()
     {
         var h = Harness.Create();

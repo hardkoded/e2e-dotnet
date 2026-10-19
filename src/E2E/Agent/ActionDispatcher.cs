@@ -13,7 +13,7 @@ namespace E2E;
 /// <summary>
 /// Upstream's action dispatcher (<c>agent/action-dispatcher.ts</c>): the <see cref="IExecutorActions"/> of one act step. Each
 /// verb performs the action on the engine, records it in the step's accounting, and arms the change wait its settle policy
-/// asks for. Upstream's <c>commitTargeted</c> is <see cref="Commit(RecordedAction)"/>, and its private <c>targeted</c> is
+/// asks for. Upstream's <c>commitTargeted</c> is <see cref="CommitAsync(RecordedAction)"/>, and its private <c>targeted</c> is
 /// <see cref="TargetedAsync"/>.
 /// </summary>
 internal sealed class ActionDispatcher : IExecutorActions
@@ -32,15 +32,17 @@ internal sealed class ActionDispatcher : IExecutorActions
     private readonly StepAccounting _accounting;
     private readonly IReadOnlyDictionary<string, object?>? _parameters;
     private readonly Func<IReadOnlyList<Secret>> _secrets;
+    private readonly ActionHook? _onAction;
 
-    // secrets: what TypeSecretAsync may fill, the secrets the step's params declare.
-    public ActionDispatcher(AttemptScope scope, ObservationFeed feed, StepAccounting accounting, IReadOnlyDictionary<string, object?>? parameters, Func<IReadOnlyList<Secret>> secrets)
+    // secrets: what TypeSecretAsync may fill, the secrets the step's params declare. onAction: the test's hook for each completed action.
+    public ActionDispatcher(AttemptScope scope, ObservationFeed feed, StepAccounting accounting, IReadOnlyDictionary<string, object?>? parameters, Func<IReadOnlyList<Secret>> secrets, ActionHook? onAction = null)
     {
         _scope = scope;
         _feed = feed;
         _accounting = accounting;
         _parameters = parameters;
         _secrets = secrets;
+        _onAction = onAction;
     }
 
     public Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) =>
@@ -60,7 +62,7 @@ internal sealed class ActionDispatcher : IExecutorActions
                 await TargetedAsync(node, ClickAction(kind, modifiers), token).ConfigureAwait(false);
                 var recorded = Target(node, kind);
                 recorded.Modifiers = modifiers?.Select(modifier => modifier.ToString()).ToList();
-                Commit(recorded);
+                await CommitAsync(recorded).ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -118,7 +120,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Fill(value, false), token).ConfigureAwait(false);
-                Commit("fill", node, value: CacheKeys.Template(value, _parameters));
+                await CommitAsync("fill", node, value: CacheKeys.Template(value, _parameters)).ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -138,7 +140,7 @@ internal sealed class ActionDispatcher : IExecutorActions
                 _scope.Exposure.RaiseFilled();
                 await TargetedAsync(node, new LocatorAction.Fill(secret.Value, true), token).ConfigureAwait(false);
                 // Recorded by stable name only; replay runs the full authorization again.
-                Commit("fill", node, value: "<secret:" + secret.Name + ">");
+                await CommitAsync("fill", node, value: "<secret:" + secret.Name + ">").ConfigureAwait(false);
             },
             cancellationToken).ConfigureAwait(false);
     }
@@ -149,7 +151,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Clear(), token).ConfigureAwait(false);
-                Commit("clear", node);
+                await CommitAsync("clear", node).ConfigureAwait(false);
             },
             cancellationToken);
 
@@ -166,13 +168,13 @@ internal sealed class ActionDispatcher : IExecutorActions
                 if (target is null)
                 {
                     await _scope.Session.PressAsync(key, token).ConfigureAwait(false);
-                    Commit(new RecordedAction { Kind = "press", Key = key });
+                    await CommitAsync(new RecordedAction { Kind = "press", Key = key }).ConfigureAwait(false);
                     return;
                 }
 
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Press(key), token).ConfigureAwait(false);
-                Commit("press", node, key: key);
+                await CommitAsync("press", node, key: key).ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -185,7 +187,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Select(value), token).ConfigureAwait(false);
-                Commit("select", node, value: CacheKeys.Template(value, _parameters));
+                await CommitAsync("select", node, value: CacheKeys.Template(value, _parameters)).ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -196,7 +198,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, check ? new LocatorAction.Check() : new LocatorAction.Uncheck(), token).ConfigureAwait(false);
-                Commit(check ? "check" : "uncheck", node);
+                await CommitAsync(check ? "check" : "uncheck", node).ConfigureAwait(false);
             },
             cancellationToken);
 
@@ -206,7 +208,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await _scope.Session.PerformAsync(node, new LocatorAction.ScrollIntoView(), token).ConfigureAwait(false);
-                Commit("scrollTo", node);
+                await CommitAsync("scrollTo", node).ConfigureAwait(false);
             },
             cancellationToken);
 
@@ -223,7 +225,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var recorded = list is null ? null : Target(Resolve(list), "scrollUntil");
                 await PageUntilAsync(text, direction, recorded, token).ConfigureAwait(false);
-                Commit(new RecordedAction
+                await CommitAsync(new RecordedAction
                 {
                     Kind = "scrollUntil",
                     Role = recorded?.Role,
@@ -231,7 +233,7 @@ internal sealed class ActionDispatcher : IExecutorActions
                     TestId = recorded?.TestId,
                     Direction = DirectionName(direction),
                     Text = CacheKeys.Template(text, _parameters),
-                });
+                }).ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -281,7 +283,7 @@ internal sealed class ActionDispatcher : IExecutorActions
                     list.Node = node;
                 }
 
-                _feed.ArmAfter(actions[^1]);
+                await ArmAndNotifyAsync(actions[^1]).ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -297,7 +299,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             async token =>
             {
                 await _scope.Session.OpenAsync(Routes.Resolve(_scope.BaseUrl, url), token).ConfigureAwait(false);
-                Commit(new RecordedAction { Kind = "navigate", Url = CacheKeys.Template(url, _parameters) });
+                await CommitAsync(new RecordedAction { Kind = "navigate", Url = CacheKeys.Template(url, _parameters) }).ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -307,7 +309,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             async token =>
             {
                 await _scope.Session.BackAsync(token).ConfigureAwait(false);
-                Commit(new RecordedAction { Kind = "back" });
+                await CommitAsync(new RecordedAction { Kind = "back" }).ConfigureAwait(false);
             },
             cancellationToken);
 
@@ -467,10 +469,50 @@ internal sealed class ActionDispatcher : IExecutorActions
     }
 
     // Upstream's commitTargeted: the action is the step's own once it ran, so it is recorded and arms the next look.
-    private void Commit(string kind, SemanticNode node, string? value = null, string? key = null) =>
-        _feed.ArmAfter(_accounting.Recorder.Record(kind, node, value, key));
+    private Task CommitAsync(string kind, SemanticNode node, string? value = null, string? key = null) =>
+        ArmAndNotifyAsync(_accounting.Recorder.Record(kind, node, value, key));
 
-    private void Commit(RecordedAction action) => _feed.ArmAfter(_accounting.Recorder.Record(action));
+    private Task CommitAsync(RecordedAction action) => ArmAndNotifyAsync(_accounting.Recorder.Record(action));
+
+    // A recorded action arms the next look, then goes to the test's hook.
+    private Task ArmAndNotifyAsync(RecordedAction recorded)
+    {
+        _feed.ArmAfter(recorded);
+        return NotifyAsync(recorded, ActionSource.Model);
+    }
+
+    /// <summary>
+    /// Upstream's <c>notify</c>: hands one completed action to the test's <c>OnAction</c> hook once the screen it left settles as
+    /// the action's policy asks, so what the hook captures is the action's effect. The action already happened, so a failure
+    /// from here on, the settle's or the hook's, hard-stops the step instead of reaching the executor as a failed action to
+    /// retry, or the replay as a divergence.
+    /// </summary>
+    internal Task NotifyAsync(RecordedAction action, ActionSource source) =>
+        NotifyAsync(action.Kind, SettlePolicy.For(action).Look, () => DefaultAgent.Describe(action), source);
+
+    /// <summary>A mutating project tool that ran: the hook reads it as <c>tool:name</c>.</summary>
+    internal Task NotifyToolAsync(string name) =>
+        NotifyAsync("tool:" + name, SettlePolicy.For(new RecordedAction { Kind = "tool" }).Look, () => "ran " + name, ActionSource.Model);
+
+    private async Task NotifyAsync(string action, SettleMode look, Func<string> summary, ActionSource source)
+    {
+        if (_onAction is not { } hook || _accounting.Closed)
+        {
+            return;
+        }
+
+        try
+        {
+            await _feed.ObserveAsync(look, _accounting.Token).ConfigureAwait(false);
+            await hook(new ActionEvent(_accounting.Used, action, _scope.Redactor.Redact(summary()), source)).WaitAsync(_accounting.Token).ConfigureAwait(false);
+        }
+        catch (Exception cause) when (!ReferenceEquals(cause, _accounting.HardStop) && !_accounting.Token.IsCancellationRequested)
+        {
+            // A nested step's own budget or deadline is not this step's: the runtime vouches only for the stops it recorded itself.
+            var code = cause is E2EException { Code: var named } && StepExecutors.AgentCodes.Contains(named) && !StepExecutors.RuntimeCodes.Contains(named) ? named : "ACTION_FAILED";
+            throw _accounting.Fatalize(new AgentException(code, _accounting.Api + " onAction failed: " + _scope.Redactor.Redact(cause.Message), cause) { FromActionHook = true });
+        }
+    }
 
     /// <summary>
     /// Upstream's <c>targeted</c> loop: performs one action on a node. A node the engine reports stale is found again

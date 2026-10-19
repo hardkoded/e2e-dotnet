@@ -506,18 +506,6 @@ internal sealed class StepRecorder
 
     private static int? Sum(int? left, int? right) => left is null && right is null ? null : (left ?? 0) + (right ?? 0);
 
-    /// <summary>The last screen a finished step saw; null when none did.</summary>
-    public ScreenText? LastScreen
-    {
-        get
-        {
-            lock (_gate)
-            {
-                return _lastScreen?.Screen;
-            }
-        }
-    }
-
     /// <summary>
     /// Notes a screen the running step saw; the newest one stands. <paramref name="read"/> renders it, redacted, and runs once, when
     /// the step ends, so a step that observes many times pays for one. A screen no step is running for (the failure evidence, a

@@ -94,6 +94,8 @@ public static class DeviceCommands
                 return new DeviceCommand("appstate", [], flags);
             case DeviceMethods.CommandClipboard:
                 return new DeviceCommand("clipboard", Take(flags, "action", "text"), flags);
+            case DeviceMethods.RecordingRecord:
+                return new DeviceCommand("record", Take(flags, "action", "path"), flags);
             case DeviceMethods.LeasesAllocate:
                 return new DeviceCommand("lease_allocate", [], flags);
             case DeviceMethods.LeasesHeartbeat:

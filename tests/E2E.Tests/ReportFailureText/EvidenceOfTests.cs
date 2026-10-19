@@ -21,7 +21,7 @@ public sealed class EvidenceOfTests
             new("a:3", "screenshot", "t/002-failure.png"),
             new("a:4", "log", "t/screen-at-failure.txt"),
         ];
-        var result = Result(attempts: [Failed(artifacts: artifacts, failure: new FailureEvidence { Screenshot = "a:3", Screen = "a:4" })]);
+        var result = Result(attempts: [Failed(artifacts: artifacts, failure: new E2E.FailureEvidence { Screenshot = "a:3", Screen = "a:4" })]);
 
         var told = FailureText.ToldAttempt(result, Outcome.Of(result));
 

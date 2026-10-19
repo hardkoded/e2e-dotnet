@@ -12,13 +12,13 @@ public sealed class LocatorExpressionsOverADeviceSnapshotTests
 {
     private static TextMatch Exact(string value) => TextMatch.FromString(value);
 
-    private static LocatorQuery Role(string role, TextMatch? name = null, RoleOptions? options = null) =>
-        LocatorQuery.ForRole(role, name, options ?? new RoleOptions());
+    private static LocatorExpression Role(string role, TextMatch? name = null, RoleOptions? options = null) =>
+        LocatorExpression.ForRole(role, name, options ?? new RoleOptions());
 
-    private static LocatorQuery Text(string kind, string value, bool visible = false, bool exact = true) =>
-        LocatorQuery.For(kind, Exact(value), new TextMatchOptions { Exact = exact, Visible = visible }, nameof(value));
+    private static LocatorExpression Text(string kind, string value, bool visible = false, bool exact = true) =>
+        LocatorExpression.For(kind, Exact(value), new TextMatchOptions { Exact = exact, Visible = visible }, nameof(value));
 
-    private static List<string> Names(LocatorQuery expression)
+    private static List<string> Names(LocatorExpression expression)
     {
         var index = Project(SettingsNodes).Index;
         return [.. DeviceLocator.ResolveExpression(expression, index, MobilePlatform.Ios).Select(entry => entry.Node.Name ?? "")];
@@ -43,7 +43,7 @@ public sealed class LocatorExpressionsOverADeviceSnapshotTests
         // Upstream also names `states: { hidden: true }` on this role query. A role query here has no hidden state.
         Assert.Equal(["Back"], Names(Role("button", options: new RoleOptions { Visible = true })));
         Assert.Equal(["Search"], Names(Text("label", "Search", visible: true)));
-        Assert.Equal(["About"], Names(new LocatorQuery { Kind = "index", Source = Text("text", "About", visible: true), Index = LocatorQuery.LastIndex }));
+        Assert.Equal(["About"], Names(new LocatorExpression { Kind = "index", Source = Text("text", "About", visible: true), Index = LocatorExpression.LastIndex }));
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public sealed class LocatorExpressionsOverADeviceSnapshotTests
 
         // The echoing cell still answers role queries, and filters by its subtree text.
         Assert.Equal(["About"], Names(Role("listitem", Exact("About"))));
-        Assert.Equal(["About"], Names(new LocatorQuery { Kind = "filter", Source = Role("listitem"), HasText = Exact("About") }));
+        Assert.Equal(["About"], Names(new LocatorExpression { Kind = "filter", Source = Role("listitem"), HasText = Exact("About") }));
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public sealed class LocatorExpressionsOverADeviceSnapshotTests
             N("@e5", index: 4, parentIndex: 3, depth: 2, type: "SecureTextField", label: "Passphrase field")).Index;
         var field = DeviceLocator.ResolveExpression(Text("label", "Name field"), index, MobilePlatform.Ios);
         Assert.Equal([("textbox", "name-input")], field.Select(entry => (entry.Node.Role!, entry.Node.TestId!)));
-        var pattern = LocatorQuery.For("label", TextMatch.FromRegex(new Regex("field$")), new TextMatchOptions(), "value");
+        var pattern = LocatorExpression.For("label", TextMatch.FromRegex(new Regex("field$")), new TextMatchOptions(), "value");
         Assert.Equal(["textbox", "textbox"], DeviceLocator.ResolveExpression(pattern, index, MobilePlatform.Ios).Select(entry => entry.Node.Role));
 
         // A role query keeps both, since the host view answers to no vocabulary role of its own.
@@ -94,23 +94,23 @@ public sealed class LocatorExpressionsOverADeviceSnapshotTests
     {
         var inBar = Role("button") with { Parent = Role("navigation") };
         Assert.Equal(["Back"], Names(inBar));
-        var cellsWithAbout = new LocatorQuery { Kind = "filter", Source = Role("listitem"), HasText = Exact("About") };
+        var cellsWithAbout = new LocatorExpression { Kind = "filter", Source = Role("listitem"), HasText = Exact("About") };
         Assert.Equal(["About"], Names(cellsWithAbout));
-        var cellsHavingText = new LocatorQuery { Kind = "filter", Source = Role("listitem"), Has = Role("text") };
+        var cellsHavingText = new LocatorExpression { Kind = "filter", Source = Role("listitem"), Has = Role("text") };
         Assert.Equal(["About"], Names(cellsHavingText));
-        Assert.Equal(["Scroller"], Names(new LocatorQuery { Kind = "index", Source = Role("listitem"), Index = LocatorQuery.LastIndex }));
-        Assert.Empty(Names(new LocatorQuery { Kind = "index", Source = Role("listitem"), Index = 5 }));
+        Assert.Equal(["Scroller"], Names(new LocatorExpression { Kind = "index", Source = Role("listitem"), Index = LocatorExpression.LastIndex }));
+        Assert.Empty(Names(new LocatorExpression { Kind = "index", Source = Role("listitem"), Index = 5 }));
     }
 
     [Fact]
     public void Routes_agent_device_selectors_to_the_selector_matcher_and_rejects_frames()
     {
-        static LocatorQuery Selector(string selector) => new() { Kind = "selector", Selector = selector };
+        static LocatorExpression Selector(string selector) => new() { Kind = "selector", Selector = selector };
 
         Assert.Equal(["About"], Names(Selector("id=ABOUT")));
         Assert.Equal(["Airplane Mode"], Names(Selector("id=NOPE || label=\"Airplane Mode\"")));
         Assert.Matches("invalid agent-device selector", Assert.Throws<EngineException>(() => Names(Selector("@e3"))).Message);
-        var frame = Assert.Throws<EngineException>(() => Names(new LocatorQuery { Kind = "frame", Selector = "iframe", Source = Role("button") }));
+        var frame = Assert.Throws<EngineException>(() => Names(new LocatorExpression { Kind = "frame", Selector = "iframe", Source = Role("button") }));
         Assert.Equal("FRAME_NOT_FOUND", frame.Code);
     }
 }

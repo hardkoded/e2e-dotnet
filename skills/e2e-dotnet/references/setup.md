@@ -235,7 +235,7 @@ To test without a browser or model, override `CreateEngine()` to return a
 
 ## Mobile targets
 
-iOS and Android are driven by `MobileEngine` in the `E2E.Mobile` project (not on NuGet yet). `e2e.config.json` supports only `"platform": "web"`, so a mobile fixture overrides `CreateEngine()` and returns a `MobileEngine` with `MobileOptions`. It needs Node 22.12 or newer, and a booted simulator or emulator. For the fixture, device selection, hosted Limrun devices, and known limits, read [mobile.md](mobile.md).
+iOS and Android are driven by `MobileEngine` in the `E2E.Mobile` project. Install `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3`, declare the app as `"targets": [{ "platform": "ios", "app": { "bundleId": "...", "appPath": "..." } }]`, and derive from its `MobileAppTest`. It needs Node 22.12 or newer, and a booted simulator or emulator. For device selection, hosted Limrun devices, and known limits, read [mobile.md](mobile.md).
 
 ## Done when
 

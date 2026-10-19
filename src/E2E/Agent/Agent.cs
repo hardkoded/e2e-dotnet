@@ -881,6 +881,33 @@ public sealed class ActOptions
 
     /// <summary>The named agent that runs the step. Defaults to <c>default</c>.</summary>
     public string? Agent { get; init; }
+
+    /// <summary>
+    /// Runs after each action the step completes, once the screen settles, and before the next one. It also runs for the
+    /// actions the replay cache replays. Awaited, and its time counts toward <see cref="Timeout"/>. Observe only: drive
+    /// nothing from it. A throw fails the step.
+    /// </summary>
+    public ActionHook? OnAction { get; init; }
+}
+
+/// <summary>The <c>onAction</c> hook of an <c>agent.act</c> call.</summary>
+public delegate Task ActionHook(ActionEvent actionEvent);
+
+/// <summary>One completed action of an <c>agent.act</c> step, as <see cref="ActOptions.OnAction"/> receives it.</summary>
+/// <param name="Index">1-based position in the step's action budget; a failed attempt uses a number too.</param>
+/// <param name="Action">The committed action, such as <c>tap</c> or <c>navigate</c>; a mutating project tool reads <c>tool:name</c>.</param>
+/// <param name="Summary">What the action did, secrets redacted.</param>
+/// <param name="Source">Who chose the action.</param>
+public sealed record ActionEvent(int Index, string Action, string Summary, ActionSource Source);
+
+/// <summary>Who chose an action an <see cref="ActionEvent"/> reports.</summary>
+public enum ActionSource
+{
+    /// <summary>The executor chose the action.</summary>
+    Model,
+
+    /// <summary>The replay cache replayed the action.</summary>
+    Replay,
 }
 
 /// <summary><c>agent.assert</c>: one judgment and one repair round, within <see cref="Timeout"/>.</summary>
@@ -1120,6 +1147,9 @@ internal sealed class AttemptScope
     /// <summary>The agents by name. <c>default</c> is always present.</summary>
     public required IReadOnlyDictionary<string, ResolvedAgent> Agents { get; init; }
 
+    /// <summary>The agent a call that names none uses: the test's pin, else the run's agent, else <c>default</c>.</summary>
+    public string AgentName { get; init; } = "default";
+
     public required IStepCache? Cache { get; init; }
 
     public required bool CacheEnabled { get; init; }
@@ -1245,7 +1275,7 @@ internal sealed class AttemptScope
             throw new TestException("INVALID_ARGUMENT", "agent must be the name of a configured agent");
         }
 
-        name ??= "default";
+        name ??= AgentName;
         if (Agents.TryGetValue(name, out var agent))
         {
             return agent;

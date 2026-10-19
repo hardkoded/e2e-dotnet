@@ -13,8 +13,7 @@ namespace E2E.Tests.ScriptedMatchers;
 /// failure names the observed state, a matcher honors its timeout, and an ambiguous locator fails at once.
 /// Upstream runs each case as a test in the real runner and reads the report. The port has no runner and no
 /// report, so each case runs in the test body and reads the thrown error. Not ported: the report checks
-/// (valid report, one result per test, step api names and statuses) and the error <c>category</c> and
-/// <c>details</c>. The message names the locator and the expected value instead.
+/// (valid report, one result per test, step api names and statuses) and the error <c>category</c>.
 /// </summary>
 public sealed class ScriptedEngineExpectLocatorMatchersTests
 {
@@ -114,6 +113,9 @@ public sealed class ScriptedEngineExpectLocatorMatchersTests
             {
                 Assert.True(error.Message.Contains(fragment, StringComparison.Ordinal), name + ": " + error.Message);
             }
+
+            Assert.False(string.IsNullOrEmpty(error.Details?.Locator), name);
+            Assert.False(string.IsNullOrEmpty(error.Details?.Expected), name);
         }
     }
 
@@ -159,5 +161,7 @@ public sealed class ScriptedEngineExpectLocatorMatchersTests
         Assert.Equal("STRICT_MODE", ambiguous.Code);
         Assert.Contains("getByText(\"Duplicated\")", ambiguous.Message, StringComparison.Ordinal);
         Assert.Contains("(match count 2)", ambiguous.Message, StringComparison.Ordinal);
+        Assert.Equal(2, ambiguous.Details?.Matches);
+        Assert.Equal("getByText(\"Duplicated\")", ambiguous.Details?.Locator);
     }
 }

@@ -9,12 +9,12 @@ namespace E2E.Mobile.Tests.Engine;
 public sealed class ManifestTests
 {
     [Fact]
-    public void Declares_observation_actions_location_keyboard_scroll_history_and_screenshot()
+    public void Declares_observation_actions_location_keyboard_scroll_history_screenshot_and_video()
     {
         var engine = Harness.Create().Engine;
         Assert.Equal(
             EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | EngineCapabilities.Keyboard
-            | EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Screenshot,
+            | EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Screenshot | EngineCapabilities.Video,
             engine.Capabilities);
         Assert.Equal("ios", engine.Platform);
         Assert.Equal("android", Harness.Create(options => options with { Platform = MobilePlatform.Android }).Engine.Platform);

@@ -176,7 +176,8 @@ public static class Explore
         }
 
         var secrets = config.Secrets.Names.Select(config.Secrets.Get).Concat(credentials.Values.Select(credential => credential.Password)).ToList();
-        var state = new ExploreState(RedactGoal(goal, secrets), budgets);
+        var redactor = Redactor.For(secrets);
+        var state = new ExploreState(RedactGoal(goal, redactor), budgets, redactor: redactor);
         if (options.OnProgress is { } listener)
         {
             state.Subscribe(listener);
@@ -335,9 +336,9 @@ public static class Explore
     /// goal, and model input, so it is redacted once, here. A marker can be longer than the value it replaces, so the ceiling is
     /// checked again on what the run will keep.
     /// </summary>
-    private static string RedactGoal(string goal, IEnumerable<Secret> secrets)
+    private static string RedactGoal(string goal, Redactor redactor)
     {
-        var redacted = Redactor.For(secrets).Redact(goal);
+        var redacted = redactor.Redact(goal);
         return redacted.Length > MaxGoalChars
             ? throw new ConfigurationException(
                 "INVALID_CONFIG",

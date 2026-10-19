@@ -42,8 +42,8 @@ internal interface IReplayHost
     /// <summary>Marks the newest observation as the one the step's first action is taken on.</summary>
     void MarkActing();
 
-    /// <summary>Records one action the replay finished, for the step's cache entry.</summary>
-    void Commit(RecordedAction action);
+    /// <summary>Records one action the replay finished, for the step's cache entry, and hands it to the test's <c>OnAction</c> hook.</summary>
+    Task CommitAsync(RecordedAction action);
 }
 
 /// <summary>Upstream's <c>ReplayOptions</c>.</summary>
@@ -154,7 +154,7 @@ internal static class Replay
                 }
 
                 await host.Actions.NavigateAsync(action.Url ?? "/", token).ConfigureAwait(false);
-                host.Commit(action);
+                await host.CommitAsync(action).ConfigureAwait(false);
                 summaries.Add(summary);
                 previous = action;
                 continue;
@@ -269,7 +269,7 @@ internal static class Replay
                 return Stop(ReplayHandOffReason.ActionFailed, Partial(), host.Redact.Redact(FirstLine(ex.Message)));
             }
 
-            host.Commit(action);
+            await host.CommitAsync(action).ConfigureAwait(false);
             summaries.Add(summary);
             previous = action;
         }

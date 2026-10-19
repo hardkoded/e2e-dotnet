@@ -47,8 +47,12 @@ public sealed class E2EConfig
 
     private static readonly string[] AppKeys = ["url"];
 
+    private static readonly string[] MobileAppKeys = ["bundleId", "appPath"];
+
     private static readonly string[] UnsupportedAppKeys =
-        ["bundleId", "appPath", "identity", "environment", "launchArguments", "permissions", "command", "readyUrl"];
+        ["identity", "environment", "launchArguments", "permissions", "command", "readyUrl"];
+
+    private static readonly string[] Platforms = ["web", "ios", "android"];
 
     private static readonly string[] AgentKeys =
         ["model", "judge", "provider", "system", "context", "baseUrl", "apiKeyEnv", "maxSteps", "maxModelCalls", "judgmentTimeout", "providerOptions"];
@@ -256,9 +260,9 @@ public sealed class E2EConfig
 
         CheckKeys(target, "targets[0]", TargetKeys, UnsupportedTargetKeys, null);
         var platform = OptionalString(target, "platform", "targets[0].platform") ?? "web";
-        if (!string.Equals(platform, "web", StringComparison.Ordinal))
+        if (!Platforms.Contains(platform, StringComparer.Ordinal))
         {
-            throw Invalid("targets[0].platform \"" + platform + "\" is not supported; the .NET port drives \"web\"");
+            throw Invalid("targets[0].platform \"" + platform + "\" is not supported; the .NET port drives \"web\", \"ios\", and \"android\"");
         }
 
         var name = OptionalString(target, "name", "targets[0].name") ?? platform;
@@ -277,8 +281,15 @@ public sealed class E2EConfig
                 throw Invalid("targets[0].app must be an object");
             }
 
-            CheckKeys(rawApp, "targets[0].app", AppKeys, UnsupportedAppKeys, null);
-            app = new AppConfig { Url = OptionalString(rawApp, "url", "targets[0].app.url") is { } url ? Urls.NormalizeAppUrl(url, "targets[0].app.url").Href : null };
+            // A device target names its app by bundle id and build path, a web target by URL.
+            var device = platform != "web";
+            CheckKeys(rawApp, "targets[0].app", device ? MobileAppKeys : AppKeys, UnsupportedAppKeys, null);
+            app = new AppConfig
+            {
+                Url = OptionalString(rawApp, "url", "targets[0].app.url") is { } url ? Urls.NormalizeAppUrl(url, "targets[0].app.url").Href : null,
+                BundleId = OptionalString(rawApp, "bundleId", "targets[0].app.bundleId"),
+                AppPath = OptionalString(rawApp, "appPath", "targets[0].app.appPath"),
+            };
         }
 
         return [new TargetConfig { Name = name, Platform = platform, App = app, Trace = trace.For(ownTrace), Video = video.For(ownVideo) }];
@@ -650,7 +661,7 @@ public sealed class E2EConfig
     private static ConfigurationException Invalid(string message) => new("INVALID_CONFIG", message);
 }
 
-/// <summary>One entry of <c>targets</c>. The port drives the <c>web</c> platform.</summary>
+/// <summary>One entry of <c>targets</c>. The port drives the <c>web</c>, <c>ios</c>, and <c>android</c> platforms.</summary>
 public sealed class TargetConfig
 {
     public required string Name { get; init; }
@@ -693,6 +704,12 @@ public sealed class AppConfig
     /// Relative URLs resolve against it.
     /// </summary>
     public string? Url { get; init; }
+
+    /// <summary>The bundle id (iOS) or package (Android) of an installed app a device target launches.</summary>
+    public string? BundleId { get; init; }
+
+    /// <summary>The build a device target installs, relative to the folder of <c>e2e.config.json</c>.</summary>
+    public string? AppPath { get; init; }
 }
 
 /// <summary>

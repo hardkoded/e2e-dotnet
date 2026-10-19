@@ -21,6 +21,41 @@ public class E2EException : Exception
 
     /// <summary>Stable machine-readable code, such as <c>ASSERTION_FAILED</c>.</summary>
     public string Code { get; }
+
+    /// <summary>Structured facts of the failure beside its message, when the thrower had them. See <see cref="ErrorDetails"/>.</summary>
+    public ErrorDetails? Details { get; init; }
+}
+
+/// <summary>
+/// Structured facts of one failure, beside its prose message (upstream's <c>ErrorDetails</c>, <c>internal/errors.ts</c>). An assertion
+/// carries what it expected and observed and how many nodes matched. A locator failure carries the locator as written, what it asked
+/// for, and how long it waited. A report bounds the text fields.
+/// </summary>
+public sealed record ErrorDetails
+{
+    /// <summary>The locator as written, such as <c>getByRole("button", "Save")</c>.</summary>
+    public string? Locator { get; init; }
+
+    /// <summary>What an assertion expected.</summary>
+    public string? Expected { get; init; }
+
+    /// <summary>What an assertion observed.</summary>
+    public string? Observed { get; init; }
+
+    /// <summary>How many nodes the locator matched.</summary>
+    public int? Matches { get; init; }
+
+    /// <summary>The role a locator asked for.</summary>
+    public string? Role { get; init; }
+
+    /// <summary>The name, or the text, a locator asked for.</summary>
+    public string? Name { get; init; }
+
+    /// <summary>The test id a locator asked for.</summary>
+    public string? TestId { get; init; }
+
+    /// <summary>How long the locator waited, in milliseconds.</summary>
+    public long? WaitedMs { get; init; }
 }
 
 /// <summary>A locator, expectation, or test failed.</summary>
@@ -70,6 +105,12 @@ public sealed class AgentException : E2EException
     /// <c>Screenshot = false</c>, a secret was filled, or the engine captures no pixels.
     /// </summary>
     public string? Screenshot { get; init; }
+
+    /// <summary>
+    /// True when the step failed because the test's own <c>OnAction</c> hook threw. That failure says nothing about the
+    /// actions, so the step's recording is neither kept nor evicted for it. Upstream's <c>ActionHookError</c>.
+    /// </summary>
+    internal bool FromActionHook { get; init; }
 
     /// <summary>
     /// True when credentials, the environment, test setup, or the agent's own budget stopped the step,

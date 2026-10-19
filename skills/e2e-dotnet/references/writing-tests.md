@@ -250,6 +250,7 @@ with `<secret:name>` in these places:
   `JsonAsync<T>()`). `TextAsync` and `JsonAsync` wait for the body (up to
   the action timeout) and fail with `ACTION_FAILED` when it could not be
   read. Start it before the step that sends the request, and await it after.
+  This includes the first `GotoAsync` or `App.OpenAsync`.
 - `RouteAsync(pattern, handler)`, `UnrouteAsync(pattern)`: intercept
   requests, newest route first. `route.Request` has `Url`, `Method`,
   `Headers`, `PostData`. The handler calls exactly one of

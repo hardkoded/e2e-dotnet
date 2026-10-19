@@ -73,6 +73,12 @@ public abstract class E2EFixture
     /// <summary><c>agents.default.context</c>: project context told to every model call.</summary>
     protected virtual string? AgentContext => Config.Agent.Context;
 
+    /// <summary>
+    /// <c>E2E_AGENT</c>: the agent that calls use when neither the call nor the test (<see cref="AgentAttribute"/>) names one,
+    /// the port's counterpart of <c>--agent</c>. Unset, it is <c>default</c>. Override to set it in code.
+    /// </summary>
+    protected virtual string? RunAgent => TestAgentOptions.RunAgent();
+
     /// <summary><c>agents.default.judgmentTimeout</c>.</summary>
     protected virtual TimeSpan JudgmentTimeout => Config.Agent.JudgmentTimeout;
 
@@ -163,8 +169,9 @@ public abstract class E2EFixture
     /// <paramref name="attempt"/> is 1 for a first attempt, <paramref name="onSoftFailure"/> reports
     /// an <c>Expect.Soft</c> failure to the framework (null keeps them on the session), and
     /// <paramref name="testFailed"/> says whether the framework already failed the test.
+    /// <paramref name="testMethod"/> is the test's method, which carries its <see cref="AgentAttribute"/> and <see cref="AgentContextAttribute"/>.
     /// </summary>
-    protected async Task StartSessionAsync(string title, int attempt, Action<TestException>? onSoftFailure, Func<bool> testFailed, CancellationToken cancellationToken)
+    protected async Task StartSessionAsync(string title, int attempt, Action<TestException>? onSoftFailure, Func<bool> testFailed, CancellationToken cancellationToken, System.Reflection.MethodBase? testMethod = null)
     {
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -185,6 +192,8 @@ public abstract class E2EFixture
                 JudgmentTimeout = JudgmentTimeout,
                 ProviderOptions = ProviderOptions,
                 Agents = CreateAgents(),
+                Agent = TestAgentOptions.Agent(GetType(), testMethod) ?? RunAgent,
+                TestAgentContext = TestAgentOptions.AgentContext(GetType(), testMethod),
                 BaseUrl = BaseUrl,
                 ProjectRoot = ProjectRoot,
                 TargetName = TargetName,

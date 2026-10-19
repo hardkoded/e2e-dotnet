@@ -72,7 +72,11 @@ internal sealed class TestHost : IReplayHost
     {
     }
 
-    public void Commit(RecordedAction action) => Committed.Add(action);
+    public Task CommitAsync(RecordedAction action)
+    {
+        Committed.Add(action);
+        return Task.CompletedTask;
+    }
 
     /// <summary>The options of each tap and double tap, in call order.</summary>
     public List<ClickOptions?> Clicks { get; } = [];

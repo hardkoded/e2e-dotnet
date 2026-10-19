@@ -146,7 +146,7 @@ public sealed record MobileOptions
     /// </summary>
     public int TransitionMilliseconds { get; init; } = DefaultTransitionMilliseconds;
 
-    /// <summary>Whether a video recording draws agent-device's touch indicator where a test tapped.</summary>
+    /// <summary>Whether a video recording draws agent-device's touch indicator where a test tapped. False records with <c>hideTouches</c>.</summary>
     public bool VideoTouches { get; init; } = true;
 
     public const int DefaultSettleMilliseconds = 150;

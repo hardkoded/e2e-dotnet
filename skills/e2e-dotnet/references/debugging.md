@@ -22,7 +22,9 @@
    the step rather than the app.
 2. A failed locator expectation says what it expected and the last value it
    read, with the match count. Compare that value with the expectation
-   before you change either.
+   before you change either. The exception's `Details` holds the same facts
+   one per field: `Locator`, `Expected`, `Observed`, `Matches`, and for a locator
+   `Role`, `Name`, `TestId`, and `WaitedMs` (how long it waited).
 3. A failed agent step carries the model's explanation. A passing act's
    `ActResult.Cache` tells whether the step replayed, and why a replay
    missed.
@@ -46,9 +48,10 @@ no viewer. It tells, in this order:
 
 1. The title, the test file, the status, and how long the attempt took, then
    `Ran on:` (the browser and its user agent, the device).
-2. The error code and message, `Look at:` (the test line the failure unwound
-   through, else the failing step's line), and, after a retry, whether every
-   attempt failed alike.
+2. The error code and message, then the facts of its `Details` (`Expected:`,
+   `Observed: ... (1 match)`, `Asked for: button "Save"`, `Waited:`), `Look at:`
+   (the test line the failure unwound through, else the failing step's line),
+   and, after a retry, whether every attempt failed alike.
 3. `## Steps`: one line per step, `2. ✗ \`locator.tap\` \`getByRole("button", "Save")\`
    (108ms) — **TIMEOUT** — \`Tests/CheckoutTests.cs:42\``, with the model calls
    of an agent step, the hook the step ran in (`in beforeEach` for a step
@@ -79,18 +82,25 @@ no viewer. It tells, in this order:
    the port recorded them. `App log` lists up to 50 lines with their step,
    errors and warnings first, and counts the rest. A line from before the
    first step says `before step 1`. An attempt keeps at most 200 errors and
-   warnings and 100 other lines, each cut to 300 characters. `Screen at
-   failure` gives the last URL, the node count, the viewport, and the last
-   screen the test saw, one node per line (also in
-   `attempt-<n>/screen-at-failure.txt`).
+   warnings and 100 other lines, each cut to 300 characters. When the attempt
+   fails, the session looks at the app once more before it closes. `Screen at
+   failure` gives the URL, the viewport, the node count, a screenshot
+   (`attempt-<n>/screenshots/failure.png`; none when the attempt knows a
+   secret, the engine captures no pixels, or it cannot show that every secure
+   field was masked), for a locator that matched nothing or too much the nodes
+   closest to what it asked for (`Closest to what the locator asked for`), and
+   the screen as the agent reads it, one node per line:
+   `#id role "name" text="..." [states]` (also in
+   `attempt-<n>/screen-at-failure.txt`). A test's own `TearDown` runs first, so
+   one that navigates away shows its page here. When the look fails (a crashed
+   page) the section is left out.
 5. `## Also failed` (another error, such as one from cleanup) and
    `## Evidence` (the video).
 
-Not recorded yet, so the page leaves them out: the agent's turns, the
-screenshot at failure, and what became of a step's recording. The app log is
-what the web engine collects: console output, uncaught exceptions, failed
-requests, and 4xx and 5xx responses. The mobile and document engines report none.
-A mention, a URL, or markup from the app is shown
+Not recorded yet, so the page leaves them out: the agent's turns and what
+became of a step's recording. The app log is what the web engine collects:
+console output, uncaught exceptions, failed requests, and 4xx and 5xx
+responses. The mobile and document engines report none. A mention, a URL, or markup from the app is shown
 as code or escaped, and a secret is redacted. Add `.e2e/results/` to
 `.gitignore`.
 
@@ -161,7 +171,9 @@ stand-in for `--video`; `e2e explore --video` is the flag itself), or with `vide
 in a fixture's `Video` property. The modes are `off`, `on`,
 `retain-on-failure`, `on-first-retry`, and `on-all-retries`; the retry modes
 need NUnit `[Retry]`, and xUnit v3 has no retry. The web engine records the
-page with Playwright's screencast.
+page with Playwright's screencast. `MobileEngine` records the device screen to
+`video/video.mp4` (`MobileOptions.VideoTouches = false` hides the touch
+indicator).
 
 The screencast goes into its attempt's directory,
 `.e2e/results/<test>/attempt-<n>/video/`: `video.webm`, and one
@@ -176,7 +188,7 @@ JPEG quality.
 A video masks nothing. It shows whatever the screen showed, secrets included,
 so keep `video` off unless you need it, and do not share the files. A mode set
 on a target is required: an engine that cannot record it (`DocumentEngine`,
-`MobileEngine`) fails the start with `UNSUPPORTED_ARTIFACT`.
+the MAUI DevFlow engine) fails the start with `UNSUPPORTED_ARTIFACT`.
 
 ## Tools
 

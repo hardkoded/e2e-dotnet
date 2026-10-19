@@ -38,7 +38,7 @@ internal static class FailureTextKit
             StartedAt = ReportBuilders.ReportAt,
             DurationMs = durationMs,
             Phase = phase,
-            Error = error is null ? null : new SerializedError("test", error.Code, error.Message, false, error.Source),
+            Error = error is null ? null : new SerializedError("test", error.Code, error.Message, false, error.Source, error.Details),
             Metrics = metrics,
             Explanation = explanation,
             Turns = turns,
@@ -48,7 +48,7 @@ internal static class FailureTextKit
     }
 
     /// <summary>A failed attempt as the runner records it: the step that ended it carries its error.</summary>
-    public static ReportAttempt Failed(ReportError? error = null, IReadOnlyList<StepRecord>? steps = null, IReadOnlyList<ReportArtifact>? artifacts = null, FailureEvidence? failure = null)
+    public static ReportAttempt Failed(ReportError? error = null, IReadOnlyList<StepRecord>? steps = null, IReadOnlyList<ReportArtifact>? artifacts = null, E2E.FailureEvidence? failure = null)
     {
         error ??= ReportBuilders.Error();
         return new ReportAttempt

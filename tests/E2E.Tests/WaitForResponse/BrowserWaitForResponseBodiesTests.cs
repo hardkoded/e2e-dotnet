@@ -10,6 +10,35 @@ namespace E2E.Tests.WaitForResponse;
 public sealed class BrowserWaitForResponseBodiesTests
 {
     [Fact]
+    public async Task Observes_the_first_navigation_before_any_page_is_open()
+    {
+        await RunAsync(TimeSpan.FromSeconds(2), async (session, site) =>
+        {
+            var waiting = session.Browser.WaitForResponseAsync(site.Origin + "/");
+            await session.Browser.GotoAsync("/");
+            var response = await waiting;
+            Assert.Equal(site.Origin + "/", response.Url);
+            Assert.Equal(200, response.Status);
+            Assert.Equal("text/html", response.Headers["content-type"]);
+            Assert.Contains("<h1>Bodies</h1>", await response.TextAsync(), StringComparison.Ordinal);
+            var live = WebEngine.SurfaceOf(session.Engine)!;
+            Assert.Equal([live.Page()], live.Context().Pages);
+        });
+    }
+
+    [Fact]
+    public async Task Surfaces_a_cancel_before_any_page_is_open_as_cancellation()
+    {
+        await RunAsync(TimeSpan.FromSeconds(2), async (session, _) =>
+        {
+            using var cancel = new CancellationTokenSource();
+            var waiting = session.Browser.WaitForResponseAsync("**/never", cancellationToken: cancel.Token);
+            await cancel.CancelAsync();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => waiting.WaitAsync(TimeSpan.FromSeconds(2)));
+        });
+    }
+
+    [Fact]
     public async Task Reads_a_full_body_as_text_and_JSON()
     {
         await RunAsync(TimeSpan.FromSeconds(2), async (session, site) =>
@@ -90,7 +119,7 @@ public sealed class BrowserWaitForResponseBodiesTests
         });
     }
 
-    /// <summary>Opens the body site's page in a session with the given action budget.</summary>
+    /// <summary>Runs a test in a session with the given action budget, before any page is open.</summary>
     private static async Task RunAsync(TimeSpan actionTimeout, Func<E2ESession, BodySite, Task> test)
     {
         using var site = BodySite.Start();
@@ -102,7 +131,6 @@ public sealed class BrowserWaitForResponseBodiesTests
             TestTitle = "browser.waitForResponse bodies",
             ActionTimeout = actionTimeout,
         });
-        await session.App.OpenAsync("/");
         await test(session, site);
         session.Complete(null);
     }
@@ -113,6 +141,8 @@ public sealed class BrowserWaitForResponseBodiesTests
     /// </summary>
     private static async Task<WebResponse> ObserveAsync(E2ESession session, BodySite site, string pathname, TimeSpan? timeout = null)
     {
+        await session.App.OpenAsync("/");
+
         // The step bound upstream's harness applies to every browser call.
         var bound = timeout ?? TimeSpan.FromSeconds(2);
         var waiting = session.Browser.WaitForResponseAsync("**" + pathname, timeout);

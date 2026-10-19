@@ -32,7 +32,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | Running tests: `dotnet test` filters, the `e2e` tool, exit codes, CI | `running` | [references/running.md](references/running.md) |
 | Handling a failed run: the trace page, error codes and their fixes, a visible browser, replay misses, phase timings, the agent step table, every model call | `debugging` | [references/debugging.md](references/debugging.md) |
 | Exploring an app toward a goal without a test file, with `e2e explore` or `Explore.ExploreAsync` | `explore` | [references/explore.md](references/explore.md) |
-| Testing an iOS or Android app: `MobileEngine`, the `Device` fixture, picking a simulator, Limrun hosted devices, a MAUI app through the DevFlow agent, known limits | `mobile` | [references/mobile.md](references/mobile.md) |
+| Testing an iOS or Android app: `MobileEngine`, the `Device` fixture, picking a simulator, video of the device screen, Limrun hosted devices, a MAUI app through the DevFlow agent, known limits | `mobile` | [references/mobile.md](references/mobile.md) |
 | Asked to bug bash or hunt for bugs: proving each bug with a repro test | `bug-bash` | [references/bug-bash.md](references/bug-bash.md) |
 
 ## Quick start
@@ -77,8 +77,10 @@ public sealed class BillingTests : E2ETest
 4. Run one class: `dotnet test --filter "FullyQualifiedName~<Class>"`. Agent
    steps need a model in the config and that provider's authentication.
    Tests without agent steps need no model.
-5. Read the exception's `Code` and message (topic `debugging`). Fix the
-   locator, the expectation, or the app. Never add a sleep.
+5. Read the exception's `Code`, message, and `Details` (what was expected and
+   observed, what the locator asked for, how long it waited), then the failed
+   attempt's trace page (topic `debugging`). Fix the locator, the expectation,
+   or the app. Never add a sleep.
 
 ## Rules
 
@@ -101,6 +103,11 @@ public sealed class BillingTests : E2ETest
   phrasing. A judgment reads the text snapshot; when the answer is only in
   pixels (a chart, a canvas, an overlay), pass `Vision = VisionMode.On`, or
   `VisionMode.Only` for the screenshot alone (topic `agent`).
+- `ActOptions.OnAction` runs after each action of an act, once the screen
+  settles, replayed actions included. Use it to observe (log, screenshot),
+  never to drive the app. It is awaited and counts toward `Timeout`. A throw
+  fails the step with `agent.act onAction failed: ...`, and a check inside it
+  never confirms the act (topic `agent`).
 - Check each act's outcome. Only a verified act is recorded and replayed
   (topic `agent`).
 - Shape the agent for this app: `context` for the vocabulary the screens

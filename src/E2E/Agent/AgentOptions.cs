@@ -99,6 +99,29 @@ internal sealed class ResolvedAgent
 
     public IReadOnlyDictionary<string, AgentTool>? Tools { get; init; }
 
+    /// <summary>
+    /// This agent with the test's <c>agentContext</c> appended to its own <see cref="Context"/>, one per line. A blank part is
+    /// left out. The 16 KiB limit applies to the agent's own context, as upstream's <c>joinAgentContext</c> runs after it.
+    /// </summary>
+    public ResolvedAgent WithTestContext(string? testContext)
+    {
+        var parts = new[] { Context, testContext }.Where(part => !string.IsNullOrWhiteSpace(part)).ToArray();
+        return parts.Length == 0 ? this : new ResolvedAgent
+        {
+            Name = Name,
+            Model = Model,
+            Judge = Judge,
+            System = System,
+            Context = string.Join('\n', parts),
+            Executor = Executor,
+            MaxSteps = MaxSteps,
+            MaxModelCalls = MaxModelCalls,
+            JudgmentTimeout = JudgmentTimeout,
+            ProviderOptions = ProviderOptions,
+            Tools = Tools,
+        };
+    }
+
     /// <summary>Checks one agent's settings. Throws <see cref="ConfigurationException"/> with <c>INVALID_CONFIG</c>.</summary>
     public static ResolvedAgent From(string name, AgentOptions options)
     {

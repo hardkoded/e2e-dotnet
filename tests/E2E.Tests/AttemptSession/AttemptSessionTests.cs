@@ -79,6 +79,28 @@ public sealed class AttemptSessionTests
     }
 
     [Fact]
+    public async Task Shares_one_pending_page_between_concurrent_first_page_operations()
+    {
+        var current = Remote("current");
+        var opened = FakeTarget.Create("opened");
+        var pending = new TaskCompletionSource<IPage>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var newPage = 0;
+        current.ContextFake.Members["NewPageAsync"] = _ =>
+        {
+            newPage++;
+            return pending.Task;
+        };
+        _connections.Add(current.Browser);
+        await using var owner = await Engine().StartAsync(Start(), None);
+        var opening = Task.WhenAll(owner.OpenAsync(Url, None), owner.OpenAsync(Url, None));
+        await PollAsync(() => newPage == 1);
+        pending.SetResult(opened.Page);
+        await opening;
+        Assert.Equal(1, newPage);
+        Assert.Same(opened.Page, WebEngine.SurfaceOf(owner)!.Page());
+    }
+
+    [Fact]
     public async Task Opens_a_new_tab_in_an_ordinary_context_whatever_pages_the_browser_already_shows()
     {
         var existing = FakeTarget.Create("existing").Page;

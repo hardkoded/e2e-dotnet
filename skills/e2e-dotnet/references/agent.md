@@ -47,10 +47,36 @@ providers and their logins):
 
 ### Choose an agent
 
-Tests use `agents.default`. A call picks another with its `Agent` option:
-`new ActOptions { Agent = "buyer" }`. An unknown name is `INVALID_ARGUMENT`.
-There is no `--agent` flag and no pin for a whole test; name the agent on
-each call.
+Tests use `agents.default`. Pin another to a test or a class, or name one on
+a call. The closest setting wins: the call, then the method, then the class
+(a nested class after its enclosing class), then the run.
+
+```csharp
+[Agent("buyer")]
+public class CheckoutTests : E2ETest
+{
+    [Test]
+    public async Task PaysForOneItem() { /* acts as buyer */ }
+
+    [Test]
+    public async Task ReordersAndTheAdminApproves()
+    {
+        await Agent.ActAsync("reorder the most recent order");
+        await Agent.ActAsync("approve the pending reorder", new ActOptions { Agent = "admin" });
+    }
+}
+```
+
+`E2E_AGENT=thorough dotnet test` sets the run's agent for tests that pin none.
+It takes one name; a pin is never replaced. An unknown name, on a pin, a call,
+or `E2E_AGENT`, is `INVALID_ARGUMENT`. There is no list of agents that runs
+one test once per persona. Each agent records its own replay entries, keyed by
+its name and context.
+
+`[AgentContext("The seeded workspace is called \"Acme Trial\".")]` on a class
+or a method adds facts only that test knows. It joins the agent's `context`,
+outer layer first, one per line, and reaches the judges too, so keep
+instructions out of it. A changed text records again.
 
 ## ActAsync: one goal
 
@@ -91,6 +117,27 @@ list: topic `debugging`.
 - `MaxSteps` (default 25 actions), `MaxModelCalls` (default 25): may only
   lower the agent's limits, else `INVALID_ARGUMENT`.
 - `Agent`: the named agent that runs the step.
+- `OnAction`: an `ActionHook` (`Task` from an `ActionEvent`) that runs after
+  each action the step completes, once the screen settles, and before the next
+  action. That includes actions the replay cache replays. The step waits for
+  it, and its time counts toward `Timeout`. Use it to observe, never to drive
+  the app. If it throws, the step fails with a message that starts with
+  `agent.act onAction failed`. A check inside it never confirms the step's
+  recording. The event has `Index` (1-based, the action's slot in the step's
+  budget), `Action` (`tap`, `navigate`, and so on; a mutating project tool
+  reads `tool:<name>`), `Summary` (what the action did, secrets redacted), and
+  `Source` (`ActionSource.Model`, or `ActionSource.Replay` for a cached action).
+
+```csharp
+await Agent.ActAsync("open settings and turn on dark mode", new ActOptions
+{
+    OnAction = e =>
+    {
+        Console.WriteLine($"{e.Index} {e.Action}: {e.Summary}");
+        return Task.CompletedTask;
+    },
+});
+```
 
 The tools the model can call: `observe`, `tap`, `double_tap`, `fill`,
 `fill_secret` (a `Secret` from `Params`, by name), `press`, `select`,

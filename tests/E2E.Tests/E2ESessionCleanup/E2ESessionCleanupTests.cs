@@ -56,6 +56,11 @@ public sealed class E2ESessionCleanupTests
                 return default(ValueTask);
             }
 
+            if (targetMethod?.Name == "get_" + nameof(IEngineSession.CanLocate))
+            {
+                return false;
+            }
+
             return targetMethod?.Name == nameof(IEngineSession.StartVideoAsync) ? Task.FromException(new InvalidOperationException("the video would not start")) : null;
         }
     }

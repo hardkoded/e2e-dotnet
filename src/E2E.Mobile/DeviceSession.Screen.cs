@@ -33,7 +33,16 @@ public sealed partial class DeviceSession
     /// <summary>Platform element types that are the soft keyboard or one of its keys, as agent-device names them.</summary>
     private static readonly HashSet<string> KeyboardTypes = ["keyboard", "key"];
 
+    /// <summary>How many located bindings a session keeps; the oldest goes first. Upstream's <c>MAX_LOCATED_REFS</c>.</summary>
+    private const int MaxLocatedRefs = 2048;
+
     private Dictionary<string, NodeBinding> _generation = [];
+
+    /// <summary>Action data of the nodes a locate matched, in the order it bound them, independent of the observation's generation.</summary>
+    private readonly OrderedDictionary<string, NodeBinding> _located = [];
+
+    /// <summary>Locators of one test may resolve at once, and an action reads the map while a locate fills it.</summary>
+    private readonly Lock _locatedLock = new();
     private IReadOnlyList<ProjectedNode>? _latestIndex;
 
     /// <summary>The screen as last projected before the last action, to tell controls that were already there from ones that came with it.</summary>
@@ -87,15 +96,113 @@ public sealed partial class DeviceSession
     {
         MarkAction(null);
         _generation = [];
+        ClearLocated();
     }
 
-    /// <summary>The binding of a node of the newest observation, or <c>NODE_STALE</c>.</summary>
+    private void ClearLocated()
+    {
+        lock (_locatedLock)
+        {
+            _located.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Resolves a locator against a fresh snapshot of the screen and binds only the matches, so the observation's ids stay valid.
+    /// Upstream's <c>locate</c>.
+    /// </summary>
+    public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        var raw = await LocateSnapshotAsync(timeout, cancellationToken).ConfigureAwait(false);
+        if (raw is null)
+        {
+            return [];
+        }
+
+        var projected = Project(raw);
+        TraceScreen(raw, projected);
+        var matches = DeviceLocator.ResolveExpression(expression, projected.Index, Options.Platform);
+        lock (_locatedLock)
+        {
+            foreach (var entry in matches)
+            {
+                _located[entry.Id] = Bind(entry, projected.Index);
+            }
+
+            while (_located.Count > MaxLocatedRefs)
+            {
+                _located.RemoveAt(0);
+            }
+        }
+
+        return matches.Select(entry => entry.Node).ToList();
+    }
+
+    /// <summary>
+    /// Snapshot for a locate; null for a screen agent-device could not read yet (an app still on its splash). The harness polls a
+    /// locate until its deadline, so that screen matches nothing and the poll waits for it to render. A capture that leaves no budget
+    /// for another poll fails with the reason instead, so a wait that ends on an unreadable screen says so.
+    /// </summary>
+    private async Task<RawSnapshot?> LocateSnapshotAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        var started = _engine.Clock.GetUtcNow();
+        try
+        {
+            return await SnapshotOrEmptyAsync(false, cancellationToken).ConfigureAwait(false);
+        }
+        catch (EngineException cause) when (!cancellationToken.IsCancellationRequested && DeviceErrors.IsUnreadableCapture(cause) && _engine.Clock.GetUtcNow() - started < timeout)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Hands the harness the capture a locate matched against, for the trace: the screen the step acted on, at no cost of another
+    /// snapshot. A screen whose viewport is not known yet is skipped rather than probed.
+    /// </summary>
+    private void TraceScreen(RawSnapshot raw, ProjectedSnapshot projected)
+    {
+        if (_screenSink is not { } sink || (projected.Viewport ?? _knownViewport) is not { } viewport)
+        {
+            return;
+        }
+
+        try
+        {
+            sink(new Observation
+            {
+                Route = DeviceSupport.ScreenLocation(raw.AppBundleId ?? raw.AppName ?? _appIdentity, SnapshotProjection.ScreenTitle(projected)) ?? "",
+                Roots = [SnapshotProjection.ScreenRoot(projected.Roots, viewport)],
+                Truncated = raw.Truncated || raw.Sparse,
+            });
+        }
+        catch (Exception)
+        {
+            // The trace is a reader of the attempt, never a reason it fails.
+        }
+    }
+
+    /// <summary>The binding of a located node, or of a node of the newest observation, or <c>NODE_STALE</c>.</summary>
     internal NodeBinding Resolve(SemanticNode node)
     {
         ArgumentNullException.ThrowIfNull(node);
+        if (TryGetLocated(node.Ref, out var located))
+        {
+            return located;
+        }
+
         return _generation.TryGetValue(node.Ref, out var entry)
             ? entry
             : throw new EngineException(EngineErrorCodes.NodeStale, $"node {node.Ref} is not part of the newest observation", retryable: true);
+    }
+
+    private bool TryGetLocated(string id, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out NodeBinding? entry)
+    {
+        lock (_locatedLock)
+        {
+            return _located.TryGetValue(id, out entry);
+        }
     }
 
     /// <summary>The target of a command: the node's agent-device ref, or its toggle's inner control when <paramref name="control"/> is set.</summary>

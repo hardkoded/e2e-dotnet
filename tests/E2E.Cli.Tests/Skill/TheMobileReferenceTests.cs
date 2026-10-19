@@ -15,7 +15,7 @@ public sealed class TheMobileReferenceTests
     {
         var reference = BundledSkill.ReadGuide("mobile") ?? throw new InvalidOperationException("no mobile reference");
         var excerpts = Regex.Matches(reference, @"excerpt of `(?<file>\w+\.cs)`[^\n]*\r?\n\r?\n```csharp\r?\n(?<code>.*?)```", RegexOptions.Singleline);
-        Assert.Equal(3, excerpts.Count);
+        Assert.Equal(2, excerpts.Count);
         foreach (Match excerpt in excerpts)
         {
             var file = excerpt.Groups["file"].Value;

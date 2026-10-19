@@ -131,6 +131,22 @@ public interface IEngineSession : IAsyncDisposable
     Task PressAsync(string key, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Whether <see cref="LocateAsync"/> is implemented. A session that says false has its locators resolved in core over
+    /// <see cref="ObserveAsync"/>. .NET-only and transitional: upstream's engines all locate, and this goes once the web and document
+    /// engines do.
+    /// </summary>
+    bool CanLocate => false;
+
+    /// <summary>
+    /// Resolves a locator against the screen as it is now and returns every match in document order. Polling and strictness stay with
+    /// the harness. A screen the engine cannot read yet matches nothing, so the harness keeps polling. <paramref name="timeout"/> is the
+    /// budget left for the resolve, which an engine uses to tell a screen that is still arriving from one that never rendered. Engines
+    /// that declare <see cref="EngineCapabilities.Location"/> and set <see cref="CanLocate"/> implement it. Upstream's <c>locate</c>.
+    /// </summary>
+    Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken) =>
+        Task.FromException<IReadOnlyList<SemanticNode>>(new EngineException("UNSUPPORTED_CAPABILITY", "locators (screen) is not supported by this engine."));
+
+    /// <summary>
     /// Scrolls the viewport about three quarters of a screen. Engines that declare
     /// <see cref="EngineCapabilities.Scroll"/> implement it.
     /// </summary>
