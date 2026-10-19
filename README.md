@@ -313,7 +313,7 @@ await Expect.That(Screen).ToHaveScreenshotAsync("feed.png", new ScreenshotOption
 e2e explore "Explore checkout like a first-time buyer and report anything off" --max-steps 4
 ```
 
-The command prints each step and finding as it happens, then the findings with their evidence, the agent's assessment, and a summary. It exits 0 when no issue was reported, 1 when one was, 2 for a configuration error, and 3 for an engine or model provider failure. Flags: `--config`, `--target`, `--agent`, `--max-steps`, `--timeout` (milliseconds), `--headed`, and `--output`. Each `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD` pair in the environment is an account the agent can sign in with. From code:
+The command prints each step and finding as it happens, then the findings with their evidence, the agent's assessment, and a summary. It exits 0 when no issue was reported, 1 when one was, 2 for a configuration error, and 3 for an engine or model provider failure. Flags: `--config`, `--target`, `--agent`, `--max-steps`, `--timeout` (milliseconds), `--headed`, `--output`, `--debug`, `--ai-trace`, `--trace [mode]`, and `--video [mode]`. A bare `--trace` or `--video` is `on`; the other modes are `off`, `retain-on-failure`, `on-first-retry`, and `on-all-retries`. An exploration is one attempt, so a retry mode keeps nothing and a notice says so. Each `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD` pair in the environment is an account the agent can sign in with. From code:
 
 ```csharp
 var outcome = await Explore.ExploreAsync(new ExploreOptions
@@ -328,7 +328,7 @@ foreach (var finding in outcome.Explore.Findings)
 }
 ```
 
-`outcome.Status` is `Failed` when the agent reported an `issue` (a `warning` does not fail the run) and `Blocked` when it could not explore. The budgets are 1 to 12 steps and 3 to 15 minutes. `OnProgress` follows the run as it happens, and `Credentials` gives the accounts the agent can sign in with. The command has no `--session`, `--reporter`, `--trace`, `--video`, `--debug`, or `--ai-trace`. See [COMPATIBILITY.md](COMPATIBILITY.md#explore) and topic `explore`.
+`outcome.Status` is `Failed` when the agent reported an `issue` (a `warning` does not fail the run) and `Blocked` when it could not explore. The budgets are 1 to 12 steps and 3 to 15 minutes. `OnProgress` follows the run as it happens, and `Credentials` gives the accounts the agent can sign in with. The command takes `--trace`, `--video`, `--debug`, and `--ai-trace` as upstream does, and has no `--session` or `--reporter`. See [COMPATIBILITY.md](COMPATIBILITY.md#explore) and topic `explore`.
 
 ## Coding agents (MCP)
 

@@ -37,17 +37,22 @@ internal static partial class ExploreCommand
           --headed          show the UI while the agent explores
 
         Output:
-          --output <dir>    results directory: finding screenshots (default: .e2e/results)
+          --output <dir>    results directory: finding screenshots, trace pages, videos (default: .e2e/results)
+          --debug           print phase timings and the agent step table to stderr (also E2E_DEBUG=1)
+          --ai-trace        record every model call to ai-trace-<process id>.json next to the results directory (unbox-ai) (also E2E_AI_TRACE=1)
+          --trace [mode]    keep a trace page of the exploration (bare: on); one attempt, so retry modes keep none. Modes: {MODES} (also E2E_TRACE)
+          --video [mode]    record a video of the exploration (bare: on), when the engine supports it; one attempt, so retry modes record none. Modes: {MODES} (also E2E_VIDEO)
 
         Accounts: every E2E_USER_<NAME>_USERNAME and E2E_USER_<NAME>_PASSWORD pair in the environment is an account the agent can sign in with. It fills the password by secret; the password never reaches a model.
 
-        Not supported by the .NET port: --session, --reporter (it refuses these), and --trace, --video, --debug, --ai-trace (it prints a notice and goes on).
+        Not supported by the .NET port: --session, --reporter (it refuses these).
 
         Examples:
           e2e explore
           e2e explore "Explore the checkout flow like a first-time buyer and report anything off"
           e2e explore --target web --max-steps 4 --headed
           e2e explore --agent ux "Review onboarding as a first-time user"
+          e2e explore "Hunt for broken forms and dead links" --video
 
         Exit codes:
           0    the exploration ran and reported no issue (warnings do not count)
@@ -65,10 +70,14 @@ internal static partial class ExploreCommand
     /// <summary>Upstream flags the port has no feature for, and that change what the run means: they are refused.</summary>
     private static readonly HashSet<string> RefusedFlags = new(["--session", "--reporter"], StringComparer.Ordinal);
 
-    /// <summary>Upstream flags the port has no feature for, and that only add output: a notice says so and the run goes on.</summary>
-    private static readonly HashSet<string> IgnoredFlags = new(["--debug", "--ai-trace", "--trace", "--video"], StringComparer.Ordinal);
+    /// <summary>The flags that take no value.</summary>
+    private static readonly HashSet<string> SwitchFlags = new(["--headed", "--debug", "--ai-trace"], StringComparer.Ordinal);
+
+    /// <summary>The flags that take a recording mode if the next argument is not an option: a bare flag is <c>on</c>.</summary>
+    private static readonly HashSet<string> ModeFlags = new(["--trace", "--video"], StringComparer.Ordinal);
 
     public static string UsageText() => Usage
+        .Replace("{MODES}", RecordingModes.List, StringComparison.Ordinal)
         .Replace("{STEPS_DEFAULT}", Explore.StepBounds.Default.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
         .Replace("{STEPS}", Explore.StepBounds.Min.ToString(CultureInfo.InvariantCulture) + " through " + Explore.StepBounds.Max.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
         .Replace("{TIMEOUT_DEFAULT}", Milliseconds(Explore.TimeoutBounds.Default).ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
@@ -91,7 +100,7 @@ internal static partial class ExploreCommand
         ArgumentNullException.ThrowIfNull(stderr);
         ArgumentNullException.ThrowIfNull(explore);
 
-        var parsed = Parse(args, out var notices);
+        var parsed = Parse(args);
         if (parsed.Help)
         {
             await stdout.WriteLineAsync(UsageText()).ConfigureAwait(false);
@@ -102,11 +111,6 @@ internal static partial class ExploreCommand
         {
             await stderr.WriteLineAsync("error: " + parsed.Error).ConfigureAwait(false);
             return 2;
-        }
-
-        foreach (var notice in notices)
-        {
-            await stderr.WriteLineAsync(Notice(notice)).ConfigureAwait(false);
         }
 
         List<(string Name, UserCredential Credential)> accounts;
@@ -182,6 +186,10 @@ internal static partial class ExploreCommand
             Timeout = parsed.Timeout,
             Headed = parsed.Headed,
             Output = parsed.Output,
+            Debug = parsed.Debug,
+            AiTrace = parsed.AiTrace,
+            Trace = parsed.Trace,
+            Video = parsed.Video,
             Credentials = accounts.ToDictionary(account => account.Name, account => account.Credential, StringComparer.Ordinal),
             Notice = message => stderr.WriteLine(Notice(message)),
             OnProgress = OnProgress,
@@ -309,15 +317,14 @@ internal static partial class ExploreCommand
         };
     }
 
-    private static ExploreArgs Parse(IEnumerable<string> args, out List<string> notices)
+    private static ExploreArgs Parse(IEnumerable<string> args)
     {
-        notices = [];
         var result = new ExploreArgs();
         var positional = new List<string>();
-        using var e = args.GetEnumerator();
-        while (e.MoveNext())
+        var list = args.ToList();
+        for (var i = 0; i < list.Count; i++)
         {
-            var arg = e.Current;
+            var arg = list[i];
             var eq = arg.StartsWith("--", StringComparison.Ordinal) ? arg.IndexOf('=', StringComparison.Ordinal) : -1;
             var name = eq >= 0 ? arg[..eq] : arg;
             if (name is "-h" or "--help")
@@ -330,20 +337,58 @@ internal static partial class ExploreCommand
                 return new ExploreArgs { Error = "option '" + name + "' is not supported by the .NET port" };
             }
 
-            if (IgnoredFlags.Contains(name))
-            {
-                notices.Add(name + " is not supported by the .NET port; ignored");
-                continue;
-            }
-
-            if (name == "--headed")
+            if (SwitchFlags.Contains(name))
             {
                 if (eq >= 0)
                 {
-                    return new ExploreArgs { Error = "option '--headed' takes no argument" };
+                    return new ExploreArgs { Error = "option '" + name + "' takes no argument" };
                 }
 
-                result.Headed = true;
+                switch (name)
+                {
+                    case "--headed":
+                        result.Headed = true;
+                        break;
+                    case "--debug":
+                        result.Debug = true;
+                        break;
+                    case "--ai-trace":
+                        result.AiTrace = true;
+                        break;
+                    default:
+                        throw new InvalidOperationException("no handler for switch " + name);
+                }
+
+                continue;
+            }
+
+            if (ModeFlags.Contains(name))
+            {
+                // As commander's optional value: greedy, so a goal after the flag is read as the mode and refused with the way to write it.
+                string? value = null;
+                if (eq >= 0)
+                {
+                    value = arg[(eq + 1)..];
+                }
+                else if (i + 1 < list.Count && !LooksLikeOption(list[i + 1]))
+                {
+                    value = list[++i];
+                }
+
+                if (ParseMode(name, value, out var mode) is { } problem)
+                {
+                    return new ExploreArgs { Error = problem };
+                }
+
+                if (name == "--trace")
+                {
+                    result.Trace = mode;
+                }
+                else
+                {
+                    result.Video = mode;
+                }
+
                 continue;
             }
 
@@ -354,9 +399,9 @@ internal static partial class ExploreCommand
                 {
                     value = arg[(eq + 1)..];
                 }
-                else if (e.MoveNext())
+                else if (i + 1 < list.Count)
                 {
-                    value = e.Current;
+                    value = list[++i];
                 }
                 else
                 {
@@ -389,6 +434,31 @@ internal static partial class ExploreCommand
 
         result.Goal = positional.FirstOrDefault();
         return result;
+    }
+
+    private static bool LooksLikeOption(string arg) => arg.Length > 1 && arg[0] == '-';
+
+    /// <summary>
+    /// <c>--trace [mode]</c> or <c>--video [mode]</c>: a bare flag is <c>on</c>. A value that is not a mode is refused with the way to
+    /// write one. Upstream's <c>parseRecordingMode</c>.
+    /// </summary>
+    private static string? ParseMode(string flag, string? value, out RecordingMode mode)
+    {
+        if (value is null)
+        {
+            mode = RecordingMode.On;
+            return null;
+        }
+
+        if (RecordingModes.TryParse(value, out mode))
+        {
+            return null;
+        }
+
+        var invalid = "option '" + flag + " [mode]' argument '" + value + "' is invalid. ";
+        return flag == "--trace" && RecordingModes.TryLegacyTraceSpelling(value, block: false, out var was, out var meant) && was is not null
+            ? invalid + "\"" + value + "\" is the old spelling of " + flag + " " + RecordingModes.Name(meant) + "; the modes are " + RecordingModes.List
+            : invalid + "expected a mode (" + RecordingModes.List + "), got \"" + value + "\"; write " + flag + "=<mode>, or put test files before " + flag;
     }
 
     private static string? Apply(ExploreArgs result, string name, string value)
@@ -463,5 +533,13 @@ internal static partial class ExploreCommand
         public bool Headed { get; set; }
 
         public string? Output { get; set; }
+
+        public bool Debug { get; set; }
+
+        public bool AiTrace { get; set; }
+
+        public RecordingMode? Trace { get; set; }
+
+        public RecordingMode? Video { get; set; }
     }
 }

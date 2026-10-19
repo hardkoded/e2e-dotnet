@@ -81,6 +81,9 @@ public sealed class E2ESession : IAsyncDisposable
     /// </summary>
     internal IReadOnlyList<VideoSegment> Videos { get; private set; } = [];
 
+    /// <summary>What the session explored, set by an exploration before it is released: its verdict is told by its findings, and gets no trace page.</summary>
+    internal ReportExplore? Exploration { get; set; }
+
     public int Replayed => _scope.Replayed;
 
     public int HandedOff => _scope.HandedOff;
@@ -545,7 +548,7 @@ public sealed class E2ESession : IAsyncDisposable
                 await TracePages.WriteTextAsync(Path.Combine(trace.AttemptDir, AttemptReport.ScreenFile), TextRules.TruncateUtf8(AttemptReport.ScreenListing(screen), StepScreens.DefaultObservationBytes), CancellationToken.None).ConfigureAwait(false);
             }
 
-            var (report, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Videos);
+            var (report, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Videos, Exploration);
             await TracePages.WriteTracePagesAsync(
                 report,
                 new HashSet<string>(StringComparer.Ordinal) { id },

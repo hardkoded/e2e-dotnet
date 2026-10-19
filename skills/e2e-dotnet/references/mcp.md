@@ -125,7 +125,8 @@ The loop is:
   4 hours. A secret value never leaves the server: every output shows it as
   `<secret:name>`.
 - Nothing a session does is recorded as a test or into the replay cache, and
-  it writes no trace page. A session is for looking and trying; the test is
+  it writes no trace page, and `e2e mcp` takes no `--trace`, `--video`, `--debug`,
+  or `--ai-trace`, as upstream. A session is for looking and trying; the test is
   what you write afterwards.
 - Parallel agents (subagents) share one server: each opens its own session
   and passes its session id to every `tools`, `call`, and `close_session`.

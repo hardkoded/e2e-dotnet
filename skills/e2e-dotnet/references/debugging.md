@@ -136,8 +136,8 @@ E2E_VIDEO=on dotnet test --filter ...                   # record every attempt
 E2E_VIDEO=retain-on-failure dotnet test --filter ...    # record every attempt, keep the failures
 ```
 
-`video` is `off` by default. Set it with `E2E_VIDEO` for one run (the port's
-stand-in for `--video`), or with `video` at the config root, on a target, or
+`video` is `off` by default. Set it with `E2E_VIDEO` for one test run (the port's
+stand-in for `--video`; `e2e explore --video` is the flag itself), or with `video` at the config root, on a target, or
 in a fixture's `Video` property. The modes are `off`, `on`,
 `retain-on-failure`, `on-first-retry`, and `on-all-retries`; the retry modes
 need NUnit `[Retry]`, and xUnit v3 has no retry. The web engine records the
@@ -173,7 +173,7 @@ on a target is required: an engine that cannot record it (`DocumentEngine`,
 
 ## Timings and transcripts
 
-`--debug` is the variable `E2E_DEBUG=1` (or `true`), for example
+`--debug` is the variable `E2E_DEBUG=1` (or `true`) for a test run (`e2e explore --debug` is the flag itself), for example
 `E2E_DEBUG=1 dotnet test --logger "console;verbosity=detailed"`. A fixture can
 override the `Debug` property instead. Each test then writes a table of its
 phase timings to stderr when it ends, slowest phase first:
@@ -213,7 +213,7 @@ results. Without debug it is dropped.
 
 ## Model calls
 
-`--ai-trace` is the variable `E2E_AI_TRACE=1` (or `true`). A fixture can
+`--ai-trace` is the variable `E2E_AI_TRACE=1` (or `true`) for a test run (`e2e explore --ai-trace` is the flag itself). A fixture can
 override the `AiTrace` property instead. Each test records every model round
 trip, and the test process writes them to `ai-trace-<process id>.json` next to
 the results directory (`.e2e/` by default) every few seconds and when the process exits. Each test project

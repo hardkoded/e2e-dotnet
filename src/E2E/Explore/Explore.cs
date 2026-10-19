@@ -69,6 +69,28 @@ public sealed class ExploreOptions
 
     /// <summary>Receives the exploration's progress as it happens. Upstream's <c>onEvent</c> sink for the <c>explore</c> run events.</summary>
     public ExploreListener? OnProgress { get; init; }
+
+    /// <summary>
+    /// Which attempts keep a trace page, upstream's <c>--trace [mode]</c>; over the target's and the config's <c>trace</c>. The exploration is
+    /// one attempt, so a retry mode keeps none. Defaults to the target's mode, <c>retain-on-failure</c> unless the config says otherwise.
+    /// An exploration's own verdict, the issues its findings tell, gets no page.
+    /// </summary>
+    public RecordingMode? Trace { get; init; }
+
+    /// <summary>
+    /// Which attempts record a video, upstream's <c>--video [mode]</c>; over the target's and the config's <c>video</c>. The exploration is
+    /// one attempt, so a retry mode records none. Defaults to the target's mode, <c>off</c> unless the config says otherwise.
+    /// </summary>
+    public RecordingMode? Video { get; init; }
+
+    /// <summary>Upstream's <c>--debug</c>: prints the phase timings and the agent step table to stderr. <c>E2E_DEBUG=1</c> turns it on too.</summary>
+    public bool Debug { get; init; }
+
+    /// <summary>
+    /// Upstream's <c>--ai-trace</c>: records every model call to <c>ai-trace-&lt;process id&gt;.json</c> next to the results directory
+    /// (<c>.e2e</c> by default). <c>E2E_AI_TRACE=1</c> turns it on too.
+    /// </summary>
+    public bool AiTrace { get; init; }
 }
 
 /// <summary>What an exploration ended with. Upstream's <c>ExploreOutcome</c>, which extends the runner's <c>RunOutcome</c>.</summary>
@@ -174,9 +196,17 @@ public static class Explore
         // The explorer replaces the agent for the exploration alone. The exploration pins no retries and runs with the cache off.
         entries[agentName] = ExploreExecutor.WithFindingTool(explorer, state);
         var defaultAgent = entries["default"];
+        var engine = options.Engine ?? new WebEngine(options.Headed ? false : null);
+        var trace = options.Trace is { } traceFlag ? new ResolvedRecording(traceFlag, RecordingSource.Run) : target.Trace;
+        var video = options.Video is { } videoFlag ? new ResolvedRecording(videoFlag, RecordingSource.Run) : target.Video;
+        foreach (var message in RecordingNotices(trace.Mode, video, (engine.Capabilities & EngineCapabilities.Video) != 0, target.Name, engine.Platform))
+        {
+            notice(message);
+        }
+
         var sessionOptions = new E2ESessionOptions
         {
-            Engine = options.Engine ?? new WebEngine(options.Headed ? false : null),
+            Engine = engine,
             Model = defaultAgent.Model,
             Judge = defaultAgent.Judge,
             AgentExecutor = defaultAgent.Executor,
@@ -201,9 +231,10 @@ public static class Explore
             ActionTimeout = config.ActionTimeout,
             AssertionTimeout = config.AssertionTimeout,
             StepTimeout = StepTimeout,
-
-            // The command has no --trace yet, so an exploration writes no trace page.
-            Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
+            Trace = trace,
+            Video = video,
+            Debug = options.Debug || E2EFixture.IsOn("E2E_DEBUG"),
+            AiTrace = options.AiTrace || E2EFixture.IsOn("E2E_AI_TRACE"),
         };
 
         await using var session = await E2ESession.StartAsync(sessionOptions, cancellationToken).ConfigureAwait(false);
@@ -229,10 +260,43 @@ public static class Explore
         {
             error = ex;
         }
+        finally
+        {
+            // Set whatever ended the body, so the release never writes a page for the verdict.
+            session.Exploration = state.Snapshot();
+        }
 
         session.Complete(error, cancellationToken);
-        return new ExploreOutcome(Runner.StatusOf(error), Runner.ExitCodeOf(error), error, state.Snapshot());
+        var record = state.Snapshot();
+        return new ExploreOutcome(Runner.StatusOf(error), Runner.ExitCodeOf(error), error, record);
     }
+
+    /// <summary>
+    /// The notices about a retry mode: an exploration runs its goal once, so a mode that records retries only records nothing, and the
+    /// notice says to pass the flag. A video notice is made only when the engine can record one. Upstream's <c>recordingNotices</c> in
+    /// <c>run/provision.ts</c>, for <c>explore</c>.
+    /// </summary>
+    internal static IEnumerable<string> RecordingNotices(RecordingMode trace, ResolvedRecording video, bool recordsVideo, string target, string engine)
+    {
+        // A run-wide video mode asked of an engine that cannot record it is skipped, and says so.
+        if (!recordsVideo && video.Source == RecordingSource.Run && RecordingModes.RecordsOnSomeAttempt(video.Mode, 0))
+        {
+            yield return "video records only on targets whose engine can record it; target \"" + target + "\" (engine " + engine + ") records no video";
+        }
+
+        if (RecordingModes.IsRetryMode(trace))
+        {
+            yield return RetryOnlyNotice("trace", trace);
+        }
+
+        if (recordsVideo && RecordingModes.IsRetryMode(video.Mode))
+        {
+            yield return RetryOnlyNotice("video", video.Mode);
+        }
+    }
+
+    private static string RetryOnlyNotice(string kind, RecordingMode mode) =>
+        kind + ": '" + RecordingModes.Name(mode) + "' records retries only, and explore runs its goal once, so no " + kind + "s will be recorded; pass --" + kind + " on";
 
     private static E2EConfig LoadConfig(ExploreOptions options)
     {

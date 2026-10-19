@@ -39,7 +39,8 @@ internal static class AttemptReport
         AttemptStatus status,
         Exception? error,
         long durationMs,
-        IReadOnlyList<VideoSegment> videos)
+        IReadOnlyList<VideoSegment> videos,
+        ReportExplore? explore = null)
     {
         var steps = scope.Steps.All();
         var id = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(scope.TestTitle)))[..16].ToLowerInvariant();
@@ -80,7 +81,7 @@ internal static class AttemptReport
             Attempts = [attempt],
             Directory = directory,
         };
-        return (new Report1Document(new ReportRun(RunId, ModelHttp.PackageVersion(), [scope.TargetName], [result])), id);
+        return (new Report1Document(new ReportRun(RunId, ModelHttp.PackageVersion(), [scope.TargetName], [result], explore)), id);
     }
 
     /// <summary>What the screen file of a failed attempt is called, beside the attempt's other files.</summary>

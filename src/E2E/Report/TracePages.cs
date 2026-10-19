@@ -58,10 +58,26 @@ internal static class TracePages
         {
             var dir = result.Directory ?? ArtifactPaths.ResultSegment(result.Id, result.File, result.TitlePath);
             var file = Path.Combine(options.ResultsRoot, dir, TracePage);
+            var outcome = Outcome.Of(result);
+            if (report.Run.Explore is { } explore && IsExploreVerdict(outcome, explore))
+            {
+                // A page an earlier run left for the same goal would pass as evidence of this one.
+                try
+                {
+                    File.Delete(file);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // A page that cannot be removed is stale, not a failure of the run.
+                }
+
+                continue;
+            }
+
             var page = FailureText.RenderTracePage(
                 report,
                 result,
-                Outcome.Of(result),
+                outcome,
                 new TracePageOptions
                 {
                     ArtifactsDir = Source.ProjectRelativePath(options.ProjectRoot, options.ResultsRoot) ?? options.ResultsRoot.Replace('\\', '/'),
@@ -75,6 +91,13 @@ internal static class TracePages
 
         return pages;
     }
+
+    /// <summary>
+    /// Whether a result's failure is the exploration's verdict, which its findings already tell; such a result gets no page.
+    /// Upstream's <c>isExploreVerdict</c>.
+    /// </summary>
+    internal static bool IsExploreVerdict(Outcome final, ReportExplore explore) =>
+        final.Final.Error?.Code == "ASSERTION_FAILED" && explore.Findings.Any(finding => finding.Kind == ReportExploreFindingKind.Issue);
 
     // Through a unique temp name, then moved, so a reader never sees half a page.
     internal static async Task WriteTextAsync(string file, string text, CancellationToken cancellationToken)

@@ -97,19 +97,70 @@ public sealed class ExploreFlagsTests
         Assert.Contains("option '" + flag + "' is not supported by the .NET port", stderr, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Passes_the_debug_and_ai_trace_switches_and_the_trace_and_video_modes_to_the_exploration()
+    {
+        var fake = Fake();
+        var (code, _, stderr) = await fake.InvokeAsync("--debug", "--ai-trace", "--trace=on-all-retries", "--video", "retain-on-failure");
+
+        Assert.Equal(0, code);
+        Assert.Equal("", stderr);
+        var options = Assert.IsType<ExploreOptions>(fake.Options);
+        Assert.True(options.Debug);
+        Assert.True(options.AiTrace);
+        Assert.Equal(RecordingMode.OnAllRetries, options.Trace);
+        Assert.Equal(RecordingMode.RetainOnFailure, options.Video);
+    }
+
+    [Fact]
+    public async Task Reads_a_bare_trace_or_video_flag_as_on_and_leaves_them_unset_without_one()
+    {
+        var bare = Fake();
+        await bare.InvokeAsync("--trace", "--video");
+        Assert.Equal(RecordingMode.On, bare.Options!.Trace);
+        Assert.Equal(RecordingMode.On, bare.Options.Video);
+
+        var none = Fake();
+        await none.InvokeAsync("Explore checkout");
+        Assert.False(none.Options!.Debug);
+        Assert.False(none.Options.AiTrace);
+        Assert.Null(none.Options.Trace);
+        Assert.Null(none.Options.Video);
+
+        // Another option after the flag is not its value.
+        var before = Fake();
+        await before.InvokeAsync("--video", "--headed", "Explore checkout");
+        Assert.Equal(RecordingMode.On, before.Options!.Video);
+        Assert.True(before.Options.Headed);
+        Assert.Equal("Explore checkout", before.Options.Goal);
+    }
+
     [Theory]
-    [InlineData("--trace")]
-    [InlineData("--video")]
-    [InlineData("--debug")]
-    [InlineData("--ai-trace")]
-    public async Task Says_it_ignores_a_recording_or_debug_flag_and_explores_on(string flag)
+    [InlineData("--trace", "Explore checkout", "write --trace=<mode>, or put test files before --trace")]
+    [InlineData("--video=sometimes", null, "expected a mode (off, on, retain-on-failure, on-first-retry, on-all-retries), got \"sometimes\"")]
+    [InlineData("--trace=all", null, "\"all\" is the old spelling of --trace on; the modes are off, on, retain-on-failure, on-first-retry, on-all-retries")]
+    [InlineData("--trace=retries", null, "\"retries\" is the old spelling of --trace on-all-retries")]
+    public async Task Refuses_a_trace_or_video_value_that_is_not_a_mode_with_the_way_to_write_one(string flag, string? next, string message)
+    {
+        var fake = Fake();
+        var (code, _, stderr) = await fake.InvokeAsync(next is null ? [flag] : [flag, next]);
+
+        Assert.Equal(2, code);
+        Assert.Null(fake.Options);
+        Assert.Contains(message, stderr, StringComparison.Ordinal);
+        Assert.StartsWith("error: option '" + flag.Split('=')[0] + " [mode]' argument '", stderr, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("--debug=1")]
+    [InlineData("--ai-trace=yes")]
+    public async Task Refuses_a_value_given_to_a_switch(string flag)
     {
         var fake = Fake();
         var (code, _, stderr) = await fake.InvokeAsync(flag);
 
-        Assert.Equal(0, code);
-        Assert.NotNull(fake.Options);
-        Assert.Contains("e2e explore: " + flag + " is not supported by the .NET port; ignored", stderr, StringComparison.Ordinal);
+        Assert.Equal(2, code);
+        Assert.Equal("error: option '" + flag.Split('=')[0] + "' takes no argument\n", stderr.Replace("\r\n", "\n", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -123,6 +174,9 @@ public sealed class ExploreFlagsTests
         Assert.StartsWith("Usage: e2e explore [options] [goal]", stdout, StringComparison.Ordinal);
         Assert.Contains("exploration steps at most, 1 through 12 (default: 8)", stdout, StringComparison.Ordinal);
         Assert.Contains("wall clock in milliseconds, 180000 through 900000 (default: 600000)", stdout, StringComparison.Ordinal);
+        Assert.Contains("--trace [mode]", stdout, StringComparison.Ordinal);
+        Assert.Contains("Modes: off, on, retain-on-failure, on-first-retry, on-all-retries (also E2E_VIDEO)", stdout, StringComparison.Ordinal);
+        Assert.DoesNotContain("Not supported by the .NET port: --session, --reporter (it refuses these), and", stdout, StringComparison.Ordinal);
     }
 
     [Theory]
