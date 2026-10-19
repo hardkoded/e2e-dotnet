@@ -33,6 +33,7 @@ public sealed partial class DeviceSession : IEngineSession
     private readonly MobileApp _app;
     private readonly string _projectRoot;
     private readonly string? _artifactsDir;
+    private readonly Action<Observation>? _screenSink;
     private IDeviceClient? _client;
     private int _idCounter;
     private string? _appIdentity;
@@ -45,6 +46,7 @@ public sealed partial class DeviceSession : IEngineSession
         _app = engine.Options.App;
         _projectRoot = info.ProjectRoot;
         _artifactsDir = info.ArtifactsDir;
+        _screenSink = info.Screen;
         _binding = binding;
         _where = where;
         _client = client;
@@ -110,7 +112,27 @@ public sealed partial class DeviceSession : IEngineSession
         }
 
         engine.Register(started);
+        started.TellEnvironment(info.Environment);
         return started;
+    }
+
+    /// <summary>Tells the trace what the attempt runs on. The trace is a reader of the attempt, so a hook that throws never fails it.</summary>
+    private void TellEnvironment(Action<IReadOnlyDictionary<string, string>>? environment)
+    {
+        var facts = new Dictionary<string, string> { ["platform"] = Options.Platform.WireName() };
+        if (DeviceBindings.DeviceLabel(_binding) is { } device)
+        {
+            facts["device"] = device;
+        }
+
+        try
+        {
+            environment?.Invoke(facts);
+        }
+        catch (Exception)
+        {
+            // The trace is a reader of the attempt, never a reason it fails.
+        }
     }
 
     /// <summary>
@@ -171,6 +193,8 @@ public sealed partial class DeviceSession : IEngineSession
         MarkAction(before);
     }
 
+    public bool CanLocate => true;
+
     public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
     {
         var raw = await SnapshotOrEmptyAsync(Options.Snapshot == SnapshotMode.Interactive, cancellationToken).ConfigureAwait(false);
@@ -213,6 +237,7 @@ public sealed partial class DeviceSession : IEngineSession
         _knownViewport = null;
         _latestIndex = null;
         _generation = [];
+        _located.Clear();
         if (client is null)
         {
             return;

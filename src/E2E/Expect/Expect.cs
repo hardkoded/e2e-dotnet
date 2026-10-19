@@ -403,16 +403,17 @@ public sealed class LocatorExpect
         IReadOnlyList<SemanticNode> lastMatches = [];
         try
         {
+            var deadline = new Deadline(timeout ?? _locator.Screen.AssertionTimeout, clock);
             await Time.PollConditionAsync(new PollConditionOptions
             {
-                Deadline = new Deadline(timeout ?? _locator.Screen.AssertionTimeout, clock),
+                Deadline = deadline,
                 Clock = clock,
                 Token = token,
                 Negated = _negated,
                 Interval = _locator.Screen.PollInterval,
                 Evaluate = async () =>
                 {
-                    var matches = await _locator.ResolveAsync(token, includeHidden).ConfigureAwait(false);
+                    var matches = await _locator.ResolveAsync(token, includeHidden, deadline).ConfigureAwait(false);
                     last = evaluate(matches);
                     lastMatches = matches;
                     return last.Holds;

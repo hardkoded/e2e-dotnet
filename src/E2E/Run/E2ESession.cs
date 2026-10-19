@@ -241,7 +241,8 @@ public sealed class E2ESession : IAsyncDisposable
                 scope.MarkVerified,
                 options.ActionTimeout,
                 options.AssertionTimeout,
-                softFailures);
+                softFailures,
+                locate: engine.CanLocate ? engine.LocateAsync : null);
             screen.Steps = scope.Steps;
             screen.Exposure = scope.Exposure;
             screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });

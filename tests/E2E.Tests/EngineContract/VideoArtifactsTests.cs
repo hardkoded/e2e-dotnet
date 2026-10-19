@@ -181,6 +181,8 @@ public sealed class VideoArtifactsTests : IDisposable
                     return Task.FromResult(segments);
                 case nameof(IAsyncDisposable.DisposeAsync):
                     return default(ValueTask);
+                case "get_" + nameof(IEngineSession.CanLocate):
+                    return false;
                 default:
                     return null;
             }

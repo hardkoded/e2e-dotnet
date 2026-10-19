@@ -16,6 +16,7 @@ public sealed class Screen
 {
     private readonly Func<CancellationToken, Task<Observation>> _observe;
     private readonly Func<SemanticNode, LocatorAction, CancellationToken, Task> _perform;
+    private readonly Func<LocatorQuery, TimeSpan, CancellationToken, Task<IReadOnlyList<SemanticNode>>>? _locate;
     private readonly Func<CancellationToken> _cancellation;
     private readonly Action _verified;
 
@@ -27,11 +28,13 @@ public sealed class Screen
         TimeSpan actionTimeout,
         TimeSpan assertionTimeout,
         SoftFailures? softFailures = null,
-        TimeProvider? clock = null)
+        TimeProvider? clock = null,
+        Func<LocatorQuery, TimeSpan, CancellationToken, Task<IReadOnlyList<SemanticNode>>>? locate = null)
     {
         SoftFailures = softFailures ?? new SoftFailures();
         _observe = observe;
         _perform = perform;
+        _locate = locate;
         _cancellation = cancellation;
         _verified = verified;
         ActionTimeout = actionTimeout;
@@ -136,6 +139,18 @@ public sealed class Screen
     internal async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
     {
         return await AppNotOpen.GuardAsync(() => _observe(cancellationToken == default ? _cancellation() : cancellationToken)).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Whether the engine resolves a locator itself. Upstream's engines all do; a port engine that does not has its locator resolved
+    /// here over <see cref="ObserveAsync"/>, until it implements <see cref="IEngineSession.LocateAsync"/> (.NET-only).
+    /// </summary>
+    internal bool LocatesInEngine => _locate is not null;
+
+    /// <summary>One immediate engine resolve: the nodes the query matches now, within <paramref name="timeout"/> of the engine's own work.</summary>
+    internal async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorQuery query, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        return await AppNotOpen.GuardAsync(() => _locate!(query, timeout, cancellationToken == default ? _cancellation() : cancellationToken)).ConfigureAwait(false);
     }
 
     internal async Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
@@ -449,8 +464,7 @@ public sealed class Locator
         while (true)
         {
             token.ThrowIfCancellationRequested();
-            var observation = await _screen.ObserveAsync(token).ConfigureAwait(false);
-            var matches = LocatorResolver.Resolve(observation, Query, includeHidden: true);
+            var matches = await ResolveAsync(token, includeHidden: true, new Deadline(deadline)).ConfigureAwait(false);
             if (matches.Count > 1)
             {
                 throw Ambiguous(matches.Count);
@@ -482,10 +496,41 @@ public sealed class Locator
         }
     }
 
-    internal async Task<IReadOnlyList<SemanticNode>> ResolveAsync(CancellationToken cancellationToken, bool includeHidden = false)
+    /// <summary>
+    /// The nodes the locator matches now. An engine that resolves locators answers it, and a role query of its never matches a hidden
+    /// node, so <paramref name="includeHidden"/> only widens the observation path; any other engine is resolved over its observation. <paramref name="deadline"/> bounds the retries of an engine
+    /// that asks for one, and defaults to the action timeout.
+    /// </summary>
+    internal async Task<IReadOnlyList<SemanticNode>> ResolveAsync(CancellationToken cancellationToken, bool includeHidden = false, Deadline? deadline = null)
     {
+        if (_screen.LocatesInEngine)
+        {
+            return await LocateAsync(deadline ?? new Deadline(_screen.ActionTimeout, _screen.Clock), cancellationToken).ConfigureAwait(false);
+        }
+
         var observation = await _screen.ObserveAsync(cancellationToken).ConfigureAwait(false);
         return LocatorResolver.Resolve(observation, Query, includeHidden);
+    }
+
+    /// <summary>One immediate engine resolve, retrying a retryable engine error until the deadline (upstream's <c>resolveOnce</c>).</summary>
+    private async Task<IReadOnlyList<SemanticNode>> LocateAsync(Deadline deadline, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            try
+            {
+                var budget = TimeSpan.FromMilliseconds(Math.Max(1, deadline.Remaining(_screen.Clock.GetUtcNow()).TotalMilliseconds));
+                var nodes = await _screen.LocateAsync(Query, budget, cancellationToken).ConfigureAwait(false);
+
+                // An engine answers `visible` inside scopes, filters, and indices, where only it can. A direct query is held to the same
+                // predicate here, so it never resolves to a node its own state calls hidden.
+                return Query.Visible && Query.Kind is not ("filter" or "index" or "selector") ? nodes.Where(node => !node.States.Hidden).ToList() : nodes;
+            }
+            catch (EngineException ex) when (ex.Retryable && !deadline.Expired(_screen.Clock.GetUtcNow()) && !cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(_screen.PollInterval, cancellationToken).ConfigureAwait(false);
+            }
+        }
     }
 
     internal Screen Screen => _screen;
@@ -524,7 +569,7 @@ public sealed class Locator
         var deadline = started + TimeoutOf(options?.Timeout);
         while (true)
         {
-            var node = await ResolveSingleAsync(token).ConfigureAwait(false);
+            var node = await ResolveSingleAsync(token, new Deadline(deadline)).ConfigureAwait(false);
             if (node is { States.Disabled: false, States.Hidden: false })
             {
                 await _screen.PerformAsync(node, action, token).ConfigureAwait(false);
@@ -567,7 +612,7 @@ public sealed class Locator
         var deadline = started + _screen.ActionTimeout;
         while (true)
         {
-            var node = await ResolveSingleAsync(token).ConfigureAwait(false);
+            var node = await ResolveSingleAsync(token, new Deadline(deadline)).ConfigureAwait(false);
             if (node is not null)
             {
                 return node;
@@ -583,9 +628,9 @@ public sealed class Locator
     }
 
     /// <summary>Returns the one match, or null when nothing matches. More than one match fails.</summary>
-    private async Task<SemanticNode?> ResolveSingleAsync(CancellationToken token)
+    private async Task<SemanticNode?> ResolveSingleAsync(CancellationToken token, Deadline? deadline = null)
     {
-        var matches = await ResolveAsync(token).ConfigureAwait(false);
+        var matches = await ResolveAsync(token, deadline: deadline).ConfigureAwait(false);
         if (matches.Count > 1)
         {
             throw Ambiguous(matches.Count);
@@ -664,7 +709,7 @@ public sealed class LocatorWaitForOptions
 /// descendants of <see cref="Parent"/> when it is set. <c>filter</c> and
 /// <c>index</c> narrow <see cref="Source"/>.
 /// </summary>
-internal sealed record LocatorQuery
+public sealed record LocatorQuery
 {
     public const int LastIndex = -1;
 
@@ -704,7 +749,7 @@ internal sealed record LocatorQuery
     /// <summary>The expression of a <c>selector</c> query, in the engine's own selector language. A device engine answers it.</summary>
     public string? Selector { get; init; }
 
-    public static LocatorQuery ForRole(string role, TextMatch? name, RoleOptions options)
+    internal static LocatorQuery ForRole(string role, TextMatch? name, RoleOptions options)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(role);
         if (options.Level is int level && (level < 1 || level > 6))
@@ -728,7 +773,7 @@ internal sealed record LocatorQuery
         };
     }
 
-    public static LocatorQuery For(string kind, TextMatch value, TextMatchOptions options, string paramName)
+    internal static LocatorQuery For(string kind, TextMatch value, TextMatchOptions options, string paramName)
     {
         ArgumentNullException.ThrowIfNull(value, paramName);
         ArgumentNullException.ThrowIfNull(options);
@@ -741,7 +786,7 @@ internal sealed record LocatorQuery
     /// test id given as a string, or the text another query kind looks for. A filter or an index answers for the query under it. A
     /// selector has no hint to give.
     /// </summary>
-    public ErrorDetails ExpressionHints()
+    internal ErrorDetails ExpressionHints()
     {
         static string? PatternText(TextMatch? match) => match is null ? null : match.Pattern is null ? match.Text : match.Pattern.ToString();
         switch (Kind)
