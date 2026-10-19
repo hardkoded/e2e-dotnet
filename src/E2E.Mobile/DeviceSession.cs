@@ -32,6 +32,7 @@ public sealed partial class DeviceSession : IEngineSession
     private readonly SlotBinding? _binding;
     private readonly MobileApp _app;
     private readonly string _projectRoot;
+    private readonly string? _artifactsDir;
     private IDeviceClient? _client;
     private int _idCounter;
     private string? _appIdentity;
@@ -43,6 +44,7 @@ public sealed partial class DeviceSession : IEngineSession
         _name = name;
         _app = engine.Options.App;
         _projectRoot = info.ProjectRoot;
+        _artifactsDir = info.ArtifactsDir;
         _binding = binding;
         _where = where;
         _client = client;
@@ -202,7 +204,9 @@ public sealed partial class DeviceSession : IEngineSession
     internal async Task CloseAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
         var client = _client;
+        var dangling = _recording;
         _client = null;
+        _recording = null;
         _engine.Unregister(this);
         _appIdentity = null;
         InstalledApp = null;
@@ -214,11 +218,18 @@ public sealed partial class DeviceSession : IEngineSession
             return;
         }
 
-        await CleanupBudget.WithinAsync(token => CloseQuietlyAsync(client, token), timeout, cancellationToken).ConfigureAwait(false);
+        await CleanupBudget.WithinAsync(token => CloseQuietlyAsync(client, dangling, token), timeout, cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task CloseQuietlyAsync(IDeviceClient client, CancellationToken cancellationToken)
+    private async Task CloseQuietlyAsync(IDeviceClient client, ScreenRecording? dangling, CancellationToken cancellationToken)
     {
+        // The harness stops the video before it ends the attempt. A recording still marked belongs to an attempt cut
+        // short, or to a stop that failed, and the device must not keep recording into the next one.
+        if (dangling is not null)
+        {
+            await StopQuietlyAsync(client, cancellationToken).ConfigureAwait(false);
+        }
+
         try
         {
             await client.CallAsync(DeviceMethods.SessionsClose, null, cancellationToken).ConfigureAwait(false);

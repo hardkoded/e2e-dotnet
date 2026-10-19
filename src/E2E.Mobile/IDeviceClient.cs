@@ -25,6 +25,7 @@ public static class DeviceMethods
 {
     public const string DevicesList = "devices.list";
     public const string DevicesBoot = "devices.boot";
+    public const string RecordingRecord = "recording.record";
     public const string CommandPrepare = "command.prepare";
     public const string CommandBack = "command.back";
     public const string AppsOpen = "apps.open";
