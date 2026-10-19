@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.RegularExpressions;
 using E2E.Engine;
 
 namespace E2E.Mobile;
@@ -11,10 +12,10 @@ namespace E2E.Mobile;
 /// answered against the accessibility tree the device just reported. One immediate pass, every match in
 /// document order; polling, strictness, and staleness stay with the runner.
 /// </summary>
-internal static class DeviceLocator
+internal static partial class DeviceLocator
 {
     /// <summary>Resolves one expression to the nodes it currently matches; <paramref name="platform"/> is the one agent-device selectors match for.</summary>
-    public static List<ProjectedNode> ResolveExpression(LocatorQuery expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
+    public static List<ProjectedNode> ResolveExpression(LocatorExpression expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
     {
         switch (expression.Kind)
         {
@@ -34,7 +35,7 @@ internal static class DeviceLocator
         }
     }
 
-    private static List<ProjectedNode> Filter(LocatorQuery expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
+    private static List<ProjectedNode> Filter(LocatorExpression expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
     {
         var source = ResolveExpression(expression.Source!, index, platform);
         return source.Where(entry =>
@@ -48,18 +49,41 @@ internal static class DeviceLocator
         }).ToList();
     }
 
-    private static List<ProjectedNode> Pick(LocatorQuery expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
+    private static List<ProjectedNode> Pick(LocatorExpression expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
     {
         var source = ResolveExpression(expression.Source!, index, platform);
-        var position = expression.Index == LocatorQuery.LastIndex ? source.Count - 1 : expression.Index!.Value;
+        var position = expression.Index == LocatorExpression.LastIndex ? source.Count - 1 : expression.Index!.Value;
         return position >= 0 && position < source.Count ? [source[position]] : [];
     }
 
-    private static List<ProjectedNode> Query(LocatorQuery expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
+    private static List<ProjectedNode> Query(LocatorExpression expression, IReadOnlyList<ProjectedNode> index, MobilePlatform platform)
     {
         var candidates = expression.Parent is null ? index : DescendantsOf(ResolveExpression(expression.Parent, index, platform), index);
-        var matches = candidates.Where(entry => MatchesQuery(entry, expression)).ToList();
+        var full = candidates.Where(entry => MatchesQuery(entry, expression, withoutPackage: false)).ToList();
+        var matches = full.Count == 0 && platform == MobilePlatform.Android && expression.Kind == "testid"
+            ? candidates.Where(entry => MatchesQuery(entry, expression, withoutPackage: true)).ToList()
+            : full;
         return EchoedQueryKinds.Contains(expression.Kind) ? InnermostOnly(matches) : matches;
+    }
+
+    /// <summary>
+    /// An Android resource id without its <c>&lt;package&gt;:id/</c> prefix. UIAutomator reports a native
+    /// <c>android:id</c> with the package of the resource table, the build's namespace even when
+    /// <c>applicationIdSuffix</c> renames the app, and a .NET MAUI <c>AutomationId</c> as
+    /// <c>&lt;package&gt;:id/&lt;AutomationId&gt;</c>. React Native, Flutter, and Compose report the id the app set,
+    /// and iOS never prefixes one, so a test names its views by that id on both platforms. A query tries the
+    /// short form only when nothing matches the full id, so an app's own <c>clock</c> wins over the status bar's
+    /// <c>com.android.systemui:id/clock</c>. The framework's own ids (<c>android:id/content</c>) keep their
+    /// prefix, and two prefixed ids with the same name are ambiguous to the runner's strictness check.
+    /// </summary>
+    [GeneratedRegex(@"\A([A-Za-z][A-Za-z0-9_.]*):id/(.+)\z")]
+    private static partial Regex AndroidResourceId();
+
+    /// <summary>Whether a test id matches <paramref name="pattern"/> once its Android package prefix is left off.</summary>
+    private static bool MatchesWithoutPackage(string testId, TextMatch pattern)
+    {
+        var match = AndroidResourceId().Match(testId);
+        return match.Success && match.Groups[1].Value != "android" && pattern.Matches(match.Groups[2].Value, exact: true);
     }
 
     /// <summary>The query kinds a device answers with the innermost match, because it echoes what they match on up the tree.</summary>
@@ -98,8 +122,9 @@ internal static class DeviceLocator
     /// One node against one semantic query. Role queries skip hidden nodes, as a browser's role query does;
     /// the other kinds answer with every node and leave visibility to the action or assertion, unless the
     /// query says <c>visible</c>, which drops hidden nodes for every kind.
+    /// <paramref name="withoutPackage"/> matches a test id by its short form (<see cref="AndroidResourceId"/>).
     /// </summary>
-    private static bool MatchesQuery(ProjectedNode entry, LocatorQuery query)
+    private static bool MatchesQuery(ProjectedNode entry, LocatorExpression query, bool withoutPackage)
     {
         var node = entry.Node;
         if (query.Visible && node.States.Hidden)
@@ -147,7 +172,8 @@ internal static class DeviceLocator
             case "displayValue":
                 return node.Value is not null && query.Value!.Matches(node.Value, query.Exact);
             case "testid":
-                return node.TestId is not null && query.Value!.Matches(node.TestId, exact: true);
+                return node.TestId is not null
+                    && (withoutPackage ? MatchesWithoutPackage(node.TestId, query.Value!) : query.Value!.Matches(node.TestId, exact: true));
             default:
                 return false;
         }

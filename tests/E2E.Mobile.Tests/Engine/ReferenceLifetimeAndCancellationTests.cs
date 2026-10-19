@@ -15,7 +15,7 @@ public sealed class ReferenceLifetimeAndCancellationTests
         var h = Harness.Create();
         var session = await OpenAttempt(h);
         var observation = await Observed(session, "About");
-        var expression = new LocatorQuery { Kind = "selector", Selector = "id=ABOUT" };
+        var expression = new LocatorExpression { Kind = "selector", Selector = "id=ABOUT" };
         var oldest = (await session.LocateAsync(expression, TimeSpan.FromSeconds(5), CancellationToken.None))[0];
         var newest = oldest;
         for (var i = 0; i < 2050; i++)

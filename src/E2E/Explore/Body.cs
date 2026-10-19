@@ -54,6 +54,9 @@ internal sealed record ExploreBodyOptions(
 /// </summary>
 internal static class ExploreBody
 {
+    /// <summary>The most finding titles a step's <c>reportedFindings</c> lists, the newest kept: a long run's list must not grow the prompt without limit. Not in upstream.</summary>
+    private const int MaxReportedFindings = 50;
+
     /// <summary>Failed or blocked steps in a row, none with a finding, that end the run: the approach is not working.</summary>
     public const int ConsecutiveFailureLimit = 3;
 
@@ -257,7 +260,7 @@ internal static class ExploreBody
     private static Dictionary<string, object?>? StepParams(ExploreState state, IReadOnlyDictionary<string, UserCredential> credentials)
     {
         var parameters = new Dictionary<string, object?>(StringComparer.Ordinal);
-        var reported = state.Findings.Select(finding => finding.Title).ToList();
+        var reported = state.Findings.Select(finding => finding.Title).TakeLast(MaxReportedFindings).ToList();
         if (reported.Count > 0)
         {
             parameters["reportedFindings"] = reported;

@@ -8,7 +8,7 @@ namespace E2E.Mobile.Tests.Engine;
 
 public sealed class AScreenAgentDeviceCannotReadYetTests
 {
-    private static readonly LocatorQuery About = LocatorQuery.For("text", TextMatch.FromString("About"), new TextMatchOptions(), "value");
+    private static readonly LocatorExpression About = LocatorExpression.For("text", TextMatch.FromString("About"), new TextMatchOptions(), "value");
 
     private static AgentDeviceError InsufficientContent() => new(
         "COMMAND_FAILED",
@@ -21,10 +21,16 @@ public sealed class AScreenAgentDeviceCannotReadYetTests
         var h = Harness.Create(options => options with { Platform = MobilePlatform.Android });
         var session = await h.Boot();
         await session.RestartAsync(CancellationToken.None);
+        var before = h.Fake.Calls.Count;
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => throw InsufficientContent());
         Assert.Empty(await session.LocateAsync(About, TimeSpan.FromSeconds(5), CancellationToken.None));
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
         Assert.Single(await session.LocateAsync(About, TimeSpan.FromSeconds(5), CancellationToken.None));
+        JsonAssert.Calls(
+            h.Fake.Calls,
+            before,
+            (DeviceMethods.CaptureSnapshot, """{"interactiveOnly":false}"""),
+            (DeviceMethods.CaptureSnapshot, """{"interactiveOnly":false}"""));
     }
 
     [Fact]

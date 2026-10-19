@@ -367,6 +367,31 @@ public sealed class EasSimulatorsTests : IDisposable
         Assert.Equal("s1", (await provider.AcquireAsync(Request(r => r with { RunId = "run-released" }), default)).Id);
     }
 
+    [Theory]
+    [InlineData("maxIdleTimeMinutes")]
+    [InlineData("maxDurationMinutes")]
+    public void Rejects_invalid_minute_limits_before_a_hosted_session_can_start(string option)
+    {
+        var options = new EasSimulatorsOptions { ProjectId = "p1" };
+        options = option == "maxIdleTimeMinutes" ? options with { MaxIdleTimeMinutes = -1 } : options with { MaxDurationMinutes = -1 };
+        var invalid = Assert.Throws<ConfigurationException>(() => Provider(options));
+        Assert.Equal("INVALID_CONFIG", invalid.Code);
+        Assert.Contains($"`{option}` must be a non-negative integer", invalid.Message, StringComparison.Ordinal);
+        Assert.Empty(_eas.Calls);
+    }
+
+    [Fact]
+    public async Task Retains_zero_idle_and_duration_limits_accepted_by_eas_cli()
+    {
+        await Provider(new EasSimulatorsOptions { ProjectId = "p1", MaxIdleTimeMinutes = 0 }).AcquireAsync(Request(), default);
+        Assert.False(_eas.Create(0).ContainsKey("maxIdleTimeMinutes"));
+        _eas.Calls = [];
+        await Provider(new EasSimulatorsOptions { ProjectId = "p1", MaxDurationMinutes = 0 }).AcquireAsync(Request(), default);
+        var input = _eas.Create(0);
+        Assert.Equal(0, input["maxRunTimeMinutes"]!.GetValue<int>());
+        Assert.False(input.ContainsKey("maxIdleTimeMinutes"));
+    }
+
     [Fact]
     public async Task Keeps_the_idle_limit_below_a_short_duration_as_EAS_requires_and_pins_the_agent_device_an_option_names()
     {

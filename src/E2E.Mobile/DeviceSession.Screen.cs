@@ -40,6 +40,9 @@ public sealed partial class DeviceSession
 
     /// <summary>Action data of the nodes a locate matched, in the order it bound them, independent of the observation's generation.</summary>
     private readonly OrderedDictionary<string, NodeBinding> _located = [];
+
+    /// <summary>Locators of one test may resolve at once, and an action reads the map while a locate fills it.</summary>
+    private readonly Lock _locatedLock = new();
     private IReadOnlyList<ProjectedNode>? _latestIndex;
 
     /// <summary>The screen as last projected before the last action, to tell controls that were already there from ones that came with it.</summary>
@@ -93,14 +96,22 @@ public sealed partial class DeviceSession
     {
         MarkAction(null);
         _generation = [];
-        _located.Clear();
+        ClearLocated();
+    }
+
+    private void ClearLocated()
+    {
+        lock (_locatedLock)
+        {
+            _located.Clear();
+        }
     }
 
     /// <summary>
     /// Resolves a locator against a fresh snapshot of the screen and binds only the matches, so the observation's ids stay valid.
     /// Upstream's <c>locate</c>.
     /// </summary>
-    public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorQuery expression, TimeSpan timeout, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(expression);
         var raw = await LocateSnapshotAsync(timeout, cancellationToken).ConfigureAwait(false);
@@ -112,14 +123,17 @@ public sealed partial class DeviceSession
         var projected = Project(raw);
         TraceScreen(raw, projected);
         var matches = DeviceLocator.ResolveExpression(expression, projected.Index, Options.Platform);
-        foreach (var entry in matches)
+        lock (_locatedLock)
         {
-            _located[entry.Id] = Bind(entry, projected.Index);
-        }
+            foreach (var entry in matches)
+            {
+                _located[entry.Id] = Bind(entry, projected.Index);
+            }
 
-        while (_located.Count > MaxLocatedRefs)
-        {
-            _located.RemoveAt(0);
+            while (_located.Count > MaxLocatedRefs)
+            {
+                _located.RemoveAt(0);
+            }
         }
 
         return matches.Select(entry => entry.Node).ToList();
@@ -173,9 +187,22 @@ public sealed partial class DeviceSession
     internal NodeBinding Resolve(SemanticNode node)
     {
         ArgumentNullException.ThrowIfNull(node);
-        return _located.TryGetValue(node.Ref, out var entry) || _generation.TryGetValue(node.Ref, out entry)
+        if (TryGetLocated(node.Ref, out var located))
+        {
+            return located;
+        }
+
+        return _generation.TryGetValue(node.Ref, out var entry)
             ? entry
             : throw new EngineException(EngineErrorCodes.NodeStale, $"node {node.Ref} is not part of the newest observation", retryable: true);
+    }
+
+    private bool TryGetLocated(string id, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out NodeBinding? entry)
+    {
+        lock (_locatedLock)
+        {
+            return _located.TryGetValue(id, out entry);
+        }
     }
 
     /// <summary>The target of a command: the node's agent-device ref, or its toggle's inner control when <paramref name="control"/> is set.</summary>

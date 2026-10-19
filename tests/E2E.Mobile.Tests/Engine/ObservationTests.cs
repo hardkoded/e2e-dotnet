@@ -261,7 +261,7 @@ public sealed class ObservationTests
             h.Clock.Advance(TimeSpan.FromSeconds(3));
             return FakeDeviceClient.SettingsSnapshot();
         });
-        var about = LocatorQuery.For("text", TextMatch.FromString("About"), new TextMatchOptions(), "value");
+        var about = LocatorExpression.For("text", TextMatch.FromString("About"), new TextMatchOptions(), "value");
         Assert.Single(await session.LocateAsync(about, TimeSpan.FromSeconds(1), CancellationToken.None));
     }
 }

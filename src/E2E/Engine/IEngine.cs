@@ -130,7 +130,7 @@ public interface IEngineSession : IAsyncDisposable
     /// budget left for the resolve, which an engine uses to tell a screen that is still arriving from one that never rendered. Engines
     /// that declare <see cref="EngineCapabilities.Location"/> and set <see cref="CanLocate"/> implement it. Upstream's <c>locate</c>.
     /// </summary>
-    Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorQuery expression, TimeSpan timeout, CancellationToken cancellationToken) =>
+    Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken) =>
         Task.FromException<IReadOnlyList<SemanticNode>>(new EngineException("UNSUPPORTED_CAPABILITY", "locators (screen) is not supported by this engine."));
 
     /// <summary>

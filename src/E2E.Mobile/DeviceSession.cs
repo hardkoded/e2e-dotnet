@@ -237,7 +237,7 @@ public sealed partial class DeviceSession : IEngineSession
         _knownViewport = null;
         _latestIndex = null;
         _generation = [];
-        _located.Clear();
+        ClearLocated();
         if (client is null)
         {
             return;

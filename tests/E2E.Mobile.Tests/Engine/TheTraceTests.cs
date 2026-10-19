@@ -21,7 +21,7 @@ public sealed class TheTraceTests
         Assert.Equal([new Dictionary<string, string> { ["platform"] = "ios", ["device"] = "iPhone 16" }], facts);
         await session.ObserveAsync(CancellationToken.None);
         var snapshots = h.Fake.Calls.Count(call => call.Method == "capture.snapshot");
-        await session.LocateAsync(LocatorQuery.ForRole("button", null, new RoleOptions()), TimeSpan.FromSeconds(5), CancellationToken.None);
+        await session.LocateAsync(LocatorExpression.ForRole("button", null, new RoleOptions()), TimeSpan.FromSeconds(5), CancellationToken.None);
         Assert.Equal(snapshots + 1, h.Fake.Calls.Count(call => call.Method == "capture.snapshot"));
         var screen = Assert.Single(screens);
         Assert.Equal("button", Named(screen.Roots[0], "Back").Role);

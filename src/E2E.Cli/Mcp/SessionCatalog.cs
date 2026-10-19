@@ -116,7 +116,7 @@ internal sealed class SessionCatalog
         {
             var name = args.Name is null ? "" : ", " + Quote(args.Name) + suffix;
             return new LocateQuery(
-                LocatorQuery.ForRole(role, args.Name, new RoleOptions { Exact = exact }),
+                LocatorExpression.ForRole(role, args.Name, new RoleOptions { Exact = exact }),
                 "Screen.GetByRole(" + Quote(role) + name + ")",
                 args.Name is not null && ContentNamedRoles.Contains(role) ? ContentNameNotFound(role, args.Name, exact) : notFound);
         }
@@ -128,18 +128,18 @@ internal sealed class SessionCatalog
 
         if (args.TestId is { } testId)
         {
-            return new LocateQuery(LocatorQuery.For("testid", testId, new TextMatchOptions(), nameof(testId)), "Screen.GetByTestId(" + Quote(testId) + ")", notFound);
+            return new LocateQuery(LocatorExpression.For("testid", testId, new TextMatchOptions(), nameof(testId)), "Screen.GetByTestId(" + Quote(testId) + ")", notFound);
         }
 
         var options = new TextMatchOptions { Exact = exact };
         if (args.Text is { } text)
         {
-            return new LocateQuery(LocatorQuery.For("text", text, options, nameof(text)), "Screen.GetByText(" + Quote(text) + suffix + ")", notFound);
+            return new LocateQuery(LocatorExpression.For("text", text, options, nameof(text)), "Screen.GetByText(" + Quote(text) + suffix + ")", notFound);
         }
 
         return args.Label is { } label
-            ? new LocateQuery(LocatorQuery.For("label", label, options, nameof(label)), "Screen.GetByLabel(" + Quote(label) + suffix + ")", notFound)
-            : new LocateQuery(LocatorQuery.For("placeholder", args.Placeholder!, options, "placeholder"), "Screen.GetByPlaceholder(" + Quote(args.Placeholder!) + suffix + ")", notFound);
+            ? new LocateQuery(LocatorExpression.For("label", label, options, nameof(label)), "Screen.GetByLabel(" + Quote(label) + suffix + ")", notFound)
+            : new LocateQuery(LocatorExpression.For("placeholder", args.Placeholder!, options, "placeholder"), "Screen.GetByPlaceholder(" + Quote(args.Placeholder!) + suffix + ")", notFound);
     }
 
     /// <summary>
@@ -471,4 +471,4 @@ internal sealed class LocateArgs
 }
 
 /// <summary>A locator, the <c>Screen</c> call that builds it, and what to try when nothing matches.</summary>
-internal sealed record LocateQuery(LocatorQuery Query, string Code, string NotFound);
+internal sealed record LocateQuery(LocatorExpression Query, string Code, string NotFound);

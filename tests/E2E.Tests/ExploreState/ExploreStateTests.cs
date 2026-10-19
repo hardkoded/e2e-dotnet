@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Internal;
 using Microsoft.Extensions.Time.Testing;
 using State = E2E.ExploreState;
 
@@ -44,6 +45,29 @@ public sealed class ExploreStateTests
         Assert.Matches("no exploration step is open", Assert.Throws<InvalidOperationException>(() => state.EndStep(ReportExploreStepStatus.Passed)).Message);
         state.BeginStep("One", "do one");
         Assert.Matches("step 1 is still open", Assert.Throws<InvalidOperationException>(() => state.BeginStep("Two", "do two")).Message);
+    }
+
+    // .NET-only: upstream's state keeps a finding's text as the model wrote it.
+    [Fact]
+    public void Redacts_secret_values_from_a_findings_text_before_it_reaches_the_record_and_the_progress_event()
+    {
+        const string value = "finding-Secret-9Kp2Lx";
+        var state = new State("goal", new ExploreBudgets(2, TimeSpan.FromMinutes(5)), redactor: Redactor.For([Secret.Create("probe", value)]));
+        var seen = new List<ExploreProgress>();
+        state.Subscribe(seen.Add);
+        var finding = Finding(state, new FindingInput(
+            ReportExploreFindingKind.Issue,
+            4,
+            "Token " + value + " is shown",
+            "No token on screen " + value,
+            "Token: " + value,
+            ["Open the page with " + value]));
+
+        Assert.Equal("Token <secret:probe> is shown", finding.Title);
+        Assert.Equal("Token: <secret:probe>", finding.Actual);
+        var reported = Assert.IsType<ExploreProgress.FindingReported>(Assert.Single(seen)).Finding;
+        Assert.Equal(finding, reported);
+        Assert.DoesNotContain(value, System.Text.Json.JsonSerializer.Serialize(state.Snapshot()), StringComparison.Ordinal);
     }
 
     [Fact]
