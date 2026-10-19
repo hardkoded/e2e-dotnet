@@ -1,6 +1,6 @@
 # Compatibility
 
-Upstream parity target: [tester-army/e2e](https://github.com/tester-army/e2e) commit `ee901b333ed12352418dfb07bda5eafe32e71c8d` (`docs(agents): show several personas running one suite (#1258)`). This file was audited against it on 2026-10-19: every upstream commit from `94ddbfe` (the target before this audit) to it, 300 commits, was checked against the port. A commit that only changes docs, tests of code the port lacks, dependencies, or release notes needs no entry. The packages upstream has are in [Upstream packages](#upstream-packages).
+Upstream parity target: [tester-army/e2e](https://github.com/tester-army/e2e) commit `ee901b333ed12352418dfb07bda5eafe32e71c8d` (`docs(agents): show several personas running one suite (#1258)`). On 2026-10-19 the 300 upstream commits from `94ddbfe` to it were checked: each commit's title and release note against this file, and against the port's code where the note named a behavior. A commit that only changes docs, tests of code the port lacks, dependencies, or release notes needs no entry. The sections were not re-read line by line against upstream's source, so a statement that no commit in that range touched is as it was at `94ddbfe`. The packages upstream has are in [Upstream packages](#upstream-packages).
 
 Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.getByRole` is `GetByRole`, `expect(locator).toContainText` is `Expect.That(locator).ToContainTextAsync`, and `unique()` is `Values.Unique`.
 
