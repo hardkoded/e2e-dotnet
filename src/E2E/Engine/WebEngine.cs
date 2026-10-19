@@ -1243,10 +1243,13 @@ public sealed partial class WebEngine : IEngine
             IResponse response;
             try
             {
-                await EnsurePageAsync().ConfigureAwait(false);
-                response = await Page.WaitForResponseAsync(
-                    candidate => matches(candidate.Url),
-                    new PageWaitForResponseOptions { Timeout = (float)timeout.TotalMilliseconds }).ConfigureAwait(false);
+                // Before the first page exists, the wait listens on the context, which needs no page and
+                // starts listening in this call, so a navigation started right after it cannot get ahead.
+                response = await (_page is { IsClosed: false }
+                    ? Page.WaitForResponseAsync(
+                        candidate => matches(candidate.Url),
+                        new PageWaitForResponseOptions { Timeout = (float)timeout.TotalMilliseconds })
+                    : WaitForContextResponseAsync(matches, timeout)).ConfigureAwait(false);
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
@@ -1265,6 +1268,38 @@ public sealed partial class WebEngine : IEngine
                 Body = ReadBodyAsync(response),
             };
         });
+
+        /// <summary>Waits for a response on any page of the context. It listens from the call on, so no page has to exist yet.</summary>
+        private Task<IResponse> WaitForContextResponseAsync(Func<string, bool> matches, TimeSpan timeout)
+        {
+            var context = RequireContext();
+            var found = new TaskCompletionSource<IResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+            EventHandler<IResponse> listener = (_, candidate) =>
+            {
+                if (matches(candidate.Url))
+                {
+                    found.TrySetResult(candidate);
+                }
+            };
+            context.Response += listener;
+            return Wait();
+
+            async Task<IResponse> Wait()
+            {
+                try
+                {
+                    return await found.Task.WaitAsync(timeout).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    throw new TimeoutException($"Timeout {timeout.TotalMilliseconds}ms exceeded while waiting for event \"Response\"");
+                }
+                finally
+                {
+                    context.Response -= listener;
+                }
+            }
+        }
 
         public Task RouteAsync(Func<string, bool> matches, Func<IBrowserRoute, Task> handler, CancellationToken cancellationToken) => RunAsync("route", cancellationToken, async () =>
         {
