@@ -1,6 +1,6 @@
 # Compatibility
 
-Upstream parity target: [tester-army/e2e](https://github.com/tester-army/e2e) commit `94ddbfe46faa5cf7b9159fd0a604aa4317056051` (`fix(config): refuse secrets or credentials sharing an override env var (#721)`). This file was audited against it on 2026-10-03.
+Upstream parity target: [tester-army/e2e](https://github.com/tester-army/e2e) commit `da790a1250d9164064a7ddde17a931f61e161f31` (`docs(visual-testing): show a failed screenshot comparison in a clip (#1010)`). This file was audited against it on 2026-10-19.
 
 Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.getByRole` is `GetByRole`, `expect(locator).toContainText` is `Expect.That(locator).ToContainTextAsync`, and `unique()` is `Values.Unique`.
 
@@ -112,6 +112,8 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - The `e2e` command-line tool apart from `login`, `logout`, `models`, `guide`, and `mcp`: the custom runner, `[E2ETest]` discovery, `--grep`, `test.only`, and the JSON report
 - `@e2e-dev/mobile` apart from its snapshot model and engine (see [Mobile snapshot model](#mobile-snapshot-model) and [Mobile engine](#mobile-engine)), `@e2e-dev/github`
 - `e2e init`
+- Decision models (`@e2e-dev/decision`, upstream's decision-model executors)
+- `@e2e-dev/smol`, smol machines browsers (a warm Chromium microVM for each test attempt)
 - Vision on `act` (the screenshot and point tools). `app.screenshot()` is not ported either. Video is ported on the web engine and on `MobileEngine` with agent-device's own recording: see [Video](#video). Vision on judgments is ported: see [Agents](#agents). `ToHaveScreenshotAsync` is: see [Visual comparison](#visual-comparison)
 - Parallel workers and serial suites
 - The full locator action set (`dragTo`, `swipe`, `hover`, `setInputFiles`, `secondaryTap`, `longPress`, pointer points). `secondaryTap` and `longPress` have no counterpart in the document engine
