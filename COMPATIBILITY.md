@@ -112,8 +112,8 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - The `e2e` command-line tool apart from `login`, `logout`, `models`, `guide`, and `mcp`: the custom runner, `[E2ETest]` discovery, `--grep`, `test.only`, and the JSON report
 - `@e2e-dev/mobile` apart from its snapshot model and engine (see [Mobile snapshot model](#mobile-snapshot-model) and [Mobile engine](#mobile-engine)), `@e2e-dev/github`
 - `e2e init`
-- Decision models (`@e2e-dev/decision`, upstream's decision-model executors)
-- `@e2e-dev/smol`, smol machines browsers (a warm Chromium microVM for each test attempt)
+- Decision models (`@e2e-dev/decision`, upstream's decision-model executors). The port has no such feature
+- `@e2e-dev/smol`, smol machines browsers (a warm Chromium microVM for each test attempt). The port has no such provider
 - Vision on `act` (the screenshot and point tools). `app.screenshot()` is not ported either. Video is ported on the web engine and on `MobileEngine` with agent-device's own recording: see [Video](#video). Vision on judgments is ported: see [Agents](#agents). `ToHaveScreenshotAsync` is: see [Visual comparison](#visual-comparison)
 - Parallel workers and serial suites
 - The full locator action set (`dragTo`, `swipe`, `hover`, `setInputFiles`, `secondaryTap`, `longPress`, pointer points). `secondaryTap` and `longPress` have no counterpart in the document engine
