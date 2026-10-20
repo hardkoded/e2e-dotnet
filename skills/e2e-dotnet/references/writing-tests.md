@@ -155,6 +155,12 @@ and an icon-only button reads `""`. A hidden node reads its DOM text, so a
 text query still finds a `visibility: hidden` copy. Check a label with
 `ToHaveAccessibleNameAsync`.
 
+`Screen.TreeAsync()` returns the whole screen as the agent reads it (one node
+per line, children indented, secrets redacted) and `Screen.DebugAsync()` prints
+it to the test's output. Use them to write a locator. Both read once without
+waiting, and take an `ActionOptions` with a `Timeout`. A locator does not have
+them.
+
 ## Expect
 
 `Expect.That(locator)` polls until the assertion timeout:

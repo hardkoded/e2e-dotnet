@@ -106,7 +106,7 @@ internal sealed partial record FailureEvidence
         if (observation is not null)
         {
             evidence = evidence with { Url = TextRules.TruncateUtf8(options.Redactor.Redact(observation.Route), MaxUrlBytes) };
-            var (lines, nodes) = Listing(observation, options);
+            var (lines, nodes) = Listing(observation, options.Redactor, options.AppOrigin, options.MaxObservationBytes);
             evidence = evidence with { Nodes = nodes };
             try
             {
@@ -182,13 +182,13 @@ internal sealed partial record FailureEvidence
 
     // The screen as the agent reads it, one node per line, up to the budget, ending with the marker that says it was cut. A node the page
     // does not show is left out and its children take its place, as the lines the model reads leave it out.
-    private static (List<string> Lines, int Nodes) Listing(Observation observation, FailureEvidenceOptions options)
+    internal static (List<string> Lines, int Nodes) Listing(Observation observation, Redactor redactor, string? appOrigin, int maxObservationBytes)
     {
         var lines = new List<string>();
         var bytes = 0;
         var cut = false;
         var markerBytes = Encoding.UTF8.GetByteCount(TruncationMarker) + 1;
-        var budget = Math.Max(0, options.MaxObservationBytes - markerBytes);
+        var budget = Math.Max(0, maxObservationBytes - markerBytes);
 
         void Emit(SemanticNode node, int depth)
         {
@@ -200,7 +200,7 @@ internal sealed partial record FailureEvidence
             var shown = !(node.States.Hidden || node.States.AriaHidden);
             if (shown)
             {
-                var line = SnapshotText.FormatNode(node, depth, options.Redactor, options.AppOrigin);
+                var line = SnapshotText.FormatNode(node, depth, redactor, appOrigin);
                 var size = Encoding.UTF8.GetByteCount(line) + 1;
                 if (lines.Count > 0 && bytes + size > budget)
                 {

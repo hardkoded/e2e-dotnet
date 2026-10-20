@@ -264,6 +264,7 @@ public sealed class E2ESession : IAsyncDisposable
             screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });
             screen.Redact = text => scope.Redactor.Redact(text);
             screen.Failed = scope.Implicate;
+            screen.RenderTree = observation => Screen.TreeText(observation, scope.Redactor, scope.AppOrigin, StepScreens.DefaultObservationBytes);
             screen.Screenshots = scope.Screenshots = new ScreenshotContext
             {
                 ProjectRoot = projectRoot,
