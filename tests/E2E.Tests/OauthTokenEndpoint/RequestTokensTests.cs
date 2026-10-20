@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Net;
+using System.Text.Json.Nodes;
 using E2E.OAuth;
 using E2E.Tests.Fetch;
 
@@ -26,14 +27,13 @@ public sealed class RequestTokensTests
         Assert.Equal((OAuthException.FlowFailed, "the Acme token response is not JSON"), (error.Code, error.Message));
     }
 
-    // Partial: upstream returns the response without the wrong-typed tokens. The port's record reads them as
-    // missing, and its `Raw` keeps the body as sent; `expires_in` is read as a number.
     [Fact]
-    public async Task Reads_an_optional_token_of_the_wrong_type_as_missing_and_keeps_vendor_fields()
+    public async Task Drops_an_optional_token_of_the_wrong_type_and_keeps_vendor_fields()
     {
         var tokens = await RequestAsync("""{"access_token":"at","refresh_token":42,"id_token":null,"expires_in":"60","org_id":"org_1"}""");
 
-        Assert.Equal(("at", null, null, 60d, "org_1", 42), (tokens.AccessToken, tokens.RefreshToken, tokens.IdToken, tokens.ExpiresIn, tokens.Raw["org_id"]!.GetValue<string>(), tokens.Raw["refresh_token"]!.GetValue<int>()));
+        Assert.Equal(("at", null, null, "60"), (tokens.AccessToken, tokens.RefreshToken, tokens.IdToken, tokens.ExpiresIn!.GetValue<string>()));
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse("""{"access_token":"at","expires_in":"60","org_id":"org_1"}"""), tokens.Raw), tokens.Raw.ToJsonString());
     }
 
     private static async Task<TokenResponse> RequestAsync(string body)
