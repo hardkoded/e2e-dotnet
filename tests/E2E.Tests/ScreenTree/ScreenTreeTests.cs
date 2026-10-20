@@ -31,4 +31,34 @@ public sealed class ScreenTreeTests
         Assert.Equal("screen.tree", step.Api);
         Assert.Equal(StepStatus.Passed, step.Status);
     }
+
+    /// <summary>.NET-only: upstream passes the timeout to the engine operation; the port bounds the read itself.</summary>
+    [Fact]
+    public async Task Fails_with_an_operation_timeout_when_the_screen_does_not_answer()
+    {
+        var failure = await Assert.ThrowsAsync<EngineException>(() => Hanging().TreeAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(50) }));
+
+        Assert.Equal(EngineErrorCodes.OperationTimeout, failure.Code);
+    }
+
+    /// <summary>.NET-only: a caller's cancel surfaces as cancellation, not as a timeout.</summary>
+    [Fact]
+    public async Task Surfaces_a_caller_cancel_as_cancellation()
+    {
+        using var cancel = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Hanging().TreeAsync(cancellationToken: cancel.Token));
+    }
+
+    private static Screen Hanging() => new(
+        async token =>
+        {
+            await Task.Delay(Timeout.Infinite, token);
+            return new E2E.Engine.Observation { Route = "/", Roots = [] };
+        },
+        (_, _, _) => Task.CompletedTask,
+        () => CancellationToken.None,
+        () => { },
+        TimeSpan.FromSeconds(2),
+        TimeSpan.FromSeconds(2));
 }
