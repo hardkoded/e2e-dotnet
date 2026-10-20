@@ -378,7 +378,6 @@ Not ported:
 
 Not ported:
 
-- `onAction` on `ActAsync` (upstream's hook that runs after each action once the screen settles, replayed actions too; commit `f589a32`).
 - `keyboardVisible` on the executor's observation (the engine's measured on-screen keyboard state; commit `5fce7b2`). Only upstream's decision executor reads it (to offer `dismiss_keyboard`), and the port ships no decision executor. Add the field when the port gets one, or when a custom executor needs it.
 - `maxObservationBytes` and `maxInputTokens`. The port sends each observation whole, so it has nothing to cut; the keys are rejected in `e2e.config.json`
 
