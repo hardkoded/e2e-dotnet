@@ -424,6 +424,7 @@ internal sealed class TurnLog(StepExecutorContext context)
 
     private const string LoopNote = "[loop] ";
 
+    private readonly Redactor _redactor = context.Host?.Scope.Redactor ?? Redactor.None;
     private readonly List<LoopTurn> _turns = [];
 
     /// <summary>The number of the turn that runs next.</summary>
@@ -432,10 +433,10 @@ internal sealed class TurnLog(StepExecutorContext context)
     /// <summary>Records one turn: what the model said and called. The tool results are added as each lands.</summary>
     public LoopTurn Begin(ModelResponse response)
     {
-        var turn = new LoopTurn(Next, [.. response.ToolCalls.Select(call => call.Name + "(" + Truncate(call.Arguments.ValueKind == JsonValueKind.Undefined ? "{}" : call.Arguments.GetRawText(), MaxTurnCallChars) + ")")]);
+        var turn = new LoopTurn(Next, [.. response.ToolCalls.Select(call => call.Name + "(" + Clipped(call.Arguments.ValueKind == JsonValueKind.Undefined ? "{}" : call.Arguments.GetRawText(), MaxTurnCallChars) + ")")]);
         if (response.Content?.Trim() is { Length: > 0 } text)
         {
-            turn.Results.Add("assistant: " + Truncate(text, MaxTurnTextChars));
+            turn.Results.Add("assistant: " + Clipped(text, MaxTurnTextChars));
         }
 
         _turns.Add(turn);
@@ -445,7 +446,7 @@ internal sealed class TurnLog(StepExecutorContext context)
 
     public void AddResult(LoopTurn turn, string tool, string content)
     {
-        turn.Results.Add("[" + tool + "] " + Truncate(content, MaxTurnResultChars));
+        turn.Results.Add("[" + tool + "] " + Clipped(content, MaxTurnResultChars));
         Attach();
     }
 
@@ -481,7 +482,21 @@ internal sealed class TurnLog(StepExecutorContext context)
         return turn.Notes.Count == 0 ? outcome : outcome + "\n" + Truncate(string.Join('\n', turn.Notes), MaxReportedNotesChars);
     }
 
-    private static string Truncate(string text, int max) => text.Length <= max ? text : text[..max] + "…[truncated]";
+    // Redacted before it is cut: a cut can split a secret in two, and the redactor no longer matches half of one.
+    // Upstream clips first. This is a deliberate difference.
+    private string Clipped(string text, int max) => Truncate(_redactor.Redact(text), max);
+
+    /// <summary>Cuts <paramref name="text"/> to <paramref name="max"/> characters, never between the halves of a surrogate pair.</summary>
+    internal static string Truncate(string text, int max)
+    {
+        if (text.Length <= max)
+        {
+            return text;
+        }
+
+        var end = max > 0 && char.IsHighSurrogate(text[max - 1]) ? max - 1 : max;
+        return text[..end] + "…[truncated]";
+    }
 }
 
 /// <summary>One turn as the loop keeps it: the loop's notes apart from what the model and the tools produced.</summary>

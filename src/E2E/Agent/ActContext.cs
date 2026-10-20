@@ -48,6 +48,12 @@ internal sealed partial class ActContext : StepExecutorContext
     private string? _transcript;
     private IReadOnlyList<StepTurn>? _turns;
 
+    // What the step record keeps of the turns an executor attaches.
+    private const int MaxTurns = 12;
+    private const int MaxCalls = 8;
+    private const int MaxCallChars = 200;
+    private const int MaxOutcomeChars = 2048;
+
     [SetsRequiredMembers]
     public ActContext(AttemptScope scope, ObservationFeed feed, StepAccounting budget, ActionDispatcher dispatcher, StepSpec spec, ResolvedAgent agent, int stepIndex, IReadOnlyList<Secret> declared, Observation? start, ReplayedPrefix? prefix)
     {
@@ -119,7 +125,14 @@ internal sealed partial class ActContext : StepExecutorContext
     {
         ArgumentNullException.ThrowIfNull(turns);
         // Model prose and tool output are not model input, but they are a record: the redactor that guards the tree guards the turns.
-        _turns = [.. turns.Select(turn => new StepTurn(turn.Index, [.. turn.Calls.Select(_scope.Redactor.Redact)], _scope.Redactor.Redact(turn.Outcome)))];
+        // The record is bounded here, whoever attaches: redact first, then cut, so a cut never leaves half a secret. Upstream cuts first.
+        _turns =
+        [
+            .. turns.TakeLast(MaxTurns).Select(turn => new StepTurn(
+                turn.Index,
+                [.. turn.Calls.Take(MaxCalls).Select(call => TurnLog.Truncate(_scope.Redactor.Redact(call), MaxCallChars))],
+                TurnLog.Truncate(_scope.Redactor.Redact(turn.Outcome), MaxOutcomeChars))),
+        ];
     }
 
     /// <summary>The turns the executor attached, redacted; null when it attached none.</summary>

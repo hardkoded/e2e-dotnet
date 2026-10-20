@@ -88,6 +88,75 @@ public sealed class AttachedTurnsTests
         Assert.All(turns.SelectMany(turn => turn.Calls), call => Assert.True(call.Length <= 200 + "…[truncated]".Length));
     }
 
+    [Fact]
+    public async Task Bounds_the_turns_a_custom_executor_attached_and_redacts_before_it_cuts()
+    {
+        var executor = new TestExecutor("wordy", (context, _) =>
+        {
+            // The secret starts 5 characters before the 2048-character cut of an outcome and 195 before the 200-character cut of a call.
+            context.AttachTurns(
+            [
+                .. Enumerable.Range(1, 20).Select(index => new StepTurn(
+                    index,
+                    [.. Enumerable.Range(0, 10).Select(_ => new string('c', 195) + "hunter2xyz")],
+                    new string('o', 2043) + "hunter2xyz")),
+            ]);
+            return Task.FromResult(Passed("done"));
+        });
+        await using var session = await StartAsync(executor);
+
+        await session.Agent.ActAsync(
+            "talk",
+            new ActOptions { Params = new Dictionary<string, object?> { ["pw"] = Secret.Create("pw", "hunter2xyz", "password") } });
+
+        var turns = Assert.IsAssignableFrom<IReadOnlyList<StepTurn>>(AgentStep(session).Turns);
+        Assert.Equal(Enumerable.Range(9, 12), turns.Select(turn => turn.Index));
+        Assert.All(turns, turn =>
+        {
+            Assert.Equal(8, turn.Calls.Count);
+            Assert.All(turn.Calls, call => Assert.DoesNotContain("hunter", call, StringComparison.Ordinal));
+            Assert.All(turn.Calls, call => Assert.True(call.Length <= 200 + "…[truncated]".Length));
+            Assert.DoesNotContain("hunter", turn.Outcome, StringComparison.Ordinal);
+            Assert.True(turn.Outcome.Length <= 2048 + "…[truncated]".Length);
+        });
+    }
+
+    [Fact]
+    public async Task The_tool_loop_redacts_a_secret_in_a_tool_result_before_it_cuts_the_result()
+    {
+        var model = new ScriptedModel(request => request.Messages.Any(message => message.Role == "tool")
+            ? ModelResponses.Done("passed", "Done.")
+            : ModelResponses.Call("echo", new { }));
+        var executor = ToolLoop.CreateToolLoopExecutor(new ToolLoopExecutorOptions
+        {
+            Name = "echoer",
+            BuildPrompt = context => Task.FromResult(context.Step.Instruction),
+            Tools = (_, _) =>
+            [
+                new ToolLoopTool(
+                    new ModelTool { Name = "echo", Description = "Echo", Parameters = System.Text.Json.JsonDocument.Parse("""{ "type": "object" }""").RootElement.Clone() },
+                    (_, _) => Task.FromResult(new ToolLoopResult(new string('r', 593) + "hunter2xyz"))),
+            ],
+        });
+        await using var session = await StartAsync(executor, model);
+
+        await session.Agent.ActAsync(
+            "echo",
+            new ActOptions { Params = new Dictionary<string, object?> { ["pw"] = Secret.Create("pw", "hunter2xyz", "password") } });
+
+        var turns = Assert.IsAssignableFrom<IReadOnlyList<StepTurn>>(AgentStep(session).Turns);
+        Assert.DoesNotContain("hunt", turns[0].Outcome, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Truncate_never_splits_a_surrogate_pair()
+    {
+        // "😀" is two UTF-16 characters; a cut after the first would leave a lone high surrogate.
+        Assert.Equal("ab…[truncated]", TurnLog.Truncate("ab😀cd", 3));
+        Assert.Equal("ab😀…[truncated]", TurnLog.Truncate("ab😀cd", 4));
+        Assert.Equal("ab😀", TurnLog.Truncate("ab😀", 4));
+    }
+
     private static StepRecord AgentStep(E2ESession session) => session.Steps.Single(step => step.Api == "agent.act");
 
     private static Task<E2ESession> StartAsync(IStepExecutor? executor, IAgentModel? model = null) =>
