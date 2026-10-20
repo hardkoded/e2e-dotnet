@@ -59,7 +59,7 @@ public sealed class AuthorizeSecretFillTests
     [Theory]
     [InlineData("a disabled password field", "textbox", true, "the target field is disabled")]
     [InlineData("a button", "button", false, "the target is not an editable input (role button)")]
-    public async Task Refuses_a_secret_fill_into_a_sink_that_cannot_take_it_and_never_types_into_it(string sink, string role, bool disabled, string message)
+    public async Task Partial_Refuses_a_secret_fill_into_a_sink_that_cannot_take_it_and_never_types_into_it(string sink, string role, bool disabled, string message)
     {
         _ = sink;
         var typed = new List<string>();
