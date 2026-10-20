@@ -275,7 +275,6 @@ public sealed class E2ESession : IAsyncDisposable
                 ScrollsIntoView = (options.Engine.Capabilities & EngineCapabilities.Scroll) != 0,
                 DirectoryOf = options.SnapshotDirectoryOf ?? (static file => file is null ? null : file + "-snapshots"),
                 Capture = token => engine.ScreenshotAsync(token),
-                WithholdsPixels = () => scope.Exposure.WithholdsPixels || scope.Secrets.Count > 0,
             };
             var context = new TestContext
             {
@@ -567,7 +566,6 @@ public sealed class E2ESession : IAsyncDisposable
                 Capture = token => _scope.CaptureAsync(token),
                 Error = error,
                 Redactor = _scope.Redactor,
-                WithholdsPixels = _scope.Exposure.WithholdsPixels || _scope.Secrets.Count > 0,
                 AppOrigin = _scope.AppOrigin,
                 AttemptDir = trace.AttemptDir,
             }).ConfigureAwait(false);

@@ -195,7 +195,7 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
   question, such as whether an overlay covers a form the snapshot lists as
   present. All three take it: `AssertOptions.Vision`, `WaitForOptions.Vision`,
   `ExtractOptions.Vision`.
-- After a `Secret` is filled, no pixels leave the session. `On` then judges the
+- After a `Secret` is filled, no pixels reach the model. `On` then judges the
   snapshot alone. `Only` fails with `POLICY_DENIED` rather than answer from the
   snapshot, and so does an engine that captures no pixels or masks fewer
   regions than the snapshot has secure fields.
@@ -205,8 +205,9 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
 - `AssertAsync` keeps a redacted screenshot of the screen it judged under
   `.e2e/results/<test>/attempt-<n>/screenshots/`, and
   `AgentException.Screenshot` names it on a failure. Set
-  `AssertOptions.Screenshot = false` to keep none. After a secret fill none is
-  kept.
+  `AssertOptions.Screenshot = false` to keep none. After a secret fill it is
+  still kept: it masks secure fields only, so a secret the app shows anywhere
+  else is in the image.
 
 ## Write instructions the model can execute
 
@@ -526,7 +527,7 @@ What the context holds:
 | `ObserveAsync(options)` | Redacted screen text, and with `Tree` the node tree (`ExecutorNode`, whose `Id` is the ref) and with `Pixels` a masked screenshot, or `PixelsWithheld` with the reason |
 | `Actions` | Checked and recorded verbs: `TapAsync` and `DoubleTapAsync` (both take `new ClickOptions { Modifiers = [KeyModifier.Shift] }` when `Target.TapModifiers`), `TypeAsync`, `TypeSecretAsync`, `ClearAsync`, `PressAsync`, `SelectAsync`, `CheckAsync`, `ScrollToAsync`, `ScrollUntilAsync`, `ScrollAsync`, `NavigateAsync`, `BackAsync`. A node is `new ExecutorTarget(ref)` |
 | `Target` | The target's `Name`, `Platform`, and `Verbs`, the verbs its engine supports, and `TapModifiers`, true when `TapAsync` and `DoubleTapAsync` take `ClickOptions.Modifiers`. Offer a model only these |
-| `PixelsTainted` | True after a secret fill. Then no screenshots are available |
+| `PixelsTainted` | True after a secret fill. Then no screenshots reach the model |
 | `ReplayedPrefix` | Set when a cache replay ran part of the step first. The actions and why it stopped. Continue from the current screen without repeating them |
 | `Model`, `ProviderOptions`, `AgentContext`, `Ledger` | The agent's model and provider options, its project context, and the steps completed before this one, as numbered lines (`1. app.open passed :: /`) in at most 8192 bytes |
 | `Attempt` | `TestId`, `AttemptId`, `Index`, a `CancellationToken` that ends with the attempt, and a `Memory` dictionary the runtime never reads |

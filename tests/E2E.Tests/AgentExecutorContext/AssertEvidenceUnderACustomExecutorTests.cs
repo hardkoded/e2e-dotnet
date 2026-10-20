@@ -99,11 +99,11 @@ public sealed class AssertEvidenceUnderACustomExecutorTests
     }
 
     /// <summary>
-    /// Partial: the port records no policy event, so the denial shows as the missing screenshot: no path on either verdict, and
-    /// no file kept. Upstream keeps the failure capture's screenshot after a secret fill; the port keeps its screen text and no pixels.
+    /// Partial: the port records no policy event, so the test cannot check that none is recorded. It checks the screenshot kept
+    /// for each of the two judgments and for the failure capture.
     /// </summary>
     [Fact]
-    public async Task Partial_Denies_the_screenshot_as_PIXEL_TAINTED_after_a_secret_fill_on_both_verdicts_and_the_failure_capture_keeps_no_pixels_either()
+    public async Task Partial_Keeps_the_screenshot_after_a_secret_fill_on_both_verdicts_and_the_failure_capture_keeps_one_too()
     {
         var root = TempRoot();
         var session = await StartAsync(root, ExecutorKit.WorldWithAPassword(_ => { }));
@@ -125,11 +125,11 @@ public sealed class AssertEvidenceUnderACustomExecutorTests
         }
 
         Assert.Equal("ASSERTION_FAILED", error.Code);
-        Assert.Null(error.Screenshot);
-        Assert.Empty(Screenshots(root));
+        Assert.NotNull(error.Screenshot);
+        Assert.Equal(2, Screenshots(root).Count);
         Assert.NotNull(session.Evidence?.Screen);
-        Assert.Null(session.Evidence?.Screenshot);
-        Assert.Empty(Directory.GetFiles(Path.Combine(root, ".e2e"), "failure.png", SearchOption.AllDirectories));
+        Assert.Equal(E2E.FailureEvidence.ScreenshotArtifactId, session.Evidence?.Screenshot);
+        Assert.Single(Directory.GetFiles(Path.Combine(root, ".e2e"), "failure.png", SearchOption.AllDirectories));
     }
 
     private async Task<(E2ESession Session, AgentException Error)> FailAsync(string root, string statement)

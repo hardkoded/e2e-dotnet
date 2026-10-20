@@ -13,7 +13,7 @@ internal static class RedactionSite
 
     public static readonly string Page = "<!doctype html><html><head><title>Account " + Token + "</title></head><body><p>Token " + Token + "</p></body></html>";
 
-    public static Task<E2ESession> StartAsync(TinySite site, string title)
+    public static Task<E2ESession> StartAsync(TinySite site, string title, Func<string?, string?>? snapshotDirectoryOf = null)
     {
         return E2ESession.StartAsync(new E2ESessionOptions
         {
@@ -23,6 +23,7 @@ internal static class RedactionSite
             TestTitle = title,
             ActionTimeout = TimeSpan.FromSeconds(5),
             TestTimeout = TimeSpan.FromSeconds(30),
+            SnapshotDirectoryOf = snapshotDirectoryOf,
         });
     }
 

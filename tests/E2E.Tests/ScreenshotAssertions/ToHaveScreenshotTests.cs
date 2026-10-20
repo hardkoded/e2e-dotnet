@@ -16,7 +16,7 @@ namespace E2E.Tests.ScreenshotAssertions;
 /// it saw when a later capture comes back without pixels" (an engine returns a PNG or fails), "refuses a screen
 /// scoped to a frame" (the port has no <c>browser.frameLocator</c>), and the unknown-option case of the
 /// invalid-argument table (the type forbids it). The first test is renamed because the port has no
-/// <c>comparable</c> observe option and no step to attach images to; the secret test covers the fill case only.
+/// <c>comparable</c> observe option and no step to attach images to; the secret test covers the fill case only (it keeps a screenshot).
 /// </summary>
 public sealed class ToHaveScreenshotTests
 {
@@ -138,17 +138,19 @@ public sealed class ToHaveScreenshotTests
     }
 
     [Fact]
-    public async Task Keeps_no_screenshot_once_a_secret_was_filled()
+    public async Task Partial_Keeps_a_screenshot_after_a_secret_fill()
     {
-        using var project = new ScreenProject(new ScreenEngine());
+        var engine = new ScreenEngine();
+        using var project = new ScreenProject(engine);
         var error = await project.RunAsync("fill", "after a fill", async screen =>
         {
             await screen.GetByRole("button").FillAsync(Secret.Create("token", "a-very-secret-token"));
             await Expect.That(screen).ToHaveScreenshotAsync("home");
         });
-        Assert.Equal("POLICY_DENIED", error?.Code);
-        Assert.False(Directory.Exists(project.Snapshots("fill")));
-        Assert.Equal(0, project.Engine.Captures);
+        Assert.Equal("ASSERTION_FAILED", error?.Code);
+        Assert.Contains("no stored screenshot at tests/fill.e2e.ts-snapshots/home" + Suffix + ".png", error!.Message, StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(project.Snapshots("fill"), "home" + Suffix + ".png")));
+        Assert.True(engine.Captures > 0);
     }
 
     [Fact]

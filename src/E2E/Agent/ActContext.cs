@@ -86,7 +86,7 @@ internal sealed partial class ActContext : StepExecutorContext
     /// <summary>Bytes of <see cref="StepExecutorContext.Ledger"/>, which the step's metrics keep.</summary>
     public int LedgerBytes { get; }
 
-    public override bool PixelsTainted => _scope.Exposure.WithholdsPixels;
+    public override bool PixelsTainted => _scope.Exposure.WithholdsModelPixels;
 
     public override async Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options = null, CancellationToken cancellationToken = default)
     {

@@ -96,7 +96,7 @@ public class StepExecutorContext
     public required IExecutorActions Actions { get; init; }
 
     /// <summary>
-    /// True once a secret was filled in this attempt: <see cref="ObserveAsync"/> withholds pixels for the rest of it. An
+    /// True once a secret was filled in this attempt: <see cref="ObserveAsync"/> withholds pixels from the model for the rest of it. An
     /// executor reads it when it assembles its vocabulary, to leave screenshot tools out rather than offer tools that can
     /// only decline.
     /// </summary>
