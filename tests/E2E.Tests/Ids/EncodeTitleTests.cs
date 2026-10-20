@@ -19,7 +19,7 @@ public sealed class EncodeTitleTests
     [Fact]
     public void Applies_NFC_normalization_then_encodes_the_UTF_8_bytes()
     {
-        var decomposed = "é"; // e + combining acute
+        var decomposed = "e\u0301"; // e + combining acute
         Assert.Equal("%C3%A9", AttemptReport.EncodeTitle(decomposed));
         Assert.Equal("%E6%97%A5", AttemptReport.EncodeTitle("日"));
     }
