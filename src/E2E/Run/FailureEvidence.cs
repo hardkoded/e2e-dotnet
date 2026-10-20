@@ -107,7 +107,7 @@ internal sealed partial record FailureEvidence
             evidence = evidence with { Nodes = nodes };
             try
             {
-                await TracePages.WriteTextAsync(Path.Combine(options.AttemptDir, ScreenFile), string.Join('\n', lines) + "\n", CancellationToken.None).ConfigureAwait(false);
+                await WriteReport.WriteTextReportAsync(Path.Combine(options.AttemptDir, ScreenFile), string.Join('\n', lines) + "\n", CancellationToken.None).ConfigureAwait(false);
                 evidence = evidence with { Screen = ScreenArtifactId };
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

@@ -15,5 +15,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\E2E\E2E.csproj" />
+    <ProjectReference Include="..\E2E.Tests.Schema\E2E.Tests.Schema.csproj" />
   </ItemGroup>
 </Project>

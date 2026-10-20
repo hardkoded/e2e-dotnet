@@ -85,7 +85,7 @@ internal static class TracePages
                     ReadArtifact = ReadArtifact,
                     CacheDir = options.CacheDir is null ? null : Source.ProjectRelativePath(options.ProjectRoot, options.CacheDir) ?? options.CacheDir.Replace('\\', '/'),
                 });
-            await WriteTextAsync(file, redact?.Invoke(page) ?? page, cancellationToken).ConfigureAwait(false);
+            await WriteReport.WriteTextReportAsync(file, redact?.Invoke(page) ?? page, cancellationToken).ConfigureAwait(false);
             pages[result.Id] = Relative(file);
         }
 
@@ -98,20 +98,4 @@ internal static class TracePages
     /// </summary>
     internal static bool IsExploreVerdict(Outcome final, ReportExplore explore) =>
         final.Final.Error?.Code == "ASSERTION_FAILED" && explore.Findings.Any(finding => finding.Kind == ReportExploreFindingKind.Issue);
-
-    // Through a unique temp name, then moved, so a reader never sees half a page.
-    internal static async Task WriteTextAsync(string file, string text, CancellationToken cancellationToken)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-        var temp = file + "." + Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture) + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        try
-        {
-            await File.WriteAllTextAsync(temp, text, cancellationToken).ConfigureAwait(false);
-            File.Move(temp, file, overwrite: true);
-        }
-        finally
-        {
-            File.Delete(temp);
-        }
-    }
 }

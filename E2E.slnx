@@ -30,6 +30,7 @@
     <Project Path="tests/E2E.NUnit.Tests/E2E.NUnit.Tests.csproj" />
     <Project Path="tests/E2E.TestMu.Mobile.Tests/E2E.TestMu.Mobile.Tests.csproj" />
     <Project Path="tests/E2E.TestMu.Tests/E2E.TestMu.Tests.csproj" />
+    <Project Path="tests/E2E.Tests.Schema/E2E.Tests.Schema.csproj" />
     <Project Path="tests/E2E.Tests/E2E.Tests.csproj" />
   </Folder>
 </Solution>
