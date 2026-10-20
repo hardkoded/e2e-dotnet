@@ -34,11 +34,56 @@ internal static class AttemptReport
 {
     private static readonly string RunId = Guid.NewGuid().ToString("N")[..12];
 
-    /// <summary>The id of the result of the test titled <paramref name="title"/>, whose head ends the result's directory name.</summary>
-    public static string ResultId(string title) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(title)))[..16].ToLowerInvariant();
+    // Upstream forbids NUL in a title, so no title-only hash input starts with it and none can equal a hashed test id.
+    private const char TestIdMark = '\0';
 
-    /// <summary>The name of the directory of the test titled <paramref name="title"/> under the results directory (<see cref="ArtifactPaths.ResultSegment"/>, with no file name).</summary>
-    public static string ResultSegmentOf(string title) => ArtifactPaths.ResultSegment(ResultId(title), "", [title]);
+    /// <summary>
+    /// The id of the result of the test titled <paramref name="title"/> in <paramref name="file"/>, whose head ends the result's directory
+    /// name. It hashes the test id, <see cref="TestId"/>, behind a NUL mark that no title-only hash input has (the digest is the port's own, as upstream hashes JSON), so two tests with one title in two files keep apart. A session started with no
+    /// file hashes the title alone.
+    /// </summary>
+    public static string ResultId(string? file, string title) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.IsNullOrEmpty(file) ? title : TestIdMark + TestId(file, title))))[..16].ToLowerInvariant();
+
+    /// <summary>
+    /// The test id <c>file::title</c>, with the title percent-encoded so a <c>::</c> in a title cannot pass for the separator. Upstream's
+    /// <c>testId</c> (<c>internal/ids.ts</c>) with a title path of one title.
+    /// </summary>
+    public static string TestId(string file, string title) => file + "::" + EncodeTitle(title);
+
+    /// <summary>Percent-encodes one title: RFC 3986 unreserved characters stay literal, every other UTF-8 byte of its NFC form becomes uppercase <c>%HH</c>. Upstream's <c>encodeTitle</c>.</summary>
+    public static string EncodeTitle(string title)
+    {
+        var encoded = new StringBuilder();
+        foreach (var value in Encoding.UTF8.GetBytes(title.Normalize(NormalizationForm.FormC)))
+        {
+            if (value is (>= (byte)'A' and <= (byte)'Z') or (>= (byte)'a' and <= (byte)'z') or (>= (byte)'0' and <= (byte)'9') or (byte)'-' or (byte)'.' or (byte)'_' or (byte)'~')
+            {
+                encoded.Append((char)value);
+            }
+            else
+            {
+                encoded.Append('%').Append(value.ToString("X2", CultureInfo.InvariantCulture));
+            }
+        }
+
+        return encoded.ToString();
+    }
+
+    /// <summary>
+    /// The name of the directory of the test titled <paramref name="title"/> in <paramref name="file"/> under the results directory
+    /// (<see cref="ArtifactPaths.ResultSegment"/>). A .NET test has no source file of its own, so the file is the test class: its simple
+    /// name reads in the segment and its full name goes into the id.
+    /// </summary>
+    public static string ResultSegmentOf(string? file, string title) => ArtifactPaths.ResultSegment(ResultId(file, title), file is null ? "" : SimpleName(file), [title]);
+
+    /// <summary>The name of a type without its namespace and its declaring types.</summary>
+    private static string SimpleName(string typeName)
+    {
+        // A closed generic's full name carries its type arguments, with versions and dots of their own.
+        var name = typeName[..(typeName.IndexOfAny(['`', '[']) is var cut and >= 0 ? cut : typeName.Length)];
+        return name[(name.LastIndexOfAny(['.', '+']) + 1)..];
+    }
 
     /// <summary>The report of the attempt that ended <paramref name="status"/> with <paramref name="error"/>.</summary>
     public static (Report1Document Report, string ResultId) Build(
@@ -52,7 +97,7 @@ internal static class AttemptReport
         FailureEvidence? evidence = null)
     {
         var steps = scope.Steps.All();
-        var id = ResultId(scope.TestTitle);
+        var id = ResultId(scope.TestFile, scope.TestTitle);
         var located = steps.Select(step => step.Source).OfType<SourceLocation>().FirstOrDefault();
         var directory = Path.GetFileName(output.TestDir);
         var attemptSegment = Path.GetFileName(output.AttemptDir);

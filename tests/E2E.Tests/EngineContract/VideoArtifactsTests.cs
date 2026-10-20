@@ -37,7 +37,7 @@ public sealed class VideoArtifactsTests : IDisposable
         var video = Assert.IsType<VideoFile>(Assert.Single(kept));
         Assert.Matches(@"^video/fake\.webm$", video.Path);
         Assert.True(DateTimeOffset.TryParse(video.StartedAt, System.Globalization.CultureInfo.InvariantCulture, out _));
-        var file = Path.Combine(_results, AttemptReport.ResultSegmentOf("taps a node"), "attempt-1", video.Path);
+        var file = Path.Combine(_results, AttemptReport.ResultSegmentOf(null, "taps a node"), "attempt-1", video.Path);
         Assert.Equal(8, new FileInfo(file).Length);
         Assert.Equal(["startVideo", "stopVideo"], fake.Operations);
     }
@@ -50,9 +50,9 @@ public sealed class VideoArtifactsTests : IDisposable
         Assert.Empty(await RunAsync(fake, "taps a node", retain, passes: true));
 
         // The passing attempt's recording was written, then removed with its verdict.
-        Assert.Empty(Directory.GetFiles(Path.Combine(_results, AttemptReport.ResultSegmentOf("taps a node")), "fake.webm", SearchOption.AllDirectories));
+        Assert.Empty(Directory.GetFiles(Path.Combine(_results, AttemptReport.ResultSegmentOf(null, "taps a node")), "fake.webm", SearchOption.AllDirectories));
         var kept = Assert.IsType<VideoFile>(Assert.Single(await RunAsync(fake, "fails on purpose", retain, passes: false)));
-        Assert.True(File.Exists(Path.Combine(_results, AttemptReport.ResultSegmentOf("fails on purpose"), "attempt-1", kept.Path)));
+        Assert.True(File.Exists(Path.Combine(_results, AttemptReport.ResultSegmentOf(null, "fails on purpose"), "attempt-1", kept.Path)));
     }
 
     [Fact]

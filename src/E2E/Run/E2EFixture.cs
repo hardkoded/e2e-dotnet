@@ -204,6 +204,7 @@ public abstract class E2EFixture
                 CacheMode = cacheMode,
                 CacheStrict = CacheStrict,
                 TestTitle = title,
+                TestFile = GetType().FullName,
                 Debug = Debug,
                 AiTrace = AiTrace,
                 Trace = Trace,
