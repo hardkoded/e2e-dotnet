@@ -138,15 +138,17 @@ public static class ExploreExecutor
     }
 
     // Upstream's .catch(() => undefined): the screen and the file system may refuse, and the finding stands without them.
-    // A cancel is not a refusal: it is never swallowed.
+    // A cancel is not a refusal: it is never swallowed, and it surfaces as a cancel.
     private static async Task<T?> TryAsync<T>(Func<Task<T>> body, CancellationToken cancellationToken)
     {
         try
         {
             return await body().ConfigureAwait(false);
         }
-        catch (Exception ex) when (!cancellationToken.IsCancellationRequested && ex is E2EException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is E2EException or IOException or UnauthorizedAccessException)
         {
+            // A refusal that came with a cancel surfaces as the cancel.
+            cancellationToken.ThrowIfCancellationRequested();
             return default;
         }
     }

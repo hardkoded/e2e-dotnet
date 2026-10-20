@@ -104,7 +104,9 @@ internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProv
 
     /// <summary>
     /// Registers a listener for every change from here on. A listener runs synchronously, in order, as upstream's does. Unlike
-    /// upstream, the state holds its lock meanwhile, to keep that order across threads: keep it quick, and do not let it throw.
+    /// upstream, a change made inside a locked mutator (<see cref="BeginStep"/>, <see cref="EndStep"/>, <see cref="AddFinding"/>,
+    /// <see cref="End"/>) is announced while the state holds its lock, to keep that order across threads. <see cref="Start"/> and
+    /// <see cref="Planning"/> are announced without it. Keep a listener quick, and do not let it throw.
     /// </summary>
     public void Subscribe(ExploreListener listener)
     {
