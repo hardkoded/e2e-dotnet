@@ -183,7 +183,9 @@ matcher.
   `.e2e/results/`. Files are per target and OS (`-web-linux.png`): screenshots
   written on a Mac never serve Linux CI, so write CI's from a CI job with the
   update variable. After a secret fill the comparison still runs: the image
-  masks secure fields only, so a secret the app shows anywhere else is in it.
+  masks secure fields only, so a secret the app shows anywhere else is in it. When the engine
+  cannot prove every secure field on screen was masked, the call fails with
+  `POLICY_DENIED` and keeps no screenshot.
 - `Expect.That(Browser).ToHaveURLAsync("/about")` (a string, or a `Regex`; `ignoreCase`)
   and `ToHaveTitleAsync("About page")` poll the URL and the title, `.Not`
   inverts them, and `Expect.Soft(Browser)` keeps their failures.

@@ -32,7 +32,7 @@ internal sealed class ScreenProject : IDisposable
     public string Snapshots(string file) => Path.Combine(Directory, "tests", file + ".e2e.ts-snapshots");
 
     /// <summary>Runs one test body and returns what it threw, or null when it passed. A new run, unless told otherwise, counts no screenshot as written.</summary>
-    public async Task<TestException?> RunAsync(string file, string title, Func<Screen, Task> body, bool update = false, bool ci = false, int attempt = 1, bool newRun = true)
+    public async Task<E2EException?> RunAsync(string file, string title, Func<Screen, Task> body, bool update = false, bool ci = false, int attempt = 1, bool newRun = true)
     {
         if (newRun)
         {
@@ -58,7 +58,7 @@ internal sealed class ScreenProject : IDisposable
             await body(session.Screen);
             return null;
         }
-        catch (TestException ex)
+        catch (E2EException ex)
         {
             return ex;
         }

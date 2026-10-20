@@ -53,7 +53,7 @@ internal static partial class ScreenshotAssertion
         var token = screen.Token(cancellationToken);
         var deadline = new Deadline(call.Timeout ?? screen.AssertionTimeout, screen.Clock);
 
-        var capturer = new Capturer(screen, store, subject, call, deadline);
+        var capturer = new Capturer(screen, store, api, subject, call, deadline);
         var run = new Run(screen, store, api, call, file, shown, capturer.CaptureAsync);
         var expected = System.IO.File.Exists(file) ? ReadStored(run) : null;
         if (expected is not null && (negated || !store.Update) && store.HasWritten(file))

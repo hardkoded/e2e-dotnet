@@ -21,7 +21,7 @@ internal static partial class ScreenshotAssertion
     /// subject is scrolled into view once, the first time it is found; a subject that is not there yet is a capture
     /// still missing, so the call's poll keeps waiting and fails as an assertion. So is a capture the deadline cut short.
     /// </summary>
-    private sealed class Capturer(Screen screen, ScreenshotContext store, Locator? subject, ScreenshotCall call, Deadline deadline)
+    private sealed class Capturer(Screen screen, ScreenshotContext store, string api, Locator? subject, ScreenshotCall call, Deadline deadline)
     {
         private bool _scrolled = !store.ScrollsIntoView;
 
@@ -78,6 +78,13 @@ internal static partial class ScreenshotAssertion
             }
 
             var shot = await store.Capture(cancellationToken).ConfigureAwait(false);
+
+            // Upstream's pixelsProvenMasked: the engine masked at least as many regions as the tree lists secure nodes, or the image is not kept.
+            if (shot.MaskedRegionCount is not { } masked || masked < LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure))
+            {
+                throw new ConfigurationException("POLICY_DENIED", api + " could not prove every secure field on screen was masked, so the screenshot is not kept");
+            }
+
             var raw = ImageOps.DecodePng(shot.Png);
             var scale = shot.Scale > 0 ? shot.Scale : 1;
             var image = ImageOps.ResampleImage(raw, Math.Max(1, (int)Math.Round(raw.Width / scale)), Math.Max(1, (int)Math.Round(raw.Height / scale)));
