@@ -388,6 +388,25 @@ public sealed class TheExplorationBodyTests
         Assert.Equal(ReportExploreEnded.Aborted, broken.Ended);
     }
 
+    [Fact]
+    public async Task Records_the_open_step_as_blocked_when_the_caller_cancels()
+    {
+        var state = new State("goal", Budgets);
+        using var cts = new CancellationTokenSource();
+        var agent = new ScriptedExploreAgent([PlanScript.Step("Cart", "open the cart")], [ActOutcome.Passed("never")])
+        {
+            OnAct = () =>
+            {
+                cts.Cancel();
+                throw new OperationCanceledException(cts.Token);
+            },
+        };
+        await Assert.ThrowsAsync<OperationCanceledException>(() => Body.Create(Options(state))(new ExploreFixtures(agent, _ => Task.CompletedTask), cts.Token));
+        var step = Assert.Single(state.Steps);
+        Assert.Equal(ReportExploreStepStatus.Blocked, step.Status);
+        Assert.Equal("CANCELLED", step.ErrorCode);
+    }
+
     // Stands for an answer the model gave outside the grammar, and for one that says the screen shows no plan.
     private static readonly PlanAnswer Invalid = PlanScript.Step("", "");
 

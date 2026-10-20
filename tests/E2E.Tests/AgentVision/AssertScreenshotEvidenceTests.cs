@@ -26,7 +26,7 @@ public sealed class AssertScreenshotEvidenceTests
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("ASSERTION_FAILED", error.Code);
         Assert.NotNull(error.Screenshot);
-        Assert.Equal(".e2e/results/evidence/attempt-1/screenshots/001-assert.png", error.Screenshot);
+        Assert.Equal(".e2e/results/" + AttemptReport.ResultSegmentOf("evidence") + "/attempt-1/screenshots/001-assert.png", error.Screenshot);
         Assert.Equal(ScreenshotEngine.Png(), await File.ReadAllBytesAsync(Path.Combine(root, error.Screenshot!)));
     }
 
@@ -37,7 +37,7 @@ public sealed class AssertScreenshotEvidenceTests
         var result = await RunAsync(root, ctx => ctx.Agent.AssertAsync("the page is About"), new ScriptedModel(_ => ModelResponses.Done("passed", "it is")));
 
         Assert.Null(result.Error);
-        Assert.True(File.Exists(Path.Combine(root, ".e2e", "results", "evidence", "attempt-1", "screenshots", "001-assert.png")));
+        Assert.True(File.Exists(Path.Combine(root, ".e2e", "results", AttemptReport.ResultSegmentOf("evidence"), "attempt-1", "screenshots", "001-assert.png")));
     }
 
     [Fact]

@@ -134,7 +134,7 @@ public sealed class E2ESession : IAsyncDisposable
         var projectRoot = Path.GetFullPath(string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot);
         var attemptDir = Path.Combine(
             Path.GetFullPath(options.ResultsDirectory ?? Path.Combine(projectRoot, ".e2e", "results")),
-            ScreenshotAssertion.Slug(options.TestTitle, 100, "test"),
+            AttemptReport.ResultSegmentOf(options.TestTitle),
             "attempt-" + options.Attempt.ToString(System.Globalization.CultureInfo.InvariantCulture));
         IEngineSession engine;
 
@@ -264,6 +264,7 @@ public sealed class E2ESession : IAsyncDisposable
             screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });
             screen.Redact = text => scope.Redactor.Redact(text);
             screen.Failed = scope.Implicate;
+            screen.RenderTree = observation => Screen.TreeText(observation, scope.Redactor, scope.AppOrigin, StepScreens.DefaultObservationBytes);
             screen.Screenshots = scope.Screenshots = new ScreenshotContext
             {
                 ProjectRoot = projectRoot,

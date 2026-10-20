@@ -46,6 +46,27 @@ public sealed class E2eExploreTests
         Assert.Equal(["finding-1.png", "finding-2.png"], paths.Select(path => Path.GetFileName(path)![4..]).Order(StringComparer.Ordinal));
     }
 
+    [Fact]
+    public async Task Accepts_a_severity_written_as_a_whole_number_with_a_fraction_part()
+    {
+        var model = Model(
+            instruction => instruction.Contains("(none yet", StringComparison.Ordinal) ? ExploreModel.Step("Counter", "Look at the counter") : ExploreModel.Finish("One defect."),
+            call => call.Turn == 1
+                ? ExploreModel.ReportFinding(new
+                {
+                    title = "Counter starts at 0 with no label of what it counts",
+                    kind = "issue",
+                    severity = System.Text.Json.Nodes.JsonNode.Parse("3.0"),
+                    expected = "The counter says what it counts",
+                    actual = "output \"Counter\" reads 0",
+                    reproduction = new[] { "Open the home page" },
+                })
+                : ExploreModel.Done("passed", "Looked"));
+        var outcome = await Explorer.ExploreAsync(Options(TempRoot(), model.Model, []));
+
+        Assert.Equal(3, Assert.Single(outcome.Explore.Findings).Severity);
+    }
+
     // Upstream also reads the report: its schema, the artifact record behind the evidence and the step that produced it, the
     // attempt's timeline, the observation revision, and report.json. The port keeps the record in the outcome and the evidence as a file.
     [Fact]
@@ -98,7 +119,7 @@ public sealed class E2eExploreTests
         Assert.Equal("/", finding.Path);
 
         // The evidence is a screenshot file under the attempt's results, named for the finding.
-        Assert.Equal(".e2e/results/explore-the-home-page-and-find-bugs/attempt-1/screenshots/001-finding-1.png", finding.ArtifactId);
+        Assert.Equal(".e2e/results/" + AttemptReport.ResultSegmentOf("Explore the home page and find bugs") + "/attempt-1/screenshots/001-finding-1.png", finding.ArtifactId);
         Assert.Equal(ScreenshotEngine.Png(), await File.ReadAllBytesAsync(Path.Combine(root, finding.ArtifactId!)));
 
         // The explorer's loop saw the finding tool beside the grammar.
@@ -163,7 +184,7 @@ public sealed class E2eExploreTests
 
         // The explorer's loop ran, carrying the goal as context.
         Assert.Contains("Exploration goal: Explore the home page with key <secret:probe>", model.LoopCalls.First().System, StringComparison.Ordinal);
-        Assert.Contains(Files(root), file => file.Contains("explore-the-home-page-with-key-secret-", StringComparison.Ordinal));
+        Assert.Contains(Files(root), file => file.Contains("explore-the-home-page-with-key-", StringComparison.Ordinal));
         Assert.DoesNotContain(value, Everything(model.Model.Requests), StringComparison.Ordinal);
         Assert.DoesNotContain(value, JsonSerializer.Serialize(outcome.Explore), StringComparison.Ordinal);
         Assert.All(Files(root), file => Assert.DoesNotContain(value, file + File.ReadAllText(file), StringComparison.Ordinal));
