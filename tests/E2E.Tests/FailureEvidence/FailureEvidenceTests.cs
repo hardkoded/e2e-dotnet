@@ -14,8 +14,8 @@ namespace E2E.Tests.FailureEvidence;
 /// engine that masks its screenshots, with no runner: a test's attempt is a session, and what upstream reads from the report the page
 /// and the session's evidence tell. Not ported: "looks at the screen before teardown runs, so an afterEach that navigates away cannot
 /// replace the evidence" (the port looks when the session is released, which an adapter does after the test's own teardown, so a teardown
-/// that navigates away replaces the evidence), and "keeps the evidence of two tests whose ids sanitize to the same directory name apart"
-/// (an attempt's directory is named by a slug of the test's title alone, so two titles that slug alike share one).
+/// that navigates away replaces the evidence). "keeps the evidence of two tests whose ids sanitize to the same directory name apart,
+/// each report digest matching its file" is ported without the digest check: the port's report artifacts carry no sha256.
 /// </summary>
 public sealed class FailureEvidenceTests : IDisposable
 {
@@ -153,6 +153,21 @@ public sealed class FailureEvidenceTests : IDisposable
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(8), watch.Elapsed.ToString());
     }
 
+    [Fact]
+    public async Task Keeps_the_evidence_of_two_tests_whose_titles_slug_alike_apart()
+    {
+        var results = Results();
+        var first = await FailAsync(new EvidenceEngine("Alpha"), "artifact a", async screen => await screen.GetByRole("button", "Missing").TapAsync(), results: results);
+        var second = await FailAsync(new EvidenceEngine("Omega"), "artifact-a", async screen => await screen.GetByRole("button", "Missing").TapAsync(), results: results);
+
+        Assert.NotEqual(first.Dir, second.Dir);
+        foreach (var (attempt, name) in new[] { (first, "Alpha"), (second, "Omega") })
+        {
+            Assert.Contains("button \"" + name + "\"", File.ReadAllText(Path.Combine(attempt.Dir, "screen-at-failure.txt")), StringComparison.Ordinal);
+            Assert.True(File.Exists(Path.Combine(attempt.Dir, "screenshots", "failure.png")));
+        }
+    }
+
     private static string ProjectRoot([CallerFilePath] string testFile = "") => Path.GetDirectoryName(Path.GetDirectoryName(testFile))!;
 
     private string Results()
@@ -164,9 +179,9 @@ public sealed class FailureEvidenceTests : IDisposable
     }
 
     /// <summary>Runs <paramref name="body"/> as one attempt that must fail, then releases the session, which is when the evidence is taken. <paramref name="afterFailure"/> runs in between.</summary>
-    private async Task<Attempt> FailAsync(EvidenceEngine engine, string title, Func<Screen, Task> body, Action? afterFailure = null)
+    private async Task<Attempt> FailAsync(EvidenceEngine engine, string title, Func<Screen, Task> body, Action? afterFailure = null, string? results = null)
     {
-        var results = Results();
+        results ??= Results();
         var session = await E2ESession.StartAsync(new E2ESessionOptions
         {
             Engine = engine,
@@ -194,7 +209,7 @@ public sealed class FailureEvidenceTests : IDisposable
         afterFailure?.Invoke();
         session.Complete(error);
         await session.DisposeAsync();
-        return new Attempt(session, error, Path.Combine(results, ScreenshotAssertion.Slug(title, 100, "test"), "attempt-1"), observedBefore);
+        return new Attempt(session, error, Path.Combine(results, AttemptReport.ResultSegmentOf(title), "attempt-1"), observedBefore);
     }
 
     private sealed record Attempt(E2ESession Session, E2EException Error, string Dir, int ObservedBefore);

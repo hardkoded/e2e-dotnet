@@ -98,7 +98,7 @@ public sealed class E2eExploreTests
         Assert.Equal("/", finding.Path);
 
         // The evidence is a screenshot file under the attempt's results, named for the finding.
-        Assert.Equal(".e2e/results/explore-the-home-page-and-find-bugs/attempt-1/screenshots/001-finding-1.png", finding.ArtifactId);
+        Assert.Equal(".e2e/results/" + AttemptReport.ResultSegmentOf("Explore the home page and find bugs") + "/attempt-1/screenshots/001-finding-1.png", finding.ArtifactId);
         Assert.Equal(ScreenshotEngine.Png(), await File.ReadAllBytesAsync(Path.Combine(root, finding.ArtifactId!)));
 
         // The explorer's loop saw the finding tool beside the grammar.
@@ -163,7 +163,7 @@ public sealed class E2eExploreTests
 
         // The explorer's loop ran, carrying the goal as context.
         Assert.Contains("Exploration goal: Explore the home page with key <secret:probe>", model.LoopCalls.First().System, StringComparison.Ordinal);
-        Assert.Contains(Files(root), file => file.Contains("explore-the-home-page-with-key-secret-", StringComparison.Ordinal));
+        Assert.Contains(Files(root), file => file.Contains("explore-the-home-page-with-key-", StringComparison.Ordinal));
         Assert.DoesNotContain(value, Everything(model.Model.Requests), StringComparison.Ordinal);
         Assert.DoesNotContain(value, JsonSerializer.Serialize(outcome.Explore), StringComparison.Ordinal);
         Assert.All(Files(root), file => Assert.DoesNotContain(value, file + File.ReadAllText(file), StringComparison.Ordinal));

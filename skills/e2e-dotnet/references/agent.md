@@ -204,7 +204,7 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
   `Vision = VisionMode.On`, unless pixels cannot help (a secret was filled, or
   the engine captures none).
 - `AssertAsync` keeps a redacted screenshot of the screen it judged under
-  `.e2e/results/<test>/attempt-<n>/screenshots/`, and
+  `.e2e/results/<result>/attempt-<n>/screenshots/`, and
   `AgentException.Screenshot` names it on a failure. Set
   `AssertOptions.Screenshot = false` to keep none. After a secret fill it is
   still kept: it masks secure fields only, so a secret the app shows anywhere

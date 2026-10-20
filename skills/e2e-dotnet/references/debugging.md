@@ -14,8 +14,10 @@
 
 ## Read the failure
 
-1. Open the trace page of the failed attempt, `.e2e/results/<test>/trace.md`
-   ("The trace page"). It names the error and the line to look at, and lists
+1. Open the trace page of the failed attempt, `.e2e/results/<result>/trace.md`
+   ("The trace page"). `<result>` is the first words of the title and a hash of
+   it, such as `checks-out-1a2b3c4d5e6f7a8b`, so titles that read alike keep
+   their own directory. It names the error and the line to look at, and lists
    every step. The test runner prints the exception too. An `E2EException` has a `Code`;
    read it first, then the message. `AgentException.Blocked` is true when
    credentials, the environment, test setup, or the step's budget stopped
@@ -41,7 +43,7 @@ To see where a slow test spends its time, set `E2E_DEBUG=1`
 `trace` is the variable `E2E_TRACE` for one run, or `trace` at the config root,
 on a target, or in a fixture's `Trace` property. The modes are `off`, `on`,
 `retain-on-failure` (the default), `on-first-retry`, and `on-all-retries`. An
-attempt that the mode keeps writes `.e2e/results/<test>/trace.md` when its
+attempt that the mode keeps writes `.e2e/results/<result>/trace.md` when its
 session is released, beside the `attempt-<n>` directories. A retry is its own
 attempt and overwrites the page of the one before it. Open the file; there is
 no viewer. It tells, in this order:
@@ -183,7 +185,7 @@ page with Playwright's screencast. `MobileEngine` records the device screen to
 indicator).
 
 The screencast goes into its attempt's directory,
-`.e2e/results/<test>/attempt-<n>/video/`: `video.webm`, and one
+`.e2e/results/<result>/attempt-<n>/video/`: `video.webm`, and one
 `video-part<n>.webm` for each later page the attempt opened (after
 `App.RestartAsync`, `App.ClearStateAsync`, or a reconnect). A browser provider
 that records, such as Kernel, records in place of the screencast: it writes its

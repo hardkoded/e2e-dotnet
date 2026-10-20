@@ -134,7 +134,7 @@ public sealed class E2ESession : IAsyncDisposable
         var projectRoot = Path.GetFullPath(string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot);
         var attemptDir = Path.Combine(
             Path.GetFullPath(options.ResultsDirectory ?? Path.Combine(projectRoot, ".e2e", "results")),
-            ScreenshotAssertion.Slug(options.TestTitle, 100, "test"),
+            AttemptReport.ResultSegmentOf(options.TestTitle),
             "attempt-" + options.Attempt.ToString(System.Globalization.CultureInfo.InvariantCulture));
         IEngineSession engine;
 

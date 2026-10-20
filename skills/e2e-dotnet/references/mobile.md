@@ -122,7 +122,7 @@ A provider that drives its devices without agent-device implements `IDeviceClien
 
 ## Video
 
-With `video` on (see `references/debugging.md`), a local simulator or emulator attempt writes `video/video.mp4` under `.e2e/results/<test>/attempt-<n>/`: agent-device records the whole device screen, not one app, and its segment carries `StartedAt`. Taps show as a touch indicator. `new MobileOptions { VideoTouches = false }` records the plain screen. An iPhone video is built from screenshots at about 15 frames a second. A physical iPhone that `xcrun devicectl list devices` does not list cannot record. A hosted device provider's own recording is not used yet, and the MAUI DevFlow engine cannot record.
+With `video` on (see `references/debugging.md`), a local simulator or emulator attempt writes `video/video.mp4` under `.e2e/results/<result>/attempt-<n>/`: agent-device records the whole device screen, not one app, and its segment carries `StartedAt`. Taps show as a touch indicator. `new MobileOptions { VideoTouches = false }` records the plain screen. An iPhone video is built from screenshots at about 15 frames a second. A physical iPhone that `xcrun devicectl list devices` does not list cannot record. A hosted device provider's own recording is not used yet, and the MAUI DevFlow engine cannot record.
 
 ## A MAUI app with DevFlow
 
