@@ -161,6 +161,7 @@ public sealed partial class Agent
                         Strict = _scope.CacheStrict,
                         ReplayEligible = _scope.ReplayEligible,
                         Claim = new ClaimedKey(key, Provenance(instruction, spec.Params, callIndex, agent.Name)),
+                        StepIndex = _scope.Steps.CurrentStepIndex,
                         Instruction = instruction,
                         Params = spec.Params,
                         Recorder = budget.Recorder,
@@ -224,7 +225,7 @@ public sealed partial class Agent
 
             if (session is not null)
             {
-                await session.ConcludeAsync(StepOutcome.Passed).ConfigureAwait(false);
+                await session.ConcludeAsync(StepOutcome.Passed, agent.Model?.Name).ConfigureAwait(false);
             }
 
             return new ActResult { Summary = summary, Cache = session?.CacheInfo, ModelCalls = budget.ModelCalls, Actions = budget.Used };

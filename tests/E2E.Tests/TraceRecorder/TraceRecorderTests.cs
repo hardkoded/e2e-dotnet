@@ -12,14 +12,14 @@ using Recorder = E2E.Cache.TraceRecorder;
 namespace E2E.Tests.TraceRecorder;
 
 /// <summary>
-/// The port's recorder keeps a plain action list: no recorded model, summaries, CSS selectors, positions, scroll spans, truncation
+/// The port's recorder keeps a plain action list: no summaries, CSS selectors, positions, scroll spans, truncation
 /// flag, action cap, secret names, or entry validation, and no hover, long-press, secondary-tap, drag, upload, or point verbs. So
-/// these upstream its are not ported: "omits an oversized recorded provider", "omits an oversized recorded model", "omits blank
-/// recording identity", "poisons a trace whose target is an unnamed twin no named row tells apart, and keeps one that a row does",
+/// these upstream its are not ported: "poisons a trace whose target is an unnamed twin no named row tells apart, and keeps one that a row does",
 /// "masks a secret resolved after capture in the container the node sat within", "poisons the trace instead of bending a replay
 /// input", "keeps the smallest coverage when folding scrolls, and none when a repeat lacks one", "truncates past the action cap
 /// instead of dropping the flag", "rejects a stored check, upload, or drag that lost a field", and every it of "TraceRecorder:
-/// bare-point taps". Parts of ported its that need one of those features are named on each test.
+/// bare-point taps". The recorded model is one string, the model's <see cref="IAgentModel.Name"/>, where upstream's is a provider
+/// and a model: its two oversized cases and its blank cases are one theory each. Parts of ported its that need one of those features are named on each test.
 /// </summary>
 public sealed class TraceRecorderTests
 {
@@ -77,7 +77,7 @@ public sealed class TraceRecorderTests
         Assert.Equal(2, read.Actions.Count);
     }
 
-    /// <summary>Partial port of "records a secret fill by name only, with page strings redacted": the port records no model, no <c>secret</c> field, and has no truncation flag to leave unset.</summary>
+    /// <summary>Partial port of "records a secret fill by name only, with page strings redacted": the port records no <c>secret</c> field, and has no truncation flag to leave unset.</summary>
     [Fact]
     public void Records_a_secret_fill_as_its_marker_with_page_strings_redacted()
     {
@@ -85,13 +85,41 @@ public sealed class TraceRecorderTests
         recorder.Record("fill", PasswordField, value: "<secret:member-password>");
         recorder.Record("tap", new SemanticNode { Ref = "n42", Role = "button", Name = "Greeting hunter2", TestId = "upgrade-cta" });
 
-        var entry = Finalize(recorder)!;
+        var entry = recorder.Finalize(Step, "/settings", "/settings", [], [], recordedBy: "example/hunter2")!;
 
         var serialized = JsonSerializer.Serialize(entry, Relaxed);
         Assert.DoesNotContain("hunter2", serialized, StringComparison.Ordinal);
         Assert.Contains("<secret:member-password>", serialized, StringComparison.Ordinal);
         Assert.Equal("<secret:member-password>", entry.Actions[0].Value);
         Assert.Equal("Greeting <secret:member-password>", entry.Actions[1].Name);
+        Assert.Equal("example/<secret:member-password>", entry.RecordedBy);
+    }
+
+    /// <summary>Partial port of "omits an oversized recorded provider" and "omits an oversized recorded model": the port records one model name.</summary>
+    [Fact]
+    public void Omits_an_oversized_recorded_model_and_keeps_one_at_the_limit()
+    {
+        var recorder = MakeRecorder();
+        recorder.Record("tap", UpgradeButton);
+
+        var atLimit = recorder.Finalize(Step, "/settings", "/settings", [], [], recordedBy: new string('x', 300));
+        var oversized = recorder.Finalize(Step, "/settings", "/settings", [], [], recordedBy: new string('x', 301));
+
+        Assert.Equal(new string('x', 300), atLimit?.RecordedBy);
+        Assert.NotNull(oversized);
+        Assert.Null(oversized.RecordedBy);
+    }
+
+    /// <summary>Partial port of "omits blank recording identity": the port records one model name.</summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void Omits_a_blank_recording_identity(string recordedBy)
+    {
+        var recorder = MakeRecorder();
+        recorder.Record("tap", UpgradeButton);
+
+        Assert.Null(recorder.Finalize(Step, "/settings", "/settings", [], [], recordedBy: recordedBy)?.RecordedBy);
     }
 
     [Fact]

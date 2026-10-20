@@ -79,7 +79,7 @@ internal sealed class TraceRecorder(Func<Redactor> redactor)
     /// Concludes recording into the entry of <paramref name="step"/>, or null when nothing was recorded: a step that committed no
     /// actions has no flow worth replaying. The routes are already templated and redacted.
     /// </summary>
-    public CacheEntry? Finalize(CacheEntry step, string route, string endRoute, List<RecordedTarget> appeared, List<RecordedTarget> gone)
+    public CacheEntry? Finalize(CacheEntry step, string route, string endRoute, List<RecordedTarget> appeared, List<RecordedTarget> gone, string? recordedBy = null)
     {
         ArgumentNullException.ThrowIfNull(step);
         if (_actions.Count == 0)
@@ -89,6 +89,7 @@ internal sealed class TraceRecorder(Func<Redactor> redactor)
 
         var entry = new CacheEntry { Schema = step.Schema };
         entry.SetStep(step);
+        entry.RecordedBy = CacheEntry.ReadRecordedBy(recordedBy is null ? null : redactor().Redact(recordedBy));
         entry.Route = route;
         entry.EndRoute = endRoute;
         entry.Actions = [.. _actions];
