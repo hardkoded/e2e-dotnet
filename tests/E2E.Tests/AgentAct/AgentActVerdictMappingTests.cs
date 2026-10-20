@@ -355,14 +355,19 @@ public sealed class AgentActVerdictMappingTests
             var observation = await context.ObserveAsync();
             var password = TargetFor(observation.Text, "textbox \"Password\"");
             await context.Actions.TypeSecretAsync(password, "admin.password");
-            // Undeclared names are refused before any policy check runs.
+            // A secret the step never declared is refused before any policy check runs.
             try
             {
-                await context.Actions.TypeSecretAsync(password, "other");
+                await context.Actions.TypeSecretAsync(password, "stripe-key");
                 return Failed("undeclared secret was accepted");
             }
-            catch (AgentException)
+            catch (AgentException error)
             {
+                if (error.Code != "POLICY_DENIED" || !error.Message.Contains("was not declared in this step", StringComparison.Ordinal))
+                {
+                    return Failed($"unexpected refusal: {error.Code} {error.Message}");
+                }
+
                 return Passed("filled the declared secret only");
             }
         });

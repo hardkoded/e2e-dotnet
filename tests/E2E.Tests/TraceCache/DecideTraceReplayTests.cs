@@ -18,6 +18,7 @@ public sealed class DecideTraceReplayTests
     {
         var entry = Entry("/settings", Tap());
         Assert.Equal("replay", Decide.DecideTraceReplay(entry, "/settings").Action);
+        Assert.Equal("replay", Decide.DecideTraceReplay(Entry("/orders/42", Tap()), "/orders/43917#top").Action);
         foreach (var currentPath in new string?[] { "/other", null })
         {
             Assert.Equal(TraceReplayDecision.Miss("wrong-context"), Decide.DecideTraceReplay(entry, currentPath));

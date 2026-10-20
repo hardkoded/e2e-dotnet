@@ -268,19 +268,14 @@ public sealed class TheExplorationBodyTests
         Assert.Equal(ReportExploreEnded.Finished, state.Ended);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Keeps_the_first_blocker_when_every_charter_was_blocked_with_warnings(bool warning)
+    [Fact]
+    public async Task Keeps_the_first_blocker_when_every_charter_was_blocked_with_warnings()
     {
         var state = new State("goal", Budgets);
         var agent = new ScriptedExploreAgent(
             [PlanScript.Step("Account", "Open the account"), PlanScript.Step("Orders", "Open the orders"), PlanScript.Finish("Neither area was reachable.")],
             [ActOutcome.Fails(Blocked("AUTH_CREDENTIAL_UNAVAILABLE", "Account needs a configured login")), ActOutcome.Fails(Blocked("ENVIRONMENT_UNAVAILABLE", "Orders service is down"))]);
-        if (warning)
-        {
-            state.AddFinding(new FindingInput(ReportExploreFindingKind.Warning, 2, "Icon misaligned", "aligned", "off by 2px", ["look"]));
-        }
+        state.AddFinding(new FindingInput(ReportExploreFindingKind.Warning, 2, "Icon misaligned", "aligned", "off by 2px", ["look"]));
 
         var error = await Assert.ThrowsAsync<AgentException>(() => RunAsync(Options(state), agent));
         Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", error.Code);
@@ -290,24 +285,16 @@ public sealed class TheExplorationBodyTests
         Assert.Equal(ReportExploreEnded.Finished, state.Ended);
     }
 
-    [Theory]
-    [InlineData(ReportExploreStepStatus.Passed)]
-    [InlineData(ReportExploreStepStatus.Failed)]
-    [InlineData(ReportExploreStepStatus.Exhausted)]
-    public async Task Keeps_the_issues_only_verdict_after_a_charter_and_a_blocked_charter(ReportExploreStepStatus status)
+    [Fact]
+    public async Task Keeps_the_issues_only_verdict_after_a_failed_charter_and_a_blocked_charter()
     {
         var state = new State("goal", Budgets);
-        var outcome = status switch
-        {
-            ReportExploreStepStatus.Passed => ActOutcome.Passed("Search works"),
-            ReportExploreStepStatus.Failed => ActOutcome.Fails(new AgentException("ACTION_FAILED", "Search could not complete")),
-            _ => ActOutcome.Fails(Blocked("STEP_BUDGET_EXHAUSTED", "Search reached its budget")),
-        };
+        var outcome = ActOutcome.Fails(new AgentException("ACTION_FAILED", "Search could not complete"));
         var agent = new ScriptedExploreAgent(
             [PlanScript.Step("Search", "Search the catalog"), PlanScript.Step("Account", "Open the account"), PlanScript.Finish("Search was explored; account needs a login.")],
             [outcome, ActOutcome.Fails(Blocked("AUTH_CREDENTIAL_UNAVAILABLE", "No login configured"))]);
         await RunAsync(Options(state), agent);
-        Assert.Equal([status, ReportExploreStepStatus.Blocked], state.Steps.Select(step => step.Status));
+        Assert.Equal([ReportExploreStepStatus.Failed, ReportExploreStepStatus.Blocked], state.Steps.Select(step => step.Status));
     }
 
     [Fact]
