@@ -15,6 +15,10 @@ public sealed class SoftSuiteFixture : E2ETest
 
     private static readonly TimeSpan SoftTimeout = TimeSpan.FromMilliseconds(200);
 
+    // NUnit starts the CancelAfter timer before SetUp, so it also covers opening the page. ExpectSoftInARunTests warms
+    // the browser first, and this margin outlasts a page open on a loaded machine, or the timeout hits SetUp before the body runs.
+    private const int TimedOutBodyTimeoutMs = 5000;
+
     protected override E2EConfig Config => FixtureConfig;
 
     protected override string? BaseUrl => E2E.Playground.Testbed.Url;
@@ -42,7 +46,7 @@ public sealed class SoftSuiteFixture : E2ETest
     }
 
     [Test]
-    [CancelAfter(1500)]
+    [CancelAfter(TimedOutBodyTimeoutMs)]
     public async Task A_timed_out_body_still_settles_its_soft_failures()
     {
         await Expect.Soft(Screen.GetByLabel("Loads")).ToHaveTextAsync("the count", timeout: SoftTimeout);
