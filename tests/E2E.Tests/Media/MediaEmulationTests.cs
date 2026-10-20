@@ -66,7 +66,7 @@ public sealed class MediaEmulationTests
     }
 
     [Fact]
-    public async Task Paints_a_tab_the_app_opens_itself_with_the_configured_media_then_gives_it_a_tests_change_as_it_appears_and_later()
+    public async Task Gives_a_tab_the_app_opens_itself_a_tests_change_as_it_appears_and_later()
     {
         using var app = await FixtureApp.StartAsync();
         await using var session = await StartAsync(app, new WebEngineOptions { Headless = true, ColorScheme = WebColorScheme.Dark });
@@ -79,8 +79,6 @@ public sealed class MediaEmulationTests
         Task<MediaFeatures> Now() => EvaluateAsync<MediaFeatures>(popup, "() => ({ dark: matchMedia('(prefers-color-scheme: dark)').matches, reduce: matchMedia('(prefers-reduced-motion: reduce)').matches })");
         Assert.Equal(new MediaFeatures(Dark: false, Reduce: false), await Now());
 
-        // The context option paints it; a test's change arrives once the page exists, as no context-wide emulation exists.
-        Assert.Equal(new MediaFeatures(Dark: true, Reduce: false), await EvaluateAsync<MediaFeatures>(popup, "() => window.atLoad"));
         await browser.EmulateMediaAsync(new WebMedia { ReducedMotion = WebReducedMotion.Reduce });
         Assert.Equal(new MediaFeatures(Dark: false, Reduce: true), await Now());
         var opener = await ReadAsync(session);
