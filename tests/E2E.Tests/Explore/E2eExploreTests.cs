@@ -67,6 +67,23 @@ public sealed class E2eExploreTests
         Assert.Equal(3, Assert.Single(outcome.Explore.Findings).Severity);
     }
 
+    [Fact]
+    public async Task Surfaces_a_cancel_from_the_finding_tool_as_a_cancel_and_not_as_a_refused_observation()
+    {
+        var state = new E2E.ExploreState("goal", new ExploreBudgets(4, TimeSpan.FromMinutes(5)));
+        var tool = ExploreExecutor.WithFindingTool(new AgentOptions(), state).Tools![ExploreExecutor.FindingToolName];
+        var input = (JsonObject)JsonNode.Parse(JsonSerializer.Serialize(ExploreModel.CounterFinding()))!;
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => tool.ExecuteAsync(input, cts.Token));
+        Assert.Empty(state.Findings);
+
+        // Without a cancel, the same refusal leaves the finding standing without its evidence.
+        await tool.ExecuteAsync(input, CancellationToken.None);
+        Assert.Single(state.Findings);
+    }
+
     // Upstream also reads the report: its schema, the artifact record behind the evidence and the step that produced it, the
     // attempt's timeline, the observation revision, and report.json. The port keeps the record in the outcome and the evidence as a file.
     [Fact]
