@@ -38,38 +38,37 @@ public sealed class Trace1EntryTests
         return new FileStepCache(directory).Read(Key);
     }
 
-    private static string RecordedByJson(string provider, string model) =>
-        "{\"actions\":[{\"kind\":\"back\"}],\"route\":\"/\",\"endRoute\":\"/\",\"recordedBy\":{\"provider\":\"" + provider + "\",\"model\":\"" + model + "\"}}";
+    private static CacheLookup ReadRecordedBy(string recordedBy) =>
+        ReadJson("{\"actions\":[{\"kind\":\"back\"}],\"route\":\"/\",\"endRoute\":\"/\",\"recordedBy\":" + recordedBy + "}");
 
     /// <summary>
-    /// Port of "bounds recorded %s without losing the hit". An oversized recorded model reads as absent, and the entry still reads.
-    /// Difference: the port's <c>provider</c> is optional.
+    /// Port of "bounds recorded %s without losing the hit". An oversized recorded model reads as absent and the entry still reads.
+    /// Difference: the port records one string, <c>IAgentModel.Name</c>, so there is one case, not one per field.
     /// </summary>
-    [Theory]
-    [InlineData("provider")]
-    [InlineData("model")]
-    public void Bounds_a_recorded_model_field_without_losing_the_hit(string field)
+    [Fact]
+    public void Bounds_the_recorded_model_without_losing_the_hit()
     {
-        string Json(int length) => RecordedByJson(field == "provider" ? new string('x', length) : "test", field == "model" ? new string('x', length) : "A");
+        var atLimit = ReadRecordedBy("\"" + new string('x', 300) + "\"");
+        var oversized = ReadRecordedBy("\"" + new string('x', 301) + "\"");
 
-        Assert.NotNull(ReadJson(Json(300)).Entry!.RecordedBy);
-        var oversized = ReadJson(Json(301));
+        Assert.Equal(new string('x', 300), CacheEntry.ReadRecordedBy(atLimit.Entry!.RecordedBy));
         Assert.NotNull(oversized.Entry);
-        Assert.Null(oversized.Entry.RecordedBy);
+        Assert.Null(CacheEntry.ReadRecordedBy(oversized.Entry.RecordedBy));
     }
 
-    /// <summary>Port of "ignores blank recording identity %j without losing the hit".</summary>
+    /// <summary>Port of "ignores blank recording identity %j without losing the hit". A value that is not a string reads as absent too.</summary>
     [Theory]
-    [InlineData("", "A")]
-    [InlineData("test", "")]
-    [InlineData(" ", "A")]
-    [InlineData("test", "  ")]
-    public void Ignores_a_blank_recording_identity_without_losing_the_hit(string provider, string model)
+    [InlineData("\"\"")]
+    [InlineData("\"  \"")]
+    [InlineData("1")]
+    [InlineData("null")]
+    [InlineData("{\"provider\":\"test\",\"model\":\"A\"}")]
+    public void Ignores_a_blank_or_malformed_recording_identity_without_losing_the_hit(string recordedBy)
     {
-        var read = ReadJson(RecordedByJson(provider, model));
+        var read = ReadRecordedBy(recordedBy);
 
         Assert.NotNull(read.Entry);
-        Assert.Null(read.Entry.RecordedBy);
+        Assert.Null(CacheEntry.ReadRecordedBy(read.Entry.RecordedBy));
     }
 
     /// <summary>

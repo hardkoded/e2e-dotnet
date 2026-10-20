@@ -300,11 +300,6 @@ call. A second refusal, or a first one with nothing to shrink, is
 
 ## The replay cache
 
-Replay results expose the original model as `ActResult.Cache.RecordedBy`
-(`Model`, and `Provider` when known) when the entry has it; older recordings
-omit it. A new model does not miss the cache, so set `"cache": { "mode":
-"off" }` to evaluate it.
-
 A passing `ActAsync` saves its actions once a later check verifies the
 outcome. The next run replays them with no model call, and the live agent
 continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
@@ -340,6 +335,18 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   still, so a late render still counts. One whose `Values.Unique` value
   equals another param's value is not recorded either
   (`ActResult.Cache.NotRecorded`: `param-collision`).
+- An entry records the agent's configured model (`IAgentModel.Name`, provider
+  and model id together) as `recordedBy`. A step that replays it reports it as
+  `ActResult.Cache.RecordedBy`, null for an older entry or an agent with no
+  configured model. Changing the model still hits the entry. To judge a new
+  model, record again without the cache.
+- The trace page tells what became of a step's recording once the attempt
+  ended: `recording saved`, `recording kept`, `recording not saved: no check
+  passed after this step` (follow the step with an assertion), `recording
+  deleted ...` (its replay ended in a failure or a repair, or no check
+  confirmed it), `nothing recorded: the step changed nothing a replay could
+  check`, or `recording not saved: the cache store did not write it`. It also
+  says `recorded with <model>` for a replayed step.
 - Only the first attempt replays. A `[Retry]` attempt runs live and still
   records.
 - Commit `.e2e/cache/` to share replays with CI and teammates.

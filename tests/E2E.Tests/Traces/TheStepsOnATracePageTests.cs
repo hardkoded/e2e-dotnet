@@ -25,6 +25,25 @@ public sealed class TheStepsOnATracePageTests : TracePageKit
         Assert.Equal(["expect gave up after 50 reads in 5.0s: text \"$10\" (1 match) x50"], StepLines(page.Text, 2));
     }
 
+    /// <summary>.NET-only: upstream's fixture carries no <c>recordedBy</c>, so no <c>it</c> of its page tests names the model line.</summary>
+    [Fact]
+    public async Task Name_the_model_that_recorded_a_replayed_step_and_what_became_of_its_recording()
+    {
+        var step = Step(
+            0,
+            StepKind.Agent,
+            "agent.act",
+            "add the coupon",
+            cache: new CacheInfo { Mode = "self-finalized", ReplayedActions = 2, TotalActions = 2, Entry = Entry, RecordedBy = "fake-loop/model-A" },
+            cacheWrite: CacheWrite.Kept);
+
+        var page = Assert.Single(await PagesOfAsync(Result(id: "cccccccc33", status: ResultStatus.Failed, attempts: [Attempt(AttemptStatus.Failed, steps: [step])])));
+
+        Assert.Equal(
+            [$"cache: replayed all 2 recorded actions, no model call; recorded with `fake-loop/model-A`; recording kept (`.e2e/cache/{Entry}.json`)"],
+            StepLines(page.Text, 1));
+    }
+
     [Fact]
     public async Task Leave_out_a_poll_that_passed_on_its_first_read_and_name_a_failed_action_with_its_code()
     {

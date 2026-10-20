@@ -1002,8 +1002,11 @@ public sealed class CacheInfo
     /// <summary>The step's cache key, which names its entry file (<c>&lt;directory&gt;/&lt;entry&gt;.json</c> in a <see cref="FileStepCache"/>).</summary>
     public string? Entry { get; init; }
 
-    /// <summary>The configured model when the consulted entry was recorded. Null on an older entry, or when none was configured.</summary>
-    public RecordedModel? RecordedBy { get; init; }
+    /// <summary>The configured model that recorded the entry a step replayed, as <see cref="IAgentModel.Name"/> spells it. Null for a step that read no entry, and for an entry with no attribution.</summary>
+    public string? RecordedBy { get; init; }
+
+    internal CacheInfo WithRecordedBy(string recordedBy) =>
+        new() { Mode = Mode, Reason = Reason, ReplayedActions = ReplayedActions, TotalActions = TotalActions, Detail = Detail, NotRecorded = NotRecorded, Entry = Entry, RecordedBy = recordedBy };
 }
 
 /// <summary>The vision hint a judgment made from the tree alone carries, so the failing test names the remedy where it is read.</summary>
@@ -1336,6 +1339,12 @@ internal sealed class PendingAct
 
     /// <summary>The step this act is, as an entry records it. Null only in tests that build an act by hand.</summary>
     public CacheEntry? Step { get; init; }
+
+    /// <summary>The step's index among the attempt's steps, where the settlement reports what became of its recording. Null when no step was running.</summary>
+    public int? StepIndex { get; init; }
+
+    /// <summary>What the step itself decided about its recording, which the settlement only reports: an eviction after a repair, or a step that changed nothing.</summary>
+    public CacheWrite? Decided { get; set; }
 
     public bool Completed { get; set; }
 

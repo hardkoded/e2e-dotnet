@@ -77,9 +77,9 @@ internal sealed class TraceRecorder(Func<Redactor> redactor)
 
     /// <summary>
     /// Concludes recording into the entry of <paramref name="step"/>, or null when nothing was recorded: a step that committed no
-    /// actions has no flow worth replaying. The routes are already templated and redacted. <paramref name="recordedBy"/> is the configured model, kept when it survives redaction whole.
+    /// actions has no flow worth replaying. The routes are already templated and redacted.
     /// </summary>
-    public CacheEntry? Finalize(CacheEntry step, string route, string endRoute, List<RecordedTarget> appeared, List<RecordedTarget> gone, RecordedModel? recordedBy = null)
+    public CacheEntry? Finalize(CacheEntry step, string route, string endRoute, List<RecordedTarget> appeared, List<RecordedTarget> gone, string? recordedBy = null)
     {
         ArgumentNullException.ThrowIfNull(step);
         if (_actions.Count == 0)
@@ -89,25 +89,13 @@ internal sealed class TraceRecorder(Func<Redactor> redactor)
 
         var entry = new CacheEntry { Schema = step.Schema };
         entry.SetStep(step);
-        entry.RecordedBy = RedactedModel(recordedBy);
+        entry.RecordedBy = CacheEntry.ReadRecordedBy(recordedBy is null ? null : redactor().Redact(recordedBy));
         entry.Route = route;
         entry.EndRoute = endRoute;
         entry.Actions = [.. _actions];
         entry.Appeared = appeared;
         entry.Gone = gone;
         return entry;
-    }
-
-    // The model's name passes through the redactor like any recorded string; one that cannot be kept whole is left off.
-    private RecordedModel? RedactedModel(RecordedModel? source)
-    {
-        if (source is null)
-        {
-            return null;
-        }
-
-        var redact = redactor();
-        return TraceFields.ReadRecordedModel(source.Provider is null ? null : redact.Redact(source.Provider), redact.Redact(source.Model), TraceFields.MaxDescriptorChars);
     }
 
     /// <summary>

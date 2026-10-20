@@ -2,14 +2,12 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-namespace E2E.Tests;
+namespace E2E.Tests.CacheModelProvenance;
 
-/// <summary>A scripted model that names itself <paramref name="name"/>, for a test that tells recordings by the model behind them.</summary>
-internal sealed class NamedModel(string name, ScriptedModel inner) : IAgentModel
+/// <summary>Upstream's <c>{ ...model, modelId }</c> of <c>counterModel</c>: a model that answers as <paramref name="inner"/> does under another name.</summary>
+internal sealed class NamedModel(IAgentModel inner, string name) : IAgentModel
 {
     public string Name => name;
-
-    public int CallCount => inner.CallCount;
 
     public Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken cancellationToken) => inner.CompleteAsync(request, cancellationToken);
 }

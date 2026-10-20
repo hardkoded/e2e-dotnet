@@ -39,8 +39,8 @@ internal sealed record ClaimedKey(string Key, CacheEntry Step);
 
 /// <summary>
 /// Upstream's <c>StepCacheOptions</c>, with the cache context (<c>AgentCacheContext</c>) it holds folded in: the store, the
-/// mode, and the claimed key. The port has no params templates, redaction functions, executor, or step index to pass: its
-/// act reads params as they are, redacts through the host, and does not record who ran the step.
+/// mode, and the claimed key. The port has no params templates, redaction functions, or executor to pass: its
+/// act reads params as they are, redacts through the host, and records the agent's configured model, not the executor.
 /// </summary>
 internal sealed class StepCacheOptions
 {
@@ -56,6 +56,9 @@ internal sealed class StepCacheOptions
     public bool ReplayEligible { get; init; }
 
     public required ClaimedKey Claim { get; init; }
+
+    /// <summary>The step's index among the attempt's steps. Null when no step is running.</summary>
+    public int? StepIndex { get; init; }
 
     public required string Instruction { get; init; }
 
@@ -78,7 +81,8 @@ internal sealed class StepTraceSession
     private readonly StepCacheOptions _options;
     private readonly TraceRecorder _recorder;
     private CacheInfo? _info;
-    private RecordedModel? _recordedBy;
+    private string? _recordedBy;
+    private bool _changedNothing;
     private ReplayedPrefix? _prefix;
     private Observation? _start;
     private CacheEntry? _wholeReplay;
@@ -94,6 +98,7 @@ internal sealed class StepTraceSession
             Key = options.Claim.Key,
             ParamCollision = CacheKeys.Collides(options.Params),
             Step = options.Claim.Step,
+            StepIndex = options.StepIndex,
         };
     }
 
@@ -104,9 +109,7 @@ internal sealed class StepTraceSession
     public Observation? Start => _start;
 
     /// <summary>How the cache participated, for the step's report detail.</summary>
-    public CacheInfo? CacheInfo => _info is null || _recordedBy is null
-        ? _info
-        : new CacheInfo { Mode = _info.Mode, Reason = _info.Reason, ReplayedActions = _info.ReplayedActions, TotalActions = _info.TotalActions, Detail = _info.Detail, NotRecorded = _info.NotRecorded, Entry = _info.Entry, RecordedBy = _recordedBy };
+    public CacheInfo? CacheInfo => _info is null || _recordedBy is null ? _info : _info.WithRecordedBy(_recordedBy);
 
     /// <summary>The mid-step hand-off, when a replay diverged after real progress.</summary>
     public ReplayedPrefix? ReplayedPrefix => _prefix;
@@ -186,7 +189,7 @@ internal sealed class StepTraceSession
     /// proven not to produce it. A step that failed or had no verdict stages nothing; the attempt's settlement evicts what a
     /// failed step consumed, and spares it when nothing judged the app.
     /// </summary>
-    public async Task ConcludeAsync(StepOutcome outcome, RecordedModel? recordedBy = null)
+    public async Task ConcludeAsync(StepOutcome outcome, string? recordedBy = null)
     {
         if (outcome != StepOutcome.Passed)
         {
@@ -206,6 +209,7 @@ internal sealed class StepTraceSession
             if (_options.Write)
             {
                 _options.Cache.Delete(Pending.Key);
+                Pending.Decided = CacheWrite.Evicted;
             }
 
             return;
@@ -214,7 +218,13 @@ internal sealed class StepTraceSession
         Pending.Completed = true;
         // Only a cache that writes keeps the recording, so only it waits for the screen to settle: after the last action's
         // change, held still. A step that took no action has nothing to record.
-        Pending.Entry = _options.Write && _start is not null && _recorder.RecordedCount > 0 ? await StageAsync(recordedBy).ConfigureAwait(false) : null;
+        Pending.Entry = _options.Write && _start is not null && _recorder.RecordedCount > 0 ? await StageAsync(CacheEntry.ReadRecordedBy(recordedBy)).ConfigureAwait(false) : null;
+        if (_changedNothing && !Pending.ReadEntry)
+        {
+            // A step that read an entry and recorded nothing evicts it at the settlement instead.
+            Pending.Decided = CacheWrite.NoChange;
+        }
+
         if (_info is not null && Pending.ParamCollision && Pending.Entry is not null)
         {
             // The recording cannot be templated safely, so it is not written, and the result says why.
@@ -288,7 +298,7 @@ internal sealed class StepTraceSession
     private async Task<StepVerdict?> ReplayEntryAsync(CacheEntry entry)
     {
         Pending.RecordedActions = entry.Actions.Count;
-        _recordedBy = entry.RecordedBy;
+        _recordedBy = CacheEntry.ReadRecordedBy(entry.RecordedBy);
         if (Decide.DecideTraceReplay(entry, _start?.Route, _options.Params) is { Reason: { } missReason })
         {
             _info = Missed(missReason, entry.Actions.Count);
@@ -413,7 +423,7 @@ internal sealed class StepTraceSession
     }
 
     // The cache is disposable: a passing step whose end screen cannot be read records nothing, and still passes.
-    private async Task<CacheEntry?> StageAsync(RecordedModel? recordedBy)
+    private async Task<CacheEntry?> StageAsync(string? recordedBy)
     {
         var end = await ProbeAsync(SettleMode.HeldStill).ConfigureAwait(false);
         return end is null ? null : BuildEntry(_host.FirstActedOn ?? _start!, end, recordedBy);
@@ -421,12 +431,13 @@ internal sealed class StepTraceSession
 
     // A step that changed nothing a replay could check, no node and no route, records nothing:
     // its recording would replay on mechanics alone.
-    private CacheEntry? BuildEntry(Observation baseline, Observation end, RecordedModel? recordedBy)
+    private CacheEntry? BuildEntry(Observation baseline, Observation end, string? recordedBy)
     {
         var routeMoved = !CacheRoute.Same(baseline.Route, end.Route);
         var (appeared, gone) = Anchors.Describe(Project(baseline), Project(end), routeMoved);
         if (appeared.Count == 0 && gone.Count == 0 && !routeMoved)
         {
+            _changedNothing = true;
             return null;
         }
 

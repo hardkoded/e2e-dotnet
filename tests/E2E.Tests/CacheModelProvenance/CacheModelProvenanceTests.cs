@@ -4,7 +4,6 @@
 
 using System.Text.Json.Nodes;
 using E2E.Engine;
-using E2E.Internal;
 using E2E.Tests.AgentAct;
 using E2E.Tests.AgentTraceCache;
 using static E2E.Tests.AgentAct.ExecutorKit;
@@ -12,54 +11,40 @@ using static E2E.Tests.AgentAct.ExecutorKit;
 namespace E2E.Tests.CacheModelProvenance;
 
 /// <summary>
-/// Upstream's <c>tests/integration/cache-model-provenance.test.ts</c>, driven through a session over the document engine with the
-/// scripted two-tap model. Not ported: the <c>ListReporter</c> line <c>replayed · recorded with ...</c> the first test also checks,
-/// since the port has no list reporter, and its <c>assertValidReport</c> calls, since the port has no <c>report.json</c>. A model
-/// names itself in <see cref="IAgentModel.Name"/> alone, so a recording carries no provider and the label is the model id.
+/// Upstream's <c>cache-model-provenance.test.ts</c>. The port names a model by <see cref="IAgentModel.Name"/>, which spells provider
+/// and model id together, so an entry records one <c>recordedBy</c> string, and a malformed provider or model is a malformed string.
+/// The tests run a session and read the step records: the port has no list reporter, no report schema, and no project run with
+/// <c>trace: 'on'</c>, so the "recorded with" line of the list and of the trace page is not checked here. The page line is checked in
+/// <c>TheStepsOnATracePageTests</c>.
 /// </summary>
 public sealed class CacheModelProvenanceTests
 {
     private const string Title = "model provenance";
 
-    private static Task<E2ESession> StartAsync(string directory, string results, IAgentModel model, bool strict) =>
+    private const string Source = "fake-loop/model-A";
+
+    private static Task<E2ESession> StartAsync(string directory, IAgentModel? model = null, IStepExecutor? executor = null) =>
         E2ESession.StartAsync(new E2ESessionOptions
         {
             Engine = new DocumentEngine(CounterPage.World()),
             Model = model,
+            AgentExecutor = executor,
             BaseUrl = "https://counter.test",
             Cache = new FileStepCache(directory),
             CacheEnabled = true,
             CacheMode = CacheMode.ReadWrite,
-            CacheStrict = strict,
             TestTitle = Title,
             ActionTimeout = TimeSpan.FromMilliseconds(300),
             ReplayTimeout = TimeSpan.FromMilliseconds(300),
-            ProjectRoot = results,
-            ResultsDirectory = results,
-            Trace = new ResolvedRecording(RecordingMode.On, RecordingSource.Target),
         });
 
-    private static NamedModel CounterModel(string name) => new(name, TwoTapCounter.Model());
-
-    private static string NewResults() => Path.Combine(Path.GetTempPath(), "e2e-provenance", Guid.NewGuid().ToString("n"));
-
-    /// <summary>Records the two-tap step with a model named <c>model-A</c> and returns the entry file.</summary>
-    private static async Task<string> RecordAsync(string directory, string results)
+    private static async Task<StepRecord> RunAsync(E2ESession session)
     {
-        await using (var session = await StartAsync(directory, results, CounterModel("model-A"), strict: false))
-        {
-            await TwoTapCounter.RunAsync(session);
-            session.Complete();
-        }
-
-        return Directory.GetFiles(directory).Single();
-    }
-
-    private static async Task RewriteAsync(string file, Action<JsonObject> change)
-    {
-        var document = JsonNode.Parse(await File.ReadAllTextAsync(file))!.AsObject();
-        change(document);
-        await File.WriteAllTextAsync(file, document.ToJsonString());
+        await session.App.OpenAsync("/");
+        await session.Agent.ActAsync(TwoTapCounter.Instruction);
+        await Expect.That(session.Screen.GetByRole("status", "Counter")).ToHaveTextAsync("2");
+        session.Complete();
+        return Assert.Single(session.Steps, step => step.Api == "agent.act");
     }
 
     [Theory]
@@ -68,76 +53,50 @@ public sealed class CacheModelProvenanceTests
     [InlineData("legacy")]
     [InlineData("null")]
     [InlineData("invalid-model")]
-    [InlineData("missing-model")]
-    [InlineData("invalid-provider")]
     [InlineData("blank-model")]
-    [InlineData("oversized-provider")]
     [InlineData("oversized-model")]
     public async Task Reports_recording_attribution_without_changing_replay(string mode)
     {
         var directory = TwoTapCounter.NewDirectory();
-        var results = NewResults();
-        var file = await RecordAsync(directory, results);
-        Assert.Equal("model-A", TwoTapCounter.OnlyEntry(directory).RecordedBy?.Label);
+        await using (var recording = await StartAsync(directory, new NamedModel(TwoTapCounter.Model(), Source)))
+        {
+            await RunAsync(recording);
+        }
+
+        var file = Assert.Single(BillingSession.Entries(directory));
+        var entry = JsonNode.Parse(await File.ReadAllTextAsync(file))!.AsObject();
+        Assert.Equal(Source, (string?)entry["recordedBy"]);
         var known = mode is "same" or "different";
         if (!known)
         {
-            await RewriteAsync(file, document =>
+            entry.Remove("recordedBy");
+            if (mode != "legacy")
             {
-                document.Remove("recordedBy");
-                JsonNode? invalid = mode switch
+                entry["recordedBy"] = mode switch
                 {
-                    "legacy" => null,
                     "null" => null,
-                    "invalid-model" => new JsonObject { ["provider"] = "test", ["model"] = 1 },
-                    "missing-model" => new JsonObject { ["provider"] = "test" },
-                    "invalid-provider" => new JsonObject { ["provider"] = 1, ["model"] = "A" },
-                    "blank-model" => new JsonObject { ["provider"] = "test", ["model"] = " " },
-                    "oversized-provider" => new JsonObject { ["provider"] = new string('x', 301), ["model"] = "A" },
-                    _ => new JsonObject { ["provider"] = "test", ["model"] = new string('x', 301) },
+                    "invalid-model" => (JsonNode)1,
+                    "blank-model" => " ",
+                    _ => new string('x', 301),
                 };
-                if (mode != "legacy")
-                {
-                    document["recordedBy"] = invalid;
-                }
-            });
+            }
+
+            await File.WriteAllTextAsync(file, entry.ToJsonString());
         }
 
         var before = await File.ReadAllTextAsync(file);
-        var replayer = CounterModel(mode == "same" ? "model-A" : "model-B");
-        ActResult replayed;
-        await using (var session = await StartAsync(directory, results, replayer, strict: true))
+        var replay = TwoTapCounter.Model();
+        StepRecord step;
+        await using (var replaying = await StartAsync(directory, new NamedModel(replay, mode == "same" ? Source : "fake-loop/model-B")))
         {
-            replayed = await TwoTapCounter.RunAsync(session);
-            session.Complete();
+            step = await RunAsync(replaying);
         }
 
-        Assert.Equal(0, replayer.CallCount);
-        Assert.Equal("self-finalized", replayed.Cache?.Mode);
-        Assert.Equal(known ? "model-A" : null, replayed.Cache?.RecordedBy?.Label);
-        Assert.Equal(0, replayed.ModelCalls);
+        Assert.Equal(0, replay.CallCount);
+        Assert.Equal("self-finalized", step.Cache?.Mode);
+        Assert.Equal(known ? Source : null, step.Cache?.RecordedBy);
+        Assert.Null(step.Model);
         Assert.Equal(before, await File.ReadAllTextAsync(file));
-        var page = await File.ReadAllTextAsync(Path.Combine(results, ScreenshotAssertion.Slug(Title, 100, "test"), "trace.md"));
-        Assert.Equal(known, page.Contains("recorded with `model-A`", StringComparison.Ordinal));
-    }
-
-    /// <summary>
-    /// Not upstream's: upstream reads a missing provider as a malformed identity. A port model names itself in one field, so a
-    /// recording of the model alone is whole.
-    /// </summary>
-    [Fact]
-    public async Task Keeps_a_recording_that_names_the_model_alone()
-    {
-        var directory = TwoTapCounter.NewDirectory();
-        var results = NewResults();
-        var file = await RecordAsync(directory, results);
-        await RewriteAsync(file, document => document["recordedBy"] = new JsonObject { ["model"] = "test" });
-
-        await using var session = await StartAsync(directory, results, CounterModel("model-B"), strict: true);
-        var replayed = await TwoTapCounter.RunAsync(session);
-        session.Complete();
-
-        Assert.Equal("test", replayed.Cache?.RecordedBy?.Label);
     }
 
     [Theory]
@@ -150,46 +109,33 @@ public sealed class CacheModelProvenanceTests
         var executor = new TestExecutor("mixed-model", async (context, token) =>
         {
             calls++;
-            context.Budgets.RecordModelCall(configured ? new ExecutorModelCall { Provider = "fake-loop", ModelId = "text-model" } : null);
-            var observed = await context.ObserveAsync(cancellationToken: token);
-            var target = TargetFor(observed.Text, "button \"Increment\"");
+            var observation = await context.ObserveAsync();
+            var target = TargetFor(observation.Text, "button \"Increment\"");
             await context.Actions.TapAsync(target, token);
             await context.Actions.TapAsync(target, token);
-            context.Budgets.RecordModelCall(configured ? new ExecutorModelCall { Provider = "decision-provider", ModelId = "decision-model" } : null);
             return Passed("the counter shows 2");
         })
         {
             Version = "1",
-            Model = configured ? CounterModel("text-model") : null,
+            Model = configured ? new NamedModel(TwoTapCounter.Model(), "fake-loop/text-model") : null,
         };
-        Task<E2ESession> Start() => E2ESession.StartAsync(new E2ESessionOptions
+        await using (var recording = await StartAsync(directory, executor: executor))
         {
-            Engine = new DocumentEngine(CounterPage.World()),
-            AgentExecutor = executor,
-            BaseUrl = "https://counter.test",
-            Cache = new FileStepCache(directory),
-            CacheEnabled = true,
-            CacheMode = CacheMode.ReadWrite,
-            TestTitle = Title,
-        });
-
-        await using (var session = await Start())
-        {
-            await TwoTapCounter.RunAsync(session);
-            var model = session.Steps.Single(step => step.Api == "agent.act").Model;
-            Assert.Equal(2, model?.Calls);
-            Assert.Equal(configured ? ("decision-provider", "decision-model") : (null, null), (model?.Provider, model?.Model));
-            session.Complete();
+            await RunAsync(recording);
         }
 
-        var recorded = TwoTapCounter.OnlyEntry(directory).RecordedBy;
-        Assert.Equal(configured ? "text-model" : null, recorded?.Label);
-        await using (var session = await Start())
+        var file = Assert.Single(BillingSession.Entries(directory));
+        var entry = JsonNode.Parse(await File.ReadAllTextAsync(file))!.AsObject();
+        var expected = configured ? "fake-loop/text-model" : null;
+        Assert.Equal(expected, (string?)entry["recordedBy"]);
+
+        StepRecord replayed;
+        await using (var replaying = await StartAsync(directory, executor: executor))
         {
-            var replayed = await TwoTapCounter.RunAsync(session);
-            session.Complete();
-            Assert.Equal(1, calls);
-            Assert.Equal(recorded?.Label, replayed.Cache?.RecordedBy?.Label);
+            replayed = await RunAsync(replaying);
         }
+
+        Assert.Equal(1, calls);
+        Assert.Equal(expected, replayed.Cache?.RecordedBy);
     }
 }

@@ -40,9 +40,12 @@ public sealed class CacheEntry
     /// <summary>Name of the configured agent the step ran with. A secret value in it is masked.</summary>
     public string? Agent { get; set; }
 
-    /// <summary>The configured model when the entry was recorded. Null on an older entry, or when no model was configured.</summary>
-    [JsonConverter(typeof(RecordedModelConverter))]
-    public RecordedModel? RecordedBy { get; set; }
+    /// <summary>
+    /// The configured model that recorded the step, as <see cref="IAgentModel.Name"/> spells it (provider and model id together).
+    /// Null on an entry recorded before it was stored, or by an agent with no configured model. It never keys the entry.
+    /// </summary>
+    [JsonConverter(typeof(OptionalTextConverter))]
+    public string? RecordedBy { get; set; }
 
     public string? Route { get; set; }
 
@@ -56,6 +59,15 @@ public sealed class CacheEntry
     /// <summary>Nodes on screen when the step began and gone when it passed.</summary>
     public List<RecordedTarget> Gone { get; set; } = [];
 
+    private const int MaxRecordedByChars = 300;
+
+    /// <summary>
+    /// Upstream's <c>readRecordedModel</c>: the model attribution when it is nonblank text within its budget, else null. A malformed
+    /// attribution never makes a recording unreadable.
+    /// </summary>
+    internal static string? ReadRecordedBy(string? value) =>
+        string.IsNullOrWhiteSpace(value) || value.Length > MaxRecordedByChars ? null : value;
+
     /// <summary>Sets the fields that name the step this entry is recorded for, from <paramref name="step"/>.</summary>
     internal void SetStep(CacheEntry step)
     {
@@ -66,6 +78,23 @@ public sealed class CacheEntry
         CallIndex = step.CallIndex;
         Agent = step.Agent;
     }
+}
+
+/// <summary>Reads a string and takes any other JSON value for no text, so a malformed optional field never makes a recording unreadable.</summary>
+internal sealed class OptionalTextConverter : JsonConverter<string>
+{
+    public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            return reader.GetString();
+        }
+
+        reader.Skip();
+        return null;
+    }
+
+    public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options) => writer.WriteStringValue(value);
 }
 
 public sealed class RecordedAction

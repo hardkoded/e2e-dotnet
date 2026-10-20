@@ -18,7 +18,8 @@ namespace E2E.Tests.TraceRecorder;
 /// "masks a secret resolved after capture in the container the node sat within", "poisons the trace instead of bending a replay
 /// input", "keeps the smallest coverage when folding scrolls, and none when a repeat lacks one", "truncates past the action cap
 /// instead of dropping the flag", "rejects a stored check, upload, or drag that lost a field", and every it of "TraceRecorder:
-/// bare-point taps". Parts of ported its that need one of those features are named on each test.
+/// bare-point taps". The recorded model is one string, the model's <see cref="IAgentModel.Name"/>, where upstream's is a provider
+/// and a model: its two oversized cases and its blank cases are one theory each. Parts of ported its that need one of those features are named on each test.
 /// </summary>
 public sealed class TraceRecorderTests
 {
@@ -43,33 +44,6 @@ public sealed class TraceRecorderTests
         var store = new FileStepCache(CoreTests.TempCache());
         store.Write("abc123", entry);
         return Assert.IsType<CacheEntry>(store.Read("abc123").Entry);
-    }
-
-    /// <summary>Port of "omits an oversized recorded %s". Difference: the port's <c>provider</c> is optional.</summary>
-    [Theory]
-    [InlineData("provider")]
-    [InlineData("model")]
-    public void Omits_an_oversized_recorded_model_field(string field)
-    {
-        var recorder = MakeRecorder();
-        recorder.Record("tap", UpgradeButton);
-
-        var entry = recorder.Finalize(Step, "/", "/", [], [], new RecordedModel { Provider = field == "provider" ? new string('x', 301) : "test", Model = field == "model" ? new string('x', 301) : "A" });
-
-        Assert.NotNull(entry);
-        Assert.Null(entry.RecordedBy);
-    }
-
-    /// <summary>Port of "omits blank recording identity %j".</summary>
-    [Theory]
-    [InlineData("", "A")]
-    [InlineData("test", "  ")]
-    public void Omits_a_blank_recording_identity(string provider, string model)
-    {
-        var recorder = MakeRecorder();
-        recorder.Record("tap", UpgradeButton);
-
-        Assert.Null(recorder.Finalize(Step, "/", "/", [], [], new RecordedModel { Provider = provider, Model = model })?.RecordedBy);
     }
 
     /// <summary>Partial port of "records durable descriptors and readable summaries": the port keeps no summary and no CSS selector.</summary>
@@ -111,14 +85,41 @@ public sealed class TraceRecorderTests
         recorder.Record("fill", PasswordField, value: "<secret:member-password>");
         recorder.Record("tap", new SemanticNode { Ref = "n42", Role = "button", Name = "Greeting hunter2", TestId = "upgrade-cta" });
 
-        var entry = recorder.Finalize(Step, "/settings", "/settings", [], [], new RecordedModel { Provider = "example", Model = "hunter2" })!;
+        var entry = recorder.Finalize(Step, "/settings", "/settings", [], [], recordedBy: "example/hunter2")!;
 
-        Assert.Equal("example/<secret:member-password>", entry.RecordedBy?.Label);
         var serialized = JsonSerializer.Serialize(entry, Relaxed);
         Assert.DoesNotContain("hunter2", serialized, StringComparison.Ordinal);
         Assert.Contains("<secret:member-password>", serialized, StringComparison.Ordinal);
         Assert.Equal("<secret:member-password>", entry.Actions[0].Value);
         Assert.Equal("Greeting <secret:member-password>", entry.Actions[1].Name);
+        Assert.Equal("example/<secret:member-password>", entry.RecordedBy);
+    }
+
+    /// <summary>Partial port of "omits an oversized recorded provider" and "omits an oversized recorded model": the port records one model name.</summary>
+    [Fact]
+    public void Omits_an_oversized_recorded_model_and_keeps_one_at_the_limit()
+    {
+        var recorder = MakeRecorder();
+        recorder.Record("tap", UpgradeButton);
+
+        var atLimit = recorder.Finalize(Step, "/settings", "/settings", [], [], recordedBy: new string('x', 300));
+        var oversized = recorder.Finalize(Step, "/settings", "/settings", [], [], recordedBy: new string('x', 301));
+
+        Assert.Equal(new string('x', 300), atLimit?.RecordedBy);
+        Assert.NotNull(oversized);
+        Assert.Null(oversized.RecordedBy);
+    }
+
+    /// <summary>Partial port of "omits blank recording identity": the port records one model name.</summary>
+    [Theory]
+    [InlineData("")]
+    [InlineData("  ")]
+    public void Omits_a_blank_recording_identity(string recordedBy)
+    {
+        var recorder = MakeRecorder();
+        recorder.Record("tap", UpgradeButton);
+
+        Assert.Null(recorder.Finalize(Step, "/settings", "/settings", [], [], recordedBy: recordedBy)?.RecordedBy);
     }
 
     [Fact]

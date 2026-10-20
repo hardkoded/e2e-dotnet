@@ -161,6 +161,7 @@ public sealed partial class Agent
                         Strict = _scope.CacheStrict,
                         ReplayEligible = _scope.ReplayEligible,
                         Claim = new ClaimedKey(key, Provenance(instruction, spec.Params, callIndex, agent.Name)),
+                        StepIndex = _scope.Steps.CurrentStepIndex,
                         Instruction = instruction,
                         Params = spec.Params,
                         Recorder = budget.Recorder,
@@ -224,7 +225,7 @@ public sealed partial class Agent
 
             if (session is not null)
             {
-                await session.ConcludeAsync(StepOutcome.Passed, ConfiguredModel(agent)).ConfigureAwait(false);
+                await session.ConcludeAsync(StepOutcome.Passed, agent.Model?.Name).ConfigureAwait(false);
             }
 
             return new ActResult { Summary = summary, Cache = session?.CacheInfo, ModelCalls = budget.ModelCalls, Actions = budget.Used };
@@ -456,10 +457,6 @@ public sealed partial class Agent
         var failure = code is not null && StepExecutors.AgentCodes.Contains(code) ? code : spec.Kind == ExecutorStepKind.Assert ? "ASSERTION_FAILED" : "ACTION_FAILED";
         throw new AgentException(failure, summary.Length == 0 ? "The step failed." : summary) { Screenshot = screenshot };
     }
-
-    // The model the agent is configured with, which a recording names. An agent with none (a custom executor that brings its own
-    // brain) records no attribution.
-    private static RecordedModel? ConfiguredModel(ResolvedAgent agent) => agent.Model is { } model ? new RecordedModel { Model = model.Name } : null;
 
     /// <summary>
     /// The step an entry is recorded for, as the entry stores it. None of it is replay input, so a

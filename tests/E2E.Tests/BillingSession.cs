@@ -28,12 +28,10 @@ internal static class BillingSession
         await session.Agent.AssertAsync("the invoice preview shows a prorated amount");
     }
 
-    internal static Task<E2ESession> StartAsync(string directory, Action onAct, int attempt, Func<bool>? testFailed = null)
-    {
-        return StartAsync(directory, UpgradeModel(onAct), attempt, testFailed);
-    }
+    internal static Task<E2ESession> StartAsync(string directory, Action onAct, int attempt, Func<bool>? testFailed = null) =>
+        StartAsync(directory, UpgradeModel(onAct), attempt, testFailed);
 
-    /// <summary>A model that taps Upgrade to Pro once, concludes, and judges the invoice by its prorated amount. <paramref name="onAct"/> runs on each turn of the act.</summary>
+    /// <summary>A model that taps Upgrade to Pro, concludes, and judges the invoice by its prorated amount. <paramref name="onAct"/> runs on each turn of the act.</summary>
     internal static ScriptedModel UpgradeModel(Action onAct)
     {
         return new ScriptedModel(request =>
@@ -56,7 +54,12 @@ internal static class BillingSession
         });
     }
 
-    internal static Task<E2ESession> StartAsync(string directory, IAgentModel model, int attempt, Func<bool>? testFailed = null)
+    internal static Task<E2ESession> StartAsync(string directory, IAgentModel model, int attempt, Func<bool>? testFailed = null) =>
+        StartAsync(new FileStepCache(directory), model, attempt, testFailed);
+
+    internal static Task<E2ESession> StartAsync(IStepCache cache, int attempt) => StartAsync(cache, UpgradeModel(() => { }), attempt);
+
+    private static Task<E2ESession> StartAsync(IStepCache cache, IAgentModel model, int attempt, Func<bool>? testFailed = null)
     {
         var world = new DocumentWorld()
             .Map("/", page => page.Heading("Home"))
@@ -77,7 +80,7 @@ internal static class BillingSession
             Engine = new DocumentEngine(world),
             Model = model,
             BaseUrl = "https://billing.test",
-            Cache = new FileStepCache(directory),
+            Cache = cache,
             CacheEnabled = true,
             TestTitle = "billing > upgrades",
             Attempt = attempt,
