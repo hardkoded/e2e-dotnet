@@ -387,11 +387,15 @@ public sealed partial class DeviceSession
     /// counts as no keyboard: a drag on a guess costs more than a keyboard a later tap refuses against by name.
     /// </summary>
     private static bool KeyboardShowing(RawSnapshot raw) =>
+        MeasuredKeyboard(raw) ?? raw.Nodes.Any(node => KeyboardTypes.Contains((node.Type ?? "").ToLowerInvariant()));
+
+    /// <summary>Whether the capture's producer measured the soft keyboard on screen: null when it did not look or could not.</summary>
+    private static bool? MeasuredKeyboard(RawSnapshot raw) =>
         raw.KeyboardKind switch
         {
             "visible" => true,
             "absent" => false,
-            _ => raw.Nodes.Any(node => KeyboardTypes.Contains((node.Type ?? "").ToLowerInvariant())),
+            _ => null,
         };
 
     /// <summary>

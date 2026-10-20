@@ -100,6 +100,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         var view = new ExecutorObservation(SnapshotText.Render(observation, scope.Redactor, scope.AppOrigin))
         {
             Truncated = observation.Truncated,
+            KeyboardVisible = observation.KeyboardVisible,
             Path = scope.Redactor.Redact(observation.Route),
             Tree = options?.Tree == true ? AgentObservation.ProjectTree(observation.Roots, scope.Redactor, scope.AppOrigin) : null,
         };

@@ -298,6 +298,12 @@ public sealed record ExecutorObservation(string Text)
     /// <summary>True when the engine left nodes out to stay within its budget. Scrolling brings them in.</summary>
     public bool Truncated { get; init; }
 
+    /// <summary>
+    /// Whether an on-screen keyboard is showing, as the engine measured it apart from the tree; false when it measured none.
+    /// Null when the engine did not measure it (the web engine never does): the tree's <c>keyboard</c> and <c>key</c> nodes, or a screenshot, are then the evidence.
+    /// </summary>
+    public bool? KeyboardVisible { get; init; }
+
     /// <summary>The location of the screen, redacted, when the engine reports one. Null on an engine without one.</summary>
     public string? Path { get; init; }
 

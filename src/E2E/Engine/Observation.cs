@@ -119,6 +119,12 @@ public sealed class Observation
     public bool Truncated { get; init; }
 
     /// <summary>
+    /// Whether an on-screen keyboard is showing, as the engine measured it apart from the tree: false when it measured none,
+    /// null only when it did not measure it.
+    /// </summary>
+    public bool? KeyboardVisible { get; init; }
+
+    /// <summary>
     /// Where the engine's viewport and scrolled elements stand, when it can tell. Paging
     /// compares it to see whether a scroll moved anything the tree does not show.
     /// </summary>
