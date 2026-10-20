@@ -260,6 +260,7 @@ with `<secret:name>` in these places:
   it), or `AbortAsync()`. None or two fails the next step with
   `ACTION_FAILED`, a bad option with `INVALID_ARGUMENT`. `Path` is relative
   to the project root.
+- `UnrouteAllAsync()` removes every route; configured site headers stay.
 - A `RouteAsync`, `UnrouteAsync`, or `WaitForResponseAsync` pattern is a
   glob string or a `Regex` matched against the full URL (`*` stays within
   one path segment, `**` crosses `/`, `?` is one character, `\` escapes the

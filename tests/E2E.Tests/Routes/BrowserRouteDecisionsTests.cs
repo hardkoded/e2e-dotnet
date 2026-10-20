@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using E2E.Engine;
 
 namespace E2E.Tests.Routes;
@@ -10,6 +11,22 @@ namespace E2E.Tests.Routes;
 [Collection(BrowserCollection.Name)]
 public sealed class BrowserRouteDecisionsTests
 {
+    [Fact]
+    public Task Clears_every_test_route_keeps_configured_site_headers_and_can_register_again() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.RouteAsync("**/api/**", route => route.FulfillAsync(new RouteFulfillResponse { Body = "mock-api" }));
+        await routes.Browser.RouteAsync(new Regex(@"/echo\z"), route => route.FulfillAsync(new RouteFulfillResponse { Json = new { intercepted = true } }));
+        Assert.Equal("mock-api", await routes.FetchTextAsync(routes.Site.Origin + "/api/quote"));
+        await routes.Browser.UnrouteAllAsync();
+        Assert.Equal("network:/api/quote", await routes.FetchTextAsync(routes.Site.Origin + "/api/quote"));
+        Assert.Equal("open-sesame", (await routes.FetchEchoAsync(routes.Site.Origin + "/echo")).Headers["x-gate"]);
+        await routes.Browser.UnrouteAllAsync();
+        await routes.Browser.RouteAsync("**/api/quote", route => route.FulfillAsync(new RouteFulfillResponse { Body = "new-mock" }));
+        Assert.Equal("new-mock", await routes.FetchTextAsync(routes.Site.Origin + "/api/quote"));
+        await routes.Browser.UnrouteAsync("**/api/quote");
+        Assert.Equal("network:/api/quote", await routes.FetchTextAsync(routes.Site.Origin + "/api/quote"));
+    });
+
     [Fact]
     public Task Answers_with_the_route_registered_last_when_two_fulfill() => WithRoutesAsync(async routes =>
     {
