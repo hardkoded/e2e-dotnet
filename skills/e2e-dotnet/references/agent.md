@@ -534,6 +534,7 @@ What the context holds:
 | `Attempt` | `TestId`, `AttemptId`, `Index`, a `CancellationToken` that ends with the attempt, and a `Memory` dictionary the runtime never reads |
 | `Budgets` | `MaxActions`, `MaxModelCalls`, `ActionsUsed()`, `RemainingMs()`, `RecordModelCall`, and `RunToolAsync` |
 | `AttachTranscript`, `AttachScreenshotAsync` | Keep a model transcript, or observed pixels, under the attempt's results directory |
+| `AttachTurns(turns)` | Keeps a clipped record of the model turns (`StepTurn`: `Index`, `Calls`, `Outcome`) on the step. The trace page shows the last ones under a failed step. Call it as each turn ends; the last call wins. A secret the attempt knows is redacted. `ToolLoop.CreateToolLoopExecutor` calls it for you |
 
 `RunStepAsync` gets a token that ends on cancellation, at the step deadline, and
 on any other hard stop. An executor that ignores it still cannot outlive the
@@ -557,7 +558,7 @@ decides what its model sees. `Screenshot` still keeps evidence after the
 verdict.
 
 Not ported: the point verbs, long press, hover, drag, and upload (the port's
-engines have none), `attachTurns`, and the observation's `Revision`.
+engines have none) and the observation's `Revision`.
 
 ## In CI
 

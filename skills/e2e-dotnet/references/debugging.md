@@ -79,7 +79,7 @@ no viewer. It tells, in this order:
      action means it had no visible effect;
    - the explanation of a step that failed.
 4. `## App log`, `## Agent turns of step N`, and `## Screen at failure`, when
-   the port recorded them. `App log` lists up to 50 lines with their step,
+   the attempt recorded them. `App log` lists up to 50 lines with their step,
    errors and warnings first, and counts the rest. A line from before the
    first step says `before step 1`. An attempt keeps at most 200 errors and
    warnings and 100 other lines, each cut to 300 characters. When the attempt
@@ -97,8 +97,15 @@ no viewer. It tells, in this order:
 5. `## Also failed` (another error, such as one from cleanup) and
    `## Evidence` (the video).
 
-Not recorded yet, so the page leaves them out: the agent's turns and what
-became of a step's recording. The app log is what the web engine collects:
+`Agent turns of step N` shows the last 12 turns the model took in the step
+that ended the attempt, oldest first: the tool calls (arguments cut to 200
+characters) and what came back (cut to 600), with the loop's own notes after
+them (`[loop] turn 2 made no tool call: asking for one`). The built-in agent and
+any `ToolLoop.CreateToolLoopExecutor` executor record them. An executor of
+your own records them with `AttachTurns`.
+
+Not recorded yet, so the page leaves it out: what became of a step's
+recording. The app log is what the web engine collects:
 console output, uncaught exceptions, failed requests, and 4xx and 5xx
 responses. The mobile and document engines report none. A mention, a URL, or markup from the app is shown
 as code or escaped, and a secret is redacted. Add `.e2e/results/` to

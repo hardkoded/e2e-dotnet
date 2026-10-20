@@ -124,6 +124,15 @@ public class StepExecutorContext
     }
 
     /// <summary>
+    /// Keeps a bounded record of the step's model turns on the step record: each turn's tool calls and what came back,
+    /// clipped. The report shows the last turns under a failed step, so a reader sees what the model did and saw without the
+    /// transcript. Call it as each turn ends; the last call wins.
+    /// </summary>
+    public virtual void AttachTurns(IReadOnlyList<StepTurn> turns)
+    {
+    }
+
+    /// <summary>
     /// Keeps pixels the executor or one of its tools observed as a screenshot of the step in progress, and returns the
     /// path of the file, relative to the project root. The file is named by <paramref name="label"/> and lands in the
     /// attempt's results directory. For a tool with evidence worth keeping.
