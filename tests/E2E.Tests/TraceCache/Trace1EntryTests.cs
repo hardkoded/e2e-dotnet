@@ -38,6 +38,39 @@ public sealed class Trace1EntryTests
         return new FileStepCache(directory).Read(Key);
     }
 
+    private static CacheLookup ReadRecordedBy(string recordedBy) =>
+        ReadJson("{\"actions\":[{\"kind\":\"back\"}],\"route\":\"/\",\"endRoute\":\"/\",\"recordedBy\":" + recordedBy + "}");
+
+    /// <summary>
+    /// Port of "bounds recorded %s without losing the hit". An oversized recorded model reads as absent and the entry still reads.
+    /// Difference: the port records one string, <c>IAgentModel.Name</c>, so there is one case, not one per field.
+    /// </summary>
+    [Fact]
+    public void Bounds_the_recorded_model_without_losing_the_hit()
+    {
+        var atLimit = ReadRecordedBy("\"" + new string('x', 300) + "\"");
+        var oversized = ReadRecordedBy("\"" + new string('x', 301) + "\"");
+
+        Assert.Equal(new string('x', 300), CacheEntry.ReadRecordedBy(atLimit.Entry!.RecordedBy));
+        Assert.NotNull(oversized.Entry);
+        Assert.Null(CacheEntry.ReadRecordedBy(oversized.Entry.RecordedBy));
+    }
+
+    /// <summary>Port of "ignores blank recording identity %j without losing the hit". A value that is not a string reads as absent too.</summary>
+    [Theory]
+    [InlineData("\"\"")]
+    [InlineData("\"  \"")]
+    [InlineData("1")]
+    [InlineData("null")]
+    [InlineData("{\"provider\":\"test\",\"model\":\"A\"}")]
+    public void Ignores_a_blank_or_malformed_recording_identity_without_losing_the_hit(string recordedBy)
+    {
+        var read = ReadRecordedBy(recordedBy);
+
+        Assert.NotNull(read.Entry);
+        Assert.Null(CacheEntry.ReadRecordedBy(read.Entry.RecordedBy));
+    }
+
     /// <summary>
     /// Partial port of "round-trips every action variant through JSON": the port's actions are <c>fill</c>, <c>check</c>,
     /// <c>uncheck</c>, <c>clear</c>, <c>scrollTo</c>, and <c>scrollUntil</c> beside the shared ones, with no <c>typeSecret</c>
