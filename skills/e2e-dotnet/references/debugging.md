@@ -80,15 +80,15 @@ no viewer. It tells, in this order:
      action means it had no visible effect;
    - the explanation of a step that failed.
 4. `## App log`, `## Agent turns of step N`, and `## Screen at failure`, when
-   the port recorded them. `App log` lists up to 50 lines with their step,
+   the attempt recorded them. `App log` lists up to 50 lines with their step,
    errors and warnings first, and counts the rest. A line from before the
    first step says `before step 1`. An attempt keeps at most 200 errors and
    warnings and 100 other lines, each cut to 300 characters. When the attempt
    fails, the session looks at the app once more before it closes. `Screen at
    failure` gives the URL, the viewport, the node count, a screenshot
-   (`attempt-<n>/screenshots/failure.png`; none when the attempt knows a
-   secret, the engine captures no pixels, or it cannot show that every secure
-   field was masked), for a locator that matched nothing or too much the nodes
+   (`attempt-<n>/screenshots/failure.png`, after a secret fill too; none when
+   the engine captures no pixels or cannot show that every secure field was
+   masked), for a locator that matched nothing or too much the nodes
    closest to what it asked for (`Closest to what the locator asked for`), and
    the screen as the agent reads it, one node per line:
    `#id role "name" text="..." [states]` (also in
@@ -98,8 +98,15 @@ no viewer. It tells, in this order:
 5. `## Also failed` (another error, such as one from cleanup) and
    `## Evidence` (the video).
 
-Not recorded yet, so the page leaves them out: the agent's turns and what
-became of a step's recording. The app log is what the web engine collects:
+`Agent turns of step N` shows the last 12 turns the model took in the step
+that ended the attempt, oldest first: the tool calls (arguments cut to 200
+characters) and what came back (cut to 600), with the loop's own notes after
+them (`[loop] turn 2 made no tool call: asking for one`). The built-in agent and
+any `ToolLoop.CreateToolLoopExecutor` executor record them. An executor of
+your own records them with `AttachTurns`.
+
+Not recorded yet, so the page leaves it out: what became of a step's
+recording. The app log is what the web engine collects:
 console output, uncaught exceptions, failed requests, and 4xx and 5xx
 responses. The mobile and document engines report none. A mention, a URL, or markup from the app is shown
 as code or escaped, and a secret is redacted. Add `.e2e/results/` to
@@ -113,7 +120,7 @@ as code or escaped, and a secret is redacted. Add `.e2e/results/` to
 | `MODEL_PROVIDER_FAILED` with 400 "not scoped to a workspace" | An Anthropic user key (`sk-ant-usr-`) | Use a workspace key, or `provider: copilot` |
 | `MODEL_PROVIDER_FAILED` with "The subscription login failed (NOT_LOGGED_IN)" or `LOGIN_REQUIRED` | No login is stored, or it was rejected | `e2e login <provider>` |
 | `MODEL_PROVIDER_FAILED` with a 4xx that names the model | The plan or key does not serve that model id | Pick an id from `e2e models <login>` |
-| `MODEL_UNAVAILABLE` | No model is set and no replay finished the step | Set `agents.default.model` |
+| `MODEL_UNAVAILABLE` | No model is set and no replay finished the step, or GitHub Copilot does not serve the model to the account (`model_not_supported`, a plan or settings limit `e2e models` cannot show) | Set `agents.default.model`; for Copilot, pick an id the plan serves |
 | `INVALID_CONFIG` | Unknown key or bad value in `e2e.config.json` | Fix the key the message names |
 | `INVALID_ARGUMENT` | A step argument failed validation (an unknown agent, a budget above the agent's) | Fix the call |
 | `SECRET_UNAVAILABLE` | `Secrets.Get` named a secret the config does not declare | Add it under `secrets` |

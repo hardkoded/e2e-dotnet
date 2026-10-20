@@ -354,7 +354,7 @@ public sealed partial class Agent
     /// </summary>
     private async Task<Look> LookAsync(string api, VisionMode vision, CancellationToken token)
     {
-        var tainted = vision != VisionMode.Off && _scope.Exposure.WithholdsPixels;
+        var tainted = vision != VisionMode.Off && _scope.Exposure.WithholdsModelPixels;
         if (tainted)
         {
             LoseVision(api, vision, VisionDegradation.PixelTainted);
@@ -367,7 +367,7 @@ public sealed partial class Agent
             return new Look(tree, null, tree, tree);
         }
 
-        var outcome = AgentObservation.PixelsForModel(observation, await _scope.CaptureAsync(token).ConfigureAwait(false), _scope.Exposure.WithholdsPixels);
+        var outcome = AgentObservation.PixelsForModel(observation, await _scope.CaptureAsync(token).ConfigureAwait(false), _scope.Exposure.WithholdsModelPixels);
         if (outcome.Pixels is not { } pixels)
         {
             LoseVision(api, vision, outcome.Withheld!.Value);
@@ -437,7 +437,7 @@ public sealed partial class Agent
     /// </summary>
     private string? VisionHint()
     {
-        if (_scope.Exposure.WithholdsPixels || (_scope.EngineCapabilities & EngineCapabilities.Screenshot) == 0 || _scope.VisionDegraded)
+        if (_scope.Exposure.WithholdsModelPixels || (_scope.EngineCapabilities & EngineCapabilities.Screenshot) == 0 || _scope.VisionDegraded)
         {
             return null;
         }
@@ -463,11 +463,11 @@ public sealed partial class Agent
         return text + (text.Contains('\n', StringComparison.Ordinal) ? "\n" : "; ") + hint;
     }
 
-    // Keeps the redacted screenshot a judgment is evidenced by. Best effort, never fails the step: none after a secret
-    // fill, which the app may show outside a secure field, and none from an engine that captures none.
+    // Keeps the redacted screenshot a judgment is evidenced by, after a secret fill too: it is the project's own artifact.
+    // Best effort, never fails the step: none from an engine that captures none.
     private async Task<string?> KeepEvidenceAsync(CancellationToken token, CancellationToken cancellationToken)
     {
-        if (_scope.Screenshots is not { } screenshots || _scope.Exposure.WithholdsPixels)
+        if (_scope.Screenshots is not { } screenshots)
         {
             return null;
         }
@@ -921,7 +921,7 @@ public sealed class AssertOptions
 
     /// <summary>
     /// Keep a redacted screenshot of the judged screen under the attempt's results, and name it in
-    /// <see cref="AgentException.Screenshot"/> when the judgment fails. On by default; denied after a secret fill.
+    /// <see cref="AgentException.Screenshot"/> when the judgment fails. On by default.
     /// </summary>
     public bool? Screenshot { get; init; }
 

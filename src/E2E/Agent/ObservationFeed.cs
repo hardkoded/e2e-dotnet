@@ -100,6 +100,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         var view = new ExecutorObservation(SnapshotText.Render(observation, scope.Redactor, scope.AppOrigin))
         {
             Truncated = observation.Truncated,
+            KeyboardVisible = observation.KeyboardVisible,
             Path = scope.Redactor.Redact(observation.Route),
             Tree = options?.Tree == true ? AgentObservation.ProjectTree(observation.Roots, scope.Redactor, scope.AppOrigin) : null,
         };
@@ -108,7 +109,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             return view;
         }
 
-        var tainted = scope.Exposure.WithholdsPixels;
+        var tainted = scope.Exposure.WithholdsModelPixels;
         var outcome = AgentObservation.PixelsForModel(observation, tainted ? null : await scope.CaptureAsync(token).ConfigureAwait(false), tainted);
         if (outcome.Pixels is not { } pixels)
         {

@@ -25,9 +25,6 @@ internal sealed record FailureEvidenceOptions
     /// <summary>Redacts the screen and the query it is compared with.</summary>
     public required Redactor Redactor { get; init; }
 
-    /// <summary>A secret was filled in the attempt: the app may show it outside a secure field, so no pixels are kept.</summary>
-    public bool WithholdsPixels { get; init; }
-
     /// <summary>The app base URL's origin, whose link targets the screen lists as paths.</summary>
     public string? AppOrigin { get; init; }
 
@@ -126,7 +123,7 @@ internal sealed partial record FailureEvidence
         }
 
         // A screenshot taken with no look at the screen cannot be checked against its secure nodes.
-        if (observation is not null && !token.IsCancellationRequested && !options.WithholdsPixels)
+        if (observation is not null && !token.IsCancellationRequested)
         {
             evidence = await WithScreenshotAsync(evidence, observation, options, token).ConfigureAwait(false);
         }

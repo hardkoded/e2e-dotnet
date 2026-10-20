@@ -95,10 +95,29 @@ internal static class ModelHttp
                     throw new AgentException("CONTEXT_OVERFLOW", OverflowMessage + ": " + failure, blocked: true);
                 }
 
-                throw new AgentException("MODEL_PROVIDER_FAILED", "The model provider failed: " + failure);
+                throw new AgentException("MODEL_PROVIDER_FAILED", "The model provider failed: " + failure)
+                {
+                    ProviderStatus = (int)response.StatusCode,
+                    ProviderErrorCode = ErrorCode(body),
+                };
             }
 
             return body;
+        }
+    }
+
+    /// <summary>The <c>error.code</c> a JSON error body carries when it is a short string; null for any other body.</summary>
+    private static string? ErrorCode(string body)
+    {
+        try
+        {
+            var code = (JsonNode.Parse(body) as JsonObject)?["error"] is JsonObject error ? error["code"] as JsonValue : null;
+            return code is not null && code.TryGetValue<string>(out var text) && text.Length <= 128 ? text : null;
+        }
+        catch (Exception ex) when (ex is JsonException or ArgumentException)
+        {
+            // A body with a duplicate property name is not an error the code can be read from.
+            return null;
         }
     }
 

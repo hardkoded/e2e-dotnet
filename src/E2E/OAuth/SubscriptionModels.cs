@@ -45,7 +45,14 @@ public abstract class DelegatingModel : IAgentModel, IDisposable
             }
         }
 
-        return await model.CompleteAsync(request, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await model.CompleteAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (AgentException ex) when (Refusal(ex) is { } refusal)
+        {
+            throw new AgentException("MODEL_UNAVAILABLE", refusal, blocked: true, ex);
+        }
     }
 
     public void Dispose()
@@ -81,6 +88,9 @@ public abstract class DelegatingModel : IAgentModel, IDisposable
         }
     }
 
+    /// <summary>Why the account cannot use the model, when <paramref name="failure"/> is the provider refusing it; null for any other failure.</summary>
+    protected virtual string? Refusal(AgentException failure) => null;
+
     /// <summary>The model to use until a lookup succeeds.</summary>
     protected abstract IAgentModel Fallback { get; }
 
@@ -105,6 +115,8 @@ public sealed class CopilotModel : DelegatingModel
     }
 
     protected override IAgentModel Fallback => _chat;
+
+    protected override string? Refusal(AgentException failure) => CopilotProvider.IsRefusal(failure) ? CopilotProvider.Refusal(_model) : null;
 
     protected override async Task<IAgentModel?> ResolveAsync(CancellationToken cancellationToken)
     {

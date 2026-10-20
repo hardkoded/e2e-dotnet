@@ -182,7 +182,8 @@ matcher.
   `Timeout`. A failure writes `-expected`, `-actual`, and `-diff` images under
   `.e2e/results/`. Files are per target and OS (`-web-linux.png`): screenshots
   written on a Mac never serve Linux CI, so write CI's from a CI job with the
-  update variable.
+  update variable. After a secret fill the comparison still runs: the image
+  masks secure fields only, so a secret the app shows anywhere else is in it.
 - `Expect.That(Browser).ToHaveURLAsync("/about")` (a string, or a `Regex`; `ignoreCase`)
   and `ToHaveTitleAsync("About page")` poll the URL and the title, `.Not`
   inverts them, and `Expect.Soft(Browser)` keeps their failures.
@@ -266,6 +267,7 @@ with `<secret:name>` in these places:
   it), or `AbortAsync()`. None or two fails the next step with
   `ACTION_FAILED`, a bad option with `INVALID_ARGUMENT`. `Path` is relative
   to the project root.
+- `UnrouteAllAsync()` removes every route; configured site headers stay.
 - A `RouteAsync`, `UnrouteAsync`, or `WaitForResponseAsync` pattern is a
   glob string or a `Regex` matched against the full URL (`*` stays within
   one path segment, `**` crosses `/`, `?` is one character, `\` escapes the

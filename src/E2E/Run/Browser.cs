@@ -201,6 +201,10 @@ public sealed class Browser
         return UnrouteCoreAsync(pattern, cancellationToken);
     }
 
+    /// <summary>Removes every route added through this browser. The configured site headers stay.</summary>
+    public Task UnrouteAllAsync(CancellationToken cancellationToken = default) =>
+        RemoveRoutesAsync("unrouteAll", _ => true, cancellationToken);
+
     /// <summary>
     /// Adds JavaScript source every document runs before the page's own, in
     /// every tab and frame, from the next navigation on, for the rest of the attempt.
@@ -370,12 +374,16 @@ public sealed class Browser
         _routes.Add((pattern, Decide));
     }
 
-    private async Task UnrouteCoreAsync(object pattern, CancellationToken cancellationToken)
+    private Task UnrouteCoreAsync(object pattern, CancellationToken cancellationToken) =>
+        RemoveRoutesAsync("unroute", stored => Routes.PatternsEqual(stored.Pattern, pattern), cancellationToken);
+
+    /// <summary>Unregisters the stored routes <paramref name="match"/> selects, newest first.</summary>
+    private async Task RemoveRoutesAsync(string operation, Func<(object Pattern, Func<IBrowserRoute, Task> Handler), bool> match, CancellationToken cancellationToken)
     {
-        var session = Require("unroute");
+        var session = Require(operation);
         for (var i = _routes.Count - 1; i >= 0; i--)
         {
-            if (Routes.PatternsEqual(_routes[i].Pattern, pattern))
+            if (match(_routes[i]))
             {
                 await session.UnrouteAsync(_routes[i].Handler, Token(cancellationToken)).ConfigureAwait(false);
                 _routes.RemoveAt(i);

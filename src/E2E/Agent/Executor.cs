@@ -96,7 +96,7 @@ public class StepExecutorContext
     public required IExecutorActions Actions { get; init; }
 
     /// <summary>
-    /// True once a secret was filled in this attempt: <see cref="ObserveAsync"/> withholds pixels for the rest of it. An
+    /// True once a secret was filled in this attempt: <see cref="ObserveAsync"/> withholds pixels from the model for the rest of it. An
     /// executor reads it when it assembles its vocabulary, to leave screenshot tools out rather than offer tools that can
     /// only decline.
     /// </summary>
@@ -120,6 +120,15 @@ public class StepExecutorContext
     /// when the attempt keeps results, and dropped otherwise. Call it once, at the end.
     /// </summary>
     public virtual void AttachTranscript(string text)
+    {
+    }
+
+    /// <summary>
+    /// Keeps a bounded record of the step's model turns on the step record: each turn's tool calls and what came back,
+    /// clipped. The report shows the last turns under a failed step, so a reader sees what the model did and saw without the
+    /// transcript. Call it as each turn ends; the last call wins.
+    /// </summary>
+    public virtual void AttachTurns(IReadOnlyList<StepTurn> turns)
     {
     }
 
@@ -288,6 +297,12 @@ public sealed record ExecutorObservation(string Text)
 
     /// <summary>True when the engine left nodes out to stay within its budget. Scrolling brings them in.</summary>
     public bool Truncated { get; init; }
+
+    /// <summary>
+    /// Whether an on-screen keyboard is showing, as the engine measured it apart from the tree; false when it measured none.
+    /// Null when the engine did not measure it (the web engine never does): the tree's <c>keyboard</c> and <c>key</c> nodes, or a screenshot, are then the evidence.
+    /// </summary>
+    public bool? KeyboardVisible { get; init; }
 
     /// <summary>The location of the screen, redacted, when the engine reports one. Null on an engine without one.</summary>
     public string? Path { get; init; }

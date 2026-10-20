@@ -47,9 +47,6 @@ internal sealed class ScreenshotContext
 
     public required Func<CancellationToken, Task<EngineScreenshot>> Capture { get; init; }
 
-    /// <summary>Whether a secret fill withholds pixels for the rest of the attempt.</summary>
-    public required Func<bool> WithholdsPixels { get; init; }
-
     public bool HasWritten(string file) => WrittenFiles.ContainsKey(file);
 
     /// <summary>Starts a new run for the stored screenshots under <paramref name="directory"/>: none counts as written.</summary>

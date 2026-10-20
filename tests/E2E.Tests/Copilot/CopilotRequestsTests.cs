@@ -58,6 +58,48 @@ public sealed class CopilotRequestsTests
         Assert.Equal("Bearer gho_x", seen.Header("authorization"));
     }
 
+    /// <summary>.NET-only: upstream marks the failure for its runner (<c>unservedModelExplanation</c>); the port has no runner, so the call raises <c>MODEL_UNAVAILABLE</c> itself.</summary>
+    [Fact]
+    public async Task Fails_a_model_the_account_cannot_use_with_MODEL_UNAVAILABLE_and_leaves_a_model_on_the_wrong_endpoint_a_provider_failure()
+    {
+        const string Refused = """{ "error": { "message": "The requested model is not supported.", "code": "model_not_supported", "param": "model", "type": "invalid_request_error" } }""";
+        const string WrongEndpoint = """{ "error": { "message": "model \"gpt-6-luna\" is not accessible via the /chat/completions endpoint", "code": "unsupported_api_for_model" } }""";
+        var api = new FakeApi(request => request.Uri.AbsolutePath == "/models"
+            ? (HttpStatusCode.OK, """{ "data": [] }""")
+            : (HttpStatusCode.BadRequest, request.Body.Contains("\"gpt-6-luna\"", StringComparison.Ordinal) ? WrongEndpoint : Refused));
+        var store = new MemoryCredentialStore(new() { ["github-copilot"] = new OAuthCredentials { Access = "gho_x", Refresh = "", Expires = 0 } });
+        var request = new ModelRequest { System = "", Tools = [], Messages = [new ModelMessage { Role = "user", Content = "color?" }] };
+
+        using var refused = new CopilotModel("claude-haiku-4.5", Subscriptions.Client(new CopilotProvider(), store, inner: api));
+        var unserved = await Assert.ThrowsAsync<AgentException>(() => refused.CompleteAsync(request, CancellationToken.None));
+        Assert.Equal("MODEL_UNAVAILABLE", unserved.Code);
+        Assert.Equal(CopilotProvider.Refusal("claude-haiku-4.5"), unserved.Message);
+        Assert.Contains("or Copilot lists no such id", unserved.Message, StringComparison.Ordinal);
+
+        using var wrong = new CopilotModel("gpt-6-luna", Subscriptions.Client(new CopilotProvider(), store, inner: api));
+        var plain = await Assert.ThrowsAsync<AgentException>(() => wrong.CompleteAsync(request, CancellationToken.None));
+        Assert.Equal("MODEL_PROVIDER_FAILED", plain.Code);
+        Assert.Contains("HTTP 400", plain.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>.NET-only: a 4xx body that is not a JSON object with an error code stays a provider failure.</summary>
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("\"rate limited\"")]
+    [InlineData("""{ "error": "model_not_supported" }""")]
+    [InlineData("""{ "error": { "code": 7 } }""")]
+    [InlineData("""{ "error": { "code": "model_not_supported", "code": "model_not_supported" } }""")]
+    public async Task Keeps_a_provider_failure_when_the_error_body_carries_no_code(string body)
+    {
+        var api = new FakeApi(request => request.Uri.AbsolutePath == "/models" ? (HttpStatusCode.OK, """{ "data": [] }""") : (HttpStatusCode.BadRequest, body));
+        var store = new MemoryCredentialStore(new() { ["github-copilot"] = new OAuthCredentials { Access = "gho_x", Refresh = "", Expires = 0 } });
+        using var model = new CopilotModel("claude-haiku-4.5", Subscriptions.Client(new CopilotProvider(), store, inner: api));
+
+        var failure = await Assert.ThrowsAsync<AgentException>(() => model.CompleteAsync(new ModelRequest { System = "", Tools = [], Messages = [new ModelMessage { Role = "user", Content = "color?" }] }, CancellationToken.None));
+
+        Assert.Equal("MODEL_PROVIDER_FAILED", failure.Code);
+    }
+
     /// <summary>The port's model names no provider, so the check that the delegate switches from chat to Responses is not ported.</summary>
     [Fact]
     public async Task Calls_a_model_Copilot_lists_only_over_Responses_through_the_Responses_API_with_no_server_storage()

@@ -12,7 +12,7 @@ namespace E2E;
 /// </summary>
 public enum VisionDegradation
 {
-    /// <summary>A secret was filled in this attempt, so the app may show it outside a secure field and no pixels leave the session.</summary>
+    /// <summary>A secret was filled in this attempt, so the app may show it outside a secure field and no pixels reach a model.</summary>
     PixelTainted,
 
     /// <summary>The engine masked fewer regions than the tree has secure nodes, so the image cannot be proven redacted.</summary>
@@ -160,7 +160,7 @@ internal sealed record StepModelInfo
 /// <param name="Index">One-based turn number within the step.</param>
 /// <param name="Calls"><c>tap({"target":"n19"})</c>, one per tool call, arguments clipped.</param>
 /// <param name="Outcome">The tool results of the turn, clipped.</param>
-internal sealed record StepTurn(int Index, IReadOnlyList<string> Calls, string Outcome);
+public sealed record StepTurn(int Index, IReadOnlyList<string> Calls, string Outcome);
 
 /// <summary>Where a line the app logged came from (upstream's <c>AppLogSource</c>).</summary>
 public enum AppLogSource
@@ -199,6 +199,9 @@ internal sealed record StepAgentDetails
     public StepMetrics? Metrics { get; init; }
 
     public CacheInfo? Cache { get; init; }
+
+    /// <summary>The model turns the executor attached, most recent last; null when it attached none.</summary>
+    public IReadOnlyList<StepTurn>? Turns { get; init; }
 
     /// <summary>Absent when the step failed before a judgment could be requested.</summary>
     public string? Explanation { get; init; }

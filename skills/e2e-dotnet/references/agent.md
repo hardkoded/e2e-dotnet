@@ -35,7 +35,8 @@ providers and their logins):
   `system`, `context`, `maxSteps`, `maxModelCalls`, `judgmentTimeout`, and
   `providerOptions`. None inherits from `default`.
 - `model` drives `ActAsync`. Judgments use `judge` when set, else `model`.
-- No model and no replay that finishes the step is `MODEL_UNAVAILABLE`.
+- No model and no replay that finishes the step is `MODEL_UNAVAILABLE`, and so
+  is a model GitHub Copilot does not serve to the account, at the first call.
   Auth failures surface on the first model call as `MODEL_PROVIDER_FAILED`.
 - `context` is what the app calls things, sent to every model call, judges
   included. `system` is how the acting agent works; judges never see it.
@@ -195,7 +196,7 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
   question, such as whether an overlay covers a form the snapshot lists as
   present. All three take it: `AssertOptions.Vision`, `WaitForOptions.Vision`,
   `ExtractOptions.Vision`.
-- After a `Secret` is filled, no pixels leave the session. `On` then judges the
+- After a `Secret` is filled, no pixels reach the model. `On` then judges the
   snapshot alone. `Only` fails with `POLICY_DENIED` rather than answer from the
   snapshot, and so does an engine that captures no pixels or masks fewer
   regions than the snapshot has secure fields.
@@ -205,8 +206,9 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
 - `AssertAsync` keeps a redacted screenshot of the screen it judged under
   `.e2e/results/<test>/attempt-<n>/screenshots/`, and
   `AgentException.Screenshot` names it on a failure. Set
-  `AssertOptions.Screenshot = false` to keep none. After a secret fill none is
-  kept.
+  `AssertOptions.Screenshot = false` to keep none. After a secret fill it is
+  still kept: it masks secure fields only, so a secret the app shows anywhere
+  else is in the image.
 
 ## Write instructions the model can execute
 
@@ -494,6 +496,9 @@ supports the verb. A tool that works outside `context.Actions` wraps its body in
 and records the call. Do not call `context.Actions` or `context.ObserveAsync` inside a
 mutating body: the call waits behind itself.
 
+The observation's `KeyboardVisible` says whether an on-screen keyboard is
+showing, and is `null` when the engine can't tell.
+
 Replace the executor. This one uses no model and supports one assertion:
 
 ```csharp
@@ -526,12 +531,13 @@ What the context holds:
 | `ObserveAsync(options)` | Redacted screen text, and with `Tree` the node tree (`ExecutorNode`, whose `Id` is the ref) and with `Pixels` a masked screenshot, or `PixelsWithheld` with the reason |
 | `Actions` | Checked and recorded verbs: `TapAsync` and `DoubleTapAsync` (both take `new ClickOptions { Modifiers = [KeyModifier.Shift] }` when `Target.TapModifiers`), `TypeAsync`, `TypeSecretAsync`, `ClearAsync`, `PressAsync`, `SelectAsync`, `CheckAsync`, `ScrollToAsync`, `ScrollUntilAsync`, `ScrollAsync`, `NavigateAsync`, `BackAsync`. A node is `new ExecutorTarget(ref)` |
 | `Target` | The target's `Name`, `Platform`, and `Verbs`, the verbs its engine supports, and `TapModifiers`, true when `TapAsync` and `DoubleTapAsync` take `ClickOptions.Modifiers`. Offer a model only these |
-| `PixelsTainted` | True after a secret fill. Then no screenshots are available |
+| `PixelsTainted` | True after a secret fill. Then no screenshots reach the model |
 | `ReplayedPrefix` | Set when a cache replay ran part of the step first. The actions and why it stopped. Continue from the current screen without repeating them |
 | `Model`, `ProviderOptions`, `AgentContext`, `Ledger` | The agent's model and provider options, its project context, and the steps completed before this one, as numbered lines (`1. app.open passed :: /`) in at most 8192 bytes |
 | `Attempt` | `TestId`, `AttemptId`, `Index`, a `CancellationToken` that ends with the attempt, and a `Memory` dictionary the runtime never reads |
 | `Budgets` | `MaxActions`, `MaxModelCalls`, `ActionsUsed()`, `RemainingMs()`, `RecordModelCall`, and `RunToolAsync` |
 | `AttachTranscript`, `AttachScreenshotAsync` | Keep a model transcript, or observed pixels, under the attempt's results directory |
+| `AttachTurns(turns)` | Keeps a clipped record of the model turns (`StepTurn`: `Index`, `Calls`, `Outcome`) on the step. The trace page shows the last ones under a failed step. Call it as each turn ends; the last call wins. A secret the attempt knows is redacted. `ToolLoop.CreateToolLoopExecutor` calls it for you |
 
 `RunStepAsync` gets a token that ends on cancellation, at the step deadline, and
 on any other hard stop. An executor that ignores it still cannot outlive the
@@ -555,7 +561,7 @@ decides what its model sees. `Screenshot` still keeps evidence after the
 verdict.
 
 Not ported: the point verbs, long press, hover, drag, and upload (the port's
-engines have none), `attachTurns`, and the observation's `Revision`.
+engines have none) and the observation's `Revision`.
 
 ## In CI
 

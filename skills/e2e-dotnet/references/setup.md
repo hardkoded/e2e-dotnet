@@ -72,6 +72,11 @@ Pick the model in `agents.<name>.provider` and `model`:
   (`claude-sonnet-5.5`). The Anthropic API uses a dash (`claude-sonnet-5-5`).
 - `apiKeyEnv` overrides the provider's variable. Remove it when you change
   `provider`, or the client sends no key and gets a 401.
+- `e2e models github-copilot` marks `not enabled` and `no chat or responses`,
+  but it cannot see what the plan serves. On Copilot Free, GitHub serves models
+  through auto model selection only, so a model called by id is usually
+  refused. The step then fails with `MODEL_UNAVAILABLE` naming the model. Pick
+  another id or an API provider.
 - A Claude Pro or Max plan cannot serve the agent. Use Copilot or an API key.
 - Logins live in `~/.config/e2e/oauth.json`, the file upstream's
   `npx e2e login` writes, so a login made with either tool serves both.
