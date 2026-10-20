@@ -167,6 +167,17 @@ public sealed class FailureEvidenceTests : IDisposable
     }
 
     [Fact]
+    public void Gives_a_title_with_a_separator_in_it_another_id_than_the_same_text_split_into_file_and_title()
+    {
+        Assert.NotEqual(AttemptReport.ResultId("Shop.CartTests", "same title"), AttemptReport.ResultId(null, "Shop.CartTests::same title"));
+        Assert.NotEqual(AttemptReport.ResultId("Shop", "CartTests::same"), AttemptReport.ResultId("Shop::CartTests", "same"));
+        Assert.NotEqual(AttemptReport.ResultId("Shop", "cart"), AttemptReport.ResultId(null, "Shop::cart"));
+        Assert.Equal("caf%C3%A9", AttemptReport.EncodeTitle("cafe\u0301"));
+        Assert.Equal("Shop::a%3A%3Ab%20c", AttemptReport.TestId("Shop", "a::b c"));
+        Assert.Equal(AttemptReport.ResultId(null, "title"), AttemptReport.ResultId("", "title"));
+    }
+
+    [Fact]
     public async Task Keeps_the_evidence_of_two_tests_whose_titles_slug_alike_apart()
     {
         var results = Results();

@@ -34,13 +34,41 @@ internal static class AttemptReport
 {
     private static readonly string RunId = Guid.NewGuid().ToString("N")[..12];
 
+    // Upstream forbids NUL in a title, so no title-only hash input starts with it and none can equal a hashed test id.
+    private const char TestIdMark = '\0';
+
     /// <summary>
     /// The id of the result of the test titled <paramref name="title"/> in <paramref name="file"/>, whose head ends the result's directory
-    /// name. It hashes the test id, <c>file::title</c>, as upstream's <c>testId</c> and <c>resultId</c> do, so two tests with one title in
-    /// two files keep apart. A session started with no file hashes the title alone.
+    /// name. It hashes the test id, <see cref="TestId"/>, behind a NUL mark that no title-only hash input has (the digest is the port's own, as upstream hashes JSON), so two tests with one title in two files keep apart. A session started with no
+    /// file hashes the title alone.
     /// </summary>
     public static string ResultId(string? file, string title) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.IsNullOrEmpty(file) ? title : file + "::" + title)))[..16].ToLowerInvariant();
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.IsNullOrEmpty(file) ? title : TestIdMark + TestId(file, title))))[..16].ToLowerInvariant();
+
+    /// <summary>
+    /// The test id <c>file::title</c>, with the title percent-encoded so a <c>::</c> in a title cannot pass for the separator. Upstream's
+    /// <c>testId</c> (<c>internal/ids.ts</c>) with a title path of one title.
+    /// </summary>
+    public static string TestId(string file, string title) => file + "::" + EncodeTitle(title);
+
+    /// <summary>Percent-encodes one title: RFC 3986 unreserved characters stay literal, every other UTF-8 byte of its NFC form becomes uppercase <c>%HH</c>. Upstream's <c>encodeTitle</c>.</summary>
+    public static string EncodeTitle(string title)
+    {
+        var encoded = new StringBuilder();
+        foreach (var value in Encoding.UTF8.GetBytes(title.Normalize(NormalizationForm.FormC)))
+        {
+            if (value is (>= (byte)'A' and <= (byte)'Z') or (>= (byte)'a' and <= (byte)'z') or (>= (byte)'0' and <= (byte)'9') or (byte)'-' or (byte)'.' or (byte)'_' or (byte)'~')
+            {
+                encoded.Append((char)value);
+            }
+            else
+            {
+                encoded.Append('%').Append(value.ToString("X2", CultureInfo.InvariantCulture));
+            }
+        }
+
+        return encoded.ToString();
+    }
 
     /// <summary>
     /// The name of the directory of the test titled <paramref name="title"/> in <paramref name="file"/> under the results directory
