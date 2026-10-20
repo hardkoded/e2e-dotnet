@@ -67,21 +67,53 @@ public sealed class E2eExploreTests
         Assert.Equal(3, Assert.Single(outcome.Explore.Findings).Severity);
     }
 
-    [Fact]
-    public async Task Surfaces_a_cancel_from_the_finding_tool_as_a_cancel_and_not_as_a_refused_observation()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Surfaces_a_cancel_from_the_finding_tool_as_a_cancel_and_not_as_a_refused_evidence_capture(bool refuseAttach)
     {
         var state = new E2E.ExploreState("goal", new ExploreBudgets(4, TimeSpan.FromMinutes(5)));
         var tool = ExploreExecutor.WithFindingTool(new AgentOptions(), state).Tools![ExploreExecutor.FindingToolName];
         var input = (JsonObject)JsonNode.Parse(JsonSerializer.Serialize(ExploreModel.CounterFinding()))!;
-        using var cts = new CancellationTokenSource();
-        await cts.CancelAsync();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => tool.ExecuteAsync(input, cts.Token));
+        // The refusal is an I/O error of the screen or the file system, and the cancel arrives with it.
+        using var cts = new CancellationTokenSource();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => tool.RunAsync(input, new AgentToolContext(RefusingContext.Create(refuseAttach, cts), mutates: false), cts.Token));
         Assert.Empty(state.Findings);
 
         // Without a cancel, the same refusal leaves the finding standing without its evidence.
-        await tool.ExecuteAsync(input, CancellationToken.None);
-        Assert.Single(state.Findings);
+        await tool.RunAsync(input, new AgentToolContext(RefusingContext.Create(refuseAttach, null), mutates: false), CancellationToken.None);
+        Assert.Null(Assert.Single(state.Findings).ArtifactId);
+    }
+
+    /// <summary>A step context whose observation, or its screenshot attachment, is refused as the file system and the screen refuse.</summary>
+    private sealed class RefusingContext(bool refuseAttach, CancellationTokenSource? cancel) : StepExecutorContext
+    {
+        public static RefusingContext Create(bool refuseAttach, CancellationTokenSource? cancel) => new(refuseAttach, cancel)
+        {
+            Step = new ExecutorStep { Kind = ExecutorStepKind.Act, Instruction = "explore" },
+            Attempt = new ExecutorAttempt { TestId = "t", AttemptId = "a" },
+            Target = new ExecutorTargetInfo { Name = "web", Platform = "web" },
+            Budgets = null!,
+            Actions = null!,
+        };
+
+        public override Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options = null, CancellationToken cancellationToken = default)
+        {
+            if (refuseAttach)
+            {
+                return Task.FromResult(new ExecutorObservation("screen") { Pixels = new ExecutorPixels([1], "image/png", 1, 1, 1, 0) });
+            }
+
+            cancel?.Cancel();
+            throw new IOException("the screen is gone");
+        }
+
+        public override Task<string> AttachScreenshotAsync(ExecutorPixels pixels, string label, CancellationToken cancellationToken = default)
+        {
+            cancel?.Cancel();
+            throw new UnauthorizedAccessException("the results directory is read-only");
+        }
     }
 
     // Upstream also reads the report: its schema, the artifact record behind the evidence and the step that produced it, the
