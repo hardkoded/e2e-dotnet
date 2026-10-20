@@ -103,8 +103,8 @@ internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProv
     public IReadOnlyList<ReportExploreFinding> Issues => [.. Findings.Where(finding => finding.Kind == ReportExploreFindingKind.Issue)];
 
     /// <summary>
-    /// Registers a listener for every change from here on. A listener runs synchronously, in order, while the state holds its
-    /// lock, as upstream's does: keep it quick, and do not let it throw.
+    /// Registers a listener for every change from here on. A listener runs synchronously, in order, as upstream's does. Unlike
+    /// upstream, the state holds its lock meanwhile, to keep that order across threads: keep it quick, and do not let it throw.
     /// </summary>
     public void Subscribe(ExploreListener listener)
     {

@@ -159,6 +159,12 @@ public static class ExploreExecutor
             return 0;
         }
 
+        // A value built in code holds its CLR type and converts to nothing else, so a whole int is read as one.
+        if (value.TryGetValue<int>(out var whole))
+        {
+            return whole;
+        }
+
         return value.TryGetValue<double>(out var number) && number is >= 1 and <= 5 && number == Math.Floor(number) ? (int)number : 0;
     }
 
