@@ -66,16 +66,17 @@ public sealed class AgentPolicyAndErrorClassificationTests
         Assert.Equal(1, brought.CallCount);
     }
 
-    // Upstream shares one run with its extract test and also checks that more than one model call was made; here only the judgment calls the model.
+    // Partial: upstream runs this on a real model and shares one run with its extract test. Here a scripted model answers, so this checks that the request builder never carries the value.
     [Fact]
-    public async Task Never_sends_a_secret_value_to_the_model()
+    public async Task Partial_Never_sends_a_secret_value_to_the_model()
     {
         // Upstream's testbed /echo page: the field puts what it is given on the page.
+        string? filled = null;
         var world = new DocumentWorld().Map("/echo", page =>
         {
             var echo = page.Status("Token echo");
             echo.Text = "nothing yet";
-            page.Roots.Add(new DocumentElement { Role = "textbox", Name = "Token", Value = "", Secure = true, InputPurpose = "password", OnFill = value => echo.Text = value });
+            page.Roots.Add(new DocumentElement { Role = "textbox", Name = "Token", Value = "", Secure = true, InputPurpose = "password", OnFill = value => { filled = value; echo.Text = value; } });
         });
         var model = new ScriptedModel(_ => ModelResponses.Done("passed", "the field has a value"));
         var result = await RunAsync(async ctx =>
@@ -86,14 +87,10 @@ public sealed class AgentPolicyAndErrorClassificationTests
         }, world, model);
 
         Assert.Null(result.Error);
-        var echoed = model.Requests.Where(request => request.Messages.Any(message => message.Content?.Contains("the token echo shows a value", StringComparison.Ordinal) == true)).ToList();
-        Assert.Single(echoed);
-        Assert.Contains("<secret:member.password>", string.Join('\n', echoed[0].Messages.Select(message => message.Content)), StringComparison.Ordinal);
-        foreach (var request in model.Requests)
-        {
-            var text = request.System + "\n" + string.Join('\n', request.Messages.Select(message => message.Content));
-            Assert.DoesNotContain("hunter2-secret", text, StringComparison.OrdinalIgnoreCase);
-        }
+        Assert.Equal("hunter2-secret", filled);
+        var sent = model.Requests.Select(request => System.Text.Json.JsonSerializer.Serialize(request, System.Text.Json.JsonSerializerOptions.Web)).ToList();
+        Assert.Contains(sent, text => text.Contains("secret:member.password", StringComparison.Ordinal));
+        Assert.All(sent, text => Assert.DoesNotContain("hunter2-secret", text, StringComparison.OrdinalIgnoreCase));
     }
 
     private sealed class CounterReading
