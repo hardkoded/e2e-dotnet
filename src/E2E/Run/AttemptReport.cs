@@ -32,6 +32,12 @@ internal static class AttemptReport
 {
     private static readonly string RunId = Guid.NewGuid().ToString("N")[..12];
 
+    /// <summary>The id of the result of the test titled <paramref name="title"/>, whose head ends the result's directory name.</summary>
+    public static string ResultId(string title) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(title)))[..16].ToLowerInvariant();
+
+    /// <summary>The name of the directory of the test titled <paramref name="title"/> under the results directory (<see cref="ArtifactPaths.ResultSegment"/>, with no file name).</summary>
+    public static string ResultSegmentOf(string title) => ArtifactPaths.ResultSegment(ResultId(title), "", [title]);
+
     /// <summary>The report of the attempt that ended <paramref name="status"/> with <paramref name="error"/>.</summary>
     public static (Report1Document Report, string ResultId) Build(
         AttemptScope scope,
@@ -44,7 +50,7 @@ internal static class AttemptReport
         FailureEvidence? evidence = null)
     {
         var steps = scope.Steps.All();
-        var id = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(scope.TestTitle)))[..16].ToLowerInvariant();
+        var id = ResultId(scope.TestTitle);
         var located = steps.Select(step => step.Source).OfType<SourceLocation>().FirstOrDefault();
         var directory = Path.GetFileName(output.TestDir);
         var attemptSegment = Path.GetFileName(output.AttemptDir);

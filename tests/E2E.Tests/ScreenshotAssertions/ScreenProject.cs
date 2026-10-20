@@ -27,7 +27,7 @@ internal sealed class ScreenProject : IDisposable
 
     /// <summary>The results of the last run, for a title.</summary>
     public string ResultsOf(string title, int attempt = 1) =>
-        Path.Combine(Directory, ".e2e", "results", ScreenshotAssertion.Slug(title, 100, "test"), "attempt-" + attempt);
+        Path.Combine(Directory, ".e2e", "results", AttemptReport.ResultSegmentOf(title), "attempt-" + attempt);
 
     public string Snapshots(string file) => Path.Combine(Directory, "tests", file + ".e2e.ts-snapshots");
 

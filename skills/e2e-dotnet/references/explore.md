@@ -81,7 +81,7 @@ there, since `e2e.config.json` names only a provider and a model id.
 | `--output <dir>` | `.e2e/results` | Where finding screenshots, trace pages, and videos are kept. |
 | `--debug` | off | Print the phase timings and the agent step table to stderr. `E2E_DEBUG=1` does the same. |
 | `--ai-trace` | off | Record every model call to `ai-trace-<process id>.json` next to the results directory (`.e2e/`), for `npx unbox-ai`. `E2E_AI_TRACE=1` does the same. |
-| `--trace [mode]` | the config's `trace`, else `retain-on-failure` | Which attempts keep a trace page, `<output>/<goal slug>/trace.md`. A bare flag is `on`. `E2E_TRACE` sets it too. |
+| `--trace [mode]` | the config's `trace`, else `retain-on-failure` | Which attempts keep a trace page, `<output>/<result>/trace.md`. A bare flag is `on`. `E2E_TRACE` sets it too. |
 | `--video [mode]` | the config's `video`, else `off` | Which attempts record a video, when the engine can. A bare flag is `on`. `E2E_VIDEO` sets it too. |
 
 A flag out of range exits 2 and names the range. `--session` and `--reporter`
@@ -149,7 +149,7 @@ assessment in `Summary`, the `Steps` with their status (`Passed`, `Failed`,
 when it did not pass. A finding carries `Step`, `Path`, and `ArtifactId`
 only when known. `ArtifactId` is the path, relative to the project root, of
 the evidence screenshot, which lands under
-`.e2e/results/<goal>/attempt-1/screenshots/` (`Output` changes the results
+`.e2e/results/<result>/attempt-1/screenshots/` (`Output` changes the results
 directory). Once a secret is filled, the model gets no screenshot, so none is kept.
 
 `OnProgress` receives each moment as it happens: `Started`, `Planning`,
