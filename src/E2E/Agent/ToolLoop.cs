@@ -187,6 +187,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             },
         };
 
+        var turns = new TurnLog(context);
         var failures = 0;
         var stopped = false;
         string? noticed = null;
@@ -246,10 +247,12 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 if (OverflowShrink.TextChars(shrunk) >= OverflowShrink.TextChars(messages))
                 {
                     // Nothing to elide and nothing to clip: sending the same request again would only spend another call on it.
+                    turns.Note("context overflow before turn " + turns.Next.ToString(CultureInfo.InvariantCulture) + ": nothing to shrink");
                     throw ToolLoop.Overflowed(overflow, " and the step history had nothing left to shrink");
                 }
 
                 shrunkOnce = true;
+                turns.Note("context overflow before turn " + turns.Next.ToString(CultureInfo.InvariantCulture) + ": history shrunk from " + OverflowShrink.TextChars(messages).ToString(CultureInfo.InvariantCulture) + " to " + OverflowShrink.TextChars(shrunk).ToString(CultureInfo.InvariantCulture) + " chars, retrying once");
                 messages.Clear();
                 messages.AddRange(shrunk);
                 try
@@ -262,8 +265,10 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 }
             }
 
+            var turn = turns.Begin(response);
             if (response.ToolCalls.Count == 0)
             {
+                turns.Note("turn " + turn.Index.ToString(CultureInfo.InvariantCulture) + " made no tool call: asking for one");
                 messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ReasoningItems = response.ReasoningItems });
                 messages.Add(new ModelMessage { Role = "user", Content = "Call a tool. End the step with done." });
                 failures++;
@@ -278,6 +283,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 var outcome = stopped && !string.Equals(toolCall.Name, "done", StringComparison.Ordinal)
                     ? ToolOutcome.Fail("The loop guard stopped the step. Only done is available.")
                     : await RunToolAsync(toolCall, tools, token).ConfigureAwait(false);
+                turns.AddResult(turn, toolCall.Name, outcome.Content);
                 if (hardStop is not null)
                 {
                     throw hardStop;
@@ -393,4 +399,101 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             return ToolOutcome.Fail(call.Name + " failed: " + ex.Message);
         }
     }
+}
+
+/// <summary>
+/// The model turns of one step, as upstream's <c>LoopRun</c> keeps them (<c>tool-loop.ts</c>): every turn that ran, the loop's
+/// own notes beside the turn they followed, and the bounded tail handed to the step through <see cref="StepExecutorContext.AttachTurns"/>
+/// each time one changes, so a step the clock ends keeps its turns.
+/// </summary>
+internal sealed class TurnLog(StepExecutorContext context)
+{
+    // Per-turn clips: the model's prose, one tool call's arguments, one tool result.
+    private const int MaxTurnTextChars = 1_000;
+    private const int MaxTurnCallChars = 400;
+    private const int MaxTurnResultChars = 600;
+
+    // The report keeps the last turns of a step, each clipped again to this.
+    private const int MaxReportedTurns = 12;
+    private const int MaxReportedCalls = 8;
+    private const int MaxReportedCallChars = 200;
+    private const int MaxReportedOutcomeChars = 600;
+
+    // The loop's own notes on a reported turn, kept past the outcome clip.
+    private const int MaxReportedNotesChars = 1_000;
+
+    private const string LoopNote = "[loop] ";
+
+    private readonly List<LoopTurn> _turns = [];
+
+    /// <summary>The number of the turn that runs next.</summary>
+    public int Next => _turns.Count + 1;
+
+    /// <summary>Records one turn: what the model said and called. The tool results are added as each lands.</summary>
+    public LoopTurn Begin(ModelResponse response)
+    {
+        var turn = new LoopTurn(Next, [.. response.ToolCalls.Select(call => call.Name + "(" + Truncate(call.Arguments.ValueKind == JsonValueKind.Undefined ? "{}" : call.Arguments.GetRawText(), MaxTurnCallChars) + ")")]);
+        if (response.Content?.Trim() is { Length: > 0 } text)
+        {
+            turn.Results.Add("assistant: " + Truncate(text, MaxTurnTextChars));
+        }
+
+        _turns.Add(turn);
+        Attach();
+        return turn;
+    }
+
+    public void AddResult(LoopTurn turn, string tool, string content)
+    {
+        turn.Results.Add("[" + tool + "] " + Truncate(content, MaxTurnResultChars));
+        Attach();
+    }
+
+    /// <summary>A loop event between turns is written onto the turn it followed. Before the first turn there is none to write it on, and the port keeps no transcript to open with it.</summary>
+    public void Note(string text)
+    {
+        if (_turns.Count == 0)
+        {
+            return;
+        }
+
+        _turns[^1].Notes.Add(LoopNote + text);
+        Attach();
+    }
+
+    private void Attach()
+    {
+        if (_turns.Count == 0)
+        {
+            return;
+        }
+
+        context.AttachTurns([.. _turns.TakeLast(MaxReportedTurns).Select(turn => new StepTurn(
+            turn.Index,
+            [.. turn.Calls.Take(MaxReportedCalls).Select(call => Truncate(call, MaxReportedCallChars))],
+            ReportedOutcome(turn)))]);
+    }
+
+    // The tool results clipped, and the loop's notes after them, clipped apart, since they come last and one clip would drop them.
+    private static string ReportedOutcome(LoopTurn turn)
+    {
+        var outcome = Truncate(string.Join('\n', turn.Results), MaxReportedOutcomeChars);
+        return turn.Notes.Count == 0 ? outcome : outcome + "\n" + Truncate(string.Join('\n', turn.Notes), MaxReportedNotesChars);
+    }
+
+    private static string Truncate(string text, int max) => text.Length <= max ? text : text[..max] + "…[truncated]";
+}
+
+/// <summary>One turn as the loop keeps it: the loop's notes apart from what the model and the tools produced.</summary>
+internal sealed class LoopTurn(int index, IReadOnlyList<string> calls)
+{
+    public int Index { get; } = index;
+
+    public IReadOnlyList<string> Calls { get; } = calls;
+
+    /// <summary>The model's prose, then one line per tool result.</summary>
+    public List<string> Results { get; } = [];
+
+    /// <summary>Loop events after the turn (a reply without a tool call, a shrunk history), each prefixed with <c>[loop] </c>.</summary>
+    public List<string> Notes { get; } = [];
 }

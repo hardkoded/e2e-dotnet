@@ -46,6 +46,7 @@ internal sealed partial class ActContext : StepExecutorContext
     private readonly ObservationFeed _feed;
     private readonly StepAccounting _budget;
     private string? _transcript;
+    private IReadOnlyList<StepTurn>? _turns;
 
     [SetsRequiredMembers]
     public ActContext(AttemptScope scope, ObservationFeed feed, StepAccounting budget, ActionDispatcher dispatcher, StepSpec spec, ResolvedAgent agent, int stepIndex, IReadOnlyList<Secret> declared, Observation? start, ReplayedPrefix? prefix)
@@ -113,6 +114,16 @@ internal sealed partial class ActContext : StepExecutorContext
             _transcript = text;
         }
     }
+
+    public override void AttachTurns(IReadOnlyList<StepTurn> turns)
+    {
+        ArgumentNullException.ThrowIfNull(turns);
+        // Model prose and tool output are not model input, but they are a record: the redactor that guards the tree guards the turns.
+        _turns = [.. turns.Select(turn => new StepTurn(turn.Index, [.. turn.Calls.Select(_scope.Redactor.Redact)], _scope.Redactor.Redact(turn.Outcome)))];
+    }
+
+    /// <summary>The turns the executor attached, redacted; null when it attached none.</summary>
+    public IReadOnlyList<StepTurn>? Turns => _turns is { Count: > 0 } ? _turns : null;
 
     public override Task<string> AttachScreenshotAsync(ExecutorPixels pixels, string label, CancellationToken cancellationToken = default)
     {

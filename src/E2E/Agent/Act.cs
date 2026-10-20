@@ -247,6 +247,7 @@ public sealed partial class Agent
                     LedgerBytes = context?.LedgerBytes ?? 0,
                 },
                 Cache = session?.CacheInfo,
+                Turns = context?.Turns,
             });
             context?.WriteTranscript();
         }
