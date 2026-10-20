@@ -44,7 +44,7 @@ internal sealed class FakeAgent : HttpMessageHandler
 
     public static readonly Uri Agent = new("http://localhost:9223/");
 
-    private readonly List<(string Method, string PathPrefix, int? Port, Func<AgentCall, HttpResponseMessage> Respond)> _scripted = [];
+    private readonly List<(string Method, string PathPrefix, int? Port, Func<AgentCall, CancellationToken, Task<HttpResponseMessage>> Respond)> _scripted = [];
 
     /// <summary>Every request but the lease control ones, which <see cref="LeaseCalls"/> keeps: a mutation claims the lease first, and that would clutter every list.</summary>
     public List<AgentCall> Calls { get; } = [];
@@ -55,7 +55,26 @@ internal sealed class FakeAgent : HttpMessageHandler
     public HttpClient Http => new(this) { Timeout = Timeout.InfiniteTimeSpan };
 
     /// <summary>Answers requests of this method whose path starts with <paramref name="pathPrefix"/> (on <paramref name="port"/>, when given) from now on.</summary>
-    public void Script(string method, string pathPrefix, Func<AgentCall, HttpResponseMessage> respond, int? port = null) => _scripted.Insert(0, (method, pathPrefix, port, respond));
+    public void Script(string method, string pathPrefix, Func<AgentCall, HttpResponseMessage> respond, int? port = null) =>
+        ScriptAsync(method, pathPrefix, (call, _) => Task.FromResult(respond(call)), port);
+
+    /// <summary>Answers like <see cref="Script"/>, but the answer may take time. The token is the caller's: it cancels the request.</summary>
+    public void ScriptAsync(string method, string pathPrefix, Func<AgentCall, CancellationToken, Task<HttpResponseMessage>> respond, int? port = null) =>
+        _scripted.Insert(0, (method, pathPrefix, port, respond));
+
+    /// <summary>Answers as a host that accepts the connection and never writes back, as a forwarded port with the app still starting: the request ends only when its caller cancels it.</summary>
+    /// <returns>A task that completes when a request starts to hang: a test waits on it before it cancels.</returns>
+    public Task ScriptHang(string method, string pathPrefix, int? port = null)
+    {
+        var hanging = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ScriptAsync(method, pathPrefix, async (_, cancellationToken) =>
+        {
+            hanging.TrySetResult();
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return null!; // Never reached: the delay ends only by cancellation.
+        }, port);
+        return hanging.Task;
+    }
 
     public void ScriptJson(string method, string pathPrefix, JsonNode? value, HttpStatusCode status = HttpStatusCode.OK, int? port = null) =>
         Script(method, pathPrefix, _ => Json(value, status), port);
@@ -205,7 +224,7 @@ internal sealed class FakeAgent : HttpMessageHandler
         {
             if (method == call.Method.Method && call.Uri.AbsolutePath.StartsWith(prefix, StringComparison.Ordinal) && (port is null || port == call.Uri.Port))
             {
-                return respond(call);
+                return await respond(call, cancellationToken);
             }
         }
 
