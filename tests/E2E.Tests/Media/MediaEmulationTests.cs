@@ -77,8 +77,17 @@ public sealed class MediaEmulationTests
         var popup = await live.Context().RunAndWaitForPageAsync(() => live.Page().EvaluateAsync("() => { window.open('/media'); }"));
         await popup.WaitForLoadStateAsync();
         Task<MediaFeatures> Now() => EvaluateAsync<MediaFeatures>(popup, "() => ({ dark: matchMedia('(prefers-color-scheme: dark)').matches, reduce: matchMedia('(prefers-reduced-motion: reduce)').matches })");
-        Assert.Equal(new MediaFeatures(Dark: false, Reduce: false), await Now());
 
+        // A test's change reaches a tab the app opens once the page exists, as no context-wide emulation exists, so the tab
+        // paints with the context's media first and the change lands on the page event. Wait for it instead of reading at load.
+        var applied = new MediaFeatures(Dark: false, Reduce: false);
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (await Now() != applied && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(25);
+        }
+
+        Assert.Equal(applied, await Now());
         await browser.EmulateMediaAsync(new WebMedia { ReducedMotion = WebReducedMotion.Reduce });
         Assert.Equal(new MediaFeatures(Dark: false, Reduce: true), await Now());
         var opener = await ReadAsync(session);
