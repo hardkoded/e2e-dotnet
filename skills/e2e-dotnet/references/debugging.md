@@ -242,7 +242,7 @@ total time, the time in its model, observe, and action work, the model calls,
 the tokens in and out, the share of the input the provider served from its
 prompt cache, and the cost. A `via` column names the model when the steps used
 more than one. `cached` and `cost` read `-` when the provider does not report
-them. Every built-in provider reports the cache split. Only an OpenAI-compatible
+them. A built-in provider reports the cache split when its response carries it. Only an OpenAI-compatible
 endpoint that sends a `cost` in its usage, such as OpenRouter, reports a cost.
 
 ```console
