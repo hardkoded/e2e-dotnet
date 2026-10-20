@@ -35,7 +35,8 @@ providers and their logins):
   `system`, `context`, `maxSteps`, `maxModelCalls`, `judgmentTimeout`, and
   `providerOptions`. None inherits from `default`.
 - `model` drives `ActAsync`. Judgments use `judge` when set, else `model`.
-- No model and no replay that finishes the step is `MODEL_UNAVAILABLE`.
+- No model and no replay that finishes the step is `MODEL_UNAVAILABLE`, and so
+  is a model GitHub Copilot does not serve to the account, at the first call.
   Auth failures surface on the first model call as `MODEL_PROVIDER_FAILED`.
 - `context` is what the app calls things, sent to every model call, judges
   included. `system` is how the acting agent works; judges never see it.
