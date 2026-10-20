@@ -228,7 +228,7 @@ public sealed class TracesTests : IDisposable
         var results = Results();
         await using (var failing = await StartAsync(results, "flaky > test"))
         {
-            await failing.App.OpenAsync("/");
+            await failing.App.OpenAsync("/failed-attempt");
             failing.Complete(new TestException("TEST_FAILED", "nope"));
         }
 
@@ -240,6 +240,8 @@ public sealed class TracesTests : IDisposable
 
         var page = ReadTrace(results, "flaky > test");
         Assert.NotNull(page);
+        // The page tells the failed attempt, which only the first attempt opened.
+        Assert.Contains("/failed-attempt", page, StringComparison.Ordinal);
         Assert.Contains("Passed after 1 failed attempt", page, StringComparison.Ordinal);
         Assert.Matches(@"\n\n`[^\n]+` · flaky · ", page);
     }
