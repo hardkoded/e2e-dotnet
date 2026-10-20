@@ -409,10 +409,20 @@ public sealed class SnapshotProjectionTests
         Assert.Equal("checkbox, unchecked", field.Index[0].Node.Value);
         Assert.DoesNotContain("checked", field.Index[0].States.Keys);
 
-        // An empty field shows its placeholder, which XCTest reports as the value; the hint flag says it is empty.
-        var empty = Project(N("e1", type: "TextField", label: "Name field", value: "Type your name", hintShowing: true));
+        // An empty iOS field reports its placeholder as its value, with no flag saying so (examples/with-expo's TextInput, agent-device 0.21.28, iOS 26.5).
+        var empty = Project(N("e1", type: "TextField", label: "Name", value: "Ada Lovelace", placeholder: "Ada Lovelace", identifier: "name", editable: true));
         Assert.Equal("textbox", empty.Index[0].Node.Role);
+        Assert.Equal("Name", empty.Index[0].Node.Name);
+        Assert.Equal("Ada Lovelace", empty.Index[0].Node.Placeholder);
         Assert.Null(empty.Index[0].Node.Value);
+
+        // Typed text that differs from the placeholder is the value.
+        var typed = Project(N("e1", type: "TextField", label: "Name", value: "Ada", placeholder: "Ada Lovelace", editable: true));
+        Assert.Equal("Ada", typed.Index[0].Node.Value);
+
+        // A static text whose value matches some placeholder is not a field showing its hint.
+        var text = Project(N("e1", type: "StaticText", label: "Hint", value: "Ada Lovelace", placeholder: "Ada Lovelace"));
+        Assert.Equal("Ada Lovelace", text.Index[0].Node.Value);
         Assert.Empty(android.Index[0].States);
     }
 

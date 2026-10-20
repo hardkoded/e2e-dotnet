@@ -266,9 +266,7 @@ public static partial class SnapshotProjection
             var role = EditableRole(spelled?.Role ?? DescribedRole(source) ?? RoleOf(kind, android, parent?.Kind), source.Editable);
             var editable = source.Editable == true || (role is not null && TextInputRoles.Contains(role));
 
-            // A field showing its hint is empty: XCTest reports the placeholder as the value of an empty
-            // text field, and the bridge flags that with hintShowing.
-            var value = source.HintShowing == true ? "" : spelled is null ? source.Value : spelled.Value;
+            var value = ShowsHint(source, android, editable) ? "" : spelled is null ? source.Value : spelled.Value;
 
             // iOS names a secure field by class; UIAutomator flags a password `EditText` by attribute, the
             // class being the plain one.
@@ -577,6 +575,29 @@ public static partial class SnapshotProjection
         }
 
         return source.RoleDescription is null ? null : ReactNativeRoleDescriptions.GetValueOrDefault(source.RoleDescription.ToLowerInvariant());
+    }
+
+    /// <summary>
+    /// Whether a field is empty and showing its hint, whose text the platform reports as the value.
+    /// UIAutomator flags it with <c>hintShowing</c>. XCTest has no flag: an empty iOS field reports its
+    /// placeholder as its value, so a value equal to the placeholder reads as empty, the same test
+    /// agent-device's runner makes. A field holding exactly its placeholder text reads empty too; the
+    /// snapshot cannot tell the two apart.
+    /// </summary>
+    private static bool ShowsHint(RawNode source, bool android, bool editable)
+    {
+        if (source.HintShowing == true)
+        {
+            return true;
+        }
+
+        if (android || !editable)
+        {
+            return false;
+        }
+
+        var placeholder = source.Placeholder?.Trim();
+        return !string.IsNullOrEmpty(placeholder) && source.Value?.Trim() == placeholder;
     }
 
     /// <summary>The string itself, or null for an absent or empty one.</summary>
