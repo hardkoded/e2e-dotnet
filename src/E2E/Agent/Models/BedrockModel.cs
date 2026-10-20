@@ -208,8 +208,12 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         {
             usage = new ModelUsage
             {
-                InputTokens = ModelHttp.Int(usageElement, "inputTokens"),
+                InputTokens = ModelHttp.Int(usageElement, "inputTokens")
+                    + ModelHttp.Int(usageElement, "cacheReadInputTokens")
+                    + ModelHttp.Int(usageElement, "cacheWriteInputTokens"),
                 OutputTokens = ModelHttp.Int(usageElement, "outputTokens"),
+                CacheReadTokens = ModelHttp.OptionalInt(usageElement, "cacheReadInputTokens"),
+                CacheWriteTokens = ModelHttp.OptionalInt(usageElement, "cacheWriteInputTokens"),
             };
         }
 

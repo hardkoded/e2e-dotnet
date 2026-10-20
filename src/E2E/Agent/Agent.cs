@@ -710,6 +710,9 @@ public sealed partial class Agent
         {
             InputTokens = response.Usage?.InputTokens,
             OutputTokens = response.Usage?.OutputTokens,
+            CacheReadTokens = response.Usage?.CacheReadTokens,
+            CacheWriteTokens = response.Usage?.CacheWriteTokens,
+            EstimatedCostUsd = response.Usage?.EstimatedCostUsd,
             StartedAt = started,
             DurationMs = (int)(DateTimeOffset.UtcNow - started).TotalMilliseconds,
             ModelId = model.Name,

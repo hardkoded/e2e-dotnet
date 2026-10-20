@@ -224,10 +224,14 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
         ModelUsage? usage = null;
         if (root.TryGetProperty("usage", out var usageElement) && usageElement.ValueKind == JsonValueKind.Object)
         {
+            var details = ModelHttp.Details(usageElement, "prompt_tokens_details");
             usage = new ModelUsage
             {
                 InputTokens = ModelHttp.Int(usageElement, "prompt_tokens"),
                 OutputTokens = ModelHttp.Int(usageElement, "completion_tokens"),
+                CacheReadTokens = details is null ? null : ModelHttp.OptionalInt(details.Value, "cached_tokens"),
+                CacheWriteTokens = details is null ? null : ModelHttp.OptionalInt(details.Value, "cache_write_tokens"),
+                EstimatedCostUsd = ModelHttp.OptionalCost(usageElement, "cost"),
             };
         }
 
