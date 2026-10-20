@@ -23,6 +23,7 @@ namespace E2E.NUnit;
 /// <c>Assert.Inconclusive</c> after one fails the test, and the skip reason stays in the message.
 /// Settings come from <see cref="E2EFixture"/>.
 /// </summary>
+[LooksBeforeTeardown]
 public abstract class E2ETest : E2EFixture
 {
     /// <summary>Cache identity for this test. The default is the NUnit full name, so each test keeps its own replay.</summary>
@@ -67,6 +68,8 @@ public abstract class E2ETest : E2EFixture
             await session.DisposeAsync().ConfigureAwait(false);
         }
     }
+
+    internal Task CaptureEvidenceOf(Exception failure) => CaptureFailureEvidenceAsync(failure);
 
     // NUnit shares one fixture instance among its tests, and the session lives on that instance.
     // Tests that run in parallel on one instance would overwrite each other's session.

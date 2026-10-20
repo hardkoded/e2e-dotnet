@@ -19,8 +19,12 @@ namespace E2E.XUnit.V3;
 /// fails when it is disposed, with every soft failure in one message.
 /// Settings come from <see cref="E2EFixture"/>.
 /// </summary>
+[LooksBeforeTeardown]
 public abstract class E2ETest : E2EFixture, IAsyncLifetime
 {
+    // The attribute that looks before the teardown gets the test, not the instance.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, E2ETest> Running = new(StringComparer.Ordinal);
+
     /// <summary>
     /// Cache identity for this test. The default is the class and method name, with every theory
     /// argument in full, so each test and theory row keeps its own replay. The xUnit display name
@@ -64,11 +68,37 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         var current = Xunit.TestContext.Current;
         var test = current.Test ?? throw new InvalidOperationException("The E2E session starts inside a running xUnit test.");
         await StartSessionAsync(CacheTitle(test), 1, null, HasFailed, current.CancellationToken, (test.TestCase as IXunitTestCase)?.TestMethod?.Method).ConfigureAwait(false);
+        Running[test.UniqueID] = this;
+    }
+
+    // The test body has ended and the class is not disposed yet: a failed body is looked at now, ahead of the teardown.
+    // The entry goes with the look, or with the dispose when the test method never ran.
+    internal static void LookAtFailure(IXunitTest test)
+    {
+        if (!Running.TryRemove(test.UniqueID, out var fixture) || Xunit.TestContext.Current.TestState is not { Result: TestResult.Failed } state)
+        {
+            return;
+        }
+
+        try
+        {
+            fixture.CaptureFailureEvidenceAsync(ErrorForCache(state, null)!).GetAwaiter().GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            // The look is a courtesy: the test's own failure is the one to report.
+        }
     }
 
     public virtual async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
+        if (Xunit.TestContext.Current.Test is { } running)
+        {
+            // The look removes it when the test method ran. A test that never got there (a failed setup) leaves it here.
+            Running.TryRemove(running.UniqueID, out _);
+        }
+
         var session = TakeSession();
         if (session is null)
         {

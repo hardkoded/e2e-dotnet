@@ -224,6 +224,13 @@ public abstract class E2EFixture
             cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Looks at the app now, for an adapter to call when the test body has failed and before the test's own teardown runs,
+    /// so a teardown that navigates away cannot replace the evidence. See <see cref="E2ESession.CaptureFailureEvidenceAsync"/>.
+    /// Does nothing when setup never started a session.
+    /// </summary>
+    protected Task CaptureFailureEvidenceAsync(Exception error) => _session?.CaptureFailureEvidenceAsync(error) ?? Task.CompletedTask;
+
     /// <summary>Hands the running session to the adapter to complete and dispose, or null when setup never started one.</summary>
     protected E2ESession? TakeSession()
     {

@@ -95,8 +95,11 @@ no viewer. It tells, in this order:
    closest to what it asked for (`Closest to what the locator asked for`), and
    the screen as the agent reads it, one node per line:
    `#id role "name" text="..." [states]` (also in
-   `attempt-<n>/screen-at-failure.txt`). A test's own `TearDown` runs first, so
-   one that navigates away shows its page here. When the look fails (a crashed
+   `attempt-<n>/screen-at-failure.txt`). The look is taken the moment the test
+   body fails, before the test's own `[TearDown]` or `DisposeAsync`, so one
+   that navigates away cannot replace it. A failure that first lands in the
+   teardown is looked at after it, as is an xUnit `Expect.Soft` failure, which
+   xUnit reports when the test is disposed. When the look fails (a crashed
    page) the section is left out.
 5. `## Also failed` (another error, such as one from cleanup) and
    `## Evidence` (the video).

@@ -25,6 +25,7 @@ public sealed class E2ESession : IAsyncDisposable
     private int _disposed;
     private ExecuteVideo? _video;
     private TraceOutput? _trace;
+    private int _evidenceTried;
     private FailureEvidence? _evidence;
     private Exception? _error;
     private long _bodyMs;
@@ -387,7 +388,12 @@ public sealed class E2ESession : IAsyncDisposable
         Exception? videoFailure = null;
         try
         {
-            await CaptureFailureEvidenceAsync().ConfigureAwait(false);
+            // A failure that first landed in the teardown has had no look yet.
+            if (_error is { } failure)
+            {
+                await CaptureFailureEvidenceAsync(failure).ConfigureAwait(false);
+            }
+
             if (_video is not null)
             {
                 try
@@ -550,15 +556,23 @@ public sealed class E2ESession : IAsyncDisposable
         }
     }
 
-    // One more look at the app the moment the failure is known, while the engine is still open: what the screen held then is the
-    // evidence the message lacks. Only an attempt whose trace page is kept looks, since the page is all that reads it.
-    private async Task CaptureFailureEvidenceAsync()
+    /// <summary>
+    /// Looks at the app once more and keeps what the screen holds, the moment a failure is known: an adapter calls it when
+    /// the test body fails, ahead of the test's own teardown, so a teardown that navigates away cannot replace the evidence
+    /// (upstream's <c>captureEvidence</c>). It looks once per attempt. A failure that first lands in the teardown is
+    /// looked at when the session is released. Only an attempt whose trace page is kept looks.
+    /// </summary>
+    public async Task CaptureFailureEvidenceAsync(Exception error)
     {
-        if (_error is not { } error || _status == AttemptStatus.Passed || _trace is not { Keep: { } keep } trace || !RecordingModes.Keeps(keep, _status))
+        ArgumentNullException.ThrowIfNull(error);
+
+        var status = ExecuteVideo.StatusOf(error);
+        if (status == AttemptStatus.Passed || _trace is not { Keep: { } keep } trace || !RecordingModes.Keeps(keep, status) || Interlocked.Exchange(ref _evidenceTried, 1) != 0)
         {
             return;
         }
 
+        // The look is a courtesy: one that fails must not hide the test's own result.
         try
         {
             _evidence = await FailureEvidence.CaptureAsync(new FailureEvidenceOptions
