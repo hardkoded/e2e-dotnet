@@ -88,6 +88,7 @@ public sealed class CopilotRequestsTests
     [InlineData("\"rate limited\"")]
     [InlineData("""{ "error": "model_not_supported" }""")]
     [InlineData("""{ "error": { "code": 7 } }""")]
+    [InlineData("""{ "error": { "code": "model_not_supported", "code": "model_not_supported" } }""")]
     public async Task Keeps_a_provider_failure_when_the_error_body_carries_no_code(string body)
     {
         var api = new FakeApi(request => request.Uri.AbsolutePath == "/models" ? (HttpStatusCode.OK, """{ "data": [] }""") : (HttpStatusCode.BadRequest, body));

@@ -114,8 +114,9 @@ internal static class ModelHttp
             var code = (JsonNode.Parse(body) as JsonObject)?["error"] is JsonObject error ? error["code"] as JsonValue : null;
             return code is not null && code.TryGetValue<string>(out var text) && text.Length <= 128 ? text : null;
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or ArgumentException)
         {
+            // A body with a duplicate property name is not an error the code can be read from.
             return null;
         }
     }
