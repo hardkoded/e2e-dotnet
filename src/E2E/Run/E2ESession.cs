@@ -601,11 +601,36 @@ public sealed class E2ESession : IAsyncDisposable
             return;
         }
 
-        if (trace.Keep is not { } keep || !RecordingModes.Keeps(keep, _status))
+        // Every attempt joins its test's report, kept or not, so the page of a test tells all its attempts.
+        var kept = trace.Keep is { } keep && RecordingModes.Keeps(keep, _status);
+        try
         {
-            // Upstream empties the results directory when a run starts. A first attempt that keeps nothing clears the page an earlier run left.
-            if (_scope.Attempt == 1)
+            // A first attempt that passed and keeps nothing has no report to build.
+            var untraced = !kept && _scope.Attempt == 1 && _status is (AttemptStatus.Passed or AttemptStatus.Skipped);
+            if (untraced)
             {
+                RunReport.Forget(trace.ResultsRoot, AttemptReport.ResultId(_scope.TestTitle));
+            }
+
+            var traced = false;
+            if (!untraced)
+            {
+                var (single, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Videos, Exploration, _evidence);
+                var (report, anyKept, redact) = RunReport.Add(single, trace.ResultsRoot, _scope.Attempt, kept, _scope.Redactor.Redact);
+                traced = anyKept;
+                if (traced)
+                {
+                    await TracePages.WriteTracePagesAsync(
+                        report,
+                        new HashSet<string>(StringComparer.Ordinal) { id },
+                        new WriteTracePagesOptions(_scope.ProjectRoot!, trace.ResultsRoot, trace.CacheDir),
+                        redact).ConfigureAwait(false);
+                }
+            }
+
+            if (!traced && _scope.Attempt == 1)
+            {
+                // Upstream empties the results directory when a run starts. A first attempt that keeps nothing clears the page an earlier run left.
                 try
                 {
                     File.Delete(Path.Combine(trace.TestDir, TracePages.TracePage));
@@ -615,18 +640,6 @@ public sealed class E2ESession : IAsyncDisposable
                     // A page that cannot be removed is stale, not a failure of the test.
                 }
             }
-
-            return;
-        }
-
-        try
-        {
-            var (report, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Videos, Exploration, _evidence);
-            await TracePages.WriteTracePagesAsync(
-                report,
-                new HashSet<string>(StringComparer.Ordinal) { id },
-                new WriteTracePagesOptions(_scope.ProjectRoot!, trace.ResultsRoot, trace.CacheDir),
-                _scope.Redactor.Redact).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

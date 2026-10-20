@@ -24,9 +24,10 @@ internal sealed record TraceOutput(Keep? Keep, string AttemptDir, string? CacheD
 }
 
 /// <summary>
-/// The in-memory report of one attempt, which the trace page reads. The port has no <c>report.json</c> and no run report: the session
-/// builds this from the records it keeps (the step timeline, the environment facts, the videos) and hands it to
-/// <see cref="TracePages.WriteTracePagesAsync"/>. Upstream builds the same page from the report of the whole run.
+/// The in-memory report of one attempt, which the trace page reads. The port has no <c>report.json</c>: the session builds this from
+/// the records it keeps (the step timeline, the environment facts, the videos), adds it to the test's other attempts in
+/// <see cref="RunReport"/>, and hands the result to <see cref="TracePages.WriteTracePagesAsync"/>. Upstream builds the same page from
+/// the report of the whole run.
 /// </summary>
 internal static class AttemptReport
 {
