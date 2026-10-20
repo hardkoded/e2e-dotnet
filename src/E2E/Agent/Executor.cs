@@ -300,7 +300,7 @@ public sealed record ExecutorObservation(string Text)
 
     /// <summary>
     /// Whether an on-screen keyboard is showing, as the engine measured it apart from the tree; false when it measured none.
-    /// Null only when the engine did not measure it: the tree's <c>keyboard</c> and <c>key</c> nodes, or a screenshot, are then the evidence.
+    /// Null when the engine did not measure it (the web engine never does): the tree's <c>keyboard</c> and <c>key</c> nodes, or a screenshot, are then the evidence.
     /// </summary>
     public bool? KeyboardVisible { get; init; }
 
