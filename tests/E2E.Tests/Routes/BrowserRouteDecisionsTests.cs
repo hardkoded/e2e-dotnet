@@ -15,7 +15,7 @@ public sealed class BrowserRouteDecisionsTests
     public Task Clears_every_test_route_keeps_configured_site_headers_and_can_register_again() => WithRoutesAsync(async routes =>
     {
         await routes.Browser.RouteAsync("**/api/**", route => route.FulfillAsync(new RouteFulfillResponse { Body = "mock-api" }));
-        await routes.Browser.RouteAsync(new Regex("/echo$"), route => route.FulfillAsync(new RouteFulfillResponse { Json = new { intercepted = true } }));
+        await routes.Browser.RouteAsync(new Regex(@"/echo\z"), route => route.FulfillAsync(new RouteFulfillResponse { Json = new { intercepted = true } }));
         Assert.Equal("mock-api", await routes.FetchTextAsync(routes.Site.Origin + "/api/quote"));
         await routes.Browser.UnrouteAllAsync();
         Assert.Equal("network:/api/quote", await routes.FetchTextAsync(routes.Site.Origin + "/api/quote"));
