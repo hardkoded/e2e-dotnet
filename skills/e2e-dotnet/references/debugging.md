@@ -112,7 +112,7 @@ as code or escaped, and a secret is redacted. Add `.e2e/results/` to
 | `MODEL_PROVIDER_FAILED` with 400 "not scoped to a workspace" | An Anthropic user key (`sk-ant-usr-`) | Use a workspace key, or `provider: copilot` |
 | `MODEL_PROVIDER_FAILED` with "The subscription login failed (NOT_LOGGED_IN)" or `LOGIN_REQUIRED` | No login is stored, or it was rejected | `e2e login <provider>` |
 | `MODEL_PROVIDER_FAILED` with a 4xx that names the model | The plan or key does not serve that model id | Pick an id from `e2e models <login>` |
-| `MODEL_UNAVAILABLE` | No model is set and no replay finished the step | Set `agents.default.model` |
+| `MODEL_UNAVAILABLE` | No model is set and no replay finished the step, or GitHub Copilot does not serve the model to the account (`model_not_supported`, a plan or settings limit `e2e models` cannot show) | Set `agents.default.model`; for Copilot, pick an id the plan serves |
 | `INVALID_CONFIG` | Unknown key or bad value in `e2e.config.json` | Fix the key the message names |
 | `INVALID_ARGUMENT` | A step argument failed validation (an unknown agent, a budget above the agent's) | Fix the call |
 | `SECRET_UNAVAILABLE` | `Secrets.Get` named a secret the config does not declare | Add it under `secrets` |

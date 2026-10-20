@@ -156,6 +156,18 @@ public sealed partial class CopilotProvider : IOAuthProvider
         }
     }
 
+    /// <summary>Why <paramref name="modelId"/> cannot be used, as the error reads it, once Copilot answered <c>model_not_supported</c>.</summary>
+    internal static string Refusal(string modelId)
+    {
+        return "GitHub Copilot does not serve " + modelId + " to this account: the plan does not include it, it is turned off in Copilot settings on GitHub, or Copilot lists no such id; `e2e models github-copilot` lists the ids, and the listing cannot see plan limits";
+    }
+
+    /// <summary>True for a 4xx whose body code is <c>model_not_supported</c>; a wrong endpoint (<c>unsupported_api_for_model</c>) is not this.</summary>
+    internal static bool IsRefusal(AgentException failure)
+    {
+        return failure is { ProviderStatus: >= 400 and < 500, ProviderErrorCode: "model_not_supported" };
+    }
+
     /// <summary>The Copilot API base for github.com or an enterprise host.</summary>
     public static string BaseUrl(string? enterpriseUrl)
     {

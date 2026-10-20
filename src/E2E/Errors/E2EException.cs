@@ -112,6 +112,12 @@ public sealed class AgentException : E2EException
     /// </summary>
     internal bool FromActionHook { get; init; }
 
+    /// <summary>The HTTP status of the provider's error answer that ended a model call; null for any other failure. Upstream reads it off the AI SDK's <c>APICallError</c>.</summary>
+    internal int? ProviderStatus { get; init; }
+
+    /// <summary>The <c>error.code</c> of that answer's JSON body when it is a short string; null when the body has none.</summary>
+    internal string? ProviderErrorCode { get; init; }
+
     /// <summary>
     /// True when credentials, the environment, test setup, or the agent's own budget stopped the step,
     /// rather than the app misbehaving.
