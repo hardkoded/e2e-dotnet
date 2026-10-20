@@ -144,7 +144,10 @@ public sealed class Screen
     /// </summary>
     public Task<string> TreeAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => ReadTreeAsync("screen.tree", options, cancellationToken);
 
-    /// <summary>Prints <see cref="TreeAsync"/> to the test's output.</summary>
+    /// <summary>
+    /// Prints <see cref="TreeAsync"/> to <see cref="Console.Out"/>, which NUnit and xUnit v2 capture into the test's output.
+    /// xUnit v3 shows it only when the test assembly has <c>[assembly: CaptureConsole]</c>.
+    /// </summary>
     public async Task DebugAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) =>
         Console.WriteLine(await ReadTreeAsync("screen.debug", options, cancellationToken).ConfigureAwait(false));
 
@@ -170,7 +173,10 @@ public sealed class Screen
             bounded.CancelAfter(timeout);  // an infinite timeout never fires
             try
             {
-                var observation = await ObserveAsync(bounded.Token).ConfigureAwait(false);
+                // The wait ends with the timeout even when the engine ignores cancellation; the abandoned read's fault is observed.
+                var read = ObserveAsync(bounded.Token);
+                _ = read.ContinueWith(static finished => _ = finished.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                var observation = await read.WaitAsync(bounded.Token).ConfigureAwait(false);
                 return RenderTree?.Invoke(observation) ?? Redact(TreeText(observation, Redactor.None, null, StepScreens.DefaultObservationBytes));
             }
             catch (OperationCanceledException) when (bounded.IsCancellationRequested && !token.IsCancellationRequested)

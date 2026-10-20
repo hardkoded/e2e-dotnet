@@ -41,6 +41,25 @@ public sealed class ScreenTreeTests
         Assert.Equal(EngineErrorCodes.OperationTimeout, failure.Code);
     }
 
+    /// <summary>.NET-only: the wait ends with the timeout even when the engine ignores cancellation.</summary>
+    [Fact]
+    public async Task Stops_waiting_at_the_timeout_when_the_engine_ignores_cancellation()
+    {
+        var release = new TaskCompletionSource<E2E.Engine.Observation>();
+        var screen = new Screen(
+            _ => release.Task,
+            (_, _, _) => Task.CompletedTask,
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromSeconds(2),
+            TimeSpan.FromSeconds(2));
+
+        var failure = await Assert.ThrowsAsync<EngineException>(() => screen.TreeAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(50) }));
+        release.SetException(new InvalidOperationException("late"));
+
+        Assert.Equal(EngineErrorCodes.OperationTimeout, failure.Code);
+    }
+
     /// <summary>.NET-only: a caller's cancel surfaces as cancellation, not as a timeout.</summary>
     [Fact]
     public async Task Surfaces_a_caller_cancel_as_cancellation()
