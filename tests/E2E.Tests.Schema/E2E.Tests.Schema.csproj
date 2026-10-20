@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>E2E.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- PrivateAssets keeps the library's top-level Json namespace out of the test projects, where a helper named Json would clash with it. -->
+    <PackageReference Include="JsonSchema.Net" Version="8.0.5" PrivateAssets="compile" />
+  </ItemGroup>
+</Project>
