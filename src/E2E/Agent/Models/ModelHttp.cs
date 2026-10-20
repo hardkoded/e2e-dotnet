@@ -111,7 +111,8 @@ internal static class ModelHttp
     {
         try
         {
-            return JsonNode.Parse(body) is JsonObject { ["error"]: JsonObject { ["code"]: JsonValue code } } && code.TryGetValue<string>(out var text) && text.Length <= 128 ? text : null;
+            var code = (JsonNode.Parse(body) as JsonObject)?["error"] is JsonObject error ? error["code"] as JsonValue : null;
+            return code is not null && code.TryGetValue<string>(out var text) && text.Length <= 128 ? text : null;
         }
         catch (JsonException)
         {
