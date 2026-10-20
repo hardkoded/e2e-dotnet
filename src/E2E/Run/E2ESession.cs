@@ -227,6 +227,7 @@ public sealed class E2ESession : IAsyncDisposable
                 TargetName = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName,
                 Ended = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token),
                 EnginePlatform = options.Engine.Platform,
+                EngineVersion = options.Engine.Version,
                 EngineCapabilities = options.Engine.Capabilities,
                 Attempt = options.Attempt,
                 ActionTimeout = options.ActionTimeout,
