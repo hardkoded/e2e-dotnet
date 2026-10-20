@@ -129,4 +129,81 @@ public sealed class ProjectToolDispatchTests
         Assert.Equal("/settings/general", path);
         Assert.Equal(nameof(VisionDegradation.UnsupportedCapability), withheld);
     }
+
+    [Fact]
+    public async Task Hands_an_executor_the_engines_measured_keyboard_state_and_nothing_when_the_engine_measured_none()
+    {
+        var measured = new List<bool?>();
+        var engine = new KeyboardEngine(new DocumentEngine(CounterPage.World()));
+        var executor = new TestExecutor("test", async (context, _) =>
+        {
+            measured.Add((await context.ObserveAsync()).KeyboardVisible);
+            return Passed("looked");
+        });
+        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = engine,
+            AgentExecutor = executor,
+            BaseUrl = "https://counter.test",
+            TestTitle = "keyboard",
+        });
+        await session.App.OpenAsync("/");
+
+        foreach (var state in new bool?[] { null, true, false })
+        {
+            engine.Reported = state;
+            await session.Agent.ActAsync("look");
+        }
+
+        session.Complete();
+        Assert.Equal([null, true, false], measured);
+    }
+
+    /// <summary>An engine over another that reports the keyboard state a test sets on every observation.</summary>
+    private sealed class KeyboardEngine(IEngine inner) : IEngine
+    {
+        public bool? Reported { get; set; }
+
+        public string Platform => inner.Platform;
+
+        public string Version => inner.Version;
+
+        public EngineCapabilities Capabilities => inner.Capabilities;
+
+        public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+            new Session(this, await inner.StartAsync(options, cancellationToken).ConfigureAwait(false));
+
+        private sealed class Session(KeyboardEngine engine, IEngineSession session) : IEngineSession
+        {
+            public string Route => session.Route;
+
+            public Task OpenAsync(string url, CancellationToken cancellationToken) => session.OpenAsync(url, cancellationToken);
+
+            public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
+            {
+                var observation = await session.ObserveAsync(cancellationToken).ConfigureAwait(false);
+                return new Observation
+                {
+                    Route = observation.Route,
+                    Roots = observation.Roots,
+                    Truncated = observation.Truncated,
+                    KeyboardVisible = engine.Reported,
+                };
+            }
+
+            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => session.PerformAsync(node, action, cancellationToken);
+
+            public Task PressAsync(string key, CancellationToken cancellationToken) => session.PressAsync(key, cancellationToken);
+
+            public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => session.SwipeAsync(direction, cancellationToken);
+
+            public Task BackAsync(CancellationToken cancellationToken) => session.BackAsync(cancellationToken);
+
+            public Task RestartAsync(CancellationToken cancellationToken) => session.RestartAsync(cancellationToken);
+
+            public Task ClearStateAsync(CancellationToken cancellationToken) => session.ClearStateAsync(cancellationToken);
+
+            public ValueTask DisposeAsync() => session.DisposeAsync();
+        }
+    }
 }

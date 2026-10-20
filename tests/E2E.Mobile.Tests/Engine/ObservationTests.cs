@@ -41,6 +41,31 @@ public sealed class ObservationTests
         return session;
     }
 
+    private static JsonObject Snapshot(JsonObject keyboard)
+    {
+        var snapshot = FakeDeviceClient.SettingsSnapshot();
+        snapshot["keyboard"] = keyboard;
+        return snapshot;
+    }
+
+    [Fact]
+    public async Task Reports_the_keyboard_state_the_capture_measured_and_nothing_when_it_measured_none()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        Assert.Null((await session.ObserveAsync(CancellationToken.None)).KeyboardVisible);
+
+        var frame = new JsonObject { ["x"] = 0, ["y"] = 583, ["width"] = 390, ["height"] = 261 };
+        h.Fake.Respond("capture.snapshot", _ => Snapshot(new JsonObject { ["kind"] = "visible", ["frame"] = frame }));
+        Assert.True((await session.ObserveAsync(CancellationToken.None)).KeyboardVisible);
+
+        h.Fake.Respond("capture.snapshot", _ => Snapshot(new JsonObject { ["kind"] = "absent" }));
+        Assert.False((await session.ObserveAsync(CancellationToken.None)).KeyboardVisible);
+
+        h.Fake.Respond("capture.snapshot", _ => Snapshot(new JsonObject { ["kind"] = "unmeasurable", ["reason"] = "keyboard-frame-query-timeout" }));
+        Assert.Null((await session.ObserveAsync(CancellationToken.None)).KeyboardVisible);
+    }
+
     [Fact]
     public async Task Projects_the_snapshot_under_one_stable_screen_root_with_a_viewport_and_a_fresh_id_generation_each_time_without_the_tap()
     {

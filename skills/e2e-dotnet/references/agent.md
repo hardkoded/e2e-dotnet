@@ -496,6 +496,9 @@ supports the verb. A tool that works outside `context.Actions` wraps its body in
 and records the call. Do not call `context.Actions` or `context.ObserveAsync` inside a
 mutating body: the call waits behind itself.
 
+The observation's `KeyboardVisible` says whether an on-screen keyboard is
+showing, and is `null` when the engine can't tell.
+
 Replace the executor. This one uses no model and supports one assertion:
 
 ```csharp

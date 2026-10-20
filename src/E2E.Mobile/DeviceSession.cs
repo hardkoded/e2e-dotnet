@@ -207,6 +207,7 @@ public sealed partial class DeviceSession : IEngineSession
             Route = Route,
             Roots = [SnapshotProjection.ScreenRoot(projected.Roots, viewport)],
             Truncated = raw.Truncated || raw.Sparse,
+            KeyboardVisible = MeasuredKeyboard(raw),
         };
     }
 
