@@ -212,6 +212,12 @@ internal static class ExploreBody
                     cancellationToken).ConfigureAwait(false);
                 state.EndStep(ReportExploreStepStatus.Passed, result.Summary);
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // A caller cancel throws out, and the record keeps the step it ended in.
+                state.EndStep(ReportExploreStepStatus.Blocked, null, "CANCELLED");
+                throw;
+            }
             catch (AgentException cause)
             {
                 state.EndStep(StepStatus(cause), cause.Explanation, cause.Code);

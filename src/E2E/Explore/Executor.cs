@@ -121,12 +121,12 @@ public static class ExploreExecutor
             {
                 var report = ReadFinding(input);
                 var label = "finding-" + Interlocked.Increment(ref reported).ToString(CultureInfo.InvariantCulture);
-                var observation = await TryAsync(() => context.ObserveAsync(new ExecutorObserveOptions { Pixels = true }, cancellationToken)).ConfigureAwait(false);
+                var observation = await TryAsync(() => context.ObserveAsync(new ExecutorObserveOptions { Pixels = true }, cancellationToken), cancellationToken).ConfigureAwait(false);
 
                 // Evidence is worth keeping, never worth failing the finding for. It is saved first, so the finding is announced
                 // complete, evidence included.
                 var artifactId = observation?.Pixels is { } pixels
-                    ? await TryAsync(() => context.AttachScreenshotAsync(pixels, label, cancellationToken)).ConfigureAwait(false)
+                    ? await TryAsync(() => context.AttachScreenshotAsync(pixels, label, cancellationToken), cancellationToken).ConfigureAwait(false)
                     : null;
                 var finding = state.AddFinding(report with { Path = observation?.Path, ArtifactId = artifactId });
                 return "Finding " + (finding.Index + 1).ToString(CultureInfo.InvariantCulture) + " recorded (" + (finding.Kind == ReportExploreFindingKind.Issue ? "issue" : "warning")
@@ -138,16 +138,28 @@ public static class ExploreExecutor
     }
 
     // Upstream's .catch(() => undefined): the screen and the file system may refuse, and the finding stands without them.
-    private static async Task<T?> TryAsync<T>(Func<Task<T>> body)
+    // A cancel is not a refusal: it is never swallowed.
+    private static async Task<T?> TryAsync<T>(Func<Task<T>> body, CancellationToken cancellationToken)
     {
         try
         {
             return await body().ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is E2EException or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested && ex is E2EException or IOException or UnauthorizedAccessException)
         {
             return default;
         }
+    }
+
+    // A whole number written as 3.0 is 3, as upstream's literal check reads it. Anything else is 0, which the range check rejects.
+    private static int ReadSeverity(JsonNode? node)
+    {
+        if (node is not JsonValue value)
+        {
+            return 0;
+        }
+
+        return value.TryGetValue<double>(out var number) && number is >= 1 and <= 5 && number == Math.Floor(number) ? (int)number : 0;
     }
 
     private static JsonObject FindingSchema() => new()
@@ -214,7 +226,7 @@ public static class ExploreExecutor
             issues.Add("kind: must be issue or warning");
         }
 
-        var severity = (input["severity"] as JsonValue)?.TryGetValue<int>(out var severityNumber) == true ? severityNumber : 0;
+        var severity = ReadSeverity(input["severity"]);
         if (severity is < 1 or > 5)
         {
             issues.Add("severity: must be 1, 2, 3, 4, or 5");
