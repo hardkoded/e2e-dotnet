@@ -137,6 +137,57 @@ public sealed class Screen
     /// <summary>Creates a lazy displayed-value query: the current value of an input, text area, or select. A checkbox or radio never shows its value, so it never matches.</summary>
     public Locator GetByDisplayValue(TextMatch value, TextMatchOptions options) => new(this, LocatorExpression.For("displayValue", value, options, nameof(value)));
 
+    /// <summary>
+    /// Reads the whole screen once, without waiting, as the agent reads it: one node per line, <c>#id role "name" text="…" [states]</c>,
+    /// children indented, secrets redacted. The text has the format and size limit of the trace's screen at failure. A node the page does
+    /// not show is left out. Use it to write a locator. Takes <see cref="ActionOptions.Timeout"/>, the configured action timeout by default.
+    /// </summary>
+    public Task<string> TreeAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => ReadTreeAsync("screen.tree", options, cancellationToken);
+
+    /// <summary>
+    /// Prints <see cref="TreeAsync"/> to <see cref="Console.Out"/>, which NUnit and xUnit v2 capture into the test's output.
+    /// xUnit v3 shows it only when the test assembly has <c>[assembly: CaptureConsole]</c>.
+    /// </summary>
+    public async Task DebugAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) =>
+        Console.WriteLine(await ReadTreeAsync("screen.debug", options, cancellationToken).ConfigureAwait(false));
+
+    /// <summary>Renders an observation as <see cref="TreeAsync"/> returns it: redacted, one node per line. A session sets its own redactor and app origin; a screen outside one redacts the text with <see cref="Redact"/>.</summary>
+    internal Func<Observation, string>? RenderTree { get; set; }
+
+    internal static string TreeText(Observation observation, Redactor redactor, string? appOrigin, int maxObservationBytes) =>
+        string.Join('\n', FailureEvidence.Listing(observation, redactor, appOrigin, maxObservationBytes).Lines);
+
+    /// <summary>One observation of the whole screen, rendered, as a screen step.</summary>
+    private async Task<string> ReadTreeAsync(string api, ActionOptions? options, CancellationToken cancellationToken)
+    {
+        var timeout = options?.Timeout ?? ActionTimeout;
+        if (timeout != System.Threading.Timeout.InfiniteTimeSpan)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(timeout, TimeSpan.Zero, "timeout");
+        }
+
+        var token = Token(cancellationToken);
+        async Task<string> Read()
+        {
+            using var bounded = CancellationTokenSource.CreateLinkedTokenSource(token);
+            bounded.CancelAfter(timeout);  // an infinite timeout never fires
+            try
+            {
+                // The wait ends with the timeout even when the engine ignores cancellation; the abandoned read's fault is observed.
+                var read = ObserveAsync(bounded.Token);
+                _ = read.ContinueWith(static finished => _ = finished.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                var observation = await read.WaitAsync(bounded.Token).ConfigureAwait(false);
+                return RenderTree?.Invoke(observation) ?? Redact(TreeText(observation, Redactor.None, null, StepScreens.DefaultObservationBytes));
+            }
+            catch (OperationCanceledException) when (bounded.IsCancellationRequested && !token.IsCancellationRequested)
+            {
+                throw new EngineException(EngineErrorCodes.OperationTimeout, api + " timed out", retryable: false);
+            }
+        }
+
+        return Steps is null ? await Read().ConfigureAwait(false) : await Steps.RunAsync(StepKind.Screen, api, "whole screen", Read).ConfigureAwait(false);
+    }
+
     internal async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
     {
         return await AppNotOpen.GuardAsync(() => _observe(cancellationToken == default ? _cancellation() : cancellationToken)).ConfigureAwait(false);

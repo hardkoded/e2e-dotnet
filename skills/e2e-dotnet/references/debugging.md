@@ -32,7 +32,8 @@
 There is no `report.json` in this port. For more than the page tells, use the
 test runner's own output, such as
 `dotnet test --logger "console;verbosity=detailed"` or a `trx` logger.
-To see where a slow test spends its time, set `E2E_DEBUG=1`
+To see the screen the agent reads, call `await screen.DebugAsync()` in the test,
+or `await screen.TreeAsync()` to get the text. To see where a slow test spends its time, set `E2E_DEBUG=1`
 ("Timings and transcripts"). To see what the page did, record it
 ("Watch it happen").
 
