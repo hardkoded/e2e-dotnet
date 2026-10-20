@@ -47,6 +47,9 @@ public sealed class ExpectSoftInARunTests
     public void Notes_the_soft_failures_of_a_body_that_timed_out_beside_the_timeout()
     {
         // Partial: NUnit reports the timeout as the CancelAfter message, not as a TEST_TIMEOUT code.
+        // NUnit's timer also covers SetUp, which opens the page. The first session in a process also checks the Chromium install
+        // (a static, once-per-process step in WebEngine), so run another body first. That check is then done when this test's timer starts.
+        Assert.That(NestedRun.Run(nameof(SoftSuiteFixture.A_body_error_stays_primary_over_the_soft_failures)).Message, Does.Contain("the body gave up"));
         var result = NestedRun.Run(nameof(SoftSuiteFixture.A_timed_out_body_still_settles_its_soft_failures));
 
         Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Failed));
