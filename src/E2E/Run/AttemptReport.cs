@@ -14,7 +14,8 @@ namespace E2E;
 /// <param name="Keep">Which verdicts keep the page, from the attempt's <c>trace</c> mode; null when the mode keeps none for this attempt.</param>
 /// <param name="AttemptDir">The attempt's artifact directory, <c>&lt;results&gt;/&lt;test&gt;/attempt-&lt;n&gt;</c>.</param>
 /// <param name="CacheDir">The replay cache directory when a <see cref="FileStepCache"/> holds the cache.</param>
-internal sealed record TraceOutput(Keep? Keep, string AttemptDir, string? CacheDir)
+/// <param name="Records">False when the mode is <c>off</c>: no attempt of the test can keep a trace, so the run holds none of its attempts.</param>
+internal sealed record TraceOutput(Keep? Keep, string AttemptDir, string? CacheDir, bool Records)
 {
     /// <summary>The test's directory under the results directory, where the page goes beside the attempts.</summary>
     public string TestDir => Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(AttemptDir))!;

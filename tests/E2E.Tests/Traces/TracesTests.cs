@@ -241,7 +241,7 @@ public sealed class TracesTests : IDisposable
         var page = ReadTrace(results, "flaky > test");
         Assert.NotNull(page);
         Assert.Contains("Passed after 1 failed attempt", page, StringComparison.Ordinal);
-        Assert.Contains("flaky", page, StringComparison.Ordinal);
+        Assert.Matches(@"\n\n`[^\n]+` · flaky · ", page);
     }
 
     [Fact]
@@ -262,19 +262,15 @@ public sealed class TracesTests : IDisposable
     public async Task Keeps_the_page_of_an_earlier_attempt_when_the_retry_that_follows_keeps_none()
     {
         var results = Results();
-        await using (var failing = await StartAsync(results, "kept > test", RecordingMode.OnFirstRetry, attempt: 2))
+        for (var attempt = 1; attempt <= 3; attempt++)
         {
-            await failing.App.OpenAsync("/");
-            failing.Complete(new TestException("TEST_FAILED", "nope"));
+            await using var session = await StartAsync(results, "kept > test", RecordingMode.OnFirstRetry, attempt);
+            await session.App.OpenAsync("/");
+            session.Complete(attempt < 3 ? new TestException("TEST_FAILED", "nope") : null);
         }
 
-        await using (var third = await StartAsync(results, "kept > test", RecordingMode.OnFirstRetry, attempt: 3))
-        {
-            await third.App.OpenAsync("/");
-            third.Complete();
-        }
-
-        Assert.NotNull(ReadTrace(results, "kept > test"));
+        // Under on-first-retry only the second attempt keeps a trace; the third passes and keeps none, yet the page tells all three.
+        Assert.Contains("Passed after 2 failed attempts", ReadTrace(results, "kept > test"), StringComparison.Ordinal);
     }
 
     [Fact]

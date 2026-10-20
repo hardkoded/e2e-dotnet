@@ -72,6 +72,18 @@ public sealed class RunReportTests
     }
 
     [Fact]
+    public void Drops_a_test_when_an_attempt_is_skipped_after_a_failure()
+    {
+        var root = Root();
+        Add(Single("a", AttemptStatus.Failed), root, 1, kept: true);
+        Add(Single("a", AttemptStatus.Skipped), root, 2, kept: false);
+
+        var (report, _, _) = Add(Single("a", AttemptStatus.Failed), root, 2, kept: false);
+
+        Assert.Single(Assert.Single(report.Run.Results).Attempts);
+    }
+
+    [Fact]
     public void Drops_a_test_once_an_attempt_passes_so_the_run_holds_only_the_tests_still_failing()
     {
         var root = Root();

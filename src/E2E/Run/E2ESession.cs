@@ -288,7 +288,7 @@ public sealed class E2ESession : IAsyncDisposable
                 CancellationToken = timeout.Token,
             };
             var keep = RecordingModes.AttemptKeep(options.Trace.Mode, options.Attempt - 1);
-            var trace = new TraceOutput(keep, attemptDir, (options.Cache as FileStepCache)?.CacheDirectory);
+            var trace = new TraceOutput(keep, attemptDir, (options.Cache as FileStepCache)?.CacheDirectory, options.Trace.Mode != RecordingMode.Off);
             return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _trace = trace };
         }
         catch
@@ -605,8 +605,8 @@ public sealed class E2ESession : IAsyncDisposable
         var kept = trace.Keep is { } keep && RecordingModes.Keeps(keep, _status);
         try
         {
-            // A first attempt that passed and keeps nothing has no report to build.
-            var untraced = !kept && _scope.Attempt == 1 && _status is (AttemptStatus.Passed or AttemptStatus.Skipped);
+            // Nothing reads the report of a mode that is off, and a first attempt that passed and keeps nothing has none to build.
+            var untraced = !trace.Records || (!kept && _scope.Attempt == 1 && _status is (AttemptStatus.Passed or AttemptStatus.Skipped));
             if (untraced)
             {
                 RunReport.Forget(trace.ResultsRoot, AttemptReport.ResultId(_scope.TestTitle));

@@ -44,7 +44,7 @@ internal static class RunReport
     /// returns the report with every attempt the test has had so far. A first attempt starts the test over: a repeat of it, or a
     /// later run, does not extend the attempts of the one before. <paramref name="kept"/> says whether this attempt keeps a trace;
     /// the result is traced when any attempt did. <paramref name="redact"/> is the attempt's redactor: the page of the test is redacted
-    /// by the redactors of all its attempts, since a secret one learned shows in the steps it recorded. An attempt that passed ends
+    /// by the redactors of all its attempts, since a secret one learned shows in the steps it recorded. An attempt that passed or was skipped ends
     /// the test (a retry follows a failure only), so its entry is dropped once the report is built.
     /// </summary>
     public static (Report1Document Report, bool Traced, Func<string, string> Redact) Add(Report1Document report, string resultsRoot, int attempt, bool kept, Func<string, string> redact)
@@ -74,7 +74,7 @@ internal static class RunReport
             attempts = [.. entry.Attempts];
             traced = entry.Traced;
             redactors = [.. entry.Redactors];
-            if (single.Attempts[0].Status == AttemptStatus.Passed)
+            if (single.Attempts[0].Status is AttemptStatus.Passed or AttemptStatus.Skipped)
             {
                 Results.Remove(key);
             }
