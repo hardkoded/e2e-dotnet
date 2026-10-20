@@ -11,12 +11,11 @@ namespace E2E.Tests.ScreenshotAssertions;
 /// <c>ToHaveScreenshotAsync</c> through a session over a fake engine, so what is tested is the engine-neutral
 /// path: pixels from the engine, scaled to the viewport, cut to a locator's box, masked, compared against the
 /// PNG stored beside the test file, and rewritten under update. Ported from upstream's
-/// <c>screenshot-assertions.test.ts</c>. Not ported: "keeps no screenshot when a secure field on screen went
-/// unmasked" (the engine masks secure fields itself, so no proof of masking is read back), "reports the mismatch
+/// <c>screenshot-assertions.test.ts</c>. Not ported: "reports the mismatch
 /// it saw when a later capture comes back without pixels" (an engine returns a PNG or fails), "refuses a screen
 /// scoped to a frame" (the port has no <c>browser.frameLocator</c>), and the unknown-option case of the
 /// invalid-argument table (the type forbids it). The first test is renamed because the port has no
-/// <c>comparable</c> observe option and no step to attach images to; the secret test covers the fill case only (it keeps a screenshot).
+/// <c>comparable</c> observe option and no step to attach images to.
 /// </summary>
 public sealed class ToHaveScreenshotTests
 {
@@ -138,19 +137,32 @@ public sealed class ToHaveScreenshotTests
     }
 
     [Fact]
-    public async Task Partial_Keeps_a_screenshot_after_a_secret_fill()
+    public async Task Keeps_no_screenshot_when_a_secure_field_on_screen_went_unmasked_and_keeps_one_after_a_secret_fill()
     {
-        var engine = new ScreenEngine();
-        using var project = new ScreenProject(engine);
-        var error = await project.RunAsync("fill", "after a fill", async screen =>
+        var unmasked = new ScreenEngine { WithSecureField = true, MaskedRegions = 0 };
+        using (var project = new ScreenProject(unmasked))
+        {
+            var error = await project.RunAsync("home", "home", Home);
+            Assert.Equal("POLICY_DENIED", error?.Code);
+            Assert.False(Directory.Exists(project.Snapshots("home")));
+        }
+
+        using (var silent = new ScreenProject(new ScreenEngine { ReportsMaskedRegions = false }))
+        {
+            Assert.Equal("POLICY_DENIED", (await silent.RunAsync("home", "home", Home))?.Code);
+            Assert.False(Directory.Exists(silent.Snapshots("home")));
+        }
+
+        var plain = new ScreenEngine();
+        using var filled = new ScreenProject(plain);
+        var afterFill = await filled.RunAsync("fill", "after a fill", async screen =>
         {
             await screen.GetByRole("button").FillAsync(Secret.Create("token", "a-very-secret-token"));
             await Expect.That(screen).ToHaveScreenshotAsync("home");
         });
-        Assert.Equal("ASSERTION_FAILED", error?.Code);
-        Assert.Contains("no stored screenshot at tests/fill.e2e.ts-snapshots/home" + Suffix + ".png", error!.Message, StringComparison.Ordinal);
-        Assert.True(File.Exists(Path.Combine(project.Snapshots("fill"), "home" + Suffix + ".png")));
-        Assert.True(engine.Captures > 0);
+        Assert.Equal("ASSERTION_FAILED", afterFill?.Code);
+        Assert.Contains("no stored screenshot at tests/fill.e2e.ts-snapshots/home" + Suffix + ".png", afterFill!.Message, StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(filled.Snapshots("fill"), "home" + Suffix + ".png")));
     }
 
     [Fact]

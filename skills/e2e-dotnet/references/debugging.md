@@ -149,7 +149,7 @@ as code or escaped, and a secret is redacted. Add `.e2e/results/` to
 | `ENVIRONMENT_UNAVAILABLE` with "Chromium is not installed" or "could not install Chromium" | The browser install was skipped or failed | Allow network access for the first run, or run `e2e install` and set `E2E_SKIP_BROWSER_INSTALL=1` |
 | `INVALID_APP_URL` | `app.url` has userinfo, a query, a fragment, a non-http(s) scheme, or plain HTTP on a non-loopback host | Fix the URL; use `https://` or a loopback host |
 | `APP_UNREACHABLE` | The agent found the app down or not loading | Start the app, or fix `targets[].app.url` |
-| `POLICY_DENIED` | A URL whose scheme is not `http:` or `https:` (`file:`, `view-source:`, `data:`), from `OpenAsync`, the agent's navigate step, or `SetCookiesAsync`; a read or expectation of a password field's text, value, or attributes | http(s) or `about:blank` only; assert the outcome, not the value |
+| `POLICY_DENIED` | A URL whose scheme is not `http:` or `https:` (`file:`, `view-source:`, `data:`), from `OpenAsync`, the agent's navigate step, or `SetCookiesAsync`; a read or expectation of a password field's text, value, or attributes; `ToHaveScreenshotAsync` when the engine cannot prove every secure field on screen was masked | http(s) or `about:blank` only; assert the outcome, not the value; for a screenshot, use an engine that reports its masked regions, or leave the unmaskable field off the screen |
 | `UNSUPPORTED_CAPABILITY` | A `Browser` member on the document engine, or an action the engine lacks | Use `WebEngine`, or drop the call |
 | `UNSUPPORTED_ARTIFACT` | A `video` mode set on a target, or for a test, whose engine cannot record video | Drop it there, or set it at the config root or in `E2E_VIDEO`, which skip such an engine |
 

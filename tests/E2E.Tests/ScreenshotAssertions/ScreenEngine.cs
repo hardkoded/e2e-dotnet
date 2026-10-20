@@ -29,6 +29,12 @@ internal sealed class ScreenEngine : IEngine
 
     public bool WithSecureField { get; init; }
 
+    /// <summary>How many regions the engine reports it masked; null reports as many as the screen has secure fields.</summary>
+    public int? MaskedRegions { get; set; }
+
+    /// <summary>False for an engine that cannot say how many regions it masked.</summary>
+    public bool ReportsMaskedRegions { get; init; } = true;
+
     public int Captures { get; private set; }
 
     public string Platform => "fake";
@@ -60,7 +66,7 @@ internal sealed class ScreenEngine : IEngine
             }
         }
 
-        return new EngineScreenshot(ImageOps.EncodePng(new RgbaImage(width, height, data)), scale);
+        return new EngineScreenshot(ImageOps.EncodePng(new RgbaImage(width, height, data)), scale, 0);
     }
 
     private sealed class Session(ScreenEngine engine) : IEngineSession
@@ -96,7 +102,8 @@ internal sealed class ScreenEngine : IEngine
                 await before().ConfigureAwait(false);
             }
 
-            return engine.Current();
+            var shot = engine.Current();
+            return shot with { MaskedRegionCount = engine.ReportsMaskedRegions ? engine.MaskedRegions ?? (engine.WithSecureField ? 1 : 0) : null };
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
