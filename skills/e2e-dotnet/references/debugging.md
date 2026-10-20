@@ -46,7 +46,10 @@ on a target, or in a fixture's `Trace` property. The modes are `off`, `on`,
 `retain-on-failure` (the default), `on-first-retry`, and `on-all-retries`. An
 attempt that the mode keeps writes `.e2e/results/<result>/trace.md` when its
 session is released, beside the `attempt-<n>` directories. A retry is its own
-attempt and overwrites the page of the one before it. Open the file; there is
+attempt, and the page tells every attempt the test has had so far: it is
+written when any of them kept a trace, so a test that passed on a retry reads
+"Passed after 1 failed attempt" with the last failure, and one that failed every
+attempt says whether they failed the same way. Open the file; there is
 no viewer. It tells, in this order:
 
 1. The title, the test file, the status, and how long the attempt took, then

@@ -221,6 +221,60 @@ public sealed class TracesTests : IDisposable
         Assert.Null(ReadTrace(results, "stale > test"));
     }
 
+    // .NET-only: upstream's runner keeps a test's attempts in one record, so its page tells them all. Here each attempt is a session.
+    [Fact]
+    public async Task Tells_a_flaky_test_on_one_page_across_its_attempts()
+    {
+        var results = Results();
+        await using (var failing = await StartAsync(results, "flaky > test"))
+        {
+            await failing.App.OpenAsync("/failed-attempt");
+            failing.Complete(new TestException("TEST_FAILED", "nope"));
+        }
+
+        await using (var passing = await StartAsync(results, "flaky > test", attempt: 2))
+        {
+            await passing.App.OpenAsync("/");
+            passing.Complete();
+        }
+
+        var page = ReadTrace(results, "flaky > test");
+        Assert.NotNull(page);
+        // The page tells the failed attempt, which only the first attempt opened.
+        Assert.Contains("/failed-attempt", page, StringComparison.Ordinal);
+        Assert.Contains("Passed after 1 failed attempt", page, StringComparison.Ordinal);
+        Assert.Matches(@"\n\n`[^\n]+` · flaky · ", page);
+    }
+
+    [Fact]
+    public async Task Tells_a_test_that_failed_every_attempt_as_failed_the_same_way()
+    {
+        var results = Results();
+        for (var attempt = 1; attempt <= 2; attempt++)
+        {
+            await using var session = await StartAsync(results, "twice > test", attempt: attempt);
+            await session.App.OpenAsync("/");
+            session.Complete(new TestException("TEST_FAILED", "nope"));
+        }
+
+        Assert.Contains("Failed the same way on both attempts: **TEST_FAILED**", ReadTrace(results, "twice > test"), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Keeps_the_page_of_an_earlier_attempt_when_the_retry_that_follows_keeps_none()
+    {
+        var results = Results();
+        for (var attempt = 1; attempt <= 3; attempt++)
+        {
+            await using var session = await StartAsync(results, "kept > test", RecordingMode.OnFirstRetry, attempt);
+            await session.App.OpenAsync("/");
+            session.Complete(attempt < 3 ? new TestException("TEST_FAILED", "nope") : null);
+        }
+
+        // Under on-first-retry only the second attempt keeps a trace; the third passes and keeps none, yet the page tells all three.
+        Assert.Contains("Passed after 2 failed attempts", ReadTrace(results, "kept > test"), StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Keeps_the_traces_the_mode_asks_for_none_under_off_a_passing_test_under_on_a_retry_under_trace_on_first_retry()
     {
