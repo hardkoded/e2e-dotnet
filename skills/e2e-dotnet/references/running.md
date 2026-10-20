@@ -42,9 +42,9 @@ test run (`e2e explore` has the flags themselves), for
 example `E2E_VIDEO=on dotnet test`, or `<EnvironmentVariables>` in a
 `.runsettings` file. The modes are `off`, `on`, `retain-on-failure`,
 `on-first-retry`, and `on-all-retries`. The web engine records `video` into
-`.e2e/results/<test>/attempt-<n>/video/`, or links to a provider's recording (topic `debugging`). `trace` is
+`.e2e/results/<result>/attempt-<n>/video/`, or links to a provider's recording (topic `debugging`). `trace` is
 `retain-on-failure` by default: every attempt that does not pass writes
-`.e2e/results/<test>/trace.md`, a markdown page of its steps (topic
+`.e2e/results/<result>/trace.md`, a markdown page of its steps (topic
 `debugging`). `E2E_TRACE=on` writes one for a passing attempt too, and
 `E2E_TRACE=off` writes none. The retry modes need NUnit `[Retry]`.
 
@@ -100,7 +100,7 @@ stored. Entries recorded before these fields existed count once a
 ## Output
 
 The port writes no report or `junit.xml` of its own. It writes a trace page,
-`.e2e/results/<test>/trace.md`, for each attempt its `trace` mode keeps, and a
+`.e2e/results/<result>/trace.md`, for each attempt its `trace` mode keeps, and a
 video when `video` is on (topic `debugging`).
 Use the test runner's loggers, such as
 `dotnet test --logger "trx;LogFileName=e2e.trx"` or

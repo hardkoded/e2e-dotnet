@@ -127,7 +127,7 @@ internal sealed record ReportResult
 
     /// <summary>
     /// The directory of the result under the results directory, when it is not the one <see cref="ArtifactPaths.ResultSegment"/> names. The
-    /// port's attempts already write under a slug of the test's title, and the page goes beside them. Not in upstream.
+    /// port's attempts write under the segment of the result's id and title, and the page goes beside them. Not in upstream.
     /// </summary>
     public string? Directory { get; init; }
 }
