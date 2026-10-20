@@ -66,6 +66,36 @@ public sealed class AgentPolicyAndErrorClassificationTests
         Assert.Equal(1, brought.CallCount);
     }
 
+    // Upstream shares one run with its extract test and also checks that more than one model call was made; here only the judgment calls the model.
+    [Fact]
+    public async Task Never_sends_a_secret_value_to_the_model()
+    {
+        // Upstream's testbed /echo page: the field puts what it is given on the page.
+        var world = new DocumentWorld().Map("/echo", page =>
+        {
+            var echo = page.Status("Token echo");
+            echo.Text = "nothing yet";
+            page.Roots.Add(new DocumentElement { Role = "textbox", Name = "Token", Value = "", Secure = true, InputPurpose = "password", OnFill = value => echo.Text = value });
+        });
+        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "the field has a value"));
+        var result = await RunAsync(async ctx =>
+        {
+            await ctx.App.OpenAsync("/echo");
+            await ctx.Screen.GetByLabel("Token").FillAsync(Secret.Create("member.password", "hunter2-secret", "password"));
+            await ctx.Agent.AssertAsync("the token echo shows a value");
+        }, world, model);
+
+        Assert.Null(result.Error);
+        var echoed = model.Requests.Where(request => request.Messages.Any(message => message.Content?.Contains("the token echo shows a value", StringComparison.Ordinal) == true)).ToList();
+        Assert.Single(echoed);
+        Assert.Contains("<secret:member.password>", string.Join('\n', echoed[0].Messages.Select(message => message.Content)), StringComparison.Ordinal);
+        foreach (var request in model.Requests)
+        {
+            var text = request.System + "\n" + string.Join('\n', request.Messages.Select(message => message.Content));
+            Assert.DoesNotContain("hunter2-secret", text, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     private sealed class CounterReading
     {
         public required string Counter { get; init; }
