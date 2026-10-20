@@ -23,17 +23,19 @@ internal sealed class LooksBeforeTeardownAttribute : Attribute, IWrapTestMethod
         public override TestResult Execute(TestExecutionContext context)
         {
             ArgumentNullException.ThrowIfNull(context);
+            TestResult result;
             try
             {
-                var result = innerCommand.Execute(context);
-                Look(context, null);
-                return result;
+                result = innerCommand.Execute(context);
             }
             catch (Exception ex)
             {
                 Look(context, ex);
                 throw;
             }
+
+            Look(context, null);
+            return result;
         }
 
         // A skip or a pass is no failure, unless an Expect.Soft failed before it: that fails the test, as the teardown reports.

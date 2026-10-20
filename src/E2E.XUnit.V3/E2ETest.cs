@@ -72,7 +72,7 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
     }
 
     // The test body has ended and the class is not disposed yet: a failed body is looked at now, ahead of the teardown.
-    // The entry goes with the look, so a derived DisposeAsync that skips the base one leaves nothing behind.
+    // The entry goes with the look, or with the dispose when the test method never ran.
     internal static void LookAtFailure(IXunitTest test)
     {
         if (!Running.TryRemove(test.UniqueID, out var fixture) || Xunit.TestContext.Current.TestState is not { Result: TestResult.Failed } state)
@@ -93,6 +93,12 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
     public virtual async ValueTask DisposeAsync()
     {
         GC.SuppressFinalize(this);
+        if (Xunit.TestContext.Current.Test is { } running)
+        {
+            // The look removes it when the test method ran. A test that never got there (a failed setup) leaves it here.
+            Running.TryRemove(running.UniqueID, out _);
+        }
+
         var session = TakeSession();
         if (session is null)
         {

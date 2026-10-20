@@ -69,7 +69,6 @@ public abstract class E2ETest : E2EFixture
         }
     }
 
-
     internal Task CaptureEvidenceOf(Exception failure) => CaptureFailureEvidenceAsync(failure);
 
     // NUnit shares one fixture instance among its tests, and the session lives on that instance.
