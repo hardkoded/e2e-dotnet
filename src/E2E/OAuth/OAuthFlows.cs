@@ -11,8 +11,8 @@ using System.Text.Json.Nodes;
 
 namespace E2E.OAuth;
 
-/// <summary>A token endpoint's answer.</summary>
-internal sealed record TokenResponse(string AccessToken, string? RefreshToken, string? IdToken, double? ExpiresIn, JsonObject Raw);
+/// <summary>A token endpoint's answer. <see cref="Raw"/> keeps the vendor's fields and drops an optional token of the wrong type; <see cref="ExpiresIn"/> stays raw for <see cref="TokenEndpoint.ExpiryFrom"/>.</summary>
+internal sealed record TokenResponse(string AccessToken, string? RefreshToken, string? IdToken, JsonNode? ExpiresIn, JsonObject Raw);
 
 /// <summary>The HTTP an OAuth flow is made of: form POSTs to a token endpoint, and the vendor's error text.</summary>
 internal static class TokenEndpoint
@@ -38,30 +38,52 @@ internal static class TokenEndpoint
             throw new OAuthException(code, vendor + " token request failed (" + await DescribeAsync(response, cancellationToken).ConfigureAwait(false) + ")");
         }
 
-        return Read(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false), vendor)
-            ?? throw new OAuthException(OAuthException.FlowFailed, "the " + vendor + " token response is missing access_token");
+        return await ReadJsonBodyAsync(response.Content, ParseTokens, "the " + vendor + " token response", "is missing access_token", cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>The tokens in a response body, or null when it carries no access token.</summary>
-    public static TokenResponse? Read(string body, string vendor)
+    /// <summary>The tokens in a token endpoint's JSON body, or null when it carries no access token.</summary>
+    public static TokenResponse? ParseTokens(JsonNode? body)
     {
-        JsonObject json;
-        try
-        {
-            json = JsonNode.Parse(body) as JsonObject ?? [];
-        }
-        catch (JsonException ex)
-        {
-            throw new OAuthException(OAuthException.FlowFailed, "the " + vendor + " token response is not JSON", ex);
-        }
-
-        var access = Text(json, "access_token");
-        if (string.IsNullOrEmpty(access))
+        if (body is not JsonObject json || Text(json, "access_token") is not { Length: > 0 } access)
         {
             return null;
         }
 
-        return new TokenResponse(access, Text(json, "refresh_token"), Text(json, "id_token"), Number(json, "expires_in"), json);
+        var raw = (JsonObject)json.DeepClone();
+        var refresh = Text(raw, "refresh_token");
+        var id = Text(raw, "id_token");
+        if (refresh is null)
+        {
+            raw.Remove("refresh_token");
+        }
+
+        if (id is null)
+        {
+            raw.Remove("id_token");
+        }
+
+        return new TokenResponse(access, refresh, id, raw["expires_in"], raw);
+    }
+
+    /// <summary>
+    /// A response's or request's JSON body checked against <paramref name="schema"/>, which returns null for a body of the
+    /// wrong shape; <see cref="OAuthException.FlowFailed"/> as "<paramref name="subject"/> is not JSON" or
+    /// "<paramref name="subject"/> <paramref name="invalid"/>" otherwise.
+    /// </summary>
+    public static async Task<T> ReadJsonBodyAsync<T>(HttpContent source, Func<JsonNode?, T?> schema, string subject, string invalid = "is malformed", CancellationToken cancellationToken = default)
+        where T : class
+    {
+        JsonNode? value;
+        try
+        {
+            value = JsonNode.Parse(await source.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
+        }
+        catch (JsonException ex)
+        {
+            throw new OAuthException(OAuthException.FlowFailed, subject + " is not JSON", ex);
+        }
+
+        return schema(value) ?? throw new OAuthException(OAuthException.FlowFailed, subject + " " + invalid);
     }
 
     public static string? Text(JsonObject json, string name)
@@ -71,7 +93,12 @@ internal static class TokenEndpoint
 
     public static double? Number(JsonObject json, string name)
     {
-        if (json[name] is not JsonValue value)
+        return NumberOf(json[name]);
+    }
+
+    private static double? NumberOf(JsonNode? node)
+    {
+        if (node is not JsonValue value)
         {
             return null;
         }
@@ -85,9 +112,9 @@ internal static class TokenEndpoint
     }
 
     /// <summary>When a token expires in epoch milliseconds, from <c>expires_in</c>; one hour when the server names nothing usable.</summary>
-    public static long ExpiryFrom(double? expiresIn)
+    public static long ExpiryFrom(JsonNode? expiresIn)
     {
-        var seconds = expiresIn is > 0 and < 1e9 ? expiresIn.Value : 3600;
+        var seconds = NumberOf(expiresIn) is > 0 and < 1e9 and var value ? value : 3600;
         return DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + (long)(seconds * 1000);
     }
 
@@ -335,7 +362,7 @@ internal static class DeviceFlow
                     json = [];
                 }
 
-                var granted = TokenEndpoint.Read(json.ToJsonString(), vendor);
+                var granted = TokenEndpoint.ParseTokens(json);
                 if (granted is not null)
                 {
                     return new DevicePoll<TokenResponse>(DevicePollStatus.Granted, granted);
