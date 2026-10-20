@@ -53,11 +53,6 @@ internal static partial class ScreenshotAssertion
         var token = screen.Token(cancellationToken);
         var deadline = new Deadline(call.Timeout ?? screen.AssertionTimeout, screen.Clock);
 
-        if (store.WithholdsPixels())
-        {
-            throw ErrorRedaction.Failure("POLICY_DENIED", "expect(" + Subject(subject) + ")." + api + " is denied after a secret fill because the app may display the secret outside a secure field", null, screen.Redact);
-        }
-
         var capturer = new Capturer(screen, store, subject, call, deadline);
         var run = new Run(screen, store, api, call, file, shown, capturer.CaptureAsync);
         var expected = System.IO.File.Exists(file) ? ReadStored(run) : null;

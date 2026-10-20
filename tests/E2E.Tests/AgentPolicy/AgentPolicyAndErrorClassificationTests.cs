@@ -25,38 +25,6 @@ public sealed class AgentPolicyAndErrorClassificationTests
         Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", Assert.IsType<TestException>(result.Error).Code);
     }
 
-    /// <summary>Partial: the port has no step artifacts or policy events, so it reads the file the judgment would have kept and the exception.</summary>
-    [Fact]
-    public async Task Suppresses_screenshot_evidence_once_the_session_is_pixel_tainted()
-    {
-        var root = Path.Combine(Path.GetTempPath(), "e2e-policy-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
-        var world = new DocumentWorld().Map("/login", page => page.Textbox("Password", "", secure: true));
-        var calls = 0;
-        var actor = new ScriptedModel(_ => calls++ == 0
-            ? ModelResponses.Call("fill_secret", new { role = "textbox", name = "Password", secret = "password" })
-            : ModelResponses.Done("passed", "filled the password"));
-        var judge = new ScriptedModel(_ => ModelResponses.Done("failed", "the password field is empty"));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new ScreenshotEngine(world, _ => ScreenshotEngine.Png()),
-            Model = actor,
-            Judge = judge,
-            BaseUrl = "https://app.test",
-            ProjectRoot = root,
-            TestTitle = "fills a secret into a password field",
-            TestTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(5),
-        });
-        await session.App.OpenAsync("/login");
-        await session.Agent.ActAsync("sign in", new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("password", "hunter2-secret", "password") } });
-        var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.AssertAsync("the password field has a value"));
-        session.Complete(error);
-
-        Assert.Null(error.Screenshot);
-        Assert.False(Directory.Exists(Path.Combine(root, ".e2e")));
-    }
-
     [Fact]
     public async Task Spends_one_repair_call_to_satisfy_the_caller_schema()
     {

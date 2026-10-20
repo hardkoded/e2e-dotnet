@@ -11,18 +11,29 @@ namespace E2E.Tests.RedactedMessages;
 public sealed class ScreenshotMessageTests
 {
     [Fact]
-    public async Task Redacts_a_secret_the_locator_names_in_the_denial_after_a_secret_is_known()
+    public async Task Redacts_a_secret_the_locator_names_in_the_failure_after_a_secret_is_known()
     {
         using var site = await TinySite.StartAsync(RedactionSite.Page);
-        await using var session = await RedactionSite.StartAsync(site, "screenshot message");
-        await session.App.OpenAsync("/");
-        RedactionSite.Know(session);
+        var snapshots = Path.Combine(Path.GetTempPath(), "e2e-screenshot-message-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            await using var session = await RedactionSite.StartAsync(site, "screenshot message", _ => snapshots);
+            await session.App.OpenAsync("/");
+            RedactionSite.Know(session);
 
-        var failure = await Assert.ThrowsAsync<TestException>(() =>
-            Expect.That(session.Screen.GetByText(RedactionSite.Token, exact: false)).ToHaveScreenshotAsync("token"));
+            var failure = await Assert.ThrowsAsync<TestException>(() =>
+                Expect.That(session.Screen.GetByText(RedactionSite.Token, exact: false)).ToHaveScreenshotAsync("token"));
 
-        Assert.Equal("POLICY_DENIED", failure.Code);
-        Assert.Contains("<secret:token>", failure.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain(RedactionSite.Token, failure.Message, StringComparison.Ordinal);
+            Assert.Equal("ASSERTION_FAILED", failure.Code);
+            Assert.Contains("<secret:token>", failure.Message, StringComparison.Ordinal);
+            Assert.DoesNotContain(RedactionSite.Token, failure.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(snapshots))
+            {
+                Directory.Delete(snapshots, recursive: true);
+            }
+        }
     }
 }

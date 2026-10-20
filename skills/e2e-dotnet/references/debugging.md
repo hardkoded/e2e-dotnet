@@ -85,9 +85,9 @@ no viewer. It tells, in this order:
    warnings and 100 other lines, each cut to 300 characters. When the attempt
    fails, the session looks at the app once more before it closes. `Screen at
    failure` gives the URL, the viewport, the node count, a screenshot
-   (`attempt-<n>/screenshots/failure.png`; none when the attempt knows a
-   secret, the engine captures no pixels, or it cannot show that every secure
-   field was masked), for a locator that matched nothing or too much the nodes
+   (`attempt-<n>/screenshots/failure.png`, after a secret fill too; none when
+   the engine captures no pixels or cannot show that every secure field was
+   masked), for a locator that matched nothing or too much the nodes
    closest to what it asked for (`Closest to what the locator asked for`), and
    the screen as the agent reads it, one node per line:
    `#id role "name" text="..." [states]` (also in

@@ -46,7 +46,7 @@ public sealed class BillingTests : E2ETest
 }
 ```
 
-`E2ETest` starts a `WebEngine` session for each `[Test]`. Override `CreateEngine` with a `DocumentEngine` when the test should not open a browser, or with a `WebEngine` whose `Connect` attaches to a remote Chromium over CDP (see [Recovering a CDP transport](#recovering-a-cdp-transport)), or whose `Browser` leases hosted browsers (see [Hosted browsers](#hosted-browsers)). An `act` that a later `assert`, `waitFor`, or locator `Expect` verifies is recorded. The next run replays those actions with no model calls until the screen no longer matches. When the test ends, verified acts are written and unverified acts that recorded or replayed are evicted, whether it passed, failed, or was skipped. `[Retry]` runs the later attempts live, and they still record. Tests that never call the agent need no model. A judgment (`AssertAsync`, `WaitForAsync`, `ExtractAsync`) reads the text snapshot of the screen. Pass `Vision = VisionMode.On` to show it a masked screenshot too, or `VisionMode.Only` for the screenshot alone, when the answer is in pixels. After a test fills a `Secret`, no pixels leave the session.
+`E2ETest` starts a `WebEngine` session for each `[Test]`. Override `CreateEngine` with a `DocumentEngine` when the test should not open a browser, or with a `WebEngine` whose `Connect` attaches to a remote Chromium over CDP (see [Recovering a CDP transport](#recovering-a-cdp-transport)), or whose `Browser` leases hosted browsers (see [Hosted browsers](#hosted-browsers)). An `act` that a later `assert`, `waitFor`, or locator `Expect` verifies is recorded. The next run replays those actions with no model calls until the screen no longer matches. When the test ends, verified acts are written and unverified acts that recorded or replayed are evicted, whether it passed, failed, or was skipped. `[Retry]` runs the later attempts live, and they still record. Tests that never call the agent need no model. A judgment (`AssertAsync`, `WaitForAsync`, `ExtractAsync`) reads the text snapshot of the screen. Pass `Vision = VisionMode.On` to show it a masked screenshot too, or `VisionMode.Only` for the screenshot alone, when the answer is in pixels. After a test fills a `Secret`, no pixels reach a model. Screenshots kept as artifacts stay on and mask secure fields only.
 
 ### Recovering a CDP transport
 
@@ -307,7 +307,7 @@ await Expect.That(Screen).ToHaveScreenshotAsync("feed.png", new ScreenshotOption
 - **Update.** `E2E_UPDATE_SNAPSHOTS=1 dotnet test` writes each missing or different screenshot and passes. A fixture can also override `UpdateSnapshots`. Screenshots are per OS, so write CI's from a CI job.
 - **Different.** The matcher captures again until one matches or the assertion timeout passes, then fails with the number of differing pixels and three images under `.e2e/results/<test>/attempt-<n>/screenshots/`: `-diff`, `-actual`, and `-expected`.
 - **Options.** `Threshold` (0 to 1, default 0.2), `MaxDiffPixels`, `MaxDiffPixelRatio` (the smaller wins when both are set), `Mask`, `MaskColor` (`#rrggbb`, default `#ff00ff`), and `Timeout`. `.Not` passes once the screen differs from a stored screenshot.
-- **Secrets.** Secure fields are covered in every screenshot. After a test fills a `Secret`, the matcher fails with `POLICY_DENIED`.
+- **Secrets.** Secure fields are covered in every screenshot. After a test fills a `Secret`, the matcher still compares. It masks secure fields only, so a secret the app shows anywhere else is in the image.
 
 ## Exploring an app
 

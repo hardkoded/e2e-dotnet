@@ -108,7 +108,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             return view;
         }
 
-        var tainted = scope.Exposure.WithholdsPixels;
+        var tainted = scope.Exposure.WithholdsModelPixels;
         var outcome = AgentObservation.PixelsForModel(observation, tainted ? null : await scope.CaptureAsync(token).ConfigureAwait(false), tainted);
         if (outcome.Pixels is not { } pixels)
         {

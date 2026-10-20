@@ -176,7 +176,8 @@ matcher.
   `Timeout`. A failure writes `-expected`, `-actual`, and `-diff` images under
   `.e2e/results/`. Files are per target and OS (`-web-linux.png`): screenshots
   written on a Mac never serve Linux CI, so write CI's from a CI job with the
-  update variable.
+  update variable. After a secret fill the comparison still runs: the image
+  masks secure fields only, so a secret the app shows anywhere else is in it.
 - `Expect.That(Browser).ToHaveURLAsync("/about")` (a string, or a `Regex`; `ignoreCase`)
   and `ToHaveTitleAsync("About page")` poll the URL and the title, `.Not`
   inverts them, and `Expect.Soft(Browser)` keeps their failures.

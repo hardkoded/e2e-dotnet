@@ -11,8 +11,8 @@ public sealed class ExposureTests
     public void Withholds_pixels_only_after_a_secret_is_filled()
     {
         var exposure = new Exposure();
-        Assert.False(exposure.WithholdsPixels);
+        Assert.False(exposure.WithholdsModelPixels);
         exposure.RaiseFilled();
-        Assert.True(exposure.WithholdsPixels);
+        Assert.True(exposure.WithholdsModelPixels);
     }
 }
