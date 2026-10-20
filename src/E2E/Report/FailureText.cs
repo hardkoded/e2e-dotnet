@@ -384,6 +384,11 @@ internal static partial class FailureText
             _ => "no replay: " + Reason(cache.Reason, "no-entry"),
         };
         List<string> parts = ["cache: " + how];
+        if (cache.RecordedBy is not null)
+        {
+            parts.Add("recorded with " + Code(cache.RecordedBy, MaxDetailChars));
+        }
+
         if (cache.Detail is not null)
         {
             parts.Add(Cell(cache.Detail, MaxDetailChars));

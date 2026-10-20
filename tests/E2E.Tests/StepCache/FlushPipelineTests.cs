@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Tests.CacheModelProvenance;
+
 namespace E2E.Tests.StepCache;
 
 /// <summary>"leaves an entry untouched when only the rule that flagged a typed value differs" is not ported: the port records no run-time value gaps.</summary>
@@ -11,14 +13,20 @@ public sealed class FlushPipelineTests
     public async Task Leaves_an_entry_the_same_flow_re_recorded_untouched_and_replaces_it_when_the_actions_change_through_the_pipeline()
     {
         var directory = BillingSession.TempCache();
-        await BillingSession.RecordAsync(directory);
+        await using (var recording = await BillingSession.StartAsync(directory, new NamedModel(BillingSession.UpgradeModel(() => { }), "test/A"), attempt: 1))
+        {
+            await BillingSession.UpgradeAsync(recording);
+            recording.Complete();
+        }
+
         var file = Assert.Single(BillingSession.Entries(directory));
         var written = await File.ReadAllTextAsync(file);
+        Assert.Contains("\"recordedBy\": \"test/A\"", written, StringComparison.Ordinal);
         var stamp = new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         File.SetLastWriteTimeUtc(file, stamp);
 
-        // A retry runs live and records the same flow again: nothing a replay reads changed.
-        await using (var session = await BillingSession.StartAsync(directory, () => { }, attempt: 2))
+        // A retry under another model runs live and records the same flow again: nothing a replay reads changed.
+        await using (var session = await BillingSession.StartAsync(directory, new NamedModel(BillingSession.UpgradeModel(() => { }), "test/B"), attempt: 2))
         {
             await BillingSession.UpgradeAsync(session);
             session.Complete();

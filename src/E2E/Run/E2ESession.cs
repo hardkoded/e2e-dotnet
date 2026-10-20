@@ -634,43 +634,79 @@ public sealed class E2ESession : IAsyncDisposable
         // A model outage says nothing about the recording, so it stays, unless a failure on the app implicated it too.
         // Strict mode never reaches here: it writes nothing.
         var preserve = (AttemptScope.KeepsCache(error) || _scope.KeepCache) && !_scope.ImplicatesUnconfirmed;
-        Flush(_scope.Cache, _scope.Acts, preserve);
+        var writes = Flush(_scope.Cache, _scope.Acts, preserve);
+        foreach (var step in _scope.Steps.All())
+        {
+            if (step.Cache is not null && writes.TryGetValue(step.Index, out var write))
+            {
+                step.CacheWrite = write;
+            }
+        }
     }
 
     /// <summary>
     /// Settles the acts of one attempt: a verified act's recording is written, and an unverified one that
     /// recorded or replayed is evicted, unless <paramref name="preserve"/> says the failure implicates nothing.
+    /// Returns what became of each step's recording, by step index.
     /// </summary>
-    internal static void Flush(IStepCache cache, IEnumerable<PendingAct> acts, bool preserve)
+    internal static IReadOnlyDictionary<int, CacheWrite> Flush(IStepCache cache, IEnumerable<PendingAct> acts, bool preserve)
     {
+        var outcomes = new Dictionary<int, CacheWrite>();
         foreach (var act in acts)
         {
             var recorded = act.Completed && act.Entry is { Actions.Count: > 0 } && !act.ParamCollision;
+            var outcome = act.Decided;
             try
             {
-                if (act.Verified && recorded)
+                if (outcome is not null)
+                {
+                    // The step settled its own recording when it concluded.
+                }
+                else if (act.Verified && recorded)
                 {
                     if (act.ReplayedWhole)
                     {
+                        outcome = CacheWrite.Kept;
                         CompleteProvenance(cache, act.Key, act.Step);
                     }
-                    else if (!HoldsSameFlow(cache, act.Key, act.Entry!))
+                    else if (HoldsSameFlow(cache, act.Key, act.Entry!))
                     {
+                        outcome = CacheWrite.Kept;
+                    }
+                    else
+                    {
+                        // A store that throws did not write the recording.
+                        outcome = CacheWrite.NotWritten;
                         cache.Write(act.Key, act.Entry!);
+                        outcome = CacheWrite.Saved;
                     }
                 }
                 // An entry read for an act that then passed with nothing to record is evicted too: it did not serve
                 // this pass, and nothing replaces it, so every later run would hand off the same way.
                 else if (!preserve && (recorded || act.ConsumedReplay || (act.Completed && act.ReadEntry)))
                 {
+                    // An entry the step read existed for certain, so deleting it is an eviction. A new recording's delete only
+                    // clears what an earlier run left.
+                    outcome = !recorded || act.ReplayedWhole ? CacheWrite.Evicted : CacheWrite.Unconfirmed;
                     cache.Delete(act.Key);
+                }
+                else if (recorded)
+                {
+                    outcome = CacheWrite.Unconfirmed;
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 // The cache is disposable, as a replay's read is: a store that fails here costs the next run a live step.
             }
+
+            if (act.StepIndex is { } index && outcome is { } settled)
+            {
+                outcomes[index] = settled;
+            }
         }
+
+        return outcomes;
     }
 
     // A verified whole replay proved which step an entry recorded before the provenance fields belongs to,
@@ -686,15 +722,23 @@ public sealed class E2ESession : IAsyncDisposable
         cache.Write(key, existing);
     }
 
-    // Rewriting an identical flow would only churn a committed cache directory.
+    // Rewriting an identical flow would only churn a committed cache directory. The model that recorded it decides nothing
+    // a replay does, so another model recording the same flow rewrites nothing.
     private static bool HoldsSameFlow(IStepCache cache, string key, CacheEntry entry)
     {
         var existing = cache.Read(key).Entry;
         return existing is not null
             && string.Equals(
-                JsonSerializer.Serialize(existing, JsonDefaults.Options),
-                JsonSerializer.Serialize(entry, JsonDefaults.Options),
+                FlowOf(existing),
+                FlowOf(entry),
                 StringComparison.Ordinal);
+    }
+
+    private static string FlowOf(CacheEntry entry)
+    {
+        var flow = JsonSerializer.SerializeToNode(entry, JsonDefaults.Options)!.AsObject();
+        flow.Remove("recordedBy");
+        return flow.ToJsonString();
     }
 }
 
