@@ -30,28 +30,30 @@ internal static class BillingSession
 
     internal static Task<E2ESession> StartAsync(string directory, Action onAct, int attempt, Func<bool>? testFailed = null)
     {
-        return StartAsync(
-            directory,
-            new ScriptedModel(request =>
+        return StartAsync(directory, UpgradeModel(onAct), attempt, testFailed);
+    }
+
+    /// <summary>A model that taps Upgrade to Pro once, concludes, and judges the invoice by its prorated amount. <paramref name="onAct"/> runs on each turn of the act.</summary>
+    internal static ScriptedModel UpgradeModel(Action onAct)
+    {
+        return new ScriptedModel(request =>
+        {
+            var text = string.Join('\n', request.Messages.Select(message => message.Content));
+            if (text.Contains("Statement:", StringComparison.Ordinal))
             {
-                var text = string.Join('\n', request.Messages.Select(message => message.Content));
-                if (text.Contains("Statement:", StringComparison.Ordinal))
-                {
-                    return text.Contains("Prorated", StringComparison.Ordinal)
-                        ? ModelResponses.Done("passed", "The invoice is prorated.")
-                        : ModelResponses.Done("failed", "No prorated amount.", "ASSERTION_FAILED");
-                }
+                return text.Contains("Prorated", StringComparison.Ordinal)
+                    ? ModelResponses.Done("passed", "The invoice is prorated.")
+                    : ModelResponses.Done("failed", "No prorated amount.", "ASSERTION_FAILED");
+            }
 
-                onAct();
-                if (text.Contains("tapped", StringComparison.Ordinal))
-                {
-                    return ModelResponses.Done("passed", "Upgraded to Pro.");
-                }
+            onAct();
+            if (text.Contains("tapped", StringComparison.Ordinal))
+            {
+                return ModelResponses.Done("passed", "Upgraded to Pro.");
+            }
 
-                return ModelResponses.Tap("button", "Upgrade to Pro");
-            }),
-            attempt,
-            testFailed);
+            return ModelResponses.Tap("button", "Upgrade to Pro");
+        });
     }
 
     internal static Task<E2ESession> StartAsync(string directory, IAgentModel model, int attempt, Func<bool>? testFailed = null)

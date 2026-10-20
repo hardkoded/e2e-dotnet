@@ -73,7 +73,8 @@ no viewer. It tells, in this order:
      `Browser.GotoAsync`, `ReloadAsync`) is the step itself and is not listed;
    - for an agent step, the cache's decision (`cache: replayed 1 of 3 recorded
      actions, then the agent took over: a recorded target is not on the screen;
-     at action 2 of 3, tap button "Apply"`) and the entry file;
+     at action 2 of 3, tap button "Apply"`), the model the recording was made
+     with when the entry has it (`recorded with gpt-5`), and the entry file;
    - how the screen changed since the step before (`screen: 2 changes since
      step 3` with the added, removed, and changed nodes). `unchanged` after an
      action means it had no visible effect;

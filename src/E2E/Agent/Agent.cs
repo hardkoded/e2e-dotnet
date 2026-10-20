@@ -1001,6 +1001,9 @@ public sealed class CacheInfo
 
     /// <summary>The step's cache key, which names its entry file (<c>&lt;directory&gt;/&lt;entry&gt;.json</c> in a <see cref="FileStepCache"/>).</summary>
     public string? Entry { get; init; }
+
+    /// <summary>The configured model when the consulted entry was recorded. Null on an older entry, or when none was configured.</summary>
+    public RecordedModel? RecordedBy { get; init; }
 }
 
 /// <summary>The vision hint a judgment made from the tree alone carries, so the failing test names the remedy where it is read.</summary>

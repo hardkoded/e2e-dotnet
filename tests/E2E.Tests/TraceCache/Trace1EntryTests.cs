@@ -38,6 +38,40 @@ public sealed class Trace1EntryTests
         return new FileStepCache(directory).Read(Key);
     }
 
+    private static string RecordedByJson(string provider, string model) =>
+        "{\"actions\":[{\"kind\":\"back\"}],\"route\":\"/\",\"endRoute\":\"/\",\"recordedBy\":{\"provider\":\"" + provider + "\",\"model\":\"" + model + "\"}}";
+
+    /// <summary>
+    /// Port of "bounds recorded %s without losing the hit". An oversized recorded model reads as absent, and the entry still reads.
+    /// Difference: the port's <c>provider</c> is optional.
+    /// </summary>
+    [Theory]
+    [InlineData("provider")]
+    [InlineData("model")]
+    public void Bounds_a_recorded_model_field_without_losing_the_hit(string field)
+    {
+        string Json(int length) => RecordedByJson(field == "provider" ? new string('x', length) : "test", field == "model" ? new string('x', length) : "A");
+
+        Assert.NotNull(ReadJson(Json(300)).Entry!.RecordedBy);
+        var oversized = ReadJson(Json(301));
+        Assert.NotNull(oversized.Entry);
+        Assert.Null(oversized.Entry.RecordedBy);
+    }
+
+    /// <summary>Port of "ignores blank recording identity %j without losing the hit".</summary>
+    [Theory]
+    [InlineData("", "A")]
+    [InlineData("test", "")]
+    [InlineData(" ", "A")]
+    [InlineData("test", "  ")]
+    public void Ignores_a_blank_recording_identity_without_losing_the_hit(string provider, string model)
+    {
+        var read = ReadJson(RecordedByJson(provider, model));
+
+        Assert.NotNull(read.Entry);
+        Assert.Null(read.Entry.RecordedBy);
+    }
+
     /// <summary>
     /// Partial port of "round-trips every action variant through JSON": the port's actions are <c>fill</c>, <c>check</c>,
     /// <c>uncheck</c>, <c>clear</c>, <c>scrollTo</c>, and <c>scrollUntil</c> beside the shared ones, with no <c>typeSecret</c>

@@ -40,6 +40,10 @@ public sealed class CacheEntry
     /// <summary>Name of the configured agent the step ran with. A secret value in it is masked.</summary>
     public string? Agent { get; set; }
 
+    /// <summary>The configured model when the entry was recorded. Null on an older entry, or when no model was configured.</summary>
+    [JsonConverter(typeof(RecordedModelConverter))]
+    public RecordedModel? RecordedBy { get; set; }
+
     public string? Route { get; set; }
 
     public string? EndRoute { get; set; }

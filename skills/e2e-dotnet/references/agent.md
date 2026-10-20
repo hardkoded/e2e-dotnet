@@ -300,6 +300,11 @@ call. A second refusal, or a first one with nothing to shrink, is
 
 ## The replay cache
 
+Replay results expose the original model as `ActResult.Cache.RecordedBy`
+(`Model`, and `Provider` when known) when the entry has it; older recordings
+omit it. A new model does not miss the cache, so set `"cache": { "mode":
+"off" }` to evaluate it.
+
 A passing `ActAsync` saves its actions once a later check verifies the
 outcome. The next run replays them with no model call, and the live agent
 continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and

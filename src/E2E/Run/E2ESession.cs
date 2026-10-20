@@ -686,14 +686,22 @@ public sealed class E2ESession : IAsyncDisposable
         cache.Write(key, existing);
     }
 
+    // The part of an entry that decides what a replay does: which model recorded it changes nothing a replay reads.
+    private static string FlowOf(CacheEntry entry)
+    {
+        var flow = JsonSerializer.SerializeToNode(entry, JsonDefaults.Options)!.AsObject();
+        flow.Remove("recordedBy");
+        return flow.ToJsonString();
+    }
+
     // Rewriting an identical flow would only churn a committed cache directory.
     private static bool HoldsSameFlow(IStepCache cache, string key, CacheEntry entry)
     {
         var existing = cache.Read(key).Entry;
         return existing is not null
             && string.Equals(
-                JsonSerializer.Serialize(existing, JsonDefaults.Options),
-                JsonSerializer.Serialize(entry, JsonDefaults.Options),
+                FlowOf(existing),
+                FlowOf(entry),
                 StringComparison.Ordinal);
     }
 }

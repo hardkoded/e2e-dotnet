@@ -12,10 +12,9 @@ using Recorder = E2E.Cache.TraceRecorder;
 namespace E2E.Tests.TraceRecorder;
 
 /// <summary>
-/// The port's recorder keeps a plain action list: no recorded model, summaries, CSS selectors, positions, scroll spans, truncation
+/// The port's recorder keeps a plain action list: no summaries, CSS selectors, positions, scroll spans, truncation
 /// flag, action cap, secret names, or entry validation, and no hover, long-press, secondary-tap, drag, upload, or point verbs. So
-/// these upstream its are not ported: "omits an oversized recorded provider", "omits an oversized recorded model", "omits blank
-/// recording identity", "poisons a trace whose target is an unnamed twin no named row tells apart, and keeps one that a row does",
+/// these upstream its are not ported: "poisons a trace whose target is an unnamed twin no named row tells apart, and keeps one that a row does",
 /// "masks a secret resolved after capture in the container the node sat within", "poisons the trace instead of bending a replay
 /// input", "keeps the smallest coverage when folding scrolls, and none when a repeat lacks one", "truncates past the action cap
 /// instead of dropping the flag", "rejects a stored check, upload, or drag that lost a field", and every it of "TraceRecorder:
@@ -44,6 +43,33 @@ public sealed class TraceRecorderTests
         var store = new FileStepCache(CoreTests.TempCache());
         store.Write("abc123", entry);
         return Assert.IsType<CacheEntry>(store.Read("abc123").Entry);
+    }
+
+    /// <summary>Port of "omits an oversized recorded %s". Difference: the port's <c>provider</c> is optional.</summary>
+    [Theory]
+    [InlineData("provider")]
+    [InlineData("model")]
+    public void Omits_an_oversized_recorded_model_field(string field)
+    {
+        var recorder = MakeRecorder();
+        recorder.Record("tap", UpgradeButton);
+
+        var entry = recorder.Finalize(Step, "/", "/", [], [], new RecordedModel { Provider = field == "provider" ? new string('x', 301) : "test", Model = field == "model" ? new string('x', 301) : "A" });
+
+        Assert.NotNull(entry);
+        Assert.Null(entry.RecordedBy);
+    }
+
+    /// <summary>Port of "omits blank recording identity %j".</summary>
+    [Theory]
+    [InlineData("", "A")]
+    [InlineData("test", "  ")]
+    public void Omits_a_blank_recording_identity(string provider, string model)
+    {
+        var recorder = MakeRecorder();
+        recorder.Record("tap", UpgradeButton);
+
+        Assert.Null(recorder.Finalize(Step, "/", "/", [], [], new RecordedModel { Provider = provider, Model = model })?.RecordedBy);
     }
 
     /// <summary>Partial port of "records durable descriptors and readable summaries": the port keeps no summary and no CSS selector.</summary>
@@ -77,7 +103,7 @@ public sealed class TraceRecorderTests
         Assert.Equal(2, read.Actions.Count);
     }
 
-    /// <summary>Partial port of "records a secret fill by name only, with page strings redacted": the port records no model, no <c>secret</c> field, and has no truncation flag to leave unset.</summary>
+    /// <summary>Partial port of "records a secret fill by name only, with page strings redacted": the port records no <c>secret</c> field, and has no truncation flag to leave unset.</summary>
     [Fact]
     public void Records_a_secret_fill_as_its_marker_with_page_strings_redacted()
     {
@@ -85,8 +111,9 @@ public sealed class TraceRecorderTests
         recorder.Record("fill", PasswordField, value: "<secret:member-password>");
         recorder.Record("tap", new SemanticNode { Ref = "n42", Role = "button", Name = "Greeting hunter2", TestId = "upgrade-cta" });
 
-        var entry = Finalize(recorder)!;
+        var entry = recorder.Finalize(Step, "/settings", "/settings", [], [], new RecordedModel { Provider = "example", Model = "hunter2" })!;
 
+        Assert.Equal("example/<secret:member-password>", entry.RecordedBy?.Label);
         var serialized = JsonSerializer.Serialize(entry, Relaxed);
         Assert.DoesNotContain("hunter2", serialized, StringComparison.Ordinal);
         Assert.Contains("<secret:member-password>", serialized, StringComparison.Ordinal);

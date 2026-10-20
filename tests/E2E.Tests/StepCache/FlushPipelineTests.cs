@@ -11,14 +11,20 @@ public sealed class FlushPipelineTests
     public async Task Leaves_an_entry_the_same_flow_re_recorded_untouched_and_replaces_it_when_the_actions_change_through_the_pipeline()
     {
         var directory = BillingSession.TempCache();
-        await BillingSession.RecordAsync(directory);
+        await using (var recording = await BillingSession.StartAsync(directory, new NamedModel("model-A", BillingSession.UpgradeModel(() => { })), attempt: 1))
+        {
+            await BillingSession.UpgradeAsync(recording);
+            recording.Complete();
+        }
+
         var file = Assert.Single(BillingSession.Entries(directory));
         var written = await File.ReadAllTextAsync(file);
+        Assert.Equal("model-A", new FileStepCache(directory).Read(Path.GetFileNameWithoutExtension(file)).Entry!.RecordedBy?.Label);
         var stamp = new DateTime(2001, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         File.SetLastWriteTimeUtc(file, stamp);
 
-        // A retry runs live and records the same flow again: nothing a replay reads changed.
-        await using (var session = await BillingSession.StartAsync(directory, () => { }, attempt: 2))
+        // A retry runs live under another model and records the same flow again: nothing a replay reads changed.
+        await using (var session = await BillingSession.StartAsync(directory, new NamedModel("model-B", BillingSession.UpgradeModel(() => { })), attempt: 2))
         {
             await BillingSession.UpgradeAsync(session);
             session.Complete();
