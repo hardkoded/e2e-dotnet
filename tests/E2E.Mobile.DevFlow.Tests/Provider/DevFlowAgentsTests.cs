@@ -32,12 +32,12 @@ public sealed class DevFlowAgentsTests
         Log = line => log?.Add(line),
     };
 
-    private static (DevFlowAgents Provider, FakeAgent Agent) Over(DevFlowAgentsOptions? options = null)
+    private static (DevFlowAgents Provider, FakeAgent Agent) Over(DevFlowAgentsOptions? options = null, Func<TimeSpan, CancellationToken, Task>? delay = null)
     {
         var agent = new FakeAgent();
         var http = agent.Http;
         var settings = options ?? new DevFlowAgentsOptions();
-        return (new DevFlowAgents(settings, http, new AgentDiscovery(http, settings) { Delay = static (_, _) => Task.CompletedTask }), agent);
+        return (new DevFlowAgents(settings, http, new AgentDiscovery(http, settings) { Delay = delay ?? (static (_, _) => Task.CompletedTask) }), agent);
     }
 
     [Fact]
@@ -120,12 +120,16 @@ public sealed class DevFlowAgentsTests
     [Fact]
     public async Task An_agent_that_never_answers_fails_the_run_as_a_missing_session()
     {
-        var (provider, agent) = Over(new DevFlowAgentsOptions { ConnectTimeout = TimeSpan.FromMilliseconds(1) });
+        // The deadline runs out while the wait between two tries sleeps, after the first try was refused. A real clock would
+        // race that first try: a deadline that ran out before it would report a hang instead of a missing app.
+        var (provider, agent) = Over(delay: static (_, _) => Task.FromCanceled(new CancellationToken(canceled: true)));
         agent.ScriptRefused("GET", "/api/v1/agent/status");
 
         var error = await Assert.ThrowsAsync<AgentDeviceError>(() => provider.AcquireAsync(Request(), CancellationToken.None));
 
         Assert.Equal("SESSION_NOT_FOUND", error.Code);
+        Assert.Contains("waited", error.Message, StringComparison.Ordinal);
+        Assert.Single(agent.Sent("GET /api/v1/agent/status"));
     }
 
     [Fact]
