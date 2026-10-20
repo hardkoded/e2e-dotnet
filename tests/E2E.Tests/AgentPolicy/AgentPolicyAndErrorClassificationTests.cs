@@ -89,7 +89,13 @@ public sealed class AgentPolicyAndErrorClassificationTests
         Assert.Null(result.Error);
         Assert.Equal("hunter2-secret", filled);
         var sent = model.Requests.Select(request => System.Text.Json.JsonSerializer.Serialize(request, System.Text.Json.JsonSerializerOptions.Web)).ToList();
-        Assert.Contains(sent, text => text.Contains("secret:member.password", StringComparison.Ordinal));
+        var judged = sent.Where(text => text.Contains("the token echo shows a value", StringComparison.Ordinal)).ToList();
+        Assert.NotEmpty(judged);
+        Assert.All(judged, text =>
+        {
+            Assert.Contains("Token echo", text, StringComparison.Ordinal);
+            Assert.Contains("secret:member.password", text, StringComparison.Ordinal);
+        });
         Assert.All(sent, text => Assert.DoesNotContain("hunter2-secret", text, StringComparison.OrdinalIgnoreCase));
     }
 
