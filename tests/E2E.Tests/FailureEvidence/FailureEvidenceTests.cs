@@ -12,9 +12,8 @@ namespace E2E.Tests.FailureEvidence;
 /// <summary>
 /// Upstream's <c>describe('failure evidence')</c> (<c>tests/integration/failure-evidence.test.ts</c>), driven through a session over an
 /// engine that masks its screenshots, with no runner: a test's attempt is a session, and what upstream reads from the report the page
-/// and the session's evidence tell. Not ported: "looks at the screen before teardown runs, so an afterEach that navigates away cannot
-/// replace the evidence" (the port looks when the session is released, which an adapter does after the test's own teardown, so a teardown
-/// that navigates away replaces the evidence). "keeps the evidence of two tests whose ids sanitize to the same directory name apart,
+/// and the session's evidence tell. "looks at the screen before teardown runs, so an afterEach that navigates away cannot
+/// replace the evidence" needs a test framework's teardown, so it is in <c>E2E.NUnit.Tests/FailureEvidence</c>. "keeps the evidence of two tests whose ids sanitize to the same directory name apart,
 /// each report digest matching its file" is ported without the digest check: the port's report artifacts carry no sha256.
 /// </summary>
 public sealed class FailureEvidenceTests : IDisposable
