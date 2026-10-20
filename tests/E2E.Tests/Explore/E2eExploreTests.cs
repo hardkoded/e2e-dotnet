@@ -179,32 +179,19 @@ public sealed class E2eExploreTests
     }
 
     [Fact]
-    public async Task Passes_with_warnings_only_and_offers_the_project_tools_of_the_agents_entry()
+    public async Task Passes_with_warnings_only()
     {
         var plans = 0;
         var model = Model(
             _ => ++plans == 1 ? ExploreModel.Step("Menu", "Open the menu") : ExploreModel.Finish("Only polish items."),
-            call => call.Turn switch
-            {
-                1 => ModelResponses.Call("ping", new { }),
-                2 => ExploreModel.ReportFinding(ExploreModel.CounterFinding(kind: "warning", severity: 1)),
-                _ => ExploreModel.Done("passed", "Menu toggles"),
-            });
-        var ping = new AgentTool("answers pong", JsonNode.Parse("""{ "type": "object", "properties": {} }""")!.AsObject(), mutates: false, (_, _) => Task.FromResult("pong"));
+            call => call.Turn == 1
+                ? ExploreModel.ReportFinding(ExploreModel.CounterFinding(kind: "warning", severity: 1))
+                : ExploreModel.Done("passed", "Menu toggles"));
         var notices = new List<string>();
-        var outcome = await Explorer.ExploreAsync(Options(
-            TempRoot(),
-            model.Model,
-            notices,
-            agent: new AgentOptions { Model = model.Model, Tools = new Dictionary<string, AgentTool> { ["ping"] = ping }, System = "Project guidance line." }));
+        var outcome = await Explorer.ExploreAsync(Options(TempRoot(), model.Model, notices));
 
         Assert.Equal(0, outcome.ExitCode);
         Assert.Equal(RunStatus.Passed, outcome.Status);
-        var first = model.LoopCalls.First().Tools.Select(tool => tool.Name).ToList();
-        Assert.Contains("ping", first);
-        Assert.Contains(ExploreExecutor.FindingToolName, first);
-        Assert.Contains("Project guidance line.", model.LoopCalls.First().System, StringComparison.Ordinal);
-        Assert.Contains("pong", model.LoopCalls.ElementAt(1).Messages.Where(message => message.Role == "tool").Select(message => message.Content));
         Assert.Equal(ReportExploreFindingKind.Warning, outcome.Explore.Findings[0].Kind);
         Assert.Equal(1, outcome.Explore.Findings[0].Severity);
         Assert.Empty(notices);
@@ -248,22 +235,6 @@ public sealed class E2eExploreTests
             config: ExploreHarness.Config(root, "\"secrets\": { \"a-long-secret-name\": \"" + value + "\" }"))));
         Assert.Equal("INVALID_CONFIG", refused.Code);
         Assert.Equal("the goal must be at most 2000 characters with its secret values redacted, got 2009", refused.Message);
-    }
-
-    [Fact]
-    public async Task Is_blocked_when_the_agent_explores_nothing_and_replaces_a_custom_executor_with_a_notice()
-    {
-        var model = Model(_ => ExploreModel.Finish("Nothing here."), _ => ExploreModel.Done("passed", "unused"));
-        var custom = new TestExecutor("house-brain", (_, _) => Task.FromResult(Passed("never runs")));
-        var notices = new List<string>();
-        var outcome = await Explorer.ExploreAsync(Options(TempRoot(), model.Model, notices, agent: new AgentOptions { Model = model.Model, Executor = custom }));
-
-        Assert.Equal(RunStatus.Blocked, outcome.Status);
-        Assert.Equal(ReportExploreEnded.Finished, outcome.Explore.Ended);
-        Assert.Empty(outcome.Explore.Steps);
-        Assert.Empty(outcome.Explore.Findings);
-        Assert.Equal("AUTOMATION_UNSUPPORTED", outcome.Error!.Code);
-        Assert.Equal(["agents.default is a custom executor (\"house-brain\"); explore runs the built-in agent instead"], notices);
     }
 
     // Upstream also reads the status of each act step in the attempt's timeline and validates the report.
@@ -343,7 +314,7 @@ public sealed class E2eExploreTests
             call =>
             {
                 seen.Add(call.ToolNames);
-                return ExploreModel.Done("passed", "looked");
+                return call.Turn == 1 ? ModelResponses.Call("ping", new { }) : ExploreModel.Done("passed", "looked");
             });
         var other = new ScriptedModel(_ => ModelResponses.Done("passed", "not this one"));
         var ping = new AgentTool("answers pong", JsonNode.Parse("""{ "type": "object", "properties": {} }""")!.AsObject(), mutates: false, (_, _) => Task.FromResult("pong"));
@@ -362,6 +333,7 @@ public sealed class E2eExploreTests
         Assert.Equal(0, other.CallCount);
         Assert.Contains("ping", seen[0]);
         Assert.Contains(ExploreExecutor.FindingToolName, seen[0]);
+        Assert.Contains("pong", model.LoopCalls.Last().Messages.Where(message => message.Role == "tool").Select(message => message.Content));
 
         var root = TempRoot();
         var unknown = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(root, model.Model, [], agentName: "nope")));
@@ -386,6 +358,22 @@ public sealed class E2eExploreTests
         Assert.Contains("explore runs the built-in agent, which requires a model, and agents.custom has none", error.Message, StringComparison.Ordinal);
         Assert.Contains("agents.custom is a custom executor (\"math-brain\"); explore runs the built-in agent instead", notices);
         Assert.Equal(0, model.Model.CallCount);
+    }
+
+    [Fact]
+    public async Task Replaces_a_custom_executor_with_the_built_in_agent_on_the_model_it_brought_and_is_blocked_when_nothing_is_explored()
+    {
+        var model = Model(_ => ExploreModel.Finish("Nothing here."), _ => ExploreModel.Done("passed", "unused"));
+        var custom = new TestExecutor("house-brain", (_, _) => Task.FromResult(Passed("never runs"))) { Model = model.Model };
+        var notices = new List<string>();
+        var outcome = await Explorer.ExploreAsync(Options(TempRoot(), null, notices, agent: new AgentOptions { Executor = custom }));
+
+        Assert.Equal(RunStatus.Blocked, outcome.Status);
+        Assert.Equal(ReportExploreEnded.Finished, outcome.Explore.Ended);
+        Assert.Empty(outcome.Explore.Steps);
+        Assert.Empty(outcome.Explore.Findings);
+        Assert.Equal("AUTOMATION_UNSUPPORTED", outcome.Error!.Code);
+        Assert.Equal(["agents.default is a custom executor (\"house-brain\"); explore runs the built-in agent instead, with the model that executor brought"], notices);
     }
 
     [Fact]
