@@ -19,7 +19,7 @@ internal static class GitRepo
         }
 
         // A hook or shell that points git elsewhere must not move the throwaway repository.
-        foreach (var inherited in new[] { "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE" })
+        foreach (var inherited in Internal.Git.RepositoryLocationVariables)
         {
             info.Environment.Remove(inherited);
         }

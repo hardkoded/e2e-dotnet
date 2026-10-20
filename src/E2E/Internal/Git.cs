@@ -24,6 +24,15 @@ internal static partial class Git
     private static partial Regex CommitHashPattern();
 
     /// <summary>
+    /// The variables that point git at a repository. A hook or wrapper that runs the process sets them, and they would override
+    /// <c>cwd</c> (.NET-only; upstream passes the parent's environment through).
+    /// </summary>
+    public static IReadOnlyList<string> RepositoryLocationVariables { get; } =
+    [
+        "GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_PREFIX",
+    ];
+
+    /// <summary>
     /// One git command's trimmed stdout; null when git is missing, slow, or refuses. A cancelled <paramref name="cancellationToken"/>
     /// still surfaces as a cancellation. <paramref name="budget"/> replaces the one-second budget (.NET-only, for tests).
     /// </summary>
@@ -37,6 +46,11 @@ internal static partial class Git
             RedirectStandardInput = true,
             CreateNoWindow = true,
         };
+        foreach (var inherited in RepositoryLocationVariables)
+        {
+            info.Environment.Remove(inherited);
+        }
+
         // Git never waits for the parent's terminal.
         info.Environment["GIT_TERMINAL_PROMPT"] = "0";
         foreach (var arg in args)

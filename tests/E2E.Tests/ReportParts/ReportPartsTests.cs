@@ -128,6 +128,24 @@ public sealed class ReportPartsTests
     }
 
     [Fact]
+    public async Task Reads_the_repository_at_cwd_when_the_parent_points_git_elsewhere()
+    {
+        var dir = Directory.CreateTempSubdirectory("e2e-git-env-").FullName;
+        var previous = Environment.GetEnvironmentVariable("GIT_DIR");
+        try
+        {
+            var commit = GitRepo.InitRepo(dir);
+            Environment.SetEnvironmentVariable("GIT_DIR", Path.Combine(dir, "missing.git"));
+            Assert.Equal(commit, await Git.RunAsync(dir, ["rev-parse", "HEAD"]));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GIT_DIR", previous);
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Kills_git_and_gives_no_answer_when_it_outlasts_its_budget()
     {
         if (OperatingSystem.IsWindows())
