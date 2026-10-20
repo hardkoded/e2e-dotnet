@@ -218,6 +218,8 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
                     + ModelHttp.Int(usageElement, "cache_read_input_tokens")
                     + ModelHttp.Int(usageElement, "cache_creation_input_tokens"),
                 OutputTokens = ModelHttp.Int(usageElement, "output_tokens"),
+                CacheReadTokens = ModelHttp.OptionalInt(usageElement, "cache_read_input_tokens"),
+                CacheWriteTokens = ModelHttp.OptionalInt(usageElement, "cache_creation_input_tokens"),
             };
         }
 

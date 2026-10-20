@@ -232,6 +232,7 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
             {
                 InputTokens = ModelHttp.Int(usageElement, "input_tokens"),
                 OutputTokens = ModelHttp.Int(usageElement, "output_tokens"),
+                CacheReadTokens = ModelHttp.Details(usageElement, "input_tokens_details") is { } details ? ModelHttp.OptionalInt(details, "cached_tokens") : null,
             };
         }
 

@@ -110,6 +110,38 @@ public sealed class ModelProviderTests
         Assert.False(request.Headers.ContainsKey("Authorization"));
     }
 
+    [Theory]
+    [InlineData("anthropic", """{ "content": [], "usage": { "input_tokens": 5, "cache_read_input_tokens": 100, "cache_creation_input_tokens": 20, "output_tokens": 7 } }""", 125, 100, 20, null)]
+    [InlineData("responses", """{ "output": [], "usage": { "input_tokens": 125, "input_tokens_details": { "cached_tokens": 100 }, "output_tokens": 7 } }""", 125, 100, null, null)]
+    [InlineData("compatible", """{ "choices": [{ "message": { "content": "ok" } }], "usage": { "prompt_tokens": 125, "prompt_tokens_details": { "cached_tokens": 100, "cache_write_tokens": 20 }, "completion_tokens": 7, "cost": 0.25 } }""", 125, 100, 20, 0.25)]
+    [InlineData("google", """{ "candidates": [], "usageMetadata": { "promptTokenCount": 125, "cachedContentTokenCount": 100, "candidatesTokenCount": 7 } }""", 125, 100, null, null)]
+    [InlineData("bedrock", """{ "output": { "message": { "content": [] } }, "usage": { "inputTokens": 5, "cacheReadInputTokens": 100, "cacheWriteInputTokens": 20, "outputTokens": 7 } }""", 125, 100, 20, null)]
+    [InlineData("anthropic", """{ "content": [], "usage": { "input_tokens": 5, "output_tokens": 7 } }""", 5, null, null, null)]
+    [InlineData("compatible", """{ "choices": [{ "message": { "content": "ok" } }], "usage": { "prompt_tokens": 5, "completion_tokens": 7, "cost": -1 } }""", 5, null, null, null)]
+    public async Task Provider_usage_carries_the_cache_split_and_the_cost_when_reported(
+        string provider, string body, int input, int? cacheRead, int? cacheWrite, double? cost)
+    {
+        var handler = new RecordingHandler(body);
+        using var http = new HttpClient(handler);
+        IAgentModel model = provider switch
+        {
+            "anthropic" => new AnthropicModel(new AnthropicModelOptions { Model = "m", ApiKey = "k" }, http),
+            "responses" => new OpenAiResponsesModel(new OpenAiResponsesModelOptions { Model = "m", ApiKey = "k" }, http),
+            "compatible" => new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "m", ApiKey = "k" }, http),
+            "google" => new GoogleModel(new GoogleModelOptions { Model = "m", ApiKey = "k" }, http),
+            _ => new BedrockModel(new BedrockModelOptions { Model = "m", Region = "eu-west-1", ApiKey = "k" }, http),
+        };
+
+        using var disposable = (IDisposable)model;
+
+        var usage = (await model.CompleteAsync(Conversation(), CancellationToken.None)).Usage!;
+
+        Assert.Equal(input, usage.InputTokens);
+        Assert.Equal(cacheRead, usage.CacheReadTokens);
+        Assert.Equal(cacheWrite, usage.CacheWriteTokens);
+        Assert.Equal(cost, usage.EstimatedCostUsd);
+    }
+
     [Fact]
     public async Task Anthropic_model_marks_cache_breakpoints_and_merges_tool_results()
     {

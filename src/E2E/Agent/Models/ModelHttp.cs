@@ -308,6 +308,24 @@ internal static class ModelHttp
         };
     }
 
+    /// <summary>A token count the provider may leave out: null when the property is missing or not a count.</summary>
+    public static int? OptionalInt(JsonElement element, string name)
+    {
+        return element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number) && number >= 0 ? number : null;
+    }
+
+    /// <summary>A cost in US dollars the provider may leave out: null when the property is missing or not a finite, non-negative number.</summary>
+    public static double? OptionalCost(JsonElement element, string name)
+    {
+        return element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var cost) && double.IsFinite(cost) && cost >= 0 ? cost : null;
+    }
+
+    /// <summary>The object property <paramref name="name"/> of <paramref name="element"/>, or null when it is missing or not an object.</summary>
+    public static JsonElement? Details(JsonElement element, string name)
+    {
+        return element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Object ? value : null;
+    }
+
     public static int Int(JsonElement element, string name)
     {
         return element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number) ? number : 0;

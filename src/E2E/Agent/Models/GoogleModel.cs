@@ -215,6 +215,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             {
                 InputTokens = ModelHttp.Int(usageElement, "promptTokenCount"),
                 OutputTokens = ModelHttp.Int(usageElement, "candidatesTokenCount") + ModelHttp.Int(usageElement, "thoughtsTokenCount"),
+                CacheReadTokens = ModelHttp.OptionalInt(usageElement, "cachedContentTokenCount"),
             };
         }
 

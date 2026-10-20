@@ -89,6 +89,15 @@ public sealed class ModelUsage
     public int InputTokens { get; init; }
 
     public int OutputTokens { get; init; }
+
+    /// <summary>Input tokens the provider served from its prompt cache, when it reports the split. A part of <see cref="InputTokens"/>.</summary>
+    public int? CacheReadTokens { get; init; }
+
+    /// <summary>Input tokens the provider wrote to its prompt cache, when it reports the split. A part of <see cref="InputTokens"/>.</summary>
+    public int? CacheWriteTokens { get; init; }
+
+    /// <summary>The billed cost of the call in US dollars, when the provider reports one.</summary>
+    public double? EstimatedCostUsd { get; init; }
 }
 
 public sealed class ModelResponse
