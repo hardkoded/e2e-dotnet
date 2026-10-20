@@ -15,9 +15,9 @@
 ## Read the failure
 
 1. Open the trace page of the failed attempt, `.e2e/results/<result>/trace.md`
-   ("The trace page"). `<result>` is the first words of the title and a hash of
-   it, such as `checks-out-1a2b3c4d5e6f7a8b`, so titles that read alike keep
-   their own directory. It names the error and the line to look at, and lists
+   ("The trace page"). `<result>` is the test class, the first words of the title, and a hash of
+   both, such as `carttests-shop-carttests-checks-out-1a2b3c4d5e6f7a8b`, so titles that read
+   alike, or the same title in two classes, keep their own directory. It names the error and the line to look at, and lists
    every step. The test runner prints the exception too. An `E2EException` has a `Code`;
    read it first, then the message. `AgentException.Blocked` is true when
    credentials, the environment, test setup, or the step's budget stopped

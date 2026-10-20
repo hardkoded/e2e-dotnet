@@ -135,7 +135,7 @@ public sealed class E2ESession : IAsyncDisposable
         var projectRoot = Path.GetFullPath(string.IsNullOrEmpty(options.ProjectRoot) ? Directory.GetCurrentDirectory() : options.ProjectRoot);
         var attemptDir = Path.Combine(
             Path.GetFullPath(options.ResultsDirectory ?? Path.Combine(projectRoot, ".e2e", "results")),
-            AttemptReport.ResultSegmentOf(options.TestTitle),
+            AttemptReport.ResultSegmentOf(options.TestFile, options.TestTitle),
             "attempt-" + options.Attempt.ToString(System.Globalization.CultureInfo.InvariantCulture));
         IEngineSession engine;
 
@@ -222,6 +222,7 @@ public sealed class E2ESession : IAsyncDisposable
                 CacheStrict = options.CacheStrict,
                 CleanupTimeout = options.CleanupTimeout,
                 TestTitle = options.TestTitle,
+                TestFile = options.TestFile,
                 ProjectRoot = projectRoot,
                 TargetName = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName,
                 Ended = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token),
@@ -609,7 +610,7 @@ public sealed class E2ESession : IAsyncDisposable
             var untraced = !trace.Records || (!kept && _scope.Attempt == 1 && _status is (AttemptStatus.Passed or AttemptStatus.Skipped));
             if (untraced)
             {
-                RunReport.Forget(trace.ResultsRoot, AttemptReport.ResultId(_scope.TestTitle));
+                RunReport.Forget(trace.ResultsRoot, AttemptReport.ResultId(_scope.TestFile, _scope.TestTitle));
             }
 
             var traced = false;
@@ -837,6 +838,13 @@ public sealed class E2ESessionOptions
     public TimeSpan CleanupTimeout { get; init; } = E2EDefaults.CleanupTimeout;
 
     public required string TestTitle { get; init; }
+
+    /// <summary>
+    /// The full name of the test's class, which stands for upstream's test file: it joins the title in the result id and leads the
+    /// name of the result's directory, so two tests with one title in two classes keep apart. The NUnit and xUnit adapters set it.
+    /// Null keeps the title alone as the identity.
+    /// </summary>
+    public string? TestFile { get; init; }
 
     public TimeSpan TestTimeout { get; init; } = E2EDefaults.TestTimeout;
 

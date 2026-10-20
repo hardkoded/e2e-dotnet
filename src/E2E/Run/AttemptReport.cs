@@ -34,11 +34,28 @@ internal static class AttemptReport
 {
     private static readonly string RunId = Guid.NewGuid().ToString("N")[..12];
 
-    /// <summary>The id of the result of the test titled <paramref name="title"/>, whose head ends the result's directory name.</summary>
-    public static string ResultId(string title) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(title)))[..16].ToLowerInvariant();
+    /// <summary>
+    /// The id of the result of the test titled <paramref name="title"/> in <paramref name="file"/>, whose head ends the result's directory
+    /// name. It hashes the test id, <c>file::title</c>, as upstream's <c>testId</c> and <c>resultId</c> do, so two tests with one title in
+    /// two files keep apart. A session started with no file hashes the title alone.
+    /// </summary>
+    public static string ResultId(string? file, string title) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.IsNullOrEmpty(file) ? title : file + "::" + title)))[..16].ToLowerInvariant();
 
-    /// <summary>The name of the directory of the test titled <paramref name="title"/> under the results directory (<see cref="ArtifactPaths.ResultSegment"/>, with no file name).</summary>
-    public static string ResultSegmentOf(string title) => ArtifactPaths.ResultSegment(ResultId(title), "", [title]);
+    /// <summary>
+    /// The name of the directory of the test titled <paramref name="title"/> in <paramref name="file"/> under the results directory
+    /// (<see cref="ArtifactPaths.ResultSegment"/>). A .NET test has no source file of its own, so the file is the test class: its simple
+    /// name reads in the segment and its full name goes into the id.
+    /// </summary>
+    public static string ResultSegmentOf(string? file, string title) => ArtifactPaths.ResultSegment(ResultId(file, title), file is null ? "" : SimpleName(file), [title]);
+
+    /// <summary>The name of a type without its namespace and its declaring types.</summary>
+    private static string SimpleName(string typeName)
+    {
+        // A closed generic's full name carries its type arguments, with versions and dots of their own.
+        var name = typeName[..(typeName.IndexOfAny(['`', '[']) is var cut and >= 0 ? cut : typeName.Length)];
+        return name[(name.LastIndexOfAny(['.', '+']) + 1)..];
+    }
 
     /// <summary>The report of the attempt that ended <paramref name="status"/> with <paramref name="error"/>.</summary>
     public static (Report1Document Report, string ResultId) Build(
@@ -52,7 +69,7 @@ internal static class AttemptReport
         FailureEvidence? evidence = null)
     {
         var steps = scope.Steps.All();
-        var id = ResultId(scope.TestTitle);
+        var id = ResultId(scope.TestFile, scope.TestTitle);
         var located = steps.Select(step => step.Source).OfType<SourceLocation>().FirstOrDefault();
         var directory = Path.GetFileName(output.TestDir);
         var attemptSegment = Path.GetFileName(output.AttemptDir);

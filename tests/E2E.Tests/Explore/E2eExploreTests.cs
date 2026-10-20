@@ -168,7 +168,7 @@ public sealed class E2eExploreTests
         Assert.Equal("/", finding.Path);
 
         // The evidence is a screenshot file under the attempt's results, named for the finding.
-        Assert.Equal(".e2e/results/" + AttemptReport.ResultSegmentOf("Explore the home page and find bugs") + "/attempt-1/screenshots/001-finding-1.png", finding.ArtifactId);
+        Assert.Equal(".e2e/results/" + AttemptReport.ResultSegmentOf(null, "Explore the home page and find bugs") + "/attempt-1/screenshots/001-finding-1.png", finding.ArtifactId);
         Assert.Equal(ScreenshotEngine.Png(), await File.ReadAllBytesAsync(Path.Combine(root, finding.ArtifactId!)));
 
         // The explorer's loop saw the finding tool beside the grammar.

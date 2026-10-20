@@ -1175,6 +1175,9 @@ internal sealed class AttemptScope
 
     public required string TestTitle { get; init; }
 
+    /// <summary>The full name of the test's class, upstream's test file; see <see cref="E2ESessionOptions.TestFile"/>.</summary>
+    public string? TestFile { get; init; }
+
     public required string EnginePlatform { get; init; }
 
     /// <summary>The target's name, which an executor reads. Defaults to the engine's platform.</summary>

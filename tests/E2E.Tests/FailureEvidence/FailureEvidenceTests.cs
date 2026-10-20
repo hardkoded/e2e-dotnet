@@ -153,6 +153,20 @@ public sealed class FailureEvidenceTests : IDisposable
     }
 
     [Fact]
+    public async Task Keeps_the_evidence_of_two_tests_with_one_title_in_two_classes_apart()
+    {
+        var results = Results();
+        var first = await FailAsync(new EvidenceEngine("Alpha"), "same title", async screen => await screen.GetByRole("button", "Missing").TapAsync(), results: results, file: "Shop.CartTests");
+        var second = await FailAsync(new EvidenceEngine("Omega"), "same title", async screen => await screen.GetByRole("button", "Missing").TapAsync(), results: results, file: "Shop.CheckoutTests");
+
+        Assert.NotEqual(first.Dir, second.Dir);
+        foreach (var (attempt, name) in new[] { (first, "Alpha"), (second, "Omega") })
+        {
+            Assert.Contains("button \"" + name + "\"", File.ReadAllText(Path.Combine(attempt.Dir, "screen-at-failure.txt")), StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public async Task Keeps_the_evidence_of_two_tests_whose_titles_slug_alike_apart()
     {
         var results = Results();
@@ -178,13 +192,14 @@ public sealed class FailureEvidenceTests : IDisposable
     }
 
     /// <summary>Runs <paramref name="body"/> as one attempt that must fail, then releases the session, which is when the evidence is taken. <paramref name="afterFailure"/> runs in between.</summary>
-    private async Task<Attempt> FailAsync(EvidenceEngine engine, string title, Func<Screen, Task> body, Action? afterFailure = null, string? results = null)
+    private async Task<Attempt> FailAsync(EvidenceEngine engine, string title, Func<Screen, Task> body, Action? afterFailure = null, string? results = null, string? file = null)
     {
         results ??= Results();
         var session = await E2ESession.StartAsync(new E2ESessionOptions
         {
             Engine = engine,
             TestTitle = title,
+            TestFile = file,
             BaseUrl = "http://127.0.0.1:4599",
             ActionTimeout = Short,
             ProjectRoot = ProjectRoot(),
@@ -208,7 +223,7 @@ public sealed class FailureEvidenceTests : IDisposable
         afterFailure?.Invoke();
         session.Complete(error);
         await session.DisposeAsync();
-        return new Attempt(session, error, Path.Combine(results, AttemptReport.ResultSegmentOf(title), "attempt-1"), observedBefore);
+        return new Attempt(session, error, Path.Combine(results, AttemptReport.ResultSegmentOf(file, title), "attempt-1"), observedBefore);
     }
 
     private sealed record Attempt(E2ESession Session, E2EException Error, string Dir, int ObservedBefore);

@@ -334,7 +334,7 @@ public sealed class TracesTests : IDisposable
     /// <summary>The trace page of the test titled <paramref name="title"/>, <c>trace.md</c> in its directory under <paramref name="results"/>, if one was written.</summary>
     private static string? ReadTrace(string results, string title)
     {
-        var page = Path.Combine(results, AttemptReport.ResultSegmentOf(title), "trace.md");
+        var page = Path.Combine(results, AttemptReport.ResultSegmentOf(null, title), "trace.md");
         return File.Exists(page) ? File.ReadAllText(page) : null;
     }
 

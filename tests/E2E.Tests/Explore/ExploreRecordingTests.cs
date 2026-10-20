@@ -46,7 +46,7 @@ public sealed class ExploreRecordingTests
         var root = TempRoot();
 
         // A page an earlier run left for the same goal is removed, not left as evidence of this one.
-        var earlier = Path.Combine(root, ".e2e", "results", AttemptReport.ResultSegmentOf("Explore the home page and find bugs"));
+        var earlier = Path.Combine(root, ".e2e", "results", AttemptReport.ResultSegmentOf(null, "Explore the home page and find bugs"));
         Directory.CreateDirectory(earlier);
         await File.WriteAllTextAsync(Path.Combine(earlier, "trace.md"), "stale");
         var outcome = await Explorer.ExploreAsync(Options(root, model.Model, [], trace: RecordingMode.On));
