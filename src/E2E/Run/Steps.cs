@@ -125,6 +125,9 @@ internal sealed record StepMetrics
     public int ContextBytes { get; init; }
 
     public int LedgerBytes { get; init; }
+
+    /// <summary>The largest observation the step read, in bytes. The port does not measure it yet, so it reads 0.</summary>
+    public int ObservationBytes { get; init; }
 }
 
 /// <summary>

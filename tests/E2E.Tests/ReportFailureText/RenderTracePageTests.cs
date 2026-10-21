@@ -14,7 +14,7 @@ public sealed class RenderTracePageTests
     private static string Page(IReadOnlyList<ReportAttempt> attempts, Func<string, string?>? readArtifact = null)
     {
         var failing = ReportBuilders.Result(id: "r1", titlePath: ["todos", "archives a todo"], file: "tests/todos.e2e.ts", status: ResultStatus.Failed, attempts: attempts);
-        var document = new Report1Document(new ReportRun("run-1", "0.0.0", ["web"], [failing]));
+        var document = new Report1Document(new ReportRun("run-1", "0.0.0", [new ReportTarget("web", 0, "web", BuildReport.DescribeTarget(null))], [failing]));
         return FailureText.RenderTracePage(document, failing, Outcome.Of(failing), new TracePageOptions { ArtifactsDir = ".e2e/artifacts", ReadArtifact = readArtifact });
     }
 

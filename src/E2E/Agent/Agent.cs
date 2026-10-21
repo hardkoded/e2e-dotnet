@@ -1180,6 +1180,9 @@ internal sealed class AttemptScope
 
     public required string EnginePlatform { get; init; }
 
+    /// <summary>The engine's version, which the report names.</summary>
+    public string EngineVersion { get; init; } = "";
+
     /// <summary>The target's name, which an executor reads. Defaults to the engine's platform.</summary>
     public string TargetName { get => _targetName ?? EnginePlatform; init => _targetName = value; }
 
