@@ -24,7 +24,7 @@ public sealed class WebBrowserProviderTests
     }
 
     [Fact]
-    public void Rejects_downloads_that_are_not_a_directory_and_a_read_PARTIAL_null_downloads_are_none()
+    public void Rejects_downloads_that_are_not_a_directory_and_a_read_or_whose_dir_is_relative_and_takes_an_absolute_POSIX_or_Windows_dir_PARTIAL_null_downloads_are_none()
     {
         static Task<byte[]> Read(BrowserLease lease, string file, BrowserDownloadContext context, CancellationToken token) => Task.FromResult(Array.Empty<byte>());
         var empty = new NamedProvider("toy-cloud") { Downloads = new BrowserProviderDownloads { Dir = "", ReadAsync = Read } };
@@ -32,12 +32,6 @@ public sealed class WebBrowserProviderTests
         Assert.Contains("provider \"toy-cloud\" has downloads that are not a Dir and a ReadAsync", Refused(empty), StringComparison.Ordinal);
         Assert.Contains("provider \"toy-cloud\" has downloads that are not a Dir and a ReadAsync", Refused(unread), StringComparison.Ordinal);
         _ = new WebEngine(new WebEngineOptions { Browser = new NamedProvider("toy-cloud") { Downloads = new BrowserProviderDownloads { Dir = "/downloads", ReadAsync = Read } } });
-    }
-
-    [Fact]
-    public void Rejects_a_relative_downloads_dir_and_takes_an_absolute_one_in_either_the_POSIX_or_the_Windows_form()
-    {
-        static Task<byte[]> Read(BrowserLease lease, string file, BrowserDownloadContext context, CancellationToken token) => Task.FromResult(Array.Empty<byte>());
         Assert.Contains(
             "provider \"toy-cloud\" has Downloads.Dir \"downloads\"; name an absolute path on the browser's machine",
             Refused(new NamedProvider("toy-cloud") { Downloads = new BrowserProviderDownloads { Dir = "downloads", ReadAsync = Read } }),

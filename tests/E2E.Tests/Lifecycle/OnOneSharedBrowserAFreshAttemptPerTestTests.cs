@@ -381,6 +381,31 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     }
 
     [Fact]
+    public async Task Masks_a_password_inside_an_iframe_in_artifact_screenshots_and_observed_pixels_PARTIAL_one_screenshot_path()
+    {
+        const string Field = "position:absolute;left:20px;width:160px;height:40px;border:0;padding:0;background:#f00;color:#f00";
+        var frame = $"<body style=\"margin:0\"><input type=\"password\" value=\"hunter2\" style=\"{Field};top:20px\"><input value=\"plain\" style=\"{Field};top:100px\"></body>";
+        using var site = await FixtureApp.StartAsync();
+        await using var session = await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions { Headless = true });
+        var page = WebEngine.SurfaceOf(session)!.Page();
+        await page.SetContentAsync($"<body style=\"margin:0\"><iframe srcdoc='{frame}' style=\"position:absolute;left:0;top:0;width:400px;height:200px;border:0\"></iframe></body>");
+        await page.FrameLocator("iframe").Locator("input[type=password]").WaitForAsync();
+
+        // The port has one screenshot path: the artifact shot and the observed pixels are the same masked image.
+        var shot = await session.ScreenshotAsync(CancellationToken.None);
+        Assert.True(shot.MaskedRegionCount >= 1);
+        var image = ImageOps.DecodePng(shot.Png);
+        Assert.Equal([0, 0, 0], PixelAt(image, (100, 40)));
+        Assert.Equal([255, 0, 0], PixelAt(image, (100, 120)));
+    }
+
+    private static byte[] PixelAt(RgbaImage image, (int X, int Y) point)
+    {
+        var at = ((point.Y * image.Width) + point.X) * 4;
+        return image.Data[at..(at + 3)];
+    }
+
+    [Fact]
     public async Task Masks_a_password_inside_a_closed_shadow_root_in_artifact_screenshots()
     {
         using var site = await FixtureApp.StartAsync();
