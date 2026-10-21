@@ -19,13 +19,13 @@ internal static class Vcs
 {
     /// <summary>
     /// The commit, branch, and cleanliness of <paramref name="projectRoot"/>: from git when it answers, else from the CI variables
-    /// GitHub Actions sets, else null. <paramref name="budget"/> replaces git's one-second budget (.NET-only, for tests on a loaded machine).
+    /// GitHub Actions sets, else null.
     /// </summary>
-    public static async Task<VcsInfo?> DetectAsync(string projectRoot, IReadOnlyDictionary<string, string?> env, CancellationToken cancellationToken = default, TimeSpan? budget = null)
+    public static async Task<VcsInfo?> DetectAsync(string projectRoot, IReadOnlyDictionary<string, string?> env, CancellationToken cancellationToken = default)
     {
-        var commitTask = Git.RunAsync(projectRoot, ["rev-parse", "HEAD"], cancellationToken, budget);
-        var branchTask = Git.RunAsync(projectRoot, ["rev-parse", "--abbrev-ref", "HEAD"], cancellationToken, budget);
-        var statusTask = Git.RunAsync(projectRoot, ["status", "--porcelain", "--untracked-files=no"], cancellationToken, budget);
+        var commitTask = Git.RunAsync(projectRoot, ["rev-parse", "HEAD"], cancellationToken);
+        var branchTask = Git.RunAsync(projectRoot, ["rev-parse", "--abbrev-ref", "HEAD"], cancellationToken);
+        var statusTask = Git.RunAsync(projectRoot, ["status", "--porcelain", "--untracked-files=no"], cancellationToken);
         await Task.WhenAll(commitTask, branchTask, statusTask).ConfigureAwait(false);
         var (commit, branch, status) = (commitTask.Result, branchTask.Result, statusTask.Result);
         if (commit is not null && Git.CommitHash.IsMatch(commit))
