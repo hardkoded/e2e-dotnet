@@ -3,14 +3,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.RegularExpressions;
+using E2E.Tests.ReportJson;
 using static E2E.Tests.AgentAct.ExecutorKit;
 using static E2E.Tests.CoreTests;
 
 namespace E2E.Tests.AgentAct;
 
 /// <summary>
-/// The raw <see cref="IStepExecutor"/> socket, driven by a hand-rolled executor with no model. Not ported, because the port has
-/// no such feature: "emits a schema-valid report for executor-driven steps" (the port has no report).
+/// The raw <see cref="IStepExecutor"/> socket, driven by a hand-rolled executor with no model. Upstream no longer has an <c>it</c> for
+/// "emits a schema-valid report for executor-driven steps": every report a test reads here is checked against the schema.
 /// </summary>
 public sealed partial class AgentActWithAHandRolledStepExecutorTests
 {
@@ -49,13 +50,13 @@ public sealed partial class AgentActWithAHandRolledStepExecutorTests
     }
 
     /// <summary>
-    /// Partial: the port has no step record, so it reads the step's accounting from its <see cref="ActResult"/>: the action it
-    /// took, the model call the executor reported, and the verdict's summary. Upstream also reads the step's events, which
-    /// the port does not record.
+    /// Partial: the port records no engine event for an action an executor takes through its context, so the engine event and the
+    /// order of the model event against it are not checked.
     /// </summary>
     [Fact]
     public async Task Partial_Records_the_act_step_with_harness_owned_accounting()
     {
+        using var report = new ReportDirectory();
         ActResult? act = null;
         var result = await RunAsync(
             async ctx =>
@@ -64,13 +65,18 @@ public sealed partial class AgentActWithAHandRolledStepExecutorTests
                 act = await ctx.Agent.ActAsync(Instruction);
             },
             CounterPage.World(),
-            executor: ScriptedExecutor());
+            executor: ScriptedExecutor(),
+            report: report);
 
         Assert.Null(result.Error);
-        Assert.Equal(1, act!.Actions);
-        Assert.Equal(1, act.ModelCalls);
-        Assert.Contains("the counter shows 1", act.Summary, StringComparison.Ordinal);
-        Assert.Equal(1, result.ModelCalls);
+        Assert.Equal((1, 1), (act!.Actions, act.ModelCalls));
+        var step = report.Step("agent.act");
+        Assert.Equal("agent", (string)step["kind"]!);
+        Assert.Equal("passed", (string)step["status"]!);
+        Assert.Equal(1, (int)step["metrics"]!["actionSteps"]!);
+        Assert.Contains("the counter shows 1", (string)step["explanation"]!, StringComparison.Ordinal);
+        var modelEvents = step["events"]!.AsArray().Where(each => (string)each!["kind"]! == "model").ToList();
+        Assert.Single(modelEvents);
     }
 
     [GeneratedRegex("status \"Counter\" text=\"1\"")]

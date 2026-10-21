@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using E2E.Tests.ReportJson;
 using E2E.Tests.ScriptedScreen;
 
 namespace E2E.Tests.ScriptedActions;
@@ -11,21 +12,22 @@ namespace E2E.Tests.ScriptedActions;
 /// Node actions and the app hooks through a session over the scripted reference screen: every action reaches
 /// the engine with the node and payload the test named, and <c>app.open</c>, <c>back</c>, <c>restart</c>, and
 /// <c>clearState</c> reach the session hooks. Upstream runs each case in the real runner and reads the engine
-/// calls and the report steps. The port has no runner and no report, so each case runs in the test body and
-/// reads what the engine recorded. Not ported, because the port has no such feature: <c>secondaryTap</c>,
+/// calls and the report steps. The port has no runner, so each case runs in the test body, reads what the engine recorded, and
+/// reads the steps from <c>report.json</c>. Not ported, because the port has no such feature: <c>secondaryTap</c>,
 /// <c>longPress</c>, <c>hover</c>, <c>setInputFiles</c>, <c>dragTo</c>, locator <c>swipe</c>, and the object
-/// forms of <c>selectOption</c> (<c>label</c>, <c>value</c>, <c>index</c>). The step labels of the locator
-/// actions are not ported.
+/// forms of <c>selectOption</c> (<c>label</c>, <c>value</c>, <c>index</c>); the first test is partial for that reason. It is partial too
+/// because <c>click</c> and <c>dblclick</c> are the port's <c>tap</c> and <c>doubleTap</c> steps, so their api names are not checked.
 /// </summary>
 public sealed class ScriptedEngineActionsAndAppHooksTests
 {
     private const string BaseUrl = "http://127.0.0.1:4599";
 
     [Fact]
-    public async Task Dispatches_every_action_kind_the_port_has_with_the_expected_node_and_payload()
+    public async Task Partial_Dispatches_every_action_kind_with_the_expected_ref_and_payload()
     {
+        using var report = new ReportDirectory();
         using var scene = ReferenceScene.Create(open: false);
-        await using var session = await StartAsync(new ScriptedEngine(scene));
+        await using var session = await StartAsync(new ScriptedEngine(scene), report);
         var screen = session.Screen;
         await session.App.OpenAsync("/");
         var submit = screen.GetByRole("button", "Submit");
@@ -91,6 +93,15 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
             },
             scene.Performs);
         session.Complete();
+        await session.DisposeAsync();
+
+        var steps = report.LastAttempt()["steps"]!.AsArray();
+        var apis = steps.Select(each => (string)each!["api"]!).ToList();
+        Assert.All(
+            new[] { "locator.tap", "locator.doubleTap", "locator.fill", "locator.clear", "locator.pressSequentially", "locator.press", "locator.check", "locator.uncheck", "locator.selectOption", "locator.focus", "locator.scrollIntoView" },
+            api => Assert.Contains(api, apis));
+        Assert.Equal("getByLabel(\"Email\")", (string)report.Step("locator.fill")["label"]!);
+        Assert.Equal("getByLabel(\"City\")", (string)report.Step("locator.pressSequentially")["label"]!);
     }
 
     [Fact]
@@ -98,7 +109,8 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
     {
         using var scene = ReferenceScene.Create(open: false);
         var engine = new ScriptedEngine(scene);
-        await using var session = await StartAsync(engine);
+        using var report = new ReportDirectory();
+        await using var session = await StartAsync(engine, report);
         await session.App.OpenAsync("/");
         await session.App.OpenAsync("/settings");
         await session.App.BackAsync();
@@ -108,14 +120,17 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
         Assert.Equal(
             ["open " + BaseUrl + "/", "open " + BaseUrl + "/settings", "back", "restart", "open " + BaseUrl + "/", "reset", "open " + BaseUrl + "/"],
             engine.SessionCalls);
-        Assert.Equal(["app.open", "app.open", "app.back", "app.restart", "app.clearState"], session.Steps.Where(step => step.Kind == StepKind.App).Select(step => step.Api));
         session.Complete();
+        await session.DisposeAsync();
+
+        Assert.Equal(["app.open", "app.open", "app.back", "app.restart", "app.clearState"], report.LastAttempt()["steps"]!.AsArray().Select(each => (string)each!["api"]!).Where(api => api.StartsWith("app.", StringComparison.Ordinal)));
     }
 
-    private static Task<E2ESession> StartAsync(ScriptedEngine engine)
+    private static Task<E2ESession> StartAsync(ScriptedEngine engine, ReportDirectory report)
     {
         return E2ESession.StartAsync(new E2ESessionOptions
         {
+            ResultsDirectory = report.Results,
             Engine = engine,
             BaseUrl = BaseUrl,
             TestTitle = "scripted actions",

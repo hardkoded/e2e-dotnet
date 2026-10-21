@@ -156,6 +156,14 @@ The last attempt of each failed result holds:
 | `appLog` | What the app logged. Each line's `step` is the `index` of its step, absent before the first step. |
 | `artifacts` | The captured files, with their size and `sha256` |
 
+A session you start yourself with `E2ESession.StartAsync` adds its attempt to that
+file too, and after `DisposeAsync` settles, `session.Report()` returns the attempt
+alone as a `JsonObject` in the same schema, a copy you may change. Its status is the
+session's, not your runner's test-body verdict, and artifact paths are relative to
+the results directory, not the attempt's directory. It returns `null` before the
+session is disposed and when the trace page cannot be written. Use it, with
+`CloseSoftFailures()`, in a runner that owns its reporting.
+
 Not in the port's report: serial groups (`run.serialGroups` is always empty),
 `carried`, a step's `visionInput`, `visionDegraded`, and `visionOnly`, and the
 model fields upstream measures (`peakTokensPerCall` reads 0). A judgment step's

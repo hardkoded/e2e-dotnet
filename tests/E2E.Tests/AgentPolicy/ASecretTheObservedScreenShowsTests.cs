@@ -6,6 +6,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using E2E.Engine;
+using E2E.Tests.ReportJson;
 using static E2E.Tests.CoreTests;
 
 namespace E2E.Tests.AgentPolicy;
@@ -54,11 +55,13 @@ public sealed class ASecretTheObservedScreenShowsTests
             await Expect.That(ctx.Screen.GetByRole("status")).ToBeVisibleAsync();
         }
 
-        var recorded = await RunAsync(Body, World(), model, directory);
+        using var recordedReport = new ReportDirectory();
+        using var replayedReport = new ReportDirectory();
+        var recorded = await RunAsync(Body, World(), model, directory, report: recordedReport);
         Assert.Null(recorded.Error);
 
         // The redacted anchors still match the redacted screen, so the replay finishes on its own.
-        var replayed = await RunAsync(Body, World(), new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")), directory);
+        var replayed = await RunAsync(Body, World(), new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")), directory, report: replayedReport);
         Assert.Equal("self-finalized", results[1].Cache?.Mode);
         Assert.Equal(1, results[1].Actions);
 
@@ -74,8 +77,10 @@ public sealed class ASecretTheObservedScreenShowsTests
         var seen = model.Requests.SelectMany(request => request.Messages.Select(message => message.Content).Prepend(request.System)).ToList();
         Assert.Contains("<secret:probe>", string.Join('\n', seen), StringComparison.Ordinal);
 
-        // The port writes no report file; the act results and run outcomes are what it reports.
-        var written = seen.Concat(entries).Append(JsonSerializer.Serialize(results, relaxed)).Append(JsonSerializer.Serialize(new[] { recorded, replayed }, relaxed));
+        // The documents the two sessions wrote are valid, and so are the act results and run outcomes the port returns.
+        recordedReport.Read();
+        replayedReport.Read();
+        var written = seen.Concat(entries).Append(File.ReadAllText(Path.Combine(recordedReport.Output, "report.json"))).Append(File.ReadAllText(Path.Combine(replayedReport.Output, "report.json"))).Append(JsonSerializer.Serialize(results, relaxed)).Append(JsonSerializer.Serialize(new[] { recorded, replayed }, relaxed));
         foreach (var fragment in new[] { probe, multiline, collapsed, lead[..12], tail[..8] })
         {
             foreach (var text in written)

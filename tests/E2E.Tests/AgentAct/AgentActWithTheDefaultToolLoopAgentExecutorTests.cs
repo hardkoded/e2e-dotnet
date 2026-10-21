@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Tests.CacheModelProvenance;
+using E2E.Tests.ReportJson;
 using static E2E.Tests.CoreTests;
 
 namespace E2E.Tests.AgentAct;
@@ -53,19 +55,20 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
         Assert.Contains("status \"Counter\" text=\"1\"", CounterPage.ToolResults(model)[0], StringComparison.Ordinal);
     }
 
-    // Upstream also checks the step's provenance (provider, model, and the model event of each call), which belong to
-    // its report. The port has no report.
     [Fact]
-    public async Task Accounts_model_calls_and_tokens_in_the_step_metrics()
+    public async Task Accounts_executor_model_calls_in_the_step_metrics_and_provenance()
     {
+        using var report = new ReportDirectory();
         ActResult? act = null;
         ActResult? replayed = null;
         var directory = TempCache();
-        var model = new ScriptedModel(request => new ModelResponse
-        {
-            ToolCalls = request.Messages.Any(message => message.Content?.Contains("Statement:", StringComparison.Ordinal) == true) || request.Messages.Any(message => message.Role == "tool") ? ModelResponses.Done("passed", "upgraded").ToolCalls : ModelResponses.Tap("button", "Upgrade to Pro").ToolCalls,
-            Usage = new ModelUsage { InputTokens = 11, OutputTokens = 3 },
-        });
+        var model = new NamedModel(
+            new ScriptedModel(request => new ModelResponse
+            {
+                ToolCalls = request.Messages.Any(message => message.Content?.Contains("Statement:", StringComparison.Ordinal) == true) || request.Messages.Any(message => message.Role == "tool") ? ModelResponses.Done("passed", "upgraded").ToolCalls : ModelResponses.Tap("button", "Upgrade to Pro").ToolCalls,
+                Usage = new ModelUsage { InputTokens = 11, OutputTokens = 3 },
+            }),
+            "fake-loop/scripted-loop");
         var result = await RunAsync(
             async ctx =>
             {
@@ -74,7 +77,8 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
                 await ctx.Agent.AssertAsync("the invoice preview shows a prorated amount");
             },
             model: model,
-            cacheDirectory: directory);
+            cacheDirectory: directory,
+            report: report);
         var second = await RunAsync(
             async ctx =>
             {
@@ -95,6 +99,13 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
         Assert.Equal(act.ModelCalls + 1, result.ModelCalls);
         Assert.Equal(11 * result.ModelCalls, result.InputTokens);
         Assert.Equal(3 * result.ModelCalls, result.OutputTokens);
+        var step = report.Step("agent.act");
+        var calls = (int)step["metrics"]!["modelCalls"]!;
+        Assert.True(calls >= 2);
+        Assert.Equal(1, (int)step["metrics"]!["actionSteps"]!);
+        Assert.Equal(("fake-loop", "scripted-loop", "provider", calls), ((string)step["model"]!["provider"]!, (string)step["model"]!["model"]!, (string)step["model"]!["tokenAccounting"]!, (int)step["model"]!["calls"]!));
+        Assert.True((int)step["model"]!["inputTokens"]! > 0);
+        Assert.Equal(calls, step["events"]!.AsArray().Count(each => (string)each!["kind"]! == "model"));
     }
 
     private static ScriptedModel IncrementThenConclude() => new(IncrementThenConcludeTurn);

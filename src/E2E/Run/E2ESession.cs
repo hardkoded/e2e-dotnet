@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using E2E.Engine;
 using E2E.Internal;
 
@@ -30,6 +31,7 @@ public sealed class E2ESession : IAsyncDisposable
     private Exception? _error;
     private long _bodyMs;
     private AttemptStatus _status = AttemptStatus.Failed;
+    private JsonObject? _report;
 
     private E2ESession(AttemptScope scope, CancellationTokenSource timeout, IEngineSession engine, App app, Browser browser, Agent agent, Screen screen, TestContext context, IDisposable errorRedaction, TextWriter? debugOutput)
     {
@@ -57,6 +59,9 @@ public sealed class E2ESession : IAsyncDisposable
 
     /// <summary>The engine session, for a host that drives the app without a test body.</summary>
     internal IEngineSession Engine => _engine;
+
+    /// <summary>The unique id of this attempt, the one its report names.</summary>
+    internal string AttemptId => _scope.AttemptId;
 
     /// <summary>The attempt's step timeline, with the screen each step left when the attempt keeps a trace.</summary>
     internal IReadOnlyList<StepRecord> Steps => _scope.Steps.All();
@@ -98,6 +103,14 @@ public sealed class E2ESession : IAsyncDisposable
 
     /// <summary>What the session explored, set by an exploration before it is released: its verdict is told by its findings, and gets no trace page.</summary>
     internal ReportExplore? Exploration { get; set; }
+
+    /// <summary>
+    /// The attempt's report-1 document, a copy the caller may change, once the session is disposed and its trace page, when the mode keeps one,
+    /// is written; null before that and when the page cannot be written. It tells this attempt alone, as a single-result run: its status is the
+    /// session's, not the verdict of the test around it. Artifact paths are relative to the results directory. Upstream's <c>session.report()</c>,
+    /// whose <c>Report</c> is a typed object; the port's is the document as <c>schema/report-v1.schema.json</c> spells it.
+    /// </summary>
+    public JsonObject? Report() => (JsonObject?)Volatile.Read(ref _report)?.DeepClone();
 
     public int Replayed => _scope.Replayed;
 
@@ -613,7 +626,7 @@ public sealed class E2ESession : IAsyncDisposable
             // The document is a courtesy too: the page below is still written when it cannot be.
             try
             {
-                await ReportFile.WriteAsync(report, _scope.ProjectRoot ?? Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(trace.ResultsRoot))!, trace.ResultsRoot, redact).ConfigureAwait(false);
+                await ReportFile.WriteAsync(report, ReportFile.ProjectRootOf(_scope.ProjectRoot, trace.ResultsRoot), trace.ResultsRoot, redact).ConfigureAwait(false);
             }
 #pragma warning disable CA1031 // The document is a courtesy: whatever fails in building it must not fail a test that passed.
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -630,6 +643,8 @@ public sealed class E2ESession : IAsyncDisposable
                     new WriteTracePagesOptions(_scope.ProjectRoot!, trace.ResultsRoot, trace.CacheDir),
                     redact).ConfigureAwait(false);
             }
+
+            Volatile.Write(ref _report, await ReportFile.SingleAsync(single, _scope.ProjectRoot, trace.ResultsRoot, redact).ConfigureAwait(false));
 
             if (!traced && _scope.Attempt == 1)
             {
