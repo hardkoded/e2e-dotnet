@@ -97,13 +97,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     {
         var scope = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
         var observation = await ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
-        var view = new ExecutorObservation(SnapshotText.Render(observation, scope.Redactor, scope.AppOrigin))
-        {
-            Truncated = observation.Truncated,
-            KeyboardVisible = observation.KeyboardVisible,
-            Path = scope.Redactor.Redact(observation.Route),
-            Tree = options?.Tree == true ? AgentObservation.ProjectTree(observation.Roots, scope.Redactor, scope.AppOrigin) : null,
-        };
+        var view = View(observation, scope, options);
         if (options?.Pixels != true)
         {
             return view;
@@ -121,6 +115,19 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         var size = Pixels.ReadPngSize(pixels.Png);
         return view with { Pixels = new ExecutorPixels(pixels.Png, "image/png", size?.Width ?? 0, size?.Height ?? 0, pixels.Scale, pixels.MaskedRegionCount ?? 0) };
     }
+
+    /// <summary>
+    /// Upstream's <c>view</c>: one capture as the executor sees it, redacted, with the text, the truncation, the keyboard state
+    /// and the route, and the tree when asked for. The step's start observation and <see cref="ObserveAsync(ExecutorObserveOptions?, CancellationToken)"/> both read it.
+    /// </summary>
+    internal static ExecutorObservation View(Observation observation, AttemptScope scope, ExecutorObserveOptions? options = null) =>
+        new(SnapshotText.Render(observation, scope.Redactor, scope.AppOrigin))
+        {
+            Truncated = observation.Truncated,
+            KeyboardVisible = observation.KeyboardVisible,
+            Path = scope.Redactor.Redact(observation.Route),
+            Tree = options?.Tree == true ? AgentObservation.ProjectTree(observation.Roots, scope.Redactor, scope.AppOrigin) : null,
+        };
 
     /// <summary>The newest node an observation of the step listed under <paramref name="reference"/>, if any.</summary>
     public SemanticNode? LastSeen(string reference) => _seen.GetValueOrDefault(reference);

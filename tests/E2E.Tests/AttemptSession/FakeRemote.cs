@@ -104,6 +104,9 @@ internal sealed class FakeRemote
     {
         var (playwright, fake) = Fake<IPlaywright>.New();
         fake.Members["Dispose"] = _ => null;
+        var (selectors, selectorsFake) = Fake<ISelectors>.New();
+        selectorsFake.Members["RegisterAsync"] = _ => Task.CompletedTask;
+        fake.Members["get_Selectors"] = _ => selectors;
         return Task.FromResult(playwright);
     }
 

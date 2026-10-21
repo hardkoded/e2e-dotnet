@@ -7,9 +7,9 @@ using E2E.Internal;
 namespace E2E;
 
 /// <summary>
-/// What the trace page reads of a run (upstream's <c>Report1Document</c> and its parts, <c>report/build.ts</c>). The port has no
-/// <c>report.json</c>: a session builds these from the records it already keeps, and a page is the only thing that reads them. Each
-/// record holds what the page uses, not the whole of upstream's shape: no targets, serial groups, limits, or usage.
+/// What the trace page reads of a run (upstream's <c>Report1Document</c> and its parts, <c>report/build.ts</c>). A session builds these
+/// from the records it already keeps. A record holds what the page and the run-level blocks use, not yet the whole of upstream's
+/// shape: no serial groups (the port has none), and the wire form of a result and its steps is not written.
 /// </summary>
 /// <param name="Run">The run the page tells.</param>
 internal sealed record Report1Document(ReportRun Run);
@@ -17,10 +17,50 @@ internal sealed record Report1Document(ReportRun Run);
 /// <summary>One run: its id, the runner that made it, the targets it ran on, and the results.</summary>
 /// <param name="Id">The run's id.</param>
 /// <param name="RunnerVersion">The version of the runner (upstream's <c>runner.version</c>).</param>
-/// <param name="Targets">The names of the targets the run used; a page names a result's target only when there is more than one.</param>
+/// <param name="Targets">The targets the run used; a page names a result's target only when there is more than one.</param>
 /// <param name="Results">One per test.</param>
 /// <param name="Explore">What the run explored, when it was an exploration (upstream's <c>run.explore</c>).</param>
-internal sealed record ReportRun(string Id, string RunnerVersion, IReadOnlyList<string> Targets, IReadOnlyList<ReportResult> Results, ReportExplore? Explore = null);
+internal sealed record ReportRun(string Id, string RunnerVersion, IReadOnlyList<ReportTarget> Targets, IReadOnlyList<ReportResult> Results, ReportExplore? Explore = null)
+{
+    /// <summary>How the run ended, once <see cref="BuildReport.DeriveRunStatus"/> has read its results. Null on a run that only a page reads.</summary>
+    public ReportRunStatus? Status { get; init; }
+
+    public int? ExitCode { get; init; }
+
+    public DateTimeOffset? StartedAt { get; init; }
+
+    public DateTimeOffset? FinishedAt { get; init; }
+
+    /// <summary>The project the run belongs to: upstream's <c>project</c>.</summary>
+    public ReportProject Project { get; init; } = ReportProject.Unknown;
+
+    /// <summary>What the run ran on: upstream's <c>environment</c>.</summary>
+    public ReportEnvironment? Environment { get; init; }
+
+    /// <summary>The commit, branch, and cleanliness of the checkout the run tested; null outside git and CI.</summary>
+    public VcsInfo? Vcs { get; init; }
+
+    /// <summary>The errors of the run itself, such as a report that could not be written.</summary>
+    public IReadOnlyList<ReportError> Errors { get; init; } = [];
+
+    public ReportSummary? Summary { get; init; }
+
+    public ReportLimits? Limits { get; init; }
+
+    public ReportUsage? Usage { get; init; }
+}
+
+/// <summary>How a run ended (upstream's <c>BuildReportOptions['status'] | 'blocked'</c>).</summary>
+internal enum ReportRunStatus
+{
+    Passed,
+    Failed,
+    Error,
+    Interrupted,
+
+    /// <summary>Not passed, and every failing result carries a blockable code: nothing contradicts that the run could not reach a product verdict.</summary>
+    Blocked,
+}
 
 /// <summary>How a test ended, over all its attempts.</summary>
 internal enum ResultStatus
@@ -51,7 +91,8 @@ internal sealed record ReportError(string Code, string Message, string? Phase = 
 /// <param name="Path">Relative to the results directory; null for a link a hosted service keeps.</param>
 /// <param name="Url">Where a hosted service keeps it.</param>
 /// <param name="StartedAt">When a recording began; steps read their offset into it.</param>
-internal sealed record ReportArtifact(string Id, string Kind, string? Path = null, string? Url = null, DateTimeOffset? StartedAt = null);
+/// <param name="Size">The size of the file in bytes, when known; the run's <c>usage.artifactBytes</c> adds them up.</param>
+internal sealed record ReportArtifact(string Id, string Kind, string? Path = null, string? Url = null, DateTimeOffset? StartedAt = null, long? Size = null);
 
 /// <summary>What was seen when a failure landed (upstream's <c>FailureEvidence</c>).</summary>
 internal sealed partial record FailureEvidence
@@ -121,6 +162,18 @@ internal sealed record ReportResult
     /// <summary>0 for the first run of a repeated test.</summary>
     public int Repeat { get; init; }
 
+    /// <summary>The order the test is declared in within its file; results are reported by file, then this, then target.</summary>
+    public int DeclarationIndex { get; init; }
+
+    /// <summary>The tags the test declares; empty when none.</summary>
+    public IReadOnlyList<string> Tags { get; init; } = [];
+
+    /// <summary>
+    /// Whether the selection chose this test. A test left out is still reported, as skipped, but the summary's <c>selected</c> does not
+    /// count it.
+    /// </summary>
+    public bool Selected { get; init; } = true;
+
     public ResultStatus Status { get; init; } = ResultStatus.Passed;
 
     public IReadOnlyList<ReportAttempt> Attempts { get; init; } = [];
@@ -158,4 +211,85 @@ internal sealed record Outcome(long DurationMs, ReportAttempt Final, ReportAttem
             result.Attempts,
             earlier.Count(attempt => attempt.Status != AttemptStatus.Passed));
     }
+}
+
+/// <summary>The engine a target runs on, as the report names it (upstream's <c>engine</c> block of a target).</summary>
+/// <param name="Name">The engine's name; <c>none</c> for a target without an engine.</param>
+/// <param name="Version">The engine's version; <c>unversioned</c> for a target without an engine.</param>
+/// <param name="SpiVersion">The version of the engine contract (upstream's <c>ENGINE_SPI_VERSION</c>).</param>
+internal sealed record ReportEngine(string Name, string Version, int SpiVersion);
+
+/// <summary>What a target's engine declaration says about it (upstream's <c>TargetProvenance</c>).</summary>
+/// <param name="Engine">The engine.</param>
+/// <param name="Capabilities">What the engine can do, sorted.</param>
+/// <param name="ArtifactCapabilities">What the engine can capture: <c>screenshot</c>, <c>video</c>.</param>
+/// <param name="StateCapability">Whether the engine can capture and restore state.</param>
+internal sealed record TargetProvenance(ReportEngine Engine, IReadOnlyList<string> Capabilities, IReadOnlyList<string> ArtifactCapabilities, bool StateCapability);
+
+/// <summary>One target of the run (upstream's <c>ReportTarget</c>).</summary>
+/// <param name="Id">The target's name.</param>
+/// <param name="Index">Its place in the config's targets.</param>
+/// <param name="Platform">Its platform.</param>
+/// <param name="Provenance">What its engine declares.</param>
+/// <param name="Environment">What the app is: <c>test</c>, <c>staging</c>, or <c>production</c>.</param>
+/// <param name="BaseOrigin">The origin of the target's app URL; null for a surface without one.</param>
+internal sealed record ReportTarget(string Id, int Index, string Platform, TargetProvenance Provenance, string Environment = "test", string? BaseOrigin = null);
+
+/// <summary>The project a run belongs to (upstream's <c>project</c>).</summary>
+/// <param name="Id">The project id.</param>
+/// <param name="ConfigDigest">The digest of the resolved config.</param>
+internal sealed record ReportProject(string Id, string ConfigDigest)
+{
+    /// <summary>What upstream reports without a resolved config. The port has no project id or config digest.</summary>
+    public static ReportProject Unknown { get; } = new("unknown", new string('0', 64));
+}
+
+/// <summary>What a run ran on (upstream's <c>environment</c> block of the run).</summary>
+/// <param name="Ci">Whether the run was in CI.</param>
+/// <param name="TrustNoticeShown">Upstream records the trust model here and never prints it, so it is false.</param>
+/// <param name="Os">The platform and its release, as <c>darwin 24.1.0</c>.</param>
+/// <param name="Arch">The processor architecture, in Node's spelling (<c>x64</c>, <c>arm64</c>).</param>
+/// <param name="Runtime">The runtime, as <c>.NET 10.0.0</c>.</param>
+internal sealed record ReportEnvironment(bool Ci, bool TrustNoticeShown, string Os, string Arch, string Runtime);
+
+/// <summary>The run's counts by result (upstream's <c>ReportSummary</c>). The status counts are over the selected results and add up to <paramref name="Selected"/>.</summary>
+internal sealed record ReportSummary(int Discovered, int Selected, int Executed, int Passed, int Failed, int Interrupted, int Flaky, int Skipped);
+
+/// <summary>The limits the run ran under (upstream's <c>ReportLimits</c>).</summary>
+internal sealed record ReportLimits(int MaxAgentContextBytes, int MaxLedgerBytes, int MaxObservationBytes, int MaxEventsPerStep, int MaxModelTokensPerCall)
+{
+    /// <summary>
+    /// Upstream's <c>DEFAULT_LIMITS</c>. The port has no per-agent <c>maxObservationBytes</c> or <c>maxInputTokens</c> (the config rejects
+    /// them), so every run reports the defaults, as upstream does for a run that failed before its config resolved.
+    /// </summary>
+    public static ReportLimits Default { get; } = new(ResolvedAgent.MaxContextBytes, Ledger.MaxLedgerBytes, StepScreens.DefaultObservationBytes, 1_000, 64_000);
+}
+
+/// <summary>What the run used, against <see cref="ReportLimits"/> (upstream's <c>ReportUsage</c>).</summary>
+internal sealed record ReportUsage
+{
+    public int DiscoveredResults { get; init; }
+
+    public int MaxAgentContextBytes { get; init; }
+
+    public int MaxLedgerBytes { get; init; }
+
+    public int MaxObservationBytes { get; init; }
+
+    public long ArtifactBytes { get; init; }
+
+    public int Downloads { get; init; }
+
+    public long Events { get; init; }
+
+    public long ModelTokens { get; init; }
+
+    /// <summary>Input tokens served from provider prompt caches; null until a step reports the split.</summary>
+    public long? ModelCachedTokens { get; init; }
+
+    public int MaxModelCallsInStep { get; init; }
+
+    public int MaxActionStepsInStep { get; init; }
+
+    public double? EstimatedCostUsd { get; init; }
 }

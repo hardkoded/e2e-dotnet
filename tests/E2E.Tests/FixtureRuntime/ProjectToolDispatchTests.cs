@@ -159,10 +159,61 @@ public sealed class ProjectToolDispatchTests
         Assert.Equal([null, true, false], measured);
     }
 
+    [Fact]
+    public async Task Gives_the_step_start_observation_the_same_view_as_an_observe()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "e2e-start-view", Guid.NewGuid().ToString("n"));
+        ExecutorObservation? start = null;
+        ExecutorObservation? observed = null;
+        var engine = new KeyboardEngine(new DocumentEngine(new DocumentWorld().Map("/settings/general", page => page.Paragraph("General")))) { Reported = true, Truncated = true };
+        var executor = new TestExecutor("test", async (context, _) =>
+        {
+            start = context.Start;
+            observed = await context.ObserveAsync();
+            return Passed("looked");
+        });
+        try
+        {
+            await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+            {
+                Engine = engine,
+                AgentExecutor = executor,
+                BaseUrl = "https://settings.test",
+                Cache = new FileStepCache(directory),
+                CacheEnabled = true,
+                CacheMode = CacheMode.ReadWrite,
+                TestTitle = "start view",
+            });
+            await session.App.OpenAsync("/settings/general");
+
+            await session.Agent.ActAsync("look");
+
+            session.Complete();
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
+        Assert.NotNull(start);
+        Assert.True(start.KeyboardVisible);
+        Assert.True(start.Truncated);
+        Assert.Equal("/settings/general", start.Path);
+        Assert.Equal(observed!.Path, start.Path);
+        Assert.Equal(observed.Truncated, start.Truncated);
+        Assert.Equal(observed.Text, start.Text);
+        Assert.Null(start.Tree);
+    }
+
     /// <summary>An engine over another that reports the keyboard state a test sets on every observation.</summary>
     private sealed class KeyboardEngine(IEngine inner) : IEngine
     {
         public bool? Reported { get; set; }
+
+        public bool Truncated { get; set; }
 
         public string Platform => inner.Platform;
 
@@ -186,7 +237,7 @@ public sealed class ProjectToolDispatchTests
                 {
                     Route = observation.Route,
                     Roots = observation.Roots,
-                    Truncated = observation.Truncated,
+                    Truncated = observation.Truncated || engine.Truncated,
                     KeyboardVisible = engine.Reported,
                 };
             }

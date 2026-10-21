@@ -77,8 +77,11 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.True(blockedError.Blocked);
     }
 
+    // Partial of upstream's "keeps the first verdict: a later complete_step in the same turn cannot turn a failure into a pass":
+    // the port's verdict tool keeps no state and sends no result text ("Step concluded.", "The step already concluded."), so only
+    // the outcome of the step is checked.
     [Fact]
-    public async Task Keeps_the_first_verdict_a_later_complete_step_in_the_same_turn_cannot_turn_a_failure_into_a_pass()
+    public async Task Partial_Keeps_the_first_verdict_a_later_done_in_the_same_turn_cannot_turn_a_failure_into_a_pass()
     {
         var turn = new ModelResponse
         {
@@ -96,8 +99,11 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.Equal("total is wrong", error.Message);
     }
 
+    // Partial of upstream's "refuses a blocked verdict without a blocking error code and leaves the step open for a real one": the
+    // port's verdict tool keeps no concluded() state to read and words its refusal by its own code names, so the open step is
+    // checked through the calls the loop makes next.
     [Fact]
-    public async Task Refuses_a_blocked_verdict_without_a_blocking_error_code_and_leaves_the_step_open_for_a_real_one()
+    public async Task Partial_Refuses_a_blocked_verdict_without_a_blocking_error_code_and_leaves_the_step_open_for_a_real_one()
     {
         var model = new ScriptedModel(request => request.Messages.Count(message => message.Role == "tool") switch
         {

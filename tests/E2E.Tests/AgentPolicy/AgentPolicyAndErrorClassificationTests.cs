@@ -66,6 +66,39 @@ public sealed class AgentPolicyAndErrorClassificationTests
         Assert.Equal(1, brought.CallCount);
     }
 
+    // Partial: upstream runs this on a real model and shares one run with its extract test. Here a scripted model answers, so this checks that the request builder never carries the value.
+    [Fact]
+    public async Task Partial_Never_sends_a_secret_value_to_the_model()
+    {
+        // Upstream's testbed /echo page: the field puts what it is given on the page.
+        string? filled = null;
+        var world = new DocumentWorld().Map("/echo", page =>
+        {
+            var echo = page.Status("Token echo");
+            echo.Text = "nothing yet";
+            page.Roots.Add(new DocumentElement { Role = "textbox", Name = "Token", Value = "", Secure = true, InputPurpose = "password", OnFill = value => { filled = value; echo.Text = value; } });
+        });
+        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "the field has a value"));
+        var result = await RunAsync(async ctx =>
+        {
+            await ctx.App.OpenAsync("/echo");
+            await ctx.Screen.GetByLabel("Token").FillAsync(Secret.Create("member.password", "hunter2-secret", "password"));
+            await ctx.Agent.AssertAsync("the token echo shows a value");
+        }, world, model);
+
+        Assert.Null(result.Error);
+        Assert.Equal("hunter2-secret", filled);
+        var sent = model.Requests.Select(request => System.Text.Json.JsonSerializer.Serialize(request, System.Text.Json.JsonSerializerOptions.Web)).ToList();
+        var judged = sent.Where(text => text.Contains("the token echo shows a value", StringComparison.Ordinal)).ToList();
+        Assert.NotEmpty(judged);
+        Assert.All(judged, text =>
+        {
+            Assert.Contains("Token echo", text, StringComparison.Ordinal);
+            Assert.Contains("secret:member.password", text, StringComparison.Ordinal);
+        });
+        Assert.All(sent, text => Assert.DoesNotContain("hunter2-secret", text, StringComparison.OrdinalIgnoreCase));
+    }
+
     private sealed class CounterReading
     {
         public required string Counter { get; init; }

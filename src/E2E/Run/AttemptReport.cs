@@ -136,7 +136,7 @@ internal static class AttemptReport
             Attempts = [attempt],
             Directory = directory,
         };
-        return (new Report1Document(new ReportRun(RunId, ModelHttp.PackageVersion(), [scope.TargetName], [result], explore)), id);
+        return (new Report1Document(new ReportRun(RunId, ModelHttp.PackageVersion(), [new ReportTarget(scope.TargetName, 0, scope.EnginePlatform, BuildReport.DescribeTarget(scope.EnginePlatform, scope.EngineVersion, scope.EngineCapabilities))], [result], explore)), id);
     }
 
     // A video file is registered under the results directory, as upstream registers an attempt's artifacts; a link stays a link.

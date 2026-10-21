@@ -382,6 +382,7 @@ public sealed partial class WebEngine : IEngine
             WebSession? session = null;
             try
             {
+                await RegisterSelectorEnginesAsync(playwright).ConfigureAwait(false);
                 var credentials = _options.BasicAuth is { } basicAuth
                     ? await HttpCredentialsAsync(basicAuth, options.ResolveSecret ?? ((secret, _) => Task.FromResult(secret.Value))).ConfigureAwait(false)
                     : null;
@@ -443,6 +444,13 @@ public sealed partial class WebEngine : IEngine
             throw new EngineException(EngineErrorCodes.EngineFailure, "browser launch failed: " + WebErrors.Message(ex), ex);
         }
     }
+
+    /// <summary>
+    /// Registers the engine's selector engines before any context exists, so every context the driver creates carries
+    /// them. Every secure-field mask needs them.
+    /// </summary>
+    private static Task RegisterSelectorEnginesAsync(IPlaywright playwright) =>
+        playwright.Selectors.RegisterAsync(PageScript.ClosedShadowSelectorEngine, new SelectorsRegisterOptions { Script = "(" + PageScript.ClosedShadowSelectorEngineSource + ")()" });
 
     /// <summary>
     /// Asks <c>connect.cdpEndpoint</c> for the endpoint to attach to. A resolver that is still pending when
@@ -879,6 +887,9 @@ public sealed partial class WebEngine : IEngine
     {
         // The fields the page script marks secure.
         private const string SecureFieldSelector = "input[type=password i], input[autocomplete=current-password]";
+
+        // The same fields inside the closed shadow roots Playwright's own selectors stop at.
+        private const string ClosedSecureFieldSelector = PageScript.ClosedShadowSelectorEngine + "=" + SecureFieldSelector;
 
         private readonly IPlaywright _playwright;
         private readonly TimeSpan _actionTimeout;
@@ -1499,8 +1510,9 @@ public sealed partial class WebEngine : IEngine
             try
             {
                 var page = Page;
-                // Every secure field of every frame is covered before the image leaves the engine.
-                var masks = page.Frames.Select(frame => frame.Locator(SecureFieldSelector)).ToList();
+                // Every secure field of every frame is covered before the image leaves the engine: two locators per
+                // frame, one through light DOM and open shadow roots, one through the closed roots.
+                var masks = page.Frames.SelectMany(frame => new[] { frame.Locator(SecureFieldSelector), frame.Locator(ClosedSecureFieldSelector) }).ToList();
                 var masked = 0;
                 foreach (var mask in masks)
                 {
@@ -1950,6 +1962,8 @@ public sealed partial class WebEngine : IEngine
             SessionBinding binding;
             try
             {
+                await RegisterSelectorEnginesAsync(playwright).ConfigureAwait(false);
+
                 // As upstream, attaching a persistent attempt has the browser launch budget.
                 binding = await AttachWithinAsync(playwright, seams, persistent.Provision, E2EDefaults.LaunchTimeout, seams.Clock.GetTimestamp(), null, "connection", cancellationToken, CancellationToken.None, static _ => Task.CompletedTask).ConfigureAwait(false);
             }

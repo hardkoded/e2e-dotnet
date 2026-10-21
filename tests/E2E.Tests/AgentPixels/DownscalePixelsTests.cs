@@ -59,11 +59,11 @@ public sealed class DownscalePixelsTests
         Assert.True(small.Png.Length < shot.Png.Length);
 
         // A device capture at 3x keeps its ratio meaning: image pixels per CSS pixel.
-        var device = Picture(1170, 2532, new ImageBox(0, 0, 10, 10), scale: 3);
-        var capped = Pixels.DownscalePixels(device, 1024);
+        var device = Picture(390, 844, new ImageBox(0, 0, 10, 10), scale: 3);
+        var capped = Pixels.DownscalePixels(device, 422);
         var (width, height) = SizeOf(capped);
-        Assert.Equal(1024, height);
-        Assert.Equal(3 * ((double)width / 1170), capped.Scale, 3);
+        Assert.Equal(422, height);
+        Assert.Equal(3 * ((double)width / 390), capped.Scale, 3);
     }
 
     [Fact]

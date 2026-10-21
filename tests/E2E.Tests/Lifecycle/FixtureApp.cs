@@ -119,6 +119,23 @@ internal static class FixtureApp
         </html>
         """;
 
+    // A user field in the light DOM and a password field inside a closed root, both white on white.
+    public const string ClosedLogin = """
+        <!doctype html>
+        <html>
+        <head><title>Fixture Closed Login</title></head>
+        <body style="margin:0;background:#fff">
+        <h1>Login</h1>
+        <label>User <input name="user" value="ada" style="width:200px;height:40px;background:#fff;border:1px solid #fff"></label>
+        <x-auth></x-auth>
+        <script>
+          const root = document.querySelector('x-auth').attachShadow({ mode: 'closed' });
+          root.innerHTML = '<label>Password <input type="password" name="password" style="width:200px;height:40px;background:#fff;border:1px solid #fff"></label>';
+        </script>
+        </body>
+        </html>
+        """;
+
     private static readonly Dictionary<string, string> Pages = new(StringComparer.Ordinal)
     {
         ["/"] = Home,
@@ -126,6 +143,7 @@ internal static class FixtureApp
         ["/form"] = Form,
         ["/values"] = Values,
         ["/contents"] = Contents,
+        ["/closed-login"] = ClosedLogin,
         ["/twins"] = Twins,
     };
 
