@@ -329,6 +329,31 @@ public sealed class SessionHostTests : IDisposable
         await device.CloseAsync("done");
     }
 
+    /// <summary>.NET-only: upstream's tests do not cancel an <c>open_session</c> while the device launches its app.</summary>
+    [Fact]
+    public async Task Surfaces_a_cancel_during_the_launch_of_a_pinned_app_as_a_cancel_and_disposes_the_engine()
+    {
+        var launching = new TaskCompletionSource();
+        var fake = new FakeEngine
+        {
+            Device = true,
+            OnRestart = async token =>
+            {
+                launching.SetResult();
+                await Task.Delay(Timeout.Infinite, token);
+            },
+        };
+        var device = Host(fake, config: """{ "targets": [{ "name": "device", "platform": "ios", "app": { "bundleId": "com.example.greeter" } }] }""");
+        using var request = new CancellationTokenSource();
+        var opening = device.OpenAsync(new OpenSessionOptions(), request.Token);
+        await launching.Task.WaitAsync(Patience);
+        await request.CancelAsync();
+        var cancelled = await Assert.ThrowsAsync<E2EException>(() => opening);
+        Assert.Equal("CANCELLED", cancelled.Code);
+        Assert.False(device.IsOpen);
+        Assert.Equal(1, fake.Disposes);
+    }
+
     /// <summary>.NET-only: no upstream <c>it</c> covers an engine that pins an app, which upstream's session catalog never meets.</summary>
     [Fact]
     public async Task Catalogs_no_navigate_for_an_engine_that_pins_an_app()

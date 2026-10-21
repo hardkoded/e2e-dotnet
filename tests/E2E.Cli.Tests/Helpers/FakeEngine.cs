@@ -56,6 +56,9 @@ internal sealed class FakeEngine : IEngine
     /// <summary>Runs on every navigation; the navigation waits for the task it returns.</summary>
     public Func<Task>? OnNavigate { get; init; }
 
+    /// <summary>Runs when a device launches its app; the launch waits for the task it returns.</summary>
+    public Func<CancellationToken, Task>? OnRestart { get; init; }
+
     /// <summary>Runs when an attempt's engine session is disposed; the dispose waits for the task it returns.</summary>
     public Func<Task>? OnDispose { get; init; }
 
@@ -101,16 +104,20 @@ internal sealed class FakeEngine : IEngine
             Route = Routes(url);
         }
 
-        public Task RestartAsync(CancellationToken cancellationToken)
+        public async Task RestartAsync(CancellationToken cancellationToken)
         {
             if (!engine.Device)
             {
-                return Task.FromException(new EngineException("UNSUPPORTED_CAPABILITY", "this engine does not relaunch an app"));
+                throw new EngineException("UNSUPPORTED_CAPABILITY", "this engine does not relaunch an app");
             }
 
             engine.Record("restart");
+            if (engine.OnRestart is { } restart)
+            {
+                await restart(cancellationToken);
+            }
+
             _launched = true;
-            return Task.CompletedTask;
         }
 
         public Task<Observation> ObserveAsync(CancellationToken cancellationToken)

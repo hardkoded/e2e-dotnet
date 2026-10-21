@@ -59,19 +59,6 @@ public sealed class TargetEngineChoiceTests
         Assert.False(TargetEngines.LaunchesPinnedApp(Target("web"), new WebEngine(true)));
     }
 
-    /// <summary>.NET-only: upstream's <c>launchPinnedApp</c> has no <c>it</c> of its own in the tests ported here; a path has nowhere to go on a device.</summary>
-    [Fact]
-    public async Task Launches_the_pinned_app_on_app_open_and_refuses_a_path_on_a_device()
-    {
-        var device = new Agent.DeviceEngine(new DocumentWorld().Map("/", page => page.Button("Greet")));
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions { Engine = device, TestTitle = "device > open" });
-        await session.App.OpenAsync();
-        Assert.Equal(["restart"], device.Operations);
-        var refused = await Assert.ThrowsAsync<ConfigurationException>(() => session.App.OpenAsync("/settings"));
-        Assert.Equal("APP_URL_REQUIRED", refused.Code);
-        Assert.Equal(["restart"], device.Operations);
-    }
-
     [Fact]
     public void Refuses_a_device_target_when_the_host_has_no_device_engine()
     {

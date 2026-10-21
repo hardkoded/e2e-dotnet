@@ -326,7 +326,8 @@ internal sealed class SessionHost : IDisposable
             session.Remember(secrets);
 
             // A device has no URL for the first screen to navigate to, so its pinned app launches here, as a test's app.open() launches it,
-            // or the first observation finds no app open.
+            // or the first observation finds no app open. The launch is bounded by the session's time limit (App links it) and by abort,
+            // as upstream bounds it by the attempt's timeout and signal.
             if (TargetEngines.LaunchesPinnedApp(target, engine))
             {
                 await session.App.OpenAsync(null, abort.Token).ConfigureAwait(false);
