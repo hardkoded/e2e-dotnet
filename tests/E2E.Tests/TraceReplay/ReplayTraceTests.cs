@@ -161,20 +161,8 @@ public sealed class ReplayTraceTests
         Assert.False(outcome.Completed);
         Assert.Equal(0, outcome.Executed);
         Assert.Equal(ReplayHandOffReason.TargetAmbiguous, outcome.StopReason);
-        Assert.True(host.Observations < 3);
-    }
-
-    [Fact]
-    public async Task Diverges_immediately_on_ambiguity()
-    {
-        var twin = new SemanticNode { Ref = "n9", Role = "button", Name = "Upgrade" };
-        var host = MakeHost([Upgrade, twin]);
-
-        var outcome = await Replay.ReplayTrace(host, [TapUpgrade]);
-
-        Assert.False(outcome.Completed);
-        Assert.Equal(ReplayHandOffReason.TargetAmbiguous, outcome.StopReason);
         Assert.Empty(host.Calls);
+        Assert.True(host.Observations < 3);
     }
 
     [Fact]
