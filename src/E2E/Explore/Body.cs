@@ -27,8 +27,8 @@ internal sealed record ExploreFixtures(IExploreAgent Agent, Func<CancellationTok
 /// <param name="State">The record the body writes.</param>
 /// <param name="StepTimeout">Each step's own deadline, before the run's remaining time caps it.</param>
 /// <param name="OpenApp">
-/// Whether to open the app first. <c>App.OpenAsync</c> needs a target with a declared URL; a target without one is explored where
-/// the last test left the app.
+/// Whether to open the app first: the target's URL, or the pinned app a device launches fresh. A target with neither is explored
+/// where the engine left it.
 /// </param>
 /// <param name="Credentials">
 /// The configured accounts, by name. Each travels with every charter as a step secret, so the explorer can sign in with

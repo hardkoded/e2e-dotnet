@@ -34,6 +34,6 @@ internal static class TargetEngines
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(engine);
-        return string.IsNullOrEmpty(target.App.Url) && engine.Capabilities.HasFlag(EngineCapabilities.PinnedApp);
+        return string.IsNullOrWhiteSpace(target.App.Url) && engine.Capabilities.HasFlag(EngineCapabilities.PinnedApp);
     }
 }
