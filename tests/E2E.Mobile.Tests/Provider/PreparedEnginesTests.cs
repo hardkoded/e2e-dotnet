@@ -67,7 +67,7 @@ public sealed class PreparedEnginesTests
         h.Engine.StartAsync(new EngineStartOptions { ProjectRoot = Harness.ProjectRoot }, cancellationToken);
 
     [Fact]
-    public async Task Leases_when_the_attempt_starts_and_releases_when_its_session_is_disposed()
+    public async Task Partial_Leases_when_the_attempt_starts_and_releases_when_its_session_is_disposed()
     {
         var cloud = new CountingCloud();
         var h = Over(cloud);
@@ -97,7 +97,7 @@ public sealed class PreparedEnginesTests
     }
 
     [Fact]
-    public async Task Releases_the_lease_when_warming_the_device_fails()
+    public async Task Partial_Releases_the_lease_when_warming_the_device_fails()
     {
         var cloud = new CountingCloud();
         var h = Over(cloud);
@@ -147,7 +147,7 @@ public sealed class PreparedEnginesTests
     }
 
     [Fact]
-    public async Task Releases_the_lease_when_the_request_is_cancelled_after_the_lease_and_reports_cancellation()
+    public async Task Partial_Releases_the_lease_when_the_request_is_cancelled_after_the_lease_and_reports_cancellation()
     {
         var cloud = new CountingCloud();
         var h = Over(cloud);
@@ -199,7 +199,7 @@ public sealed class PreparedEnginesTests
     }
 
     [Fact]
-    public async Task Holds_nothing_when_the_provider_refuses_and_leases_again_on_the_next_start()
+    public async Task Partial_Holds_nothing_when_the_provider_refuses_and_leases_again_on_the_next_start()
     {
         var cloud = new CountingCloud { OnAcquire = _ => throw new InvalidOperationException("no capacity") };
         var h = Over(cloud);
@@ -227,7 +227,7 @@ public sealed class PreparedEnginesTests
     }
 
     [Fact]
-    public async Task Bounds_a_release_that_never_answers_and_does_not_report_it_as_a_cancel()
+    public async Task Partial_Bounds_a_release_that_never_answers_and_does_not_report_it_as_a_cancel()
     {
         var cloud = new CountingCloud { OnRelease = token => Task.Delay(Timeout.Infinite, token) };
         var h = Over(cloud, TimeSpan.FromMilliseconds(200));
@@ -239,7 +239,42 @@ public sealed class PreparedEnginesTests
     }
 
     [Fact]
-    public async Task Bounds_a_release_whose_provider_ignores_its_token()
+    public async Task Closes_what_warm_opened_when_a_finish_overtook_the_prepare_and_the_prepare_then_fails()
+    {
+        var h = Harness.Create(options => options);
+        var leasing = new TaskCompletionSource();
+        var go = new TaskCompletionSource();
+        h.Fake.RespondAsync(
+            DeviceMethods.DevicesList,
+            async (_, _) =>
+            {
+                leasing.TrySetResult();
+                await go.Task;
+                return new JsonObject { ["devices"] = new JsonArray(new JsonObject { ["id"] = "sim-1", ["name"] = "sim", ["platform"] = "ios", ["kind"] = "simulator", ["booted"] = true }) };
+            });
+        h.Fake.Respond(DeviceMethods.DevicesBoot, _ => throw new InvalidOperationException("no simulator"));
+        var info = new MobilePrepareInfo
+        {
+            RunId = "run",
+            TargetName = h.Engine.Options.TargetName,
+            ProjectRoot = Harness.ProjectRoot,
+            Slots = 1,
+            Env = PreparedEngines.ProcessEnvironment(),
+            App = h.Engine.Options.App,
+            Log = _ => { },
+        };
+        var preparing = h.Engine.PrepareAsync(info, CancellationToken.None);
+        await leasing.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        // The run ends while the pool is still listing devices; warm then opens a session and its boot fails.
+        await h.Engine.FinishAsync(new MobileFinishInfo { RunId = "run", TargetName = info.TargetName, Env = info.Env, Log = _ => { }, CleanupTimeout = TimeSpan.FromSeconds(5) }, CancellationToken.None);
+        go.SetResult();
+        await Assert.ThrowsAnyAsync<Exception>(() => preparing);
+        Assert.Contains("sessions.close", h.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Partial_Bounds_a_release_whose_provider_ignores_its_token()
     {
         var never = new TaskCompletionSource();
         var cloud = new CountingCloud { OnRelease = _ => never.Task };

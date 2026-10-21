@@ -186,8 +186,19 @@ public sealed partial class DevicePool
             finishes = _finishes.GetValueOrDefault(info.TargetName);
         }
 
-        var bindings = await _source.BindAsync(info, cancellationToken).ConfigureAwait(false);
-        await WarmAsync(bindings, info, cancellationToken).ConfigureAwait(false);
+        IReadOnlyList<SlotBinding> bindings;
+        try
+        {
+            bindings = await _source.BindAsync(info, cancellationToken).ConfigureAwait(false);
+            await WarmAsync(bindings, info, cancellationToken).ConfigureAwait(false);
+        }
+        catch when (Overtaken(info.TargetName, finishes))
+        {
+            // A finish ran while this prepare was still binding or warming: what warm opened after it is closed here, and the failure stays the one reported.
+            await CloseWarmedAsync(info.TargetName).ConfigureAwait(false);
+            throw;
+        }
+
         bool overtaken;
         lock (_bound)
         {
@@ -200,18 +211,8 @@ public sealed partial class DevicePool
 
         if (overtaken)
         {
-            // A finish ran while this prepare was still binding: it gave the devices back, so none are bound. What warm opened after it is closed here.
-            List<IDeviceClient> late;
-            lock (_warmed)
-            {
-                _warmed.Remove(info.TargetName, out var held);
-                late = held ?? [];
-            }
-
-            await CleanupBudget.WithinAsync(
-                token => Task.WhenAll(late.Select(client => CloseQuietlyAsync(client, token))),
-                E2EDefaults.CleanupTimeout,
-                CancellationToken.None).ConfigureAwait(false);
+            // The finish gave the devices back, so none are bound.
+            await CloseWarmedAsync(info.TargetName).ConfigureAwait(false);
             throw new OperationCanceledException("the run ended before its devices were bound");
         }
 
@@ -249,6 +250,30 @@ public sealed partial class DevicePool
             info.CleanupTimeout,
             cancellationToken);
         await Task.WhenAll(closing, _source.FinishAsync(info, cancellationToken)).ConfigureAwait(false);
+    }
+
+    private bool Overtaken(string targetName, int finishes)
+    {
+        lock (_bound)
+        {
+            return _finishes.GetValueOrDefault(targetName) != finishes;
+        }
+    }
+
+    /// <summary>Closes the sessions warm opened for the target, within the cleanup budget; a close that fails leaves nothing more to do.</summary>
+    private async Task CloseWarmedAsync(string targetName)
+    {
+        List<IDeviceClient> clients;
+        lock (_warmed)
+        {
+            _warmed.Remove(targetName, out var held);
+            clients = held ?? [];
+        }
+
+        await CleanupBudget.WithinAsync(
+            token => Task.WhenAll(clients.Select(client => CloseQuietlyAsync(client, token))),
+            E2EDefaults.CleanupTimeout,
+            CancellationToken.None).ConfigureAwait(false);
     }
 
     private static async Task CloseQuietlyAsync(IDeviceClient client, CancellationToken cancellationToken)
