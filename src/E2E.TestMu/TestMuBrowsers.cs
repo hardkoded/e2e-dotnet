@@ -124,7 +124,8 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
             throw Invalid("`Capabilities[\"browserOptions\"]` must be an array of strings");
         }
 
-        return options;
+        // A copy, so the caller cannot add a reserved entry to its own dictionary after the check.
+        return capabilities is null ? options : options with { Capabilities = capabilities.ToDictionary(pair => pair.Key, pair => pair.Value?.DeepClone()) };
     }
 
     /// <summary>A <see cref="JsonNode"/> cannot hold a cycle, a map, or a date. Only a NaN or an infinity has no JSON form.</summary>
