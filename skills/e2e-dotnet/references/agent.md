@@ -100,8 +100,10 @@ await Agent.ActAsync("sign in with the given credentials", new ActOptions
 
 `ActAsync(instruction, options?)` runs a multi-action flow to a verdict. A
 pass returns an `ActResult` with `Summary`, `ModelCalls`, `Actions`, and
-`Cache` (the replay cache's part). A failed or blocked step throws an
-`AgentException` whose `Code` says why: `ACTION_FAILED` (product failure);
+`Cache` (the replay cache's part). A failed or blocked verdict throws an
+`AgentException` whose `Message` reads `agent.act failed: <summary>` or
+`agent.act blocked: <summary>` (`agent.assert` for an assert; a hard stop such as `STEP_TIMEOUT` or
+`STEP_BUDGET_EXHAUSTED` that ends the step with no verdict, or over a passed or code-less one, has no prefix) and whose `Code` says why: `ACTION_FAILED` (product failure);
 `STEP_BUDGET_EXHAUSTED`, `STEP_TIMEOUT`, `CONTEXT_OVERFLOW` (out of room);
 `AUTH_CREDENTIAL_UNAVAILABLE`, `AUTH_CREDENTIAL_INVALID`,
 `SECRET_UNAVAILABLE`, `ENVIRONMENT_UNAVAILABLE`, `SEED_DATA_MISSING`,

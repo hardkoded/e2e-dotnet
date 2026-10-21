@@ -69,7 +69,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         var failed = await RunAsync(ModelResponses.Done("failed", "done", "ACTION_FAILED"));
         var error = Assert.IsType<AgentException>(failed.Error);
         Assert.Equal("ACTION_FAILED", error.Code);
-        Assert.Equal("done", error.Message);
+        Assert.Equal("agent.act failed: done", error.Message);
 
         var blocked = await RunAsync(ModelResponses.Done("blocked", "done", "ENVIRONMENT_UNAVAILABLE"));
         var blockedError = Assert.IsType<AgentException>(blocked.Error);
@@ -96,7 +96,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("ASSERTION_FAILED", error.Code);
-        Assert.Equal("total is wrong", error.Message);
+        Assert.Equal("agent.act failed: total is wrong", error.Message);
     }
 
     // Partial of upstream's "refuses a blocked verdict without a blocking error code and leaves the step open for a real one": the
@@ -117,7 +117,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", error.Code);
-        Assert.Equal("no login", error.Message);
+        Assert.Equal("agent.act blocked: no login", error.Message);
         Assert.True(error.Blocked);
         Assert.Equal(4, model.CallCount);
         var rejections = model.Requests[3].Messages.Where(message => message.Role == "tool").Select(message => message.Content).Take(3).ToArray();

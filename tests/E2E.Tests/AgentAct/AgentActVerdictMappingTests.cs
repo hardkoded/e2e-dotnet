@@ -28,7 +28,7 @@ public sealed class AgentActVerdictMappingTests
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", error.Code);
         Assert.True(error.Blocked);
-        Assert.Equal("the staging credential is not configured", error.Message);
+        Assert.Equal("agent.act blocked: the staging credential is not configured", error.Message);
     }
 
     [Fact]
@@ -165,11 +165,8 @@ public sealed class AgentActVerdictMappingTests
         Assert.Contains("secret \"stripe-key\" was not declared in this step's params; only declared secrets can be filled", results[1], StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// Partial: the error message is the executor's summary alone, not <c>agent.act blocked: &lt;summary&gt;</c>.
-    /// </summary>
     [Fact]
-    public async Task Partial_Maps_a_blocked_verdict_onto_its_error_code_and_the_configuration_exit_code()
+    public async Task Maps_a_blocked_verdict_onto_its_error_code_and_the_configuration_exit_code()
     {
         using var report = new ReportDirectory();
         var executor = new TestExecutor("blocked-executor", (_, _) => Task.FromResult(Blocked("the staging credential is not configured", "AUTH_CREDENTIAL_UNAVAILABLE")));
@@ -186,7 +183,7 @@ public sealed class AgentActVerdictMappingTests
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", error.Code);
         Assert.True(error.Blocked);
-        Assert.Equal("the staging credential is not configured", error.Message);
+        Assert.Equal("agent.act blocked: the staging credential is not configured", error.Message);
         // Blocked is first-class in the report: the step says blocked, and a run whose every non-passing result is blockable says blocked.
         var attempt = report.LastAttempt();
         Assert.Equal("failed", (string)report.Run()["results"]![0]!["status"]!);
