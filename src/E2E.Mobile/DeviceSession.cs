@@ -239,7 +239,7 @@ public sealed partial class DeviceSession : IEngineSession
     /// The hosted device this session's engine leased for it alone, when the engine was started without a runner: released
     /// with the session, whether or not the session closes cleanly.
     /// </summary>
-    internal HostedLease? Lease { get; set; }
+    internal PreparedEngines? Prepared { get; set; }
 
     /// <summary>
     /// Ends the agent-device session, within a budget: a close that outlives it is abandoned, as one that fails is. A device the
@@ -247,8 +247,8 @@ public sealed partial class DeviceSession : IEngineSession
     /// </summary>
     internal async Task CloseAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
-        var lease = Lease;
-        Lease = null;
+        var prepared = Prepared;
+        Prepared = null;
         try
         {
             await CloseSessionAsync(timeout, cancellationToken).ConfigureAwait(false);
@@ -256,17 +256,17 @@ public sealed partial class DeviceSession : IEngineSession
         catch
         {
             // The close's failure is the one reported; the release still runs, and its own failure is not allowed to hide it.
-            if (lease is not null)
+            if (prepared is not null)
             {
-                await lease.ReleaseAsync().ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                await prepared.FinishAsync().ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
             }
 
             throw;
         }
 
-        if (lease is not null)
+        if (prepared is not null)
         {
-            await lease.ReleaseAsync().ConfigureAwait(false);
+            await prepared.FinishAsync().ConfigureAwait(false);
         }
     }
 

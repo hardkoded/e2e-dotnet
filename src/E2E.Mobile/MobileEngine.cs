@@ -205,7 +205,7 @@ public sealed class MobileEngine : IEngine
         ArgumentNullException.ThrowIfNull(options);
         ValidateApp(Options.App, options.BaseUrl, Options.TargetName, Options.Platform);
         var info = new MobileStartInfo { TargetName = Options.TargetName, ProjectRoot = options.ProjectRoot ?? Directory.GetCurrentDirectory(), ArtifactsDir = options.ArtifactsDir, Screen = options.Screen, Environment = options.Environment };
-        if (Options.Provider is null || (Volatile.Read(ref _hosting) == 0 && Pool.IsBound(Options.TargetName, options.Env ?? HostedLease.ProcessEnvironment())))
+        if (Options.Provider is null || (Volatile.Read(ref _hosting) == 0 && Pool.IsBound(Options.TargetName, options.Env ?? PreparedEngines.ProcessEnvironment())))
         {
             return await StartAsync(info, cancellationToken).ConfigureAwait(false);
         }
@@ -224,23 +224,23 @@ public sealed class MobileEngine : IEngine
                 retryable: false);
         }
 
-        HostedLease? lease = null;
+        PreparedEngines? prepared = null;
         try
         {
-            lease = await HostedLease.AcquireAsync(this, info.ProjectRoot, options.Env ?? HostedLease.ProcessEnvironment(), () => Volatile.Write(ref _hosting, 0), cancellationToken).ConfigureAwait(false);
+            prepared = await PreparedEngines.PrepareAsync(this, info.ProjectRoot, options.Env ?? PreparedEngines.ProcessEnvironment(), () => Volatile.Write(ref _hosting, 0), cancellationToken).ConfigureAwait(false);
             var env = new Dictionary<string, string?>(options.Env ?? info.Env, StringComparer.Ordinal);
-            foreach (var (name, value) in lease.WorkerEnv)
+            foreach (var (name, value) in prepared.WorkerEnv)
             {
                 env[name] = value;
             }
 
             var session = await StartAsync(info with { Env = env }, cancellationToken).ConfigureAwait(false);
-            session.Lease = lease;
+            session.Prepared = prepared;
             return session;
         }
         catch (Exception cause)
         {
-            if (lease is null)
+            if (prepared is null)
             {
                 // Acquire gave back what it leased before it failed.
                 Volatile.Write(ref _hosting, 0);
@@ -250,7 +250,7 @@ public sealed class MobileEngine : IEngine
             // The start failed after the lease was granted: give it back. The start's failure stays the one reported, with a failed release added to it.
             try
             {
-                await lease.ReleaseAsync().ConfigureAwait(false);
+                await prepared.FinishAsync().ConfigureAwait(false);
             }
             catch (Exception release)
             {

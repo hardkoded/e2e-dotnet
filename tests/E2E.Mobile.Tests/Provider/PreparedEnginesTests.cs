@@ -8,10 +8,10 @@ using E2E.Engine;
 namespace E2E.Mobile.Tests.Provider;
 
 /// <summary>
-/// .NET-only: upstream's <c>openStandaloneAttempt</c> prepares and finishes the engine around one attempt, and has no <c>it</c> for the
+/// .NET-only, in part upstream's <c>open-host-lifecycle</c> and <c>engine-target</c> <c>it</c> (finish on host close, prepare failure, a finish past the cleanup budget): the port has no <c>openStandaloneAttempt</c> to call, so these test <c>PreparedEngines</c> directly. Upstream has no <c>it</c> for the
 /// lease count. A hosted device bills until it is released, so every path that ends an attempt must give it back exactly once.
 /// </summary>
-public sealed class HostedLeaseTests
+public sealed class PreparedEnginesTests
 {
     /// <summary>A provider that counts what it leased and what came back.</summary>
     private sealed class CountingCloud : IDeviceProvider
@@ -286,7 +286,7 @@ public sealed class HostedLeaseTests
         var cloud = new CountingCloud();
         var h = Over(cloud);
         var session = (DeviceSession)await Start(h);
-        session.Lease!.ReleaseAtExit();
+        session.Prepared!.ReleaseAtExit();
         Assert.Equal((1, 1), (cloud.Acquired, cloud.Released));
         await session.DisposeAsync();
         Assert.Equal((1, 1), (cloud.Acquired, cloud.Released));
