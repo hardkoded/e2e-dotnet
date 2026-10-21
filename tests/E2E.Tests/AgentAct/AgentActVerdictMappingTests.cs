@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using E2E.Tests.ReportJson;
 using static E2E.Tests.AgentAct.ExecutorKit;
 using static E2E.Tests.CoreTests;
 
@@ -165,12 +166,14 @@ public sealed class AgentActVerdictMappingTests
     }
 
     /// <summary>
-    /// Partial: the port has no report, so the exit code and the step's blocked status are not checked, and the error message is the
-    /// executor's summary alone, not <c>agent.act blocked: &lt;summary&gt;</c>.
+    /// Partial: the report's run exit code is 1 for a blocked run, where upstream's is 2 (the port's <c>ReportFile</c> knows only 0, 1,
+    /// and 130), so the exit code is not checked; the error message is the executor's summary alone, not
+    /// <c>agent.act blocked: &lt;summary&gt;</c>.
     /// </summary>
     [Fact]
     public async Task Partial_Maps_a_blocked_verdict_onto_its_error_code_and_the_configuration_exit_code()
     {
+        using var report = new ReportDirectory();
         var executor = new TestExecutor("blocked-executor", (_, _) => Task.FromResult(Blocked("the staging credential is not configured", "AUTH_CREDENTIAL_UNAVAILABLE")));
         var result = await RunAsync(
             async ctx =>
@@ -179,12 +182,19 @@ public sealed class AgentActVerdictMappingTests
                 await ctx.Agent.ActAsync("log in with the staging account");
             },
             CounterPage.World(),
-            executor: executor);
+            executor: executor,
+            report: report);
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", error.Code);
         Assert.True(error.Blocked);
         Assert.Equal("the staging credential is not configured", error.Message);
+        // Blocked is first-class in the report: the step says blocked, and a run whose every non-passing result is blockable says blocked.
+        var attempt = report.LastAttempt();
+        Assert.Equal("failed", (string)report.Run()["results"]![0]!["status"]!);
+        Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", (string)attempt["error"]!["code"]!);
+        Assert.Equal("blocked", (string)report.Step("agent.act")["status"]!);
+        Assert.Equal("blocked", (string)report.Run()["status"]!);
     }
 
     [Fact]
