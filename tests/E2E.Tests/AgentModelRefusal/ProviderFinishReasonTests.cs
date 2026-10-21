@@ -14,6 +14,7 @@ public sealed class ProviderFinishReasonTests
     [InlineData("responses", """{ "output": [], "incomplete_details": { "reason": "content_filter" } }""", "content_filter")]
     [InlineData("compatible", """{ "choices": [{ "message": { "content": null }, "finish_reason": "content_filter" }] }""", "content_filter")]
     [InlineData("google", """{ "candidates": [{ "finishReason": "SAFETY" }] }""", "SAFETY")]
+    [InlineData("google", """{ "promptFeedback": { "blockReason": "PROHIBITED_CONTENT" } }""", "PROHIBITED_CONTENT")]
     [InlineData("bedrock", """{ "output": { "message": { "content": [] } }, "stopReason": "guardrail_intervened" }""", "guardrail_intervened")]
     public async Task Reads_the_providers_refusal_as_a_content_filter_finish(string provider, string body, string raw)
     {
@@ -28,6 +29,7 @@ public sealed class ProviderFinishReasonTests
     [InlineData("responses", """{ "output": [], "incomplete_details": { "reason": "max_output_tokens" } }""")]
     [InlineData("compatible", """{ "choices": [{ "message": { "content": "ok" }, "finish_reason": "stop" }] }""")]
     [InlineData("google", """{ "candidates": [{ "finishReason": "STOP" }] }""")]
+    [InlineData("google", """{ "promptFeedback": { "blockReason": "BLOCK_REASON_UNSPECIFIED" } }""")]
     [InlineData("bedrock", """{ "output": { "message": { "content": [] } }, "stopReason": "end_turn" }""")]
     public async Task Reads_any_other_stop_as_no_finish_reason(string provider, string body)
     {
