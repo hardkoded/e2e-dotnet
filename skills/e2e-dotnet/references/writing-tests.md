@@ -252,7 +252,7 @@ close to its screen as the app allows:
 
 - Sign in outside the flow, not through the sign-in form of every test. The
   port has no saved `session`, so do it in the framework's per-test setup
-  (NUnit `[SetUp]`, xUnit v3 `InitializeAsync`, which calls
+  (NUnit `[SetUp]`, which runs after the base class's own, so `Browser` is ready; xUnit v3 `InitializeAsync`, which calls
   `await base.InitializeAsync()` first, since the base starts the session):
   request the app's sign-in
   API with an `HttpClient`, then pass its cookies to `Browser.SetCookiesAsync`. Click through the form only in the
@@ -270,7 +270,9 @@ close to its screen as the app allows:
   API from your own variables.
 
 ```csharp
-private HttpClient _api = null!;
+private sealed record Project(string Id); // the shape of the API response
+
+private HttpClient? _api;
 private string _projectId = "";
 
 [SetUp]
@@ -292,8 +294,13 @@ public async Task CreateProject()
 [TearDown]
 public async Task DeleteProject()
 {
-    await _api.DeleteAsync($"/api/projects/{_projectId}"); // runs after a failure too
-    _api.Dispose();
+    // Runs after a failure too, and after a SetUp that failed partway.
+    if (_api is not null && _projectId.Length > 0)
+    {
+        await _api.DeleteAsync($"/api/projects/{_projectId}");
+    }
+
+    _api?.Dispose();
 }
 
 [Test]
@@ -317,7 +324,7 @@ and an `ActAsync` that a later check confirmed replays from the cache with
 no model call. The cache keeps those entries when a later line fails, so
 each run pays model calls only for its new part. That holds for a first
 attempt with a read-write cache: a retry never replays, and in CI the cache
-is read-only by default, so grow the test outside CI and without a `[Retry]`.
+is read-only by default, so grow the test outside CI and without an NUnit `[Retry]` (cache modes: topic `running`).
 Keep the title and the goals already written as they are while the test
 grows: a cache entry belongs to the test's file and title path and the
 goal's instruction and params. A setup's run-unique value in a goal's
