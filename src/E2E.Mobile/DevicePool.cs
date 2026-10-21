@@ -188,15 +188,31 @@ public sealed partial class DevicePool
 
         var bindings = await _source.BindAsync(info, cancellationToken).ConfigureAwait(false);
         await WarmAsync(bindings, info, cancellationToken).ConfigureAwait(false);
+        bool overtaken;
         lock (_bound)
         {
-            if (_finishes.GetValueOrDefault(info.TargetName) != finishes)
+            overtaken = _finishes.GetValueOrDefault(info.TargetName) != finishes;
+            if (!overtaken)
             {
-                // A finish ran while this prepare was still binding: it gave the devices back, so none are bound.
-                throw new OperationCanceledException("the run ended before its devices were bound");
+                _bound[info.TargetName] = bindings;
+            }
+        }
+
+        if (overtaken)
+        {
+            // A finish ran while this prepare was still binding: it gave the devices back, so none are bound. What warm opened after it is closed here.
+            List<IDeviceClient> late;
+            lock (_warmed)
+            {
+                _warmed.Remove(info.TargetName, out var held);
+                late = held ?? [];
             }
 
-            _bound[info.TargetName] = bindings;
+            await CleanupBudget.WithinAsync(
+                token => Task.WhenAll(late.Select(client => CloseQuietlyAsync(client, token))),
+                E2EDefaults.CleanupTimeout,
+                CancellationToken.None).ConfigureAwait(false);
+            throw new OperationCanceledException("the run ended before its devices were bound");
         }
 
         return new MobilePrepareResult
