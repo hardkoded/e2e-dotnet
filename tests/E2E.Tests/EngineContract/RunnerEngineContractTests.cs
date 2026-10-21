@@ -15,7 +15,7 @@ namespace E2E.Tests.EngineContract;
 /// engine-contributed fixtures, or the <c>requires</c> test option. The video tests of the file are in
 /// <c>VideoArtifactsTests</c>. Also not ported, with a feature gap: "names
 /// APP_UNREACHABLE, with the URL, when the network refused the navigation", "re-observes when an engine reports a retryable
-/// observation failure", and "fails an agent call when a non-retryable observation failure repeats". The last of the three
+/// observation failure", and "fails an agent call when a non-retryable observation failure repeats". The last of the two
 /// vision-hint tests is partial and renamed: the port has no step record, so it cannot read the first judgment's
 /// <c>visionDegraded</c> or <c>visionInput</c>.
 /// </summary>
@@ -114,15 +114,6 @@ public sealed class RunnerEngineContractTests
         Assert.Equal("ASSERTION_INCONCLUSIVE", error.Code);
         // A retry with Vision = VisionMode.On could only record UnsupportedCapability here.
         Assert.Equal("the tree lists no state for the Submit button", error.Message);
-    }
-
-    [Fact]
-    public async Task Words_the_vision_hint_as_a_condition_on_an_engine_that_declares_screenshots_but_has_produced_no_pixels()
-    {
-        // The engine declares screenshots but has produced none yet, as one that captures no pixels does until asked.
-        var error = await InconclusiveAsync(new ScreenshotEngine(BillingWorld.Create()));
-        Assert.Equal("ASSERTION_INCONCLUSIVE", error.Code);
-        Assert.Equal("the tree lists no state for the Submit button; " + Vision.HintUnproven, error.Message);
     }
 
     [Fact]

@@ -51,20 +51,6 @@ public sealed class KernelRecordTests : IDisposable
     }
 
     [Fact]
-    public async Task Passes_the_replay_options_through()
-    {
-        var fake = new FakeKernel();
-
-        await Provider(fake, new KernelOptions { ReplayParams = new KernelReplayParams { Framerate = 20, MaxDurationInSeconds = 300 } })
-            .RecordAsync(Lease(), RecordContext(), CancellationToken.None);
-
-        var start = Assert.Single(fake.Calls);
-        Assert.Equal("startReplay", start.Route);
-        AssertJson(new JsonObject { ["framerate"] = 20, ["max_duration_in_seconds"] = 300 }, start.Body);
-        Assert.Empty(fake.Of("create"));
-    }
-
-    [Fact]
     public async Task Does_not_record_with_replay_false_or_for_a_headless_browser_which_Kernel_cannot_replay()
     {
         var fake = new FakeKernel();
@@ -75,13 +61,18 @@ public sealed class KernelRecordTests : IDisposable
     }
 
     [Fact]
-    public async Task Never_passes_replay_to_Kernel_as_a_create_browser_field()
+    public async Task Passes_the_replay_options_to_the_replay_never_to_Kernel_as_a_create_browser_field()
     {
         var fake = new FakeKernel();
+        var provider = Provider(fake, new KernelOptions { ReplayParams = new KernelReplayParams { Framerate = 20, MaxDurationInSeconds = 300 } });
 
-        await Provider(fake, new KernelOptions { ReplayParams = new KernelReplayParams { Framerate = 20 } }).AcquireAsync(Request(), CancellationToken.None);
-
+        await provider.AcquireAsync(Request(), CancellationToken.None);
         var body = Assert.IsType<JsonObject>(Assert.Single(fake.Of("create")).Body);
         Assert.DoesNotContain(body, pair => pair.Key.Contains("replay", StringComparison.OrdinalIgnoreCase));
+
+        await provider.RecordAsync(Lease(), RecordContext(), CancellationToken.None);
+        var start = Assert.Single(fake.Of("startReplay"));
+        AssertJson(new JsonObject { ["framerate"] = 20, ["max_duration_in_seconds"] = 300 }, start.Body);
+        Assert.Single(fake.Of("create"));
     }
 }

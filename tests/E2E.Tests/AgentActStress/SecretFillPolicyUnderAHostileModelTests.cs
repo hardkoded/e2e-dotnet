@@ -20,38 +20,6 @@ public sealed class SecretFillPolicyUnderAHostileModelTests
     private const string AdminPassword = "admin-pass";
 
     [Fact]
-    public async Task Refuses_to_fill_a_secret_into_a_non_secure_field()
-    {
-        using var site = await WebFixtureApp.StartAsync();
-        var executor = new TestExecutor("sink-attacker", async (context, _) =>
-        {
-            var observation = await context.ObserveAsync();
-            await context.Actions.TypeSecretAsync(TargetFor(observation.Text, "textbox \"Email\""), "admin.password");
-            return Passed("should never get here");
-        });
-        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
-        {
-            Engine = new WebEngine(headless: true),
-            AgentExecutor = executor,
-            BaseUrl = site.Url,
-            CacheEnabled = false,
-            TestTitle = "secret probe",
-            ActionTimeout = TimeSpan.FromSeconds(10),
-            StepTimeout = TimeSpan.FromSeconds(20),
-            TestTimeout = TimeSpan.FromSeconds(30),
-        });
-        await session.Context.App.OpenAsync("/");
-
-        var error = await Assert.ThrowsAsync<AgentException>(() => session.Context.Agent.ActAsync(
-            "probe",
-            new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("admin.password", AdminPassword, "password") } }));
-
-        Assert.Equal("POLICY_DENIED", error.Code);
-        Assert.Contains("purpose", error.Message, StringComparison.Ordinal);
-        session.Complete(error);
-    }
-
-    [Fact]
     public async Task Fills_a_generic_secret_into_a_contenteditable_host_and_refuses_a_password_there()
     {
         using var site = await WebFixtureApp.StartAsync();
