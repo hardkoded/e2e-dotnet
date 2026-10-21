@@ -49,6 +49,16 @@ public sealed class TargetEngineChoiceTests
         Assert.Equal(platform, engine.Platform);
     }
 
+    /// <summary>.NET-only: upstream's <c>launchesPinnedApp</c> reads the engine handle of the target; the port reads the engine it built.</summary>
+    [Fact]
+    public void Launches_a_pinned_app_only_for_a_target_without_a_url_on_an_engine_that_pins_one()
+    {
+        var device = new DeviceEngine("ios");
+        Assert.True(TargetEngines.LaunchesPinnedApp(Target("ios"), device));
+        Assert.False(TargetEngines.LaunchesPinnedApp(new TargetConfig { Name = "t", Platform = "ios", App = new AppConfig { Url = "https://app.test" } }, device));
+        Assert.False(TargetEngines.LaunchesPinnedApp(Target("web"), new WebEngine(true)));
+    }
+
     [Fact]
     public void Refuses_a_device_target_when_the_host_has_no_device_engine()
     {

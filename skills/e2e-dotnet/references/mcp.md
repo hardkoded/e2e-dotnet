@@ -65,7 +65,7 @@ tool with the same name, use the `e2e` server's.
 
 | Tool | Does |
 | --- | --- |
-| `open_session` | Loads the config (`config` names another file; default the nearest `e2e.config.json`), boots the browser, opens the app URL, and returns the session id, the catalog, and the first observation. `target` must name the config's target when given. `headed: true` shows the browser when the user wants to watch. |
+| `open_session` | Loads the config (`config` names another file; default the nearest `e2e.config.json`), boots the browser or device, opens the app (its URL, or launches a device's pinned app; it installs no build, so a local device needs `app.bundleId`), and returns the session id, the catalog, and the first observation. `target` must name the config's target when given. `headed: true` shows the browser when the user wants to watch. |
 | `tools` | The catalog: one line per tool with its argument names (`?` marks optional), the first sentence of its description, and `[read-only]` where it changes nothing. `tools {tool}` shows the full description and the JSON Schema of its arguments. |
 | `call` | Runs one catalog tool: `call {tool: "tap", args: {target: "e12"}}`, where `e12` is the `ref=` of a node in the newest observation. Arguments are checked against the tool's schema first; a wrong one fails with `INVALID_ARGUMENT` naming the field. |
 | `close_session` | Ends the session and disposes the browser. With no session open and no `session` argument, it says `No session is open.` |
@@ -124,11 +124,10 @@ The loop is:
    On a failure, fix from the exception and the trace page (topic
    `debugging`), then rerun. To see a screen the evidence leaves out, go
    straight to it instead of walking the flow again from the start:
-   `navigate` to its path, then `observe` and `locate`. Upstream's device
-   session (the shortest path from the launch screen) has no port yet
-   (issue #484): `e2e mcp` opens a device session without launching the app,
-   so it starts on the device's current screen. A second session on a device
-   target fails with `ENGINE_IN_USE` until the first closes.
+   `navigate` to its path, then `observe` and `locate`. On a device, a session
+   starts on the launch screen of the pinned app, launched fresh. A second
+   session on a device target fails with `ENGINE_IN_USE` until the first
+   closes.
 5. `close_session` when you are done.
 
 ## Rules

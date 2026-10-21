@@ -30,30 +30,66 @@ public sealed class AppSteeringHooksTests
         session.Complete();
     }
 
-    private static Task<E2ESession> StartAsync(List<string> calls, string? baseUrl)
+    [Fact]
+    public async Task App_open_on_a_device_launches_the_pinned_app_fresh_through_restart_as_one_app_open_step()
+    {
+        var calls = new List<string>();
+        await using var session = await StartAsync(calls, baseUrl: null, device: true);
+        await session.App.OpenAsync();
+        Assert.Equal(["restart"], calls);
+        Assert.Equal([("app.open", StepStatus.Passed)], session.Steps.Select(step => (step.Api, step.Status)));
+        session.Complete();
+    }
+
+    [Fact]
+    public async Task App_open_path_on_a_device_is_APP_URL_REQUIRED_and_names_device_openLink()
+    {
+        var calls = new List<string>();
+        await using var session = await StartAsync(calls, baseUrl: null, device: true);
+        var error = await Assert.ThrowsAsync<ConfigurationException>(() => session.App.OpenAsync("/orders"));
+        Assert.Equal("APP_URL_REQUIRED", error.Code);
+        Assert.Contains("device.openLink", error.Message, StringComparison.Ordinal);
+        Assert.Empty(calls);
+        session.Complete();
+    }
+
+    // Upstream also has an it for an engine with no relaunch hook (UNSUPPORTED_CAPABILITY, "does not relaunch a pinned app"). It is not ported:
+    // the port's PinnedApp capability stands for that hook, so there is no pinned engine without one.
+    [Fact]
+    public async Task App_open_keeps_the_engines_own_reason_it_cannot_launch()
+    {
+        const string Reason = "launching the app needs the build installed first with device.installApp()";
+        await using var session = await StartAsync([], baseUrl: null, device: true, restartFailure: new EngineException("UNSUPPORTED_CAPABILITY", Reason));
+        var error = await Assert.ThrowsAsync<EngineException>(() => session.App.OpenAsync());
+        Assert.Equal("UNSUPPORTED_CAPABILITY", error.Code);
+        Assert.Equal(Reason, error.Message);
+        session.Complete();
+    }
+
+    private static Task<E2ESession> StartAsync(List<string> calls, string? baseUrl, bool device = false, Exception? restartFailure = null)
     {
         return E2ESession.StartAsync(new E2ESessionOptions
         {
-            Engine = new SteerableEngine(calls),
+            Engine = new SteerableEngine(calls, device, restartFailure),
             BaseUrl = baseUrl,
             TestTitle = "steerable",
             CacheEnabled = false,
         });
     }
 
-    private sealed class SteerableEngine(List<string> calls) : IEngine
+    private sealed class SteerableEngine(List<string> calls, bool device, Exception? restartFailure) : IEngine
     {
         public string Platform => "fake";
 
         public string Version => "1";
 
-        public EngineCapabilities Capabilities => EngineCapabilities.None;
+        public EngineCapabilities Capabilities => device ? EngineCapabilities.PinnedApp : EngineCapabilities.None;
 
         public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
-            Task.FromResult<IEngineSession>(new SteerableSession(calls));
+            Task.FromResult<IEngineSession>(new SteerableSession(calls, restartFailure));
     }
 
-    private sealed class SteerableSession(List<string> calls) : IEngineSession
+    private sealed class SteerableSession(List<string> calls, Exception? restartFailure) : IEngineSession
     {
         public string Route => "/";
 
@@ -72,6 +108,11 @@ public sealed class AppSteeringHooksTests
 
         public Task RestartAsync(CancellationToken cancellationToken)
         {
+            if (restartFailure is not null)
+            {
+                return Task.FromException(restartFailure);
+            }
+
             calls.Add("restart");
             return Task.CompletedTask;
         }

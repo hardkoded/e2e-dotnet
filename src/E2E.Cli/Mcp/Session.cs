@@ -324,6 +324,15 @@ internal sealed class SessionHost : IDisposable
 
             // Every configured secret is a step secret: type_secret can fill it, and every output shows its name.
             session.Remember(secrets);
+
+            // A device has no URL for the first screen to navigate to, so its pinned app launches here, as a test's app.open() launches it,
+            // or the first observation finds no app open. The launch is bounded by the session's time limit (App links it) and by abort,
+            // as upstream bounds it by the attempt's timeout and signal.
+            if (TargetEngines.LaunchesPinnedApp(target, engine))
+            {
+                await session.App.OpenAsync(null, abort.Token).ConfigureAwait(false);
+            }
+
             var live = new LiveSession(id, target.Name, configPath, headed, engine, session, abort);
             live.Catalog = SessionCatalog.Create(live, engine.Capabilities, secrets.Count > 0);
             var text = OpeningText(live, target, config, await FirstScreenAsync(live, target, abort.Token).ConfigureAwait(false));
@@ -419,7 +428,7 @@ internal sealed class SessionHost : IDisposable
         live.Idle = new Timer(_ => EndOnItsOwn(live, "idle for " + Math.Round(_options.Idle.TotalMinutes).ToString(CultureInfo.InvariantCulture) + " minutes"), null, _options.Idle, Timeout.InfiniteTimeSpan);
     }
 
-    /// <summary>Opens the app when the target declares a URL, then observes.</summary>
+    /// <summary>Opens the app URL when the target declares one, then observes; a device's pinned app was launched before.</summary>
     private static async Task<string> FirstScreenAsync(LiveSession live, TargetConfig target, CancellationToken token)
     {
         var agent = live.Session.Agent;
@@ -454,6 +463,10 @@ internal sealed class SessionHost : IDisposable
         if (!string.IsNullOrEmpty(target.App.Url))
         {
             lines.Add("App: " + target.App.Url + ".");
+        }
+        else if (TargetEngines.LaunchesPinnedApp(target, live.Engine) && (target.App.BundleId ?? target.App.AppPath) is { } pinned)
+        {
+            lines.Add("App: " + pinned + ", launched fresh.");
         }
 
         var names = config.Secrets.Names.ToList();
@@ -519,7 +532,7 @@ internal sealed class SessionHost : IDisposable
         return new McpToolSpec
         {
             Name = "open_session",
-            Description = "Open a live session on one target of an e2e project: loads the config, boots the engine (a browser), opens the app URL, and returns the session id, the catalog of tools it can run, and the first observation. Several sessions can be open at once, one per agent, each with its own engine: pass the returned session id to every later call. Then act with call and look with call {tool: \"observe\"}.",
+            Description = "Open a live session on one target of an e2e project: loads the config, boots the engine (a browser, a simulator), opens the app (its URL, or the pinned app on a device), and returns the session id, the catalog of tools it can run, and the first observation. Several sessions can be open at once, one per agent, each with its own engine: pass the returned session id to every later call. Then act with call and look with call {tool: \"observe\"}.",
             InputSchema = OpenSchema,
             ReadOnly = false,
             Call = async (args, token) => Tools.TextResult(await OpenAsync(

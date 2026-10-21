@@ -255,7 +255,7 @@ public static class Explore
         var body = ExploreBody.Create(new ExploreBodyOptions(
             state,
             StepTimeout,
-            target.App.Url is not null,
+            target.App.Url is not null || TargetEngines.LaunchesPinnedApp(target, engine),
             credentials,
             string.Equals(agentName, "default", StringComparison.Ordinal) ? null : agentName));
         E2EException? error = null;

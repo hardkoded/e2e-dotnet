@@ -456,6 +456,21 @@ public sealed class E2eExploreTests
         Assert.Equal(0, model.Model.CallCount);
     }
 
+    [Fact]
+    public async Task Launches_a_device_targets_pinned_app_before_the_planners_first_look()
+    {
+        var model = Model(_ => ExploreModel.Finish("Looked around."), _ => ExploreModel.Done("passed", "unused"));
+        var device = new DeviceEngine(new DocumentWorld().Map("/", page => page.Button("Greet")));
+        var root = TempRoot();
+        var config = E2EConfig.Parse("""{ "targets": [{ "name": "device", "platform": "ios", "app": { "bundleId": "com.example.greeter" } }], "actionTimeout": 10000 }""", root, _ => null);
+        await Explorer.ExploreAsync(Options(root, model.Model, [], goal: "Look around", maxSteps: 1, config: config, engine: device));
+
+        using var report = JsonDocument.Parse(await File.ReadAllTextAsync(Assert.Single(Files(root), file => Path.GetFileName(file) == "report.json")));
+        var steps = report.RootElement.GetProperty("run").GetProperty("results")[0].GetProperty("attempts")[0].GetProperty("steps");
+        Assert.Equal(["app.open", "agent.extract"], steps.EnumerateArray().Select(step => step.GetProperty("api").GetString()));
+        Assert.Equal(["restart", "observe"], device.Operations.Take(2));
+    }
+
     /// <summary>An engine that declares it can record video and runs the attempt as <paramref name="inner"/> does: the attempt is the first, and a retry mode records no first attempt.</summary>
     private sealed class RecordingEngine(IEngine inner) : IEngine
     {
