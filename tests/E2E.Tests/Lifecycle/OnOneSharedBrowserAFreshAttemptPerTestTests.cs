@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using E2E.Internal;
 
 namespace E2E.Tests.Lifecycle;
 
@@ -377,5 +378,28 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
         await using var session = await WebSemanticsTests.OpenAsync(site.Url + "contents", new WebEngineOptions { Headless = true });
         var fields = WebSemanticsTests.Flatten((await session.ObserveAsync(CancellationToken.None)).Roots).Where(node => node.Role == "textbox").Select(node => node.Name);
         Assert.Equal(["Email", "First name"], fields);
+    }
+
+    [Fact]
+    public async Task Masks_a_password_inside_a_closed_shadow_root_in_artifact_screenshots()
+    {
+        using var site = await FixtureApp.StartAsync();
+        await using var session = await WebSemanticsTests.OpenAsync(site.Url + "closed-login", new WebEngineOptions { Headless = true });
+        var nodes = WebSemanticsTests.Flatten((await session.ObserveAsync(CancellationToken.None)).Roots).ToList();
+        var user = nodes.First(node => node.Role == "textbox" && node.Name == "User");
+        var password = nodes.First(node => node.States.Secure);
+        Assert.NotNull(user.Rect);
+        Assert.NotNull(password.Rect);
+        await session.PerformAsync(password, new LocatorAction.Fill("hunter2", Sensitive: true), CancellationToken.None);
+
+        var image = ImageOps.DecodePng((await session.ScreenshotAsync(CancellationToken.None)).Png);
+        (byte R, byte G, byte B) PixelAtCentre(BoundingBox rect)
+        {
+            var at = ((((int)Math.Round(rect.Y + (rect.Height / 2), MidpointRounding.AwayFromZero)) * image.Width) + (int)Math.Round(rect.X + (rect.Width / 2), MidpointRounding.AwayFromZero)) * 4;
+            return (image.Data[at], image.Data[at + 1], image.Data[at + 2]);
+        }
+
+        Assert.Equal(((byte)0, (byte)0, (byte)0), PixelAtCentre(password.Rect));
+        Assert.Equal(((byte)255, (byte)255, (byte)255), PixelAtCentre(user.Rect));
     }
 }

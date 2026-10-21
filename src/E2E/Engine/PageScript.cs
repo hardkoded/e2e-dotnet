@@ -1024,19 +1024,71 @@ internal static class PageScript
     // Context init script that keeps closed shadow roots reachable for
     // Collect. attachShadow is the one way a script makes such a root;
     // declarative closed roots are parsed, not attached, and stay out of reach.
+    // The record is a WeakMap from host to root with one own property beside the
+    // map: count, the number of closed roots the document has attached. It lets
+    // the mask engine answer for a document without closed roots without walking it.
     public const string RecordClosedShadowRoots = """
         (() => {
           const key = Symbol.for("e2e.closedShadowRoots");
           if (Object.prototype.hasOwnProperty.call(globalThis, key)) return;
           const roots = new WeakMap();
+          Object.defineProperty(roots, "count", { value: 0, enumerable: false, configurable: false, writable: true });
           Object.defineProperty(globalThis, key, { value: roots, enumerable: false, configurable: false, writable: false });
           const attachShadow = Element.prototype.attachShadow;
           Element.prototype.attachShadow = function (init) {
             const root = attachShadow.call(this, init);
-            if (root.mode === "closed") roots.set(this, root);
+            if (root.mode === "closed") {
+              roots.set(this, root);
+              roots.count += 1;
+            }
             return root;
           };
         })();
+        """;
+
+    // Playwright selector engine name; e2e-closed=<css> matches inside recorded closed shadow roots.
+    public const string ClosedShadowSelectorEngine = "e2e-closed";
+
+    // The engine behind e2e-closed=<css>: every element matching the CSS selector inside a closed shadow root
+    // the init script recorded, reached from the query root through light DOM and open roots, and through roots
+    // of either kind nested below a closed one. Playwright's own selectors stop at a closed root, so this is what
+    // lets a screenshot mask cover a secure field there. A closed root is searched only as an entry of the first
+    // list, never by recursion from the tree above it, so each element is reached from exactly one root. A document
+    // that has attached no closed root has none to find, and the walk is skipped. It runs in the page's main world
+    // (not as a content script) because that is where the record lives. A document without the record is refused:
+    // a mask that cannot prove its coverage must fail closed.
+    public const string ClosedShadowSelectorEngineSource = """
+        () => {
+          const roots = globalThis[Symbol.for("e2e.closedShadowRoots")];
+          const tracked = roots instanceof WeakMap;
+          const closedRootsUnder = (root, out) => {
+            if (!tracked || roots.count === 0) return out;
+            const scan = (el) => {
+              const closed = roots.get(el);
+              if (closed !== undefined) out.push(closed);
+              const nested = el.shadowRoot ?? closed;
+              if (nested !== undefined && nested !== null) closedRootsUnder(nested, out);
+            };
+            if (root.nodeType === 1) scan(root);
+            for (const el of root.querySelectorAll("*")) scan(el);
+            return out;
+          };
+          const matchesIn = (root, selector, out) => {
+            for (const el of root.querySelectorAll(selector)) out.push(el);
+            if (root.nodeType === 1 && root.shadowRoot !== null) matchesIn(root.shadowRoot, selector, out);
+            for (const el of root.querySelectorAll("*")) {
+              if (el.shadowRoot !== null) matchesIn(el.shadowRoot, selector, out);
+            }
+            return out;
+          };
+          const queryAll = (root, selector) => {
+            if (!tracked) throw new Error("closed-shadow root tracking is unavailable for this document");
+            const out = [];
+            for (const closed of closedRootsUnder(root, [])) matchesIn(closed, selector, out);
+            return out;
+          };
+          return { queryAll, query: (root, selector) => queryAll(root, selector)[0] ?? null };
+        }
         """;
 
     // Whether a document ran RecordClosedShadowRoots.
