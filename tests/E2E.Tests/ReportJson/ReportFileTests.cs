@@ -7,6 +7,7 @@ using System.Text.Json.Nodes;
 using E2E.Engine;
 using E2E.Internal;
 using E2E.Tests.Traces;
+using VcsInfo = E2E.Reports.VcsInfo;
 
 namespace E2E.Tests.ReportJson;
 

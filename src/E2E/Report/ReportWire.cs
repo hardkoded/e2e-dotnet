@@ -479,7 +479,7 @@ internal static partial class ReportWire
         ("artifactCapabilities", Strings(target.Provenance.ArtifactCapabilities.Distinct(StringComparer.Ordinal), int.MaxValue)),
         ("stateCapability", target.Provenance.StateCapability));
 
-    private static JsonObject Explore(ReportExplore explore) => Compose(
+    internal static JsonObject Explore(ReportExplore explore) => Compose(
         ("goal", Clip(explore.Goal.Length == 0 ? "exploration" : explore.Goal, 2000)),
         ("budgets", new JsonObject { ["maxSteps"] = Math.Max(1, explore.Budgets.MaxSteps), ["timeoutMs"] = (long)Math.Max(1, explore.Budgets.Timeout.TotalMilliseconds) }),
         ("ended", explore.Ended switch { ReportExploreEnded.StepLimit => "step-limit", var other => other.ToString().ToLowerInvariant() }),
