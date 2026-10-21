@@ -109,6 +109,12 @@ public interface IDeviceProvider
     /// <summary>Label in progress lines and error messages.</summary>
     string Name { get; }
 
+    /// <summary>
+    /// True when the provider's agent runs inside the app under test, so the app cannot be relaunched and an <c>app.open()</c> attaches
+    /// to the app already running. .NET-only: upstream has no such provider.
+    /// </summary>
+    bool AttachesToRunningApp => false;
+
     Task<DeviceLease> AcquireAsync(DeviceRequest request, CancellationToken cancellationToken);
 
     Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken);
@@ -124,7 +130,15 @@ internal sealed class LeasedDevices(IDeviceProvider provider, MobilePlatform pla
     private const string RejectedLease = "returned a lease without an id and a daemon baseUrl or JSON client configuration (no `session` or daemon keys)";
 
     /// <summary>Leases granted so far, per target and slot, filled as each acquire settles. A lease the engine then rejects is among them.</summary>
-    private readonly Dictionary<string, DeviceLease?[]> _held = [];
+    private readonly Dictionary<string, Held> _held = [];
+
+    /// <summary>The leases of one bind. Once finish took them, a lease that lands late is released where it lands: nobody would ask for it again.</summary>
+    private sealed class Held(int slots)
+    {
+        public DeviceLease?[] Leases { get; } = new DeviceLease?[slots];
+
+        public bool Finished { get; set; }
+    }
 
     public int? Size => null;
 
@@ -134,10 +148,11 @@ internal sealed class LeasedDevices(IDeviceProvider provider, MobilePlatform pla
     {
         var app = info.App.BundleId;
         var appPath = info.App.AppPath is null ? null : Path.GetFullPath(info.App.AppPath, info.ProjectRoot);
-        var held = new DeviceLease?[info.Slots];
+        var state = new Held(info.Slots);
+        var held = state.Leases;
         lock (_held)
         {
-            _held[info.TargetName] = held;
+            _held[info.TargetName] = state;
         }
 
         info.Log($"leasing {info.Slots} {platform.WireName()} device(s) from {provider.Name}");
@@ -166,7 +181,31 @@ internal sealed class LeasedDevices(IDeviceProvider provider, MobilePlatform pla
                 }
 
                 // Held before it is checked: the provider bills for what it granted, and release is owed this same object however the check goes.
-                held[slot] = lease;
+                bool abandoned;
+                lock (_held)
+                {
+                    abandoned = state.Finished;
+                    if (!abandoned)
+                    {
+                        held[slot] = lease;
+                    }
+                }
+
+                if (abandoned)
+                {
+                    // Finish ran while the provider was still leasing, as it does for a caller that stopped waiting: no one else will release this one.
+                    try
+                    {
+                        using var budget = new CancellationTokenSource(E2EDefaults.CleanupTimeout);
+                        await provider.ReleaseAsync(lease, ReleaseContext(info.RunId, info.TargetName, info.Env, info.Log), budget.Token).ConfigureAwait(false);
+                    }
+                    catch (Exception release)
+                    {
+                        info.Log($"releasing the late lease {slot + 1} of {info.Slots} failed: {release.Message}");
+                    }
+
+                    throw new OperationCanceledException($"the lease {slot + 1} of {info.Slots} landed after the run ended and was released");
+                }
 
                 if (!IsDeviceLease(lease))
                 {
@@ -204,25 +243,23 @@ internal sealed class LeasedDevices(IDeviceProvider provider, MobilePlatform pla
 
     public async Task FinishAsync(MobileFinishInfo info, CancellationToken cancellationToken)
     {
-        DeviceLease?[]? granted;
+        List<DeviceLease>? leases;
         lock (_held)
         {
-            _held.Remove(info.TargetName, out granted);
+            leases = null;
+            if (_held.Remove(info.TargetName, out var state))
+            {
+                state.Finished = true;
+                leases = [.. state.Leases.OfType<DeviceLease>()];
+            }
         }
 
-        var leases = granted?.OfType<DeviceLease>().ToList();
         if (leases is null || leases.Count == 0)
         {
             return;
         }
 
-        var context = new DeviceReleaseContext
-        {
-            RunId = info.RunId,
-            TargetName = info.TargetName,
-            Env = info.Env,
-            Log = line => info.Log($"{provider.Name}: {line}"),
-        };
+        var context = ReleaseContext(info.RunId, info.TargetName, info.Env, info.Log);
         await AllOrFirstFailureAsync(
             leases.Select<DeviceLease, Func<Task<object?>>>(lease => async () =>
             {
@@ -232,6 +269,14 @@ internal sealed class LeasedDevices(IDeviceProvider provider, MobilePlatform pla
             $"device provider \"{provider.Name}\" could not release a device").ConfigureAwait(false);
         info.Log($"{provider.Name}: released {leases.Count} device(s)");
     }
+
+    private DeviceReleaseContext ReleaseContext(string runId, string targetName, IReadOnlyDictionary<string, string?> env, Action<string> log) => new()
+    {
+        RunId = runId,
+        TargetName = targetName,
+        Env = env,
+        Log = line => log($"{provider.Name}: {line}"),
+    };
 
     /// <summary>A granted lease checked field by field: the engine trusts nothing it did not write.</summary>
     private static bool IsDeviceLease(DeviceLease lease) =>

@@ -23,8 +23,10 @@ The target's platform picks the engine. A `web` target (the default) runs in
 Chromium. An `ios` or `android` target with `app.bundleId` or `app.appPath` runs
 on a simulator or emulator through `MobileEngine`: it needs Node 22.12 or newer
 and a booted device, and `E2E_MOBILE_DEVICE` names one (see
-[mobile.md](mobile.md)). Hosted devices (`E2E_MOBILE_PROVIDER` other than
-`local`) are not supported by `e2e explore` yet. `e2e explore` supplies the
+[mobile.md](mobile.md)). With `E2E_MOBILE_PROVIDER=limrun` it leases a hosted
+Limrun device when the exploration starts (set `LIMRUN_API_KEY`) and releases it
+when the exploration ends, also after a failure or Ctrl+C. With
+`E2E_MOBILE_PROVIDER=devflow` it attaches to the MAUI app you launched. `e2e explore` supplies the
 device engine; a library caller of `Explore.ExploreAsync` with an `ios` or
 `android` target must set `ExploreOptions.Engine`.
 

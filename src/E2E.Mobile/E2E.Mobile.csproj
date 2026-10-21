@@ -12,5 +12,7 @@
     <ProjectReference Include="..\E2E\E2E.csproj" />
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     <InternalsVisibleTo Include="E2E.Mobile.Tests" />
+    <InternalsVisibleTo Include="E2E.Cli" />
+    <InternalsVisibleTo Include="E2E.Cli.Tests" />
   </ItemGroup>
 </Project>

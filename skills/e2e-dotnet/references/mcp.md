@@ -9,9 +9,13 @@ Running tests and reading a failed run stay with `dotnet test`.
 `web` target runs in a Chromium browser. An `ios` or `android` target with
 `app.bundleId` or `app.appPath` runs on a local simulator or emulator through
 `MobileEngine`: it needs Node 22.12 or newer and a booted device, and
-`E2E_MOBILE_DEVICE` names one. A device session has no `navigate` tool, and
-hosted devices (`E2E_MOBILE_PROVIDER` other than `local`) are not supported
-yet. The catalog is the testing agent's own actions plus `locate`
+`E2E_MOBILE_DEVICE` names one. With `E2E_MOBILE_PROVIDER=limrun` the session
+leases a hosted Limrun device instead (set `LIMRUN_API_KEY`); with
+`E2E_MOBILE_PROVIDER=devflow` it attaches to the MAUI app you launched (see
+[mobile.md](mobile.md)). `open_session` leases the device, and the lease bills
+until `close_session` releases it: close sessions you no longer need. The idle
+timeout, the four-hour limit, and a server shutdown release it too. A device
+session has no `navigate` tool. The catalog is the testing agent's own actions plus `locate`
 and `screenshot`. Not ported: recording a video, the project's own tools,
 and the tap, hover, and type at a point. `e2e init` does not exist, so
 register the server yourself (below).

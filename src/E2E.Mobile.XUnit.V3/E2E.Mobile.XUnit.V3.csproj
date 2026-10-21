@@ -14,6 +14,7 @@
     <ProjectReference Include="..\E2E.Limrun\E2E.Limrun.csproj" />
     <ProjectReference Include="..\E2E.Mobile.DevFlow\E2E.Mobile.DevFlow.csproj" />
     <Compile Include="..\Shared\MobileAppHost.cs" Link="MobileAppHost.cs" />
+    <Compile Include="..\Shared\HostedDeviceProviders.cs" Link="HostedDeviceProviders.cs" />
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>

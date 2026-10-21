@@ -19,6 +19,9 @@
   <ItemGroup>
     <ProjectReference Include="..\E2E\E2E.csproj" />
     <ProjectReference Include="..\E2E.Mobile\E2E.Mobile.csproj" />
+    <ProjectReference Include="..\E2E.Limrun\E2E.Limrun.csproj" />
+    <ProjectReference Include="..\E2E.Mobile.DevFlow\E2E.Mobile.DevFlow.csproj" />
+    <Compile Include="..\Shared\HostedDeviceProviders.cs" Link="HostedDeviceProviders.cs" />
     <PackageReference Include="ModelContextProtocol.Core" Version="2.2.0" />
     <!-- The tool never compares screenshots, so it ships none of the SkiaSharp native libraries E2E brings in. -->
     <PackageReference Include="SkiaSharp" Version="4.153.1" ExcludeAssets="native;runtime" />

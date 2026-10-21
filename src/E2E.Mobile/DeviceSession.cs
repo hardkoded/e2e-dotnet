@@ -167,7 +167,14 @@ public sealed partial class DeviceSession : IEngineSession
             return Task.FromException(DeviceSupport.Unsupported("a device app has no URL to open; app.open() launches the pinned app, and a deep link opens with device.openLink"));
         }
 
-        return RestartAsync(cancellationToken);
+        // A provider whose agent lives inside the running app cannot relaunch it: the open attaches to the app you launched.
+        return Options.Provider is { AttachesToRunningApp: true } ? AttachAsync(cancellationToken) : RestartAsync(cancellationToken);
+    }
+
+    private async Task AttachAsync(CancellationToken cancellationToken)
+    {
+        var app = PinnedApp ?? throw DeviceSupport.Unsupported($"launching the app needs the target's `app.bundleId`, or {UninstalledBuild}");
+        await OpenAppAsync(app, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Launches the pinned app fresh: the device's "recreate the context".</summary>
@@ -228,8 +235,42 @@ public sealed partial class DeviceSession : IEngineSession
 
     public ValueTask DisposeAsync() => new(CloseAsync(E2EDefaults.CleanupTimeout, CancellationToken.None));
 
-    /// <summary>Ends the agent-device session, within a budget: a close that outlives it is abandoned, as one that fails is.</summary>
+    /// <summary>
+    /// The hosted device this session's engine leased for it alone, when the engine was started without a runner: released
+    /// with the session, whether or not the session closes cleanly.
+    /// </summary>
+    internal HostedLease? Lease { get; set; }
+
+    /// <summary>
+    /// Ends the agent-device session, within a budget: a close that outlives it is abandoned, as one that fails is. A device the
+    /// engine leased for this session goes back after the close, even when the close threw.
+    /// </summary>
     internal async Task CloseAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        var lease = Lease;
+        Lease = null;
+        try
+        {
+            await CloseSessionAsync(timeout, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // The close's failure is the one reported; the release still runs, and its own failure is not allowed to hide it.
+            if (lease is not null)
+            {
+                await lease.ReleaseAsync().ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+            }
+
+            throw;
+        }
+
+        if (lease is not null)
+        {
+            await lease.ReleaseAsync().ConfigureAwait(false);
+        }
+    }
+
+    private async Task CloseSessionAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
         var client = _client;
         var dangling = _recording;
