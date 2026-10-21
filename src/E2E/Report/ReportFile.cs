@@ -22,6 +22,7 @@ internal static class ReportFile
 
     private static readonly Lock Gate = new();
     private static readonly Dictionary<string, RunState> Runs = new(StringComparer.Ordinal);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Task<VcsInfo?>> Detections = new(StringComparer.Ordinal);
 
     private sealed class Entry(ReportResult result)
     {
@@ -53,6 +54,24 @@ internal static class ReportFile
 
     /// <summary>Where the document of the run whose results go to <paramref name="resultsRoot"/> is written.</summary>
     public static string PathFor(string resultsRoot) => Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(resultsRoot))!, FileName);
+
+    /// <summary>
+    /// The commit of the project at <paramref name="projectRoot"/>, asked of the version control once per process and root, so a run of many
+    /// sessions starts no process per session. A lookup that failed is not kept: the next call asks again. <paramref name="detect"/> is for tests.
+    /// </summary>
+    internal static async Task<VcsInfo?> DetectVcs(string projectRoot, Func<string, Task<VcsInfo?>>? detect = null)
+    {
+        var detection = Detections.GetOrAdd(projectRoot, root => detect is null ? Vcs.DetectAsync(root, EnvironmentVariables()) : detect(root));
+        try
+        {
+            return await detection.ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            Detections.TryRemove(new KeyValuePair<string, Task<VcsInfo?>>(projectRoot, detection));
+            throw;
+        }
+    }
 
     /// <summary>The project's root: the one given, else the parent of the results directory (the output directory) (the output directory).</summary>
     public static string ProjectRootOf(string? projectRoot, string resultsRoot) =>
@@ -89,7 +108,7 @@ internal static class ReportFile
             Results = [result],
             ReportTargets = report.Run.Targets,
             Explore = report.Run.Explore,
-            Vcs = await VcsOf(Vcs.DetectAsync(projectRoot, EnvironmentVariables())).ConfigureAwait(false),
+            Vcs = await VcsOf(DetectVcs(projectRoot)).ConfigureAwait(false),
             Ci = E2EConfig.IsCi(),
         });
         var node = ReportWire.Result(document.Run.Results[0], result.Platform, Path.TrimEndingDirectorySeparator(Path.GetFullPath(resultsRoot)));
@@ -114,7 +133,7 @@ internal static class ReportFile
                 state = Runs[resultsRoot] = new RunState(
                     report.Run.Id,
                     added.Attempts.FirstOrDefault()?.StartedAt ?? DateTimeOffset.UtcNow,
-                    Vcs.DetectAsync(projectRoot, EnvironmentVariables()));
+                    DetectVcs(projectRoot));
             }
         }
 
