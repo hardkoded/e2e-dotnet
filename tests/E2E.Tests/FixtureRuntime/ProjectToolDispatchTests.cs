@@ -165,7 +165,7 @@ public sealed class ProjectToolDispatchTests
         var directory = Path.Combine(Path.GetTempPath(), "e2e-start-view", Guid.NewGuid().ToString("n"));
         ExecutorObservation? start = null;
         ExecutorObservation? observed = null;
-        var engine = new KeyboardEngine(new DocumentEngine(CounterPage.World())) { Reported = true, Truncated = true };
+        var engine = new KeyboardEngine(new DocumentEngine(new DocumentWorld().Map("/settings/general", page => page.Paragraph("General")))) { Reported = true, Truncated = true };
         var executor = new TestExecutor("test", async (context, _) =>
         {
             start = context.Start;
@@ -178,13 +178,13 @@ public sealed class ProjectToolDispatchTests
             {
                 Engine = engine,
                 AgentExecutor = executor,
-                BaseUrl = "https://counter.test",
+                BaseUrl = "https://settings.test",
                 Cache = new FileStepCache(directory),
                 CacheEnabled = true,
                 CacheMode = CacheMode.ReadWrite,
                 TestTitle = "start view",
             });
-            await session.App.OpenAsync("/");
+            await session.App.OpenAsync("/settings/general");
 
             await session.Agent.ActAsync("look");
 
@@ -201,7 +201,7 @@ public sealed class ProjectToolDispatchTests
         Assert.NotNull(start);
         Assert.True(start.KeyboardVisible);
         Assert.True(start.Truncated);
-        Assert.Equal("/", start.Path);
+        Assert.Equal("/settings/general", start.Path);
         Assert.Equal(observed!.Path, start.Path);
         Assert.Equal(observed.Truncated, start.Truncated);
         Assert.Equal(observed.Text, start.Text);
