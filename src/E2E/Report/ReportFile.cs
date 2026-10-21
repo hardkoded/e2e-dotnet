@@ -23,7 +23,7 @@ internal static class ReportFile
 
     private static readonly Lock Gate = new();
     private static readonly Dictionary<string, RunState> Runs = new(StringComparer.Ordinal);
-    private static readonly ConcurrentDictionary<string, Task<VcsInfo?>> Detections = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, Lazy<Task<VcsInfo?>>> Detections = new(StringComparer.Ordinal);
 
     private sealed class Entry(ReportResult result)
     {
@@ -62,14 +62,15 @@ internal static class ReportFile
     /// </summary>
     internal static async Task<VcsInfo?> DetectVcs(string projectRoot, Func<string, Task<VcsInfo?>>? detect = null)
     {
-        var detection = Detections.GetOrAdd(projectRoot, root => detect is null ? Vcs.DetectAsync(root, EnvironmentVariables()) : detect(root));
+        // The lazy keeps two sessions that ask together from both starting a lookup; the task inside keeps no exception, so a failure is evicted below.
+        var detection = Detections.GetOrAdd(projectRoot, root => new Lazy<Task<VcsInfo?>>(async () => detect is null ? await Vcs.DetectAsync(root, EnvironmentVariables()).ConfigureAwait(false) : await detect(root).ConfigureAwait(false)));
         try
         {
-            return await detection.ConfigureAwait(false);
+            return await detection.Value.ConfigureAwait(false);
         }
         catch (Exception)
         {
-            Detections.TryRemove(new KeyValuePair<string, Task<VcsInfo?>>(projectRoot, detection));
+            Detections.TryRemove(new KeyValuePair<string, Lazy<Task<VcsInfo?>>>(projectRoot, detection));
             throw;
         }
     }
