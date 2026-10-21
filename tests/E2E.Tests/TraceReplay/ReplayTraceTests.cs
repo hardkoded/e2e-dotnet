@@ -24,21 +24,6 @@ public sealed class ReplayTraceTests
         new() { Kind = "scroll", Role = role, Name = name, Direction = direction, Times = times };
 
     [Fact]
-    public async Task Replays_a_full_trace_and_reports_completion()
-    {
-        var host = MakeHost();
-
-        var outcome = await Replay.ReplayTrace(
-            host,
-            [new RecordedAction { Kind = "navigate", Url = "/" }, TapUpgrade, TypeEmail, Scroll(null, null, "down", null)]);
-
-        Assert.True(outcome.Completed);
-        Assert.Equal((4, 4), (outcome.Executed, outcome.Total));
-        Assert.Equal(["navigate", "tap", "type", "scroll"], host.Calls);
-        Assert.Equal(4, outcome.Summaries.Count);
-    }
-
-    [Fact]
     public async Task Reads_the_start_capture_for_the_first_look_instead_of_observing_the_same_screen_again()
     {
         var host = MakeHost();

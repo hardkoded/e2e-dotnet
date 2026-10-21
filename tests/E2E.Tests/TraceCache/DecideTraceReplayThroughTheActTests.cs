@@ -7,7 +7,7 @@ using E2E.Engine;
 namespace E2E.Tests.TraceCache;
 
 /// <summary>
-/// Upstream tests <c>decideTraceReplay</c> directly (<see cref="DecideTraceReplayTests"/>, <c>TraceDecide.DecideTraceReplayTests</c>).
+/// Upstream tests <c>decideTraceReplay</c> directly (<see cref="DecideTraceReplayTests"/>).
 /// These run the same decision through the act over a stored recording, so each is a port test of its own, not an upstream one.
 /// A page always has a route in the port, so the undefined current path is not checked.
 /// </summary>

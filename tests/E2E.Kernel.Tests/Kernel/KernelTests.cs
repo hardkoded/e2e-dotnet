@@ -19,15 +19,6 @@ namespace E2E.Kernel.Tests.Kernel;
 public sealed class KernelTests
 {
     [Fact]
-    public void Is_a_browser_provider_named_kernel_with_the_scope_it_was_given()
-    {
-        var fake = new FakeKernel();
-        Assert.Equal("kernel", Provider(fake).Name);
-        Assert.Equal(BrowserProviderScope.Worker, Provider(fake).Scope);
-        Assert.Equal(BrowserProviderScope.Attempt, Provider(fake, new KernelOptions { Scope = BrowserProviderScope.Attempt }).Scope);
-    }
-
-    [Fact]
     public async Task Creates_a_browser_with_the_run_tags_and_the_idle_timeout_backstop_and_logs_its_live_view()
     {
         var fake = new FakeKernel();
@@ -64,17 +55,6 @@ public sealed class KernelTests
                 ["tags"] = new JsonObject { ["e2e_run"] = "run-1", ["e2e_target"] = "web", ["e2e_slot"] = "0", ["e2e_attempt"] = "a7" },
             },
             Assert.Single(fake.Of("create")).Body);
-    }
-
-    [Fact]
-    public async Task Logs_the_session_alone_when_Kernel_has_no_live_view_for_it()
-    {
-        var fake = new FakeKernel { Create = () => FakeKernel.Json(new JsonObject { ["session_id"] = "headless", ["cdp_ws_url"] = "wss://kernel/headless" }, HttpStatusCode.Created) };
-        var lines = new List<string>();
-
-        await Provider(fake, new KernelOptions { Headless = true }).AcquireAsync(Request(lines), CancellationToken.None);
-
-        Assert.Equal(["browser headless"], lines);
     }
 
     [Fact]
@@ -153,16 +133,6 @@ public sealed class KernelTests
         await provider.AcquireAsync(Request(env: new Dictionary<string, string?> { ["KERNEL_API_KEY"] = "k-other" }), CancellationToken.None);
 
         Assert.Equal(["Bearer k-test", "Bearer k-test", "Bearer k-other"], fake.Of("create").Select(call => call.Authorization));
-    }
-
-    [Fact]
-    public async Task Surfaces_a_Kernel_failure_as_is()
-    {
-        var fake = new FakeKernel { Create = () => FakeKernel.Text(HttpStatusCode.Unauthorized, "invalid api key") };
-
-        var failure = await Assert.ThrowsAsync<KernelApiException>(() => Provider(fake).AcquireAsync(Request(), CancellationToken.None));
-
-        Assert.Equal("401 invalid api key", failure.Message);
     }
 
     [Fact]

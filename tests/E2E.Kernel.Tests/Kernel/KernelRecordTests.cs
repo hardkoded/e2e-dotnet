@@ -70,6 +70,7 @@ public sealed class KernelRecordTests : IDisposable
 
         var body = Assert.IsType<JsonObject>(Assert.Single(fake.Of("create")).Body);
         Assert.DoesNotContain(body, pair => pair.Key.Contains("replay", StringComparison.OrdinalIgnoreCase));
+
         await provider.RecordAsync(Lease(), RecordContext(), CancellationToken.None);
         var start = Assert.Single(fake.Of("startReplay"));
         AssertJson(new JsonObject { ["framerate"] = 20, ["max_duration_in_seconds"] = 300 }, start.Body);

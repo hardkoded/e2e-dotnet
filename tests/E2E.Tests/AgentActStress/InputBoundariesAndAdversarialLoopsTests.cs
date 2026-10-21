@@ -7,6 +7,11 @@ using static E2E.Tests.CoreTests;
 
 namespace E2E.Tests.AgentActStress;
 
+/// <summary>
+/// Not ported, because the port has no such feature: "reconstructs the executor per worker and passes in parallel" (the
+/// "config-file executor across worker processes" describe). The port has no workers, and an executor is code, which its config
+/// file cannot hold.
+/// </summary>
 public sealed class InputBoundariesAndAdversarialLoopsTests
 {
     [Fact]
