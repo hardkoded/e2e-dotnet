@@ -297,7 +297,7 @@ internal sealed class SessionHost : IDisposable
             var engine = _options.CreateEngine(target, headed);
             if (engine.Capabilities.HasFlag(EngineCapabilities.PinnedApp))
             {
-                _sessions.ClaimDevice(id, target.Name);
+                _sessions.ClaimEngine(id, target.Name);
             }
 
             session = await E2ESession.StartAsync(

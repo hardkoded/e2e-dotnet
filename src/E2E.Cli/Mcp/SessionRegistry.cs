@@ -103,7 +103,7 @@ internal sealed class SessionRegistry<TSession>(int limit)
     /// Claims the device a pinned-app engine drives for an opening session, or refuses one another session is driving. .NET-only: upstream's
     /// <c>claimEngine</c> refuses two sessions on one engine instance, and the port builds an engine per session, so the shared thing is the device.
     /// </summary>
-    public void ClaimDevice(string id, string targetName)
+    public void ClaimEngine(string id, string targetName)
     {
         lock (_gate)
         {
