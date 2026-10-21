@@ -171,6 +171,14 @@ public static partial class DeviceErrors
         error?.InnerException is { } cause && Details(cause).GetValueOrDefault("androidSnapshotHelperFailureReason") is string reason && UnreadableCaptureReasons.Contains(reason);
 
     /// <summary>
+    /// True for a translated read the iOS runner refused because XCTest sees the app as not running. A physical device
+    /// answers <c>devicectl</c> launch before that state catches up, so this follows an <c>open</c> or <c>restart</c> for a
+    /// moment; any other time the app has exited.
+    /// </summary>
+    public static bool IsAppNotRunning(Exception? error) =>
+        error?.InnerException is { } cause && Details(cause).GetValueOrDefault("runnerErrorCode") is "APP_NOT_RUNNING";
+
+    /// <summary>
     /// Runs one agent-device command under a cancellation token and translates its failure onto the engine
     /// taxonomy: the one boundary every command crosses.
     /// </summary>

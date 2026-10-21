@@ -37,6 +37,9 @@ public sealed partial class DeviceSession : IEngineSession
     private IDeviceClient? _client;
     private int _idCounter;
     private string? _appIdentity;
+
+    /// <summary>True from a launch until a snapshot succeeds: an app iOS reports not running in between is still starting, not gone.</summary>
+    private bool _launching;
     private ViewportSize? _knownViewport;
 
     private DeviceSession(MobileEngine engine, MobileStartInfo info, SlotBinding? binding, string name, string where, IDeviceClient client)
@@ -294,6 +297,7 @@ public sealed partial class DeviceSession : IEngineSession
 
             cancellationToken.ThrowIfCancellationRequested();
             last = await CaptureAsync(interactiveOnly, cancellationToken).ConfigureAwait(false);
+            _launching = false;
             if ((last.AppBundleId ?? last.AppName) is { } identity)
             {
                 _appIdentity = identity;
