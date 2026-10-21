@@ -57,17 +57,19 @@ public sealed partial class AgentActWithAHandRolledStepExecutorTests
     public async Task Partial_Records_the_act_step_with_harness_owned_accounting()
     {
         using var report = new ReportDirectory();
+        ActResult? act = null;
         var result = await RunAsync(
             async ctx =>
             {
                 await ctx.App.OpenAsync("/");
-                await ctx.Agent.ActAsync(Instruction);
+                act = await ctx.Agent.ActAsync(Instruction);
             },
             CounterPage.World(),
             executor: ScriptedExecutor(),
             report: report);
 
         Assert.Null(result.Error);
+        Assert.Equal((1, 1), (act!.Actions, act.ModelCalls));
         var step = report.Step("agent.act");
         Assert.Equal("agent", (string)step["kind"]!);
         Assert.Equal("passed", (string)step["status"]!);

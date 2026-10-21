@@ -169,7 +169,7 @@ public sealed class SecretsShownTransformedTests
             Assert.DoesNotContain(form, document, StringComparison.Ordinal);
         }
 
-        var files = Directory.EnumerateFiles(report.Output, "*", SearchOption.AllDirectories).Where(file => Path.GetExtension(file) is ".md" or ".json" or ".txt" or ".html").ToList();
+        var files = Directory.EnumerateFiles(report.Output, "*", SearchOption.AllDirectories).Where(file => Path.GetExtension(file) is not (".png" or ".webm" or ".mp4")).ToList();
         Assert.Contains(files, file => file.EndsWith(".md", StringComparison.Ordinal));
         foreach (var file in files)
         {

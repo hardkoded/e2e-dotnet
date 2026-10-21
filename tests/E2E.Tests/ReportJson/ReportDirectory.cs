@@ -17,14 +17,31 @@ internal sealed class ReportDirectory : IDisposable
     /// <summary>The results directory to give the session; <c>report.json</c> goes beside it.</summary>
     public string Results => Path.Combine(Output, "results");
 
-    public void Dispose() => Directory.Delete(Output, recursive: true);
+    private JsonNode? _document;
+
+    public void Dispose()
+    {
+        try
+        {
+            Directory.Delete(Output, recursive: true);
+        }
+        catch (IOException)
+        {
+            // A file still held open must not hide the failure of the test.
+        }
+    }
 
     /// <summary>The document, parsed and checked against the report-1 schema (upstream's <c>assertValidReport</c>).</summary>
     public JsonNode Read()
     {
+        if (_document is not null)
+        {
+            return _document;
+        }
+
         var document = JsonNode.Parse(File.ReadAllText(Path.Combine(Output, "report.json")))!;
         ReportSchema.AssertValidReport(document);
-        return document;
+        return _document = document;
     }
 
     /// <summary>The run of the document.</summary>
