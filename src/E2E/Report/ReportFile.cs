@@ -67,6 +67,30 @@ internal static class ReportFile
     }
 
     /// <summary>
+    /// The document of the attempt in <paramref name="report"/> (a single-attempt report, as <see cref="AttemptReport.Build"/> returns it) alone, as a
+    /// run of one result, redacted by <paramref name="redact"/>. Upstream's <c>writeHostTrace</c> builds the same report for a hosted session and returns it.
+    /// </summary>
+    public static JsonObject Single(Report1Document report, string resultsRoot, Func<string, string> redact)
+    {
+        var result = report.Run.Results[0];
+        var (status, exitCode) = StatusOf([result]);
+        var document = BuildReport.Build(new BuildReportOptions
+        {
+            RunId = report.Run.Id,
+            StartedAt = result.Attempts[0].StartedAt ?? DateTimeOffset.UtcNow,
+            Status = status,
+            ExitCode = exitCode,
+            Results = [result],
+            ReportTargets = report.Run.Targets,
+            Explore = report.Run.Explore,
+            Ci = E2EConfig.IsCi(),
+        });
+        var node = ReportWire.Result(document.Run.Results[0], result.Platform, Path.TrimEndingDirectorySeparator(Path.GetFullPath(resultsRoot)));
+        ReportWire.Redact(node, redact);
+        return ReportWire.Document(document, new Dictionary<string, JsonNode>(StringComparer.Ordinal) { [result.Id] = node });
+    }
+
+    /// <summary>
     /// Adds the test in <paramref name="report"/> (the single result <see cref="RunReport.Add"/> returned, with every attempt the test has had) to the
     /// run, and writes the document of the run to <c>report.json</c> beside <paramref name="resultsRoot"/>. <paramref name="redact"/> is the
     /// redactor of that test's attempts.
