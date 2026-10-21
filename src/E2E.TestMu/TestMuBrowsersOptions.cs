@@ -40,6 +40,11 @@ public sealed record TestMuBrowsersOptions
     /// <summary>The country code of the location the browser appears in, such as <c>US</c>.</summary>
     public string? GeoLocation { get; init; }
 
-    /// <summary>Further <c>LT:Options</c> capabilities, merged last, so they replace any property above.</summary>
+    /// <summary>
+    /// Further <c>LT:Options</c> capabilities, merged last, so they replace any property above and the defaults
+    /// (<c>project</c> is <c>e2e</c>, <c>idleTimeout</c> is 600 seconds). <c>TestMuBrowsers</c> refuses <c>LT:Options</c>, <c>browserName</c>,
+    /// <c>user</c>, <c>accessKey</c>, <c>name</c>, a <c>browserOptions</c> that is not an array of strings, and a number JSON cannot encode.
+    /// For <c>MicrosoftEdge</c>, <c>browserOptions</c> gets <c>--user-data-dir=remote-debug-profile-edge</c> unless it has a <c>--user-data-dir=</c>.
+    /// </summary>
     public IReadOnlyDictionary<string, JsonNode?>? Capabilities { get; init; }
 }

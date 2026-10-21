@@ -11,13 +11,14 @@ namespace E2E.TestMu.Tests.Browsers;
 
 /// <summary>
 /// <see cref="TestMuBrowsers"/>: the endpoint and capabilities it builds, the credentials it reads from the run's
-/// environment, and what it keeps out of progress lines. .NET-only: TestMu has no upstream package.
+/// environment, and what it keeps out of progress lines. .NET-only: the port reaches the grid on the Playwright-protocol
+/// endpoint. The ported upstream <c>it</c>s are in <see cref="TestMuBrowsersFunctionTests"/>.
 /// </summary>
 public sealed class TestMuBrowsersTests
 {
     private static readonly IReadOnlyDictionary<string, string?> Credentials = new Dictionary<string, string?> { ["LT_USERNAME"] = "ada", ["LT_ACCESS_KEY"] = "secret key" };
 
-    private static BrowserRequest Request(IReadOnlyDictionary<string, string?>? env = null, string? attemptId = null, int slot = 0, int slots = 1) => new()
+    internal static BrowserRequest Request(IReadOnlyDictionary<string, string?>? env = null, string? attemptId = null, int slot = 0, int slots = 1) => new()
     {
         RunId = "run-a",
         TargetName = "web",
@@ -28,7 +29,7 @@ public sealed class TestMuBrowsersTests
         Log = _ => { },
     };
 
-    private static JsonObject Capabilities(BrowserLease lease)
+    internal static JsonObject Capabilities(BrowserLease lease)
     {
         Assert.StartsWith("wss://cdp.lambdatest.com/playwright?capabilities=", lease.CdpEndpoint, StringComparison.Ordinal);
         var query = HttpUtility.ParseQueryString(new Uri(lease.CdpEndpoint).Query);
@@ -47,11 +48,13 @@ public sealed class TestMuBrowsersTests
         Assert.Equal("latest", (string?)capabilities["browserVersion"]);
         var lt = capabilities["LT:Options"]!.AsObject();
         Assert.Equal("Windows 10", (string?)lt["platform"]);
+        Assert.Equal("e2e", (string?)lt["project"]);
         Assert.Equal("e2e-run-a", (string?)lt["build"]);
+        Assert.Equal(600, (int?)lt["idleTimeout"]);
         Assert.Equal("web slot 1 of 1", (string?)lt["name"]);
         Assert.Equal("ada", (string?)lt["user"]);
         Assert.Equal("secret key", (string?)lt["accessKey"]);
-        Assert.Equal(["platform", "build", "name", "user", "accessKey"], lt.Select(pair => pair.Key));
+        Assert.Equal(["platform", "project", "build", "idleTimeout", "name", "user", "accessKey"], lt.Select(pair => pair.Key));
     }
 
     [Fact]
@@ -68,7 +71,7 @@ public sealed class TestMuBrowsersTests
             Console = true,
             TunnelName = "office",
             GeoLocation = "US",
-            Capabilities = new Dictionary<string, JsonNode?> { ["name"] = "mine", ["resolution"] = "1920x1080" },
+            Capabilities = new Dictionary<string, JsonNode?> { ["resolution"] = "1920x1080" },
         });
 
         var capabilities = Capabilities(await provider.AcquireAsync(Request(), CancellationToken.None));
@@ -84,7 +87,6 @@ public sealed class TestMuBrowsersTests
         Assert.True((bool?)lt["tunnel"]);
         Assert.Equal("office", (string?)lt["tunnelName"]);
         Assert.Equal("US", (string?)lt["geoLocation"]);
-        Assert.Equal("mine", (string?)lt["name"]);
         Assert.Equal("1920x1080", (string?)lt["resolution"]);
     }
 

@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using E2E.Engine;
 
@@ -19,8 +20,17 @@ namespace E2E.TestMu;
 public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBrowserProvider
 {
     private const string Endpoint = "wss://cdp.lambdatest.com/playwright";
+    private const string DefaultProject = "e2e";
 
-    private readonly TestMuBrowsersOptions _options = options ?? new TestMuBrowsersOptions();
+    // The hub's Edge connect never completes without a user data directory.
+    private const string EdgeUserDataDir = "--user-data-dir=remote-debug-profile-edge";
+
+    // The hub ends a session after 300 s without client traffic, shorter than a slow test's gaps.
+    private const int DefaultIdleTimeoutSeconds = 600;
+
+    private static readonly string[] ReservedCapabilities = ["user", "accessKey", "name"];
+
+    private readonly TestMuBrowsersOptions _options = Validated(options ?? new TestMuBrowsersOptions());
 
     public string Name => "testmu";
 
@@ -48,7 +58,9 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
         var lt = new JsonObject
         {
             ["platform"] = _options.Platform ?? "Windows 10",
+            ["project"] = DefaultProject,
             ["build"] = _options.Build ?? $"e2e-{request.RunId}",
+            ["idleTimeout"] = DefaultIdleTimeoutSeconds,
             ["name"] = name,
             ["user"] = user,
             ["accessKey"] = accessKey,
@@ -64,6 +76,17 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
             lt[key] = value?.DeepClone();
         }
 
+        if (_options.BrowserName == "MicrosoftEdge")
+        {
+            var flags = lt["browserOptions"] as JsonArray ?? [];
+            if (!flags.Any(flag => ((string?)flag)!.StartsWith("--user-data-dir=", StringComparison.Ordinal)))
+            {
+                flags.Add(EdgeUserDataDir);
+            }
+
+            lt["browserOptions"] = flags;
+        }
+
         return new JsonObject
         {
             ["browserName"] = _options.BrowserName ?? "Chrome",
@@ -71,6 +94,77 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
             ["LT:Options"] = lt,
         };
     }
+
+    private static TestMuBrowsersOptions Validated(TestMuBrowsersOptions options)
+    {
+        foreach (var (key, value) in options.Capabilities ?? new Dictionary<string, JsonNode?>())
+        {
+            AssertJsonSafe(value, $"Capabilities[\"{key}\"]");
+            try
+            {
+                value?.ToJsonString();
+            }
+            catch (Exception error) when (error is JsonException or NotSupportedException or ArgumentException or InvalidOperationException)
+            {
+                // A JsonValue can wrap a custom object that JSON cannot encode.
+                throw Invalid($"`Capabilities[\"{key}\"]` cannot be encoded as JSON: {error.Message}");
+            }
+        }
+
+        var capabilities = options.Capabilities;
+        if (capabilities?.ContainsKey("LT:Options") == true)
+        {
+            throw Invalid("pass `LT:Options` fields directly in `Capabilities`, not nested under `LT:Options`");
+        }
+
+        if (capabilities?.ContainsKey("browserName") == true)
+        {
+            throw Invalid("set `browserName` as an option (`BrowserName`), not in `Capabilities`");
+        }
+
+        var reserved = ReservedCapabilities.Where(key => capabilities?.ContainsKey(key) == true).ToArray();
+        if (reserved.Length > 0)
+        {
+            throw Invalid($"`Capabilities` cannot set {string.Join(", ", reserved.Select(key => $"`{key}`"))}; the provider names each session, and reads LT_USERNAME and LT_ACCESS_KEY from the environment");
+        }
+
+        if (capabilities is not null
+            && capabilities.TryGetValue("browserOptions", out var browserOptions)
+            && !(browserOptions is JsonArray flags && flags.All(flag => flag is JsonValue value && value.TryGetValue<string>(out _))))
+        {
+            throw Invalid("`Capabilities[\"browserOptions\"]` must be an array of strings");
+        }
+
+        // A copy, so the caller cannot add a reserved entry to its own dictionary after the check.
+        return capabilities is null ? options : options with { Capabilities = capabilities.ToDictionary(pair => pair.Key, pair => pair.Value?.DeepClone()) };
+    }
+
+    /// <summary>A <see cref="JsonNode"/> cannot hold a cycle, a map, or a date. Only a NaN or an infinity has no JSON form.</summary>
+    private static void AssertJsonSafe(JsonNode? node, string path)
+    {
+        switch (node)
+        {
+            case JsonValue value when (value.TryGetValue<double>(out var number) && !double.IsFinite(number))
+                || (value.TryGetValue<float>(out var single) && !float.IsFinite(single)):
+                throw Invalid($"`{path}` contains a non-finite number");
+            case JsonObject obj:
+                foreach (var (key, child) in obj)
+                {
+                    AssertJsonSafe(child, $"{path}.{key}");
+                }
+
+                break;
+            case JsonArray array:
+                for (var i = 0; i < array.Count; i++)
+                {
+                    AssertJsonSafe(array[i], $"{path}[{i}]");
+                }
+
+                break;
+        }
+    }
+
+    private static ConfigurationException Invalid(string message) => new("INVALID_CONFIG", $"TestMuBrowsers: {message}");
 
     private static void Set(JsonObject target, string key, bool? value)
     {
