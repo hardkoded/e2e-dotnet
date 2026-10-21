@@ -219,7 +219,22 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             };
         }
 
-        return new ModelResponse { Content = text.Count == 0 ? null : string.Concat(text), ToolCalls = calls, Usage = usage };
+        var finish = root.TryGetProperty("candidates", out var first) && first.ValueKind == JsonValueKind.Array && first.GetArrayLength() > 0 ? ModelHttp.OptionalString(first[0], "finishReason") : null;
+        // A prompt Gemini blocks has no candidate: the AI SDK reads promptFeedback.blockReason as a content-filter finish.
+        var blocked = finish is null && root.TryGetProperty("promptFeedback", out var feedback) ? ModelHttp.OptionalString(feedback, "blockReason") : null;
+        if (blocked is not (null or "" or "BLOCK_REASON_UNSPECIFIED" or "BLOCKED_REASON_UNSPECIFIED"))
+        {
+            return new ModelResponse { Content = text.Count == 0 ? null : string.Concat(text), ToolCalls = calls, Usage = usage, FinishReason = ModelResponse.ContentFilter, RawFinishReason = blocked };
+        }
+
+        return new ModelResponse
+        {
+            Content = text.Count == 0 ? null : string.Concat(text),
+            ToolCalls = calls,
+            Usage = usage,
+            FinishReason = ModelHttp.FinishReason(finish, "SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "IMAGE_SAFETY"),
+            RawFinishReason = finish,
+        };
     }
 }
 
