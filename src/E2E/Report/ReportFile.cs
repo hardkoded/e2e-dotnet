@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Text.Json.Nodes;
 using E2E.Internal;
 
@@ -22,7 +23,7 @@ internal static class ReportFile
 
     private static readonly Lock Gate = new();
     private static readonly Dictionary<string, RunState> Runs = new(StringComparer.Ordinal);
-    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Task<VcsInfo?>> Detections = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, Task<VcsInfo?>> Detections = new(StringComparer.Ordinal);
 
     private sealed class Entry(ReportResult result)
     {
@@ -73,7 +74,7 @@ internal static class ReportFile
         }
     }
 
-    /// <summary>The project's root: the one given, else the parent of the results directory (the output directory) (the output directory).</summary>
+    /// <summary>The project's root: the one given, else the parent of the results directory (the output directory).</summary>
     public static string ProjectRootOf(string? projectRoot, string resultsRoot) =>
         projectRoot ?? Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(resultsRoot))!;
 
@@ -163,7 +164,7 @@ internal static class ReportFile
                 ExitCode = exitCode,
                 Results = [.. state.Results.Values.Select(entry => entry.Result)],
                 Explore = state.Explore,
-                Vcs = await VcsOf(state).ConfigureAwait(false),
+                Vcs = await VcsOf(state.Vcs).ConfigureAwait(false),
                 Ci = E2EConfig.IsCi(),
             });
 
@@ -191,8 +192,6 @@ internal static class ReportFile
     }
 
     // Detection never fails a run: a task that faulted reads as no commit.
-    private static Task<VcsInfo?> VcsOf(RunState state) => VcsOf(state.Vcs);
-
     private static async Task<VcsInfo?> VcsOf(Task<VcsInfo?> detection)
     {
         try
