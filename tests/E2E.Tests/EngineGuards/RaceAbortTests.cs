@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Runtime.CompilerServices;
 using E2E.Engine;
 
 namespace E2E.Tests.EngineGuards;
@@ -49,13 +50,7 @@ public sealed class RaceAbortTests
         TaskScheduler.UnobservedTaskException += Record;
         try
         {
-            using var cancel = new CancellationTokenSource();
-            var abandoned = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var raced = Timing.RaceAbortAsync(() => abandoned.Task, cancel.Token, "call");
-            await cancel.CancelAsync();
-            Assert.Equal("CANCELLED", (await Assert.ThrowsAsync<EngineException>(() => raced)).Code);
-            abandoned.SetException(new InvalidOperationException("late"));
-            await Task.Yield();
+            Assert.Equal("CANCELLED", await AbandonThenFailLate());
             Collect();
             lock (unobserved)
             {
@@ -66,6 +61,21 @@ public sealed class RaceAbortTests
         {
             TaskScheduler.UnobservedTaskException -= Record;
         }
+    }
+
+    // Keeps the abandoned task out of the test's own state machine: once this returns, only a string is left, so nothing but
+    // Timing can still reach the faulted task and the collection below finalizes it if its failure was never observed.
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static async Task<string> AbandonThenFailLate()
+    {
+        using var cancel = new CancellationTokenSource();
+        var abandoned = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var raced = Timing.RaceAbortAsync(() => abandoned.Task, cancel.Token, "call");
+        await cancel.CancelAsync();
+        var code = (await Assert.ThrowsAsync<EngineException>(() => raced)).Code;
+        abandoned.SetException(new InvalidOperationException("late"));
+        await Task.Yield();
+        return code;
     }
 
     private static void Collect()
