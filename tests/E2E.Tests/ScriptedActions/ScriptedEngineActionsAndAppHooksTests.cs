@@ -108,7 +108,7 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
         Assert.Equal(
             ["open " + BaseUrl + "/", "open " + BaseUrl + "/settings", "back", "restart", "open " + BaseUrl + "/", "reset", "open " + BaseUrl + "/"],
             engine.SessionCalls);
-        Assert.Equal(["app.open", "app.open", "app.back", "app.restart", "app.clearState"], session.Steps.Take(5).Select(step => step.Api));
+        Assert.Equal(["app.open", "app.open", "app.back", "app.restart", "app.clearState"], session.Steps.Where(step => step.Kind == StepKind.App).Select(step => step.Api));
         session.Complete();
     }
 
