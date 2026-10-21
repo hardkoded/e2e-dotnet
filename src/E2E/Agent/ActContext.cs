@@ -87,7 +87,7 @@ internal sealed partial class ActContext : StepExecutorContext
         Budgets = budget;
         Actions = dispatcher;
         Host = new ActHost(scope, feed, budget, spec.Params);
-        Start = start is null ? null : new ExecutorObservation(SnapshotText.Render(start, scope.Redactor, scope.AppOrigin)) { KeyboardVisible = start.KeyboardVisible };
+        Start = start is null ? null : ObservationFeed.View(start, scope);
     }
 
     /// <summary>Bytes of <see cref="StepExecutorContext.Ledger"/>, which the step's metrics keep.</summary>
