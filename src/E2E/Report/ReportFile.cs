@@ -54,7 +54,7 @@ internal static class ReportFile
     /// <summary>Where the document of the run whose results go to <paramref name="resultsRoot"/> is written.</summary>
     public static string PathFor(string resultsRoot) => Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(resultsRoot))!, FileName);
 
-    /// <summary>The project's root: the one given, else the directory that holds the results directory's parent (the output directory).</summary>
+    /// <summary>The project's root: the one given, else the parent of the results directory (the output directory) (the output directory).</summary>
     public static string ProjectRootOf(string? projectRoot, string resultsRoot) =>
         projectRoot ?? Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(resultsRoot))!;
 
@@ -89,7 +89,7 @@ internal static class ReportFile
             Results = [result],
             ReportTargets = report.Run.Targets,
             Explore = report.Run.Explore,
-            Vcs = await Vcs.DetectAsync(projectRoot, EnvironmentVariables()).ConfigureAwait(false),
+            Vcs = await VcsOf(Vcs.DetectAsync(projectRoot, EnvironmentVariables())).ConfigureAwait(false),
             Ci = E2EConfig.IsCi(),
         });
         var node = ReportWire.Result(document.Run.Results[0], result.Platform, Path.TrimEndingDirectorySeparator(Path.GetFullPath(resultsRoot)));
@@ -172,11 +172,13 @@ internal static class ReportFile
     }
 
     // Detection never fails a run: a task that faulted reads as no commit.
-    private static async Task<VcsInfo?> VcsOf(RunState state)
+    private static Task<VcsInfo?> VcsOf(RunState state) => VcsOf(state.Vcs);
+
+    private static async Task<VcsInfo?> VcsOf(Task<VcsInfo?> detection)
     {
         try
         {
-            return await state.Vcs.ConfigureAwait(false);
+            return await detection.ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

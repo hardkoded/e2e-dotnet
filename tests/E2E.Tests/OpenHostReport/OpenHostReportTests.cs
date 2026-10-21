@@ -15,7 +15,7 @@ namespace E2E.Tests.OpenHostReport;
 /// call, which the port's fake engine has no fixture for, and without the soft failure counted among <c>close()</c>'s failures: a session
 /// returns none, <c>CloseSoftFailures</c> returns the aggregate the test fails with. The report holds the screenshot the failure kept.
 /// "returns undefined when the trace write fails" is ported as a partial test, renamed, with <c>null</c>, and its <c>close()</c> failure is not: the port writes the trace page
-/// as a courtesy and tells stderr when it cannot, so the session releases without a failure.
+/// as a courtesy and tells stderr when it cannot, so the session releases without a failure. <c>Tells_the_same_result_as_report_json_for_the_same_session</c> is .NET-only: upstream's hosted session writes no <c>report.json</c>.
 /// </summary>
 public sealed class OpenHostReportTests : IDisposable
 {

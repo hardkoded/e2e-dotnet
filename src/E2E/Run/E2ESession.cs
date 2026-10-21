@@ -644,7 +644,7 @@ public sealed class E2ESession : IAsyncDisposable
                     redact).ConfigureAwait(false);
             }
 
-            Volatile.Write(ref _report, await ReportFile.SingleAsync(single, _scope.ProjectRoot, trace.ResultsRoot, _scope.Redactor.Redact).ConfigureAwait(false));
+            Volatile.Write(ref _report, await ReportFile.SingleAsync(single, _scope.ProjectRoot, trace.ResultsRoot, redact).ConfigureAwait(false));
 
             if (!traced && _scope.Attempt == 1)
             {
