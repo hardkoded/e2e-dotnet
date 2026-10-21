@@ -14,8 +14,8 @@ namespace E2E.Tests.ScriptedActions;
 /// calls and the report steps. The port has no runner and no report, so each case runs in the test body and
 /// reads what the engine recorded. Not ported, because the port has no such feature: <c>secondaryTap</c>,
 /// <c>longPress</c>, <c>hover</c>, <c>setInputFiles</c>, <c>dragTo</c>, locator <c>swipe</c>, and the object
-/// forms of <c>selectOption</c> (<c>label</c>, <c>value</c>, <c>index</c>). The step api names and labels are
-/// not ported either.
+/// forms of <c>selectOption</c> (<c>label</c>, <c>value</c>, <c>index</c>). The step labels of the locator
+/// actions are not ported.
 /// </summary>
 public sealed class ScriptedEngineActionsAndAppHooksTests
 {
@@ -108,6 +108,7 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
         Assert.Equal(
             ["open " + BaseUrl + "/", "open " + BaseUrl + "/settings", "back", "restart", "open " + BaseUrl + "/", "reset", "open " + BaseUrl + "/"],
             engine.SessionCalls);
+        Assert.Equal(["app.open", "app.open", "app.back", "app.restart", "app.clearState"], session.Steps.Take(5).Select(step => step.Api));
         session.Complete();
     }
 
