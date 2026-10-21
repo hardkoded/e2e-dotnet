@@ -7,6 +7,7 @@
 - Locators
 - Expect
 - Sign-in
+- Start near the screen under test
 - The browser fixture
 - Habits
 
@@ -241,6 +242,70 @@ with `<secret:name>` in these places:
   attempt redacts the password and the `Authorization` credential the
   browser sends with it. This is text only. Screenshots stay on, and the agent
   cannot fill the value by name. A plain string password is not redacted.
+
+## Start near the screen under test
+
+A test pays for every step before the screen it checks, on every run and on
+every rerun while you fix it. A wrong locator at the end of a long flow
+reruns the whole flow, then waits out the action timeout. Begin each test as
+close to its screen as the app allows:
+
+- Sign in outside the flow, not through the sign-in form of every test. The
+  port has no saved `session`, so do it in the framework's per-test setup
+  (NUnit `[SetUp]`, xUnit v3 `InitializeAsync`): request the app's sign-in
+  API with an `HttpClient`, then pass its cookies to `Browser.SetCookiesAsync`. Click through the form only in the
+  test that covers it ("Sign-in").
+- Open the screen by its path, `App.OpenAsync("/projects/42/settings")`, not
+  the home page and three taps. `navigate` over MCP takes the same path.
+- Create the data the screen needs through the app's API in that setup.
+  Click through a creation flow only in the test that covers it. When the
+  app signs in with a cookie, the same `HttpClient` signs the setup's
+  requests in. Check the response in the setup: a failed seed then fails
+  there, not at the action timeout on a locator. Delete the data in the
+  teardown (NUnit `[TearDown]`, xUnit v3 `DisposeAsync`), which runs after a
+  failure too.
+
+```csharp
+[SetUp]
+public async Task CreateProject()
+{
+    var admin = Credentials.User("admin");
+    var jar = new CookieContainer();
+    using var api = new HttpClient(new HttpClientHandler { CookieContainer = jar }) { BaseAddress = new Uri(App.BaseUrl) };
+    (await api.PostAsJsonAsync("/api/sign-in", new { email = admin.Username, password = admin.Password })).EnsureSuccessStatusCode();
+    await Browser.SetCookiesAsync(jar.GetAllCookies().Select(c => new BrowserCookie { Name = c.Name, Value = c.Value, Url = App.BaseUrl }).ToList());
+    var created = await api.PostAsJsonAsync("/api/projects", new { name = $"Project {Guid.NewGuid()}" });
+    created.EnsureSuccessStatusCode(); // a failed seed fails here
+    _projectId = (await created.Content.ReadFromJsonAsync<Project>())!.Id;
+}
+
+[Test]
+public async Task Renames_a_project()
+{
+    await App.OpenAsync($"/projects/{_projectId}/settings"); // straight to the screen under test
+    await Screen.GetByLabel("Name").FillAsync("Atlas");
+    await Screen.GetByRole("button", "Save").ClickAsync();
+    await Expect.That(Screen.GetByRole("status")).ToHaveTextAsync("Saved");
+}
+```
+
+On a device there are no cookies and `App.OpenAsync()` takes no path:
+`Device.OpenLinkAsync("myapp://projects/42")` opens a route, or a sign-in
+link, in the app.
+
+Grow a test that spans several screens one screen at a time when you have
+not checked its steps live: write up to the next screen you have not seen
+pass, run it, then add the next. A passing locator step takes milliseconds,
+and an `ActAsync` that a later check confirmed replays from the cache with
+no model call. The cache keeps those entries when a later line fails, so
+each run pays model calls only for its new part. That holds for a first
+attempt with a read-write cache: a retry never replays, and in CI the cache
+is read-only by default, so grow the test outside CI and without a `[Retry]`.
+Keep the title and the goals already written as they are while the test
+grows: a cache entry belongs to the test's file and title path and the
+goal's instruction and params. A setup's run-unique value in a goal's
+`Params` goes in as `Values.Unique(...)` (topic `agent`), or every run
+misses.
 
 ## The browser fixture
 

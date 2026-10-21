@@ -36,6 +36,26 @@
    `ActResult.Cache` tells whether the step replayed, and why a replay
    missed.
 
+Fix from that evidence, never by walking the flow again from the start over
+MCP: the run already saw every screen up to the failure.
+
+- Fix every line it covers, not only the failing one. `Observed` is what the
+  screen showed; a node under `Closest to what the locator asked for` is most
+  likely what a failed locator meant; the screen at failure (also
+  `screen-at-failure.txt`, "The trace page") holds the names the rest of that
+  screen's lines need.
+- A test stops at its first failed step (`Expect.Soft` lets it go on), and
+  every wrong line after it costs another run. Before rerunning, check the
+  lines after it as far as you can: against the screen at failure, the app
+  source, or a live session.
+- For a screen the evidence and the source leave out, look live (topic
+  `mcp`): open or reuse a session, go straight to that screen, then `observe`
+  and `locate`. On the web, `navigate` to the path of the URL under
+  `Screen at failure` or the screen's route, and tap only to reach a state no
+  URL opens. A device session starts on the app's launch screen: take the
+  shortest path from there.
+- Then rerun the class (topic `mcp` says when a session must close first).
+
 For more than the page tells, read `.e2e/report.json` ("For scripts") or use the
 test runner's own output, such as
 `dotnet test --logger "console;verbosity=detailed"` or a `trx` logger.
