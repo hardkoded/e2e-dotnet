@@ -110,6 +110,15 @@ public sealed class ModelResponse
 
     /// <summary>The reasoning of the turn that the model can take back, to replay on the next turn. Empty when the model gave none.</summary>
     public IReadOnlyList<JsonElement> ReasoningItems { get; init; } = [];
+
+    /// <summary>The AI SDK finish reason that matters to the agent: <see cref="ContentFilter"/> when the provider stopped the turn because it refused the request. Null for any other turn.</summary>
+    public string? FinishReason { get; init; }
+
+    /// <summary>The provider's own word for the stop, such as <c>refusal</c>, when it sent one. Provider text: redact it before it reaches a message.</summary>
+    public string? RawFinishReason { get; init; }
+
+    /// <summary>The finish reason of a turn the provider refused (upstream's <c>content-filter</c>).</summary>
+    public const string ContentFilter = "content-filter";
 }
 
 /// <summary>Builds the tool calls a <see cref="ScriptedModel"/> (or a test) returns.</summary>

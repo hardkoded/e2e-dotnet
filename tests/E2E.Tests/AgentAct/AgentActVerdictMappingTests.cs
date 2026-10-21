@@ -165,12 +165,8 @@ public sealed class AgentActVerdictMappingTests
         Assert.Contains("secret \"stripe-key\" was not declared in this step's params; only declared secrets can be filled", results[1], StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// Partial: the report's run exit code is 1 for a blocked run, where upstream's is 2 (the port's <c>ReportFile</c> knows only 0, 1,
-    /// and 130), so the exit code is not checked.
-    /// </summary>
     [Fact]
-    public async Task Partial_Maps_a_blocked_verdict_onto_its_error_code_and_the_configuration_exit_code()
+    public async Task Maps_a_blocked_verdict_onto_its_error_code_and_the_configuration_exit_code()
     {
         using var report = new ReportDirectory();
         var executor = new TestExecutor("blocked-executor", (_, _) => Task.FromResult(Blocked("the staging credential is not configured", "AUTH_CREDENTIAL_UNAVAILABLE")));
@@ -192,6 +188,7 @@ public sealed class AgentActVerdictMappingTests
         var attempt = report.LastAttempt();
         Assert.Equal("failed", (string)report.Run()["results"]![0]!["status"]!);
         Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", (string)attempt["error"]!["code"]!);
+        Assert.Equal(2, (int)report.Run()["exitCode"]!);
         Assert.Equal("blocked", (string)report.Step("agent.act")["status"]!);
         Assert.Equal("blocked", (string)report.Run()["status"]!);
     }

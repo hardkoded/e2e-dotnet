@@ -223,7 +223,16 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
             };
         }
 
-        return new ModelResponse { Content = text.Count == 0 ? null : string.Concat(text), ToolCalls = calls, Usage = usage, ReasoningItems = thinking };
+        var stop = ModelHttp.OptionalString(root, "stop_reason");
+        return new ModelResponse
+        {
+            Content = text.Count == 0 ? null : string.Concat(text),
+            ToolCalls = calls,
+            Usage = usage,
+            ReasoningItems = thinking,
+            FinishReason = ModelHttp.FinishReason(stop, "refusal"),
+            RawFinishReason = stop,
+        };
     }
 }
 

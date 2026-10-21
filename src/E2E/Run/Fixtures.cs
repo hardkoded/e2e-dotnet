@@ -63,13 +63,13 @@ public sealed class App
         _steps is null ? body() : _steps.RunAsync(StepKind.App, api, label, body);
 
     // A steering hook ends at a blank surface, so the app is reopened at its base URL
-    // through the same path as OpenAsync. Without a base URL there is nothing to reopen.
+    // inside the same step. Without a base URL there is nothing to reopen.
     private async Task SteerAsync(Func<CancellationToken, Task> hook, CancellationToken cancellationToken)
     {
         await hook(cancellationToken).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(_baseUrl))
         {
-            await OpenAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+            await _session.OpenAsync(Routes.Resolve(_baseUrl, null), cancellationToken).ConfigureAwait(false);
         }
     }
 

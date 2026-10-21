@@ -39,11 +39,5 @@ internal static class Runner
         _ => RunStatus.Failed,
     };
 
-    private static int AgentCodeExit(string code) => code switch
-    {
-        "ENVIRONMENT_UNAVAILABLE" or "APP_UNREACHABLE" or "APP_ALREADY_RUNNING" or "MODEL_PROVIDER_FAILED" or "CANCELLED" => 3,
-        "AUTH_CREDENTIAL_UNAVAILABLE" or "AUTH_CREDENTIAL_INVALID" or "SECRET_UNAVAILABLE" or "SEED_DATA_MISSING" or "TEST_SETUP_FAILED"
-            or "POLICY_DENIED" or "MODEL_UNAVAILABLE" or "REPLAY_STALE" => 2,
-        _ => 1,
-    };
+    private static int AgentCodeExit(string code) => ErrorSerializer.ExitCodeForCategory(AgentError.CategoryByCode.GetValueOrDefault(code, "test"));
 }

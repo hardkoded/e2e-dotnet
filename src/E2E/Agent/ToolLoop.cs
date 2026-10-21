@@ -268,6 +268,12 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             var turn = turns.Begin(response);
             if (response.ToolCalls.Count == 0)
             {
+                // A refusal is a verdict on the prompt, not a turn to coax a tool call out of.
+                if (string.Equals(response.FinishReason, ModelResponse.ContentFilter, StringComparison.Ordinal))
+                {
+                    throw ModelHttp.ModelRefusalError(model.Name, response.RawFinishReason, redactor);
+                }
+
                 turns.Note("turn " + turn.Index.ToString(CultureInfo.InvariantCulture) + " made no tool call: asking for one");
                 messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ReasoningItems = response.ReasoningItems });
                 messages.Add(new ModelMessage { Role = "user", Content = "Call a tool. End the step with done." });

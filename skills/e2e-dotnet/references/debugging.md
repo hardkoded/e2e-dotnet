@@ -142,6 +142,14 @@ jq '.run.results[] | select(.status != "passed") | .attempts[-1]
     | {status, error, failure, steps: [.steps[] | select(.status != "passed") | {api, label, source, status, error}], artifacts}' .e2e/report.json
 ```
 
+`run.exitCode` is the worst exit code of the results: 1 for a failed test,
+or the category of an attempt error when that is worse (2 `configuration`, 3
+`infrastructure`, 4 `internal`), and 130 for an interruption. `run.status` is
+`passed` for 0, `failed` for 1, `interrupted` for 130, and `error` otherwise.
+A run is `blocked` instead when every failing result carries a blockable
+code. Its exit code is still the worst one: 2 for `AUTH_CREDENTIAL_UNAVAILABLE`,
+1 for `STEP_BUDGET_EXHAUSTED`. Every attempt of a failed result counts, as upstream counts them.
+
 `run.errors` holds run-level failures. `run.summary` counts the selected
 results: `passed`, `failed` (timed out included), `interrupted`, `flaky`, and
 `skipped` add up to `selected`. `run.vcs` names the commit, the branch, and
@@ -188,6 +196,7 @@ model fields upstream measures (`peakTokensPerCall` reads 0). A judgment step's
 | `ASSERTION_FAILED` | Wrong expectation, or the state settles later than 5 s; for `AssertAsync`, a false judgment | Compare with the actual text in the message; `timeout` on the matcher; rewrite the statement. Do not loosen it to pass |
 | `ASSERTION_INCONCLUSIVE` | The judge could not decide from what the screen shows | Reach the right screen first; make the statement concrete and visible. When the answer is in pixels (a chart, a canvas), pass `Vision = VisionMode.On` |
 | `MODEL_OUTPUT_INVALID` | An `ExtractAsync` or `AssertAsync` answer failed after one repair round | Simplify the type or the question; pick a stronger model |
+| `MODEL_REFUSED` | The model refused the prompt (finish reason `content-filter`). Exit 1 | Rephrase the prompt or instruction, or switch to a different model |
 | `NOT_ACTIONABLE` | The element is covered, disabled, or does not take that input. The message names the last blocker Playwright logged, such as `<div class="toast">…</div> intercepts pointer events` | `Expect` the condition first. Close the overlay the message names |
 | `NODE_STALE` | The element left the page, or Playwright found more than one element (a strict mode violation) before any input was sent. The step looks again | Usually nothing. If it repeats, make the locator match one element |
 | `OPERATION_TIMEOUT` | A navigation or a page read (observe, `Browser.EvaluateAsync`, `Browser.TitleAsync`) did not finish within `actionTimeout`. A page stuck in a script fails here, not at the test timeout | Look for a script that never ends or a request that never answers. Raise `actionTimeout` only for a slow UI |

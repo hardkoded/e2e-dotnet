@@ -217,7 +217,15 @@ public sealed class BedrockModel : IAgentModel, IDisposable
             };
         }
 
-        return new ModelResponse { Content = text.Count == 0 ? null : string.Concat(text), ToolCalls = calls, Usage = usage };
+        var stop = ModelHttp.OptionalString(root, "stopReason");
+        return new ModelResponse
+        {
+            Content = text.Count == 0 ? null : string.Concat(text),
+            ToolCalls = calls,
+            Usage = usage,
+            FinishReason = ModelHttp.FinishReason(stop, "guardrail_intervened", "content_filtered"),
+            RawFinishReason = stop,
+        };
     }
 }
 

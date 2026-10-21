@@ -40,7 +40,7 @@ internal static class ErrorSerializer
     {
         return cause switch
         {
-            AgentException agent => ("test", agent.Code, agent.Message, false),
+            AgentException agent => (AgentError.CategoryByCode.GetValueOrDefault(agent.Code, "test"), agent.Code, agent.Message, false),
             TestException test => ("test", test.Code, test.Message, false),
             ConfigurationException configuration => ("configuration", configuration.Code, configuration.Message, false),
             EngineException engine => ("infrastructure", engine.Code, engine.Message, engine.Retryable),
@@ -48,6 +48,23 @@ internal static class ErrorSerializer
             OperationCanceledException => ("interrupted", Cancelled, cause.Message, false),
             _ => ("test", "ERROR", MessageWithCauses(cause), false),
         };
+    }
+
+    /// <summary>Maps a category to its process exit code (upstream's <c>exitCodeForCategory</c>).</summary>
+    public static int ExitCodeForCategory(string category) => category switch
+    {
+        "configuration" => 2,
+        "infrastructure" => 3,
+        "internal" => 4,
+        "interrupted" => 130,
+        _ => 1,
+    };
+
+    /// <summary>Combines exit codes for mixed outcomes using precedence 130, 4, 3, 2, 1, 0 (upstream's <c>combineExitCodes</c>).</summary>
+    public static int CombineExitCodes(IEnumerable<int> codes)
+    {
+        var all = codes.ToList();
+        return new[] { 130, 4, 3, 2, 1 }.FirstOrDefault(all.Contains);
     }
 
     /// <summary>

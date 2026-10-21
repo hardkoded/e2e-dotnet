@@ -235,7 +235,16 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
             };
         }
 
-        return new ModelResponse { Content = content, ToolCalls = calls, Usage = usage, ReasoningItems = reasoning };
+        var finish = ModelHttp.OptionalString(choice, "finish_reason");
+        return new ModelResponse
+        {
+            Content = content,
+            ToolCalls = calls,
+            Usage = usage,
+            ReasoningItems = reasoning,
+            FinishReason = ModelHttp.FinishReason(finish, "content_filter"),
+            RawFinishReason = finish,
+        };
     }
 }
 
