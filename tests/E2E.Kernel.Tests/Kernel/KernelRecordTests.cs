@@ -67,6 +67,7 @@ public sealed class KernelRecordTests : IDisposable
         var provider = Provider(fake, new KernelOptions { ReplayParams = new KernelReplayParams { Framerate = 20, MaxDurationInSeconds = 300 } });
 
         await provider.AcquireAsync(Request(), CancellationToken.None);
+
         var body = Assert.IsType<JsonObject>(Assert.Single(fake.Of("create")).Body);
         Assert.DoesNotContain(body, pair => pair.Key.Contains("replay", StringComparison.OrdinalIgnoreCase));
 

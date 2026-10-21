@@ -15,8 +15,8 @@ namespace E2E.Tests.EngineContract;
 /// engine-contributed fixtures, or the <c>requires</c> test option. The video tests of the file are in
 /// <c>VideoArtifactsTests</c>. Also not ported, with a feature gap: "names
 /// APP_UNREACHABLE, with the URL, when the network refused the navigation", "re-observes when an engine reports a retryable
-/// observation failure", and "fails an agent call when a non-retryable observation failure repeats". The last of the two
-/// vision-hint tests is partial and renamed: the port has no step record, so it cannot read the first judgment's
+/// observation failure", and "fails an agent call when a non-retryable observation failure repeats". Of the two vision-hint tests
+/// the file keeps, the second is partial and renamed: the port has no step record, so it cannot read the first judgment's
 /// <c>visionDegraded</c> or <c>visionInput</c>.
 /// </summary>
 public sealed class RunnerEngineContractTests
