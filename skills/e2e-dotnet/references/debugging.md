@@ -142,6 +142,14 @@ jq '.run.results[] | select(.status != "passed") | .attempts[-1]
     | {status, error, failure, steps: [.steps[] | select(.status != "passed") | {api, label, source, status, error}], artifacts}' .e2e/report.json
 ```
 
+`run.exitCode` is the worst exit code of the results: 1 for a failed test,
+or the category of an attempt error when that is worse (2 `configuration`, 3
+`infrastructure`, 4 `internal`), and 130 for an interruption. `run.status` is
+`passed` for 0, `failed` for 1, `interrupted` for 130, and `error` otherwise.
+A run is `blocked` instead when every failing result carries a blockable
+code. Its exit code is still the worst one: 2 for `AUTH_CREDENTIAL_UNAVAILABLE`,
+1 for `STEP_BUDGET_EXHAUSTED`. Every attempt of a failed result counts, as upstream counts them.
+
 `run.errors` holds run-level failures. `run.summary` counts the selected
 results: `passed`, `failed` (timed out included), `interrupted`, `flaky`, and
 `skipped` add up to `selected`. `run.vcs` names the commit, the branch, and

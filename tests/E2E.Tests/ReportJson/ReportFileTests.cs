@@ -117,6 +117,30 @@ public sealed class ReportFileTests : IDisposable
         Assert.Contains("wrong password <secret:password>", json, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("test", 1, "Failed")]
+    [InlineData("configuration", 2, "Error")]
+    [InlineData("infrastructure", 3, "Error")]
+    [InlineData("internal", 4, "Error")]
+    public void Exits_with_the_category_of_the_error_of_a_failed_result_when_that_is_worse_than_a_test_failure(string category, int exitCode, string status)
+    {
+        var failed = ReportBuilders.Result(attempts: [ReportBuilders.Attempt(AttemptStatus.Failed, ReportBuilders.Error() with { Category = category })]) with { Status = ResultStatus.Failed };
+
+        Assert.Equal((Enum.Parse<ReportRunStatus>(status), exitCode), ReportFile.StatusOf([failed]));
+    }
+
+    [Fact]
+    public void Exits_with_the_worst_exit_code_of_the_results()
+    {
+        var configuration = ReportBuilders.Result(id: new string('a', 64), attempts: [ReportBuilders.Attempt(AttemptStatus.Failed, ReportBuilders.Error() with { Category = "configuration" })]) with { Status = ResultStatus.Failed };
+        var failed = ReportBuilders.Result(id: new string('b', 64), attempts: [ReportBuilders.Attempt(AttemptStatus.Failed)]) with { Status = ResultStatus.Failed };
+        var interrupted = ReportBuilders.Result(id: new string('c', 64), attempts: [ReportBuilders.Attempt(AttemptStatus.Interrupted)]) with { Status = ResultStatus.Interrupted };
+
+        Assert.Equal((ReportRunStatus.Error, 2), ReportFile.StatusOf([failed, configuration]));
+        Assert.Equal((ReportRunStatus.Interrupted, 130), ReportFile.StatusOf([configuration, interrupted]));
+        Assert.Equal((ReportRunStatus.Passed, 0), ReportFile.StatusOf([]));
+    }
+
     [Fact]
     public async Task Asks_for_the_commit_once_per_project_root_however_many_sessions_ask_and_asks_again_after_a_failure()
     {

@@ -79,16 +79,36 @@ internal static class ReportFile
     public static string ProjectRootOf(string? projectRoot, string resultsRoot) =>
         projectRoot ?? Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(resultsRoot))!;
 
-    /// <summary>How a run stands, from its results alone: a failure outweighs an interruption, and neither is a pass.</summary>
+    /// <summary>
+    /// How a run stands, from its results alone (upstream's <c>statusOf</c> of the exit code that <c>verdictExitCodes</c> implies). A
+    /// blocked run reads <c>error</c> here and <c>blocked</c> once <see cref="BuildReport.DeriveRunStatus"/> has read its results.
+    /// </summary>
     internal static (ReportRunStatus Status, int ExitCode) StatusOf(IEnumerable<ReportResult> results)
     {
-        var all = results.ToList();
-        if (all.Any(result => result.Status is ResultStatus.Failed or ResultStatus.TimedOut))
-        {
-            return (ReportRunStatus.Failed, 1);
-        }
+        var exitCode = ErrorSerializer.CombineExitCodes(VerdictExitCodes(results));
+        return (exitCode switch { 0 => ReportRunStatus.Passed, 1 => ReportRunStatus.Failed, 130 => ReportRunStatus.Interrupted, _ => ReportRunStatus.Error }, exitCode);
+    }
 
-        return all.Any(result => result.Status == ResultStatus.Interrupted) ? (ReportRunStatus.Interrupted, 130) : (ReportRunStatus.Passed, 0);
+    /// <summary>The exit codes the verdicts imply: a failed result exits 1, or its attempts' error category when that is worse (upstream's <c>verdictExitCodes</c>).</summary>
+    private static IEnumerable<int> VerdictExitCodes(IEnumerable<ReportResult> results)
+    {
+        foreach (var result in results)
+        {
+            switch (result.Status)
+            {
+                case ResultStatus.Failed or ResultStatus.TimedOut:
+                    yield return 1;
+                    foreach (var error in result.Attempts.Select(attempt => attempt.Error).OfType<ReportError>())
+                    {
+                        yield return ErrorSerializer.ExitCodeForCategory(error.Category);
+                    }
+
+                    break;
+                case ResultStatus.Interrupted:
+                    yield return 130;
+                    break;
+            }
+        }
     }
 
     /// <summary>

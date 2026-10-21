@@ -166,9 +166,7 @@ public sealed class AgentActVerdictMappingTests
     }
 
     /// <summary>
-    /// Partial: the report's run exit code is 1 for a blocked run, where upstream's is 2 (the port's <c>ReportFile</c> knows only 0, 1,
-    /// and 130), so the exit code is not checked; the error message is the executor's summary alone, not
-    /// <c>agent.act blocked: &lt;summary&gt;</c>.
+    /// Partial: the error message is the executor's summary alone, not <c>agent.act blocked: &lt;summary&gt;</c>.
     /// </summary>
     [Fact]
     public async Task Partial_Maps_a_blocked_verdict_onto_its_error_code_and_the_configuration_exit_code()
@@ -193,6 +191,7 @@ public sealed class AgentActVerdictMappingTests
         var attempt = report.LastAttempt();
         Assert.Equal("failed", (string)report.Run()["results"]![0]!["status"]!);
         Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", (string)attempt["error"]!["code"]!);
+        Assert.Equal(2, (int)report.Run()["exitCode"]!);
         Assert.Equal("blocked", (string)report.Step("agent.act")["status"]!);
         Assert.Equal("blocked", (string)report.Run()["status"]!);
     }
