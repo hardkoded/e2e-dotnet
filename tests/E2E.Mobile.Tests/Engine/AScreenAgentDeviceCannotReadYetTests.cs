@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using static E2E.Mobile.Tests.Screens;
 
 namespace E2E.Mobile.Tests.Engine;
 
@@ -47,6 +48,25 @@ public sealed class AScreenAgentDeviceCannotReadYetTests
         var failure = await Assert.ThrowsAsync<EngineException>(() => session.LocateAsync(About, TimeSpan.FromSeconds(1), CancellationToken.None));
         Assert.Equal("ENGINE_FAILURE", failure.Code);
         Assert.Contains("insufficient foreground app content", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Locates_nothing_on_an_iOS_app_not_running_yet_after_a_launch_and_fails_on_one_that_exits_later()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        Task<IReadOnlyList<SemanticNode>> Locate() => session.LocateAsync(About, TimeSpan.FromSeconds(5), CancellationToken.None);
+        AgentDeviceError NotRunning() => new(
+            "COMMAND_FAILED",
+            "app 'com.foo' is not running",
+            new Dictionary<string, object?> { ["runnerErrorCode"] = "APP_NOT_RUNNING" });
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => throw NotRunning());
+        Assert.Empty(await Locate());
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
+        Assert.Single(await Locate());
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => throw NotRunning());
+        var failure = await Assert.ThrowsAsync<EngineException>(Locate);
+        Assert.Equal("ENGINE_FAILURE", failure.Code);
     }
 
     [Fact]
