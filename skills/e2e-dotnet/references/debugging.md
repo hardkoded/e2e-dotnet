@@ -134,7 +134,7 @@ every result of the process in a versioned schema, `schema/report-v1.schema.json
 (packed in the `E2E` package, and the same schema upstream ships). The file is
 written again, atomically, after each attempt, so `run.finishedAt` and
 `run.status` are those of the attempts so far. Two test processes that share an
-output directory overwrite one another's file.
+output directory (the parent of the results directory) overwrite one another's file.
 
 ```bash
 jq '.run | {status, exitCode, errors}' .e2e/report.json

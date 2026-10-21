@@ -109,8 +109,8 @@ with `Findings` and `Steps`. Severity words: critical 5, high 4, medium 3,
 low 2, trivial 1. The exit code is the verdict's: 0 when no issue was reported
 (warnings do not count), 1 for an issue or nothing explored, 2 for a
 configuration or policy error, 3 for an engine, app, or model provider
-failure, and 130 when interrupted. `.e2e/report.json` (in the `--output`
-directory) has the record under `run.explore`: the goal, the budgets, why the
+failure, and 130 when interrupted. `.e2e/report.json` (beside the results
+directory, so `--output out/results` gives `out/report.json`) has the record under `run.explore`: the goal, the budgets, why the
 run ended, the steps, and the findings. A finding's `artifactId` is left out:
 the port names the screenshot by its path, in the terminal and in `ExploreOutcome`.
 
@@ -189,7 +189,7 @@ the record, or a model.
 
 Findings are the model's claims plus evidence, not verified reproductions:
 read `Actual` against the screenshot before filing a bug. The port has no
-saved sessions (`--session`) or report file, so an
-exploration starts signed out and its record is the outcome (or what the
-command prints). A whole-app
+saved sessions (`--session`), so an
+exploration starts signed out. Its record is the outcome, what the command
+prints, and `run.explore` in `report.json`. A whole-app
 bug hunt (topic `bug-bash`) still has no fan-out.
