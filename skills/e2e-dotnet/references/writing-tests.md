@@ -252,7 +252,9 @@ close to its screen as the app allows:
 
 - Sign in outside the flow, not through the sign-in form of every test. The
   port has no saved `session`, so do it in the framework's per-test setup
-  (NUnit `[SetUp]`, xUnit v3 `InitializeAsync`): request the app's sign-in
+  (NUnit `[SetUp]`, xUnit v3 `InitializeAsync`, which calls
+  `await base.InitializeAsync()` first, since the base starts the session):
+  request the app's sign-in
   API with an `HttpClient`, then pass its cookies to `Browser.SetCookiesAsync`. Click through the form only in the
   test that covers it ("Sign-in").
 - Open the screen by its path, `App.OpenAsync("/projects/42/settings")`, not
@@ -262,21 +264,36 @@ close to its screen as the app allows:
   app signs in with a cookie, the same `HttpClient` signs the setup's
   requests in. Check the response in the setup: a failed seed then fails
   there, not at the action timeout on a locator. Delete the data in the
-  teardown (NUnit `[TearDown]`, xUnit v3 `DisposeAsync`), which runs after a
-  failure too.
+  teardown (NUnit `[TearDown]`, xUnit v3 `DisposeAsync`, which cleans up
+  before it calls the base), which runs after a failure too. A `Secret` from
+  `Credentials.User` cannot go into a request body: read the account for the
+  API from your own variables.
 
 ```csharp
+private HttpClient _api = null!;
+private string _projectId = "";
+
 [SetUp]
 public async Task CreateProject()
 {
-    var admin = Credentials.User("admin");
+    // A Secret cannot go into a request body, so a setup that calls the API
+    // reads its own test account, such as these variables.
+    var email = Environment.GetEnvironmentVariable("APP_ADMIN_EMAIL");
+    var password = Environment.GetEnvironmentVariable("APP_ADMIN_PASSWORD");
     var jar = new CookieContainer();
-    using var api = new HttpClient(new HttpClientHandler { CookieContainer = jar }) { BaseAddress = new Uri(App.BaseUrl) };
-    (await api.PostAsJsonAsync("/api/sign-in", new { email = admin.Username, password = admin.Password })).EnsureSuccessStatusCode();
+    _api = new HttpClient(new HttpClientHandler { CookieContainer = jar }) { BaseAddress = new Uri(App.BaseUrl!) };
+    (await _api.PostAsJsonAsync("/api/sign-in", new { email, password })).EnsureSuccessStatusCode();
     await Browser.SetCookiesAsync(jar.GetAllCookies().Select(c => new BrowserCookie { Name = c.Name, Value = c.Value, Url = App.BaseUrl }).ToList());
-    var created = await api.PostAsJsonAsync("/api/projects", new { name = $"Project {Guid.NewGuid()}" });
+    var created = await _api.PostAsJsonAsync("/api/projects", new { name = $"Project {Guid.NewGuid()}" });
     created.EnsureSuccessStatusCode(); // a failed seed fails here
     _projectId = (await created.Content.ReadFromJsonAsync<Project>())!.Id;
+}
+
+[TearDown]
+public async Task DeleteProject()
+{
+    await _api.DeleteAsync($"/api/projects/{_projectId}"); // runs after a failure too
+    _api.Dispose();
 }
 
 [Test]

@@ -74,8 +74,9 @@ public sealed class BillingTests : E2ETest
    atomic goal per call, and pin each outcome right after with `Expect.That`
    or `Agent.AssertAsync`. A test with three goals makes three calls.
    Start it on the screen it covers, since every rerun pays for the steps
-   before: in a browser a sign-in done once outside the flow (cookies set
-   with `Browser.SetCookiesAsync`) instead of the sign-in form, and
+   before: in a browser a sign-in through the app's API in the test's setup
+   (cookies set with `Browser.SetCookiesAsync`; a `Secret` cannot go into a
+   request body, so that setup reads its own test account) instead of the sign-in form, and
    `App.OpenAsync` on that screen's path; on a device `Device.OpenLinkAsync`;
    and data from the app's API (topic `writing-tests`). Exact values go
    through `Screen`.
