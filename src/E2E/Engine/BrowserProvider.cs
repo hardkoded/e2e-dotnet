@@ -376,7 +376,7 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
         IReadOnlyList<string>? released;
         try
         {
-            released = await RaceAbortAsync(provider.SweepAsync(context, cancellationToken), cancellationToken, $"sweeping browsers of \"{Name}\"").ConfigureAwait(false);
+            released = await Timing.RaceAbortAsync(() => provider.SweepAsync(context, cancellationToken), cancellationToken, $"sweeping browsers of \"{Name}\"").ConfigureAwait(false);
         }
         catch (Exception cause)
         {
@@ -646,7 +646,7 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
         var run = RequireRun();
         try
         {
-            await RaceAbortAsync(provider.ReleaseAsync(lease, ReleaseContext(run), cleanup), cleanup, $"releasing browser {lease.Id}").ConfigureAwait(false);
+            await Timing.RaceAbortAsync(() => provider.ReleaseAsync(lease, ReleaseContext(run), cleanup), cleanup, $"releasing browser {lease.Id}").ConfigureAwait(false);
         }
         catch (Exception cause) when (cause is not EngineException)
         {
@@ -673,31 +673,6 @@ internal sealed partial class LeasedBrowsers(IBrowserProvider provider)
 
     private static BrowserReleaseContext ReleaseContext(WorkerRun run) =>
         new() { RunId = run.RunId, TargetName = run.TargetName, Env = run.Env, Log = run.Log };
-
-    /// <summary>Checks cancellation before waiting, then abandons the wait on abort.</summary>
-    private static async Task<T> RaceAbortAsync<T>(Task<T> work, CancellationToken cancellationToken, string label)
-    {
-        try
-        {
-            return await work.WaitAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw new EngineException(EngineErrorCodes.Cancelled, label + " cancelled", retryable: false);
-        }
-    }
-
-    private static async Task RaceAbortAsync(Task work, CancellationToken cancellationToken, string label)
-    {
-        try
-        {
-            await work.WaitAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw new EngineException(EngineErrorCodes.Cancelled, label + " cancelled", retryable: false);
-        }
-    }
 
     /// <summary>Runs every task, then reports the first failure: nothing is skipped because a sibling failed.</summary>
     private static async Task<List<T>> AllOrFirstFailureAsync<T>(IEnumerable<Func<Task<T>>> tasks, string describe)
