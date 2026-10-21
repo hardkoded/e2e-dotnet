@@ -215,7 +215,15 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
   `TESTMU_ACCESS_KEY`) in the environment that starts the tests.
   `TestMuBrowsersOptions` sets `BrowserName` (a Chromium browser), `BrowserVersion`,
   `Platform`, `Build`, `Video`, `Network`, `Console`, `TunnelName`,
-  `GeoLocation`, and `Capabilities` for any other `LT:Options` entry. The
+  `GeoLocation`, and `Capabilities` for any other `LT:Options` entry.
+  `project` defaults to `e2e` and `idleTimeout` to 600 seconds. For Edge
+  (`BrowserName = "MicrosoftEdge"`), the provider adds
+  `--user-data-dir=remote-debug-profile-edge` to `browserOptions` unless a
+  `--user-data-dir=` is there. `new TestMuBrowsers(options)` throws
+  `ConfigurationException` (`INVALID_CONFIG`) for a `Capabilities` entry named
+  `LT:Options`, `browserName`, `user`, `accessKey`, or `name`, a
+  `browserOptions` that is not an array of strings, or a number JSON cannot
+  encode. The
   engine connects with Playwright's own protocol (`BrowserLease.Protocol` is
   `Playwright`), not CDP, and opens its own browser context. The
   dashboard shows the sessions without a Passed or Failed mark, because e2e
