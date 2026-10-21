@@ -24,8 +24,9 @@ Chromium. An `ios` or `android` target with `app.bundleId` or `app.appPath` runs
 on a simulator or emulator through `MobileEngine`: it needs Node 22.12 or newer
 and a booted device, and `E2E_MOBILE_DEVICE` names one (see
 [mobile.md](mobile.md)). Hosted devices (`E2E_MOBILE_PROVIDER` other than
-`local`) are not supported by `e2e explore` yet. `Explore.ExploreAsync` takes
-`ExploreOptions.Engine` for an engine of your own.
+`local`) are not supported by `e2e explore` yet. `e2e explore` supplies the
+device engine; a library caller of `Explore.ExploreAsync` with an `ios` or
+`android` target must set `ExploreOptions.Engine`.
 
 ```bash
 e2e explore   # goal: "Explore the app and find bugs"

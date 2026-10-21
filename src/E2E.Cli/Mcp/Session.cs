@@ -295,6 +295,11 @@ internal sealed class SessionHost : IDisposable
         {
             abort.Token.ThrowIfCancellationRequested();
             var engine = _options.CreateEngine(target, headed);
+            if (engine.Capabilities.HasFlag(EngineCapabilities.PinnedApp))
+            {
+                _sessions.ClaimDevice(id, target.Name);
+            }
+
             session = await E2ESession.StartAsync(
                 new E2ESessionOptions
                 {

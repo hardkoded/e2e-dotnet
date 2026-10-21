@@ -327,6 +327,20 @@ public sealed class SessionHostTests : IDisposable
         await host.CloseAsync("done");
     }
 
+    /// <summary>.NET-only: upstream refuses a second session on one engine instance (<c>ENGINE_IN_USE</c>); the port refuses a second on one device.</summary>
+    [Fact]
+    public async Task Refuses_a_second_session_on_a_device_target_until_the_first_closes()
+    {
+        var device = Host(new FakeEngine { Also = EngineCapabilities.PinnedApp }, maxSessions: 2);
+        var first = SessionId(await device.OpenAsync(new OpenSessionOptions()));
+        var other = await Assert.ThrowsAsync<ConfigurationException>(() => device.OpenAsync(new OpenSessionOptions()));
+        Assert.Equal("ENGINE_IN_USE", other.Code);
+        Assert.Contains($"session {first} is driving it", other.Message, StringComparison.Ordinal);
+        await device.CloseAsync("done", first);
+        await device.OpenAsync(new OpenSessionOptions());
+        await device.CloseAsync("done");
+    }
+
     private static JsonElement Json(string json)
     {
         using var document = JsonDocument.Parse(json);

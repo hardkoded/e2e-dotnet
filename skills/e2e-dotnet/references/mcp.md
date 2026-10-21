@@ -126,7 +126,9 @@ The loop is:
    straight to it instead of walking the flow again from the start:
    `navigate` to its path, then `observe` and `locate`. Upstream's device
    session (the shortest path from the launch screen) has no port yet
-   (issue #484): `e2e mcp` opens a device session on the launch screen only.
+   (issue #484): `e2e mcp` opens a device session without launching the app,
+   so it starts on the device's current screen. A second session on a device
+   target fails with `ENGINE_IN_USE` until the first closes.
 5. `close_session` when you are done.
 
 ## Rules
