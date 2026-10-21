@@ -24,7 +24,7 @@ public sealed class TypedReportTests
         run.Remove("carried");
         Strip(document);
 
-        var difference = FirstDifference(document, JsonNode.Parse(ReportSerializer.Write(report)), "$");
+        var difference = FirstDifference(document, JsonNode.Parse(ReportJsonWriter.Write(report)), "$");
         Assert.True(difference.Length == 0, difference);
     }
 

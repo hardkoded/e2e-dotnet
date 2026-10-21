@@ -5,6 +5,7 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using E2E.Tests.FailureEvidence;
+using E2E.Tests.TypedReport;
 
 namespace E2E.Tests.OpenHostReport;
 
@@ -55,7 +56,7 @@ public sealed class OpenHostReportTests : IDisposable
                 Assert.Matches("^[a-f0-9]{64}$", artifact.Sha256!);
             }
 
-            var original = ReportSerializer.Write(report);
+            var original = ReportJsonWriter.Write(report);
             Assert.Same(report, session.Report());
 
             var next = await StartAsync(engine, "next attempt");
@@ -65,7 +66,7 @@ public sealed class OpenHostReportTests : IDisposable
                 next.Complete();
                 await next.DisposeAsync();
                 Assert.Equal(next.AttemptId, next.Report()!.Run.Results[0].Attempts[0].Id);
-                Assert.Equal(original, ReportSerializer.Write(session.Report()));
+                Assert.Equal(original, ReportJsonWriter.Write(session.Report()));
             }
             finally
             {
@@ -99,21 +100,21 @@ public sealed class OpenHostReportTests : IDisposable
 
         // The typed report tells the whole document, bar the serial groups the port has none of.
         document["run"]!.AsObject().Remove("serialGroups");
-        Assert.True(JsonNode.DeepEquals(document, JsonNode.Parse(ReportSerializer.Write(written))), "The typed report must tell the document of report.json.");
+        Assert.True(JsonNode.DeepEquals(document, JsonNode.Parse(ReportJsonWriter.Write(written))), "The typed report must tell the document of report.json.");
         var report = session.Report()!;
         var fromFile = written.Run.Results[0];
         Assert.NotEqual("unknown", fromFile.Source.File);
         Assert.Equal("TEST_FAILED", fromFile.Attempts[0].Error!.Code);
-        Assert.Equal(ReportSerializer.Write(fromFile), ReportSerializer.Write(report.Run.Results[0]));
-        Assert.Equal(ReportSerializer.Write(written.Run.Status), ReportSerializer.Write(report.Run.Status));
+        Assert.Equal(ReportJsonWriter.Write(fromFile), ReportJsonWriter.Write(report.Run.Results[0]));
+        Assert.Equal(ReportJsonWriter.Write(written.Run.Status), ReportJsonWriter.Write(report.Run.Status));
         Assert.Equal(written.Run.ExitCode, report.Run.ExitCode);
-        Assert.Equal(ReportSerializer.Write(written.Run.Project), ReportSerializer.Write(report.Run.Project));
-        Assert.Equal(ReportSerializer.Write(written.Run.Environment), ReportSerializer.Write(report.Run.Environment));
-        Assert.Equal(ReportSerializer.Write(written.Run.Vcs), ReportSerializer.Write(report.Run.Vcs));
-        Assert.Equal(ReportSerializer.Write(written.Run.Targets), ReportSerializer.Write(report.Run.Targets));
-        Assert.Equal(ReportSerializer.Write(written.Run.Summary), ReportSerializer.Write(report.Run.Summary));
-        Assert.Equal(ReportSerializer.Write(written.Run.Limits), ReportSerializer.Write(report.Run.Limits));
-        Assert.Equal(ReportSerializer.Write(written.Run.Usage), ReportSerializer.Write(report.Run.Usage));
+        Assert.Equal(ReportJsonWriter.Write(written.Run.Project), ReportJsonWriter.Write(report.Run.Project));
+        Assert.Equal(ReportJsonWriter.Write(written.Run.Environment), ReportJsonWriter.Write(report.Run.Environment));
+        Assert.Equal(ReportJsonWriter.Write(written.Run.Vcs), ReportJsonWriter.Write(report.Run.Vcs));
+        Assert.Equal(ReportJsonWriter.Write(written.Run.Targets), ReportJsonWriter.Write(report.Run.Targets));
+        Assert.Equal(ReportJsonWriter.Write(written.Run.Summary), ReportJsonWriter.Write(report.Run.Summary));
+        Assert.Equal(ReportJsonWriter.Write(written.Run.Limits), ReportJsonWriter.Write(report.Run.Limits));
+        Assert.Equal(ReportJsonWriter.Write(written.Run.Usage), ReportJsonWriter.Write(report.Run.Usage));
     }
 
     [Fact]

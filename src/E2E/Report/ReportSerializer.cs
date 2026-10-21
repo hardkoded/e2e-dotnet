@@ -10,29 +10,24 @@ using E2E.Reports;
 namespace E2E;
 
 /// <summary>
-/// Reads a report-1 document (the JSON <see cref="ReportWire"/> writes) into a <see cref="Report"/>, and writes a <see cref="Report"/> back
-/// in the same spelling. .NET-only: upstream's <c>Report</c> is the object the document is built from, and the port builds the document
+/// Reads a report-1 document (the JSON <see cref="ReportWire"/> writes) into a <see cref="Report"/>. .NET-only: upstream's <c>Report</c> is the object the document is built from, and the port builds the document
 /// as JSON, so the typed form is read from it. The document stays the single source of what a report says.
 /// </summary>
 internal static class ReportSerializer
 {
-    /// <summary>Camel-case names, enum values in the schema's spelling, and no member for an absent value.</summary>
+    /// <summary>Camel-case names and enum values in the schema's spelling.</summary>
     public static JsonSerializerOptions Options { get; } = CreateOptions();
 
     /// <summary>The typed form of <paramref name="document"/>, a document <see cref="ReportWire.Document(Report1Document, IReadOnlyDictionary{string, JsonNode}, string?)"/> wrote.</summary>
     public static Report Read(JsonObject document) =>
         document.Deserialize<Report>(Options) ?? throw new InvalidOperationException("The report document is empty.");
 
-    /// <summary>The document of <paramref name="report"/>, or any part of it, as JSON text. Test-only: the document has no <c>serialGroups</c> member, which the schema requires.</summary>
-    public static string Write<T>(T report) => JsonSerializer.Serialize(report, Options);
-
     private static JsonSerializerOptions CreateOptions()
     {
         var options = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            Converters = { new TimestampConverter(), new ReportExploreConverter() },
+            Converters = { new ReportExploreConverter() },
         };
 
         // The schema spells an enum value in kebab case (timed-out), but the hook phases in camel case (beforeEach) and a vision degradation
@@ -48,14 +43,6 @@ internal static class ReportSerializer
         }
 
         return options;
-    }
-
-    /// <summary>A moment in the spelling the schema requires: UTC with milliseconds.</summary>
-    private sealed class TimestampConverter : JsonConverter<DateTimeOffset>
-    {
-        public override DateTimeOffset Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => reader.GetDateTimeOffset();
-
-        public override void Write(Utf8JsonWriter writer, DateTimeOffset value, JsonSerializerOptions options) => writer.WriteStringValue(ReportWire.Timestamp(value));
     }
 
     /// <summary>
@@ -96,7 +83,6 @@ internal static class ReportSerializer
                 (string?)node["summary"]);
         }
 
-        public override void Write(Utf8JsonWriter writer, ReportExplore value, JsonSerializerOptions options) =>
-            ReportWire.Explore(value).WriteTo(writer);
+        public override void Write(Utf8JsonWriter writer, ReportExplore value, JsonSerializerOptions options) => throw new NotSupportedException();
     }
 }
