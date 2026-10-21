@@ -269,7 +269,8 @@ public sealed class PreparedEnginesTests
         // The run ends while the pool is still listing devices; warm then opens a session and its boot fails.
         await h.Engine.FinishAsync(new MobileFinishInfo { RunId = "run", TargetName = info.TargetName, Env = info.Env, Log = _ => { }, CleanupTimeout = TimeSpan.FromSeconds(5) }, CancellationToken.None);
         go.SetResult();
-        await Assert.ThrowsAnyAsync<Exception>(() => preparing);
+        var failure = await Assert.ThrowsAnyAsync<Exception>(() => preparing);
+        Assert.Contains("no simulator", failure.Message, StringComparison.Ordinal);
         Assert.Contains("sessions.close", h.Fake.Methods());
     }
 
