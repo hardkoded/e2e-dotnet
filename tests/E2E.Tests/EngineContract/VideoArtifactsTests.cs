@@ -16,9 +16,10 @@ namespace E2E.Tests.EngineContract;
 /// </summary>
 public sealed class VideoArtifactsTests : IDisposable
 {
-    private readonly string _results = Directory.CreateTempSubdirectory("e2e-video-artifacts-").FullName;
+    // The output directory holds the results and the run's report.json beside them.
+    private readonly string _results = Path.Combine(Directory.CreateTempSubdirectory("e2e-video-artifacts-").FullName, "results");
 
-    public void Dispose() => Directory.Delete(_results, recursive: true);
+    public void Dispose() => Directory.Delete(Path.GetDirectoryName(_results)!, recursive: true);
 
     [Fact]
     public async Task Applies_video_best_effort_an_engine_that_cannot_record_runs_without_one_PARTIAL_the_run_says_nothing()

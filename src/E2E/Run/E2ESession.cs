@@ -290,7 +290,7 @@ public sealed class E2ESession : IAsyncDisposable
                 CancellationToken = timeout.Token,
             };
             var keep = RecordingModes.AttemptKeep(options.Trace.Mode, options.Attempt - 1);
-            var trace = new TraceOutput(keep, attemptDir, (options.Cache as FileStepCache)?.CacheDirectory, options.Trace.Mode != RecordingMode.Off);
+            var trace = new TraceOutput(keep, attemptDir, (options.Cache as FileStepCache)?.CacheDirectory);
             return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _trace = trace };
         }
         catch
@@ -607,27 +607,28 @@ public sealed class E2ESession : IAsyncDisposable
         var kept = trace.Keep is { } keep && RecordingModes.Keeps(keep, _status);
         try
         {
-            // Nothing reads the report of a mode that is off, and a first attempt that passed and keeps nothing has none to build.
-            var untraced = !trace.Records || (!kept && _scope.Attempt == 1 && _status is (AttemptStatus.Passed or AttemptStatus.Skipped));
-            if (untraced)
+            // Every attempt joins its test's report, and the run's report.json tells them all.
+            var (single, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Videos, Exploration, _evidence);
+            var (report, traced, redact) = RunReport.Add(single, trace.ResultsRoot, _scope.Attempt, kept, _scope.Redactor.Redact);
+            if (traced)
             {
-                RunReport.Forget(trace.ResultsRoot, AttemptReport.ResultId(_scope.TestFile, _scope.TestTitle));
+                await TracePages.WriteTracePagesAsync(
+                    report,
+                    new HashSet<string>(StringComparer.Ordinal) { id },
+                    new WriteTracePagesOptions(_scope.ProjectRoot!, trace.ResultsRoot, trace.CacheDir),
+                    redact).ConfigureAwait(false);
             }
 
-            var traced = false;
-            if (!untraced)
+            // The document is a courtesy too: the page above is still written when it cannot be.
+            try
             {
-                var (single, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Videos, Exploration, _evidence);
-                var (report, anyKept, redact) = RunReport.Add(single, trace.ResultsRoot, _scope.Attempt, kept, _scope.Redactor.Redact);
-                traced = anyKept;
-                if (traced)
-                {
-                    await TracePages.WriteTracePagesAsync(
-                        report,
-                        new HashSet<string>(StringComparer.Ordinal) { id },
-                        new WriteTracePagesOptions(_scope.ProjectRoot!, trace.ResultsRoot, trace.CacheDir),
-                        redact).ConfigureAwait(false);
-                }
+                await ReportFile.WriteAsync(report, _scope.ProjectRoot ?? Path.GetDirectoryName(trace.ResultsRoot)!, trace.ResultsRoot, redact).ConfigureAwait(false);
+            }
+#pragma warning disable CA1031 // The document is a courtesy: whatever fails in building it must not fail a test that passed.
+            catch (Exception ex) when (ex is not OperationCanceledException)
+#pragma warning restore CA1031
+            {
+                Console.Error.WriteLine("[e2e] could not write " + ReportFile.FileName + " for " + _scope.TestTitle + ": " + _scope.Redactor.Redact(ex.Message));
             }
 
             if (!traced && _scope.Attempt == 1)

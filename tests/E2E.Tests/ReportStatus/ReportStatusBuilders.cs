@@ -7,8 +7,8 @@ using E2E.Internal;
 namespace E2E.Tests.ReportStatus;
 
 /// <summary>
-/// The helpers of upstream's <c>tests/unit/report-status.test.ts</c>. Upstream's <c>build</c> also asserts that the document is valid
-/// report-1; the port does not write the wire form yet, so the tests here check the records.
+/// The helpers of upstream's <c>tests/unit/report-status.test.ts</c>. As upstream's <c>build</c> does, <see cref="Build"/> asserts that
+/// the document is valid report-1.
 /// </summary>
 internal static class ReportStatusBuilders
 {
@@ -35,14 +35,20 @@ internal static class ReportStatusBuilders
         int exitCode = 1,
         IReadOnlyList<ReportError>? runErrors = null,
         string? projectRoot = null) =>
-        BuildReport.Build(new BuildReportOptions
+        Valid(BuildReport.Build(new BuildReportOptions
         {
-            RunId = "run-1",
+            RunId = Guid.CreateVersion7().ToString(),
             StartedAt = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
             Status = status,
             ExitCode = exitCode,
             Results = results ?? [],
             RunErrors = runErrors ?? [],
             ProjectRoot = projectRoot,
-        });
+        }));
+
+    private static Report1Document Valid(Report1Document document)
+    {
+        ReportSchema.AssertValidReport(ReportWire.Document(document, "results"));
+        return document;
+    }
 }

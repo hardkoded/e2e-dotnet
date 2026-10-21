@@ -175,7 +175,7 @@ internal sealed class VisionRun
             TestTitle = "agent vision",
             AssertionTimeout = TimeSpan.FromSeconds(4),
             TestTimeout = TimeSpan.FromSeconds(60),
-            ResultsDirectory = Path.Combine(Path.GetTempPath(), "e2e-vision-" + Guid.NewGuid().ToString("N")),
+            ResultsDirectory = Path.Combine(Path.GetTempPath(), "e2e-vision-" + Guid.NewGuid().ToString("N"), "results"),
         });
         Exception? error = null;
         try

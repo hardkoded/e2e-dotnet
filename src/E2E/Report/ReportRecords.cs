@@ -81,8 +81,14 @@ internal enum ResultStatus
 /// <param name="Details">The structured facts of the error, when the thrower had them.</param>
 internal sealed record ReportError(string Code, string Message, string? Phase = null, SourceLocation? Source = null, ErrorDetails? Details = null)
 {
+    /// <summary><c>test</c>, <c>configuration</c>, <c>infrastructure</c>, <c>internal</c>, or <c>interrupted</c>.</summary>
+    public string Category { get; init; } = "test";
+
+    /// <summary>Whether the caller may observe again and repeat the operation.</summary>
+    public bool Retryable { get; init; }
+
     /// <summary>The report's error for a serialized one.</summary>
-    public static ReportError Of(SerializedError error, string? phase = null) => new(error.Code, error.Message, phase, error.Source, error.Details);
+    public static ReportError Of(SerializedError error, string? phase = null) => new(error.Code, error.Message, phase, error.Source, error.Details) { Category = error.Category, Retryable = error.Retryable };
 }
 
 /// <summary>A file or link an attempt kept (upstream's <c>ReportArtifact</c>).</summary>
@@ -115,9 +121,33 @@ internal sealed partial record FailureEvidence
     public string? Screen { get; init; }
 }
 
+/// <summary>How an attempt's teardown ended (upstream's attempt <c>cleanup</c>).</summary>
+internal enum AttemptCleanup
+{
+    Complete,
+    Failed,
+    Forced,
+}
+
+/// <summary>Why an attempt skipped (upstream's <c>SkipInfo</c>).</summary>
+/// <param name="Cause">One of the schema's causes, such as <c>explicit</c> for a test that called <c>Skip</c>.</param>
+/// <param name="Reason">The reason, redacted.</param>
+internal sealed record ReportSkip(string Cause, string Reason);
+
 /// <summary>One attempt of a test, as a page reads it (upstream's <c>ReportAttempt</c> and <c>AttemptView</c> in one).</summary>
 internal sealed record ReportAttempt
 {
+    /// <summary>The attempt's id, a UUID version 7; also the head of its steps' ids.</summary>
+    public string Id { get; init; } = "";
+
+    /// <summary>When the attempt began; null for a record built by hand, which reads as its first step's start.</summary>
+    public DateTimeOffset? StartedAt { get; init; }
+
+    public AttemptCleanup Cleanup { get; init; } = AttemptCleanup.Complete;
+
+    /// <summary>Why the attempt skipped; set on a skipped attempt.</summary>
+    public ReportSkip? Skip { get; init; }
+
     public AttemptStatus Status { get; init; } = AttemptStatus.Passed;
 
     public long DurationMs { get; init; }
@@ -156,6 +186,9 @@ internal sealed record ReportResult
     public SourceLocation Source { get; init; } = new("unknown", 0, 0);
 
     public string TargetId { get; init; } = "web";
+
+    /// <summary>The platform of the result's target; blank for a record built by hand, which reads as its target's.</summary>
+    public string Platform { get; init; } = "";
 
     public string Agent { get; init; } = "default";
 

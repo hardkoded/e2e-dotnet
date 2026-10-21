@@ -149,7 +149,7 @@ public sealed class VisionOnWaitForAndExtractTests
             AssertionTimeout = TimeSpan.FromSeconds(2),
             TestTimeout = TimeSpan.FromSeconds(10),
             StepTimeout = TimeSpan.FromSeconds(5),
-            ResultsDirectory = Path.Combine(Path.GetTempPath(), "e2e-vision-" + Guid.NewGuid().ToString("N")),
+            ResultsDirectory = Path.Combine(Path.GetTempPath(), "e2e-vision-" + Guid.NewGuid().ToString("N"), "results"),
         });
         Exception? error = null;
         try

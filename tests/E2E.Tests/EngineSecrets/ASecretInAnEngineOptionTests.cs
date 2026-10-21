@@ -54,7 +54,7 @@ public sealed class ASecretInAnEngineOptionTests
             TestTitle = "judges the echo with vision on",
             AssertionTimeout = TimeSpan.FromSeconds(4),
             TestTimeout = TimeSpan.FromSeconds(30),
-            ResultsDirectory = Path.Combine(Path.GetTempPath(), "e2e-echo-" + Guid.NewGuid().ToString("N")),
+            ResultsDirectory = Path.Combine(Path.GetTempPath(), "e2e-echo-" + Guid.NewGuid().ToString("N"), "results"),
         });
         await session.App.OpenAsync("/basic-auth");
         await session.Agent.AssertAsync("the page shows a Basic credential", new AssertOptions { Vision = VisionMode.On });

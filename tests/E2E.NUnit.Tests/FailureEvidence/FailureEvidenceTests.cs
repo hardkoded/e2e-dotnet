@@ -18,18 +18,18 @@ public sealed class FailureEvidenceTests
     [SetUp]
     public void ClearResults()
     {
-        if (Directory.Exists(TeardownFixture.Results))
+        if (Directory.Exists(Path.GetDirectoryName(TeardownFixture.Results)))
         {
-            Directory.Delete(TeardownFixture.Results, recursive: true);
+            Directory.Delete(Path.GetDirectoryName(TeardownFixture.Results)!, recursive: true);
         }
     }
 
     [OneTimeTearDown]
     public void RemoveResults()
     {
-        if (Directory.Exists(TeardownFixture.Results))
+        if (Directory.Exists(Path.GetDirectoryName(TeardownFixture.Results)))
         {
-            Directory.Delete(TeardownFixture.Results, recursive: true);
+            Directory.Delete(Path.GetDirectoryName(TeardownFixture.Results)!, recursive: true);
         }
     }
 

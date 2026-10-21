@@ -7,7 +7,7 @@ using static E2E.Tests.ReportStatus.ReportStatusBuilders;
 
 namespace E2E.Tests.ReportStatus;
 
-/// <summary>Upstream's <c>describe('result source')</c> (<c>tests/unit/report-status.test.ts</c>). Partial: upstream also asserts that the document is valid report-1.</summary>
+/// <summary>Upstream's <c>describe('result source')</c> (<c>tests/unit/report-status.test.ts</c>).</summary>
 public sealed class ResultSourceTests
 {
     private static ReportResult DeclaredAt(string file) => FailedResult(ProductFailure) with { Source = new SourceLocation(file, 7, 3) };

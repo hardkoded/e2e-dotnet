@@ -109,7 +109,10 @@ with `Findings` and `Steps`. Severity words: critical 5, high 4, medium 3,
 low 2, trivial 1. The exit code is the verdict's: 0 when no issue was reported
 (warnings do not count), 1 for an issue or nothing explored, 2 for a
 configuration or policy error, 3 for an engine, app, or model provider
-failure, and 130 when interrupted. The port writes no `report.json`.
+failure, and 130 when interrupted. `.e2e/report.json` (in the `--output`
+directory) has the record under `run.explore`: the goal, the budgets, why the
+run ended, the steps, and the findings. A finding's `artifactId` is left out:
+the port names the screenshot by its path, in the terminal and in `ExploreOutcome`.
 
 ## Budgets
 

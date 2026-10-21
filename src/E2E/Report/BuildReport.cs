@@ -18,6 +18,12 @@ internal sealed record BuildReportOptions
 
     public IReadOnlyList<TargetConfig> Targets { get; init; } = [];
 
+    /// <summary>
+    /// Targets already described, for a session that knows its engine and its app but holds no <see cref="TargetConfig"/> (.NET-only). They
+    /// come after <see cref="Targets"/>, and a name in both reads as the config's.
+    /// </summary>
+    public IReadOnlyList<ReportTarget> ReportTargets { get; init; } = [];
+
     public required DateTimeOffset StartedAt { get; init; }
 
     public required ReportRunStatus Status { get; init; }
@@ -257,7 +263,7 @@ internal static class BuildReport
         new(target.Name, index, target.Platform, provenance, "test", BaseOrigin(target.App.Url));
 
     // The origin as a URL spells it: scheme, host, and a port the scheme does not imply, with no credentials. Only a web origin has one.
-    private static string? BaseOrigin(string? url) =>
+    internal static string? BaseOrigin(string? url) =>
         url is not null && Uri.TryCreate(url, UriKind.Absolute, out var parsed) && parsed.Scheme is "http" or "https"
             ? parsed.Scheme + "://" + (parsed.HostNameType == UriHostNameType.IPv6 ? "[" + parsed.IdnHost + "]" : parsed.IdnHost) + (parsed.IsDefaultPort ? "" : ":" + parsed.Port.ToString(System.Globalization.CultureInfo.InvariantCulture))
             : null;
@@ -268,19 +274,28 @@ internal static class BuildReport
         var targets = options.Targets
             .Select((target, index) => SerializeTarget(target, index, options.TargetProvenance.TryGetValue(target.Name, out var found) ? found : DescribeTarget(null)))
             .ToList();
-        var targetIndex = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (var (target, index) in options.Targets.Select((target, index) => (target, index)))
+        foreach (var described in options.ReportTargets.Where(each => targets.All(known => known.Id != each.Id)))
         {
-            targetIndex[target.Name] = index;
+            targets.Add(described with { Index = targets.Count });
         }
 
+        var targetIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var target in targets)
+        {
+            targetIndex[target.Id] = target.Index;
+        }
 
         // Report order is completion-time independent.
         var results = options.Results
             .OrderBy(result => result.File, StringComparer.Ordinal)
             .ThenBy(result => result.DeclarationIndex)
             .ThenBy(result => targetIndex.GetValueOrDefault(result.TargetId))
-            .Select(result => result with { Source = ProjectSource(options.ProjectRoot, result.Source.File == "unknown" ? null : result.Source, result.File) ?? new SourceLocation(result.File, 1, 1) })
+
+            // The port declares no index for a test, so ties keep apart by what is left of the declaration, not by completion order.
+            .ThenBy(result => result.Source.Line)
+            .ThenBy(result => string.Join('\u001f', result.TitlePath), StringComparer.Ordinal)
+            .ThenBy(result => result.Id, StringComparer.Ordinal)
+            .Select(result => result with { Platform = result.Platform.Length > 0 ? result.Platform : targets.FirstOrDefault(target => target.Id == result.TargetId)?.Platform ?? "unknown", Source = ProjectSource(options.ProjectRoot, result.Source.File == "unknown" ? null : result.Source, result.File) ?? new SourceLocation(result.File, 1, 1) })
             .ToList();
         var summary = ComputeSummary(options.Results);
         return new Report1Document(new ReportRun(options.RunId, ModelHttp.PackageVersion(), targets, results, options.Explore)

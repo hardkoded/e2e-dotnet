@@ -48,7 +48,9 @@ public sealed class AssertScreenshotEvidenceTests
         var result = await RunAsync(root, ctx => ctx.Agent.AssertAsync("the page is Home", new AssertOptions { Screenshot = false }), judge);
 
         Assert.Null(Assert.IsType<AgentException>(result.Error).Screenshot);
-        Assert.False(Directory.Exists(Path.Combine(root, ".e2e")));
+
+        // The run's report.json is written beside the results, so the directory may exist; no screenshot is in it.
+        Assert.Empty(Directory.Exists(root) ? Directory.GetFiles(root, "*.png", SearchOption.AllDirectories) : []);
     }
 
     [Fact]
