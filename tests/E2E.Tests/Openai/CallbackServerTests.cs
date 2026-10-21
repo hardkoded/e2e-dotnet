@@ -30,7 +30,8 @@ public sealed class CallbackServerTests
             // The listener's socket is IPv6, and on macOS the runtime throws from its accept callback, with no frame
             // of ours, when a connection is reset before it is accepted (dotnet/runtime#121848). The queue is first in,
             // first out, so once a later connection has been answered this one has been accepted.
-            using var sync = await http.GetAsync("http://localhost:" + port + "/sync");
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            using var sync = await http.GetAsync("http://localhost:" + port + "/sync", timeout.Token);
             Assert.Equal(HttpStatusCode.NotFound, sync.StatusCode);
 
             await stream.WriteAsync(Encoding.ASCII.GetBytes("\r\n"));
