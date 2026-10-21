@@ -30,6 +30,9 @@ public sealed partial class DeviceSession
     /// </summary>
     private const double KeyboardDragRatio = 0.03;
 
+    /// <summary>What a test does instead when the engine cannot send the keyboard away.</summary>
+    private const string KeyboardAlternatives = "Tap the app's own Done or close control, or press Enter on the field when submitting is what you want.";
+
     /// <summary>Platform element types that are the soft keyboard or one of its keys, as agent-device names them.</summary>
     private static readonly HashSet<string> KeyboardTypes = ["keyboard", "key"];
 
@@ -390,6 +393,16 @@ public sealed partial class DeviceSession
     private static bool KeyboardShowing(RawSnapshot raw) =>
         MeasuredKeyboard(raw) ?? raw.Nodes.Any(node => KeyboardTypes.Contains((node.Type ?? "").ToLowerInvariant()));
 
+    /// <summary>The top edge of the soft keyboard: the band the capture's producer measured, else the highest keyboard or key element, else the bottom of the screen.</summary>
+    private static double KeyboardTop(RawSnapshot raw, ViewportSize viewport) =>
+        raw.KeyboardKind is "visible" or "derived" && raw.KeyboardFrame is { } frame
+            ? frame.Y
+            : raw.Nodes
+                .Where(node => node.Rect is not null && KeyboardTypes.Contains(SnapshotProjection.NormalizeKind(node.Type ?? "")))
+                .Select(node => node.Rect!.Value.Y)
+                .Append(viewport.Height)
+                .Min();
+
     /// <summary>Whether the capture's producer measured the soft keyboard on screen: null when it did not look or could not.</summary>
     private static bool? MeasuredKeyboard(RawSnapshot raw) =>
         raw.KeyboardKind switch
@@ -421,16 +434,18 @@ public sealed partial class DeviceSession
     }
 
     /// <summary>
-    /// A keyboard with no dismiss key goes the way a user sends it away: a short drag at the centre of the screen,
-    /// which a scroll view turns into a dismissal, each followed by a fresh look at whether the keyboard is still there.
+    /// A keyboard with no dismiss key goes the way a user sends it away: a short drag on the screen, which a
+    /// scroll view turns into a dismissal, each followed by a fresh look at whether the keyboard is still there.
     /// Horizontal first: on a vertical scroll view it is no scroll, so React Native's scroll view takes it as the touch
     /// outside the keyboard that dismisses by default, where a vertical drag scrolls the content and dismisses only
     /// under <c>keyboardDismissMode="on-drag"</c>. Vertical second, for the scroll views that dismiss on a drag alone.
     /// The simulator's "Speed up your typing" tip, which sits over a keyboard the first time it appears, goes through
-    /// its Continue button first. A drag is a guess about what sits at the centre, so the sequence stops the moment
-    /// the keyboard is gone, and a keyboard that outlives both drags fails naming what does work. Each look is the
-    /// observation's own capture, sparse-tree retries included: a one-node tree has no keys and would pass for a
-    /// dismissed keyboard.
+    /// its Continue button first. A drag that starts on a control presses it (a horizontal one is no scroll, so the
+    /// control keeps the touch), so each drag starts where the latest capture shows none, inside a scroll view when
+    /// the screen has one, see <see cref="Keyboard.KeyboardDragStart"/>, and a screen with no such point is refused
+    /// rather than touched. The sequence stops the moment the keyboard is gone, and a keyboard that outlives both
+    /// drags fails naming what does work. Each look is the observation's own capture, sparse-tree retries included: a
+    /// one-node tree has no keys and would pass for a dismissed keyboard.
     /// </summary>
     private async Task DismissKeyboardByGestureAsync(CancellationToken cancellationToken)
     {
@@ -440,20 +455,22 @@ public sealed partial class DeviceSession
             return;
         }
 
-        var projected = SnapshotProjection.ProjectSnapshot(raw.Nodes, () => "keyboard", raw.Viewport);
-        var viewport = await ViewportForAsync(projected, cancellationToken).ConfigureAwait(false);
-        var centre = new Point(viewport.Width / 2, viewport.Height / 2);
-        Point[] drags =
-        [
-            new(centre.X - (viewport.Width * KeyboardDragRatio), centre.Y),
-            new(centre.X, centre.Y - (viewport.Height * KeyboardDragRatio)),
-        ];
-        foreach (var to in drags)
+        foreach (var horizontal in new[] { true, false })
         {
+            var projected = SnapshotProjection.ProjectSnapshot(raw.Nodes, () => "keyboard", raw.Viewport);
+            var viewport = await ViewportForAsync(projected, cancellationToken).ConfigureAwait(false);
+            var from = Keyboard.KeyboardDragStart(projected, viewport, KeyboardTop(raw, viewport))
+                ?? throw new EngineException(
+                    EngineErrorCodes.UnsupportedCapability,
+                    $"keyboard dismissal failed: the keyboard has no dismiss key, and every point above it (in a scroll view, when the screen has one) is on a control, so a drag would press one. {KeyboardAlternatives}",
+                    retryable: false);
+            var to = horizontal
+                ? new Point(from.X - (viewport.Width * KeyboardDragRatio), from.Y)
+                : new Point(from.X, from.Y - (viewport.Height * KeyboardDragRatio));
             await CommandAsync(
                 "keyboard.dismiss",
                 DeviceMethods.InteractionsSwipe,
-                DeviceArgs.Of(("from", PointNode(centre)), ("to", PointNode(to))),
+                DeviceArgs.Of(("from", PointNode(from)), ("to", PointNode(to))),
                 cancellationToken).ConfigureAwait(false);
             raw = await SnapshotAsync(false, cancellationToken).ConfigureAwait(false);
             if (!KeyboardShowing(raw))
@@ -464,7 +481,7 @@ public sealed partial class DeviceSession
 
         throw new EngineException(
             EngineErrorCodes.UnsupportedCapability,
-            "keyboard dismissal failed: the keyboard has no dismiss key and stayed up through a horizontal and a vertical drag at the centre of the screen. Tap the app's own Done or close control, or press Enter on the field when submitting is what you want.",
+            $"keyboard dismissal failed: the keyboard has no dismiss key and stayed up through a horizontal and a vertical drag. {KeyboardAlternatives}",
             retryable: false);
     }
 

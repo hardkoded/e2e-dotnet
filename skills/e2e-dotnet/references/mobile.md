@@ -90,6 +90,8 @@ public sealed class GreetingTests : MobileAppTest
 
 The fixture also has `SetAppearanceAsync(Appearance.Dark)` and `InstallAppAsync()`.
 
+`Device.DismissKeyboardAsync()` presses the keyboard's own dismiss key where it has one (Android, iPad). An iPhone keyboard has none, so it drags a short way, horizontal first and vertical second, and stops as soon as the keyboard is gone. Each drag starts at the point nearest the centre of the screen that no control covers, inside a scroll view when the screen has one, so it never presses a button or toggles a checkbox. A screen with no clear point above the keyboard, or a keyboard that outlives both drags, fails with `UNSUPPORTED_CAPABILITY`. The message names the alternatives: the app's own Done or close control, or pressing Enter on the field.
+
 ## Choosing a device
 
 **A local simulator or emulator.** Without `MobileOptions.Device`, the engine drives the booted device of the platform. Set `E2E_MOBILE_PLATFORM=android` for an emulator. Boot exactly one device:
