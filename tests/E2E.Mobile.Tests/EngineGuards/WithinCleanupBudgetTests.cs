@@ -2,7 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Diagnostics;
+using Microsoft.Extensions.Time.Testing;
 
 namespace E2E.Mobile.Tests.EngineGuards;
 
@@ -30,13 +30,13 @@ public sealed class WithinCleanupBudgetTests
     [Fact]
     public async Task Resolves_once_the_budget_elapses_while_the_work_still_hangs_and_not_before()
     {
-        var budget = TimeSpan.FromMilliseconds(1500);
-        var clock = Stopwatch.StartNew();
-        var waiting = CleanupBudget.WithinAsync(_ => new TaskCompletionSource().Task, budget, CancellationToken.None);
+        var time = new FakeTimeProvider();
+        var waiting = CleanupBudget.WithinAsync(_ => new TaskCompletionSource().Task, TimeSpan.FromMilliseconds(500), CancellationToken.None, time);
 
-        await Task.Delay(budget / 10);
+        time.Advance(TimeSpan.FromMilliseconds(499));
+        await Task.Yield();
         Assert.False(waiting.IsCompleted);
+        time.Advance(TimeSpan.FromMilliseconds(1));
         await waiting.WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.True(clock.Elapsed >= budget - TimeSpan.FromMilliseconds(50));
     }
 }

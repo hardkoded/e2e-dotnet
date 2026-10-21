@@ -11,6 +11,9 @@ public sealed class DetectVcsTests : IDisposable
 {
     private static readonly string Sha = new('a', 40);
 
+    // Git's own one-second budget is too short for a machine under load; the test is about what git says, not how fast it answers.
+    private static readonly TimeSpan Patient = TimeSpan.FromSeconds(30);
+
     private readonly string _outside = Directory.CreateTempSubdirectory("e2e-vcs-").FullName;
 
     public void Dispose() => Directory.Delete(_outside, recursive: true);
@@ -25,11 +28,11 @@ public sealed class DetectVcsTests : IDisposable
         {
             var commit = GitRepo.InitRepo(repo);
             GitRepo.RunGit(repo, "switch", "--quiet", "-c", "feature");
-            Assert.Equal(new VcsInfo(commit, "feature", false), await Internal.Vcs.DetectAsync(repo, Env(("GITHUB_SHA", Sha), ("GITHUB_REF_NAME", "main"))));
+            Assert.Equal(new VcsInfo(commit, "feature", false), await Internal.Vcs.DetectAsync(repo, Env(("GITHUB_SHA", Sha), ("GITHUB_REF_NAME", "main")), budget: Patient));
             File.WriteAllText(Path.Combine(repo, "file.txt"), "two\n");
-            Assert.Equal(new VcsInfo(commit, "feature", true), await Internal.Vcs.DetectAsync(repo, Env()));
+            Assert.Equal(new VcsInfo(commit, "feature", true), await Internal.Vcs.DetectAsync(repo, Env(), budget: Patient));
             GitRepo.RunGit(repo, "switch", "--quiet", "--detach");
-            Assert.Equal(new VcsInfo(commit, null, true), await Internal.Vcs.DetectAsync(repo, Env()));
+            Assert.Equal(new VcsInfo(commit, null, true), await Internal.Vcs.DetectAsync(repo, Env(), budget: Patient));
         }
         finally
         {
