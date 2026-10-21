@@ -82,8 +82,8 @@ public sealed class SecretsCutShortByObservationLimitsTests
         var screenArtifact = attempt["artifacts"]!.AsArray().Single(artifact => (string)artifact!["id"]! == screenId)!;
         var screenText = await File.ReadAllTextAsync(Path.Combine(report.Results, (string)screenArtifact["path"]!));
         Assert.Contains(ControlKept + "\"", screenText, StringComparison.Ordinal);
-        // The echo is on the screen, as the marker where the cut value stood: without it the absence checks below would prove nothing.
-        Assert.Contains("<secret:member>\"", screenText, StringComparison.Ordinal);
+        // The echo is on the screen, as the marker where the cut value stood, once for each of the three echoes: without it the absence checks below would prove nothing.
+        Assert.True(Regex.Matches(screenText, "<secret:member>\"").Count >= 3);
         var document = await File.ReadAllTextAsync(Path.Combine(report.Output, "report.json"));
         var files = Directory.EnumerateFiles(report.Output, "*", SearchOption.AllDirectories).Where(file => Path.GetExtension(file) is not (".png" or ".webm" or ".mp4")).ToList();
         foreach (var fragment in new[] { Fragment, UpperFragment })
