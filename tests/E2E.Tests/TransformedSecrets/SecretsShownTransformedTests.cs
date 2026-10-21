@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using E2E.Tests.ReportJson;
 
 namespace E2E.Tests.TransformedSecrets;
 
@@ -12,8 +13,9 @@ namespace E2E.Tests.TransformedSecrets;
 /// observation or to a failed <c>toHaveText</c>, and no form of either value may survive there. The port has the
 /// model where upstream has an executor, and registers a secret when it is filled or an <c>act</c> receives it
 /// in its params. Not ported: "matches the transformed text as the page shows it" (the port reads text as
-/// written, so a CSS upper-cased echo is not upper-cased in the observation or to a matcher), and "leaves no
-/// form of either value in the report or any file the reporters write" (no report, no reporters).
+/// written, so a CSS upper-cased echo is not upper-cased in the observation or to a matcher). The port has no
+/// reporters, so "any file the reporters write" is every file under the output directory of the session: <c>report.json</c> and the
+/// trace page.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class SecretsShownTransformedTests
@@ -119,6 +121,62 @@ public sealed class SecretsShownTransformedTests
             foreach (var form in Forms)
             {
                 Assert.DoesNotContain(form, failure.Message, StringComparison.Ordinal);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Leaves_no_form_of_either_value_in_the_report_or_any_file_the_session_writes()
+    {
+        using var report = new ReportDirectory();
+        using var site = await TinySite.StartAsync(EchoPage);
+        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "read"));
+        await using (var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = new WebEngine(headless: true),
+            Model = model,
+            BaseUrl = site.Url,
+            CacheEnabled = false,
+            ResultsDirectory = report.Results,
+            TestTitle = "leaves no trace of the echoes",
+            ActionTimeout = TimeSpan.FromSeconds(5),
+            TestTimeout = TimeSpan.FromSeconds(30),
+        }))
+        {
+            var token = Secret.Create("token", Token);
+            var note = Secret.Create("note", Note);
+            await session.App.OpenAsync("/");
+            await session.Screen.GetByLabel("Token").FillAsync(token);
+            await session.Screen.GetByLabel("Note").FillAsync(note);
+            await session.Agent.ActAsync("read the echoes", new ActOptions
+            {
+                Params = new Dictionary<string, object?> { ["token"] = token, ["note"] = note },
+            });
+            Exception? last = null;
+            foreach (var id in new[] { "plain", "upper", "lower", "note-echo" })
+            {
+                last = await Assert.ThrowsAsync<TestException>(() =>
+                    Expect.That(session.Screen.GetByTestId(id)).ToHaveTextAsync("something else", timeout: TimeSpan.FromMilliseconds(500)));
+            }
+
+            session.Complete(last);
+        }
+
+        var document = await File.ReadAllTextAsync(Path.Combine(report.Output, "report.json"));
+        report.Read();
+        foreach (var form in Forms)
+        {
+            Assert.DoesNotContain(form, document, StringComparison.Ordinal);
+        }
+
+        var files = Directory.EnumerateFiles(report.Output, "*", SearchOption.AllDirectories).Where(file => Path.GetExtension(file) is not (".png" or ".webm" or ".mp4")).ToList();
+        Assert.Contains(files, file => file.EndsWith(".md", StringComparison.Ordinal));
+        foreach (var file in files)
+        {
+            var text = await File.ReadAllTextAsync(file);
+            foreach (var form in Forms)
+            {
+                Assert.False(text.Contains(form, StringComparison.Ordinal), file);
             }
         }
     }

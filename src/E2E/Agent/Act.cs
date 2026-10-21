@@ -202,10 +202,7 @@ public sealed partial class Agent
                 throw SettleThrown(ToAgentException(ex, budget), budget, executor);
             }
 
-            if (custom)
-            {
-                verdict = ValidateVerdict(verdict, executor.Name);
-            }
+            verdict = ValidateVerdict(verdict, executor.Name);
 
             // Evidence for an assert is taken after the verdict, on a pass and on a failure alike.
             var kept = spec.Kind == ExecutorStepKind.Assert && spec.Screenshot != false && budget.HardStop is null
