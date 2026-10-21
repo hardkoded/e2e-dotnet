@@ -456,7 +456,6 @@ public sealed class E2eExploreTests
         Assert.Equal(0, model.Model.CallCount);
     }
 
-    // Upstream reads the attempt's steps from the report. The port keeps the timeline in trace.md, which this run asks for.
     [Fact]
     public async Task Launches_a_device_targets_pinned_app_before_the_planners_first_look()
     {
@@ -464,11 +463,11 @@ public sealed class E2eExploreTests
         var device = new DeviceEngine(new DocumentWorld().Map("/", page => page.Button("Greet")));
         var root = TempRoot();
         var config = E2EConfig.Parse("""{ "targets": [{ "name": "device", "platform": "ios", "app": { "bundleId": "com.example.greeter" } }], "actionTimeout": 10000 }""", root, _ => null);
-        await Explorer.ExploreAsync(Options(root, model.Model, [], goal: "Look around", maxSteps: 1, config: config, engine: device, trace: RecordingMode.On));
+        await Explorer.ExploreAsync(Options(root, model.Model, [], goal: "Look around", maxSteps: 1, config: config, engine: device));
 
-        var page = await File.ReadAllTextAsync(Assert.Single(Files(root), file => Path.GetFileName(file) == "trace.md"));
-        var opened = page.IndexOf("app.open", StringComparison.Ordinal);
-        Assert.True(opened >= 0 && opened < page.IndexOf("agent.extract", StringComparison.Ordinal), page);
+        using var report = JsonDocument.Parse(await File.ReadAllTextAsync(Assert.Single(Files(root), file => Path.GetFileName(file) == "report.json")));
+        var steps = report.RootElement.GetProperty("run").GetProperty("results")[0].GetProperty("attempts")[0].GetProperty("steps");
+        Assert.Equal(["app.open", "agent.extract"], steps.EnumerateArray().Select(step => step.GetProperty("api").GetString()));
         Assert.Equal(["restart", "observe"], device.Operations.Take(2));
     }
 
