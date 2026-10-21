@@ -79,6 +79,8 @@ public sealed class TestMuBrowsersFunctionTests
         Assert.Equal("""["--no-sandbox"]""", given["browserOptions"]!.ToJsonString());
     }
 
+    private sealed record Wrapped(double Value);
+
     public static TheoryData<string, Dictionary<string, JsonNode?>, string> InvalidCapabilities => new()
     {
         { "user and accessKey", new() { ["user"] = "mallory", ["accessKey"] = "spoofed" }, "`Capabilities` cannot set `user`, `accessKey`" },
@@ -87,13 +89,15 @@ public sealed class TestMuBrowsersFunctionTests
         { "browserName", new() { ["browserName"] = "Firefox" }, "set `browserName` as an option" },
         { "browserOptions as a string", new() { ["browserOptions"] = "--no-sandbox" }, "`Capabilities[\"browserOptions\"]` must be an array of strings" },
         { "browserOptions with a number", new() { ["browserOptions"] = new JsonArray(1) }, "`Capabilities[\"browserOptions\"]` must be an array of strings" },
+        { "browserOptions null", new() { ["browserOptions"] = null }, "`Capabilities[\"browserOptions\"]` must be an array of strings" },
+        { "custom object with NaN", new() { ["geoLocation"] = JsonValue.Create(new Wrapped(double.NaN)) }, "`Capabilities[\"geoLocation\"]` cannot be encoded as JSON" },
         { "idleTimeout NaN", new() { ["idleTimeout"] = double.NaN }, "`Capabilities[\"idleTimeout\"]` contains a non-finite number" },
         { "nested infinity", new() { ["network"] = new JsonObject { ["rules"] = new JsonArray(double.PositiveInfinity) } }, "`Capabilities[\"network\"].rules[0]` contains a non-finite number" },
     };
 
     /// <summary>
     /// Partial: ports the rows of upstream's <c>it.each</c> for <c>user</c>/<c>accessKey</c>, <c>name</c>, a nested
-    /// <c>LT:Options</c>, <c>browserName</c> in <c>capabilities</c>, <c>browserOptions</c> as a string and as <c>[1]</c>, and a
+    /// <c>LT:Options</c>, <c>browserName</c> in <c>capabilities</c>, <c>browserOptions</c> as a string, as <c>[1]</c> and as null, a value JSON cannot encode, and a
     /// non-finite <c>idleTimeout</c>. The other rows have no C# form: unknown option keys, a <c>browserName</c> check,
     /// non-object <c>capabilities</c>, and a Date, Map or function value.
     /// </summary>

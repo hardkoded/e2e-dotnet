@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using E2E.Engine;
 
@@ -99,6 +100,15 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
         foreach (var (key, value) in options.Capabilities ?? new Dictionary<string, JsonNode?>())
         {
             AssertJsonSafe(value, $"Capabilities[\"{key}\"]");
+            try
+            {
+                value?.ToJsonString();
+            }
+            catch (Exception error) when (error is JsonException or NotSupportedException or ArgumentException or InvalidOperationException)
+            {
+                // A JsonValue can wrap a custom object that JSON cannot encode.
+                throw Invalid($"`Capabilities[\"{key}\"]` cannot be encoded as JSON: {error.Message}");
+            }
         }
 
         var capabilities = options.Capabilities;
@@ -118,7 +128,8 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
             throw Invalid($"`Capabilities` cannot set {string.Join(", ", reserved.Select(key => $"`{key}`"))}; the provider names each session, and reads LT_USERNAME and LT_ACCESS_KEY from the environment");
         }
 
-        if (capabilities?.GetValueOrDefault("browserOptions") is { } browserOptions
+        if (capabilities is not null
+            && capabilities.TryGetValue("browserOptions", out var browserOptions)
             && !(browserOptions is JsonArray flags && flags.All(flag => flag is JsonValue value && value.TryGetValue<string>(out _))))
         {
             throw Invalid("`Capabilities[\"browserOptions\"]` must be an array of strings");
