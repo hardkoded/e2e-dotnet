@@ -143,10 +143,9 @@ public sealed class CodexLoginTests
     public async Task Asks_for_the_pasted_code_when_the_callback_port_is_taken_or_the_browser_never_returns()
     {
         var issuer = new FakeApi(_ => (HttpStatusCode.OK, TokenReply));
-        var squatted = FreePort();
-        using var squatter = new HttpListener();
-        squatter.Prefixes.Add("http://localhost:" + squatted.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/");
+        var squatter = new TcpListener(IPAddress.Loopback, 0);
         squatter.Start();
+        var squatted = ((IPEndPoint)squatter.LocalEndpoint).Port;
         try
         {
             var taken = new CodexProvider(new HttpClient(issuer), issuer: Issuer, callbackPort: squatted);
