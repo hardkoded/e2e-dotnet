@@ -6,7 +6,7 @@ using static E2E.Tests.ReportStatus.ReportStatusBuilders;
 
 namespace E2E.Tests.ReportStatus;
 
-/// <summary>Upstream's <c>describe('run status derivation')</c> (<c>tests/unit/report-status.test.ts</c>). Partial: upstream also asserts that the document is valid report-1.</summary>
+/// <summary>Upstream's <c>describe('run status derivation')</c> (<c>tests/unit/report-status.test.ts</c>).</summary>
 public sealed class RunStatusDerivationTests
 {
     [Fact]

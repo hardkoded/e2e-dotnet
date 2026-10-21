@@ -99,9 +99,14 @@ stored. Entries recorded before these fields existed count once a
 
 ## Output
 
-The port writes no report or `junit.xml` of its own. It writes a trace page,
+The port writes no `junit.xml` of its own. It writes `.e2e/report.json`, for scripts
+rather than reading (`jq`, CI tools; topic `debugging`), a trace page,
 `.e2e/results/<result>/trace.md`, for each attempt its `trace` mode keeps, and a
-video when `video` is on (topic `debugging`).
+video when `video` is on. The report holds every result of the test process,
+passing ones included, whatever the `trace` mode, and is written again after each
+attempt, so a run that stops early leaves the attempts so far. Its `run.status`
+and `run.finishedAt` are those of the attempts so far until the last one ends.
+Processes that share an output directory overwrite one another's report.
 Use the test runner's loggers, such as
 `dotnet test --logger "trx;LogFileName=e2e.trx"` or
 `--logger "console;verbosity=detailed"`.

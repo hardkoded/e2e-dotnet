@@ -18,7 +18,7 @@ public sealed class StepHooksTests
     [Test]
     public void Tells_on_the_trace_page_that_a_step_of_a_SetUp_ran_in_beforeEach_and_one_of_a_TearDown_in_afterEach()
     {
-        var results = Path.Combine(Path.GetTempPath(), "e2e-hooks-" + Guid.NewGuid().ToString("N"));
+        var results = Path.Combine(Path.GetTempPath(), "e2e-hooks-" + Guid.NewGuid().ToString("N"), "results");
         HookedFixture.Results = results;
         try
         {
@@ -34,9 +34,9 @@ public sealed class StepHooksTests
         }
         finally
         {
-            if (Directory.Exists(results))
+            if (Directory.Exists(Path.GetDirectoryName(results)))
             {
-                Directory.Delete(results, recursive: true);
+                Directory.Delete(Path.GetDirectoryName(results)!, recursive: true);
             }
         }
     }

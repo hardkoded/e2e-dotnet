@@ -1187,7 +1187,10 @@ internal sealed class AttemptScope
     public string TargetName { get => _targetName ?? EnginePlatform; init => _targetName = value; }
 
     /// <summary>This attempt's identity, which an executor tells it from a retry's by.</summary>
-    public string AttemptId { get; } = Guid.NewGuid().ToString("n");
+    public string AttemptId { get; } = Guid.CreateVersion7().ToString();
+
+    /// <summary>When the attempt began.</summary>
+    public DateTimeOffset StartedAt { get; } = DateTimeOffset.UtcNow;
 
     /// <summary>Ends when the attempt does: the test is cancelled or timed out, or the session is completed or disposed.</summary>
     public CancellationTokenSource Ended { get; init; } = new();

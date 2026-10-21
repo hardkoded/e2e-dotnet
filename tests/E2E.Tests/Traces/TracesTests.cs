@@ -309,9 +309,11 @@ public sealed class TracesTests : IDisposable
 
     private string Results()
     {
-        var results = Path.Combine(Path.GetTempPath(), "e2e-traces-" + Guid.NewGuid().ToString("N"));
+        // The output directory holds the results and the run's report.json beside them.
+        var output = Path.Combine(Path.GetTempPath(), "e2e-traces-" + Guid.NewGuid().ToString("N"));
+        var results = Path.Combine(output, "results");
         Directory.CreateDirectory(results);
-        _dirs.Add(results);
+        _dirs.Add(output);
         return results;
     }
 

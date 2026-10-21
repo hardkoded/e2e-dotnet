@@ -30,15 +30,6 @@ internal static class RunReport
         public (string File, SourceLocation Source)? Located { get; set; }
     }
 
-    /// <summary>Forgets the attempts of the test <paramref name="id"/>: a test that passed on its first attempt keeps nothing.</summary>
-    public static void Forget(string resultsRoot, string id)
-    {
-        lock (Gate)
-        {
-            Results.Remove(resultsRoot + "\n" + id);
-        }
-    }
-
     /// <summary>
     /// Adds the attempt <paramref name="attempt"/> (one-based) of the single-attempt <paramref name="report"/> to its test's, and
     /// returns the report with every attempt the test has had so far. A first attempt starts the test over: a repeat of it, or a

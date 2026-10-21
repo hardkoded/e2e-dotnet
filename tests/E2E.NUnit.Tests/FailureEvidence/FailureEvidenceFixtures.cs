@@ -20,8 +20,8 @@ public sealed class TeardownFixture : E2ETest
 
     private static readonly TimeSpan Short = TimeSpan.FromMilliseconds(300);
 
-    /// <summary>Where the fixture's attempts write their evidence.</summary>
-    public static string Results { get; } = Path.Combine(Path.GetTempPath(), "e2e-failure-evidence-" + Guid.NewGuid().ToString("N"));
+    /// <summary>Where the fixture's attempts write their evidence; the run's report.json goes beside it.</summary>
+    public static string Results { get; } = Path.Combine(Path.GetTempPath(), "e2e-failure-evidence-" + Guid.NewGuid().ToString("N"), "results");
 
     protected override E2EConfig Config => FixtureConfig;
 

@@ -13,9 +13,10 @@ namespace E2E.Tests.VideoModes;
 [Collection(BrowserCollection.Name)]
 public sealed class VideoModesTests : IDisposable
 {
-    private readonly string _results = Directory.CreateTempSubdirectory("e2e-video-modes-").FullName;
+    // The output directory holds the results and the run's report.json beside them.
+    private readonly string _results = Path.Combine(Directory.CreateTempSubdirectory("e2e-video-modes-").FullName, "results");
 
-    public void Dispose() => Directory.Delete(_results, recursive: true);
+    public void Dispose() => Directory.Delete(Path.GetDirectoryName(_results)!, recursive: true);
 
     /// <summary>
     /// Partial: the port has no runner, so each test is run by hand with its retries, with the modes already resolved

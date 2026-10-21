@@ -14,8 +14,7 @@ namespace E2E;
 /// <param name="Keep">Which verdicts keep the page, from the attempt's <c>trace</c> mode; null when the mode keeps none for this attempt.</param>
 /// <param name="AttemptDir">The attempt's artifact directory, <c>&lt;results&gt;/&lt;test&gt;/attempt-&lt;n&gt;</c>.</param>
 /// <param name="CacheDir">The replay cache directory when a <see cref="FileStepCache"/> holds the cache.</param>
-/// <param name="Records">False when the mode is <c>off</c>: no attempt of the test can keep a trace, so the run holds none of its attempts.</param>
-internal sealed record TraceOutput(Keep? Keep, string AttemptDir, string? CacheDir, bool Records)
+internal sealed record TraceOutput(Keep? Keep, string AttemptDir, string? CacheDir)
 {
     /// <summary>The test's directory under the results directory, where the page goes beside the attempts.</summary>
     public string TestDir => Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(AttemptDir))!;
@@ -32,7 +31,7 @@ internal sealed record TraceOutput(Keep? Keep, string AttemptDir, string? CacheD
 /// </summary>
 internal static class AttemptReport
 {
-    private static readonly string RunId = Guid.NewGuid().ToString("N")[..12];
+    private static readonly string RunId = Guid.CreateVersion7().ToString();
 
     // Upstream forbids NUL in a title, so no title-only hash input starts with it and none can equal a hashed test id.
     private const char TestIdMark = '\0';
@@ -43,7 +42,7 @@ internal static class AttemptReport
     /// file hashes the title alone.
     /// </summary>
     public static string ResultId(string? file, string title) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.IsNullOrEmpty(file) ? title : TestIdMark + TestId(file, title))))[..16].ToLowerInvariant();
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.IsNullOrEmpty(file) ? title : TestIdMark + TestId(file, title))));
 
     /// <summary>
     /// The test id <c>file::title</c>, with the title percent-encoded so a <c>::</c> in a title cannot pass for the separator. Upstream's
@@ -102,19 +101,24 @@ internal static class AttemptReport
         var directory = Path.GetFileName(output.TestDir);
         var attemptSegment = Path.GetFileName(output.AttemptDir);
         var failed = error is not null && status != AttemptStatus.Passed;
+        ReportArtifact[] kept =
+        [
+            .. videos.Select((video, index) => Artifact(video, index, directory, attemptSegment)),
+            .. failed && evidence?.Screen is { } screen ? new[] { new ReportArtifact(screen, "log", directory + "/" + attemptSegment + "/" + FailureEvidence.ScreenFile) } : [],
+            .. failed && evidence?.Screenshot is { } shot ? new[] { new ReportArtifact(shot, "screenshot", directory + "/" + attemptSegment + "/" + FailureEvidence.ScreenshotFile) } : [],
+        ];
+        var serialized = error is null ? null : ErrorSerializer.Serialize(error, scope.ProjectRoot, scope.Redactor.Redact);
         var attempt = new ReportAttempt
         {
+            Id = scope.AttemptId,
+            StartedAt = scope.StartedAt,
+            Skip = status == AttemptStatus.Skipped ? new ReportSkip("explicit", serialized?.Message ?? "skipped") : null,
             Status = status,
             DurationMs = durationMs,
-            Error = error is null ? null : ReportError.Of(ErrorSerializer.Serialize(error, scope.ProjectRoot, scope.Redactor.Redact)),
+            Error = serialized is null ? null : ReportError.Of(serialized),
             Steps = steps,
             Failure = failed ? evidence : null,
-            Artifacts =
-            [
-                .. videos.Select((video, index) => Artifact(video, index, directory, attemptSegment)),
-                .. failed && evidence?.Screen is { } screen ? new[] { new ReportArtifact(screen, "log", directory + "/" + attemptSegment + "/" + FailureEvidence.ScreenFile) } : [],
-                .. failed && evidence?.Screenshot is { } shot ? new[] { new ReportArtifact(shot, "screenshot", directory + "/" + attemptSegment + "/" + FailureEvidence.ScreenshotFile) } : [],
-            ],
+            Artifacts = [.. kept.Select(artifact => artifact with { Size = SizeOf(output.ResultsRoot, artifact.Path) })],
             Environment = scope.Environment.Read(scope.Redactor.Redact),
             AppLog = scope.Steps.AppLog(),
         };
@@ -125,6 +129,7 @@ internal static class AttemptReport
             Source = located ?? new SourceLocation("unknown", 0, 0),
             TitlePath = [scope.TestTitle],
             TargetId = scope.TargetName,
+            Platform = scope.EnginePlatform,
             Status = status switch
             {
                 AttemptStatus.Passed => ResultStatus.Passed,
@@ -136,7 +141,20 @@ internal static class AttemptReport
             Attempts = [attempt],
             Directory = directory,
         };
-        return (new Report1Document(new ReportRun(RunId, ModelHttp.PackageVersion(), [new ReportTarget(scope.TargetName, 0, scope.EnginePlatform, BuildReport.DescribeTarget(scope.EnginePlatform, scope.EngineVersion, scope.EngineCapabilities))], [result], explore)), id);
+        return (new Report1Document(new ReportRun(RunId, ModelHttp.PackageVersion(), [new ReportTarget(scope.TargetName, 0, scope.EnginePlatform, BuildReport.DescribeTarget(scope.EnginePlatform, scope.EngineVersion, scope.EngineCapabilities), "test", BuildReport.BaseOrigin(scope.BaseUrl))], [result], explore)), id);
+    }
+
+    // The size of a file the attempt kept, which the run's usage adds up; null for a link and for a file that cannot be read.
+    private static long? SizeOf(string resultsRoot, string? path)
+    {
+        try
+        {
+            return path is null ? null : new FileInfo(Path.Combine(resultsRoot, path)) is { Exists: true } file ? file.Length : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return null;
+        }
     }
 
     // A video file is registered under the results directory, as upstream registers an attempt's artifacts; a link stays a link.

@@ -36,7 +36,7 @@ public sealed class AnInconclusiveJudgmentAfterASecretFillTests
             TestTitle = "the judge is not pointed at vision once a secret was filled",
             TestTimeout = TimeSpan.FromSeconds(10),
             StepTimeout = TimeSpan.FromSeconds(5),
-            ResultsDirectory = Path.Combine(Path.GetTempPath(), "e2e-tainted-" + Guid.NewGuid().ToString("N")),
+            ResultsDirectory = Path.Combine(Path.GetTempPath(), "e2e-tainted-" + Guid.NewGuid().ToString("N"), "results"),
         });
         await session.App.OpenAsync("/");
         var filled = await session.Agent.ActAsync("sign in as the member", new ActOptions

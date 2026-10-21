@@ -4,6 +4,7 @@
 
 - Read the failure
 - The trace page
+- For scripts: report.json
 - Error codes
 - Watch it happen
 - Tools
@@ -35,7 +36,7 @@
    `ActResult.Cache` tells whether the step replayed, and why a replay
    missed.
 
-There is no `report.json` in this port. For more than the page tells, use the
+For more than the page tells, read `.e2e/report.json` ("For scripts") or use the
 test runner's own output, such as
 `dotnet test --logger "console;verbosity=detailed"` or a `trx` logger.
 To see the screen the agent reads, call `await screen.DebugAsync()` in the test,
@@ -124,6 +125,41 @@ console output, uncaught exceptions, failed requests, and 4xx and 5xx
 responses. The mobile and document engines report none. A mention, a URL, or markup from the app is shown
 as code or escaped, and a secret is redacted. Add `.e2e/results/` to
 `.gitignore`.
+
+## For scripts: report.json
+
+Every test process that starts a session writes `report.json` to the output
+directory, `.e2e` by default (the parent of the results directory). It holds
+every result of the process in a versioned schema, `schema/report-v1.schema.json`
+(packed in the `E2E` package, and the same schema upstream ships). The file is
+written again, atomically, after each attempt, so `run.finishedAt` and
+`run.status` are those of the attempts so far. Two test processes that share an
+output directory (the parent of the results directory) overwrite one another's file.
+
+```bash
+jq '.run | {status, exitCode, errors}' .e2e/report.json
+jq '.run.results[] | select(.status != "passed") | .attempts[-1]
+    | {status, error, failure, steps: [.steps[] | select(.status != "passed") | {api, label, source, status, error}], artifacts}' .e2e/report.json
+```
+
+`run.errors` holds run-level failures. `run.summary` counts the selected
+results: `passed`, `failed` (timed out included), `interrupted`, `flaky`, and
+`skipped` add up to `selected`. `run.vcs` names the commit, the branch, and
+whether tracked files differ from the commit, when git or the CI variables say.
+The last attempt of each failed result holds:
+
+| Field | Holds |
+| --- | --- |
+| `error` | The code, message, source line, and assertion details |
+| `failure` | The screen and screenshot artifact ids, the `url`, and any locator candidates |
+| `steps` | The calls that led to the failure. Each step's `events` hold what it did (`engine`), what it polled (`poll`), and where the app went (`navigation`). Agent steps add `cache` and recent model turns. |
+| `appLog` | What the app logged. Each line's `step` is the `index` of its step, absent before the first step. |
+| `artifacts` | The captured files, with their size and `sha256` |
+
+Not in the port's report: serial groups (`run.serialGroups` is always empty),
+`carried`, a step's `visionInput`, `visionDegraded`, and `visionOnly`, and the
+model fields upstream measures (`peakTokensPerCall` reads 0). A judgment step's
+`observationRevision` reads `unrecorded`. See `COMPATIBILITY.md` for the full list.
 
 ## Error codes
 
