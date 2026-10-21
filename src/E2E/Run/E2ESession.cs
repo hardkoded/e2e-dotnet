@@ -626,7 +626,7 @@ public sealed class E2ESession : IAsyncDisposable
             // The document is a courtesy too: the page below is still written when it cannot be.
             try
             {
-                await ReportFile.WriteAsync(report, _scope.ProjectRoot ?? Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(trace.ResultsRoot))!, trace.ResultsRoot, redact).ConfigureAwait(false);
+                await ReportFile.WriteAsync(report, ReportFile.ProjectRootOf(_scope.ProjectRoot, trace.ResultsRoot), trace.ResultsRoot, redact).ConfigureAwait(false);
             }
 #pragma warning disable CA1031 // The document is a courtesy: whatever fails in building it must not fail a test that passed.
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -644,7 +644,7 @@ public sealed class E2ESession : IAsyncDisposable
                     redact).ConfigureAwait(false);
             }
 
-            Volatile.Write(ref _report, ReportFile.Single(single, trace.ResultsRoot, _scope.Redactor.Redact));
+            Volatile.Write(ref _report, await ReportFile.SingleAsync(single, _scope.ProjectRoot, trace.ResultsRoot, _scope.Redactor.Redact).ConfigureAwait(false));
 
             if (!traced && _scope.Attempt == 1)
             {

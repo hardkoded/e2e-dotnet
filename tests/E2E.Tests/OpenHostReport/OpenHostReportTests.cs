@@ -86,6 +86,32 @@ public sealed class OpenHostReportTests : IDisposable
     }
 
     [Fact]
+    public async Task Tells_the_same_result_as_report_json_for_the_same_session()
+    {
+        var session = await StartAsync(new EvidenceEngine("Submit"), "same as the file");
+        try
+        {
+            await session.App.OpenAsync("/");
+            session.Complete(new TestException("TEST_FAILED", "nope"));
+        }
+        finally
+        {
+            await session.DisposeAsync();
+        }
+
+        var written = JsonNode.Parse(File.ReadAllText(Path.Combine(_output, "report.json")))!;
+        var report = session.Report()!;
+        var fromFile = written["run"]!["results"]![0]!;
+        var fromSession = report["run"]!["results"]![0]!;
+        Assert.NotEqual("unknown", (string)fromFile["source"]!["file"]!);
+        Assert.Equal(fromFile.ToJsonString(), fromSession.ToJsonString());
+        foreach (var field in new[] { "specVersion", "status", "exitCode", "project", "environment", "vcs", "targets", "summary", "limits", "usage" })
+        {
+            Assert.Equal(written["run"]![field]?.ToJsonString(), report["run"]![field]?.ToJsonString());
+        }
+    }
+
+    [Fact]
     public async Task Returns_null_when_the_trace_write_fails_and_the_session_still_releases()
     {
         var session = await StartAsync(new EvidenceEngine("Submit"), "failed write");

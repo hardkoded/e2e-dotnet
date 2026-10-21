@@ -54,6 +54,10 @@ internal static class ReportFile
     /// <summary>Where the document of the run whose results go to <paramref name="resultsRoot"/> is written.</summary>
     public static string PathFor(string resultsRoot) => Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(resultsRoot))!, FileName);
 
+    /// <summary>The project's root: the one given, else the directory that holds the results directory's parent (the output directory).</summary>
+    public static string ProjectRootOf(string? projectRoot, string resultsRoot) =>
+        projectRoot ?? Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(resultsRoot))!;
+
     /// <summary>How a run stands, from its results alone: a failure outweighs an interruption, and neither is a pass.</summary>
     internal static (ReportRunStatus Status, int ExitCode) StatusOf(IEnumerable<ReportResult> results)
     {
@@ -70,19 +74,22 @@ internal static class ReportFile
     /// The document of the attempt in <paramref name="report"/> (a single-attempt report, as <see cref="AttemptReport.Build"/> returns it) alone, as a
     /// run of one result, redacted by <paramref name="redact"/>. Upstream's <c>writeHostTrace</c> builds the same report for a hosted session and returns it.
     /// </summary>
-    public static JsonObject Single(Report1Document report, string resultsRoot, Func<string, string> redact)
+    public static async Task<JsonObject> SingleAsync(Report1Document report, string? projectRoot, string resultsRoot, Func<string, string> redact)
     {
         var result = report.Run.Results[0];
+        projectRoot = ProjectRootOf(projectRoot, resultsRoot);
         var (status, exitCode) = StatusOf([result]);
         var document = BuildReport.Build(new BuildReportOptions
         {
             RunId = report.Run.Id,
+            ProjectRoot = projectRoot,
             StartedAt = result.Attempts[0].StartedAt ?? DateTimeOffset.UtcNow,
             Status = status,
             ExitCode = exitCode,
             Results = [result],
             ReportTargets = report.Run.Targets,
             Explore = report.Run.Explore,
+            Vcs = await Vcs.DetectAsync(projectRoot, EnvironmentVariables()).ConfigureAwait(false),
             Ci = E2EConfig.IsCi(),
         });
         var node = ReportWire.Result(document.Run.Results[0], result.Platform, Path.TrimEndingDirectorySeparator(Path.GetFullPath(resultsRoot)));
