@@ -72,15 +72,46 @@ public sealed class BillingTests : E2ETest
    the components or watch a run with `E2E_HEADLESS=0`.
 3. Write an `E2ETest` class. Drive the flow with `Agent.ActAsync`, one
    atomic goal per call, and pin each outcome right after with `Expect.That`
-   or `Agent.AssertAsync`. A test with three goals makes three calls. Exact
-   values go through `Screen`.
+   or `Agent.AssertAsync`. A test with three goals makes three calls.
+   Start it on the screen it covers, since every rerun pays for the steps
+   before: in a browser a sign-in through the app's API in the test's setup
+   (cookies set with `Browser.SetCookiesAsync`; a `Secret` cannot go into a
+   request body, so that setup reads its own test account) instead of the sign-in form, and
+   `App.OpenAsync` on that screen's path; on a device `Device.OpenLinkAsync`;
+   and data from the app's API (topic `writing-tests`). Exact values go
+   through `Screen`.
 4. Run one class: `dotnet test --filter "FullyQualifiedName~<Class>"`. Agent
    steps need a model in the config and that provider's authentication.
    Tests without agent steps need no model.
-5. Read the exception's `Code`, message, and `Details` (what was expected and
-   observed, what the locator asked for, how long it waited), then the failed
-   attempt's trace page (topic `debugging`). Fix the locator, the expectation,
-   or the app. Never add a sleep.
+5. When it fails, fix it from what the run recorded (next section).
+
+## Workflow: fixing a failed test
+
+The run already saw every screen up to the failure. Fix from what it
+recorded; never walk the flow again from the start over MCP just to see a
+screen.
+
+1. Read the exception's `Code`, message, and `Details` (what was expected and
+   observed, what the locator asked for, how long it waited). Then read the
+   failed attempt's trace page, `.e2e/results/<result>/trace.md`: every step
+   with what it did, what the app logged, the agent's turns, and
+   `## Screen at failure`, the screen one node per line, with the nodes
+   closest to what a failed locator asked for (topic `debugging`).
+2. Fix every line that evidence covers, not only the one that failed: the
+   screen at failure shows the names the rest of that screen's lines need.
+   Fix the locator, the expectation, or the app. Never add a sleep.
+3. A test stops at its first failed step (`Expect.Soft` lets it go on), and
+   every wrong line after it costs another run. Before rerunning, check the
+   lines after it as far as you can: against the screen at failure, the app
+   source, or a live session.
+4. For a screen the evidence and the source leave out, look live (topic
+   `mcp`): open or reuse a session, go straight to that screen, then
+   `observe` and `locate`. On the web, `navigate` to the path of the URL
+   under `## Screen at failure` or the screen's route, and tap only to reach
+   a state no URL opens. `e2e mcp` opens browser sessions only, so there is
+   no live device session to look at yet (issue #484).
+5. Rerun the class (topic `mcp` says when a session must close first).
+   Repeat with the next failure.
 
 ## Rules
 

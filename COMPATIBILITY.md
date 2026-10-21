@@ -207,6 +207,14 @@ A config that selects a decision model or smol cannot be written in `e2e.config.
 - Decision models are an `executor`. Upstream takes `executor: decision(...)` in `agents.<name>`. The port rejects the key with `config key "executor" is not supported by the .NET port: an executor is code, so set AgentOptions.Executor`. A custom executor in code works, but the port ships no decision executor. `provider` accepts only the names in [Models](#models), so a `provider` of `decision` is rejected with the list of valid names.
 - smol is a `browser` provider on the target (`web({ browser: smol() })`). The target accepts `name`, `platform`, `app`, `trace`, and `video`. A `browser` key is rejected as an unknown target key, and an `engine` key as not supported by the .NET port. To use a provider, set `WebEngineOptions.Browser` in the fixture's `CreateEngine`. The port ships `KernelProvider` and `TestMuBrowsers` there, and none for smol.
 
+## Skill text: start near the screen, fix from the trace page
+
+`skills/e2e-dotnet` ports upstream's `74c2b73` (#1311, start each test near the screen it covers) and `c5e3248` (#1309, "Workflow: fixing a failed test"). Differences:
+
+- The port has no saved `session`, `test.setup`, or `test.extend` fixture, so "Start near the screen under test" signs in and seeds data in the framework's per-test setup (NUnit `[SetUp]`, xUnit v3 `InitializeAsync`) with an `HttpClient`, and `Browser.SetCookiesAsync` hands the cookies to the browser. On a device it is `Device.OpenLinkAsync`.
+- The test runner prints the exception, not upstream's failure block, so the port has no `❯ at`, `❯ on screen`, or `❯ trace` lines. The skill points to the exception's `Code`, message, and `Details`, and to the trace page's `## Screen at failure` (its URL and `Closest to what the locator asked for`). The trace page, `## Screen at failure`, and `screen-at-failure.txt` exist as upstream.
+- `Expect.Soft`, `Values.Unique`, `App.OpenAsync`, and `Device.OpenLinkAsync` stand in for `expect.soft`, `unique`, `app.open`, and `device.openLink`. In CI the cache is `read-only` unless the config sets a mode (`E2EConfig`), where upstream's default records nothing there. Upstream's `core-concepts.mdx` and `coding-agents.mdx` have no counterpart.
+
 ## Verification skill
 
 `skills/create-verification-skill/` ports upstream's skill of the same name (commit `d85702a2`, `feat(skills): create-verification-skill generates a verify-<app> skill on e2e (#981)`). Like upstream, it is not bundled in `E2E.Cli` and `e2e guide` does not read it; install it with `npx skills add hardkoded/e2e-dotnet --skill create-verification-skill`. Differences:
