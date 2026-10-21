@@ -213,7 +213,7 @@ A config that selects a decision model or smol cannot be written in `e2e.config.
 
 - The port has no saved `session`, `test.setup`, or `test.extend` fixture, so "Start near the screen under test" signs in and seeds data in the framework's per-test setup (NUnit `[SetUp]`, xUnit v3 `InitializeAsync`) with an `HttpClient`, and `Browser.SetCookiesAsync` hands the cookies to the browser. On a device it is `Device.OpenLinkAsync`.
 - The test runner prints the exception, not upstream's failure block, so the port has no `❯ at`, `❯ on screen`, or `❯ trace` lines. The skill points to the exception's `Code`, message, and `Details`, and to the trace page's `## Screen at failure` (its URL and `Closest to what the locator asked for`). The trace page, `## Screen at failure`, and `screen-at-failure.txt` exist as upstream.
-- `Expect.Soft`, `Values.Unique`, `App.OpenAsync`, and `Device.OpenLinkAsync` stand in for `expect.soft`, `unique`, `app.open`, and `device.openLink`. In CI the cache is read-only, as upstream's default records nothing there. Upstream's `core-concepts.mdx` and `coding-agents.mdx` have no counterpart.
+- `Expect.Soft`, `Values.Unique`, `App.OpenAsync`, and `Device.OpenLinkAsync` stand in for `expect.soft`, `unique`, `app.open`, and `device.openLink`. In CI the cache is `read-only` unless the config sets a mode (`E2EConfig`), where upstream's default records nothing there. Upstream's `core-concepts.mdx` and `coding-agents.mdx` have no counterpart.
 
 ## Verification skill
 

@@ -118,9 +118,10 @@ The loop is:
 4. Run it from the shell: `dotnet test --filter "FullyQualifiedName~<Class>"`.
    On a failure, fix from the exception and the trace page (topic
    `debugging`), then rerun. To see a screen the evidence leaves out, go
-   straight to it instead of walking the flow again from the start: on the
-   web, `navigate` to its path; on a device, the shortest path from the
-   launch screen. Then `observe` and `locate`.
+   straight to it instead of walking the flow again from the start:
+   `navigate` to its path, then `observe` and `locate`. Upstream's device
+   session (the shortest path from the launch screen) has no port yet
+   (issue #484): `e2e mcp` opens browser sessions only.
 5. `close_session` when you are done.
 
 ## Rules
