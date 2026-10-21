@@ -432,7 +432,10 @@ internal sealed class TinySite : IDisposable
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
         listener.Stop();
         var site = new TinySite("http://" + host + ":" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/", handler);
-        site._listener.Prefixes.Add(site.Url);
+        // HttpListener binds a name like localhost to its first address, ::1. The runtime throws from its accept callback,
+        // and the test host dies, when the browser resets a connection to an IPv6 socket before it is accepted
+        // (dotnet/runtime#121848). A name gets the IPv4 wildcard instead, which matches any Host header.
+        site._listener.Prefixes.Add(IPAddress.TryParse(host, out _) ? site.Url : "http://+:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/");
         site._listener.Start();
         _ = Task.Run(() => site.ListenAsync(site._stop.Token));
         await Task.Delay(30);
