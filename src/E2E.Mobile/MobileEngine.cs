@@ -143,7 +143,8 @@ public sealed class MobileEngine : IEngine
         | EngineCapabilities.Scroll
         | EngineCapabilities.History
         | EngineCapabilities.Screenshot
-        | EngineCapabilities.Video;
+        | EngineCapabilities.Video
+        | EngineCapabilities.PinnedApp;
 
     /// <summary>
     /// A device target launches an installed app or a build: one of the bundle id and the build path is required. A URL

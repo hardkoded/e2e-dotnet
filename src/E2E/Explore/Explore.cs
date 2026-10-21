@@ -54,8 +54,14 @@ public sealed class ExploreOptions
     /// </summary>
     public IReadOnlyDictionary<string, AgentOptions>? Agents { get; init; }
 
-    /// <summary>The engine to drive. Defaults to a <see cref="WebEngine"/>.</summary>
+    /// <summary>The engine to drive. Defaults to the engine of the target's platform: a <see cref="WebEngine"/> for <c>web</c>.</summary>
     public IEngine? Engine { get; init; }
+
+    /// <summary>
+    /// Builds the engine of an <c>ios</c> or <c>android</c> target when <see cref="Engine"/> is not set. .NET-only: <c>E2E</c> cannot reference
+    /// <c>E2E.Mobile</c>, so the host (<c>e2e explore</c>) supplies it.
+    /// </summary>
+    internal Func<TargetConfig, IEngine>? CreateMobileEngine { get; init; }
 
     /// <summary>
     /// The accounts the explorer can sign in with, by name. Each travels into every step as the username and a password secret
@@ -197,7 +203,7 @@ public static class Explore
         // The explorer replaces the agent for the exploration alone. The exploration pins no retries and runs with the cache off.
         entries[agentName] = ExploreExecutor.WithFindingTool(explorer, state);
         var defaultAgent = entries["default"];
-        var engine = options.Engine ?? new WebEngine(options.Headed ? false : null);
+        var engine = options.Engine ?? TargetEngines.Create(target, options.Headed ? false : null, options.CreateMobileEngine);
         var trace = options.Trace is { } traceFlag ? new ResolvedRecording(traceFlag, RecordingSource.Run) : target.Trace;
         var video = options.Video is { } videoFlag ? new ResolvedRecording(videoFlag, RecordingSource.Run) : target.Video;
         foreach (var message in RecordingNotices(trace.Mode, video, (engine.Capabilities & EngineCapabilities.Video) != 0, target.Name, engine.Platform))

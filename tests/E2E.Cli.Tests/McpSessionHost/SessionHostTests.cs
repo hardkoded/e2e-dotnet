@@ -317,6 +317,16 @@ public sealed class SessionHostTests : IDisposable
         await host.CloseAsync("done");
     }
 
+    /// <summary>.NET-only: no upstream <c>it</c> covers an engine that pins an app, which upstream's session catalog never meets.</summary>
+    [Fact]
+    public async Task Catalogs_no_navigate_for_an_engine_that_pins_an_app()
+    {
+        var host = Host(new FakeEngine { Also = EngineCapabilities.PinnedApp });
+        var opened = await host.OpenAsync(new OpenSessionOptions());
+        Assert.DoesNotContain("navigate", ServedCli.CatalogNames(opened));
+        await host.CloseAsync("done");
+    }
+
     private static JsonElement Json(string json)
     {
         using var document = JsonDocument.Parse(json);
@@ -365,7 +375,7 @@ public sealed class SessionHostTests : IDisposable
                 onLoad?.Invoke(path);
                 return E2EConfig.Parse(FixtureProject.Config(Url, secrets), _dir);
             },
-            CreateEngine = value =>
+            CreateEngine = (_, value) =>
             {
                 headedValues?.Add(value);
                 if (create is null)

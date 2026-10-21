@@ -22,7 +22,10 @@ internal sealed class FakeEngine : IEngine
     public string Version => "1.0.0";
 
     public EngineCapabilities Capabilities =>
-        EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | EngineCapabilities.Keyboard;
+        EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | EngineCapabilities.Keyboard | Also;
+
+    /// <summary>Capabilities the engine declares beyond the base four.</summary>
+    public EngineCapabilities Also { get; init; }
 
     /// <summary>Runs when the engine starts an attempt; a throw fails the start.</summary>
     public Action? OnStart { get; init; }

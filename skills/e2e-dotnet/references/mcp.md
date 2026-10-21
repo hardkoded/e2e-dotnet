@@ -5,8 +5,13 @@ coding agent will drive the app the way the testing agent does: look at a
 screen before writing a test, check a locator before committing to it.
 Running tests and reading a failed run stay with `dotnet test`.
 
-**In the .NET port** a session drives the one target of `e2e.config.json` in a
-Chromium browser. The catalog is the testing agent's own actions plus `locate`
+**In the .NET port** a session drives the one target of `e2e.config.json`. A
+`web` target runs in a Chromium browser. An `ios` or `android` target with
+`app.bundleId` or `app.appPath` runs on a local simulator or emulator through
+`MobileEngine`: it needs Node 22.12 or newer and a booted device, and
+`E2E_MOBILE_DEVICE` names one. A device session has no `navigate` tool, and
+hosted devices (`E2E_MOBILE_PROVIDER` other than `local`) are not supported
+yet. The catalog is the testing agent's own actions plus `locate`
 and `screenshot`. Not ported: recording a video, the project's own tools,
 and the tap, hover, and type at a point. `e2e init` does not exist, so
 register the server yourself (below).
@@ -121,7 +126,7 @@ The loop is:
    straight to it instead of walking the flow again from the start:
    `navigate` to its path, then `observe` and `locate`. Upstream's device
    session (the shortest path from the launch screen) has no port yet
-   (issue #484): `e2e mcp` opens browser sessions only.
+   (issue #484): `e2e mcp` opens a device session on the launch screen only.
 5. `close_session` when you are done.
 
 ## Rules
