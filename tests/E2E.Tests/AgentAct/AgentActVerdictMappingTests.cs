@@ -27,7 +27,7 @@ public sealed class AgentActVerdictMappingTests
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", error.Code);
         Assert.True(error.Blocked);
-        Assert.Equal("the staging credential is not configured", error.Message);
+        Assert.Equal("agent.act blocked: the staging credential is not configured", error.Message);
     }
 
     [Fact]
@@ -165,8 +165,7 @@ public sealed class AgentActVerdictMappingTests
     }
 
     /// <summary>
-    /// Partial: the port has no report, so the exit code and the step's blocked status are not checked, and the error message is the
-    /// executor's summary alone, not <c>agent.act blocked: &lt;summary&gt;</c>.
+    /// Partial: the port has no report, so the exit code and the step's blocked status are not checked.
     /// </summary>
     [Fact]
     public async Task Partial_Maps_a_blocked_verdict_onto_its_error_code_and_the_configuration_exit_code()
@@ -184,7 +183,7 @@ public sealed class AgentActVerdictMappingTests
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", error.Code);
         Assert.True(error.Blocked);
-        Assert.Equal("the staging credential is not configured", error.Message);
+        Assert.Equal("agent.act blocked: the staging credential is not configured", error.Message);
     }
 
     [Fact]

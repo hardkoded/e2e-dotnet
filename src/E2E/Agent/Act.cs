@@ -58,7 +58,7 @@ public sealed partial class Agent
                 }
                 catch (AgentException ex)
                 {
-                    _scope.Steps.AttachAgentDetails(new StepAgentDetails { Explanation = ex.Message });
+                    _scope.Steps.AttachAgentDetails(new StepAgentDetails { Explanation = ex.VerdictSummary ?? ex.Message });
                     throw;
                 }
             },
@@ -211,7 +211,7 @@ public sealed partial class Agent
             var kept = spec.Kind == ExecutorStepKind.Assert && spec.Screenshot != false && budget.HardStop is null
                 ? await KeepBoundedEvidenceAsync(budget, outer.Token, cancellationToken).ConfigureAwait(false)
                 : null;
-            Settle(verdict, budget, spec, executor, kept, out var summary);
+            Settle(verdict, budget, spec, executor, kept, api, out var summary);
             if (summary.Length > 0)
             {
                 _scope.Steps.AttachAgentDetails(new StepAgentDetails { Explanation = summary });
@@ -411,7 +411,7 @@ public sealed partial class Agent
     /// Maps the executor's verdict onto the step's outcome, carrying the evidence on a failure. A hard stop of the step, a
     /// spent budget, a timeout, or a cancel, is the step's truth: no verdict outranks it.
     /// </summary>
-    private static void Settle(StepVerdict verdict, StepAccounting budget, StepSpec spec, IStepExecutor executor, string? screenshot, out string summary)
+    private static void Settle(StepVerdict verdict, StepAccounting budget, StepSpec spec, IStepExecutor executor, string? screenshot, string api, out string summary)
     {
         summary = verdict.Summary ?? "";
         var code = verdict.ErrorCode;
@@ -451,11 +451,11 @@ public sealed partial class Agent
         var blocked = verdict.Status == StepVerdictStatus.Blocked;
         if (blocked)
         {
-            throw new AgentException(code!, summary.Length == 0 ? "The step is blocked." : summary, blocked: true) { Screenshot = screenshot };
+            throw new AgentException(code!, api + " blocked: " + summary, blocked: true) { Screenshot = screenshot, VerdictSummary = summary };
         }
 
         var failure = code is not null && StepExecutors.AgentCodes.Contains(code) ? code : spec.Kind == ExecutorStepKind.Assert ? "ASSERTION_FAILED" : "ACTION_FAILED";
-        throw new AgentException(failure, summary.Length == 0 ? "The step failed." : summary) { Screenshot = screenshot };
+        throw new AgentException(failure, api + " failed: " + summary) { Screenshot = screenshot, VerdictSummary = summary };
     }
 
     /// <summary>

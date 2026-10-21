@@ -100,6 +100,9 @@ public sealed class AgentException : E2EException
     /// <summary>The step's account of what happened. The same text as <see cref="Exception.Message"/>.</summary>
     public string Explanation => Message;
 
+    /// <summary>The executor's summary of a failed or blocked verdict, which <see cref="Exception.Message"/> prefixes with the api and the status. The step keeps it as its explanation, as upstream's <c>settle</c> does.</summary>
+    internal string? VerdictSummary { get; init; }
+
     /// <summary>
     /// Where a failed <c>AssertAsync</c> kept its redacted screenshot, relative to the project root. Null when none was taken:
     /// <c>Screenshot = false</c> or the engine captures no pixels.
