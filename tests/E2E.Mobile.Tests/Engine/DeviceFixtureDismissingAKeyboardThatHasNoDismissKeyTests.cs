@@ -11,19 +11,24 @@ namespace E2E.Mobile.Tests.Engine;
 
 public sealed class DeviceFixtureDismissingAKeyboardThatHasNoDismissKeyTests
 {
-    private static JsonObject KeyboardUp()
-    {
-        var snapshot = FakeDeviceClient.SettingsSnapshot();
-        snapshot["keyboard"] = new JsonObject { ["kind"] = "visible", ["frame"] = new JsonObject { ["x"] = 0, ["y"] = 583, ["width"] = 390, ["height"] = 261 } };
-        return snapshot;
-    }
+    private static JsonObject KeyboardFact(string kind) => kind == "visible"
+        ? new JsonObject { ["kind"] = "visible", ["frame"] = new JsonObject { ["x"] = 0, ["y"] = 583, ["width"] = 390, ["height"] = 261 } }
+        : new JsonObject { ["kind"] = "absent" };
 
-    private static JsonObject KeyboardGone()
-    {
-        var snapshot = FakeDeviceClient.SettingsSnapshot();
-        snapshot["keyboard"] = new JsonObject { ["kind"] = "absent" };
-        return snapshot;
-    }
+    /// <summary>A form in a scroll view with a checkbox row across the centre of the screen, where a drag from the centre would toggle it.</summary>
+    private static readonly RawNode[] FormNodes =
+    [
+        N("@e1", index: 0, depth: 0, type: "application", label: "Order", rect: new Rect(0, 0, 390, 844)),
+        N("@e2", index: 1, parentIndex: 0, depth: 1, type: "scroll-view", rect: new Rect(0, 100, 390, 744)),
+        N("@e3", index: 2, parentIndex: 1, depth: 2, type: "text-field", label: "Notes", rect: new Rect(20, 150, 350, 44)),
+        N("@e4", index: 3, parentIndex: 1, depth: 2, type: "other", value: "checkbox, unchecked", label: "Cheese", rect: new Rect(20, 400, 350, 44)),
+    ];
+
+    private static JsonObject KeyboardUp(params RawNode[] nodes) =>
+        FakeDeviceClient.SnapshotOf(nodes.Length == 0 ? FormNodes : nodes, ("keyboard", KeyboardFact("visible")));
+
+    private static JsonObject KeyboardGone() =>
+        FakeDeviceClient.SnapshotOf(FormNodes, ("keyboard", KeyboardFact("absent")));
 
     private static JsonNode NoDismissKey(JsonObject? options) => throw new AgentDeviceError(
         "UNSUPPORTED_OPERATION",
@@ -48,41 +53,108 @@ public sealed class DeviceFixtureDismissingAKeyboardThatHasNoDismissKeyTests
     private static List<JsonObject?> Swipes(Harness h) => [.. h.Fake.Calls.Where(call => call.Method == "interactions.swipe").Select(call => call.Args)];
 
     [Fact]
-    public async Task Drags_at_the_centre_of_the_screen_the_way_a_user_does_and_stops_once_the_keyboard_is_gone()
+    public async Task Drags_from_the_point_nearest_the_centre_that_no_control_covers_and_stops_once_the_keyboard_is_gone()
     {
         var (h, session) = await Ready();
-        Captures(h, KeyboardUp, KeyboardGone);
+        Captures(h, () => KeyboardUp(), KeyboardGone);
         var before = h.Fake.Calls.Count;
         await session.Device.DismissKeyboardAsync();
         Assert.Equal(["command.keyboard", "capture.snapshot", "interactions.swipe", "capture.snapshot"], h.Fake.Methods().Skip(before));
 
-        // The viewport is 390 by 844: a short horizontal drag from the centre, 3 percent of the width.
+        // The centre (195, 422) is on the checkbox, so the drag starts on the nearest row of the grid clear of it, and runs 3 percent of the width.
         var swipe = h.Fake.LastArgs("interactions.swipe")!;
         Assert.Equal(195, swipe["from"]!["x"]!.GetValue<double>());
-        Assert.Equal(422, swipe["from"]!["y"]!.GetValue<double>());
+        Assert.Equal(383, swipe["from"]!["y"]!.GetValue<double>());
         Assert.Equal(183.3, swipe["to"]!["x"]!.GetValue<double>(), 2);
-        Assert.Equal(422, swipe["to"]!["y"]!.GetValue<double>());
+        Assert.Equal(383, swipe["to"]!["y"]!.GetValue<double>());
     }
 
     [Fact]
     public async Task Tries_a_vertical_drag_when_the_horizontal_one_left_the_keyboard_up()
     {
         var (h, session) = await Ready();
-        Captures(h, KeyboardUp, KeyboardUp, KeyboardGone);
+        Captures(h, () => KeyboardUp(), () => KeyboardUp(), KeyboardGone);
         await session.Device.DismissKeyboardAsync();
         var swipes = Swipes(h);
         Assert.Equal(2, swipes.Count);
         Assert.Equal(183.3, swipes[0]!["to"]!["x"]!.GetValue<double>(), 2);
-        Assert.Equal(422, swipes[0]!["to"]!["y"]!.GetValue<double>());
+        Assert.Equal(383, swipes[0]!["from"]!["y"]!.GetValue<double>());
+        Assert.Equal(383, swipes[0]!["to"]!["y"]!.GetValue<double>());
+        Assert.Equal(195, swipes[1]!["from"]!["x"]!.GetValue<double>());
+        Assert.Equal(383, swipes[1]!["from"]!["y"]!.GetValue<double>());
         Assert.Equal(195, swipes[1]!["to"]!["x"]!.GetValue<double>());
-        Assert.Equal(396.68, swipes[1]!["to"]!["y"]!.GetValue<double>(), 2);
+        Assert.Equal(357.68, swipes[1]!["to"]!["y"]!.GetValue<double>(), 2);
+    }
+
+    [Fact]
+    public async Task Starts_only_inside_a_scroll_view_when_the_screen_has_one()
+    {
+        var (h, session) = await Ready();
+        Captures(
+            h,
+            () => KeyboardUp(
+                FormNodes[0],
+                N("@e2", index: 1, parentIndex: 0, depth: 1, type: "scroll-view", rect: new Rect(0, 100, 390, 200)),
+                N("@e3", index: 2, parentIndex: 1, depth: 2, type: "text-field", label: "Notes", rect: new Rect(20, 150, 350, 44))),
+            KeyboardGone);
+        await session.Device.DismissKeyboardAsync();
+
+        // The centre is clear but outside the scroll view, which ends at y 300: the drag starts on its lowest row of the grid instead.
+        var swipe = h.Fake.LastArgs("interactions.swipe")!;
+        Assert.Equal(195, swipe["from"]!["x"]!.GetValue<double>());
+        Assert.Equal(295.25, swipe["from"]!["y"]!.GetValue<double>(), 2);
+    }
+
+    [Fact]
+    public async Task Starts_on_plain_text_which_a_touch_does_nothing_to()
+    {
+        var (h, session) = await Ready();
+        Captures(
+            h,
+            () => KeyboardUp(
+                FormNodes[0],
+                FormNodes[1],
+                N("@e3", index: 2, parentIndex: 1, depth: 2, type: "static-text", label: "Terms", rect: new Rect(16, 120, 370, 460))),
+            KeyboardGone);
+        await session.Device.DismissKeyboardAsync();
+        JsonAssert.Args("""{"x":195,"y":422}""", h.Fake.LastArgs("interactions.swipe")!["from"]);
+    }
+
+    [Fact]
+    public async Task Drags_at_the_centre_of_a_flattened_tree_which_shows_no_control_to_steer_clear_of()
+    {
+        var (h, session) = await Ready();
+        Captures(
+            h,
+            () => KeyboardUp(
+                FormNodes[0],
+                FormNodes[1],
+                N("@e3", index: 2, parentIndex: 1, depth: 2, type: "other", rect: new Rect(0, 100, 390, 744))),
+            KeyboardGone);
+        await session.Device.DismissKeyboardAsync();
+        JsonAssert.Args("""{"x":195,"y":422}""", h.Fake.LastArgs("interactions.swipe")!["from"]);
+    }
+
+    [Fact]
+    public async Task Refuses_to_drag_when_every_point_above_the_keyboard_is_on_a_control()
+    {
+        var (h, session) = await Ready();
+        Captures(
+            h,
+            () => KeyboardUp(
+                FormNodes[0],
+                N("@e2", index: 1, parentIndex: 0, depth: 1, type: "button", label: "Canvas", rect: new Rect(0, 0, 390, 583))));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.Device.DismissKeyboardAsync());
+        Assert.Equal("UNSUPPORTED_CAPABILITY", failure.Code);
+        Assert.Matches(@"(?s)every point above it .*is on a control.*Done or close control", failure.Message);
+        Assert.Empty(Swipes(h));
     }
 
     [Fact]
     public async Task Fails_naming_the_alternatives_when_both_drags_leave_the_keyboard_up()
     {
         var (h, session) = await Ready();
-        Captures(h, KeyboardUp);
+        Captures(h, () => KeyboardUp());
         var failure = await Assert.ThrowsAsync<EngineException>(() => session.Device.DismissKeyboardAsync());
         Assert.Equal("UNSUPPORTED_CAPABILITY", failure.Code);
         Assert.Matches(@"(?s)stayed up through a horizontal and a vertical drag.*Done or close control.*Enter", failure.Message);
@@ -112,7 +184,7 @@ public sealed class DeviceFixtureDismissingAKeyboardThatHasNoDismissKeyTests
             ["nodes"] = new JsonArray(new JsonObject { ["ref"] = "@e1", ["type"] = "application" }),
             ["snapshotQuality"] = new JsonObject { ["state"] = "sparse" },
         };
-        Captures(h, KeyboardUp, Sparse, KeyboardUp, KeyboardGone);
+        Captures(h, () => KeyboardUp(), Sparse, () => KeyboardUp(), KeyboardGone);
         var before = h.Fake.Calls.Count;
         await session.Device.DismissKeyboardAsync();
 
@@ -131,7 +203,7 @@ public sealed class DeviceFixtureDismissingAKeyboardThatHasNoDismissKeyTests
             var snapshot = FakeDeviceClient.SettingsSnapshotWith(
                 N("@e30", index: 10, parentIndex: 0, depth: 1, type: "static-text", label: "Speed up your typing by sliding your finger across the letters to compose a word.", rect: new Rect(20, 600, 350, 60)),
                 N("@e31", index: 11, parentIndex: 0, depth: 1, type: "button", label: "Continue", rect: new Rect(95, 700, 200, 44)));
-            snapshot["keyboard"] = KeyboardUp()["keyboard"]!.DeepClone();
+            snapshot["keyboard"] = KeyboardFact("visible");
             return snapshot;
         }
 

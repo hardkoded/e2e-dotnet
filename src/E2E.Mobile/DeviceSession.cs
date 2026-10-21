@@ -389,7 +389,8 @@ public sealed partial class DeviceSession : IEngineSession
         string? AppBundleId,
         bool Sparse,
         ViewportSize? Viewport = null,
-        string? KeyboardKind = null)
+        string? KeyboardKind = null,
+        Rect? KeyboardFrame = null)
     {
         public static RawSnapshot Empty { get; } = new([], false, null, null, false);
 
@@ -420,7 +421,13 @@ public sealed partial class DeviceSession : IEngineSession
                 Text(data["appBundleId"]),
                 Text(data["snapshotQuality"]?["state"]) == "sparse",
                 viewport,
-                Text(data["keyboard"]?["kind"]));
+                Text(data["keyboard"]?["kind"]),
+                Number(data["keyboard"]?["frame"]?["x"]) is { } frameX
+                    && Number(data["keyboard"]?["frame"]?["y"]) is { } frameY
+                    && Number(data["keyboard"]?["frame"]?["width"]) is { } frameWidth
+                    && Number(data["keyboard"]?["frame"]?["height"]) is { } frameHeight
+                    ? new Rect(frameX, frameY, frameWidth, frameHeight)
+                    : null);
         }
     }
 }

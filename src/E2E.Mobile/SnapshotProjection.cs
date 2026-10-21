@@ -89,7 +89,8 @@ public static partial class SnapshotProjection
 
     private static readonly HashSet<string> UncheckedValues = ["0", "off", "false", "unchecked"];
 
-    private static readonly HashSet<string> ScreenKinds = ["application", "app", "window"];
+    /// <summary>Kinds that span the screen and hold everything else.</summary>
+    internal static readonly HashSet<string> ScreenKinds = ["application", "app", "window"];
 
     /// <summary>
     /// The role descriptions React Native writes into an iOS view's accessibility value for the roles
@@ -203,7 +204,7 @@ public static partial class SnapshotProjection
     private static readonly HashSet<string> StatusIconKinds = ["text-view", "image-view", "frame-layout", "linear-layout", "view", "view-group"];
 
     /// <summary>One element-type spelling for <c>NavigationBar</c>, <c>navigation-bar</c>, and <c>android.widget.NavigationBar</c> alike.</summary>
-    private static string NormalizeKind(string type)
+    internal static string NormalizeKind(string type)
     {
         var simple = type[(type.LastIndexOf('.') + 1)..];
         simple = WordBoundary().Replace(simple, "$1-$2");
