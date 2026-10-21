@@ -45,23 +45,18 @@ public sealed class OpenHostReportTests : IDisposable
             await session.DisposeAsync();
 
             var report = session.Report()!;
-            ReportSchema.AssertValidReport(report);
-            Assert.Equal("failed", (string)report["run"]!["status"]!);
-            var attempt = report["run"]!["results"]![0]!["attempts"]![0]!;
-            Assert.Equal(session.AttemptId, (string)attempt["id"]!);
-            var artifacts = attempt["artifacts"]!.AsArray();
-            Assert.NotEmpty(artifacts);
-            foreach (var artifact in artifacts)
+            Assert.Equal(ReportRunStatus.Failed, report.Run.Status);
+            var attempt = report.Run.Results[0].Attempts[0];
+            Assert.Equal(session.AttemptId, attempt.Id);
+            Assert.NotEmpty(attempt.Artifacts);
+            foreach (var artifact in attempt.Artifacts)
             {
-                Assert.Equal((long)artifact!["size"]!, new FileInfo(Path.Combine(Results, (string)artifact["path"]!)).Length);
-                Assert.Matches("^[a-f0-9]{64}$", (string)artifact["sha256"]!);
+                Assert.Equal(artifact.Size, new FileInfo(Path.Combine(Results, artifact.Path!)).Length);
+                Assert.Matches("^[a-f0-9]{64}$", artifact.Sha256!);
             }
 
-            var original = report.ToJsonString();
-            report["run"]!["usage"]!["modelTokens"] = 999;
-            report["run"]!["targets"]![0]!["engine"]!["name"] = "caller mutation";
-            artifacts[0]!["size"] = 999;
-            Assert.Equal(original, session.Report()!.ToJsonString());
+            var original = ReportSerializer.Write(report);
+            Assert.Same(report, session.Report());
 
             var next = await StartAsync(engine, "next attempt");
             try
@@ -69,8 +64,8 @@ public sealed class OpenHostReportTests : IDisposable
                 Assert.Null(next.Report());
                 next.Complete();
                 await next.DisposeAsync();
-                Assert.Equal(next.AttemptId, (string)next.Report()!["run"]!["results"]![0]!["attempts"]![0]!["id"]!);
-                Assert.Equal(original, session.Report()!.ToJsonString());
+                Assert.Equal(next.AttemptId, next.Report()!.Run.Results[0].Attempts[0].Id);
+                Assert.Equal(original, ReportSerializer.Write(session.Report()));
             }
             finally
             {
@@ -99,16 +94,26 @@ public sealed class OpenHostReportTests : IDisposable
             await session.DisposeAsync();
         }
 
-        var written = JsonNode.Parse(File.ReadAllText(Path.Combine(_output, "report.json")))!;
+        var document = (JsonObject)JsonNode.Parse(File.ReadAllText(Path.Combine(_output, "report.json")))!;
+        var written = ReportSerializer.Read(document);
+
+        // The typed report tells the whole document, bar the serial groups the port has none of.
+        document["run"]!.AsObject().Remove("serialGroups");
+        Assert.True(JsonNode.DeepEquals(document, JsonNode.Parse(ReportSerializer.Write(written))), "The typed report must tell the document of report.json.");
         var report = session.Report()!;
-        var fromFile = written["run"]!["results"]![0]!;
-        var fromSession = report["run"]!["results"]![0]!;
-        Assert.NotEqual("unknown", (string)fromFile["source"]!["file"]!);
-        Assert.Equal(fromFile.ToJsonString(), fromSession.ToJsonString());
-        foreach (var field in new[] { "specVersion", "status", "exitCode", "project", "environment", "vcs", "targets", "summary", "limits", "usage" })
-        {
-            Assert.Equal(written["run"]![field]?.ToJsonString(), report["run"]![field]?.ToJsonString());
-        }
+        var fromFile = written.Run.Results[0];
+        Assert.NotEqual("unknown", fromFile.Source.File);
+        Assert.Equal("TEST_FAILED", fromFile.Attempts[0].Error!.Code);
+        Assert.Equal(ReportSerializer.Write(fromFile), ReportSerializer.Write(report.Run.Results[0]));
+        Assert.Equal(ReportSerializer.Write(written.Run.Status), ReportSerializer.Write(report.Run.Status));
+        Assert.Equal(written.Run.ExitCode, report.Run.ExitCode);
+        Assert.Equal(ReportSerializer.Write(written.Run.Project), ReportSerializer.Write(report.Run.Project));
+        Assert.Equal(ReportSerializer.Write(written.Run.Environment), ReportSerializer.Write(report.Run.Environment));
+        Assert.Equal(ReportSerializer.Write(written.Run.Vcs), ReportSerializer.Write(report.Run.Vcs));
+        Assert.Equal(ReportSerializer.Write(written.Run.Targets), ReportSerializer.Write(report.Run.Targets));
+        Assert.Equal(ReportSerializer.Write(written.Run.Summary), ReportSerializer.Write(report.Run.Summary));
+        Assert.Equal(ReportSerializer.Write(written.Run.Limits), ReportSerializer.Write(report.Run.Limits));
+        Assert.Equal(ReportSerializer.Write(written.Run.Usage), ReportSerializer.Write(report.Run.Usage));
     }
 
     [Fact]

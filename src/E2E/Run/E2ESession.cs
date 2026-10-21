@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using E2E.Engine;
 using E2E.Internal;
+using Report = E2E.Reports.Report;
 
 namespace E2E;
 
@@ -31,7 +32,7 @@ public sealed class E2ESession : IAsyncDisposable
     private Exception? _error;
     private long _bodyMs;
     private AttemptStatus _status = AttemptStatus.Failed;
-    private JsonObject? _report;
+    private Lazy<Report>? _report;
 
     private E2ESession(AttemptScope scope, CancellationTokenSource timeout, IEngineSession engine, App app, Browser browser, Agent agent, Screen screen, TestContext context, IDisposable errorRedaction, TextWriter? debugOutput)
     {
@@ -105,12 +106,11 @@ public sealed class E2ESession : IAsyncDisposable
     internal ReportExplore? Exploration { get; set; }
 
     /// <summary>
-    /// The attempt's report-1 document, a copy the caller may change, once the session is disposed and its trace page, when the mode keeps one,
-    /// is written; null before that and when the page cannot be written. It tells this attempt alone, as a single-result run: its status is the
-    /// session's, not the verdict of the test around it. Artifact paths are relative to the results directory. Upstream's <c>session.report()</c>,
-    /// whose <c>Report</c> is a typed object; the port's is the document as <c>schema/report-v1.schema.json</c> spells it.
+    /// The attempt's report-1 document once the session is disposed and its trace page, when the mode keeps one, is written; null before that and
+    /// when the page cannot be written. It tells this attempt alone, as a single-result run: its status is the session's, not the verdict of the
+    /// test around it. Artifact paths are relative to the results directory. Upstream's <c>session.report()</c>.
     /// </summary>
-    public JsonObject? Report() => (JsonObject?)Volatile.Read(ref _report)?.DeepClone();
+    public Report? Report() => Volatile.Read(ref _report)?.Value;
 
     public int Replayed => _scope.Replayed;
 
@@ -644,7 +644,8 @@ public sealed class E2ESession : IAsyncDisposable
                     redact).ConfigureAwait(false);
             }
 
-            Volatile.Write(ref _report, await ReportFile.SingleAsync(single, _scope.ProjectRoot, trace.ResultsRoot, redact).ConfigureAwait(false));
+            var document = await ReportFile.SingleAsync(single, _scope.ProjectRoot, trace.ResultsRoot, redact).ConfigureAwait(false);
+            Volatile.Write(ref _report, new Lazy<Report>(() => ReportSerializer.Read(document)));
 
             if (!traced && _scope.Attempt == 1)
             {

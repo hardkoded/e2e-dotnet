@@ -6,6 +6,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Text.Json.Nodes;
 using E2E.Internal;
+using VcsInfo = E2E.Reports.VcsInfo;
 
 namespace E2E;
 

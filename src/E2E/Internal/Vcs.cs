@@ -2,13 +2,9 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-namespace E2E.Internal;
+using VcsInfo = E2E.Reports.VcsInfo;
 
-/// <summary>Where the code under test came from (upstream's <c>VcsInfo</c>, <c>internal/vcs.ts</c>).</summary>
-/// <param name="Commit">The commit the working tree is checked out at.</param>
-/// <param name="Branch">The branch name; null on a detached HEAD or when only the commit is known.</param>
-/// <param name="Dirty">True when tracked files differ from the commit; null when git could not say.</param>
-internal sealed record VcsInfo(string Commit, string? Branch = null, bool? Dirty = null);
+namespace E2E.Internal;
 
 /// <summary>
 /// Where the code under test came from, for the report (upstream's <c>detectVcs</c>). A verdict without a commit cannot be joined to the

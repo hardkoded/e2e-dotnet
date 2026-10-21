@@ -5,6 +5,7 @@
 using System.Runtime.InteropServices;
 using E2E.Engine;
 using E2E.Internal;
+using VcsInfo = E2E.Reports.VcsInfo;
 
 namespace E2E;
 

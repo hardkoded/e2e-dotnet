@@ -166,9 +166,10 @@ The last attempt of each failed result holds:
 
 A session you start yourself with `E2ESession.StartAsync` adds its attempt to that
 file too, and after `DisposeAsync` settles, `session.Report()` returns the attempt
-alone as a `JsonObject` in the same schema, a copy you may change. Its status is the
-session's, not your runner's test-body verdict, and artifact paths are relative to
-the results directory, not the attempt's directory. It returns `null` before the
+alone as a typed `E2E.Reports.Report`, the same document with the same field names
+in C# casing (`report.Run.Results[0].Attempts[0].Error`). It is a record the session shares, so treat it as read-only. Its status
+is the session's, not your runner's test-body verdict, and artifact paths are relative
+to the results directory, not the attempt's directory. It returns `null` before the
 session is disposed and when the trace page cannot be written. Use it, with
 `CloseSoftFailures()`, in a runner that owns its reporting.
 

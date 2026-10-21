@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Internal;
+using VcsInfo = E2E.Reports.VcsInfo;
 
 namespace E2E;
 
@@ -51,7 +52,7 @@ internal sealed record ReportRun(string Id, string RunnerVersion, IReadOnlyList<
 }
 
 /// <summary>How a run ended (upstream's <c>BuildReportOptions['status'] | 'blocked'</c>).</summary>
-internal enum ReportRunStatus
+public enum ReportRunStatus
 {
     Passed,
     Failed,

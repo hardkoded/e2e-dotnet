@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Internal;
+using VcsInfo = E2E.Reports.VcsInfo;
 
 namespace E2E.Tests.Vcs;
 
