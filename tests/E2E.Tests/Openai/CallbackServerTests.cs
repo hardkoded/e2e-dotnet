@@ -33,6 +33,26 @@ public sealed class CallbackServerTests
         Assert.Equal(HttpStatusCode.NotFound, stray.StatusCode);
     }
 
+    [Fact]
+    public async Task Survives_connections_reset_before_they_are_accepted()
+    {
+        var port = FreePort();
+        using var server = CallbackServer.TryStart(port, "/auth/callback", "st", "Test");
+        Assert.NotNull(server);
+
+        for (var i = 0; i < 50; i++)
+        {
+            using var browser = new TcpClient();
+            browser.LingerState = new LingerOption(true, 0);
+            await browser.ConnectAsync(IPAddress.Loopback, port);
+        }
+
+        using var http = new HttpClient();
+        using var reply = await http.GetAsync("http://localhost:" + port + "/auth/callback?code=abc&state=st");
+        Assert.Equal(HttpStatusCode.OK, reply.StatusCode);
+        Assert.Equal(("abc", (string?)null), await server.WaitAsync(TimeSpan.FromSeconds(30), CancellationToken.None));
+    }
+
     private static int FreePort()
     {
         var probe = new TcpListener(IPAddress.Loopback, 0);

@@ -4,6 +4,7 @@
 
 using System.Globalization;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 
 namespace E2E.OAuth;
@@ -12,16 +13,23 @@ namespace E2E.OAuth;
 /// The one-shot local HTTP server a browser login redirects back to. It accepts one answer for the expected
 /// state, a code or the vendor's refusal, replies to the browser with a page, and hands the answer to the flow.
 /// When the port is taken, <see cref="TryStart"/> returns null and the flow falls back to a pasted code.
+/// It listens on the IPv4 loopback address only, like upstream. <c>HttpListener</c> binds <c>localhost</c> to
+/// <c>::1</c>, and on macOS a connection reset before accept then throws an unhandled exception in the runtime
+/// (dotnet/runtime#121848).
 /// </summary>
 internal sealed class CallbackServer : IDisposable
 {
-    private readonly HttpListener _listener;
+    private const int MaxRequestHeadBytes = 16 * 1024;
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(10);
+
+    private readonly TcpListener _listener;
+    private readonly CancellationTokenSource _stop = new();
     private readonly string _path;
     private readonly string _state;
     private readonly string _product;
     private readonly TaskCompletionSource<(string? Code, string? Error)> _answer = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    private CallbackServer(HttpListener listener, int port, string path, string state, string product)
+    private CallbackServer(TcpListener listener, int port, string path, string state, string product)
     {
         _listener = listener;
         _path = path;
@@ -35,15 +43,20 @@ internal sealed class CallbackServer : IDisposable
 
     public static CallbackServer? TryStart(int port, string path, string state, string product)
     {
-        var listener = new HttpListener();
-        listener.Prefixes.Add("http://localhost:" + port.ToString(CultureInfo.InvariantCulture) + "/");
+        var listener = new TcpListener(IPAddress.Loopback, port);
+        if (OperatingSystem.IsWindows())
+        {
+            // Windows lets a second process share a port unless it is exclusive; the code must reach only this server.
+            listener.ExclusiveAddressUse = true;
+        }
+
         try
         {
             listener.Start();
         }
-        catch (HttpListenerException)
+        catch (SocketException)
         {
-            listener.Close();
+            listener.Stop();
             return null;
         }
 
@@ -71,41 +84,107 @@ internal sealed class CallbackServer : IDisposable
 
     public void Dispose()
     {
-        _listener.Close();
+        _stop.Cancel();
+        _listener.Stop();
     }
 
     private async Task ServeAsync()
     {
-        while (_listener.IsListening)
+        var token = _stop.Token;
+        while (!token.IsCancellationRequested)
         {
-            HttpListenerContext context;
+            TcpClient client;
             try
             {
-                context = await _listener.GetContextAsync().ConfigureAwait(false);
+                client = await _listener.AcceptTcpClientAsync(token).ConfigureAwait(false);
             }
-            catch (Exception ex) when (ex is HttpListenerException or ObjectDisposedException or InvalidOperationException)
+            catch (Exception ex) when (ex is OperationCanceledException or ObjectDisposedException or InvalidOperationException)
+            {
+                return;
+            }
+            catch (SocketException ex) when (ex.SocketErrorCode is SocketError.ConnectionReset or SocketError.ConnectionAborted)
+            {
+                // A connection reset before accept; the next one may be fine.
+                continue;
+            }
+            catch (SocketException)
             {
                 return;
             }
 
-            Handle(context);
+            // One task per connection: a browser may open a connection and send nothing.
+            _ = ServeConnectionAsync(client, token);
         }
     }
 
-    private void Handle(HttpListenerContext context)
+    private async Task ServeConnectionAsync(TcpClient client, CancellationToken stopToken)
     {
-        var url = context.Request.Url!;
+        try
+        {
+            using (client)
+            {
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(stopToken);
+                timeout.CancelAfter(RequestTimeout);
+                var stream = client.GetStream();
+                if (await ReadRequestTargetAsync(stream, timeout.Token).ConfigureAwait(false) is { } target)
+                {
+                    await HandleAsync(stream, target, timeout.Token).ConfigureAwait(false);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or SocketException or ObjectDisposedException or InvalidOperationException or OperationCanceledException)
+        {
+            // The browser went away or the server stopped; an answer already set still counts.
+        }
+    }
+
+    /// <summary>The request target of the first line, or null when the head is not a well-formed HTTP request.</summary>
+    private static async Task<string?> ReadRequestTargetAsync(NetworkStream stream, CancellationToken cancellationToken)
+    {
+        var buffer = new byte[MaxRequestHeadBytes];
+        var length = 0;
+        while (length < buffer.Length)
+        {
+            var read = await stream.ReadAsync(buffer.AsMemory(length), cancellationToken).ConfigureAwait(false);
+            if (read == 0)
+            {
+                return null;
+            }
+
+            length += read;
+            if (buffer.AsSpan(0, length).IndexOf("\r\n\r\n"u8) >= 0)
+            {
+                break;
+            }
+        }
+
+        var head = Encoding.ASCII.GetString(buffer, 0, length);
+        var lineEnd = head.IndexOf("\r\n", StringComparison.Ordinal);
+        return lineEnd > 0 && head[..lineEnd].Split(' ') is ["GET", var target, var version]
+            && version.StartsWith("HTTP/", StringComparison.Ordinal) && target.StartsWith('/')
+            ? target
+            : null;
+    }
+
+    private async Task HandleAsync(NetworkStream stream, string target, CancellationToken cancellationToken)
+    {
+        if (!Uri.TryCreate("http://localhost" + target, UriKind.Absolute, out var url))
+        {
+            await ReplyAsync(stream, 400, "Login failed", "The request is not valid.", cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         var query = System.Web.HttpUtility.ParseQueryString(url.Query);
         if (url.AbsolutePath != _path)
         {
-            Reply(context, 404, "Not found", "This address is not part of the login.");
+            await ReplyAsync(stream, 404, "Not found", "This address is not part of the login.", cancellationToken).ConfigureAwait(false);
             return;
         }
 
         // The state binds the answer to this attempt; anything else on the port is ignored.
         if (query["state"] != _state)
         {
-            Reply(context, 400, "Login failed", "The state does not match this login attempt.");
+            await ReplyAsync(stream, 400, "Login failed", "The state does not match this login attempt.", cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -114,7 +193,7 @@ internal sealed class CallbackServer : IDisposable
             // Reply first: the flow disposes this server as soon as it has the answer, which would cut the page.
             try
             {
-                Reply(context, 400, "Login failed", query["error_description"] ?? error);
+                await ReplyAsync(stream, 400, "Login failed", query["error_description"] ?? error, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -128,7 +207,7 @@ internal sealed class CallbackServer : IDisposable
         {
             try
             {
-                Reply(context, 400, "Login failed", "The redirect carried no authorization code.");
+                await ReplyAsync(stream, 400, "Login failed", "The redirect carried no authorization code.", cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -138,11 +217,11 @@ internal sealed class CallbackServer : IDisposable
             return;
         }
 
-        // The reply goes first, as above. A browser that drops the connection must not lose the code: Reply
-        // ignores that failure and the answer is set either way.
+        // The reply goes first, as above. A browser that drops the connection must not lose the code: the
+        // caller ignores that failure and the answer is set either way.
         try
         {
-            Reply(context, 200, "Signed in", "You can close this window and return to the terminal.");
+            await ReplyAsync(stream, 200, "Signed in", "You can close this window and return to the terminal.", cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -150,7 +229,7 @@ internal sealed class CallbackServer : IDisposable
         }
     }
 
-    private void Reply(HttpListenerContext context, int status, string heading, string message)
+    private async Task ReplyAsync(NetworkStream stream, int status, string heading, string message, CancellationToken cancellationToken)
     {
         var html = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />"
             + "<title>" + WebUtility.HtmlEncode(_product + ": " + heading) + "</title>"
@@ -158,18 +237,13 @@ internal sealed class CallbackServer : IDisposable
             + "main{max-width:32rem;padding:2rem;text-align:center}h1{font-size:1.5rem;margin:0 0 .5rem}p{margin:0;opacity:.75}</style></head>"
             + "<body><main><h1>" + WebUtility.HtmlEncode(heading) + "</h1><p>" + WebUtility.HtmlEncode(message) + "</p></main></body></html>";
         var bytes = Encoding.UTF8.GetBytes(html);
-        try
-        {
-            context.Response.StatusCode = status;
-            context.Response.ContentType = "text/html; charset=utf-8";
-            context.Response.Headers["Cache-Control"] = "no-store";
-            context.Response.ContentLength64 = bytes.Length;
-            context.Response.OutputStream.Write(bytes);
-            context.Response.Close();
-        }
-        catch (Exception ex) when (ex is HttpListenerException or IOException or ObjectDisposedException)
-        {
-            // The browser went away; the answer still counts.
-        }
+        var reason = status switch { 200 => "OK", 404 => "Not Found", _ => "Bad Request" };
+        var head = Encoding.ASCII.GetBytes(
+            "HTTP/1.1 " + status.ToString(CultureInfo.InvariantCulture) + " " + reason + "\r\n"
+            + "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nConnection: close\r\n"
+            + "Content-Length: " + bytes.Length.ToString(CultureInfo.InvariantCulture) + "\r\n\r\n");
+        await stream.WriteAsync(head, cancellationToken).ConfigureAwait(false);
+        await stream.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
+        await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 }
