@@ -42,7 +42,7 @@ public sealed class GreetingTests : MobileAppTest
 ```
 
 - A device target takes `app.bundleId` and `app.appPath`, not `app.url`. A web target takes only `app.url`. The `appPath` is relative to the folder of `e2e.config.json`.
-- `MobileAppTest` installs the build once per run (`Device.InstallAppAsync()`), launches the app fresh before each test, gives the agent `MobileTools`, and sets the step timeout to 90 seconds. A device target has no URL, so a test does not call `App.OpenAsync()`.
+- `MobileAppTest` installs the build once per run (`Device.InstallAppAsync()`), launches the app fresh before each test, gives the agent `MobileTools`, and sets the step timeout to 90 seconds. A device target has no URL, so `App.OpenAsync()` takes no path: it launches the pinned app fresh, and `MobileAppTest` already does that before each test.
 - To set a value in code, override `AppId`, `AppPath`, or `Platform`. Override `CreateMobileOptions(IDeviceProvider?)` to change the `MobileOptions`.
 - `Device` is the device fixture of the test's session: `HomeAsync`, `OpenAppAsync`, `ForegroundAppAsync`, appearance, and the other controls.
 - `AttachesToRunningApp` is true with `E2E_MOBILE_PROVIDER=devflow`. Use it in `Assume.That` for a test that needs a relaunch.

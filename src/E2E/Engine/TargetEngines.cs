@@ -24,4 +24,16 @@ internal static class TargetEngines
             _ => throw new ConfigurationException("INVALID_CONFIG", $"target \"{target.Name}\" has platform {target.Platform}; the platform must be web, ios, or android"),
         };
     }
+
+    /// <summary>
+    /// Whether <c>App.OpenAsync</c> on the target launches a pinned app instead of opening a URL: the target has no app URL, and its
+    /// engine pins an app, as a device does. Explore and an MCP session launch it before their first observation, the way a test does.
+    /// Upstream's <c>launchesPinnedApp</c> in <c>config/targets.ts</c>; the port takes the engine too, because its config names a platform and holds no engine handle.
+    /// </summary>
+    public static bool LaunchesPinnedApp(TargetConfig target, IEngine engine)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(engine);
+        return string.IsNullOrEmpty(target.App.Url) && engine.Capabilities.HasFlag(EngineCapabilities.PinnedApp);
+    }
 }

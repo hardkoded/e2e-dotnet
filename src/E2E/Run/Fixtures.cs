@@ -18,10 +18,14 @@ public sealed class App
     private readonly Func<CancellationToken> _token;
 
     private readonly StepRecorder? _steps;
+    private readonly bool _pinnedApp;
+    private readonly string _target;
 
-    internal App(IEngineSession session, string? baseUrl, Func<CancellationToken> token, StepRecorder? steps = null)
+    internal App(IEngineSession session, string? baseUrl, Func<CancellationToken> token, StepRecorder? steps = null, bool pinnedApp = false, string target = "")
     {
         _session = session;
+        _pinnedApp = pinnedApp;
+        _target = target;
         _baseUrl = baseUrl;
         _token = token;
         _steps = steps;
@@ -37,7 +41,32 @@ public sealed class App
     /// </summary>
     public Task OpenAsync(string? url = null, CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(_baseUrl) && _pinnedApp)
+        {
+            return LaunchPinnedAppAsync(url, cancellationToken);
+        }
+
         return RunStepAsync("app.open", url ?? "/", () => _session.OpenAsync(Routes.Resolve(_baseUrl, url), Token(cancellationToken)));
+    }
+
+    /// <summary>
+    /// <c>app.open()</c> on a target with no URL whose engine pins an app, a device: it launches the pinned app fresh, and is what a test
+    /// calls before it looks at the screen. A path has nowhere to go there; a link goes through the device fixture's <c>OpenLinkAsync</c>.
+    /// Upstream's <c>launchPinnedApp</c> in <c>run/fixtures.ts</c>.
+    /// </summary>
+    private Task LaunchPinnedAppAsync(string? url, CancellationToken cancellationToken)
+    {
+        return RunStepAsync("app.open", "", async () =>
+        {
+            if (url is not null)
+            {
+                throw new ConfigurationException(
+                    "APP_URL_REQUIRED",
+                    "app.open(\"" + url + "\") needs an app URL and target \"" + _target + "\" has none: on a device app.open() launches the pinned app, and a link goes through device.openLink");
+            }
+
+            await _session.RestartAsync(Token(cancellationToken)).ConfigureAwait(false);
+        });
     }
 
     /// <summary>Goes back one entry in the history. With no earlier entry it does nothing.</summary>
