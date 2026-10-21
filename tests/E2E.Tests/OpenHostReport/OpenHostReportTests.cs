@@ -11,10 +11,10 @@ namespace E2E.Tests.OpenHostReport;
 /// <summary>
 /// Upstream's <c>describe('openHost: report')</c> (<c>tests/integration/open-host-report.test.ts</c>), driven through sessions of
 /// <see cref="E2ESession.StartAsync"/>: the port has no host to open sessions from, so "host reuse" is a second session over the same results
-/// directory. "returns independent closed reports that remain stable across host reuse" is ported without the <c>gadget.dropFile()</c> fixture
+/// directory. The first `it` is ported as a partial test, renamed, without the <c>gadget.dropFile()</c> fixture
 /// call, which the port's fake engine has no fixture for, and without the soft failure counted among <c>close()</c>'s failures: a session
 /// returns none, <c>CloseSoftFailures</c> returns the aggregate the test fails with. The report holds the screenshot the failure kept.
-/// "returns undefined when the trace write fails" is ported as <c>null</c>, and its <c>close()</c> failure is not: the port writes the trace page
+/// "returns undefined when the trace write fails" is ported as a partial test, renamed, with <c>null</c>, and its <c>close()</c> failure is not: the port writes the trace page
 /// as a courtesy and tells stderr when it cannot, so the session releases without a failure.
 /// </summary>
 public sealed class OpenHostReportTests : IDisposable
@@ -30,7 +30,7 @@ public sealed class OpenHostReportTests : IDisposable
     private string Results => Path.Combine(_output, "results");
 
     [Fact]
-    public async Task Returns_independent_closed_reports_that_remain_stable_across_host_reuse()
+    public async Task Returns_independent_closed_reports_that_remain_stable_across_a_second_session()
     {
         var engine = new EvidenceEngine("Submit");
         var session = await StartAsync(engine, "snapshot");
@@ -86,7 +86,7 @@ public sealed class OpenHostReportTests : IDisposable
     }
 
     [Fact]
-    public async Task Returns_null_when_the_trace_write_fails()
+    public async Task Returns_null_when_the_trace_write_fails_and_the_session_still_releases()
     {
         var session = await StartAsync(new EvidenceEngine("Submit"), "failed write");
         try
