@@ -610,6 +610,18 @@ public sealed class E2ESession : IAsyncDisposable
             // Every attempt joins its test's report, and the run's report.json tells them all.
             var (single, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Videos, Exploration, _evidence);
             var (report, traced, redact) = RunReport.Add(single, trace.ResultsRoot, _scope.Attempt, kept, _scope.Redactor.Redact);
+            // The document is a courtesy too: the page below is still written when it cannot be.
+            try
+            {
+                await ReportFile.WriteAsync(report, _scope.ProjectRoot ?? Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(trace.ResultsRoot))!, trace.ResultsRoot, redact).ConfigureAwait(false);
+            }
+#pragma warning disable CA1031 // The document is a courtesy: whatever fails in building it must not fail a test that passed.
+            catch (Exception ex) when (ex is not OperationCanceledException)
+#pragma warning restore CA1031
+            {
+                Console.Error.WriteLine("[e2e] could not write " + ReportFile.FileName + " for " + _scope.TestTitle + ": " + _scope.Redactor.Redact(ex.Message));
+            }
+
             if (traced)
             {
                 await TracePages.WriteTracePagesAsync(
@@ -617,18 +629,6 @@ public sealed class E2ESession : IAsyncDisposable
                     new HashSet<string>(StringComparer.Ordinal) { id },
                     new WriteTracePagesOptions(_scope.ProjectRoot!, trace.ResultsRoot, trace.CacheDir),
                     redact).ConfigureAwait(false);
-            }
-
-            // The document is a courtesy too: the page above is still written when it cannot be.
-            try
-            {
-                await ReportFile.WriteAsync(report, _scope.ProjectRoot ?? Path.GetDirectoryName(trace.ResultsRoot)!, trace.ResultsRoot, redact).ConfigureAwait(false);
-            }
-#pragma warning disable CA1031 // The document is a courtesy: whatever fails in building it must not fail a test that passed.
-            catch (Exception ex) when (ex is not OperationCanceledException)
-#pragma warning restore CA1031
-            {
-                Console.Error.WriteLine("[e2e] could not write " + ReportFile.FileName + " for " + _scope.TestTitle + ": " + _scope.Redactor.Redact(ex.Message));
             }
 
             if (!traced && _scope.Attempt == 1)

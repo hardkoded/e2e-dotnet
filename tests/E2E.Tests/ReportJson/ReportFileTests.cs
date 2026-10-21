@@ -137,6 +137,20 @@ public sealed class ReportFileTests : IDisposable
     }
 
     [Fact]
+    public void Keeps_the_lists_of_a_result_within_the_schemas_counts_and_unique_where_it_asks()
+    {
+        var screen = new StepScreen { Nodes = 3, Since = 0, Changes = [.. Enumerable.Range(0, 20).Select(index => "added button " + index)] };
+        var step = ReportBuilders.Step(screen: screen);
+        var result = ReportBuilders.Result(id: new string('b', 64), attempts: [ReportBuilders.Attempt(steps: [step], appLog: [.. Enumerable.Range(0, 400).Select(index => new AppLogRecord(AppLogSource.Console, AppLogLevel.Info, "line " + index, ReportBuilders.ReportAt))])]) with { Tags = ["smoke", "smoke"] };
+        var report = new Report1Document(new ReportRun(Guid.CreateVersion7().ToString(), "1.0.0", [new ReportTarget("web", 0, "web", BuildReport.DescribeTarget(null))], [result]));
+
+        var wire = ReportWire.Document(BuildReport.Build(new BuildReportOptions { RunId = report.Run.Id, StartedAt = ReportBuilders.ReportAt, Status = ReportRunStatus.Passed, ExitCode = 0, Results = [result], ReportTargets = report.Run.Targets }), "results");
+
+        ReportSchema.AssertValidReport(wire);
+        Assert.Equal(12, wire["run"]!["results"]![0]!["attempts"]![0]!["steps"]![0]!["screen"]!["changes"]!.AsArray().Count);
+    }
+
+    [Fact]
     public void Cuts_text_at_the_schemas_bound_without_splitting_a_surrogate_pair()
     {
         // "😀" is two UTF-16 code units; a cut between them would leave a lone surrogate.

@@ -278,7 +278,7 @@ internal static partial class ReportWire
         Put(result, "cache", step.Cache is null ? null : Cache(step.Cache, step.CacheWrite));
         result["events"] = new JsonArray([.. step.Events.Select(each => (JsonNode?)Event(each))]);
         Put(result, "turns", step.Turns is { Count: > 0 } turns
-            ? new JsonArray([.. turns.Select(turn => (JsonNode?)Compose(("index", Math.Max(1, turn.Index)), ("calls", Strings(turn.Calls, 512)), ("outcome", Clip(turn.Outcome, 2048))))])
+            ? new JsonArray([.. turns.TakeLast(32).Select(turn => (JsonNode?)Compose(("index", Math.Max(1, turn.Index)), ("calls", Strings(turn.Calls.Take(16), 512)), ("outcome", Clip(turn.Outcome, 2048))))])
             : null);
         Put(result, "model", step.Model is null ? null : Model(step.Model));
         Put(result, "agent", string.IsNullOrEmpty(step.Agent) ? null : step.Agent);
@@ -291,7 +291,7 @@ internal static partial class ReportWire
         ("location", ClipOrNull(screen.Location, int.MaxValue)),
         ("nodes", Math.Max(0, screen.Nodes)),
         ("since", screen.Since is { } since ? Math.Max(0, since) : null),
-        ("changes", Strings(screen.Changes, 200)),
+        ("changes", Strings(screen.Changes.Take(12), 200)),
         ("more", screen.More is >= 1 ? screen.More : null));
 
     private static JsonObject AppLog(AppLogRecord line) => Compose(
@@ -313,7 +313,7 @@ internal static partial class ReportWire
         Put(result, "nodes", evidence.Nodes is { } nodes ? Math.Max(0, nodes) : null);
         Put(result, "screen", ClipOrNull(evidence.Screen, 128));
         Put(result, "screenshot", ClipOrNull(evidence.Screenshot, 128));
-        Put(result, "candidates", evidence.Candidates is { } candidates ? Strings(candidates, 1024) : null);
+        Put(result, "candidates", evidence.Candidates is { } candidates ? Strings(candidates.Take(8), 1024) : null);
         return result;
     }
 
@@ -404,7 +404,7 @@ internal static partial class ReportWire
         result["steps"] = new JsonArray([.. attempt.Steps.Select(step => (JsonNode?)Step(step))]);
         if (attempt.AppLog.Count > 0)
         {
-            result["appLog"] = new JsonArray([.. attempt.AppLog.Select(line => (JsonNode?)AppLog(line))]);
+            result["appLog"] = new JsonArray([.. attempt.AppLog.Take(300).Select(line => (JsonNode?)AppLog(line))]);
         }
 
         var stepOf = attempt.Steps.SelectMany(step => step.Artifacts.Select(artifact => (artifact, step.Id))).GroupBy(pair => pair.artifact).ToDictionary(group => group.Key, group => group.First().Id);
@@ -455,7 +455,7 @@ internal static partial class ReportWire
             ("platform", platform),
             ("agent", result.Agent),
             ("repeat", Math.Max(0, result.Repeat)),
-            ("tags", Strings(result.Tags.Where(tag => TagPattern().IsMatch(tag)), int.MaxValue)),
+            ("tags", Strings(result.Tags.Where(tag => TagPattern().IsMatch(tag)).Distinct(StringComparer.Ordinal), int.MaxValue)),
             ("selected", result.Selected),
             ("status", ResultStatusName(result.Status)));
         if (skipped)
@@ -475,8 +475,8 @@ internal static partial class ReportWire
         ("baseOrigin", target.BaseOrigin),
         ("environment", target.Environment),
         ("engine", Compose(("name", target.Provenance.Engine.Name), ("version", target.Provenance.Engine.Version), ("spiVersion", target.Provenance.Engine.SpiVersion))),
-        ("capabilities", Strings(target.Provenance.Capabilities, int.MaxValue)),
-        ("artifactCapabilities", Strings(target.Provenance.ArtifactCapabilities, int.MaxValue)),
+        ("capabilities", Strings(target.Provenance.Capabilities.Distinct(StringComparer.Ordinal), int.MaxValue)),
+        ("artifactCapabilities", Strings(target.Provenance.ArtifactCapabilities.Distinct(StringComparer.Ordinal), int.MaxValue)),
         ("stateCapability", target.Provenance.StateCapability));
 
     private static JsonObject Explore(ReportExplore explore) => Compose(
@@ -502,7 +502,7 @@ internal static partial class ReportWire
             ("title", Clip(finding.Title.Length == 0 ? "finding" : finding.Title, 200)),
             ("expected", Clip(finding.Expected, 2000)),
             ("actual", Clip(finding.Actual, 2000)),
-            ("reproduction", Strings(finding.Reproduction, 500)),
+            ("reproduction", Strings(finding.Reproduction.Take(20), 500)),
             ("path", ClipOrNull(finding.Path, 2048)),
             ("reportedAt", Timestamp(finding.ReportedAt))))])));
 
