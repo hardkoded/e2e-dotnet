@@ -69,7 +69,13 @@ internal static class ModelHttp
     /// </summary>
     internal static AgentException ModelRefusalError(string model, string? rawFinishReason, Redactor redactor)
     {
-        var reason = string.IsNullOrWhiteSpace(rawFinishReason) ? ModelResponse.ContentFilter : redactor.Redact(rawFinishReason.Length > MaxFinishReasonChars ? rawFinishReason[..MaxFinishReasonChars] : rawFinishReason);
+        // Redact first and cut after, so no prefix of a secret survives the cut.
+        var reason = string.IsNullOrWhiteSpace(rawFinishReason) ? ModelResponse.ContentFilter : redactor.Redact(rawFinishReason);
+        if (reason.Length > MaxFinishReasonChars)
+        {
+            reason = reason[..MaxFinishReasonChars];
+        }
+
         return new AgentException("MODEL_REFUSED", "the model " + model + " refused the request (" + reason + ")");
     }
 
