@@ -151,12 +151,12 @@ Not ported, because the feature is not in the port:
 
 - No `ListReporter`, run header, or live window; no JUnit or Markdown report renderer; no serial groups, workers, shards, runner, `e2e run`, `e2e init`, or `e2e list`; no JavaScript config loader; no `test.extend`; no managed process; no telemetry; no wordmark; no `projectId`; no `runWithRetries`: the `report-list`, `report-junit`, `report-markdown`, `cli-run`, `cli-boot`, `config-load`, `parallel-workers`, `managed-process`, `extended-fixtures`, `telemetry-*`, `wordmark`, `target-identity`, and `retry` tests, and the three `report-status` tests about the last attempt of a serial group
 - No value expectations (`expect-values` `truthy/falsy/null/undefined fail on the wrong value, and pass negated`), no `toHaveClass`, `frameLocator`, `*css=` captures, or download and click-modifier tests; the `waitForResponse`, `route`, and `unroute` predicate tests and the `an option ... does not take is refused` tests cannot happen, because C# overloads are typed
-- No `ModelUsage` accumulator, `scrollUntilVisible`, `withStallGuard`, `SessionStore`, `realmSlot`, `traceCacheKeyHash`, or `verifyEndState` with `waitMs`: the `model-usage`, `scroll-until-visible`, `tool-loop-stall`, `session-envelope`, `realm-slot`, `trace-identity`, and `trace-replay` end-wait tests
+- No run-wide usage accumulator (the port has `ModelUsage`, but no overflow-capping total or usage events), `scrollUntilVisible`, `withStallGuard`, `SessionStore`, `realmSlot`, `traceCacheKeyHash`, or `verifyEndState` with `waitMs`: the `model-usage`, `scroll-until-visible`, `tool-loop-stall`, `session-envelope`, `realm-slot`, `trace-identity`, and `trace-replay` end-wait tests
 - No `pixelFallback` observe option, `tap_at` or `select_at`, upload tool, or `schema` and `vision` options on `act`: the `agent-fallback-handoff`, `agent-act-pixel-tools`, `agent-act-verbs` hidden-file, `act-validation`, and `agent-screen-update` tests
 - No removed-key hints in `agent-config`, no `artifacts` config key (`refuses the removed kinds list`), no module-error explainer (`diagnose`), no `defineEngine` (`binds validateApp, prepare, finish, and fixture factories to the spec`)
 - No `waitForDownload`, `sanitizeFilename`, or `artifactPath` in the web engine, and no stalled-reader pixel fallback in `semantic-fallback`
 - The MCP config takes one target and has no project tools: the three `mcp-server` and `mcp-session-host` tests about several targets and project tools. The declared-verbs part is covered by `SessionHostTests.Catalogs_only_the_verbs_the_engine_declares`
-- No tracing: `trace-modes` and the report-schema parts of `trace-cache-replay`
+- No `--trace` flag or retry runner, so the `trace-modes` test (`records retries only under on-all-retries, --trace wins`) cannot run. No runner or report, so the report-schema parts of `trace-cache-replay` cannot run either
 
 Left for other work:
 
