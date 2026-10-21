@@ -236,7 +236,16 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
             };
         }
 
-        return new ModelResponse { Content = text.Count == 0 ? null : string.Concat(text), ToolCalls = calls, Usage = usage, ReasoningItems = reasoning };
+        var incomplete = root.TryGetProperty("incomplete_details", out var incompleteDetails) ? ModelHttp.OptionalString(incompleteDetails, "reason") : null;
+        return new ModelResponse
+        {
+            Content = text.Count == 0 ? null : string.Concat(text),
+            ToolCalls = calls,
+            Usage = usage,
+            ReasoningItems = reasoning,
+            FinishReason = ModelHttp.FinishReason(incomplete, "content_filter"),
+            RawFinishReason = incomplete,
+        };
     }
 }
 

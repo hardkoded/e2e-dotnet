@@ -14,7 +14,7 @@ public sealed class FailedStepOutcomeTests
             Assert.Equal(StepOutcome.NoVerdict, StepTraceSession.FailedStepOutcome(new AgentException(code, "x")));
         }
 
-        foreach (var code in new[] { "ASSERTION_FAILED", "STEP_TIMEOUT", "MODEL_OUTPUT_INVALID", "CONTEXT_OVERFLOW", "APP_UNREACHABLE" })
+        foreach (var code in new[] { "ASSERTION_FAILED", "STEP_TIMEOUT", "MODEL_OUTPUT_INVALID", "CONTEXT_OVERFLOW", "APP_UNREACHABLE", "MODEL_REFUSED" })
         {
             Assert.Equal(StepOutcome.Failed, StepTraceSession.FailedStepOutcome(new AgentException(code, "x")));
         }

@@ -577,6 +577,7 @@ public static class StepExecutors
             "STEP_BUDGET_EXHAUSTED",
             "STEP_TIMEOUT",
             "CONTEXT_OVERFLOW",
+            "MODEL_REFUSED",
         ],
         StringComparer.Ordinal);
 

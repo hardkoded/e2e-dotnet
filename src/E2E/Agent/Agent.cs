@@ -723,6 +723,12 @@ public sealed partial class Agent
             _scope.OutputTokens += usage.OutputTokens;
         }
 
+        // A refusal with no tool call is no answer to repair: the judgment fails as refused, not as an unusable answer.
+        if (response.ToolCalls.Count == 0 && string.Equals(response.FinishReason, ModelResponse.ContentFilter, StringComparison.Ordinal))
+        {
+            throw ModelHttp.ModelRefusalError(model.Name, response.RawFinishReason, _scope.Redactor);
+        }
+
         return response;
     }
 

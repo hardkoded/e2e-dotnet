@@ -49,6 +49,30 @@ internal static class ModelHttp
     /// <summary>How a <c>CONTEXT_OVERFLOW</c> message opens; the agent inserts what its retry did after it.</summary>
     internal const string OverflowMessage = "The model request exceeded the context window";
 
+    /// <summary>
+    /// The finish reason the agent reads from the provider's own stop word: <see cref="ModelResponse.ContentFilter"/> when
+    /// <paramref name="raw"/> is one of <paramref name="refusals"/>, else null.
+    /// </summary>
+    internal static string? FinishReason(string? raw, params string[] refusals) =>
+        raw is not null && refusals.Contains(raw, StringComparer.Ordinal) ? ModelResponse.ContentFilter : null;
+
+    /// <summary>A string property of <paramref name="element"/>, or null when it holds none.</summary>
+    internal static string? OptionalString(JsonElement element, string name) =>
+        element.ValueKind == JsonValueKind.Object && element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+    /// <summary>The most characters of a provider's finish reason a refusal message quotes.</summary>
+    private const int MaxFinishReasonChars = 128;
+
+    /// <summary>
+    /// Upstream's <c>modelRefusalError</c> (<c>agent/model/sdk.ts</c>): <c>MODEL_REFUSED</c> naming the model and the
+    /// provider's finish reason when it sent one. The reason is provider text, so it is redacted and cut.
+    /// </summary>
+    internal static AgentException ModelRefusalError(string model, string? rawFinishReason, Redactor redactor)
+    {
+        var reason = string.IsNullOrWhiteSpace(rawFinishReason) ? ModelResponse.ContentFilter : redactor.Redact(rawFinishReason.Length > MaxFinishReasonChars ? rawFinishReason[..MaxFinishReasonChars] : rawFinishReason);
+        return new AgentException("MODEL_REFUSED", "the model " + model + " refused the request (" + reason + ")");
+    }
+
     /// <summary>The most response body bytes a failure message quotes.</summary>
     private const int MaxProviderBodyBytes = 1024;
 

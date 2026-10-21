@@ -106,8 +106,8 @@ pass returns an `ActResult` with `Summary`, `ModelCalls`, `Actions`, and
 `AUTH_CREDENTIAL_UNAVAILABLE`, `AUTH_CREDENTIAL_INVALID`,
 `SECRET_UNAVAILABLE`, `ENVIRONMENT_UNAVAILABLE`, `SEED_DATA_MISSING`,
 `TEST_SETUP_FAILED`, `AUTOMATION_UNSUPPORTED`, `POLICY_DENIED` (blocked from
-outside, `Blocked` is true); `MODEL_OUTPUT_INVALID` (unusable answer). Full
-list: topic `debugging`.
+outside, `Blocked` is true); `MODEL_OUTPUT_INVALID` (unusable answer),
+`MODEL_REFUSED` (the model refused the prompt). Full list: topic `debugging`.
 
 `ActOptions`:
 
