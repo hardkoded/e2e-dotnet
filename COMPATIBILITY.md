@@ -132,6 +132,38 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 - Asymmetric matchers (`expect.any`, `anything`, `objectContaining`, `arrayContaining`, `stringContaining`, `stringMatching`). Use NUnit constraints such as `Is.InstanceOf`, `Is.Not.Null`, `Has.Property`, `Is.SupersetOf`, `Does.Contain`, and `Does.Match`
 - The upstream reporter and GitHub pull request comment. The trace page is ported in part: see [Trace page](#trace-page)
 
+## Upstream test-only commits
+
+The tests of upstream commits `adcfc2ba`, `c9445ce6`, `a13e119c`, `1731e0d8`, `fe2c3450`, and `5b6a731e` that the port does not run, and why. The tests that follow upstream are in the PRs #517 (`adcfc2ba`, `c9445ce6`), #521 (`a13e119c`), #516 (`fe2c3450`), #510 and #511 (`5b6a731e`). `1731e0d8` changed nothing the port has.
+
+Ported in part (the test name carries `Partial_` or a `PARTIAL` suffix):
+
+- `keeps the first verdict: a later complete_step cannot turn a failure into a pass` and `refuses a blocked verdict without a blocking error code and leaves the step open for a real one`: the port's verdict tool keeps no state and sends no result text, so only the step outcome is checked
+- `refuses $sink before reading the plaintext`: the port has no plaintext resolver to count reads and records no policy decisions
+- `never sends a secret value to the model`: runs on a scripted model, not a real one
+- `diverges with target-not-found when relocation never matches`: no `observations == 9` check, because the port retries every 20 ms up to `ReplayTimeout`
+- `masks a password inside an iframe in artifact screenshots and observed pixels`: the port has one screenshot path
+- `pins the id of a non-ASCII title path` and `rejects an empty name, or an empty, repeated, or blank-entry agent list at registration`: a .NET test has one title, and `[Agent]` takes one name
+- `uses CI defaults for retries, workers, trace, and video`: the port has no workers, and its trace default is deliberate (see [Defaults](#defaults))
+- `refuses both spellings side by side, and an explicit path that does not exist`: the port has one config file name and throws `INVALID_CONFIG`
+
+Not ported, because the feature is not in the port:
+
+- No `ListReporter`, run header, or live window; no JUnit or Markdown report renderer; no serial groups, workers, shards, runner, `e2e run`, `e2e init`, or `e2e list`; no JavaScript config loader; no `test.extend`; no managed process; no telemetry; no wordmark; no `projectId`; no `runWithRetries`: the `report-list`, `report-junit`, `report-markdown`, `cli-run`, `cli-boot`, `config-load`, `parallel-workers`, `managed-process`, `extended-fixtures`, `telemetry-*`, `wordmark`, `target-identity`, and `retry` tests, and the three `report-status` tests about the last attempt of a serial group
+- No value expectations (`expect-values` `truthy/falsy/null/undefined fail on the wrong value, and pass negated`), no `toHaveClass`, `frameLocator`, `*css=` captures, or download and click-modifier tests; the `waitForResponse`, `route`, and `unroute` predicate tests and the `an option ... does not take is refused` tests cannot happen, because C# overloads are typed
+- No `ModelUsage` accumulator, `scrollUntilVisible`, `withStallGuard`, `SessionStore`, `realmSlot`, `traceCacheKeyHash`, or `verifyEndState` with `waitMs`: the `model-usage`, `scroll-until-visible`, `tool-loop-stall`, `session-envelope`, `realm-slot`, `trace-identity`, and `trace-replay` end-wait tests
+- No `pixelFallback` observe option, `tap_at` or `select_at`, upload tool, or `schema` and `vision` options on `act`: the `agent-fallback-handoff`, `agent-act-pixel-tools`, `agent-act-verbs` hidden-file, `act-validation`, and `agent-screen-update` tests
+- No removed-key hints in `agent-config`, no `artifacts` config key (`refuses the removed kinds list`), no module-error explainer (`diagnose`), no `defineEngine` (`binds validateApp, prepare, finish, and fixture factories to the spec`)
+- No `waitForDownload`, `sanitizeFilename`, or `artifactPath` in the web engine, and no stalled-reader pixel fallback in `semantic-fallback`
+- The MCP config takes one target and has no project tools: the three `mcp-server` and `mcp-session-host` tests about several targets and project tools. The declared-verbs part is covered by `SessionHostTests.Catalogs_only_the_verbs_the_engine_declares`
+- No tracing: `trace-modes` and the report-schema parts of `trace-cache-replay`
+
+Left for other work:
+
+- `detectVcs` and the `error stacks` test: covered by #496
+- `staleOr`: the port has only `NavigationStaleOr`, so `treats a navigation race like a stale node` waits for #513
+- A password inside a closed shadow root is not masked in screenshots: #512
+
 ## Debug
 
 Upstream's `--debug` prints the run's phase timings and a table of agent steps on stderr, and keeps each planned step's transcript. A test run has no `--debug` flag, so the .NET-only variable `E2E_DEBUG=1` (or `true`) stands in for it, and a fixture can override the `Debug` property. `e2e explore --debug` is the flag itself (`ExploreOptions.Debug`; the variable turns it on too). `E2ESessionOptions.Debug` carries it to the session.
