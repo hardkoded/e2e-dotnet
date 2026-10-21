@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Text.Json.Nodes;
 using E2E.Internal;
 
@@ -22,6 +23,7 @@ internal static class ReportFile
 
     private static readonly Lock Gate = new();
     private static readonly Dictionary<string, RunState> Runs = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, Lazy<Task<VcsInfo?>>> Detections = new(StringComparer.Ordinal);
 
     private sealed class Entry(ReportResult result)
     {
@@ -53,6 +55,29 @@ internal static class ReportFile
 
     /// <summary>Where the document of the run whose results go to <paramref name="resultsRoot"/> is written.</summary>
     public static string PathFor(string resultsRoot) => Path.Combine(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(resultsRoot))!, FileName);
+
+    /// <summary>
+    /// The commit of the project at <paramref name="projectRoot"/>, asked of the version control once per process and root, so a run of many
+    /// sessions starts no process per session. A lookup that failed is not kept: the next call asks again. <paramref name="detect"/> is for tests.
+    /// </summary>
+    internal static async Task<VcsInfo?> DetectVcs(string projectRoot, Func<string, Task<VcsInfo?>>? detect = null)
+    {
+        // The lazy keeps two sessions that ask together from both starting a lookup; the task inside keeps no exception, so a failure is evicted below.
+        var detection = Detections.GetOrAdd(projectRoot, root => new Lazy<Task<VcsInfo?>>(async () => detect is null ? await Vcs.DetectAsync(root, EnvironmentVariables()).ConfigureAwait(false) : await detect(root).ConfigureAwait(false)));
+        try
+        {
+            return await detection.Value.ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            Detections.TryRemove(new KeyValuePair<string, Lazy<Task<VcsInfo?>>>(projectRoot, detection));
+            throw;
+        }
+    }
+
+    /// <summary>The project's root: the one given, else the parent of the results directory (the output directory).</summary>
+    public static string ProjectRootOf(string? projectRoot, string resultsRoot) =>
+        projectRoot ?? Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(resultsRoot))!;
 
     /// <summary>
     /// How a run stands, from its results alone (upstream's <c>statusOf</c> of the exit code that <c>verdictExitCodes</c> implies). A
@@ -87,6 +112,33 @@ internal static class ReportFile
     }
 
     /// <summary>
+    /// The document of the attempt in <paramref name="report"/> (a single-attempt report, as <see cref="AttemptReport.Build"/> returns it) alone, as a
+    /// run of one result, redacted by <paramref name="redact"/>. Upstream's <c>writeHostTrace</c> builds the same report for a hosted session and returns it.
+    /// </summary>
+    public static async Task<JsonObject> SingleAsync(Report1Document report, string? projectRoot, string resultsRoot, Func<string, string> redact)
+    {
+        var result = report.Run.Results[0];
+        projectRoot = ProjectRootOf(projectRoot, resultsRoot);
+        var (status, exitCode) = StatusOf([result]);
+        var document = BuildReport.Build(new BuildReportOptions
+        {
+            RunId = report.Run.Id,
+            ProjectRoot = projectRoot,
+            StartedAt = result.Attempts[0].StartedAt ?? DateTimeOffset.UtcNow,
+            Status = status,
+            ExitCode = exitCode,
+            Results = [result],
+            ReportTargets = report.Run.Targets,
+            Explore = report.Run.Explore,
+            Vcs = await VcsOf(DetectVcs(projectRoot)).ConfigureAwait(false),
+            Ci = E2EConfig.IsCi(),
+        });
+        var node = ReportWire.Result(document.Run.Results[0], result.Platform, Path.TrimEndingDirectorySeparator(Path.GetFullPath(resultsRoot)));
+        ReportWire.Redact(node, redact);
+        return ReportWire.Document(document, new Dictionary<string, JsonNode>(StringComparer.Ordinal) { [result.Id] = node });
+    }
+
+    /// <summary>
     /// Adds the test in <paramref name="report"/> (the single result <see cref="RunReport.Add"/> returned, with every attempt the test has had) to the
     /// run, and writes the document of the run to <c>report.json</c> beside <paramref name="resultsRoot"/>. <paramref name="redact"/> is the
     /// redactor of that test's attempts.
@@ -103,7 +155,7 @@ internal static class ReportFile
                 state = Runs[resultsRoot] = new RunState(
                     report.Run.Id,
                     added.Attempts.FirstOrDefault()?.StartedAt ?? DateTimeOffset.UtcNow,
-                    Vcs.DetectAsync(projectRoot, EnvironmentVariables()));
+                    DetectVcs(projectRoot));
             }
         }
 
@@ -133,7 +185,7 @@ internal static class ReportFile
                 ExitCode = exitCode,
                 Results = [.. state.Results.Values.Select(entry => entry.Result)],
                 Explore = state.Explore,
-                Vcs = await VcsOf(state).ConfigureAwait(false),
+                Vcs = await VcsOf(state.Vcs).ConfigureAwait(false),
                 Ci = E2EConfig.IsCi(),
             });
 
@@ -161,11 +213,11 @@ internal static class ReportFile
     }
 
     // Detection never fails a run: a task that faulted reads as no commit.
-    private static async Task<VcsInfo?> VcsOf(RunState state)
+    private static async Task<VcsInfo?> VcsOf(Task<VcsInfo?> detection)
     {
         try
         {
-            return await state.Vcs.ConfigureAwait(false);
+            return await detection.ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

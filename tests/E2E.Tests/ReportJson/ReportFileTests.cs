@@ -142,6 +142,32 @@ public sealed class ReportFileTests : IDisposable
     }
 
     [Fact]
+    public async Task Asks_for_the_commit_once_per_project_root_however_many_sessions_ask_and_asks_again_after_a_failure()
+    {
+        var root = Path.Combine(_output, "project");
+        var asked = 0;
+        var info = new VcsInfo("abc123", "main", false);
+        Task<VcsInfo?> Detect(string _)
+        {
+            Interlocked.Increment(ref asked);
+            return Task.FromResult<VcsInfo?>(info);
+        }
+
+        var all = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => Task.Run(() => ReportFile.DetectVcs(root, Detect))));
+
+        Assert.All(all, found => Assert.Same(info, found));
+        Assert.Equal(1, asked);
+
+        var failing = Path.Combine(_output, "failing");
+        var attempts = 0;
+        Task<VcsInfo?> Fail(string _) => ++attempts == 1 ? Task.FromException<VcsInfo?>(new IOException("no git")) : Task.FromResult<VcsInfo?>(info);
+
+        await Assert.ThrowsAsync<IOException>(() => ReportFile.DetectVcs(failing, Fail));
+        Assert.Same(info, await ReportFile.DetectVcs(failing, Fail));
+        Assert.Equal(2, attempts);
+    }
+
+    [Fact]
     public void Reads_the_size_and_digest_of_an_artifact_from_its_file_and_trusts_only_a_log_to_hold_no_secret()
     {
         Directory.CreateDirectory(Path.Combine(Results, "t", "attempt-1"));

@@ -2,8 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Text.Json.Nodes;
 using E2E.Engine;
+using E2E.Tests.ReportJson;
 using static E2E.Tests.AgentAct.ExecutorKit;
 using static E2E.Tests.CoreTests;
 
@@ -165,11 +165,13 @@ public sealed class AgentActVerdictMappingTests
         Assert.Contains("secret \"stripe-key\" was not declared in this step's params; only declared secrets can be filled", results[1], StringComparison.Ordinal);
     }
 
-    /// <summary>Partial: the error message is the executor's summary alone, not <c>agent.act blocked: &lt;summary&gt;</c>.</summary>
+    /// <summary>
+    /// Partial: the error message is the executor's summary alone, not <c>agent.act blocked: &lt;summary&gt;</c>.
+    /// </summary>
     [Fact]
     public async Task Partial_Maps_a_blocked_verdict_onto_its_error_code_and_the_configuration_exit_code()
     {
-        var output = Directory.CreateTempSubdirectory("e2e-blocked-").FullName;
+        using var report = new ReportDirectory();
         var executor = new TestExecutor("blocked-executor", (_, _) => Task.FromResult(Blocked("the staging credential is not configured", "AUTH_CREDENTIAL_UNAVAILABLE")));
         var result = await RunAsync(
             async ctx =>
@@ -179,25 +181,19 @@ public sealed class AgentActVerdictMappingTests
             },
             CounterPage.World(),
             executor: executor,
-            resultsDirectory: Path.Combine(output, "results"));
+            report: report);
 
-        try
-        {
-            var error = Assert.IsType<AgentException>(result.Error);
-            Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", error.Code);
-            Assert.True(error.Blocked);
-            Assert.Equal("the staging credential is not configured", error.Message);
-            // Blocked-for-configuration is distinguishable from a product failure at the process boundary: exit 2, not the test-failure exit 1.
-            var run = JsonNode.Parse(File.ReadAllText(Path.Combine(output, "report.json")))!["run"]!;
-            Assert.Equal(2, (int)run["exitCode"]!);
-            Assert.Equal("failed", (string)run["results"]![0]!["status"]!);
-            Assert.Equal("blocked", (string)run["results"]![0]!["attempts"]![0]!["steps"]!.AsArray().Single(step => (string)step!["api"]! == "agent.act")!["status"]!);
-            Assert.Equal("blocked", (string)run["status"]!);
-        }
-        finally
-        {
-            Directory.Delete(output, recursive: true);
-        }
+        var error = Assert.IsType<AgentException>(result.Error);
+        Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", error.Code);
+        Assert.True(error.Blocked);
+        Assert.Equal("the staging credential is not configured", error.Message);
+        // Blocked is first-class in the report: the step says blocked, and a run whose every non-passing result is blockable says blocked.
+        var attempt = report.LastAttempt();
+        Assert.Equal("failed", (string)report.Run()["results"]![0]!["status"]!);
+        Assert.Equal("AUTH_CREDENTIAL_UNAVAILABLE", (string)attempt["error"]!["code"]!);
+        Assert.Equal(2, (int)report.Run()["exitCode"]!);
+        Assert.Equal("blocked", (string)report.Step("agent.act")["status"]!);
+        Assert.Equal("blocked", (string)report.Run()["status"]!);
     }
 
     [Fact]

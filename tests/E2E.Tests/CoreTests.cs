@@ -968,11 +968,11 @@ public sealed class CoreTests
         TimeSpan? actionTimeout = null,
         IReadOnlyDictionary<string, AgentTool>? agentTools = null,
         IStepExecutor? executor = null,
-        string? resultsDirectory = null)
+        ReportJson.ReportDirectory? report = null)
     {
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions
         {
-            ResultsDirectory = resultsDirectory,
+            ResultsDirectory = report?.Results,
             Engine = new DocumentEngine(world ?? BillingWorld.Create()),
             Model = model,
             AgentTools = agentTools,

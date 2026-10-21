@@ -107,6 +107,7 @@ public sealed partial class DeviceSession
             _appIdentity = identity;
         }
 
+        _launching = true;
         ScreenReplaced();
     }
 

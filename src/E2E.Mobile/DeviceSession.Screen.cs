@@ -140,9 +140,10 @@ public sealed partial class DeviceSession
     }
 
     /// <summary>
-    /// Snapshot for a locate; null for a screen agent-device could not read yet (an app still on its splash). The harness polls a
-    /// locate until its deadline, so that screen matches nothing and the poll waits for it to render. A capture that leaves no budget
-    /// for another poll fails with the reason instead, so a wait that ends on an unreadable screen says so.
+    /// Snapshot for a locate; null for a screen agent-device could not read yet (an app still on its splash, or one iOS does not
+    /// report running yet after a launch). The harness polls a locate until its deadline, so that screen matches nothing and the
+    /// poll waits for it to render. A capture that leaves no budget for another poll fails with the reason instead, so a wait that
+    /// ends on an unreadable screen says so.
     /// </summary>
     private async Task<RawSnapshot?> LocateSnapshotAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
@@ -151,7 +152,7 @@ public sealed partial class DeviceSession
         {
             return await SnapshotOrEmptyAsync(false, cancellationToken).ConfigureAwait(false);
         }
-        catch (EngineException cause) when (!cancellationToken.IsCancellationRequested && DeviceErrors.IsUnreadableCapture(cause) && _engine.Clock.GetUtcNow() - started < timeout)
+        catch (EngineException cause) when (!cancellationToken.IsCancellationRequested && (DeviceErrors.IsUnreadableCapture(cause) || (_launching && DeviceErrors.IsAppNotRunning(cause))) && _engine.Clock.GetUtcNow() - started < timeout)
         {
             return null;
         }
