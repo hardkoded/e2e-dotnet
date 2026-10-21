@@ -11,7 +11,13 @@ public sealed class EngineLocateTests
 {
     private static readonly SemanticNode Banner = new() { Ref = "banner", Role = "alert", Name = "Saved" };
 
-    private static Screen ScreenOver(Func<int, IReadOnlyList<SemanticNode>> locate, out Func<int> calls, out Func<int> observes)
+    /// <summary>
+    /// A deadline no loaded runner outruns: a test that waits for an answer after N retries needs N poll sleeps to fit inside it,
+    /// and a sleep can last far longer than its interval on a busy machine.
+    /// </summary>
+    private static readonly TimeSpan Patient = TimeSpan.FromSeconds(60);
+
+    private static Screen ScreenOver(Func<int, IReadOnlyList<SemanticNode>> locate, out Func<int> calls, out Func<int> observes, TimeSpan? timeout = null)
     {
         var located = 0;
         var observed = 0;
@@ -26,8 +32,8 @@ public sealed class EngineLocateTests
             (_, _, _) => Task.CompletedTask,
             () => CancellationToken.None,
             () => { },
-            ScreenFixture.Timeout,
-            ScreenFixture.Timeout,
+            timeout ?? ScreenFixture.Timeout,
+            timeout ?? ScreenFixture.Timeout,
             locate: (_, _, _) => Task.FromResult(locate(++located)));
     }
 
@@ -45,7 +51,8 @@ public sealed class EngineLocateTests
         var screen = ScreenOver(
             attempt => attempt < 3 ? throw new EngineException("NODE_STALE", "the screen moved", retryable: true) : [Banner],
             out var calls,
-            out _);
+            out _,
+            Patient);
         await screen.GetByRole("alert").WaitForAsync();
         Assert.Equal(3, calls());
     }
@@ -53,7 +60,7 @@ public sealed class EngineLocateTests
     [Fact]
     public async Task Fails_with_the_engine_error_when_the_deadline_passes_on_a_retryable_one()
     {
-        var screen = ScreenOver(_ => throw new EngineException("NODE_STALE", "the screen moved", retryable: true), out var calls, out _);
+        var screen = ScreenOver(_ => throw new EngineException("NODE_STALE", "the screen moved", retryable: true), out var calls, out _, TimeSpan.FromSeconds(1));
         var failure = await Assert.ThrowsAsync<EngineException>(() => screen.GetByRole("alert").CountAsync());
         Assert.Equal("NODE_STALE", failure.Code);
         Assert.True(calls() > 1);
