@@ -104,9 +104,8 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
         Assert.Equal("getByLabel(\"City\")", (string)report.Step("locator.pressSequentially")["label"]!);
     }
 
-    /// <summary>Partial: <c>restart</c> and <c>clearState</c> record the reopen of the app as a step of its own (<c>app.open</c>), where upstream records no step for it.</summary>
     [Fact]
-    public async Task Partial_Reaches_the_session_hooks_in_order_for_app_open_back_restart_and_clearState()
+    public async Task Reaches_the_session_hooks_in_order_for_app_open_back_restart_and_clearState()
     {
         using var scene = ReferenceScene.Create(open: false);
         var engine = new ScriptedEngine(scene);
@@ -124,7 +123,7 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
         session.Complete();
         await session.DisposeAsync();
 
-        Assert.Equal(["app.open", "app.open", "app.back", "app.restart", "app.open", "app.clearState", "app.open"], report.LastAttempt()["steps"]!.AsArray().Take(7).Select(each => (string)each!["api"]!));
+        Assert.Equal(["app.open", "app.open", "app.back", "app.restart", "app.clearState"], report.LastAttempt()["steps"]!.AsArray().Select(each => (string)each!["api"]!).Where(api => api.StartsWith("app.", StringComparison.Ordinal)));
     }
 
     private static Task<E2ESession> StartAsync(ScriptedEngine engine, ReportDirectory report)

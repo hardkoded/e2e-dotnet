@@ -53,8 +53,10 @@ Members of `E2ETest` in both frameworks:
   agent's navigate step admit only `http:`, `https:`, and the exact
   `about:blank`; any other scheme is `POLICY_DENIED`. `RestartAsync` keeps
   cookies and storage, `ClearStateAsync` drops them, and both reopen the
-  target URL. `ClearStateAsync` is `UNSUPPORTED_CAPABILITY` with
-  `Connect.ReconnectEndpoint` or an attempt-scoped `Browser` provider.
+  target URL inside their own step, so the report shows `app.restart` or
+  `app.clearState` alone, with no `app.open` after it. `ClearStateAsync` is
+  `UNSUPPORTED_CAPABILITY` with `Connect.ReconnectEndpoint` or an
+  attempt-scoped `Browser` provider.
 - `Agent`: `ActAsync`, `AssertAsync`, `WaitForAsync`, `ExtractAsync<T>`
   (topic `agent`).
 - `Screen`: the locators below.
