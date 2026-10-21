@@ -138,7 +138,7 @@ The tests of upstream commits `adcfc2ba`, `c9445ce6`, `a13e119c`, `1731e0d8`, `f
 
 Ported in part (the test name carries `Partial_` or a `PARTIAL` suffix):
 
-- `keeps the first verdict: a later complete_step cannot turn a failure into a pass` and `refuses a blocked verdict without a blocking error code and leaves the step open for a real one`: the port's verdict tool keeps no state and sends no result text, so only the step outcome is checked
+- `keeps the first verdict: a later complete_step cannot turn a failure into a pass` and `refuses a blocked verdict without a blocking error code and leaves the step open for a real one`: the port's verdict tool keeps no state and sends no result text, so the tests check what the loop does instead (the step outcome, the model-call count, and the text of the rejections) and not the verdict result text upstream reads
 - `refuses $sink before reading the plaintext`: the port has no plaintext resolver to count reads and records no policy decisions
 - `never sends a secret value to the model`: runs on a scripted model, not a real one
 - `diverges with target-not-found when relocation never matches`: no `observations == 9` check, because the port retries every 20 ms up to `ReplayTimeout`
