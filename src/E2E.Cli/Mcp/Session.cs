@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Text.Json;
 using E2E.Engine;
 using E2E.Internal;
+using E2E.Mobile;
 using ModelContextProtocol.Protocol;
 
 namespace E2E.Cli.Mcp;
@@ -32,8 +33,8 @@ internal sealed class SessionHostOptions
     /// <summary>Loads the config at an absolute path fresh for each session, so an edited config applies without a restart.</summary>
     public Func<string, Task<E2EConfig>> LoadConfig { get; init; } = path => Task.Run(() => E2EConfig.Load(path));
 
-    /// <summary>Creates the engine of one session; the argument says whether the session shows its UI.</summary>
-    public Func<bool, IEngine> CreateEngine { get; init; } = headed => new WebEngine(headless: !headed);
+    /// <summary>Creates the engine of one session: the target's, and whether the session shows its UI. The platform of the target picks the engine.</summary>
+    public Func<TargetConfig, bool, IEngine> CreateEngine { get; init; } = (target, headed) => TargetEngines.Create(target, !headed, MobileTargetEngine.Create);
 
     /// <summary>Whether a session shows its UI when <c>open_session</c> does not say, from <c>--headed</c>.</summary>
     public bool Headed { get; init; }
@@ -293,7 +294,12 @@ internal sealed class SessionHost : IDisposable
         try
         {
             abort.Token.ThrowIfCancellationRequested();
-            var engine = _options.CreateEngine(headed);
+            var engine = _options.CreateEngine(target, headed);
+            if (engine.Capabilities.HasFlag(EngineCapabilities.PinnedApp))
+            {
+                _sessions.ClaimEngine(id, target.Name);
+            }
+
             session = await E2ESession.StartAsync(
                 new E2ESessionOptions
                 {

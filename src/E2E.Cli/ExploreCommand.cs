@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using E2E.Cli.Report;
 using E2E.Internal;
+using E2E.Mobile;
 
 namespace E2E.Cli;
 
@@ -185,6 +186,7 @@ internal static partial class ExploreCommand
             MaxSteps = parsed.MaxSteps,
             Timeout = parsed.Timeout,
             Headed = parsed.Headed,
+            CreateMobileEngine = MobileTargetEngine.Create,
             Output = parsed.Output,
             Debug = parsed.Debug,
             AiTrace = parsed.AiTrace,

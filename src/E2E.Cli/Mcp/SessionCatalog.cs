@@ -76,7 +76,12 @@ internal sealed class SessionCatalog
             Add("scroll", Verb(context, "scroll", "scroll", "Scroll the viewport, or one scrollable node when a target is given, by a screen or a few.", Schema(OptionalTarget, ("direction", Direction, true), ("times", TimesProperty, false))));
         }
 
-        Add("navigate", Verb(context, "navigate", "navigate", "Open a path or URL. A path resolves against the app URL; only http and https URLs are allowed.", Schema([], ("url", Property("string", "A path or URL"), true))));
+        // An engine that pins an app has no URL to open: the app is what the session drives.
+        if (!capabilities.HasFlag(EngineCapabilities.PinnedApp))
+        {
+            Add("navigate", Verb(context, "navigate", "navigate", "Open a path or URL. A path resolves against the app URL; only http and https URLs are allowed.", Schema([], ("url", Property("string", "A path or URL"), true))));
+        }
+
         if (capabilities.HasFlag(EngineCapabilities.History))
         {
             Add("back", Verb(context, "back", "back", "Go back one entry in the browser history.", Schema([])));

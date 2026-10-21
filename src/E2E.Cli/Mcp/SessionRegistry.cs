@@ -99,6 +99,26 @@ internal sealed class SessionRegistry<TSession>(int limit)
         }
     }
 
+    /// <summary>
+    /// Claims the device a pinned-app engine drives for an opening session, or refuses one another session is driving. .NET-only: upstream's
+    /// <c>claimEngine</c> refuses two sessions on one engine instance, and the port builds an engine per session, so the shared thing is the device.
+    /// </summary>
+    public void ClaimEngine(string id, string targetName)
+    {
+        lock (_gate)
+        {
+            var holder = _entries.FirstOrDefault(pair => pair.Key != id && pair.Value.DeviceTarget == targetName);
+            if (holder.Value is not null)
+            {
+                throw new ConfigurationException(
+                    "ENGINE_IN_USE",
+                    "target \"" + targetName + "\" drives a device that runs one app, so every session on it shares it, and session " + holder.Key + " is driving it; close_session " + holder.Key + " first");
+            }
+
+            Require(id).DeviceTarget = targetName;
+        }
+    }
+
     /// <summary>Makes an opened session live: from now on calls resolve to it.</summary>
     public void Activate(TSession session)
     {
@@ -324,6 +344,9 @@ internal sealed class SessionRegistry<TSession>(int limit)
 
         /// <summary>The config the session loads: secrets resolve through one process-wide registry, so every session shares one config.</summary>
         public string? ConfigPath { get; set; }
+
+        /// <summary>The target whose device the session drives, when its engine pins an app.</summary>
+        public string? DeviceTarget { get; set; }
 
         /// <summary>Settles when the open does, whatever its outcome.</summary>
         public Task Opened { get; set; } = Task.CompletedTask;

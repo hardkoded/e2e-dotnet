@@ -317,6 +317,30 @@ public sealed class SessionHostTests : IDisposable
         await host.CloseAsync("done");
     }
 
+    /// <summary>.NET-only: no upstream <c>it</c> covers an engine that pins an app, which upstream's session catalog never meets.</summary>
+    [Fact]
+    public async Task Catalogs_no_navigate_for_an_engine_that_pins_an_app()
+    {
+        var host = Host(new FakeEngine { Also = EngineCapabilities.PinnedApp });
+        var opened = await host.OpenAsync(new OpenSessionOptions());
+        Assert.DoesNotContain("navigate", ServedCli.CatalogNames(opened));
+        await host.CloseAsync("done");
+    }
+
+    /// <summary>.NET-only: upstream refuses a second session on one engine instance (<c>ENGINE_IN_USE</c>); the port refuses a second on one device.</summary>
+    [Fact]
+    public async Task Refuses_a_second_session_on_a_device_target_until_the_first_closes()
+    {
+        var device = Host(new FakeEngine { Also = EngineCapabilities.PinnedApp }, maxSessions: 2);
+        var first = SessionId(await device.OpenAsync(new OpenSessionOptions()));
+        var other = await Assert.ThrowsAsync<ConfigurationException>(() => device.OpenAsync(new OpenSessionOptions()));
+        Assert.Equal("ENGINE_IN_USE", other.Code);
+        Assert.Contains($"session {first} is driving it", other.Message, StringComparison.Ordinal);
+        await device.CloseAsync("done", first);
+        await device.OpenAsync(new OpenSessionOptions());
+        await device.CloseAsync("done");
+    }
+
     private static JsonElement Json(string json)
     {
         using var document = JsonDocument.Parse(json);
@@ -365,7 +389,7 @@ public sealed class SessionHostTests : IDisposable
                 onLoad?.Invoke(path);
                 return E2EConfig.Parse(FixtureProject.Config(Url, secrets), _dir);
             },
-            CreateEngine = value =>
+            CreateEngine = (_, value) =>
             {
                 headedValues?.Add(value);
                 if (create is null)

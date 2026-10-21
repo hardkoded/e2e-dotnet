@@ -108,8 +108,10 @@ screen.
    `mcp`): open or reuse a session, go straight to that screen, then
    `observe` and `locate`. On the web, `navigate` to the path of the URL
    under `## Screen at failure` or the screen's route, and tap only to reach
-   a state no URL opens. `e2e mcp` opens browser sessions only, so there is
-   no live device session to look at yet (issue #484).
+   a state no URL opens. `e2e mcp` opens a device session on a local
+   simulator or emulator. It does not launch the app yet (issue #484), so the
+   session starts on the device's current screen. Only one session can drive
+   a device target at a time.
 5. Rerun the class (topic `mcp` says when a session must close first).
    Repeat with the next failure.
 

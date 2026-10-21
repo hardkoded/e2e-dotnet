@@ -28,6 +28,12 @@ public enum EngineCapabilities
 
     /// <summary><see cref="IEngineSession.StartVideoAsync"/> and <see cref="IEngineSession.StopVideoAsync"/>: the engine can record the attempt as video.</summary>
     Video = 256,
+
+    /// <summary>
+    /// The engine opens no URL: <see cref="IEngineSession.OpenAsync"/> relaunches the app the target pins. .NET-only name for upstream's
+    /// <c>launchesPinnedApp</c>, which tests for a session with a <c>restart</c> and no <c>open</c>; the port's <c>OpenAsync</c> is not optional.
+    /// </summary>
+    PinnedApp = 512,
 }
 
 /// <summary>Passed to <see cref="IEngine.StartAsync"/> once per test attempt.</summary>
