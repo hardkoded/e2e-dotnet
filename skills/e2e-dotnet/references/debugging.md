@@ -142,7 +142,12 @@ jq '.run.results[] | select(.status != "passed") | .attempts[-1]
     | {status, error, failure, steps: [.steps[] | select(.status != "passed") | {api, label, source, status, error}], artifacts}' .e2e/report.json
 ```
 
-`run.errors` holds run-level failures. `run.summary` counts the selected
+`run.exitCode` is the worst exit code of the results: 1 for a failed test,
+or the category of an attempt error when that is worse (2 `configuration`, 3
+`infrastructure`, 4 `internal`), and 130 for an interruption. `run.status` is
+`passed` for 0, `failed` for 1, `interrupted` for 130, and `error` otherwise.
+A run is `blocked` instead when every failing result carries a blockable
+code, such as `AUTH_CREDENTIAL_UNAVAILABLE` (exit code 2). `run.errors` holds run-level failures. `run.summary` counts the selected
 results: `passed`, `failed` (timed out included), `interrupted`, `flaky`, and
 `skipped` add up to `selected`. `run.vcs` names the commit, the branch, and
 whether tracked files differ from the commit, when git or the CI variables say.
