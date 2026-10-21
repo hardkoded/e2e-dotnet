@@ -161,7 +161,6 @@ Not ported, because the feature is not in the port:
 Left for other work:
 
 - `detectVcs` and the `error stacks` test: covered by #496
-- `staleOr`: the port has only `NavigationStaleOr`, so `treats a navigation race like a stale node` waits for #513
 - A password inside a closed shadow root is not masked in screenshots: #512
 
 ## Debug

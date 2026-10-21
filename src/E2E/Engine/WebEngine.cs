@@ -2843,7 +2843,7 @@ internal sealed class OperationBudget
 
 /// <summary>
 /// Maps Playwright failures to stable engine codes, following upstream <c>@e2e-dev/web</c>
-/// (<c>classifyActionError</c>, <c>translatePwError</c>, and <c>navigationStaleOr</c>).
+/// (<c>classifyActionError</c>, <c>translatePwError</c>, <c>navigationStaleOr</c>, and <c>staleOr</c>).
 /// </summary>
 internal static partial class WebErrors
 {
@@ -2891,6 +2891,26 @@ internal static partial class WebErrors
         if (cause is not EngineException && IsNavigationRace(cause))
         {
             return new EngineException(EngineErrorCodes.NodeStale, label + ": " + Message(cause), retryable: true, cause);
+        }
+
+        return Translate(cause, label);
+    }
+
+    /// <summary>
+    /// Like <see cref="Translate"/>, but detachment and miss failures become retryable <c>NODE_STALE</c>. A timeout stays a
+    /// timeout: <c>locate</c> resolves once and never waits, so a timeout there is a budget that ran out, not a miss.
+    /// </summary>
+    public static Exception StaleOr(Exception cause, string label)
+    {
+        if (cause is E2EException)
+        {
+            return cause;
+        }
+
+        var text = Message(cause);
+        if (StalePattern().IsMatch(text) || IsNavigationRace(cause))
+        {
+            return new EngineException(EngineErrorCodes.NodeStale, label + ": " + text, retryable: true, cause);
         }
 
         return Translate(cause, label);
@@ -2984,6 +3004,9 @@ internal static partial class WebErrors
 
     [GeneratedRegex("element (is |was )?(detached|not attached)", RegexOptions.IgnoreCase)]
     private static partial Regex DetachedPattern();
+
+    [GeneratedRegex("detached|not attached|resolved to hidden|no element|not found", RegexOptions.IgnoreCase)]
+    private static partial Regex StalePattern();
 
     [GeneratedRegex("Timeout .*exceeded", RegexOptions.IgnoreCase)]
     private static partial Regex TimeoutPattern();
