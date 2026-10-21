@@ -11,15 +11,14 @@ namespace E2E.TestMu.Tests.Browsers;
 
 /// <summary>
 /// <see cref="TestMuBrowsers"/>: the endpoint and capabilities it builds, the credentials it reads from the run's
-/// environment, and what it keeps out of progress lines. The Edge flag, the <c>project</c> and <c>idleTimeout</c> defaults, and the
-/// capability validation port the <c>it</c>s of upstream's <c>testmuBrowsers()</c>. The rest is .NET-only, because the port
-/// reaches the grid on the Playwright-protocol endpoint.
+/// environment, and what it keeps out of progress lines. .NET-only: the port reaches the grid on the Playwright-protocol
+/// endpoint. The ported upstream <c>it</c>s are in <see cref="TestMuBrowsersFunctionTests"/>.
 /// </summary>
 public sealed class TestMuBrowsersTests
 {
     private static readonly IReadOnlyDictionary<string, string?> Credentials = new Dictionary<string, string?> { ["LT_USERNAME"] = "ada", ["LT_ACCESS_KEY"] = "secret key" };
 
-    private static BrowserRequest Request(IReadOnlyDictionary<string, string?>? env = null, string? attemptId = null, int slot = 0, int slots = 1) => new()
+    internal static BrowserRequest Request(IReadOnlyDictionary<string, string?>? env = null, string? attemptId = null, int slot = 0, int slots = 1) => new()
     {
         RunId = "run-a",
         TargetName = "web",
@@ -30,7 +29,7 @@ public sealed class TestMuBrowsersTests
         Log = _ => { },
     };
 
-    private static JsonObject Capabilities(BrowserLease lease)
+    internal static JsonObject Capabilities(BrowserLease lease)
     {
         Assert.StartsWith("wss://cdp.lambdatest.com/playwright?capabilities=", lease.CdpEndpoint, StringComparison.Ordinal);
         var query = HttpUtility.ParseQueryString(new Uri(lease.CdpEndpoint).Query);
@@ -89,93 +88,6 @@ public sealed class TestMuBrowsersTests
         Assert.Equal("office", (string?)lt["tunnelName"]);
         Assert.Equal("US", (string?)lt["geoLocation"]);
         Assert.Equal("1920x1080", (string?)lt["resolution"]);
-    }
-
-    [Fact]
-    public async Task Sends_Edge_and_the_rest_as_LT_Options_which_override_the_build_and_project_defaults()
-    {
-        var provider = new TestMuBrowsers(new TestMuBrowsersOptions
-        {
-            BrowserName = "MicrosoftEdge",
-            BrowserVersion = "140",
-            Platform = "macOS Sequoia",
-            Capabilities = new Dictionary<string, JsonNode?> { ["build"] = "nightly", ["project"] = "checkout", ["video"] = true, ["idleTimeout"] = 300 },
-        });
-
-        var capabilities = Capabilities(await provider.AcquireAsync(Request(), CancellationToken.None));
-
-        Assert.Equal("MicrosoftEdge", (string?)capabilities["browserName"]);
-        Assert.Equal("140", (string?)capabilities["browserVersion"]);
-        Assert.Equal(
-            """{"platform":"macOS Sequoia","project":"checkout","build":"nightly","idleTimeout":300,"name":"web slot 1 of 1","user":"ada","accessKey":"secret key","video":true,"browserOptions":["--user-data-dir=remote-debug-profile-edge"]}""",
-            capabilities["LT:Options"]!.ToJsonString());
-    }
-
-    [Fact]
-    public async Task Adds_user_data_dir_remote_debug_profile_edge_to_an_Edge_sessions_browserOptions()
-    {
-        var provider = new TestMuBrowsers(new TestMuBrowsersOptions { BrowserName = "MicrosoftEdge" });
-
-        var lt = Capabilities(await provider.AcquireAsync(Request(), CancellationToken.None))["LT:Options"]!;
-
-        Assert.Equal("""["--user-data-dir=remote-debug-profile-edge"]""", lt["browserOptions"]!.ToJsonString());
-    }
-
-    [Fact]
-    public async Task Appends_the_Edge_user_data_dir_flag_to_the_browserOptions_capabilities_give()
-    {
-        var given = new JsonArray("--no-sandbox");
-        var provider = new TestMuBrowsers(new TestMuBrowsersOptions { BrowserName = "MicrosoftEdge", Capabilities = new Dictionary<string, JsonNode?> { ["browserOptions"] = given } });
-
-        var lt = Capabilities(await provider.AcquireAsync(Request(), CancellationToken.None))["LT:Options"]!;
-
-        Assert.Equal("""["--no-sandbox","--user-data-dir=remote-debug-profile-edge"]""", lt["browserOptions"]!.ToJsonString());
-        Assert.Equal("""["--no-sandbox"]""", given.ToJsonString());
-    }
-
-    [Fact]
-    public async Task Keeps_a_user_data_dir_that_capabilities_set_for_Edge()
-    {
-        var provider = new TestMuBrowsers(new TestMuBrowsersOptions { BrowserName = "MicrosoftEdge", Capabilities = new Dictionary<string, JsonNode?> { ["browserOptions"] = new JsonArray("--user-data-dir=mine") } });
-
-        var lt = Capabilities(await provider.AcquireAsync(Request(), CancellationToken.None))["LT:Options"]!;
-
-        Assert.Equal("""["--user-data-dir=mine"]""", lt["browserOptions"]!.ToJsonString());
-    }
-
-    [Fact]
-    public async Task Passes_Chrome_browserOptions_through_and_adds_none()
-    {
-        var plain = Capabilities(await new TestMuBrowsers().AcquireAsync(Request(), CancellationToken.None))["LT:Options"]!.AsObject();
-        var provider = new TestMuBrowsers(new TestMuBrowsersOptions { Capabilities = new Dictionary<string, JsonNode?> { ["browserOptions"] = new JsonArray("--no-sandbox") } });
-        var given = Capabilities(await provider.AcquireAsync(Request(), CancellationToken.None))["LT:Options"]!;
-
-        Assert.False(plain.ContainsKey("browserOptions"));
-        Assert.Equal("""["--no-sandbox"]""", given["browserOptions"]!.ToJsonString());
-    }
-
-    public static TheoryData<string, Dictionary<string, JsonNode?>, string> InvalidCapabilities => new()
-    {
-        { "user and accessKey", new() { ["user"] = "mallory", ["accessKey"] = "spoofed" }, "`Capabilities` cannot set `user`, `accessKey`" },
-        { "name", new() { ["name"] = "smoke" }, "`Capabilities` cannot set `name`" },
-        { "nested LT:Options", new() { ["LT:Options"] = new JsonObject { ["video"] = true } }, "pass `LT:Options` fields directly in `Capabilities`" },
-        { "browserName", new() { ["browserName"] = "Firefox" }, "set `browserName` as an option" },
-        { "browserOptions as a string", new() { ["browserOptions"] = "--no-sandbox" }, "`Capabilities[\"browserOptions\"]` must be an array of strings" },
-        { "browserOptions with a number", new() { ["browserOptions"] = new JsonArray(1) }, "`Capabilities[\"browserOptions\"]` must be an array of strings" },
-        { "idleTimeout NaN", new() { ["idleTimeout"] = double.NaN }, "`Capabilities[\"idleTimeout\"]` contains a non-finite number" },
-        { "nested infinity", new() { ["network"] = new JsonObject { ["rules"] = new JsonArray(double.PositiveInfinity) } }, "`Capabilities[\"network\"].rules[0]` contains a non-finite number" },
-    };
-
-    [Theory]
-    [MemberData(nameof(InvalidCapabilities))]
-    public void Rejects_capabilities_when_the_provider_is_created(string label, Dictionary<string, JsonNode?> capabilities, string message)
-    {
-        Assert.NotEmpty(label);
-
-        var error = Assert.Throws<ConfigurationException>(() => new TestMuBrowsers(new TestMuBrowsersOptions { Capabilities = capabilities }));
-
-        Assert.Equal("INVALID_CONFIG", error.Code);
-        Assert.Contains(message, error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
