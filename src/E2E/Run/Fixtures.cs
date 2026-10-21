@@ -21,7 +21,7 @@ public sealed class App
     private readonly bool _pinnedApp;
     private readonly string _target;
 
-    internal App(IEngineSession session, string? baseUrl, Func<CancellationToken> token, StepRecorder? steps = null, bool pinnedApp = false, string target = "")
+    internal App(IEngineSession session, string? baseUrl, Func<CancellationToken> token, StepRecorder? steps, bool pinnedApp, string target)
     {
         _session = session;
         _pinnedApp = pinnedApp;
