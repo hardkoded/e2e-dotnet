@@ -3,3 +3,29 @@ reviews:
   pre_merge_checks:
     docstrings:
       mode: "off"
+    custom_checks:
+      - name: "Upstream parity"
+        mode: "warning"
+        instructions: |
+          This repo is a .NET port of tester-army/e2e. The rules are in CLAUDE.md ("Porting an upstream change").
+
+          Run this check only if the PR description, or the issue it closes or refs, names an upstream change: a tester-army/e2e commit, pull request number, or file. If it names none, pass and say the check does not apply.
+
+          Compare against the upstream source in tester-army/e2e if you can read it. If you cannot, check the PR text and COMPATIBILITY.md, and say what you could not verify. Do not guess about upstream code.
+
+          Fail with a warning if any of these is true:
+          1. A new or changed public member, or a new symbol in src/, has no upstream name and place. It must map to an upstream function, class, or constant, in C# casing, in the equivalent file. A name upstream does not have is allowed only if the PR report names it as .NET-only and gives the reason. An Async suffix is fine.
+          2. A test in tests/ does not port an upstream `it`. A ported test is named after the `it` text, sits in a directory per upstream test file (namespace follows the directory) and a class per `describe`, and has the same assertions. A test that checks only part of an upstream `it` has the `Partial_` prefix or a `PARTIAL` / `PARTIAL_` suffix (see COMPATIBILITY.md) and is listed as partial in the PR. Also compare every upstream `it` that the upstream commit adds or changes with the port: each one must have a port test, or the PR must name it as skipped with a reason. A test with no upstream `it` is allowed only for .NET-only code that the PR report names. Tests under samples/ are exempt.
+          3. The PR adds behavior that upstream does not have, and does not name it as .NET-only.
+          4. The PR changes public API or user-visible behavior that upstream also has, and does not update skills/e2e-dotnet/SKILL.md and docs/ (mirroring upstream's wording in C# names) and COMPATIBILITY.md. Named .NET-only API is exempt from the upstream mirror.
+
+          In the result, list each failed point with the file and symbol, and name what upstream has instead when you know it.
+  path_instructions:
+    - path: "src/**"
+      instructions: "Only when the PR names an upstream change: every new type, method, field, constant, or file must map to an upstream name and place, in C# casing. Flag a name upstream does not have unless the PR names it as .NET-only."
+    - path: "tests/**"
+      instructions: "Only when the PR names an upstream change: every test must port an upstream `it`, named after the `it` text, with a directory per upstream test file and a class per `describe`. Flag a partial port with neither the `Partial_` prefix nor a `PARTIAL` / `PARTIAL_` suffix, and an upstream `it` that the commit adds or changes with no port test and no named reason in the PR. A test for .NET-only code that the PR names is fine."
+knowledge_base:
+  linked_repositories:
+    - repository: "tester-army/e2e"
+      instructions: "The upstream project this repo ports. Compare names, tests and behavior against it."
