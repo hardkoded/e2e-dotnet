@@ -30,23 +30,12 @@ internal static class Timing
     }
 
     /// <inheritdoc cref="RaceAbortAsync{T}(Func{Task{T}}, CancellationToken, string)"/>
-    public static async Task RaceAbortAsync(Func<Task> work, CancellationToken cancellationToken, string label)
-    {
-        if (cancellationToken.IsCancellationRequested)
+    public static Task RaceAbortAsync(Func<Task> work, CancellationToken cancellationToken, string label) =>
+        RaceAbortAsync(async () =>
         {
-            throw Cancelled(label);
-        }
-
-        var running = work();
-        try
-        {
-            await running.WaitAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw Abandoned(running, label);
-        }
-    }
+            await work().ConfigureAwait(false);
+            return true;
+        }, cancellationToken, label);
 
     private static EngineException Abandoned(Task work, string label)
     {

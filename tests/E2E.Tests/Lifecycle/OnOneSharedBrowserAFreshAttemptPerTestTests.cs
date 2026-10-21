@@ -381,7 +381,7 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     }
 
     [Fact]
-    public async Task Masks_a_password_inside_an_iframe_in_artifact_screenshots_and_observed_pixels()
+    public async Task Masks_a_password_inside_an_iframe_in_artifact_screenshots_and_observed_pixels_PARTIAL_one_screenshot_path()
     {
         const string Field = "position:absolute;left:20px;width:160px;height:40px;border:0;padding:0;background:#f00;color:#f00";
         var frame = $"<body style=\"margin:0\"><input type=\"password\" value=\"hunter2\" style=\"{Field};top:20px\"><input value=\"plain\" style=\"{Field};top:100px\"></body>";
