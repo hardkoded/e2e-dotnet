@@ -20,7 +20,7 @@ namespace E2E.OAuth;
 internal sealed class CallbackServer : IDisposable
 {
     private const int MaxRequestHeadBytes = 16 * 1024;
-    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(10);
+    private readonly TimeSpan _requestTimeout;
 
     private readonly TcpListener _listener;
     private readonly CancellationTokenSource _stop = new();
@@ -29,8 +29,9 @@ internal sealed class CallbackServer : IDisposable
     private readonly string _product;
     private readonly TaskCompletionSource<(string? Code, string? Error)> _answer = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    private CallbackServer(TcpListener listener, int port, string path, string state, string product)
+    private CallbackServer(TcpListener listener, int port, string path, string state, string product, TimeSpan requestTimeout)
     {
+        _requestTimeout = requestTimeout;
         _listener = listener;
         _path = path;
         _state = state;
@@ -41,7 +42,7 @@ internal sealed class CallbackServer : IDisposable
     /// <summary>Vendors register <c>localhost</c>, not the loopback address, as the redirect host.</summary>
     public string RedirectUri { get; }
 
-    public static CallbackServer? TryStart(int port, string path, string state, string product)
+    public static CallbackServer? TryStart(int port, string path, string state, string product, TimeSpan? requestTimeout = null)
     {
         var listener = new TcpListener(IPAddress.Loopback, port);
         if (OperatingSystem.IsWindows())
@@ -60,7 +61,7 @@ internal sealed class CallbackServer : IDisposable
             return null;
         }
 
-        var server = new CallbackServer(listener, port, path, state, product);
+        var server = new CallbackServer(listener, port, path, state, product, requestTimeout ?? TimeSpan.FromSeconds(10));
         _ = server.ServeAsync();
         return server;
     }
@@ -124,7 +125,7 @@ internal sealed class CallbackServer : IDisposable
             using (client)
             {
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(stopToken);
-                timeout.CancelAfter(RequestTimeout);
+                timeout.CancelAfter(_requestTimeout);
                 var stream = client.GetStream();
                 if (await ReadRequestTargetAsync(stream, timeout.Token).ConfigureAwait(false) is { } target)
                 {
@@ -143,8 +144,14 @@ internal sealed class CallbackServer : IDisposable
     {
         var buffer = new byte[MaxRequestHeadBytes];
         var length = 0;
-        while (length < buffer.Length)
+        // A head that does not end within the buffer is refused, not read as far as it goes.
+        while (buffer.AsSpan(0, length).IndexOf("\r\n\r\n"u8) < 0)
         {
+            if (length == buffer.Length)
+            {
+                return null;
+            }
+
             var read = await stream.ReadAsync(buffer.AsMemory(length), cancellationToken).ConfigureAwait(false);
             if (read == 0)
             {
@@ -152,10 +159,6 @@ internal sealed class CallbackServer : IDisposable
             }
 
             length += read;
-            if (buffer.AsSpan(0, length).IndexOf("\r\n\r\n"u8) >= 0)
-            {
-                break;
-            }
         }
 
         var head = Encoding.ASCII.GetString(buffer, 0, length);
