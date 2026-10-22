@@ -34,7 +34,10 @@ internal sealed class SessionHostOptions
     public Func<string, Task<E2EConfig>> LoadConfig { get; init; } = path => Task.Run(() => E2EConfig.Load(path));
 
     /// <summary>Creates the engine of one session: the target's, and whether the session shows its UI. The platform of the target picks the engine.</summary>
-    public Func<TargetConfig, bool, IEngine> CreateEngine { get; init; } = (target, headed) => TargetEngines.Create(target, !headed, MobileTargetEngine.Create);
+    public Func<TargetConfig, bool, IEngine> CreateEngine { get; init; } = (target, headed) => TargetEngines.Create(target, !headed, DeviceTargets.Create);
+
+    /// <summary>The credentials of the hosted device services the session may lease from, redacted wherever the server returns or logs text.</summary>
+    public Func<IReadOnlyList<Secret>> Credentials { get; init; } = DeviceTargets.Credentials;
 
     /// <summary>Whether a session shows its UI when <c>open_session</c> does not say, from <c>--headed</c>.</summary>
     public bool Headed { get; init; }
@@ -288,6 +291,7 @@ internal sealed class SessionHost : IDisposable
 
         // Known to the process before anything can fail with one, so an open failure is redacted like any other text.
         _secrets.Add(secrets);
+        _secrets.Add(_options.Credentials());
         var target = ResolveTarget(config, options.Target);
         var abort = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token, request);
         E2ESession? session = null;
@@ -348,7 +352,7 @@ internal sealed class SessionHost : IDisposable
         {
             if (session is not null)
             {
-                await DisposeQuietlyAsync(session).ConfigureAwait(false);
+                await DisposeQuietlyAsync(session, failure => Log("warning", "closing the session that failed to open also failed: " + failure)).ConfigureAwait(false);
             }
 
             var cancelled = abort.IsCancellationRequested;
@@ -386,17 +390,18 @@ internal sealed class SessionHost : IDisposable
         return live.Session.Redactor.Redact(_secrets.Redact(string.Join('\n', lines)));
     }
 
-    private static async Task DisposeQuietlyAsync(E2ESession session)
+    private static async Task DisposeQuietlyAsync(E2ESession session, Action<string> failed)
     {
         try
         {
             session.Complete();
             await session.DisposeAsync().ConfigureAwait(false);
         }
-#pragma warning disable CA1031 // The open already failed; its own error is the one to report.
-        catch (Exception)
+#pragma warning disable CA1031 // The open already failed; its own error is the one to report, and this one goes to the log: a hosted device may still be billing.
+        catch (Exception cause)
 #pragma warning restore CA1031
         {
+            failed(Tools.CodedMessage(cause));
         }
     }
 

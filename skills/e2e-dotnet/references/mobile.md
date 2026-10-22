@@ -120,6 +120,8 @@ E2E_MOBILE_PROVIDER=limrun dotnet test samples/MobileApp.E2ETests
 
 The NUnit and xUnit adapters do not run the engine's prepare and finish hooks, so without help each test would lease its own billed device. `MobileAppTest` runs them once per run, so every test shares the one leased device, and it releases the device when the test process ends.
 
+`e2e explore` and `e2e mcp` read the same variable. A target with `platform` `ios` or `android` and `E2E_MOBILE_PROVIDER=limrun` leases one Limrun device when the exploration or the MCP session starts, and releases it when that ends. Each session leases its own device, a target admits one session at a time, and the lease is also released when a start fails, when the request is cancelled, when an MCP session reaches its idle or time limit, when the server shuts down, and when the process exits. `LIMRUN_API_KEY` is redacted from what the tool prints or returns. The tool leaves out `E2E.Eas` (`EasSimulators`): set the provider in code for that. A failed release is reported, not lost: `e2e explore` ends with the error, and `close_session` shows a `Cleanup:` line.
+
 A provider that drives its devices without agent-device implements `IDeviceClientSource` as well as `IDeviceProvider`. `MobileEngine` then asks it for the `IDeviceClient` of each session. The client finds its device through `DeviceConnection.Client`, which is the `DeviceLease.Client` the provider returned. This has no upstream counterpart.
 
 ## Video
@@ -150,6 +152,8 @@ Launch the Debug build of the app on a simulator or emulator yourself, then run 
 dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64 -t:Run
 E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MobileApp dotnet test samples/MobileApp.E2ETests
 ```
+
+`e2e explore` and `e2e mcp` also run with `E2E_MOBILE_PROVIDER=devflow`. Their first launch of the pinned app attaches to the running app instead of relaunching it, and the session holds the agent's mutation lease until it closes.
 
 Limits of the preview: the tests attach to the running app, so `Device.InstallAppAsync()`, `OpenAppAsync` with `Relaunch`, `OpenLinkAsync`, `HomeAsync`, `AlertAsync`, permissions, and orientation fail with `UNSUPPORTED_CAPABILITY`. Open the app without `Relaunch`. `SetAppearanceAsync` changes the app's theme, not the device's. The agent exists only in Debug builds. On Android, forward the agent's port first (`adb forward tcp:<port> tcp:<port>`), and `adb reverse tcp:19223 tcp:19223` before the app starts if a broker runs.
 

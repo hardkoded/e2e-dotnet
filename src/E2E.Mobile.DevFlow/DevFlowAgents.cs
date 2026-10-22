@@ -49,6 +49,9 @@ public sealed class DevFlowAgents : IDeviceProvider, IDeviceClientSource
     private readonly HttpClient _http;
     private readonly AgentDiscovery _discovery;
 
+    /// <summary>The agent lives inside the app you launched, so the engine never relaunches it: an <c>app.open()</c> attaches.</summary>
+    public bool AttachesToRunningApp => true;
+
     public DevFlowAgents(DevFlowAgentsOptions? options = null)
         : this(options, new HttpClient(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(5) }) { Timeout = Timeout.InfiniteTimeSpan })
     {

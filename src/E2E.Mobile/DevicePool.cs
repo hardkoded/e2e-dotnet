@@ -99,6 +99,9 @@ public sealed partial class DevicePool
     /// <summary>What this process's prepare bound, per target: a pool may serve several targets and runs.</summary>
     private readonly Dictionary<string, IReadOnlyList<SlotBinding>> _bound = [];
 
+    /// <summary>How many finishes ran per target, so a prepare that a finish overtook does not bind devices that were already given back.</summary>
+    private readonly Dictionary<string, int> _finishes = [];
+
     /// <summary>The clients warm opened sessions with, per target, held for finish to close whatever warm got to.</summary>
     private readonly Dictionary<string, List<IDeviceClient>> _warmed = [];
 
@@ -150,6 +153,20 @@ public sealed partial class DevicePool
         return bindings[slot];
     }
 
+    /// <summary>Whether a prepare already bound the target's devices, here or in the environment: a worker started now rides them.</summary>
+    internal bool IsBound(string targetName, IReadOnlyDictionary<string, string?> env)
+    {
+        lock (_bound)
+        {
+            if (_bound.ContainsKey(targetName))
+            {
+                return true;
+            }
+        }
+
+        return DeviceBindings.Decode(env.GetValueOrDefault(DeviceBindings.Variable(targetName))) is not null;
+    }
+
     /// <summary>
     /// Binds a device to every worker slot the run will use and warms each, once per run and outside every launch
     /// budget, so a worker's start finds a booted device. The bindings are reported back as the target's worker cap
@@ -163,11 +180,40 @@ public sealed partial class DevicePool
             return new MobilePrepareResult();
         }
 
-        var bindings = await _source.BindAsync(info, cancellationToken).ConfigureAwait(false);
-        await WarmAsync(bindings, info, cancellationToken).ConfigureAwait(false);
+        int finishes;
         lock (_bound)
         {
-            _bound[info.TargetName] = bindings;
+            finishes = _finishes.GetValueOrDefault(info.TargetName);
+        }
+
+        IReadOnlyList<SlotBinding> bindings;
+        try
+        {
+            bindings = await _source.BindAsync(info, cancellationToken).ConfigureAwait(false);
+            await WarmAsync(bindings, info, cancellationToken).ConfigureAwait(false);
+        }
+        catch when (Overtaken(info.TargetName, finishes))
+        {
+            // A finish ran while this prepare was still binding or warming: what warm opened after it is closed here, and the failure stays the one reported.
+            await CloseWarmedAsync(info.TargetName).ConfigureAwait(false);
+            throw;
+        }
+
+        bool overtaken;
+        lock (_bound)
+        {
+            overtaken = _finishes.GetValueOrDefault(info.TargetName) != finishes;
+            if (!overtaken)
+            {
+                _bound[info.TargetName] = bindings;
+            }
+        }
+
+        if (overtaken)
+        {
+            // The finish gave the devices back, so none are bound.
+            await CloseWarmedAsync(info.TargetName).ConfigureAwait(false);
+            throw new OperationCanceledException("the run ended before its devices were bound");
         }
 
         return new MobilePrepareResult
@@ -188,6 +234,7 @@ public sealed partial class DevicePool
     {
         lock (_bound)
         {
+            _finishes[info.TargetName] = _finishes.GetValueOrDefault(info.TargetName) + 1;
             _bound.Remove(info.TargetName);
         }
 
@@ -203,6 +250,30 @@ public sealed partial class DevicePool
             info.CleanupTimeout,
             cancellationToken);
         await Task.WhenAll(closing, _source.FinishAsync(info, cancellationToken)).ConfigureAwait(false);
+    }
+
+    private bool Overtaken(string targetName, int finishes)
+    {
+        lock (_bound)
+        {
+            return _finishes.GetValueOrDefault(targetName) != finishes;
+        }
+    }
+
+    /// <summary>Closes the sessions warm opened for the target, within the cleanup budget; a close that fails leaves nothing more to do.</summary>
+    private async Task CloseWarmedAsync(string targetName)
+    {
+        List<IDeviceClient> clients;
+        lock (_warmed)
+        {
+            _warmed.Remove(targetName, out var held);
+            clients = held ?? [];
+        }
+
+        await CleanupBudget.WithinAsync(
+            token => Task.WhenAll(clients.Select(client => CloseQuietlyAsync(client, token))),
+            E2EDefaults.CleanupTimeout,
+            CancellationToken.None).ConfigureAwait(false);
     }
 
     private static async Task CloseQuietlyAsync(IDeviceClient client, CancellationToken cancellationToken)

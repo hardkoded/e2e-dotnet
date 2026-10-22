@@ -109,9 +109,12 @@ screen.
    `observe` and `locate`. On the web, `navigate` to the path of the URL
    under `## Screen at failure` or the screen's route, and tap only to reach
    a state no URL opens. `e2e mcp` opens a device session on a local
-   simulator or emulator and launches the pinned app fresh before the first
-   observation. It installs no build, so the target needs `app.bundleId`.
-   Only one session can drive a device target at a time.
+   simulator or emulator, or on a hosted device with
+   `E2E_MOBILE_PROVIDER=limrun` or `devflow`, and launches the pinned app
+   fresh before the first observation (`devflow` attaches to the running
+   app). It installs no build, so the target needs `app.bundleId`. A hosted
+   device bills until the session closes, so close it when done. Only one
+   session can drive a device target at a time.
 5. Rerun the class (topic `mcp` says when a session must close first).
    Repeat with the next failure.
 

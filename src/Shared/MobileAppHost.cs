@@ -3,8 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections;
-using E2E.Limrun;
-using E2E.Mobile.DevFlow;
 
 namespace E2E.Mobile;
 
@@ -85,14 +83,8 @@ internal static class MobileAppHost
                 return;
             }
 
-            IDeviceProvider provider = name switch
-            {
-                // A hosted device that outlives an interrupted run is billed until its hard timeout.
-                "limrun" => new LimrunSimulators(new LimrunSimulatorsOptions { HardTimeout = "15m", Ios = new LimrunIosOptions { Model = LimrunIosModel.Iphone } }),
-                // The agent inside the running Debug build. E2E_DEVFLOW_PORT names its port; without it the broker is asked, then 9223.
-                "devflow" => new DevFlowAgents(new DevFlowAgentsOptions { Port = DevFlowPort(), AppName = Environment.GetEnvironmentVariable("E2E_DEVFLOW_APP") is { Length: > 0 } app ? app : null }),
-                _ => throw new InvalidOperationException($"E2E_MOBILE_PROVIDER must be local, limrun, or devflow, not {name}."),
-            };
+            var provider = HostedDeviceProviders.Create(name, Environment.GetEnvironmentVariable)
+                ?? throw new InvalidOperationException($"E2E_MOBILE_PROVIDER must be local, {HostedDeviceProviders.Names}, not {name}.");
             var mobile = options(provider);
             var engine = new MobileEngine(mobile);
             var env = Environment.GetEnvironmentVariables().Cast<DictionaryEntry>().ToDictionary(entry => (string)entry.Key, entry => (string?)entry.Value, StringComparer.Ordinal);
@@ -183,12 +175,4 @@ internal static class MobileAppHost
             }
         }
     }
-
-    /// <summary><c>E2E_DEVFLOW_PORT</c>, or null when it is unset. A value that is not a port fails the run, not falls back to discovery.</summary>
-    private static int? DevFlowPort() => Environment.GetEnvironmentVariable("E2E_DEVFLOW_PORT") switch
-    {
-        null or "" => null,
-        var text when int.TryParse(text, out var port) && port is > 0 and <= 65535 => port,
-        var text => throw new InvalidOperationException($"E2E_DEVFLOW_PORT must be a port number, not {text}."),
-    };
 }
