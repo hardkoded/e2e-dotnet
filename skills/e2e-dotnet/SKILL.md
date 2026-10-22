@@ -127,6 +127,9 @@ screen.
   the current value; `CountAsync` and `IsVisibleAsync` answer from the current
   screen. Nothing waits for a value to change, so use a matcher when a value
   has to settle.
+- A read or navigation that times out fails with `OPERATION_TIMEOUT` and is not
+  retried, even when the call log mentions a detached element or a navigation
+  race.
 - Secrets never appear in test code. Declare them under `secrets` in the
   config and read them with `Secrets.Get(name)`; accounts come from
   `Credentials.User(name)`. Hand the `Secret` only to `FillAsync` or
