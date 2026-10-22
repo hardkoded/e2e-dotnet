@@ -42,4 +42,18 @@ public sealed class StaleOrTests
         Assert.Equal("OPERATION_TIMEOUT", error.Code);
         Assert.False(error.Retryable);
     }
+
+    [Theory]
+    [InlineData("resolved to hidden")]
+    [InlineData("element is not attached to the DOM")]
+    [InlineData("element was detached from the DOM")]
+    [InlineData("no element found")]
+    [InlineData("frame was detached")]
+    public void Keeps_a_timeout_a_timeout_when_its_call_log_says(string line)
+    {
+        var timeout = new TimeoutException($"Timeout 5000ms exceeded.\nCall log:\n  - waiting for locator('#x')\n  - locator {line}");
+        var error = Engine(WebErrors.StaleOr(timeout, "read"));
+        Assert.Equal("OPERATION_TIMEOUT", error.Code);
+        Assert.False(error.Retryable);
+    }
 }
