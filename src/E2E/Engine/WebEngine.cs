@@ -2888,7 +2888,7 @@ internal static partial class WebErrors
     /// <summary>A read that lost its document to a navigation is a retryable <c>NODE_STALE</c>, so the caller observes the new document.</summary>
     public static EngineException NavigationStaleOr(Exception cause, string label)
     {
-        if (cause is not EngineException && IsNavigationRace(cause))
+        if (cause is not EngineException && cause is not System.TimeoutException && IsNavigationRace(cause))
         {
             return new EngineException(EngineErrorCodes.NodeStale, label + ": " + Message(cause), retryable: true, cause);
         }
@@ -2905,6 +2905,11 @@ internal static partial class WebErrors
         if (cause is E2EException)
         {
             return cause;
+        }
+
+        if (cause is System.TimeoutException)
+        {
+            return Translate(cause, label);
         }
 
         var text = Message(cause);

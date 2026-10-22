@@ -178,7 +178,7 @@ public static class EngineErrorCodes
     /// <summary>The input was dispatched before the failure, so the action may have taken effect. Do not repeat it blindly.</summary>
     public const string ActionMayHaveCommitted = "ACTION_MAY_HAVE_COMMITTED";
 
-    /// <summary>A navigation, read, or keyboard operation ran out of time.</summary>
+    /// <summary>A navigation, read, or keyboard operation ran out of time. A timeout stays this code and is not retried, even when the call log mentions a detached element or a navigation.</summary>
     public const string OperationTimeout = "OPERATION_TIMEOUT";
 
     public const string Cancelled = "CANCELLED";
