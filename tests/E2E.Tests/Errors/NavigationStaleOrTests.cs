@@ -35,6 +35,17 @@ public sealed class NavigationStaleOrTests
         Assert.False(error.Retryable);
     }
 
+    [Theory]
+    [InlineData("Execution context was destroyed, most likely because of a navigation.")]
+    [InlineData("locator.evaluate: Frame was detached")]
+    public void Keeps_a_timeout_a_timeout_when_its_call_log_says(string line)
+    {
+        var timeout = new TimeoutException($"Timeout 5000ms exceeded.\nCall log:\n  - {line}");
+        var error = WebErrors.NavigationStaleOr(timeout, "observe");
+        Assert.Equal("OPERATION_TIMEOUT", error.Code);
+        Assert.False(error.Retryable);
+    }
+
     [Fact]
     public void Leaves_every_other_failure_a_non_retryable_ENGINE_FAILURE()
     {
