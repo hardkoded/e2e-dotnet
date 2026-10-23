@@ -17,7 +17,7 @@ namespace E2E.Cli.Tests.McpSessionHost;
 /// <c>open_session</c> that fails after the attempt opened tears the attempt down and leaves the host ready for the
 /// next one.
 /// </summary>
-public sealed class SessionHostTests : IDisposable
+public sealed class SessionHostTests : IAsyncLifetime
 {
     private const string Url = "http://127.0.0.1:1";
 
@@ -27,14 +27,28 @@ public sealed class SessionHostTests : IDisposable
     private readonly List<string> _logs = [];
     private readonly List<SessionHost> _hosts = [];
 
-    public void Dispose()
-    {
-        foreach (var host in _hosts)
-        {
-            host.Dispose();
-        }
+    public Task InitializeAsync() => Task.CompletedTask;
 
-        Directory.Delete(_dir, recursive: true);
+    /// <summary>
+    /// A session that ended on its own, idle or at its time limit, is still closing when the test saw it gone: its attempt writes the
+    /// run's report under the project directory after the engine is disposed. The close is waited for before the directory goes,
+    /// because Windows refuses to delete a directory a file is still being written in.
+    /// </summary>
+    public async Task DisposeAsync()
+    {
+        try
+        {
+            await Task.WhenAll(_hosts.Select(host => host.CloseAllAsync("test over"))).WaitAsync(Patience);
+        }
+        finally
+        {
+            foreach (var host in _hosts)
+            {
+                host.Dispose();
+            }
+
+            Directory.Delete(_dir, recursive: true);
+        }
     }
 
     [Fact]
