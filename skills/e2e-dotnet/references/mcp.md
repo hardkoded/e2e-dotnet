@@ -133,6 +133,9 @@ into a test, then add the assertions.
   only when the live twins are the ones the observation listed, each in place
   or all moved together.
 - At most 10 locators are tried per node.
+- Each locator resolves through the engine's `LocateAsync` (2 s each) when
+  the engine has one, so the node ids you hold stay valid; otherwise on a
+  fresh observation.
 - When nothing reaches the node alone, the result says `No test line:` and
   why, and the draft shows the action as a `//` comment. A line that would
   fail is never printed. A failed action prints and records no line.

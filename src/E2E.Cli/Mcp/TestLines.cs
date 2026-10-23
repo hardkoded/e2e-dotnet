@@ -15,8 +15,11 @@ internal sealed class TestLineOptions
     /// <summary>The newest observation's tree: the screen the agent's node refs name. Null when nothing was observed yet.</summary>
     public required Func<IReadOnlyList<SemanticNode>?> Newest { get; init; }
 
-    /// <summary>One look at the live screen, which every locator tried for an action is resolved against.</summary>
-    public required Func<CancellationToken, Task<Observation>> Observe { get; init; }
+    /// <summary>
+    /// Starts the resolving of the locators tried for one action, which share one look at the live screen when the engine does not
+    /// locate. The function it returns lists every node a locator matches; tests count the tries through it.
+    /// </summary>
+    public required Func<Func<LocatorExpression, CancellationToken, Task<IReadOnlyList<SemanticNode>>>> Resolve { get; init; }
 
     /// <summary>The attempt's secret ledger, for what a node says before it goes into a line.</summary>
     public required Func<string, string> Redact { get; init; }
@@ -26,9 +29,6 @@ internal sealed class TestLineOptions
 
     /// <summary>The <c>secrets</c> names <c>Secrets.Get</c> takes.</summary>
     public IReadOnlyCollection<string> Secrets { get; init; } = [];
-
-    /// <summary>Every node a locator matches on a look; tests count the tries through it.</summary>
-    public Func<Observation, LocatorExpression, IReadOnlyList<SemanticNode>> Resolve { get; init; } = static (observation, expression) => LocatorResolver.Resolve(observation, expression);
 }
 
 /// <summary>
@@ -312,9 +312,9 @@ internal sealed class SessionTestLines(TestLineOptions options)
             return Found.None("node " + reference + " is not on the newest screen");
         }
 
-        var live = await _options.Observe(token).ConfigureAwait(false);
+        var resolve = _options.Resolve();
         var tries = MaxTries;
-        Probe? Attempt(LocatorExpression expression, IReadOnlyList<SemanticNode>? within = null)
+        async Task<Probe?> Attempt(LocatorExpression expression, IReadOnlyList<SemanticNode>? within = null)
         {
             if (tries <= 0)
             {
@@ -322,7 +322,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
             }
 
             tries--;
-            return ProbeOf(live, expression, listed, within ?? listed.Roots);
+            return await ProbeOf(resolve, expression, listed, within ?? listed.Roots, token).ConfigureAwait(false);
         }
 
         (Located Located, Probe Probe)? twins = null;
@@ -330,7 +330,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
         foreach (var query in queries)
         {
             var located = Located.Of(SessionCatalog.LocateQuery(query));
-            var probe = Attempt(located.Expression);
+            var probe = await Attempt(located.Expression).ConfigureAwait(false);
             if (probe is null)
             {
                 break;
@@ -360,7 +360,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
                     : "no locator from its role and name, label, placeholder, text, or test id finds it on the live screen; try locate");
         }
 
-        if (VisibleOnly(best.Located) is { } visible && Attempt(visible.Expression) is { Count: 1, Index: 0 })
+        if (VisibleOnly(best.Located) is { } visible && (await Attempt(visible.Expression).ConfigureAwait(false)) is { Count: 1, Index: 0 })
         {
             return Found.Of(visible);
         }
@@ -372,7 +372,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
                 break;
             }
 
-            var probe = Attempt(child with { Parent = scope.Located.Expression }, scope.Within);
+            var probe = await Attempt(child with { Parent = scope.Located.Expression }, scope.Within).ConfigureAwait(false);
             if (probe is null)
             {
                 break;
@@ -405,9 +405,9 @@ internal sealed class SessionTestLines(TestLineOptions options)
     /// shadow roots), the one still in its box. Otherwise it is the one match centered in its box from the observation, as an
     /// inner text element sits inside the button it names, and the place is not certain.
     /// </summary>
-    private Probe ProbeOf(Observation live, LocatorExpression expression, ListedNode listed, IReadOnlyList<SemanticNode> within)
+    private async Task<Probe> ProbeOf(Func<LocatorExpression, CancellationToken, Task<IReadOnlyList<SemanticNode>>> resolve, LocatorExpression expression, ListedNode listed, IReadOnlyList<SemanticNode> within, CancellationToken token)
     {
-        var matches = _options.Resolve(live, expression);
+        var matches = await resolve(expression, token).ConfigureAwait(false);
         var count = matches.Count;
         var target = listed.Node;
         var self = Identity(target, _options.Redact);

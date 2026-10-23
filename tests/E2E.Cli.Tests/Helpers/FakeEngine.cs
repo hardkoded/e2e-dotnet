@@ -62,6 +62,9 @@ internal sealed class FakeEngine : IEngine
     /// <summary>Runs when an attempt's engine session is disposed; the dispose waits for the task it returns.</summary>
     public Func<Task>? OnDispose { get; init; }
 
+    /// <summary>When set, the engine locates: the session says <c>CanLocate</c> and answers a locator with it, given the budget left.</summary>
+    public Func<LocatorExpression, TimeSpan, IReadOnlyList<SemanticNode>>? Locate { get; init; }
+
     public int AttemptsStarted => Volatile.Read(ref _started);
 
     public int Disposes => Volatile.Read(ref _disposed);
@@ -157,6 +160,11 @@ internal sealed class FakeEngine : IEngine
                 ],
             });
         }
+
+        public bool CanLocate => engine.Locate is not null;
+
+        public Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult(engine.Locate!(expression, timeout));
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
         {

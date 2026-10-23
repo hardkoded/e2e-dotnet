@@ -35,6 +35,9 @@ internal sealed class SessionCatalog
     /// <summary>How many matching nodes <c>locate</c> describes.</summary>
     private const int MaxLocateNodes = 10;
 
+    /// <summary>The time an engine that locates has to resolve one locator of a test line.</summary>
+    private static readonly TimeSpan LineLocateBudget = TimeSpan.FromSeconds(2);
+
     private SessionCatalog(IReadOnlyList<KeyValuePair<string, CatalogTool>> entries, IReadOnlySet<string> readOnly, SessionTestLines lines)
     {
         Entries = entries;
@@ -68,7 +71,7 @@ internal sealed class SessionCatalog
         var lines = new SessionTestLines(new TestLineOptions
         {
             Newest = () => context.Session.Agent.Feed.Latest?.Roots,
-            Observe = token => context.Session.Engine.ObserveAsync(token),
+            Resolve = () => LineResolver(context.Session.Engine),
             Redact = context.Session.Redactor.Redact,
             AppBase = appBase,
             Secrets = secrets,
@@ -418,6 +421,22 @@ internal sealed class SessionCatalog
                 return DescribeLocate(query, matches.Count, [.. matches.Take(MaxLocateNodes)], context.Session.Redactor);
             },
         };
+    }
+
+    /// <summary>
+    /// Resolves the locators of one test line. An engine that locates binds only the matches, so the observation's ids stay valid for
+    /// the action about to run; a plain observe would renew them, and a device would then refuse the agent's id as stale. Any other
+    /// engine is looked at once, when the first locator is tried, and every locator is resolved on that look.
+    /// </summary>
+    internal static Func<LocatorExpression, CancellationToken, Task<IReadOnlyList<SemanticNode>>> LineResolver(IEngineSession engine)
+    {
+        if (engine.CanLocate)
+        {
+            return (expression, token) => engine.LocateAsync(expression, LineLocateBudget, token);
+        }
+
+        Task<Observation>? look = null;
+        return async (expression, token) => LocatorResolver.Resolve(await (look ??= engine.ObserveAsync(token)).ConfigureAwait(false), expression);
     }
 
     private static string? Text(JsonElement args, string name) => args.TryGetProperty(name, out var value) ? value.GetString() : null;
