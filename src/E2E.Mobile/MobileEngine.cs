@@ -54,7 +54,7 @@ public sealed record MobileStartInfo
 /// fresh launch of the pinned app. The device is a simulator, an emulator, or a connected phone, named by the options,
 /// discovered, or leased from an <see cref="IDeviceProvider"/>.
 /// </summary>
-public sealed class MobileEngine : IEngine
+public sealed class MobileEngine : IPreparableEngine
 {
     /// <summary>The version of the engine, as upstream's <c>@e2e-dev/mobile</c> numbers the surface this one follows.</summary>
     public const string EngineVersion = "0.11.0";
@@ -66,9 +66,6 @@ public sealed class MobileEngine : IEngine
     };
 
     private readonly DeviceClientFactory _createClient;
-
-    /// <summary>1 while an attempt started without a runner holds the hosted device it leased for itself.</summary>
-    private int _hosting;
 
     /// <summary>
     /// Creates the engine over the local agent-device daemon, or the daemon a lease names. Needs Node 22.12 or newer at
@@ -131,9 +128,6 @@ public sealed class MobileEngine : IEngine
         }
     }
 
-    /// <summary>How long giving back a hosted device the engine leased for one attempt may take. Tests shorten it.</summary>
-    internal TimeSpan CleanupTimeout { get; init; } = E2EDefaults.CleanupTimeout;
-
     /// <summary>The wait between two attempts at a sparse snapshot. Tests replace it to spend no time.</summary>
     internal Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = static (span, token) => Task.Delay(span, token);
 
@@ -194,75 +188,54 @@ public sealed class MobileEngine : IEngine
     public Task FinishAsync(MobileFinishInfo info, CancellationToken cancellationToken) =>
         Pool.FinishAsync(info, cancellationToken);
 
+    /// <summary>The core hook of upstream's <c>prepare</c>: <see cref="PrepareAsync(MobilePrepareInfo, CancellationToken)"/> for this engine's app.</summary>
+    async Task<EnginePrepareResult> IPreparableEngine.PrepareAsync(EnginePrepareInfo info, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(info);
+        var prepared = await PrepareAsync(
+            new MobilePrepareInfo
+            {
+                RunId = info.RunId,
+                TargetName = info.TargetName,
+                ProjectRoot = info.ProjectRoot ?? Directory.GetCurrentDirectory(),
+                Slots = info.Slots,
+                Env = info.Env,
+                App = Options.App,
+                Log = info.Log,
+            },
+            cancellationToken).ConfigureAwait(false);
+        return new EnginePrepareResult { Workers = prepared.Workers, Env = prepared.Env };
+    }
+
+    /// <summary>The core hook of upstream's <c>finish</c>: <see cref="FinishAsync(MobileFinishInfo, CancellationToken)"/>.</summary>
+    Task IPreparableEngine.FinishAsync(EngineFinishInfo info, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(info);
+        return FinishAsync(
+            new MobileFinishInfo { RunId = info.RunId, TargetName = info.TargetName, Env = info.Env, Log = info.Log, CleanupTimeout = info.CleanupTimeout },
+            cancellationToken);
+    }
+
     /// <summary>
-    /// Starts one attempt on its own. With a <see cref="MobileOptions.Provider"/> and no prepare before it, the engine leases a device
-    /// for the attempt, as upstream's standalone host does for <c>explore</c> and an MCP session, and gives it back when the session
-    /// is disposed, when the start fails, or when the process ends. An engine whose prepare ran rides the devices it bound, and the
-    /// runner releases them.
+    /// Starts one attempt: the worker of slot 0, on the device prepare bound for the target. A host that starts the engine on its own, as
+    /// <c>e2e explore</c> and <c>e2e mcp</c> do, calls <see cref="IPreparableEngine.PrepareAsync"/> and <see cref="IPreparableEngine.FinishAsync"/>
+    /// around it, as upstream's <c>openStandaloneAttempt</c> does.
     /// </summary>
     public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
         ValidateApp(Options.App, options.BaseUrl, Options.TargetName, Options.Platform);
-        var info = new MobileStartInfo { TargetName = Options.TargetName, ProjectRoot = options.ProjectRoot ?? Directory.GetCurrentDirectory(), ArtifactsDir = options.ArtifactsDir, Screen = options.Screen, Environment = options.Environment };
-        if (Options.Provider is null || (Volatile.Read(ref _hosting) == 0 && Pool.IsBound(Options.TargetName, options.Env ?? PreparedEngines.ProcessEnvironment())))
-        {
-            return await StartAsync(info, cancellationToken).ConfigureAwait(false);
-        }
-
-        return await StartHostedAsync(options, info, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task<DeviceSession> StartHostedAsync(EngineStartOptions options, MobileStartInfo info, CancellationToken cancellationToken)
-    {
-        // One lease per engine at a time: a second prepare would replace the first lease's record, and nothing would release it.
-        if (Interlocked.CompareExchange(ref _hosting, 1, 0) != 0)
-        {
-            throw new EngineException(
-                EngineErrorCodes.EngineFailure,
-                $"the engine of target \"{Options.TargetName}\" already holds a hosted device for another attempt; make an engine for each session",
-                retryable: false);
-        }
-
-        PreparedEngines? prepared = null;
-        try
-        {
-            prepared = await PreparedEngines.PrepareAsync(this, info.ProjectRoot, options.Env ?? PreparedEngines.ProcessEnvironment(), () => Volatile.Write(ref _hosting, 0), cancellationToken).ConfigureAwait(false);
-            var env = new Dictionary<string, string?>(options.Env ?? info.Env, StringComparer.Ordinal);
-            foreach (var (name, value) in prepared.WorkerEnv)
+        return await StartAsync(
+            new MobileStartInfo
             {
-                env[name] = value;
-            }
-
-            var session = await StartAsync(info with { Env = env }, cancellationToken).ConfigureAwait(false);
-            session.Prepared = prepared;
-            return session;
-        }
-        catch (Exception cause)
-        {
-            if (prepared is null)
-            {
-                // Acquire gave back what it leased before it failed.
-                Volatile.Write(ref _hosting, 0);
-                throw;
-            }
-
-            // The start failed after the lease was granted: give it back. The start's failure stays the one reported, with a failed release added to it.
-            try
-            {
-                await prepared.FinishAsync().ConfigureAwait(false);
-            }
-            catch (Exception release)
-            {
-                throw new EngineException(
-                    cause is E2EException coded ? coded.Code : EngineErrorCodes.EngineFailure,
-                    $"{cause.Message}; releasing the hosted device also failed: {release.Message}",
-                    retryable: false,
-                    cause);
-            }
-
-            throw;
-        }
+                TargetName = Options.TargetName,
+                ProjectRoot = options.ProjectRoot ?? Directory.GetCurrentDirectory(),
+                Env = options.Env ?? new Dictionary<string, string?>(),
+                ArtifactsDir = options.ArtifactsDir,
+                Screen = options.Screen,
+                Environment = options.Environment,
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Starts the worker of one slot: boots its device under its session and resumes the app prepare opened there.</summary>

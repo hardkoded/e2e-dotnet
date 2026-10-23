@@ -124,7 +124,10 @@ public sealed class E2ESession : IAsyncDisposable
 
     public int OutputTokens => _scope.OutputTokens;
 
-    public static async Task<E2ESession> StartAsync(E2ESessionOptions options, CancellationToken cancellationToken = default)
+    public static Task<E2ESession> StartAsync(E2ESessionOptions options, CancellationToken cancellationToken = default) => LaunchAsync(options, null, cancellationToken);
+
+    /// <summary>Starts the session, as <see cref="StartAsync"/>, with the environment a host's prepare left for the engine's worker. Null leaves the engine to read the process environment.</summary>
+    internal static async Task<E2ESession> LaunchAsync(E2ESessionOptions options, IReadOnlyDictionary<string, string?>? env, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(options.Engine);
@@ -173,6 +176,7 @@ public sealed class E2ESession : IAsyncDisposable
                     BaseUrl = baseUrl,
                     ActionTimeout = options.ActionTimeout,
                     ProjectRoot = projectRoot,
+                    Env = env,
                     ArtifactsDir = attemptDir,
                     Screen = screens.Traced ? screens.Push : null,
                     Environment = environment.Push,

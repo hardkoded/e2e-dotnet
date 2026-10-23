@@ -11,7 +11,8 @@ namespace E2E.Cli.Tests.ExploreHostedDevice;
 /// <summary>
 /// .NET-only: upstream's <c>explore</c> opens whatever engine its config holds, a hosted device included. The port builds the device engine
 /// from <c>E2E_MOBILE_PROVIDER</c>, so these run <c>Explore.ExploreAsync</c> over a real <see cref="E2E.Mobile.MobileEngine"/> and a fake provider
-/// that counts what it leased and what came back. No test reaches Limrun or a DevFlow agent.
+/// that counts what it leased and what came back. The host's own close and finish are tested in <c>OpenHostLifecycleTests</c> and
+/// <c>EngineTargetsTests</c> of <c>E2E.Tests</c>; these test that the exploration uses it. No test reaches Limrun or a DevFlow agent.
 /// </summary>
 public sealed class ExploreHostedDeviceTests : IDisposable
 {
@@ -75,38 +76,6 @@ public sealed class ExploreHostedDeviceTests : IDisposable
         var cloud = new FakeCloud { OnOpen = (count, _) => count == 2 ? throw new InvalidOperationException("the app would not launch") : Task.CompletedTask };
         var outcome = await Explore.ExploreAsync(Options(cloud, Finishing()));
         Assert.NotNull(outcome.Error);
-        Assert.Equal((1, 1), (cloud.Acquired, cloud.Released));
-    }
-
-    [Fact]
-    public async Task Releases_the_lease_when_the_run_is_cancelled_and_reports_a_cancel()
-    {
-        var launching = new TaskCompletionSource();
-        var cloud = new FakeCloud
-        {
-            OnOpen = async (count, token) =>
-            {
-                if (count == 2)
-                {
-                    launching.SetResult();
-                    await Task.Delay(Timeout.Infinite, token);
-                }
-            },
-        };
-        using var cancel = new CancellationTokenSource();
-        var running = Explore.ExploreAsync(Options(cloud, Finishing()), cancel.Token);
-        await launching.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        await cancel.CancelAsync();
-        try
-        {
-            var outcome = await running;
-            Assert.Equal("CANCELLED", outcome.Error?.Code);
-        }
-        catch (Exception cause) when (cause is OperationCanceledException or E2EException)
-        {
-            // A cancelled run may end by throwing: either way it is a cancel, and the lease below is what matters.
-        }
-
         Assert.Equal((1, 1), (cloud.Acquired, cloud.Released));
     }
 

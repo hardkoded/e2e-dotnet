@@ -235,42 +235,8 @@ public sealed partial class DeviceSession : IEngineSession
 
     public ValueTask DisposeAsync() => new(CloseAsync(E2EDefaults.CleanupTimeout, CancellationToken.None));
 
-    /// <summary>
-    /// The hosted device this session's engine leased for it alone, when the engine was started without a runner: released
-    /// with the session, whether or not the session closes cleanly.
-    /// </summary>
-    internal PreparedEngines? Prepared { get; set; }
-
-    /// <summary>
-    /// Ends the agent-device session, within a budget: a close that outlives it is abandoned, as one that fails is. A device the
-    /// engine leased for this session goes back after the close, even when the close threw.
-    /// </summary>
+    /// <summary>Ends the agent-device session, within a budget: a close that outlives it is abandoned, as one that fails is.</summary>
     internal async Task CloseAsync(TimeSpan timeout, CancellationToken cancellationToken)
-    {
-        var prepared = Prepared;
-        Prepared = null;
-        try
-        {
-            await CloseSessionAsync(timeout, cancellationToken).ConfigureAwait(false);
-        }
-        catch
-        {
-            // The close's failure is the one reported; the release still runs, and its own failure is not allowed to hide it.
-            if (prepared is not null)
-            {
-                await prepared.FinishAsync().ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
-            }
-
-            throw;
-        }
-
-        if (prepared is not null)
-        {
-            await prepared.FinishAsync().ConfigureAwait(false);
-        }
-    }
-
-    private async Task CloseSessionAsync(TimeSpan timeout, CancellationToken cancellationToken)
     {
         var client = _client;
         var dangling = _recording;

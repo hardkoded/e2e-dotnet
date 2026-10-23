@@ -12,8 +12,10 @@ namespace E2E.Tests.EngineTargets;
 
 /// <summary>
 /// An agent step over a toy engine and a hand-rolled executor, with no model and no browser. Not ported, because the port has no such
-/// feature: every other test of upstream's file needs the <c>defineEngine</c> hooks (prepare, init, state, isolation, fixtures,
-/// <c>requires</c>), the runner (workers, the report, notices, the cleanup budget), or the screen tier over <c>engine.locate</c>.
+/// feature: every other test of upstream's file needs the <c>defineEngine</c> hooks (init, state, isolation, fixtures,
+/// <c>requires</c>), the runner (workers, the report, notices), or the screen tier over <c>engine.locate</c>. The two that exercise
+/// <c>prepare</c> and <c>finish</c> are ported through <c>Standalone.OpenAttemptAsync</c>, the port's one host, and are partial: there is
+/// no run to end, no run-level error event, and no report, so each says what it checks instead.
 /// </summary>
 public sealed partial class EngineTargetsTests
 {
@@ -78,63 +80,57 @@ public sealed partial class EngineTargetsTests
         Assert.Equal("ios", (string)reportTarget["platform"]!);
     }
 
+    /// <summary>
+    /// Partial: the attempt does not open, with the failure of prepare, and the engine is finished. The port has no run, so upstream's
+    /// outcome (<c>status: 'error'</c>, no results, one <c>run-error</c> event in the <c>launch</c> phase) has nothing to check.
+    /// </summary>
+    [Fact]
+    public async Task Partial_Ends_the_run_before_any_worker_starts_when_prepare_fails()
+    {
+        var toy = new ToyEngine(ToyPrepare.Fail);
+        using var report = new ReportDirectory();
+        var failure = await Assert.ThrowsAsync<EngineException>(() => Standalone.OpenAttemptAsync(new E2ESessionOptions
+        {
+            ResultsDirectory = report.Results,
+            TargetName = "toy-sim",
+            Engine = toy,
+            CacheEnabled = false,
+            TestTitle = "screen and expect drive the toy device over locate",
+        }));
+
+        Assert.Contains("toolchain missing", failure.Message, StringComparison.Ordinal);
+
+        // No worker ever booted: nothing to init, nothing to dispose. What the failed prepare may have acquired is still released.
+        Assert.Equal(["prepare", "finish"], toy.Lifecycle);
+    }
+
+    /// <summary>
+    /// Partial: the attempt's close reports the abandoned finish as <c>CLEANUP_TIMEOUT</c> instead of hanging. The port has no run to
+    /// report it on, so upstream's passed result and its <c>run-error</c> event in the <c>cleanup</c> phase have nothing to check.
+    /// </summary>
+    [Fact]
+    public async Task Partial_Abandons_a_finish_hook_that_outlives_the_cleanup_budget_as_a_cleanup_error_instead_of_hanging_the_run()
+    {
+        var toy = new ToyEngine(ToyPrepare.HangFinish);
+        using var report = new ReportDirectory();
+        var attempt = await Standalone.OpenAttemptAsync(new E2ESessionOptions
+        {
+            ResultsDirectory = report.Results,
+            TargetName = "toy-sim",
+            Engine = toy,
+            CacheEnabled = false,
+            CleanupTimeout = TimeSpan.FromMilliseconds(300),
+            TestTitle = "screen and expect drive the toy device over locate",
+        });
+        attempt.Session.Complete();
+
+        var errors = await attempt.CloseAsync().WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Equal(["prepare", "init", "dispose", "finish"], toy.Lifecycle);
+        var timeout = Assert.IsAssignableFrom<E2EException>(Assert.Single(errors));
+        Assert.Equal("CLEANUP_TIMEOUT", timeout.Code);
+    }
+
     [GeneratedRegex("status \"count\" text=\"(?<value>\\d+)\"")]
     private static partial Regex CounterReading();
-
-    /// <summary>A two-node screen: a counter value and a button that increments it. Refs are stable, as a device's are not but this toy's are.</summary>
-    private sealed class ToyEngine : IEngine
-    {
-        public List<string> Lifecycle { get; } = [];
-
-        public int Count { get; private set; }
-
-        public string Platform => "ios";
-
-        public string Version => "1.0.0";
-
-        public EngineCapabilities Capabilities => EngineCapabilities.Observation | EngineCapabilities.Actions;
-
-        public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
-        {
-            Lifecycle.Add("init");
-            return Task.FromResult<IEngineSession>(new Session(this));
-        }
-
-        private sealed class Session(ToyEngine engine) : IEngineSession
-        {
-            public string Route => "/";
-
-            public Task OpenAsync(string url, CancellationToken cancellationToken) => Task.CompletedTask;
-
-            public Task<Observation> ObserveAsync(CancellationToken cancellationToken) =>
-                Task.FromResult(new Observation
-                {
-                    Route = "/",
-                    Roots =
-                    [
-                        new SemanticNode { Ref = "counter", Role = "status", Name = "count", Text = engine.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) },
-                        new SemanticNode { Ref = "increment", Role = "button", Name = "Increment" },
-                    ],
-                });
-
-            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
-            {
-                if (node.Ref != "increment" || action is not LocatorAction.Tap)
-                {
-                    throw new EngineException("NOT_ACTIONABLE", "the toy only taps its button");
-                }
-
-                engine.Count++;
-                return Task.CompletedTask;
-            }
-
-            public Task PressAsync(string key, CancellationToken cancellationToken) => throw new EngineException("UNSUPPORTED_CAPABILITY", "the toy has no keyboard");
-
-            public ValueTask DisposeAsync()
-            {
-                engine.Lifecycle.Add("dispose");
-                return ValueTask.CompletedTask;
-            }
-        }
-    }
 }

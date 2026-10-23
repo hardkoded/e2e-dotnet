@@ -244,7 +244,8 @@ public static class Explore
             AiTrace = options.AiTrace || E2EFixture.IsOn("E2E_AI_TRACE"),
         };
 
-        await using var session = await E2ESession.StartAsync(sessionOptions, cancellationToken).ConfigureAwait(false);
+        await using var attempt = await Standalone.OpenAttemptAsync(sessionOptions, cancellationToken).ConfigureAwait(false);
+        var session = attempt.Session;
 
         // The values the goal, the app, or a model may echo are redacted wherever they appear.
         foreach (var secret in secrets)

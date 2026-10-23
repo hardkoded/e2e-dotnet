@@ -153,20 +153,6 @@ public sealed partial class DevicePool
         return bindings[slot];
     }
 
-    /// <summary>Whether a prepare already bound the target's devices, here or in the environment: a worker started now rides them.</summary>
-    internal bool IsBound(string targetName, IReadOnlyDictionary<string, string?> env)
-    {
-        lock (_bound)
-        {
-            if (_bound.ContainsKey(targetName))
-            {
-                return true;
-            }
-        }
-
-        return DeviceBindings.Decode(env.GetValueOrDefault(DeviceBindings.Variable(targetName))) is not null;
-    }
-
     /// <summary>
     /// Binds a device to every worker slot the run will use and warms each, once per run and outside every launch
     /// budget, so a worker's start finds a booted device. The bindings are reported back as the target's worker cap

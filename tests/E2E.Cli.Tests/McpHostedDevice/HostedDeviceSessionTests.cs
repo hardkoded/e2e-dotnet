@@ -15,7 +15,8 @@ namespace E2E.Cli.Tests.McpHostedDevice;
 /// .NET-only: upstream's MCP session opens whatever engine its config holds, a hosted device included, and tests the lease inside the
 /// provider's own package. The port builds the device engine from <c>E2E_MOBILE_PROVIDER</c>, so these tests run the session host over a real
 /// <see cref="E2E.Mobile.MobileEngine"/> and a fake provider that counts what it leased and what came back. A hosted device bills until it is released,
-/// so each way a session can end must release it once. No test reaches Limrun or a DevFlow agent.
+/// so each way a session can end must release it once. The host's own close and finish are tested in <c>OpenHostLifecycleTests</c> and
+/// <c>EngineTargetsTests</c> of <c>E2E.Tests</c>; these test that the session host uses it. No test reaches Limrun or a DevFlow agent.
 /// </summary>
 public sealed class HostedDeviceSessionTests : IDisposable
 {
@@ -151,30 +152,6 @@ public sealed class HostedDeviceSessionTests : IDisposable
         await host.OpenAsync(new OpenSessionOptions());
         var summary = await host.CloseAllAsync("server shutdown");
         Assert.Contains("closed (server shutdown)", summary, StringComparison.Ordinal);
-        Assert.Equal((1, 1), (cloud.Acquired, cloud.Released));
-    }
-
-    [Fact]
-    public async Task Releases_the_lease_of_a_session_still_opening_when_the_server_shuts_down()
-    {
-        var launching = new TaskCompletionSource();
-        var cloud = new FakeCloud
-        {
-            OnOpen = async (count, token) =>
-            {
-                if (count == 2)
-                {
-                    launching.SetResult();
-                    await Task.Delay(Timeout.Infinite, token);
-                }
-            },
-        };
-        var host = Host(cloud);
-        var opening = host.OpenAsync(new OpenSessionOptions());
-        await launching.Task.WaitAsync(Patience);
-        await host.CloseAllAsync("server shutdown");
-        await Assert.ThrowsAnyAsync<Exception>(() => opening);
-        Assert.False(host.IsOpen);
         Assert.Equal((1, 1), (cloud.Acquired, cloud.Released));
     }
 
