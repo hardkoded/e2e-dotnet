@@ -106,7 +106,8 @@ screen.
    lines after it as far as you can: against the screen at failure, the app
    source, or a live session.
 4. For a screen the evidence and the source leave out, look live (topic
-   `mcp`): open or reuse a session, go straight to that screen, then
+   `mcp`): open or reuse a session (keep it open across runs while you write
+   or fix a web test), go straight to that screen, then
    `observe` and `locate`. On the web, `navigate` to the path of the URL
    under `## Screen at failure` or the screen's route, and tap only to reach
    a state no URL opens. `e2e mcp` opens a device session on a local
