@@ -282,6 +282,17 @@ An agent entry also takes `judge` (the model id for `assert`, `waitFor`, and `ex
 
 `cache.mode` is `off`, `read-only`, or `read-write`. Unset, it is `read-write` locally and `read-only` when `CI` is set. `cache.strict` fails a recording that no longer matches with `REPLAY_STALE` instead of running the step live. Under `cache.strict`, retries replay too, and the run never writes the cache. `cache.dir` resolves against the config file's directory. `E2E_CACHE_DIR` replaces it, so checkouts and worktrees of one project can share a replay cache without editing the config; the mode stays as configured.
 
+A cache entry belongs to one test, instruction, set of params, and agent. Each of these changes causes a miss: renaming the test or its class, changing the instruction or an ordinary param, running with another configured agent, changing the agent's `context` or a test's `[AgentContext]` (a secret in it enters the key as its name only), or switching to another engine. Changing the model doesn't cause a miss.
+
+### Rerun a test while you fix it
+
+While you fix a failing test, run only that test (`dotnet test --filter "FullyQualifiedName~<Class>.<Method>"`; use `=` with the full name when another test name contains it) and keep the cache `read-write`, the local default, and outside `cache.strict`, which never writes. With `CI` set, an unset mode is `read-only`. A failed run keeps the recordings a check confirmed before the failure, and the next run replays those goals without model calls, as long as each replay still matches the screen.
+
+1. Set `actionTimeout` to `5000` while you iterate, so a wrong locator fails after 5 s instead of 30 s.
+2. Don't rename the test or its class, or reword a goal that passes. Each causes a miss: a rename for every goal in the test, a reworded goal for itself.
+3. Take NUnit `[Retry]` off the test (xUnit v3 has none). Only the first attempt replays outside `cache.strict`, so a retry runs every goal live.
+4. When the test passes, run it one time with `"cache": { "mode": "off" }`. Every goal runs live, which shows the agent still reaches it without a recording.
+
 Each secret reads `E2E_SECRET_<NAME>` first, then the config value. `null` means the variable is required. A test gets one with `Secrets.Get("stripe-key")`. Secret values passed to an act never enter cache entries: a name or test id that shows one is stored as `<secret:name>`.
 
 A fixture overrides any value with the matching property, such as `BaseUrl`, `CacheMode`, or `ActionTimeout`, or replaces the whole config by overriding `Config`.

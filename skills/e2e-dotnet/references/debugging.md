@@ -290,7 +290,8 @@ the MAUI DevFlow engine) fails the start with `UNSUPPORTED_ARTIFACT`.
 | Do | When |
 | --- | --- |
 | `E2E_HEADLESS=0 dotnet test --filter ...` | Watch the failing test in a visible browser |
-| `"cache": { "mode": "off" }` | Rule out a stale replay |
+| `"cache": { "mode": "off" }` | Rule out a stale replay; one run, not every rerun. A failed run deletes the replay that ran into the failure and keeps the ones a check confirmed, so rerun with the cache on first. If the failure repeats after a replay the trace page shows as kept, and the `off` run passes, add or tighten the check right after that goal so a stale replay fails it and is deleted |
+| `"actionTimeout": 5000` | While writing a test: a wrong locator fails in 5 s instead of 30 s (`assertionTimeout` for `Expect`). Keep it longer than the slowest screen takes to load |
 | `E2E_VIDEO=retain-on-failure` | Watch the failed attempt |
 | `E2E_TRACE=on` | Keep a trace page for a passing attempt too |
 | `CI=1 dotnet test` | Reproduce CI-only behavior (`read-only` cache) |

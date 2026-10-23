@@ -323,7 +323,10 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   the agent takes over mid-step. The web engine does not observe Next.js
   App Router's route announcer, so its title echo never counts. Text that
   reads differently on every run, a date, a time, an id, is not checked.
-  Entries are keyed per agent and per agent `context`. `ActResult.Cache.Reason` says why a replay missed:
+  An entry's key holds the test and its class, the instruction and params,
+  the agent, and its `context`, so renaming the test or its class records
+  every goal in it again, and rewording a goal records that goal again.
+  `ActResult.Cache.Reason` says why a replay missed:
   `no-entry`, `invalid-entry`, `wrong-context`, `target-not-found`,
   `target-ambiguous`, `end-mismatch`, `gap` (the recording stops at a
   project tool, see below).
@@ -349,8 +352,13 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   confirmed it), `nothing recorded: the step changed nothing a replay could
   check`, or `recording not saved: the cache store did not write it`. It also
   says `recorded with <model>` for a replayed step.
-- Only the first attempt replays. A `[Retry]` attempt runs live and still
-  records.
+- While you fix a test, keep the cache on: each rerun replays the goals whose
+  check passed instead of calling the model for them (SKILL.md, "Rerunning a
+  test while you fix it"). `"cache": { "mode": "off" }` is for ruling out a
+  stale replay (topic `debugging`, "Tools"), and for one live run once the
+  test passes.
+- Only the first attempt replays, except under `cache.strict`, where a retry
+  replays too. Otherwise a `[Retry]` attempt runs live and still records.
 - Commit `.e2e/cache/` to share replays with CI and teammates.
 - `cache.strict` fails a recording that no longer replays with
   `REPLAY_STALE`, also when the recording sits under an old key (topic
