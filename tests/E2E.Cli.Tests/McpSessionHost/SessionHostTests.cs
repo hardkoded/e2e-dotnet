@@ -32,13 +32,15 @@ public sealed class SessionHostTests : IAsyncLifetime
     /// <summary>
     /// A session that ended on its own, idle or at its time limit, is still closing when the test saw it gone: its attempt writes the
     /// run's report under the project directory after the engine is disposed. The close is waited for before the directory goes,
-    /// because Windows refuses to delete a directory a file is still being written in.
+    /// because Windows refuses to delete a directory a file is still being written in. A close that outlasts the wait keeps the
+    /// directory, so the timeout is the failure reported, not a delete under a writer still at work.
     /// </summary>
     public async Task DisposeAsync()
     {
+        var closing = Task.WhenAll(_hosts.Select(host => host.CloseAllAsync("test over")));
         try
         {
-            await Task.WhenAll(_hosts.Select(host => host.CloseAllAsync("test over"))).WaitAsync(Patience);
+            await closing.WaitAsync(Patience);
         }
         finally
         {
@@ -47,7 +49,10 @@ public sealed class SessionHostTests : IAsyncLifetime
                 host.Dispose();
             }
 
-            Directory.Delete(_dir, recursive: true);
+            if (closing.IsCompleted)
+            {
+                Directory.Delete(_dir, recursive: true);
+            }
         }
     }
 
