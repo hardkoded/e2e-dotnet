@@ -11,7 +11,7 @@ public sealed class TheRequestPrefixOfAnAgentStepOnOtherProvidersTests
 {
     /// <summary>Partial port of "replays every reasoning part after an elision: nothing binds them to the prefix": the elision is a shrink after a refusal, as the port has no per-turn compaction, so the retried request replays what the refused one held.</summary>
     [Fact]
-    public async Task Replays_every_reasoning_part_after_a_shrink_nothing_binds_them_to_the_prefix()
+    public async Task Partial_Replays_every_reasoning_part_after_a_shrink_nothing_binds_them_to_the_prefix()
     {
         var reasoningParts = new List<int>();
         var calls = 0;

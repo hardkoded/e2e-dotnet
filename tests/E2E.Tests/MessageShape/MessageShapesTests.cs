@@ -35,7 +35,7 @@ public sealed class MessageShapesTests
 
     /// <summary>Partial port of "ignore provider options, where a cache breakpoint moves and a signature rides": the reasoning a message carries, signature and all, is the port's provider material.</summary>
     [Fact]
-    public void Ignore_the_reasoning_a_message_carries_where_a_signature_rides()
+    public void Partial_Ignore_the_reasoning_a_message_carries_where_a_signature_rides()
     {
         var plain = new ModelMessage { Role = "assistant", Content = "ok" };
         var signed = new ModelMessage
@@ -74,7 +74,7 @@ public sealed class MessageShapesTests
 
     /// <summary>Partial port of "differ for payloads of another length or content, and for a file named by URL against one sent as bytes": the port has no file named by URL.</summary>
     [Fact]
-    public void Differ_for_payloads_of_another_length_or_content()
+    public void Partial_Differ_for_payloads_of_another_length_or_content()
     {
         var shorter = new ModelMessage { Role = "user", Images = [new ModelImage([137, 80, 78], "image/png", 1, 1)] };
         var other = new ModelMessage { Role = "user", Images = [new ModelImage([137, 80, 78, 72], "image/png", 1, 1)] };

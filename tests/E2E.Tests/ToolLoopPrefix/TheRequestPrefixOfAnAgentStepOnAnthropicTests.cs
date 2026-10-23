@@ -23,7 +23,7 @@ public sealed class TheRequestPrefixOfAnAgentStepOnAnthropicTests
 {
     /// <summary>Partial port of "keeps the system prompt identical on every turn, the switch to auto included": the port always asks with <c>auto</c>.</summary>
     [Fact]
-    public async Task Keeps_the_system_prompt_identical_on_every_turn()
+    public async Task Partial_Keeps_the_system_prompt_identical_on_every_turn()
     {
         var handler = Handler(Reply(1, "look"), Reply(2, "look"), Reply(3, "look"), Conclude(4));
         using var model = Claude(handler);
@@ -43,7 +43,7 @@ public sealed class TheRequestPrefixOfAnAgentStepOnAnthropicTests
 
     /// <summary>Partial port of "stops replaying the thinking from a message an elision rewrote, and keeps the thinking produced after it": the elision is a shrink after a refusal, as the port has no per-turn compaction.</summary>
     [Fact]
-    public async Task Stops_replaying_the_thinking_from_a_message_a_shrink_rewrote_and_keeps_the_thinking_produced_after_it()
+    public async Task Partial_Stops_replaying_the_thinking_from_a_message_a_shrink_rewrote_and_keeps_the_thinking_produced_after_it()
     {
         var handler = Handler(Reply(1, "observe"), Reply(2, "observe")).Then(HttpStatusCode.BadRequest, Overflow).Then(HttpStatusCode.OK, Reply(4, "observe")).Then(HttpStatusCode.OK, Conclude(5));
         using var model = Claude(handler);
@@ -67,7 +67,7 @@ public sealed class TheRequestPrefixOfAnAgentStepOnAnthropicTests
 
     /// <summary>Partial port of "notices a message a custom executor edits in place, not only one it replaces": the bytes of an image are all a message lets an executor edit through the object it was handed.</summary>
     [Fact]
-    public async Task Notices_the_bytes_of_an_image_a_custom_executor_edits_in_place_not_only_a_message_it_replaces()
+    public async Task Partial_Notices_the_bytes_of_an_image_a_custom_executor_edits_in_place_not_only_a_message_it_replaces()
     {
         var handler = Handler(Reply(1, "look"), Reply(2, "look"), Conclude(3));
         using var model = Claude(handler);
@@ -102,7 +102,7 @@ public sealed class TheRequestPrefixOfAnAgentStepOnAnthropicTests
 
     /// <summary>Partial port of "notices a tool result a custom executor edits in place, below the part": a tool result has no part to edit, so the executor replaces the message.</summary>
     [Fact]
-    public async Task Notices_a_tool_result_a_custom_executor_replaces()
+    public async Task Partial_Notices_a_tool_result_a_custom_executor_replaces()
     {
         var handler = Handler(Reply(1, "look"), Reply(2, "look"), Conclude(3));
         using var model = Claude(handler);
@@ -132,7 +132,7 @@ public sealed class TheRequestPrefixOfAnAgentStepOnAnthropicTests
 
     /// <summary>Partial port of "keeps every reasoning part when a custom executor clones the history each turn": the port has no structured clone, so the executor copies every message and its image bytes by hand.</summary>
     [Fact]
-    public async Task Keeps_every_reasoning_part_when_a_custom_executor_clones_the_history_each_turn()
+    public async Task Partial_Keeps_every_reasoning_part_when_a_custom_executor_clones_the_history_each_turn()
     {
         var handler = Handler(Reply(1, "look"), Reply(2, "look"), Conclude(3));
         using var model = Claude(handler);

@@ -69,7 +69,7 @@ public sealed class ProviderHintsForAnthropicTests
     [InlineData("eu.anthropic.claude-sonnet-4-6")]
     [InlineData("anthropic.claude-opus-5-5")]
     [InlineData("anthropic/claude-sonnet-5-5")]
-    public void Recognizes_Claude_by_the_model_id_where_the_same_check_runs(string modelId)
+    public void Partial_Recognizes_Claude_by_the_model_id_where_the_same_check_runs(string modelId)
     {
         var platform = global::E2E.ProviderHints.For(new NamedModel(modelId));
         var history = new List<ModelMessage>
