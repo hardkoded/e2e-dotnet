@@ -46,7 +46,17 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         (Scope?.Debug ?? DebugTrace.Off).Time(Phases.Observe, () => LookAsync(mode, token));
 
     // The engine's look, shown to the attempt's trace when the feed belongs to an attempt.
-    private Task<Observation> SeeAsync(CancellationToken token) => Scope is { } scope ? scope.ObserveAsync(token) : session.ObserveAsync(token);
+    // A settled look takes several; a truncated one among them marks the step even when the last one is whole.
+    private async Task<Observation> SeeAsync(CancellationToken token)
+    {
+        var observation = await (Scope is { } scope ? scope.ObserveAsync(token) : session.ObserveAsync(token)).ConfigureAwait(false);
+        if (observation.Truncated)
+        {
+            _observationTruncated = true;
+        }
+
+        return observation;
+    }
 
     private async Task<Observation> LookAsync(SettleMode mode, CancellationToken token)
     {
@@ -80,10 +90,6 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         }
 
         Latest = observation;
-        if (observation.Truncated)
-        {
-            _observationTruncated = true;
-        }
 
         foreach (var node in LocatorResolver.Walk(observation.Roots))
         {
