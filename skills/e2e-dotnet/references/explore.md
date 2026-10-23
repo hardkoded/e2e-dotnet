@@ -166,7 +166,9 @@ when it did not pass. A finding carries `Step`, `Path`, and `ArtifactId`
 only when known. `ArtifactId` is the path, relative to the project root, of
 the evidence screenshot, which lands under
 `.e2e/results/<result>/attempt-1/screenshots/` (`Output` changes the results
-directory). Once a secret is filled, the model gets no screenshot, so none is kept.
+directory). The exploration is a test of the virtual file `explore`, so
+`<result>` starts with `explore-` and the goal's words, as
+`explore-the-checkout-flow-1a2b3c4d5e6f7a8b`. Once a secret is filled, the model gets no screenshot, so none is kept.
 
 `OnProgress` receives each moment as it happens: `Started`, `Planning`,
 `StepStarted`, `FindingReported`, `StepFinished`, and `Finished`.
