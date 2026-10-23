@@ -229,15 +229,17 @@ public sealed class ExploreFlagsTests
     {
         using var cancel = new CancellationTokenSource();
         await cancel.CancelAsync();
+        var stderr = new StringWriter();
         var code = await ExploreCommand.RunAsync(
             [],
             new StringWriter(),
-            new StringWriter(),
+            stderr,
             interactive: false,
             (_, _) => Task.FromException<ExploreOutcome>(new EngineException(EngineErrorCodes.Cancelled, "opening a host was cancelled")),
             cancel.Token);
 
         Assert.Equal(130, code);
+        Assert.Equal("", stderr.ToString());
     }
 
     [Fact]

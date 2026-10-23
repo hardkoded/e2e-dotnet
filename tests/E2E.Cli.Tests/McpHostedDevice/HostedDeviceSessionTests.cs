@@ -76,7 +76,7 @@ public sealed class HostedDeviceSessionTests : IDisposable
             {
                 if (count == 2)
                 {
-                    launching.SetResult();
+                    launching.TrySetResult();
                     await Task.Delay(Timeout.Infinite, token);
                 }
             },
@@ -165,7 +165,7 @@ public sealed class HostedDeviceSessionTests : IDisposable
             {
                 if (count == 2)
                 {
-                    launching.SetResult();
+                    launching.TrySetResult();
                     await Task.Delay(Timeout.Infinite, token);
                 }
             },
@@ -174,7 +174,8 @@ public sealed class HostedDeviceSessionTests : IDisposable
         var opening = host.OpenAsync(new OpenSessionOptions());
         await launching.Task.WaitAsync(Patience);
         await host.CloseAllAsync("server shutdown");
-        await Assert.ThrowsAnyAsync<Exception>(() => opening);
+        var cancelled = await Assert.ThrowsAnyAsync<E2EException>(() => opening.WaitAsync(Patience));
+        Assert.Equal("CANCELLED", cancelled.Code);
         Assert.False(host.IsOpen);
         Assert.Equal((1, 1), (cloud.Acquired, cloud.Released));
     }
