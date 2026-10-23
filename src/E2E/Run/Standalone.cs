@@ -29,6 +29,8 @@ internal sealed record StandaloneHostOptions
 /// <summary>One attempt on a standalone host. Upstream's <c>StandaloneAttempt</c> (<c>run/standalone-attempt.ts</c>), over the port's session.</summary>
 internal sealed class StandaloneAttempt(E2ESession session, Func<Task<IReadOnlyList<Exception>>> close) : IAsyncDisposable
 {
+    private int _reported;
+
     public E2ESession Session { get; } = session;
 
     /// <summary>Ends the attempt, once, and returns what went wrong. A one-shot attempt (<see cref="Standalone.OpenAttemptAsync"/>) also finishes the engine.</summary>
@@ -38,6 +40,13 @@ internal sealed class StandaloneAttempt(E2ESession session, Func<Task<IReadOnlyL
     public async ValueTask DisposeAsync()
     {
         var errors = await close().ConfigureAwait(false);
+
+        // The failures are told once: a second dispose, as `await using` after an explicit one, finds them told.
+        if (Interlocked.Exchange(ref _reported, 1) == 1)
+        {
+            return;
+        }
+
         switch (errors.Count)
         {
             case 0:
@@ -237,7 +246,10 @@ internal sealed class StandaloneHost
             _workerEnv = merged;
         }
 
-        _signal.ThrowIfCancellationRequested();
+        if (_signal.IsCancellationRequested)
+        {
+            throw new EngineException(EngineErrorCodes.Cancelled, $"opening a host on target \"{_options.TargetName}\" was cancelled");
+        }
     }
 
     private async Task LaunchAsync(E2ESessionOptions session, CancellationToken cancellationToken, TaskCompletionSource<StandaloneAttempt> result)
@@ -319,8 +331,8 @@ internal sealed class StandaloneHost
 
     private async Task<IReadOnlyList<Exception>> CloseOnceAsync()
     {
-        // Cancel a launch before awaiting it, then end the attempt before finishing the engine it ran on.
-        await _hostEnd.CancelAsync().ConfigureAwait(false);
+        // Cancel a launch before awaiting it, then end the attempt before finishing the engine it ran on. A live attempt closes before the
+        // host's token ends, so its own cleanup does not run under a cancelled session.
         Task<StandaloneAttempt>? opening;
         lock (_gate)
         {
@@ -329,6 +341,7 @@ internal sealed class StandaloneHost
 
         if (opening is not null)
         {
+            await _hostEnd.CancelAsync().ConfigureAwait(false);
             await ((Task)opening).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
         }
 
@@ -343,6 +356,7 @@ internal sealed class StandaloneHost
             Add(await live.CloseAsync().ConfigureAwait(false));
         }
 
+        await _hostEnd.CancelAsync().ConfigureAwait(false);
         await _tearingDown.Value.ConfigureAwait(false);
         _hostEnd.Dispose();
         lock (_gate)
