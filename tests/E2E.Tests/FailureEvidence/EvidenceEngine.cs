@@ -26,6 +26,9 @@ internal sealed class EvidenceEngine(params string[] buttons) : IEngine
     /// <summary>Whether the engine declares screenshots; upstream's fake engine does with <c>artifacts: true</c>.</summary>
     public bool CapturesPixels { get; init; } = true;
 
+    /// <summary>Whether every observation reports that the engine stopped listing nodes at its limit.</summary>
+    public bool Truncated { get; init; }
+
     /// <summary>Runs before every observation; a wait, or a throw. Set it once the test body has failed to leave the failure's own look to it.</summary>
     public Func<CancellationToken, Task>? OnObserve { get; set; }
 
@@ -70,6 +73,7 @@ internal sealed class EvidenceEngine(params string[] buttons) : IEngine
             return new Observation
             {
                 Route = Route,
+                Truncated = engine.Truncated,
                 Roots =
                 [
                     new SemanticNode

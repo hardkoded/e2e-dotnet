@@ -24,6 +24,9 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// <summary>The newest observation of the step, if any was captured.</summary>
     public Observation? Latest { get; private set; }
 
+    /// <summary>Whether any semantic observation in this step stopped at a capture or byte limit.</summary>
+    public bool ObservationTruncated { get; private set; }
+
     /// <summary>
     /// The screen the step's first committed action was resolved against. A screen still loading when the step began
     /// can hold still long enough to pass a held-still look, so the step's delta is read from here: the page load
@@ -74,6 +77,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         }
 
         Latest = observation;
+        ObservationTruncated |= observation.Truncated;
         foreach (var node in LocatorResolver.Walk(observation.Roots))
         {
             _seen[node.Ref] = node;

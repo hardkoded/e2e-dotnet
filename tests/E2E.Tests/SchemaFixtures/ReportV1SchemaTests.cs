@@ -228,6 +228,19 @@ public sealed class ReportV1SchemaTests
     }
 
     [Fact]
+    public void Accepts_only_a_boolean_observation_truncation_marker()
+    {
+        var report = Valid();
+        var act = Attempt(report)["steps"]!.AsArray().Select(each => each!.AsObject()).First(each => (string?)each["api"] == "agent.act");
+        Assert.True((bool?)act["observationTruncated"]);
+        Assert.True(ReportSchema.IsValid(report));
+        act["observationTruncated"] = "yes";
+        Assert.False(ReportSchema.IsValid(report));
+        act.Remove("observationTruncated");
+        Assert.True(ReportSchema.IsValid(report));
+    }
+
+    [Fact]
     public void Lets_only_a_gap_name_the_rule_that_made_a_typed_value_run_time_data()
     {
         var report = Valid();

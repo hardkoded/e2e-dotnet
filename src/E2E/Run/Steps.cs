@@ -208,6 +208,9 @@ internal sealed record StepAgentDetails
 
     /// <summary>Absent when the step failed before a judgment could be requested.</summary>
     public string? Explanation { get; init; }
+
+    /// <summary>True when at least one semantic observation in the step was truncated.</summary>
+    public bool? ObservationTruncated { get; init; }
 }
 
 /// <summary>The viewport a step established.</summary>
@@ -236,6 +239,9 @@ internal sealed class StepRecord
     public long DurationMs { get; set; }
 
     public string? Explanation { get; set; }
+
+    /// <summary>True when at least one semantic observation in the step was truncated.</summary>
+    public bool? ObservationTruncated { get; set; }
 
     public StepViewport? Viewport { get; set; }
 

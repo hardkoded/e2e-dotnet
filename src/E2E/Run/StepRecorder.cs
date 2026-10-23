@@ -458,6 +458,7 @@ internal sealed class StepRecorder
         current.Metrics = details.Metrics ?? current.Metrics;
         current.Cache = details.Cache ?? current.Cache;
         current.Turns = details.Turns ?? current.Turns;
+        current.ObservationTruncated = details.ObservationTruncated ?? current.ObservationTruncated;
         if (details.Explanation is not null)
         {
             current.Explanation = RedactText(details.Explanation);
