@@ -59,7 +59,18 @@ internal static partial class Git
         }
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(budget ?? Budget);
+
+        // CancelAfter fires on the thread pool, so a budget of zero could still lose the race to a git that answers at once.
+        var allowed = budget ?? Budget;
+        if (allowed == TimeSpan.Zero)
+        {
+            timeout.Cancel();
+        }
+        else
+        {
+            timeout.CancelAfter(allowed);
+        }
+
         Process? process = null;
         try
         {
