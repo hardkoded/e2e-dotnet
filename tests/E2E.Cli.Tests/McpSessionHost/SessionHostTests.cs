@@ -308,7 +308,7 @@ public sealed class SessionHostTests : IDisposable
         var host = Host(new FakeEngine());
         var opened = await host.OpenAsync(new OpenSessionOptions());
         var names = ServedCli.CatalogNames(opened);
-        Assert.Equal(["observe", "tap", "double_tap", "type", "press", "select", "check", "uncheck", "clear", "navigate", "locate"], names);
+        Assert.Equal(["observe", "tap", "double_tap", "type", "press", "select", "check", "uncheck", "clear", "navigate", "locate", "test_lines"], names);
         var call = host.ToolSpecs().Single(spec => spec.Name == "call");
         var scrolled = await call.Call(Json("""{ "tool": "scroll", "args": { "direction": "down" } }"""), CancellationToken.None);
         Assert.True(scrolled.IsError);

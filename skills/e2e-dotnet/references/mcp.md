@@ -15,8 +15,8 @@ leases a hosted Limrun device instead (set `LIMRUN_API_KEY`); with
 [mobile.md](mobile.md)). `open_session` leases the device, and the lease bills
 until `close_session` releases it: close sessions you no longer need. The idle
 timeout, the four-hour limit, and a server shutdown release it too. A device
-session has no `navigate` tool. The catalog is the testing agent's own actions plus `locate`
-and `screenshot`. Not ported: recording a video, the project's own tools,
+session has no `navigate` tool. The catalog is the testing agent's own actions plus `locate`,
+`test_lines`, and `screenshot`. Not ported: recording a video, the project's own tools,
 and the tap, hover, and type at a point. `e2e init` does not exist, so
 register the server yourself (below).
 
@@ -103,9 +103,56 @@ config declares a `secrets` entry.
 | `back` | One step back in the history |
 | `screenshot` | The viewport as an image. After a secret was filled it answers `PIXEL_TAINTED` and attaches nothing |
 | `locate {role? name? text? label? placeholder? testId? exact?}` | Try a locator; see the loop below |
+| `test_lines` | Every test line the session's actions printed, in order, as a draft test body; see below |
 
 A failed action is an error result that starts with the tool, the node, and
 the code: `tap n9999 failed: NOT_FOUND: ...`.
+
+### Test lines
+
+Each action answers with the line that repeats it in a test, after the
+first line of its result:
+
+```text
+tapped button "Sign in"
+Test line: await Screen.GetByRole("button", "Sign in").TapAsync();
+```
+
+`test_lines` returns every line so far, in order, as a draft test body that
+starts with `await App.OpenAsync();` for the session's own opening. Paste it
+into a test, then add the assertions.
+
+- The locator comes from the node as the newest observation listed it,
+  before the action runs. Role and name, label, placeholder, text, and test
+  id are tried in that order. The first that matches the node and nothing
+  else on the live screen wins, as `locate` would report it.
+- A locator that also matches twins is narrowed: to the nodes that render
+  (`new RoleOptions { Visible = true }`), then under a container
+  (`GetByRole("listitem").Filter("Offer B").GetByRole("button", "Reserve")`),
+  then by position (`.Nth(1)`, with a comment saying so). A position is used
+  only when the live twins are the ones the observation listed, each in place
+  or all moved together.
+- At most 10 locators are tried per node.
+- When nothing reaches the node alone, the result says `No test line:` and
+  why, and the draft shows the action as a `//` comment. A line that would
+  fail is never printed. A failed action prints and records no line.
+- A fill names `Secrets.Get(name)`, never a value.
+- A `navigate` to a URL on the app's origin is written as its path
+  (`App.OpenAsync("/settings")`); `back` is `App.BackAsync()`.
+
+| Action | Line |
+| --- | --- |
+| Opening the session | `App.OpenAsync()` |
+| `tap`, `double_tap` | `TapAsync()`, `DoubleTapAsync()` |
+| `type` | `FillAsync(text)` |
+| `type_secret` | `FillAsync(Secrets.Get(name))` |
+| `press` on a node | `PressAsync(key)` |
+| `select`, `check`, `uncheck`, `clear` | `SelectOptionAsync(value)`, `CheckAsync()`, `UncheckAsync()`, `ClearAsync()` |
+| `scroll_to` a node | `ScrollIntoViewAsync()` |
+| `navigate`, `back` | `App.OpenAsync(url)`, `App.BackAsync()` |
+
+No line: `type` or `press` with no target, `tap` or `double_tap` with
+`modifiers` (a locator tap takes none), `scroll`, and `scroll_to` a text.
 
 ## Workflow
 
@@ -113,8 +160,10 @@ The loop is:
 
 1. `open_session`, then `call {tool: "observe"}` and act until the screen you
    want to test is in front of you. Node refs are valid only for the newest
-   observation.
-2. `call {tool: "locate", args: {...}}` for each locator you intend to write.
+   observation. Each action prints the test line that repeats it: copy it as
+   you go, or take them all from `test_lines`.
+2. `call {tool: "locate", args: {...}}` for each locator no action printed,
+   such as an assertion's target.
    One match: use the printed `Screen.GetByRole(...)` call. Zero or several:
    adjust before writing the test; the same failure would hit the test as
    `LOCATOR_NOT_FOUND` or `STRICT_MODE`. A role query's `name` matches
