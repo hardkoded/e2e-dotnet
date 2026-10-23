@@ -261,7 +261,12 @@ public sealed class Locator
         return new Locator(_screen, new LocatorExpression { Kind = "filter", Source = Query, Has = has.Query });
     }
 
-    /// <summary>Matches either locator, deduplicated in traversal order; both must belong to this screen.</summary>
+    /// <summary>
+    /// Matches either locator, preserving document order without duplicate nodes. <c>a.Or(b)</c> stays strict: when both match
+    /// different nodes, an action fails with <c>STRICT_MODE</c>, so add <see cref="First"/> if either will do. Both locators must come
+    /// from the same screen and attempt. Upstream's <c>locator.or</c>.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_LOCATOR</c>: <paramref name="other"/> belongs to another screen or attempt.</exception>
     public Locator Or(Locator other)
     {
         ArgumentNullException.ThrowIfNull(other);
