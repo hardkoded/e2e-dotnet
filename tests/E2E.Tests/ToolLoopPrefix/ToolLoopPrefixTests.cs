@@ -91,7 +91,7 @@ public sealed class ToolLoopPrefixTests
     }
 
     [Fact]
-    public async Task Stops_replaying_the_thinking_from_a_message_a_history_shrink_rewrote()
+    public async Task Stops_replaying_the_thinking_from_a_message_a_history_shrink_rewrote_PARTIAL()
     {
         var big = new DocumentWorld().Map("/start", page =>
         {

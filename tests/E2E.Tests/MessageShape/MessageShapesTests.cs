@@ -55,7 +55,7 @@ public sealed class MessageShapesTests
     }
 
     [Fact]
-    public void Differ_for_payloads_of_another_length_or_content()
+    public void Differ_for_payloads_of_another_length_or_content_PARTIAL()
     {
         var screenshot = E2E.MessageShape.ShapeOf(Screenshot());
 
