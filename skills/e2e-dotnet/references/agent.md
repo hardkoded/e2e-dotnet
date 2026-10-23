@@ -503,7 +503,10 @@ The loop runs at most `MaxModelCalls` model turns per step. A tool that throws
 is a failed call the model reads, except a hard stop of the step, which ends
 the loop. `ToolLoopHelpers.GuardAsync` gives a tool the same rule for work of its
 own. `PrepareMessages` runs between turns to shorten the history, or stops the
-step when it makes no progress. `context.Actions` checks, counts, and records
+step when it makes no progress. A message it rewrites edits the request prefix,
+and on Anthropic models, whose thinking is bound to it, the loop then stops
+sending the reasoning from that message on. The same holds for a history the
+loop shrinks after a context overflow. `context.Actions` checks, counts, and records
 each action, so these steps replay from the cache and run on every engine that
 supports the verb. A tool that works outside `context.Actions` wraps its body in
 `context.Budgets.RunToolAsync(name, mutates, body)`, which takes an action slot
