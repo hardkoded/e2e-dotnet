@@ -48,7 +48,7 @@ public static class ExploreExecutor
 
     /// <summary>
     /// The agent the exploration runs as: the project's own options, its guidance and tools included, with the exploration rules
-    /// and the goal added. A custom executor has no readable vocabulary and is replaced, with a notice, keeping the models it
+    /// added. The goal reaches every prompt as the test's title (<c>Test: &lt;goal&gt;</c>), not through the context. A custom executor has no readable vocabulary and is replaced, with a notice, keeping the models it
     /// brought. The finding tool joins once the entry is resolved (<see cref="WithFindingTool"/>): its name is reserved, so a
     /// project tool can never take it.
     /// </summary>

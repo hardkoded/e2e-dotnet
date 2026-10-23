@@ -38,12 +38,13 @@ public sealed class TheBuiltInAgentFromItsAgentsEntryTests
     public async Task Opens_the_context_with_the_test_title_path()
     {
         var model = new ScriptedModel(_ => ModelResponses.Done("passed", "done"));
-        await using var session = await StartAsync(model, context: "Plans are called tiers.", testContext: "Billing lives under Settings.", title: "billing upgrades the plan");
+        // The port's test title is one string that stands for upstream's title path, so it arrives already joined.
+        await using var session = await StartAsync(model, context: "Plans are called tiers.", testContext: "Billing lives under Settings.", title: "billing > upgrades the plan");
 
         await session.Agent.ActAsync("open billing");
 
         Assert.Contains(
-            "Project context:\nTest: billing upgrades the plan\nPlans are called tiers.\nBilling lives under Settings.",
+            "Project context:\nTest: billing > upgrades the plan\nPlans are called tiers.\nBilling lives under Settings.",
             model.Requests[0].System,
             StringComparison.Ordinal);
         session.Complete();
@@ -53,11 +54,11 @@ public sealed class TheBuiltInAgentFromItsAgentsEntryTests
     public async Task Gives_a_judgment_the_title_too()
     {
         var model = new ScriptedModel(_ => ModelResponses.Done("passed", "shown"));
-        await using var session = await StartAsync(model, title: "billing upgrades the plan");
+        await using var session = await StartAsync(model, title: "billing > upgrades the plan");
 
         await session.Agent.AssertAsync("the plan is upgraded");
 
-        Assert.Contains("<project-context>\nTest: billing upgrades the plan\n</project-context>", model.Requests[0].System, StringComparison.Ordinal);
+        Assert.Contains("<project-context>\nTest: billing > upgrades the plan\n</project-context>", model.Requests[0].System, StringComparison.Ordinal);
         session.Complete();
     }
 

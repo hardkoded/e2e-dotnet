@@ -88,7 +88,10 @@ public class StepExecutorContext
     /// <summary>The completed earlier steps of this attempt, serialized for prompt context, one per line, oldest first. Empty when none.</summary>
     public string Ledger { get; init; } = "";
 
-    /// <summary>The agent's project context. Trusted, and already redacted.</summary>
+    /// <summary>
+    /// Trusted context, redacted: the test's title (<c>Test: billing &gt; upgrades the tier</c>), then the agent's <c>Context</c>, then the
+    /// test's <c>agentContext</c>, one per line. Null when all are blank.
+    /// </summary>
     public string? AgentContext { get; init; }
 
     public required IExecutorBudgets Budgets { get; init; }

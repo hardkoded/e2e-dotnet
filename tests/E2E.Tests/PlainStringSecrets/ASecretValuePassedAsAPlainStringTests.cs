@@ -52,7 +52,7 @@ public sealed class ASecretValuePassedAsAPlainStringTests
             AgentExecutor = recording,
             AgentContext = "context " + Value,
             BaseUrl = "https://counter.test",
-            TestTitle = "plain string secrets",
+            TestTitle = "suite " + Value + " > title holds " + Value,
         });
         await session.App.OpenAsync("/");
 
@@ -66,7 +66,8 @@ public sealed class ASecretValuePassedAsAPlainStringTests
         Assert.Equal("""{"key":{"kind":"secret","name":"probe"}}""", inputs[0].Params);
         Assert.Equal($"inspect {Marker} with {{note}}", inputs[1].Instruction);
         Assert.Equal($$"""{"note":"{{Marker}}","key {{Marker}}":["{{Marker}}"]}""", inputs[1].Params);
-        Assert.Equal("Test: plain string secrets\ncontext " + Marker, inputs[1].AgentContext);
+        // The title spells the secret too, as upstream's does: both steps' context opens with it redacted.
+        Assert.All(inputs, input => Assert.Equal("Test: suite " + Marker + " > title holds " + Marker + "\ncontext " + Marker, input.AgentContext));
         Assert.DoesNotContain(Value, JsonSerializer.Serialize(inputs), StringComparison.Ordinal);
     }
 }

@@ -38,7 +38,8 @@ public sealed class ASecretValuePassedAsAPlainStringToTheBuiltInAgentTests
             BaseUrl = "https://billing.test",
             AgentContext = "context " + Value,
             CacheEnabled = false,
-            TestTitle = "built-in agent",
+            // The title spells the secret too, as upstream's test does: it reaches both prompts as the marker.
+            TestTitle = "built-in agent " + Value,
         });
         await session.App.OpenAsync("/settings/billing");
         await session.Agent.ActAsync("inspect " + Value + " with {note}", new ActOptions
@@ -56,10 +57,10 @@ public sealed class ASecretValuePassedAsAPlainStringToTheBuiltInAgentTests
         var (act, judgment) = (model.Requests[0], model.Requests[1]);
         var actPrompt = string.Join('\n', act.Messages.Select(message => message.Content));
         Assert.Contains("inspect " + Marker + " with " + Marker, actPrompt, StringComparison.Ordinal);
-        Assert.Contains("Test: built-in agent\ncontext " + Marker, act.System, StringComparison.Ordinal);
+        Assert.Contains("Test: built-in agent " + Marker + "\ncontext " + Marker, act.System, StringComparison.Ordinal);
         var judgmentPrompt = string.Join('\n', judgment.Messages.Select(message => message.Content));
         Assert.Contains("the page does not show " + Marker, judgmentPrompt, StringComparison.Ordinal);
-        Assert.Contains("Test: built-in agent\ncontext " + Marker, judgment.System, StringComparison.Ordinal);
+        Assert.Contains("Test: built-in agent " + Marker + "\ncontext " + Marker, judgment.System, StringComparison.Ordinal);
         Assert.DoesNotContain(Value, string.Join('\n', model.Requests.SelectMany(request => request.Messages.Select(message => message.Content).Prepend(request.System))), StringComparison.Ordinal);
     }
 }
