@@ -53,6 +53,7 @@ public sealed class ASecretValuePassedAsAPlainStringTests
             AgentContext = "context " + Value,
             BaseUrl = "https://counter.test",
             TestTitle = "suite " + Value + " > title holds " + Value,
+            TestFile = "PlainStringSecrets",
         });
         await session.App.OpenAsync("/");
 

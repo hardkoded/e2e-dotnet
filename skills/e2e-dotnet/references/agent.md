@@ -79,11 +79,13 @@ or a method adds facts only that test knows. It joins the agent's `context`,
 outer layer first, one per line, and reaches the judges too, so keep
 instructions out of it. A changed text records again.
 
-Every prompt also opens its context with the test's title, such as
+Under a test, every prompt also opens its context with the test's title, such as
 `Test: billing > upgrades the tier`. Under NUnit or xUnit the title is the test's
-full name (`CacheTitle`), as `Test: Billing.UpgradeTests.Upgrades_the_tier`. The
-judges read it too, so name a test for what it covers, not for the verdict you
-expect. The replay key leaves the title out, since the test id already names it.
+full name (`CacheTitle`), as `Test: Billing.UpgradeTests.Upgrades_the_tier`; under
+`e2e explore` it is the goal. An `e2e mcp` session runs no test and has no such
+line. The judges read it too, so name a test for what it covers, not for the
+verdict you expect. The replay key leaves the title out, since the test id already
+names it.
 
 ## ActAsync: one goal
 

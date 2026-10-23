@@ -74,7 +74,7 @@ public sealed class AgentPinTests
 
         await session.Agent.ActAsync("open billing");
 
-        Assert.Contains("Project context:\nTest: agent pin\nPlans are tiers.\nThe workspace is Acme Trial.", model.Requests[0].System, StringComparison.Ordinal);
+        Assert.Contains("Project context:\nPlans are tiers.\nThe workspace is Acme Trial.", model.Requests[0].System, StringComparison.Ordinal);
         session.Complete();
     }
 

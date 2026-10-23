@@ -40,6 +40,7 @@ public sealed class ASecretValuePassedAsAPlainStringToTheBuiltInAgentTests
             CacheEnabled = false,
             // The title spells the secret too, as upstream's test does: it reaches both prompts as the marker.
             TestTitle = "built-in agent " + Value,
+            TestFile = "PlainStringSecrets",
         });
         await session.App.OpenAsync("/settings/billing");
         await session.Agent.ActAsync("inspect " + Value + " with {note}", new ActOptions
