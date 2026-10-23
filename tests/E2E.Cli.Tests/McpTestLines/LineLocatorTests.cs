@@ -24,7 +24,7 @@ public sealed class LineLocatorTests
         var engine = new FakeEngine { Locate = (expression, timeout) => { asked.Add((expression, timeout)); return [new SemanticNode { Ref = "bound-1", Role = "button", Name = "Save" }]; } };
         await using var context = await SessionContext.StartAsync(engine);
 
-        var matches = await SessionCatalog.ResolveForLine(context.Session.Engine, Save, CancellationToken.None);
+        var matches = await SessionCatalog.LineResolver(context.Session.Engine)(Save, CancellationToken.None);
 
         Assert.Equal(["bound-1"], matches.Select(node => node.Ref));
         Assert.Equal([(Save, TimeSpan.FromSeconds(2))], asked);
@@ -32,25 +32,28 @@ public sealed class LineLocatorTests
     }
 
     [Fact]
-    public async Task Lets_the_failure_of_a_locate_through_so_the_action_runs_without_a_line()
+    public async Task Passes_on_the_failure_of_a_locate()
     {
         var engine = new FakeEngine { Locate = (_, _) => throw new EngineException("TIMEOUT", "the screen did not settle in 2s") };
         await using var context = await SessionContext.StartAsync(engine);
 
-        var failure = await Assert.ThrowsAsync<EngineException>(() => SessionCatalog.ResolveForLine(context.Session.Engine, Save, CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => SessionCatalog.LineResolver(context.Session.Engine)(Save, CancellationToken.None));
 
         Assert.Equal("TIMEOUT", failure.Code);
     }
 
     [Fact]
-    public async Task Resolves_over_a_fresh_observation_when_the_engine_does_not_locate()
+    public async Task Resolves_every_locator_over_one_look_when_the_engine_does_not_locate()
     {
         var engine = new FakeEngine();
         await using var context = await SessionContext.StartAsync(engine);
+        var resolve = SessionCatalog.LineResolver(context.Session.Engine);
 
-        var matches = await SessionCatalog.ResolveForLine(context.Session.Engine, SessionCatalog.LocateQuery(new LocateArgs { Role = "button", Name = "Submit" }).Query, CancellationToken.None);
+        var submit = await resolve(SessionCatalog.LocateQuery(new LocateArgs { Role = "button", Name = "Submit" }).Query, CancellationToken.None);
+        var table = await resolve(SessionCatalog.LocateQuery(new LocateArgs { Role = "textbox", Name = "Table" }).Query, CancellationToken.None);
 
-        Assert.Equal(["k-1"], matches.Select(node => node.Ref));
+        Assert.Equal(["k-1"], submit.Select(node => node.Ref));
+        Assert.Equal(["k-2"], table.Select(node => node.Ref));
         Assert.Equal(1, engine.Observations);
     }
 }

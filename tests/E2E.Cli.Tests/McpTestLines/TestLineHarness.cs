@@ -46,7 +46,7 @@ internal sealed class TestLineHarness
             Redact = text => text.Replace("sk-live-0000", "<secret:apiKey>", StringComparison.Ordinal),
             AppBase = new Uri("http://127.0.0.1:4100/"),
             Secrets = ["apiKey"],
-            Resolve = (expression, _) =>
+            Resolve = () => (expression, _) =>
             {
                 _resolves++;
                 return Task.FromResult(LocatorResolver.Resolve(seen, expression));

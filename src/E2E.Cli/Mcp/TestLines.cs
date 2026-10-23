@@ -15,8 +15,11 @@ internal sealed class TestLineOptions
     /// <summary>The newest observation's tree: the screen the agent's node refs name. Null when nothing was observed yet.</summary>
     public required Func<IReadOnlyList<SemanticNode>?> Newest { get; init; }
 
-    /// <summary>Every node a locator matches on the live screen; tests count the tries through it.</summary>
-    public required Func<LocatorExpression, CancellationToken, Task<IReadOnlyList<SemanticNode>>> Resolve { get; init; }
+    /// <summary>
+    /// Starts the resolving of the locators tried for one action, which share one look at the live screen when the engine does not
+    /// locate. The function it returns lists every node a locator matches; tests count the tries through it.
+    /// </summary>
+    public required Func<Func<LocatorExpression, CancellationToken, Task<IReadOnlyList<SemanticNode>>>> Resolve { get; init; }
 
     /// <summary>The attempt's secret ledger, for what a node says before it goes into a line.</summary>
     public required Func<string, string> Redact { get; init; }
@@ -309,6 +312,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
             return Found.None("node " + reference + " is not on the newest screen");
         }
 
+        var resolve = _options.Resolve();
         var tries = MaxTries;
         async Task<Probe?> Attempt(LocatorExpression expression, IReadOnlyList<SemanticNode>? within = null)
         {
@@ -318,7 +322,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
             }
 
             tries--;
-            return await ProbeOf(expression, listed, within ?? listed.Roots, token).ConfigureAwait(false);
+            return await ProbeOf(resolve, expression, listed, within ?? listed.Roots, token).ConfigureAwait(false);
         }
 
         (Located Located, Probe Probe)? twins = null;
@@ -401,9 +405,9 @@ internal sealed class SessionTestLines(TestLineOptions options)
     /// shadow roots), the one still in its box. Otherwise it is the one match centered in its box from the observation, as an
     /// inner text element sits inside the button it names, and the place is not certain.
     /// </summary>
-    private async Task<Probe> ProbeOf(LocatorExpression expression, ListedNode listed, IReadOnlyList<SemanticNode> within, CancellationToken token)
+    private async Task<Probe> ProbeOf(Func<LocatorExpression, CancellationToken, Task<IReadOnlyList<SemanticNode>>> resolve, LocatorExpression expression, ListedNode listed, IReadOnlyList<SemanticNode> within, CancellationToken token)
     {
-        var matches = await _options.Resolve(expression, token).ConfigureAwait(false);
+        var matches = await resolve(expression, token).ConfigureAwait(false);
         var count = matches.Count;
         var target = listed.Node;
         var self = Identity(target, _options.Redact);
