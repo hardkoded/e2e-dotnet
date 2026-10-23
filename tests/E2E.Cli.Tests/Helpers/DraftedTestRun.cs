@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics;
+using System.Reflection;
+using System.Security;
 
 namespace E2E.Cli.Tests.Helpers;
 
@@ -16,6 +18,8 @@ internal static class DraftedTestRun
     public static async Task<(int Code, string Output)> RunAsync(string projectDirectory, IEnumerable<string> body, string check)
     {
         var repo = RepoRoot();
+        // The draft sits outside the repository, so it takes the repository's SDK pin along: another SDK would rebuild src/ with its own outputs.
+        File.Copy(Path.Combine(repo, "global.json"), Path.Combine(projectDirectory, "global.json"), overwrite: true);
         File.WriteAllText(
             Path.Combine(projectDirectory, "Draft.csproj"),
             $"""
@@ -33,8 +37,8 @@ internal static class DraftedTestRun
               </ItemGroup>
               <ItemGroup>
                 <Using Include="NUnit.Framework" />
-                <ProjectReference Include="{Path.Combine(repo, "src", "E2E", "E2E.csproj")}" />
-                <ProjectReference Include="{Path.Combine(repo, "src", "E2E.NUnit", "E2E.NUnit.csproj")}" />
+                <ProjectReference Include="{SecurityElement.Escape(Path.Combine(repo, "src", "E2E", "E2E.csproj"))}" />
+                <ProjectReference Include="{SecurityElement.Escape(Path.Combine(repo, "src", "E2E.NUnit", "E2E.NUnit.csproj"))}" />
               </ItemGroup>
             </Project>
             """);
@@ -57,21 +61,29 @@ internal static class DraftedTestRun
         var start = new ProcessStartInfo("dotnet") { WorkingDirectory = projectDirectory, RedirectStandardOutput = true, RedirectStandardError = true };
         start.ArgumentList.Add("test");
         start.ArgumentList.Add("--nologo");
+        // The configuration this test runs in, so the referenced projects' built outputs are reused instead of built again.
+        start.ArgumentList.Add("-c");
+        start.ArgumentList.Add(typeof(DraftedTestRun).Assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()?.Configuration ?? "Debug");
         start.ArgumentList.Add("-nodeReuse:false");
         start.Environment["UseSharedCompilation"] = "false";
+        // Upstream's fixtureEnv: the run is the caller's environment, outside CI.
+        start.Environment["CI"] = "";
         using var process = Process.Start(start)!;
         var stdout = process.StandardOutput.ReadToEndAsync();
         var stderr = process.StandardError.ReadToEndAsync();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+        var limit = TimeSpan.FromMinutes(5);
+        using var timeout = new CancellationTokenSource(limit);
         try
         {
             await process.WaitForExitAsync(timeout.Token);
+            // A build server or a browser the test host left behind keeps the pipes open after dotnet test exits, so the reads are bounded too.
+            await Task.WhenAll(stdout, stderr).WaitAsync(timeout.Token);
         }
         catch (OperationCanceledException)
         {
             // A killed build must not leave its servers holding the pipes and the project directory.
             process.Kill(entireProcessTree: true);
-            throw;
+            throw new TimeoutException($"dotnet test in {projectDirectory} did not finish in {limit.TotalMinutes} min");
         }
 
         return (process.ExitCode, await stdout + await stderr);
