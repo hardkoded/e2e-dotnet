@@ -738,8 +738,13 @@ public sealed class E2ESession : IAsyncDisposable
                 {
                     // An entry the step read existed for certain, so deleting it is an eviction. A new recording's delete only
                     // clears what an earlier run left.
-                    outcome = !recorded || act.ReplayedWhole ? CacheWrite.Evicted : CacheWrite.Unconfirmed;
+                    // Only a delete that succeeded is an eviction.
+                    outcome = CacheWrite.Unconfirmed;
                     cache.Delete(act.Key);
+                    if (!recorded || act.ReplayedWhole)
+                    {
+                        outcome = CacheWrite.Evicted;
+                    }
                 }
                 else if (recorded)
                 {

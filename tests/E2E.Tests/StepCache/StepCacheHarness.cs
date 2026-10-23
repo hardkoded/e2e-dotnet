@@ -83,10 +83,10 @@ internal static class StepCacheHarness
     public static SemanticNode Node(string reference, string role, string name, string? text = null) => new() { Ref = reference, Role = role, Name = name, Text = text };
 
     /// <summary>What a kind of change leaves in the cache after the attempt settles: upstream's <c>settleStagedTraces</c>.</summary>
-    public static void Settle(CacheContext context, StepTraceSession session, bool verified, bool preserve = false)
+    public static IReadOnlyDictionary<int, CacheWrite> Settle(CacheContext context, StepTraceSession session, bool verified, bool preserve = false)
     {
         session.Pending.Verified = verified && session.Pending.Completed;
-        E2ESession.Flush(context.Store, [session.Pending], preserve);
+        return E2ESession.Flush(context.Store, [session.Pending], preserve);
     }
 
     public static (string?, string?, string?) Anchor(RecordedTarget target) => (target.Role, target.Name, target.Text);
@@ -132,7 +132,17 @@ internal sealed class StubCache(Func<CacheLookup> read) : IStepCache
 
     public void Write(string key, CacheEntry entry) => Written.Add(key);
 
-    public void Delete(string key) => Deleted.Add(key);
+    public bool DeleteFails { get; set; }
+
+    public void Delete(string key)
+    {
+        if (DeleteFails)
+        {
+            throw new InvalidOperationException("store unavailable");
+        }
+
+        Deleted.Add(key);
+    }
 }
 
 /// <summary>A scripted host for one step: its looks, its grammar, and the actions the replay committed.</summary>
