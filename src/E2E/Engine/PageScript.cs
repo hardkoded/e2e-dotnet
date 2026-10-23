@@ -821,6 +821,22 @@ internal static class PageScript
             for (let node = slot; node && node !== shadow; node = node.parentNode) if (node.inert) return true;
             return false;
           };
+          // A closed select has no option boxes; explicit exclusions still remove choices it does not offer.
+          const isOfferedOption = (option) => {
+            for (let current = option; current && current.tagName !== "SELECT"; current = parentOrHostOf(current)) {
+              const style = styleOf(current);
+              if (ariaHidden(current) || isInert(current) || hidesSubtree(current, style)) return false;
+            }
+            return true;
+          };
+          const offeredOptionsOf = (select) => {
+            const offered = [];
+            for (const option of select.options) {
+              if (offered.length >= maxSelectOptions) break;
+              if (isOfferedOption(option)) offered.push(option);
+            }
+            return offered;
+          };
           const tally = (el, visible) => {
             if (!el || skip.has(el.tagName) || isInert(el)) return 0;
             if (el.tagName === "IFRAME" && (ariaHidden(el) || hidden(el))) return 0;
@@ -829,7 +845,7 @@ internal static class PageScript
             if (listed(el, role) && !textOnly(el, role)) {
               const counted = !visible || inView(el);
               if (counted) n++;
-              if (el.tagName === "SELECT") return counted ? n + Math.min(el.options.length, maxSelectOptions) : n;
+              if (el.tagName === "SELECT") return counted ? n + offeredOptionsOf(el).length : n;
               if (isLeaf(el, role)) return n;
             }
             for (const child of el.children) n += tally(child, visible);
@@ -928,7 +944,7 @@ internal static class PageScript
               if (el.scrollTop || el.scrollLeft) scroll += ";" + node.ref + ":" + Math.round(el.scrollLeft) + "," + Math.round(el.scrollTop);
               if (el.tagName === "SELECT") {
                 // A closed select paints none of its options; they are what it offers.
-                for (const option of Array.from(el.options).slice(0, maxSelectOptions)) {
+                for (const option of offeredOptionsOf(el)) {
                   const before = node.children.length;
                   walk(option, node.children, isHidden, isAriaHidden);
                   if (node.children.length > before) node.children[before].hidden = isHidden;
