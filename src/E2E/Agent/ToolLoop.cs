@@ -149,7 +149,8 @@ public sealed record PreparedTurn(int StepNumber, IReadOnlyList<string> Previous
 /// </summary>
 public sealed record PreparedMessages(IReadOnlyList<ModelMessage> Messages, string? Stop = null)
 {
-    public static implicit operator PreparedMessages(List<ModelMessage> messages) => new(messages);
+    // The cast keeps `new` on the list constructor: a List would otherwise convert back through this operator and recurse.
+    public static implicit operator PreparedMessages(List<ModelMessage> messages) => new((IReadOnlyList<ModelMessage>)messages);
 }
 
 internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepExecutor
@@ -192,6 +193,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         var stopped = false;
         string? noticed = null;
         var shrunkOnce = false;
+        string[]? lastShape = null;
         IReadOnlyList<string> previous = [];
         for (var call = 0; call < maxCalls; call++)
         {
@@ -205,6 +207,8 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 messages.AddRange(next);
                 preparedStop = prepared.Stop;
             }
+
+            DropReasoningAfterRewrite(model, messages, lastShape, turns);
 
             if (failures >= 5)
             {
@@ -232,6 +236,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             ModelResponse response;
             try
             {
+                lastShape = Shapes(model, messages);
                 response = await CompleteAsync(model, system, messages, offered, context, redactor, token).ConfigureAwait(false);
             }
             catch (AgentException overflow) when (string.Equals(overflow.Code, "CONTEXT_OVERFLOW", StringComparison.Ordinal))
@@ -255,8 +260,10 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 turns.Note("context overflow before turn " + turns.Next.ToString(CultureInfo.InvariantCulture) + ": history shrunk from " + OverflowShrink.TextChars(messages).ToString(CultureInfo.InvariantCulture) + " to " + OverflowShrink.TextChars(shrunk).ToString(CultureInfo.InvariantCulture) + " chars, retrying once");
                 messages.Clear();
                 messages.AddRange(shrunk);
+                DropReasoningAfterRewrite(model, messages, lastShape, turns);
                 try
                 {
+                    lastShape = Shapes(model, messages);
                     response = await CompleteAsync(model, system, messages, offered, context, redactor, token).ConfigureAwait(false);
                 }
                 catch (AgentException again) when (string.Equals(again.Code, "CONTEXT_OVERFLOW", StringComparison.Ordinal))
@@ -332,6 +339,32 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
 
         // Asking for one more call than the budget allows is a hard stop, as upstream: blocked, not a verdict.
         throw hardStop ?? new AgentException("STEP_BUDGET_EXHAUSTED", "agent.act exhausted its model-call budget of " + maxCalls.ToString(CultureInfo.InvariantCulture), blocked: true);
+    }
+
+    // Only a model that binds reasoning to the prefix has a use for the digests, so the others pay for none.
+    private static string[]? Shapes(IAgentModel model, IReadOnlyList<ModelMessage> messages) =>
+        ProviderHints.BindsReasoningToPrefix(model) ? [.. messages.Select(MessageShape.ShapeOf)] : null;
+
+    // A message rewritten since the last request (a history shrunk, or one an executor changed) edits the prefix a provider may have
+    // bound the reasoning after it to: where it does, that reasoning is not sent again, and the step's turns say so. Compared by
+    // value against what the last request sent, so an executor that clones an unchanged history rewrites nothing.
+    private static void DropReasoningAfterRewrite(IAgentModel model, List<ModelMessage> messages, string[]? lastShape, TurnLog turns)
+    {
+        if (lastShape is null || MessageShape.FirstRewritten(messages, lastShape) is not { } index)
+        {
+            return;
+        }
+
+        var rebound = ProviderHints.AfterEdit(model, messages, index);
+        if (ReferenceEquals(rebound, messages))
+        {
+            return;
+        }
+
+        turns.Note("before turn " + turns.Next.ToString(CultureInfo.InvariantCulture) + ": message " + (index + 1).ToString(CultureInfo.InvariantCulture) + " was rewritten, so the reasoning after it is not sent again");
+        var kept = rebound.ToList();
+        messages.Clear();
+        messages.AddRange(kept);
     }
 
     // The executor's guidance, then the agent's project context: trusted, told to every turn.
