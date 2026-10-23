@@ -66,7 +66,7 @@ public sealed class ASecretValuePassedAsAPlainStringTests
         Assert.Equal("""{"key":{"kind":"secret","name":"probe"}}""", inputs[0].Params);
         Assert.Equal($"inspect {Marker} with {{note}}", inputs[1].Instruction);
         Assert.Equal($$"""{"note":"{{Marker}}","key {{Marker}}":["{{Marker}}"]}""", inputs[1].Params);
-        Assert.Equal("context " + Marker, inputs[1].AgentContext);
+        Assert.Equal("Test: plain string secrets\ncontext " + Marker, inputs[1].AgentContext);
         Assert.DoesNotContain(Value, JsonSerializer.Serialize(inputs), StringComparison.Ordinal);
     }
 }

@@ -72,7 +72,8 @@ public static class ExploreExecutor
             Model = model,
             Judge = judge,
             System = string.Join("\n\n", new[] { entry.System, ExploreRules }.Where(part => !string.IsNullOrWhiteSpace(part))),
-            Context = string.Join("\n", new[] { entry.Context, "Exploration goal: " + options.State.Goal }.Where(part => !string.IsNullOrWhiteSpace(part))),
+            // The goal reaches every prompt as the test's title (`Test: <goal>`).
+            Context = entry.Context,
             MaxSteps = entry.MaxSteps,
             MaxModelCalls = entry.MaxModelCalls,
             JudgmentTimeout = entry.JudgmentTimeout,

@@ -1288,7 +1288,7 @@ internal sealed class AttemptScope
     public string ClaimKey(string instruction, IReadOnlyDictionary<string, object?>? parameters, ResolvedAgent agent, out int callIndex)
     {
         // The key reads the agent context as the model does, with the secrets known so far redacted.
-        var context = agent.Context is null ? null : Redactor.Redact(agent.Context);
+        var context = agent.KeyedContext is null ? null : Redactor.Redact(agent.KeyedContext);
         var signature = CacheKeys.Create(EnginePlatform, TestTitle, instruction, parameters, agent.Name, context);
         var index = _callIndexes.GetValueOrDefault(signature);
         _callIndexes[signature] = index + 1;

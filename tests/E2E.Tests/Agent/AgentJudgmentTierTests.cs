@@ -269,7 +269,7 @@ public sealed class AgentJudgmentTierTests
 
         Assert.Null(result.Error);
         var system = judge.Requests[0].System;
-        var block = "<project-context>\n" + Context + "\n</project-context>";
+        var block = "<project-context>\nTest: agent judgment tier\n" + Context + "\n</project-context>";
         Assert.EndsWith(block, system, StringComparison.Ordinal);
         Assert.True(system.Length > block.Length, "the policy comes first");
     }

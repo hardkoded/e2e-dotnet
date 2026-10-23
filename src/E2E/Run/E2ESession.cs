@@ -503,7 +503,7 @@ public sealed class E2ESession : IAsyncDisposable
         };
         if (options.Agents is null)
         {
-            return WithTestContext(agents, options.TestAgentContext);
+            return WithTestContext(agents, options.TestTitle, options.TestAgentContext);
         }
 
         foreach (var pair in options.Agents)
@@ -523,15 +523,14 @@ public sealed class E2ESession : IAsyncDisposable
             agents[pair.Key] = ResolvedAgent.From(pair.Key, pair.Value);
         }
 
-        return WithTestContext(agents, options.TestAgentContext);
+        return WithTestContext(agents, options.TestTitle, options.TestAgentContext);
     }
 
-    // The test's agentContext follows the agent's own context, whichever agent a call picks.
-    private static Dictionary<string, ResolvedAgent> WithTestContext(Dictionary<string, ResolvedAgent> agents, string? testContext)
+    // Every prompt opens with the test's title, then the agent's own context, then the test's agentContext, whichever agent a call picks.
+    private static Dictionary<string, ResolvedAgent> WithTestContext(Dictionary<string, ResolvedAgent> agents, string testTitle, string? testContext)
     {
-        return string.IsNullOrWhiteSpace(testContext)
-            ? agents
-            : agents.ToDictionary(pair => pair.Key, pair => pair.Value.WithTestContext(testContext), StringComparer.Ordinal);
+        var titleContext = "Test: " + testTitle;
+        return agents.ToDictionary(pair => pair.Key, pair => pair.Value.WithTestContext(titleContext, testContext), StringComparer.Ordinal);
     }
 
     // A table is a courtesy: a stderr that cannot be written must not hide the test's own result.

@@ -18,7 +18,7 @@ public sealed class TheBuiltInAgentFromItsAgentsEntryTests
 
         var system = model.Requests[0].System;
         Assert.Contains("Be careful.", system, StringComparison.Ordinal);
-        Assert.Contains("Project context:\nPlans are called tiers.", system, StringComparison.Ordinal);
+        Assert.Contains("Project context:\nTest: entry prompt\nPlans are called tiers.", system, StringComparison.Ordinal);
         session.Complete();
     }
 
@@ -30,7 +30,34 @@ public sealed class TheBuiltInAgentFromItsAgentsEntryTests
 
         await session.Agent.ActAsync("open billing");
 
-        Assert.Contains("Project context:\nPlans are called tiers.\nBilling lives under Settings.", model.Requests[0].System, StringComparison.Ordinal);
+        Assert.Contains("Project context:\nTest: entry prompt\nPlans are called tiers.\nBilling lives under Settings.", model.Requests[0].System, StringComparison.Ordinal);
+        session.Complete();
+    }
+
+    [Fact]
+    public async Task Opens_the_context_with_the_test_title_path()
+    {
+        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "done"));
+        await using var session = await StartAsync(model, context: "Plans are called tiers.", testContext: "Billing lives under Settings.", title: "billing upgrades the plan");
+
+        await session.Agent.ActAsync("open billing");
+
+        Assert.Contains(
+            "Project context:\nTest: billing upgrades the plan\nPlans are called tiers.\nBilling lives under Settings.",
+            model.Requests[0].System,
+            StringComparison.Ordinal);
+        session.Complete();
+    }
+
+    [Fact]
+    public async Task Gives_a_judgment_the_title_too()
+    {
+        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "shown"));
+        await using var session = await StartAsync(model, title: "billing upgrades the plan");
+
+        await session.Agent.AssertAsync("the plan is upgraded");
+
+        Assert.Contains("<project-context>\nTest: billing upgrades the plan\n</project-context>", model.Requests[0].System, StringComparison.Ordinal);
         session.Complete();
     }
 
@@ -50,7 +77,7 @@ public sealed class TheBuiltInAgentFromItsAgentsEntryTests
         session.Complete();
     }
 
-    private static async Task<E2ESession> StartAsync(ScriptedModel model, string? system = null, string? context = null, Dictionary<string, AgentOptions>? agents = null, string? testContext = null)
+    private static async Task<E2ESession> StartAsync(ScriptedModel model, string? system = null, string? context = null, Dictionary<string, AgentOptions>? agents = null, string? testContext = null, string title = "entry prompt")
     {
         var session = await E2ESession.StartAsync(new E2ESessionOptions
         {
@@ -61,7 +88,7 @@ public sealed class TheBuiltInAgentFromItsAgentsEntryTests
             TestAgentContext = testContext,
             Agents = agents,
             BaseUrl = "https://billing.test",
-            TestTitle = "entry prompt",
+            TestTitle = title,
         });
         await session.App.OpenAsync("/settings/billing");
         return session;
