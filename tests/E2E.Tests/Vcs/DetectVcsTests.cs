@@ -34,7 +34,7 @@ public sealed class DetectVcsTests : IDisposable
         }
         finally
         {
-            Directory.Delete(repo, recursive: true);
+            GitRepo.RemoveRepo(repo);
         }
     }
 

@@ -51,4 +51,18 @@ internal static class GitRepo
         RunGit(dir, "commit", "--quiet", "-m", "one");
         return RunGit(dir, "rev-parse", "HEAD");
     }
+
+    /// <summary>
+    /// Removes a repository <see cref="InitRepo"/> made. Git stores its objects read-only, which <see cref="Directory.Delete(string, bool)"/>
+    /// refuses on Windows; upstream's <c>rmSync(dir, { recursive: true, force: true })</c> clears that itself.
+    /// </summary>
+    public static void RemoveRepo(string dir)
+    {
+        foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
+        {
+            File.SetAttributes(file, FileAttributes.Normal);
+        }
+
+        Directory.Delete(dir, recursive: true);
+    }
 }
