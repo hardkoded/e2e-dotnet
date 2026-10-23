@@ -37,7 +37,7 @@ public sealed class ProviderHintsForOpenAiShapedProvidersTests
     /// options of the provider the client names, and the test checks the Responses client with <c>openai</c> and with <c>azure</c>.
     /// </summary>
     [Fact]
-    public async Task Reads_the_provider_options_of_the_provider_it_names_openai_directly_and_azure_for_Azure_OpenAI()
+    public async Task Partial_Reads_the_provider_options_of_the_provider_it_names_openai_directly_and_azure_for_Azure_OpenAI()
     {
         var direct = await ResponsesAsync(new OpenAiResponsesModelOptions { Model = "gpt-4o", ApiKey = "k" });
         var azure = await ResponsesAsync(
