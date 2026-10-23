@@ -282,6 +282,8 @@ An agent entry also takes `judge` (the model id for `assert`, `waitFor`, and `ex
 
 `cache.mode` is `off`, `read-only`, or `read-write`. Unset, it is `read-write` locally and `read-only` when `CI` is set. `cache.strict` fails a recording that no longer matches with `REPLAY_STALE` instead of running the step live. Under `cache.strict`, retries replay too, and the run never writes the cache. `cache.dir` resolves against the config file's directory. `E2E_CACHE_DIR` replaces it, so checkouts and worktrees of one project can share a replay cache without editing the config; the mode stays as configured.
 
+A cache entry belongs to one test, instruction, set of params, and agent. Each of these changes causes a miss: renaming the test or its class, changing the instruction or an ordinary param, running with another configured agent, changing the agent's `context` or a test's `[AgentContext]` (a secret in it enters the key as its name only), or switching to another engine. Changing the model doesn't cause a miss.
+
 ### Rerun a test while you fix it
 
 While you fix a failing test, run only that test (`dotnet test --filter "FullyQualifiedName~<Class>.<Method>"`; use `=` with the full name when another test name contains it) and keep the cache `read-write`, the local default, and outside `cache.strict`, which never writes. With `CI` set, an unset mode is `read-only`. A failed run keeps the recordings a check confirmed before the failure, and the next run replays those goals without model calls, as long as each replay still matches the screen.
