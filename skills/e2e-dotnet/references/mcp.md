@@ -184,12 +184,13 @@ The loop is:
    starts on the launch screen of the pinned app, launched fresh. A second
    session on a device target fails with `ENGINE_IN_USE` until the first
    closes.
-5. Leave the session open through those runs, on the screen under test, so
-   step 4's live look needs no new session. `observe` does not reload:
-   `navigate` even to the screen the session is on when the run or a fix may
-   have changed what it shows. A live look's actions print test lines too:
-   copy a fixed line from its action, since `test_lines` also lists the looks
-   after the first walk. `close_session` once the test passes.
+5. Leave the session open through those runs, on the screen under test,
+   wherever Rules lets a run go beside it, so step 4's live look needs no
+   new session. `observe` does not reload: `navigate` even to the screen
+   the session is on when the run or a fix may have changed what it shows.
+   A live look's actions print test lines too: copy a fixed line from its
+   action, since `test_lines` also lists the looks after the first walk.
+   `close_session` once the test passes.
 
 ## Rules
 
