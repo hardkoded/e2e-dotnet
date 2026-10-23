@@ -246,6 +246,7 @@ public sealed partial class Agent
                 },
                 Cache = session?.CacheInfo,
                 Turns = context?.Turns,
+                ObservationTruncated = feed.ReportDetails().ObservationTruncated,
             });
             context?.WriteTranscript();
         }

@@ -562,6 +562,8 @@ public sealed record ReportStep
 
     public string? ObservationRevision { get; init; }
 
+    public bool? ObservationTruncated { get; init; }
+
     public string? Explanation { get; init; }
 
     public bool? VisionInput { get; init; }

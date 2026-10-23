@@ -21,6 +21,12 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// <summary>How far each look of the step settled, in order.</summary>
     public List<SettleMode> Looks { get; } = [];
 
+    /// <summary>Whether any semantic observation in this step stopped at a capture or byte limit.</summary>
+    private bool _observationTruncated;
+
+    /// <summary>The step's observation record for the report (upstream's <c>reportDetails</c>).</summary>
+    public StepAgentDetails ReportDetails() => new() { ObservationTruncated = _observationTruncated ? true : null };
+
     /// <summary>The newest observation of the step, if any was captured.</summary>
     public Observation? Latest { get; private set; }
 
@@ -74,6 +80,11 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         }
 
         Latest = observation;
+        if (observation.Truncated)
+        {
+            _observationTruncated = true;
+        }
+
         foreach (var node in LocatorResolver.Walk(observation.Roots))
         {
             _seen[node.Ref] = node;

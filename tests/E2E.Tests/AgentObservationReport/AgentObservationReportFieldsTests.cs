@@ -1,0 +1,98 @@
+// Copyright 2026 TesterArmy.
+// Modified by Dario Kondratiuk.
+// SPDX-License-Identifier: Apache-2.0
+
+using E2E.Engine;
+using E2E.Tests.ReportJson;
+
+namespace E2E.Tests.AgentObservationReport;
+
+/// <summary>
+/// Upstream's <c>describe('agent observation report fields')</c> (<c>tests/integration/agent-observation-report.test.ts</c>):
+/// agent steps report when any semantic observation was truncated. The port runs the two calls in one session over an engine
+/// that marks every observation as cut, as a large page would be, and reads <c>report.json</c> after the session is disposed.
+/// </summary>
+public sealed class AgentObservationReportFieldsTests : IAsyncLifetime
+{
+    private readonly ReportDirectory _report = new();
+
+    public async Task InitializeAsync()
+    {
+        var model = new ScriptedModel(request => request.Messages[0].Content?.StartsWith("Statement:", StringComparison.Ordinal) == true
+            ? ModelResponses.Done("passed", "the Save button is visible")
+            : ModelResponses.Done("passed", "the result is visible"));
+        var engine = new TruncatedEngine(new DocumentEngine(new DocumentWorld().Map("/result", page => page.Paragraph("Save"))));
+        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = engine,
+            Model = model,
+            BaseUrl = "https://fixture.test",
+            CacheEnabled = false,
+            ResultsDirectory = _report.Results,
+            TestTitle = "reports a truncated observation",
+        });
+        await session.Context.App.OpenAsync("/result");
+        await session.Context.Agent.ActAsync("inspect the visible result");
+        await session.Context.Agent.AssertAsync("the Save button is visible");
+        session.Complete();
+    }
+
+    public Task DisposeAsync()
+    {
+        _report.Dispose();
+        return Task.CompletedTask;
+    }
+
+    [Theory]
+    [InlineData("reports a truncated act observation", "agent.act")]
+    [InlineData("reports a truncated judgment observation", "agent.assert")]
+    public void Marks_a_truncated_observation(string title, string api)
+    {
+        Assert.NotEmpty(title);
+        Assert.Equal("passed", (string?)_report.LastAttempt()["status"]);
+        Assert.True((bool?)_report.Step(api)["observationTruncated"]);
+    }
+
+    [Fact]
+    public void Writes_a_valid_report_1_document() => Assert.NotNull(_report.Read());
+
+    /// <summary>An engine over another that marks every observation as stopped at a limit.</summary>
+    private sealed class TruncatedEngine(IEngine inner) : IEngine
+    {
+        public string Platform => inner.Platform;
+
+        public string Version => inner.Version;
+
+        public EngineCapabilities Capabilities => inner.Capabilities;
+
+        public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+            new Session(await inner.StartAsync(options, cancellationToken).ConfigureAwait(false));
+
+        private sealed class Session(IEngineSession session) : IEngineSession
+        {
+            public string Route => session.Route;
+
+            public Task OpenAsync(string url, CancellationToken cancellationToken) => session.OpenAsync(url, cancellationToken);
+
+            public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
+            {
+                var observation = await session.ObserveAsync(cancellationToken).ConfigureAwait(false);
+                return new Observation { Route = observation.Route, Roots = observation.Roots, Truncated = true };
+            }
+
+            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => session.PerformAsync(node, action, cancellationToken);
+
+            public Task PressAsync(string key, CancellationToken cancellationToken) => session.PressAsync(key, cancellationToken);
+
+            public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => session.SwipeAsync(direction, cancellationToken);
+
+            public Task BackAsync(CancellationToken cancellationToken) => session.BackAsync(cancellationToken);
+
+            public Task RestartAsync(CancellationToken cancellationToken) => session.RestartAsync(cancellationToken);
+
+            public Task ClearStateAsync(CancellationToken cancellationToken) => session.ClearStateAsync(cancellationToken);
+
+            public ValueTask DisposeAsync() => session.DisposeAsync();
+        }
+    }
+}
