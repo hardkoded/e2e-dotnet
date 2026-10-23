@@ -272,6 +272,8 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 }
             }
 
+            // A wrapper settles on its client during its first call, so the digests of that request are taken once the call returned.
+            lastShape ??= Shapes(model, messages);
             var turn = turns.Begin(response);
             if (response.ToolCalls.Count == 0)
             {
