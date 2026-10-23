@@ -265,6 +265,11 @@ internal static partial class ReportWire
             result["explanation"] = Clip(explanation, 8192);
         }
 
+        if (step.ObservationTruncated == true)
+        {
+            result["observationTruncated"] = true;
+        }
+
         if (step.Viewport is { Width: >= 1, Height: >= 1, Scale: > 0 } viewport && double.IsFinite(viewport.Scale))
         {
             result["viewport"] = new JsonObject { ["width"] = viewport.Width, ["height"] = viewport.Height, ["scale"] = viewport.Scale };

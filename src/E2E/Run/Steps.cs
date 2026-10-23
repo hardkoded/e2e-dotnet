@@ -206,6 +206,9 @@ internal sealed record StepAgentDetails
     /// <summary>The model turns the executor attached, most recent last; null when it attached none.</summary>
     public IReadOnlyList<StepTurn>? Turns { get; init; }
 
+    /// <summary>True when at least one semantic observation in the step was truncated.</summary>
+    public bool? ObservationTruncated { get; init; }
+
     /// <summary>Absent when the step failed before a judgment could be requested.</summary>
     public string? Explanation { get; init; }
 }
@@ -234,6 +237,9 @@ internal sealed class StepRecord
     public required DateTimeOffset StartedAt { get; init; }
 
     public long DurationMs { get; set; }
+
+    /// <summary>True when at least one semantic observation in the step was truncated.</summary>
+    public bool? ObservationTruncated { get; set; }
 
     public string? Explanation { get; set; }
 

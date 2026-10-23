@@ -6,10 +6,10 @@ using E2E.Cli.Mcp;
 
 namespace E2E.Cli.Tests.McpTestLines;
 
-/// <summary>Upstream's <c>describe('navigationLine')</c> of <c>mcp-test-lines.test.ts</c>.</summary>
+/// <summary>The <c>App.OpenAsync</c> line of a navigation.</summary>
 public sealed class NavigationLineTests
 {
-    private static readonly AppBase Base = new("http://127.0.0.1:4100/", "http://127.0.0.1:4100");
+    private static readonly Uri Base = new("http://127.0.0.1:4100/");
 
     [Fact]
     public void Writes_a_URL_on_the_apps_origin_as_its_path_so_the_line_holds_on_the_next_runs_port()

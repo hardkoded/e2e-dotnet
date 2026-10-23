@@ -10,7 +10,7 @@ namespace E2E.Cli.Tests.Helpers;
 
 /// <summary>
 /// The fixture app the MCP tests drive, served over HTTP: the home page of upstream's
-/// <c>tests/helpers/fixture-pages/home.ts</c> and the routes that answer late or never.
+/// <c>tests/helpers/fixture-pages/home.ts</c>, the test lines page, and the routes that answer late or never.
 /// </summary>
 internal sealed class FixtureApp : IDisposable
 {
@@ -49,10 +49,10 @@ internal sealed class FixtureApp : IDisposable
         </html>
         """;
 
-    // A session's test lines, upstream's /test-lines page of fixture-pages/forms.ts: a sign-in form a role and name reaches, a button
-    // repeated per row that only its row tells apart, twins in plain divs only their order tells apart, a shadow root's twin that observe
-    // lists before a light one the locator engine lists first, and an icon button only its test id names. The summary says what a replay
-    // of the lines did.
+    // A session's test lines, upstream's '/test-lines' page of tests/helpers/fixture-pages/forms.ts: a sign-in form a role and name
+    // reaches, a button repeated per row that only its row tells apart, twins in plain divs only their order tells apart, a shadow
+    // root's twin that observe lists before a light one the locator engine lists first, and an icon button only its test id names.
+    // The summary says what a replay of the lines did. The port has no credentials, so the username is a plain value.
     private const string TestLines = """
         <!doctype html>
         <html>

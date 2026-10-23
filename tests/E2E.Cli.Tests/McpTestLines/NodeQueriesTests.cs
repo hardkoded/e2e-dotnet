@@ -3,25 +3,28 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Cli.Mcp;
-using E2E.Cli.Tests.Helpers;
 
 namespace E2E.Cli.Tests.McpTestLines;
 
-/// <summary>Upstream's <c>describe('nodeQueries')</c> of <c>mcp-test-lines.test.ts</c>.</summary>
+/// <summary>The queries a node's own fields give, in the order the skill recommends.</summary>
 public sealed class NodeQueriesTests
 {
-    private static string[] Described(FakeNode node) =>
-        [.. SessionTestLines.NodeQueries(node.Listed(), text => text).Select(query => string.Join(",", new[] { query.Role, query.Name, query.Label, query.Placeholder, query.Text }.Select(part => part ?? "-")))];
-
     [Fact]
     public void Orders_role_and_name_label_placeholder_then_text_and_skips_a_role_GetByRole_does_not_take()
     {
+        static string[] Queries(Fake node) => [.. SessionTestLines.NodeQueries(node.ToNode(), text => text).Select(Describe)];
+
         Assert.Equal(
-            ["textbox,Email,-,-,-", "-,-,Email,-,-", "-,-,-,you@example.test,-", "-,-,-,-,Email"],
-            Described(new FakeNode("n1", 0, "textbox", "Email", Placeholder: "you@example.test")));
-        Assert.Equal(
-            ["-,-,Card,-,-", "-,-,-,-,Card body", "-,-,-,-,Card"],
-            Described(new FakeNode("n2", 0, "generic", "Card", "Card  body ")));
-        Assert.Empty(Described(new FakeNode("n3", 0, "button")));
+            ["role textbox Email", "label Email", "placeholder you@example.test", "text Email"],
+            Queries(new Fake("n1", "textbox", "Email", Placeholder: "you@example.test")));
+        Assert.Equal(["label Card", "text Card body", "text Card"], Queries(new Fake("n2", "generic", "Card", "Card  body ")));
+        Assert.Empty(Queries(new Fake("n3", "button")));
     }
+
+    private static string Describe(LocateArgs query) =>
+        query.Role is not null ? "role " + query.Role + " " + query.Name
+        : query.Label is not null ? "label " + query.Label
+        : query.Placeholder is not null ? "placeholder " + query.Placeholder
+        : query.TestId is not null ? "testId " + query.TestId
+        : "text " + query.Text;
 }

@@ -85,9 +85,7 @@ holds one topic (`e2e guide <topic>` prints the same text). An unknown topic fai
 ## The catalog
 
 `observe` shows the whole screen, one node per line with its `[ref=...]`. Every
-action returns the screen after it and, after its first line, the test line
-that repeats it (`Test line: await Screen.GetByRole("button", "Save").TapAsync();`),
-or `No test line:` and why. What an engine lacks is missing from its
+action returns the screen after it. What an engine lacks is missing from its
 catalog: `scroll` and `scroll_to` need scrolling, `back` needs history,
 `screenshot` needs the web engine, and `type_secret` appears only when the
 config declares a `secrets` entry.
@@ -105,10 +103,56 @@ config declares a `secrets` entry.
 | `back` | One step back in the history |
 | `screenshot` | The viewport as an image. After a secret was filled it answers `PIXEL_TAINTED` and attaches nothing |
 | `locate {role? name? text? label? placeholder? testId? exact?}` | Try a locator; see the loop below |
-| `test_lines` | Every test line the session's actions printed, in order, as a draft test body, starting with `await App.OpenAsync();` for the session's own opening; an action without a line shows as a `//` comment. A line's locator matched the target alone on the live screen before the action (role and name first, test id last, narrowed with `Visible = true`, a container, or `.Nth(i)` with a comment when twins share it); a fill names `Secrets.Get(name)`, never a value; a navigation on the app's origin is written as its path |
+| `test_lines` | Every test line the session's actions printed, in order, as a draft test body; see below |
 
 A failed action is an error result that starts with the tool, the node, and
 the code: `tap n9999 failed: NOT_FOUND: ...`.
+
+### Test lines
+
+Each action answers with the line that repeats it in a test, after the
+first line of its result:
+
+```text
+tapped button "Sign in"
+Test line: await Screen.GetByRole("button", "Sign in").TapAsync();
+```
+
+`test_lines` returns every line so far, in order, as a draft test body that
+starts with `await App.OpenAsync();` for the session's own opening. Paste it
+into a test, then add the assertions.
+
+- The locator comes from the node as the newest observation listed it,
+  before the action runs. Role and name, label, placeholder, text, and test
+  id are tried in that order. The first that matches the node and nothing
+  else on the live screen wins, as `locate` would report it.
+- A locator that also matches twins is narrowed: to the nodes that render
+  (`new RoleOptions { Visible = true }`), then under a container
+  (`GetByRole("listitem").Filter("Offer B").GetByRole("button", "Reserve")`),
+  then by position (`.Nth(1)`, with a comment saying so). A position is used
+  only when the live twins are the ones the observation listed, each in place
+  or all moved together.
+- At most 10 locators are tried per node.
+- When nothing reaches the node alone, the result says `No test line:` and
+  why, and the draft shows the action as a `//` comment. A line that would
+  fail is never printed. A failed action prints and records no line.
+- A fill names `Secrets.Get(name)`, never a value.
+- A `navigate` to a URL on the app's origin is written as its path
+  (`App.OpenAsync("/settings")`); `back` is `App.BackAsync()`.
+
+| Action | Line |
+| --- | --- |
+| Opening the session | `App.OpenAsync()` |
+| `tap`, `double_tap` | `TapAsync()`, `DoubleTapAsync()` |
+| `type` | `FillAsync(text)` |
+| `type_secret` | `FillAsync(Secrets.Get(name))` |
+| `press` on a node | `PressAsync(key)` |
+| `select`, `check`, `uncheck`, `clear` | `SelectOptionAsync(value)`, `CheckAsync()`, `UncheckAsync()`, `ClearAsync()` |
+| `scroll_to` a node | `ScrollIntoViewAsync()` |
+| `navigate`, `back` | `App.OpenAsync(url)`, `App.BackAsync()` |
+
+No line: `type` or `press` with no target, `tap` or `double_tap` with
+`modifiers` (a locator tap takes none), `scroll`, and `scroll_to` a text.
 
 ## Workflow
 

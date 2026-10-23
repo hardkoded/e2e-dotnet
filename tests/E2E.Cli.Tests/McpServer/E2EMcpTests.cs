@@ -125,9 +125,10 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         var observed = await _served.CallAsync("observe");
         var tapped = await _served.CallAsync("tap", new() { ["target"] = ServedCli.RefOf(observed.Text, "button \"Increment\"") });
         Assert.False(tapped.IsError, tapped.Text);
+        Assert.StartsWith("tapped ", tapped.Text, StringComparison.Ordinal);
 
-        // An action reports what changed on screen, and the test line that repeats it, as it does upstream.
-        Assert.Matches(new Regex(@"^tapped [^\n]*\nTest line: await Screen\.GetByRole\(""button"", ""Increment""\)\.TapAsync\(\);\n", RegexOptions.None, TimeSpan.FromSeconds(5)), tapped.Text);
+        // An action reports the screen after it, and after its lead the test line that repeats it.
+        Assert.Equal("Test line: await Screen.GetByRole(\"button\", \"Increment\").TapAsync();", tapped.Text.Split('\n')[1]);
         var after = await _served.CallAsync("observe");
         Assert.Contains("status \"Counter\" text=\"1\"", after.Text, StringComparison.Ordinal);
 

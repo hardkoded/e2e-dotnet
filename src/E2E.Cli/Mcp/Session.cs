@@ -338,7 +338,7 @@ internal sealed class SessionHost : IDisposable
             }
 
             var live = new LiveSession(id, target.Name, configPath, headed, engine, session, abort);
-            live.Catalog = SessionCatalog.Create(live, engine.Capabilities, secrets.Count > 0, AppBaseOf(target), new TestLineFills { Secrets = [.. config.Secrets.Names] });
+            live.Catalog = SessionCatalog.Create(live, engine.Capabilities, config.Secrets.Names.ToList(), Uri.TryCreate(target.App.Url, UriKind.Absolute, out var appBase) ? appBase : null);
             var text = OpeningText(live, target, config, await FirstScreenAsync(live, target, abort.Token).ConfigureAwait(false));
 
             // A first screen that came back despite the cancel must not become a live session nobody asked for.
@@ -433,13 +433,9 @@ internal sealed class SessionHost : IDisposable
         live.Idle = new Timer(_ => EndOnItsOwn(live, "idle for " + Math.Round(_options.Idle.TotalMinutes).ToString(CultureInfo.InvariantCulture) + " minutes"), null, _options.Idle, Timeout.InfiniteTimeSpan);
     }
 
-    /// <summary>The target's app URL as a navigation's test line is made relative to it, or null when the target declares none.</summary>
-    private static AppBase? AppBaseOf(TargetConfig target) =>
-        Uri.TryCreate(target.App.Url, UriKind.Absolute, out var url) ? new AppBase(url.AbsoluteUri, url.GetLeftPart(UriPartial.Authority)) : null;
-
     /// <summary>
-    /// Opens the app URL when the target declares one, then observes; a device's pinned app was launched before. Either opening is the
-    /// test's <c>App.OpenAsync()</c>, the session's first test line.
+    /// Opens the app URL when the target declares one, then observes; a device's pinned app was launched before. Either opening
+    /// is the test's <c>App.OpenAsync()</c>, the session's first test line.
     /// </summary>
     private static async Task<string> FirstScreenAsync(LiveSession live, TargetConfig target, CancellationToken token)
     {
@@ -464,6 +460,7 @@ internal sealed class SessionHost : IDisposable
                 opening = "Opening " + target.App.Url + " failed: " + Tools.CodedMessage(cause) + "\nUse navigate once the app is reachable.\n";
             }
         }
+
         else if (TargetEngines.LaunchesPinnedApp(target, live.Engine))
         {
             live.Catalog.Lines.Opened();
@@ -583,7 +580,7 @@ internal sealed class SessionHost : IDisposable
         return new McpToolSpec
         {
             Name = "call",
-            Description = "Run one tool of a session by name, with its arguments as an object: call {tool: \"tap\", args: {target: \"n42\"}, session: \"<id>\"}. The session's catalog (from open_session or tools) names the tools and their arguments. Actions report what changed on screen and the test line that repeats them; node ids are valid only for the newest observation.",
+            Description = "Run one tool of a session by name, with its arguments as an object: call {tool: \"tap\", args: {target: \"n42\"}, session: \"<id>\"}. The session's catalog (from open_session or tools) names the tools and their arguments. Actions report the screen after them and the test line that repeats them; node ids are valid only for the newest observation.",
             InputSchema = CallSchema,
             ReadOnly = false,
             Call = (args, token) => CallAsync(String(args, "session"), String(args, "tool")!, args.TryGetProperty("args", out var given) ? given : null, token),

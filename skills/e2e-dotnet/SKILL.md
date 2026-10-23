@@ -69,7 +69,8 @@ public sealed class BillingTests : E2ETest
    `E2E.NUnit` or `E2E.XUnit.V3`. Nothing there: follow `setup`.
 2. Learn the screens before writing a test: routes, labels, roles, button
    text. Semantic locators need the accessible names the app renders, so read
-   the components or watch a run with `E2E_HEADLESS=0`.
+   the components or watch a run with `E2E_HEADLESS=0`. Over a connected `e2e mcp`
+   server (topic `mcp`), each action prints the test line that repeats it.
 3. Write an `E2ETest` class. Drive the flow with `Agent.ActAsync`, one
    atomic goal per call, and pin each outcome right after with `Expect.That`
    or `Agent.AssertAsync`. A test with three goals makes three calls.
@@ -106,7 +107,7 @@ screen.
    source, or a live session.
 4. For a screen the evidence and the source leave out, look live (topic
    `mcp`): open or reuse a session, go straight to that screen, then
-   `observe` and `locate` (each action also prints the test line that repeats it). On the web, `navigate` to the path of the URL
+   `observe` and `locate`. On the web, `navigate` to the path of the URL
    under `## Screen at failure` or the screen's route, and tap only to reach
    a state no URL opens. `e2e mcp` opens a device session on a local
    simulator or emulator, or on a hosted device with

@@ -26,17 +26,14 @@ internal interface ISessionContext
 /// <summary>
 /// The catalog of a live session: every tool <c>call</c> can run. <c>observe</c> shows the whole screen, the
 /// grammar is what the target's engine honors, <c>screenshot</c> answers <c>PIXEL_TAINTED</c> once a secret has
-/// been filled, <c>type_secret</c> exists when the config declares a secret, and <c>locate</c> tries a semantic
-/// locator the way a test would. <c>test_lines</c> returns the test line every action printed (<see cref="SessionTestLines"/>). The verbs run through the testing agent's own tool executor, so a coding agent
+/// been filled, <c>type_secret</c> exists when the config declares a secret, <c>locate</c> tries a semantic
+/// locator the way a test would, and <c>test_lines</c> returns the test line every action printed. The verbs run through the testing agent's own tool executor, so a coding agent
 /// acts exactly as the model of an <c>act</c> does.
 /// </summary>
 internal sealed class SessionCatalog
 {
     /// <summary>How many matching nodes <c>locate</c> describes.</summary>
     private const int MaxLocateNodes = 10;
-
-    /// <summary>How long an engine may spend on the one resolve behind a test line.</summary>
-    private static readonly TimeSpan LineLocateBudget = TimeSpan.FromSeconds(2);
 
     private SessionCatalog(IReadOnlyList<KeyValuePair<string, CatalogTool>> entries, IReadOnlySet<string> readOnly, SessionTestLines lines)
     {
@@ -45,14 +42,14 @@ internal sealed class SessionCatalog
         Lines = lines;
     }
 
-    /// <summary>The test lines the session's actions printed.</summary>
-    public SessionTestLines Lines { get; }
-
     /// <summary>Every tool <c>call</c> can run, in the order <c>tools</c> lists them.</summary>
     public IReadOnlyList<KeyValuePair<string, CatalogTool>> Entries { get; }
 
     /// <summary>The tools that change nothing on the app.</summary>
     public IReadOnlySet<string> ReadOnly { get; }
+
+    /// <summary>The test lines the session's actions printed.</summary>
+    public SessionTestLines Lines { get; }
 
     /// <summary>The verbs the agent grammar names, whether or not the session's engine declares them: a missing one is not a typo.</summary>
     public static bool IsGrammarVerb(string name) => GrammarVerbs.Contains(name);
@@ -60,20 +57,23 @@ internal sealed class SessionCatalog
     /// <summary>The tool a name refers to, or null.</summary>
     public CatalogTool? Find(string name) => Entries.FirstOrDefault(pair => pair.Key == name).Value;
 
-    /// <summary>Builds the catalog from what the session's engine declares and the secrets the config holds.</summary>
-    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, bool hasSecrets, AppBase? appBase = null, TestLineFills? fills = null)
+    /// <summary>
+    /// Builds the catalog from what the session's engine declares and the secrets the config holds. <paramref name="appBase"/> is the
+    /// target's app URL, which a navigation's test line is made relative to.
+    /// </summary>
+    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, Uri? appBase = null)
     {
         ArgumentNullException.ThrowIfNull(context);
-        var tools = new List<KeyValuePair<string, CatalogTool>>();
+        ArgumentNullException.ThrowIfNull(secrets);
         var lines = new SessionTestLines(new TestLineOptions
         {
-            Query = LocateQuery,
-            Newest = () => context.Session.Agent.Feed.Latest,
-            Resolve = (expression, token) => ResolveForLine(context.Session.Engine, expression, token),
+            Newest = () => context.Session.Agent.Feed.Latest?.Roots,
+            Observe = token => context.Session.Engine.ObserveAsync(token),
             Redact = context.Session.Redactor.Redact,
             AppBase = appBase,
-            Fills = fills,
+            Secrets = secrets,
         });
+        var tools = new List<KeyValuePair<string, CatalogTool>>();
         void Add(string name, CatalogTool tool) => tools.Add(new(name, lines.Wrap(name, tool)));
 
         Add("observe", Observe(context));
@@ -108,7 +108,7 @@ internal sealed class SessionCatalog
             Add("screenshot", Screenshot(context));
         }
 
-        if (hasSecrets)
+        if (secrets.Count > 0)
         {
             Add("type_secret", TypeSecret(context));
         }
@@ -419,15 +419,6 @@ internal sealed class SessionCatalog
             },
         };
     }
-
-    /// <summary>
-    /// The nodes a locator matches now. An engine that locates binds only the matches, so the observation's ids stay valid for the
-    /// action about to run; a plain observe would renew them, and a device would then refuse the agent's id as stale.
-    /// </summary>
-    private static async Task<IReadOnlyList<SemanticNode>> ResolveForLine(IEngineSession engine, LocatorExpression expression, CancellationToken token) =>
-        engine.CanLocate
-            ? await engine.LocateAsync(expression, LineLocateBudget, token).ConfigureAwait(false)
-            : LocatorResolver.Resolve(await engine.ObserveAsync(token).ConfigureAwait(false), expression);
 
     private static string? Text(JsonElement args, string name) => args.TryGetProperty(name, out var value) ? value.GetString() : null;
 

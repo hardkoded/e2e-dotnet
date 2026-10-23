@@ -7,7 +7,7 @@ using System.Text.Json.Nodes;
 namespace E2E.Tests.AgentConfig;
 
 // Upstream's "rejects the names of the tools the harness adds in an agent step, an e2e mcp session, and explore" is ported for
-// report_finding, locate, and test_lines: the port has none of the other tools it names (complete_step, the recording tools). Neither has
+// report_finding alone: the port has none of the other tools it names (complete_step, locate, the recording tools). Neither has
 // "digests tools by name and live values by identity", a model instance as the entry, or the config digest.
 public sealed class TheBuiltInAgentOptionsTests
 {
@@ -31,23 +31,14 @@ public sealed class TheBuiltInAgentOptionsTests
         Assert.Equal("agents.default.system must be a string", error.Message);
     }
 
-    /// <summary>Partial port of "rejects the names of the tools the harness adds in an agent step, an e2e mcp session, and explore": only report_finding, locate, and test_lines exist here, and the list of those tools is not compared with what the surfaces add.</summary>
+    /// <summary>Partial port of "rejects the names of the tools the harness adds in an agent step, an e2e mcp session, and explore": only report_finding exists here, and the list of those tools is not compared with what the surfaces add.</summary>
     [Fact]
-    public void Rejects_the_name_of_the_tool_the_harness_adds_in_an_mcp_session_and_explore()
+    public void Rejects_the_name_of_the_tool_the_harness_adds_in_explore()
     {
-        var surfaces = new Dictionary<string, string>
-        {
-            ["locate"] = "an e2e mcp session",
-            ["test_lines"] = "an e2e mcp session",
-            ["report_finding"] = "e2e explore",
-        };
-        foreach (var (name, surface) in surfaces)
-        {
-            var error = Assert.Throws<ConfigurationException>(() => ResolvedAgent.From("ux", new AgentOptions { Tools = new Dictionary<string, AgentTool> { [name] = ReadOnlyTool() } }));
+        var error = Assert.Throws<ConfigurationException>(() => ResolvedAgent.From("ux", new AgentOptions { Tools = new Dictionary<string, AgentTool> { ["report_finding"] = ReadOnlyTool() } }));
 
-            Assert.Equal("INVALID_CONFIG", error.Code);
-            Assert.Equal($"agents.ux.tools.{name}: the {name} tool name is reserved for the tool the harness adds in {surface}; rename it", error.Message);
-        }
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Equal("agents.ux.tools.report_finding: the report_finding tool name is reserved for the tool the harness adds in e2e explore; rename it", error.Message);
     }
 
     /// <summary>Partial port of "rejects a tool defineTool did not build, a tools value that is not an object, and a reserved name": the types leave only the reserved name to check, and the port has no screenshot tool.</summary>

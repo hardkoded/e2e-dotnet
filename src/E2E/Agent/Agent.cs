@@ -361,6 +361,11 @@ public sealed partial class Agent
         }
 
         var observation = await _scope.ObserveAsync(token).ConfigureAwait(false);
+        if (observation.Truncated)
+        {
+            _scope.Steps.AttachAgentDetails(new StepAgentDetails { ObservationTruncated = true });
+        }
+
         var tree = SnapshotText.Render(observation, _scope.Redactor, _scope.AppOrigin);
         if (vision == VisionMode.Off || tainted)
         {

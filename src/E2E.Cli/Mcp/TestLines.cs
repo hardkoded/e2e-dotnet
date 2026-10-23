@@ -9,59 +9,43 @@ using E2E.Internal;
 
 namespace E2E.Cli.Mcp;
 
-/// <summary>The app's base URL as a line is made relative to it: upstream's <c>{ href, origin }</c>.</summary>
-internal sealed record AppBase(string Href, string Origin);
-
-/// <summary>The names a test fills values from, as the config declares them.</summary>
-internal sealed class TestLineFills
-{
-    /// <summary>Each credential: the name <c>Credentials.User</c> takes, its username, and its password secret's name.</summary>
-    public IReadOnlyList<(string Name, string Username, string Password)> Credentials { get; init; } = [];
-
-    /// <summary>The <c>secrets</c> names <c>Secrets.Get</c> takes.</summary>
-    public IReadOnlyList<string> Secrets { get; init; } = [];
-}
-
-/// <summary>What a line needs of the session around it.</summary>
+/// <summary>What a session's test lines need of the session around them. Upstream's <c>TestLineOptions</c>.</summary>
 internal sealed class TestLineOptions
 {
-    /// <summary>Builds a query's expression and <c>Screen.*</c> code, as <c>locate</c> does (<see cref="SessionCatalog.LocateQuery"/>).</summary>
-    public required Func<LocateArgs, LocateQuery> Query { get; init; }
+    /// <summary>The newest observation's tree: the screen the agent's node refs name. Null when nothing was observed yet.</summary>
+    public required Func<IReadOnlyList<SemanticNode>?> Newest { get; init; }
 
-    /// <summary>The newest observation the session's tools took: the screen a node id is looked up on.</summary>
-    public required Func<Observation?> Newest { get; init; }
-
-    /// <summary>Every node an expression matches on the live screen now, without waiting.</summary>
-    public required Func<LocatorExpression, CancellationToken, Task<IReadOnlyList<SemanticNode>>> Resolve { get; init; }
+    /// <summary>One look at the live screen, which every locator tried for an action is resolved against.</summary>
+    public required Func<CancellationToken, Task<Observation>> Observe { get; init; }
 
     /// <summary>The attempt's secret ledger, for what a node says before it goes into a line.</summary>
     public required Func<string, string> Redact { get; init; }
 
     /// <summary>The app's base URL, which a navigation line is made relative to.</summary>
-    public AppBase? AppBase { get; init; }
+    public Uri? AppBase { get; init; }
 
-    /// <summary>The configured credentials and secrets a fill is written with.</summary>
-    public TestLineFills? Fills { get; init; }
+    /// <summary>The <c>secrets</c> names <c>Secrets.Get</c> takes.</summary>
+    public IReadOnlyCollection<string> Secrets { get; init; } = [];
+
+    /// <summary>Every node a locator matches on a look; tests count the tries through it.</summary>
+    public Func<Observation, LocatorExpression, IReadOnlyList<SemanticNode>> Resolve { get; init; } = static (observation, expression) => LocatorResolver.Resolve(observation, expression);
 }
 
 /// <summary>
-/// The test line each grammar action of an <c>e2e mcp</c> session answers with: the <c>Screen.*</c> or <c>App.*</c> call that repeats the
-/// action in a test, so a coding agent can write the test while it walks the flow instead of calling <c>locate</c> for every control
-/// afterwards. The locator comes from the target as the newest observation listed it, read before the action runs, since the action may
-/// remove it. It is tried in the order the skill recommends (role and name, label, placeholder, text, test id) against the live screen, as
-/// <c>locate</c> tries one: a locator that matches the target and nothing else is printed, one that matches its twins too is narrowed (to
-/// the nodes that render, under a container, or by position, in that order), and otherwise the result says why there is no line. The
-/// session keeps the lines in order, and <c>test_lines</c> returns them as a draft test body. Only the session catalog wraps its grammar
-/// this way; the testing agent's model loop never sees a line. Upstream's <c>SessionTestLines</c> (<c>mcp/test-lines.ts</c>).
+/// The test line each grammar action of an <c>e2e mcp</c> session answers with: the <c>Screen.*</c> or <c>App.*</c> call that
+/// repeats the action in a test, so a coding agent can write the test while it walks the flow instead of calling
+/// <c>locate</c> for every control afterwards. The locator comes from the target as the newest observation listed it, read
+/// before the action runs, since the action may remove it. It is tried in the order the skill recommends (role and name,
+/// label, placeholder, text, test id) against the live screen, as <c>locate</c> tries one: a locator that matches the target
+/// and nothing else is printed, one that matches its twins too is narrowed (to the nodes that render, under a container, or
+/// by position, in that order), and otherwise the result says why there is no line. The session keeps the lines in order, and
+/// <c>test_lines</c> returns them as a draft test body. Upstream's <c>mcp/test-lines.ts</c>.
 /// </summary>
 internal sealed class SessionTestLines(TestLineOptions options)
 {
-    /// <summary>Matches read per locator while looking for the target among them.</summary>
-    private const int MaxReadMatches = 50;
-
     /// <summary>
-    /// Locators tried per target before giving up on a line. Each is one engine resolve, which on a device is a whole snapshot, so a
-    /// control nothing names costs a bounded wait rather than every narrowing there is.
+    /// Locators tried per target before giving up on a line. Upstream spends one engine resolve on each, a whole snapshot on a
+    /// device. The port looks once per target, so the bound only keeps a control nothing names from trying every narrowing.
     /// </summary>
     private const int MaxTries = 10;
 
@@ -74,10 +58,12 @@ internal sealed class SessionTestLines(TestLineOptions options)
     /// <summary>The roles <c>GetByRole</c> takes, so a node read as <c>generic</c> never becomes a role query.</summary>
     private static readonly HashSet<string> Roles = new(
         [
-            "button", "link", "textbox", "searchbox", "combobox", "listbox", "option", "checkbox", "radio", "radiogroup", "switch", "slider",
-            "spinbutton", "progressbar", "meter", "image", "heading", "tab", "tablist", "tabpanel", "menu", "menubar", "menuitem", "menuitemcheckbox",
-            "menuitemradio", "toolbar", "tooltip", "tree", "treeitem", "list", "listitem", "table", "grid", "row", "rowgroup", "rowheader", "cell",
-            "gridcell", "columnheader", "separator", "group", "article", "figure", "form", "status", "alert", "dialog", "alertdialog", "main",
+            "button", "link", "textbox", "searchbox", "combobox", "listbox", "option", "checkbox",
+            "radio", "radiogroup", "switch", "slider", "spinbutton", "progressbar", "meter", "image",
+            "heading", "tab", "tablist", "tabpanel", "menu", "menubar", "menuitem", "menuitemcheckbox",
+            "menuitemradio", "toolbar", "tooltip", "tree", "treeitem", "list", "listitem", "table",
+            "grid", "row", "rowgroup", "rowheader", "cell", "gridcell", "columnheader", "separator",
+            "group", "article", "figure", "form", "status", "alert", "dialog", "alertdialog", "main",
             "navigation", "banner", "contentinfo", "complementary", "region",
         ],
         StringComparer.Ordinal);
@@ -92,15 +78,21 @@ internal sealed class SessionTestLines(TestLineOptions options)
     {
         ["tap"] = "TapAsync",
         ["double_tap"] = "DoubleTapAsync",
+        ["check"] = "CheckAsync",
+        ["uncheck"] = "UncheckAsync",
+        ["clear"] = "ClearAsync",
     };
 
+    private readonly TestLineOptions _options = options;
     private readonly List<Entry> _entries = [];
-    private Screen? _screen;
+
+    /// <summary>The tools whose results carry a line, so a new grammar verb needs a line or a reason.</summary>
+    public static bool HasLine(string tool) => LineTools.Contains(tool);
 
     /// <summary>Records the session's opening of the app, which a test does with <c>App.OpenAsync()</c>.</summary>
     public void Opened() => _entries.Add(new Entry("open_session", "await App.OpenAsync();", null));
 
-    /// <summary>A grammar tool that has a line answers with it after its lead; any other tool is returned as it is.</summary>
+    /// <summary>A grammar tool that works out its line before the action and adds it to the result after.</summary>
     public CatalogTool Wrap(string name, CatalogTool tool)
     {
         ArgumentNullException.ThrowIfNull(tool);
@@ -116,11 +108,8 @@ internal sealed class SessionTestLines(TestLineOptions options)
             ToModelOutput = tool.ToModelOutput,
             Execute = async (args, token) =>
             {
-                // Before the action: it may remove its target from the screen.
                 var plan = await PlanAsync(name, args, token).ConfigureAwait(false);
                 token.ThrowIfCancellationRequested();
-
-                // A failed action throws here: it prints and records no line.
                 var output = await execute(args, token).ConfigureAwait(false);
                 return output is string text ? Annotate(name, text, plan) : output;
             },
@@ -146,53 +135,111 @@ internal sealed class SessionTestLines(TestLineOptions options)
             return "No test lines yet. Each action (tap, type, select, check, and the rest) prints the line that repeats it in a test, and this tool returns them in order.";
         }
 
-        var body = _entries.Select(entry => entry.Line ?? "// " + entry.Tool + ": no test line: " + entry.Reason).ToList();
+        var body = _entries.Select(entry => entry.Line ?? "// " + entry.Tool + ": no test line: " + entry.Reason);
         return string.Join(
             '\n',
             [
                 "Draft test body from this session's actions, in order (" + _entries.Count(entry => entry.Line is not null).ToString(CultureInfo.InvariantCulture) + " lines):",
-                string.Empty,
+                "",
                 .. body,
-                string.Empty,
+                "",
                 "Paste it into a test method, and add an Expect after each step that should change the screen.",
             ]);
     }
 
-    /// <summary>The words a result gives for an action that has no line, after "No test line:".</summary>
-    private string Annotate(string name, string text, LinePlan plan)
+    /// <summary>
+    /// The queries a node's own fields give, in the order the skill recommends: role and name, then label, placeholder, text,
+    /// and test id. Upstream's <c>nodeQueries</c>; its tree carries no test id, so it reads the id off the live node, where the
+    /// port's tree has it.
+    /// </summary>
+    internal static IReadOnlyList<LocateArgs> NodeQueries(SemanticNode node, Func<string, string> redact)
     {
-        var entry = new Entry(name, plan.Line, plan.Reason);
-        _entries.Add(entry);
-        var note = entry.Line is not null ? "Test line: " + entry.Line : "No test line: " + entry.Reason + ".";
+        ArgumentNullException.ThrowIfNull(node);
+        ArgumentNullException.ThrowIfNull(redact);
+        var queries = new List<LocateArgs>();
+        var name = Clean(node.Name, redact);
+        if (name is not null && node.Role is { } role && Roles.Contains(role))
+        {
+            queries.Add(new LocateArgs { Role = role, Name = name });
+        }
+
+        if (name is not null)
+        {
+            queries.Add(new LocateArgs { Label = name });
+        }
+
+        if (Clean(node.Placeholder, redact) is { } placeholder)
+        {
+            queries.Add(new LocateArgs { Placeholder = placeholder });
+        }
+
+        foreach (var text in new[] { Clean(node.Text, redact), name }.OfType<string>().Distinct(StringComparer.Ordinal))
+        {
+            queries.Add(new LocateArgs { Text = text });
+        }
+
+        if (Clean(node.TestId, redact) is { } testId)
+        {
+            queries.Add(new LocateArgs { TestId = testId });
+        }
+
+        return queries;
+    }
+
+    /// <summary>
+    /// The <c>App.OpenAsync</c> line for a navigation: a URL on the app's origin as its path, so the line holds on the port the
+    /// next run gets, the base URL itself as <c>App.OpenAsync()</c>, anything else as given.
+    /// </summary>
+    internal static string NavigationLine(string url, Uri? appBase)
+    {
+        if (appBase is not null && Uri.TryCreate(appBase, url, out var resolved))
+        {
+            if (resolved.AbsoluteUri == appBase.AbsoluteUri)
+            {
+                return "await App.OpenAsync();";
+            }
+
+            if (resolved.GetLeftPart(UriPartial.Authority) == appBase.GetLeftPart(UriPartial.Authority))
+            {
+                return "await App.OpenAsync(" + SessionCatalog.Quote(resolved.PathAndQuery + resolved.Fragment) + ");";
+            }
+        }
+
+        return "await App.OpenAsync(" + SessionCatalog.Quote(url) + ");";
+    }
+
+    /// <summary>Records a performed action's line and puts it after the result's lead.</summary>
+    private string Annotate(string tool, string text, LinePlan plan)
+    {
+        _entries.Add(new Entry(tool, plan.Line, plan.Reason));
+        var note = plan.Line is { } line ? "Test line: " + line : "No test line: " + plan.Reason + ".";
         var cut = text.IndexOf('\n', StringComparison.Ordinal);
-        return cut == -1 ? text + "\n" + note : text[..cut] + "\n" + note + text[cut..];
+        return cut < 0 ? text + "\n" + note : text[..cut] + "\n" + note + text[cut..];
     }
 
     /// <summary>The line an action will print, worked out before it runs, while its target is still on screen.</summary>
-    private async Task<LinePlan> PlanAsync(string name, JsonElement input, CancellationToken token)
+    private async Task<LinePlan> PlanAsync(string name, JsonElement args, CancellationToken token)
     {
-        // The newest observation is the screen a node id names.
-        _screen = options.Newest() is { } newest ? IndexScreen(newest) : null;
         try
         {
-            return await PlanCoreAsync(name, input, token).ConfigureAwait(false);
+            return await BuildAsync(name, args, token).ConfigureAwait(false);
         }
-#pragma warning disable CA1031 // A locator the engine could not try is a reason the action has no line; a cancel is not.
+#pragma warning disable CA1031 // A line that cannot be worked out is a reason the action still runs with, never a failure of the action.
         catch (Exception cause) when (cause is not OperationCanceledException)
 #pragma warning restore CA1031
         {
-            return LinePlan.None("trying its locator failed: " + TextRules.Collapse(Tools.CodedMessage(cause)));
+            return LinePlan.None("trying its locator failed: " + TextRules.Normalize(Tools.CodedMessage(cause)));
         }
     }
 
-    private async Task<LinePlan> PlanCoreAsync(string name, JsonElement input, CancellationToken token)
+    private async Task<LinePlan> BuildAsync(string name, JsonElement args, CancellationToken token)
     {
-        var target = StringField(input, "target");
+        var target = Field(args, "target");
         if (NodeMethods.TryGetValue(name, out var method))
         {
-            if (input.ValueKind == JsonValueKind.Object && input.TryGetProperty("modifiers", out var held) && held.ValueKind == JsonValueKind.Array && held.GetArrayLength() > 0)
+            if (name is "tap" or "double_tap" && args.TryGetProperty("modifiers", out var held) && held.ValueKind == JsonValueKind.Array && held.GetArrayLength() > 0)
             {
-                return LinePlan.None("a test locator takes no held keys, so no line repeats a " + name.Replace('_', ' ') + " with modifiers");
+                return LinePlan.None("a locator " + (name == "tap" ? "tap" : "double tap") + " takes no modifier keys");
             }
 
             return await OnTargetAsync(target, locator => locator + "." + method + "()", token).ConfigureAwait(false);
@@ -202,43 +249,35 @@ internal sealed class SessionTestLines(TestLineOptions options)
         {
             case "type":
                 {
-                    if (target is null)
-                    {
-                        return LinePlan.None("the value went to the focused field; type into a listed node by id for a line");
-                    }
-
-                    var value = StringField(input, "text") ?? string.Empty;
-                    return await OnTargetAsync(target, locator => locator + ".FillAsync(" + Typed(value) + ")", token).ConfigureAwait(false);
+                    // A value the ledger rewrites is a secret: the line would fill the placeholder, not the secret.
+                    var text = Field(args, "text") ?? "";
+                    return _options.Redact(text) != text
+                        ? LinePlan.None("the text holds a secret value; fill it with type_secret for a line")
+                        : await OnTargetAsync(target, locator => locator + ".FillAsync(" + SessionCatalog.Quote(text) + ")", token).ConfigureAwait(false);
                 }
 
             case "type_secret":
                 {
-                    var secret = SecretExpression(StringField(input, "secret") ?? string.Empty);
-                    return secret is null
-                        ? LinePlan.None("the secret is neither a credential password nor a config secret")
-                        : await OnTargetAsync(target, locator => locator + ".FillAsync(" + secret + ")", token).ConfigureAwait(false);
+                    var secret = Field(args, "secret") ?? "";
+                    return _options.Secrets.Contains(secret)
+                        ? await OnTargetAsync(target, locator => locator + ".FillAsync(Secrets.Get(" + SessionCatalog.Quote(secret) + "))", token).ConfigureAwait(false)
+                        : LinePlan.None("the secret is not a config secret");
                 }
 
             case "press":
                 return target is null
-                    ? LinePlan.None("the key went to whatever had focus; press it on a listed node by id for a line")
-                    : await OnTargetAsync(target, locator => locator + ".PressAsync(" + SessionCatalog.Quote(StringField(input, "key") ?? string.Empty) + ")", token).ConfigureAwait(false);
+                    ? LinePlan.None("the key went to whatever had focus; press it on a listed node by ref for a line")
+                    : await OnTargetAsync(target, locator => locator + ".PressAsync(" + SessionCatalog.Quote(Field(args, "key") ?? "Enter") + ")", token).ConfigureAwait(false);
             case "select":
-                return await OnTargetAsync(target, locator => locator + ".SelectOptionAsync(" + SessionCatalog.Quote(StringField(input, "value") ?? string.Empty) + ")", token).ConfigureAwait(false);
-            case "check":
-                return await OnTargetAsync(target, locator => locator + ".CheckAsync()", token).ConfigureAwait(false);
-            case "uncheck":
-                return await OnTargetAsync(target, locator => locator + ".UncheckAsync()", token).ConfigureAwait(false);
-            case "clear":
-                return await OnTargetAsync(target, locator => locator + ".ClearAsync()", token).ConfigureAwait(false);
+                return await OnTargetAsync(target, locator => locator + ".SelectOptionAsync(" + SessionCatalog.Quote(Field(args, "value") ?? "") + ")", token).ConfigureAwait(false);
             case "scroll_to":
-                return target is not null && StringField(input, "text") is null
+                return target is not null && Field(args, "text") is null
                     ? await OnTargetAsync(target, locator => locator + ".ScrollIntoViewAsync()", token).ConfigureAwait(false)
-                    : LinePlan.None("scrolling to a text has none; a test action brings its node into view itself");
+                    : LinePlan.None("scrolling to a text has none; a test action brings its node into view");
             case "scroll":
                 return LinePlan.None("a test action brings its node into view itself");
             case "navigate":
-                return LinePlan.Of(NavigationLine(StringField(input, "url") ?? string.Empty, options.AppBase));
+                return LinePlan.Of(NavigationLine(Field(args, "url") ?? "", _options.AppBase));
             case "back":
                 return LinePlan.Of("await App.BackAsync();");
             default:
@@ -247,64 +286,35 @@ internal sealed class SessionTestLines(TestLineOptions options)
     }
 
     /// <summary>A line acting on one target, or why there is none.</summary>
-    private async Task<LinePlan> OnTargetAsync(string? id, Func<string, string> act, CancellationToken token)
+    private async Task<LinePlan> OnTargetAsync(string? reference, Func<string, string> act, CancellationToken token)
     {
-        var found = await LocatorAsync(id, token).ConfigureAwait(false);
-        return found.Reason is not null
-            ? LinePlan.None(found.Reason)
-            : LinePlan.Of("await " + act(found.Code!) + ";" + (found.Comment is null ? string.Empty : " // " + found.Comment));
-    }
-
-    /// <summary>A typed value as the line spells it: a credential's username by its name, anything else as written.</summary>
-    private string Typed(string value)
-    {
-        var credentials = options.Fills?.Credentials ?? [];
-        foreach (var credential in credentials)
-        {
-            if (string.Equals(credential.Username, value, StringComparison.Ordinal))
-            {
-                return "Credentials.User(" + SessionCatalog.Quote(credential.Name) + ").Username";
-            }
-        }
-
-        return SessionCatalog.Quote(value);
-    }
-
-    /// <summary>How a test names a secret <c>type_secret</c> filled: a credential's password, or a config secret.</summary>
-    private string? SecretExpression(string name)
-    {
-        foreach (var credential in options.Fills?.Credentials ?? [])
-        {
-            if (string.Equals(credential.Password, name, StringComparison.Ordinal))
-            {
-                return "Credentials.User(" + SessionCatalog.Quote(credential.Name) + ").Password";
-            }
-        }
-
-        return options.Fills?.Secrets.Contains(name) == true ? "Secrets.Get(" + SessionCatalog.Quote(name) + ")" : null;
+        var found = await LocatorAsync(reference, token).ConfigureAwait(false);
+        return found.Reason is { } reason
+            ? LinePlan.None(reason)
+            : LinePlan.Of("await " + act(found.Code!) + ";" + (found.Comment is null ? "" : " // " + found.Comment));
     }
 
     /// <summary>
-    /// The locator a test line uses for a target id: the first query from the node's own fields that matches it alone; else the query
-    /// that matched it among its twins, kept to the nodes that render or scoped under a container that tells them apart; else that query
-    /// by position, with a comment saying so, when its place among the twins is certain.
+    /// The locator a test line uses for a target ref: the first query from the node's own fields that matches it alone; else the
+    /// query that matched it among its twins, kept to the nodes that render or scoped under a container that tells them apart;
+    /// else that query by position, with a comment saying so, when its place among the twins is certain.
     /// </summary>
-    private async Task<Found> LocatorAsync(string? id, CancellationToken token)
+    private async Task<Found> LocatorAsync(string? reference, CancellationToken token)
     {
-        if (id is null)
+        if (reference is null)
         {
             return Found.None("the action names no node");
         }
 
-        var listed = Listed(id);
+        var listed = Listed(reference);
         if (listed is null)
         {
-            return Found.None("#" + id.TrimStart('#') + " is not on the newest screen");
+            return Found.None("node " + reference + " is not on the newest screen");
         }
 
-        var node = listed.Node;
+        var live = await _options.Observe(token).ConfigureAwait(false);
         var tries = MaxTries;
-        async Task<Probe?> Attempt(LocatorExpression expression, IReadOnlyList<SemanticNode>? within = null)
+        Probe? Attempt(LocatorExpression expression, IReadOnlyList<SemanticNode>? within = null)
         {
             if (tries <= 0)
             {
@@ -312,17 +322,15 @@ internal sealed class SessionTestLines(TestLineOptions options)
             }
 
             tries--;
-            return await ProbeAsync(expression, listed, within ?? listed.Roots, token).ConfigureAwait(false);
+            return ProbeOf(live, expression, listed, within ?? listed.Roots);
         }
 
-        (LocateQuery Located, Probe Probe)? twins = null;
-        SemanticNode? match = null;
-        var matchCertain = false;
-        var queries = NodeQueries(node, options.Redact);
+        (Located Located, Probe Probe)? twins = null;
+        var queries = NodeQueries(listed.Node, _options.Redact);
         foreach (var query in queries)
         {
-            var located = options.Query(query);
-            var probe = await Attempt(located.Query).ConfigureAwait(false);
+            var located = Located.Of(SessionCatalog.LocateQuery(query));
+            var probe = Attempt(located.Expression);
             if (probe is null)
             {
                 break;
@@ -333,42 +341,13 @@ internal sealed class SessionTestLines(TestLineOptions options)
                 return Found.Of(located);
             }
 
-            if (probe.Index >= 0 && (match is null || (probe.Certain && !matchCertain)))
-            {
-                match = probe.Matches[probe.Index];
-                matchCertain = probe.Certain;
-            }
-
             if (probe.Count > 1 && probe.Index >= 0 && (twins is null || (probe.Certain && !twins.Value.Probe.Certain)))
             {
                 twins = (located, probe);
             }
         }
 
-        // The tree an observation hands over carries no test id; the node the locator engine read does, found among the matches of its role.
-        if (match is null && node.Role is not null && Roles.Contains(node.Role))
-        {
-            var probe = await Attempt(options.Query(new LocateArgs { Role = node.Role }).Query).ConfigureAwait(false);
-            if (probe is not null && probe.Index >= 0)
-            {
-                match = probe.Matches[probe.Index];
-                matchCertain = probe.Certain;
-            }
-        }
-
-        // Only a match placed for certain lends its test id: one its box alone placed may be a twin that moved there, and its id would name the twin.
-        var testId = !matchCertain || match?.TestId is null ? null : Clean(options.Redact(match.TestId));
-        if (testId is not null)
-        {
-            var located = options.Query(new LocateArgs { TestId = testId });
-            var probe = await Attempt(located.Query).ConfigureAwait(false);
-            if (probe is not null && probe.Count == 1 && string.Equals(probe.Matches[0].TestId, match!.TestId, StringComparison.Ordinal))
-            {
-                return Found.Of(located);
-            }
-        }
-
-        if (twins is not { } pair)
+        if (twins is not { } best)
         {
             if (tries <= 0)
             {
@@ -376,182 +355,134 @@ internal sealed class SessionTestLines(TestLineOptions options)
             }
 
             return Found.None(
-                queries.Count == 0 && testId is null
+                queries.Count == 0
                     ? "the node has no name, text, placeholder, or test id to find it by"
                     : "no locator from its role and name, label, placeholder, text, or test id finds it on the live screen; try locate");
         }
 
-        var visible = VisibleOnly(pair.Located);
-        if (visible is not null)
+        if (VisibleOnly(best.Located) is { } visible && Attempt(visible.Expression) is { Count: 1, Index: 0 })
         {
-            var probe = await Attempt(visible.Query).ConfigureAwait(false);
-            if (probe is { Count: 1, Index: 0 })
-            {
-                return Found.Of(visible);
-            }
+            return Found.Of(visible);
         }
 
-        foreach (var scope in ContainerScopes(listed, options.Query))
+        foreach (var scope in ContainerScopes(listed))
         {
-            var expression = ScopedUnder(pair.Located.Query, scope.Located.Query);
-            if (expression is null)
+            if (best.Located.Expression is not { Kind: not ("filter" or "index"), Parent: null } child)
             {
                 break;
             }
 
-            var probe = await Attempt(expression, [scope.Within]).ConfigureAwait(false);
+            var probe = Attempt(child with { Parent = scope.Located.Expression }, scope.Within);
             if (probe is null)
             {
                 break;
             }
 
-            if (probe is { Count: 1, Index: 0 })
+            if (probe.Count == 1 && probe.Index == 0)
             {
-                return Found.Of(new LocateQuery(expression, scope.Located.Code + pair.Located.Code["Screen".Length..], pair.Located.NotFound));
+                return Found.Of(new Located(child with { Parent = scope.Located.Expression }, scope.Located.Code + best.Located.Code["Screen".Length..]));
             }
         }
 
-        var (count, index, certain) = (pair.Probe.Count, pair.Probe.Index, pair.Probe.Certain);
+        var (count, index, certain) = (best.Probe.Count, best.Probe.Index, best.Probe.Certain);
 
         // A position is only as good as the evidence for it: a box from the observation may have moved onto a twin since.
         if (!certain)
         {
-            return Found.None("it shares " + pair.Located.Code + " with " + (count - 1).ToString(CultureInfo.InvariantCulture) + " other nodes, and nothing on the screen tells it apart for certain");
+            return Found.None("it shares " + best.Located.Code + " with " + (count - 1).ToString(CultureInfo.InvariantCulture) + " other nodes, and nothing on the screen tells it apart for certain");
         }
 
         return new Found(
-            new LocateQuery(
-                new LocatorExpression { Kind = "index", Source = pair.Located.Query, Index = index },
-                pair.Located.Code + (index == 0 ? ".First()" : ".Nth(" + index.ToString(CultureInfo.InvariantCulture) + ")"),
-                pair.Located.NotFound),
+            new Located(new LocatorExpression { Kind = "index", Source = best.Located.Expression, Index = index }, best.Located.Code + (index == 0 ? ".First()" : ".Nth(" + index.ToString(CultureInfo.InvariantCulture) + ")")),
             (index + 1).ToString(CultureInfo.InvariantCulture) + " of " + count.ToString(CultureInfo.InvariantCulture) + " matches, by position; a unique name or test id holds up better",
             null);
     }
 
     /// <summary>
-    /// How many nodes a locator matches now, and which of them is the target. When every match was read and the matches that read like
-    /// the target are the twins the observation listed under <paramref name="within"/>, each where it was or all moved together, the
-    /// target's place is certain: the twin in its turn, or, when the engine lists them in another order than the observation (light DOM
-    /// before shadow roots), the one still in its box. Otherwise it is the one match centered in its box from the observation, as an inner
-    /// text element sits inside the button it names, and the place is not certain.
+    /// How many nodes a locator matches now, and which of them is the target. When the matches that read like the target are the
+    /// twins the observation listed under <paramref name="within"/>, each where it was or all moved together, the target's place
+    /// is certain: the twin in its turn, or, when the engine lists them in another order than the observation (light DOM before
+    /// shadow roots), the one still in its box. Otherwise it is the one match centered in its box from the observation, as an
+    /// inner text element sits inside the button it names, and the place is not certain.
     /// </summary>
-    private async Task<Probe> ProbeAsync(LocatorExpression expression, ListedNode listed, IReadOnlyList<SemanticNode> within, CancellationToken token)
+    private Probe ProbeOf(Observation live, LocatorExpression expression, ListedNode listed, IReadOnlyList<SemanticNode> within)
     {
-        var refs = await options.Resolve(expression, token).ConfigureAwait(false);
-        var matches = refs.Take(MaxReadMatches).ToList();
-        var count = refs.Count;
+        var matches = _options.Resolve(live, expression);
+        var count = matches.Count;
         var target = listed.Node;
-        if (matches.Count == count)
+        var self = Identity(target, _options.Redact);
+        var alike = Enumerable.Range(0, count).Where(index => Identity(matches[index], _options.Redact) == self).ToList();
+        var twins = TwinsOf(within, target, _options.Redact);
+        if (alike.Count == twins.Count)
         {
-            var self = IdentityOf(target, options.Redact);
-            var alike = matches.Select((match, index) => (match, index)).Where(pair => IdentityOf(pair.match, options.Redact) == self).Select(pair => pair.index).ToList();
-            var twins = TwinsOf(within, target, options.Redact);
-            var turn = twins.IndexOf(target);
-
-            // A hidden target is no twin of the observation's listing: its turn among them is unknown.
-            if (alike.Count == twins.Count && turn >= 0)
+            var turn = twins.FindIndex(twin => ReferenceEquals(twin, target));
+            var likes = alike.Select(index => matches[index]).ToList();
+            if (twins.Count == 1 || MovedTogether(twins, likes))
             {
-                var live = alike.Select(index => matches[index]).ToList();
-                if (twins.Count == 1 || MovedTogether(twins, live))
-                {
-                    return new Probe(count, alike[turn], true, matches);
-                }
+                return new Probe(count, alike[turn], true);
+            }
 
-                var still = alike.Where(index => CenteredIn(matches[index], target)).ToList();
-                if (still.Count == 1 && StayedPut(twins, live))
-                {
-                    return new Probe(count, still[0], true, matches);
-                }
+            var still = alike.Where(index => CenteredIn(matches[index], target)).ToList();
+            if (still.Count == 1 && StayedPut(twins, likes))
+            {
+                return new Probe(count, still[0], true);
             }
         }
 
-        var boxed = matches.Select((match, index) => (match, index)).Where(pair => CenteredIn(pair.match, target)).Select(pair => pair.index).ToList();
-        return new Probe(count, boxed.Count == 1 ? boxed[0] : -1, false, matches);
+        var boxed = Enumerable.Range(0, count).Where(index => CenteredIn(matches[index], target)).ToList();
+        return new Probe(count, boxed.Count == 1 ? boxed[0] : -1, false);
     }
 
-    /// <summary>The node an id names on the newest screen, with its ancestors.</summary>
-    private ListedNode? Listed(string id)
+    /// <summary>The node a ref names on the newest screen, with its ancestors, nearest first, and the screen's root.</summary>
+    private ListedNode? Listed(string reference)
     {
-        if (_screen is not { } screen || !screen.Nodes.TryGetValue(id.TrimStart('#'), out var entry))
+        if (_options.Newest() is not { Count: > 0 } roots)
+        {
+            return null;
+        }
+
+        var parents = new Dictionary<SemanticNode, SemanticNode?>(ReferenceEqualityComparer.Instance);
+        SemanticNode? found = null;
+        void Walk(SemanticNode node, SemanticNode? parent)
+        {
+            parents[node] = parent;
+            if (string.Equals(node.Ref, reference, StringComparison.Ordinal))
+            {
+                found = node;
+            }
+
+            foreach (var child in node.Children)
+            {
+                Walk(child, node);
+            }
+        }
+
+        foreach (var root in roots)
+        {
+            Walk(root, null);
+        }
+
+        if (found is null)
         {
             return null;
         }
 
         var ancestors = new List<SemanticNode>();
-        for (var parent = entry.Parent; parent is not null && screen.Nodes.TryGetValue(parent, out var above); parent = above.Parent)
+        for (var parent = parents[found]; parent is not null; parent = parents[parent])
         {
-            if (!Hidden(above.Node))
-            {
-                ancestors.Add(above.Node);
-            }
+            ancestors.Add(parent);
         }
 
-        return new ListedNode(entry.Node, ancestors, screen.Roots);
+        return new ListedNode(found, ancestors, roots);
     }
 
     /// <summary>
-    /// The queries a node's own fields give, in the order the skill recommends: role and name, then label, placeholder, and text. The test
-    /// id is not among an observation's fields; the line search reads it off the live node.
+    /// The containers a locator can be scoped under to tell the target from its twins, nearest first: an ancestor with a role, by
+    /// its name, or by the first text it holds outside the target, the way a test scopes the "Delete" button of one row.
     /// </summary>
-    public static IReadOnlyList<LocateArgs> NodeQueries(SemanticNode node, Func<string, string> redact)
+    private List<(Located Located, IReadOnlyList<SemanticNode> Within)> ContainerScopes(ListedNode listed)
     {
-        ArgumentNullException.ThrowIfNull(node);
-        ArgumentNullException.ThrowIfNull(redact);
-        var queries = new List<LocateArgs>();
-        var name = Clean(node.Name is null ? null : redact(node.Name));
-        if (name is not null && node.Role is not null && Roles.Contains(node.Role))
-        {
-            queries.Add(new LocateArgs { Role = node.Role, Name = name });
-        }
-
-        if (name is not null)
-        {
-            queries.Add(new LocateArgs { Label = name });
-        }
-
-        var placeholder = Clean(node.Placeholder is null ? null : redact(node.Placeholder));
-        if (placeholder is not null)
-        {
-            queries.Add(new LocateArgs { Placeholder = placeholder });
-        }
-
-        foreach (var text in new[] { Clean(node.Text is null ? null : redact(node.Text)), name }.Where(text => text is not null).Distinct())
-        {
-            queries.Add(new LocateArgs { Text = text });
-        }
-
-        return queries;
-    }
-
-    /// <summary>
-    /// The <c>App.OpenAsync</c> line for a navigation: a URL on the app's origin as its path, so the line holds on the port the next run
-    /// gets, the base URL itself as <c>App.OpenAsync()</c>, anything else as given.
-    /// </summary>
-    public static string NavigationLine(string url, AppBase? appBase)
-    {
-        if (appBase is not null && Uri.TryCreate(appBase.Href, UriKind.Absolute, out var root) && Uri.TryCreate(root, url, out var resolved))
-        {
-            if (string.Equals(resolved.AbsoluteUri, appBase.Href, StringComparison.Ordinal))
-            {
-                return "await App.OpenAsync();";
-            }
-
-            if (string.Equals(resolved.GetLeftPart(UriPartial.Authority), appBase.Origin, StringComparison.Ordinal))
-            {
-                return "await App.OpenAsync(" + SessionCatalog.Quote(resolved.AbsolutePath + resolved.Query + resolved.Fragment) + ");";
-            }
-        }
-
-        return "await App.OpenAsync(" + SessionCatalog.Quote(url) + ");";
-    }
-
-    /// <summary>
-    /// The containers a locator can be scoped under to tell the target from its twins, nearest first: an ancestor with a role, by its
-    /// name, or by the first text it holds outside the target, the way a test scopes the "Delete" button of one row.
-    /// </summary>
-    private List<(LocateQuery Located, SemanticNode Within)> ContainerScopes(ListedNode listed, Func<LocateArgs, LocateQuery> query)
-    {
-        var scopes = new List<(LocateQuery, SemanticNode)>();
+        var scopes = new List<(Located Located, IReadOnlyList<SemanticNode> Within)>();
         var containers = 0;
         foreach (var ancestor in listed.Ancestors)
         {
@@ -566,19 +497,18 @@ internal sealed class SessionTestLines(TestLineOptions options)
             }
 
             containers++;
-            var name = Clean(ancestor.Name is null ? null : options.Redact(ancestor.Name));
+            var name = Clean(ancestor.Name, _options.Redact);
             if (name is not null)
             {
-                scopes.Add((query(new LocateArgs { Role = role, Name = name }), ancestor));
+                scopes.Add((Located.Of(SessionCatalog.LocateQuery(new LocateArgs { Role = role, Name = name })), [ancestor]));
             }
 
-            var text = FirstText(ancestor, listed.Node.Ref) ?? Clean(ancestor.Text is null ? null : options.Redact(ancestor.Text));
-            if (text is not null && !string.Equals(text, name, StringComparison.Ordinal))
+            var text = FirstText(ancestor, listed.Node) ?? Clean(ancestor.Text, _options.Redact);
+            if (text is not null && text != name)
             {
-                var root = query(new LocateArgs { Role = role });
-                scopes.Add((
-                    new LocateQuery(new LocatorExpression { Kind = "filter", Source = root.Query, HasText = text }, root.Code + ".Filter(" + SessionCatalog.Quote(text) + ")", root.NotFound),
-                    ancestor));
+                var root = SessionCatalog.LocateQuery(new LocateArgs { Role = role });
+                TextMatch? hasText = text;
+                scopes.Add((new Located(new LocatorExpression { Kind = "filter", Source = root.Query, HasText = hasText }, root.Code + ".Filter(" + SessionCatalog.Quote(text) + ")"), [ancestor]));
             }
         }
 
@@ -586,19 +516,18 @@ internal sealed class SessionTestLines(TestLineOptions options)
     }
 
     /// <summary>The first text a container holds, depth first, outside the subtree of <paramref name="skip"/>.</summary>
-    private string? FirstText(SemanticNode node, string skip)
+    private string? FirstText(SemanticNode node, SemanticNode skip)
     {
         foreach (var child in node.Children)
         {
-            if (string.Equals(child.Ref, skip, StringComparison.Ordinal) || Hidden(child))
+            if (ReferenceEquals(child, skip))
             {
                 continue;
             }
 
             if (child.Children.Count == 0)
             {
-                var own = Clean(child.Text is null ? null : options.Redact(child.Text)) ?? Clean(child.Name is null ? null : options.Redact(child.Name));
-                if (own is not null)
+                if ((Clean(child.Text, _options.Redact) ?? Clean(child.Name, _options.Redact)) is { } own)
                 {
                     return own;
                 }
@@ -606,8 +535,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
                 continue;
             }
 
-            var deeper = FirstText(child, skip);
-            if (deeper is not null)
+            if (FirstText(child, skip) is { } deeper)
             {
                 return deeper;
             }
@@ -617,26 +545,22 @@ internal sealed class SessionTestLines(TestLineOptions options)
     }
 
     /// <summary>
-    /// A bare query kept to the nodes that render, the way a test steps past a hidden twin (<c>Visible = true</c>); null for anything else,
-    /// or a query whose code already carries options.
+    /// A bare query kept to the nodes that render, the way a test steps past a hidden twin (<c>Visible = true</c>); null for
+    /// anything else.
     /// </summary>
-    private static LocateQuery? VisibleOnly(LocateQuery located)
+    private static Located? VisibleOnly(Located located)
     {
-        var expression = located.Query;
-        if (expression.Kind is "filter" or "index" || expression.Parent is not null || expression.Visible || !expression.Exact)
+        var (expression, code) = (located.Expression, located.Code);
+        if (expression is not { Kind: not ("filter" or "index"), Parent: null } || code.Contains('{', StringComparison.Ordinal))
         {
             return null;
         }
 
-        var visible = expression.Kind == "role" ? "new RoleOptions { Visible = true }" : "new TextMatchOptions { Visible = true }";
-        return new LocateQuery(expression with { Visible = true }, located.Code[..^1] + ", " + visible + ")", located.NotFound);
+        var options = expression.Kind == "role" ? "RoleOptions" : "TextMatchOptions";
+        return new Located(expression with { Visible = true }, code[..^1] + ", new " + options + " { Visible = true })");
     }
 
-    /// <summary>A query expression scoped under another expression; null for an expression that is not a bare query.</summary>
-    private static LocatorExpression? ScopedUnder(LocatorExpression child, LocatorExpression scope) =>
-        child.Kind is not ("filter" or "index") && child.Parent is null ? child with { Parent = scope } : null;
-
-    /// <summary>Whether a node the locator engine read sits with its center inside the target's box from the observation.</summary>
+    /// <summary>Whether a live node sits with its center inside the target's box from the observation.</summary>
     private static bool CenteredIn(SemanticNode match, SemanticNode target)
     {
         if (target.Rect is not { } box || match.Rect is not { } found)
@@ -649,21 +573,21 @@ internal sealed class SessionTestLines(TestLineOptions options)
         return x >= box.X - BoxSlack && x <= box.X + box.Width + BoxSlack && y >= box.Y - BoxSlack && y <= box.Y + box.Height + BoxSlack;
     }
 
-    /// <summary>What a node reads as: its role, name, text, and placeholder, in the one-line form, after the secret ledger.</summary>
-    private static string IdentityOf(SemanticNode node, Func<string, string> redact)
+    /// <summary>What a node reads as: its role, name, text, and placeholder, in the one-line form, through the ledger.</summary>
+    private static string Identity(SemanticNode node, Func<string, string> redact)
     {
-        string Field(string? value) => Clean(value is null ? null : redact(value)) ?? string.Empty;
-        return string.Join('\0', node.Role ?? string.Empty, Field(node.Name), Field(node.Text), Field(node.Placeholder));
+        string Field(string? value) => Clean(value, redact) ?? "";
+        return string.Join('\0', node.Role ?? "", Field(node.Name), Field(node.Text), Field(node.Placeholder));
     }
 
-    /// <summary>The nodes under <paramref name="within"/> that read like the target, in the observation's order, the target among them.</summary>
-    private static List<SemanticNode> TwinsOf(IReadOnlyList<SemanticNode> within, SemanticNode target, Func<string, string> redact)
+    /// <summary>The nodes under <paramref name="roots"/> that read like the target, in the observation's order, the target among them.</summary>
+    private static List<SemanticNode> TwinsOf(IEnumerable<SemanticNode> roots, SemanticNode target, Func<string, string> redact)
     {
-        var self = IdentityOf(target, redact);
+        var self = Identity(target, redact);
         var twins = new List<SemanticNode>();
         void Walk(SemanticNode node)
         {
-            if (!Hidden(node) && IdentityOf(node, redact) == self)
+            if (Identity(node, redact) == self)
             {
                 twins.Add(node);
             }
@@ -674,7 +598,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
             }
         }
 
-        foreach (var root in within)
+        foreach (var root in roots)
         {
             Walk(root);
         }
@@ -688,7 +612,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
         (double X, double Y)? shift = null;
         for (var index = 0; index < observed.Count; index++)
         {
-            if (observed[index].Rect is not { } was || index >= live.Count || live[index].Rect is not { } now)
+            if (observed[index].Rect is not { } was || live[index].Rect is not { } now)
             {
                 return false;
             }
@@ -707,11 +631,11 @@ internal sealed class SessionTestLines(TestLineOptions options)
     /// <summary>Whether every live twin is centered in the box of exactly one observed twin, each box taken once: the same twins, none moved.</summary>
     private static bool StayedPut(IReadOnlyList<SemanticNode> observed, IReadOnlyList<SemanticNode> live)
     {
-        var taken = new HashSet<string>(StringComparer.Ordinal);
+        var taken = new HashSet<SemanticNode>(ReferenceEqualityComparer.Instance);
         foreach (var match in live)
         {
             var boxes = observed.Where(twin => CenteredIn(match, twin)).ToList();
-            if (boxes.Count != 1 || !taken.Add(boxes[0].Ref))
+            if (boxes.Count != 1 || !taken.Add(boxes[0]))
             {
                 return false;
             }
@@ -720,44 +644,20 @@ internal sealed class SessionTestLines(TestLineOptions options)
         return true;
     }
 
-    private static bool Hidden(SemanticNode node) => node.States.Hidden || node.States.AriaHidden;
-
-    /// <summary>Indexes an observation's tree by id, each node with its parent's id.</summary>
-    private static Screen IndexScreen(Observation observation)
-    {
-        var nodes = new Dictionary<string, (SemanticNode Node, string? Parent)>(StringComparer.Ordinal);
-        void Walk(SemanticNode node, string? parent)
-        {
-            nodes[node.Ref] = (node, parent);
-            foreach (var child in node.Children)
-            {
-                Walk(child, node.Ref);
-            }
-        }
-
-        foreach (var root in observation.Roots)
-        {
-            Walk(root, null);
-        }
-
-        return new Screen(observation.Roots, nodes);
-    }
-
     /// <summary>Text in the one-line form a locator matches against, or null for none.</summary>
-    private static string? Clean(string? text)
+    internal static string? Clean(string? text, Func<string, string> redact)
     {
         if (text is null)
         {
             return null;
         }
 
-        var collapsed = TextRules.Collapse(text);
+        var collapsed = TextRules.Normalize(redact(text));
         return collapsed.Length == 0 ? null : collapsed;
     }
 
-    /// <summary>A string argument of a tool call, or null.</summary>
-    private static string? StringField(JsonElement input, string key) =>
-        input.ValueKind == JsonValueKind.Object && input.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+    private static string? Field(JsonElement args, string name) =>
+        args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
 
     /// <summary>One recorded action: its line, or why it has none.</summary>
     private sealed record Entry(string Tool, string? Line, string? Reason);
@@ -770,12 +670,18 @@ internal sealed class SessionTestLines(TestLineOptions options)
         public static LinePlan None(string reason) => new(null, reason);
     }
 
+    /// <summary>A locator: its expression for the resolver and its code for the test.</summary>
+    private sealed record Located(LocatorExpression Expression, string Code)
+    {
+        public static Located Of(LocateQuery query) => new(query.Query, query.Code);
+    }
+
     /// <summary>What a locator search found: the locator and how the line comments on it, or why there is none.</summary>
-    private sealed record Found(LocateQuery? Located, string? Comment, string? Reason)
+    private sealed record Found(Located? Located, string? Comment, string? Reason)
     {
         public string? Code => Located?.Code;
 
-        public static Found Of(LocateQuery located) => new(located, null, null);
+        public static Found Of(Located located) => new(located, null, null);
 
         public static Found None(string reason) => new(null, null, reason);
     }
@@ -783,9 +689,6 @@ internal sealed class SessionTestLines(TestLineOptions options)
     /// <summary>A node the newest observation listed, with its ancestors, nearest first, and the screen's roots.</summary>
     private sealed record ListedNode(SemanticNode Node, IReadOnlyList<SemanticNode> Ancestors, IReadOnlyList<SemanticNode> Roots);
 
-    /// <summary>The newest observation's tree, and its nodes by id, each with its parent's id.</summary>
-    private sealed record Screen(IReadOnlyList<SemanticNode> Roots, IReadOnlyDictionary<string, (SemanticNode Node, string? Parent)> Nodes);
-
-    /// <summary>What one locator matched: how many nodes, which of them is the target (-1 when none read is placed as it), whether that place is certain, and every match read.</summary>
-    private sealed record Probe(int Count, int Index, bool Certain, IReadOnlyList<SemanticNode> Matches);
+    /// <summary>What one locator matched: how many nodes, which of them is the target (-1 when none is placed as it), and whether that place is certain.</summary>
+    private sealed record Probe(int Count, int Index, bool Certain);
 }
