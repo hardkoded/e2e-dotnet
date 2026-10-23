@@ -10,7 +10,7 @@ namespace E2E.Tests.LocatorUnion;
 /// <summary>
 /// <c>locator.Or(other)</c>: core builds one union expression and the engine resolves it. The screen here resolves with
 /// the reference semantics: matches of either branch in traversal order, each node once.
-/// Not ported: "refuses ... a non-locator" (the parameter is typed, so only the other screen's locator is refusable).
+/// Partial: "refuses ... a non-locator" (the parameter is typed, so only the other screen's locator is refusable).
 /// The port names the strictness failure <c>STRICT_MODE</c> where upstream says <c>LOCATOR_AMBIGUOUS</c>.
 /// </summary>
 public sealed class LocatorOrTests
@@ -69,8 +69,9 @@ public sealed class LocatorOrTests
         Assert.Equal(0, await screen.GetByRole("link").Or(screen.GetByRole("button")).CountAsync());
     }
 
+    /// <summary>Partial: the parameter is typed, so the port cannot pass a non-locator; <c>null</c> is an <see cref="ArgumentNullException"/>, not <c>INVALID_LOCATOR</c>.</summary>
     [Fact]
-    public void Refuses_another_screens_locator_before_any_engine_call()
+    public void Partial_Refuses_another_screens_locator_before_any_engine_call()
     {
         var left = TabScreen();
         var right = TabScreen();
