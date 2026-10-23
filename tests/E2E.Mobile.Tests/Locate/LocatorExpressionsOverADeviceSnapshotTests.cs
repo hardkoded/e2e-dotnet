@@ -103,6 +103,16 @@ public sealed class LocatorExpressionsOverADeviceSnapshotTests
     }
 
     [Fact]
+    public void Unions_matches_in_traversal_order_without_duplicates()
+    {
+        var back = Role("button");
+        var search = Text("label", "Search");
+        Assert.Equal(["Back", "Search"], Names(new LocatorExpression { Kind = "union", Left = search, Right = back }));
+        Assert.Equal(["Back"], Names(new LocatorExpression { Kind = "union", Left = back, Right = back }));
+        Assert.Equal(["Back"], Names(new LocatorExpression { Kind = "index", Source = new LocatorExpression { Kind = "union", Left = search, Right = back }, Index = 0 }));
+    }
+
+    [Fact]
     public void Routes_agent_device_selectors_to_the_selector_matcher_and_rejects_frames()
     {
         static LocatorExpression Selector(string selector) => new() { Kind = "selector", Selector = selector };

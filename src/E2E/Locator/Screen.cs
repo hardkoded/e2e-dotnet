@@ -261,6 +261,20 @@ public sealed class Locator
         return new Locator(_screen, new LocatorExpression { Kind = "filter", Source = Query, Has = has.Query });
     }
 
+    /// <summary>Matches either locator, deduplicated in traversal order; both must belong to this screen.</summary>
+    public Locator Or(Locator other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        if (!ReferenceEquals(other._screen, _screen))
+        {
+            throw new TestException(
+                "INVALID_LOCATOR",
+                "or requires a locator made by this screen; the one given belongs to another target's screen or another attempt");
+        }
+
+        return new Locator(_screen, new LocatorExpression { Kind = "union", Left = Query, Right = other.Query });
+    }
+
     public Locator First() => Nth(0);
 
     public Locator Last() => new(_screen, new LocatorExpression { Kind = "index", Source = Query, Index = LocatorExpression.LastIndex });
@@ -825,7 +839,8 @@ public sealed class LocatorWaitForOptions
 /// A locator expression. Query kinds (<c>role</c>, <c>text</c>, <c>label</c>,
 /// <c>testid</c>, <c>placeholder</c>, <c>displayValue</c>) search the
 /// descendants of <see cref="Parent"/> when it is set. <c>filter</c> and
-/// <c>index</c> narrow <see cref="Source"/>.
+/// <c>index</c> narrow <see cref="Source"/>. <c>union</c> matches either
+/// <see cref="Left"/> or <see cref="Right"/>, each node once, in document order.
 /// </summary>
 public sealed record LocatorExpression
 {
@@ -863,6 +878,10 @@ public sealed record LocatorExpression
     public LocatorExpression? Has { get; init; }
 
     public int? Index { get; init; }
+
+    public LocatorExpression? Left { get; init; }
+
+    public LocatorExpression? Right { get; init; }
 
     /// <summary>The expression of a <c>selector</c> query, in the engine's own selector language. A device engine answers it.</summary>
     public string? Selector { get; init; }
@@ -909,6 +928,8 @@ public sealed record LocatorExpression
         static string? PatternText(TextMatch? match) => match is null ? null : match.Pattern is null ? match.Text : match.Pattern.ToString();
         switch (Kind)
         {
+            case "union":
+                return new ErrorDetails();
             case "filter" or "index":
                 return Source!.ExpressionHints();
             case "role":
@@ -926,6 +947,8 @@ public sealed record LocatorExpression
     {
         switch (Kind)
         {
+            case "union":
+                return Left!.Describe() + ".or(" + Right!.Describe() + ")";
             case "filter":
                 return Source!.Describe() + (HasText is not null
                     ? ".filter(hasText: " + HasText + ")"
@@ -1018,6 +1041,14 @@ internal static class LocatorResolver
     {
         switch (query.Kind)
         {
+            case "union":
+                {
+                    var matches = new HashSet<SemanticNode>(ReferenceEqualityComparer.Instance);
+                    matches.UnionWith(Resolve(query.Left!, candidates, tree, includeHidden));
+                    matches.UnionWith(Resolve(query.Right!, candidates, tree, includeHidden));
+                    return candidates.Where(matches.Contains).ToList();
+                }
+
             case "filter":
                 {
                     if (query.Has is not null && UsesDisplayValue(query.Has))
