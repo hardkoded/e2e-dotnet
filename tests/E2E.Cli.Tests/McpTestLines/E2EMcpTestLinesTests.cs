@@ -40,7 +40,7 @@ public sealed class E2EMcpTestLinesTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Answers_each_action_with_its_test_line()
+    public async Task Partial_Answers_each_action_with_its_test_line()
     {
         var opened = await _cli.InvokeAsync("open_session");
         Assert.False(opened.IsError, opened.Text);

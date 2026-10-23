@@ -228,7 +228,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
         catch (Exception cause) when (cause is not OperationCanceledException)
 #pragma warning restore CA1031
         {
-            return LinePlan.None("trying its locator failed: " + Tools.CodedMessage(cause));
+            return LinePlan.None("trying its locator failed: " + TextRules.Normalize(Tools.CodedMessage(cause)));
         }
     }
 
@@ -248,7 +248,14 @@ internal sealed class SessionTestLines(TestLineOptions options)
         switch (name)
         {
             case "type":
-                return await OnTargetAsync(target, locator => locator + ".FillAsync(" + SessionCatalog.Quote(Field(args, "text") ?? "") + ")", token).ConfigureAwait(false);
+                {
+                    // A value the ledger rewrites is a secret: the line would fill the placeholder, not the secret.
+                    var text = Field(args, "text") ?? "";
+                    return _options.Redact(text) != text
+                        ? LinePlan.None("the text holds a secret value; fill it with type_secret for a line")
+                        : await OnTargetAsync(target, locator => locator + ".FillAsync(" + SessionCatalog.Quote(text) + ")", token).ConfigureAwait(false);
+                }
+
             case "type_secret":
                 {
                     var secret = Field(args, "secret") ?? "";

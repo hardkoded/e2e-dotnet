@@ -142,7 +142,7 @@ public sealed class SessionTestLinesTests
     }
 
     [Fact]
-    public async Task Pins_no_twin_that_both_moved_and_changed_places()
+    public async Task Partial_Pins_no_twin_that_both_moved_and_changed_places()
     {
         var first = new Fake("n47", "button", "Keep", Y: 100);
         var second = new Fake("n48", "button", "Keep", Y: 140);
@@ -178,7 +178,7 @@ public sealed class SessionTestLinesTests
     }
 
     [Fact]
-    public async Task Writes_a_secret_by_its_name_never_by_its_value()
+    public async Task Partial_Writes_a_secret_by_its_name_never_by_its_value()
     {
         var key = new Fake("n42", "textbox", "API key", Y: 120);
         var session = new TestLineHarness([key]);
@@ -189,7 +189,7 @@ public sealed class SessionTestLinesTests
     }
 
     [Fact]
-    public async Task Maps_each_verb_the_port_has_onto_the_locator_method_that_repeats_it()
+    public async Task Partial_Maps_each_verb_the_port_has_onto_the_locator_method_that_repeats_it()
     {
         var field = new Fake("n50", "textbox", "Notes", Y: 40);
         var plan = new Fake("n51", "combobox", "Plan", Y: 80);
@@ -215,7 +215,7 @@ public sealed class SessionTestLinesTests
     }
 
     [Fact]
-    public async Task Says_why_an_action_has_no_line_for_no_node_a_scroll_a_modifier_and_a_stale_ref()
+    public async Task Partial_Says_why_an_action_has_no_line_for_no_node_a_scroll_a_modifier_and_a_stale_ref()
     {
         var field = new Fake("n60", "textbox", "Notes", Y: 40);
         var session = new TestLineHarness([field, Save]);
@@ -225,6 +225,15 @@ public sealed class SessionTestLinesTests
         Assert.Matches(@"^No test line: the secret is not a config secret", NoteOf(await session.RunAsync("type_secret", """{ "target": "n60", "secret": "unknown" }""")));
         Assert.Matches(@"^No test line: a locator tap takes no modifier keys", NoteOf(await session.RunAsync("tap", """{ "target": "n2", "modifiers": ["Shift"] }""")));
         Assert.Equal("No test line: node n404 is not on the newest screen.", NoteOf(await session.RunAsync("tap", """{ "target": "n404" }""")));
+    }
+
+    [Fact]
+    public async Task Prints_no_line_for_typed_text_that_holds_a_secret_value()
+    {
+        var field = new Fake("n60", "textbox", "Notes", Y: 40);
+        var session = new TestLineHarness([field]);
+        var text = await session.RunAsync("type", """{ "target": "n60", "text": "sk-live-0000" }""");
+        Assert.Equal("No test line: the text holds a secret value; fill it with type_secret for a line.", NoteOf(text));
     }
 
     [Fact]
