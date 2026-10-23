@@ -342,29 +342,57 @@ public sealed partial class DeviceSession : IEngineSession
         }
     }
 
-    /// <summary>Projects a snapshot, and remembers it as the screen the session last looked at.</summary>
+    /// <summary>Whether two viewports are one screen, in the same orientation or rotated; rects from the tree carry fractions.</summary>
+    private static bool SameScreen(ViewportSize a, ViewportSize b)
+    {
+        static bool Near(double x, double y) => Math.Abs(x - y) < 1;
+        return (Near(a.Width, b.Width) && Near(a.Height, b.Height)) || (Near(a.Width, b.Height) && Near(a.Height, b.Width));
+    }
+
+    /// <summary>
+    /// Projects a snapshot and learns its viewport when it is plainly the screen's: the first one the session reads, the one it
+    /// knows, or that one rotated. A tree of any other size may be an app drawn smaller than the screen (behind Notification
+    /// Center, iOS shrinks it to a third), so an observation's <see cref="ViewportForAsync"/> checks it against the device
+    /// before it replaces the known one.
+    /// </summary>
     private ProjectedSnapshot Project(RawSnapshot raw)
     {
         var projected = SnapshotProjection.ProjectSnapshot(raw.Nodes, () => $"n{++_idCounter}", raw.Viewport);
         _latestIndex = projected.Index;
-        if (projected.Viewport is { } measured)
+        if (projected.Viewport is { } read && (_knownViewport is not { } known || SameScreen(read, known)))
         {
-            _knownViewport = measured;
+            _knownViewport = read;
         }
 
         return projected;
     }
 
     /// <summary>
-    /// The viewport of a snapshot: its own geometry, else the last one this session learned, else the device's logical
-    /// screen size read off one screenshot. A device whose size cannot be learned fails the observation: the harness
-    /// measures every rect and point against the viewport, so an invented one would misplace every tap.
+    /// The viewport of a snapshot: its own geometry when that is the screen, else the last one this session learned, else the
+    /// device's logical screen size read off one screenshot. A tree whose size is neither the known one nor that one rotated
+    /// replaces it only when the screenshot's size, in either orientation, agrees: a screenshot reports the portrait size even
+    /// in landscape, so it confirms a size but cannot pick the orientation. Only a simulator's screenshot reports a logical
+    /// size; on a real device the tree's size is taken as it comes. A device whose size cannot be learned at all fails the
+    /// observation: the harness measures every rect and point against the viewport, so an invented one would misplace every tap.
     /// </summary>
     private async Task<ViewportSize> ViewportForAsync(ProjectedSnapshot projected, CancellationToken cancellationToken)
     {
-        if ((projected.Viewport ?? _knownViewport) is { } known)
+        if (_knownViewport is { } known)
         {
-            return known;
+            if (projected.Viewport is not { } read)
+            {
+                return known;
+            }
+
+            if (!SameScreen(read, known)
+                && await ProbeViewportAsync(cancellationToken).ConfigureAwait(false) is { } device
+                && !SameScreen(read, device))
+            {
+                return known;
+            }
+
+            _knownViewport = read;
+            return read;
         }
 
         var probed = await ProbeViewportAsync(cancellationToken).ConfigureAwait(false)

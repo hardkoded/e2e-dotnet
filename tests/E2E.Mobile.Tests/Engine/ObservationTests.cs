@@ -91,28 +91,60 @@ public sealed class ObservationTests
     [Fact]
     public async Task Measures_the_screen_in_the_viewport_the_snapshot_publishes_and_in_its_tree_when_it_publishes_none()
     {
-        var h = Harness.Create();
-        var session = await OpenAttempt(h);
+        var published = Harness.Create();
+        var publishedSession = await OpenAttempt(published);
         // The application node reads 390x844; a published viewport outranks it.
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
-        {
-            var snapshot = FakeDeviceClient.SettingsSnapshot();
-            snapshot["viewport"] = new JsonObject { ["width"] = 402, ["height"] = 874 };
-            return snapshot;
-        });
-        Assert.Equal(new BoundingBox(0, 0, 402, 874), (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
-        Assert.Equal(new BoundingBox(0, 0, 390, 844), (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
-        Assert.DoesNotContain("capture.screenshot", h.Fake.Methods());
+        published.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => WithViewport(402, 874));
+        Assert.Equal(new BoundingBox(0, 0, 402, 874), (await publishedSession.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
+        var tree = Harness.Create();
+        var treeSession = await OpenAttempt(tree);
+        Assert.Equal(new BoundingBox(0, 0, 390, 844), (await treeSession.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
+        Assert.DoesNotContain("capture.screenshot", published.Fake.Methods().Concat(tree.Fake.Methods()));
 
         // A published size that is not positive is no measurement: the tree decides.
+        tree.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => WithViewport(0, 0));
+        Assert.Equal(new BoundingBox(0, 0, 390, 844), (await treeSession.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
+    }
+
+    private static JsonObject WithViewport(double width, double height)
+    {
+        var snapshot = FakeDeviceClient.SettingsSnapshot();
+        snapshot["viewport"] = new JsonObject { ["width"] = width, ["height"] = height };
+        return snapshot;
+    }
+
+    [Fact]
+    public async Task Keeps_the_known_viewport_for_an_app_drawn_smaller_than_the_screen_and_follows_a_rotation()
+    {
+        var h = Harness.Create();
+        // Calendar behind Notification Center, read live on an iOS 26 simulator: its tree, healthy, clipped to a third of the screen.
+        h.Fake.Respond(DeviceMethods.CaptureScreenshot, _ => new JsonObject { ["logicalWidth"] = 390, ["logicalHeight"] = 844, ["width"] = 1170, ["height"] = 2532, ["pixelDensity"] = 3 });
+        var session = await OpenAttempt(h);
+        Assert.Equal(new BoundingBox(0, 0, 390, 844), (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
+        int Screenshots() => h.Fake.Methods().Count(method => method == "capture.screenshot");
+        var before = Screenshots();
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
         {
-            var snapshot = FakeDeviceClient.SettingsSnapshot();
-            snapshot["viewport"] = new JsonObject { ["width"] = 0, ["height"] = 0 };
+            var snapshot = WithViewport(130, 281.33);
+            snapshot["snapshotQuality"] = new JsonObject { ["state"] = "healthy" };
             return snapshot;
         });
         Assert.Equal(new BoundingBox(0, 0, 390, 844), (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
+        Assert.Equal(before + 1, Screenshots());
+
+        // A rotation is the known size transposed: taken as it comes, without asking the device.
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => WithViewport(844, 390));
+        Assert.Equal(new BoundingBox(0, 0, 844, 390), (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
+        Assert.Equal(before + 1, Screenshots());
+
+        // Any other size replaces the known one when the device's screen agrees.
+        h.Fake.Respond(DeviceMethods.CaptureScreenshot, _ => new JsonObject { ["logicalWidth"] = 402, ["logicalHeight"] = 874 });
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => WithViewport(402, 874));
+        Assert.Equal(new BoundingBox(0, 0, 402, 874), (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
+        // A real device's screenshot reports no logical size: the tree's size stands.
+        h.Fake.Respond(DeviceMethods.CaptureScreenshot, _ => new JsonObject { ["width"] = 1125, ["height"] = 2001 });
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => WithViewport(375, 667));
+        Assert.Equal(new BoundingBox(0, 0, 375, 667), (await session.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
     }
 
     [Fact]
