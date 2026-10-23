@@ -81,9 +81,11 @@ public sealed class BillingTests : E2ETest
    `App.OpenAsync` on that screen's path; on a device `Device.OpenLinkAsync`;
    and data from the app's API (topic `writing-tests`). Exact values go
    through `Screen`.
-4. Run one class: `dotnet test --filter "FullyQualifiedName~<Class>"`. Agent
-   steps need a model in the config and that provider's authentication.
-   Tests without agent steps need no model.
+4. Run only the test you are working on:
+   `dotnet test --filter "FullyQualifiedName~<Class>.<Method>"`, with the
+   settings in "Rerunning a test while you fix it" below. Agent steps need a
+   model in the config and that provider's authentication. Tests without
+   agent steps need no model.
 5. When it fails, fix it from what the run recorded (next section).
 
 ## Workflow: fixing a failed test
@@ -116,8 +118,45 @@ screen.
    app). It installs no build, so the target needs `app.bundleId`. A hosted
    device bills until the session closes, so close it when done. Only one
    session can drive a device target at a time.
-5. Rerun the class (topic `mcp` says when a session must close first).
-   Repeat with the next failure.
+5. Rerun only that test, the way the next section says (topic `mcp` says
+   when a session must close first). Repeat with the next failure.
+
+## Rerunning a test while you fix it
+
+Every run of a failing test waits out its failure, and every `Agent.ActAsync`
+that runs live spends model calls. Keep each rerun to the one test and the
+lines you changed:
+
+- Filter by class and method, not the project or the suite:
+  `--filter "FullyQualifiedName~<Class>.<Method>"`. A filter that matches no
+  test runs nothing, so check the name after you rename a class or method.
+- Set `"actionTimeout": 5000` in the config (or `ActionTimeout` on the
+  fixture) while you iterate: a locator that matches nothing fails in 5 s
+  instead of the default 30 s. It also bounds each action inside an agent
+  step, so keep it longer than the slowest screen takes to load. A call's own
+  timeout still wins. An `Expect` already gives up after 5 s by default
+  (`assertionTimeout`).
+- Keep the replay cache on. A failed run keeps the recording of every goal
+  whose check passed, and the next run replays those with no model call. New,
+  changed, and failed goals run live, and so does a replay the trace page
+  shows as handed off. `AssertAsync`, `WaitForAsync`, and `ExtractAsync`
+  always call the model. Leave `cache.mode` at `read-write` rather than
+  `off`: `off` sends every goal to the model again. Only a `read-write` cache
+  records: the local default, but not with `CI` set and no cache mode in the
+  config, nor under `cache.strict`. A stopped run (Ctrl-C, a command your
+  tool's timeout kills) saves nothing, so give the command a timeout longer
+  than the test.
+- Don't rename the test or its class, and don't reword a goal, change its
+  params, or change the agent's `context` once a goal passes. Each is part of
+  a recording's key, so every goal it touches records again live. Fixing a
+  locator or an expectation keeps the recordings.
+- Take `[Retry]` off the test while you iterate (xUnit v3 has none). Outside
+  `cache.strict`, a retry never replays: it runs every goal live and waits
+  out the failure again.
+- Once the test passes, put `actionTimeout` back and run it one time with
+  `"cache": { "mode": "off" }`: every goal runs live at the config's
+  timeouts, which shows the agent still reaches it without its recordings.
+  Then set the mode back.
 
 ## Rules
 

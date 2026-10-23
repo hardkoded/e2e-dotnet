@@ -28,7 +28,9 @@ e2e explore [goal] [--max-steps <n>] [--timeout <ms>] [--video|--trace|--debug|-
 
 Selection, retries, and parallelism are the test framework's: `--filter`
 (by name, class, or category), NUnit `[Retry]`, `[Category]`, and
-`[Parallelizable(ParallelScope.Fixtures)]`, or xUnit v3 traits. NUnit shares one
+`[Parallelizable(ParallelScope.Fixtures)]`, or xUnit v3 traits. A retry
+replays the cache only under `cache.strict`; otherwise it runs every agent
+step live (SKILL.md, "Rerunning a test while you fix it"). NUnit shares one
 fixture instance among its tests, so a test class with `ParallelScope.Children`
 or `All` fails at setup unless it also has
 `[FixtureLifeCycle(LifeCycle.InstancePerTestCase)]`. There is no `e2e run`, `e2e list`,

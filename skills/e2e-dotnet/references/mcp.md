@@ -176,9 +176,10 @@ The loop is:
    or `Screen.GetByText`.
 3. Write an `E2ETest` class (topic `writing-tests`). Deterministic steps where
    you saw exact names; `Agent.ActAsync` where the flow varies.
-4. Run it from the shell: `dotnet test --filter "FullyQualifiedName~<Class>"`.
-   On a failure, fix from the exception and the trace page (topic
-   `debugging`), then rerun. To see a screen the evidence leaves out, go
+4. Run only that test from the shell:
+   `dotnet test --filter "FullyQualifiedName~<Class>.<Method>"` (SKILL.md,
+   "Rerunning a test while you fix it"). On a failure, fix from the exception
+   and the trace page (topic `debugging`), then rerun it the same way. To see a screen the evidence leaves out, go
    straight to it instead of walking the flow again from the start:
    `navigate` to its path, then `observe` and `locate`. On a device, a session
    starts on the launch screen of the pinned app, launched fresh. A second
