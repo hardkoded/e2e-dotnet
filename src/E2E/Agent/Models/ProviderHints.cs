@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.OAuth;
+
 namespace E2E;
 
 /// <summary>
@@ -25,8 +27,19 @@ internal static class ProviderHints
         return BindsReasoningToPrefix(model) ? WithoutReasoningFrom(messages, index) : messages;
     }
 
-    /// <summary>Whether the model's provider rejects a replayed reasoning block whose prefix changed.</summary>
-    public static bool BindsReasoningToPrefix(IAgentModel? model) => model is AnthropicModel;
+    /// <summary>
+    /// Whether the model's provider rejects a replayed reasoning block whose prefix changed. A <see cref="DelegatingModel"/> counts as the
+    /// model it settled on: a wrapper that reaches Claude over the Anthropic route binds reasoning too. (.NET-only: upstream sees the provider id.)
+    /// </summary>
+    public static bool BindsReasoningToPrefix(IAgentModel? model)
+    {
+        while (model is DelegatingModel wrapper)
+        {
+            model = wrapper.Resolved;
+        }
+
+        return model is AnthropicModel;
+    }
 
     private static IReadOnlyList<ModelMessage> WithoutReasoningFrom(IReadOnlyList<ModelMessage> messages, int index)
     {

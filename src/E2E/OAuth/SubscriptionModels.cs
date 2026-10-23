@@ -28,6 +28,9 @@ public abstract class DelegatingModel : IAgentModel, IDisposable
 
     public string Name { get; }
 
+    /// <summary>The model the first successful lookup settled on, or null before that. Lets a hint see through the wrapper.</summary>
+    internal IAgentModel? Resolved => _resolved;
+
     protected HttpClient Http { get; }
 
     public async Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken cancellationToken)
