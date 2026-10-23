@@ -156,6 +156,30 @@ public sealed class HostedDeviceSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task Releases_the_lease_of_a_session_still_opening_when_the_server_shuts_down()
+    {
+        var launching = new TaskCompletionSource();
+        var cloud = new FakeCloud
+        {
+            OnOpen = async (count, token) =>
+            {
+                if (count == 2)
+                {
+                    launching.SetResult();
+                    await Task.Delay(Timeout.Infinite, token);
+                }
+            },
+        };
+        var host = Host(cloud);
+        var opening = host.OpenAsync(new OpenSessionOptions());
+        await launching.Task.WaitAsync(Patience);
+        await host.CloseAllAsync("server shutdown");
+        await Assert.ThrowsAnyAsync<Exception>(() => opening);
+        Assert.False(host.IsOpen);
+        Assert.Equal((1, 1), (cloud.Acquired, cloud.Released));
+    }
+
+    [Fact]
     public async Task Leases_nothing_for_a_second_session_on_the_target_that_is_refused_and_leaves_the_first_lease_alone()
     {
         var cloud = new FakeCloud();

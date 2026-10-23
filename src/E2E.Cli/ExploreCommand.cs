@@ -202,6 +202,11 @@ internal static partial class ExploreCommand
         {
             outcome = await explore(options, cancellationToken).ConfigureAwait(false);
         }
+        catch (E2EException ex) when (ex.Code == EngineErrorCodes.Cancelled && cancellationToken.IsCancellationRequested)
+        {
+            // Opening the host reports an interrupt as CANCELLED, not as OperationCanceledException.
+            return 130;
+        }
         catch (E2EException ex)
         {
             await stderr.WriteLineAsync("error " + ex.Code + ": " + Format.Bounded(redactor.Redact(ex.Message))).ConfigureAwait(false);

@@ -225,6 +225,22 @@ public sealed class ExploreFlagsTests
     }
 
     [Fact]
+    public async Task Exits_130_when_interrupted_while_the_host_opens()
+    {
+        using var cancel = new CancellationTokenSource();
+        await cancel.CancelAsync();
+        var code = await ExploreCommand.RunAsync(
+            [],
+            new StringWriter(),
+            new StringWriter(),
+            interactive: false,
+            (_, _) => Task.FromException<ExploreOutcome>(new EngineException(EngineErrorCodes.Cancelled, "opening a host was cancelled")),
+            cancel.Token);
+
+        Assert.Equal(130, code);
+    }
+
+    [Fact]
     public async Task Runs_the_real_exploration_from_the_program_and_fails_a_missing_config_with_exit_code_2()
     {
         var missing = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "e2e.config.json");
