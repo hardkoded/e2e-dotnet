@@ -174,9 +174,58 @@ internal static class PageScript
           // ARIA uses the first recognized token, then native semantics if none is recognized.
           const explicitRole = (el) =>
             (el.getAttribute("role") ?? "").split(/[ \t\n\f\r]+/).find((role) => ARIA_ROLES.indexOf(role) !== -1) ?? null;
+          const NAME_PROHIBITED_ROLES = [
+            "caption", "code", "deletion", "emphasis", "generic", "insertion", "paragraph", "presentation", "strong",
+            "subscript", "superscript",
+          ];
+          // Global ARIA attributes, each with the roles it does not count on, as Playwright lists them.
+          const GLOBAL_ARIA_ATTRIBUTES = [
+            ["aria-atomic", []],
+            ["aria-busy", []],
+            ["aria-controls", []],
+            ["aria-current", []],
+            ["aria-describedby", []],
+            ["aria-details", []],
+            ["aria-dropeffect", []],
+            ["aria-flowto", []],
+            ["aria-grabbed", []],
+            ["aria-hidden", []],
+            ["aria-keyshortcuts", []],
+            ["aria-label", NAME_PROHIBITED_ROLES],
+            ["aria-labelledby", NAME_PROHIBITED_ROLES],
+            ["aria-live", []],
+            ["aria-owns", []],
+            ["aria-relevant", []],
+            ["aria-roledescription", ["generic"]],
+          ];
+          // Playwright's implicit role for the tags whose role some global ARIA attributes do not count on.
+          const NAME_PROHIBITED_TAG_ROLES = {
+            caption: "caption", code: "code", del: "deletion", em: "emphasis", ins: "insertion", p: "paragraph",
+            strong: "strong", sub: "subscript", sup: "superscript",
+          };
+          // True when the element carries a global ARIA attribute that counts on `role`.
+          const hasGlobalAriaAttribute = (el, role) =>
+            GLOBAL_ARIA_ATTRIBUTES.some(([name, prohibited]) =>
+              (role === null || prohibited.indexOf(role) === -1) && el.hasAttribute(name));
+          // True when `tabindex` parses as a number, as Playwright reads it.
+          const hasTabIndex = (el) => !Number.isNaN(Number(String(el.getAttribute("tabindex"))));
+          // Whether a person can focus the element, as Playwright decides presentational-role conflicts.
+          const isFocusable = (el) => {
+            const tag = el.tagName.toLowerCase();
+            if (["button", "input", "select", "textarea", "option", "optgroup"].indexOf(tag) !== -1 && el.matches(":disabled")) {
+              return false;
+            }
+            if (hasTabIndex(el) || ["button", "details", "select", "textarea"].indexOf(tag) !== -1) return true;
+            if (tag === "a" || tag === "area") return el.hasAttribute("href");
+            return tag === "input" && !el.hidden;
+          };
+          // WAI-ARIA presentational-role conflict resolution: `presentation` or `none` is ignored on a
+          // focusable element or one with a global ARIA attribute, and the tag's role stands.
+          const hasPresentationConflict = (el) =>
+            isFocusable(el) || hasGlobalAriaAttribute(el, NAME_PROHIBITED_TAG_ROLES[el.tagName.toLowerCase()] ?? null);
           const roleOf = (el) => {
             const explicit = explicitRole(el);
-            if (explicit !== null) {
+            if (explicit !== null && !((explicit === "presentation" || explicit === "none") && hasPresentationConflict(el))) {
               // The vocabulary spells ARIA's `img` as `image`.
               return explicit === "img" ? "image" : explicit;
             }
@@ -188,7 +237,10 @@ internal static class PageScript
               case "BUTTON": return "button";
               case "SELECT": return el.multiple || el.size > 1 ? "listbox" : "combobox";
               case "TEXTAREA": return "textbox";
-              case "IMG": return el.getAttribute("alt") === "" ? "presentation" : "image";
+              case "IMG":
+                return el.getAttribute("alt") === "" && !el.getAttribute("title") && !hasGlobalAriaAttribute(el, null) && !hasTabIndex(el)
+                  ? "presentation"
+                  : "image";
               // An inline icon is a picture whether or not anything names it, as
               // Playwright reads it; Chrome ignores an unnamed one.
               case "svg": return "image";
