@@ -150,9 +150,9 @@ lines you changed:
   params, or change the agent's `context` once a goal passes. Each is part of
   a recording's key, so every goal it touches records again live. Fixing a
   locator or an expectation keeps the recordings.
-- Take `[Retry]` off the test while you iterate (xUnit v3 has none). Outside
-  `cache.strict`, a retry never replays: it runs every goal live and waits
-  out the failure again.
+- Take `[Retry]` off the test while you iterate (NUnit only; xUnit v3 has no
+  retry). The first attempt replays; outside `cache.strict`, each retry runs
+  every goal live and waits out the failure again.
 - Once the test passes, put `actionTimeout` back and run it one time with
   `"cache": { "mode": "off" }`: every goal runs live at the config's
   timeouts, which shows the agent still reaches it without its recordings.

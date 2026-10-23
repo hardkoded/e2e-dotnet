@@ -357,8 +357,8 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   test while you fix it"). `"cache": { "mode": "off" }` is for ruling out a
   stale replay (topic `debugging`, "Tools"), and for one live run once the
   test passes.
-- Only the first attempt replays. A `[Retry]` attempt runs live and still
-  records.
+- Only the first attempt replays, except under `cache.strict`, where a retry
+  replays too. Otherwise a `[Retry]` attempt runs live and still records.
 - Commit `.e2e/cache/` to share replays with CI and teammates.
 - `cache.strict` fails a recording that no longer replays with
   `REPLAY_STALE`, also when the recording sits under an old key (topic

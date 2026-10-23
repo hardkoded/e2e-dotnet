@@ -284,11 +284,11 @@ An agent entry also takes `judge` (the model id for `assert`, `waitFor`, and `ex
 
 ### Rerun a test while you fix it
 
-While you fix a failing test, run only that test (`dotnet test --filter "FullyQualifiedName~<Class>.<Method>"`) and keep the cache `read-write`, the local default, and outside `cache.strict`, which never writes. With `CI` set, an unset mode is `read-only`. A failed run keeps the recordings a check confirmed before the failure, and the next run replays those goals without model calls, as long as each replay still matches the screen.
+While you fix a failing test, run only that test (`dotnet test --filter "FullyQualifiedName~<Class>.<Method>"`; use `=` with the full name when another test name contains it) and keep the cache `read-write`, the local default, and outside `cache.strict`, which never writes. With `CI` set, an unset mode is `read-only`. A failed run keeps the recordings a check confirmed before the failure, and the next run replays those goals without model calls, as long as each replay still matches the screen.
 
 1. Set `actionTimeout` to `5000` while you iterate, so a wrong locator fails after 5 s instead of 30 s.
 2. Don't rename the test or its class, or reword a goal that passes. Each causes a miss: a rename for every goal in the test, a reworded goal for itself.
-3. Take `[Retry]` off the test. A retry doesn't replay, so it runs every goal live.
+3. Take NUnit `[Retry]` off the test (xUnit v3 has none). Only the first attempt replays outside `cache.strict`, so a retry runs every goal live.
 4. When the test passes, run it one time with `"cache": { "mode": "off" }`. Every goal runs live, which shows the agent still reaches it without a recording.
 
 Each secret reads `E2E_SECRET_<NAME>` first, then the config value. `null` means the variable is required. A test gets one with `Secrets.Get("stripe-key")`. Secret values passed to an act never enter cache entries: a name or test id that shows one is stored as `<secret:name>`.
