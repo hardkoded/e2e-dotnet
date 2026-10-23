@@ -21,6 +21,12 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// <summary>How far each look of the step settled, in order.</summary>
     public List<SettleMode> Looks { get; } = [];
 
+    /// <summary>Whether any semantic observation in this step stopped at a capture or byte limit.</summary>
+    private bool _observationTruncated;
+
+    /// <summary>The step's observation record for the report (upstream's <c>reportDetails</c>).</summary>
+    public StepAgentDetails ReportDetails() => new() { ObservationTruncated = _observationTruncated ? true : null };
+
     /// <summary>The newest observation of the step, if any was captured.</summary>
     public Observation? Latest { get; private set; }
 
@@ -40,7 +46,17 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         (Scope?.Debug ?? DebugTrace.Off).Time(Phases.Observe, () => LookAsync(mode, token));
 
     // The engine's look, shown to the attempt's trace when the feed belongs to an attempt.
-    private Task<Observation> SeeAsync(CancellationToken token) => Scope is { } scope ? scope.ObserveAsync(token) : session.ObserveAsync(token);
+    // A settled look takes several; a truncated one among them marks the step even when the last one is whole.
+    private async Task<Observation> SeeAsync(CancellationToken token)
+    {
+        var observation = await (Scope is { } scope ? scope.ObserveAsync(token) : session.ObserveAsync(token)).ConfigureAwait(false);
+        if (observation.Truncated)
+        {
+            _observationTruncated = true;
+        }
+
+        return observation;
+    }
 
     private async Task<Observation> LookAsync(SettleMode mode, CancellationToken token)
     {
@@ -74,6 +90,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         }
 
         Latest = observation;
+
         foreach (var node in LocatorResolver.Walk(observation.Roots))
         {
             _seen[node.Ref] = node;
