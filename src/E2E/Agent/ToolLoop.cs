@@ -347,7 +347,8 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
     // The history without it carries forward, so the next turn compares against what was sent.
     private static List<ModelMessage> SentHistory(IAgentModel model, List<ModelMessage> messages, ref string[]? lastShape, TurnLog turns)
     {
-        if (FirstRewritten(messages, lastShape) is { } rewritten)
+        var shape = Shapes(messages);
+        if (FirstRewritten(shape, lastShape) is { } rewritten)
         {
             var rebound = ProviderHints.For(model).AfterEdit(messages, rewritten);
             if (!ReferenceEquals(rebound, messages))
@@ -356,26 +357,29 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 var next = rebound.ToList();
                 messages.Clear();
                 messages.AddRange(next);
+                shape = Shapes(messages);
             }
         }
 
-        lastShape = [.. messages.Select(MessageShape.ShapeOf)];
+        lastShape = shape;
         return messages;
     }
 
-    // The index of the first message whose content is not what the last request sent at that position, if any. The comparison is
+    private static string[] Shapes(List<ModelMessage> messages) => [.. messages.Select(MessageShape.ShapeOf)];
+
+    // The index of the first message whose digest is not what the last request sent at that position, if any. The comparison is
     // by value, against a digest kept from the last request: an executor that edits a message through an object it was
     // handed (the bytes of an image) leaves it in both histories, and one that clones the history changes no message at all.
-    private static int? FirstRewritten(IReadOnlyList<ModelMessage> messages, string[]? last)
+    private static int? FirstRewritten(string[] shape, string[]? last)
     {
         if (last is null)
         {
             return null;
         }
 
-        for (var position = 0; position < messages.Count && position < last.Length; position++)
+        for (var position = 0; position < shape.Length && position < last.Length; position++)
         {
-            if (!string.Equals(MessageShape.ShapeOf(messages[position]), last[position], StringComparison.Ordinal))
+            if (!string.Equals(shape[position], last[position], StringComparison.Ordinal))
             {
                 return position;
             }
