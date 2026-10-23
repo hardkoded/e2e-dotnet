@@ -169,13 +169,19 @@ internal static class AgentTools
         return tools;
     }
 
+    /// <summary>Where the session tools are added, as <see cref="HarnessToolNames"/> says it. Upstream's <c>MCP_SESSION_SURFACE</c>.</summary>
+    public const string McpSessionSurface = "an e2e mcp session";
+
     /// <summary>
-    /// The tools the harness adds beside the grammar, each where it adds them: <c>report_finding</c> under <c>e2e explore</c>. A
-    /// project tool named like one would be replaced there, so the name is refused. Upstream's <c>HARNESS_TOOL_NAMES</c>; the
-    /// port's other harness tool, <c>done</c>, is reserved with the grammar's names.
+    /// The tools the harness adds beside the grammar, each where it adds them: <c>locate</c> and <c>test_lines</c> in an <c>e2e mcp</c>
+    /// session, and <c>report_finding</c> under <c>e2e explore</c>. A project tool named like one would be replaced there, so the name
+    /// is refused. Upstream's <c>HARNESS_TOOL_NAMES</c>; the port's other harness tool, <c>done</c>, is reserved with the grammar's
+    /// names.
     /// </summary>
     public static readonly IReadOnlyDictionary<string, string> HarnessToolNames = new Dictionary<string, string>(StringComparer.Ordinal)
     {
+        ["locate"] = McpSessionSurface,
+        ["test_lines"] = McpSessionSurface,
         [ExploreExecutor.FindingToolName] = "e2e explore",
     };
 

@@ -27,7 +27,7 @@ internal interface ISessionContext
 /// The catalog of a live session: every tool <c>call</c> can run. <c>observe</c> shows the whole screen, the
 /// grammar is what the target's engine honors, <c>screenshot</c> answers <c>PIXEL_TAINTED</c> once a secret has
 /// been filled, <c>type_secret</c> exists when the config declares a secret, and <c>locate</c> tries a semantic
-/// locator the way a test would. The verbs run through the testing agent's own tool executor, so a coding agent
+/// locator the way a test would. <c>test_lines</c> returns the test line every action printed (<see cref="SessionTestLines"/>). The verbs run through the testing agent's own tool executor, so a coding agent
 /// acts exactly as the model of an <c>act</c> does.
 /// </summary>
 internal sealed class SessionCatalog
@@ -35,11 +35,15 @@ internal sealed class SessionCatalog
     /// <summary>How many matching nodes <c>locate</c> describes.</summary>
     private const int MaxLocateNodes = 10;
 
-    private SessionCatalog(IReadOnlyList<KeyValuePair<string, CatalogTool>> entries, IReadOnlySet<string> readOnly)
+    private SessionCatalog(IReadOnlyList<KeyValuePair<string, CatalogTool>> entries, IReadOnlySet<string> readOnly, SessionTestLines lines)
     {
         Entries = entries;
         ReadOnly = readOnly;
+        Lines = lines;
     }
+
+    /// <summary>The test lines the session's actions printed.</summary>
+    public SessionTestLines Lines { get; }
 
     /// <summary>Every tool <c>call</c> can run, in the order <c>tools</c> lists them.</summary>
     public IReadOnlyList<KeyValuePair<string, CatalogTool>> Entries { get; }
@@ -54,11 +58,20 @@ internal sealed class SessionCatalog
     public CatalogTool? Find(string name) => Entries.FirstOrDefault(pair => pair.Key == name).Value;
 
     /// <summary>Builds the catalog from what the session's engine declares and the secrets the config holds.</summary>
-    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, bool hasSecrets)
+    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, bool hasSecrets, AppBase? appBase = null, TestLineFills? fills = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         var tools = new List<KeyValuePair<string, CatalogTool>>();
-        void Add(string name, CatalogTool tool) => tools.Add(new(name, tool));
+        var lines = new SessionTestLines(new TestLineOptions
+        {
+            Query = LocateQuery,
+            Newest = () => context.Session.Agent.Feed.Latest,
+            Resolve = async (expression, token) => LocatorResolver.Resolve(await context.Session.Engine.ObserveAsync(token).ConfigureAwait(false), expression),
+            Redact = context.Session.Redactor.Redact,
+            AppBase = appBase,
+            Fills = fills,
+        });
+        void Add(string name, CatalogTool tool) => tools.Add(new(name, lines.Wrap(name, tool)));
 
         Add("observe", Observe(context));
         var holdable = capabilities.HasFlag(EngineCapabilities.TapModifiers) ? new (string Name, JsonNode Schema, bool Required)[] { ("modifiers", AgentTools.ModifiersSchema(), false) } : [];
@@ -98,7 +111,8 @@ internal sealed class SessionCatalog
         }
 
         Add("locate", Locate(context));
-        return new SessionCatalog(tools, new HashSet<string>(["observe", "locate", "screenshot"], StringComparer.Ordinal));
+        Add("test_lines", lines.Tool());
+        return new SessionCatalog(tools, new HashSet<string>(["observe", "locate", "test_lines", "screenshot"], StringComparer.Ordinal), lines);
     }
 
     /// <summary>
@@ -452,7 +466,7 @@ internal sealed class SessionCatalog
         return string.Join(' ', parts);
     }
 
-    private static string Quote(string text) => JsonSerializer.Serialize(text, E2E.Cli.Mcp.Tools.Json);
+    internal static string Quote(string text) => JsonSerializer.Serialize(text, E2E.Cli.Mcp.Tools.Json);
 
     private sealed record ScreenshotOutput(byte[]? Png, string Text);
 }

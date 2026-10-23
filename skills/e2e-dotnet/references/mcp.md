@@ -15,8 +15,8 @@ leases a hosted Limrun device instead (set `LIMRUN_API_KEY`); with
 [mobile.md](mobile.md)). `open_session` leases the device, and the lease bills
 until `close_session` releases it: close sessions you no longer need. The idle
 timeout, the four-hour limit, and a server shutdown release it too. A device
-session has no `navigate` tool. The catalog is the testing agent's own actions plus `locate`
-and `screenshot`. Not ported: recording a video, the project's own tools,
+session has no `navigate` tool. The catalog is the testing agent's own actions plus `locate`,
+`test_lines`, and `screenshot`. Not ported: recording a video, the project's own tools,
 and the tap, hover, and type at a point. `e2e init` does not exist, so
 register the server yourself (below).
 
@@ -85,7 +85,9 @@ holds one topic (`e2e guide <topic>` prints the same text). An unknown topic fai
 ## The catalog
 
 `observe` shows the whole screen, one node per line with its `[ref=...]`. Every
-action returns the screen after it. What an engine lacks is missing from its
+action returns the screen after it and, after its first line, the test line
+that repeats it (`Test line: await Screen.GetByRole("button", "Save").TapAsync();`),
+or `No test line:` and why. What an engine lacks is missing from its
 catalog: `scroll` and `scroll_to` need scrolling, `back` needs history,
 `screenshot` needs the web engine, and `type_secret` appears only when the
 config declares a `secrets` entry.
@@ -103,6 +105,7 @@ config declares a `secrets` entry.
 | `back` | One step back in the history |
 | `screenshot` | The viewport as an image. After a secret was filled it answers `PIXEL_TAINTED` and attaches nothing |
 | `locate {role? name? text? label? placeholder? testId? exact?}` | Try a locator; see the loop below |
+| `test_lines` | Every test line the session's actions printed, in order, as a draft test body, starting with `await App.OpenAsync();` for the session's own opening; an action without a line shows as a `//` comment. A line's locator matched the target alone on the live screen before the action (role and name first, test id last, narrowed with `Visible = true`, a container, or `.Nth(i)` with a comment when twins share it); a fill names `Secrets.Get(name)`, never a value; a navigation on the app's origin is written as its path |
 
 A failed action is an error result that starts with the tool, the node, and
 the code: `tap n9999 failed: NOT_FOUND: ...`.
@@ -113,8 +116,10 @@ The loop is:
 
 1. `open_session`, then `call {tool: "observe"}` and act until the screen you
    want to test is in front of you. Node refs are valid only for the newest
-   observation.
-2. `call {tool: "locate", args: {...}}` for each locator you intend to write.
+   observation. Each action prints the test line that repeats it: copy it as
+   you go, or take them all from `test_lines`.
+2. `call {tool: "locate", args: {...}}` for each locator no action printed,
+   such as an assertion's target.
    One match: use the printed `Screen.GetByRole(...)` call. Zero or several:
    adjust before writing the test; the same failure would hit the test as
    `LOCATOR_NOT_FOUND` or `STRICT_MODE`. A role query's `name` matches

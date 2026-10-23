@@ -90,7 +90,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.Contains("Tools (run one with call {tool, args}; tools {tool} shows a tool's arguments):", opened.Text, StringComparison.Ordinal);
         string[] names =
         [
-            "observe", "tap", "double_tap", "type", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "screenshot", "type_secret", "locate",
+            "observe", "tap", "double_tap", "type", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "screenshot", "type_secret", "locate", "test_lines",
         ];
         Assert.Equal(names, ServedCli.CatalogNames(opened.Text));
         Assert.Contains("- tap {target, modifiers?}: Tap or click one node: the gesture for a button, link, menu item, tab, checkbox, row, or field.\n", opened.Text, StringComparison.Ordinal);
@@ -101,7 +101,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
 
         var listed = await _served.InvokeAsync("tools");
         Assert.False(listed.IsError, listed.Text);
-        Assert.Contains($"Session {sessionId} on target \"web\": 16 tools.", listed.Text, StringComparison.Ordinal);
+        Assert.Contains($"Session {sessionId} on target \"web\": 17 tools.", listed.Text, StringComparison.Ordinal);
         Assert.Equal(ServedCli.CatalogLines(opened.Text), ServedCli.CatalogLines(listed.Text));
         var detail = await _served.InvokeAsync("tools", new() { ["tool"] = "type_secret" });
         Assert.Contains("Arguments (JSON Schema):", detail.Text, StringComparison.Ordinal);
@@ -125,7 +125,9 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         var observed = await _served.CallAsync("observe");
         var tapped = await _served.CallAsync("tap", new() { ["target"] = ServedCli.RefOf(observed.Text, "button \"Increment\"") });
         Assert.False(tapped.IsError, tapped.Text);
-        Assert.StartsWith("tapped ", tapped.Text, StringComparison.Ordinal);
+
+        // An action reports what changed on screen, and the test line that repeats it, as it does upstream.
+        Assert.Matches(new Regex(@"^tapped [^\n]*\nTest line: await Screen\.GetByRole\(""button"", ""Increment""\)\.TapAsync\(\);\n", RegexOptions.None, TimeSpan.FromSeconds(5)), tapped.Text);
         var after = await _served.CallAsync("observe");
         Assert.Contains("status \"Counter\" text=\"1\"", after.Text, StringComparison.Ordinal);
 
