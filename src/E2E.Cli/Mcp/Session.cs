@@ -339,7 +339,7 @@ internal sealed class SessionHost : IDisposable
             }
 
             var live = new LiveSession(id, target.Name, configPath, headed, engine, attempt, abort);
-            live.Catalog = SessionCatalog.Create(live, engine.Capabilities, secrets.Count > 0);
+            live.Catalog = SessionCatalog.Create(live, engine.Capabilities, config.Secrets.Names.ToList(), Uri.TryCreate(target.App.Url, UriKind.Absolute, out var appBase) ? appBase : null);
             var text = OpeningText(live, target, config, await FirstScreenAsync(live, target, abort.Token).ConfigureAwait(false));
 
             // A first screen that came back despite the cancel must not become a live session nobody asked for.
@@ -434,7 +434,10 @@ internal sealed class SessionHost : IDisposable
         live.Idle = new Timer(_ => EndOnItsOwn(live, "idle for " + Math.Round(_options.Idle.TotalMinutes).ToString(CultureInfo.InvariantCulture) + " minutes"), null, _options.Idle, Timeout.InfiniteTimeSpan);
     }
 
-    /// <summary>Opens the app URL when the target declares one, then observes; a device's pinned app was launched before.</summary>
+    /// <summary>
+    /// Opens the app URL when the target declares one, then observes; a device's pinned app was launched before. Either opening
+    /// is the test's <c>App.OpenAsync()</c>, the session's first test line.
+    /// </summary>
     private static async Task<string> FirstScreenAsync(LiveSession live, TargetConfig target, CancellationToken token)
     {
         var agent = live.Session.Agent;
@@ -448,11 +451,20 @@ internal sealed class SessionHost : IDisposable
                 {
                     opening = "Opening " + target.App.Url + " failed: " + navigated.Content + "\nUse navigate once the app is reachable.\n";
                 }
+                else
+                {
+                    live.Catalog.Lines.Opened();
+                }
             }
             catch (E2EException cause)
             {
                 opening = "Opening " + target.App.Url + " failed: " + Tools.CodedMessage(cause) + "\nUse navigate once the app is reachable.\n";
             }
+        }
+
+        else if (TargetEngines.LaunchesPinnedApp(target, live.Engine))
+        {
+            live.Catalog.Lines.Opened();
         }
 
         var observed = await agent.RunToolAsync("observe", Parse("{}"), token).ConfigureAwait(false);
@@ -484,7 +496,7 @@ internal sealed class SessionHost : IDisposable
         lines.Add("Pass session \"" + live.Id + "\" to every tools, call, and close_session; with several sessions open, a call without it fails.");
         lines.Add("Tools (run one with call {tool, args}; tools {tool} shows a tool's arguments):");
         lines.AddRange(CatalogLines(live));
-        lines.Add("Node refs (ref=...) are valid only for the newest observation; every action shows the screen after it, and observe shows the whole screen. Call close_session when you are done.");
+        lines.Add("Node refs (ref=...) are valid only for the newest observation; every action shows the screen after it and the test line that repeats it (test_lines returns them all), and observe shows the whole screen. Call close_session when you are done.");
         return string.Join('\n', lines) + "\n\n" + screen;
     }
 
@@ -557,7 +569,7 @@ internal sealed class SessionHost : IDisposable
         return new McpToolSpec
         {
             Name = "tools",
-            Description = "List the tools a session can run through call: observe, the grammar its engine honors (one tool per action the engine declares, type_secret when a secret is configured, and screenshot, which answers PIXEL_TAINTED once a secret has been filled), and locate. With tool, shows that tool's full description and the JSON Schema of its arguments.",
+            Description = "List the tools a session can run through call: observe, the grammar its engine honors (one tool per action the engine declares, type_secret when a secret is configured, and screenshot, which answers PIXEL_TAINTED once a secret has been filled), locate, and test_lines (the test line each action printed, as a draft test body). With tool, shows that tool's full description and the JSON Schema of its arguments.",
             InputSchema = CatalogSchema,
             ReadOnly = true,
             Call = (args, _) => Task.FromResult(Tools.TextResult(Catalog(String(args, "session"), String(args, "tool")))),
@@ -569,7 +581,7 @@ internal sealed class SessionHost : IDisposable
         return new McpToolSpec
         {
             Name = "call",
-            Description = "Run one tool of a session by name, with its arguments as an object: call {tool: \"tap\", args: {target: \"n42\"}, session: \"<id>\"}. The session's catalog (from open_session or tools) names the tools and their arguments. Actions report what changed on screen; node ids are valid only for the newest observation.",
+            Description = "Run one tool of a session by name, with its arguments as an object: call {tool: \"tap\", args: {target: \"n42\"}, session: \"<id>\"}. The session's catalog (from open_session or tools) names the tools and their arguments. Actions report the screen after them and the test line that repeats them; node ids are valid only for the newest observation.",
             InputSchema = CallSchema,
             ReadOnly = false,
             Call = (args, token) => CallAsync(String(args, "session"), String(args, "tool")!, args.TryGetProperty("args", out var given) ? given : null, token),

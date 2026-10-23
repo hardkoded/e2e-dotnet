@@ -69,7 +69,8 @@ public sealed class BillingTests : E2ETest
    `E2E.NUnit` or `E2E.XUnit.V3`. Nothing there: follow `setup`.
 2. Learn the screens before writing a test: routes, labels, roles, button
    text. Semantic locators need the accessible names the app renders, so read
-   the components or watch a run with `E2E_HEADLESS=0`.
+   the components or watch a run with `E2E_HEADLESS=0`. Over a connected `e2e mcp`
+   server (topic `mcp`), each action prints the test line that repeats it.
 3. Write an `E2ETest` class. Drive the flow with `Agent.ActAsync`, one
    atomic goal per call, and pin each outcome right after with `Expect.That`
    or `Agent.AssertAsync`. A test with three goals makes three calls.
