@@ -88,6 +88,7 @@ public sealed class E2EMcpTestLinesTests : IAsyncLifetime
         var drafted = await _cli.CallAsync("test_lines");
         Assert.False(drafted.IsError, drafted.Text);
         Assert.DoesNotContain(Password, drafted.Text, StringComparison.Ordinal);
+        Assert.Contains("Paste it into a test method, and add an Expect after each step that should change the screen.", drafted.Text, StringComparison.Ordinal);
         string[] body = [.. drafted.Text.Split('\n').Where(line => line.StartsWith("await ", StringComparison.Ordinal) || line.StartsWith("// ", StringComparison.Ordinal))];
         Assert.Equal(["await App.OpenAsync();", "await App.OpenAsync(\"/test-lines\");", .. steps.Select(step => step.Line)], body);
         await _cli.InvokeAsync("close_session");
