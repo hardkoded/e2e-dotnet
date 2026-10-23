@@ -78,6 +78,11 @@ Pick the model in `agents.<name>.provider` and `model`:
   refused. The step then fails with `MODEL_UNAVAILABLE` naming the model. Pick
   another id or an API provider.
 - A Claude Pro or Max plan cannot serve the agent. Use Copilot or an API key.
+- Claude Opus 5.5, Sonnet 5.5, and Fable 5.1 bind each thinking block to the
+  system prompt and the messages before it, and reject a request that replays
+  the block after either changed. An agent step keeps its prompt fixed, and once
+  it elides a superseded screen from an earlier message it stops sending the
+  thinking from that message on.
 - Logins live in `~/.config/e2e/oauth.json`, the file upstream's
   `npx e2e login` writes, so a login made with either tool serves both.
 - A cancelled model call stops waiting for a token refresh. The refresh keeps

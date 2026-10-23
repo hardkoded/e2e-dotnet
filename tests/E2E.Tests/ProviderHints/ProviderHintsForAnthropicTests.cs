@@ -60,4 +60,35 @@ public sealed class ProviderHintsForAnthropicTests
         Assert.Equal("ephemeral", messages[2]!["content"]![0]!["cache_control"]!["type"]!.GetValue<string>());
         Assert.Single(messages.SelectMany(message => message!["content"]!.AsArray()), block => block!["cache_control"] is not null);
     }
+
+    /// <summary>
+    /// Partial port of "recognizes Claude on %j, where the same check runs": the port has no provider name beside a model id,
+    /// so the Vertex AI row is the Anthropic client itself, and OpenRouter and Bedrock are read by the model id.
+    /// </summary>
+    [Theory]
+    [InlineData("eu.anthropic.claude-sonnet-4-6")]
+    [InlineData("anthropic.claude-opus-5-5")]
+    [InlineData("anthropic/claude-sonnet-5-5")]
+    public void Recognizes_Claude_by_the_model_id_where_the_same_check_runs(string modelId)
+    {
+        var platform = global::E2E.ProviderHints.For(new NamedModel(modelId));
+        var history = new List<ModelMessage>
+        {
+            new() { Role = "user", Content = "step" },
+            new() { Role = "assistant", Content = "ok", ReasoningItems = [JsonDocument.Parse("\"\"").RootElement.Clone()] },
+        };
+
+        var after = platform.AfterEdit(history, 0);
+
+        Assert.Same(history[0], after[0]);
+        Assert.Null(after[1].ReasoningItems);
+        Assert.Equal("ok", after[1].Content);
+    }
+
+    private sealed class NamedModel(string name) : IAgentModel
+    {
+        public string Name => name;
+
+        public Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
 }

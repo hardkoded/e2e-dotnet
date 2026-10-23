@@ -149,7 +149,7 @@ public sealed record PreparedTurn(int StepNumber, IReadOnlyList<string> Previous
 /// </summary>
 public sealed record PreparedMessages(IReadOnlyList<ModelMessage> Messages, string? Stop = null)
 {
-    public static implicit operator PreparedMessages(List<ModelMessage> messages) => new(messages);
+    public static implicit operator PreparedMessages(List<ModelMessage> messages) => new((IReadOnlyList<ModelMessage>)messages);
 }
 
 internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepExecutor
@@ -192,6 +192,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         var stopped = false;
         string? noticed = null;
         var shrunkOnce = false;
+        string[]? lastShape = null;
         IReadOnlyList<string> previous = [];
         for (var call = 0; call < maxCalls; call++)
         {
@@ -232,7 +233,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             ModelResponse response;
             try
             {
-                response = await CompleteAsync(model, system, messages, offered, context, redactor, token).ConfigureAwait(false);
+                response = await CompleteAsync(model, system, SentHistory(model, messages, ref lastShape, turns), offered, context, redactor, token).ConfigureAwait(false);
             }
             catch (AgentException overflow) when (string.Equals(overflow.Code, "CONTEXT_OVERFLOW", StringComparison.Ordinal))
             {
@@ -257,7 +258,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 messages.AddRange(shrunk);
                 try
                 {
-                    response = await CompleteAsync(model, system, messages, offered, context, redactor, token).ConfigureAwait(false);
+                    response = await CompleteAsync(model, system, SentHistory(model, messages, ref lastShape, turns), offered, context, redactor, token).ConfigureAwait(false);
                 }
                 catch (AgentException again) when (string.Equals(again.Code, "CONTEXT_OVERFLOW", StringComparison.Ordinal))
                 {
@@ -339,6 +340,48 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
     {
         var system = options.System?.Invoke(context) ?? "";
         return string.IsNullOrWhiteSpace(context.AgentContext) ? system : system + (system.Length == 0 ? "" : "\n\n") + "Project context:\n" + context.AgentContext;
+    }
+
+    // A message rewritten since the last request (a superseded screen elided, a history shrunk) edits the prefix a provider may
+    // have bound the reasoning after it to: where it does, that reasoning is not sent again, and the step's transcript says so.
+    // The history without it carries forward, so the next turn compares against what was sent.
+    private static List<ModelMessage> SentHistory(IAgentModel model, List<ModelMessage> messages, ref string[]? lastShape, TurnLog turns)
+    {
+        if (FirstRewritten(messages, lastShape) is { } rewritten)
+        {
+            var rebound = ProviderHints.For(model).AfterEdit(messages, rewritten);
+            if (!ReferenceEquals(rebound, messages))
+            {
+                turns.Note("before turn " + turns.Next.ToString(CultureInfo.InvariantCulture) + ": message " + (rewritten + 1).ToString(CultureInfo.InvariantCulture) + " was rewritten, so the reasoning after it is not sent again");
+                var next = rebound.ToList();
+                messages.Clear();
+                messages.AddRange(next);
+            }
+        }
+
+        lastShape = [.. messages.Select(MessageShape.ShapeOf)];
+        return messages;
+    }
+
+    // The index of the first message whose content is not what the last request sent at that position, if any. The comparison is
+    // by value, against a digest kept from the last request: an executor that edits a message through an object it was
+    // handed (the bytes of an image) leaves it in both histories, and one that clones the history changes no message at all.
+    private static int? FirstRewritten(IReadOnlyList<ModelMessage> messages, string[]? last)
+    {
+        if (last is null)
+        {
+            return null;
+        }
+
+        for (var position = 0; position < messages.Count && position < last.Length; position++)
+        {
+            if (!string.Equals(MessageShape.ShapeOf(messages[position]), last[position], StringComparison.Ordinal))
+            {
+                return position;
+            }
+        }
+
+        return null;
     }
 
     // One model turn. A request the model refused outright was no turn, and a timeout or a cancel ends the loop like any hard stop.

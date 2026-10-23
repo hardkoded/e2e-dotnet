@@ -7,7 +7,7 @@ using static E2E.Tests.ProviderHints.HintedBodies;
 
 namespace E2E.Tests.ProviderHints;
 
-/// <summary>"does not touch the messages" is not ported: the OpenAI-shaped clients have no message-level hints to leave alone.</summary>
+/// <summary>"does not touch the messages, after an edit included" is ported as the hints of the model, which leave the history alone: the OpenAI-shaped clients have no message-level hints of their own.</summary>
 public sealed class ProviderHintsForOpenAiShapedProvidersTests
 {
     private static OpenAiCompatibleModelOptions Gateway() => new() { Model = "openai/gpt-5.6-luna-fast", Provider = "gateway", ApiKey = "k" };
@@ -47,5 +47,18 @@ public sealed class ProviderHintsForOpenAiShapedProvidersTests
         Assert.Equal((ModelHttp.PromptCacheKey("rules"), false), (direct["prompt_cache_key"]!.GetValue<string>(), direct["store"]!.GetValue<bool>()));
         Assert.Equal((ModelHttp.PromptCacheKey("rules"), false, "flex"), (azure["prompt_cache_key"]!.GetValue<string>(), azure["store"]!.GetValue<bool>(), azure["service_tier"]!.GetValue<string>()));
         Assert.Equal("rules", azure["instructions"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Does_not_touch_the_messages_after_an_edit_included_OpenAI_binds_no_reasoning_to_the_prefix()
+    {
+        var hints = global::E2E.ProviderHints.For(new OpenAiResponsesModel(new OpenAiResponsesModelOptions { Model = "gpt-4o", ApiKey = "k" }, new HttpClient()));
+        List<ModelMessage> messages =
+        [
+            new() { Role = "user", Content = "step" },
+            new() { Role = "assistant", Content = "ok", ReasoningItems = [System.Text.Json.JsonDocument.Parse("""{ "type": "reasoning" }""").RootElement.Clone()] },
+        ];
+
+        Assert.Same(messages, hints.AfterEdit(messages, 0));
     }
 }
