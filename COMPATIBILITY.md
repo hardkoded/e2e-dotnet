@@ -215,6 +215,10 @@ A config that selects a decision model or smol cannot be written in `e2e.config.
 - The test runner prints the exception, not upstream's failure block, so the port has no `❯ at`, `❯ on screen`, or `❯ trace` lines. The skill points to the exception's `Code`, message, and `Details`, and to the trace page's `## Screen at failure` (its URL and `Closest to what the locator asked for`). The trace page, `## Screen at failure`, and `screen-at-failure.txt` exist as upstream.
 - `Expect.Soft`, `Values.Unique`, `App.OpenAsync`, and `Device.OpenLinkAsync` stand in for `expect.soft`, `unique`, `app.open`, and `device.openLink`. In CI the cache is `read-only` unless the config sets a mode (`E2EConfig`), where upstream's default records nothing there. Upstream's `core-concepts.mdx` and `coding-agents.mdx` have no counterpart.
 
+## Skill text: off-site iframes (not ported)
+
+Upstream's `4982d8d` (#1333) documents that the browser engine's semantic tree leaves out the content of a frame from another site, so agent steps there need `browser.frameLocator` and `vision`, and an `agent.act` whose only change is in that frame records no replay. The port does not take the text, because the behavior does not exist here: the web engine reads every iframe's document through Playwright, same-origin or cross-origin, and puts it under the iframe node (see Web engine), so the agent sees and acts on that content. The port has no `frameLocator`. The changes to `skills/e2e-dotnet/references/{agent,debugging,writing-tests}.md` and `docs/` are skipped for that reason.
+
 ## Verification skill
 
 `skills/create-verification-skill/` ports upstream's skill of the same name (commit `d85702a2`, `feat(skills): create-verification-skill generates a verify-<app> skill on e2e (#981)`). Like upstream, it is not bundled in `E2E.Cli` and `e2e guide` does not read it; install it with `npx skills add hardkoded/e2e-dotnet --skill create-verification-skill`. Differences:
