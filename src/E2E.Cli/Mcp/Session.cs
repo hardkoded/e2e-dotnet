@@ -294,7 +294,7 @@ internal sealed class SessionHost : IDisposable
         _secrets.Add(_options.Credentials());
         var target = ResolveTarget(config, options.Target);
         var abort = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token, request);
-        E2ESession? session = null;
+        StandaloneAttempt? attempt = null;
         try
         {
             abort.Token.ThrowIfCancellationRequested();
@@ -304,7 +304,7 @@ internal sealed class SessionHost : IDisposable
                 _sessions.ClaimEngine(id, target.Name);
             }
 
-            session = await E2ESession.StartAsync(
+            attempt = await Standalone.OpenAttemptAsync(
                 new E2ESessionOptions
                 {
                     Engine = engine,
@@ -325,6 +325,7 @@ internal sealed class SessionHost : IDisposable
                     Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
                 },
                 abort.Token).ConfigureAwait(false);
+            var session = attempt.Session;
 
             // Every configured secret is a step secret: type_secret can fill it, and every output shows its name.
             session.Remember(secrets);
@@ -337,7 +338,7 @@ internal sealed class SessionHost : IDisposable
                 await session.App.OpenAsync(null, abort.Token).ConfigureAwait(false);
             }
 
-            var live = new LiveSession(id, target.Name, configPath, headed, engine, session, abort);
+            var live = new LiveSession(id, target.Name, configPath, headed, engine, attempt, abort);
             live.Catalog = SessionCatalog.Create(live, engine.Capabilities, config.Secrets.Names.ToList(), Uri.TryCreate(target.App.Url, UriKind.Absolute, out var appBase) ? appBase : null);
             var text = OpeningText(live, target, config, await FirstScreenAsync(live, target, abort.Token).ConfigureAwait(false));
 
@@ -350,9 +351,9 @@ internal sealed class SessionHost : IDisposable
         }
         catch (Exception cause)
         {
-            if (session is not null)
+            if (attempt is not null)
             {
-                await DisposeQuietlyAsync(session, failure => Log("warning", "closing the session that failed to open also failed: " + failure)).ConfigureAwait(false);
+                await DisposeQuietlyAsync(attempt, failure => Log("warning", "closing the session that failed to open also failed: " + failure)).ConfigureAwait(false);
             }
 
             var cancelled = abort.IsCancellationRequested;
@@ -375,7 +376,7 @@ internal sealed class SessionHost : IDisposable
         try
         {
             live.Session.Complete();
-            await live.Session.DisposeAsync().ConfigureAwait(false);
+            await live.Attempt.DisposeAsync().ConfigureAwait(false);
         }
 #pragma warning disable CA1031 // A failed cleanup is reported to the agent, never thrown past the close.
         catch (Exception cause)
@@ -390,12 +391,12 @@ internal sealed class SessionHost : IDisposable
         return live.Session.Redactor.Redact(_secrets.Redact(string.Join('\n', lines)));
     }
 
-    private static async Task DisposeQuietlyAsync(E2ESession session, Action<string> failed)
+    private static async Task DisposeQuietlyAsync(StandaloneAttempt attempt, Action<string> failed)
     {
         try
         {
-            session.Complete();
-            await session.DisposeAsync().ConfigureAwait(false);
+            attempt.Session.Complete();
+            await attempt.DisposeAsync().ConfigureAwait(false);
         }
 #pragma warning disable CA1031 // The open already failed; its own error is the one to report, and this one goes to the log: a hosted device may still be billing.
         catch (Exception cause)
@@ -600,7 +601,7 @@ internal sealed class SessionHost : IDisposable
     }
 
     /// <summary>One open session: its attempt, its catalog, and the timers that end it.</summary>
-    private sealed class LiveSession(string id, string targetName, string configPath, bool headed, IEngine engine, E2ESession session, CancellationTokenSource abort)
+    private sealed class LiveSession(string id, string targetName, string configPath, bool headed, IEngine engine, StandaloneAttempt attempt, CancellationTokenSource abort)
         : INamedSession, ISessionContext
     {
         public string Id { get; } = id;
@@ -613,7 +614,9 @@ internal sealed class SessionHost : IDisposable
 
         public IEngine Engine { get; } = engine;
 
-        public E2ESession Session { get; } = session;
+        public StandaloneAttempt Attempt { get; } = attempt;
+
+        public E2ESession Session => Attempt.Session;
 
         /// <summary>Cancels the call in flight, and the attempt, when the session closes.</summary>
         public CancellationTokenSource Abort { get; } = abort;

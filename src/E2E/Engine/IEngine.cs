@@ -59,8 +59,9 @@ public sealed class EngineStartOptions
     public string? AttemptId { get; init; }
 
     /// <summary>
-    /// The run's environment: where a hosted service's provider reads its token from. Only an engine that starts without
-    /// a runner reads it, to prepare the run of its one attempt; it defaults to the process environment.
+    /// The run's environment: where a hosted service's provider reads its token from, with what the engine's prepare left in it.
+    /// An engine that leases for the one attempt it starts, as <see cref="WebEngine"/> does, reads it to prepare that run; it defaults
+    /// to the process environment.
     /// </summary>
     public IReadOnlyDictionary<string, string?>? Env { get; init; }
 
@@ -214,6 +215,9 @@ public sealed record EnginePrepareInfo
 
     public required IReadOnlyDictionary<string, string?> Env { get; init; }
 
+    /// <summary>The directory where an engine resolves a relative option. Null leaves it to the working directory. Upstream's <c>projectRoot</c>.</summary>
+    public string? ProjectRoot { get; init; }
+
     /// <summary>Reports one line of progress to the run's reporter.</summary>
     public required Action<string> Log { get; init; }
 }
@@ -238,6 +242,9 @@ public sealed record EngineFinishInfo
     public required IReadOnlyDictionary<string, string?> Env { get; init; }
 
     public required Action<string> Log { get; init; }
+
+    /// <summary>How long finish may take before the run gives up on it. Upstream's <c>timeoutMs</c>.</summary>
+    public TimeSpan CleanupTimeout { get; init; } = E2EDefaults.CleanupTimeout;
 }
 
 /// <summary>What a worker's init is given, once per worker, before its first attempt. Upstream's <c>EngineInitInfo</c>.</summary>

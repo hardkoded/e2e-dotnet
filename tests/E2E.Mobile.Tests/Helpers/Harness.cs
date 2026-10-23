@@ -51,7 +51,7 @@ internal sealed class Harness
     public MobileApp App { get; }
 
     /// <summary>An engine over the scripted client. Unpinned leaves the target's bundle id out.</summary>
-    public static Harness Create(Func<MobileOptions, MobileOptions>? configure = null, bool pinned = true, Func<MobileApp, MobileApp>? app = null, TimeSpan? cleanup = null)
+    public static Harness Create(Func<MobileOptions, MobileOptions>? configure = null, bool pinned = true, Func<MobileApp, MobileApp>? app = null)
     {
         var fake = new FakeDeviceClient();
         fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
@@ -88,7 +88,6 @@ internal sealed class Harness
                 return token.IsCancellationRequested ? Task.FromCanceled(token) : Task.CompletedTask;
             },
             Clock = clock,
-            CleanupTimeout = cleanup ?? E2EDefaults.CleanupTimeout,
         };
         return new Harness(engine, fake, sessions, connections, delays, options.App, clock, hook);
     }
