@@ -35,6 +35,9 @@ internal sealed class SessionCatalog
     /// <summary>How many matching nodes <c>locate</c> describes.</summary>
     private const int MaxLocateNodes = 10;
 
+    /// <summary>How long an engine may spend on the one resolve behind a test line.</summary>
+    private static readonly TimeSpan LineLocateBudget = TimeSpan.FromSeconds(2);
+
     private SessionCatalog(IReadOnlyList<KeyValuePair<string, CatalogTool>> entries, IReadOnlySet<string> readOnly, SessionTestLines lines)
     {
         Entries = entries;
@@ -66,7 +69,7 @@ internal sealed class SessionCatalog
         {
             Query = LocateQuery,
             Newest = () => context.Session.Agent.Feed.Latest,
-            Resolve = async (expression, token) => LocatorResolver.Resolve(await context.Session.Engine.ObserveAsync(token).ConfigureAwait(false), expression),
+            Resolve = (expression, token) => ResolveForLine(context.Session.Engine, expression, token),
             Redact = context.Session.Redactor.Redact,
             AppBase = appBase,
             Fills = fills,
@@ -416,6 +419,15 @@ internal sealed class SessionCatalog
             },
         };
     }
+
+    /// <summary>
+    /// The nodes a locator matches now. An engine that locates binds only the matches, so the observation's ids stay valid for the
+    /// action about to run; a plain observe would renew them, and a device would then refuse the agent's id as stale.
+    /// </summary>
+    private static async Task<IReadOnlyList<SemanticNode>> ResolveForLine(IEngineSession engine, LocatorExpression expression, CancellationToken token) =>
+        engine.CanLocate
+            ? await engine.LocateAsync(expression, LineLocateBudget, token).ConfigureAwait(false)
+            : LocatorResolver.Resolve(await engine.ObserveAsync(token).ConfigureAwait(false), expression);
 
     private static string? Text(JsonElement args, string name) => args.TryGetProperty(name, out var value) ? value.GetString() : null;
 

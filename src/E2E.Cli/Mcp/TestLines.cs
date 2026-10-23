@@ -181,7 +181,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
         catch (Exception cause) when (cause is not OperationCanceledException)
 #pragma warning restore CA1031
         {
-            return LinePlan.None("trying its locator failed: " + Tools.CodedMessage(cause));
+            return LinePlan.None("trying its locator failed: " + TextRules.Collapse(Tools.CodedMessage(cause)));
         }
     }
 
@@ -623,7 +623,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
     private static LocateQuery? VisibleOnly(LocateQuery located)
     {
         var expression = located.Query;
-        if (expression.Kind is "filter" or "index" || expression.Parent is not null || located.Code.Contains("new ", StringComparison.Ordinal) || located.Code.Contains("exact:", StringComparison.Ordinal))
+        if (expression.Kind is "filter" or "index" || expression.Parent is not null || expression.Visible || !expression.Exact)
         {
             return null;
         }

@@ -9,7 +9,8 @@ namespace E2E.Cli.Tests.McpTestLines;
 /// <summary>
 /// Test lines end to end: the built <c>e2e mcp</c> server on a fixture page, driven by a real MCP client. Every action answers with the line that
 /// repeats it, a password by its secret and never its value, a button repeated per row scoped under its row, twins in plain divs by their order, a
-/// shadow root's twin by the box it never left, and an icon button by its test id; <c>test_lines</c> returns them in order.
+/// shadow root's twin by the box it never left, and an icon button by its test id; <c>test_lines</c> returns them in order. Partial: upstream also
+/// replays the draft in a run and checks it passes, and the port has no runner for a pasted draft, so this checks the final page and the draft text.
 /// </summary>
 public sealed class E2EMcpTestLinesTests : IClassFixture<E2EMcpTestLinesTests.Served>
 {
@@ -23,7 +24,7 @@ public sealed class E2EMcpTestLinesTests : IClassFixture<E2EMcpTestLinesTests.Se
     }
 
     [Fact]
-    public async Task Answers_each_action_with_its_test_line_and_the_drafted_lines_come_back_in_order()
+    public async Task Partial_Answers_each_action_with_its_test_line_and_the_drafted_lines_come_back_in_order()
     {
         var opened = await _served.InvokeAsync("open_session");
         Assert.False(opened.IsError, opened.Text);

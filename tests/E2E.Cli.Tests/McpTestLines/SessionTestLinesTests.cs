@@ -35,6 +35,11 @@ public sealed class SessionTestLinesTests
                 Resolve = (expression, _) =>
                 {
                     Interlocked.Increment(ref _resolves);
+                    if (ResolveFailure is { } failure)
+                    {
+                        throw failure;
+                    }
+
                     return Task.FromResult<IReadOnlyList<SemanticNode>>([.. matches.GetValueOrDefault(expression.Describe(), []).Select(node => node.Read())]);
                 },
                 Redact = text => text.Replace("sk-live-0000", "<secret:apiKey>", StringComparison.Ordinal),
@@ -55,6 +60,9 @@ public sealed class SessionTestLinesTests
         }
 
         public SessionTestLines Lines { get; }
+
+        /// <summary>When set, every locator the session tries on the live screen fails with it.</summary>
+        public Exception? ResolveFailure { get; set; }
 
         /// <summary>How many locators the session tried on the live screen.</summary>
         public int Resolves => Volatile.Read(ref _resolves);
@@ -149,6 +157,30 @@ public sealed class SessionTestLinesTests
         Assert.Equal(
             "Test line: await Screen.GetByText(\"Sale\", new TextMatchOptions { Visible = true }).TapAsync();",
             NoteOf(await session.RunAsync("tap", new() { ["target"] = "n6" })));
+    }
+
+    [Fact]
+    public async Task Narrows_twins_whose_name_reads_like_an_option_to_the_nodes_that_render()
+    {
+        var hidden = new FakeNode("n5", 500, "button", "Add new item");
+        var shown = new FakeNode("n6", 120, "button", "Add new item");
+        var session = Session([hidden, shown], new() { ["getByRole(\"button\", \"Add new item\")"] = [hidden, shown], ["getByRole(\"button\", \"Add new item\", visible: true)"] = [shown] });
+        Assert.Equal(
+            "Test line: await Screen.GetByRole(\"button\", \"Add new item\", new RoleOptions { Visible = true }).TapAsync();",
+            NoteOf(await session.RunAsync("tap", new() { ["target"] = "n6" })));
+    }
+
+    [Fact]
+    public async Task Keeps_a_multi_line_locator_failure_on_one_line_so_the_draft_stays_a_comment()
+    {
+        var session = Session([Save], new());
+        session.ResolveFailure = new InvalidOperationException("locator failed\n  - waiting for it\n  - still waiting");
+        var text = await session.RunAsync("tap", new() { ["target"] = "n2" });
+        Assert.Equal(2, text.Split('\n').TakeWhile(line => !line.StartsWith("Screen changes", StringComparison.Ordinal)).Count(line => line.Length > 0));
+        Assert.Contains("locator failed - waiting for it - still waiting", text, StringComparison.Ordinal);
+        var draft = (await session.RunAsync("test_lines", [])).Split('\n');
+        var at = Array.FindIndex(draft, line => line.StartsWith("// tap:", StringComparison.Ordinal));
+        Assert.True(at >= 0 && !draft.Skip(at + 1).Any(line => line.StartsWith("  -", StringComparison.Ordinal)), string.Join('\n', draft));
     }
 
     [Fact]
