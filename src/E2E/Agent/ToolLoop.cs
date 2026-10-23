@@ -345,12 +345,26 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
     private static string[]? Shapes(IAgentModel model, IReadOnlyList<ModelMessage> messages) =>
         ProviderHints.BindsReasoningToPrefix(model) ? [.. messages.Select(MessageShape.ShapeOf)] : null;
 
+    // Upstream's LoopRun.firstRewritten: the index of the first message whose content is not what the last request sent at that position.
+    private static int? FirstRewritten(IReadOnlyList<ModelMessage> messages, IReadOnlyList<string> last)
+    {
+        for (var position = 0; position < messages.Count && position < last.Count; position++)
+        {
+            if (MessageShape.ShapeOf(messages[position]) != last[position])
+            {
+                return position;
+            }
+        }
+
+        return null;
+    }
+
     // A message rewritten since the last request (a history shrunk, or one an executor changed) edits the prefix a provider may have
     // bound the reasoning after it to: where it does, that reasoning is not sent again, and the step's turns say so. Compared by
     // value against what the last request sent, so an executor that clones an unchanged history rewrites nothing.
     private static void DropReasoningAfterRewrite(IAgentModel model, List<ModelMessage> messages, string[]? lastShape, TurnLog turns)
     {
-        if (lastShape is null || MessageShape.FirstRewritten(messages, lastShape) is not { } index)
+        if (lastShape is null || FirstRewritten(messages, lastShape) is not { } index)
         {
             return;
         }

@@ -44,20 +44,6 @@ internal static class MessageShape
         return Convert.ToHexString(hash.GetHashAndReset());
     }
 
-    /// <summary>The index of the first message whose content is not what the last request sent at that position, if any.</summary>
-    public static int? FirstRewritten(IReadOnlyList<ModelMessage> messages, IReadOnlyList<string> last)
-    {
-        for (var position = 0; position < messages.Count && position < last.Count; position++)
-        {
-            if (ShapeOf(messages[position]) != last[position])
-            {
-                return position;
-            }
-        }
-
-        return null;
-    }
-
     // Every field is length-prefixed, so two messages never share a digest by moving text between fields.
     private static void Add(IncrementalHash hash, string? text)
     {

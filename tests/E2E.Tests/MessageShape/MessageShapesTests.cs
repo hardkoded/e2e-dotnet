@@ -6,8 +6,10 @@ namespace E2E.Tests.MessageShape;
 
 /// <summary>
 /// Not ported: "read a Buffer by its bytes, like the plain array it holds" (a .NET image is a <c>byte[]</c> only) and "ignore
-/// provider options" (a <see cref="ModelMessage"/> carries none). The last upstream test is partial: a file named by URL has no
-/// counterpart, so only the payload of another length and content is checked.
+/// provider options" (a <see cref="ModelMessage"/> carries none). Two upstream tests are partial. "Differ when a text, a tool
+/// result below its part, or the role changes" cannot edit a tool result in place (a <see cref="ModelMessage"/> is immutable),
+/// so it checks a replaced result. In the last one a file named by URL has no counterpart, so only the payload of another length
+/// and content is checked.
 /// </summary>
 public sealed class MessageShapesTests
 {
@@ -32,7 +34,7 @@ public sealed class MessageShapesTests
     }
 
     [Fact]
-    public void Differ_when_a_text_a_tool_result_or_the_role_changes()
+    public void Differ_when_a_text_a_tool_result_below_its_part_or_the_role_changes_PARTIAL()
     {
         var before = E2E.MessageShape.ShapeOf(Result("looked"));
 
