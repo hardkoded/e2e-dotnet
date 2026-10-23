@@ -43,14 +43,13 @@ internal sealed class TestLineHarness
         Lines = new SessionTestLines(new TestLineOptions
         {
             Newest = () => observed ? [listed] : null,
-            Observe = _ => Task.FromResult(seen),
             Redact = text => text.Replace("sk-live-0000", "<secret:apiKey>", StringComparison.Ordinal),
             AppBase = new Uri("http://127.0.0.1:4100/"),
             Secrets = ["apiKey"],
-            Resolve = (observation, expression) =>
+            Resolve = (expression, _) =>
             {
                 _resolves++;
-                return LocatorResolver.Resolve(observation, expression);
+                return Task.FromResult(LocatorResolver.Resolve(seen, expression));
             },
         });
     }
