@@ -64,7 +64,7 @@ public sealed class WindowFixtureTests
         await session.ObserveAsync(CancellationToken.None);
         harness.Driver.Calls.Clear();
         await session.Window.AlertAsync(AlertAction.Dismiss);
-        Assert.Equal([$"sendKeys {FakeWindowDriver.MainHandle} esc"], harness.Driver.Calls);
+        Assert.Equal([$"foreground {FakeWindowDriver.MainHandle}", $"sendKeys {FakeWindowDriver.MainHandle} esc"], harness.Driver.Calls);
     }
 
     [Fact]
