@@ -16,11 +16,10 @@ public sealed class ScenariosTests : BenchmarkTest
     /// <param name="Name">The home-list row, which is also the scenario's screen title.</param>
     /// <param name="Goal">What the step is asked to do.</param>
     /// <param name="Success">What <c>success-message</c> shows at the end.</param>
-    /// <param name="MaxSteps">A step budget above the default, for a flow that legitimately needs more actions.</param>
     /// <param name="Pixels">The screen's tree is hidden on purpose, so the success message never enters it: the goal tells the model the screen lists nothing and success is judged from a screenshot.</param>
     /// <param name="WithAccount">The goal refers to the benchmark account, which comes in as params.</param>
     /// <param name="Gap">Why the harness cannot finish this scenario yet. The test is declared and skipped with the reason, and turns on the day the capability lands.</param>
-    public sealed record Scenario(string Name, string Goal, string Success, int? MaxSteps = null, bool Pixels = false, bool WithAccount = false, string? Gap = null)
+    public sealed record Scenario(string Name, string Goal, string Success, bool Pixels = false, bool WithAccount = false, string? Gap = null)
     {
         public override string ToString() => Name;
     }
@@ -31,8 +30,8 @@ public sealed class ScenariosTests : BenchmarkTest
     [
         // The hint on screen shows the declared credential, which reaches the model redacted, so the account comes in as params instead.
         new("Login Form", "log in with the given username and password", "Logged in successfully", WithAccount: true),
-        // Item 137 is the fifth page; that is a few dozen scrolls, more than the default action budget.
-        new("Infinite Scroll List", "scroll the paginated list until Item 137 appears, then tap it", "Found item 137", MaxSteps: 60),
+        // Item 137 is the fifth page; the configured action budget (agents.default.maxSteps) covers the scrolls.
+        new("Infinite Scroll List", "scroll the paginated list until Item 137 appears, then tap it", "Found item 137"),
         new("Modal Flow", "open the modal, continue, and confirm the dialog that follows", "Flow completed"),
         new("Bottom Tabs", "go to the Actions tab and complete the action there", "Action completed"),
         new("Text Input Variations", "fill the username, the 4-digit PIN, and at least ten characters of notes, then submit", "Form submitted"),
@@ -41,7 +40,7 @@ public sealed class ScenariosTests : BenchmarkTest
         new("Gestures", "long-press the first target, swipe the card left, then double-tap the last target", "All gestures completed", Gap: "agent.act has no long press, and the Windows tool pack has no swipe, so the model cannot finish the first two steps"),
         new("Async States", "wait for the screen to load, press Refresh to reveal the reward, then claim the reward", "Reward claimed"),
         new("Debounced Search", "search for Benchmark Target and select exactly that result once it loads", "Selected Benchmark Target"),
-        new("Huge Virtualized List", "scroll to Row 0512 and tap it; the list has 600 rows and off-screen rows are not in the tree", "Found Row 0512", MaxSteps: 80),
+        new("Huge Virtualized List", "scroll to Row 0512 and tap it; the list has 600 rows and off-screen rows are not in the tree", "Found Row 0512"),
         // The values are spelled out so the recording replays.
         new("Flattened Registration Form", "fill the registration form with first name Ada, last name Lovelace, email ada@example.com, and password Lovelace1815, then sign up until it says Account created", "Account created", Pixels: true, Gap: PixelsGap),
         // The account is read off the screenshot, so the typed values are a gap in the recording by design.
@@ -71,8 +70,7 @@ public sealed class ScenariosTests : BenchmarkTest
         var account = scenario.WithAccount ? Credentials.User("benchmark") : null;
         var options = new ActOptions
         {
-            MaxSteps = scenario.MaxSteps,
-            Params = account is null ? null : new Dictionary<string, object?> { ["username"] = account.Username, ["password"] = account.Password },
+                        Params = account is null ? null : new Dictionary<string, object?> { ["username"] = account.Username, ["password"] = account.Password },
         };
 
         await Agent.ActAsync(instruction, options);

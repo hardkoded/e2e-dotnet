@@ -267,6 +267,17 @@ public sealed class PerformTests
     }
 
     [Fact]
+    public async Task A_swipe_on_an_off_screen_scrollable_node_never_turns_the_wheel_over_it()
+    {
+        var tree = RawElements.Window("W", RawElements.List("list-items", "Items", RawElements.ListItem("item-1", "First")) with { IsOffscreen = true });
+        var (harness, session, observation) = await OpenAsync(tree: tree);
+        await using var _ = harness;
+        harness.Driver.Calls.Clear();
+        await session.PerformAsync(Harness.ByTestId(observation, "benchmark-list"), new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None);
+        Assert.Equal(["scroll list-items Down"], harness.Driver.Calls);
+    }
+
+    [Fact]
     public async Task The_screen_root_takes_a_swipe_only()
     {
         var (harness, session, observation) = await OpenAsync();

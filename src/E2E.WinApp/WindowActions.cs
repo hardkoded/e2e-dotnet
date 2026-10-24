@@ -93,7 +93,7 @@ public sealed class WindowActions : IWindowActions
         ArgumentNullException.ThrowIfNull(session);
         var window = session.MainWindow;
         var scrollable = session.Latest
-            .Where(entry => entry.WindowHandle == window && UiaProjection.Scrolls(entry.Raw.ScrollDir, direction) && entry.Raw.Bounds is { Width: > 0, Height: > 0 })
+            .Where(entry => entry.WindowHandle == window && UiaProjection.Scrolls(entry.Raw.ScrollDir, direction) && !entry.Raw.IsOffscreen && entry.Raw.Bounds is { Width: > 0, Height: > 0 })
             .OrderByDescending(entry => entry.Raw.Bounds!.Value.Width * entry.Raw.Bounds!.Value.Height)
             .FirstOrDefault();
         if (scrollable is not null)
@@ -297,7 +297,7 @@ public sealed class WindowActions : IWindowActions
                 }
 
                 // The wheel over the node, as the viewport swipe turns it; the pattern when the desktop cannot take input or the swipe is sideways.
-                if (swipe.Direction is ScrollDirection.Up or ScrollDirection.Down && entry.Raw.Bounds is { Width: > 0, Height: > 0 } box)
+                if (swipe.Direction is ScrollDirection.Up or ScrollDirection.Down && !entry.Raw.IsOffscreen && entry.Raw.Bounds is { Width: > 0, Height: > 0 } box)
                 {
                     var foreground = true;
                     try

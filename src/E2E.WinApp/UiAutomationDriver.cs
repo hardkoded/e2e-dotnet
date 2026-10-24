@@ -471,7 +471,7 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
     }
 
     /// <summary>The control types that are one of a set of which one is selected; the selected one is read from its selection item pattern.</summary>
-    private static readonly string[] SelectionTypes = ["RadioButton", "TabItem", "ListItem", "DataItem"];
+    private static readonly string[] SelectionTypes = ["RadioButton", "TabItem", "ListItem", "DataItem", "TreeItem"];
 
     private async Task<Dictionary<UiElement, bool>> ReadSelectionAsync(UiTarget target, UiElement root, Dictionary<UiElement, List<UiElement>> children, CancellationToken cancellationToken)
     {
@@ -551,12 +551,17 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
         {
             if (_elements.TryGetValue(windowHandle, out var read))
             {
-                foreach (var (handle, (element, _)) in read)
+                // Two controls under different parents can share a type, name, and automation id: the box tells them apart, and an
+                // ambiguous match names no element.
+                var matches = read.Where(pair => SameElement(pair.Value.Element, focused)).ToList();
+                if (matches.Count > 1)
                 {
-                    if (SameElement(element, focused))
-                    {
-                        return handle;
-                    }
+                    matches = [.. matches.Where(pair => pair.Value.Element.X == focused.X && pair.Value.Element.Y == focused.Y && pair.Value.Element.Width == focused.Width && pair.Value.Element.Height == focused.Height)];
+                }
+
+                if (matches.Count == 1)
+                {
+                    return matches[0].Key;
                 }
             }
         }
