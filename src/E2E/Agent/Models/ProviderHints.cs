@@ -22,11 +22,14 @@ internal static class ProviderHints
     public static IReadOnlyList<ModelMessage> AfterEdit(IAgentModel? model, IReadOnlyList<ModelMessage> messages, int index)
     {
         ArgumentNullException.ThrowIfNull(messages);
-        return BindsReasoningToPrefix(model) ? WithoutReasoningFrom(messages, index) : messages;
+        return SpeaksAnthropic(model) ? WithoutReasoningFrom(messages, index) : messages;
     }
 
-    /// <summary>Whether the model's provider rejects a replayed reasoning block whose prefix changed.</summary>
-    public static bool BindsReasoningToPrefix(IAgentModel? model) => model is AnthropicModel;
+    /// <summary>
+    /// Upstream's <c>speaksAnthropic</c>, which reads a provider and model id: the port asks the model object instead, since only
+    /// <see cref="AnthropicModel"/> replays Anthropic thinking (there is no Bedrock, Vertex, or OpenRouter client that does).
+    /// </summary>
+    private static bool SpeaksAnthropic(IAgentModel? model) => model is AnthropicModel;
 
     private static IReadOnlyList<ModelMessage> WithoutReasoningFrom(IReadOnlyList<ModelMessage> messages, int index)
     {
