@@ -22,7 +22,7 @@ public interface IPreparableEngine : IEngine
     /// long as the network makes it. A failure ends the run before any test: an <see cref="E2EException"/> keeps its code, a cancel stays
     /// a cancel (<c>CANCELLED</c> when <paramref name="cancellationToken"/> asked for it), an <see cref="OperationCanceledException"/> is kept as it is
     /// when <paramref name="cancellationToken"/> was not canceled, and any other exception is <c>ENGINE_FAILURE</c>.
-    /// The result can lower the target's worker cap (upstream's contract; no host in this repository reads it), for an engine that only learns its capacity here, and hands the workers an
+    /// The result can lower the target's worker cap (see <see cref="EnginePrepareResult.Workers"/>), for an engine that only learns its capacity here, and hands the workers an
     /// environment (<see cref="EnginePrepareResult.Env"/>).
     /// </summary>
     Task<EnginePrepareResult> PrepareAsync(EnginePrepareInfo info, CancellationToken cancellationToken);
