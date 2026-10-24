@@ -10,7 +10,7 @@ namespace E2E.Cli.Tests.McpTestLines;
 /// Test lines end to end: the built <c>e2e mcp</c> server on a fixture page, driven by a real MCP client. Every action
 /// answers with the line that repeats it, a password by its secret and never its value, a button repeated per row scoped under
 /// its row (the web engine names a list item from its content, so the row is found by that name), twins in plain divs by their order, a shadow root's twin by its place among the matches, and an icon button by its test
-/// id; <c>test_lines</c> returns them in order.
+/// id; <c>test_lines</c> returns them in order. Pasted into a test class, that draft passes a run.
 /// </summary>
 public sealed class E2EMcpTestLinesTests : IAsyncLifetime
 {
@@ -40,7 +40,7 @@ public sealed class E2EMcpTestLinesTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Partial_Answers_each_action_with_its_test_line()
+    public async Task Answers_each_action_with_its_test_line_and_the_drafted_lines_pass_a_run()
     {
         var opened = await _cli.InvokeAsync("open_session");
         Assert.False(opened.IsError, opened.Text);
@@ -88,8 +88,16 @@ public sealed class E2EMcpTestLinesTests : IAsyncLifetime
         var drafted = await _cli.CallAsync("test_lines");
         Assert.False(drafted.IsError, drafted.Text);
         Assert.DoesNotContain(Password, drafted.Text, StringComparison.Ordinal);
+        Assert.Contains("Paste it into a test method, and add an Expect after each step that should change the screen.", drafted.Text, StringComparison.Ordinal);
         string[] body = [.. drafted.Text.Split('\n').Where(line => line.StartsWith("await ", StringComparison.Ordinal) || line.StartsWith("// ", StringComparison.Ordinal))];
         Assert.Equal(["await App.OpenAsync();", "await App.OpenAsync(\"/test-lines\");", .. steps.Select(step => step.Line)], body);
         await _cli.InvokeAsync("close_session");
+
+        // The real proof: the draft, pasted as is, replays the flow in a run.
+        var run = await DraftedTestRun.RunAsync(
+            _project.Directory,
+            body,
+            "await Expect.That(Screen.GetByRole(\"status\", \"Summary\")).ToHaveTextAsync(\"user=ada@example.test password=set plan=Pro terms=true offer=B kept=shadow picked=2 starred=true\");");
+        Assert.True(run.Code == 0, run.Output);
     }
 }

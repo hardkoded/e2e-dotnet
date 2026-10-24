@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Cli.Tests.Helpers;
 using E2E.OAuth;
 
 namespace E2E.Cli.Tests.CliLogin;
@@ -35,7 +36,7 @@ public sealed class E2eLoginVendorTextTests : IDisposable
     public async Task Strips_terminal_escape_sequences_from_the_URL_instructions_and_user_code_it_prints()
     {
         OAuthProviders.Replacements["github-copilot"] = new AuthDouble(new OAuthAuthInfo("https://vendor.test/\u001b[31mdevice", "Enter the code\u001b]0;pwned\u0007 now", "AB\u001b[2JCD"));
-        var stdout = new StringWriter();
+        var stdout = new LineFeedWriter();
 
         var code = await Program.RunAsync(["login", "github-copilot"], stdout, new StringWriter(), TextReader.Null, interactive: false, CancellationToken.None);
 

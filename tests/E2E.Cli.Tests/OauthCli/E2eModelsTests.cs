@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Cli.Tests.CliLogin;
+using E2E.Cli.Tests.Helpers;
 using E2E.OAuth;
 
 namespace E2E.Cli.Tests.OauthCli;
@@ -95,10 +96,10 @@ public sealed class E2eModelsTests : IDisposable
 
     private static async Task<(int Code, string Stdout, string Stderr)> RunAsync(params string[] args)
     {
-        var stdout = new StringWriter();
-        var stderr = new StringWriter();
+        var stdout = new LineFeedWriter();
+        var stderr = new LineFeedWriter();
         var code = await Program.RunAsync(args, stdout, stderr, TextReader.Null, interactive: false, CancellationToken.None);
-        return (code, stdout.ToString().Replace("\r\n", "\n", StringComparison.Ordinal), stderr.ToString().Replace("\r\n", "\n", StringComparison.Ordinal));
+        return (code, stdout.ToString(), stderr.ToString());
     }
 
     /// <summary>A provider that lists what its callback says, or fails with its callback's error.</summary>

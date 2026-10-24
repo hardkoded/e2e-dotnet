@@ -64,6 +64,9 @@ public sealed class TraceCacheStrictCacheFailsAStepWhoseKeyChangedUnderItsRecord
 
         var cache = new FileStepCache(directory);
         var key = Path.GetFileNameWithoutExtension(Directory.GetFiles(directory).Single());
+        // The agent read the test's title as context, but the key leaves it out: it digests an empty context, as upstream's
+        // keyedBy.agentContextDigest does, so the entry sits under the key of the step with no context at all.
+        Assert.Equal(CacheKeys.Create("document", "billing > upgrades", "upgrade the workspace to the Pro plan", null, "default", null), key);
         var legacy = cache.Read(key).Entry!;
         legacy.Engine = null;
         legacy.ParamsDigest = null;

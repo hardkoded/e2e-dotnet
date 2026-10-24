@@ -26,7 +26,10 @@ namespace E2E.NUnit;
 [LooksBeforeTeardown]
 public abstract class E2ETest : E2EFixture
 {
-    /// <summary>Cache identity for this test. The default is the NUnit full name, so each test keeps its own replay.</summary>
+    /// <summary>
+    /// The test's title: its cache identity, and the <c>Test:</c> line every prompt's context opens with. The default is the NUnit
+    /// full name, so each test keeps its own replay.
+    /// </summary>
     protected virtual string CacheTitle(global::NUnit.Framework.TestContext.TestAdapter test)
     {
         ArgumentNullException.ThrowIfNull(test);

@@ -36,8 +36,8 @@ internal sealed class FakeExplore(IReadOnlyList<ExploreProgress> moments, Explor
     /// <summary>Runs <c>e2e explore</c> with the fake and recorded output.</summary>
     public async Task<(int Code, string Stdout, string Stderr)> InvokeAsync(params string[] args)
     {
-        using var stdout = new StringWriter();
-        using var stderr = new StringWriter();
+        using var stdout = new LineFeedWriter();
+        using var stderr = new LineFeedWriter();
         var code = await ExploreCommand.RunAsync(args, stdout, stderr, interactive: false, RunAsync, CancellationToken.None);
         return (code, stdout.ToString(), stderr.ToString());
     }

@@ -503,7 +503,7 @@ public sealed class E2ESession : IAsyncDisposable
         };
         if (options.Agents is null)
         {
-            return WithTestContext(agents, options.TestAgentContext);
+            return WithTestContext(agents, options.TestFile, options.TestTitle, options.TestAgentContext);
         }
 
         foreach (var pair in options.Agents)
@@ -523,15 +523,15 @@ public sealed class E2ESession : IAsyncDisposable
             agents[pair.Key] = ResolvedAgent.From(pair.Key, pair.Value);
         }
 
-        return WithTestContext(agents, options.TestAgentContext);
+        return WithTestContext(agents, options.TestFile, options.TestTitle, options.TestAgentContext);
     }
 
-    // The test's agentContext follows the agent's own context, whichever agent a call picks.
-    private static Dictionary<string, ResolvedAgent> WithTestContext(Dictionary<string, ResolvedAgent> agents, string? testContext)
+    // Every prompt opens with the test's title, then the agent's own context, then the test's agentContext, whichever agent a call picks.
+    // A session with no test file runs no test (upstream's `environment.test === undefined`: an `e2e mcp` session), so it gets no title line.
+    private static Dictionary<string, ResolvedAgent> WithTestContext(Dictionary<string, ResolvedAgent> agents, string? testFile, string testTitle, string? testContext)
     {
-        return string.IsNullOrWhiteSpace(testContext)
-            ? agents
-            : agents.ToDictionary(pair => pair.Key, pair => pair.Value.WithTestContext(testContext), StringComparer.Ordinal);
+        var titleContext = string.IsNullOrEmpty(testFile) ? null : "Test: " + testTitle;
+        return agents.ToDictionary(pair => pair.Key, pair => pair.Value.WithTestContext(titleContext, testContext), StringComparer.Ordinal);
     }
 
     // A table is a courtesy: a stderr that cannot be written must not hide the test's own result.
@@ -870,8 +870,10 @@ public sealed class E2ESessionOptions
 
     /// <summary>
     /// The full name of the test's class, which stands for upstream's test file: it joins the title in the result id and leads the
-    /// name of the result's directory, so two tests with one title in two classes keep apart. The NUnit and xUnit adapters set it.
-    /// Null keeps the title alone as the identity.
+    /// name of the result's directory, so two tests with one title in two classes keep apart. The NUnit and xUnit adapters set it,
+    /// and <c>e2e explore</c> sets <see cref="Explore.ExploreFile"/>. It also makes the session a test, as upstream's
+    /// <c>environment.test</c> does: every prompt then opens its context with <c>Test: &lt;TestTitle&gt;</c>. Null keeps the title
+    /// alone as the identity and adds no title line, as for an <c>e2e mcp</c> session, which runs no test.
     /// </summary>
     public string? TestFile { get; init; }
 
