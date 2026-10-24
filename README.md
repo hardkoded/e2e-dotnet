@@ -256,6 +256,8 @@ An `apiKeyEnv` you set wins over the provider's default, so remove it when you s
 
 `anthropic` needs a key scoped to a workspace (`sk-ant-api03-...`). A user key (`sk-ant-usr-...`) fails with a 400 that asks for an `anthropic-workspace-id` header, and the config cannot send one.
 
+Claude Opus 5.5, Sonnet 5.5, and Fable 5.1 bind each thinking block to the system prompt and the messages before it, and reject a request that replays the block after either changed. An agent step keeps its prompt fixed, and once it rewrites an earlier message (an executor's `PrepareMessages` changed it, or the history was shrunk after a context overflow) it stops sending the thinking from that message on. The step's turns note it.
+
 In code, `ModelProviders` builds the same clients (`ModelProviders.Anthropic("claude-sonnet-5")`), and `AnthropicModel`, `GoogleModel`, `BedrockModel`, `OpenAiResponsesModel`, and `OpenAiCompatibleModel` take full options.
 
 ### Subscriptions
