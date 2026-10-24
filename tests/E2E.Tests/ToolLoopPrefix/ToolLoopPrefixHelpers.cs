@@ -65,19 +65,39 @@ internal static class ToolLoopPrefixHelpers
         Images = message.Images,
     };
 
-    internal static async Task<(Exception? Error, RecordingHandler Handler)> RunAsync(RecordingHandler handler, IStepExecutor executor, DocumentWorld? world = null)
+    /// <summary>
+    /// Runs one agent step on <see cref="AnthropicModel"/> over the recorded answers. Returns the step's error and its turns,
+    /// whose outcomes carry the loop's notes, as upstream's tests read them off <c>steps.all()[0].turns</c>.
+    /// </summary>
+    internal static async Task<(Exception? Error, IReadOnlyList<StepTurn> Turns)> RunAsync(
+        RecordingHandler handler,
+        IStepExecutor? executor = null,
+        DocumentWorld? world = null,
+        string instruction = "look twice, then conclude")
     {
         using var http = new HttpClient(handler);
         using var model = new AnthropicModel(new AnthropicModelOptions { Model = "claude-opus-5.5", ApiKey = "k" }, http);
-        var attempt = await CoreTests.RunAsync(
-            async ctx =>
-            {
-                await ctx.App.OpenAsync("/start");
-                await ctx.Agent.ActAsync("look twice, then conclude");
-            },
-            world ?? new DocumentWorld().Map("/start", page => page.Button("Peek")),
-            model,
-            executor: executor);
-        return (attempt.Error, handler);
+        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = new DocumentEngine(world ?? new DocumentWorld().Map("/start", page => page.Button("Peek"))),
+            Model = model,
+            AgentExecutor = executor,
+            BaseUrl = "https://billing.test",
+            TestTitle = "prefix",
+            StepTimeout = TimeSpan.FromSeconds(5),
+        });
+        Exception? error = null;
+        try
+        {
+            await session.Context.App.OpenAsync("/start");
+            await session.Context.Agent.ActAsync(instruction);
+        }
+        catch (Exception ex)
+        {
+            error = ex;
+        }
+
+        session.Complete(error);
+        return (error, session.Steps.Single(step => step.Api == "agent.act").Turns ?? []);
     }
 }

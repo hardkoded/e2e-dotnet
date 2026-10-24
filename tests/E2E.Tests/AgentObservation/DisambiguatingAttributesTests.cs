@@ -13,7 +13,7 @@ public sealed class DisambiguatingAttributesTests
         new() { Ref = "n", Role = "link", Name = name, Attributes = new Dictionary<string, string> { ["href"] = href } };
 
     private static string[] Lines(IEnumerable<SemanticNode> nodes, string? appOrigin = null, Redactor? redactor = null) =>
-        SnapshotText.Render(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "n1", Children = nodes.ToList() }] }, redactor ?? Redactor.None, appOrigin).Split(Environment.NewLine);
+        SnapshotText.Render(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "n1", Children = nodes.ToList() }] }, redactor ?? Redactor.None, appOrigin).Split('\n');
 
     [Fact]
     public void Renders_test_IDs_hrefs_and_unnamed_placeholders_for_the_model()

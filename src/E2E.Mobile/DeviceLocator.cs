@@ -19,6 +19,13 @@ internal static partial class DeviceLocator
     {
         switch (expression.Kind)
         {
+            case "union":
+                {
+                    var matches = new HashSet<ProjectedNode>(ReferenceEqualityComparer.Instance);
+                    matches.UnionWith(ResolveExpression(expression.Left!, index, platform));
+                    matches.UnionWith(ResolveExpression(expression.Right!, index, platform));
+                    return [.. index.Where(matches.Contains)];
+                }
             case "filter":
                 return Filter(expression, index, platform);
             case "index":

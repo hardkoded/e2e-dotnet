@@ -845,10 +845,12 @@ internal static class PageScript
           const ownsText = (el) => el instanceof HTMLElement && !namesControl(el) &&
             (offersAction(el) && isReadInLine(el) ? lineTextOf(el) !== "" : directTextOf(el) !== "" && !isReadInLine(el));
           const hasRole = (role) => !!role && role !== "presentation" && role !== "none";
-          const listed = (el, role) => hasRole(role) || !!el.getAttribute(testIdAttribute) || ownsText(el);
+          // An iframe is a boundary node whatever its role: upstream emits it before any role check,
+          // so <iframe role="none"> stays listed, with the role none.
+          const listed = (el, role) => el.tagName === "IFRAME" || hasRole(role) || !!el.getAttribute(testIdAttribute) || ownsText(el);
           // A node listed for its text alone. It draws on its own allowance, so
           // a page full of text cannot push controls out of the snapshot.
-          const textOnly = (el, role) => !hasRole(role) && !el.getAttribute(testIdAttribute);
+          const textOnly = (el, role) => el.tagName !== "IFRAME" && !hasRole(role) && !el.getAttribute(testIdAttribute);
           // The inline elements read in the element's line that have no node of
           // their own, as bare nodes of text under it, so a text query still
           // finds a word the line carries, as Playwright's text engine does.
@@ -866,12 +868,20 @@ internal static class PageScript
           // Chrome drops an inert subtree from its accessibility tree, and so does the walk. A slotted
           // element is inert when a shadow ancestor of its slot is, which a closed root hides from assignedSlot.
           const isInert = (el) => {
-            if (el.inert) return true;
+            if (el.inert || styleOf(el).getPropertyValue("interactivity") === "inert") return true;
             const shadow = el.parentElement && shadowOf(el.parentElement);
             const name = el.getAttribute("slot");
             const slot = shadow?.querySelector(name ? `slot[name="${CSS.escape(name)}"]` : "slot:not([name])");
             for (let node = slot; node && node !== shadow; node = node.parentNode) if (node.inert) return true;
             return false;
+          };
+          // A closed select has no option boxes; explicit exclusions still remove choices it does not offer.
+          const isOfferedOption = (option) => {
+            for (let current = option; current && current.tagName !== "SELECT"; current = parentOrHostOf(current)) {
+              const style = styleOf(current);
+              if (ariaHidden(current) || isInert(current) || hidesSubtree(current, style)) return false;
+            }
+            return true;
           };
           const tally = (el, visible) => {
             if (!el || skip.has(el.tagName) || isInert(el)) return 0;
@@ -881,7 +891,15 @@ internal static class PageScript
             if (listed(el, role) && !textOnly(el, role)) {
               const counted = !visible || inView(el);
               if (counted) n++;
-              if (el.tagName === "SELECT") return counted ? n + Math.min(el.options.length, maxSelectOptions) : n;
+              if (el.tagName === "SELECT") {
+                if (!counted) return n;
+                let offered = 0;
+                for (const option of el.options) {
+                  if (offered >= maxSelectOptions) break;
+                  if (isOfferedOption(option)) offered += 1;
+                }
+                return n + offered;
+              }
               if (isLeaf(el, role)) return n;
             }
             for (const child of el.children) n += tally(child, visible);
@@ -980,7 +998,11 @@ internal static class PageScript
               if (el.scrollTop || el.scrollLeft) scroll += ";" + node.ref + ":" + Math.round(el.scrollLeft) + "," + Math.round(el.scrollTop);
               if (el.tagName === "SELECT") {
                 // A closed select paints none of its options; they are what it offers.
-                for (const option of Array.from(el.options).slice(0, maxSelectOptions)) {
+                let offered = 0;
+                for (const option of el.options) {
+                  if (offered >= maxSelectOptions) break;
+                  if (!isOfferedOption(option)) continue;
+                  offered += 1;
                   const before = node.children.length;
                   walk(option, node.children, isHidden, isAriaHidden);
                   if (node.children.length > before) node.children[before].hidden = isHidden;

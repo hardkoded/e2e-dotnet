@@ -359,7 +359,11 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   deleted ...` (its replay ended in a failure or a repair, or no check
   confirmed it), `nothing recorded: the step changed nothing a replay could
   check`, or `recording not saved: the cache store did not write it`. It also
-  says `recorded with <model>` for a replayed step.
+  says `recorded with <model>` for a replayed step. `recording deleted` means
+  the store deleted the entry. A custom `IStepCache` whose `Delete` throws
+  keeps the entry: a replayed or re-recorded step then reads `recording not
+  saved: no check passed after this step` (the text does not name the failed
+  delete, as upstream), and a failed step's replay gets no line.
 - While you fix a test, keep the cache on: each rerun replays the goals whose
   check passed instead of calling the model for them (SKILL.md, "Rerunning a
   test while you fix it"). `"cache": { "mode": "off" }` is for ruling out a

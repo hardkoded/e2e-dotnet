@@ -256,6 +256,8 @@ An `apiKeyEnv` you set wins over the provider's default, so remove it when you s
 
 `anthropic` needs a key scoped to a workspace (`sk-ant-api03-...`). A user key (`sk-ant-usr-...`) fails with a 400 that asks for an `anthropic-workspace-id` header, and the config cannot send one.
 
+Claude Opus 5.5, Sonnet 5.5, and Fable 5.1 bind each thinking block to the system prompt and the messages before it, and reject a request that replays the block after either changed. An agent step keeps its prompt fixed, and once it rewrites an earlier message (an executor's `PrepareMessages` changed it, or the history was shrunk after a context overflow) it stops sending the thinking from that message on. The step's turns note it.
+
 In code, `ModelProviders` builds the same clients (`ModelProviders.Anthropic("claude-sonnet-5")`), and `AnthropicModel`, `GoogleModel`, `BedrockModel`, `OpenAiResponsesModel`, and `OpenAiCompatibleModel` take full options.
 
 ### Subscriptions
@@ -280,7 +282,7 @@ From a clone of this repo, run the tool with `dotnet run --project src/E2E.Cli -
 
 An agent entry also takes `judge` (the model id for `assert`, `waitFor`, and `extract`), `system`, `context`, `maxSteps`, `maxModelCalls`, `judgmentTimeout`, and `providerOptions`. `agents` can name more agents than `default`; a call picks one with its `Agent` option, such as `new ActOptions { Agent = "careful" }`. Project tools (`AgentTools` on the fixture) are code, so they are not config keys; see topic `agent`. So is a custom executor (`AgentExecutor` on the fixture, `AgentOptions.Executor`), which replaces the built-in agent for `act` and `assert` with a `ToolLoop` of your own tools or your own `IStepExecutor`; see topic `agent`.
 
-`cache.mode` is `off`, `read-only`, or `read-write`. Unset, it is `read-write` locally and `read-only` when `CI` is set. `cache.strict` fails a recording that no longer matches with `REPLAY_STALE` instead of running the step live. Under `cache.strict`, retries replay too, and the run never writes the cache. `cache.dir` resolves against the config file's directory. `E2E_CACHE_DIR` replaces it, so checkouts and worktrees of one project can share a replay cache without editing the config; the mode stays as configured.
+`cache.mode` is `off`, `read-only`, or `read-write`. Unset, it is `read-write` locally and `read-only` when `CI` is set. `cache.strict` fails a recording that no longer matches with `REPLAY_STALE` instead of running the step live. Under `cache.strict`, retries replay too, and the run never writes the cache. `cache.dir` resolves against the config file's directory. `E2E_CACHE_DIR` replaces it, so checkouts and worktrees of one project can share a replay cache without editing the config; the mode stays as configured. Parallel runs can share the directory: each write replaces its entry file atomically, and two writers on one key leave the last write. On Windows, a write the file system refuses while another write replaces the same entry, or while a reader holds it open, is retried for a moment before the step reports it as not written.
 
 A cache entry belongs to one test, instruction, set of params, and agent. Each of these changes causes a miss: renaming the test or its class, changing the instruction or an ordinary param, running with another configured agent, changing the agent's `context` or a test's `[AgentContext]` (a secret in it enters the key as its name only), or switching to another engine. Changing the model doesn't cause a miss.
 

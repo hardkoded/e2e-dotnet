@@ -10,6 +10,55 @@ namespace E2E.Tests.ReadNodeChecked;
 public sealed class CheckedAndSelectedTests(ChromiumPage chromium) : IClassFixture<ChromiumPage>
 {
     [Fact]
+    public async Task Lists_closed_select_choices_but_excludes_explicitly_hidden_options_and_optgroups()
+    {
+        await chromium.Page.SetContentAsync("""
+            <select aria-label="Plan">
+              <option data-testid="visible" selected value="internal-token">Visible</option>
+              <option data-testid="disabled" disabled>Disabled</option>
+              <option data-testid="hidden" hidden>Hidden</option>
+              <option data-testid="display" style="display:none">No display</option>
+              <option data-testid="visibility" style="visibility:hidden">No visibility</option>
+              <option data-testid="aria" aria-hidden="true">No aria</option>
+              <option data-testid="inert" style="interactivity:inert">Inert</option>
+              <optgroup hidden label="Hidden group"><option data-testid="group">Hidden group choice</option></optgroup>
+              <optgroup style="visibility:hidden" label="Restored group"><option data-testid="restored" style="visibility:visible">Restored</option></optgroup>
+            </select>
+            """);
+        var nodes = await chromium.CaptureAsync();
+        var visible = Node(nodes, "visible");
+        Assert.Equal("Visible", visible.Name);
+        Assert.True(visible.Selected);
+        Assert.Null(visible.Value);
+        Assert.False(visible.Hidden);
+        var disabled = Node(nodes, "disabled");
+        Assert.Equal("Disabled", disabled.Name);
+        Assert.True(disabled.Disabled);
+        Assert.Contains(nodes, node => node.TestId == "restored");
+        Assert.Contains(nodes, node => node.TestId == "visibility");
+        foreach (var id in new[] { "hidden", "display", "aria", "group", "inert" })
+        {
+            Assert.DoesNotContain(nodes, node => node.TestId == id);
+        }
+
+        Assert.Equal(["Visible", "Disabled", "No visibility", "Inert", "Restored"], await chromium.Page.GetByRole(AriaRole.Option).AllTextContentsAsync());
+    }
+
+    [Fact]
+    public async Task Applies_the_option_limit_to_offered_choices_after_hidden_options_are_excluded()
+    {
+        var excluded = string.Concat(Enumerable.Repeat("<option hidden>Excluded</option>", 60));
+        var choices = string.Concat(Enumerable.Range(0, 61).Select(index => $"<option data-testid=\"choice-{index}\">Choice {index}</option>"));
+        await chromium.Page.SetContentAsync($"<select aria-label=\"Many choices\">{excluded}{choices}</select>");
+        var nodes = await chromium.CaptureAsync();
+        Assert.Equal("Choice 0", Node(nodes, "choice-0").Name);
+        Assert.Equal("Choice 59", Node(nodes, "choice-59").Name);
+        Assert.DoesNotContain(nodes, node => node.TestId == "choice-60");
+        Assert.Equal(60, nodes.Count(node => node.Role == "option"));
+        Assert.Equal(61, await chromium.Page.GetByRole(AriaRole.Option).CountAsync());
+    }
+
+    [Fact]
     public async Task Reads_selected_boolean_values_without_case_sensitivity_while_native_option_state_wins()
     {
         await chromium.Page.SetContentAsync("""

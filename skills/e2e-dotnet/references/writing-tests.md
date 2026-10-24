@@ -98,6 +98,8 @@ Members of `E2ETest` in both frameworks:
 - Narrow with `Filter(text)` or `Filter(locator)`, and pick with `First()`,
   `Last()`, or `Nth(i)` when the order is the point. A locator also offers
   every query, scoped to its matches' descendants.
+- `a.Or(b)` matches either, still strict: add `First()` when both may
+  match. Both locators must come from the same screen and attempt.
 - A locator resolves when it is used. A match on two nodes fails with
   `STRICT_MODE`; no match fails with `NOT_FOUND`.
 - `Visible = true` (on `TextMatchOptions` or `RoleOptions`) drops nodes the

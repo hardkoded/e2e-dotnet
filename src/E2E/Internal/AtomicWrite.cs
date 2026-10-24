@@ -14,9 +14,21 @@ namespace E2E.Internal;
 /// </summary>
 internal static class AtomicWrite
 {
+    // A POSIX rename replaces the target in one step. Windows refuses a move over a file that another move is replacing
+    // (ERROR_ACCESS_DENIED) or that a reader holds open (ERROR_SHARING_VIOLATION), and both pass in a moment, so a move is
+    // retried this often, with a growing pause, before its failure is the writer's. A denial that lasts, such as a read-only
+    // target, reports the same error after the same ~90 ms.
+    private const int MoveAttempts = 10;
+
+    private const int AccessDenied = unchecked((int)0x80070005);
+
+    private const int SharingViolation = unchecked((int)0x80070020);
+
+    private static readonly UTF8Encoding Utf8 = new(false);
+
     /// <summary>Writes <paramref name="content"/> to <paramref name="filePath"/> atomically; a failed write leaves no temporary file behind.</summary>
     public static Task WriteFileAtomicAsync(string filePath, string content, CancellationToken cancellationToken = default) =>
-        WriteFileAtomicAsync(filePath, new UTF8Encoding(false).GetBytes(content), cancellationToken);
+        WriteFileAtomicAsync(filePath, Utf8.GetBytes(content), cancellationToken);
 
     /// <summary>The bytes form of <see cref="WriteFileAtomicAsync(string, string, CancellationToken)"/> (upstream accepts a <c>Uint8Array</c>).</summary>
     public static async Task WriteFileAtomicAsync(string filePath, byte[] content, CancellationToken cancellationToken = default)
@@ -25,42 +37,74 @@ internal static class AtomicWrite
         try
         {
             await File.WriteAllBytesAsync(temporary, content, cancellationToken).ConfigureAwait(false);
-            File.Move(temporary, filePath, overwrite: true);
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    File.Move(temporary, filePath, overwrite: true);
+                    break;
+                }
+                catch (Exception ex) when (RetriesMove(ex, attempt))
+                {
+                    await Task.Delay(attempt * 2, cancellationToken).ConfigureAwait(false);
+                }
+            }
         }
         catch
         {
-            DeleteQuietly(temporary);
+            try
+            {
+                File.Delete(temporary);
+            }
+            catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException)
+            {
+                // The write may have failed before the temporary file existed, and the first failure is the one to report.
+            }
+
             throw;
         }
     }
 
-    /// <summary>The synchronous twin (upstream's <c>writeFileAtomicSync</c>), for a store that is written from synchronous code.</summary>
+    /// <summary>
+    /// The synchronous twin (upstream's <c>writeFileAtomicSync</c>), for a store that is read and written from synchronous code.
+    /// Upstream's cache store awaits <c>writeFileAtomic</c>; the port's <see cref="IStepCache.Write"/> is synchronous, so it uses this one.
+    /// </summary>
     public static void WriteFileAtomic(string filePath, string content)
     {
         var temporary = TemporaryPath(filePath);
         try
         {
-            File.WriteAllText(temporary, content, new UTF8Encoding(false));
-            File.Move(temporary, filePath, overwrite: true);
+            File.WriteAllText(temporary, content, Utf8);
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    File.Move(temporary, filePath, overwrite: true);
+                    break;
+                }
+                catch (Exception ex) when (RetriesMove(ex, attempt))
+                {
+                    Thread.Sleep(attempt * 2);
+                }
+            }
         }
         catch
         {
-            DeleteQuietly(temporary);
+            try
+            {
+                File.Delete(temporary);
+            }
+            catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException)
+            {
+                // The write may have failed before the temporary file existed, and the first failure is the one to report.
+            }
+
             throw;
         }
     }
 
     private static string TemporaryPath(string filePath) => filePath + "." + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(8)) + ".tmp";
 
-    private static void DeleteQuietly(string temporary)
-    {
-        try
-        {
-            File.Delete(temporary);
-        }
-        catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException)
-        {
-            // The write may have failed before the temporary file existed, and the first failure is the one to report.
-        }
-    }
+    private static bool RetriesMove(Exception ex, int attempt) =>
+        OperatingSystem.IsWindows() && attempt < MoveAttempts && ex is (IOException or UnauthorizedAccessException) && ex.HResult is AccessDenied or SharingViolation;
 }

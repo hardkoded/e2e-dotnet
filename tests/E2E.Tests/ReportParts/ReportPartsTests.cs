@@ -141,7 +141,7 @@ public sealed class ReportPartsTests
         finally
         {
             Environment.SetEnvironmentVariable("GIT_DIR", previous);
-            Directory.Delete(dir, recursive: true);
+            GitRepo.RemoveRepo(dir);
         }
     }
 

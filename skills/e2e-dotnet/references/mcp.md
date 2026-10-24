@@ -14,7 +14,10 @@ leases a hosted Limrun device instead (set `LIMRUN_API_KEY`); with
 `E2E_MOBILE_PROVIDER=devflow` it attaches to the MAUI app you launched (see
 [mobile.md](mobile.md)). `open_session` leases the device, and the lease bills
 until `close_session` releases it: close sessions you no longer need. The idle
-timeout, the four-hour limit, and a server shutdown release it too. A device
+timeout, the four-hour limit, and a server shutdown release it too, within the
+config's `cleanupTimeout`. A release that fails or outlives that budget is reported
+as a `Cleanup:` line in the result, and the device may stay leased and billed until
+the provider's own time limit ends the lease. A device
 session has no `navigate` tool. The catalog is the testing agent's own actions plus `locate`,
 `test_lines`, and `screenshot`. Not ported: recording a video, the project's own tools,
 and the tap, hover, and type at a point. `e2e init` does not exist, so
@@ -72,7 +75,7 @@ tool with the same name, use the `e2e` server's.
 | `open_session` | Loads the config (`config` names another file; default the nearest `e2e.config.json`), boots the browser or device, opens the app (its URL, or launches a device's pinned app; it installs no build, so a local device needs `app.bundleId`), and returns the session id, the catalog, and the first observation. `target` must name the config's target when given. `headed: true` shows the browser when the user wants to watch. |
 | `tools` | The catalog: one line per tool with its argument names (`?` marks optional), the first sentence of its description, and `[read-only]` where it changes nothing. `tools {tool}` shows the full description and the JSON Schema of its arguments. |
 | `call` | Runs one catalog tool: `call {tool: "tap", args: {target: "e12"}}`, where `e12` is the `ref=` of a node in the newest observation. Arguments are checked against the tool's schema first; a wrong one fails with `INVALID_ARGUMENT` naming the field. |
-| `close_session` | Ends the session and disposes the browser. With no session open and no `session` argument, it says `No session is open.` |
+| `close_session` | Ends the session, disposes the browser or device engine, and releases a hosted device the session leased, each within the config's `cleanupTimeout`. A cleanup that fails or times out is a `Cleanup:` line in the result, with the error's code when it has one (`CLEANUP_TIMEOUT` for a release that outlived the budget). With no session open and no `session` argument, it says `No session is open.` |
 
 Every fixed tool takes only the arguments it declares. An unknown one fails
 before anything runs, with `Invalid arguments for tool <name>: Unrecognized
