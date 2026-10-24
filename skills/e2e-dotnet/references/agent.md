@@ -79,12 +79,12 @@ or a method adds facts only that test knows. It joins the agent's `context`,
 outer layer first, one per line, and reaches the judges too, so keep
 instructions out of it. A changed text records again.
 
-Under a test, every prompt also opens with the test's title, such as
+Under a test, every prompt of the built-in agent and the judges also opens with the test's title, such as
 `Test: billing > upgrades the tier`. Under NUnit or xUnit the title is the test's
 full name (`CacheTitle`), as `Test: Billing.UpgradeTests.Upgrades_the_tier`; under
 `e2e explore` it is the goal. An `e2e mcp` session runs no test and has no such
 line. The judges read it too, so name a test for what it covers, not for the
-verdict you expect. The title goes in the step's prompt, not the system prompt, so provider prompt caching still serves every test of a run, and the replay key leaves it out (the context digest does not carry it).
+verdict you expect. The title goes in the step's prompt, not the system prompt, so provider prompt caching still serves every test of a run, and the context digest of the replay key leaves it out (the key still carries the test id, so a renamed test records again). A custom executor builds its own prompt: it reads the title from `context.Attempt.TitlePath` if it needs it.
 
 ## ActAsync: one goal
 

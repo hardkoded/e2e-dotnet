@@ -26,7 +26,7 @@ public static class ExploreExecutor
     public const string FindingToolName = "report_finding";
 
     /// <summary>
-    /// Appended to the project's own guidance; the goal itself travels as agent context. Upstream's text, with the port's tool
+    /// Appended to the project's own guidance; the goal travels as the test title (<c>Test: &lt;goal&gt;</c>). Upstream's text, with the port's tool
     /// names: <c>done</c> ends a step where upstream calls <c>complete_step</c>, and <c>fill_secret</c> fills a password where
     /// upstream calls <c>type_secret</c>.
     /// </summary>
