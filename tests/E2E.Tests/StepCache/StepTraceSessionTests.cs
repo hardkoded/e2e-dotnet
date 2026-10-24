@@ -256,6 +256,22 @@ public sealed class StepTraceSessionTests
     }
 
     [Fact]
+    public async Task Does_not_stage_an_eviction_outcome_when_deleting_a_consumed_entry_rejects()
+    {
+        var context = EntryContext(endPath: "/customers", endAnchors: [SavedAnchor]);
+        ((StubCache)context.Store).DeleteFails = true;
+        // A step index, so a settlement outcome would show: without one, Flush reports nothing for any act.
+        var session = MakeSession(context, MakeHost(["/pricing", "/customers"]), stepIndex: 2);
+        await session.BeginAsync();
+        Assert.Equal(ReplayHandOffReason.EndMismatch, session.ReplayedPrefix?.StopReason);
+
+        await session.ConcludeAsync(StepOutcome.Failed);
+
+        Assert.Null(session.Pending.Decided);
+        Assert.Empty(Settle(context, session, verified: false));
+    }
+
+    [Fact]
     public async Task Evicts_nothing_on_failure_when_no_replay_was_consumed()
     {
         var context = FakeContext(() => new CacheLookup { Reason = "no-entry" });

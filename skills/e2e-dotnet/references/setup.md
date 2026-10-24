@@ -114,7 +114,7 @@ unknown key fails with `INVALID_CONFIG`.
 | `launchTimeout` | `60000` | Engine start, ms. |
 | `actionTimeout` | `30000` | Each locator action and engine operation, ms. |
 | `assertionTimeout` | `5000` | `Expect` polling window, ms. |
-| `cleanupTimeout` | `30000` | Engine cleanup, ms. |
+| `cleanupTimeout` | `30000` | Engine cleanup, ms: the engine's shutdown after each attempt, and the release of a hosted device when `e2e explore` or `e2e mcp` ends its session. |
 | `retries` | `0` | Checked, but not used: retries come from NUnit `[Retry]`. |
 | `agents` | none | `default` and any other named agent. Options: topic `agent`. |
 | `cache` | `read-write` | `{ mode, dir, strict }`. CI demotes the mode to `read-only`. |

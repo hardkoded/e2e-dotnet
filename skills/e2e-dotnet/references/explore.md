@@ -25,7 +25,9 @@ on a simulator or emulator through `MobileEngine`: it needs Node 22.12 or newer
 and a booted device, and `E2E_MOBILE_DEVICE` names one (see
 [mobile.md](mobile.md)). With `E2E_MOBILE_PROVIDER=limrun` it leases a hosted
 Limrun device when the exploration starts (set `LIMRUN_API_KEY`) and releases it
-when the exploration ends, also after a failure or Ctrl+C. With
+when the exploration ends, also after a failure or Ctrl+C (exit 130), within the
+config's `cleanupTimeout`. A release that fails or outlives that budget ends the
+command with the error in place of the outcome (`CLEANUP_TIMEOUT`, exit 3). With
 `E2E_MOBILE_PROVIDER=devflow` it attaches to the MAUI app you launched. `e2e explore` supplies the
 device engine; a library caller of `Explore.ExploreAsync` with an `ios` or
 `android` target must set `ExploreOptions.Engine`. A `windows` target with `app.appPath` (the
