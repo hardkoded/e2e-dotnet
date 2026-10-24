@@ -29,13 +29,13 @@ internal static class SnapshotText
 
         if (!any)
         {
-            builder.AppendLine();
+            builder.Append('\n');
             builder.Append("(empty)");
         }
 
         if (observation.Truncated)
         {
-            builder.AppendLine();
+            builder.Append('\n');
             builder.Append("(More of the page is off screen. Scroll to reach it.)");
         }
 
@@ -47,7 +47,7 @@ internal static class SnapshotText
         var wrote = false;
         if (!(node.States.Hidden || node.States.AriaHidden))
         {
-            builder.AppendLine();
+            builder.Append('\n');
             builder.Append(' ', depth * 2);
             builder.Append("- ");
             builder.Append(Describe(node, redactor, appOrigin, listing: true));
