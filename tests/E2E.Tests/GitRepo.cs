@@ -58,9 +58,9 @@ internal static class GitRepo
     /// </summary>
     public static void RemoveRepo(string dir)
     {
-        foreach (var file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
+        foreach (var entry in new DirectoryInfo(dir).EnumerateFileSystemInfos("*", SearchOption.AllDirectories))
         {
-            File.SetAttributes(file, FileAttributes.Normal);
+            entry.Attributes = entry is DirectoryInfo ? FileAttributes.Directory : FileAttributes.Normal;
         }
 
         Directory.Delete(dir, recursive: true);

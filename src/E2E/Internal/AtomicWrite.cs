@@ -61,7 +61,10 @@ internal static class AtomicWrite
         }
     }
 
-    /// <summary>The synchronous twin (upstream's <c>writeFileAtomicSync</c>), for a store that is read and written from synchronous code.</summary>
+    /// <summary>
+    /// The synchronous twin (upstream's <c>writeFileAtomicSync</c>), for a store that is read and written from synchronous code.
+    /// Upstream's cache store awaits <c>writeFileAtomic</c>; the port's <see cref="IStepCache.Write"/> is synchronous, so it uses this one.
+    /// </summary>
     public static void WriteFileAtomic(string filePath, string content)
     {
         var temporary = TemporaryPath(filePath);
