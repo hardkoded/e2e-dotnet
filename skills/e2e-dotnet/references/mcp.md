@@ -15,8 +15,9 @@ leases a hosted Limrun device instead (set `LIMRUN_API_KEY`); with
 [mobile.md](mobile.md)). `open_session` leases the device, and the lease bills
 until `close_session` releases it: close sessions you no longer need. The idle
 timeout, the four-hour limit, and a server shutdown release it too, within the
-config's `cleanupTimeout`; a release that fails or outlives that budget is a
-`Cleanup:` line in the result, not a lost device. A device
+config's `cleanupTimeout`. A release that fails or outlives that budget is reported
+as a `Cleanup:` line in the result, and the device may stay leased and billed until
+the provider's own time limit ends the lease. A device
 session has no `navigate` tool. The catalog is the testing agent's own actions plus `locate`,
 `test_lines`, and `screenshot`. Not ported: recording a video, the project's own tools,
 and the tap, hover, and type at a point. `e2e init` does not exist, so

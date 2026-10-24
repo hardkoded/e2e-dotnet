@@ -246,9 +246,10 @@ public sealed record EnginePrepareInfo
 public sealed record EnginePrepareResult
 {
     /// <summary>
-    /// Lowers the target's worker cap for this run, <c>1</c> to <see cref="EnginePrepareInfo.Slots"/>: the surfaces the engine actually
+    /// Upstream's contract: lowers the target's worker cap for this run, <c>1</c> to <see cref="EnginePrepareInfo.Slots"/>: the surfaces the engine actually
     /// provisioned, one per leased resource. Null when prepare bound nothing, so the declared cap stays. The standalone host of
-    /// <c>e2e explore</c> and <c>e2e mcp</c> starts one worker and reads no cap.
+    /// <c>e2e explore</c> and <c>e2e mcp</c> starts one worker and reads no cap. The port has no test runner to apply it, and no host in
+    /// this repository reads it.
     /// </summary>
     public int? Workers { get; init; }
 
