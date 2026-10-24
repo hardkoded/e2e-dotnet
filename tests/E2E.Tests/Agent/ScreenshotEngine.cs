@@ -12,7 +12,7 @@ namespace E2E.Tests.Agent;
 /// the engine declares the capture and cannot produce it, as an engine that captures no pixels does. The picture
 /// covers as many regions as the newest observation listed secure nodes, as a web page whose secure fields are all masked does.
 /// </summary>
-internal sealed class ScreenshotEngine(DocumentWorld world, Func<int, byte[]>? shot = null) : IEngine
+internal class ScreenshotEngine(DocumentWorld world, Func<int, byte[]>? shot = null) : IEngine
 {
     private readonly DocumentEngine _inner = new(world);
     private readonly Func<int, byte[]>? _shot = shot;

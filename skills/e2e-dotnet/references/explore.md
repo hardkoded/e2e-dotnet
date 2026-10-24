@@ -151,6 +151,7 @@ exploration, and so are retries.
 | No step ran and nothing was found | `Blocked` | 1 |
 | Every step was blocked, with no `issue` finding | `Blocked` | 1, 2, or 3, from the first blocker |
 | An engine, app, or model provider error ended the run | `Failed` | 3 |
+| The exploration passed, but closing it failed (the engine's finish hook, such as a device lease that was not released, or its `CLEANUP_TIMEOUT`) | `Failed` | 3 (or the verdict's code when that is higher) |
 
 An `issue` is a functional defect and fails the run. A `warning` is cosmetic
 and does not. `ExploreOutcome.Error` is the `E2EException` that ended the
