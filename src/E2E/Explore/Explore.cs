@@ -294,19 +294,16 @@ public static class Explore
             cleanup = await attempt.CloseAsync().ConfigureAwait(false);
         }
 
-        var cleanupErrors = cleanup.Select(failure => CleanupError(failure, redactor)).ToList();
+        var cleanupErrors = cleanup
+            .Select(failure => ErrorSerializer.TranslateProvisioningError(failure, " while closing the exploration", CancellationToken.None))
+            .Select(failure => failure as E2EException ?? new EngineException(EngineErrorCodes.EngineFailure, failure.Message + " while closing the exploration", failure))
+            .Select(failure => (E2EException)ErrorRedaction.Cause(failure, redactor.Redact)!)
+            .ToList();
         var exitCode = ErrorSerializer.CombineExitCodes(
             cleanupErrors.Select(failure => ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category)).Append(Runner.ExitCodeOf(error)));
         var status = cleanupErrors.Count > 0 ? RunStatus.Failed : Runner.StatusOf(error);
         return new ExploreOutcome(status, exitCode, error ?? cleanupErrors.FirstOrDefault(), record);
     }
-
-    /// <summary>
-    /// A cleanup failure as the run records it: an e2e error stays itself, anything else is an engine failure. Upstream's
-    /// <c>translateProvisioningError</c> (<c>internal/errors.ts</c>) over the runner's <c>recordFailure(cause, 'cleanup')</c>.
-    /// </summary>
-    private static E2EException CleanupError(Exception cause, Redactor redactor) =>
-        cause as E2EException ?? new EngineException(EngineErrorCodes.EngineFailure, redactor.Redact(cause.Message) + " while closing the exploration", cause);
 
     /// <summary>
     /// The notices about a retry mode: an exploration runs its goal once, so a mode that records retries only records nothing, and the

@@ -90,7 +90,7 @@ internal sealed class PreparedEngines
                 Observe(preparing);
             }
 
-            var translated = Translate(cause, $" while preparing engine {engine.Platform} for target \"{targetName}\"", cancellationToken);
+            var translated = ErrorSerializer.TranslateProvisioningError(cause, $" while preparing engine {engine.Platform} for target \"{targetName}\"", cancellationToken);
             if (ReferenceEquals(translated, cause))
             {
                 throw;
@@ -164,28 +164,8 @@ internal sealed class PreparedEngines
         }
         catch (Exception cause)
         {
-            scope.OnFailure(Translate(cause, $" while {label}", CancellationToken.None));
+            scope.OnFailure(ErrorSerializer.TranslateProvisioningError(cause, $" while {label}", CancellationToken.None));
         }
-    }
-
-    /// <summary>
-    /// What a provisioning hook's failure is reported as: an e2e error stays itself, a caller's cancel is a cancel (an engine may call a
-    /// lease that was cancelled a failed one), and anything else, such as an installer's plain exception, is an engine failure. Upstream's
-    /// <c>translateProvisioningError</c> (<c>internal/errors.ts</c>).
-    /// </summary>
-    private static Exception Translate(Exception cause, string suffix, CancellationToken cancellationToken)
-    {
-        if (cause is E2EException { Code: EngineErrorCodes.Cancelled })
-        {
-            return cause;
-        }
-
-        if (cancellationToken.IsCancellationRequested)
-        {
-            return new EngineException(EngineErrorCodes.Cancelled, "preparing the engine was cancelled", cause);
-        }
-
-        return cause is E2EException or OperationCanceledException ? cause : new EngineException(EngineErrorCodes.EngineFailure, cause.Message + suffix, cause);
     }
 
     /// <summary>A hook nobody awaits any more must not leave an unobserved fault behind.</summary>
