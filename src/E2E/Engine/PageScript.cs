@@ -845,10 +845,12 @@ internal static class PageScript
           const ownsText = (el) => el instanceof HTMLElement && !namesControl(el) &&
             (offersAction(el) && isReadInLine(el) ? lineTextOf(el) !== "" : directTextOf(el) !== "" && !isReadInLine(el));
           const hasRole = (role) => !!role && role !== "presentation" && role !== "none";
-          const listed = (el, role) => hasRole(role) || !!el.getAttribute(testIdAttribute) || ownsText(el);
+          // An iframe is a boundary node whatever its role: upstream emits it before any role check,
+          // so <iframe role="none"> stays listed, with the role none.
+          const listed = (el, role) => el.tagName === "IFRAME" || hasRole(role) || !!el.getAttribute(testIdAttribute) || ownsText(el);
           // A node listed for its text alone. It draws on its own allowance, so
           // a page full of text cannot push controls out of the snapshot.
-          const textOnly = (el, role) => !hasRole(role) && !el.getAttribute(testIdAttribute);
+          const textOnly = (el, role) => el.tagName !== "IFRAME" && !hasRole(role) && !el.getAttribute(testIdAttribute);
           // The inline elements read in the element's line that have no node of
           // their own, as bare nodes of text under it, so a text query still
           // finds a word the line carries, as Playwright's text engine does.
