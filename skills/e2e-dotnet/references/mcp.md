@@ -18,7 +18,11 @@ timeout, the four-hour limit, and a server shutdown release it too, within the
 config's `cleanupTimeout`. A release that fails or outlives that budget is reported
 as a `Cleanup:` line in the result, and the device may stay leased and billed until
 the provider's own time limit ends the lease. A device
-session has no `navigate` tool. The catalog is the testing agent's own actions plus `locate`,
+session has no `navigate` tool. A `windows` target with `app.appPath` (the executable to
+launch) or `app.bundleId` (the process name of a running app) runs on
+`WinAppEngine` through Windows UI Automation, on Windows only, and needs an
+unlocked desktop for keys and clicks (see [windows.md](windows.md)); it launches
+the app before the first observation and has no `navigate` tool either. The catalog is the testing agent's own actions plus `locate`,
 `test_lines`, and `screenshot`. Not ported: recording a video, the project's own tools,
 and the tap, hover, and type at a point. `e2e init` does not exist, so
 register the server yourself (below).

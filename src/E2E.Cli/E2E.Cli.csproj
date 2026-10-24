@@ -15,12 +15,16 @@
     <NoWarn>$(NoWarn);NU5111</NoWarn>
     <ToolCommandName>e2e</ToolCommandName>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- E2E.WinApp restores the winapp UI Automation library, which ships Windows assets only. -->
+    <AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0</AssetTargetFallback>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\E2E\E2E.csproj" />
     <ProjectReference Include="..\E2E.Mobile\E2E.Mobile.csproj" />
     <ProjectReference Include="..\E2E.Limrun\E2E.Limrun.csproj" />
     <ProjectReference Include="..\E2E.Mobile.DevFlow\E2E.Mobile.DevFlow.csproj" />
+    <ProjectReference Include="..\E2E.WinApp\E2E.WinApp.csproj" />
     <Compile Include="..\Shared\HostedDeviceProviders.cs" Link="HostedDeviceProviders.cs" />
     <PackageReference Include="ModelContextProtocol.Core" Version="2.2.0" />
     <!-- The tool never compares screenshots, so it ships none of the SkiaSharp native libraries E2E brings in. -->

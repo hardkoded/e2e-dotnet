@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/apps/">
+    <Project Path="apps/WinAppBenchmark.E2ETests/WinAppBenchmark.E2ETests.csproj" />
+  </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/E2E.Sample/E2E.Sample.csproj" />
     <Project Path="samples/MobileApp.E2ETests/MobileApp.E2ETests.csproj" />
@@ -16,6 +19,9 @@
     <Project Path="src/E2E.NUnit/E2E.NUnit.csproj" />
     <Project Path="src/E2E.TestMu.Mobile/E2E.TestMu.Mobile.csproj" />
     <Project Path="src/E2E.TestMu/E2E.TestMu.csproj" />
+    <Project Path="src/E2E.WinApp.NUnit/E2E.WinApp.NUnit.csproj" />
+    <Project Path="src/E2E.WinApp.XUnit.V3/E2E.WinApp.XUnit.V3.csproj" />
+    <Project Path="src/E2E.WinApp/E2E.WinApp.csproj" />
     <Project Path="src/E2E.XUnit.V3/E2E.XUnit.V3.csproj" />
     <Project Path="src/E2E/E2E.csproj" />
   </Folder>
@@ -32,5 +38,6 @@
     <Project Path="tests/E2E.TestMu.Tests/E2E.TestMu.Tests.csproj" />
     <Project Path="tests/E2E.Tests.Schema/E2E.Tests.Schema.csproj" />
     <Project Path="tests/E2E.Tests/E2E.Tests.csproj" />
+    <Project Path="tests/E2E.WinApp.Tests/E2E.WinApp.Tests.csproj" />
   </Folder>
 </Solution>

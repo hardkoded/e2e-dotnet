@@ -7,12 +7,13 @@ namespace E2E.Engine;
 /// <summary>
 /// Picks the engine of a config target for <c>e2e explore</c> and <c>e2e mcp</c>. There is no upstream counterpart: upstream's config
 /// holds a live engine handle, and the port's <c>e2e.config.json</c> names a platform instead. The platform decides: <c>web</c> is a
-/// <see cref="WebEngine"/>, and <c>ios</c> and <c>android</c> are built by <c>mobile</c>, which <c>E2E.Mobile</c> supplies.
+/// <see cref="WebEngine"/>, <c>ios</c> and <c>android</c> are built by <c>mobile</c>, which <c>E2E.Mobile</c> supplies, and <c>windows</c>
+/// by <c>windows</c>, which <c>E2E.WinApp</c> supplies.
 /// </summary>
 internal static class TargetEngines
 {
     /// <summary>Builds the engine of <paramref name="target"/>. <paramref name="headless"/> is the web window choice; null leaves it to <c>E2E_HEADLESS</c>.</summary>
-    public static IEngine Create(TargetConfig target, bool? headless, Func<TargetConfig, IEngine>? mobile)
+    public static IEngine Create(TargetConfig target, bool? headless, Func<TargetConfig, IEngine>? mobile, Func<TargetConfig, IEngine>? windows = null)
     {
         ArgumentNullException.ThrowIfNull(target);
         return target.Platform switch
@@ -21,7 +22,10 @@ internal static class TargetEngines
             "ios" or "android" => (mobile ?? throw new ConfigurationException(
                 "INVALID_CONFIG",
                 $"target \"{target.Name}\" has platform {target.Platform}, but this host has no device engine; use the e2e tool, or set ExploreOptions.Engine.")).Invoke(target),
-            _ => throw new ConfigurationException("INVALID_CONFIG", $"target \"{target.Name}\" has platform {target.Platform}; the platform must be web, ios, or android"),
+            "windows" => (windows ?? throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"target \"{target.Name}\" has platform windows, but this host has no Windows app engine; use the e2e tool on Windows, or set ExploreOptions.Engine.")).Invoke(target),
+            _ => throw new ConfigurationException("INVALID_CONFIG", $"target \"{target.Name}\" has platform {target.Platform}; the platform must be web, ios, android, or windows"),
         };
     }
 

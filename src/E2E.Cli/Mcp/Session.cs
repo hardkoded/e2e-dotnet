@@ -34,7 +34,7 @@ internal sealed class SessionHostOptions
     public Func<string, Task<E2EConfig>> LoadConfig { get; init; } = path => Task.Run(() => E2EConfig.Load(path));
 
     /// <summary>Creates the engine of one session: the target's, and whether the session shows its UI. The platform of the target picks the engine.</summary>
-    public Func<TargetConfig, bool, IEngine> CreateEngine { get; init; } = (target, headed) => TargetEngines.Create(target, !headed, DeviceTargets.Create);
+    public Func<TargetConfig, bool, IEngine> CreateEngine { get; init; } = (target, headed) => TargetEngines.Create(target, !headed, DeviceTargets.Create, WindowsTargets.Create);
 
     /// <summary>The credentials of the hosted device services the session may lease from, redacted wherever the server returns or logs text.</summary>
     public Func<IReadOnlyList<Secret>> Credentials { get; init; } = DeviceTargets.Credentials;

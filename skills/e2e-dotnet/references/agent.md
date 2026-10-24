@@ -442,7 +442,7 @@ same dictionary. A config file cannot declare one, since a tool is code.
   that is not `REPLAY_STALE`: a recording that stops at a project tool is a
   step the cache cannot finish. The recording keeps the tool's name, never its
   arguments.
-- `platforms: ["ios", "android"]` offers the tool only on those platforms.
+- `platforms: ["ios", "android"]` offers the tool only on those platforms (`windows` is the Windows app platform).
   Leave it out to offer the tool everywhere.
 - The tool's output is redacted and cut at 16384 characters.
 - A name the agent already uses (`observe`, `done`, `navigate`, `back`,

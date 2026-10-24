@@ -187,6 +187,7 @@ internal static partial class ExploreCommand
             Timeout = parsed.Timeout,
             Headed = parsed.Headed,
             CreateMobileEngine = DeviceTargets.Create,
+            CreateWindowsEngine = WindowsTargets.Create,
             Output = parsed.Output,
             Debug = parsed.Debug,
             AiTrace = parsed.AiTrace,

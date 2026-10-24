@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>E2E.WinApp</RootNamespace>
+    <AssemblyName>E2E.WinApp</AssemblyName>
+    <Description>Windows app engine for the community .NET port of the e2e agentic testing framework: drives a desktop app through Windows UI Automation. Not an official TesterArmy product.</Description>
+    <PackageId>E2E.WinApp</PackageId>
+    <PackageTags>e2e;testing;agent;windows;winui;uiautomation</PackageTags>
+    <IsPackable>true</IsPackable>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- LibraryImport P/Invoke in UiAutomationDriver. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- The winapp UI Automation library ships Windows assets only. Every project that restores it, directly or through a reference, repeats these two lines. -->
+    <AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0</AssetTargetFallback>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\E2E\E2E.csproj" />
+    <!-- Shared with the mobile engine: the press key grammar and the cleanup budget, owned by E2E.Mobile. -->
+    <Compile Include="..\E2E.Mobile\DeviceKeys.cs" Link="DeviceKeys.cs" />
+    <Compile Include="..\E2E.Mobile\CleanupBudget.cs" Link="CleanupBudget.cs" />
+    <!-- The engine behind `winapp ui`, as a library. It ships Windows assets only, which AssetTargetFallback admits under net10.0. -->
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp.UIAutomation" Version="0.7.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.13" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <InternalsVisibleTo Include="E2E.WinApp.Tests" />
+    <InternalsVisibleTo Include="E2E.Cli" />
+    <InternalsVisibleTo Include="E2E.Cli.Tests" />
+  </ItemGroup>
+</Project>

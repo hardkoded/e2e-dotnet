@@ -33,6 +33,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | Handling a failed run: the trace page, `report.json` for scripts, `E2ESession.Report()` for a session you run yourself, error codes and their fixes, a visible browser, replay misses, phase timings, the agent step table, every model call | `debugging` | [references/debugging.md](references/debugging.md) |
 | Exploring an app toward a goal without a test file, with `e2e explore` or `Explore.ExploreAsync` | `explore` | [references/explore.md](references/explore.md) |
 | Testing an iOS or Android app: `MobileEngine`, the `Device` fixture, picking a simulator, video of the device screen, Limrun hosted devices, a MAUI app through the DevFlow agent, known limits | `mobile` | [references/mobile.md](references/mobile.md) |
+| Testing a Windows desktop app: `WinAppEngine`, `WinAppTest`, the `Window` fixture, the `windows` target in `e2e explore` and `e2e mcp`, the interactive-desktop requirement, known limits | `windows` | [references/windows.md](references/windows.md) |
 | Asked to bug bash or hunt for bugs: proving each bug with a repro test | `bug-bash` | [references/bug-bash.md](references/bug-bash.md) |
 
 ## Quick start
@@ -118,7 +119,10 @@ screen.
    fresh before the first observation (`devflow` attaches to the running
    app). It installs no build, so the target needs `app.bundleId`. A hosted
    device bills until the session closes, so close it when done. Only one
-   session can drive a device target at a time.
+   session can drive a device target at a time. A `windows` target launches the
+   executable `app.appPath` names (or attaches to the app `app.bundleId`
+   names) before the first observation, on Windows only, and needs an
+   unlocked desktop for keys and clicks (topic `windows`).
 5. Rerun only that test, the way the next section says (topic `mcp` says
    when a session must close first). Repeat with the next failure.
 

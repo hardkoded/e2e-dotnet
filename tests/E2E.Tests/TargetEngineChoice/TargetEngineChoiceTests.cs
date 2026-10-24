@@ -29,7 +29,7 @@ public sealed class TargetEngineChoiceTests
     [Fact]
     public void Builds_a_web_engine_for_a_web_target_without_asking_for_a_device_engine()
     {
-        var engine = TargetEngines.Create(Target("web"), headless: true, mobile: _ => throw new InvalidOperationException("no device engine for web"));
+        var engine = TargetEngines.Create(Target("web"), headless: true, mobile: _ => throw new InvalidOperationException("no device engine for web"), windows: _ => throw new InvalidOperationException("no Windows engine for web"));
         Assert.IsType<WebEngine>(engine);
     }
 
@@ -49,12 +49,27 @@ public sealed class TargetEngineChoiceTests
         Assert.Equal(platform, engine.Platform);
     }
 
+    [Fact]
+    public void Builds_the_windows_engine_of_the_host_for_a_windows_target_without_asking_for_a_device_engine()
+    {
+        var target = Target("windows");
+        TargetConfig? seen = null;
+        var engine = TargetEngines.Create(target, headless: null, mobile: _ => throw new InvalidOperationException("no device engine for windows"), windows: given =>
+        {
+            seen = given;
+            return new DeviceEngine("windows");
+        });
+        Assert.Same(target, seen);
+        Assert.Equal("windows", engine.Platform);
+    }
+
     /// <summary>.NET-only: upstream's <c>launchesPinnedApp</c> reads the engine handle of the target; the port reads the engine it built.</summary>
     [Fact]
     public void Launches_a_pinned_app_only_for_a_target_without_a_url_on_an_engine_that_pins_one()
     {
         var device = new DeviceEngine("ios");
         Assert.True(TargetEngines.LaunchesPinnedApp(Target("ios"), device));
+        Assert.True(TargetEngines.LaunchesPinnedApp(Target("windows"), new DeviceEngine("windows")));
         Assert.False(TargetEngines.LaunchesPinnedApp(new TargetConfig { Name = "t", Platform = "ios", App = new AppConfig { Url = "https://app.test" } }, device));
         Assert.False(TargetEngines.LaunchesPinnedApp(Target("web"), new WebEngine(true)));
     }
@@ -68,11 +83,19 @@ public sealed class TargetEngineChoiceTests
     }
 
     [Fact]
-    public void Refuses_a_platform_that_is_not_web_ios_or_android()
+    public void Refuses_a_windows_target_when_the_host_has_no_windows_engine()
     {
-        var error = Assert.Throws<ConfigurationException>(() => TargetEngines.Create(Target("tvos"), headless: null, mobile: _ => new DeviceEngine("tvos")));
+        var error = Assert.Throws<ConfigurationException>(() => TargetEngines.Create(Target("windows"), headless: null, mobile: _ => new DeviceEngine("ios"), windows: null));
         Assert.Equal("INVALID_CONFIG", error.Code);
-        Assert.Contains("the platform must be web, ios, or android", error.Message, StringComparison.Ordinal);
+        Assert.Contains("has no Windows app engine", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Refuses_a_platform_that_is_not_web_ios_android_or_windows()
+    {
+        var error = Assert.Throws<ConfigurationException>(() => TargetEngines.Create(Target("tvos"), headless: null, mobile: _ => new DeviceEngine("tvos"), windows: _ => new DeviceEngine("tvos")));
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Contains("the platform must be web, ios, android, or windows", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
