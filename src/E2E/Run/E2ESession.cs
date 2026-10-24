@@ -740,9 +740,10 @@ public sealed class E2ESession : IAsyncDisposable
                     // returned. A new recording's delete only clears what an earlier run left, so it stays unconfirmed. A step
                     // that recorded nothing and kept no whole replay reports nothing when the delete throws, as upstream's
                     // evict stages nothing then.
+                    var evicts = !recorded || act.ReplayedWhole;
                     outcome = recorded || act.ReplayedWhole ? CacheWrite.Unconfirmed : null;
                     cache.Delete(act.Key);
-                    if (!recorded || act.ReplayedWhole)
+                    if (evicts)
                     {
                         outcome = CacheWrite.Evicted;
                     }
