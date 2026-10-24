@@ -20,6 +20,7 @@ public sealed class CheckedAndSelectedTests(ChromiumPage chromium) : IClassFixtu
               <option data-testid="display" style="display:none">No display</option>
               <option data-testid="visibility" style="visibility:hidden">No visibility</option>
               <option data-testid="aria" aria-hidden="true">No aria</option>
+              <option data-testid="inert" style="interactivity:inert">Inert</option>
               <optgroup hidden label="Hidden group"><option data-testid="group">Hidden group choice</option></optgroup>
               <optgroup style="visibility:hidden" label="Restored group"><option data-testid="restored" style="visibility:visible">Restored</option></optgroup>
             </select>
@@ -35,12 +36,12 @@ public sealed class CheckedAndSelectedTests(ChromiumPage chromium) : IClassFixtu
         Assert.True(disabled.Disabled);
         Assert.Contains(nodes, node => node.TestId == "restored");
         Assert.Contains(nodes, node => node.TestId == "visibility");
-        foreach (var id in new[] { "hidden", "display", "aria", "group" })
+        foreach (var id in new[] { "hidden", "display", "aria", "group", "inert" })
         {
             Assert.DoesNotContain(nodes, node => node.TestId == id);
         }
 
-        Assert.Equal(["Visible", "Disabled", "No visibility", "Restored"], await chromium.Page.GetByRole(AriaRole.Option).AllTextContentsAsync());
+        Assert.Equal(["Visible", "Disabled", "No visibility", "Inert", "Restored"], await chromium.Page.GetByRole(AriaRole.Option).AllTextContentsAsync());
     }
 
     [Fact]

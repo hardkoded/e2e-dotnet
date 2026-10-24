@@ -26,7 +26,8 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, E2ETest> Running = new(StringComparer.Ordinal);
 
     /// <summary>
-    /// Cache identity for this test. The default is the class and method name, with every theory
+    /// The test's title: its cache identity, and the <c>Test:</c> line every prompt's context opens with.
+    /// The default is the class and method name, with every theory
     /// argument in full, so each test and theory row keeps its own replay. The xUnit display name
     /// is not used, because xUnit shortens long arguments in it and a display setting can change it.
     /// </summary>

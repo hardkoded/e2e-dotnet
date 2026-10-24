@@ -176,15 +176,22 @@ The loop is:
    or `Screen.GetByText`.
 3. Write an `E2ETest` class (topic `writing-tests`). Deterministic steps where
    you saw exact names; `Agent.ActAsync` where the flow varies.
-4. Run it from the shell: `dotnet test --filter "FullyQualifiedName~<Class>"`.
-   On a failure, fix from the exception and the trace page (topic
-   `debugging`), then rerun. To see a screen the evidence leaves out, go
+4. Run only that test from the shell:
+   `dotnet test --filter "FullyQualifiedName~<Class>.<Method>"` (SKILL.md,
+   "Rerunning a test while you fix it"). On a failure, fix from the exception
+   and the trace page (topic `debugging`), then rerun it the same way. To see a screen the evidence leaves out, go
    straight to it instead of walking the flow again from the start:
    `navigate` to its path, then `observe` and `locate`. On a device, a session
    starts on the launch screen of the pinned app, launched fresh. A second
    session on a device target fails with `ENGINE_IN_USE` until the first
    closes.
-5. `close_session` when you are done.
+5. Leave the session open through those runs, on the screen under test,
+   wherever Rules lets a run go beside it, so step 4's live look needs no
+   new session. `observe` does not reload: `navigate` even to the screen
+   the session is on when the run or a fix may have changed what it shows.
+   A live look's actions print test lines too: copy a fixed line from its
+   action, since `test_lines` also lists the looks after the first walk.
+   `close_session` once the test passes.
 
 ## Rules
 
@@ -195,6 +202,10 @@ The loop is:
   it writes no trace page, and `e2e mcp` takes no `--trace`, `--video`, `--debug`,
   or `--ai-trace`, as upstream. A session is for looking and trying; the test is
   what you write afterwards.
+- On the web, a session can stay open while `dotnet test` runs: the port has
+  no `app.command`, so the app runs elsewhere and both use it. On mobile,
+  close the session before each run: a session and a run on one device fight
+  over it. It can stay open only on a device no run uses.
 - Parallel agents (subagents) share one server: each opens its own session
   and passes its session id to every `tools`, `call`, and `close_session`.
   A call may leave `session` out only while one session is open.

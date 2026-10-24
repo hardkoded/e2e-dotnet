@@ -116,6 +116,12 @@ public static class Explore
     /// <summary>The goal when none is given.</summary>
     public const string DefaultGoal = "Explore the app and find bugs";
 
+    /// <summary>
+    /// The virtual file of the exploration's test: it joins the goal in the result id and leads the result's directory, and
+    /// it makes the exploration a test, so every prompt opens with <c>Test: &lt;goal&gt;</c>. Upstream's <c>EXPLORE_FILE</c>.
+    /// </summary>
+    internal const string ExploreFile = "explore";
+
     /// <summary>The most characters a goal may have once its secret values are redacted.</summary>
     public const int MaxGoalChars = 2_000;
 
@@ -232,6 +238,7 @@ public static class Explore
             CacheEnabled = false,
             CacheMode = CacheMode.Off,
             TestTitle = state.Goal,
+            TestFile = ExploreFile,
             TestTimeout = budgets.Timeout + TimeoutGrace,
             LaunchTimeout = config.LaunchTimeout,
             CleanupTimeout = config.CleanupTimeout,

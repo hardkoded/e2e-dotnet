@@ -70,7 +70,7 @@ public sealed class ExploreFlagsTests
         Assert.Equal(2, code);
         Assert.Null(fake.Options);
         Assert.Equal("", stdout);
-        Assert.Equal("error: " + message + "\n", stderr.Replace("\r\n", "\n", StringComparison.Ordinal));
+        Assert.Equal("error: " + message + "\n", stderr);
     }
 
     [Fact]
@@ -160,7 +160,7 @@ public sealed class ExploreFlagsTests
         var (code, _, stderr) = await fake.InvokeAsync(flag);
 
         Assert.Equal(2, code);
-        Assert.Equal("error: option '" + flag.Split('=')[0] + "' takes no argument\n", stderr.Replace("\r\n", "\n", StringComparison.Ordinal));
+        Assert.Equal("error: option '" + flag.Split('=')[0] + "' takes no argument\n", stderr);
     }
 
     [Fact]
