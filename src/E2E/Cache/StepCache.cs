@@ -183,6 +183,7 @@ public interface IStepCache
 
     void Write(string key, CacheEntry entry);
 
+    /// <summary>Returns when the entry is absent; throws when deletion fails, so the best-effort caller can avoid reporting a successful eviction.</summary>
     void Delete(string key);
 }
 

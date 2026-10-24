@@ -208,8 +208,16 @@ internal sealed class StepTraceSession
         {
             if (_options.Write)
             {
-                _options.Cache.Delete(Pending.Key);
-                Pending.Decided = CacheWrite.Evicted;
+                // A store that throws did not delete the entry, so nothing is reported as evicted.
+                try
+                {
+                    _options.Cache.Delete(Pending.Key);
+                    Pending.Decided = CacheWrite.Evicted;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // The cache is disposable: the settlement decides what becomes of the entry.
+                }
             }
 
             return;

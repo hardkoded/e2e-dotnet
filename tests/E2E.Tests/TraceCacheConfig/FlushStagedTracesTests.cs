@@ -62,6 +62,65 @@ public sealed class FlushStagedTracesTests
     }
 
     [Fact]
+    public void Does_not_report_default_store_eviction_when_the_entry_directory_denies_deletion()
+    {
+        if (OperatingSystem.IsWindows() || Environment.UserName == "root")
+        {
+            // A directory mode does not deny deletion to root or on Windows.
+            return;
+        }
+
+        var directory = Directory.CreateTempSubdirectory("e2e-cache-delete-").FullName;
+        try
+        {
+            var store = new FileStepCache(directory);
+            store.Write(KeyB, Trace("stale trailing flow"));
+            var entryPath = Path.Combine(directory, $"{KeyB}.json");
+            var before = File.ReadAllText(entryPath);
+            File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+
+            var writes = E2ESession.Flush(store, [Kept(KeyB, store, 3)], preserve: false);
+
+            Assert.Equal(before, File.ReadAllText(entryPath));
+            Assert.Equal(CacheWrite.Unconfirmed, writes[3]);
+            store.Delete(new string('c', 64));
+        }
+        finally
+        {
+            File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Does_not_report_an_eviction_when_a_custom_store_rejects_deletion_and_still_settles_other_entries()
+    {
+        var store = new MemoryCache { DeleteFails = true };
+        store.Write(KeyB, Trace("replayed flow"));
+        var stored = store.Entries[KeyB];
+
+        var writes = E2ESession.Flush(
+            store,
+            [Kept(KeyB, store, verified: false, stepIndex: 3), Recorded(KeyA, "confirmed", verified: true, stepIndex: 1)],
+            preserve: false);
+
+        Assert.Equal(stored, store.Entries[KeyB]);
+        Assert.Equal(CacheWrite.Unconfirmed, writes[3]);
+        Assert.Equal(CacheWrite.Saved, writes[1]);
+        Assert.True(store.Entries.ContainsKey(KeyA));
+    }
+
+    [Fact]
+    public void Reports_a_new_recording_as_unconfirmed_when_a_custom_store_rejects_its_deletion()
+    {
+        var store = new MemoryCache { DeleteFails = true };
+
+        var writes = E2ESession.Flush(store, [Recorded(KeyA, "unconfirmed", verified: false, stepIndex: 3)], preserve: false);
+
+        Assert.Equal([KeyValuePair.Create(3, CacheWrite.Unconfirmed)], writes);
+    }
+
+    [Fact]
     public void Completes_the_provenance_of_a_confirmed_kept_entry_recorded_before_the_occurrence_fields_and_nothing_else()
     {
         var store = new MemoryCache();
@@ -153,17 +212,18 @@ public sealed class FlushStagedTracesTests
     }
 
     // An act that ran live and passed, with its recording.
-    private static PendingAct Recorded(string key, string summary, bool verified)
+    private static PendingAct Recorded(string key, string summary, bool verified, int? stepIndex = null)
     {
-        return new PendingAct { Key = key, Completed = true, Verified = verified, Entry = Trace(summary) };
+        return new PendingAct { Key = key, Completed = true, Verified = verified, Entry = Trace(summary), StepIndex = stepIndex };
     }
 
     // An act a replay finished whole: the stored entry is already its flow.
-    private static PendingAct Kept(string key, MemoryCache store, bool verified)
+    private static PendingAct Kept(string key, IStepCache store, bool verified, int? stepIndex = null)
     {
         return new PendingAct
         {
             Key = key,
+            StepIndex = stepIndex,
             Completed = true,
             Verified = verified,
             ReadEntry = true,
@@ -173,6 +233,8 @@ public sealed class FlushStagedTracesTests
             Step = Step(),
         };
     }
+
+    private static PendingAct Kept(string key, IStepCache store, int stepIndex) => Kept(key, store, verified: false, stepIndex);
 
     private static AttemptScope Fresh()
     {
@@ -209,8 +271,15 @@ public sealed class FlushStagedTracesTests
             Entries[key] = JsonSerializer.Serialize(entry);
         }
 
+        public bool DeleteFails { get; init; }
+
         public void Delete(string key)
         {
+            if (DeleteFails)
+            {
+                throw new InvalidOperationException("store unavailable");
+            }
+
             Entries.Remove(key);
         }
     }
