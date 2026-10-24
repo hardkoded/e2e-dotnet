@@ -73,10 +73,11 @@ public sealed class ToolLoopPrefixOnAnthropicTests
             return next;
         });
 
-        var (error, _) = await RunAsync(handler, executor);
+        var (error, turns) = await RunAsync(handler, executor);
 
         Assert.Null(error);
         Assert.Equal(3, handler.Requests.Count);
+        Assert.Contains(turns, turn => turn.Outcome.Contains("message 1 was rewritten, so the reasoning after it is not sent again", StringComparison.Ordinal));
         Assert.Contains("[edited]", handler.Requests[1].Body, StringComparison.Ordinal);
         Assert.Empty(ReplayedThinking(handler.Requests[1]));
         // The third request leaves messages.0 as the second sent it: the block produced under the edited message is valid and goes out.
@@ -112,10 +113,11 @@ public sealed class ToolLoopPrefixOnAnthropicTests
         var handler = new RecordingHandler(Look(1), Look(2), Done(3));
         var executor = Looking((messages, _) => messages.Select(message => Copy(message)).ToList());
 
-        var (error, _) = await RunAsync(handler, executor);
+        var (error, turns) = await RunAsync(handler, executor);
 
         Assert.Null(error);
         Assert.Equal(3, handler.Requests.Count);
+        Assert.DoesNotContain(turns, turn => turn.Outcome.Contains("was rewritten", StringComparison.Ordinal));
         // Equal content in new objects is no edit: nothing is dropped.
         Assert.Equal(["messages.1.content.0=sig-1", "messages.3.content.0=sig-2"], ReplayedThinking(handler.Requests[2]));
     }

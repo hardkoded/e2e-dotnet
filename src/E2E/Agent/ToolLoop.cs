@@ -157,6 +157,8 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
 {
     private static readonly VerdictTool Verdict = AgentTools.CreateVerdictTool();
 
+    private const string StopActingNotice = "Stop acting. Call done with a verdict.";
+
     public string Name => options.Name;
 
     public string? Version => options.Version;
@@ -208,11 +210,25 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 preparedStop = prepared.Stop;
             }
 
-            DropReasoningAfterRewrite(model, messages, lastShape, turns);
-
-            if (failures >= 5)
+            // A message rewritten since the last request (a history shrunk, or one the executor's PrepareMessages changed) edits the
+            // prefix a provider may have bound the reasoning after it to: where it does, that reasoning is not sent again, and the
+            // step's turns say so. Compared by value against what the last request sent, so an executor that clones an unchanged
+            // history rewrites nothing.
+            if (lastShape is not null && FirstRewritten(messages, lastShape) is { } rewritten)
             {
-                messages.Add(new ModelMessage { Role = "user", Content = "Stop acting. Call done with a verdict." });
+                var rebound = ProviderHints.AfterEdit(model, messages, rewritten);
+                if (!ReferenceEquals(rebound, messages))
+                {
+                    turns.Note("before turn " + turns.Next.ToString(CultureInfo.InvariantCulture) + ": message " + (rewritten + 1).ToString(CultureInfo.InvariantCulture) + " was rewritten, so the reasoning after it is not sent again");
+                    messages.Clear();
+                    messages.AddRange(rebound);
+                }
+            }
+
+            // The notice is added once: a retry after an overflow prepares the same turn again.
+            if (failures >= 5 && messages[^1] is not { Role: "user", Content: StopActingNotice })
+            {
+                messages.Add(new ModelMessage { Role = "user", Content = StopActingNotice });
             }
 
             // A repeat warns first. A stop leaves the model only done, so it still writes its own verdict.
@@ -236,13 +252,14 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             ModelResponse response;
             try
             {
-                lastShape = Shapes(model, messages);
+                lastShape = [.. messages.Select(MessageShape.ShapeOf)];
                 response = await CompleteAsync(model, system, messages, offered, context, redactor, token).ConfigureAwait(false);
             }
             catch (AgentException overflow) when (string.Equals(overflow.Code, "CONTEXT_OVERFLOW", StringComparison.Ordinal))
             {
-                // One recovery: the history shrinks and the request goes out again. The refused request was no turn,
-                // so it spends no call of the budget, and a second refusal is the step's verdict.
+                // One recovery: the history shrinks and the request goes out again, through the same turn preparation as any
+                // other, which notices the shrink. The refused request was no turn, so it spends no call of the budget, and a
+                // second refusal is the step's verdict.
                 if (shrunkOnce)
                 {
                     throw ToolLoop.Overflowed(overflow, " again after the history was shrunk once");
@@ -260,16 +277,8 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 turns.Note("context overflow before turn " + turns.Next.ToString(CultureInfo.InvariantCulture) + ": history shrunk from " + OverflowShrink.TextChars(messages).ToString(CultureInfo.InvariantCulture) + " to " + OverflowShrink.TextChars(shrunk).ToString(CultureInfo.InvariantCulture) + " chars, retrying once");
                 messages.Clear();
                 messages.AddRange(shrunk);
-                DropReasoningAfterRewrite(model, messages, lastShape, turns);
-                try
-                {
-                    lastShape = Shapes(model, messages);
-                    response = await CompleteAsync(model, system, messages, offered, context, redactor, token).ConfigureAwait(false);
-                }
-                catch (AgentException again) when (string.Equals(again.Code, "CONTEXT_OVERFLOW", StringComparison.Ordinal))
-                {
-                    throw ToolLoop.Overflowed(again, " again after the history was shrunk once");
-                }
+                call--;
+                continue;
             }
 
             var turn = turns.Begin(response);
@@ -341,11 +350,9 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         throw hardStop ?? new AgentException("STEP_BUDGET_EXHAUSTED", "agent.act exhausted its model-call budget of " + maxCalls.ToString(CultureInfo.InvariantCulture), blocked: true);
     }
 
-    // Only a model that binds reasoning to the prefix has a use for the digests, so the others pay for none.
-    private static string[]? Shapes(IAgentModel model, IReadOnlyList<ModelMessage> messages) =>
-        ProviderHints.BindsReasoningToPrefix(model) ? [.. messages.Select(MessageShape.ShapeOf)] : null;
-
-    // Upstream's LoopRun.firstRewritten: the index of the first message whose content is not what the last request sent at that position.
+    // Upstream's LoopRun.firstRewritten: the index of the first message whose content is not what the last request sent at that
+    // position, if any: a message the executor's PrepareMessages or the overflow shrink rewrote. The comparison is by value,
+    // against what was kept from the last request rather than its message objects.
     private static int? FirstRewritten(IReadOnlyList<ModelMessage> messages, IReadOnlyList<string> last)
     {
         for (var position = 0; position < messages.Count && position < last.Count; position++)
@@ -357,28 +364,6 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         }
 
         return null;
-    }
-
-    // A message rewritten since the last request (a history shrunk, or one an executor changed) edits the prefix a provider may have
-    // bound the reasoning after it to: where it does, that reasoning is not sent again, and the step's turns say so. Compared by
-    // value against what the last request sent, so an executor that clones an unchanged history rewrites nothing.
-    private static void DropReasoningAfterRewrite(IAgentModel model, List<ModelMessage> messages, string[]? lastShape, TurnLog turns)
-    {
-        if (lastShape is null || FirstRewritten(messages, lastShape) is not { } index)
-        {
-            return;
-        }
-
-        var rebound = ProviderHints.AfterEdit(model, messages, index);
-        if (ReferenceEquals(rebound, messages))
-        {
-            return;
-        }
-
-        turns.Note("before turn " + turns.Next.ToString(CultureInfo.InvariantCulture) + ": message " + (index + 1).ToString(CultureInfo.InvariantCulture) + " was rewritten, so the reasoning after it is not sent again");
-        var kept = rebound.ToList();
-        messages.Clear();
-        messages.AddRange(kept);
     }
 
     // The executor's guidance, then the agent's project context: trusted, told to every turn.

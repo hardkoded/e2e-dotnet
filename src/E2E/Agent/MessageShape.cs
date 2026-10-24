@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace E2E;
 
@@ -16,48 +16,45 @@ namespace E2E;
 /// </summary>
 internal static class MessageShape
 {
+    // Upstream's replacer of `JSON.stringify`: System.Text.Json takes a converter where it takes a function.
+    private static readonly JsonSerializerOptions Json = new() { Converters = { new BytesDigest(), new UndefinedAsNull() } };
+
     /// <summary>
-    /// A digest of one message's content, taken when it is sent. Image bytes count by their hash. Upstream also leaves out the
-    /// provider options of a message, where a cache breakpoint moves; the port keeps those out of its messages.
+    /// A digest of one message's content, taken when it is sent, so an edit to the live message afterwards, bytes included, shows
+    /// against it. Upstream also leaves out the provider options of a message, where a cache breakpoint moves; the port keeps those
+    /// out of its messages.
     /// </summary>
     public static string ShapeOf(ModelMessage message)
     {
         ArgumentNullException.ThrowIfNull(message);
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        Add(hash, message.Role);
-        Add(hash, message.Content);
-        Add(hash, message.ToolCallId);
-        Add(hash, message.Name);
-        AddList(hash, message.ToolCalls, call =>
-        {
-            Add(hash, call.Id);
-            Add(hash, call.Name);
-            Add(hash, call.Arguments.ValueKind == JsonValueKind.Undefined ? null : call.Arguments.GetRawText());
-        });
-        AddList(hash, message.ReasoningItems, item => Add(hash, item.ValueKind == JsonValueKind.Undefined ? null : item.GetRawText()));
-        AddList(hash, message.Images, image =>
-        {
-            Add(hash, image.MediaType);
-            Add(hash, image.Width + "x" + image.Height);
-            Add(hash, Convert.ToHexString(SHA256.HashData(image.Data)));
-        });
-        return Convert.ToHexString(hash.GetHashAndReset());
+        return Sha256(JsonSerializer.SerializeToUtf8Bytes(message, Json));
     }
 
-    // Every field is length-prefixed, so two messages never share a digest by moving text between fields.
-    private static void Add(IncrementalHash hash, string? text)
-    {
-        var bytes = text is null ? [] : Encoding.UTF8.GetBytes(text);
-        hash.AppendData(BitConverter.GetBytes(text is null ? -1 : bytes.Length));
-        hash.AppendData(bytes);
-    }
+    private static string Sha256(ReadOnlySpan<byte> data) => Convert.ToHexString(SHA256.HashData(data));
 
-    private static void AddList<T>(IncrementalHash hash, IReadOnlyList<T>? items, Action<T> add)
+    /// <summary>A default <see cref="JsonElement"/> (a tool call without arguments) has no JSON to write: it reads as null, as a missing value does in upstream.</summary>
+    private sealed class UndefinedAsNull : JsonConverter<JsonElement>
     {
-        hash.AppendData(BitConverter.GetBytes(items?.Count ?? -1));
-        foreach (var item in items ?? [])
+        public override JsonElement Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => throw new NotSupportedException("a shape is only written");
+
+        public override void Write(Utf8JsonWriter writer, JsonElement value, JsonSerializerOptions options)
         {
-            add(item);
+            if (value.ValueKind == JsonValueKind.Undefined)
+            {
+                writer.WriteNullValue();
+            }
+            else
+            {
+                value.WriteTo(writer);
+            }
         }
+    }
+
+    /// <summary>Writes a payload as <c>&lt;bytes sha256&gt;</c>, as upstream's replacer does, so the digest reads the bytes without copying them into the JSON.</summary>
+    private sealed class BytesDigest : JsonConverter<byte[]>
+    {
+        public override byte[] Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => throw new NotSupportedException("a shape is only written");
+
+        public override void Write(Utf8JsonWriter writer, byte[] value, JsonSerializerOptions options) => writer.WriteStringValue("<bytes " + Sha256(value) + ">");
     }
 }
