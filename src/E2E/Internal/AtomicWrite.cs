@@ -27,12 +27,16 @@ internal static class AtomicWrite
     private static readonly UTF8Encoding Utf8 = new(false);
 
     /// <summary>Writes <paramref name="content"/> to <paramref name="filePath"/> atomically; a failed write leaves no temporary file behind.</summary>
-    public static async Task WriteFileAtomicAsync(string filePath, string content, CancellationToken cancellationToken = default)
+    public static Task WriteFileAtomicAsync(string filePath, string content, CancellationToken cancellationToken = default) =>
+        WriteFileAtomicAsync(filePath, Utf8.GetBytes(content), cancellationToken);
+
+    /// <summary>The bytes form of <see cref="WriteFileAtomicAsync(string, string, CancellationToken)"/> (upstream accepts a <c>Uint8Array</c>).</summary>
+    public static async Task WriteFileAtomicAsync(string filePath, byte[] content, CancellationToken cancellationToken = default)
     {
         var temporary = TemporaryPath(filePath);
         try
         {
-            await File.WriteAllTextAsync(temporary, content, Utf8, cancellationToken).ConfigureAwait(false);
+            await File.WriteAllBytesAsync(temporary, content, cancellationToken).ConfigureAwait(false);
             for (var attempt = 1; ; attempt++)
             {
                 try
