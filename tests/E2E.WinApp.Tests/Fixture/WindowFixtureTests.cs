@@ -40,6 +40,23 @@ public sealed class WindowFixtureTests
     }
 
     [Fact]
+    public async Task Accept_never_presses_a_cancel_or_no_button_it_cannot_tell_from_an_accept_one()
+    {
+        await using var harness = new Harness();
+        var session = await harness.OpenAsync(WithDialog(RawElements.Button("btn-cancel", "Cancel"), RawElements.Button("btn-ok", "OK")));
+        await session.ObserveAsync(CancellationToken.None);
+        harness.Driver.Calls.Clear();
+        await session.Window.AlertAsync(AlertAction.Accept);
+        Assert.Equal(["invoke btn-ok Invoke"], harness.Driver.Calls);
+
+        await using var other = new Harness();
+        var bare = await other.OpenAsync(WithDialog(RawElements.Button("btn-cancel", "Cancel"), RawElements.Button("btn-no", "No")));
+        await bare.ObserveAsync(CancellationToken.None);
+        var error = await Assert.ThrowsAsync<EngineException>(() => bare.Window.AlertAsync(AlertAction.Accept));
+        Assert.Equal(EngineErrorCodes.NotActionable, error.Code);
+    }
+
+    [Fact]
     public async Task Dismiss_sends_escape_when_the_dialog_has_no_close_button()
     {
         await using var harness = new Harness();

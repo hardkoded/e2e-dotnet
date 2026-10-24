@@ -45,8 +45,8 @@ public sealed class WindowActions : IWindowActions
 
         var entry = session.Resolve(node);
 
-        // A toggle already in the wanted state sends nothing.
-        if (action is LocatorAction.Check or LocatorAction.Uncheck && entry.Node.States.Checked == (action is LocatorAction.Check))
+        // A toggle already in the wanted state sends nothing, as the newest observation saw it; one this session toggled since is read again.
+        if (action is LocatorAction.Check or LocatorAction.Uncheck && !session.Toggled(entry.Id) && entry.Node.States.Checked == (action is LocatorAction.Check))
         {
             return;
         }
@@ -54,6 +54,10 @@ public sealed class WindowActions : IWindowActions
         try
         {
             await session.CommandAsync($"perform {KindOf(action)}", (driver, token) => RunAsync(session, driver, entry, action, token), cancellationToken).ConfigureAwait(false);
+            if (action is LocatorAction.Check or LocatorAction.Uncheck)
+            {
+                session.MarkToggled(entry.Id);
+            }
         }
         catch (EngineException cause) when (action is LocatorAction.Fill { Sensitive: true, Value.Length: > 0 } fill)
         {

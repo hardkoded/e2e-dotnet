@@ -90,7 +90,7 @@ The session also offers `HoverAsync`, `LongPressAsync`, `DragToAsync`, `Secondar
 | `ListWindowsAsync()` | The app's visible top-level windows, with titles and boxes. |
 | `ResizeAsync(width, height)` | Resizes the main window to a logical size. The next observation reads the new layout. |
 | `MaximizeAsync()`, `RestoreAsync()`, `MinimizeAsync()` | The window state. Keys and clicks need the window restored. |
-| `AlertAsync(AlertAction.Accept \| Dismiss)` | Answers the open dialog, as the last observation saw it: accept presses its primary button (a `ContentDialog`'s `PrimaryButton`, else its first button), dismiss presses its close or secondary button, else sends Escape. A dialog's listed buttons can be tapped by id too, and that tap replays from the trace cache. |
+| `AlertAsync(AlertAction.Accept \| Dismiss)` | Answers the open dialog, as the last observation saw it: accept presses its primary button (a `ContentDialog`'s `PrimaryButton`, else a button named OK, Yes, Confirm, Accept, Save, or Continue), dismiss presses its close or secondary button, else sends Escape. A dialog's listed buttons can be tapped by id too, and that tap replays from the trace cache. |
 
 ## The agent's tools
 

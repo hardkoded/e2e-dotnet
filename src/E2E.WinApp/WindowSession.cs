@@ -201,6 +201,13 @@ public sealed partial class WindowSession : IEngineSession
         }
     }
 
+    private readonly HashSet<string> _toggled = [];
+
+    /// <summary>Whether a check or uncheck changed the node since the last observation, which makes its snapshot state stale.</summary>
+    internal bool Toggled(string id) { lock (_bindingsLock) { return _toggled.Contains(id); } }
+
+    internal void MarkToggled(string id) { lock (_bindingsLock) { _toggled.Add(id); } }
+
     /// <summary>The bindings of the last observation, in document order.</summary>
     internal IReadOnlyList<NodeBinding> Latest { get; private set; } = [];
 
@@ -221,6 +228,7 @@ public sealed partial class WindowSession : IEngineSession
             }
 
             Latest = bindings;
+            _toggled.Clear();
         }
     }
 
@@ -230,6 +238,7 @@ public sealed partial class WindowSession : IEngineSession
         {
             _bindings.Clear();
             Latest = [];
+            _toggled.Clear();
         }
     }
 
