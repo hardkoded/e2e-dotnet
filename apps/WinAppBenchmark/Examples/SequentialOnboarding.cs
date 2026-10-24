@@ -86,7 +86,7 @@ public sealed partial class SequentialOnboarding : Component
         return Grid(
             columns: [GridSize.Star()],
             rows: [GridSize.Star(), GridSize.Auto],
-            ScrollView(fields.Padding(24)).AutomationId($"onboarding-step-{step.ToString().ToLowerInvariant()}"),
+            ScrollView(fields.Padding(24)).AutomationName($"Onboarding step {step}").AutomationId($"onboarding-step-{step.ToString().ToLowerInvariant()}"),
             VStack(8,
                 When(error is not null, () => Body(error!).Foreground("#b00020").AutomationId("step-error")),
                 Button("Continue", advance).HAlign(HorizontalAlignment.Stretch).AutomationId("continue-button"))

@@ -79,7 +79,7 @@ public sealed class AsyncStates : Component
                 Button("Refresh", Refresh).IsEnabled(!refreshing).AutomationId("refresh-button"),
                 When(refreshing, () => ProgressRing().AutomationId("refreshing")))
                 .Padding(24, 16),
-            ScrollView(VStack(12, content).Padding(24)).AutomationId("reward-scroll").Grid(row: 1),
+            ScrollView(VStack(12, content).Padding(24)).AutomationName("Reward area").AutomationId("reward-scroll").Grid(row: 1),
             When(toastVisible, () => Border(Body("Claiming reward…").Foreground("#ffffff").Padding(16, 12))
                 .Background("#cc222222")
                 .CornerRadius(8)

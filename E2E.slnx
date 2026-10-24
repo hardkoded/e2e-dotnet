@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/apps/">
+    <Project Path="apps/WinAppBenchmark.E2ETests/WinAppBenchmark.E2ETests.csproj" />
+  </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/E2E.Sample/E2E.Sample.csproj" />
     <Project Path="samples/MobileApp.E2ETests/MobileApp.E2ETests.csproj" />

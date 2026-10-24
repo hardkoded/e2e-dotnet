@@ -190,8 +190,9 @@ public static class UiaProjection
                 {
                     Disabled = !source.IsEnabled,
                     Hidden = source.IsOffscreen,
-                    Checked = source.ToggleState is "On",
-                    Expanded = source.ExpandState is "Expanded" or "PartiallyExpanded",
+                    Checked = string.Equals(source.ToggleState, "On", StringComparison.OrdinalIgnoreCase) || (role == "radio" && source.IsSelected == true),
+                    Selected = source.IsSelected == true,
+                    Expanded = string.Equals(source.ExpandState, "Expanded", StringComparison.OrdinalIgnoreCase) || string.Equals(source.ExpandState, "PartiallyExpanded", StringComparison.OrdinalIgnoreCase),
                     Focused = focused is not null && source.Handle == focused,
                     Secure = secure,
                 },

@@ -40,21 +40,26 @@ public sealed class ControlInventory : Component
                     .AutomationName(name)
                     .AutomationId($"tab-{name.ToLowerInvariant()}")
                     .IsEnabled(name != section)
-                    .WithKey(name))]).AutomationId("section-tabs"),
+                    .WithKey(name))]).AutomationName("Sections").AutomationId("section-tabs"),
             body)
             .Padding(24))
-            .AutomationId("inventory-scroll");
+            .AutomationName("Inventory").AutomationId("inventory-scroll");
     }
 }
 
 /// <summary>Text inputs: a labeled field with a placeholder and a default value, a secure field, a field echoing the last key, and two fields whose first autofocuses.</summary>
 public sealed class FieldsSection : Component
 {
+    // The name a key prints as: a letter in lower case, any other key as the platform names it ("Enter").
+    private static string KeyName(Windows.System.VirtualKey key) =>
+        key is >= Windows.System.VirtualKey.A and <= Windows.System.VirtualKey.Z ? key.ToString().ToLowerInvariant() : key.ToString();
+
     public override Element Render()
     {
         var (name, setName) = UseState("Ada Lovelace");
         var (passphrase, setPassphrase) = UseState("");
         var (lastKey, setLastKey) = UseState("none");
+        var (keyText, setKeyText) = UseState("");
         var (focusShown, setFocusShown) = UseState(false);
         var (focused, setFocused) = UseState("none");
         var (focusRef, requestFocus) = this.UseElementFocus();
@@ -87,10 +92,10 @@ public sealed class FieldsSection : Component
             Body($"name: {name}").AutomationId("name-echo"),
             PasswordBox(passphrase, setPassphrase, placeholderText: "Passphrase").AutomationName("Passphrase field").AutomationId("passphrase-input"),
             Body($"passphrase length: {passphrase.Length}").AutomationId("passphrase-length"),
-            TextBox("", _ => { }, placeholderText: "Key echo")
+            TextBox(keyText, setKeyText, placeholderText: "Key echo")
                 .AutomationName("Key echo field")
                 .AutomationId("key-input")
-                .OnKeyDown((_, e) => setLastKey(e.Key.ToString())),
+                .OnKeyDown((_, e) => setLastKey(KeyName(e.Key))),
             Body($"key: {lastKey}").AutomationId("key-status"),
             Button("Show focus fields", () => setFocusShown(true)).AutomationId("show-focus-fields"));
     }
@@ -129,7 +134,7 @@ public sealed class TogglesSection : Component
                     }
                 }, groupName: "inventory-size")
                 .AutomationId($"size-{option.ToLowerInvariant()}")
-                .WithKey(option))]).AutomationId("size-group"),
+                .WithKey(option))]).AutomationName("Size").AutomationId("size-group"),
             Body($"size: {size}").AutomationId("size-status"),
             HStack(8,
                 Button("Locked", () => { }).IsEnabled(false).AutomationId("locked-button"),
@@ -200,6 +205,6 @@ public sealed class GesturesSection : Component
                 }),
             Body($"swipe: {swipe}").AutomationId("swipe-status"),
             VStack(4, [.. Fruits.Select(fruit =>
-                HStack(8, Body(fruit.Name), Body(fruit.Price)).AutomationId("fruit-row").WithKey(fruit.Name))]).AutomationId("fruit-list"));
+                HStack(8, Body(fruit.Name), Body(fruit.Price)).AutomationName($"{fruit.Name} row").AutomationId("fruit-row").WithKey(fruit.Name))]).AutomationName("Fruit list").AutomationId("fruit-list"));
     }
 }

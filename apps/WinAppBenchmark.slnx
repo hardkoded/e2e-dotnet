@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/apps/">
+    <Project Path="WinAppBenchmark.E2ETests/WinAppBenchmark.E2ETests.csproj" />
     <Project Path="WinAppBenchmark/WinAppBenchmark.csproj">
       <Platform Solution="*|Any CPU" Project="x64" />
       <Platform Solution="*|x64" Project="x64" />

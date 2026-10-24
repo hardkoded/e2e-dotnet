@@ -75,7 +75,7 @@ public sealed class DebouncedSearch : Component
                     .HAlign(HorizontalAlignment.Stretch)
                     .WithKey(item)),
                 When(results.Count == 0 && query.Trim().Length > 0, () => Hint("No results")),
-            ])).AutomationId("search-results");
+            ])).AutomationName("Results").AutomationId("search-results");
 
         return Grid(
             columns: [GridSize.Star()],
