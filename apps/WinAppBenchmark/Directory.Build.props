@@ -1,0 +1,3 @@
+<Project>
+  <!-- The benchmark app is a WinUI app on its own build settings; it does not take the library build props of the repo root. -->
+</Project>
