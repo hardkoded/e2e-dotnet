@@ -253,9 +253,7 @@ internal static partial class ScreenshotAssertion
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(run.File)!);
-        var temporary = run.File + "." + Guid.NewGuid().ToString("N")[..8] + ".tmp";
-        await System.IO.File.WriteAllBytesAsync(temporary, ImageOps.EncodePng(settled)).ConfigureAwait(false);
-        System.IO.File.Move(temporary, run.File, overwrite: true);
+        await AtomicWrite.WriteFileAtomicAsync(run.File, ImageOps.EncodePng(settled)).ConfigureAwait(false);
         store.MarkWritten(run.File);
         if (expected is null && !store.Update)
         {

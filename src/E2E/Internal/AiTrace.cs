@@ -901,16 +901,13 @@ internal static class AiTrace
                 _pending = null;
 
                 Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
-                var temp = Path + "." + Guid.NewGuid().ToString("n") + ".tmp";
                 try
                 {
-                    File.WriteAllText(temp, JsonSerializer.Serialize(Collector.Document(), Options));
-                    File.Move(temp, Path, overwrite: true);
+                    AtomicWrite.WriteFileAtomic(Path, JsonSerializer.Serialize(Collector.Document(), Options));
                     _dirty = false;
                 }
                 finally
                 {
-                    File.Delete(temp);
                     _written = Stopwatch.GetTimestamp();
                 }
             }

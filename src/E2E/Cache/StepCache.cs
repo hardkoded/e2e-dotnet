@@ -244,29 +244,7 @@ public sealed class FileStepCache : IStepCache
         ArgumentNullException.ThrowIfNull(entry);
         Directory.CreateDirectory(_directory);
         var path = PathFor(key);
-        var temp = path + "." + Environment.ProcessId + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        try
-        {
-            File.WriteAllText(temp, JsonSerializer.Serialize(entry, JsonDefaults.Options));
-            File.Move(temp, path, overwrite: true);
-        }
-        catch
-        {
-            try
-            {
-                File.Delete(temp);
-            }
-            catch (IOException)
-            {
-                // The write error is the one to report.
-            }
-            catch (UnauthorizedAccessException)
-            {
-                // The write error is the one to report.
-            }
-
-            throw;
-        }
+        AtomicWrite.WriteFileAtomic(path, JsonSerializer.Serialize(entry, JsonDefaults.Options));
     }
 
     public void Delete(string key)
