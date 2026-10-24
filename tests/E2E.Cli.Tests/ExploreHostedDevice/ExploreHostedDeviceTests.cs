@@ -83,7 +83,9 @@ public sealed class ExploreHostedDeviceTests : IDisposable
     public async Task Reports_a_release_that_fails_instead_of_losing_it()
     {
         var cloud = new FakeCloud { OnRelease = () => throw new InvalidOperationException("stop failed") };
-        var failure = await Assert.ThrowsAnyAsync<E2EException>(() => Explore.ExploreAsync(Options(cloud, Finishing())));
+        var outcome = await Explore.ExploreAsync(Options(cloud, Finishing()));
+        Assert.Equal(3, outcome.ExitCode);
+        var failure = Assert.IsAssignableFrom<E2EException>(outcome.Error);
         Assert.Contains("could not release a device: stop failed", failure.Message, StringComparison.Ordinal);
         Assert.Equal((1, 1), (cloud.Acquired, cloud.Released));
     }

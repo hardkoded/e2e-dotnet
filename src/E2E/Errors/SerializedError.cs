@@ -118,6 +118,26 @@ internal static class ErrorSerializer
     }
 
     /// <summary>
+    /// What a provisioning hook's failure is reported as: an e2e error stays itself, a caller's cancel is a cancel (an engine may call a
+    /// lease that was cancelled a failed one), and anything else, such as an installer's plain exception, is an engine failure. Upstream's
+    /// <c>translateProvisioningError</c> (<c>internal/errors.ts</c>).
+    /// </summary>
+    internal static Exception TranslateProvisioningError(Exception cause, string suffix, CancellationToken cancellationToken)
+    {
+        if (cause is E2EException { Code: EngineErrorCodes.Cancelled })
+        {
+            return cause;
+        }
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return new EngineException(EngineErrorCodes.Cancelled, "preparing the engine was cancelled", cause);
+        }
+
+        return cause is E2EException or OperationCanceledException ? cause : new EngineException(EngineErrorCodes.EngineFailure, cause.Message + suffix, cause);
+    }
+
+    /// <summary>
     /// An error's message followed by its causes, innermost last: <c>fetch failed: connect ECONNREFUSED</c>. The detail an
     /// operator acts on is often in the inner exception, which a bare message hides. A message already present is not repeated.
     /// </summary>

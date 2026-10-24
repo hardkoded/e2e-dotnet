@@ -157,7 +157,7 @@ public static class Explore
     /// Runs one exploration and returns the outcome with the exploration record. The config is resolved once here, with the agent
     /// <see cref="ExploreOptions.Agent"/> names, so the target, the agent the explorer is built from, and the credential inventory are
     /// what the run uses; a config that does not resolve, an unknown agent, or an unknown target is an error before anything starts,
-    /// as a bad flag is. A step the app or the model fails is not thrown: it ends the run, and the outcome carries the error.
+    /// as a bad flag is. A step the app or the model fails is not thrown: it ends the run, and the outcome carries the error. A failure of closing the attempt (the engine's finish hook) is not thrown either: it joins the outcome as a cleanup error, and its exit code (3 for an engine failure) outranks a verdict's 1, as a run's run errors do.
     /// A cancelled <paramref name="cancellationToken"/> throws <see cref="OperationCanceledException"/>; the run's own timeout ends it as an outcome whose error is <c>CANCELLED</c>.
     /// </summary>
     public static async Task<ExploreOutcome> ExploreAsync(ExploreOptions options, CancellationToken cancellationToken = default)
@@ -257,39 +257,58 @@ public static class Explore
             AiTrace = options.AiTrace || E2EFixture.IsOn("E2E_AI_TRACE"),
         };
 
-        await using var attempt = await Standalone.OpenAttemptAsync(sessionOptions, cancellationToken).ConfigureAwait(false);
-        var session = attempt.Session;
-
-        // The values the goal, the app, or a model may echo are redacted wherever they appear.
-        foreach (var secret in secrets)
-        {
-            session.Register(secret.Name, secret.Value);
-        }
-
-        var body = ExploreBody.Create(new ExploreBodyOptions(
-            state,
-            StepTimeout,
-            target.App.Url is not null || TargetEngines.LaunchesPinnedApp(target, engine),
-            credentials,
-            string.Equals(agentName, "default", StringComparison.Ordinal) ? null : agentName));
+        var attempt = await Standalone.OpenAttemptAsync(sessionOptions, cancellationToken).ConfigureAwait(false);
         E2EException? error = null;
+        ReportExplore record;
+        IReadOnlyList<Exception> cleanup;
         try
         {
-            await body(new ExploreFixtures(new SessionAgent(session.Agent), token => session.App.OpenAsync(null, token)), cancellationToken).ConfigureAwait(false);
-        }
-        catch (E2EException ex)
-        {
-            error = ex;
+            var session = attempt.Session;
+
+            // The values the goal, the app, or a model may echo are redacted wherever they appear.
+            foreach (var secret in secrets)
+            {
+                session.Register(secret.Name, secret.Value);
+            }
+
+            var body = ExploreBody.Create(new ExploreBodyOptions(
+                state,
+                StepTimeout,
+                target.App.Url is not null || TargetEngines.LaunchesPinnedApp(target, engine),
+                credentials,
+                string.Equals(agentName, "default", StringComparison.Ordinal) ? null : agentName));
+            try
+            {
+                await body(new ExploreFixtures(new SessionAgent(session.Agent), token => session.App.OpenAsync(null, token)), cancellationToken).ConfigureAwait(false);
+            }
+            catch (E2EException ex)
+            {
+                error = ex;
+            }
+            finally
+            {
+                // Set whatever ended the body, so the release never writes a page for the verdict.
+                session.Exploration = state.Snapshot();
+            }
+
+            session.Complete(error, cancellationToken);
+            record = state.Snapshot();
         }
         finally
         {
-            // Set whatever ended the body, so the release never writes a page for the verdict.
-            session.Exploration = state.Snapshot();
+            // The attempt is closed on every path. Its failures are the run's cleanup errors: they join the outcome and never replace it.
+            cleanup = await attempt.CloseAsync().ConfigureAwait(false);
         }
 
-        session.Complete(error, cancellationToken);
-        var record = state.Snapshot();
-        return new ExploreOutcome(Runner.StatusOf(error), Runner.ExitCodeOf(error), error, record);
+        var cleanupErrors = cleanup
+            .Select(failure => ErrorSerializer.TranslateProvisioningError(failure, " while closing the exploration", CancellationToken.None))
+            .Select(failure => failure as E2EException ?? new EngineException(EngineErrorCodes.EngineFailure, failure.Message + " while closing the exploration", failure))
+            .Select(failure => (E2EException)ErrorRedaction.Cause(failure, redactor.Redact)!)
+            .ToList();
+        var exitCode = ErrorSerializer.CombineExitCodes(
+            cleanupErrors.Select(failure => ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category)).Append(Runner.ExitCodeOf(error)));
+        var status = cleanupErrors.Count > 0 ? RunStatus.Failed : Runner.StatusOf(error);
+        return new ExploreOutcome(status, exitCode, error ?? cleanupErrors.FirstOrDefault(), record);
     }
 
     /// <summary>
