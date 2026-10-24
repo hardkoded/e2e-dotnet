@@ -204,47 +204,87 @@ public interface IEngineSession : IAsyncDisposable
 /// <param name="MaskedRegionCount">How many regions the engine covered, so a caller can prove the image is at least as redacted as the tree. Null when the engine cannot say.</param>
 public sealed record EngineScreenshot(byte[] Png, double Scale, int? MaskedRegionCount = null);
 
-/// <summary>What an engine's prepare is given, once per run and target, before any worker starts. Upstream's <c>EnginePrepareInfo</c>.</summary>
+/// <summary>
+/// The facts handed to an engine's prepare (<see cref="IPreparableEngine.PrepareAsync"/>), once per run and target in the runner
+/// process, before any worker exists. Upstream's <c>EnginePrepareInfo</c>.
+/// </summary>
 public sealed record EnginePrepareInfo
 {
+    /// <summary>The run id.</summary>
     public required string RunId { get; init; }
 
+    /// <summary>The target being prepared.</summary>
     public required string TargetName { get; init; }
 
-    /// <summary>Worker slots the run will use for this target.</summary>
+    /// <summary>
+    /// The worker slots the run will start for this target, <c>0</c> to <see cref="Slots"/> minus one. Provision for exactly these slots
+    /// (boot that many devices of a pool); the workers then find them ready. A standalone attempt, as <c>e2e explore</c> and
+    /// <c>e2e mcp</c> open, prepares one slot.
+    /// </summary>
     public required int Slots { get; init; }
 
+    /// <summary>
+    /// The run's environment: what every worker is started with. A host may hand the run an environment other than the process's own,
+    /// so anything provisioned here that a worker later looks up by environment must be resolved against this, not the process
+    /// environment.
+    /// </summary>
     public required IReadOnlyDictionary<string, string?> Env { get; init; }
 
-    /// <summary>The directory where an engine resolves a relative option. Null leaves it to the working directory. Upstream's <c>projectRoot</c>.</summary>
+    /// <summary>
+    /// The directory relative paths in the config resolve against: where an engine resolves a relative option, such as a build to install.
+    /// Null leaves it to the working directory. Upstream's <c>projectRoot</c>.
+    /// </summary>
     public string? ProjectRoot { get; init; }
 
-    /// <summary>Reports one line of progress to the run's reporter.</summary>
+    /// <summary>
+    /// Reports one line of progress. A run streams it as a notice to the reporter; the standalone host of <c>e2e explore</c> and
+    /// <c>e2e mcp</c> has no reporter, so it drops the line.
+    /// </summary>
     public required Action<string> Log { get; init; }
 }
 
-/// <summary>What prepare reports back. Upstream's <c>EnginePrepareResult</c>.</summary>
+/// <summary>What prepare learned that the run must honour. Upstream's <c>EnginePrepareResult</c>.</summary>
 public sealed record EnginePrepareResult
 {
-    /// <summary>The worker cap of the target for this run, one per leased resource. Null when prepare bound nothing.</summary>
+    /// <summary>
+    /// Upstream's contract: lowers the target's worker cap for this run, <c>1</c> to <see cref="EnginePrepareInfo.Slots"/>: the surfaces the engine actually
+    /// provisioned, one per leased resource. Null when prepare bound nothing, so the declared cap stays. The standalone host of
+    /// <c>e2e explore</c> and <c>e2e mcp</c> starts one worker and reads no cap. The port has no test runner to apply it, and no host in
+    /// this repository reads it.
+    /// </summary>
     public int? Workers { get; init; }
 
-    /// <summary>The environment the target's workers read.</summary>
+    /// <summary>
+    /// Variables every worker of this target is started with, on top of the run's environment: how prepare hands what it provisioned
+    /// (a device binding) to each worker's start, in <see cref="EngineStartOptions.Env"/>. The run's own variables win on a clash.
+    /// </summary>
     public IReadOnlyDictionary<string, string> Env { get; init; } = new Dictionary<string, string>();
 }
 
-/// <summary>What an engine's finish is given, once per run and target, after the last worker ended. Upstream's <c>EngineFinishInfo</c>.</summary>
+/// <summary>
+/// The facts handed to an engine's finish (<see cref="IPreparableEngine.FinishAsync"/>), once per run and target after the last worker is
+/// gone, with the cleanup budget of one hook. Upstream's <c>EngineFinishInfo</c>.
+/// </summary>
 public sealed record EngineFinishInfo
 {
+    /// <summary>The run id.</summary>
     public required string RunId { get; init; }
 
+    /// <summary>The target being finished.</summary>
     public required string TargetName { get; init; }
 
+    /// <summary>The run's environment, the same prepare saw.</summary>
     public required IReadOnlyDictionary<string, string?> Env { get; init; }
 
+    /// <summary>Reports one line of progress, as <see cref="EnginePrepareInfo.Log"/> does.</summary>
     public required Action<string> Log { get; init; }
 
-    /// <summary>How long finish may take before the run gives up on it. Upstream's <c>timeoutMs</c>.</summary>
+    /// <summary>
+    /// The cleanup budget the host leaves this call: the finish hooks of every prepared target share one <c>cleanupTimeout</c>, so the
+    /// host hands each what is left of it when the call starts and cancels the call's token when it is spent. A hook that cannot finish in
+    /// time stops instead of hanging the run; one that ignores the token is abandoned at the deadline with <c>CLEANUP_TIMEOUT</c>.
+    /// Upstream's <c>timeoutMs</c>.
+    /// </summary>
     public TimeSpan CleanupTimeout { get; init; } = E2EDefaults.CleanupTimeout;
 }
 
