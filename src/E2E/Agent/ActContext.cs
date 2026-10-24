@@ -72,6 +72,7 @@ internal sealed partial class ActContext : StepExecutorContext
         {
             TestId = scope.TestTitle,
             AttemptId = scope.AttemptId,
+            TitlePath = scope.TitlePath,
             Index = scope.Attempt - 1,
             CancellationToken = scope.Ended.Token,
             Memory = scope.ExecutorMemory,

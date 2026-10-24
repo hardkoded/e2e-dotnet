@@ -83,7 +83,7 @@ internal static class ExploreBody
     /// <summary>A later charter when the planner could not write one: carry on with what the goal names and no step covered.</summary>
     private static readonly PlanDecision.Step ContinueStep = new(
         "Continue exploring",
-        "Continue the exploration: from the goal in the project context and the previously completed steps, pick the flow or screen the goal names that no step has covered yet, exercise it end to end with realistic inputs, and report any defect you see on the way.");
+        "Continue the exploration: from the goal on the Test: line and the previously completed steps, pick the flow or screen the goal names that no step has covered yet, exercise it end to end with realistic inputs, and report any defect you see on the way.");
 
     /// <summary>Builds the test body for one exploration.</summary>
     public static Func<ExploreFixtures, CancellationToken, Task> Create(ExploreBodyOptions options)

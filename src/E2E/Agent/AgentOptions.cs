@@ -100,17 +100,11 @@ internal sealed class ResolvedAgent
     public IReadOnlyDictionary<string, AgentTool>? Tools { get; init; }
 
     /// <summary>
-    /// The same context without the test's title, which the cache key digests: the key's test id already names the title,
-    /// so leaving it out keeps recordings made before the title joined the context replaying.
-    /// </summary>
-    public string? KeyedContext { get; init; }
-
-    /// <summary>
-    /// This agent with the test's title (<c>Test: billing &gt; upgrades the tier</c>) and the test's <c>agentContext</c> joined into its
-    /// <see cref="Context"/>: the title, then the agent's own context, then the test's, one per line. A blank part is left out.
+    /// This agent with the test's <c>agentContext</c> joined into its <see cref="Context"/>: the agent's own context, then the
+    /// test's, one per line. A blank part is left out. The test's title is not part of the context: it opens the user message.
     /// The 16 KiB limit applies to the agent's own context, as upstream's <c>joinAgentContext</c> runs after it.
     /// </summary>
-    public ResolvedAgent WithTestContext(string? testTitleContext, string? testContext)
+    public ResolvedAgent WithTestContext(string? testContext)
     {
         return new ResolvedAgent
         {
@@ -118,8 +112,7 @@ internal sealed class ResolvedAgent
             Model = Model,
             Judge = Judge,
             System = System,
-            Context = JoinAgentContext(testTitleContext, Context, testContext),
-            KeyedContext = JoinAgentContext(Context, testContext),
+            Context = JoinAgentContext(Context, testContext),
             Executor = Executor,
             MaxSteps = MaxSteps,
             MaxModelCalls = MaxModelCalls,
@@ -161,7 +154,6 @@ internal sealed class ResolvedAgent
             Executor = executor,
             System = options.System,
             Context = options.Context,
-            KeyedContext = options.Context,
             MaxSteps = options.MaxSteps ?? E2EDefaults.MaxSteps,
             MaxModelCalls = options.MaxModelCalls ?? E2EDefaults.MaxModelCalls,
             JudgmentTimeout = options.JudgmentTimeout,

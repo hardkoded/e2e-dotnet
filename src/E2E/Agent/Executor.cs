@@ -89,8 +89,8 @@ public class StepExecutorContext
     public string Ledger { get; init; } = "";
 
     /// <summary>
-    /// Trusted context, redacted: the test's title (<c>Test: billing &gt; upgrades the tier</c>), then the agent's <c>Context</c>, then the
-    /// test's <c>agentContext</c>, one per line. Null when all are blank.
+    /// Trusted project/test context, redacted: the agent's <c>Context</c>, then the test's <c>agentContext</c>, one per line. Null when
+    /// both are blank.
     /// </summary>
     public string? AgentContext { get; init; }
 
@@ -187,6 +187,12 @@ public sealed class ExecutorAttempt
     public required string TestId { get; init; }
 
     public required string AttemptId { get; init; }
+
+    /// <summary>
+    /// The test's title path, outermost <c>describe</c> first, redacted; empty outside a test (a session with no test file, as for
+    /// <c>e2e mcp</c>).
+    /// </summary>
+    public IReadOnlyList<string> TitlePath { get; init; } = [];
 
     /// <summary>The zero-based retry index of this attempt.</summary>
     public int Index { get; init; }

@@ -174,8 +174,8 @@ public sealed class E2eExploreTests
         // The explorer's loop saw the finding tool beside the grammar.
         Assert.Contains(ExploreExecutor.FindingToolName, model.LoopCalls.First().Tools.Select(tool => tool.Name));
 
-        // The planner's calls carried the goal as trusted context.
-        Assert.Contains("Test: Explore the home page and find bugs", model.PlannerCalls.First().System, StringComparison.Ordinal);
+        // The planner's prompts opened with the goal, the test's title.
+        Assert.Contains("Test: Explore the home page and find bugs", model.PlannerCalls.First().Messages[0].Content, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -216,10 +216,10 @@ public sealed class E2eExploreTests
             config: ExploreHarness.Config(root, "\"secrets\": { \"probe\": \"" + value + "\" }")));
 
         Assert.Equal("Explore the home page with key <secret:probe>", outcome.Explore.Goal);
-        Assert.Contains("Test: Explore the home page with key <secret:probe>", model.PlannerCalls.First().System, StringComparison.Ordinal);
+        Assert.Contains("Test: Explore the home page with key <secret:probe>", model.PlannerCalls.First().Messages[0].Content, StringComparison.Ordinal);
 
-        // The explorer's loop ran, carrying the goal as context.
-        Assert.Contains("Test: Explore the home page with key <secret:probe>", model.LoopCalls.First().System, StringComparison.Ordinal);
+        // The explorer's loop ran, its prompt opening with the goal.
+        Assert.Contains("Test: Explore the home page with key <secret:probe>", model.LoopCalls.First().Messages[0].Content, StringComparison.Ordinal);
         Assert.Contains(Files(root), file => file.Contains("explore-the-home-page-with-key-", StringComparison.Ordinal));
         Assert.DoesNotContain(value, Everything(model.Model.Requests), StringComparison.Ordinal);
         Assert.DoesNotContain(value, JsonSerializer.Serialize(outcome.Explore), StringComparison.Ordinal);

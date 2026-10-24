@@ -26,12 +26,12 @@ public static class ExploreExecutor
     public const string FindingToolName = "report_finding";
 
     /// <summary>
-    /// Appended to the project's own guidance; the goal itself travels as agent context. Upstream's text, with the port's tool
+    /// Appended to the project's own guidance; the goal travels as the test title (<c>Test: &lt;goal&gt;</c>). Upstream's text, with the port's tool
     /// names: <c>done</c> ends a step where upstream calls <c>complete_step</c>, and <c>fill_secret</c> fills a password where
     /// upstream calls <c>type_secret</c>.
     /// </summary>
     private const string ExploreRules =
-        "Exploration mode: this run has no scripted test. Each step is an exploration charter the planner wrote toward the goal given in the project context.\n" +
+        "Exploration mode: this run has no scripted test. Each step is an exploration charter the planner wrote toward the goal on the Test: line.\n" +
         "- Think like a curious first-time user hunting for bugs: exercise the flow the charter names end to end, with realistic inputs and edge cases. Interact, do not just look: fill forms with obviously made-up test data and submit them, save and come back to check what was kept, sign in with made-up credentials when none are configured, and when a list has several items act on one that is not the first and check that the right one changed.\n" +
         "- On every screen, sanity-check beyond \"it renders\": totals equal the sum of their parts and quantities multiply; counts match the items listed; nothing is negative that cannot be; dates are plausible and in order, not an epoch default; copy has no template tokens, placeholders, or misspellings; every control does what its name says; what a screen claims happened (saved, added, removed) is true on the next screen; a password is never shown as you type it.\n" +
         "- Report every defect with " + FindingToolName + " the moment the evidence is on screen, one call per distinct defect: what you expected, what the screen shows, and the actions that reach it. Do not save findings for the conclusion: a defect that appears only in a summary is lost, since the report reads the tool, not the prose. Findings listed under \"reportedFindings\" in the step parameters are already recorded: never report them again and spend no actions re-confirming them.\n" +
