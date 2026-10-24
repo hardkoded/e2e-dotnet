@@ -829,14 +829,6 @@ internal static class PageScript
             }
             return true;
           };
-          const offeredOptionsOf = (select) => {
-            const offered = [];
-            for (const option of select.options) {
-              if (offered.length >= maxSelectOptions) break;
-              if (isOfferedOption(option)) offered.push(option);
-            }
-            return offered;
-          };
           const tally = (el, visible) => {
             if (!el || skip.has(el.tagName) || isInert(el)) return 0;
             if (el.tagName === "IFRAME" && (ariaHidden(el) || hidden(el))) return 0;
@@ -845,7 +837,15 @@ internal static class PageScript
             if (listed(el, role) && !textOnly(el, role)) {
               const counted = !visible || inView(el);
               if (counted) n++;
-              if (el.tagName === "SELECT") return counted ? n + offeredOptionsOf(el).length : n;
+              if (el.tagName === "SELECT") {
+                if (!counted) return n;
+                let offered = 0;
+                for (const option of el.options) {
+                  if (offered >= maxSelectOptions) break;
+                  if (isOfferedOption(option)) offered += 1;
+                }
+                return n + offered;
+              }
               if (isLeaf(el, role)) return n;
             }
             for (const child of el.children) n += tally(child, visible);
@@ -944,7 +944,11 @@ internal static class PageScript
               if (el.scrollTop || el.scrollLeft) scroll += ";" + node.ref + ":" + Math.round(el.scrollLeft) + "," + Math.round(el.scrollTop);
               if (el.tagName === "SELECT") {
                 // A closed select paints none of its options; they are what it offers.
-                for (const option of offeredOptionsOf(el)) {
+                let offered = 0;
+                for (const option of el.options) {
+                  if (offered >= maxSelectOptions) break;
+                  if (!isOfferedOption(option)) continue;
+                  offered += 1;
                   const before = node.children.length;
                   walk(option, node.children, isHidden, isAriaHidden);
                   if (node.children.length > before) node.children[before].hidden = isHidden;
