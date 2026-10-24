@@ -87,6 +87,27 @@ public sealed class DeviceFixtureDismissingAKeyboardThatHasNoDismissKeyTests
     }
 
     [Fact]
+    public async Task Drags_at_the_centre_of_a_screen_rotated_since_the_last_observation()
+    {
+        var (h, session) = await Ready();
+        Captures(
+            h,
+            () =>
+            {
+                var snapshot = KeyboardUp(N("@e1", index: 0, depth: 0, type: "application", label: "Order", rect: new Rect(0, 0, 844, 390)));
+                snapshot["viewport"] = new JsonObject { ["width"] = 844, ["height"] = 390 };
+                return snapshot;
+            },
+            KeyboardGone);
+        await session.Device.DismissKeyboardAsync();
+        var swipe = h.Fake.LastArgs("interactions.swipe")!;
+        Assert.Equal(422, swipe["from"]!["x"]!.GetValue<double>());
+        Assert.Equal(195, swipe["from"]!["y"]!.GetValue<double>());
+        Assert.Equal(396.68, swipe["to"]!["x"]!.GetValue<double>(), 2);
+        Assert.Equal(195, swipe["to"]!["y"]!.GetValue<double>());
+    }
+
+    [Fact]
     public async Task Starts_only_inside_a_scroll_view_when_the_screen_has_one()
     {
         var (h, session) = await Ready();

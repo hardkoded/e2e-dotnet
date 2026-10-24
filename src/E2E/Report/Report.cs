@@ -562,6 +562,7 @@ public sealed record ReportStep
 
     public string? ObservationRevision { get; init; }
 
+    /// <summary>True when at least one semantic observation in the step was truncated (serialized <c>observationTruncated</c>).</summary>
     public bool? ObservationTruncated { get; init; }
 
     public string? Explanation { get; init; }

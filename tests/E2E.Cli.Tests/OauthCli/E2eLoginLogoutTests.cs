@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Cli.Tests.CliLogin;
+using E2E.Cli.Tests.Helpers;
 using E2E.OAuth;
 
 namespace E2E.Cli.Tests.OauthCli;
@@ -58,7 +59,7 @@ public sealed class E2eLoginLogoutTests : IDisposable
         Environment.SetEnvironmentVariable("XDG_CONFIG_HOME", configHome);
         Environment.SetEnvironmentVariable(CredentialStores.EnvironmentVariable, "");
         Program.OpenUrl = _ => { };
-        var stdout = new StringWriter();
+        var stdout = new LineFeedWriter();
         try
         {
             await Assert.ThrowsAsync<OAuthException>(() =>
@@ -73,7 +74,7 @@ public sealed class E2eLoginLogoutTests : IDisposable
             Directory.Delete(configHome, recursive: true);
         }
 
-        Assert.Contains(url, stdout.ToString().Split(Environment.NewLine));
+        Assert.Contains(url, stdout.ToString().Split('\n'));
         Assert.Contains("ABCD-1234", stdout.ToString(), StringComparison.Ordinal);
     }
 

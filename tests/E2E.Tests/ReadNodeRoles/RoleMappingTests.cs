@@ -172,6 +172,76 @@ public sealed class RoleMappingTests
     }
 
     [Fact]
+    public async Task Ignores_a_presentational_role_a_focusable_control_or_a_global_ARIA_attribute_contradicts_as_getByRole_does()
+    {
+        using var site = await TinySite.StartAsync(Page($"""
+            <style>{EmptyBoxes}</style>
+            <button role="none" data-testid="button">Delete</button>
+            <a href="/home" role="presentation" data-testid="link">Home</a>
+            <div role="presentation" aria-label="Toolbar" data-testid="named"></div>
+            <div role="presentation" aria-checked="true" data-testid="state">Decorative state</div>
+            <p role="none" aria-label="Lead" data-testid="paragraph">Lead</p>
+            <img src="{Pixel}" alt="" tabindex="0" data-testid="focusable">
+            <img src="{Pixel}" alt="" aria-label="Named decoration" data-testid="aria">
+            <img src="{Pixel}" alt="" title="Titled decoration" data-testid="titled">
+            <img src="{Pixel}" alt="" aria-checked="true" data-testid="scoped">
+            <img src="{Pixel}" alt="" data-testid="decorative">
+            <h2 role="none" tabindex="0junk" data-testid="junk">Junk</h2>
+            <h2 role="none" tabindex="&#160;0" data-testid="nbsp">Nbsp</h2>
+            <h2 role="none" tabindex="-1" data-testid="negative">Negative</h2>
+            <button role="none" disabled data-testid="disabled">Disabled</button>
+            <fieldset disabled><button role="none" data-testid="in-fieldset">In fieldset</button></fieldset>
+            """));
+        var nodes = ByTestId(await CaptureAsync(site.Url));
+        Assert.Equal(("button", "Delete"), (nodes["button"].Role, nodes["button"].Name));
+        Assert.Equal(("link", "Home"), (nodes["link"].Role, nodes["link"].Name));
+        Assert.NotEqual("presentation", nodes["named"].Role);
+        Assert.Equal("presentation", nodes["state"].Role);
+        Assert.Equal("none", nodes["paragraph"].Role);
+        Assert.Equal("image", nodes["focusable"].Role);
+        Assert.Equal("image", nodes["aria"].Role);
+        Assert.Equal("image", nodes["titled"].Role);
+        Assert.Equal("presentation", nodes["scoped"].Role);
+        Assert.Equal("presentation", nodes["decorative"].Role);
+        Assert.Equal("none", nodes["junk"].Role);
+        Assert.Equal("heading", nodes["nbsp"].Role);
+        Assert.Equal("heading", nodes["negative"].Role);
+        Assert.Equal("none", nodes["disabled"].Role);
+        Assert.Equal("none", nodes["in-fieldset"].Role);
+
+        var session = await WebSemanticsTests.StartSessionAsync(site.Url);
+        await WebSemanticsTests.RunAsync(session, async () =>
+        {
+            await session.App.OpenAsync("/");
+            Assert.Equal(["nbsp", "negative"], await TestIdsAsync(session.Screen.GetByRole("heading")));
+            Assert.Equal(["focusable", "aria", "titled"], await TestIdsAsync(session.Screen.GetByRole("img")));
+            Assert.Equal(["button"], await TestIdsAsync(session.Screen.GetByRole("button")));
+        });
+    }
+
+    [Fact]
+    public async Task Applies_a_presentational_role_inside_an_editing_host_where_only_the_host_is_focusable()
+    {
+        using var site = await TinySite.StartAsync(Page($"""
+            <div contenteditable aria-label="Editor" data-testid="editor">
+              <h2 role="presentation" data-testid="editor-heading">Title</h2>
+              <img alt="" src="{Pixel}" data-testid="editor-image">
+            </div>
+            """));
+        var nodes = ByTestId(await CaptureAsync(site.Url));
+        Assert.Equal(("textbox", "Editor"), (nodes["editor"].Role, nodes["editor"].Name));
+        Assert.Equal("presentation", nodes["editor-heading"].Role);
+        Assert.Equal("presentation", nodes["editor-image"].Role);
+
+        var session = await WebSemanticsTests.StartSessionAsync(site.Url);
+        await WebSemanticsTests.RunAsync(session, async () =>
+        {
+            await session.App.OpenAsync("/");
+            Assert.Equal(0, await session.Screen.GetByRole("heading").CountAsync());
+        });
+    }
+
+    [Fact]
     public async Task Passes_the_composite_widget_roles_through_from_role_attributes_and_names_their_items_from_content()
     {
         using var site = await TinySite.StartAsync(Page($"""

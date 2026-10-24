@@ -94,7 +94,7 @@ public sealed class PrepareObservationTests
         var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree] }, Redactor.None);
         Assert.Equal(
             ["Screen (/):", "- document \"Home\" [ref=n1]", "  - heading \"Welcome\" [ref=n2]", "  - button \"Buy\" [ref=n3] [disabled]"],
-            text.Split(Environment.NewLine));
+            text.Split('\n'));
     }
 
     [Fact]

@@ -79,6 +79,14 @@ or a method adds facts only that test knows. It joins the agent's `context`,
 outer layer first, one per line, and reaches the judges too, so keep
 instructions out of it. A changed text records again.
 
+Under a test, every prompt also opens its context with the test's title, such as
+`Test: billing > upgrades the tier`. Under NUnit or xUnit the title is the test's
+full name (`CacheTitle`), as `Test: Billing.UpgradeTests.Upgrades_the_tier`; under
+`e2e explore` it is the goal. An `e2e mcp` session runs no test and has no such
+line. The judges read it too, so name a test for what it covers, not for the
+verdict you expect. The replay key leaves the title out, since the test id already
+names it.
+
 ## ActAsync: one goal
 
 ```csharp
@@ -558,7 +566,7 @@ What the context holds:
 | `Target` | The target's `Name`, `Platform`, and `Verbs`, the verbs its engine supports, and `TapModifiers`, true when `TapAsync` and `DoubleTapAsync` take `ClickOptions.Modifiers`. Offer a model only these |
 | `PixelsTainted` | True after a secret fill. Then no screenshots reach the model |
 | `ReplayedPrefix` | Set when a cache replay ran part of the step first. The actions and why it stopped. Continue from the current screen without repeating them |
-| `Model`, `ProviderOptions`, `AgentContext`, `Ledger` | The agent's model and provider options, its project context, and the steps completed before this one, as numbered lines (`1. app.open passed :: /`) in at most 8192 bytes |
+| `Model`, `ProviderOptions`, `AgentContext`, `Ledger` | The agent's model and provider options, its project context (opening with the `Test: <title>` line), and the steps completed before this one, as numbered lines (`1. app.open passed :: /`) in at most 8192 bytes |
 | `Attempt` | `TestId`, `AttemptId`, `Index`, a `CancellationToken` that ends with the attempt, and a `Memory` dictionary the runtime never reads |
 | `Budgets` | `MaxActions`, `MaxModelCalls`, `ActionsUsed()`, `RemainingMs()`, `RecordModelCall`, and `RunToolAsync` |
 | `AttachTranscript`, `AttachScreenshotAsync` | Keep a model transcript, or observed pixels, under the attempt's results directory |
