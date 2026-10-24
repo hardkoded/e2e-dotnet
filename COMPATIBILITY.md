@@ -349,6 +349,10 @@ Upstream's third skill, `migrate-to-e2e` (`e6885dc`, `6609428`: move a suite one
 - `e2e explore` and `e2e mcp` take a `windows` target (`TargetEngines.Create` gets a `windows` factory the way it gets a device one; `WindowsTargets` in the CLI builds the engine on Windows and is `INVALID_CONFIG` on another host). Pattern actions work with the window anywhere; keys, clicks, drags, and the wheel need an unlocked, interactive desktop with the window in the foreground.
 - Not there: `App.BackAsync` (`UNSUPPORTED_CAPABILITY`: a desktop app has no history), video, tap modifiers, `Selected` on tabs and list items, popup windows in screenshots, a deep-link tool, and the clean-up of the app's data on `clearState`. A packaged (MSIX) app starts through a broker and exits at once, so it is attached by `app.bundleId`, not launched.
 
+## WinAppBenchmark
+
+`apps/WinAppBenchmark` is upstream's `apps/mobile-benchmark` rebuilt as a WinUI 3 app with Microsoft.UI.Reactor: 19 of its 25 scenarios, with the same names and the same `AutomationId` where upstream has a `testID`. Not ported, because the surface is mobile-only: Permission Prompt, Photo Picker, Stripe PaymentSheet, Apple Pay, Apple Pay Billing Address, and WebView Accessibility. The README of the app lists each change made to fit a desktop window.
+
 ## WinAppTest (not in upstream)
 
 `E2E.WinApp.NUnit` and `E2E.WinApp.XUnit.V3` add `WinAppTest`, a base class over `E2ETest` for a `windows` target, the way `MobileAppTest` serves a device target. It reads `AppId` (`app.bundleId`) and `AppPath` (`E2E_WINAPP_APP_PATH`, else `app.appPath`) from the target, builds a `WinAppEngine` from `CreateWinAppOptions()`, hands the agent `WinAppTools`, sets the step timeout to 90 seconds, and relaunches the app before each test (`WinAppHost.OpenAsync`, shared by both adapters from `src/Shared`). `Window` is the session's fixture. The base class adds no `[Category]`.
