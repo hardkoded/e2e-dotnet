@@ -87,7 +87,7 @@ Every action goes through the control's own UI Automation pattern when it has on
 | `SelectOptionAsync` | Expands a combo box, reads the options, and selects the one with that name, value, or automation id. A list, tab list, or radio group is read as it is. |
 | `CheckAsync`, `UncheckAsync` | The toggle pattern. A radio button is selected; it cannot be unchecked. Nothing is sent when the state already matches. |
 | `FocusAsync`, `ScrollIntoViewAsync` | The focus and scroll-item patterns. |
-| `SwipeAsync` on a node | The scroll pattern of a scrollable control, which steps by a share of the whole extent. On the screen, the mouse wheel over the largest scrollable control (about a screen at a time) for up and down, its scroll pattern when the desktop cannot take input, and the wheel over the window when nothing scrolls. A left or right swipe with no scrollable control is `NOT_ACTIONABLE`. |
+| `SwipeAsync` on a node | Up and down turn the mouse wheel over the control, a few notches at a time. Left and right use its scroll pattern, as does any swipe when the desktop cannot take input; the pattern steps by a share of the whole extent. On the screen, the largest scrollable control is swiped the same way, else the mouse wheel turns over the window for up and down. A left or right swipe with no scrollable control is `NOT_ACTIONABLE`. |
 | `ToHaveScreenshotAsync` | A capture of the main window with every secure field painted black. |
 
 The session also offers `HoverAsync`, `LongPressAsync`, `DragToAsync`, `SecondaryTapAsync` (a right click), and `TypeTextAsync` on `WindowSession`, which `WinAppEngine.ActiveSessions` lists.
@@ -104,7 +104,8 @@ The session also offers `HoverAsync`, `LongPressAsync`, `DragToAsync`, `Secondar
 | `ListWindowsAsync()` | The app's visible top-level windows, with titles and boxes. |
 | `ResizeAsync(width, height)` | Resizes the main window to a logical size. The next observation reads the new layout. |
 | `MaximizeAsync()`, `RestoreAsync()`, `MinimizeAsync()` | The window state. Keys and clicks need the window restored. |
-| `AlertAsync(AlertAction.Accept \
+| `AlertAsync(AlertAction.Accept \| Dismiss)` | Answers the open dialog, as the last observation saw it: accept presses its primary button (a `ContentDialog`'s `PrimaryButton`, else a button named OK, Yes, Confirm, Accept, Save, or Continue), dismiss presses its close or secondary button, else sends Escape. A dialog's listed buttons can be tapped by id too, and that tap replays from the trace cache. |
+
 A test closes the app and opens it again, and the app starts from its home list. This is an excerpt of `DeviceFixtureTests.cs`.
 
 ```csharp
@@ -117,7 +118,6 @@ A test closes the app and opens it again, and the app starts from its home list.
         // ...
     }
 ```
-| Dismiss)` | Answers the open dialog, as the last observation saw it: accept presses its primary button (a `ContentDialog`'s `PrimaryButton`, else a button named OK, Yes, Confirm, Accept, Save, or Continue), dismiss presses its close or secondary button, else sends Escape. A dialog's listed buttons can be tapped by id too, and that tap replays from the trace cache. |
 
 ## The agent's tools
 

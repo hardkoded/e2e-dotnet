@@ -296,6 +296,28 @@ public sealed class WindowActions : IWindowActions
                     throw WinAppSupport.NotActionable($"the node does not scroll {swipe.Direction.ToString().ToLowerInvariant()}; swipe a list or scroll viewer, or the screen root");
                 }
 
+                // The wheel over the node, as the viewport swipe turns it; the pattern when the desktop cannot take input or the swipe is sideways.
+                if (swipe.Direction is ScrollDirection.Up or ScrollDirection.Down && entry.Raw.Bounds is { Width: > 0, Height: > 0 } box)
+                {
+                    var foreground = true;
+                    try
+                    {
+                        await driver.ForegroundAsync(entry.WindowHandle, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (WindowDriverException cause) when (cause.Fault == DriverFault.ForegroundLost)
+                    {
+                        // Without the foreground the wheel would turn over another app: the pattern below scrolls instead.
+                        foreground = false;
+                    }
+
+                    if (foreground)
+                    {
+                        await driver.ScrollWheelAsync(WinAppSupport.Centre(box), swipe.Direction == ScrollDirection.Down ? -SwipeNotches : SwipeNotches, cancellationToken).ConfigureAwait(false);
+                        await session.SettleAsync(cancellationToken).ConfigureAwait(false);
+                        break;
+                    }
+                }
+
                 await driver.ScrollAsync(entry.Handle, swipe.Direction, cancellationToken).ConfigureAwait(false);
                 await session.SettleAsync(cancellationToken).ConfigureAwait(false);
                 break;

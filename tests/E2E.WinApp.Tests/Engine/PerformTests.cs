@@ -250,9 +250,20 @@ public sealed class PerformTests
         var (harness, session, observation) = await OpenAsync();
         await using var _ = harness;
         await session.PerformAsync(Harness.ByTestId(observation, "benchmark-list"), new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None);
-        Assert.Equal(["scroll list-items Down"], harness.Driver.Calls);
+        Assert.Equal([$"foreground {FakeWindowDriver.MainHandle}", "wheel 300,400 -6"], harness.Driver.Calls);
         var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(Harness.ByTestId(observation, "save-button"), new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None));
         Assert.Equal(EngineErrorCodes.NotActionable, error.Code);
+    }
+
+    [Fact]
+    public async Task A_vertical_swipe_on_a_node_scrolls_by_pattern_when_the_desktop_cannot_take_the_wheel()
+    {
+        var (harness, session, observation) = await OpenAsync();
+        await using var _ = harness;
+        harness.Driver.Calls.Clear();
+        harness.Driver.Faults["foreground"] = new WindowDriverException(DriverFault.ForegroundLost, "locked");
+        await session.PerformAsync(Harness.ByTestId(observation, "benchmark-list"), new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None);
+        Assert.Equal(["scroll list-items Down"], harness.Driver.Calls.Where(call => call.StartsWith("scroll", StringComparison.Ordinal) || call.StartsWith("wheel", StringComparison.Ordinal)));
     }
 
     [Fact]
