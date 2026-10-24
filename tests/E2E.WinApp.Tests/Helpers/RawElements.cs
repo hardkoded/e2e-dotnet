@@ -35,7 +35,7 @@ public static class RawElements
         Element(handle, "CheckBox", name, null, new Rect(120, 190, 120, 20)) with { ToggleState = checked_ ? "On" : "Off", IsInvokable = true };
 
     public static RawElement Radio(string handle, string name, bool selected) =>
-        Element(handle, "RadioButton", name, null, new Rect(120, 220, 120, 20)) with { ToggleState = selected ? "On" : "Off", IsInvokable = true };
+        Element(handle, "RadioButton", name, null, new Rect(120, 220, 120, 20)) with { IsSelected = selected, IsInvokable = true };
 
     public static RawElement ListItem(string handle, string name) =>
         Element(handle, "ListItem", name, null, new Rect(120, 260, 200, 24)) with { IsInvokable = true };

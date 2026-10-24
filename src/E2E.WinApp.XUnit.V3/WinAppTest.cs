@@ -24,8 +24,11 @@ public abstract class WinAppTest : E2ETest
     /// <summary>The executable the run launches, relative to the folder of <c>e2e.config.json</c>: <c>E2E_WINAPP_APP_PATH</c>, else <c>targets[0].app.appPath</c>. Null attaches to the running app <see cref="AppId"/> names.</summary>
     protected virtual string? AppPath => WinAppHost.AppPath(Config);
 
+    /// <summary>The test's window session: the pointer and scroll actions the locator API does not carry (<c>SwipeAsync</c>, <c>LongPressAsync</c>, <c>HoverAsync</c>, <c>DragToAsync</c>).</summary>
+    protected WindowSession Session => (_engine ?? throw new InvalidOperationException("The engine starts with the test session.")).ActiveSessions.Single();
+
     /// <summary>The window fixture of the test's session: open and close the app, resize and maximize its window, answer a dialog.</summary>
-    protected Window Window => (_engine ?? throw new InvalidOperationException("The engine starts with the test session.")).ActiveSessions.Single().Window;
+    protected Window Window => Session.Window;
 
     /// <summary>The options of the engine.</summary>
     protected virtual WinAppOptions CreateWinAppOptions() => WinAppHost.Options(Config, AppId, AppPath);
