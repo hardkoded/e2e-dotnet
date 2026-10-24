@@ -153,6 +153,6 @@ On another host a `windows` target is `INVALID_CONFIG` before any session opens.
 - No video: `video` on a `windows` target is `UNSUPPORTED_ARTIFACT`.
 - No tap modifiers: a pattern invoke holds no keys.
 - A screenshot is the main window only. A flyout, menu, or combo box list that WinUI opens in its own popup window is in the observation, not in the image. Secure fields in the main window are covered; a secure field without a box withholds the image.
-- `Selected` is not reported, so `GetByRole("tab", new() { Selected = true })` matches nothing; read the tab's name or the content it shows.
+- `Selected` is read for radio buttons, tabs, list items, data items, and tree items (their selection item pattern) and for nothing else; a radio button that is selected is also checked.
 - The agent's `open_app` opens apps, not URLs. There is no deep-link tool.
 - The app's console output reaches the attempt's app log; a WinUI app writes little there.
