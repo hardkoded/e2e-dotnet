@@ -180,7 +180,7 @@ The last attempt of each failed result holds:
 | --- | --- |
 | `error` | The code, message, source line, and assertion details |
 | `failure` | The screen and screenshot artifact ids, the `url`, and any locator candidates |
-| `steps` | The calls that led to the failure. Each step's `events` hold what it did (`engine`), what it polled (`poll`), and where the app went (`navigation`). Agent steps add `cache` and recent model turns. `observationTruncated: true` means at least one semantic observation was incomplete. |
+| `steps` | The calls that led to the failure. Each step's `events` hold what it did (`engine`), what it polled (`poll`), and where the app went (`navigation`). Agent steps add `cache` and recent model turns. `observationTruncated: true` (`ReportStep.ObservationTruncated`) means at least one semantic observation was incomplete. |
 | `appLog` | What the app logged. Each line's `step` is the `index` of its step, absent before the first step. |
 | `artifacts` | The captured files, with their size and `sha256` |
 
