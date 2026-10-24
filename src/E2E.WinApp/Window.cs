@@ -89,7 +89,15 @@ public sealed class Window
         else if (action == AlertAction.Dismiss)
         {
             var window = dialog.WindowHandle;
-            await _session.CommandAsync("window.alert", (driver, token) => driver.SendKeysAsync(window, "esc", verbatim: false, token), cancellationToken).ConfigureAwait(false);
+            // The key goes through SendInput, which reaches the foreground window only.
+            await _session.CommandAsync(
+                "window.alert",
+                async (driver, token) =>
+                {
+                    await driver.ForegroundAsync(window, token).ConfigureAwait(false);
+                    await driver.SendKeysAsync(window, "esc", verbatim: false, token).ConfigureAwait(false);
+                },
+                cancellationToken).ConfigureAwait(false);
         }
         else
         {
