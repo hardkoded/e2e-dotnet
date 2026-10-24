@@ -79,8 +79,13 @@ Members of `E2ETest` in both frameworks:
   `<strong>` in `<p>Order total: <strong>$42.00</strong></p>`. Text inside a
   control's `<label>` answers with the control.
 - Roles follow HTML-AAM, and `img` aliases `image`. An inline `<svg>` is an
-  `image`. A `<th>` without `scope` beside a data cell with text or children
-  is a `rowheader`; one in a row of header cells, or with `scope="col"`, is a
+  `image`. An `<img alt="">` is decoration and matches nothing, unless it has
+  a `title`, a `tabindex`, or a global ARIA attribute: then it is an `image`.
+- `role="presentation"` and `role="none"` are ignored on a focusable element
+  or one with a global ARIA attribute such as `aria-label`, as `GetByRole`
+  reads them: `<button role="none">` is still a `button`.
+- A `<th>` without `scope` beside a data cell with text or children is a
+  `rowheader`; one in a row of header cells, or with `scope="col"`, is a
   `columnheader`.
 - A role's name is the accessible name, as Playwright computes it. Only
   content roles (button, link, cell, heading, tab, option, and the like) are
