@@ -28,7 +28,11 @@ Limrun device when the exploration starts (set `LIMRUN_API_KEY`) and releases it
 when the exploration ends, also after a failure or Ctrl+C. With
 `E2E_MOBILE_PROVIDER=devflow` it attaches to the MAUI app you launched. `e2e explore` supplies the
 device engine; a library caller of `Explore.ExploreAsync` with an `ios` or
-`android` target must set `ExploreOptions.Engine`.
+`android` target must set `ExploreOptions.Engine`. A `windows` target with `app.appPath` (the
+executable to launch) or `app.bundleId` (the process name of a running app) runs
+on `WinAppEngine` through Windows UI Automation, on Windows only, and needs an
+unlocked desktop for keys and clicks (see [windows.md](windows.md)); a library
+caller with a `windows` target sets `ExploreOptions.Engine` to a `WinAppEngine`.
 
 ```bash
 e2e explore   # goal: "Explore the app and find bugs"

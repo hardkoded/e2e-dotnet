@@ -64,6 +64,12 @@ public sealed class ExploreOptions
     internal Func<TargetConfig, IEngine>? CreateMobileEngine { get; init; }
 
     /// <summary>
+    /// Builds the engine of a <c>windows</c> target when <see cref="Engine"/> is not set. .NET-only: <c>E2E</c> cannot reference
+    /// <c>E2E.WinApp</c>, so the host (<c>e2e explore</c>) supplies it.
+    /// </summary>
+    internal Func<TargetConfig, IEngine>? CreateWindowsEngine { get; init; }
+
+    /// <summary>
     /// The accounts the explorer can sign in with, by name. Each travels into every step as the username and a password secret
     /// named <c>&lt;name&gt;.password</c>, which the explorer fills with <c>fill_secret</c>; the password never reaches a model.
     /// Upstream reads them from the config's <c>credentials</c>, which the port rejects; <see cref="Credentials.User"/> reads one from the environment.
@@ -203,7 +209,7 @@ public static class Explore
         // The explorer replaces the agent for the exploration alone. The exploration pins no retries and runs with the cache off.
         entries[agentName] = ExploreExecutor.WithFindingTool(explorer, state);
         var defaultAgent = entries["default"];
-        var engine = options.Engine ?? TargetEngines.Create(target, options.Headed ? false : null, options.CreateMobileEngine);
+        var engine = options.Engine ?? TargetEngines.Create(target, options.Headed ? false : null, options.CreateMobileEngine, options.CreateWindowsEngine);
         var trace = options.Trace is { } traceFlag ? new ResolvedRecording(traceFlag, RecordingSource.Run) : target.Trace;
         var video = options.Video is { } videoFlag ? new ResolvedRecording(videoFlag, RecordingSource.Run) : target.Video;
         foreach (var message in RecordingNotices(trace.Mode, video, (engine.Capabilities & EngineCapabilities.Video) != 0, target.Name, engine.Platform))

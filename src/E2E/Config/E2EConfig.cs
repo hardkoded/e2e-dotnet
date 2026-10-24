@@ -52,7 +52,7 @@ public sealed class E2EConfig
     private static readonly string[] UnsupportedAppKeys =
         ["identity", "environment", "launchArguments", "permissions", "command", "readyUrl"];
 
-    private static readonly string[] Platforms = ["web", "ios", "android"];
+    private static readonly string[] Platforms = ["web", "ios", "android", "windows"];
 
     private static readonly string[] AgentKeys =
         ["model", "judge", "provider", "system", "context", "baseUrl", "apiKeyEnv", "maxSteps", "maxModelCalls", "judgmentTimeout", "providerOptions"];
@@ -262,7 +262,7 @@ public sealed class E2EConfig
         var platform = OptionalString(target, "platform", "targets[0].platform") ?? "web";
         if (!Platforms.Contains(platform, StringComparer.Ordinal))
         {
-            throw Invalid("targets[0].platform \"" + platform + "\" is not supported; the .NET port drives \"web\", \"ios\", and \"android\"");
+            throw Invalid("targets[0].platform \"" + platform + "\" is not supported; the .NET port drives \"web\", \"ios\", \"android\", and \"windows\"");
         }
 
         var name = OptionalString(target, "name", "targets[0].name") ?? platform;
@@ -281,9 +281,9 @@ public sealed class E2EConfig
                 throw Invalid("targets[0].app must be an object");
             }
 
-            // A device target names its app by bundle id and build path, a web target by URL.
-            var device = platform != "web";
-            CheckKeys(rawApp, "targets[0].app", device ? MobileAppKeys : AppKeys, UnsupportedAppKeys, null);
+            // A pinned-app target (a device or a Windows app) names its app by bundle id and build path, a web target by URL.
+            var pinned = platform != "web";
+            CheckKeys(rawApp, "targets[0].app", pinned ? MobileAppKeys : AppKeys, UnsupportedAppKeys, null);
             app = new AppConfig
             {
                 Url = OptionalString(rawApp, "url", "targets[0].app.url") is { } url ? Urls.NormalizeAppUrl(url, "targets[0].app.url").Href : null,

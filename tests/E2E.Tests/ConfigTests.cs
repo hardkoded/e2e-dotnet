@@ -143,7 +143,7 @@ public sealed class ConfigTests
     [InlineData("""{ "cache": { "strict": "yes" } }""", "cache.strict must be a boolean")]
     [InlineData("""{ "targets": [] }""", "targets must be a non-empty array")]
     [InlineData("""{ "targets": [{ "app": { "url": "https://x", "port": 1 } }] }""", "unknown targets[0].app key \"port\"")]
-    [InlineData("""{ "targets": [{ "platform": "windows" }] }""", "targets[0].platform \"windows\" is not supported")]
+    [InlineData("""{ "targets": [{ "platform": "tvos" }] }""", "targets[0].platform \"tvos\" is not supported")]
     [InlineData("""{ "targets": [{ "platform": "ios", "app": { "url": "https://x" } }] }""", "unknown targets[0].app key \"url\"")]
     [InlineData("""{ "targets": [{ "platform": "web", "app": { "bundleId": "dev.x" } }] }""", "unknown targets[0].app key \"bundleId\"")]
     [InlineData("""{ "targets": [{ "platform": "android", "app": { "appPath": "" } }] }""", "targets[0].app.appPath must be a non-empty string")]
@@ -177,6 +177,19 @@ public sealed class ConfigTests
         Assert.Equal("android", config.Target.Platform);
         Assert.Equal("dev.x.app", config.Target.App.BundleId);
         Assert.Equal("build/app.apk", config.Target.App.AppPath);
+        Assert.Null(config.Target.App.Url);
+    }
+
+    /// <summary>.NET-only: upstream has no windows platform.</summary>
+    [Fact]
+    public void A_windows_target_names_its_app_by_process_name_and_executable()
+    {
+        var config = Parse("""{ "targets": [{ "platform": "windows", "app": { "bundleId": "Desk", "appPath": "bin/Desk.exe" } }] }""");
+
+        Assert.Equal("windows", config.Target.Platform);
+        Assert.Equal("windows", config.Target.Name);
+        Assert.Equal("Desk", config.Target.App.BundleId);
+        Assert.Equal("bin/Desk.exe", config.Target.App.AppPath);
         Assert.Null(config.Target.App.Url);
     }
 

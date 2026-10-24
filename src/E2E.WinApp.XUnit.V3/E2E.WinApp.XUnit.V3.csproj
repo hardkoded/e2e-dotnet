@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>E2E.WinApp.XUnit.V3</RootNamespace>
+    <AssemblyName>E2E.WinApp.XUnit.V3</AssemblyName>
+    <PackageId>E2E.WinApp.XUnit.V3</PackageId>
+    <Description>WinAppTest for the E2E .NET port: a ready base class that launches a Windows desktop app fresh before each test and drives it through UI Automation.</Description>
+    <PackageTags>e2e;testing;agent;windows;winui;xunit</PackageTags>
+    <IsPackable>true</IsPackable>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- E2E.WinApp restores the winapp UI Automation library, which ships Windows assets only. -->
+    <AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0</AssetTargetFallback>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\E2E.XUnit.V3\E2E.XUnit.V3.csproj" />
+    <ProjectReference Include="..\E2E.WinApp\E2E.WinApp.csproj" />
+    <Compile Include="..\Shared\WinAppHost.cs" Link="WinAppHost.cs" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

@@ -45,3 +45,29 @@ jobs:
           dotnet pack src/E2E.Limrun/E2E.Limrun.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.TestMu.Mobile/E2E.TestMu.Mobile.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.Mobile.DevFlow/E2E.Mobile.DevFlow.csproj -c Release --no-build -o artifacts --nologo
+          dotnet pack src/E2E.WinApp/E2E.WinApp.csproj -c Release --no-build -o artifacts --nologo
+          dotnet pack src/E2E.WinApp.NUnit/E2E.WinApp.NUnit.csproj -c Release --no-build -o artifacts --nologo
+          dotnet pack src/E2E.WinApp.XUnit.V3/E2E.WinApp.XUnit.V3.csproj -c Release --no-build -o artifacts --nologo
+
+  windows:
+    name: windows-build-test
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore E2E.slnx
+
+      - name: Build
+        run: dotnet build E2E.slnx --no-restore -c Release
+
+      - name: Test
+        run: dotnet test tests/E2E.WinApp.Tests --no-build -c Release --blame-hang-timeout 5m --logger "trx;LogFileName=test-results.trx"
