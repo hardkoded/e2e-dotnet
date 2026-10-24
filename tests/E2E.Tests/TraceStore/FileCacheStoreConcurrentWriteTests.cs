@@ -5,7 +5,8 @@
 namespace E2E.Tests.TraceStore;
 
 /// <summary>
-/// No upstream <c>it</c>: the .NET file store writes through a temp file and a move, which upstream's store does not.
+/// No upstream <c>it</c> races writers on one key: upstream relies on a POSIX rename replacing the target in one step, while on Windows
+/// the port's <c>AtomicWrite</c> must retry a move another move is replacing (see COMPATIBILITY.md, "Replay cache").
 /// </summary>
 public sealed class FileCacheStoreConcurrentWriteTests : IDisposable
 {

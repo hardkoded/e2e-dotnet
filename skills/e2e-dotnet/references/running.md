@@ -68,7 +68,11 @@ Entries live under `cache.dir` (`.e2e/cache/` by default), one file per key,
 relative to the config file. `E2E_CACHE_DIR` replaces `cache.dir`, so worktrees can share one directory;
 it resolves from the config file's directory, a leading `~` or `~/` is the
 home directory, a blank value is ignored, and the mode stays as configured.
-There are no `cache` commands; delete the
+Parallel runs can share the directory: each write replaces its entry file
+atomically, and two runs that write one key leave the last write. On Windows,
+a write that the file system refuses while another write replaces the same
+entry, or while a reader holds it open, is retried for a moment before it
+counts as not written. There are no `cache` commands; delete the
 directory to clear it. The modes are `read-write`, `read-only`, and `off`.
 Topic `agent` explains what is recorded. Secret values never enter cache
 entries: a secret an act received in `Params` that shows in a control's name,
