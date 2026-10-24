@@ -180,6 +180,17 @@ public sealed class PerformTests
     }
 
     [Fact]
+    public async Task A_toggle_changed_since_the_observation_is_not_judged_by_the_old_snapshot()
+    {
+        var (harness, session, observation) = await OpenAsync();
+        await using var _ = harness;
+        var terms = Harness.ByName(observation, "Accept terms");
+        await session.PerformAsync(terms, new LocatorAction.Uncheck(), CancellationToken.None);
+        await session.PerformAsync(terms, new LocatorAction.Check(), CancellationToken.None);
+        Assert.Equal(["invoke chk-terms ToggleOff", "invoke chk-terms ToggleOn"], harness.Driver.Calls);
+    }
+
+    [Fact]
     public async Task A_radio_button_is_checked_by_selection_and_cannot_be_unchecked()
     {
         var (harness, session, observation) = await OpenAsync();

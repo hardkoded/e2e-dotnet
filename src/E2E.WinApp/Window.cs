@@ -23,6 +23,7 @@ public sealed class Window
     /// <summary>Automation ids of the buttons a WinUI <c>ContentDialog</c> names, by what each one does.</summary>
     private static readonly string[] AcceptIds = ["PrimaryButton"];
     private static readonly string[] DismissIds = ["CloseButton", "SecondaryButton"];
+    private static readonly string[] AcceptNames = ["OK", "Yes", "Confirm", "Accept", "Save", "Continue"];
 
     private readonly WindowSession _session;
 
@@ -69,7 +70,7 @@ public sealed class Window
 
     /// <summary>
     /// Accepts or dismisses the open dialog, as the last observation saw it: a node of role <c>dialog</c>. Accept presses the
-    /// dialog's primary button (a <c>ContentDialog</c>'s <c>PrimaryButton</c>, else its first button); dismiss presses its close or
+    /// dialog's primary button (a <c>ContentDialog</c>'s <c>PrimaryButton</c>, else a button named OK, Yes, Confirm, Accept, Save, or Continue); dismiss presses its close or
     /// secondary button, else sends Escape to the window. <c>INVALID_STATE</c> when no dialog is open. The buttons a dialog lists
     /// can be tapped by id too, and that tap replays from the trace cache; this does not.
     /// </summary>
@@ -80,7 +81,7 @@ public sealed class Window
         var buttons = _session.Latest.Where(entry => entry.Role == "button" && IsWithin(entry, dialog)).ToList();
         var wanted = action == AlertAction.Accept ? AcceptIds : DismissIds;
         var button = buttons.FirstOrDefault(entry => wanted.Contains(entry.Raw.AutomationId ?? "", StringComparer.Ordinal))
-            ?? (action == AlertAction.Accept ? buttons.FirstOrDefault() : null);
+            ?? (action == AlertAction.Accept ? buttons.FirstOrDefault(entry => AcceptNames.Contains(entry.Node.Name ?? "", StringComparer.OrdinalIgnoreCase)) : null);
         if (button is not null)
         {
             await _session.CommandAsync("window.alert", (driver, token) => driver.InvokeAsync(button.Handle, InvokeKind.Invoke, token), cancellationToken).ConfigureAwait(false);
