@@ -119,7 +119,8 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
                 var elements = await _automation.InspectAsync(target, null!, InspectDepth, token).ConfigureAwait(false);
                 var (root, children) = Nest(elements, windowHandle);
                 var read = new Dictionary<string, (UiElement, UiTarget)>(StringComparer.Ordinal);
-                var raw = ToRaw(root, children, target, read, isRoot: true);
+                var selection = await ReadSelectionAsync(target, root, children, token).ConfigureAwait(false);
+                var raw = ToRaw(root, children, target, read, selection, isRoot: true);
                 Remember(windowHandle, read);
                 return raw;
             },
@@ -132,7 +133,7 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
                 try
                 {
                     var focused = await _automation.GetFocusedElementAsync(UiTarget.FromWindowHandle((IntPtr)windowHandle), token).ConfigureAwait(false);
-                    return focused is null ? null : HandleOf(focused);
+                    return focused is null ? null : ObservedHandleOf(windowHandle, focused);
                 }
                 catch (Exception cause) when (cause is not OperationCanceledException)
                 {
@@ -469,11 +470,49 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
         list.Add(child);
     }
 
+    /// <summary>The control types that are one of a set of which one is selected; the selected one is read from its selection item pattern.</summary>
+    private static readonly string[] SelectionTypes = ["RadioButton", "TabItem", "ListItem", "DataItem"];
+
+    private async Task<Dictionary<UiElement, bool>> ReadSelectionAsync(UiTarget target, UiElement root, Dictionary<UiElement, List<UiElement>> children, CancellationToken cancellationToken)
+    {
+        var selection = new Dictionary<UiElement, bool>();
+        var pending = new Stack<UiElement>();
+        pending.Push(root);
+        while (pending.TryPop(out var element))
+        {
+            if (SelectionTypes.Contains(element.Type, StringComparer.Ordinal))
+            {
+                try
+                {
+                    var properties = await _automation.GetPropertiesAsync(target, element, "IsSelected", cancellationToken).ConfigureAwait(false);
+                    if (properties.TryGetValue("IsSelected", out var value) && bool.TryParse(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture), out var selected))
+                    {
+                        selection[element] = selected;
+                    }
+                }
+                catch (Exception cause) when (cause is not OperationCanceledException)
+                {
+                    // An element that vanished or has no selection item pattern is not selected as far as the tree can say.
+                }
+            }
+
+            if (children.TryGetValue(element, out var nested))
+            {
+                foreach (var child in nested)
+                {
+                    pending.Push(child);
+                }
+            }
+        }
+
+        return selection;
+    }
+
     /// <summary>
     /// One element as the projection reads it, collected under its handle into <paramref name="read"/>. The password flag is not read:
     /// the library's <c>IsPassword</c> answers true for a plain rich edit, so the projection goes by the framework class instead.
     /// </summary>
-    private RawElement ToRaw(UiElement element, Dictionary<UiElement, List<UiElement>> children, UiTarget target, Dictionary<string, (UiElement, UiTarget)> read, bool isRoot)
+    private RawElement ToRaw(UiElement element, Dictionary<UiElement, List<UiElement>> children, UiTarget target, Dictionary<string, (UiElement, UiTarget)> read, Dictionary<UiElement, bool> selection, bool isRoot)
     {
         var handle = HandleOf(element);
         read[handle] = (element, target);
@@ -490,16 +529,48 @@ internal sealed partial class UiAutomationDriver : IWindowDriver
             Bounds = element.Width > 0 && element.Height > 0 ? new Rect(element.X, element.Y, element.Width, element.Height) : null,
             Value = element.Value,
             ToggleState = element.ToggleState,
+            IsSelected = selection.TryGetValue(element, out var selected) ? selected : null,
             ExpandState = element.ExpandState,
             ScrollDir = element.ScrollDir,
             IsInvokable = element.IsInvokable,
             IsPassword = null,
             HasMoreChildren = element.HasMoreChildren,
-            Children = [.. nested.Select(child => ToRaw(child, children, target, read, isRoot: false))],
+            Children = [.. nested.Select(child => ToRaw(child, children, target, read, selection, isRoot: false))],
         };
     }
 
     /// <summary>The element's selector slug, which the library computes from its runtime id or unique automation id; an element without one gets a key of this driver's.</summary>
+    /// <summary>
+    /// The handle the newest observation of <paramref name="windowHandle"/> gave the element the library reports as focused. The library
+    /// derives a slug from the properties it read, and a focus query reads fewer of them than an inspection, so the two slugs of one
+    /// element can differ; the element is matched by what identifies it instead.
+    /// </summary>
+    private string ObservedHandleOf(long windowHandle, UiElement focused)
+    {
+        lock (_lock)
+        {
+            if (_elements.TryGetValue(windowHandle, out var read))
+            {
+                foreach (var (handle, (element, _)) in read)
+                {
+                    if (SameElement(element, focused))
+                    {
+                        return handle;
+                    }
+                }
+            }
+        }
+
+        return HandleOf(focused);
+    }
+
+    private static bool SameElement(UiElement left, UiElement right) =>
+        left.Type == right.Type
+        && left.Name == right.Name
+        && (string.IsNullOrEmpty(left.AutomationId)
+            ? string.IsNullOrEmpty(right.AutomationId) && left.X == right.X && left.Y == right.Y && left.Width == right.Width && left.Height == right.Height
+            : left.AutomationId == right.AutomationId);
+
     private string HandleOf(UiElement element)
     {
         if (element.Selector is { Length: > 0 } selector)

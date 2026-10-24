@@ -43,10 +43,13 @@ public sealed record RawElement
 
     public string? Value { get; init; }
 
-    /// <summary><c>On</c>, <c>Off</c>, or <c>Indeterminate</c> for a toggle; null otherwise.</summary>
+    /// <summary><c>On</c>, <c>Off</c>, or <c>Indeterminate</c> for a toggle, in any case (the library lower-cases them); null otherwise.</summary>
     public string? ToggleState { get; init; }
 
-    /// <summary><c>Expanded</c>, <c>Collapsed</c>, <c>PartiallyExpanded</c>, or <c>LeafNode</c>; null without an expand pattern.</summary>
+    /// <summary>Whether a selection item (a radio button, a tab, a list item) is the selected one; null for anything else.</summary>
+    public bool? IsSelected { get; init; }
+
+    /// <summary><c>Expanded</c>, <c>Collapsed</c>, <c>PartiallyExpanded</c>, or <c>LeafNode</c> in any case (the library lower-cases them); null without an expand pattern.</summary>
     public string? ExpandState { get; init; }
 
     /// <summary>The axes the element scrolls along, as the library spells them; null or empty when it does not scroll.</summary>

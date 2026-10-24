@@ -61,6 +61,20 @@ public async Task The_agent_signs_in()
 }
 ```
 
+The benchmark app (`apps/WinAppBenchmark`) has tests for every locator verb. This is an excerpt of `LoginFormTests.cs`.
+
+```csharp
+    [Test]
+    public async Task Signs_in_and_logs_out()
+    {
+        await Screen.GetByTestId("email-input").FillAsync(_account.Username);
+        await Screen.GetByTestId("password-input").FillAsync(_account.Password);
+        await Screen.GetByTestId("login-button").TapAsync();
+        await Expect.That(Screen.GetByTestId("success-message")).ToHaveTextAsync("Logged in successfully");
+        // ...
+    }
+```
+
 Every action goes through the control's own UI Automation pattern when it has one, and through the keyboard and mouse otherwise:
 
 | Action | What the engine does |
@@ -73,7 +87,7 @@ Every action goes through the control's own UI Automation pattern when it has on
 | `SelectOptionAsync` | Expands a combo box, reads the options, and selects the one with that name, value, or automation id. A list, tab list, or radio group is read as it is. |
 | `CheckAsync`, `UncheckAsync` | The toggle pattern. A radio button is selected; it cannot be unchecked. Nothing is sent when the state already matches. |
 | `FocusAsync`, `ScrollIntoViewAsync` | The focus and scroll-item patterns. |
-| `SwipeAsync` on a node | The scroll pattern of a scrollable control. On the screen, the largest scrollable control, else the mouse wheel over the window for up and down; a left or right swipe with no scrollable control is `NOT_ACTIONABLE`. |
+| `SwipeAsync` on a node | The scroll pattern of a scrollable control, which steps by a share of the whole extent. On the screen, the mouse wheel over the largest scrollable control (about a screen at a time) for up and down, its scroll pattern when the desktop cannot take input, and the wheel over the window when nothing scrolls. A left or right swipe with no scrollable control is `NOT_ACTIONABLE`. |
 | `ToHaveScreenshotAsync` | A capture of the main window with every secure field painted black. |
 
 The session also offers `HoverAsync`, `LongPressAsync`, `DragToAsync`, `SecondaryTapAsync` (a right click), and `TypeTextAsync` on `WindowSession`, which `WinAppEngine.ActiveSessions` lists.
@@ -90,7 +104,20 @@ The session also offers `HoverAsync`, `LongPressAsync`, `DragToAsync`, `Secondar
 | `ListWindowsAsync()` | The app's visible top-level windows, with titles and boxes. |
 | `ResizeAsync(width, height)` | Resizes the main window to a logical size. The next observation reads the new layout. |
 | `MaximizeAsync()`, `RestoreAsync()`, `MinimizeAsync()` | The window state. Keys and clicks need the window restored. |
-| `AlertAsync(AlertAction.Accept \| Dismiss)` | Answers the open dialog, as the last observation saw it: accept presses its primary button (a `ContentDialog`'s `PrimaryButton`, else a button named OK, Yes, Confirm, Accept, Save, or Continue), dismiss presses its close or secondary button, else sends Escape. A dialog's listed buttons can be tapped by id too, and that tap replays from the trace cache. |
+| `AlertAsync(AlertAction.Accept \
+A test closes the app and opens it again, and the app starts from its home list. This is an excerpt of `DeviceFixtureTests.cs`.
+
+```csharp
+    [Test]
+    public async Task CloseApp_then_openApp_relaunches_on_the_home_list()
+    {
+        await Window.CloseAppAsync();
+        await Window.OpenAppAsync();
+        Assert.That((await Window.ForegroundAppAsync()).Name, Is.EqualTo(AppName));
+        // ...
+    }
+```
+| Dismiss)` | Answers the open dialog, as the last observation saw it: accept presses its primary button (a `ContentDialog`'s `PrimaryButton`, else a button named OK, Yes, Confirm, Accept, Save, or Continue), dismiss presses its close or secondary button, else sends Escape. A dialog's listed buttons can be tapped by id too, and that tap replays from the trace cache. |
 
 ## The agent's tools
 

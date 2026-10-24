@@ -264,8 +264,20 @@ public sealed class PerformTests
         var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(root, new LocatorAction.Tap(), CancellationToken.None));
         Assert.Equal(EngineErrorCodes.NotActionable, error.Code);
         Assert.Contains("the screen root takes swipe only, not tap", error.Message, StringComparison.Ordinal);
+        harness.Driver.Calls.Clear();
         await session.PerformAsync(root, new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None);
-        Assert.Equal(["scroll list-items Down"], harness.Driver.Calls);
+        Assert.Equal([$"foreground {FakeWindowDriver.MainHandle}", "wheel 300,400 -6"], harness.Driver.Calls);
+    }
+
+    [Fact]
+    public async Task A_viewport_swipe_scrolls_by_pattern_when_the_desktop_cannot_take_the_wheel()
+    {
+        var (harness, session, _) = await OpenAsync();
+        await using var _ = harness;
+        harness.Driver.Calls.Clear();
+        harness.Driver.Faults["foreground"] = new WindowDriverException(DriverFault.ForegroundLost, "locked");
+        await session.SwipeAsync(ScrollDirection.Down, CancellationToken.None);
+        Assert.Equal(["scroll list-items Down"], harness.Driver.Calls.Where(call => call.StartsWith("scroll", StringComparison.Ordinal) || call.StartsWith("wheel", StringComparison.Ordinal)));
     }
 
     [Fact]

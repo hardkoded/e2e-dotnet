@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>WinAppBenchmark.E2ETests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- The UI Automation library ships Windows assets only; see skills/e2e-dotnet/references/windows.md. -->
+    <AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0</AssetTargetFallback>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="NUnit" Version="5.0.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="E2E" />
+    <Using Include="E2E.WinApp" />
+    <Using Include="E2E.WinApp.NUnit" />
+    <Using Include="NUnit.Framework" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\E2E.WinApp.NUnit\E2E.WinApp.NUnit.csproj" />
+  </ItemGroup>
+</Project>

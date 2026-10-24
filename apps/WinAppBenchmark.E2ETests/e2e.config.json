@@ -1,0 +1,24 @@
+{
+  "targets": [
+    {
+      "name": "benchmark",
+      "platform": "windows",
+      "app": {
+        "appPath": "../WinAppBenchmark/bin/x64/Debug/net10.0-windows10.0.22621.0/WinAppBenchmark.exe",
+        "bundleId": "WinAppBenchmark"
+      }
+    }
+  ],
+  "timeout": 300000,
+  "actionTimeout": 15000,
+  "assertionTimeout": 10000,
+  "agents": {
+    "default": {
+      "model": "claude-sonnet-5.5",
+      "provider": "copilot",
+      "maxSteps": 80,
+      "context": "This is the e2e Windows benchmark: a list of self-contained scenarios observed through the UI Automation tree of a desktop window. A step plays out inside the scenario screen it starts on; the Back button in the header leaves it, so never press it unless the step says so. When you finish, always give a one-sentence summary of what you did."
+    }
+  },
+  "cache": { "dir": ".e2e/cache" }
+}

@@ -75,7 +75,7 @@ public sealed class InfiniteScrollList : Component
                     .CornerRadius(0)))
                 .Ref(scroll)
                 .ViewChanged(ViewChanged)
-                .AutomationId("benchmark-list")
+                .AutomationName("Items").AutomationId("benchmark-list")
                 .Grid(row: 1),
             When(loading, () => ProgressRing().AutomationId("list-loading").Padding(12)).Grid(row: 2));
     }

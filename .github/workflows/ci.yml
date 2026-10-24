@@ -69,5 +69,8 @@ jobs:
       - name: Build
         run: dotnet build E2E.slnx --no-restore -c Release
 
+      - name: Build the Windows benchmark app
+        run: dotnet build apps/WinAppBenchmark -p:Platform=x64 -c Debug
+
       - name: Test
         run: dotnet test tests/E2E.WinApp.Tests --no-build -c Release --blame-hang-timeout 5m --logger "trx;LogFileName=test-results.trx"

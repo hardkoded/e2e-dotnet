@@ -76,6 +76,20 @@ public sealed class UiaProjectionTests
     }
 
     [Fact]
+    public void The_library_s_lower_case_toggle_and_expand_states_read_the_same_and_a_selected_radio_is_checked()
+    {
+        var root = RawElements.Window("W",
+            RawElements.CheckBox("chk", "Terms", checked_: false) with { ToggleState = "on" },
+            RawElements.ComboBox("combo", "Size", expanded: false) with { ExpandState = "expanded" },
+            RawElements.Radio("rad", "Small", selected: true));
+        var window = Project(root);
+        Assert.True(Find(window, "chk").States.Checked);
+        Assert.True(Find(window, "combo").States.Expanded);
+        Assert.True(Find(window, "rad").States.Checked);
+        Assert.True(Find(window, "rad").States.Selected);
+    }
+
+    [Fact]
     public void Reports_states_off_the_pattern_values()
     {
         var window = Project(RawElements.Settings(), focused: "edit-name");

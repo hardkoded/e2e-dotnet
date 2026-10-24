@@ -47,7 +47,7 @@ public sealed class HugeVirtualizedList : Component
                     .Height(RowHeight)
                     .HAlign(HorizontalAlignment.Stretch)
                     .CornerRadius(0)))
-                .AutomationId("huge-list")
+                .AutomationName("Huge list").AutomationId("huge-list")
                 .Grid(row: 1));
     }
 }
