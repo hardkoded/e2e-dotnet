@@ -69,6 +69,20 @@ public sealed class AnExactLabelQueryComposedAsAHasFilterTests
     }
 
     [Fact]
+    public async Task Unions_two_queries_in_document_order_counting_an_overlapping_row_once()
+    {
+        await WithRowsAsync(async screen =>
+        {
+            var quoted = screen.GetByTestId("row-quoted");
+            var lastName = screen.GetByTestId("row-last-name");
+            var union = quoted.Or(lastName);
+            Assert.Equal(["row-last-name", "row-quoted"], await TestIdsAsync(union));
+            Assert.Equal(["row-quoted"], await TestIdsAsync(quoted.Or(quoted)));
+            Assert.Equal(["row-last-name"], await TestIdsAsync(union.First()));
+        });
+    }
+
+    [Fact]
     public async Task Composes_onto_a_position_and_a_child_query_and_acts_on_the_row_it_picked()
     {
         await WithRowsAsync(async screen =>

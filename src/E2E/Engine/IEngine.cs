@@ -147,8 +147,9 @@ public interface IEngineSession : IAsyncDisposable
     /// <summary>
     /// Resolves a locator against the screen as it is now and returns every match in document order. Polling and strictness stay with
     /// the harness. A screen the engine cannot read yet matches nothing, so the harness keeps polling. <paramref name="timeout"/> is the
-    /// budget left for the resolve, which an engine uses to tell a screen that is still arriving from one that never rendered. Engines
-    /// that declare <see cref="EngineCapabilities.Location"/> and set <see cref="CanLocate"/> implement it. Upstream's <c>locate</c>.
+    /// budget left for the resolve, which an engine uses to tell a screen that is still arriving from one that never rendered. A
+    /// <c>union</c> expression matches either branch in document order, without duplicate nodes. Engines that declare
+    /// <see cref="EngineCapabilities.Location"/> and set <see cref="CanLocate"/> implement it. Upstream's <c>locate</c>.
     /// </summary>
     Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken) =>
         Task.FromException<IReadOnlyList<SemanticNode>>(new EngineException("UNSUPPORTED_CAPABILITY", "locators (screen) is not supported by this engine."));
