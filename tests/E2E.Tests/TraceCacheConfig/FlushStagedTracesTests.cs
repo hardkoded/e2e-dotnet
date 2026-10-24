@@ -64,7 +64,7 @@ public sealed class FlushStagedTracesTests
     [Fact]
     public void Does_not_report_default_store_eviction_when_the_entry_directory_denies_deletion()
     {
-        if (OperatingSystem.IsWindows() || Environment.UserName == "root")
+        if (OperatingSystem.IsWindows() || Environment.IsPrivilegedProcess)
         {
             // A directory mode does not deny deletion to root or on Windows.
             return;
@@ -79,7 +79,7 @@ public sealed class FlushStagedTracesTests
             var before = File.ReadAllText(entryPath);
             File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserExecute);
 
-            var writes = E2ESession.Flush(store, [Kept(KeyB, store, 3)], preserve: false);
+            var writes = E2ESession.Flush(store, [Kept(KeyB, store, verified: false, stepIndex: 3)], preserve: false);
 
             Assert.Equal(before, File.ReadAllText(entryPath));
             Assert.Equal(CacheWrite.Unconfirmed, writes[3]);
@@ -88,6 +88,21 @@ public sealed class FlushStagedTracesTests
         finally
         {
             File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Deletes_nothing_without_throwing_when_the_default_store_has_no_such_entry_or_directory()
+    {
+        var directory = Directory.CreateTempSubdirectory("e2e-cache-absent-").FullName;
+        try
+        {
+            new FileStepCache(directory).Delete(new string('c', 64));
+            new FileStepCache(Path.Combine(directory, "missing")).Delete(new string('c', 64));
+        }
+        finally
+        {
             Directory.Delete(directory, recursive: true);
         }
     }
@@ -233,8 +248,6 @@ public sealed class FlushStagedTracesTests
             Step = Step(),
         };
     }
-
-    private static PendingAct Kept(string key, IStepCache store, int stepIndex) => Kept(key, store, verified: false, stepIndex);
 
     private static AttemptScope Fresh()
     {

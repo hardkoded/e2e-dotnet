@@ -272,10 +272,15 @@ public sealed class FileStepCache : IStepCache
 
     public void Delete(string key)
     {
-        var path = PathFor(key);
-        if (File.Exists(path))
+        try
         {
-            File.Delete(path);
+            // A missing file is no error; a missing directory is the same absence. Anything else throws, so the caller
+            // does not report an eviction that did not happen.
+            File.Delete(PathFor(key));
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // The entry is absent.
         }
     }
 

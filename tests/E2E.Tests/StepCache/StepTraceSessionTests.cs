@@ -260,7 +260,8 @@ public sealed class StepTraceSessionTests
     {
         var context = EntryContext(endPath: "/customers", endAnchors: [SavedAnchor]);
         ((StubCache)context.Store).DeleteFails = true;
-        var session = MakeSession(context, MakeHost(["/pricing", "/customers"]));
+        // A step index, so a settlement outcome would show: without one, Flush reports nothing for any act.
+        var session = MakeSession(context, MakeHost(["/pricing", "/customers"]), stepIndex: 2);
         await session.BeginAsync();
         Assert.Equal(ReplayHandOffReason.EndMismatch, session.ReplayedPrefix?.StopReason);
 

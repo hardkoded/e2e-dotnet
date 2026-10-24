@@ -35,7 +35,7 @@ internal static class StepCacheHarness
 
     public static StepHost MakeHost(string[] paths, params SemanticNode[][] screens) => new(paths, screens);
 
-    public static StepTraceSession MakeSession(CacheContext context, StepHost host, IReadOnlyDictionary<string, object?>? parameters = null, CacheEntry? step = null)
+    public static StepTraceSession MakeSession(CacheContext context, StepHost host, IReadOnlyDictionary<string, object?>? parameters = null, CacheEntry? step = null, int? stepIndex = null)
     {
         return new StepTraceSession(
             host,
@@ -49,6 +49,7 @@ internal static class StepCacheHarness
                 Instruction = "open billing",
                 Params = parameters,
                 Recorder = host.Recorder,
+                StepIndex = stepIndex,
             });
     }
 
