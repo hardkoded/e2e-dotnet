@@ -264,7 +264,7 @@ public sealed class FlushStagedTracesTests
 
     private static string Claim(AttemptScope scope, string agent, string? context)
     {
-        return scope.ClaimKey("approve the order", null, new ResolvedAgent { Name = agent, Context = context, KeyedContext = context }, out _);
+        return scope.ClaimKey("approve the order", null, new ResolvedAgent { Name = agent, Context = context }, out _);
     }
 
     /// <summary>A store that keeps each entry as the JSON text it was written as.</summary>

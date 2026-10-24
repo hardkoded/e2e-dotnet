@@ -198,7 +198,7 @@ lines you changed:
 - Shape the agent for this app: `context` for the vocabulary the screens
   use, `system` for how it works, named agents under `agents`. A different brain
   is an executor: your own tools in a `ToolLoop`, or an `IStepExecutor` (topic
-  `agent`). Every prompt of a test opens its context with the test's title
+  `agent`). Every prompt of a test opens with the test's title
   (`Test: <name>`), judges included, so name a test for what it covers, not
   for the verdict you expect (topic `agent`).
 - `.e2e/` is output (`report.json`, `results/`, `cache/`); read it, never edit it. Commit `.e2e/cache/` to share replays.

@@ -211,7 +211,7 @@ public sealed partial class Agent
             new()
             {
                 Role = "user",
-                Content = _scope.Redactor.Redact("Instruction: " + instruction + "\n\nReturn data matching this JSON schema: " + schema.ToJsonString() + "\n\n") + look.Text,
+                Content = _scope.Redactor.Redact(TitleOpening() + "Instruction: " + instruction + "\n\nReturn data matching this JSON schema: " + schema.ToJsonString() + "\n\n") + look.Text,
                 Images = look.Images,
             },
         };
@@ -306,7 +306,7 @@ public sealed partial class Agent
     {
         var messages = new List<ModelMessage>
         {
-            new() { Role = "user", Content = _scope.Redactor.Redact("Statement: " + statement + "\n\n") + look.Text, Images = look.Images },
+            new() { Role = "user", Content = _scope.Redactor.Redact(TitleOpening() + "Statement: " + statement + "\n\n") + look.Text, Images = look.Images },
         };
         var system = JudgeSystemFor(agent);
         var response = await CallModelAsync(agent.Judge, system, messages, AgentTools.Judge, agent, token, cancellationToken).ConfigureAwait(false);
@@ -781,6 +781,13 @@ public sealed partial class Agent
         return false;
     }
 
+    // The test's title line and a blank line, or nothing outside a test: it opens the judgment's user message.
+    private string TitleOpening()
+    {
+        var title = Prompts.TestTitleLine(_scope.TitlePath);
+        return title is null ? "" : title + "\n\n";
+    }
+
     // A judge never sees the act system text, so nothing in it can talk a judge into a verdict.
     private static string JudgeSystemFor(ResolvedAgent agent)
     {
@@ -1186,6 +1193,12 @@ internal sealed class AttemptScope
 
     public required string TestTitle { get; init; }
 
+    /// <summary>
+    /// The test's title path, redacted at each read: the title alone, or empty outside a test (no <see cref="TestFile"/>, as for an
+    /// <c>e2e mcp</c> session, which upstream's <c>environment.test === undefined</c> leaves without a title).
+    /// </summary>
+    public IReadOnlyList<string> TitlePath => string.IsNullOrEmpty(TestFile) ? [] : [Redactor.Redact(TestTitle)];
+
     /// <summary>The full name of the test's class, upstream's test file; see <see cref="E2ESessionOptions.TestFile"/>.</summary>
     public string? TestFile { get; init; }
 
@@ -1288,7 +1301,7 @@ internal sealed class AttemptScope
     public string ClaimKey(string instruction, IReadOnlyDictionary<string, object?>? parameters, ResolvedAgent agent, out int callIndex)
     {
         // The key reads the agent context as the model does, with the secrets known so far redacted.
-        var context = agent.KeyedContext is null ? null : Redactor.Redact(agent.KeyedContext);
+        var context = agent.Context is null ? null : Redactor.Redact(agent.Context);
         var signature = CacheKeys.Create(EnginePlatform, TestTitle, instruction, parameters, agent.Name, context);
         var index = _callIndexes.GetValueOrDefault(signature);
         _callIndexes[signature] = index + 1;

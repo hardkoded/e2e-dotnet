@@ -28,12 +28,12 @@ public sealed class ASecretValuePassedAsAPlainStringTests
     /// types it runs before the act that spells the value as plain strings, so the secret is known to the redaction by then.
     /// </summary>
     [Fact]
-    public async Task Partial_Hands_the_executor_the_instruction_params_and_agent_context_redacted()
+    public async Task Partial_Hands_the_executor_the_instruction_params_agent_context_and_title_path_redacted()
     {
-        var inputs = new List<(string Instruction, string Params, string? AgentContext)>();
+        var inputs = new List<(string Instruction, string Params, string? AgentContext, string[] TitlePath)>();
         var recording = new TestExecutor("recording", async (context, _) =>
         {
-            inputs.Add((context.Step.Instruction, JsonSerializer.Serialize(context.Step.Params, Relaxed), context.AgentContext));
+            inputs.Add((context.Step.Instruction, JsonSerializer.Serialize(context.Step.Params, Relaxed), context.AgentContext, [.. context.Attempt.TitlePath]));
             if (context.Step.Secrets.Count > 0)
             {
                 var observation = await context.ObserveAsync();
@@ -67,8 +67,9 @@ public sealed class ASecretValuePassedAsAPlainStringTests
         Assert.Equal("""{"key":{"kind":"secret","name":"probe"}}""", inputs[0].Params);
         Assert.Equal($"inspect {Marker} with {{note}}", inputs[1].Instruction);
         Assert.Equal($$"""{"note":"{{Marker}}","key {{Marker}}":["{{Marker}}"]}""", inputs[1].Params);
-        // The title spells the secret too, as upstream's does: both steps' context opens with it redacted.
-        Assert.All(inputs, input => Assert.Equal("Test: suite " + Marker + " > title holds " + Marker + "\ncontext " + Marker, input.AgentContext));
+        // The title spells the secret too, as upstream's does: both steps read it redacted, apart from the context.
+        Assert.All(inputs, input => Assert.Equal("context " + Marker, input.AgentContext));
+        Assert.All(inputs, input => Assert.Equal(["suite " + Marker + " > title holds " + Marker], input.TitlePath));
         Assert.DoesNotContain(Value, JsonSerializer.Serialize(inputs), StringComparison.Ordinal);
     }
 }

@@ -82,6 +82,11 @@ public static class DefaultAgent
         var host = context.Host
             ?? throw new InvalidOperationException("The built-in agent drives the context of a step the runtime opened; it cannot run on a context built by hand.");
         var builder = new StringBuilder();
+        if (Prompts.TestTitleLine(context.Attempt.TitlePath) is { } title)
+        {
+            builder.Append(title).Append("\n\n");
+        }
+
         if (context.ReplayedPrefix is { } prefix)
         {
             builder.Append("Replay stopped (").Append(ReplayHandOffReasons.Name(prefix.StopReason)).Append(") after these actions:\n");
