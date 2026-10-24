@@ -100,19 +100,26 @@ internal sealed class ResolvedAgent
     public IReadOnlyDictionary<string, AgentTool>? Tools { get; init; }
 
     /// <summary>
-    /// This agent with the test's <c>agentContext</c> appended to its own <see cref="Context"/>, one per line. A blank part is
-    /// left out. The 16 KiB limit applies to the agent's own context, as upstream's <c>joinAgentContext</c> runs after it.
+    /// The same context without the test's title, which the cache key digests: the key's test id already names the title,
+    /// so leaving it out keeps recordings made before the title joined the context replaying.
     /// </summary>
-    public ResolvedAgent WithTestContext(string? testContext)
+    public string? KeyedContext { get; init; }
+
+    /// <summary>
+    /// This agent with the test's title (<c>Test: billing &gt; upgrades the tier</c>) and the test's <c>agentContext</c> joined into its
+    /// <see cref="Context"/>: the title, then the agent's own context, then the test's, one per line. A blank part is left out.
+    /// The 16 KiB limit applies to the agent's own context, as upstream's <c>joinAgentContext</c> runs after it.
+    /// </summary>
+    public ResolvedAgent WithTestContext(string? testTitleContext, string? testContext)
     {
-        var parts = new[] { Context, testContext }.Where(part => !string.IsNullOrWhiteSpace(part)).ToArray();
-        return parts.Length == 0 ? this : new ResolvedAgent
+        return new ResolvedAgent
         {
             Name = Name,
             Model = Model,
             Judge = Judge,
             System = System,
-            Context = string.Join('\n', parts),
+            Context = JoinAgentContext(testTitleContext, Context, testContext),
+            KeyedContext = JoinAgentContext(Context, testContext),
             Executor = Executor,
             MaxSteps = MaxSteps,
             MaxModelCalls = MaxModelCalls,
@@ -120,6 +127,13 @@ internal sealed class ResolvedAgent
             ProviderOptions = ProviderOptions,
             Tools = Tools,
         };
+    }
+
+    // Joins the non-blank context parts in order, one per line.
+    private static string? JoinAgentContext(params string?[] contexts)
+    {
+        var parts = contexts.Where(part => !string.IsNullOrWhiteSpace(part)).ToArray();
+        return parts.Length == 0 ? null : string.Join('\n', parts);
     }
 
     /// <summary>Checks one agent's settings. Throws <see cref="ConfigurationException"/> with <c>INVALID_CONFIG</c>.</summary>
@@ -147,6 +161,7 @@ internal sealed class ResolvedAgent
             Executor = executor,
             System = options.System,
             Context = options.Context,
+            KeyedContext = options.Context,
             MaxSteps = options.MaxSteps ?? E2EDefaults.MaxSteps,
             MaxModelCalls = options.MaxModelCalls ?? E2EDefaults.MaxModelCalls,
             JudgmentTimeout = options.JudgmentTimeout,

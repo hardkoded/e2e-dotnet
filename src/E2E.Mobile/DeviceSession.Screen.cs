@@ -167,7 +167,7 @@ public sealed partial class DeviceSession
     /// </summary>
     private void TraceScreen(RawSnapshot raw, ProjectedSnapshot projected)
     {
-        if (_screenSink is not { } sink || (projected.Viewport ?? _knownViewport) is not { } viewport)
+        if (_screenSink is not { } sink || _knownViewport is not { } viewport)
         {
             return;
         }
@@ -569,7 +569,7 @@ public sealed partial class DeviceSession
     {
         var projected = Project(await SnapshotOrEmptyAsync(false, cancellationToken).ConfigureAwait(false));
         var data = await CaptureScreenshotAsync(async (shot, file) => await File.ReadAllBytesAsync(shot.Path ?? file, cancellationToken).ConfigureAwait(false), normalizeStatusBar: true, cancellationToken).ConfigureAwait(false);
-        var viewport = projected.Viewport ?? _knownViewport;
+        var viewport = _knownViewport;
         var (masked, regions) = RedactSecure(data, projected, viewport)
             ?? throw new EngineException(EngineErrorCodes.EngineFailure, "a secure field on screen could not be masked; screenshot withheld", retryable: false);
         var scale = viewport is { Width: > 0 } known && DeviceSupport.ReadPngSize(masked) is { } size ? size.Width / known.Width : 1;
