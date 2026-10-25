@@ -24,7 +24,7 @@ await Expect.That(Screen.GetByTestId("greeting")).ToHaveTextAsync("Hello, Grace!
 
 `DeviceTests` uses the `Device` fixture: send the app home and bring it back, relaunch it, switch to dark mode, and read the foreground app.
 
-All tests are in the `RealModel` and `Device` categories, so `dotnet test E2E.slnx --filter "TestCategory!=RealModel"` skips them.
+Every test is tagged `RealModel` and `Device` by `AssemblyInfo.cs`, including the locator-only ones, because they all need a device. `--filter "TestCategory!=RealModel"` skips the whole project. To run only the three locator tests, filter by name: `--filter "FullyQualifiedName~GreetingTests&FullyQualifiedName!~agent"`.
 
 ## Run it
 
@@ -32,7 +32,7 @@ All tests are in the `RealModel` and `Device` categories, so `dotnet test E2E.sl
 dotnet workload install maui
 dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64
 xcrun simctl boot "iPhone 17"
-dotnet test samples/MobileApp.E2ETests
+dotnet test --project samples/MobileApp.E2ETests
 ```
 
 For Android, build `-f net10.0-android -t:SignAndroidPackage`, boot an emulator, and set `E2E_MOBILE_PLATFORM=android` and `E2E_MOBILE_APP_PATH` to the `.apk`. The Android path was not run.
@@ -41,8 +41,8 @@ For Android, build `-f net10.0-android -t:SignAndroidPackage`, boot an emulator,
 
 | Mode | How |
 | --- | --- |
-| Hosted Limrun simulator | `LIMRUN_API_KEY=... E2E_MOBILE_PROVIDER=limrun dotnet test samples/MobileApp.E2ETests` |
-| MAUI DevFlow agent (preview) | Launch the Debug build, then `E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MobileApp dotnet test samples/MobileApp.E2ETests` |
+| Hosted Limrun simulator | `LIMRUN_API_KEY=... E2E_MOBILE_PROVIDER=limrun dotnet test --project samples/MobileApp.E2ETests` |
+| MAUI DevFlow agent (preview) | Launch the Debug build, then `E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MobileApp dotnet test --project samples/MobileApp.E2ETests` |
 
 The app is not in `E2E.slnx`, because a machine without the MAUI workload cannot build it. Open `samples/MobileApp.slnx` in Rider or Visual Studio to see the app and its tests together.
 

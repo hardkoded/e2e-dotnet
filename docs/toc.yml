@@ -1,8 +1,6 @@
 - name: Get started
   href: get-started/index.md
   items:
-    - name: Overview
-      href: get-started/index.md
     - name: Web
       href: get-started/web.md
     - name: Mobile
@@ -14,8 +12,6 @@
 - name: Samples
   href: samples/index.md
   items:
-    - name: Overview
-      href: samples/index.md
     - name: Dariten (web)
       href: samples/dariten.md
     - name: TodoMVC (web)

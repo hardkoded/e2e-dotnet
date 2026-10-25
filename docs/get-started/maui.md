@@ -81,7 +81,7 @@ public sealed class GreetingTests : MobileAppTest
 
 ```bash
 xcrun simctl boot "iPhone 17"
-dotnet test
+dotnet test --project .
 ```
 
 For Android, boot an emulator and set `E2E_MOBILE_PLATFORM=android` and `E2E_MOBILE_APP_PATH` to the `.apk`.
@@ -100,7 +100,7 @@ Launch the app, then run the tests against it:
 
 ```bash
 dotnet build MyApp -f net10.0-ios -r iossimulator-arm64 -t:Run
-E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MyApp dotnet test
+E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MyApp dotnet test --project .
 ```
 
 The tests attach to the running app. Nothing is installed and the app is not relaunched between tests, so each test starts from the state the last one left. Tests that send the app to the background or relaunch it are inconclusive in this mode. Use `AttachesToRunningApp` in `Assume.That` to skip them. This mode is a preview and has not been run against a device yet.

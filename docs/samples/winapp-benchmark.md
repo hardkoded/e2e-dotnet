@@ -10,6 +10,8 @@ A WinUI 3 desktop app of self-contained scenarios that are hard to automate, and
 - Tests: [`apps/WinAppBenchmark.E2ETests`](https://github.com/hardkoded/e2e-dotnet/tree/main/apps/WinAppBenchmark.E2ETests), derived from `WinAppTest`.
 - Scenarios: Login Form, Modal Flow, Bottom Tabs, Async States, Choice Controls, Sequential Onboarding, Infinite Scroll List, Huge Virtualized List, Control Inventory, Gestures, Broken Accessibility, Vision Only, Flattened forms, and more.
 
+`Fixtures/BenchmarkTest.cs` holds the shared base class and helpers the suites use.
+
 Every scenario ends in a deterministic success state, usually an element with `AutomationId` `success-message`. The adversarial scenarios put their controls in the raw view with no ids, so success is visible only in pixels.
 
 ## The suites
@@ -28,8 +30,8 @@ On a Windows desktop that is unlocked and not in use:
 ```bash
 dotnet build apps/WinAppBenchmark -p:Platform=x64
 e2e login github-copilot                                        # once, for the agent tests
-dotnet test apps/WinAppBenchmark.E2ETests                       # everything
-dotnet test apps/WinAppBenchmark.E2ETests --filter "FullyQualifiedName!~Scenarios"   # no model
+dotnet test --project apps/WinAppBenchmark.E2ETests                       # everything
+dotnet test --project apps/WinAppBenchmark.E2ETests --filter "FullyQualifiedName!~Scenarios"   # no model
 ```
 
 The Login Form account is `tester@tester.army` / `benchmark123`. To drive the app with `e2e explore` or `e2e mcp`, point a `windows` target at `bin/x64/Debug/net10.0-windows10.0.22621.0/WinAppBenchmark.exe`.
