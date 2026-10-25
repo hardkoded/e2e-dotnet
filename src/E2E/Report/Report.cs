@@ -57,6 +57,12 @@ public sealed record ReportRun
 
     public ReportUsage Usage { get; init; } = new();
 
+    /// <summary>The change the test filters judged, or why none ran. Null when the run has no filters to apply.</summary>
+    public ReportChanges? Changes { get; init; }
+
+    /// <summary>The test filters the run applied, in order. Null when none ran.</summary>
+    public IReadOnlyList<ReportFilter>? Filters { get; init; }
+
     /// <summary>What an exploration asked, did, and found. Null on a run that did not explore.</summary>
     public ReportExplore? Explore { get; init; }
 }
@@ -318,6 +324,9 @@ public sealed record SkipInfo
     public string Reason { get; init; } = "";
 
     public string? RelatedId { get; init; }
+
+    /// <summary>The name of the test filter that left the test out; only with cause <see cref="SkipCause.Filtered"/>.</summary>
+    public string? Filter { get; init; }
 }
 
 /// <summary>The cause of a skip.</summary>
@@ -845,6 +854,7 @@ public enum ErrorPhase
 {
     Config,
     Collection,
+    Filter,
     Launch,
     BeforeAll,
     BeforeEach,
@@ -889,4 +899,49 @@ public sealed record ReportError
 
     /// <summary>The line in the test file the failure unwound through.</summary>
     public ReportSource? Source { get; init; }
+}
+
+/// <summary>
+/// The change a run's test filters judged, by counts only, or why no filter ran (upstream's <c>ReportChanges</c>): <c>Base</c> and
+/// <c>Files</c> once git measured the change, <c>Skipped</c> alone when no filter ran before git was asked.
+/// </summary>
+public sealed record ReportChanges
+{
+    /// <summary>The merge base the change is measured from.</summary>
+    public string? Base { get; init; }
+
+    /// <summary>How many files changed since <see cref="Base"/>; 0 when there is no change.</summary>
+    public int? Files { get; init; }
+
+    /// <summary>Why no filter ran, such as <c>no files changed since abc1234</c>, <c>--last-failed</c>, or <c>no tests to judge</c>.</summary>
+    public string? Skipped { get; init; }
+}
+
+/// <summary>Why a filter left nothing out without answering (upstream's <c>FilterOutcome</c>).</summary>
+public enum FilterOutcome
+{
+    /// <summary>It threw or answered with something invalid.</summary>
+    Failed,
+
+    /// <summary>It ran past 5 minutes and the run stopped waiting.</summary>
+    TimedOut,
+}
+
+/// <summary>One test filter the run applied, in order (upstream's <c>ReportFilter</c>).</summary>
+public sealed record ReportFilter
+{
+    /// <summary>The filter's name.</summary>
+    public string Name { get; init; } = "";
+
+    /// <summary>How many tests it was given.</summary>
+    public int Candidates { get; init; }
+
+    /// <summary>How many tests the run left out on its word.</summary>
+    public int Excluded { get; init; }
+
+    /// <summary>The filter's note, redacted; for a filter that failed or timed out, the warning saying why.</summary>
+    public string? Note { get; init; }
+
+    /// <summary>Set when the filter left nothing out because the call did not answer; null when it answered.</summary>
+    public FilterOutcome? Outcome { get; init; }
 }

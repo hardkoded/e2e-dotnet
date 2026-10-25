@@ -49,6 +49,12 @@ internal sealed record ReportRun(string Id, string RunnerVersion, IReadOnlyList<
     public ReportLimits? Limits { get; init; }
 
     public ReportUsage? Usage { get; init; }
+
+    /// <summary>The change the test filters judged, or why none ran; null when the run has no filters to apply (upstream's <c>run.changes</c>).</summary>
+    public ReportChanges? Changes { get; init; }
+
+    /// <summary>The test filters the run applied, in order; empty when none ran (upstream's <c>run.filters</c>).</summary>
+    public IReadOnlyList<ReportFilter> Filters { get; init; } = [];
 }
 
 /// <summary>How a run ended (upstream's <c>BuildReportOptions['status'] | 'blocked'</c>).</summary>
@@ -133,7 +139,8 @@ internal enum AttemptCleanup
 /// <summary>Why an attempt skipped (upstream's <c>SkipInfo</c>).</summary>
 /// <param name="Cause">One of the schema's causes, such as <c>explicit</c> for a test that called <c>Skip</c>.</param>
 /// <param name="Reason">The reason, redacted.</param>
-internal sealed record ReportSkip(string Cause, string Reason);
+/// <param name="Filter">The name of the test filter that left the test out; only with cause <c>filtered</c>.</param>
+internal sealed record ReportSkip(string Cause, string Reason, string? Filter = null);
 
 /// <summary>One attempt of a test, as a page reads it (upstream's <c>ReportAttempt</c> and <c>AttemptView</c> in one).</summary>
 internal sealed record ReportAttempt
@@ -327,3 +334,27 @@ internal sealed record ReportUsage
 
     public double? EstimatedCostUsd { get; init; }
 }
+
+/// <summary>
+/// The change a run's test filters judged, by counts only, or why no filter ran (upstream's <c>ReportChanges</c>, <c>report/build.ts</c>):
+/// <c>Base</c> and <c>Files</c> once git measured the change, <c>Skipped</c> alone when no filter ran before git was asked.
+/// </summary>
+/// <param name="Base">The merge base the change is measured from.</param>
+/// <param name="Files">How many files changed since <paramref name="Base"/>; 0 when there is no change.</param>
+/// <param name="Skipped">Why no filter ran, such as <c>no files changed since abc1234</c>, <c>--last-failed</c>, or <c>no tests to judge</c>.</param>
+internal sealed record ReportChanges(string? Base = null, int? Files = null, string? Skipped = null);
+
+/// <summary>Why a filter left nothing out without answering (upstream's <c>FilterOutcome</c>): it threw or answered with something invalid, or ran past 5 minutes.</summary>
+internal enum FilterOutcome
+{
+    Failed,
+    TimedOut,
+}
+
+/// <summary>One test filter the run applied, in order (upstream's <c>ReportFilter</c>).</summary>
+/// <param name="Name">The filter's name.</param>
+/// <param name="Candidates">How many tests it was given.</param>
+/// <param name="Excluded">How many tests the run left out on its word.</param>
+/// <param name="Note">The filter's note, redacted and cut to one line of 1024 characters; for a filter that failed or timed out, the warning saying why.</param>
+/// <param name="Outcome">Set when the filter left nothing out because the call did not answer; null when it answered.</param>
+internal sealed record ReportFilter(string Name, int Candidates, int Excluded, string? Note = null, FilterOutcome? Outcome = null);
