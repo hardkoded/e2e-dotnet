@@ -37,8 +37,8 @@ public abstract record LocatorAction
     /// <summary>Scrolls the node's nearest scrollable container until the node is in the viewport.</summary>
     public sealed record ScrollIntoView : LocatorAction;
 
-    /// <summary>Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is <see cref="IEngineSession.SwipeAsync"/>.</summary>
-    public sealed record Swipe(ScrollDirection Direction) : LocatorAction;
+    /// <summary>Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is <see cref="IEngineSession.SwipeAsync(ScrollDirection, CancellationToken)"/>.</summary>
+    public sealed record Swipe(ScrollDirection Direction, Momentum? Momentum = null) : LocatorAction;
 }
 
 /// <summary>Which way a scroll moves the content into view. <see cref="Down"/> reveals what is below.</summary>
@@ -48,4 +48,17 @@ public enum ScrollDirection
     Down,
     Left,
     Right,
+}
+
+/// <summary>Fling strength of a swipe: how far the gesture travels. Upstream's <c>Momentum</c> (<c>none</c>, <c>slow</c>, <c>fast</c>).</summary>
+public enum Momentum
+{
+    /// <summary>No fling: half an extent on the web, half a node on a device.</summary>
+    None,
+
+    /// <summary>A short stride. The engine decides how far: a node swipe on a device is a quarter of the node, on the web three quarters of its extent.</summary>
+    Slow,
+
+    /// <summary>A long stride: four fifths of a node on a device, one and a half extents on the web.</summary>
+    Fast,
 }

@@ -1485,13 +1485,15 @@ public sealed partial class WebEngine : IEngine
             _context = context;
         }
 
-        public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("scroll", cancellationToken, async () =>
+        public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => SwipeAsync(direction, null, cancellationToken);
+
+        public Task SwipeAsync(ScrollDirection direction, Momentum? momentum, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("scroll", cancellationToken, async () =>
         {
             RequireObservation();
             var budget = Budget("scroll", cancellationToken);
             try
             {
-                await budget.WithinAsync(Page.EvaluateAsync(PageScript.ScrollViewport, Direction(direction))).ConfigureAwait(false);
+                await budget.WithinAsync(Page.EvaluateAsync(PageScript.ScrollViewport, new object[] { Direction(direction), Stride(momentum) })).ConfigureAwait(false);
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
@@ -1500,7 +1502,7 @@ public sealed partial class WebEngine : IEngine
             catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
             {
                 // As upstream's viewport swipe, a scroll the deadline cut off may have moved the page.
-                throw WebErrors.ClassifyAction(ex, new LocatorAction.Swipe(direction));
+                throw WebErrors.ClassifyAction(ex, new LocatorAction.Swipe(direction, momentum));
             }
         }));
 
@@ -1772,7 +1774,7 @@ public sealed partial class WebEngine : IEngine
                     await element.ScrollIntoViewIfNeededAsync(new ElementHandleScrollIntoViewIfNeededOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
                     break;
                 case LocatorAction.Swipe swipe:
-                    await element.EvaluateAsync(PageScript.ScrollElement, Direction(swipe.Direction)).ConfigureAwait(false);
+                    await element.EvaluateAsync(PageScript.ScrollElement, new object[] { Direction(swipe.Direction), Stride(swipe.Momentum) }).ConfigureAwait(false);
                     break;
                 default:
                     throw new EngineException(EngineErrorCodes.UnsupportedCapability, "Web engine cannot perform " + action.GetType().Name + ".");
@@ -2475,6 +2477,15 @@ public sealed partial class WebEngine : IEngine
                 KeyModifier.Meta => KeyboardModifier.Meta,
                 _ => KeyboardModifier.ControlOrMeta,
             });
+
+        // The share of the extent a swipe moves, as upstream's swipeDistance ratios: none half, slow three quarters, fast one and a half.
+        // A swipe naming no momentum keeps the port's three quarters.
+        private static double Stride(Momentum? momentum) => momentum switch
+        {
+            Momentum.None => 0.5,
+            Momentum.Fast => 1.5,
+            _ => 0.75,
+        };
 
         private static string Direction(ScrollDirection direction)
         {

@@ -1049,18 +1049,18 @@ internal static class PageScript
 
     // Moves about three quarters of a screen, so every row shows at least once.
     public const string ScrollViewport = """
-        (direction) => {
-          const x = Math.round(innerWidth * 0.75);
-          const y = Math.round(innerHeight * 0.75);
+        ([direction, stride]) => {
+          const x = Math.round(innerWidth * stride);
+          const y = Math.round(innerHeight * stride);
           const by = { up: [0, -y], down: [0, y], left: [-x, 0], right: [x, 0] }[direction];
           window.scrollBy({ left: by[0], top: by[1], behavior: "instant" });
         }
         """;
 
     public const string ScrollElement = """
-        (el, direction) => {
-          const x = Math.round(el.clientWidth * 0.75);
-          const y = Math.round(el.clientHeight * 0.75);
+        (el, [direction, stride]) => {
+          const x = Math.round(el.clientWidth * stride);
+          const y = Math.round(el.clientHeight * stride);
           const by = { up: [0, -y], down: [0, y], left: [-x, 0], right: [x, 0] }[direction];
           el.scrollBy({ left: by[0], top: by[1], behavior: "instant" });
         }

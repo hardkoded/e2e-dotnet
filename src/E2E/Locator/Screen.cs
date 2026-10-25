@@ -20,6 +20,7 @@ public sealed class Screen
     private readonly Func<LocatorExpression, TimeSpan, CancellationToken, Task<IReadOnlyList<SemanticNode>>>? _locate;
     private readonly Func<CancellationToken> _cancellation;
     private readonly Action _verified;
+    private readonly Func<ScrollDirection, Momentum?, CancellationToken, Task>? _swipe;
 
     internal Screen(
         Func<CancellationToken, Task<Observation>> observe,
@@ -30,8 +31,10 @@ public sealed class Screen
         TimeSpan assertionTimeout,
         SoftFailures? softFailures = null,
         TimeProvider? clock = null,
-        Func<LocatorExpression, TimeSpan, CancellationToken, Task<IReadOnlyList<SemanticNode>>>? locate = null)
+        Func<LocatorExpression, TimeSpan, CancellationToken, Task<IReadOnlyList<SemanticNode>>>? locate = null,
+        Func<ScrollDirection, Momentum?, CancellationToken, Task>? swipe = null)
     {
+        _swipe = swipe;
         SoftFailures = softFailures ?? new SoftFailures();
         _observe = observe;
         _perform = perform;
@@ -151,6 +154,104 @@ public sealed class Screen
     public async Task DebugAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) =>
         Console.WriteLine(await ReadTreeAsync("screen.debug", options, cancellationToken).ConfigureAwait(false));
 
+    /// <summary>
+    /// Scrolls the viewport until <paramref name="target"/> is visible: polls the target and swipes between polls, down and slowly
+    /// unless <see cref="ScrollUntilVisibleOptions"/> say otherwise. Every swipe is bounded by the scroll's own deadline, not the
+    /// action timeout. Upstream's <c>screen.scrollUntilVisible</c>.
+    /// </summary>
+    /// <exception cref="TestException"><c>LOCATOR_NOT_FOUND</c> when the target did not become visible in time; <c>INVALID_LOCATOR</c> when it belongs to another screen or attempt.</exception>
+    public Task ScrollUntilVisibleAsync(Locator target, ScrollUntilVisibleOptions? options = null, CancellationToken cancellationToken = default) =>
+        ScrollUntilVisibleAsync(target, options, null, cancellationToken);
+
+    /// <summary>The scroll of <c>screen</c> or of a locator: on a locator (<paramref name="scope"/>) the node itself swipes, so a scroll container pages.</summary>
+    internal async Task ScrollUntilVisibleAsync(Locator target, ScrollUntilVisibleOptions? options, Locator? scope, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        OwnLocator(target, "scrollUntilVisible");
+        var timeout = options?.Timeout ?? ScrollUntilVisibleOptions.DefaultTimeout;
+        ArgumentOutOfRangeException.ThrowIfLessThan(timeout, TimeSpan.Zero, "timeout");
+        var direction = options?.Direction ?? ScrollDirection.Down;
+        var momentum = options?.Momentum ?? Momentum.Slow;
+        var token = Token(cancellationToken);
+        var label = target.Query.Describe();
+        await RunStepAsync(StepKind.Screen, "screen.scrollUntilVisible", label, async () =>
+        {
+            var deadline = new Deadline(timeout, Clock);
+            var startedAt = Clock.GetTimestamp();
+            TestException NotVisible(Exception? cause)
+            {
+                var message = "target did not become visible while scrolling: " + label;
+                return new TestException("LOCATOR_NOT_FOUND", message, cause!) { Details = LocatorResolver.LocatorDetails(target.Query, Clock.GetElapsedTime(startedAt)) };
+            }
+
+            var sampled = false;
+            while (true)
+            {
+                token.ThrowIfCancellationRequested();
+                var startedWith = deadline.Remaining(Clock.GetUtcNow());
+                SemanticNode? node;
+                try
+                {
+                    node = await target.ResolveSingleAsync(token, deadline).ConfigureAwait(false);
+                }
+                catch (EngineException ex) when (sampled && Time.CutOffAtDeadline(ex, startedWith))
+                {
+                    throw NotVisible(ex);
+                }
+
+                sampled = true;
+                if (node is { States.Hidden: false })
+                {
+                    return;
+                }
+
+                if (deadline.Expired(Clock.GetUtcNow()))
+                {
+                    throw NotVisible(null);
+                }
+
+                // Every swipe is bounded by the scroll's own deadline: the token a swipe runs under ends with it.
+                using var bounded = CancellationTokenSource.CreateLinkedTokenSource(token);
+                bounded.CancelAfter(deadline.Remaining(Clock.GetUtcNow()));
+                try
+                {
+                    await SwipeStepAsync(scope, direction, momentum, deadline, bounded.Token).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (bounded.IsCancellationRequested && !token.IsCancellationRequested)
+                {
+                    // The deadline ended the swipe: the scroll timed out, as an engine reporting a timeout on its budget would say.
+                    throw NotVisible(ex is EngineException { Code: EngineErrorCodes.OperationTimeout } ? ex : new EngineException(EngineErrorCodes.OperationTimeout, "swipe exceeded the scroll timeout", retryable: false));
+                }
+                catch (Exception ex) when (!token.IsCancellationRequested
+                    && (deadline.Expired(Clock.GetUtcNow()) || (ex is EngineException { Code: EngineErrorCodes.OperationTimeout } && deadline.Remaining(Clock.GetUtcNow()) < Time.PollInterval)))
+                {
+                    // The engine's timer can wake a moment before this clock reads the deadline, so a swipe that ran out of its
+                    // budget within a poll interval of the deadline is the deadline too, whichever timer fired first.
+                    throw NotVisible(ex);
+                }
+            }
+        }).ConfigureAwait(false);
+    }
+
+    private Task SwipeStepAsync(Locator? scope, ScrollDirection direction, Momentum momentum, Deadline deadline, CancellationToken token) =>
+        scope is null
+            ? (_swipe ?? throw new EngineException("UNSUPPORTED_CAPABILITY", "scroll is not supported by this engine.")).Invoke(direction, momentum, token)
+            : scope.PerformUntilAsync(new LocatorAction.Swipe(direction, momentum), deadline, token);
+
+    /// <summary>
+    /// Refuses a locator not made by this screen: one made elsewhere would be evaluated through this target's engine, so it is
+    /// refused before any step. Upstream's <c>ownLocator</c>.
+    /// </summary>
+    internal void OwnLocator(Locator candidate, string api)
+    {
+        if (!ReferenceEquals(candidate.Screen, this))
+        {
+            throw new TestException(
+                "INVALID_LOCATOR",
+                api + " requires a locator made by this screen; the one given belongs to another target's screen or another attempt");
+        }
+    }
+
     /// <summary>Renders an observation as <see cref="TreeAsync"/> returns it: redacted, one node per line. A session sets its own redactor and app origin; a screen outside one redacts the text with <see cref="Redact"/>.</summary>
     internal Func<Observation, string>? RenderTree { get; set; }
 
@@ -258,6 +359,7 @@ public sealed class Locator
     public Locator Filter(Locator has)
     {
         ArgumentNullException.ThrowIfNull(has);
+        _screen.OwnLocator(has, "filter({ has })");
         return new Locator(_screen, new LocatorExpression { Kind = "filter", Source = Query, Has = has.Query });
     }
 
@@ -685,6 +787,37 @@ public sealed class Locator
     }
 
     /// <summary>
+    /// Scrolls this locator's node until <paramref name="target"/> is visible: the node itself swipes, so a scroll container pages
+    /// without the pointer having to hover it first. Both locators must come from the same screen. Upstream's <c>locator.scrollUntilVisible</c>.
+    /// </summary>
+    public Task ScrollUntilVisibleAsync(Locator target, ScrollUntilVisibleOptions? options = null, CancellationToken cancellationToken = default) =>
+        _screen.ScrollUntilVisibleAsync(target, options, this, cancellationToken);
+
+    /// <summary>Performs one action on the one enabled match, waiting for it until <paramref name="deadline"/> (upstream's <c>performUntil</c>).</summary>
+    internal async Task PerformUntilAsync(LocatorAction action, Deadline deadline, CancellationToken token)
+    {
+        var started = _screen.Clock.GetTimestamp();
+        while (true)
+        {
+            var node = await ResolveSingleAsync(token, deadline).ConfigureAwait(false);
+            if (node is { States.Disabled: false, States.Hidden: false })
+            {
+                await _screen.PerformAsync(node, action, token).ConfigureAwait(false);
+                return;
+            }
+
+            if (deadline.Expired(_screen.Clock.GetUtcNow()))
+            {
+                throw node is null
+                    ? NotFound(_screen.Clock.GetElapsedTime(started))
+                    : new TestException("NOT_ACTIONABLE", Query.Describe() + (node.States.Hidden ? " is hidden." : " is disabled."));
+            }
+
+            await Task.Delay(_screen.PollInterval, token).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
     /// Records one performed action as an <c>engine</c> event of the running step (upstream's <c>recordAction</c>, <c>locator/engine.ts</c>):
     /// the node it landed on as the resolve read it, and how long the node took to appear. The port retries no stale node, so the
     /// event never says one went stale.
@@ -765,7 +898,7 @@ public sealed class Locator
     }
 
     /// <summary>Returns the one match, or null when nothing matches. More than one match fails.</summary>
-    private async Task<SemanticNode?> ResolveSingleAsync(CancellationToken token, Deadline? deadline = null)
+    internal async Task<SemanticNode?> ResolveSingleAsync(CancellationToken token, Deadline? deadline = null)
     {
         var matches = await ResolveAsync(token, deadline: deadline).ConfigureAwait(false);
         if (matches.Count > 1)
@@ -805,6 +938,21 @@ public sealed class Locator
 public class ActionOptions
 {
     /// <summary>How long to wait for exactly one enabled match. Defaults to the configured action timeout.</summary>
+    public TimeSpan? Timeout { get; init; }
+}
+
+/// <summary>Options for <c>Screen.ScrollUntilVisibleAsync</c> and <c>Locator.ScrollUntilVisibleAsync</c>.</summary>
+public sealed class ScrollUntilVisibleOptions
+{
+    internal static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>Which way to scroll. Defaults to <see cref="ScrollDirection.Down"/>.</summary>
+    public ScrollDirection? Direction { get; init; }
+
+    /// <summary>The stride of each step. Defaults to <see cref="Momentum.Slow"/>.</summary>
+    public Momentum? Momentum { get; init; }
+
+    /// <summary>How long to scroll before giving up, every swipe included. Defaults to 30 seconds.</summary>
     public TimeSpan? Timeout { get; init; }
 }
 

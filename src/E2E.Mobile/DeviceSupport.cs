@@ -16,16 +16,6 @@ public readonly record struct Rect(double X, double Y, double Width, double Heig
 /// <summary>The logical size of the screen, in points.</summary>
 public readonly record struct ViewportSize(double Width, double Height);
 
-/// <summary>How far a scroll gesture travels inside its rect. Unset is the default.</summary>
-public enum Momentum
-{
-    /// <summary>A quarter of the box: shorter than any row, so every row lands fully on screen at some stop.</summary>
-    Slow,
-
-    /// <summary>Four fifths of the box.</summary>
-    Fast,
-}
-
 /// <summary>The screenshot fields a viewport probe reads off the device client's response.</summary>
 public sealed record RawScreenshotResult
 {

@@ -159,7 +159,7 @@ public sealed class DeviceActions : IDeviceActions
                 await PressKeyAsync(client, target, press.Key, settle, input, cancellationToken).ConfigureAwait(false);
                 break;
             case LocatorAction.Swipe swipe:
-                await SwipeNodeAsync(client, target, swipe.Direction, momentum: null, input, cancellationToken).ConfigureAwait(false);
+                await SwipeNodeAsync(client, target, swipe.Direction, swipe.Momentum, input, cancellationToken).ConfigureAwait(false);
                 break;
             default:
                 // Not in NodeActionKinds, so the harness never sends them. A device has no touch equivalent.

@@ -173,6 +173,17 @@ lines you changed:
   the current value; `CountAsync` and `IsVisibleAsync` answer from the current
   screen. Nothing waits for a value to change, so use a matcher when a value
   has to settle.
+- To reach a node below the fold, `Screen.ScrollUntilVisibleAsync(locator,
+  new ScrollUntilVisibleOptions { Direction, Momentum, Timeout })` scrolls the viewport
+  (`ScrollDirection.Down`, `Momentum.Slow` by default) until the locator resolves
+  visibly. On a locator (`list.ScrollUntilVisibleAsync(row)`) each step swipes that node,
+  so a feed or table that is its own scroll container pages. `Timeout` is its own
+  default of 30 s, not `actionTimeout`, and bounds the whole scroll, each swipe
+  included. `Momentum` is the stride of each step: a longer one must not carry the
+  target past the surface unseen, as a virtualized list does. It fails with
+  `LOCATOR_NOT_FOUND` when the deadline expires first (a swipe it cut short
+  included) and `INVALID_LOCATOR` for a target made by another screen (topic
+  `writing-tests`).
 - A read or navigation that times out fails with `OPERATION_TIMEOUT` and is not
   retried, even when the call log mentions a detached element or a navigation
   race. On a device, an input (tap, fill, key, swipe, `Back`) the device does not
