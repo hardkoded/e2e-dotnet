@@ -203,10 +203,10 @@ public static partial class SnapshotProjection
     /// <summary>The classes a status icon is built from: it shows, and offers nothing to act on.</summary>
     private static readonly HashSet<string> StatusIconKinds = ["text-view", "image-view", "frame-layout", "linear-layout", "view", "view-group"];
 
-    /// <summary>One element-type spelling for <c>NavigationBar</c>, <c>navigation-bar</c>, and <c>android.widget.NavigationBar</c> alike.</summary>
+    /// <summary>One element-type spelling for <c>NavigationBar</c>, <c>XCUIElementTypeNavigationBar</c>, <c>navigation-bar</c>, and <c>android.widget.NavigationBar</c> alike.</summary>
     internal static string NormalizeKind(string type)
     {
-        var simple = type[(type.LastIndexOf('.') + 1)..];
+        var simple = XcuiElementTypePrefix().Replace(type[(type.LastIndexOf('.') + 1)..], "");
         simple = WordBoundary().Replace(simple, "$1-$2");
         return Separators().Replace(simple, "-").ToLowerInvariant();
     }
@@ -732,6 +732,9 @@ public static partial class SnapshotProjection
 
     [GeneratedRegex("([a-z0-9])([A-Z])")]
     private static partial Regex WordBoundary();
+
+    [GeneratedRegex("^XCUIElementType(?=[A-Z])")]
+    private static partial Regex XcuiElementTypePrefix();
 
     [GeneratedRegex(@"[\s_]+")]
     private static partial Regex Separators();

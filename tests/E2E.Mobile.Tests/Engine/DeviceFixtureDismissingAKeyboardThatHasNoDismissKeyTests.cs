@@ -197,6 +197,19 @@ public sealed class DeviceFixtureDismissingAKeyboardThatHasNoDismissKeyTests
     }
 
     [Fact]
+    public async Task Reads_an_XCUIElementTypeKeyboard_from_a_WebDriver_session_as_a_shown_keyboard()
+    {
+        var (h, session) = await Ready();
+        Captures(
+            h,
+            () => FakeDeviceClient.SettingsSnapshotWith(
+                N("@e20", index: 10, parentIndex: 0, depth: 1, type: "XCUIElementTypeKeyboard", rect: new Rect(0, 583, 390, 261))),
+            FakeDeviceClient.SettingsSnapshot);
+        await session.Device.DismissKeyboardAsync();
+        Assert.Single(Swipes(h));
+    }
+
+    [Fact]
     public async Task Retries_a_sparse_capture_instead_of_reading_it_as_a_dismissed_keyboard()
     {
         var (h, session) = await Ready();
