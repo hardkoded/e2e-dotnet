@@ -175,7 +175,11 @@ lines you changed:
   has to settle.
 - A read or navigation that times out fails with `OPERATION_TIMEOUT` and is not
   retried, even when the call log mentions a detached element or a navigation
-  race.
+  race. On a device, an input (tap, fill, key, swipe, `Back`) the device does not
+  answer within `actionTimeout` fails with `ACTION_MAY_HAVE_COMMITTED` and is
+  never repeated; one the timeout ran out before is not sent and fails with
+  `OPERATION_TIMEOUT`; a long press that holds at least as long as the time left
+  is refused with `NOT_ACTIONABLE`. Reading the screen is not cut off.
 - Secrets never appear in test code. Declare them under `secrets` in the
   config and read them with `Secrets.Get(name)`; accounts come from
   `Credentials.User(name)`. Hand the `Secret` only to `FillAsync` or
