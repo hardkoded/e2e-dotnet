@@ -295,6 +295,90 @@ public sealed class ObservationTests
         Assert.Equal("INVALID_STATE", fault.Code);
     }
 
+    // Every input entry runs under its budget; one that went out and timed out is possibly committed, so the runner never repeats it.
+    [Theory]
+    [InlineData("tap", DeviceMethods.InteractionsPress)]
+    [InlineData("screen swipe", DeviceMethods.InteractionsScroll)]
+    [InlineData("tap at point", DeviceMethods.InteractionsPress)]
+    [InlineData("type", DeviceMethods.InteractionsType)]
+    [InlineData("press", DeviceMethods.CommandKeyboard)]
+    [InlineData("keyboard dismiss", DeviceMethods.CommandKeyboard)]
+    [InlineData("back", DeviceMethods.CommandBack)]
+    public async Task Ends_an_input_hung_on_its_device_command_at_its_budget_as_possibly_committed(string entry, string method)
+    {
+        var h = Harness.Create();
+        var session = await Screens.OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(200));
+        session.Origin = ActionOrigin.Test;
+        var root = await Screens.RootOf(session);
+        var about = Named(root, "About");
+        h.Fake.RespondAsync(method, (_, _) => new TaskCompletionSource<JsonNode?>().Task);
+        Task hung = entry switch
+        {
+            "tap" => session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None),
+            "screen swipe" => session.PerformAsync(root, new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None),
+            "tap at point" => session.PerformAtAsync(new Point(10, 10), new PointerAction.Tap()),
+            "type" => session.TypeTextAsync("hi", replace: false, CancellationToken.None),
+            "press" => session.PressAsync("Enter", CancellationToken.None),
+            "keyboard dismiss" => session.DismissKeyboardAsync(CancellationToken.None, session.InputBudget("keyboard dismiss")),
+            "back" => session.BackAsync(CancellationToken.None),
+            _ => throw new ArgumentOutOfRangeException(nameof(entry), entry, null),
+        };
+        var failure = await Assert.ThrowsAsync<EngineException>(() => hung);
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", failure.Code);
+    }
+
+    [Fact]
+    public async Task Sends_nothing_once_a_settling_target_spent_the_budget_and_no_keystroke_once_a_focus_tap_used_it_up()
+    {
+        var h = Harness.Create(options => options with { TransitionMilliseconds = 120 });
+        var session = await Screens.OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(100));
+        session.Origin = ActionOrigin.Test;
+        var about = await Screens.Observed(session, "About");
+
+        // About moves with the tap, so the next tap relocates it first; a slow relocation spends the whole budget.
+        await session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None);
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(
+            RawNodes.SettingsNodes.Select(node => node.Label == "About" ? node with { Rect = new Rect(0, 400, 390, 44) } : node)));
+        var moved = await Screens.Observed(session, "About");
+        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, async (_, _) =>
+        {
+            await Task.Delay(400);
+            return FakeDeviceClient.SettingsSnapshot();
+        });
+        int Presses() => h.Fake.Methods().Count(method => method == DeviceMethods.InteractionsPress);
+        var before = Presses();
+        var late = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(moved, new LocatorAction.Tap(), CancellationToken.None));
+        Assert.Equal("OPERATION_TIMEOUT", late.Code);
+        Assert.Equal(before, Presses());
+
+        // A key on an unfocused field taps it, then types. The tap answers within its grace but past the budget, so the keystroke is not sent.
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
+        var field = await Screens.Observed(session, "Search");
+        session.Origin = ActionOrigin.Agent;
+        h.Fake.RespondAsync(DeviceMethods.InteractionsPress, async (_, _) =>
+        {
+            await Task.Delay(170);
+            return new JsonObject();
+        });
+        var cut = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(field, new LocatorAction.Press("a"), CancellationToken.None));
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", cut.Code);
+        Assert.DoesNotContain(DeviceMethods.InteractionsType, h.Fake.Methods());
+    }
+
+    [Fact]
+    public async Task Refuses_a_long_press_that_holds_longer_than_its_timeout_leaves_before_sending_it()
+    {
+        var h = Harness.Create();
+        var session = await Screens.OpenAttempt(h, actionTimeout: TimeSpan.FromSeconds(2));
+        session.Origin = ActionOrigin.Test;
+        var about = await Screens.Observed(session, "About");
+        var onNode = await Assert.ThrowsAsync<EngineException>(() => session.LongPressAsync(about, TimeSpan.FromSeconds(3)));
+        Assert.Equal("NOT_ACTIONABLE", onNode.Code);
+        var atPoint = await Assert.ThrowsAsync<EngineException>(() => session.PerformAtAsync(new Point(10, 10), new PointerAction.LongPress(TimeSpan.FromSeconds(3))));
+        Assert.Equal("NOT_ACTIONABLE", atPoint.Code);
+        Assert.DoesNotContain(DeviceMethods.InteractionsLongPress, h.Fake.Methods());
+    }
+
     [Fact]
     public async Task Cancels_a_snapshot_when_the_operation_aborts()
     {

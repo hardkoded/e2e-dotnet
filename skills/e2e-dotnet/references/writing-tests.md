@@ -171,6 +171,16 @@ it to the test's output. Use them to write a locator. Both read once without
 waiting, and take an `ActionOptions` with a `Timeout`. A locator does not have
 them.
 
+`Screen.ScrollUntilVisibleAsync(locator, new ScrollUntilVisibleOptions { Direction, Momentum, Timeout })`
+scrolls the viewport (`ScrollDirection.Down`, `Momentum.Slow` by default) until the
+locator resolves visibly, else `LOCATOR_NOT_FOUND`. On a locator
+(`list.ScrollUntilVisibleAsync(row)`) it swipes that node, so a feed or a table that is
+its own scroll container pages without the pointer hovering it first. `Timeout` is its own
+default of 30 seconds, not the action timeout, and bounds the whole scroll, each swipe
+included. `Momentum` is the stride of each step; a longer one must not carry the target
+past the surface unseen, as a virtualized list does. The target must come from the same
+screen, else `INVALID_LOCATOR`.
+
 ## Expect
 
 `Expect.That(locator)` polls until the assertion timeout:

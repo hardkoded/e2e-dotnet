@@ -16,16 +16,6 @@ public readonly record struct Rect(double X, double Y, double Width, double Heig
 /// <summary>The logical size of the screen, in points.</summary>
 public readonly record struct ViewportSize(double Width, double Height);
 
-/// <summary>How far a scroll gesture travels inside its rect. Unset is the default.</summary>
-public enum Momentum
-{
-    /// <summary>A quarter of the box: shorter than any row, so every row lands fully on screen at some stop.</summary>
-    Slow,
-
-    /// <summary>Four fifths of the box.</summary>
-    Fast,
-}
-
 /// <summary>The screenshot fields a viewport probe reads off the device client's response.</summary>
 public sealed record RawScreenshotResult
 {
@@ -144,4 +134,70 @@ public static partial class DeviceSupport
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex Whitespace();
+}
+
+/// <summary>
+/// One input operation's budget (<c>actionTimeout</c>), which the harness's token does not enforce. Only the device
+/// commands that send input run under it; reads stay unbounded, so a locator poll keeps its last snapshot and a target
+/// settling before a tap is relocated in full. Upstream's <c>InputBudget</c> in <c>support.ts</c>.
+/// </summary>
+/// <remarks>
+/// Upstream's constructor also takes a <c>track</c> function that keeps an abandoned command in flight until it settles.
+/// The port tracks no in-flight command (see <c>COMPATIBILITY.md</c>, Mobile engine), so it has no such parameter.
+/// </remarks>
+internal sealed class InputBudget(string label, TimeSpan timeout)
+{
+    /// <summary>The least time an input gets to answer once sent, however little budget was left: a tap that lands is then not reported as cut off.</summary>
+    private static readonly TimeSpan MinAnswer = TimeSpan.FromMilliseconds(250);
+
+    private readonly long _startedAt = System.Diagnostics.Stopwatch.GetTimestamp();
+    private bool _sent;
+
+    /// <summary>
+    /// Sends one input with what is left of the budget. With none left it sends nothing: <c>OPERATION_TIMEOUT</c>, or
+    /// <c>ACTION_MAY_HAVE_COMMITTED</c> once an earlier input of this operation went out. A gesture that holds
+    /// (<paramref name="hold"/>) at least as long as the budget left could only be cut off mid-gesture, so it is refused
+    /// unsent. An input that does not answer in time may have landed, so it is <c>ACTION_MAY_HAVE_COMMITTED</c> and the
+    /// runner never repeats it.
+    /// </summary>
+    public async Task<T> SendAsync<T>(Func<Task<T>> dispatch, CancellationToken cancellationToken, TimeSpan? hold = null)
+    {
+        ArgumentNullException.ThrowIfNull(dispatch);
+        var remaining = timeout - System.Diagnostics.Stopwatch.GetElapsedTime(_startedAt);
+        if (remaining <= TimeSpan.Zero)
+        {
+            throw _sent ? MaybeCommitted() : new EngineException(EngineErrorCodes.OperationTimeout, $"{label} timed out before it was sent", retryable: false);
+        }
+
+        if (hold is { } held && held >= remaining)
+        {
+            throw new EngineException(
+                EngineErrorCodes.NotActionable,
+                $"{label} holds for {(long)held.TotalMilliseconds} ms, but only {(long)remaining.TotalMilliseconds} ms of its timeout are left; raise the timeout or shorten the hold",
+                retryable: false);
+        }
+
+        var pending = dispatch();
+
+        // An input counts as sent only once its command was dispatched, so one that throws first is not.
+        _sent = true;
+        try
+        {
+            return await pending.WaitAsync(remaining > MinAnswer ? remaining : MinAnswer, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (!pending.IsCompleted && ex is TimeoutException or OperationCanceledException)
+        {
+            // The abandoned command may still fail later; nothing is left to read it.
+            _ = pending.ContinueWith(static abandoned => abandoned.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+            if (ex is TimeoutException)
+            {
+                throw MaybeCommitted();
+            }
+
+            throw;
+        }
+    }
+
+    private EngineException MaybeCommitted() =>
+        new(EngineErrorCodes.ActionMayHaveCommitted, $"{label} timed out before the device answered; its input may have been dispatched", retryable: false);
 }
