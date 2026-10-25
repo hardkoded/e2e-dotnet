@@ -42,6 +42,12 @@ internal static class Changes
     public static async Task<TestFilterChanges> FindChangesAsync(ChangeOptions options)
     {
         var reference = options.ChangedSince;
+        if (reference.Length == 0 || reference[0] == '-')
+        {
+            // A ref git would read as an option (upstream rejects it at the CLI, before anything runs).
+            throw InvalidChangedSince($"--changed-since {JsonQuote.Of(reference)}: a ref is a name, not an empty text or an option");
+        }
+
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(options.CancellationToken);
         deadline.CancelAfter(options.Budget);
         try
@@ -85,8 +91,9 @@ internal static class Changes
     {
         var diff = GitOutput(root, ["diff", "--name-only", "--no-renames", "--no-ext-diff", "-z", mergeBase, "--"], token);
         var untracked = GitOutput(root, ["ls-files", "--others", "--exclude-standard", "--full-name", "-z"], token);
-        var files = (await diff.ConfigureAwait(false)).Split('\0')
-            .Concat((await untracked.ConfigureAwait(false)).Split('\0').Where(file => !file.EndsWith('/')))
+        var outputs = await Task.WhenAll(diff, untracked).ConfigureAwait(false);
+        var files = outputs[0].Split('\0')
+            .Concat(outputs[1].Split('\0').Where(file => !file.EndsWith('/')))
             .Where(file => file.Length > 0)
             .Distinct(StringComparer.Ordinal)
             .Order(CodePointComparer.Instance)

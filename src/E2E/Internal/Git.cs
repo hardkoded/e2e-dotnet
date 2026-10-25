@@ -161,6 +161,9 @@ internal static partial class Git
             // Both streams are read while the process runs, so a full pipe cannot hold it.
             var stdout = ReadBoundedAsync(process.StandardOutput, maxBuffer, cancellationToken);
             var stderr = ReadBoundedAsync(process.StandardError, maxBuffer, cancellationToken);
+            // A reader the wait outlives is never left with an unobserved fault.
+            _ = stdout.ContinueWith(finished => finished.Exception, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
+            _ = stderr.ContinueWith(finished => finished.Exception, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
             await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
             var text = await stdout.ConfigureAwait(false);
             var errors = await stderr.ConfigureAwait(false);
