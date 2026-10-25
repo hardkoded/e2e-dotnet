@@ -44,6 +44,12 @@ internal sealed record BuildReportOptions
     /// <summary>The commit the code under test came from; null outside git and CI.</summary>
     public VcsInfo? Vcs { get; init; }
 
+    /// <summary>The change the test filters judged, or why none ran; null when the run has no filters to apply (upstream's <c>changes</c>).</summary>
+    public ReportChanges? Changes { get; init; }
+
+    /// <summary>The test filters the run applied, in order; written only when there is one (upstream's <c>filters</c>).</summary>
+    public IReadOnlyList<ReportFilter> Filters { get; init; } = [];
+
     public bool Ci { get; init; }
 
     /// <summary>When the run finished; the time of the build when null (upstream's <c>timestamp()</c>).</summary>
@@ -311,6 +317,8 @@ internal static class BuildReport
             Summary = summary,
             Limits = ReportLimits.Default,
             Usage = ComputeUsage(options.Results, summary.Discovered),
+            Changes = options.Changes,
+            Filters = options.Filters,
         });
     }
 

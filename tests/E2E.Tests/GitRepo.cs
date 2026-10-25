@@ -52,6 +52,27 @@ internal static class GitRepo
         return RunGit(dir, "rev-parse", "HEAD");
     }
 
+    /// <summary>Writes <paramref name="files"/> under <paramref name="dir"/> (an empty string removes the file), commits every change as <paramref name="message"/>, and returns the commit (upstream's <c>commitFiles</c>).</summary>
+    public static string CommitFiles(string dir, IReadOnlyDictionary<string, string> files, string message = "change")
+    {
+        foreach (var (relative, content) in files)
+        {
+            var absolute = Path.Combine(dir, relative);
+            if (content.Length == 0)
+            {
+                File.Delete(absolute);
+                continue;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
+            File.WriteAllText(absolute, content);
+        }
+
+        RunGit(dir, "add", "--all");
+        RunGit(dir, "commit", "--quiet", "--allow-empty", "-m", message);
+        return RunGit(dir, "rev-parse", "HEAD");
+    }
+
     /// <summary>
     /// Removes a repository <see cref="InitRepo"/> made. Git stores its objects read-only, which <see cref="Directory.Delete(string, bool)"/>
     /// refuses on Windows; upstream's <c>rmSync(dir, { recursive: true, force: true })</c> clears that itself.

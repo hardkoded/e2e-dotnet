@@ -16,6 +16,7 @@ dotnet add package E2E.NUnit   # or E2E.XUnit.V3 for xUnit v3
 - [API](api/index.md): every public type in `E2E`, `E2E.NUnit`, and `E2E.XUnit.V3`.
 - [Rerun a test while you fix it](../README.md#rerun-a-test-while-you-fix-it): run one test with the replay cache on, so goals that passed replay without model calls.
 - [Compatibility](../COMPATIBILITY.md): how this port differs from the TypeScript [e2e](https://github.com/tester-army/e2e).
+- [Test filters](../COMPATIBILITY.md#test-filters): `ITestFilter`, `TestFilterContext`, and `TestFilterResult` leave out the tests a change cannot affect. The seam, the change detection (`INVALID_CHANGED_SINCE`), and the `run.changes` and `run.filters` report fields are ported; no `dotnet test` host calls a filter yet.
 
 ## Errors
 

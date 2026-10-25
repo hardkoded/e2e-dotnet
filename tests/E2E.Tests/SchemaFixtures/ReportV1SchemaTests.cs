@@ -149,6 +149,63 @@ public sealed class ReportV1SchemaTests
     }
 
     [Fact]
+    public void Names_the_filter_only_on_a_row_a_filter_left_out_records_each_filter_by_name_alone_and_the_change_they_judged_by_counts_alone_marks_a_filter_that_timed_out_or_failed_and_names_the_filter_phase()
+    {
+        var report = Valid();
+        var run = Run(report);
+        var skip = run["results"]!.AsArray().Select(each => each!["skip"]).First(each => each?["filter"] is not null)!.AsObject();
+        Assert.Equal("filtered", (string?)skip["cause"]);
+        Assert.Equal("areas", (string?)skip["filter"]);
+        var filter = run["filters"]![0]!.AsObject();
+        var timedOut = run["filters"]!.AsArray().Select(each => each!.AsObject()).First(each => (string?)each["outcome"] == "timed-out");
+        var changes = run["changes"]!.AsObject();
+        var error = run["errors"]![0]!.AsObject();
+        Assert.True(ReportSchema.IsValid(report));
+
+        Check(
+            report,
+            (() => skip["cause"] = "explicit", () => skip["cause"] = "filtered"),
+            (() => skip["filter"] = "", () => skip["filter"] = "areas"),
+            (() => skip["filter"] = new string('x', 257), () => skip["filter"] = new string('x', 256)),
+            (() => filter["decisions"] = new JsonArray(), () => filter.Remove("decisions")),
+            (() => filter.Remove("name"), () => filter["name"] = "areas"),
+            (() => filter.Remove("candidates"), () => filter["candidates"] = 2),
+            (() => filter.Remove("excluded"), () => filter["excluded"] = 1),
+            (() => filter["durationMs"] = 12, () => filter.Remove("durationMs")),
+            (() => filter["name"] = "", () => filter["name"] = "areas"),
+            (() => filter["excluded"] = -1, () => filter["excluded"] = 0),
+            (() => filter["candidates"] = 1.5, () => filter["candidates"] = 2),
+            (() => filter["note"] = new string('x', 1025), () => filter["note"] = new string('x', 1024)),
+            (() => timedOut["outcome"] = "answered", () => timedOut["outcome"] = "timed-out"),
+            (() => timedOut["timedOut"] = true, () => timedOut.Remove("timedOut")),
+            (() => changes["base"] = "main", () => changes["base"] = new string('a', 40)),
+            (() => changes["base"] = new string('A', 40), () => changes["base"] = new string('a', 64)),
+            (() => changes.Remove("files"), () => changes["files"] = 0),
+            (() => changes.Remove("base"), () => changes["base"] = new string('a', 40)),
+            (() => changes["files"] = -1, () => changes["files"] = 3),
+            (() => changes["pinned"] = 1, () => changes.Remove("pinned")),
+            (() => changes["skipped"] = "", () => changes["skipped"] = "no tests to judge"),
+            (() => changes["skipped"] = new string('x', 1025), () => changes["skipped"] = new string('x', 1024)),
+            (() => changes["paths"] = new JsonArray("src/app.ts"), () => changes.Remove("paths")),
+            (() => error["phase"] = "filtering", () => error["phase"] = "filter"));
+
+        // A run that called no filter before git was asked says why, and nothing about a change.
+        run["changes"] = new JsonObject { ["skipped"] = "--last-failed" };
+        Assert.True(ReportSchema.IsValid(report));
+        foreach (var counted in new[] { ("files", (JsonNode)0), ("base", new string('a', 40)) })
+        {
+            run["changes"] = new JsonObject { ["skipped"] = "--last-failed", [counted.Item1] = counted.Item2.DeepClone() };
+            Assert.False(ReportSchema.IsValid(report));
+        }
+
+        run["changes"] = new JsonObject();
+        Assert.False(ReportSchema.IsValid(report));
+        run.Remove("filters");
+        run.Remove("changes");
+        Assert.True(ReportSchema.IsValid(report));
+    }
+
+    [Fact]
     public void Counts_interrupted_results_in_the_summary_apart_from_failed_ones()
     {
         var report = Valid();
