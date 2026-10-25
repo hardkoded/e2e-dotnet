@@ -13,7 +13,7 @@
   ],
   "build": {
     "content": [
-      { "files": ["index.md", "toc.yml", "api/**.yml", "api/index.md"] },
+      { "files": ["index.md", "toc.yml", "api/**.yml", "api/index.md", "get-started/*.md", "samples/*.md"] },
       { "src": "..", "files": ["README.md", "COMPATIBILITY.md", "CONTRIBUTING.md"] }
     ],
     "resource": [{ "files": ["images/**"] }],

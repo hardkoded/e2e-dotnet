@@ -1,0 +1,49 @@
+---
+title: Mobile app
+---
+
+# Mobile app sample
+
+A small .NET MAUI app with a name field, a Greet button, and a counter, and the tests that drive it on a device. It is the .NET counterpart of upstream's `examples/with-swiftui`.
+
+- App: [`samples/MobileApp`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp). Every control the tests touch has an `AutomationId`.
+- Tests: [`samples/MobileApp.E2ETests`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp.E2ETests), derived from `MobileAppTest`.
+- Platform: iOS simulator or Android emulator through `MobileEngine`, or the MAUI DevFlow agent.
+
+## The tests
+
+`GreetingTests` has three tests with no model (locators fill and tap) and two where the agent does the same steps and a locator checks the result:
+
+```csharp
+await Agent.ActAsync("get the app to greet {name}", new ActOptions
+{
+    Params = new Dictionary<string, object?> { ["name"] = "Grace" },
+});
+await Expect.That(Screen.GetByTestId("greeting")).ToHaveTextAsync("Hello, Grace!");
+```
+
+`DeviceTests` uses the `Device` fixture: send the app home and bring it back, relaunch it, switch to dark mode, and read the foreground app.
+
+All tests are in the `RealModel` and `Device` categories, so `dotnet test E2E.slnx --filter "TestCategory!=RealModel"` skips them.
+
+## Run it
+
+```bash
+dotnet workload install maui
+dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64
+xcrun simctl boot "iPhone 17"
+dotnet test samples/MobileApp.E2ETests
+```
+
+For Android, build `-f net10.0-android -t:SignAndroidPackage`, boot an emulator, and set `E2E_MOBILE_PLATFORM=android` and `E2E_MOBILE_APP_PATH` to the `.apk`. The Android path was not run.
+
+## Other ways to run it
+
+| Mode | How |
+| --- | --- |
+| Hosted Limrun simulator | `LIMRUN_API_KEY=... E2E_MOBILE_PROVIDER=limrun dotnet test samples/MobileApp.E2ETests` |
+| MAUI DevFlow agent (preview) | Launch the Debug build, then `E2E_MOBILE_PROVIDER=devflow E2E_DEVFLOW_APP=MobileApp dotnet test samples/MobileApp.E2ETests` |
+
+The app is not in `E2E.slnx`, because a machine without the MAUI workload cannot build it. Open `samples/MobileApp.slnx` in Rider or Visual Studio to see the app and its tests together.
+
+Start with [Get started: mobile](../get-started/mobile.md) or [Get started: .NET MAUI](../get-started/maui.md).
