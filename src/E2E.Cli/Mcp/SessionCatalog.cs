@@ -177,8 +177,10 @@ internal sealed class SessionCatalog
     private static string ContentNameNotFound(string role, string name, bool exact)
     {
         var quoted = Quote(name);
-        return "A role query matches the accessible name only, and observe shows a " + role + " by its text in its place. If " + quoted
-            + " is that text, use Screen.GetByRole(" + Quote(role) + ").Filter(" + quoted + ") or Screen.GetByText(" + quoted + ")."
+        var article = "aeiou".Contains(role[0]) ? "an" : "a";
+        var text = "Screen.GetByText(" + quoted + (exact ? "" : ", exact: false") + ")";
+        return "A role query matches the accessible name only, and observe shows " + article + " " + role + " by its text in its place. If " + quoted
+            + " is that text, use Screen.GetByRole(" + Quote(role) + ").Filter(" + quoted + ") or " + text + "."
             + (exact ? " Otherwise loosen the match with exact: false." : "");
     }
 
