@@ -36,10 +36,14 @@ public sealed class DescribeLocateTests
         Assert.Contains("NOT_FOUND", exact, StringComparison.Ordinal);
         Assert.Contains("Screen.GetByRole(\"status\").Filter(\"Saved.\")", exact, StringComparison.Ordinal);
         Assert.Contains("Screen.GetByText(\"Saved.\")", exact, StringComparison.Ordinal);
+        Assert.Contains("observe shows a status by its text", exact, StringComparison.Ordinal);
         Assert.DoesNotContain("Check the accessible name in the observation", exact, StringComparison.Ordinal);
         var loose = SessionCatalog.DescribeLocate(SessionCatalog.LocateQuery(new LocateArgs { Role = "status", Name = "Saved.", Exact = false }), 0, [], Redactor.None);
         Assert.Contains("Screen.GetByRole(\"status\").Filter(\"Saved.\")", loose, StringComparison.Ordinal);
-        Assert.DoesNotContain("exact: false", loose, StringComparison.Ordinal);
+        Assert.Contains("Screen.GetByText(\"Saved.\", exact: false)", loose, StringComparison.Ordinal);
+        Assert.DoesNotContain("loosen", loose, StringComparison.Ordinal);
+        Assert.Contains("observe shows an alert by its text", SessionCatalog.DescribeLocate(SessionCatalog.LocateQuery(new LocateArgs { Role = "alert", Name = "Failed" }), 0, [], Redactor.None), StringComparison.Ordinal);
+        Assert.Contains("observe shows a listitem by its text", SessionCatalog.DescribeLocate(SessionCatalog.LocateQuery(new LocateArgs { Role = "listitem", Name = "Milk" }), 0, [], Redactor.None), StringComparison.Ordinal);
         var button = SessionCatalog.DescribeLocate(SessionCatalog.LocateQuery(new LocateArgs { Role = "button", Name = "Submitt" }), 0, [], Redactor.None);
         Assert.Contains("Check the accessible name in the observation", button, StringComparison.Ordinal);
         Assert.DoesNotContain("Filter", button, StringComparison.Ordinal);
