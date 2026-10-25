@@ -20,4 +20,4 @@ dotnet add package E2E.NUnit   # or E2E.XUnit.V3 for xUnit v3
 
 ## Errors
 
-A read or navigation that times out fails with `OPERATION_TIMEOUT`. It is not retried, even when the call log mentions a detached element or a navigation race. See `EngineErrorCodes` in the [API](api/index.md).
+A read or navigation that times out fails with `OPERATION_TIMEOUT`. It is not retried, even when the call log mentions a detached element or a navigation race. On a device, an input (a tap, key, swipe, or `Back`) that the device does not answer within `actionTimeout` fails with `ACTION_MAY_HAVE_COMMITTED` and is never repeated, because it may have landed; an input the timeout ran out before is not sent (`OPERATION_TIMEOUT`), and a long press that holds at least as long as the time left is refused (`NOT_ACTIONABLE`). See `EngineErrorCodes` in the [API](api/index.md).
