@@ -94,7 +94,7 @@ Boot exactly one simulator, then run:
 
 ```bash
 xcrun simctl boot "iPhone 17"
-dotnet test
+dotnet test --project .
 ```
 
 To pick a device, set `E2E_MOBILE_DEVICE` to a UDID (`xcrun simctl list devices available`). With two booted or matching devices the run fails with `AMBIGUOUS_MATCH`.

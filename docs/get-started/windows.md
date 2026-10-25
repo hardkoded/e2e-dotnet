@@ -95,8 +95,8 @@ Roles follow the browser vocabulary: a `Button` is `button`, an edit is `textbox
 ## 4. Run
 
 ```bash
-dotnet test
-dotnet test --filter "TestCategory!=RealModel"   # no model
+dotnet test --project .
+dotnet test --project . --filter "TestCategory!=RealModel"   # no model
 ```
 
 ## Known limits

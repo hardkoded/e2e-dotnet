@@ -54,6 +54,8 @@ Start your app at that address before the run. `App.OpenAsync("/path")` opens a 
 
 ## 3. Write a test
 
+The steps below are placeholders for a signup flow. Replace the headings, goals, and checks with your own app's. To run a finished web test right away, use the [Dariten sample](../samples/dariten.md).
+
 Derive from `E2ETest`. It starts a `WebEngine` session for each test.
 
 ```csharp
@@ -96,8 +98,8 @@ public sealed class SignupTests : E2ETest
 ## 4. Run
 
 ```bash
-dotnet test
-E2E_HEADLESS=0 dotnet test      # watch the browser
+dotnet test --project .
+E2E_HEADLESS=0 dotnet test --project . --project .      # watch the browser
 ```
 
 The first run asks the model to perform each `ActAsync`. A passing run records each verified step in `.e2e/cache`, and the next run replays it with no model call.
