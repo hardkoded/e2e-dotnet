@@ -195,11 +195,16 @@ internal sealed class InputBudget(string label, TimeSpan timeout)
         {
             return await pending.WaitAsync(remaining > MinAnswer ? remaining : MinAnswer, cancellationToken).ConfigureAwait(false);
         }
-        catch (TimeoutException) when (!pending.IsCompleted)
+        catch (Exception ex) when (!pending.IsCompleted && ex is TimeoutException or OperationCanceledException)
         {
             // The abandoned command may still fail later; nothing is left to read it.
             _ = pending.ContinueWith(static abandoned => abandoned.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
-            throw MaybeCommitted();
+            if (ex is TimeoutException)
+            {
+                throw MaybeCommitted();
+            }
+
+            throw;
         }
     }
 
