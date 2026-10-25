@@ -99,7 +99,7 @@ public sealed class SignupTests : E2ETest
 
 ```bash
 dotnet test --project .
-E2E_HEADLESS=0 dotnet test --project . --project .      # watch the browser
+E2E_HEADLESS=0 dotnet test --project .      # watch the browser
 ```
 
 The first run asks the model to perform each `ActAsync`. A passing run records each verified step in `.e2e/cache`, and the next run replays it with no model call.
