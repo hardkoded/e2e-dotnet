@@ -161,6 +161,12 @@ public interface IEngineSession : IAsyncDisposable
     Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) => Unsupported("scroll");
 
     /// <summary>
+    /// <see cref="SwipeAsync(ScrollDirection, CancellationToken)"/> with the stride of the gesture: upstream's <c>swipe(direction,
+    /// momentum)</c>. An engine that takes a momentum overrides it; the default drops it, so an engine with one stride swipes by that.
+    /// </summary>
+    Task SwipeAsync(ScrollDirection direction, Momentum? momentum, CancellationToken cancellationToken) => SwipeAsync(direction, cancellationToken);
+
+    /// <summary>
     /// Goes back one entry in the session history. With no earlier entry it does nothing.
     /// Engines that declare <see cref="EngineCapabilities.History"/> implement it.
     /// </summary>

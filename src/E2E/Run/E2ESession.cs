@@ -278,7 +278,8 @@ public sealed class E2ESession : IAsyncDisposable
                 options.ActionTimeout,
                 options.AssertionTimeout,
                 softFailures,
-                locate: engine.CanLocate ? engine.LocateAsync : null);
+                locate: engine.CanLocate ? engine.LocateAsync : null,
+                swipe: engine.SwipeAsync);
             screen.Steps = scope.Steps;
             screen.Exposure = scope.Exposure;
             screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });
