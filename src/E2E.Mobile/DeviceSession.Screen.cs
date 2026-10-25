@@ -418,16 +418,25 @@ public sealed partial class DeviceSession
     /// about the screen it never makes on a caller's behalf. The engine makes that guess, the way a user does and
     /// Maestro's <c>hideKeyboard</c> does, in <see cref="DismissKeyboardByGestureAsync"/>.
     /// </summary>
-    public async Task DismissKeyboardAsync(CancellationToken cancellationToken)
+    public Task DismissKeyboardAsync(CancellationToken cancellationToken) => DismissKeyboardAsync(cancellationToken, input: null);
+
+    /// <summary>
+    /// <see cref="DismissKeyboardAsync(CancellationToken)"/> under an input's budget, or directly with none: the
+    /// <c>device.dismissKeyboard</c> fixture has no budget. Upstream's <c>dismissKeyboard(signal, input?)</c>.
+    /// </summary>
+    internal async Task DismissKeyboardAsync(CancellationToken cancellationToken, InputBudget? input)
     {
         var before = _latestIndex;
         try
         {
-            await CommandAsync("keyboard.dismiss", DeviceMethods.CommandKeyboard, DeviceArgs.Of(("action", JsonValue.Create("dismiss"))), cancellationToken).ConfigureAwait(false);
+            await CommandAsync(
+                "keyboard.dismiss",
+                (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.CommandKeyboard, DeviceArgs.Of(("action", JsonValue.Create("dismiss"))), token), token),
+                cancellationToken).ConfigureAwait(false);
         }
         catch (EngineException cause) when (cause.Code == EngineErrorCodes.UnsupportedCapability)
         {
-            await DismissKeyboardByGestureAsync(cancellationToken).ConfigureAwait(false);
+            await DismissKeyboardByGestureAsync(input, cancellationToken).ConfigureAwait(false);
         }
 
         MarkAction(before);
@@ -447,9 +456,9 @@ public sealed partial class DeviceSession
     /// drags fails naming what does work. Each look is the observation's own capture, sparse-tree retries included: a
     /// one-node tree has no keys and would pass for a dismissed keyboard.
     /// </summary>
-    private async Task DismissKeyboardByGestureAsync(CancellationToken cancellationToken)
+    private async Task DismissKeyboardByGestureAsync(InputBudget? input, CancellationToken cancellationToken)
     {
-        var raw = await DismissKeyboardTipAsync(await SnapshotAsync(false, cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
+        var raw = await DismissKeyboardTipAsync(await SnapshotAsync(false, cancellationToken).ConfigureAwait(false), input, cancellationToken).ConfigureAwait(false);
         if (!KeyboardShowing(raw))
         {
             return;
@@ -469,8 +478,7 @@ public sealed partial class DeviceSession
                 : new Point(from.X, from.Y - (viewport.Height * KeyboardDragRatio));
             await CommandAsync(
                 "keyboard.dismiss",
-                DeviceMethods.InteractionsSwipe,
-                DeviceArgs.Of(("from", PointNode(from)), ("to", PointNode(to))),
+                (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsSwipe, DeviceArgs.Of(("from", PointNode(from)), ("to", PointNode(to))), token), token),
                 cancellationToken).ConfigureAwait(false);
             raw = await SnapshotAsync(false, cancellationToken).ConfigureAwait(false);
             if (!KeyboardShowing(raw))
@@ -490,7 +498,7 @@ public sealed partial class DeviceSession
     /// button is the only way past it, and Maestro's <c>hideKeyboard</c> presses it too. Answers the capture after the
     /// press, or the one given when no tip is showing.
     /// </summary>
-    private async Task<RawSnapshot> DismissKeyboardTipAsync(RawSnapshot raw, CancellationToken cancellationToken)
+    private async Task<RawSnapshot> DismissKeyboardTipAsync(RawSnapshot raw, InputBudget? input, CancellationToken cancellationToken)
     {
         var tip = raw.Nodes.FirstOrDefault(node => (node.Label ?? node.Value ?? "").StartsWith("Speed up your typing", StringComparison.Ordinal));
         if (tip?.Rect is not { } tipRect)
@@ -507,8 +515,7 @@ public sealed partial class DeviceSession
         var centre = new Point(buttonRect.X + (buttonRect.Width / 2), buttonRect.Y + (buttonRect.Height / 2));
         await CommandAsync(
             "keyboard.dismiss",
-            DeviceMethods.InteractionsPress,
-            DeviceArgs.Of(("x", JsonValue.Create(centre.X)), ("y", JsonValue.Create(centre.Y))),
+            (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsPress, DeviceArgs.Of(("x", JsonValue.Create(centre.X)), ("y", JsonValue.Create(centre.Y))), token), token),
             cancellationToken).ConfigureAwait(false);
         return await SnapshotAsync(false, cancellationToken).ConfigureAwait(false);
     }

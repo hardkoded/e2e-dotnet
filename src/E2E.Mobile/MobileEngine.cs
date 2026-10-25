@@ -46,6 +46,9 @@ public sealed record MobileStartInfo
 
     /// <summary>Takes the facts about what the attempt runs on. Upstream's <c>EngineAttemptContext.environment</c>.</summary>
     public Action<IReadOnlyDictionary<string, string>>? Environment { get; init; }
+
+    /// <summary>The budget of one input. Upstream reads it per call, from <c>operation.timeoutMs</c>; see <see cref="DeviceSession.ActionTimeout"/>.</summary>
+    public TimeSpan ActionTimeout { get; init; } = E2EDefaults.ActionTimeout;
 }
 
 /// <summary>
@@ -234,6 +237,7 @@ public sealed class MobileEngine : IPreparableEngine
                 ArtifactsDir = options.ArtifactsDir,
                 Screen = options.Screen,
                 Environment = options.Environment,
+                ActionTimeout = options.ActionTimeout,
             },
             cancellationToken).ConfigureAwait(false);
     }
