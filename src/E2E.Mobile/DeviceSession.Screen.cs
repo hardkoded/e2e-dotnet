@@ -391,7 +391,7 @@ public sealed partial class DeviceSession
     /// counts as no keyboard: a drag on a guess costs more than a keyboard a later tap refuses against by name.
     /// </summary>
     private static bool KeyboardShowing(RawSnapshot raw) =>
-        MeasuredKeyboard(raw) ?? raw.Nodes.Any(node => KeyboardTypes.Contains((node.Type ?? "").ToLowerInvariant()));
+        MeasuredKeyboard(raw) ?? raw.Nodes.Any(node => KeyboardTypes.Contains(SnapshotProjection.NormalizeKind(node.Type ?? "")));
 
     /// <summary>The top edge of the soft keyboard: the band the capture's producer measured, else the highest keyboard or key element, else the bottom of the screen.</summary>
     private static double KeyboardTop(RawSnapshot raw, ViewportSize viewport) =>

@@ -204,6 +204,26 @@ public sealed class SnapshotProjectionTests
     }
 
     [Fact]
+    public void Reads_the_XCUIElementType_class_names_a_WebDriver_session_reports_as_the_native_XCTest_types()
+    {
+        RawNode[] native =
+        [
+            N("e1", index: 0, depth: 0, type: "Application", label: "Profiler", rect: R(0, 0, 390, 844)),
+            N("e2", index: 1, parentIndex: 0, depth: 1, type: "NavigationBar", identifier: "Profiler"),
+            N("e3", index: 2, parentIndex: 1, depth: 2, type: "StaticText", label: "Profiler"),
+            N("e4", index: 3, parentIndex: 0, depth: 1, type: "Button", label: "CPU Load"),
+            N("e5", index: 4, parentIndex: 0, depth: 1, type: "TextView", label: "Notes", value: "idle"),
+            N("e6", index: 5, parentIndex: 0, depth: 1, type: "TabBar"),
+            N("e7", index: 6, parentIndex: 5, depth: 2, type: "Button", label: "Home", selected: true),
+            N("e8", index: 7, parentIndex: 5, depth: 2, type: "Button", label: "Settings"),
+        ];
+        var webDriver = native.Select(node => node with { Type = $"XCUIElementType{node.Type}" }).ToArray();
+        static List<(string, string?)> KindsAndRoles(RawNode[] nodes) => [.. Project(nodes).Index.Select(entry => (entry.Kind, entry.Node.Role))];
+        Assert.Equal(KindsAndRoles(native), KindsAndRoles(webDriver));
+        Assert.Equal(new ViewportSize(390, 844), Project(webDriver).Viewport);
+    }
+
+    [Fact]
     public void Maps_iOS_composite_widgets_onto_the_vocabulary_roles_a_browser_reports_for_them()
     {
         var projected = Project(
