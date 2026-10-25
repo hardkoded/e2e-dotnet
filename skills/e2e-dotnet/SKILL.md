@@ -29,7 +29,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | Writing a test with NUnit: the `E2E.NUnit` base class, `[Test]`, `[Category("RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-nunit` | [references/writing-tests-nunit.md](references/writing-tests-nunit.md) |
 | Writing a test with xUnit v3: the `E2E.XUnit.V3` base class, `[Fact]`, `[Trait("TestCategory", "RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-xunit` | [references/writing-tests-xunit.md](references/writing-tests-xunit.md) |
 | Adding `Agent` steps, picking a model, budgets, the replay cache, custom executors | `agent` | [references/agent.md](references/agent.md) |
-| Running tests: `dotnet test` filters, the `e2e` tool, `report.json` for scripts, exit codes, CI | `running` | [references/running.md](references/running.md) |
+| Running tests: `dotnet test` filters, the `e2e` tool, `report.json` for scripts, exit codes, CI, test filters (not wired into `dotnet test`: the `ITestFilter` seam and the `run.changes` and `run.filters` report fields) | `running` | [references/running.md](references/running.md) |
 | Handling a failed run: the trace page, `report.json` for scripts, `E2ESession.Report()` for a session you run yourself, error codes and their fixes, a visible browser, replay misses, phase timings, the agent step table, every model call | `debugging` | [references/debugging.md](references/debugging.md) |
 | Exploring an app toward a goal without a test file, with `e2e explore` or `Explore.ExploreAsync` | `explore` | [references/explore.md](references/explore.md) |
 | Testing an iOS or Android app: `MobileEngine`, the `Device` fixture, picking a simulator, video of the device screen, Limrun hosted devices, a MAUI app through the DevFlow agent, known limits | `mobile` | [references/mobile.md](references/mobile.md) |
@@ -173,9 +173,24 @@ lines you changed:
   the current value; `CountAsync` and `IsVisibleAsync` answer from the current
   screen. Nothing waits for a value to change, so use a matcher when a value
   has to settle.
+- To reach a node below the fold, `Screen.ScrollUntilVisibleAsync(locator,
+  new ScrollUntilVisibleOptions { Direction, Momentum, Timeout })` scrolls the viewport
+  (`ScrollDirection.Down`, `Momentum.Slow` by default) until the locator resolves
+  visibly. On a locator (`list.ScrollUntilVisibleAsync(row)`) each step swipes that node,
+  so a feed or table that is its own scroll container pages. `Timeout` is its own
+  default of 30 s, not `actionTimeout`, and bounds the whole scroll, each swipe
+  included. `Momentum` is the stride of each step: a longer one must not carry the
+  target past the surface unseen, as a virtualized list does. It fails with
+  `LOCATOR_NOT_FOUND` when the deadline expires first (a swipe it cut short
+  included) and `INVALID_LOCATOR` for a target made by another screen (topic
+  `writing-tests`).
 - A read or navigation that times out fails with `OPERATION_TIMEOUT` and is not
   retried, even when the call log mentions a detached element or a navigation
-  race.
+  race. On a device, an input (tap, fill, key, swipe, `Back`) the device does not
+  answer within `actionTimeout` fails with `ACTION_MAY_HAVE_COMMITTED` and is
+  never repeated; one the timeout ran out before is not sent and fails with
+  `OPERATION_TIMEOUT`; a long press that holds at least as long as the time left
+  is refused with `NOT_ACTIONABLE`. Reading the screen is not cut off.
 - Secrets never appear in test code. Declare them under `secrets` in the
   config and read them with `Secrets.Get(name)`; accounts come from
   `Credentials.User(name)`. Hand the `Secret` only to `FillAsync` or

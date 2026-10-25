@@ -50,6 +50,7 @@ public sealed partial class DeviceSession : IEngineSession
         _projectRoot = info.ProjectRoot;
         _artifactsDir = info.ArtifactsDir;
         _screenSink = info.Screen;
+        ActionTimeout = info.ActionTimeout;
         _binding = binding;
         _where = where;
         _client = client;
@@ -57,6 +58,12 @@ public sealed partial class DeviceSession : IEngineSession
     }
 
     public string Route { get; private set; } = "";
+
+    /// <summary>
+    /// The budget of one input (a tap or other node action, a point action, typing, a key, <c>back</c>): <c>actionTimeout</c>. Upstream passes
+    /// each call its remaining budget, <c>operation.timeoutMs</c>. The port's session calls carry no timeout, so every input gets this.
+    /// </summary>
+    public TimeSpan ActionTimeout { get; }
 
     public MobileOptions Options => _engine.Options;
 
@@ -148,6 +155,13 @@ public sealed partial class DeviceSession : IEngineSession
         return DeviceErrors.RunCommandAsync(label, token => run(client, token), cancellationToken, _where);
     }
 
+    /// <summary>The budget one input runs under. Upstream's <c>inputBudget</c>, minus the in-flight tracking the port does not have.</summary>
+    internal InputBudget InputBudget(string label) => new(label, ActionTimeout);
+
+    /// <summary>Sends an input under its operation's budget, or directly from a fixture call, which has none. Upstream's <c>sendInput</c>.</summary>
+    internal static Task<T> SendInputAsync<T>(InputBudget? input, Func<Task<T>> dispatch, CancellationToken cancellationToken, TimeSpan? hold = null) =>
+        input is null ? dispatch() : input.SendAsync(dispatch, cancellationToken, hold);
+
     public Task<JsonNode?> CommandAsync(string label, string method, JsonObject? options, CancellationToken cancellationToken) =>
         CommandAsync(label, (client, token) => client.CallAsync(method, options, token), cancellationToken);
 
@@ -198,8 +212,12 @@ public sealed partial class DeviceSession : IEngineSession
 
     public async Task BackAsync(CancellationToken cancellationToken)
     {
+        var input = InputBudget("back");
         var before = _latestIndex;
-        await CommandAsync("back", DeviceMethods.CommandBack, ActionSettle(), cancellationToken).ConfigureAwait(false);
+        await CommandAsync(
+            "back",
+            (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.CommandBack, ActionSettle(), token), token),
+            cancellationToken).ConfigureAwait(false);
         MarkAction(before);
     }
 

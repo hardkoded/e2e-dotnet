@@ -16,10 +16,17 @@ public sealed partial class DeviceSession
     public async Task PerformAtAsync(Point point, PointerAction action, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(action);
+        var input = InputBudget(PointerLabel(action));
+        var hold = action switch
+        {
+            PointerAction.LongPress press => press.Duration ?? DeviceActions.DefaultLongPress,
+            PointerAction.SwipeTo swipe => swipe.Duration,
+            _ => (TimeSpan?)null,
+        };
         var before = _latestIndex;
         await CommandAsync(
             $"{PointerLabel(action)} at point",
-            (client, token) => DeviceActions.PointerInteractionAsync(client, point, action, ActionSettle(), token),
+            (client, token) => SendInputAsync(input, () => DeviceActions.PointerInteractionAsync(client, point, action, ActionSettle(), token), token, hold),
             cancellationToken).ConfigureAwait(false);
         MarkAction(before);
     }
@@ -37,8 +44,12 @@ public sealed partial class DeviceSession
             throw DeviceSupport.Unsupported("agent-device cannot clear the focused field without a node; type into a listed field by id to replace its value");
         }
 
+        var input = InputBudget("type");
         var before = _latestIndex;
-        await CommandAsync("keyboard.type", DeviceMethods.InteractionsType, DeviceArgs.Of(("text", JsonValue.Create(text))), cancellationToken).ConfigureAwait(false);
+        await CommandAsync(
+            "keyboard.type",
+            (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsType, DeviceArgs.Of(("text", JsonValue.Create(text))), token), token),
+            cancellationToken).ConfigureAwait(false);
         MarkAction(before);
     }
 

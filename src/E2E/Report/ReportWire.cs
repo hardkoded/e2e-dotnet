@@ -124,7 +124,7 @@ internal static partial class ReportWire
             ["message"] = Clip(error.Message, 8192),
             ["retryable"] = error.Retryable,
         };
-        Put(result, "phase", error.Phase is "config" or "collection" or "launch" or "beforeAll" or "beforeEach" or "body" or "afterEach" or "afterAll" or "cleanup" or "report" ? error.Phase : null);
+        Put(result, "phase", error.Phase is "config" or "collection" or "filter" or "launch" or "beforeAll" or "beforeEach" or "body" or "afterEach" or "afterAll" or "cleanup" or "report" ? error.Phase : null);
         Put(result, "source", error.Source is null ? null : Source(error.Source));
         if (error.Details is { } details)
         {
@@ -393,7 +393,8 @@ internal static partial class ReportWire
         _ => "failed",
     };
 
-    private static JsonObject Skip(ReportSkip skip) => new() { ["cause"] = skip.Cause, ["reason"] = Clip(skip.Reason, 8192) };
+    private static JsonObject Skip(ReportSkip skip) =>
+        Compose(("cause", skip.Cause), ("reason", Clip(skip.Reason, 8192)), ("filter", skip.Cause == "filtered" && !string.IsNullOrEmpty(skip.Filter) ? Clip(skip.Filter, 256) : null));
 
     /// <summary>Upstream's <c>serializeAttempt</c>.</summary>
     public static JsonObject Attempt(ReportAttempt attempt, int index, string resultsRoot)
@@ -572,6 +573,21 @@ internal static partial class ReportWire
             ("maxModelCallsInStep", usage.MaxModelCallsInStep),
             ("maxActionStepsInStep", usage.MaxActionStepsInStep),
             ("estimatedCostUsd", usage.EstimatedCostUsd));
+        if (run.Changes is { } changes)
+        {
+            wire["changes"] = Compose(("base", changes.Base), ("files", changes.Files), ("skipped", ClipOrNull(changes.Skipped, 1024)));
+        }
+
+        if (run.Filters is { Count: > 0 } filters)
+        {
+            wire["filters"] = new JsonArray([.. filters.Select(filter => (JsonNode?)Compose(
+                ("name", Clip(filter.Name, 256)),
+                ("candidates", filter.Candidates),
+                ("excluded", filter.Excluded),
+                ("note", ClipOrNull(filter.Note, 1024)),
+                ("outcome", filter.Outcome switch { FilterOutcome.Failed => "failed", FilterOutcome.TimedOut => "timed-out", _ => null })))]);
+        }
+
         Put(wire, "explore", run.Explore is null ? null : Explore(run.Explore));
         return new JsonObject { ["schemaVersion"] = "report-1", ["run"] = wire };
     }

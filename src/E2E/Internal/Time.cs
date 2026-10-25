@@ -50,6 +50,17 @@ internal sealed class PollConditionOptions
 /// <summary>Deadline and polling helpers, as upstream's <c>internal/time.ts</c>.</summary>
 internal static class Time
 {
+    /// <summary>A budget as a message names it, exactly, in the largest unit that divides it: <c>5m</c>, <c>30s</c>, <c>1500ms</c> (upstream's <c>budgetText</c>).</summary>
+    public static string BudgetText(long ms)
+    {
+        if (ms > 0 && ms % 60_000 == 0)
+        {
+            return $"{ms / 60_000}m";
+        }
+
+        return ms > 0 && ms % 1000 == 0 ? $"{ms / 1000}s" : $"{ms}ms";
+    }
+
     /// <summary>
     /// The token a call runs under: the caller's token, ended also by the session's. No source is made when one token
     /// already stands for both, so a call does not leave a registration on the session token. When both can cancel

@@ -172,8 +172,9 @@ public sealed class ScreenScrollUntilVisibleTests
         Assert.Empty(scroll.Swipes);
     }
 
+    /// <summary>Partial: the port writes a scoped locator description as a chain, <c>parent.child</c>, where upstream writes <c>parent >> child</c>, so the step label differs.</summary>
     [Fact]
-    public async Task On_a_locator_labels_the_step_with_the_target_whose_description_carries_the_scope_once()
+    public async Task Partial_On_a_locator_labels_the_step_with_the_target_whose_description_carries_the_scope_once()
     {
         var scroll = new ScrollScreen(new ScrollScript { Screens = [[ScrollScreen.Feed()], [ScrollScreen.Feed(Target)]] });
         var container = scroll.Screen.GetByRole("list", "Feed");

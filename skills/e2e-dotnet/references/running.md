@@ -7,6 +7,7 @@
 - Output
 - Exit codes
 - Continuous integration
+- Test filters
 
 ## Commands
 
@@ -167,3 +168,7 @@ jobs:
 - Agent steps run in the same job: pass the provider's API key from the CI
   secrets, and commit `.e2e/cache/` so recorded acts replay with no model
   call. Subscriptions are for local runs.
+
+## Test filters
+
+Upstream leaves out the tests a pull request cannot affect with `filters` and `e2e run --changed-since <ref>`. The .NET port has neither: `dotnet test` selects tests (`--filter`, categories), and nothing in `E2ETest` calls a filter, so a pull request runs every test. The pieces a custom host would build on are public: `ITestFilter` (`Name`, `FilterAsync`), `TestFilterCandidate`, `TestFilterChanges`, `TestFilterContext` (`ProjectRoot`, `Changes`, `ConfigFile`, `Signal`, `Log`, `Redact`), and `TestFilterResult` (`Exclude` by test id with a reason, `Note`). A report of such a host carries `run.changes`, `run.filters`, and a `filtered` skip with its `filter`. See COMPATIBILITY.md, "Test filters".

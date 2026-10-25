@@ -108,6 +108,23 @@ internal static partial class MarkdownText
 /// <summary>Upstream's <c>report/format.ts</c>, the parts a trace page and the step table use.</summary>
 internal static class ReportFormat
 {
+    /// <summary>
+    /// What one test filter decided of the tests it was given: <c>kept 7 of 42 tests, left out 35</c>, <c>kept all 42 tests</c>, or
+    /// <c>left out all 42 tests</c> (upstream's <c>filterDecision</c>, <c>report/format.ts</c>).
+    /// </summary>
+    public static string FilterDecision(int candidates, int excluded)
+    {
+        var tests = candidates.ToString(CultureInfo.InvariantCulture) + (candidates == 1 ? " test" : " tests");
+        if (excluded == 0)
+        {
+            return "kept all " + tests;
+        }
+
+        return excluded == candidates
+            ? "left out all " + tests
+            : "kept " + (candidates - excluded).ToString(CultureInfo.InvariantCulture) + " of " + tests + ", left out " + excluded.ToString(CultureInfo.InvariantCulture);
+    }
+
     /// <summary>Clips to <paramref name="max"/> code points with an ellipsis; untouched when it fits.</summary>
     public static string Ellipsize(string text, int max)
     {
