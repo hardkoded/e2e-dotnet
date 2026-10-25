@@ -53,12 +53,12 @@ public enum ScrollDirection
 /// <summary>Fling strength of a swipe: how far the gesture travels. Upstream's <c>Momentum</c> (<c>none</c>, <c>slow</c>, <c>fast</c>).</summary>
 public enum Momentum
 {
-    /// <summary>The engine's default stride.</summary>
+    /// <summary>No fling: half an extent on the web, half a node on a device.</summary>
     None,
 
-    /// <summary>A short stride, shorter than any row, so every row lands fully on screen at some stop.</summary>
+    /// <summary>A short stride. The engine decides how far: a node swipe on a device is a quarter of the node, on the web three quarters of its extent.</summary>
     Slow,
 
-    /// <summary>A long stride.</summary>
+    /// <summary>A long stride: four fifths of a node on a device, one and a half extents on the web.</summary>
     Fast,
 }
