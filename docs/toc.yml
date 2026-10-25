@@ -1,3 +1,29 @@
+- name: Get started
+  href: get-started/index.md
+  items:
+    - name: Overview
+      href: get-started/index.md
+    - name: Web
+      href: get-started/web.md
+    - name: Mobile
+      href: get-started/mobile.md
+    - name: .NET MAUI
+      href: get-started/maui.md
+    - name: Windows
+      href: get-started/windows.md
+- name: Samples
+  href: samples/index.md
+  items:
+    - name: Overview
+      href: samples/index.md
+    - name: Dariten (web)
+      href: samples/dariten.md
+    - name: TodoMVC (web)
+      href: samples/todomvc.md
+    - name: Mobile app (MAUI)
+      href: samples/mobile-app.md
+    - name: WinApp benchmark
+      href: samples/winapp-benchmark.md
 - name: Guide
   href: ../README.md
 - name: API
