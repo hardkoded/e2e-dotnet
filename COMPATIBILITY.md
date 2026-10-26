@@ -238,7 +238,7 @@ Upstream's `4982d8d` (#1333) documents that the browser engine's semantic tree l
 - Not ported: upstream's migration guides (`docs/migrate/*.mdx`) and the edits to them in `e6885dc`. The port has no such guides, so the skill reads the `e2e-dotnet` skill's topics, and the hand-over offers an issue at `hardkoded/e2e-dotnet` in place of `e2e feedback`.
 - Not ported: the plugin copy (`plugins/e2e/skills/migrate-to-e2e`), since the port has no plugin; the `AGENTS.md` and `CONTRIBUTING.md` lines about it map to `CONTRIBUTING.md` here.
 - Upstream added no tests for this skill, so none are ported.
-- `docs/coding-agents.md` ports upstream's `docs/coding-agents.mdx` for the commands the port has.
+- `docs-site/src/content/docs/coding-agents.mdx` ports upstream's `docs/coding-agents.mdx` for the commands the port has.
 
 ## Coding agents
 
@@ -313,7 +313,7 @@ Not ported: `e2e init`, which scaffolds the config, installs the skill into `.ag
 - Upstream pins agent-device as a dependency of `@e2e-dev/limrun`, at the engine's version (0.21.29), and checks that the installed one matches. The port always starts the pinned release (`AgentDeviceVersion.Pinned`), so nothing is installed by hand. It only checks that the engine asked for that release, and the daemon's own version check runs when it starts.
 - The lease request leaves out `providerCredentialFingerprint`. The daemon only compares it with the credentials of a daemon that was already running, and the port starts a fresh daemon with the right credentials for every device.
 - Options are the `LimrunSimulatorsOptions` record, with enums for the device models, so an unknown option is a compile error and upstream's `rejectUnknownKeys` has no counterpart.
-- Upstream's Limrun page (`docs/integrations/limrun.mdx`) is ported as `docs/integrations/limrun.md`, with the port's C# names. Its `examples/with-limrun` app-flow example is not ported: `samples/MobileApp` is the port's mobile example.
+- Upstream's Limrun page (`docs/integrations/limrun.mdx`) is ported as `docs-site/src/content/docs/integrations/limrun.mdx`, with the port's C# names. Its `examples/with-limrun` app-flow example is not ported: `samples/MobileApp` is the port's mobile example.
 - Not verified against a live service: the lease wire format was read from agent-device's code (the `agent_device.lease.*` methods and their params in the daemon, and the client that writes them), and Limrun's REST calls from the `@limrun/api` 0.59.0 source. No test reaches Limrun or a daemon.
 
 ## Kernel

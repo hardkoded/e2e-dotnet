@@ -373,7 +373,7 @@ The `migrate-to-e2e` skill moves a Playwright .NET, Selenium .NET, Appium, Cypre
 npx skills add hardkoded/e2e-dotnet --skill migrate-to-e2e
 ```
 
-See [docs/coding-agents.md](docs/coding-agents.md).
+See [the coding-agents page](docs-site/src/content/docs/coding-agents.mdx).
 
 ## Sample
 
