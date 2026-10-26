@@ -18,6 +18,11 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     // Whether the executor-facing look in flight asked for pixels, which reserve part of the token ceiling the tree is cut under.
     private bool _pixels;
 
+    // The newest text rendered, which the same look reuses.
+    private Rendered? _rendered;
+
+    private sealed record Rendered(Observation Observation, bool Pixels, string Text, bool Cut);
+
     private readonly Dictionary<string, SemanticNode> _seen = [];
     private PendingChange? _pending;
 
@@ -208,6 +213,13 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// <param name="cut">Whether the byte budget cut the screen.</param>
     public string Text(Observation observation, bool pixels, out bool cut)
     {
+        // One look is read for its size, for the executor, and for the model; it is rendered once.
+        if (_rendered is { } last && ReferenceEquals(last.Observation, observation) && last.Pixels == pixels)
+        {
+            cut = last.Cut;
+            return last.Text;
+        }
+
         var scope = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
         var text = SnapshotText.Render(observation, scope.Redactor, scope.AppOrigin, ByteBudget(pixels), out cut);
         if (cut)
@@ -215,6 +227,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             _observationTruncated = true;
         }
 
+        _rendered = new Rendered(observation, pixels, text, cut);
         return text;
     }
 
