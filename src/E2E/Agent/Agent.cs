@@ -375,7 +375,7 @@ public sealed partial class Agent
         _scope.Steps.AttachAgentDetails(new StepAgentDetails
         {
             ObservationTruncated = observation.Truncated ? true : null,
-            ObservationRevision = observation.Revision,
+            ObservationRevision = observation.Revision.Length > 0 ? observation.Revision : null,
             ObservationBytes = vision == VisionMode.Only ? null : System.Text.Encoding.UTF8.GetByteCount(tree),
         });
         if (vision == VisionMode.Off || tainted)

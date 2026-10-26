@@ -47,7 +47,17 @@ internal static class Phases
         try
         {
             var value = await body().ConfigureAwait(false);
-            var told = detail?.Invoke(value);
+
+            // What the event says is a nicety: a callback that fails must not fail a phase that succeeded.
+            PhaseDetail? told = null;
+            try
+            {
+                told = detail?.Invoke(value);
+            }
+            catch (Exception)
+            {
+            }
+
             host.Steps?.RecordEvent(new StepEvent
             {
                 Kind = spec.Kind,
