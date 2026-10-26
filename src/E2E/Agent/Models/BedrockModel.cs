@@ -64,7 +64,8 @@ public sealed class BedrockModel : IAgentModel, IDisposable
                     "Amazon Bedrock needs AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, or a Bedrock API key in " + _options.ApiKeyEnv + ".",
                     blocked: true);
             // Signed per attempt: a retry after a long wait must not carry the first attempt's x-amz-date.
-            sign = attempt => SigV4.Sign(attempt, payload, credentials, region, "bedrock", Clock.GetUtcNow());
+            // The credentials are read again too, so a rotated session token is picked up, as the AI SDK resolves them inside each fetch.
+            sign = attempt => SigV4.Sign(attempt, payload, _options.ResolveCredentials() ?? credentials, region, "bedrock", Clock.GetUtcNow());
         }
 
         var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, sign).ConfigureAwait(false);

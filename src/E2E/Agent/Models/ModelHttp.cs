@@ -101,10 +101,10 @@ internal static class ModelHttp
         for (var retry = 0; ; retry++)
         {
             using var attempt = CopyRequest(message, payload);
+            sign?.Invoke(attempt);
             HttpResponseMessage response;
             try
             {
-                sign?.Invoke(attempt);
                 response = await http.SendAsync(attempt, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
