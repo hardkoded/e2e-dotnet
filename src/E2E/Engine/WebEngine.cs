@@ -1045,6 +1045,7 @@ public sealed partial class WebEngine : IEngine
         {
             ArgumentNullException.ThrowIfNull(expression);
             var observation = await ObserveAsync(cancellationToken).ConfigureAwait(false);
+            _trace?.ShowScreen(observation);
             return LocatorResolver.Resolve(observation, expression, expression.IncludeHidden);
         }
 

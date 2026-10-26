@@ -19,9 +19,10 @@ public sealed class WebAndDocumentEngineLocateTests
     private const string Page = """
         <!DOCTYPE html>
         <html><body>
-        <button type="button">Save</button>
+        <button type="button" onclick="document.getElementById('log').textContent = 'saved'">Save</button>
         <button type="button">Cancel</button>
         <div role="status" hidden>Saved</div>
+        <p id="log">idle</p>
         </body></html>
         """;
 
@@ -37,8 +38,8 @@ public sealed class WebAndDocumentEngineLocateTests
 
         // The node is the engine's own: acting on it works without another look.
         await session.PerformAsync(located[0], new LocatorAction.Tap(), CancellationToken.None);
-        var one = await session.LocateAsync(LocatorExpression.ForRole("button", "Cancel", new RoleOptions()), Budget, CancellationToken.None);
-        Assert.Single(one);
+        var log = Assert.Single(await session.LocateAsync(LocatorExpression.For("text", "saved", new TextMatchOptions(), "text"), Budget, CancellationToken.None));
+        Assert.Equal("saved", log.Text);
     }
 
     [Fact]
@@ -56,12 +57,14 @@ public sealed class WebAndDocumentEngineLocateTests
     [Fact]
     public async Task The_document_engine_locates_the_nodes_a_query_matches_in_document_order()
     {
+        var tapped = new List<string>();
+        var shown = 0;
         var world = new DocumentWorld().Map("/", page =>
         {
-            page.Button("Save", () => { });
-            page.Button("Cancel", () => { });
+            page.Button("Save", () => tapped.Add("Save"));
+            page.Button("Cancel", () => tapped.Add("Cancel"));
         });
-        await using var session = await new DocumentEngine(world).StartAsync(new EngineStartOptions(), CancellationToken.None);
+        await using var session = await new DocumentEngine(world).StartAsync(new EngineStartOptions { Screen = _ => shown++ }, CancellationToken.None);
         await session.OpenAsync("/", CancellationToken.None);
         Assert.True(session.CanLocate);
 
@@ -70,6 +73,26 @@ public sealed class WebAndDocumentEngineLocateTests
 
         // The refs of a locate name the elements the engine acts on.
         await session.PerformAsync(located[1], new LocatorAction.Tap(), CancellationToken.None);
+        Assert.Equal(["Cancel"], tapped);
         Assert.Empty(await session.LocateAsync(LocatorExpression.ForRole("button", "Missing", new RoleOptions()), Budget, CancellationToken.None));
+
+        // Each locate shows the trace the observation it read.
+        Assert.Equal(2, shown);
+    }
+
+    [Fact]
+    public async Task A_locator_waits_for_a_hidden_role_node_to_be_attached_through_the_engine()
+    {
+        using var site = await TinySite.StartAsync(Page);
+        var session = await WebEngineTests.StartAsync(site, new ScriptedModel(_ => ModelResponses.Done("passed", "unused")), cache: null);
+        await WebEngineTests.RunAsync(session, async () =>
+        {
+            await session.App.OpenAsync("/");
+            Assert.True(session.Screen.LocatesInEngine);
+            Assert.Equal(0, await session.Screen.GetByRole("status").CountAsync());
+            await Expect.That(session.Screen.GetByRole("status")).ToBeAttachedAsync();
+            await session.Screen.GetByRole("status").WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden });
+            await Expect.That(session.Screen.GetByRole("status")).ToBeHiddenAsync();
+        });
     }
 }
