@@ -41,14 +41,32 @@ Two sibling skills install with `npx skills add hardkoded/e2e-dotnet --skill <na
 ## Quick start
 
 A config with one web target and a model, and a test that drives one goal
-and pins the outcome:
+and pins the outcome. `app.command` starts the app for you; leave it out to
+start the app yourself before `dotnet test`:
 
 ```json
 {
-  "targets": [{ "platform": "web", "app": { "url": "http://127.0.0.1:3000" } }],
+  "targets": [{
+    "platform": "web",
+    "app": {
+      "url": "http://127.0.0.1:3000",
+      "command": { "executable": "pnpm", "args": ["dev"], "log": ".e2e/logs/app.log" }
+    }
+  }],
   "agents": { "default": { "provider": "copilot", "model": "claude-sonnet-5.5" } }
 }
 ```
+
+The first test (or `e2e explore`, or `e2e mcp` session) that needs the app
+spawns `app.command` and polls `app.readyUrl` (default `app.url`) for a 200 to
+499 status within `startupTimeout` (default 60 s); later ones find it running,
+and it stops when the test process ends. Never ready is `APP_UNREACHABLE`, with
+the last lines of `log` quoted. A `url` answering before the spawn is
+`APP_ALREADY_RUNNING` unless `reuseExisting` is `true` (CI ignores it). The
+process gets only `PATH`, the temp variables, `command.env`, and the host
+variables `inheritEnv` names. A `url` on port `0` (`http://127.0.0.1:0`, or
+`[::1]:0`) takes a free port, which `{port}` carries into `args`, `env`, and
+`readyUrl`; port `0` needs a `command`. Topic `setup` has the full rules.
 
 ```csharp
 using E2E;
