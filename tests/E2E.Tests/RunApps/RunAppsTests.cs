@@ -21,7 +21,7 @@ public sealed class RunAppsTests
             { "targets": [{ "app": { "url": "http://127.0.0.1:0",
               "command": { "executable": {{JsonSerializer.Serialize(AppProgram.Executable)}}, "args": ["serve", "{port}"], "startupTimeout": 20000 } } }] }
             """,
-            Path.GetTempPath(),
+            Directory.CreateTempSubdirectory("e2e-runapps-").FullName,
             _ => null);
         var notices = new List<string>();
         var first = await E2E.RunApps.StartAsync(config, config.Target, notices.Add, CancellationToken.None);
@@ -42,7 +42,7 @@ public sealed class RunAppsTests
             { "targets": [{ "app": { "url": "http://127.0.0.1:0",
               "command": { "executable": {{JsonSerializer.Serialize(AppProgram.Executable)}}, "args": ["serve-for", "{port}", "6000"], "startupTimeout": 20000 } } }] }
             """,
-            Path.GetTempPath(),
+            Directory.CreateTempSubdirectory("e2e-runapps-").FullName,
             _ => null);
         var first = await E2E.RunApps.StartAsync(config, config.Target, null, CancellationToken.None);
         Assert.True(await AppProgram.IsReachable(first.App.Url!));
@@ -70,7 +70,7 @@ public sealed class RunAppsTests
             { "targets": [{ "app": { "url": "http://127.0.0.1:0",
               "command": { "executable": {{JsonSerializer.Serialize(AppProgram.Executable)}}, "args": ["exit", "3"], "startupTimeout": 20000 } } }] }
             """,
-            Path.GetTempPath(),
+            Directory.CreateTempSubdirectory("e2e-runapps-").FullName,
             _ => null);
         var failure = await Assert.ThrowsAsync<EngineException>(() => E2E.RunApps.StartAsync(config, config.Target, null, CancellationToken.None));
         Assert.Equal("APP_UNREACHABLE", failure.Code);
