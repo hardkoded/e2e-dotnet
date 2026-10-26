@@ -51,7 +51,7 @@ For Android, use `MobilePlatform.Android`, the app's package name as `BundleId`,
 | `Android.Model` | Limrun selects | `LimrunAndroidModel.Phone` or `LimrunAndroidModel.Tablet`. |
 | `Android.OsVersion` | `15` | Android major version requested as a scheduling clue. |
 
-Each worker gets an isolated agent-device daemon on the test runner and one Limrun instance. The daemon uses agent-device's Limrun driver for app control and recording. A device must become ready and finish installation within five minutes. The provider cleans up after failed setup, and the engine releases all acquired devices when the run finishes or is interrupted. Choose a hard timeout longer than the run and short enough that an interrupted run does not stay billed.
+Each worker gets an isolated agent-device daemon on the test runner and one Limrun instance. The daemon uses agent-device's Limrun driver for app control and recording. A device must become ready within five minutes. Installing the app is a separate setup step that this timeout does not cover. The provider cleans up after failed setup, and the engine releases all acquired devices when the run finishes or is interrupted. Choose a hard timeout longer than the run and short enough that an interrupted run does not stay billed.
 
 Find a run's instances in Limrun by the `source=e2e` and `run=<run id>` labels. Recordings use the normal mobile artifact path.
 

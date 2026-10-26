@@ -20,9 +20,10 @@ End-to-end tests use e2e; read .agents/skills/e2e-dotnet/SKILL.md before writing
 
 ## Let the agent use the app
 
-`e2e mcp` gives the agent a live session on your app. It checks its locators against the screen before it writes them. Register it once:
+`e2e mcp` gives the agent a live session on your app. It checks its locators against the screen before it writes them. Install the tool, then register it once:
 
 ```bash
+dotnet tool install --global E2E.Cli
 claude mcp add e2e -- e2e mcp
 ```
 

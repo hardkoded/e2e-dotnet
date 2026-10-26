@@ -57,7 +57,8 @@ When one exists, this is a later session:
    test is missing from it (add those as `todo`). No `Defect check:` line:
    ask as in step 2. A planted bug noted under `Next`: revert it first
    (step 6).
-3. Run the file's `Run new` command once. A ported test that fails now is
+3. Run the file's `Start dependencies` command and check the services are
+   ready, then the `Run new` command once. A ported test that fails now is
    the first thing to fix, before any new slice.
 4. Unless the progress file's `Harness:` line says `done`, go to step 3,
    Build the harness. Otherwise go to step 4, Pick the slice.
@@ -100,10 +101,12 @@ once and the progress file says so; later sessions skip this step.
    a config without a model runs those.
 3. Port the orchestration the CI job does, reusing the repo's own scripts
    rather than writing new ones:
-   - The port has no `app.command`. The app must answer on the target's
+   - The port has no `app.command`. A web target's app must answer on its
      `app.url` before `dotnet test`, so the harness starts it the way the
      old suite's CI job did (a script, a `WebApplicationFactory`, a
      fixture that starts a process). Name the command in the progress file.
+     A device target has no URL: `MobileAppTest` launches its app, so skip
+     this step for it (topic `mobile`).
    - Databases, queues, and mock servers start before the run with the
      command the CI job uses.
    - A reset or seed the source ran per test becomes a call in the test's
@@ -114,7 +117,8 @@ once and the progress file says so; later sessions skip this step.
      reads. A login account is not written in a test or in the config:
      set `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD` in the
      environment and read it with `Credentials.User(name)` (topic `setup`).
-     The config has no `credentials` key.
+     The config has no `credentials` key. Other secrets go under `secrets`
+     with `null`, read from `E2E_SECRET_<NAME>`.
 4. Port the simplest source test, often the sign-in or the launch, as the
    smoke test. It must pass on every target before any other port. When it
    cannot, the harness is wrong, not the test: fix the harness.
