@@ -95,7 +95,7 @@ public sealed class TestMuBrowsersTests
     {
         var attempt = Capabilities(await new TestMuBrowsers().AcquireAsync(Request(attemptId: "a-7"), CancellationToken.None));
 
-        Assert.Equal("e2e-run-a-web-a-7", (string?)attempt["LT:Options"]!["name"]);
+        Assert.Equal("e2e-run-a-web-attempt-a-7", (string?)attempt["LT:Options"]!["name"]);
     }
 
     [Fact]
