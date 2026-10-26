@@ -25,7 +25,7 @@ A captured viewport: PNG bytes, and how many image pixels one viewport (CSS) pix
 
 **Implements:** [IEquatable&lt;EngineScreenshot&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L211)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L242)
 
 ## Constructors
 
@@ -50,7 +50,7 @@ A captured viewport: PNG bytes, and how many image pixels one viewport (CSS) pix
 | `Scale` | [double](https://learn.microsoft.com/dotnet/api/system.double) | Image pixels per viewport (CSS) pixel. |
 | `MaskedRegionCount` | [int?](https://learn.microsoft.com/dotnet/api/system.int32) | How many regions the engine covered, so a caller can prove the image is at least as redacted as the tree. Null when the engine cannot say. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L211)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L242)
 
 ## Properties
 
@@ -69,7 +69,7 @@ How many regions the engine covered, so a caller can prove the image is at least
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L211)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L242)
 
 <a id="E2E_Engine_EngineScreenshot_Png_"></a>
 <a id="E2E_Engine_EngineScreenshot_Png"></a>
@@ -86,7 +86,7 @@ The image, with every secure field covered.
 
 **Value:** [byte\[\]](https://learn.microsoft.com/dotnet/api/system.byte)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L211)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L242)
 
 <a id="E2E_Engine_EngineScreenshot_Scale_"></a>
 <a id="E2E_Engine_EngineScreenshot_Scale"></a>
@@ -103,4 +103,4 @@ Image pixels per viewport (CSS) pixel.
 
 **Value:** [double](https://learn.microsoft.com/dotnet/api/system.double)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L211)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L242)

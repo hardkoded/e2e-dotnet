@@ -138,6 +138,38 @@ public sealed class Browser
     }
 
     /// <summary>
+    /// Creates a web-only locator from a CSS or XPath selector, for a control with no accessible name. Same polling and strictness as any
+    /// locator. A selector that captures with <c>*</c> before its last part (<c>*css=article &gt;&gt; text=Hello</c>) is refused with
+    /// <c>INVALID_LOCATOR</c> when the locator resolves: narrow with <see cref="Locator.Filter(Locator)"/> instead. Upstream's <c>browser.locator</c>.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_LOCATOR</c>: <paramref name="selector"/> is empty.</exception>
+    public Locator Locator(string selector)
+    {
+        var chosen = FrameScreen.RequireSelector("browser.locator", selector);
+        Require("locator");
+        return Fixture().Locator(new LocatorExpression { Kind = "selector", Selector = chosen });
+    }
+
+    /// <summary>
+    /// Creates a screen query scope inside one iframe: every <see cref="Screen"/> query answers from inside the frame. The frame is the
+    /// one element <paramref name="selector"/> names; none yet is polled for by an action, and answers no match to a read. Upstream's
+    /// <c>browser.frameLocator</c>.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_LOCATOR</c>: <paramref name="selector"/> is empty.</exception>
+    public FrameScreen FrameLocator(string selector)
+    {
+        var chosen = FrameScreen.RequireSelector("browser.frameLocator", selector);
+        Require("frameLocator");
+        return new FrameScreen(Fixture().Root, [chosen]);
+    }
+
+    /// <summary>The attempt's engine fixture context, which mints this browser's locators. Set once the attempt's screen exists.</summary>
+    internal EngineFixtureContext? Context { get; set; }
+
+    private EngineFixtureContext Fixture() =>
+        Context ?? throw new InvalidOperationException("This browser belongs to no attempt, so it has no screen to resolve locators on.");
+
+    /// <summary>
     /// Evaluates trusted test code in the page: an expression, or a function
     /// source that is called. The result must be JSON-safe and is deserialized to
     /// <typeparamref name="T"/>. A throwing script fails with <c>EVALUATE_FAILED</c>, and a
@@ -634,4 +666,53 @@ public sealed class BrowserMouse
     /// <summary>Releases the primary button.</summary>
     public Task UpAsync(CancellationToken cancellationToken = default) =>
         AppNotOpen.GuardAsync(() => _browser.Require("mouse.up").MouseUpAsync(_browser.Token(cancellationToken)));
+}
+
+/// <summary>
+/// The screen scope <see cref="Browser.FrameLocator"/> returns. Every <see cref="Screen"/> query answers from inside the frame, and the
+/// web-only escape hatches follow it in: <see cref="Locator(string)"/> for a CSS or XPath selector on a control with no accessible
+/// name, and <see cref="FrameLocator(string)"/> for a frame nested inside this one. Upstream's <c>FrameScreen</c>.
+/// </summary>
+public sealed class FrameScreen : Screen
+{
+    private readonly IReadOnlyList<string> _frames;
+
+    internal FrameScreen(Screen screen, IReadOnlyList<string> frames)
+        : base(screen, Scope(frames))
+    {
+        _frames = frames;
+    }
+
+    /// <summary>Creates a web-only CSS or XPath locator inside this frame.</summary>
+    /// <exception cref="TestException"><c>INVALID_LOCATOR</c>: <paramref name="selector"/> is empty.</exception>
+    public Locator Locator(string selector) =>
+        new(this, Scope(_frames)(new LocatorExpression { Kind = "selector", Selector = RequireSelector("locator", selector) }));
+
+    /// <summary>Creates a screen query scope inside an iframe nested in this frame.</summary>
+    /// <exception cref="TestException"><c>INVALID_LOCATOR</c>: <paramref name="selector"/> is empty.</exception>
+    public FrameScreen FrameLocator(string selector) => new(Root, [.. _frames, RequireSelector("frameLocator", selector)]);
+
+    /// <summary>
+    /// The scope for the innermost of <paramref name="frames"/> (outermost first). Every query and both escape hatches compile through
+    /// the same <c>frame</c> chain, so a <c>locator</c> inside it resolves against the innermost document.
+    /// </summary>
+    private static Func<LocatorExpression, LocatorExpression> Scope(IReadOnlyList<string> frames) => expression =>
+    {
+        for (var i = frames.Count - 1; i >= 0; i--)
+        {
+            expression = new LocatorExpression { Kind = "frame", Selector = frames[i], Source = expression };
+        }
+
+        return expression;
+    };
+
+    internal static string RequireSelector(string method, string? selector)
+    {
+        if (string.IsNullOrEmpty(selector))
+        {
+            throw new TestException("INVALID_LOCATOR", method + "() requires a nonempty selector");
+        }
+
+        return selector;
+    }
 }
