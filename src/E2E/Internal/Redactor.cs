@@ -29,10 +29,10 @@ internal sealed class Redactor
         CultureInfo.GetCultureInfo("lt"),
     ];
 
-    /// <summary>A base64 or base64url run long enough to encode a fragment, padding included.</summary>
     /// <summary>What a secret name spells inside its marker; a <c>&gt;</c> closes it.</summary>
     private static readonly Regex MarkerName = new(@"\A[A-Za-z0-9_.-]*\z", RegexOptions.CultureInvariant, MatchTimeout);
 
+    /// <summary>A base64 or base64url run long enough to encode a fragment, padding included.</summary>
     private static readonly Regex EncodedRun = new(@"[A-Za-z0-9+/_-]{8,}={0,2}", RegexOptions.CultureInvariant, MatchTimeout);
 
     private readonly Regex? _pattern;
