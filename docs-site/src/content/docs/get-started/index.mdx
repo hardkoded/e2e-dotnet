@@ -34,7 +34,7 @@ await Expect.That(Screen.GetByTestId("greeting")).ToHaveTextAsync("Hello, ada!")
    ```
 
    For an API key, set `provider` and `model` under `agents.default` in `e2e.config.json`, and export the key the provider reads, for example `OPENAI_API_KEY`. See [the guide](/guide/#subscriptions) for ChatGPT, OpenCode Console, and SuperGrok.
-3. Tests that never call the agent need no model, so you can start with locators only. A model request that fails on the network or with a 408, 409, 429, or 5xx answer is sent again up to 5 times before the step fails with `MODEL_PROVIDER_FAILED`.
+3. Tests that never call the agent need no model, so you can start with locators only. A model request that fails on the network or with a 408, 409, 429, or 5xx answer is sent again up to 5 times before the step fails with `MODEL_PROVIDER_FAILED`. A Bedrock request is signed again for every attempt, so a long wait does not end in `RequestExpired`.
 
 ## The config file
 
