@@ -142,11 +142,12 @@ public static partial class DeviceSupport
 /// settling before a tap is relocated in full. Upstream's <c>InputBudget</c> in <c>support.ts</c>.
 /// </summary>
 /// <remarks>
-/// Upstream's constructor also takes a <c>track</c> function that keeps an abandoned command in flight until it settles.
-/// The port tracks no in-flight command (see <c>COMPATIBILITY.md</c>, Mobile engine), so it has no such parameter.
+/// <paramref name="track"/> keeps the device command itself in flight, past a timeout that abandons it, until it settles. The
+/// callers' own tracking settles with the race, so this is the registration the next attempt waits on. Upstream's <c>track</c>
+/// returns the promise it is given; the port's registers the task and the budget keeps its own reference, so it returns nothing.
 /// Its <paramref name="time"/> is the .NET stand-in for the fake timers upstream's tests install (<c>vi.useFakeTimers()</c>): the budget and the wait for an answer both run on it, so a test drives them without real time.
 /// </remarks>
-internal sealed class InputBudget(string label, TimeSpan timeout, TimeProvider? time = null)
+internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> track, TimeProvider? time = null)
 {
     /// <summary>The least time an input gets to answer once sent, however little budget was left: a tap that lands is then not reported as cut off.</summary>
     private static readonly TimeSpan MinAnswer = TimeSpan.FromMilliseconds(250);
@@ -180,6 +181,7 @@ internal sealed class InputBudget(string label, TimeSpan timeout, TimeProvider? 
         }
 
         var pending = dispatch();
+        track(pending);
 
         // An input counts as sent only once its command was dispatched, so one that throws first is not.
         _sent = true;

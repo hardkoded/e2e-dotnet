@@ -102,6 +102,17 @@ public sealed class Device
     }
 
     /// <summary>
+    /// A locator from an agent-device selector (<c>"id=SW_VERSION_SPECIFIER"</c>, <c>"role=text label=\"26.2\""</c>), for nodes the closed
+    /// <c>screen</c> query vocabulary cannot name. Same polling and strictness as any locator. A selector agent-device cannot parse fails
+    /// when the locator resolves, as <c>ENGINE_FAILURE</c>.
+    /// </summary>
+    public Locator Locator(string selector)
+    {
+        ArgumentNullException.ThrowIfNull(selector);
+        return _session.FixtureContext.Locator(new LocatorExpression { Kind = "selector", Selector = selector });
+    }
+
+    /// <summary>
     /// Switches an Android device's Wi-Fi. Cellular data stays on, so an emulator hands the app over to its cellular
     /// link; <see cref="SetAirplaneModeAsync"/> with <c>true</c> cuts both. On iOS <see cref="NetworkState.Offline"/> is
     /// <c>UNSUPPORTED_CAPABILITY</c>, since a simulator shares the Mac's network and simctl can only repaint its status

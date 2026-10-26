@@ -93,10 +93,10 @@ internal sealed class Harness
     }
 
     /// <summary>Starts the worker of one slot, as its init does, with the environment the runner left.</summary>
-    public Task<DeviceSession> Boot(string targetName = "ios-simulator", int workerSlot = 0, IReadOnlyDictionary<string, string?>? env = null, string? artifactsDir = null, TimeSpan? actionTimeout = null) =>
+    public Task<DeviceSession> Boot(string targetName = "ios-simulator", int workerSlot = 0, IReadOnlyDictionary<string, string?>? env = null, string? artifactsDir = null, TimeSpan? actionTimeout = null, CancellationToken cancellationToken = default) =>
         Engine.StartAsync(
             new MobileStartInfo { RunId = "run-1", TargetName = targetName, WorkerSlot = workerSlot, ProjectRoot = ProjectRoot, Env = env ?? new Dictionary<string, string?>(), ArtifactsDir = artifactsDir, ActionTimeout = actionTimeout ?? E2EDefaults.ActionTimeout },
-            CancellationToken.None);
+            cancellationToken);
 
     /// <summary>The info the runner hands prepare.</summary>
     public MobilePrepareInfo PrepareInfo(int slots = 1, string targetName = "ios", Action<string>? log = null, IReadOnlyDictionary<string, string?>? env = null) => new()

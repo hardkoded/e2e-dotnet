@@ -101,7 +101,8 @@ public sealed record DeviceReleaseContext
 /// hands back the agent-device daemon that drives it. The engine acquires in prepare, drives each lease from its
 /// worker, and releases in finish, on every exit path. Nothing here knows any vendor.
 /// <para>
-/// Upstream also lets a provider record the device in place of agent-device. That part is not ported yet.
+/// A provider whose service records its devices records an attempt's video in place of agent-device, from the worker
+/// that drives the lease: see <see cref="RecordAsync"/>.
 /// </para>
 /// </summary>
 public interface IDeviceProvider
@@ -118,6 +119,74 @@ public interface IDeviceProvider
     Task<DeviceLease> AcquireAsync(DeviceRequest request, CancellationToken cancellationToken);
 
     Task ReleaseAsync(DeviceLease lease, DeviceReleaseContext context, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Records the leased device for an attempt that records video, in place of the engine's agent-device screen recording: the
+    /// service's own recording of the device, called from the worker when the attempt starts its video. A provider that cannot record
+    /// its devices answers with null, and the engine records with agent-device. <paramref name="lease"/> is the lease as it traveled
+    /// to the worker: its <see cref="DeviceLease.Id"/> and the other fields declared on <see cref="DeviceLease"/>, never what else the
+    /// provider kept on the object <see cref="AcquireAsync"/> returned. A <see cref="ProviderRecording"/>'s stop writes a file into the
+    /// directory it is given, or names a recording the service keeps by URL. Upstream's optional <c>record</c>, which a provider leaves out
+    /// to record nothing; the port's default answers null, as <see cref="IBrowserProvider.RecordAsync"/> does. Upstream's context carries the
+    /// attempt's <c>signal</c>; the port passes it as <paramref name="cancellationToken"/>.
+    /// </summary>
+    Task<ProviderRecording?> RecordAsync(DeviceLease lease, ProviderRecordContext context, CancellationToken cancellationToken) =>
+        Task.FromResult<ProviderRecording?>(null);
+}
+
+/// <summary>
+/// What upstream's <c>provider.ts</c> has as free functions: <c>travelledLease</c> and <c>recordLease</c>. C# has no free
+/// functions, so they are static members of this holder (.NET-only name).
+/// </summary>
+internal static class DeviceProviders
+{
+    /// <summary>
+    /// The lease a worker's binding stands for, as it traveled from the runner: its id and the fields <see cref="DeviceLease"/> declares,
+    /// never anything else the provider kept on the object acquire returned. Null for a binding no provider leased.
+    /// </summary>
+    public static DeviceLease? TravelledLease(SlotBinding? binding) =>
+        binding?.LeaseId is null
+            ? null
+            : new DeviceLease
+            {
+                Id = binding.LeaseId,
+                Device = binding.Device,
+                DeviceId = binding.DeviceId,
+                Daemon = binding.Daemon,
+                Client = binding.Client,
+                InstalledApp = binding.InstalledApp,
+            };
+
+    /// <summary>
+    /// Starts the provider's recording of a leased device for one attempt. A failure is named after the provider and the lease, and one
+    /// met once the token was cancelled is a cancellation. Null when the provider records nothing. Upstream's <c>recordLease</c>. Upstream
+    /// also refuses a recording without a <c>startedAt</c> and a <c>stop()</c>; <see cref="ProviderRecording"/> has both by type.
+    /// </summary>
+    public static async Task<ProviderRecording?> RecordLeaseAsync(IDeviceProvider provider, DeviceLease lease, ProviderRecordContext context, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            throw DeviceSupport.Cancelled($"recording from device provider \"{provider.Name}\" cancelled");
+        }
+
+        try
+        {
+            return await provider.RecordAsync(lease, context, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception cause)
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                throw DeviceSupport.Cancelled($"recording from device provider \"{provider.Name}\" cancelled");
+            }
+
+            throw new EngineException(
+                EngineErrorCodes.EngineFailure,
+                $"device provider \"{provider.Name}\" could not start recording: {DeviceErrors.Message(cause)} for lease {lease.Id}",
+                retryable: false,
+                cause);
+        }
+    }
 }
 
 /// <summary>
@@ -143,6 +212,9 @@ internal sealed class LeasedDevices(IDeviceProvider provider, MobilePlatform pla
     public int? Size => null;
 
     public IReadOnlyList<SlotBinding>? Fallback => null;
+
+    /// <summary>The provider whose service may record the devices it leases. Upstream's <c>recorder</c>, which is set only when the provider has <c>record</c>.</summary>
+    public IDeviceProvider Recorder => provider;
 
     public async Task<IReadOnlyList<SlotBinding>> BindAsync(MobilePrepareInfo info, CancellationToken cancellationToken)
     {

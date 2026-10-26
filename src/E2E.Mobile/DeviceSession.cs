@@ -16,7 +16,7 @@ namespace E2E.Mobile;
 /// space (one fresh generation per observation), the transition state, and every translation between the contract's
 /// vocabulary and agent-device's commands. The actions themselves are <see cref="DeviceActions"/>.
 /// </summary>
-public sealed partial class DeviceSession : IEngineSession
+public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 {
     /// <summary>
     /// The Apple runner defers a full snapshot after slow accessibility work and returns a sparse one-node tree.
@@ -34,6 +34,7 @@ public sealed partial class DeviceSession : IEngineSession
     private readonly string _projectRoot;
     private readonly string? _artifactsDir;
     private readonly Action<Observation>? _screenSink;
+    private readonly InflightCommands _inflight;
     private IDeviceClient? _client;
     private int _idCounter;
     private string? _appIdentity;
@@ -54,6 +55,11 @@ public sealed partial class DeviceSession : IEngineSession
         _binding = binding;
         _where = where;
         _client = client;
+        _inflight = engine.InflightOf(info.TargetName, info.WorkerSlot);
+        if (engine.Pool.Recorder is { } provider && DeviceProviders.TravelledLease(binding) is { } lease)
+        {
+            _leaseRecorder = new LeaseRecorder(provider, lease, info.RunId, info.TargetName, info.AttemptId, info.Env);
+        }
         InstalledApp = binding?.InstalledApp;
     }
 
@@ -94,6 +100,15 @@ public sealed partial class DeviceSession : IEngineSession
 
     private Device? _device;
 
+    private EngineFixtureContext? _fixtureContext;
+
+    /// <summary>What the harness hands the device fixture when the attempt starts: the locator <see cref="Device.Locator"/> mints with.</summary>
+    void IEngineFixtureHost.CreateFixtures(EngineFixtureContext context) => _fixtureContext = context;
+
+    /// <summary>The attempt's fixture context, or <c>INVALID_STATE</c> for a session no test harness started.</summary>
+    internal EngineFixtureContext FixtureContext =>
+        _fixtureContext ?? throw DeviceSupport.InvalidState("device.locator needs the attempt's test session: start the engine through a test, not on its own");
+
     /// <summary>The agent-device client of the live session, or <c>INVALID_STATE</c> once it closed.</summary>
     internal IDeviceClient Client => _client ?? throw DeviceSupport.InvalidState("the agent-device engine is not initialized");
 
@@ -105,6 +120,8 @@ public sealed partial class DeviceSession : IEngineSession
 
     internal static async Task<DeviceSession> StartAsync(MobileEngine engine, MobileStartInfo info, DeviceClientFactory createClient, CancellationToken cancellationToken)
     {
+        // Upstream's startAttempt: the commands an earlier attempt abandoned settle before anything of this one goes out.
+        await engine.InflightOf(info.TargetName, info.WorkerSlot).SettleAsync(cancellationToken).ConfigureAwait(false);
         var binding = engine.Pool.Binding(info.TargetName, info.WorkerSlot, info.Env);
         var session = engine.Pool.Session(info.TargetName, info.WorkerSlot);
         var label = DeviceBindings.DeviceLabel(binding);
@@ -152,11 +169,28 @@ public sealed partial class DeviceSession : IEngineSession
     public Task<T> CommandAsync<T>(string label, Func<IDeviceClient, CancellationToken, Task<T>> run, CancellationToken cancellationToken)
     {
         var client = Client;
-        return DeviceErrors.RunCommandAsync(label, token => run(client, token), cancellationToken, _where);
+        return DeviceErrors.RunCommandAsync(label, token => Track(run(client, token)), cancellationToken, _where);
     }
 
-    /// <summary>The budget one input runs under. Upstream's <c>inputBudget</c>, minus the in-flight tracking the port does not have.</summary>
-    internal InputBudget InputBudget(string label) => new(label, ActionTimeout, _engine.Clock);
+    /// <summary>The budget one input runs under. Its device commands stay in flight until they settle. Upstream's <c>inputBudget</c>.</summary>
+    internal InputBudget InputBudget(string label) => new(label, ActionTimeout, pending => Track(pending), _engine.Clock);
+
+    /// <summary>Registers one device command as in flight until it settles. Upstream's <c>track</c>.</summary>
+    internal Task<T> Track<T>(Task<T> pending)
+    {
+        _inflight.Track(pending);
+        return pending;
+    }
+
+    /// <summary>Registers one device command as in flight until it settles. Upstream's <c>track</c>.</summary>
+    internal Task Track(Task pending)
+    {
+        _inflight.Track(pending);
+        return pending;
+    }
+
+    /// <summary>Waits for every command an earlier attempt abandoned. Upstream's <c>settleInflight</c>.</summary>
+    internal Task SettleInflightAsync(CancellationToken cancellationToken) => _inflight.SettleAsync(cancellationToken);
 
     /// <summary>Sends an input under its operation's budget, or directly from a fixture call, which has none. Upstream's <c>sendInput</c>.</summary>
     internal static Task<T> SendInputAsync<T>(InputBudget? input, Func<Task<T>> dispatch, CancellationToken cancellationToken, TimeSpan? hold = null) =>
@@ -275,11 +309,16 @@ public sealed partial class DeviceSession : IEngineSession
         await CleanupBudget.WithinAsync(token => CloseQuietlyAsync(client, dangling, token), timeout, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task CloseQuietlyAsync(IDeviceClient client, ScreenRecording? dangling, CancellationToken cancellationToken)
+    private async Task CloseQuietlyAsync(IDeviceClient client, Recording? dangling, CancellationToken cancellationToken)
     {
         // The harness stops the video before it ends the attempt. A recording still marked belongs to an attempt cut
-        // short, or to a stop that failed, and the device must not keep recording into the next one.
-        if (dangling is not null)
+        // short, or to a stop that failed, and the device must not keep recording into the next one. A provider's
+        // recording whose start outlived its budget may still be landing: its stop waits for it.
+        if (dangling is LeaseRecording lease)
+        {
+            await StopLeaseQuietlyAsync(lease, cancellationToken).ConfigureAwait(false);
+        }
+        else if (dangling is not null)
         {
             await StopQuietlyAsync(client, cancellationToken).ConfigureAwait(false);
         }
@@ -481,6 +520,70 @@ public sealed partial class DeviceSession : IEngineSession
                     && Number(data["keyboard"]?["frame"]?["height"]) is { } frameHeight
                     ? new Rect(frameX, frameY, frameWidth, frameHeight)
                     : null);
+        }
+    }
+}
+
+/// <summary>
+/// Commands still running on a device. agent-device takes no abort signal, so a cancelled or timed-out call is only abandoned by its
+/// caller: it keeps executing. The next attempt waits for these to settle before it opens anything, so a ghost tap can never land in
+/// a retry. Upstream's <c>inflight</c> set, with its <c>track</c> and <c>settleInflight</c>, on the surface.
+/// </summary>
+internal sealed class InflightCommands
+{
+    private readonly HashSet<Task> _pending = [];
+
+    /// <summary>Registers one device command as in flight until it settles.</summary>
+    public void Track(Task pending)
+    {
+        lock (_pending)
+        {
+            _pending.Add(pending);
+        }
+
+        _ = pending.ContinueWith(
+            settled =>
+            {
+                // Read, so a command that fails after its caller gave up is not left unobserved.
+                _ = settled.Exception;
+                lock (_pending)
+                {
+                    _pending.Remove(settled);
+                }
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
+    /// <summary>
+    /// Waits for every abandoned command to settle, within the caller's budget. A command that never settles fails the attempt launch
+    /// instead of racing it: the launch timeout is the honest bound on a stuck device. Upstream's <c>settleInflight</c>.
+    /// </summary>
+    public async Task SettleAsync(CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            Task[] pending;
+            lock (_pending)
+            {
+                pending = [.. _pending];
+            }
+
+            if (pending.Length == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                var settled = pending.Select(task => task.ContinueWith(static _ => { }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default));
+                await Task.WhenAll(settled).WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw DeviceSupport.Cancelled("settling in-flight device commands cancelled");
+            }
         }
     }
 }

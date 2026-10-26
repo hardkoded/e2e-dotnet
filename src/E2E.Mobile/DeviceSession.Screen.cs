@@ -375,7 +375,7 @@ public sealed partial class DeviceSession
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await run(client, cancellationToken).WaitAsync(cancellationToken).ConfigureAwait(false);
+            await Track(run(client, cancellationToken)).WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception cause)
         {

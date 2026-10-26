@@ -18,6 +18,33 @@ public sealed class DeviceFixtureTests
             pinned,
             app => bundleId is null ? app : app with { BundleId = bundleId });
 
+    // .NET-only: upstream's engine.test.ts has no `it` for device.locator. The attempt's context reaches the fixture through IEngineFixtureHost,
+    // which upstream has as EngineFixtureContext handed to the engine's fixture factory.
+    [Fact]
+    public async Task Mints_a_locator_from_an_agent_device_selector_on_the_attempts_screen()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        var cold = Assert.Throws<EngineException>(() => session.Device.Locator("id=ABOUT"));
+        Assert.Equal("INVALID_STATE", cold.Code);
+        var screen = new Screen(
+            session.ObserveAsync,
+            session.PerformAsync,
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromSeconds(5),
+            locate: session.LocateAsync);
+        ((IEngineFixtureHost)session).CreateFixtures(new EngineFixtureContext(screen));
+
+        var about = session.Device.Locator("id=ABOUT").First();
+        Assert.Equal(1, await about.CountAsync());
+        Assert.Equal(0, await session.Device.Locator("id=NOPE").CountAsync());
+        Assert.Equal(1, await session.Device.Locator("id=NOPE || label=\"About\"").First().CountAsync());
+        await about.TapAsync();
+        JsonAssert.Args("""{"ref":"@e4","settle":true,"settleQuietMs":150}""", h.Fake.LastArgs("interactions.press"));
+    }
+
     [Fact]
     public async Task Counts_a_back_home_alert_keyboard_rotation_or_fold_as_an_action_so_a_control_that_arrives_with_it_waits_out_the_transition_budget()
     {
