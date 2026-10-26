@@ -822,7 +822,7 @@ public sealed partial class WebEngine : IEngine
             TimezoneId = options.TimezoneId,
         };
 
-        // On the context too, so a tab the app opens itself paints with the configured values before the session reaches it.
+        // On the context too, so a tab the app opens itself starts with the configured values before the session reaches it.
         ConfiguredMedia(options).ApplyTo(context);
         if (options.UserAgent is not null)
         {
@@ -1527,8 +1527,8 @@ public sealed partial class WebEngine : IEngine
         private Task ApplyMediaAsync(IPage page) => _media.IsEmpty ? Task.CompletedTask : page.EmulateMediaAsync(_media.ToPageOptions());
 
         // Emulates the attempt's media on each tab as it appears, so a tab the app opens itself follows a test's change
-        // too, on a persistent context as well, where the engine sets no context options. It paints with the context's
-        // configured values first: Playwright emulates per page, so a test's change reaches it once it exists. A tab the
+        // too, on a persistent context as well, where the engine sets no context options. Playwright emulates per page, so
+        // a test's change reaches it once it exists: its scripts may read the context's configured values until then. A tab the
         // attempt opens awaits the same work in NewPageAsync; a tab the app opens is not awaited.
         private void WatchPages(IBrowserContext context)
         {

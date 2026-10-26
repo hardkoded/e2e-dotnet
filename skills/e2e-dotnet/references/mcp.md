@@ -85,6 +85,8 @@ Every fixed tool takes only the arguments it declares. An unknown one fails
 before anything runs, with `Invalid arguments for tool <name>: Unrecognized
 key: "<key>"`.
 
+A queued call cancelled by the client does not execute when its turn arrives.
+
 Resources: `e2e://guide` is the skill overview, and `e2e://guide/<topic>`
 holds one topic (`e2e guide <topic>` prints the same text). An unknown topic fails with
 `UNKNOWN_TOPIC`.
