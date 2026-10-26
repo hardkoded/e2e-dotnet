@@ -35,6 +35,10 @@ the inventory and before writing any code.
 | Playwright or Cypress (Node) | `playwright.config.*`, `cypress.config.*`, a `cypress/` folder | `setup` (web) |
 | Appium, Detox, Maestro | `Appium.WebDriver` in a `.csproj`, `.detoxrc*`, YAML flows opening with `appId:` and `---` | `mobile` |
 
+Also read `writing-tests-nunit` when the e2e project uses NUnit, or
+`writing-tests-xunit` when it uses xUnit v3. Follow the source project's
+framework when it is a .NET one; otherwise ask the user.
+
 No guide maps a runner's API to e2e. Use the e2e skill's `writing-tests`
 topics and the locator table in `setup`, and tell the user the mapping is
 by hand. A project with two source runners migrates one at a time, one
@@ -83,7 +87,10 @@ and record the answer as `Defect check: on` or `off`.
 The harness is the config, the app launch, and one green test. It is done
 once and the progress file says so; later sessions skip this step.
 
-1. No e2e test project: create one (topic `setup`): add `E2E.NUnit` or
+1. No e2e test project: create one (topic `setup`), in a new folder beside
+   the old suite, or at the repo root of a Node-only repo (`e2e/` next to
+   its `package.json`, with the .NET project inside), and run it in CI as its
+   own `dotnet test` step: add `E2E.NUnit` or
    `E2E.XUnit.V3` (`E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3` on a device
    project), write `e2e.config.json`, and add one example test. Delete or
    rewrite the example. One target per platform or browser the source suite
@@ -104,8 +111,10 @@ once and the progress file says so; later sessions skip this step.
      data. A seed helper that references the app's own code is reused, not
      rewritten.
    - Env values become constants or `Environment.GetEnvironmentVariable`
-     reads; passwords and tokens go under `credentials` (topic `setup`),
-     never in a test.
+     reads. A login account is not written in a test or in the config:
+     set `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD` in the
+     environment and read it with `Credentials.User(name)` (topic `setup`).
+     The config has no `credentials` key.
 4. Port the simplest source test, often the sign-in or the launch, as the
    smoke test. It must pass on every target before any other port. When it
    cannot, the harness is wrong, not the test: fix the harness.
@@ -179,10 +188,11 @@ wizard. Pin the outcome right after with a locator assertion (topic `agent`).
 
 A port is done when it is as strict as the source and passes every time.
 
-1. Run it on every target the source covered, three times, with
-   `dotnet test --filter` on the test (topic `running`). Repeat with the
-   replay cache off when it has agent steps. Three of three on each target,
-   or it is not done.
+1. Run it on every target the source covered, three times in a row, with
+   `dotnet test --filter` on the test (topic `running`); the port has no
+   `--repeat-each`. When it has agent steps, also run it once with
+   `"cache": { "mode": "off" }` in `e2e.config.json` (topic `agent`), then set
+   the mode back. Three of three on each target, or it is not done.
 2. When the old suite can run here, run the source test on the same build.
    A failure both runners show is an app or environment bug: report it, do
    not port around it. A failure only e2e shows is the port's.
@@ -298,5 +308,5 @@ or changed.
 - One sentence from the e2e skill beats a paragraph of your own. Name the
   topic.
 - Never put a secret in a test, the config, or the progress file. Name the
-  credential (topic `setup`).
+  `E2E_USER_<NAME>_*` variables (topic `setup`).
 - Do not commit on the user's behalf.

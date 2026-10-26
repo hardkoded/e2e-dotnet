@@ -19,7 +19,7 @@ The test runner needs the .NET SDK and Node 22.12 or newer. For Android, put `ad
 
 ## Configure a target
 
-Set `Provider` on `MobileOptions` and point the app at your build:
+A test class that derives from `MobileAppTest` (see [Mobile](../get-started/mobile.md)) builds its `MobileOptions` in `CreateMobileOptions(IDeviceProvider? provider)`. Set `Provider` and point the app at your build:
 
 ```csharp
 using E2E.Limrun;
