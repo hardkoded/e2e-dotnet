@@ -63,8 +63,8 @@ spawns `app.command` and polls `app.readyUrl` (default `app.url`) for a 200 to
 and it stops when the test process ends. Never ready is `APP_UNREACHABLE`, with
 the last lines of `log` quoted. A `url` answering before the spawn is
 `APP_ALREADY_RUNNING` unless `reuseExisting` is `true` (CI ignores it). The
-process gets only `PATH`, the temp variables, `command.env`, and the host
-variables `inheritEnv` names. A `url` on port `0` (`http://127.0.0.1:0`, or
+process gets only `PATH`, `HOME`, the temp variables, `SystemRoot` and
+`COMSPEC`, `command.env`, and the host variables `inheritEnv` names. A `url` on port `0` (`http://127.0.0.1:0`, or
 `[::1]:0`) takes a free port, which `{port}` carries into `args`, `env`, and
 `readyUrl`; port `0` needs a `command`. Topic `setup` has the full rules.
 

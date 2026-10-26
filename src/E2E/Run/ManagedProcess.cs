@@ -601,7 +601,9 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
 
     /// <summary>A URL as a message shows it: without userinfo, query, or fragment, which may hold a token.</summary>
     private static string Shown(string url) =>
-        Uri.TryCreate(url, UriKind.Absolute, out var parsed) ? parsed.GetLeftPart(UriPartial.Path) : "the readiness URL";
+        Uri.TryCreate(url, UriKind.Absolute, out var parsed)
+            ? parsed.GetComponents(UriComponents.SchemeAndServer | UriComponents.Path, UriFormat.UriEscaped)
+            : "the readiness URL";
 
     private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;
 
