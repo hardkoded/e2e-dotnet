@@ -69,7 +69,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         {
             if (message.ToolCalls is { Count: > 0 })
             {
-                var parts = new JsonArray();
+                var parts = Reasoning(message);
                 if (!string.IsNullOrEmpty(message.Content))
                 {
                     parts.Add(new JsonObject { ["text"] = message.Content });
@@ -119,7 +119,8 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             else
             {
                 var role = string.Equals(message.Role, "assistant", StringComparison.Ordinal) ? "model" : "user";
-                var parts = new JsonArray { new JsonObject { ["text"] = message.Content ?? "" } };
+                var parts = Reasoning(message);
+                parts.Add(new JsonObject { ["text"] = message.Content ?? "" });
                 foreach (var image in ModelHttp.UserImages(message))
                 {
                     parts.Add(new JsonObject
@@ -159,6 +160,21 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         return payload;
     }
 
+    // The thought parts of an earlier turn go back as they came, signature included, ahead of its text and function calls.
+    private static JsonArray Reasoning(ModelMessage message)
+    {
+        var parts = new JsonArray();
+        if (string.Equals(message.Role, "assistant", StringComparison.Ordinal))
+        {
+            foreach (var item in message.ReasoningItems ?? [])
+            {
+                parts.Add(JsonNode.Parse(item.GetRawText()));
+            }
+        }
+
+        return parts;
+    }
+
     private static void Append(JsonArray contents, string role, JsonArray parts)
     {
         if (contents.Count > 0 && contents[^1]?["role"]?.GetValue<string>() == role && contents[^1]?["parts"] is JsonArray previous)
@@ -179,6 +195,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
     {
         var text = new List<string>();
         var calls = new List<ModelToolCall>();
+        var reasoning = new List<JsonElement>();
         if (root.TryGetProperty("candidates", out var candidates) && candidates.ValueKind == JsonValueKind.Array && candidates.GetArrayLength() > 0
             && candidates[0].TryGetProperty("content", out var content) && content.TryGetProperty("parts", out var parts))
         {
@@ -201,7 +218,19 @@ public sealed class GoogleModel : IAgentModel, IDisposable
                         Arguments = call.TryGetProperty("args", out var args) && args.ValueKind == JsonValueKind.Object ? args.Clone() : ModelHttp.Arguments(null),
                     });
                 }
-                else if (part.TryGetProperty("text", out var value) && !(part.TryGetProperty("thought", out var thought) && thought.ValueKind == JsonValueKind.True))
+                else if (part.TryGetProperty("thought", out var thought) && thought.ValueKind == JsonValueKind.True)
+                {
+                    // A thought summary, with the signature that lets Gemini recognize it when it comes back.
+                    var item = new JsonObject { ["text"] = ModelHttp.OptionalString(part, "text") ?? "", ["thought"] = true };
+                    if (ModelHttp.OptionalString(part, "thoughtSignature") is { } thoughtSignature)
+                    {
+                        item["thoughtSignature"] = thoughtSignature;
+                    }
+
+                    using var document = JsonDocument.Parse(item.ToJsonString());
+                    reasoning.Add(document.RootElement.Clone());
+                }
+                else if (part.TryGetProperty("text", out var value))
                 {
                     text.Add(value.GetString() ?? "");
                 }
@@ -224,7 +253,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         var blocked = finish is null && root.TryGetProperty("promptFeedback", out var feedback) ? ModelHttp.OptionalString(feedback, "blockReason") : null;
         if (blocked is not (null or "" or "BLOCK_REASON_UNSPECIFIED" or "BLOCKED_REASON_UNSPECIFIED"))
         {
-            return new ModelResponse { Content = text.Count == 0 ? null : string.Concat(text), ToolCalls = calls, Usage = usage, FinishReason = ModelResponse.ContentFilter, RawFinishReason = blocked };
+            return new ModelResponse { Content = text.Count == 0 ? null : string.Concat(text), ToolCalls = calls, Usage = usage, ReasoningItems = reasoning, FinishReason = ModelResponse.ContentFilter, RawFinishReason = blocked };
         }
 
         return new ModelResponse
@@ -232,6 +261,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             Content = text.Count == 0 ? null : string.Concat(text),
             ToolCalls = calls,
             Usage = usage,
+            ReasoningItems = reasoning,
             FinishReason = ModelHttp.FinishReason(finish, "SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "IMAGE_SAFETY"),
             RawFinishReason = finish,
         };

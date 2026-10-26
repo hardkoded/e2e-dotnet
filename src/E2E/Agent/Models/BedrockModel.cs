@@ -81,7 +81,7 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         {
             if (message.ToolCalls is { Count: > 0 })
             {
-                var content = new JsonArray();
+                var content = Reasoning(message);
                 if (!string.IsNullOrEmpty(message.Content))
                 {
                     content.Add(new JsonObject { ["text"] = message.Content });
@@ -119,7 +119,8 @@ public sealed class BedrockModel : IAgentModel, IDisposable
             else
             {
                 var role = string.Equals(message.Role, "assistant", StringComparison.Ordinal) ? "assistant" : "user";
-                var content = new JsonArray { new JsonObject { ["text"] = string.IsNullOrEmpty(message.Content) ? "(empty)" : message.Content } };
+                var content = Reasoning(message);
+                content.Add(new JsonObject { ["text"] = string.IsNullOrEmpty(message.Content) ? "(empty)" : message.Content });
                 foreach (var image in ModelHttp.UserImages(message))
                 {
                     content.Add(new JsonObject
@@ -166,6 +167,21 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         return payload;
     }
 
+    // The reasoning blocks of an earlier turn go back as they came, signature and redacted data included, ahead of its text and tool calls.
+    private static JsonArray Reasoning(ModelMessage message)
+    {
+        var blocks = new JsonArray();
+        if (string.Equals(message.Role, "assistant", StringComparison.Ordinal))
+        {
+            foreach (var item in message.ReasoningItems ?? [])
+            {
+                blocks.Add(new JsonObject { ["reasoningContent"] = JsonNode.Parse(item.GetRawText()) });
+            }
+        }
+
+        return blocks;
+    }
+
     private static void Append(JsonArray messages, string role, JsonArray content)
     {
         if (messages.Count > 0 && messages[^1]?["role"]?.GetValue<string>() == role && messages[^1]?["content"] is JsonArray previous)
@@ -186,9 +202,14 @@ public sealed class BedrockModel : IAgentModel, IDisposable
     {
         var text = new List<string>();
         var calls = new List<ModelToolCall>();
+        var reasoning = new List<JsonElement>();
         foreach (var block in root.GetProperty("output").GetProperty("message").GetProperty("content").EnumerateArray())
         {
-            if (block.TryGetProperty("text", out var value))
+            if (block.TryGetProperty("reasoningContent", out var thinking) && thinking.ValueKind == JsonValueKind.Object)
+            {
+                reasoning.Add(thinking.Clone());
+            }
+            else if (block.TryGetProperty("text", out var value))
             {
                 text.Add(value.GetString() ?? "");
             }
@@ -223,6 +244,7 @@ public sealed class BedrockModel : IAgentModel, IDisposable
             Content = text.Count == 0 ? null : string.Concat(text),
             ToolCalls = calls,
             Usage = usage,
+            ReasoningItems = reasoning,
             FinishReason = ModelHttp.FinishReason(stop, "guardrail_intervened", "content_filtered"),
             RawFinishReason = stop,
         };

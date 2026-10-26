@@ -9,8 +9,8 @@ using E2E.Internal;
 
 namespace E2E.Tests.AgentConfig;
 
-// Upstream's retry case has no port: the port has no transport retries (see COMPATIBILITY.md, Models). The port has no
-// CANCELLED code: an aborted attempt surfaces as the cancellation of its token.
+// The port has no CANCELLED code: an aborted attempt surfaces as the cancellation of its token. The retry case runs without
+// fake timers: the scripted 503 answers carry retry-after-ms: 0, which the retry honors, so no backoff is waited out.
 public sealed class ModelErrorClassificationTests
 {
     [Fact]
@@ -44,6 +44,21 @@ public sealed class ModelErrorClassificationTests
         Assert.Equal(1, handler.Attempts);
     }
 
+    [Fact]
+    public async Task Retries_a_retryable_provider_failure_and_reports_the_underlying_cause()
+    {
+        var handler = new CountingHandler(HttpStatusCode.ServiceUnavailable, "provider said no", retryAfterMs: "0");
+        using var http = new HttpClient(handler);
+        using var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "always-fails", ApiKey = "key", BaseUrl = "https://provider.test/v1" }, http);
+        var request = new ModelRequest { System = "s", Messages = [new ModelMessage { Role = "user", Content = "p" }], Tools = [], Redactor = Redactor.None };
+
+        var error = await Assert.ThrowsAsync<AgentException>(() => model.CompleteAsync(request, CancellationToken.None));
+
+        Assert.Equal("MODEL_PROVIDER_FAILED", error.Code);
+        Assert.Contains("provider said no", error.Message, StringComparison.Ordinal);
+        Assert.Equal(ModelHttp.TransportRetries + 1, handler.Attempts);
+    }
+
     private static Task<E2ESession> StartAsync(IAgentModel model, CancellationToken cancellationToken)
     {
         return E2ESession.StartAsync(
@@ -68,14 +83,20 @@ public sealed class ModelErrorClassificationTests
         }
     }
 
-    private sealed class CountingHandler(HttpStatusCode status, string body) : HttpMessageHandler
+    private sealed class CountingHandler(HttpStatusCode status, string body, string? retryAfterMs = null) : HttpMessageHandler
     {
         public int Attempts { get; private set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Attempts++;
-            return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, "text/plain") });
+            var response = new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, "text/plain") };
+            if (retryAfterMs is not null)
+            {
+                response.Headers.TryAddWithoutValidation("retry-after-ms", retryAfterMs);
+            }
+
+            return Task.FromResult(response);
         }
     }
 }

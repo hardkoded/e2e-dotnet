@@ -94,30 +94,54 @@ internal static class ModelHttp
     public static async Task<string> SendAsync(HttpClient http, HttpRequestMessage message, Redactor redactor, CancellationToken cancellationToken)
     {
         ModelEndpoint.AddHeaders(message, RequestHeaders);
-        HttpResponseMessage response;
-        try
+        // A request message can be sent once, so each attempt sends a copy of the same bytes.
+        var payload = message.Content is null ? null : await message.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        var backoff = InitialRetryDelay;
+        for (var retry = 0; ; retry++)
         {
-            response = await http.SendAsync(message, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            throw new AgentException("MODEL_PROVIDER_FAILED", "The model request got no response within 120 seconds.");
-        }
-        catch (HttpRequestException ex)
-        {
-            throw new AgentException("MODEL_PROVIDER_FAILED", "The model provider could not be reached.", ex);
-        }
-        catch (OAuth.OAuthException ex)
-        {
-            // A missing or rejected subscription login stops the step; signing in again is the remedy.
-            throw new AgentException("MODEL_PROVIDER_FAILED", "The subscription login failed (" + ex.Code + "): " + ex.Message, blocked: true, ex);
-        }
-
-        using (response)
-        {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
+            using var attempt = CopyRequest(message, payload);
+            HttpResponseMessage response;
+            try
             {
+                response = await http.SendAsync(attempt, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new AgentException("MODEL_PROVIDER_FAILED", "The model request got no response within 120 seconds.");
+            }
+            catch (HttpRequestException ex)
+            {
+                // The AI SDK retries a fetch that failed before an answer (a refused or reset connection).
+                if (retry < TransportRetries)
+                {
+                    await Task.Delay(backoff, cancellationToken).ConfigureAwait(false);
+                    backoff *= RetryBackoffFactor;
+                    continue;
+                }
+
+                throw new AgentException("MODEL_PROVIDER_FAILED", "The model provider could not be reached.", ex);
+            }
+            catch (OAuth.OAuthException ex)
+            {
+                // A missing or rejected subscription login stops the step; signing in again is the remedy.
+                throw new AgentException("MODEL_PROVIDER_FAILED", "The subscription login failed (" + ex.Code + "): " + ex.Message, blocked: true, ex);
+            }
+
+            using (response)
+            {
+                var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                if (response.IsSuccessStatusCode)
+                {
+                    return body;
+                }
+
+                if (retry < TransportRetries && IsRetryableStatus((int)response.StatusCode))
+                {
+                    await Task.Delay(RetryDelay(response, backoff), cancellationToken).ConfigureAwait(false);
+                    backoff *= RetryBackoffFactor;
+                    continue;
+                }
+
                 var failure = FailureText(response, body, redactor);
                 // A request too big is not an outage: the step's observations are what must shrink, and the code says so.
                 if (ContextOverflow.DescribesOverflow((int)response.StatusCode, null, body))
@@ -131,9 +155,77 @@ internal static class ModelHttp
                     ProviderErrorCode = ErrorCode(body),
                 };
             }
-
-            return body;
         }
+    }
+
+    /// <summary>
+    /// Upstream's <c>TRANSPORT_RETRIES</c> (<c>agent/model/sdk.ts</c>): how many times a model request is sent again after a retryable
+    /// failure, so a request is sent at most six times. The AI SDK's own default is 2. Cancelling the call, or the step's deadline
+    /// through its token, ends the wait between attempts.
+    /// </summary>
+    internal const int TransportRetries = 5;
+
+    /// <summary>The AI SDK's first backoff: 2 seconds, doubled for each retry.</summary>
+    private static readonly TimeSpan InitialRetryDelay = TimeSpan.FromSeconds(2);
+
+    private const int RetryBackoffFactor = 2;
+
+    /// <summary>The AI SDK retries the statuses a provider marks retryable: 408, 409, 429, and every 5xx.</summary>
+    private static bool IsRetryableStatus(int status) => status is 408 or 409 or 429 or >= 500;
+
+    /// <summary>
+    /// The AI SDK's <c>getRetryDelayInMs</c>: the provider's <c>retry-after-ms</c>, else its <c>retry-after</c> (seconds or an HTTP date),
+    /// when it is not negative and under a minute (or under the backoff); otherwise the exponential backoff.
+    /// </summary>
+    private static TimeSpan RetryDelay(HttpResponseMessage response, TimeSpan backoff)
+    {
+        double? retryAfterMs = null;
+        if (response.Headers.TryGetValues("retry-after-ms", out var millis) && double.TryParse(millis.FirstOrDefault(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedMs))
+        {
+            retryAfterMs = parsedMs;
+        }
+
+        if (retryAfterMs is null && response.Headers.TryGetValues("retry-after", out var after))
+        {
+            var value = after.FirstOrDefault();
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds))
+            {
+                retryAfterMs = seconds * 1000;
+            }
+            else if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+            {
+                retryAfterMs = (date - DateTimeOffset.UtcNow).TotalMilliseconds;
+            }
+        }
+
+        return retryAfterMs is { } ms && double.IsFinite(ms) && ms >= 0 && (ms < 60_000 || ms < backoff.TotalMilliseconds)
+            ? TimeSpan.FromMilliseconds(ms)
+            : backoff;
+    }
+
+    private static HttpRequestMessage CopyRequest(HttpRequestMessage message, byte[]? payload)
+    {
+        var copy = new HttpRequestMessage(message.Method, message.RequestUri) { Version = message.Version, VersionPolicy = message.VersionPolicy };
+        foreach (var header in message.Headers)
+        {
+            copy.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        }
+
+        foreach (var option in message.Options)
+        {
+            ((IDictionary<string, object?>)copy.Options)[option.Key] = option.Value;
+        }
+
+        if (payload is not null)
+        {
+            copy.Content = new ByteArrayContent(payload);
+            foreach (var header in message.Content!.Headers)
+            {
+                copy.Content.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            }
+        }
+
+        return copy;
     }
 
     /// <summary>The <c>error.code</c> a JSON error body carries when it is a short string; null for any other body.</summary>

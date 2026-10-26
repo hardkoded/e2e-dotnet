@@ -202,6 +202,8 @@ model fields upstream measures (`peakTokensPerCall` reads 0). A judgment step's
 
 | Code | Usual cause | Fix |
 | --- | --- | --- |
+| `MODEL_PROVIDER_FAILED` with a network error, 408, 409, 429, or 5xx | The provider failed after the transport retries: up to 5 per model call, honoring `retry-after`, within the step's remaining timeout | Check the provider's status and your quota, then run again (exit 3) |
+| `MODEL_PROVIDER_FAILED` with "no response within 120 seconds" | The provider sent no answer in 120 s. This failure is not retried | Check the provider's status, then run again (exit 3) |
 | `MODEL_PROVIDER_FAILED` with 401, "x-api-key header is required", or "You didn't provide an API key" | No key reached the provider | Set the provider's variable. Remove a stale `apiKeyEnv` |
 | `MODEL_PROVIDER_FAILED` with 400 "not scoped to a workspace" | An Anthropic user key (`sk-ant-usr-`) | Use a workspace key, or `provider: copilot` |
 | `MODEL_PROVIDER_FAILED` with "The subscription login failed (NOT_LOGGED_IN)" or `LOGIN_REQUIRED` | No login is stored, or it was rejected | `e2e login <provider>` |
