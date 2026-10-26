@@ -110,7 +110,7 @@ public sealed class BillingTests : E2ETest
    after a network failure or a 408, 409, 429, or 5xx answer (waiting the
    provider's `retry-after` when it asks for under a minute, otherwise 2 s
    doubled each time), and only then fails with `MODEL_PROVIDER_FAILED`.
-   A Bedrock request is signed again for every attempt, so a long wait does
+   A SigV4-signed Bedrock request (AWS credentials, not a Bedrock API key) is signed again for every attempt, so a long wait does
    not end in `RequestExpired`.
 5. When it fails, fix it from what the run recorded (next section).
 
