@@ -1013,9 +1013,15 @@ public sealed partial class WebEngine : IEngine
 
         })));
 
-        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => RunAsync("observe", cancellationToken, async () =>
+        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => ObserveAsync(cancellationToken, null);
+
+        // The least a locate's read is given, so the last poll of a wait at its deadline still reads the page and the wait fails on what it saw.
+        private static readonly TimeSpan MinLocateRead = TimeSpan.FromMilliseconds(500);
+
+        // A locate reads under what is left of its wait, never longer than the action timeout an observation has.
+        private Task<Observation> ObserveAsync(CancellationToken cancellationToken, TimeSpan? timeout) => RunAsync("observe", cancellationToken, async () =>
         {
-            var budget = Budget("observe", cancellationToken);
+            var budget = Budget("observe", cancellationToken, timeout is { } left && left < _actionTimeout ? TimeSpan.FromMilliseconds(Math.Max(left.TotalMilliseconds, MinLocateRead.TotalMilliseconds)) : null);
             var walk = new FrameWalk();
             List<WebNode> roots;
             try
@@ -1039,12 +1045,12 @@ public sealed partial class WebEngine : IEngine
         /// Resolves a locator against the page as it is now, in the engine: it reads the semantic tree and resolves the expression over
         /// it, so every match is a node of that observation and keeps the ref the page script minted. Upstream's <c>locate</c>
         /// (<c>surface.ts</c>) resolves with Playwright selectors instead; the port's page script is the reader of the page, so the
-        /// resolve is the tree's. <paramref name="timeout"/> is not used: the read runs under the action timeout, as an observation does.
+        /// resolve is the tree's. <paramref name="timeout"/> is the budget left for the wait: the read runs under it, or under the action timeout when that is shorter.
         /// </summary>
         public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(expression);
-            var observation = await ObserveAsync(cancellationToken).ConfigureAwait(false);
+            var observation = await ObserveAsync(cancellationToken, timeout).ConfigureAwait(false);
             _trace?.ShowScreen(observation);
             return LocatorResolver.Resolve(observation, expression, expression.IncludeHidden);
         }
