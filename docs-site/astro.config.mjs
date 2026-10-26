@@ -66,6 +66,8 @@ export default defineConfig({
                         { label: "WinApp benchmark", slug: "samples/winapp-benchmark" },
                     ],
                 },
+                { label: "Coding agents", slug: "coding-agents" },
+                { label: "Integrations", items: [{ label: "Limrun", slug: "integrations/limrun" }] },
                 { label: "Guide", slug: "guide" },
                 {
                     label: "API",

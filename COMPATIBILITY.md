@@ -120,7 +120,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 
 - The `e2e` command-line tool apart from `login`, `logout`, `models`, `guide`, and `mcp`: the custom runner, `[E2ETest]` discovery, `--grep`, `test.only`, and the JSON report
 - `@e2e-dev/mobile` apart from its snapshot model and engine (see [Mobile snapshot model](#mobile-snapshot-model) and [Mobile engine](#mobile-engine)), `@e2e-dev/github`
-- `e2e init`, `e2e upgrade`, the update notice, `e2e run --watch`, `e2e run --max-duration` and `maxDuration`, `e2e feedback`, and upstream's Claude and Codex plugins (`plugins/e2e`, `.claude-plugin`). The port has no runner, and ships its skill with `npx skills add`
+- `e2e init` (see [Coding agents](#coding-agents)), `e2e upgrade`, the update notice, `e2e run --watch`, `e2e run --max-duration` and `maxDuration`, `e2e feedback`, and upstream's Claude and Codex plugins (`plugins/e2e`, `.claude-plugin`). The port has no runner, and ships its skill with `npx skills add`
 - The other upstream packages and what they do: see [Upstream packages](#upstream-packages)
 - Vision on `act` (the screenshot and point tools). `app.screenshot()` is not ported either. Video is ported on the web engine and on `MobileEngine` with agent-device's own recording: see [Video](#video). Vision on judgments is ported: see [Agents](#agents). `ToHaveScreenshotAsync` is: see [Visual comparison](#visual-comparison)
 - Parallel workers and serial suites
@@ -232,7 +232,17 @@ Upstream's `4982d8d` (#1333) documents that the browser engine's semantic tree l
 - The example under `references/example/` is `verify-todomvc` for `samples/TodoMvc`, in place of `verify-playground` for upstream's `apps/testbed`, which the port does not have. It has three features (adding, completing, filtering), not the playground's three (todos, forms, login).
 - Upstream added no tests for this skill, so none are ported.
 
-Upstream's third skill, `migrate-to-e2e` (`e6885dc`, `6609428`: move a suite one slice at a time), is not ported. It moves a Playwright, Cypress, Selenium, Detox, or Maestro suite to e2e beside the old one, with a `MIGRATION.md` progress file. The port has no .NET counterpart.
+`skills/migrate-to-e2e/` ports upstream's third skill (`e6885dc`, `feat(skills): add migrate-to-e2e (#1109)`, and `6609428`). Install it with `npx skills add hardkoded/e2e-dotnet --skill migrate-to-e2e`; like upstream, it is not bundled in `E2E.Cli`. Differences:
+
+- The source runners are Playwright .NET, Selenium .NET, and Appium, with upstream's Node ones (Playwright, Cypress, Detox, Maestro) kept. The e2e side is an NUnit or xUnit v3 test project run with `dotnet test`, in place of `e2e.config.ts`, `*.e2e.ts` files, `npx e2e init`, `e2e run --repeat-each 3`, and `e2e list`.
+- Not ported: upstream's migration guides (`docs/migrate/*.mdx`) and the edits to them in `e6885dc`. The port has no such guides, so the skill reads the `e2e-dotnet` skill's topics, and the hand-over offers an issue at `hardkoded/e2e-dotnet` in place of `e2e feedback`.
+- Not ported: the plugin copy (`plugins/e2e/skills/migrate-to-e2e`), since the port has no plugin; the `AGENTS.md` and `CONTRIBUTING.md` lines about it map to `CONTRIBUTING.md` here.
+- Upstream added no tests for this skill, so none are ported.
+- `docs-site/src/content/docs/coding-agents.mdx` ports upstream's `docs/coding-agents.mdx` for the commands the port has.
+
+## Coding agents
+
+Not ported: `e2e init`, which scaffolds the config, installs the skill into `.agents/skills` and `.claude/skills`, registers the MCP server, and adds a `test:e2e` script. The port installs the skill with `npx skills add hardkoded/e2e-dotnet` and registers the MCP server with `claude mcp add e2e -- e2e mcp`. The bug-bash config (`e2e.bugbash.config.ts`) and its fan-out are not ported either: see [Verification skill](#verification-skill).
 
 ## MobileAppTest (not in upstream)
 
@@ -303,7 +313,7 @@ Upstream's third skill, `migrate-to-e2e` (`e6885dc`, `6609428`: move a suite one
 - Upstream pins agent-device as a dependency of `@e2e-dev/limrun`, at the engine's version (0.21.29), and checks that the installed one matches. The port always starts the pinned release (`AgentDeviceVersion.Pinned`), so nothing is installed by hand. It only checks that the engine asked for that release, and the daemon's own version check runs when it starts.
 - The lease request leaves out `providerCredentialFingerprint`. The daemon only compares it with the credentials of a daemon that was already running, and the port starts a fresh daemon with the right credentials for every device.
 - Options are the `LimrunSimulatorsOptions` record, with enums for the device models, so an unknown option is a compile error and upstream's `rejectUnknownKeys` has no counterpart.
-- Upstream's Limrun page (`docs/integrations/limrun.mdx`) and its `examples/with-limrun` app-flow example are not ported. The port documents the provider in the skill's `setup` reference, and `samples/MobileApp` is its mobile example.
+- Upstream's Limrun page (`docs/integrations/limrun.mdx`) is ported as `docs-site/src/content/docs/integrations/limrun.mdx`, with the port's C# names. Its `examples/with-limrun` app-flow example is not ported: `samples/MobileApp` is the port's mobile example.
 - Not verified against a live service: the lease wire format was read from agent-device's code (the `agent_device.lease.*` methods and their params in the daemon, and the client that writes them), and Limrun's REST calls from the `@limrun/api` 0.59.0 source. No test reaches Limrun or a daemon.
 
 ## Kernel
