@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json",
+  "metadata": [
+    {
+      "src": [
+        {
+          "src": "..",
+          "files": [
+            "src/E2E/E2E.csproj",
+            "src/E2E.NUnit/E2E.NUnit.csproj",
+            "src/E2E.XUnit.V3/E2E.XUnit.V3.csproj"
+          ]
+        }
+      ],
+      "dest": ".api-yaml",
+      "includePrivateMembers": false,
+      "disableDefaultFilter": false,
+      "memberLayout": "samePage",
+      "properties": {
+        "TargetFramework": "net10.0"
+      }
+    }
+  ]
+}
