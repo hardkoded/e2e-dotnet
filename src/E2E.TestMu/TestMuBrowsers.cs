@@ -20,7 +20,6 @@ namespace E2E.TestMu;
 public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBrowserProvider
 {
     private const string Endpoint = "wss://cdp.lambdatest.com/playwright";
-    private const string DefaultProject = "e2e";
 
     // The hub refuses a session without a platform.
     private const string DefaultPlatform = "Windows 11";
@@ -40,8 +39,8 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
     public Task<BrowserLease> AcquireAsync(BrowserRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var (user, accessKey) = Credentials(request.Env);
-        var name = DefaultSessionName(request);
+        var (user, accessKey) = TestMuCredentials.Get(request.Env);
+        var name = Dashboard.DefaultSessionName(request);
         // The id is the session's name: the access key is in the endpoint, and the id is printed in progress lines.
         var capabilities = Capabilities(request, name, user, accessKey);
         return Task.FromResult(new BrowserLease
@@ -60,7 +59,7 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
         var lt = new JsonObject
         {
             ["platform"] = _options.Platform ?? DefaultPlatform,
-            ["project"] = DefaultProject,
+            ["project"] = Dashboard.DefaultProject,
             ["build"] = _options.Build ?? $"e2e-{request.RunId}",
             ["idleTimeout"] = DefaultIdleTimeoutSeconds,
             ["name"] = name,
@@ -182,38 +181,5 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
         {
             target[key] = value;
         }
-    }
-
-    /// <summary>A session's name when none is set: <c>e2e-&lt;run id&gt;-&lt;target&gt;-&lt;slot&gt;</c>, slots counting from 1. A per-attempt lease takes its attempt id in place of the slot.</summary>
-    private static string DefaultSessionName(BrowserRequest request) =>
-        $"e2e-{request.RunId}-{request.TargetName}-{(request.AttemptId is null ? null : "attempt-" + request.AttemptId) ?? (request.Slot + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)}";
-
-    /// <summary><c>LT_USERNAME</c> and <c>LT_ACCESS_KEY</c> (or their <c>TESTMU_</c> aliases) from the run's environment; throws naming each one that is unset or blank.</summary>
-    private static (string Username, string AccessKey) Credentials(IReadOnlyDictionary<string, string?> env)
-    {
-        var username = EnvValue(env, "LT_USERNAME", "TESTMU_USERNAME");
-        var accessKey = EnvValue(env, "LT_ACCESS_KEY", "TESTMU_ACCESS_KEY");
-        if (username is null || accessKey is null)
-        {
-            var missing = new[] { username is null ? "LT_USERNAME" : null, accessKey is null ? "LT_ACCESS_KEY" : null }.OfType<string>().ToArray();
-            throw new InvalidOperationException(
-                $"{string.Join(" and ", missing)} {(missing.Length == 1 ? "is" : "are")} not set; set LT_USERNAME and LT_ACCESS_KEY (or TESTMU_USERNAME and TESTMU_ACCESS_KEY) to your TestMu AI username and access key in the environment the tests start in. Both are in the TestMu automation dashboard, under Access Key.");
-        }
-
-        return (username, accessKey);
-    }
-
-    /// <summary>A non-blank variable from the run's environment, trimmed, or <see langword="null"/>.</summary>
-    private static string? EnvValue(IReadOnlyDictionary<string, string?> env, string name, string alias)
-    {
-        foreach (var variable in new[] { name, alias })
-        {
-            if (env.GetValueOrDefault(variable)?.Trim() is { Length: > 0 } value)
-            {
-                return value;
-            }
-        }
-
-        return null;
     }
 }
