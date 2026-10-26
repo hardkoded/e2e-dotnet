@@ -35,6 +35,27 @@ public sealed class RunAppsTests
     }
 
     [Fact]
+    public async Task Starts_the_command_again_when_the_app_has_ended()
+    {
+        var config = E2EConfig.Parse(
+            $$"""
+            { "targets": [{ "app": { "url": "http://127.0.0.1:0",
+              "command": { "executable": {{JsonSerializer.Serialize(AppProgram.Executable)}}, "args": ["serve-for", "{port}", "6000"], "startupTimeout": 20000 } } }] }
+            """,
+            Path.GetTempPath(),
+            _ => null);
+        var first = await E2E.RunApps.StartAsync(config, config.Target, null, CancellationToken.None);
+        Assert.True(await AppProgram.IsReachable(first.App.Url!));
+        while (await AppProgram.IsReachable(first.App.Url!))
+        {
+            await Task.Delay(100);
+        }
+
+        var second = await E2E.RunApps.StartAsync(config, config.Target, null, CancellationToken.None);
+        Assert.True(await AppProgram.IsReachable(second.App.Url!));
+    }
+
+    [Fact]
     public async Task Leaves_a_target_without_a_command_as_it_is()
     {
         var config = E2EConfig.Parse("""{ "targets": [{ "app": { "url": "http://127.0.0.1:3000" } }] }""", Path.GetTempPath(), _ => null);

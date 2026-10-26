@@ -24,7 +24,7 @@ internal static class Provision
         DebugTrace debug,
         CancellationToken cancellationToken)
     {
-        if (app.Command is null || app.ReadyUrl is null)
+        if (app.Command is null)
         {
             return NoProcesses.Instance;
         }
@@ -50,10 +50,14 @@ internal static class Provision
         public static NoProcesses Instance { get; } = new();
 
         public Task StopAsync(Action<Exception> onFailure) => Task.CompletedTask;
+
+        public bool Running => true;
     }
 
     private sealed class StartedProcess(ManagedProcess process) : IAppProcesses
     {
+        public bool Running => process.Running;
+
         public async Task StopAsync(Action<Exception> onFailure)
         {
             try

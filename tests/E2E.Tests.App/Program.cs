@@ -9,6 +9,7 @@ using System.Text;
 
 // The program the app-command tests start, standing in for the `node -e` scripts of upstream's managed-process tests.
 //   serve <port> [ignore-sigterm]  answers every request with 200 on 127.0.0.1 until it is stopped
+//   serve-for <port> <ms>          serves for that long, then exits
 //   idle                           stays up and answers nothing
 //   exit <code>                    exits with the code
 //   chatter <code>                 prints a line to stdout and one to stderr, then exits with the code
@@ -24,6 +25,11 @@ switch (args[0])
 {
     case "serve":
         return await Serve(int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture), args.Length > 2 && args[2] == "ignore-sigterm");
+    case "serve-for":
+        var port = int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture);
+        var stop = Task.Delay(int.Parse(args[2], System.Globalization.CultureInfo.InvariantCulture));
+        await Task.WhenAny(Serve(port, false), stop);
+        return 0;
     case "idle":
         await Task.Delay(Timeout.Infinite);
         return 0;

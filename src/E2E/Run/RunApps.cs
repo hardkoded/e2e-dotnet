@@ -16,7 +16,7 @@ namespace E2E;
 internal static class RunApps
 {
     private static readonly SemaphoreSlim Gate = new(1, 1);
-    private static readonly ConcurrentDictionary<string, TargetConfig> Started = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, (TargetConfig Target, IAppProcesses Processes)> Started = new(StringComparer.Ordinal);
 
     /// <summary>
     /// The target as the run sees it: its app command started, if it declares one, and its URL on the port the app is served on. A target that
@@ -37,7 +37,14 @@ internal static class RunApps
         {
             if (Started.TryGetValue(key, out var running))
             {
-                return running;
+                if (running.Processes.Running)
+                {
+                    return running.Target;
+                }
+
+                // The app ended since (it crashed, or was stopped): start it again, on a new port when it asked for a free one.
+                Started.TryRemove(key, out _);
+                await running.Processes.StopAsync(_ => { }).ConfigureAwait(false);
             }
 
             var app = AppPorts.AllocateTargetPorts(target.Name, target.App, config.ProjectRoot);
@@ -46,9 +53,9 @@ internal static class RunApps
                 Ci = config.Ci,
                 Notice = notice ?? (message => Console.Error.WriteLine("e2e: " + message)),
             };
-            await Provision.StartDeclaredProcessesAsync(target.Name, app, config.ProjectRoot, () => hooks, new DebugTrace(false), cancellationToken).ConfigureAwait(false);
+            var processes = await Provision.StartDeclaredProcessesAsync(target.Name, app, config.ProjectRoot, () => hooks, new DebugTrace(false), cancellationToken).ConfigureAwait(false);
             var resolved = target.WithApp(target.App.WithUrl(app.Base?.Href));
-            Started[key] = resolved;
+            Started[key] = (resolved, processes);
             return resolved;
         }
         finally

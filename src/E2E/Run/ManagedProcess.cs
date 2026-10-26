@@ -45,6 +45,9 @@ internal interface IAppProcesses
 {
     /// <summary>Stops what was started, in reverse. Every failure is reported through <paramref name="onFailure"/> and never skips the rest.</summary>
     Task StopAsync(Action<Exception> onFailure);
+
+    /// <summary>False once what was started has ended, so a holder can start it again (a .NET-only member: the port's holder outlives its callers).</summary>
+    bool Running { get; }
 }
 
 /// <summary>
@@ -119,6 +122,21 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
     /// <summary>True once <see cref="StartAsync"/> spawned a process: not when it attached to one already serving the URL, found one there it may not reuse, or failed to spawn.</summary>
     public bool Spawned => _spawned;
 
+    /// <summary>Whether the app is still there: a process this one spawned that has not exited, or one it attached to.</summary>
+    public bool Running => _reusedExisting || (_process is { } process && !HasExited(process));
+
+    private static bool HasExited(Process process)
+    {
+        try
+        {
+            return process.HasExited;
+        }
+        catch (InvalidOperationException)
+        {
+            return true;
+        }
+    }
+
     /// <summary>
     /// Kills every process tree this module spawned and has not yet released, synchronously and without waiting: the last resort before the
     /// process exits on the spot, so nothing it started outlives it. A reused process was never spawned here and is left alone.
@@ -168,6 +186,9 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
         try
         {
             var shutdownTimeout = _command.ShutdownTimeout ?? DefaultShutdownTimeout;
+
+            // The leader may hand its job to a child and exit at once (`npm run dev`), so the tree is read before anything is signalled.
+            var descendants = OperatingSystem.IsWindows() ? [] : await DescendantsAsync(process.Id).ConfigureAwait(false);
             if (!process.HasExited)
             {
                 // Windows has no signal to ask a process to stop: the first step there is already the kill.
@@ -186,6 +207,8 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
                     await ExitedWithin(process, TimeSpan.FromSeconds(5)).ConfigureAwait(false);
                 }
             }
+
+            await EndDescendantsAsync(descendants, shutdownTimeout).ConfigureAwait(false);
         }
         finally
         {
@@ -264,7 +287,7 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
             using var response = await Probe.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, bound.Token).ConfigureAwait(false);
             return (int)response.StatusCode is >= 200 and <= 499;
         }
-        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or InvalidOperationException or IOException)
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or InvalidOperationException or IOException or NotSupportedException or UriFormatException)
         {
             cancellationToken.ThrowIfCancellationRequested();
             return false;
@@ -286,6 +309,99 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
         catch (InvalidOperationException)
         {
             return true;
+        }
+    }
+
+    /// <summary>The processes below <paramref name="pid"/> (Unix only; <c>pgrep -P</c>, bounded), so a descendant that outlives its leader can still be ended.</summary>
+    private static async Task<List<int>> DescendantsAsync(int pid)
+    {
+        var found = new List<int>();
+        var pending = new Queue<int>([pid]);
+        while (pending.Count > 0 && found.Count < 256)
+        {
+            var parent = pending.Dequeue();
+            try
+            {
+                var info = new ProcessStartInfo("pgrep") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
+                info.ArgumentList.Add("-P");
+                info.ArgumentList.Add(parent.ToString(CultureInfo.InvariantCulture));
+                using var pgrep = Process.Start(info);
+                if (pgrep is null)
+                {
+                    break;
+                }
+
+                using var bound = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                var error = pgrep.StandardError.ReadToEndAsync(bound.Token);
+                var text = await pgrep.StandardOutput.ReadToEndAsync(bound.Token).ConfigureAwait(false);
+                await pgrep.WaitForExitAsync(bound.Token).ConfigureAwait(false);
+                await error.ConfigureAwait(false);
+                foreach (var line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    if (int.TryParse(line, NumberStyles.None, CultureInfo.InvariantCulture, out var child))
+                    {
+                        found.Add(child);
+                        pending.Enqueue(child);
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or OperationCanceledException or IOException)
+            {
+                break;
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>Asks each descendant still running to stop, and kills what is left once the shutdown budget is spent.</summary>
+    private static async Task EndDescendantsAsync(List<int> pids, TimeSpan shutdownTimeout)
+    {
+        var running = pids.Where(IsRunning).ToList();
+        if (running.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var pid in running)
+        {
+            Signal(pid, 15);
+        }
+
+        var clock = Stopwatch.StartNew();
+        while (clock.Elapsed < shutdownTimeout && running.Any(IsRunning))
+        {
+            await Task.Delay(25).ConfigureAwait(false);
+        }
+
+        foreach (var pid in running.Where(IsRunning))
+        {
+            Signal(pid, 9);
+        }
+    }
+
+    private static bool IsRunning(int pid)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(pid);
+            return !process.HasExited;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return false;
+        }
+    }
+
+    private static void Signal(int pid, int signal)
+    {
+        try
+        {
+            _ = NativeKill(pid, signal);
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException)
+        {
+            // no libc to signal through
         }
     }
 
@@ -342,13 +458,13 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
                 if (reuse)
                 {
                     _reusedExisting = true;
-                    _hooks.Notice?.Invoke(_label + ": reusing the process already serving " + readyUrl);
+                    _hooks.Notice?.Invoke(_label + ": reusing the process already serving " + Shown(readyUrl));
                     return;
                 }
 
                 throw new EngineException(
                     "APP_ALREADY_RUNNING",
-                    readyUrl + " already answered before " + _label + " started; "
+                    Shown(readyUrl) + " already answered before " + _label + " started; "
                     + (_hooks.Ci ? "stop that process (reuseExisting is ignored in CI)" : "stop that process or set reuseExisting: true"));
             }
         }
@@ -371,18 +487,24 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
         }
 
         _process = process;
-        _pump = new OutputPump(process, log);
         _spawned = true;
         Live[process] = 0;
         KillWithParent.Add(process);
         try
         {
+            _pump = new OutputPump(process, log);
             await WaitForReadinessAsync(process, readyUrl, startupTimeout, clock, logOffset, cancellationToken).ConfigureAwait(false);
         }
         catch
         {
             // A failed or cancelled start takes the process down with it, whatever ended the wait.
+            var owned = _pump is not null;
             await StopAsync().ConfigureAwait(false);
+            if (!owned)
+            {
+                log?.Dispose();
+            }
+
             throw;
         }
     }
@@ -418,14 +540,14 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
                 throw Unreachable(
                     readyUrl is null
                         ? _label + " did not exit within " + Ms(startupTimeout) + " ms"
-                        : _label + " was not reachable at " + readyUrl + " within " + Ms(startupTimeout) + " ms",
+                        : _label + " was not reachable at " + Shown(readyUrl) + " within " + Ms(startupTimeout) + " ms",
                     logOffset);
             }
 
             if (!noticed && remaining <= half)
             {
                 noticed = true;
-                var waitingFor = readyUrl is null ? "waiting for it to exit" : "waiting for " + readyUrl;
+                var waitingFor = readyUrl is null ? "waiting for it to exit" : "waiting for " + Shown(readyUrl);
                 var logNote = _command.Log is null ? "" : "; log: " + LogDisplayPath();
                 _hooks.Notice?.Invoke(_label + " still starting after " + Seconds(startupTimeout - remaining) + "s: " + waitingFor + logNote);
             }
@@ -457,6 +579,10 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
             pollMs = Min(pollMs * 2, ReadyPollMax);
         }
     }
+
+    /// <summary>A URL as a message shows it: without userinfo, query, or fragment, which may hold a token.</summary>
+    private static string Shown(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var parsed) ? parsed.GetLeftPart(UriPartial.Path) : "the readiness URL";
 
     private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;
 
