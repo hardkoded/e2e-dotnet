@@ -17,12 +17,15 @@ Public types in the `E2E.Engine` namespace.
 | [AppLogEntry](/api/E2E.Engine/AppLogEntry/) | One line of what the app did on its own, as an engine reports it to AppLog (upstream's AppLogEntry): console output, an exception nothing caught, a failed request. The harness redacts and bounds it. |
 | [BoundingBox](/api/E2E.Engine/BoundingBox/) | A viewport-relative rectangle in CSS pixels. |
 | [BrowserCookie](/api/E2E.Engine/BrowserCookie/) | A browser cookie. When setting one, give either Url, or Domain with an optional Path, never both. |
+| [BrowserDownload](/api/E2E.Engine/BrowserDownload/) | A download the browser saved as an artifact of the attempt (upstream's waitForDownload result, { path, absolutePath, suggestedFilename }). |
 | [BrowserDownloadContext](/api/E2E.Engine/BrowserDownloadContext/) | Handed to ReadAsync, once per file. |
 | [BrowserLease](/api/E2E.Engine/BrowserLease/) | One leased browser, as CancellationToken) returns it and CancellationToken) gets it back. A provider may derive from it and keep further fields: release gets that same object, while only the declared fields travel from the runner to the worker that attaches to it. |
 | [BrowserProviderDownloads](/api/E2E.Engine/BrowserProviderDownloads/) | How a download reaches the runner from a browser on another machine. The browser saves every file to its own disk, where the runner cannot open it, so the engine points the browser's downloads at Dir there and reads each finished file back through ReadAsync. |
 | [BrowserReleaseContext](/api/E2E.Engine/BrowserReleaseContext/) | Handed to release, once per lease. |
 | [BrowserRequest](/api/E2E.Engine/BrowserRequest/) | What the engine asks a provider for: one browser for one worker slot, or for one attempt, of a run. |
 | [BrowserResponse](/api/E2E.Engine/BrowserResponse/) | A response an engine observed, with its body still being read. |
+| [Dialog](/api/E2E.Engine/Dialog/) | A native dialog as a test's handler sees it (upstream's Dialog). |
+| [DialogHandler](/api/E2E.Engine/DialogHandler/) | What answers a native dialog (upstream's DialogHandler): Accept, Dismiss, or a function that must call AcceptAsync(string) or DismissAsync() before it returns. |
 | [DocumentElement](/api/E2E.Engine/DocumentElement/) | A mutable control on a DocumentPage. |
 | [DocumentEngine](/api/E2E.Engine/DocumentEngine/) | In-memory page engine for samples and tests that do not need a browser. Each open builds a fresh page from the route mapped on DocumentWorld. Actions mutate that page until the next open. app.back rebuilds the previous route, and app.restart and app.clearState drop the history and reopen the base URL. The document engine has no browser, so the Browser fixture is unsupported. |
 | [DocumentPage](/api/E2E.Engine/DocumentPage/) | One in-memory screen. Builder methods append controls in reading order. |
@@ -89,6 +92,7 @@ Public types in the `E2E.Engine` namespace.
 | --- | --- |
 | [BrowserProtocol](/api/E2E.Engine/BrowserProtocol/) | The protocol a leased browser's endpoint speaks. .NET-only: upstream's lease always carries a CDP endpoint. |
 | [BrowserProviderScope](/api/E2E.Engine/BrowserProviderScope/) | How long a lease lives. Worker (the default) is one browser per worker slot, acquired in prepare and released in finish. Attempt is a fresh browser per attempt, acquired when the attempt starts and released when it ends, reconnected through the lease's ReconnectEndpoint after a transport drop. |
+| [DialogType](/api/E2E.Engine/DialogType/) | The kind of a native dialog, independent of its message (upstream's Dialog['type']). |
 | [EngineCapabilities](/api/E2E.Engine/EngineCapabilities/) | Capabilities the harness reads off an engine. An engine never calls a model. |
 | [KeyModifier](/api/E2E.Engine/KeyModifier/) | A key held for a click, as a Shift-click extends a selection. Upstream's KeyModifier (engine/contract.ts). ControlOrMeta is Control, or Meta on macOS. |
 | [Momentum](/api/E2E.Engine/Momentum/) | Fling strength of a swipe: how far the gesture travels. Upstream's Momentum (none, slow, fast). |
