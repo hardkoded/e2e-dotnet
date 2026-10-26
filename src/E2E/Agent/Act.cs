@@ -151,7 +151,7 @@ public sealed partial class Agent
             // An act is cacheable unless its executor opted out. An assert must not change the app, so its recording would be empty.
             if (spec.Kind == ExecutorStepKind.Act && executor.Cache != ExecutorCache.Off && _scope.CacheEnabled && _scope.Cache is { } cache)
             {
-                var key = _scope.ClaimKey(instruction, spec.Params, agent, out var callIndex);
+                var key = _scope.ClaimKey(instruction, spec.Params, agent, out var callIndex, out var keyContext);
                 session = new StepTraceSession(
                     new ActReplayHost(_scope, feed, budget, dispatcher, spec.Params, token),
                     new StepCacheOptions
@@ -160,7 +160,7 @@ public sealed partial class Agent
                         Write = _scope.CacheWrite,
                         Strict = _scope.CacheStrict,
                         ReplayEligible = _scope.ReplayEligible,
-                        Claim = new ClaimedKey(key, Provenance(instruction, spec.Params, callIndex, agent.Name)),
+                        Claim = new ClaimedKey(key, Provenance(instruction, spec.Params, callIndex, agent.Name, keyContext)),
                         StepIndex = _scope.Steps.CurrentStepIndex,
                         Instruction = instruction,
                         Params = spec.Params,
@@ -460,7 +460,7 @@ public sealed partial class Agent
     /// The step an entry is recorded for, as the entry stores it. None of it is replay input, so a
     /// secret value in the test title, instruction, or agent name is masked like any other recorded string.
     /// </summary>
-    private CacheEntry Provenance(string instruction, IReadOnlyDictionary<string, object?>? parameters, int callIndex, string agent)
+    private CacheEntry Provenance(string instruction, IReadOnlyDictionary<string, object?>? parameters, int callIndex, string agent, TraceKeyContext keyContext)
     {
         return new CacheEntry
         {
@@ -471,6 +471,7 @@ public sealed partial class Agent
             ParamsDigest = CacheKeys.ParamsDigest(parameters),
             CallIndex = callIndex,
             Agent = _scope.Redactor.Redact(agent),
+            KeyedBy = keyContext,
         };
     }
 }

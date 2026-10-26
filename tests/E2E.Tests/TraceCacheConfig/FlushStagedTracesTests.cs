@@ -193,9 +193,9 @@ public sealed class FlushStagedTracesTests
         var scope = Fresh();
         var agent = new ResolvedAgent { Name = "default" };
 
-        var first = scope.ClaimKey("open billing", null, agent, out _);
-        var repeat = scope.ClaimKey("open billing", null, agent, out _);
-        var other = scope.ClaimKey("open billing", new Dictionary<string, object?> { ["fast"] = true }, agent, out _);
+        var first = scope.ClaimKey("open billing", null, agent, out _, out _);
+        var repeat = scope.ClaimKey("open billing", null, agent, out _, out _);
+        var other = scope.ClaimKey("open billing", new Dictionary<string, object?> { ["fast"] = true }, agent, out _, out _);
 
         Assert.Matches("^[a-f0-9]{64}$", first);
         Assert.NotEqual(first, repeat);
@@ -264,7 +264,7 @@ public sealed class FlushStagedTracesTests
 
     private static string Claim(AttemptScope scope, string agent, string? context)
     {
-        return scope.ClaimKey("approve the order", null, new ResolvedAgent { Name = agent, Context = context }, out _);
+        return scope.ClaimKey("approve the order", null, new ResolvedAgent { Name = agent, Context = context }, out _, out _);
     }
 
     /// <summary>A store that keeps each entry as the JSON text it was written as.</summary>

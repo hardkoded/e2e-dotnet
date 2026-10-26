@@ -4,19 +4,14 @@
 
 namespace E2E.Tests.TraceIdentity;
 
-/// <summary>Instruction identity. The port keys on the trimmed instruction, with no digest and no Unicode normalization.</summary>
+/// <summary>Upstream's <c>describe('instruction identity')</c> in <c>trace-identity.test.ts</c>.</summary>
 public sealed class InstructionIdentityTests
 {
-    private static string KeyOf(string instruction) => CacheKeys.Create("document", "billing upgrade", instruction, null, "default", null);
-
-    /// <summary>
-    /// Partial port of "normalizes line endings, NFC, and outer whitespace only". The port has no <c>instructionDigest</c> and
-    /// does not normalize line endings inside the text or Unicode form, so only the outer whitespace and the inner spacing are checked.
-    /// </summary>
     [Fact]
-    public void Trims_outer_whitespace_and_keeps_inner_spacing_in_the_key()
+    public void Normalizes_line_endings_NFC_and_outer_whitespace_only()
     {
-        Assert.Equal(KeyOf("open billing"), KeyOf("  open billing\r\n"));
-        Assert.NotEqual(KeyOf("open billing"), KeyOf("open  billing"));
+        Assert.Equal("open billing", Identity.NormalizeInstruction("  open billing\r\n"));
+        Assert.NotEqual(Identity.InstructionDigest("open billing"), Identity.InstructionDigest("open  billing"));
+        Assert.Equal(Identity.InstructionDigest("café"), Identity.InstructionDigest("café"));
     }
 }

@@ -796,6 +796,7 @@ public sealed class E2ESession : IAsyncDisposable
     {
         var flow = JsonSerializer.SerializeToNode(entry, JsonDefaults.Options)!.AsObject();
         flow.Remove("recordedBy");
+        flow.Remove("keyedBy");
         return flow.ToJsonString();
     }
 }

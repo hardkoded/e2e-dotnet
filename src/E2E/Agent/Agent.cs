@@ -1042,7 +1042,7 @@ internal static class Vision
 
 internal sealed class AttemptScope
 {
-    private readonly Dictionary<string, int> _callIndexes = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Func<TraceCallSignature, int>> _callIndexers = new(StringComparer.Ordinal);
     private readonly List<Secret> _secrets = [];
     private readonly List<(string Name, string Value)> _registered = [];
     private Built? _redactor;
@@ -1324,20 +1324,49 @@ internal sealed class AttemptScope
     public int Missed { get; set; }
 
     /// <summary>
-    /// Claims one act's cache key. Each claim advances the zero-based repeat of its signature in the
-    /// attempt. Only an identical act counts, with the same agent and context, so an optional step or
-    /// another agent's call does not renumber the acts after it. <paramref name="callIndex"/> is that repeat.
+    /// Upstream's <c>claimKey</c> (<c>cache/context.ts</c>): claims one act's cache key, the hash of its trace cache key. Each claim
+    /// advances the zero-based repeat of its signature in the attempt. The repeats are counted per agent (its name and redacted
+    /// context), so an optional step or another agent's call does not renumber the acts after it. <paramref name="callIndex"/> is that
+    /// repeat and <paramref name="context"/> the parts of the key outside the step, which the entry records as <c>keyedBy</c>.
     /// </summary>
-    public string ClaimKey(string instruction, IReadOnlyDictionary<string, object?>? parameters, ResolvedAgent agent, out int callIndex)
+    public string ClaimKey(string instruction, IReadOnlyDictionary<string, object?>? parameters, ResolvedAgent agent, out int callIndex, out TraceKeyContext context)
     {
         // The key reads the agent context as the model does, with the secrets known so far redacted.
-        var context = agent.Context is null ? null : Redactor.Redact(agent.Context);
-        var signature = CacheKeys.Create(EnginePlatform, TestTitle, instruction, parameters, agent.Name, context);
-        var index = _callIndexes.GetValueOrDefault(signature);
-        _callIndexes[signature] = index + 1;
-        callIndex = index;
-        return CacheKeys.ForCall(signature, index);
+        var identity = new CacheAgentIdentity(agent.Name, agent.Context is null ? null : Redactor.Redact(agent.Context));
+        var signature = Identity.TraceCallSignature(Identity.ActKind, instruction, CacheKeys.Project(parameters));
+
+        // One occurrence count per agent: the agent is part of the key, so another agent's call of the same instruction must not
+        // renumber this one's. Folded like the key folds it: no context is the empty one.
+        var agentKey = Ids.CanonicalJson(new JsonArray(identity.Name, identity.Context ?? ""));
+        if (!_callIndexers.TryGetValue(agentKey, out var indexer))
+        {
+            _callIndexers[agentKey] = indexer = Identity.CreateCallIndexer();
+        }
+
+        callIndex = indexer(signature);
+        var key = Identity.BuildTraceCacheKey(new TraceCacheKeyParts(
+            Identity.ProjectIdentity(CacheProjectId),
+            TestTitle,
+            new CacheTargetIdentity(TargetName, EnginePlatform, EnginePlatform, BuildReport.EngineSpiVersion, CacheAppIdentity),
+            signature,
+            callIndex,
+            identity,
+            CacheKeys.ReplayPolicyVersion));
+        context = Identity.KeyContext(key);
+        return Identity.TraceCacheKeyHash(key);
     }
+
+    /// <summary>
+    /// The project id a key is scoped by. The port has no <c>projectId</c> config key, so every project keys under the empty id,
+    /// and a cache directory belongs to one project.
+    /// </summary>
+    private const string CacheProjectId = "";
+
+    /// <summary>
+    /// The app identity a key is scoped by: upstream's digest of the target app's declared <c>identity</c> and <c>environment</c>.
+    /// The port declares neither, so it is the digest of the empty declaration, and an app at another URL shares the entries.
+    /// </summary>
+    private static readonly string CacheAppIdentity = Ids.CanonicalDigest(new JsonObject());
 
     /// <summary>The agent a call names, or <c>default</c>. An unknown name is <c>INVALID_ARGUMENT</c>.</summary>
     public ResolvedAgent Select(string? name)
