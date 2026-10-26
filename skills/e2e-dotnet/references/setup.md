@@ -75,7 +75,9 @@ Pick the model in `agents.<name>.provider` and `model`:
   failure or a 408, 409, 429, or 5xx answer. It waits the provider's
   `retry-after-ms` or `retry-after` when that is under a minute (or under the
   backoff), otherwise 2 s doubled each time, within the step's remaining
-  timeout. A request with no answer in 120 s is not sent again.
+  timeout. A request with no answer in 120 s is not sent again. A `bedrock`
+  request is signed (SigV4) again for every attempt, with a fresh `x-amz-date`,
+  so a retry after a long wait is not refused as `RequestExpired`.
 - `google` and `bedrock` send a model's earlier reasoning back on the next turn
   (Gemini thought parts with their signature, Bedrock `reasoningContent`
   blocks), as `anthropic`, `openai-responses`, and `openai` already do. On
