@@ -681,15 +681,15 @@ public sealed class Locator
     }
 
     /// <summary>
-    /// The nodes the locator matches now. An engine that resolves locators answers it, and a role query of its never matches a hidden
-    /// node, so <paramref name="includeHidden"/> only widens the observation path; any other engine is resolved over its observation. <paramref name="deadline"/> bounds the retries of an engine
+    /// The nodes the locator matches now. An engine that resolves locators answers it, and a role query of its skips a hidden node unless
+    /// <paramref name="includeHidden"/> asks for it; any other engine is resolved over its observation. <paramref name="deadline"/> bounds the retries of an engine
     /// that asks for one, and defaults to the action timeout.
     /// </summary>
     internal async Task<IReadOnlyList<SemanticNode>> ResolveAsync(CancellationToken cancellationToken, bool includeHidden = false, Deadline? deadline = null)
     {
         if (_screen.LocatesInEngine)
         {
-            return await LocateAsync(deadline ?? new Deadline(_screen.ActionTimeout, _screen.Clock), cancellationToken).ConfigureAwait(false);
+            return await LocateAsync(deadline ?? new Deadline(_screen.ActionTimeout, _screen.Clock), includeHidden, cancellationToken).ConfigureAwait(false);
         }
 
         var observation = await _screen.ObserveAsync(cancellationToken).ConfigureAwait(false);
@@ -697,14 +697,15 @@ public sealed class Locator
     }
 
     /// <summary>One immediate engine resolve, retrying a retryable engine error until the deadline (upstream's <c>resolveOnce</c>).</summary>
-    private async Task<IReadOnlyList<SemanticNode>> LocateAsync(Deadline deadline, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<SemanticNode>> LocateAsync(Deadline deadline, bool includeHidden, CancellationToken cancellationToken)
     {
+        var expression = includeHidden ? Query with { IncludeHidden = true } : Query;
         while (true)
         {
             try
             {
                 var budget = TimeSpan.FromMilliseconds(Math.Max(1, deadline.Remaining(_screen.Clock.GetUtcNow()).TotalMilliseconds));
-                var nodes = await _screen.LocateAsync(Query, budget, cancellationToken).ConfigureAwait(false);
+                var nodes = await _screen.LocateAsync(expression, budget, cancellationToken).ConfigureAwait(false);
 
                 // An engine answers `visible` inside scopes, filters, and indices, where only it can. A direct query is held to the same
                 // predicate here, so it never resolves to a node its own state calls hidden.
@@ -1038,6 +1039,13 @@ public sealed record LocatorExpression
 
     /// <summary>The expression of a <c>selector</c> query, in the engine's own selector language. A device engine answers it.</summary>
     public string? Selector { get; init; }
+
+    /// <summary>
+    /// Asks an engine that resolves over its tree to match hidden nodes too, which a role query otherwise skips. .NET-only: upstream's
+    /// engines resolve with Playwright, which has no such switch. <c>toBeAttached</c> and <c>waitFor</c> set it on the expression they hand
+    /// the engine; an engine that does not read it leaves it off.
+    /// </summary>
+    internal bool IncludeHidden { get; init; }
 
     internal static LocatorExpression ForRole(string role, TextMatch? name, RoleOptions options)
     {

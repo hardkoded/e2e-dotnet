@@ -112,6 +112,16 @@ public sealed class DocumentEngine : IEngine
             return Task.FromResult(new Observation { Route = Route, Roots = roots });
         }
 
+        public bool CanLocate => true;
+
+        /// <summary>Resolves a locator against the document as it is now, over the observation it takes. Upstream's <c>locate</c>. <paramref name="timeout"/> is not used: the document answers at once.</summary>
+        public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(expression);
+            var observation = await ObserveAsync(cancellationToken).ConfigureAwait(false);
+            return LocatorResolver.Resolve(observation, expression, expression.IncludeHidden);
+        }
+
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();

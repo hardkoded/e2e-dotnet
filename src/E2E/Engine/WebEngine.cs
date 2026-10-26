@@ -1033,6 +1033,21 @@ public sealed partial class WebEngine : IEngine
             return new Observation { Route = Route, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll };
         });
 
+        public bool CanLocate => true;
+
+        /// <summary>
+        /// Resolves a locator against the page as it is now, in the engine: it reads the semantic tree and resolves the expression over
+        /// it, so every match is a node of that observation and keeps the ref the page script minted. Upstream's <c>locate</c>
+        /// (<c>surface.ts</c>) resolves with Playwright selectors instead; the port's page script is the reader of the page, so the
+        /// resolve is the tree's. <paramref name="timeout"/> is not used: the read runs under the action timeout, as an observation does.
+        /// </summary>
+        public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(expression);
+            var observation = await ObserveAsync(cancellationToken).ConfigureAwait(false);
+            return LocatorResolver.Resolve(observation, expression, expression.IncludeHidden);
+        }
+
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("perform", cancellationToken, async () =>
         {
             ArgumentNullException.ThrowIfNull(node);
