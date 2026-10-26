@@ -28,25 +28,47 @@ public sealed class DownloadsThroughAProviderTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        if (_session is not null)
+        // Every step runs, whatever the earlier ones did, so a failed test never leaves a Chrome process or a directory behind.
+        try
         {
-            await _session.DisposeAsync();
+            if (_session is not null)
+            {
+                await _session.DisposeAsync();
+            }
         }
-
-        if (_worker is not null)
+        finally
         {
-            await _worker.DisposeAsync();
-            await _worker.FinishAsync(ToyRunner.FinishInfo(), None);
-        }
-
-        if (_remote is not null)
-        {
-            await _remote.DisposeAsync();
-        }
-
-        foreach (var dir in _made)
-        {
-            Directory.Delete(dir, recursive: true);
+            try
+            {
+                if (_worker is not null)
+                {
+                    try
+                    {
+                        await _worker.DisposeAsync();
+                    }
+                    finally
+                    {
+                        await _worker.FinishAsync(ToyRunner.FinishInfo(), None);
+                    }
+                }
+            }
+            finally
+            {
+                try
+                {
+                    if (_remote is not null)
+                    {
+                        await _remote.DisposeAsync();
+                    }
+                }
+                finally
+                {
+                    foreach (var dir in _made)
+                    {
+                        Directory.Delete(dir, recursive: true);
+                    }
+                }
+            }
         }
     }
 
