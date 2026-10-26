@@ -195,6 +195,100 @@ public sealed class ResolveConfigTests
         Assert.Equal(new ResolvedRecording(RecordingMode.Off, RecordingSource.Default), config.Target.Video);
     }
 
+    [Fact]
+    public void Accepts_a_command_only_beside_a_URL_to_poll_and_defaults_readyUrl_to_it()
+    {
+        var noUrl = Assert.Throws<ConfigurationException>(() => App("""{ "command": { "executable": "node" } }"""));
+        Assert.Contains("without a URL to poll", noUrl.Message, StringComparison.Ordinal);
+        var withUrl = Resolved("""{ "url": "http://localhost:3000", "command": { "executable": "node" } }""");
+        Assert.Equal("node", withUrl.Command!.Executable);
+        Assert.Equal("http://localhost:3000/", withUrl.ReadyUrl);
+        Assert.Equal("http://localhost:9/health", Resolved("""{ "command": { "executable": "node" }, "readyUrl": "http://localhost:9/health" }""").ReadyUrl);
+        var empty = Assert.Throws<ConfigurationException>(() => App("""{ "url": "http://localhost:3000", "command": { "executable": "" } }"""));
+        Assert.Contains("command.executable is required", empty.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Partial: JSON has no <c>secrets.get()</c> handle, so the message that names one for a string is not reachable. A value that is not a string is quoted as written.</summary>
+    [Fact]
+    public void Partial_Takes_only_strings_in_a_commands_args_and_env()
+    {
+        const string url = """ "url": "http://localhost:3000" """;
+        var arg = Assert.Throws<ConfigurationException>(() => App($$"""{ {{url}}, "command": { "executable": "node", "args": ["server.mjs", 3000] } }"""));
+        Assert.Equal("INVALID_CONFIG", arg.Code);
+        Assert.Equal("target \"web\" app.command.args[1] must be a string, got 3000", arg.Message);
+
+        // A null value is a variable that is unset: the process starts without it.
+        var env = Resolved($$"""{ {{url}}, "command": { "executable": "node", "env": { "PORT": "3000", "UNSET": null } } }""").Command!.Env;
+        Assert.Equal("3000", Assert.Single(env!).Value);
+        Assert.Equal("PORT", Assert.Single(env!).Key);
+        var list = Assert.Throws<ConfigurationException>(() => App($$"""{ {{url}}, "command": { "executable": "node", "env": ["PORT=3000"] } }"""));
+        Assert.Equal("target \"web\" app.command.env must be an object of variable name to string", list.Message);
+        var number = Assert.Throws<ConfigurationException>(() => App($$"""{ {{url}}, "command": { "executable": "node", "env": { "PORT": 3000 } } }"""));
+        Assert.Equal("INVALID_CONFIG", number.Code);
+        Assert.Equal("target \"web\" app.command.env.PORT must be a string, got 3000", number.Message);
+    }
+
+    [Fact]
+    public void Takes_inheritEnv_names_and_trailing_star_prefixes_refusing_a_bare_star_and_a_star_anywhere_else()
+    {
+        static string Declare(string patterns) => $$"""{ "url": "http://localhost:3000", "command": { "executable": "node", "inheritEnv": {{patterns}} } }""";
+        Assert.Equal(["DATABASE_URL", "STRIPE_*"], Resolved(Declare("""["DATABASE_URL", "STRIPE_*"]""")).Command!.InheritEnv);
+        var notArray = Assert.Throws<ConfigurationException>(() => App(Declare("\"DATABASE_URL\"")));
+        Assert.Equal("INVALID_CONFIG", notArray.Code);
+        Assert.Equal("target \"web\" app.command.inheritEnv must be an array of variable names", notArray.Message);
+        var bare = Assert.Throws<ConfigurationException>(() => App(Declare("""["*"]""")));
+        Assert.Equal("target \"web\" app.command.inheritEnv[0] cannot be \"*\": it would pass every variable to the app, model keys included; list the names or prefixes it needs", bare.Message);
+        foreach (var (entry, shown) in new[] { ("", "\"\""), ("STR*PE", "\"STR*PE\""), ("*_KEY", "\"*_KEY\""), ("STRIPE_**", "\"STRIPE_**\""), ("A=B", "\"A=B\""), (" DATABASE_URL", "\" DATABASE_URL\"") })
+        {
+            var error = Assert.Throws<ConfigurationException>(() => App(Declare($$"""["DATABASE_URL", "{{entry}}"]""")));
+            Assert.Equal("INVALID_CONFIG", error.Code);
+            Assert.Equal($"target \"web\" app.command.inheritEnv[1] must be a variable name or a prefix ending in * (such as \"STRIPE_*\"), got {shown}", error.Message);
+        }
+
+        var number = Assert.Throws<ConfigurationException>(() => App(Declare("[42]")));
+        Assert.Equal("target \"web\" app.command.inheritEnv[0] must be a string, got 42", number.Message);
+    }
+
+    /// <summary>Partial: a misspelled key of the app is named in the port's own words, <c>unknown targets[0].app key</c>, where upstream says <c>target "web" app has unknown key</c>. The command's own message is upstream's.</summary>
+    [Fact]
+    public void Partial_Rejects_an_app_or_command_key_the_contract_does_not_know_naming_the_nearest()
+    {
+        const string url = "http://localhost:3000";
+        var app = Assert.Throws<ConfigurationException>(() => App($$"""{ "url": "{{url}}", "readyURL": "{{url}}" }"""));
+        Assert.Equal("INVALID_CONFIG", app.Code);
+        Assert.Equal("unknown targets[0].app key \"readyURL\"; did you mean \"readyUrl\"?", app.Message);
+        var arg = Assert.Throws<ConfigurationException>(() => App($$"""{ "url": "{{url}}", "command": { "executable": "node", "arg": ["server.mjs"] } }"""));
+        Assert.Equal("INVALID_CONFIG", arg.Code);
+        Assert.Equal("target \"web\" app.command has unknown key \"arg\"; did you mean \"args\"?", arg.Message);
+        var ready = Assert.Throws<ConfigurationException>(() => App($$"""{ "url": "{{url}}", "command": { "executable": "node", "readyUrl": "{{url}}" } }"""));
+        Assert.EndsWith(
+            "app.command has unknown key \"readyUrl\"; expected one of executable, args, cwd, env, inheritEnv, startupTimeout, shutdownTimeout, log, reuseExisting",
+            ready.Message,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Rejects_a_declared_readyUrl_that_is_not_an_http_s_URL()
+    {
+        foreach (var bad in new[] { "not a url", "ftp://x/" })
+        {
+            var error = Assert.Throws<ConfigurationException>(() => App($$"""{ "url": "http://localhost:3000", "readyUrl": "{{bad}}" }"""));
+            Assert.Contains("app.readyUrl must be an http(s) URL", error.Message, StringComparison.Ordinal);
+        }
+
+        Assert.Equal(
+            "http://localhost:3000/health",
+            Resolved("""{ "url": "http://localhost:3000", "command": { "executable": "x" }, "readyUrl": "http://localhost:3000/health" }""").ReadyUrl);
+    }
+
+    /// <summary>The config with one web target declaring <paramref name="app"/>.</summary>
+    internal static E2EConfig App(string app, string? root = null) =>
+        E2EConfig.Parse($$"""{ "targets": [{ "app": {{app}} }] }""", root ?? Root, Env());
+
+    /// <summary>The one web target's app resolved, as <c>commandOf</c> and <c>resolveApp</c> of upstream's test read it.</summary>
+    internal static ResolvedApp Resolved(string app, string? root = null, int? port = null) =>
+        TargetApps.ResolveTargetApp("web", App(app, root).Target.App, root ?? Root, port);
+
     private static Func<string, string?> Env(params (string Name, string Value)[] values)
     {
         var map = values.ToDictionary(pair => pair.Name, pair => pair.Value, StringComparer.Ordinal);

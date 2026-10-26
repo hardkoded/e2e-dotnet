@@ -101,10 +101,12 @@ once and the progress file says so; later sessions skip this step.
    a config without a model runs those.
 3. Port the orchestration the CI job does, reusing the repo's own scripts
    rather than writing new ones:
-   - The port has no `app.command`. A web target's app must answer on its
-     `app.url` before `dotnet test`, so the harness starts it the way the
-     old suite's CI job did (a script, a `WebApplicationFactory`, a
-     fixture that starts a process). Name the command in the progress file.
+   - A web target's app must answer on its `app.url` before the first test.
+     Declare the command in `app.command` (with `readyUrl` when it differs
+     from `url`; topic `setup`) so the config starts it as the old suite's CI
+     job did, or, when it needs more than a program and its arguments (a
+     `WebApplicationFactory`, a fixture that starts a process), start it the
+     way that job did. Name the command in the progress file.
      A device target has no URL: `MobileAppTest` launches its app, so skip
      this step for it (topic `mobile`).
    - Databases, queues, and mock servers start before the run with the

@@ -304,6 +304,8 @@ internal sealed class SessionHost : IDisposable
                 _sessions.ClaimEngine(id, target.Name);
             }
 
+            // The target's app command starts before the session opens, and the URL is on the port it was started on.
+            target = await RunApps.StartAsync(config, target, null, abort.Token).ConfigureAwait(false);
             attempt = await Standalone.OpenAttemptAsync(
                 new E2ESessionOptions
                 {

@@ -63,15 +63,15 @@ internal static partial class Urls
     }
 
     /// <summary>
-    /// Normalizes an app URL the run will use as given. Port 0 asks the run to start the app on a free port, and the port
-    /// has no <c>app.command</c> to do that, so it is <c>INVALID_CONFIG</c> where upstream starts the command.
+    /// Normalizes an app URL a session will use as given, one set in code. Port 0 asks the run to start the app on a free port with
+    /// <c>app.command</c>, and a session holds the URL the app is already served on, so it is <c>INVALID_CONFIG</c>.
     /// </summary>
     public static NormalizedBaseUrl NormalizeAppUrl(string raw, string where)
     {
         var url = NormalizeBaseUrl(raw);
         if (RequestsFreePort(url))
         {
-            throw new ConfigurationException("INVALID_CONFIG", where + " asks for a free port (port 0), but nothing starts on it: the .NET port has no app.command, so start the app on a fixed port");
+            throw new ConfigurationException("INVALID_CONFIG", where + " asks for a free port (port 0), which only app.command can start an app on: give the URL the app is served on");
         }
 
         return url;

@@ -181,7 +181,7 @@ jobs:
 
 - Install the browser in its own step, so the download stays out of the
   launch timeout.
-- Start the app before `dotnet test`; the port has no `app.command`.
+- Let `app.command` start the app (topic `setup`), or start it before `dotnet test`.
 - Agent steps run in the same job: pass the provider's API key from the CI
   secrets, and commit `.e2e/cache/` so recorded acts replay with no model
   call. Subscriptions are for local runs.

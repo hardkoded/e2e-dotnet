@@ -223,6 +223,8 @@ public static class Explore
             notice(message);
         }
 
+        // The target's app command starts before the session opens, and the URL is on the port it was started on.
+        target = await RunApps.StartAsync(config, target, notice, cancellationToken).ConfigureAwait(false);
         var sessionOptions = new E2ESessionOptions
         {
             Engine = engine,
