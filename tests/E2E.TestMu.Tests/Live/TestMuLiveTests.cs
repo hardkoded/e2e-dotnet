@@ -49,10 +49,10 @@ public sealed class TestMuLiveTests
             Assert.NotEmpty(observation.Roots);
         }
 
-        // The session is the one of this build, named after the target and slot the engine leased.
+        // The session is the one of this build, named e2e-<run id>-<target>-<slot>, so it ends in the target and slot the engine leased.
         using var http = new HttpClient();
         http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(user + ":" + accessKey)));
-        var ended = await WaitForEndedSessionAsync(http, build, "web slot 1 of 1", TimeSpan.FromSeconds(90));
+        var ended = await WaitForEndedSessionAsync(http, build, "-web-1", TimeSpan.FromSeconds(90));
         Assert.True(ended, "the grid did not end the session after the connection closed");
     }
 
@@ -67,7 +67,7 @@ public sealed class TestMuLiveTests
             {
                 foreach (var entry in data.EnumerateArray())
                 {
-                    if (Text(entry, "build_name") == build && Text(entry, "name") == name && !string.IsNullOrEmpty(Text(entry, "end_timestamp")))
+                    if (Text(entry, "build_name") == build && (Text(entry, "name") ?? "").StartsWith("e2e-", StringComparison.Ordinal) && (Text(entry, "name") ?? "").EndsWith(name, StringComparison.Ordinal) && !string.IsNullOrEmpty(Text(entry, "end_timestamp")))
                     {
                         return true;
                     }
