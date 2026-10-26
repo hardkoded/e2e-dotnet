@@ -68,7 +68,7 @@ public sealed class LocatorExpressionsOverADeviceSnapshotTests
 
         // The echoing cell still answers role queries, and filters by its subtree text.
         Assert.Equal(["About"], Names(Role("listitem", Exact("About"))));
-        Assert.Equal(["About"], Names(new LocatorExpression { Kind = "filter", Source = Role("listitem"), HasText = Exact("About") }));
+        Assert.Equal(["About"], Names(new LocatorExpression { Kind = "filter", Source = Role("listitem"), HasText = Exact("About"), HasTextExact = true }));
     }
 
     [Fact]
@@ -94,12 +94,21 @@ public sealed class LocatorExpressionsOverADeviceSnapshotTests
     {
         var inBar = Role("button") with { Parent = Role("navigation") };
         Assert.Equal(["Back"], Names(inBar));
-        var cellsWithAbout = new LocatorExpression { Kind = "filter", Source = Role("listitem"), HasText = Exact("About") };
+        var cellsWithAbout = new LocatorExpression { Kind = "filter", Source = Role("listitem"), HasText = Exact("About"), HasTextExact = true };
         Assert.Equal(["About"], Names(cellsWithAbout));
         var cellsHavingText = new LocatorExpression { Kind = "filter", Source = Role("listitem"), Has = Role("text") };
         Assert.Equal(["About"], Names(cellsHavingText));
         Assert.Equal(["Scroller"], Names(new LocatorExpression { Kind = "index", Source = Role("listitem"), Index = LocatorExpression.LastIndex }));
         Assert.Empty(Names(new LocatorExpression { Kind = "index", Source = Role("listitem"), Index = 5 }));
+    }
+
+    // .NET-only: upstream's text pattern carries its exactness, which the port's TextMatch does not, so the expression does (HasTextExact).
+    [Fact]
+    public void A_hasText_filter_is_a_case_insensitive_substring_unless_the_expression_says_exact()
+    {
+        var substring = new LocatorExpression { Kind = "filter", Source = Role("listitem"), HasText = Exact("abou") };
+        Assert.Equal(["About"], Names(substring));
+        Assert.Empty(Names(substring with { HasTextExact = true }));
     }
 
     [Fact]

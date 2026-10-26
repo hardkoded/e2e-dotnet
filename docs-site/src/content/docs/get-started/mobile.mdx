@@ -89,6 +89,13 @@ await Device.HomeAsync();
 await Device.OpenAppAsync(AppId, new OpenAppOptions { Relaunch = true });
 ```
 
+`Device.Locator` takes an agent-device selector, for controls the `Screen` queries cannot name. It polls and is strict like any locator:
+
+```csharp
+await Expect.That(Device.Locator("role=navigation-bar id=About")).ToBeVisibleAsync();
+await Device.Locator("id=SW_VERSION_SPECIFIER role=button").TapAsync();
+```
+
 ## 4. Run
 
 Boot exactly one simulator, then run:
@@ -104,7 +111,7 @@ Tag device tests, for example `[assembly: Category("Device")]`, so a machine wit
 
 ## Hosted devices
 
-Set `E2E_MOBILE_PROVIDER=limrun` with `LIMRUN_API_KEY` to run on a hosted Limrun simulator. `E2E.Eas` and `E2E.TestMu.Mobile` add other providers. See the [mobile sample README](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp.E2ETests) for the full variable list.
+Set `E2E_MOBILE_PROVIDER=limrun` with `LIMRUN_API_KEY` to run on a hosted Limrun simulator. `E2E.Eas` and `E2E.TestMu.Mobile` add other providers. A provider whose service records its devices records the video of an attempt in place of agent-device (`IDeviceProvider.RecordAsync`). See the [mobile sample README](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp.E2ETests) for the full variable list.
 
 ## Next
 

@@ -122,7 +122,7 @@ public LocatorExpression? Has { get; init; }
 
 **Value:** [LocatorExpression](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1031)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1039)
 
 <a id="E2E_LocatorExpression_HasText_"></a>
 <a id="E2E_LocatorExpression_HasText"></a>
@@ -139,6 +139,26 @@ public TextMatch? HasText { get; init; }
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1029)
 
+<a id="E2E_LocatorExpression_HasTextExact_"></a>
+<a id="E2E_LocatorExpression_HasTextExact"></a>
+
+### HasTextExact
+
+
+```csharp
+public bool HasTextExact { get; init; }
+```
+
+
+Whether [HasText](#E2E_LocatorExpression_HasText) must equal the text instead of being a case-insensitive substring of it, as upstream's text pattern
+carries its `exact`. [Filter(TextMatch)](/api/E2E/Locator/#E2E_Locator_Filter_E2E_TextMatch_) builds a substring match (upstream's `{ exact: false }`), so
+it leaves this `false`. A [Regex](https://learn.microsoft.com/dotnet/api/system.text.regularexpressions.regex) ignores it. .NET-only: [TextMatch](/api/E2E/TextMatch/) holds no
+exactness of its own.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1037)
+
 <a id="E2E_LocatorExpression_Index_"></a>
 <a id="E2E_LocatorExpression_Index"></a>
 
@@ -152,7 +172,7 @@ public int? Index { get; init; }
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1033)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1041)
 
 <a id="E2E_LocatorExpression_Kind_"></a>
 <a id="E2E_LocatorExpression_Kind"></a>
@@ -182,7 +202,7 @@ public LocatorExpression? Left { get; init; }
 
 **Value:** [LocatorExpression](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1035)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1043)
 
 <a id="E2E_LocatorExpression_Level_"></a>
 <a id="E2E_LocatorExpression_Level"></a>
@@ -242,7 +262,7 @@ public LocatorExpression? Right { get; init; }
 
 **Value:** [LocatorExpression](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1037)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1045)
 
 <a id="E2E_LocatorExpression_Role_"></a>
 <a id="E2E_LocatorExpression_Role"></a>
@@ -289,7 +309,7 @@ The expression of a `selector` query, in the engine's own selector language. A d
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1040)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1048)
 
 <a id="E2E_LocatorExpression_Source_"></a>
 <a id="E2E_LocatorExpression_Source"></a>
@@ -353,4 +373,4 @@ public string Describe()
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1099)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1107)

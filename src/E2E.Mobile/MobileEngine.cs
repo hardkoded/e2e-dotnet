@@ -27,6 +27,9 @@ public sealed record MobileStartInfo
 {
     public string RunId { get; init; } = "";
 
+    /// <summary>The attempt's id, which a provider that records names the recording by. Upstream's <c>EngineAttemptContext.attemptId</c>. Defaults to a new one.</summary>
+    public string AttemptId { get; init; } = Guid.NewGuid().ToString("n");
+
     public required string TargetName { get; init; }
 
     public int WorkerSlot { get; init; }
@@ -131,6 +134,26 @@ public sealed class MobileEngine : IPreparableEngine
         }
     }
 
+    private readonly Dictionary<(string Target, int Slot, string? Device), InflightCommands> _inflight = [];
+
+    /// <summary>
+    /// The device commands still running on one worker slot's device (the lease or device its binding names), kept across the attempts that drive it. Upstream's surface is
+    /// the worker and holds them itself; the port's session is one attempt, so the engine holds them for the slot.
+    /// </summary>
+    internal InflightCommands InflightOf(string targetName, int slot, SlotBinding? binding)
+    {
+        lock (_inflight)
+        {
+            var key = (targetName, slot, binding?.LeaseId ?? DeviceBindings.DeviceLabel(binding));
+            if (!_inflight.TryGetValue(key, out var commands))
+            {
+                _inflight[key] = commands = new InflightCommands();
+            }
+
+            return commands;
+        }
+    }
+
     /// <summary>The wait between two attempts at a sparse snapshot. Tests replace it to spend no time.</summary>
     internal Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = static (span, token) => Task.Delay(span, token);
 
@@ -232,6 +255,7 @@ public sealed class MobileEngine : IPreparableEngine
             new MobileStartInfo
             {
                 TargetName = Options.TargetName,
+                AttemptId = options.AttemptId ?? Guid.NewGuid().ToString("n"),
                 ProjectRoot = options.ProjectRoot ?? Directory.GetCurrentDirectory(),
                 Env = options.Env ?? new Dictionary<string, string?>(),
                 ArtifactsDir = options.ArtifactsDir,

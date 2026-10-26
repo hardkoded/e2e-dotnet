@@ -380,6 +380,29 @@ public sealed class ObservationTests
     }
 
     [Fact]
+    public async Task Keeps_a_timed_out_input_in_flight_the_next_attempt_waits_for_the_device_command_to_settle()
+    {
+        var h = Harness.Create();
+        var session = await Screens.OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(200));
+        var about = await Screens.Observed(session, "About");
+        var pressed = new TaskCompletionSource<JsonNode?>();
+        var settled = false;
+        h.Fake.RespondAsync(DeviceMethods.InteractionsPress, (_, _) => pressed.Task);
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None));
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", failure.Code);
+        Assert.False(settled);
+
+        // The attempt ends; the command it abandoned is still running on the device, so the next attempt cannot start yet.
+        await session.DisposeAsync();
+        var next = h.Boot();
+        Assert.False(next.IsCompleted);
+        settled = true;
+        pressed.SetResult(new JsonObject());
+        await next;
+        Assert.True(settled);
+    }
+
+    [Fact]
     public async Task Cancels_a_snapshot_when_the_operation_aborts()
     {
         var h = Harness.Create();

@@ -120,6 +120,9 @@ public sealed partial class DevicePool
     /// </summary>
     public int? Size => _source.Size;
 
+    /// <summary>The provider that leased the target's devices, whose service may record them. Null for a device the pool did not lease.</summary>
+    internal IDeviceProvider? Recorder => _source is LeasedDevices leased ? leased.Recorder : null;
+
     /// <summary>The agent-device session a worker slot drives its device under: the session option or <c>e2e-&lt;target&gt;</c>, then <c>-&lt;slot&gt;</c>.</summary>
     public string Session(string targetName, int slot) => $"{_options.Session ?? $"e2e-{targetName}"}-{slot}";
 

@@ -47,7 +47,7 @@ internal static partial class DeviceLocator
         var source = ResolveExpression(expression.Source!, index, platform);
         return source.Where(entry =>
         {
-            if (expression.HasText is not null && !SubtreeHasText(entry, index, expression.HasText))
+            if (expression.HasText is not null && !SubtreeHasText(entry, index, expression.HasText, expression.HasTextExact))
             {
                 return false;
             }
@@ -117,10 +117,10 @@ internal static partial class DeviceLocator
         return index.Where(entry => ancestors.Any(ancestor => SnapshotProjection.IsWithin(entry, ancestor))).ToList();
     }
 
-    private static bool SubtreeHasText(ProjectedNode entry, IReadOnlyList<ProjectedNode> index, TextMatch pattern)
+    private static bool SubtreeHasText(ProjectedNode entry, IReadOnlyList<ProjectedNode> index, TextMatch pattern, bool exact)
     {
         bool Has(ProjectedNode node) =>
-            new[] { node.Node.Name, node.Node.Text, node.Node.Value }.Any(text => text is not null && pattern.Matches(text, exact: false));
+            new[] { node.Node.Name, node.Node.Text, node.Node.Value }.Any(text => text is not null && pattern.Matches(text, exact));
 
         return Has(entry) || DescendantsOf([entry], index).Any(Has);
     }

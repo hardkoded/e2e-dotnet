@@ -99,6 +99,52 @@ public sealed class SessionHooksViewportSwipeLocationArtifactsTests
     }
 
     [Fact]
+    public async Task Waits_for_an_abandoned_command_to_settle_before_the_next_attempt_starts_and_its_launch_goes_out()
+    {
+        var h = Harness.Create();
+        var pressed = new TaskCompletionSource<JsonNode?>();
+        var settled = false;
+        h.Fake.RespondAsync(DeviceMethods.InteractionsPress, (_, _) => pressed.Task);
+        bool? openedAfterSettle = null;
+        h.Fake.Respond(DeviceMethods.AppsOpen, _ =>
+        {
+            openedAfterSettle = settled;
+            return new JsonObject { ["appName"] = "Settings", ["appBundleId"] = "com.apple.Preferences" };
+        });
+        var session = await OpenAttempt(h);
+        var about = await Observed(session, "About");
+        using var controller = new CancellationTokenSource();
+        var pending = session.PerformAsync(about, new LocatorAction.Tap(), controller.Token);
+        await controller.CancelAsync();
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() => pending);
+        Assert.Equal("CANCELLED", cancelled.Code);
+        await session.DisposeAsync();
+
+        var next = h.Boot();
+        Assert.False(next.IsCompleted);
+        settled = true;
+        pressed.SetResult(new JsonObject());
+        var second = await next;
+        await second.RestartAsync(CancellationToken.None);
+        Assert.True(openedAfterSettle);
+
+        // A command that never settles fails the launch within its budget instead of racing it.
+        h.Fake.RespondAsync(DeviceMethods.InteractionsPress, (_, _) => new TaskCompletionSource<JsonNode?>().Task);
+        var stuck = await Observed(second, "About");
+        using var abort = new CancellationTokenSource();
+        var hung = second.PerformAsync(stuck, new LocatorAction.Tap(), abort.Token);
+        await abort.CancelAsync();
+        var abandoned = await Assert.ThrowsAsync<EngineException>(() => hung);
+        Assert.Equal("CANCELLED", abandoned.Code);
+        await second.DisposeAsync();
+        using var launch = new CancellationTokenSource();
+        var launching = h.Boot(cancellationToken: launch.Token);
+        await launch.CancelAsync();
+        var launchFailure = await Assert.ThrowsAsync<EngineException>(() => launching);
+        Assert.Equal("CANCELLED", launchFailure.Code);
+    }
+
+    [Fact]
     public async Task Cleans_up_a_screenshot_that_fails_after_cancellation()
     {
         var h = Harness.Create();

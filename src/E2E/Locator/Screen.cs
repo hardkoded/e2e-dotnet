@@ -1028,6 +1028,14 @@ public sealed record LocatorExpression
 
     public TextMatch? HasText { get; init; }
 
+    /// <summary>
+    /// Whether <see cref="HasText"/> must equal the text instead of being a case-insensitive substring of it, as upstream's text pattern
+    /// carries its <c>exact</c>. <see cref="Locator.Filter(TextMatch)"/> builds a substring match (upstream's <c>{ exact: false }</c>), so
+    /// it leaves this <c>false</c>. A <see cref="System.Text.RegularExpressions.Regex"/> ignores it. .NET-only: <see cref="TextMatch"/> holds no
+    /// exactness of its own.
+    /// </summary>
+    public bool HasTextExact { get; init; }
+
     public LocatorExpression? Has { get; init; }
 
     public int? Index { get; init; }
@@ -1104,7 +1112,7 @@ public sealed record LocatorExpression
                 return Left!.Describe() + ".or(" + Right!.Describe() + ")";
             case "filter":
                 return Source!.Describe() + (HasText is not null
-                    ? ".filter(hasText: " + HasText + ")"
+                    ? ".filter(hasText: " + HasText + (HasTextExact ? ", exact" : "") + ")"
                     : ".filter(has: " + Has!.Describe() + ")");
             case "index":
                 return Source!.Describe() + (Index == LastIndex
@@ -1213,7 +1221,7 @@ internal static class LocatorResolver
                     var includeValue = !UsesDisplayValue(query.Source!);
                     return source.Where(node =>
                     {
-                        if (query.HasText is not null && !SubtreeHasText(node, query.HasText, includeValue))
+                        if (query.HasText is not null && !SubtreeHasText(node, query.HasText, query.HasTextExact, includeValue))
                         {
                             return false;
                         }
@@ -1305,16 +1313,16 @@ internal static class LocatorResolver
     /// Whether the node's own name, text, or value, or a descendant's, contains the text, ignoring case.
     /// <paramref name="includeValue"/> false leaves values out, as the text content of a display-value match has none.
     /// </summary>
-    private static bool SubtreeHasText(SemanticNode node, TextMatch expected, bool includeValue)
+    private static bool SubtreeHasText(SemanticNode node, TextMatch expected, bool exact, bool includeValue)
     {
-        if (expected.Matches(node.Name, exact: false) || expected.Matches(node.Text, exact: false) || (includeValue && expected.Matches(node.Value, exact: false)))
+        if (expected.Matches(node.Name, exact) || expected.Matches(node.Text, exact) || (includeValue && expected.Matches(node.Value, exact)))
         {
             return true;
         }
 
         foreach (var child in node.Children)
         {
-            if (SubtreeHasText(child, expected, includeValue))
+            if (SubtreeHasText(child, expected, exact, includeValue))
             {
                 return true;
             }

@@ -36,6 +36,34 @@ public enum EngineCapabilities
     PinnedApp = 512,
 }
 
+/// <summary>
+/// What an engine's fixture gets from the attempt, once per attempt. Upstream's <c>EngineFixtureContext</c>, of which the port has
+/// <c>locator</c> only: its fixtures take their own cancellation tokens, and record no steps of their own yet.
+/// </summary>
+public sealed class EngineFixtureContext
+{
+    private readonly Screen _screen;
+
+    internal EngineFixtureContext(Screen screen) => _screen = screen;
+
+    /// <summary>Mints a public locator from a raw expression (a platform selector, say). Upstream's <c>locator</c>.</summary>
+    public Locator Locator(LocatorExpression expression)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        return new Locator(_screen, expression);
+    }
+}
+
+/// <summary>
+/// An engine session that contributes a fixture, which the harness tells about the attempt when it starts. .NET-only: upstream's engine
+/// declares <c>fixtures</c>, factories the harness calls with an <see cref="EngineFixtureContext"/>; the port's session builds its own
+/// fixture (<c>Device</c>), so this hands it the context.
+/// </summary>
+public interface IEngineFixtureHost
+{
+    void CreateFixtures(EngineFixtureContext context);
+}
+
 /// <summary>Passed to <see cref="IEngine.StartAsync"/> once per test attempt.</summary>
 public sealed class EngineStartOptions
 {
