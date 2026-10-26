@@ -1021,7 +1021,7 @@ public sealed partial class WebEngine : IEngine
         // A locate reads under what is left of its wait, never longer than the action timeout an observation has.
         private Task<Observation> ObserveAsync(CancellationToken cancellationToken, TimeSpan? timeout) => RunAsync("observe", cancellationToken, async () =>
         {
-            var budget = Budget("observe", cancellationToken, timeout is { } left && left < _actionTimeout ? TimeSpan.FromMilliseconds(Math.Max(left.TotalMilliseconds, MinLocateRead.TotalMilliseconds)) : null);
+            var budget = Budget("observe", cancellationToken, timeout is { } left && left < _actionTimeout ? TimeSpan.FromMilliseconds(Math.Min(Math.Max(left.TotalMilliseconds, MinLocateRead.TotalMilliseconds), _actionTimeout.TotalMilliseconds)) : null);
             var walk = new FrameWalk();
             List<WebNode> roots;
             try
