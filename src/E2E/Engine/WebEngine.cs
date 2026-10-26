@@ -399,7 +399,7 @@ public sealed partial class WebEngine : IEngine
                     browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless }).ConfigureAwait(false);
                 }
 
-                session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => InstallSiteHeadersAsync(context, app), url => SiteHeadersFor(url, app), seams, credentials: credentials, lease: lease) { Video = VideoSetupOf(options, lease) };
+                session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => InstallSiteHeadersAsync(context, app), url => SiteHeadersFor(url, app), seams, credentials: credentials, lease: lease) { Video = VideoSetupOf(options, lease), ArtifactsDir = options.ArtifactsDir };
                 session.TraceTo(options);
                 await session.NewContextAsync().ConfigureAwait(false);
 
@@ -920,6 +920,9 @@ public sealed partial class WebEngine : IEngine
         private readonly ErrorLatch _latch = new();
         private readonly DialogRouter _dialogs;
         private int _artifactCounter;
+
+        /// <summary>The attempt's artifact directory (<see cref="EngineStartOptions.ArtifactsDir"/>); null when the session started without one.</summary>
+        public string? ArtifactsDir { get; init; }
         private IPage? _page;
         private readonly object _pageLock = new();
         private Task<IPage>? _pendingPage;
@@ -1350,7 +1353,7 @@ public sealed partial class WebEngine : IEngine
         /// </summary>
         internal (string Relative, string Absolute) ArtifactPath(string folder, string? label, string extension)
         {
-            var root = Video?.ArtifactsDir ?? throw new EngineException(EngineErrorCodes.InvalidState, "artifacts need the attempt's artifact directory; start the session with EngineStartOptions.ArtifactsDir");
+            var root = ArtifactsDir ?? throw new EngineException(EngineErrorCodes.InvalidState, "artifacts need the attempt's artifact directory; start the session with EngineStartOptions.ArtifactsDir");
             var counter = Interlocked.Increment(ref _artifactCounter);
             var name = counter.ToString("D3", System.Globalization.CultureInfo.InvariantCulture)
                 + (label is null ? "" : "-" + WebSupport.SanitizeFilename(label))
@@ -2067,7 +2070,7 @@ public sealed partial class WebEngine : IEngine
                 throw;
             }
 
-            var session = new WebSession(playwright, binding.Browser, actionTimeout, options, initScripts, setUpContext, siteHeaders, seams, persistent, lease: lease) { Video = video };
+            var session = new WebSession(playwright, binding.Browser, actionTimeout, options, initScripts, setUpContext, siteHeaders, seams, persistent, lease: lease) { Video = video, ArtifactsDir = video.ArtifactsDir };
             try
             {
                 if (!persistent.Claim(binding.ContextId))

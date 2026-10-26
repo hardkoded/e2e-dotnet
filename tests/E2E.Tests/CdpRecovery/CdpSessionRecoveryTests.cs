@@ -330,34 +330,41 @@ public sealed class CdpSessionRecoveryTests
         try
         {
             var engine = new WebEngine(new WebEngineOptions { Connect = Fixed(remote) });
-            await using var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = app.Url, ArtifactsDir = artifactsDir, ActionTimeout = TimeSpan.FromSeconds(10) }, None);
-            await session.OpenAsync(app.Url + "login", None);
-            var live = WebEngine.SurfaceOf(session)!;
-            await live.Page().EvaluateAsync("""
-                () => {
-                  const link = document.createElement('a');
-                  link.href = URL.createObjectURL(new Blob(['download kept']));
-                  link.download = 'kept.txt';
-                  link.id = 'download';
-                  link.textContent = 'Download';
-                  document.body.append(link);
-                }
-                """);
-            await live.Context().Browser!.CloseAsync();
-            var triggered = 0;
-            var download = await ((IBrowserSession)session).WaitForDownloadAsync(
-                async () =>
-                {
-                    triggered++;
-                    await live.Page().Locator("#download").ClickAsync();
-                },
-                TimeSpan.FromSeconds(10),
-                None);
-            Assert.Equal(1, triggered);
-            Assert.Equal("download kept", await File.ReadAllTextAsync(Path.Combine(artifactsDir, download.Path)));
-            var failure = new InvalidOperationException("test trigger failed");
-            var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => ((IBrowserSession)session).WaitForDownloadAsync(() => throw failure, TimeSpan.FromSeconds(10), None));
-            Assert.Same(failure, thrown);
+            var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = app.Url, ArtifactsDir = artifactsDir, ActionTimeout = TimeSpan.FromSeconds(10) }, None);
+            try
+            {
+                await session.OpenAsync(app.Url + "login", None);
+                var live = WebEngine.SurfaceOf(session)!;
+                await live.Page().EvaluateAsync("""
+                    () => {
+                      const link = document.createElement('a');
+                      link.href = URL.createObjectURL(new Blob(['download kept']));
+                      link.download = 'kept.txt';
+                      link.id = 'download';
+                      link.textContent = 'Download';
+                      document.body.append(link);
+                    }
+                    """);
+                await live.Context().Browser!.CloseAsync();
+                var triggered = 0;
+                var download = await ((IBrowserSession)session).WaitForDownloadAsync(
+                    async () =>
+                    {
+                        triggered++;
+                        await live.Page().Locator("#download").ClickAsync();
+                    },
+                    TimeSpan.FromSeconds(10),
+                    None);
+                Assert.Equal(1, triggered);
+                Assert.Equal("download kept", await File.ReadAllTextAsync(Path.Combine(artifactsDir, download.Path)));
+                var failure = new InvalidOperationException("test trigger failed");
+                var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => ((IBrowserSession)session).WaitForDownloadAsync(() => throw failure, TimeSpan.FromSeconds(10), None));
+                Assert.Same(failure, thrown);
+            }
+            finally
+            {
+                await session.DisposeAsync();
+            }
         }
         finally
         {

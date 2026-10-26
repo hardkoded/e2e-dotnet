@@ -395,7 +395,7 @@ misses.
   `AddInitScriptAsync(WebInitScript.FromFunction(fn), arg)`: runs before the
   page's own scripts; call it before `App.OpenAsync`. `arg` is JSON.
 - `OnDialogAsync(DialogHandler.Accept | DialogHandler.Dismiss | handler)`
-  answers native `alert`, `confirm`, and `prompt` dialogs (see below).
+  answers native `alert`, `confirm`, `prompt`, and `beforeunload` dialogs (see below).
 - `WaitForDownloadAsync(trigger, timeout?)` runs the trigger and returns the
   file it downloads (see below).
 
@@ -440,7 +440,7 @@ through `AbsolutePath`, which works with a hosted browser whose provider
 serves `Downloads` too; `Path` is relative to the attempt's artifact
 directory, not to the project. `SuggestedFilename` is the name the page or
 server gave it. A trigger that throws fails the call with its own error. One
-that starts no download fails with `ACTION_FAILED`, naming how long it
+that returns and starts no download within the timeout fails with `ACTION_FAILED`, naming how long it
 waited and how long the trigger took. Without `Downloads` on the provider,
 a download on a browser on another machine fails with `ENGINE_FAILURE`,
 naming the provider.
