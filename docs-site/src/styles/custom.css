@@ -1,19 +1,28 @@
 :root {
     --sl-font: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
     --sl-font-mono: "DM Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    --sl-color-accent-low: #0d3b2e;
-    --sl-color-accent: #3dcea0;
-    --sl-color-accent-high: #c8f8e8;
+    /* Dark theme. #4fa8ff is the blue in the logo mark. */
+    --sl-color-accent-low: #082844;
+    --sl-color-accent: #4fa8ff;
+    --sl-color-accent-high: #d7ecff;
     --sl-content-width: 48rem;
 }
 
 :root[data-theme="light"] {
-    --sl-color-accent-low: #d8f6ec;
-    --sl-color-accent: #087a56;
-    --sl-color-accent-high: #04382a;
-    --sl-color-gray-6: #f3f5f4;
-    --sl-color-gray-7: #f7f8f7;
+    --sl-color-accent-low: #e5f3ff;
+    --sl-color-accent: #0c74d4;
+    --sl-color-accent-high: #08325c;
+    --sl-color-gray-6: #f3f6fa;
+    --sl-color-gray-7: #f7f9fc;
     --sl-color-black: #ffffff;
+}
+
+/* The current sidebar item uses the logo blue. Dark ink keeps the label readable on that fill. */
+.sidebar-content a[aria-current="page"],
+.sidebar-content a[aria-current="page"]:hover,
+.sidebar-content a[aria-current="page"]:focus {
+    background-color: #4fa8ff;
+    color: #06243a;
 }
 
 .site-title img {
