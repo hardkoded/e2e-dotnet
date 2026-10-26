@@ -174,10 +174,30 @@ internal static class FixtureApp
         </html>
         """;
 
+    // A link the browser downloads from /report.csv, and a button that asks a native confirm.
+    private const string Downloads = """
+        <!doctype html><html><head><title>Downloads</title></head><body><h1>Downloads</h1><a href="/report.csv" download>Download report</a></body></html>
+        """;
+
+    private const string Dialog = """
+        <!doctype html>
+        <html>
+        <head><title>Dialog page</title></head>
+        <body>
+          <h1>Dialog</h1>
+          <button onclick="document.getElementById('answer').textContent = confirm('Proceed?') ? 'accepted' : 'dismissed'">Ask</button>
+          <output id="answer" role="status" aria-label="Answer"></output>
+        </body>
+        </html>
+        """;
+
     public static Task<TinySite> StartAsync()
     {
         return TinySite.StartAsync(context => context.Request.Url!.AbsolutePath switch
         {
+            "/downloads" => TinySite.RespondAsync(context, Downloads),
+            "/dialog" => TinySite.RespondAsync(context, Dialog),
+            "/report.csv" => RespondCsvAsync(context),
             "/" => TinySite.RespondAsync(context, Home),
             "/about" => TinySite.RespondAsync(context, About),
             "/classes" => TinySite.RespondAsync(context, Classes),
@@ -187,6 +207,16 @@ internal static class FixtureApp
             "/value-attributes" => TinySite.RespondAsync(context, ValueAttributes),
             _ => NotFoundAsync(context),
         });
+    }
+
+    private static async Task RespondCsvAsync(HttpListenerContext context)
+    {
+        var body = System.Text.Encoding.UTF8.GetBytes("id,total\n1,42\n");
+        context.Response.ContentType = "text/csv";
+        context.Response.AddHeader("Content-Disposition", "attachment; filename=\"report.csv\"");
+        context.Response.ContentLength64 = body.Length;
+        await context.Response.OutputStream.WriteAsync(body);
+        context.Response.Close();
     }
 
     private static async Task RespondJsonAsync(HttpListenerContext context, string json)

@@ -4,6 +4,7 @@
 
 using System.Text.RegularExpressions;
 using E2E.Engine;
+using E2E.Reports;
 
 namespace E2E.Tests.WebPlatform;
 
@@ -11,8 +12,9 @@ namespace E2E.Tests.WebPlatform;
 public sealed class WebPlatformIntegrationTests
 {
     // Partial: upstream "passes" also checks the class assertions, frameLocator, downloads, route, dialogs, CSS locators, and report.json.
-    // Not ported, the port has no such feature: frameLocator, waitForDownload, browser.route, browser.onDialog,
-    // CSS locators, toHaveClass, click modifiers and secondaryTap, harness step records, and report.json. That leaves out
+    // Not ported, the port has no such feature: frameLocator, CSS locators (browser.locator), toHaveClass, click modifiers and
+    // secondaryTap, harness step records, and report.json. The downloads scenario is ported in part, below, as
+    // Partial_downloads_are_captured_as_artifacts (it triggers the link with a role tap, not browser.locator('a[download]')). That leaves out
     // the class assertions "class assertions poll for a node that arrives late" and "class assertions on a node that never
     // arrives fail as assertions", and the browser.locator('#late-card') read of "reads wait for a node that arrives late",
     // which is ported as a partial test (text read only).
@@ -29,6 +31,83 @@ public sealed class WebPlatformIntegrationTests
     public async Task Ported_scenario_passes(string title)
     {
         Assert.Null(await RunAsync(Scenarios[title]));
+    }
+
+    // Upstream triggers the download with browser.locator('a[download]').tap(); the port has no CSS locator, so a role tap does.
+    [Fact]
+    public async Task Partial_downloads_are_captured_as_artifacts()
+    {
+        Assert.Null(await RunAsync(async session =>
+        {
+            await session.App.OpenAsync("/downloads");
+            var download = await session.Browser.WaitForDownloadAsync(() => session.Screen.GetByRole("link", "Download report").TapAsync());
+            Assert.Equal("report.csv", download.SuggestedFilename);
+            Assert.StartsWith("downloads/", download.Path, StringComparison.Ordinal);
+            Assert.Equal("id,total\n1,42\n", await File.ReadAllTextAsync(download.AbsolutePath));
+        }));
+    }
+
+    [Fact]
+    public async Task Fails_a_download_that_never_started_with_the_wait_and_the_trigger_time_not_a_bare_timeout()
+    {
+        var error = Assert.IsType<TestException>(await RunAsync(async session =>
+        {
+            await session.App.OpenAsync("/downloads");
+            await session.Browser.WaitForDownloadAsync(() => Task.Delay(200), TimeSpan.FromMilliseconds(500));
+        }));
+        Assert.Equal("ACTION_FAILED", error.Code);
+        var timing = Regex.Match(error.Message, @"^no download started within (\d+)ms; the trigger resolved after (\d+)ms$");
+        Assert.True(timing.Success, error.Message);
+
+        // The operation reports its remaining budget after setup, capped by the requested 500ms.
+        var waitMs = int.Parse(timing.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+        Assert.InRange(waitMs, 1, 500);
+
+        // The trigger sleeps 200ms; a timer can fire a millisecond or two early.
+        Assert.True(int.Parse(timing.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture) >= 190, error.Message);
+    }
+
+    // Upstream triggers the download with browser.locator('a[download]').tap(); the port has no CSS locator, so a role tap does.
+    [Fact]
+    public async Task Partial_attributes_a_download_to_the_fixture_step_that_produced_it_not_the_nested_tap()
+    {
+        var results = Directory.CreateTempSubdirectory("e2e-download-report-").FullName;
+        try
+        {
+            using var site = await FixtureApp.StartAsync();
+            await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                Model = new ScriptedModel(_ => ModelResponses.Done("passed", "unused")),
+                BaseUrl = site.Url,
+                TestTitle = "downloads are captured as artifacts",
+                ProjectRoot = results,
+                ResultsDirectory = Path.Combine(results, "results"),
+                ActionTimeout = TimeSpan.FromSeconds(5),
+                TestTimeout = TimeSpan.FromSeconds(30),
+                CacheEnabled = false,
+                Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
+            });
+            await session.App.OpenAsync("/downloads");
+            await session.Browser.WaitForDownloadAsync(() => session.Screen.GetByRole("link", "Download report").TapAsync());
+            session.Complete();
+            await session.DisposeAsync();
+
+            var attempt = session.Report()!.Run.Results[0].Attempts[0];
+            var wait = attempt.Steps.First(step => step.Api == "browser.waitForDownload");
+            Assert.Single(wait.Artifacts);
+            Assert.Empty(attempt.Steps.First(step => step.Api == "locator.tap").Artifacts);
+            var download = attempt.Artifacts.First(artifact => artifact.Kind == ArtifactKind.Download);
+            Assert.Contains("downloads/", download.Path, StringComparison.Ordinal);
+
+            // Bytes the app served, not rewritten by the runner: the record says so.
+            Assert.Equal("text/csv", download.MediaType);
+            Assert.Equal(ArtifactRedaction.Incomplete, download.Redaction);
+        }
+        finally
+        {
+            Directory.Delete(results, recursive: true);
+        }
     }
 
     [Fact]

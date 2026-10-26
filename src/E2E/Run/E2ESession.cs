@@ -269,6 +269,7 @@ public sealed class E2ESession : IAsyncDisposable
             softFailures.Redact = text => scope.Redactor.Redact(text);
             browser.Redact = text => scope.Redactor.Redact(text);
             browser.Failed = scope.Implicate;
+            browser.Attach = scope.AttachArtifact;
             var agent = new Agent(scope);
             var screen = new Screen(
                 scope.ObserveAsync,

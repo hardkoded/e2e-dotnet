@@ -1281,6 +1281,36 @@ internal sealed class AttemptScope
 
     public List<PendingAct> Acts { get; } = [];
 
+    private readonly List<(string Id, string Kind, string Path)> _attached = [];
+
+    /// <summary>
+    /// The files fixtures kept for the attempt, such as a download, as the id the step names, the kind, and the path under the attempt's
+    /// artifact directory (upstream's <c>attachArtifact</c>).
+    /// </summary>
+    public IReadOnlyList<(string Id, string Kind, string Path)> Attached
+    {
+        get
+        {
+            lock (_attached)
+            {
+                return [.. _attached];
+            }
+        }
+    }
+
+    /// <summary>Keeps <paramref name="relative"/> as an artifact of the running step, or of the last one when none runs.</summary>
+    public void AttachArtifact(string kind, string relative)
+    {
+        string id;
+        lock (_attached)
+        {
+            id = kind + "-" + (_attached.Count(entry => entry.Kind == kind)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            _attached.Add((id, kind, relative));
+        }
+
+        Steps.AttachArtifact(id);
+    }
+
     public int ModelCalls { get; set; }
 
     public int InputTokens { get; set; }

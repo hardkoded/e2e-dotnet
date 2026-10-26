@@ -721,7 +721,7 @@ public sealed partial class WebEngine : IEngine
 
     /// <summary>The live page and context behind a web session, for tests that drive the browser out of band; null for any other session.</summary>
     internal static LiveSurface? SurfaceOf(IEngineSession session) =>
-        session is WebSession web ? new LiveSurface(() => web.LivePage, () => web.LiveContext) : null;
+        session is WebSession web ? new LiveSurface(() => web.LivePage, () => web.LiveContext, web.ArtifactPath) : null;
 
     // Refuses a locale that is not a BCP 47 tag, and one an accept-language
     // header would override on the app's host while navigator.language kept
@@ -916,7 +916,10 @@ public sealed partial class WebEngine : IEngine
         // The attempt's init scripts, configured then added, applied to each context the session opens.
         private readonly List<string> _initScripts;
         private IBrowserContext? _context;
-        private Exception? _pending;
+        // Errors raised where nobody awaits them (a dialog handler, a route handler) wait here and fail the next step that enters the session.
+        private readonly ErrorLatch _latch = new();
+        private readonly DialogRouter _dialogs;
+        private int _artifactCounter;
         private IPage? _page;
         private readonly object _pageLock = new();
         private Task<IPage>? _pendingPage;
@@ -948,6 +951,7 @@ public sealed partial class WebEngine : IEngine
         public WebSession(IPlaywright playwright, IBrowser browser, TimeSpan actionTimeout, WebEngineOptions options, List<string> initScripts, Func<IBrowserContext, Task> setUpContext, Func<string, IReadOnlyDictionary<string, string>?> siteHeaders, SessionSeams seams, PersistentConnect? persistent = null, HttpCredentials? credentials = null, LeaseScope? lease = null)
         {
             _lease = lease;
+            _dialogs = new DialogRouter(_latch);
             _playwright = playwright;
             _initScripts = initScripts;
             _browser = browser;
@@ -1332,6 +1336,91 @@ public sealed partial class WebEngine : IEngine
             var (matches, playwrightHandler, _) = _routes[index];
             _routes.RemoveAt(index);
             await context.UnrouteAsync(matches, playwrightHandler).ConfigureAwait(false);
+        });
+
+        public Task<Action> OnDialogAsync(DialogHandler handler, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(_dialogs.Add(handler));
+        }
+
+        /// <summary>
+        /// Reserves one artifact path under the attempt directory: a per-attempt counter keeps names unique, the label keeps them
+        /// readable (upstream's <c>artifactPath</c>).
+        /// </summary>
+        internal (string Relative, string Absolute) ArtifactPath(string folder, string? label, string extension)
+        {
+            var root = Video?.ArtifactsDir ?? throw new EngineException(EngineErrorCodes.InvalidState, "artifacts need the attempt's artifact directory; start the session with EngineStartOptions.ArtifactsDir");
+            var counter = Interlocked.Increment(ref _artifactCounter);
+            var name = counter.ToString("D3", System.Globalization.CultureInfo.InvariantCulture)
+                + (label is null ? "" : "-" + WebSupport.SanitizeFilename(label))
+                + extension;
+            var relative = folder + "/" + name;
+            var absolute = Path.Combine(root, folder, name);
+            Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);
+            return (relative, absolute);
+        }
+
+        public Task<BrowserDownload> WaitForDownloadAsync(Func<Task> trigger, TimeSpan timeout, CancellationToken cancellationToken) => RunAsync("download", cancellationToken, async () =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var budget = Budget("download", cancellationToken, timeout);
+            Exception? triggerFailure = null;
+            (TimeSpan Wait, TimeSpan Trigger)? awaiting = null;
+            try
+            {
+                var remote = _lease?.Downloads();
+                if (remote is not null)
+                {
+                    await budget.WithinAsync(Downloads.SaveDownloadsToAsync(Page, remote.Dir)).ConfigureAwait(false);
+                }
+
+                var waitFor = TimeSpan.FromMilliseconds(budget.PlaywrightTimeout);
+                var download = await budget.WithinAsync(Page.RunAndWaitForDownloadAsync(
+                    async () =>
+                    {
+                        var started = _seams.Clock.GetTimestamp();
+                        try
+                        {
+                            await trigger().ConfigureAwait(false);
+                        }
+                        catch (Exception cause)
+                        {
+                            triggerFailure = cause;
+                            throw;
+                        }
+
+                        awaiting = (waitFor, _seams.Clock.GetElapsedTime(started));
+                    },
+                    new PageRunAndWaitForDownloadOptions { Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
+                awaiting = null;
+                var suggested = download.SuggestedFilename;
+                var (relative, absolute) = ArtifactPath("downloads", suggested, "");
+                await budget.WithinAsync(remote is null
+                    ? Downloads.SaveLocallyAsync(download, absolute, _lease?.UnservedDownloads())
+                    : Downloads.SaveFromBrowserAsync(download, remote, absolute, cancellationToken)).ConfigureAwait(false);
+                return new BrowserDownload { Path = relative, AbsolutePath = absolute, SuggestedFilename = suggested };
+            }
+            catch (Exception cause) when (triggerFailure is not null && ReferenceEquals(cause, triggerFailure))
+            {
+                // The trigger is test code, so its errors keep their original classification.
+                throw;
+            }
+            catch (Exception cause) when (WebErrors.IsPlaywright(cause) || cause is EngineException { Code: EngineErrorCodes.OperationTimeout })
+            {
+                var translated = WebErrors.Translate(cause, "download");
+
+                // The waiter's clock starts before the trigger runs, so the message names both.
+                if (awaiting is { } waited && translated.Code == EngineErrorCodes.OperationTimeout)
+                {
+                    throw new TestException(
+                        "ACTION_FAILED",
+                        $"no download started within {(long)waited.Wait.TotalMilliseconds}ms; the trigger resolved after {(long)waited.Trigger.TotalMilliseconds}ms",
+                        cause);
+                }
+
+                throw translated;
+            }
         });
 
         public Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(CancellationToken cancellationToken) => RunAsync<IReadOnlyList<BrowserCookie>>("cookies", cancellationToken, async () =>
@@ -1931,6 +2020,9 @@ public sealed partial class WebEngine : IEngine
             }
 
             await _setUpContext(context).ConfigureAwait(false);
+
+            // Every dialog of every page, the app's own tabs included, goes to the router: one nobody handles fails the next step.
+            context.Dialog += (_, dialog) => _ = _dialogs.DispatchAsync(dialog);
             AppLog.Install(
                 context,
                 entry => _appLog?.Invoke(entry),
@@ -2345,17 +2437,11 @@ public sealed partial class WebEngine : IEngine
         }
 
         /// <summary>
-        /// Rethrows, once, the first error a route handler raised since the last
-        /// operation. Nothing awaits a route handler, so its error fails the next
+        /// Rethrows, once, the first error a route or dialog handler raised since the last
+        /// operation. Nothing awaits a handler, so its error fails the next
         /// operation that reaches the page or the context.
         /// </summary>
-        private void ThrowPending()
-        {
-            if (Interlocked.Exchange(ref _pending, null) is { } pending)
-            {
-                ExceptionDispatchInfo.Throw(pending);
-            }
-        }
+        private void ThrowPending() => _latch.ThrowPending();
 
         /// <summary>
         /// Runs one handler on one request. The error is kept before an undecided
@@ -2370,7 +2456,7 @@ public sealed partial class WebEngine : IEngine
             }
             catch (Exception ex)
             {
-                Interlocked.CompareExchange(ref _pending, ex, null);
+                _latch.Latch(ex);
                 if (!decision.Decided)
                 {
                     await PlaywrightRoute.AbortQuietlyAsync(route).ConfigureAwait(false);
@@ -2750,8 +2836,11 @@ public sealed partial class WebEngine : IEngine
     }
 }
 
-/// <summary>The live page and context behind a web session. Each accessor reads the current binding, so it follows a reconnect.</summary>
-internal sealed record LiveSurface(Func<IPage> Page, Func<IBrowserContext> Context);
+/// <summary>
+/// The live page and context behind a web session. Each accessor reads the current binding, so it follows a reconnect.
+/// <c>ArtifactPath</c> reserves a path under the attempt's artifact directory (upstream's <c>surface.artifactPath</c>).
+/// </summary>
+internal sealed record LiveSurface(Func<IPage> Page, Func<IBrowserContext> Context, Func<string, string?, string, (string Relative, string Absolute)> ArtifactPath);
 
 /// <summary>
 /// One web operation's budget, as upstream <c>withOperationDeadline</c>: one deadline
