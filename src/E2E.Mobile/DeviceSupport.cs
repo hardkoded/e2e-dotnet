@@ -144,13 +144,15 @@ public static partial class DeviceSupport
 /// <remarks>
 /// Upstream's constructor also takes a <c>track</c> function that keeps an abandoned command in flight until it settles.
 /// The port tracks no in-flight command (see <c>COMPATIBILITY.md</c>, Mobile engine), so it has no such parameter.
+/// Its <paramref name="time"/> is the .NET stand-in for the fake timers upstream's tests install (<c>vi.useFakeTimers()</c>): the budget and the wait for an answer both run on it, so a test drives them without real time.
 /// </remarks>
-internal sealed class InputBudget(string label, TimeSpan timeout)
+internal sealed class InputBudget(string label, TimeSpan timeout, TimeProvider? time = null)
 {
     /// <summary>The least time an input gets to answer once sent, however little budget was left: a tap that lands is then not reported as cut off.</summary>
     private static readonly TimeSpan MinAnswer = TimeSpan.FromMilliseconds(250);
 
-    private readonly long _startedAt = System.Diagnostics.Stopwatch.GetTimestamp();
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
+    private readonly long _startedAt = (time ?? TimeProvider.System).GetTimestamp();
     private bool _sent;
 
     /// <summary>
@@ -163,7 +165,7 @@ internal sealed class InputBudget(string label, TimeSpan timeout)
     public async Task<T> SendAsync<T>(Func<Task<T>> dispatch, CancellationToken cancellationToken, TimeSpan? hold = null)
     {
         ArgumentNullException.ThrowIfNull(dispatch);
-        var remaining = timeout - System.Diagnostics.Stopwatch.GetElapsedTime(_startedAt);
+        var remaining = timeout - _time.GetElapsedTime(_startedAt);
         if (remaining <= TimeSpan.Zero)
         {
             throw _sent ? MaybeCommitted() : new EngineException(EngineErrorCodes.OperationTimeout, $"{label} timed out before it was sent", retryable: false);
@@ -183,7 +185,7 @@ internal sealed class InputBudget(string label, TimeSpan timeout)
         _sent = true;
         try
         {
-            return await pending.WaitAsync(remaining > MinAnswer ? remaining : MinAnswer, cancellationToken).ConfigureAwait(false);
+            return await pending.WaitAsync(remaining > MinAnswer ? remaining : MinAnswer, _time, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (!pending.IsCompleted && ex is TimeoutException or OperationCanceledException)
         {
