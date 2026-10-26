@@ -155,6 +155,15 @@ public sealed partial class WebEngine : IAsyncDisposable
         /// <summary>Starts the provider's recording of the attempt's browser; the provider may answer with none, and the attempt then records the screencast.</summary>
         public Func<CancellationToken, Task<LeaseRecording?>> Recorder() => leases.Recorder(AttemptId ?? "");
 
+        /// <summary>The downloads of the leased browser, read through its provider, when the provider serves them; null leaves Playwright to save them as usual (upstream's <c>remoteDownloads</c>).</summary>
+        public LeaseDownloads? Downloads() => leases.Downloads();
+
+        /// <summary>Why a download from a leased browser may never reach the runner, when its provider serves none (upstream's <c>unservedDownloads</c>).</summary>
+        public string? UnservedDownloads() =>
+            leases.Downloads() is null
+                ? $"browser provider \"{leases.Name}\" serves no downloads, so a browser on another machine keeps the file on its own disk (BrowserProvider.Downloads)"
+                : null;
+
         public WebConnectOptions? Connect { get; private set; }
 
         /// <summary>What the endpoint <see cref="Connect"/> last resolved speaks.</summary>

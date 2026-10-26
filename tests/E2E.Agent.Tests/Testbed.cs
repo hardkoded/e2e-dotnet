@@ -631,6 +631,24 @@ internal static class Testbed
             <h1>About</h1>
                    <p>The playground, described.</p>
             """),
+
+        // A native confirm, and a link to a file download. Both are unlisted in the nav, so the agent tests see the nav they always did.
+        ["/dialogs"] = ("Dialogs", """
+            <h1>Dialogs</h1>
+                   <button id="confirm">Delete everything</button>
+                   <output role="status" aria-label="Decision"></output>
+                   <script>
+                     document.getElementById('confirm').addEventListener('click', () => {
+                       const accepted = confirm('Really delete everything?');
+                       document.querySelector('output').textContent = accepted ? 'deleted' : 'kept';
+                     });
+                   </script>
+            """),
+
+        ["/downloads"] = ("Downloads", """
+            <h1>Downloads</h1>
+                   <a href="/files/report.csv" download>Download report</a>
+            """),
     };
 
     private static readonly Lazy<string> Server = new(Start, LazyThreadSafetyMode.ExecutionAndPublication);
@@ -664,6 +682,14 @@ internal static class Testbed
                 response.ContentType = "application/json";
                 response.ContentLength64 = users.Length;
                 await response.OutputStream.WriteAsync(users).ConfigureAwait(false);
+            }
+            else if (context.Request.Url?.AbsolutePath == "/files/report.csv")
+            {
+                var report = Encoding.UTF8.GetBytes("id,total\n1,42\n");
+                response.ContentType = "text/csv";
+                response.AddHeader("Content-Disposition", "attachment; filename=\"report.csv\"");
+                response.ContentLength64 = report.Length;
+                await response.OutputStream.WriteAsync(report).ConfigureAwait(false);
             }
             else if (context.Request.Url?.AbsolutePath == "/login" && context.Request.HttpMethod == "POST")
             {
