@@ -1112,7 +1112,7 @@ public sealed record LocatorExpression
                 return Left!.Describe() + ".or(" + Right!.Describe() + ")";
             case "filter":
                 return Source!.Describe() + (HasText is not null
-                    ? ".filter(hasText: " + HasText + ")"
+                    ? ".filter(hasText: " + HasText + (HasTextExact ? ", exact" : "") + ")"
                     : ".filter(has: " + Has!.Describe() + ")");
             case "index":
                 return Source!.Describe() + (Index == LastIndex

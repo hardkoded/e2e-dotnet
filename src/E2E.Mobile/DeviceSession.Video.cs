@@ -152,6 +152,9 @@ public sealed partial class DeviceSession
         var context = new ProviderRecordContext { RunId = recorder.RunId, TargetName = recorder.TargetName, AttemptId = recorder.AttemptId, Env = recorder.Env };
         var started = DeviceProviders.RecordLeaseAsync(recorder.Provider, recorder.Lease, context, cancellationToken);
         var video = new LeaseRecording(recorder, artifactsDir, started);
+
+        // Read, so a start that fails after its caller gave up is not left unobserved.
+        _ = started.ContinueWith(static settled => settled.Exception, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         _recording = video;
         try
         {
@@ -160,7 +163,7 @@ public sealed partial class DeviceSession
                 return true;
             }
         }
-        catch (OperationCanceledException) when (!started.IsCompleted)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // The start outlived the caller's budget: it stays marked, so a recording that comes up anyway is stopped when the session closes.
             throw DeviceSupport.Cancelled("start video recording cancelled");
@@ -188,8 +191,10 @@ public sealed partial class DeviceSession
 
             // Cleared once settled, after the field holds the task, so a stop that finishes at once cannot leave a stale one.
             _ = stopping.ContinueWith(
-                _ =>
+                settled =>
                 {
+                    // Read, so a stop that fails after its caller gave up is not left unobserved.
+                    _ = settled.Exception;
                     if (ReferenceEquals(video.Stopping, stopping))
                     {
                         video.Stopping = null;
