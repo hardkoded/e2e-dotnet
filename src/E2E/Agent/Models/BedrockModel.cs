@@ -21,6 +21,9 @@ public sealed class BedrockModel : IAgentModel, IDisposable
     private readonly HttpClient _http;
     private readonly bool _ownsClient;
 
+    /// <summary>.NET-only: the clock a signature reads, so a test can show each retry is signed again.</summary>
+    internal TimeProvider Clock { get; init; } = TimeProvider.System;
+
     public BedrockModel(BedrockModelOptions options, HttpClient? httpClient = null)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -47,6 +50,7 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         // Signed as is: no charset parameter.
         message.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
 
+        Action<HttpRequestMessage>? sign = null;
         var bearer = _options.ResolveApiKey();
         if (bearer is not null)
         {
@@ -59,10 +63,12 @@ public sealed class BedrockModel : IAgentModel, IDisposable
                     "MODEL_PROVIDER_FAILED",
                     "Amazon Bedrock needs AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, or a Bedrock API key in " + _options.ApiKeyEnv + ".",
                     blocked: true);
-            SigV4.Sign(message, payload, credentials, region, "bedrock", DateTimeOffset.UtcNow);
+            // Signed per attempt: a retry after a long wait must not carry the first attempt's x-amz-date.
+            // The credentials are read again too, so a rotated session token is picked up, as the AI SDK resolves them inside each fetch.
+            sign = attempt => SigV4.Sign(attempt, payload, _options.ResolveCredentials() ?? credentials, region, "bedrock", Clock.GetUtcNow());
         }
 
-        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken).ConfigureAwait(false);
+        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, sign).ConfigureAwait(false);
         return ModelHttp.Parse(body, Parse);
     }
 
