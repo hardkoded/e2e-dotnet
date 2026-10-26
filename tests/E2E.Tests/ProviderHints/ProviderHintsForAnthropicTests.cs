@@ -23,6 +23,31 @@ public sealed class ProviderHintsForAnthropicTests
         return await SendAsync(model, handler, request);
     }
 
+    /// <summary>
+    /// Partial port of "recognizes Claude on %j, where the same check runs" for its Bedrock row (<c>anthropic.claude-opus-5-5</c>):
+    /// only the <c>afterEdit</c> half is checked, since the port has no <c>providerHints</c> function and a Bedrock request carries no
+    /// system breakpoint. The Vertex and OpenRouter rows are not ported: the port has no client for either.
+    /// </summary>
+    [Fact]
+    public void Partial_Recognizes_Claude_on_amazon_bedrock_anthropic_claude_opus_5_5()
+    {
+        var reasoning = JsonDocument.Parse("""{ "reasoningText": { "text": "", "signature": "sig" } }""").RootElement.Clone();
+        ModelMessage[] history =
+        [
+            new() { Role = "user", Content = "step" },
+            new() { Role = "assistant", Content = "ok", ReasoningItems = [reasoning] },
+        ];
+        using var claude = new BedrockModel(new BedrockModelOptions { Model = "eu.anthropic.claude-opus-5-5", ApiKey = "k" }, new HttpClient());
+        using var other = new BedrockModel(new BedrockModelOptions { Model = "amazon.nova-pro-v1:0", ApiKey = "k" }, new HttpClient());
+
+        var after = E2E.ProviderHints.AfterEdit(claude, history, 0);
+
+        Assert.Same(history[0], after[0]);
+        Assert.Equal("ok", after[1].Content);
+        Assert.Null(after[1].ReasoningItems);
+        Assert.Same(history, E2E.ProviderHints.AfterEdit(other, history, 0));
+    }
+
     /// <summary>Partial port of "marks the system prompt as a breakpoint and adds no request options": the options of the client's own provider are checked as the body fields they become.</summary>
     [Fact]
     public async Task Marks_the_system_prompt_as_a_breakpoint_and_passes_the_provider_options_through_unchanged()

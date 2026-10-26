@@ -337,6 +337,102 @@ public sealed class ModelProviderTests
     }
 
     [Fact]
+    public async Task Google_model_returns_signed_thoughts_and_sends_them_back_ahead_of_text_and_function_calls()
+    {
+        var handler = new RecordingHandler(
+            """
+            {
+              "candidates": [{ "content": { "parts": [
+                { "text": "plan", "thought": true, "thoughtSignature": "c2ln" },
+                { "text": "tapping" },
+                { "functionCall": { "name": "tap", "args": { "role": "button", "name": "Pay" } } }
+              ] } }]
+            }
+            """,
+            """{ "candidates": [{ "content": { "parts": [{ "text": "ok" }] } }] }""");
+        using var http = new HttpClient(handler);
+        using var model = new GoogleModel(new GoogleModelOptions { Model = "gemini-2.5-pro", ApiKey = "g" }, http);
+
+        var first = await model.CompleteAsync(Conversation(), CancellationToken.None);
+
+        Assert.Equal("tapping", first.Content);
+        Assert.Equal("c2ln", first.ReasoningItems.Single().GetProperty("thoughtSignature").GetString());
+        await model.CompleteAsync(
+            new ModelRequest
+            {
+                System = "rules",
+                Tools = Tools(),
+                Messages =
+                [
+                    new ModelMessage { Role = "user", Content = "go" },
+                    new ModelMessage { Role = "assistant", Content = first.Content, ToolCalls = first.ToolCalls, ReasoningItems = first.ReasoningItems },
+                    new ModelMessage { Role = "tool", ToolCallId = first.ToolCalls[0].Id, Name = "tap", Content = "tapped" },
+                    new ModelMessage { Role = "assistant", Content = "all paid", ReasoningItems = first.ReasoningItems },
+                ],
+            },
+            CancellationToken.None);
+
+        var contents = handler.Requests[1].Json()["contents"]!.AsArray();
+        var toolTurn = contents[1]!["parts"]!.AsArray();
+        Assert.True(toolTurn[0]!["thought"]!.GetValue<bool>());
+        Assert.Equal("plan", toolTurn[0]!["text"]!.GetValue<string>());
+        Assert.Equal("c2ln", toolTurn[0]!["thoughtSignature"]!.GetValue<string>());
+        Assert.Equal("tapping", toolTurn[1]!["text"]!.GetValue<string>());
+        Assert.NotNull(toolTurn[2]!["functionCall"]);
+        var textTurn = contents[3]!["parts"]!.AsArray();
+        Assert.Equal(2, textTurn.Count);
+        Assert.Equal("c2ln", textTurn[0]!["thoughtSignature"]!.GetValue<string>());
+        Assert.Equal("all paid", textTurn[1]!["text"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Bedrock_model_returns_reasoning_blocks_and_sends_them_back_ahead_of_text_and_tool_calls()
+    {
+        var handler = new RecordingHandler(
+            """
+            { "output": { "message": { "role": "assistant", "content": [
+              { "reasoningContent": { "reasoningText": { "text": "plan", "signature": "sig-1" } } },
+              { "reasoningContent": { "redactedContent": "enc-1" } },
+              { "text": "tapping" },
+              { "toolUse": { "toolUseId": "t1", "name": "tap", "input": { "role": "button", "name": "Pay" } } }
+            ] } } }
+            """,
+            """{ "output": { "message": { "role": "assistant", "content": [{ "text": "ok" }] } } }""");
+        using var http = new HttpClient(handler);
+        using var model = new BedrockModel(new BedrockModelOptions { Model = "us.anthropic.claude-test-v1:0", Region = "eu-west-1", ApiKey = "bedrock-key" }, http);
+
+        var first = await model.CompleteAsync(Conversation(), CancellationToken.None);
+
+        Assert.Equal("tapping", first.Content);
+        Assert.Equal(2, first.ReasoningItems.Count);
+        await model.CompleteAsync(
+            new ModelRequest
+            {
+                System = "rules",
+                Tools = Tools(),
+                Messages =
+                [
+                    new ModelMessage { Role = "user", Content = "go" },
+                    new ModelMessage { Role = "assistant", Content = first.Content, ToolCalls = first.ToolCalls, ReasoningItems = first.ReasoningItems },
+                    new ModelMessage { Role = "tool", ToolCallId = "t1", Name = "tap", Content = "tapped" },
+                    new ModelMessage { Role = "assistant", Content = "all paid", ReasoningItems = first.ReasoningItems },
+                ],
+            },
+            CancellationToken.None);
+
+        var messages = handler.Requests[1].Json()["messages"]!.AsArray();
+        var toolTurn = messages[1]!["content"]!.AsArray();
+        Assert.Equal("sig-1", toolTurn[0]!["reasoningContent"]!["reasoningText"]!["signature"]!.GetValue<string>());
+        Assert.Equal("enc-1", toolTurn[1]!["reasoningContent"]!["redactedContent"]!.GetValue<string>());
+        Assert.Equal("tapping", toolTurn[2]!["text"]!.GetValue<string>());
+        Assert.NotNull(toolTurn[3]!["toolUse"]);
+        var textTurn = messages[3]!["content"]!.AsArray();
+        Assert.Equal(3, textTurn.Count);
+        Assert.NotNull(textTurn[0]!["reasoningContent"]);
+        Assert.Equal("all paid", textTurn[2]!["text"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task Bedrock_model_sends_a_bedrock_api_key_as_bearer()
     {
         var handler = new RecordingHandler("""

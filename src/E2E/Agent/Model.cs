@@ -52,7 +52,7 @@ public sealed class ModelMessage
 
     public string? Name { get; init; }
 
-    /// <summary>The reasoning the model returned with this turn, sent back as it came: encrypted items for <see cref="OpenAiResponsesModel"/>, signed thinking blocks for <see cref="AnthropicModel"/>, the reasoning text as a JSON string for <see cref="OpenAiCompatibleModel"/>.</summary>
+    /// <summary>The reasoning the model returned with this turn, sent back as it came: encrypted items for <see cref="OpenAiResponsesModel"/>, signed thinking blocks for <see cref="AnthropicModel"/>, thought parts for <see cref="GoogleModel"/>, the <c>reasoningContent</c> blocks for <see cref="BedrockModel"/>, the reasoning text as a JSON string for <see cref="OpenAiCompatibleModel"/>.</summary>
     public IReadOnlyList<JsonElement>? ReasoningItems { get; init; }
 
     /// <summary>The images that go with a <c>user</c> turn, after its text. A provider sends them as the turn's image parts; on any other role they are not sent.</summary>

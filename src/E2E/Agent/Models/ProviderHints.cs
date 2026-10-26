@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.RegularExpressions;
+
 namespace E2E;
 
 /// <summary>
@@ -11,7 +13,7 @@ namespace E2E;
 /// The loop keeps the system prompt of a step fixed; when it rewrites an earlier message (a history shrunk, or one an executor's
 /// <see cref="ToolLoopExecutorOptions.PrepareMessages"/> changed), the reasoning from that message on is left out of the next request.
 /// </summary>
-internal static class ProviderHints
+internal static partial class ProviderHints
 {
     /// <summary>
     /// The history to send once the message at <paramref name="index"/> was rewritten since the last request. Where the provider binds
@@ -26,10 +28,16 @@ internal static class ProviderHints
     }
 
     /// <summary>
-    /// Upstream's <c>speaksAnthropic</c>, which reads a provider and model id: the port asks the model object instead, since only
-    /// <see cref="AnthropicModel"/> replays Anthropic thinking (there is no Bedrock, Vertex, or OpenRouter client that does).
+    /// Upstream's <c>speaksAnthropic</c>, which reads a provider and model id: the port asks the model object instead. An
+    /// <see cref="AnthropicModel"/> does, and so does a <see cref="BedrockModel"/> whose id names Anthropic behind an optional region
+    /// prefix (<c>eu.anthropic.claude-…</c>), which replays the same signed thinking. A Bedrock application inference profile ARN
+    /// names no model and is not recognized, as upstream. The port has no Vertex or OpenRouter client that replays Anthropic thinking.
     /// </summary>
-    private static bool SpeaksAnthropic(IAgentModel? model) => model is AnthropicModel;
+    private static bool SpeaksAnthropic(IAgentModel? model) =>
+        model is AnthropicModel || (model is BedrockModel && BedrockAnthropicId().IsMatch(model.Name.ToLowerInvariant()));
+
+    [GeneratedRegex(@"(?:^|\.)anthropic\.claude")]
+    private static partial Regex BedrockAnthropicId();
 
     private static IReadOnlyList<ModelMessage> WithoutReasoningFrom(IReadOnlyList<ModelMessage> messages, int index)
     {
