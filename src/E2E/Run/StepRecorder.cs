@@ -455,7 +455,13 @@ internal sealed class StepRecorder
             return;
         }
 
-        current.Metrics = details.Metrics ?? current.Metrics;
+
+        // The step keeps the largest observation it read, whichever of the two carries it.
+        var largest = Math.Max(current.Metrics?.ObservationBytes ?? 0, details.ObservationBytes ?? 0);
+        current.Metrics = details.Metrics is { } metrics ? metrics with { ObservationBytes = Math.Max(metrics.ObservationBytes, largest) }
+            : details.ObservationBytes is null ? current.Metrics
+            : (current.Metrics ?? new StepMetrics()) with { ObservationBytes = largest };
+        current.ObservationRevision = details.ObservationRevision ?? current.ObservationRevision;
         current.Cache = details.Cache ?? current.Cache;
         current.Turns = details.Turns ?? current.Turns;
         if (details.ObservationTruncated is { } truncated)

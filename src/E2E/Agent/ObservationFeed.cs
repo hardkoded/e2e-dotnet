@@ -42,8 +42,36 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// consumes the pending change: it waits for the screen to leave the pre-action shape once, so later looks read the
     /// screen as it is; held still, it then proves the new shape holds for a beat.
     /// </summary>
-    public Task<Observation> ObserveAsync(SettleMode mode, CancellationToken token) =>
-        (Scope?.Debug ?? DebugTrace.Off).Time(Phases.Observe, () => LookAsync(mode, token));
+    public Task<Observation> ObserveAsync(SettleMode mode, CancellationToken token) => ObserveAsync(mode, null, token);
+
+    /// <summary>
+    /// <see cref="ObserveAsync(SettleMode, CancellationToken)"/> as one recorded <c>observation</c> event of the running step, which
+    /// <paramref name="name"/> tells apart when the look is not the step's own (<c>relocate</c>, <c>page</c>), and which books the
+    /// observation's size.
+    /// </summary>
+    public Task<Observation> ObserveAsync(SettleMode mode, string? name, CancellationToken token) =>
+        Phases.InstrumentPhaseAsync(
+            new PhaseHost(Scope?.Steps, Scope?.Debug ?? DebugTrace.Off),
+            new PhaseSpec(StepEventKind.Observation, Phases.Observe, name),
+            () => LookAsync(mode, token),
+            Book);
+
+    /// <summary>The size in bytes of the largest observation the step read, as a model reads it (upstream's <c>metrics.observationBytes</c>).</summary>
+    public int MaxObservationBytes { get; private set; }
+
+    // What an observation event tells (upstream's observationDetail): the nodes read, and the bytes of the text a model reads.
+    private PhaseDetail Book(Observation observation)
+    {
+        var count = LocatorResolver.Walk(observation.Roots).Count();
+        if (Scope is not { } scope)
+        {
+            return new PhaseDetail(count);
+        }
+
+        var bytes = AgentObservation.Bytes(observation, scope.Redactor, scope.AppOrigin);
+        MaxObservationBytes = Math.Max(MaxObservationBytes, bytes);
+        return new PhaseDetail(count, bytes);
+    }
 
     // The engine's look, shown to the attempt's trace when the feed belongs to an attempt.
     // A settled look takes several; a truncated one among them marks the step even when the last one is whole.
@@ -180,7 +208,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// </summary>
     public async Task<SemanticNode?> Relocate(SemanticNode stale, Redactor redactor, CancellationToken token)
     {
-        var observation = await ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false);
+        var observation = await ObserveAsync(SettleMode.Raw, "relocate", token).ConfigureAwait(false);
         var matches = FindLike(observation, stale, redactor);
         return matches.Count == 1 ? matches[0] : null;
     }

@@ -13,8 +13,8 @@ namespace E2E.Tests.AgentVision;
 /// port runs each test in a session on the fixture app, a real browser. The port has no step record, so four tests are
 /// partial and renamed: "records pixels as model input, not merely as an artifact" (no <c>visionInput</c>, <c>visionDegraded</c>,
 /// <c>pixelBytes</c> or <c>vision.pixels</c> event), "withholds pixels once the viewport is pixel-tainted, keeping the tree" (no
-/// <c>visionDegraded</c> or <c>observationBytes</c>), "sends pixels alone, with no observation in the request" (no
-/// <c>visionOnly</c>, metrics or observation revision, which the port does not have), and "fails pixels-only when pixels are withheld instead of judging the tree" (no
+/// <c>visionDegraded</c> or <c>pixelBytes</c>, and no <c>vision.pixels</c> policy event), "sends pixels alone, with no observation in the request" (no
+/// <c>visionOnly</c> or <c>pixelBytes</c>, which the port does not have), and "fails pixels-only when pixels are withheld instead of judging the tree" (no
 /// <c>visionDegraded</c> or <c>visionInput</c>).
 /// </summary>
 [Collection(BrowserCollection.Name)]
@@ -103,6 +103,8 @@ public sealed class AgentVisionJudgmentsTests
         Assert.Null(judged.Images);
         Assert.Contains("textbox \"Password\"", judged.Content, StringComparison.Ordinal);
         Assert.DoesNotContain("A screenshot of the current screen is attached", judged.Content, StringComparison.Ordinal);
+        var step = result.Steps!.Single(candidate => candidate.Api == "agent.assert");
+        Assert.True(step.Metrics!.ObservationBytes > 0);
     }
 
     [Fact]
@@ -121,6 +123,11 @@ public sealed class AgentVisionJudgmentsTests
         Assert.DoesNotContain("Screen (", judged.Content, StringComparison.Ordinal);
         Assert.DoesNotContain("textbox", judged.Content, StringComparison.Ordinal);
         Assert.Contains("no accessibility tree is attached, on purpose", judged.Content, StringComparison.Ordinal);
+
+        // The observation is still captured for the report; it just contributes nothing to the request, and the metric says so.
+        var step = result.Steps!.Single(candidate => candidate.Api == "agent.assert");
+        Assert.Equal(0, step.Metrics?.ObservationBytes ?? 0);
+        Assert.Contains(step.Events, candidate => candidate.Kind == StepEventKind.Observation);
     }
 
     [Fact]
@@ -189,6 +196,6 @@ internal sealed class VisionRun
 
         session.Complete(error);
         _site.Dispose();
-        return new CoreTests.Attempt(error, session.ModelCalls, session.Replayed, session.Missed);
+        return new CoreTests.Attempt(error, session.ModelCalls, session.Replayed, session.Missed, Steps: session.Steps);
     }
 }

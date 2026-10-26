@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text;
 using System.Text.RegularExpressions;
 using E2E.Engine;
 using E2E.Internal;
@@ -62,6 +63,10 @@ internal static class AgentObservation
     /// placeholder, which tick without the page changing. The scroll position counts too: upstream's screenshot shows a
     /// scroll the tree does not, and the port's observations carry no screenshot.
     /// </summary>
+    /// <summary>The size in bytes of the screen as a model reads it (upstream's <c>observation.bytes</c>).</summary>
+    public static int Bytes(Observation observation, Redactor redactor, string? appOrigin) =>
+        Encoding.UTF8.GetByteCount(SnapshotText.Render(observation, redactor, appOrigin));
+
     public static string Shape(Observation observation) => Shape(SnapshotText.Render(observation, Redactor.None)) + "\n" + observation.ScrollPosition;
 
     /// <summary>The shape of a screen already rendered as text.</summary>

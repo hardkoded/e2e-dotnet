@@ -594,6 +594,11 @@ internal static partial class FailureText
             lines.Add("Look at: " + Code(source.File + ":" + source.Line.ToString(CultureInfo.InvariantCulture)) + "  ");
         }
 
+        if (told.Status != AttemptStatus.Skipped && told.Skip is { } skip)
+        {
+            lines.Add("Also skipped: " + Cell(skip.Reason) + "  ");
+        }
+
         if (AttemptsLine(result, final) is { } attempts)
         {
             lines.Add(attempts + "  ");

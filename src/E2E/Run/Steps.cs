@@ -115,7 +115,7 @@ internal sealed record StepEvent
     public string? Detail { get; init; }
 }
 
-/// <summary>The accounting of one agent step. The port does not measure the observation and pixel bytes upstream also keeps.</summary>
+/// <summary>The accounting of one agent step. The port does not measure the pixel bytes upstream also keeps.</summary>
 internal sealed record StepMetrics
 {
     public int ModelCalls { get; init; }
@@ -126,7 +126,7 @@ internal sealed record StepMetrics
 
     public int LedgerBytes { get; init; }
 
-    /// <summary>The largest observation the step read, in bytes. The port does not measure it yet, so it reads 0.</summary>
+    /// <summary>The largest observation the step read, in bytes of the text a model reads: 0 for a step that read none.</summary>
     public int ObservationBytes { get; init; }
 }
 
@@ -209,6 +209,12 @@ internal sealed record StepAgentDetails
     /// <summary>True when at least one semantic observation in the step was truncated.</summary>
     public bool? ObservationTruncated { get; init; }
 
+    /// <summary>The revision of the screen the step read last (<see cref="E2E.Engine.Observation.Revision"/>).</summary>
+    public string? ObservationRevision { get; init; }
+
+    /// <summary>The size in bytes of an observation the step read; the step keeps the largest.</summary>
+    public int? ObservationBytes { get; init; }
+
     /// <summary>Absent when the step failed before a judgment could be requested.</summary>
     public string? Explanation { get; init; }
 }
@@ -242,6 +248,9 @@ internal sealed class StepRecord
     public bool? ObservationTruncated { get; set; }
 
     public string? Explanation { get; set; }
+
+    /// <summary>The revision of the screen the step read last; null for a step that read none.</summary>
+    public string? ObservationRevision { get; set; }
 
     public StepViewport? Viewport { get; set; }
 

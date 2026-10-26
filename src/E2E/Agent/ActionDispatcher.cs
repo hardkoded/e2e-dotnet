@@ -56,6 +56,7 @@ internal sealed class ActionDispatcher : IExecutorActions
     {
         var modifiers = RequireClickModifiers(options, kind, _scope.EngineCapabilities);
         return RunAsync(
+            kind,
             async token =>
             {
                 var node = Resolve(target);
@@ -116,6 +117,7 @@ internal sealed class ActionDispatcher : IExecutorActions
     {
         ArgumentNullException.ThrowIfNull(value);
         return RunAsync(
+            "type",
             async token =>
             {
                 var node = Resolve(target);
@@ -132,6 +134,7 @@ internal sealed class ActionDispatcher : IExecutorActions
         var secret = _secrets().FirstOrDefault(item => string.Equals(item.Name, secretName, StringComparison.Ordinal))
             ?? throw new AgentException("POLICY_DENIED", "secret \"" + secretName + "\" was not declared in this step's params; only declared secrets can be filled", blocked: true);
         await RunAsync(
+            "typeSecret",
             async token =>
             {
                 var node = Resolve(target);
@@ -147,6 +150,7 @@ internal sealed class ActionDispatcher : IExecutorActions
 
     public Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
         RunAsync(
+            "clear",
             async token =>
             {
                 var node = Resolve(target);
@@ -163,6 +167,7 @@ internal sealed class ActionDispatcher : IExecutorActions
         }
 
         return RunAsync(
+            "press",
             async token =>
             {
                 if (target is null)
@@ -183,6 +188,7 @@ internal sealed class ActionDispatcher : IExecutorActions
     {
         ArgumentNullException.ThrowIfNull(value);
         return RunAsync(
+            "selectOption",
             async token =>
             {
                 var node = Resolve(target);
@@ -194,6 +200,7 @@ internal sealed class ActionDispatcher : IExecutorActions
 
     public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) =>
         RunAsync(
+            check ? "check" : "uncheck",
             async token =>
             {
                 var node = Resolve(target);
@@ -204,6 +211,7 @@ internal sealed class ActionDispatcher : IExecutorActions
 
     public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
         RunAsync(
+            "scrollIntoView",
             async token =>
             {
                 var node = Resolve(target);
@@ -221,6 +229,7 @@ internal sealed class ActionDispatcher : IExecutorActions
 
         CheckDirection(direction);
         return RunAsync(
+            "scrollUntil",
             async token =>
             {
                 var recorded = list is null ? null : Target(Resolve(list), "scrollUntil");
@@ -247,6 +256,7 @@ internal sealed class ActionDispatcher : IExecutorActions
         }
 
         return RunAsync(
+            "scroll",
             async token =>
             {
                 var actions = _accounting.Recorder.Actions;
@@ -258,7 +268,7 @@ internal sealed class ActionDispatcher : IExecutorActions
                     {
                         // Each later repeat reads a settled screen first, and pages the list as that screen shows it.
                         _feed.ArmAfter(actions[^1]);
-                        var look = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
+                        var look = await _feed.ObserveAsync(SettleMode.HeldStill, "page", token).ConfigureAwait(false);
                         if (recorded is not null)
                         {
                             node = Single(Find(look, recorded.Role, recorded.Name, recorded.TestId, null, _scope.Redactor))
@@ -296,6 +306,7 @@ internal sealed class ActionDispatcher : IExecutorActions
         }
 
         return RunAsync(
+            "navigate",
             async token =>
             {
                 await _scope.Session.OpenAsync(Routes.Resolve(_scope.BaseUrl, url), token).ConfigureAwait(false);
@@ -306,6 +317,7 @@ internal sealed class ActionDispatcher : IExecutorActions
 
     public Task BackAsync(CancellationToken cancellationToken = default) =>
         RunAsync(
+            "back",
             async token =>
             {
                 await _scope.Session.BackAsync(token).ConfigureAwait(false);
@@ -317,15 +329,26 @@ internal sealed class ActionDispatcher : IExecutorActions
     /// Runs one grammar action against the action budget: the slot is taken before anything else, since a failed action was
     /// still an attempt. A failure of an action that ran past the step's end is the step's own hard stop, not the action's.
     /// </summary>
-    private Task RunAsync(Func<CancellationToken, Task> body, CancellationToken cancellationToken) =>
+    private Task RunAsync(string name, Func<CancellationToken, Task> body, CancellationToken cancellationToken) =>
         _accounting.Queue.RunAsync(async () =>
         {
             _accounting.Reserve();
             // The call runs under the step's own token as well as the caller's, so a step that ends stops an action in flight.
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(_accounting.Token, cancellationToken);
+            var actions = _accounting.Recorder.Actions;
             try
             {
-                await _scope.Debug.Time(Phases.Action, () => body(linked.Token)).ConfigureAwait(false);
+                // One engine event named for the action, saying what it did once the action was recorded.
+                await Phases.InstrumentPhaseAsync(
+                    new PhaseHost(_scope.Steps, _scope.Debug),
+                    new PhaseSpec(StepEventKind.Engine, Phases.Action, name),
+                    async () =>
+                    {
+                        var before = actions.Count;
+                        await body(linked.Token).ConfigureAwait(false);
+                        return before;
+                    },
+                    before => actions.Count > before ? new PhaseDetail(Detail: _scope.Redactor.Redact(DefaultAgent.Describe(actions[^1]))) : new PhaseDetail()).ConfigureAwait(false);
             }
             catch (Exception) when (CheckStep())
             {
@@ -401,7 +424,7 @@ internal sealed class ActionDispatcher : IExecutorActions
         {
             // A settled look after each page: a browser scrolls on a later frame than the wheel event, and a windowed
             // list renders its rows on a later scroll event, so a raw read right after the swipe sees the page as it was.
-            var observation = await _feed.ObserveAsync(screens == 0 ? SettleMode.Raw : SettleMode.HeldStill, token).ConfigureAwait(false);
+            var observation = await _feed.ObserveAsync(screens == 0 ? SettleMode.Raw : SettleMode.HeldStill, "page", token).ConfigureAwait(false);
             if (screens == 0)
             {
                 _feed.MarkActing();
@@ -492,7 +515,7 @@ internal sealed class ActionDispatcher : IExecutorActions
 
     /// <summary>A mutating project tool that ran: the hook reads it as <c>tool:name</c>.</summary>
     internal Task NotifyToolAsync(string name) =>
-        NotifyAsync("tool:" + name, SettlePolicy.For(new RecordedAction { Kind = "tool" }).Look, () => "ran " + name, ActionSource.Model);
+        NotifyAsync(ActionNames.ProjectToolEventPrefix + name, SettlePolicy.For(new RecordedAction { Kind = "tool" }).Look, () => "ran " + name, ActionSource.Model);
 
     private async Task NotifyAsync(string action, SettleMode look, Func<string> summary, ActionSource source)
     {

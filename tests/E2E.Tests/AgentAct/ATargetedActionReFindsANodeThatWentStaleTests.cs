@@ -8,8 +8,7 @@ using E2E.Engine;
 namespace E2E.Tests.AgentAct;
 
 /// <summary>
-/// A targeted action re-finds a node that went stale. Upstream also checks that the step recorded a relocation
-/// capture. The port has no step events, so the page forces a stale node on every tap instead.
+/// A targeted action re-finds a node that went stale. The page forces a stale node on every tap, as upstream's does.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class ATargetedActionReFindsANodeThatWentStaleTests
@@ -73,9 +72,14 @@ public sealed class ATargetedActionReFindsANodeThatWentStaleTests
             ? ModelResponses.Call("tap", new { @ref = ButtonRef(request) })
             : ModelResponses.Done("passed", "tapped three times"));
 
-        var result = await RunAsync(site, model);
+        var (result, steps) = await RunAsync(site, model);
 
         Assert.Equal(3, result.Actions);
+        var step = steps.Single(candidate => candidate.Api == "agent.act");
+        Assert.Equal(3, step.Metrics!.ActionSteps);
+
+        // A tap went stale and was re-found rather than failed: at least one relocation capture.
+        Assert.True(step.Events.Count(item => item is { Kind: StepEventKind.Observation, Name: "relocate" }) >= 1);
         foreach (var request in model.Requests.Skip(1).Take(3))
         {
             Assert.DoesNotContain("failed", request.Messages.Last(message => message.Role == "tool").Content, StringComparison.Ordinal);
@@ -103,7 +107,7 @@ public sealed class ATargetedActionReFindsANodeThatWentStaleTests
             };
         });
 
-        var result = await RunAsync(site, model);
+        var (result, _) = await RunAsync(site, model);
 
         Assert.Equal(3, result.Actions);
         Assert.Equal(2, result.ModelCalls);
@@ -119,7 +123,7 @@ public sealed class ATargetedActionReFindsANodeThatWentStaleTests
         return Regex.Matches(text, @"button ""Tap me"" \[ref=(e\d+)\]")[^1].Groups[1].Value;
     }
 
-    private static async Task<ActResult> RunAsync(TinySite site, ScriptedModel model)
+    private static async Task<(ActResult Result, IReadOnlyList<StepRecord> Steps)> RunAsync(TinySite site, ScriptedModel model)
     {
         ActResult? result = null;
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions
@@ -148,6 +152,6 @@ public sealed class ATargetedActionReFindsANodeThatWentStaleTests
 
         session.Complete(error);
         Assert.Null(error);
-        return result!;
+        return (result!, session.Steps);
     }
 }
