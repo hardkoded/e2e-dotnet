@@ -55,7 +55,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         _binding = binding;
         _where = where;
         _client = client;
-        _inflight = engine.InflightOf(info.TargetName, info.WorkerSlot);
+        _inflight = engine.InflightOf(info.TargetName, info.WorkerSlot, binding);
         if (engine.Pool.Recorder is { } provider && DeviceProviders.TravelledLease(binding) is { } lease)
         {
             _leaseRecorder = new LeaseRecorder(provider, lease, info.RunId, info.TargetName, info.AttemptId, info.Env);
@@ -118,11 +118,28 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// <summary>Whether the target pins an app for <c>app.open()</c>, <c>app.restart()</c>, and <c>app.clearState()</c> to launch.</summary>
     private bool ManagesApp => _app.BundleId is not null || _app.AppPath is not null;
 
+    /// <summary>
+    /// Upstream's <c>startAttempt</c> waits for the commands an earlier attempt abandoned before anything of this one goes out. The wait is
+    /// bounded by the launch timeout, as the web engine's connects are, so a start given no token still ends.
+    /// </summary>
+    private static async Task SettleBeforeStartAsync(InflightCommands inflight, CancellationToken cancellationToken)
+    {
+        using var bound = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        bound.CancelAfter(E2EDefaults.LaunchTimeout);
+        try
+        {
+            await inflight.SettleAsync(bound.Token).ConfigureAwait(false);
+        }
+        catch (EngineException ex) when (ex.Code == EngineErrorCodes.Cancelled && !cancellationToken.IsCancellationRequested)
+        {
+            throw new EngineException(EngineErrorCodes.EngineFailure, $"device commands an earlier attempt abandoned did not settle within {E2EDefaults.LaunchTimeout.TotalSeconds:0} s", retryable: false, ex);
+        }
+    }
+
     internal static async Task<DeviceSession> StartAsync(MobileEngine engine, MobileStartInfo info, DeviceClientFactory createClient, CancellationToken cancellationToken)
     {
-        // Upstream's startAttempt: the commands an earlier attempt abandoned settle before anything of this one goes out.
-        await engine.InflightOf(info.TargetName, info.WorkerSlot).SettleAsync(cancellationToken).ConfigureAwait(false);
         var binding = engine.Pool.Binding(info.TargetName, info.WorkerSlot, info.Env);
+        await SettleBeforeStartAsync(engine.InflightOf(info.TargetName, info.WorkerSlot, binding), cancellationToken).ConfigureAwait(false);
         var session = engine.Pool.Session(info.TargetName, info.WorkerSlot);
         var label = DeviceBindings.DeviceLabel(binding);
         var where = $"session {session}{(label is null ? "" : $" on {label}")}";

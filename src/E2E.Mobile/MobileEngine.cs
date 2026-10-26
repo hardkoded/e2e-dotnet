@@ -134,19 +134,20 @@ public sealed class MobileEngine : IPreparableEngine
         }
     }
 
-    private readonly Dictionary<(string Target, int Slot), InflightCommands> _inflight = [];
+    private readonly Dictionary<(string Target, int Slot, string? Device), InflightCommands> _inflight = [];
 
     /// <summary>
-    /// The device commands still running on one worker slot's device, kept across the attempts that drive it. Upstream's surface is
+    /// The device commands still running on one worker slot's device (the lease or device its binding names), kept across the attempts that drive it. Upstream's surface is
     /// the worker and holds them itself; the port's session is one attempt, so the engine holds them for the slot.
     /// </summary>
-    internal InflightCommands InflightOf(string targetName, int slot)
+    internal InflightCommands InflightOf(string targetName, int slot, SlotBinding? binding)
     {
         lock (_inflight)
         {
-            if (!_inflight.TryGetValue((targetName, slot), out var commands))
+            var key = (targetName, slot, binding?.LeaseId ?? DeviceBindings.DeviceLabel(binding));
+            if (!_inflight.TryGetValue(key, out var commands))
             {
-                _inflight[(targetName, slot)] = commands = new InflightCommands();
+                _inflight[key] = commands = new InflightCommands();
             }
 
             return commands;
