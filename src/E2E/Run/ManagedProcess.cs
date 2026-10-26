@@ -604,9 +604,19 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
 
     private Process Spawn(Dictionary<string, string> env)
     {
+        string workingDirectory;
+        try
+        {
+            workingDirectory = Path.GetFullPath(string.IsNullOrWhiteSpace(_command.Cwd) ? "." : _command.Cwd, _projectRoot);
+        }
+        catch (ArgumentException ex)
+        {
+            throw new EngineException("APP_UNREACHABLE", _label + " failed to start: its cwd is not a path: " + ex.Message, ex);
+        }
+
         var info = new ProcessStartInfo(_command.Executable)
         {
-            WorkingDirectory = Path.GetFullPath(_command.Cwd ?? ".", _projectRoot),
+            WorkingDirectory = workingDirectory,
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardInput = true,
@@ -626,15 +636,23 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
             info.Environment[name] = value;
         }
 
+        Process? process = null;
         try
         {
-            var process = Process.Start(info) ?? throw new EngineException("APP_UNREACHABLE", _label + " failed to start: no process was created");
+            process = Process.Start(info) ?? throw new EngineException("APP_UNREACHABLE", _label + " failed to start: no process was created");
             // Nothing is written to the process: closing its input tells a program that reads it that there is none.
             process.StandardInput.Close();
             return process;
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or IOException or UnauthorizedAccessException)
         {
+            if (process is not null)
+            {
+                // It started but could not be set up: it is not tracked yet, so it ends here.
+                KillTree(process);
+                process.Dispose();
+            }
+
             throw new EngineException("APP_UNREACHABLE", _label + " failed to start: " + ex.Message, ex);
         }
     }
