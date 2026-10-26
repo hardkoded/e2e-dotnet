@@ -15,6 +15,9 @@ internal static class Ids
     /// <summary>SHA-256 of a UTF-8 string, lowercase hex.</summary>
     public static string Sha256Hex(string input) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(input)));
 
+    /// <summary>RFC 3339 UTC timestamp with exactly millisecond precision (upstream's <c>timestamp</c>, <c>toISOString</c>).</summary>
+    public static string Timestamp(DateTimeOffset date) => date.UtcDateTime.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'", CultureInfo.InvariantCulture);
+
     /// <summary>SHA-256 over the RFC 8785 canonical form, lowercase hex.</summary>
     public static string CanonicalDigest(JsonNode? value) => Sha256Hex(CanonicalJson(value));
 

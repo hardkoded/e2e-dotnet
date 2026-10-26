@@ -6,7 +6,7 @@ namespace E2E.Tests.SchemaFixtures;
 
 /// <summary>
 /// The two top-level <c>it</c> of <c>tests/unit/schema-fixtures.test.ts</c>. Upstream ships four schemas (<c>agent-judgment-v1</c>,
-/// <c>agent-judgment-v2</c>, <c>report-v1</c>, <c>session-v1</c>); the port ships <c>report-v1</c> only.
+/// <c>agent-judgment-v2</c>, <c>report-v1</c>, <c>session-v1</c>); the port ships <c>report-v1</c> and <c>session-v1</c>.
 /// </summary>
 public sealed class SchemaFixturesTests
 {
