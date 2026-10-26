@@ -106,6 +106,11 @@ screen.
    with what it did, what the app logged, the agent's turns, and
    `## Screen at failure`, the screen one node per line, with the nodes
    closest to what a failed locator asked for (topic `debugging`).
+   An agent step's events tell each look at the screen (`observation`: the nodes
+   read and its bytes, `Observation.Revision`, `b1`, `b2`, ...) and each action
+   (`engine`: `tap`, `type`, `tool:<name>`); `report.json` keeps the last revision
+   as `observationRevision` and the largest read as `metrics.observationBytes`.
+   A failed attempt that also carried a skip says `Also skipped: <reason>`.
 2. Fix every line that evidence covers, not only the one that failed: the
    screen at failure shows the names the rest of that screen's lines need.
    Fix the locator, the expectation, or the app. Never add a sleep.
