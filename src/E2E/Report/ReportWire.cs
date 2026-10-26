@@ -370,6 +370,20 @@ internal static partial class ReportWire
             "video" => extension == ".mp4" ? "video/mp4" : "video/webm",
             "screenshot" => extension is ".jpg" or ".jpeg" ? "image/jpeg" : "image/png",
             "log" => "text/plain",
+
+            // A download keeps the name the app suggested, so its extension says what it is (upstream's artifact store, mediaTypeFor).
+            "download" => extension switch
+            {
+                ".png" => "image/png",
+                ".zip" => "application/zip",
+                ".webm" => "video/webm",
+                ".mp4" => "video/mp4",
+                ".txt" => "text/plain",
+                ".csv" => "text/csv",
+                ".json" => "application/json",
+                ".html" or ".htm" => "text/html",
+                _ => "application/octet-stream",
+            },
             _ => "application/octet-stream",
         };
     }

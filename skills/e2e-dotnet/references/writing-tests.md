@@ -394,6 +394,56 @@ misses.
 - `AddInitScriptAsync(source | WebInitScript)`,
   `AddInitScriptAsync(WebInitScript.FromFunction(fn), arg)`: runs before the
   page's own scripts; call it before `App.OpenAsync`. `arg` is JSON.
+- `OnDialogAsync(DialogHandler.Accept | DialogHandler.Dismiss | handler)`
+  answers native `alert`, `confirm`, `prompt`, and `beforeunload` dialogs (see below).
+- `WaitForDownloadAsync(trigger, timeout?)` runs the trigger and returns the
+  file it downloads (see below).
+
+### Handle a dialog
+
+An unhandled `alert`, `confirm`, `prompt`, or `beforeunload` dialog fails the
+next step, and is dismissed. Register a handler first. It covers every tab
+for the rest of the test, and the newest one answers. The call returns a
+function that removes it:
+
+```csharp
+var off = await Browser.OnDialogAsync(DialogHandler.Accept);
+await Screen.GetByRole("button", "Delete").TapAsync();
+await off();
+```
+
+A function handler gets the `Dialog` (`Type`, `Message`) and must call
+`AcceptAsync(text?)` or `DismissAsync()` before it returns. One that does
+not, or that throws, fails the next step (`INVALID_STATE`, or
+`ENGINE_FAILURE` for a throw that is not an e2e error), and its dialog is
+dismissed:
+
+```csharp
+await Browser.OnDialogAsync(async dialog =>
+{
+    Assert.That(dialog.Type, Is.EqualTo(DialogType.Confirm));
+    await dialog.AcceptAsync();
+});
+```
+
+### Download a file
+
+```csharp
+var file = await Browser.WaitForDownloadAsync(() =>
+    Screen.GetByRole("link", "Export CSV").TapAsync());
+var csv = await File.ReadAllTextAsync(file.AbsolutePath);
+```
+
+The file is a `download` artifact of the step, saved under the attempt's
+`downloads` folder with a counted name (`downloads/001-report.csv`). Read it
+through `AbsolutePath`, which works with a hosted browser whose provider
+serves `Downloads` too; `Path` is relative to the attempt's artifact
+directory, not to the project. `SuggestedFilename` is the name the page or
+server gave it. A trigger that throws fails the call with its own error. One
+that returns and starts no download within the timeout fails with `ACTION_FAILED`, naming how long it
+waited and how long the trigger took. Without `Downloads` on the provider,
+a download on a browser on another machine fails with `ENGINE_FAILURE`,
+naming the provider.
 
 ### Run a script before the page
 

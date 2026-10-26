@@ -50,6 +50,7 @@ public sealed class CdpSessionRecoveryTests
                 global::E2E.Internal.Routes.Matcher("**/kept-route"),
                 route => route.FulfillAsync(new RouteFulfillResponse { Status = 200, Body = "route kept" }),
                 None);
+            await ((IBrowserSession)session).OnDialogAsync(DialogHandler.Accept, None);
             await original.Context.Browser!.CloseAsync();
 
             Assert.Equal("Login", await EvaluateAsync<string>(session, "() => document.querySelector('h1').textContent"));
@@ -60,6 +61,7 @@ public sealed class CdpSessionRecoveryTests
             Assert.Equal(800, recovered.ViewportSize!.Width);
             Assert.Equal(600, recovered.ViewportSize!.Height);
             Assert.Equal("route kept", await recovered.EvaluateAsync<string>("async () => (await fetch('/kept-route')).text()"));
+            Assert.True(await recovered.EvaluateAsync<bool>("() => confirm('Handler survived?')"));
             Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(stale, new LocatorAction.Tap(), None))).Code);
             Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.SwipeAsync(ScrollDirection.Down, None))).Code);
             await session.ObserveAsync(None);
@@ -317,6 +319,57 @@ public sealed class CdpSessionRecoveryTests
             """));
         Assert.Equal("OPERATION_TIMEOUT", error.Code);
         Assert.Equal("true", await WebEngine.SurfaceOf(session)!.Page().GetAttributeAsync("body", "data-started"));
+    }
+
+    [Fact]
+    public async Task Recovers_before_arming_a_download_waiter_and_runs_its_trigger_once()
+    {
+        using var app = await FixtureApp.StartAsync();
+        await using var remote = await RemoteChrome.LaunchAsync();
+        var artifactsDir = Directory.CreateTempSubdirectory("e2e-cdp-download-").FullName;
+        try
+        {
+            var engine = new WebEngine(new WebEngineOptions { Connect = Fixed(remote) });
+            var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = app.Url, ArtifactsDir = artifactsDir, ActionTimeout = TimeSpan.FromSeconds(10) }, None);
+            try
+            {
+                await session.OpenAsync(app.Url + "login", None);
+                var live = WebEngine.SurfaceOf(session)!;
+                await live.Page().EvaluateAsync("""
+                    () => {
+                      const link = document.createElement('a');
+                      link.href = URL.createObjectURL(new Blob(['download kept']));
+                      link.download = 'kept.txt';
+                      link.id = 'download';
+                      link.textContent = 'Download';
+                      document.body.append(link);
+                    }
+                    """);
+                await live.Context().Browser!.CloseAsync();
+                var triggered = 0;
+                var download = await ((IBrowserSession)session).WaitForDownloadAsync(
+                    async () =>
+                    {
+                        triggered++;
+                        await live.Page().Locator("#download").ClickAsync();
+                    },
+                    TimeSpan.FromSeconds(10),
+                    None);
+                Assert.Equal(1, triggered);
+                Assert.Equal("download kept", await File.ReadAllTextAsync(Path.Combine(artifactsDir, download.Path)));
+                var failure = new InvalidOperationException("test trigger failed");
+                var thrown = await Assert.ThrowsAsync<InvalidOperationException>(() => ((IBrowserSession)session).WaitForDownloadAsync(() => throw failure, TimeSpan.FromSeconds(10), None));
+                Assert.Same(failure, thrown);
+            }
+            finally
+            {
+                await session.DisposeAsync();
+            }
+        }
+        finally
+        {
+            Directory.Delete(artifactsDir, recursive: true);
+        }
     }
 
     [Fact]

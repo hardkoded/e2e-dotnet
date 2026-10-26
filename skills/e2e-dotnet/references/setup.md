@@ -189,7 +189,7 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
   worker left open. `Downloads` (`Dir`, `ReadAsync`) and `RecordAsync`
   (returning a `ProviderRecording`) are for a service that holds the browser's
   files and screen; the engine calls `RecordAsync` for an attempt that records
-  video, and not `Downloads` yet (no `waitForDownload`). A test fixture needs no runner: an engine that was never
+  video, and `Browser.WaitForDownloadAsync` calls `Downloads`. A test fixture needs no runner: an engine that was never
   `Init`ed leases for its one attempt and gives the lease back when the session
   ends.
 
@@ -208,7 +208,7 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
   `e2e_attempt`, `TimeoutSeconds` defaults to 600, and a sweep at the end of the
   run deletes the browsers a dead worker left. A replay is
   the attempt's `video/replay.mp4`. Downloads are implemented, but the engine
-  does not call them yet (no `waitForDownload`). The calls were not checked against a live Kernel account.
+  reads a download through them with `Browser.WaitForDownloadAsync`. The calls were not checked against a live Kernel account.
 
 - To run on the TestMu AI web grid, add the `E2E.TestMu` package and set
   `Browser = new TestMuBrowsers()` (`using E2E.TestMu;`) with `Viewport = null`.

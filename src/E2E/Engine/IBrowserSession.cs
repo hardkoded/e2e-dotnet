@@ -56,6 +56,21 @@ public interface IBrowserSession : IEngineSession
     Task UnrouteAsync(Func<IBrowserRoute, Task> handler, CancellationToken cancellationToken) =>
         Task.FromException(new EngineException("UNSUPPORTED_CAPABILITY", "browser.unroute is not supported by this engine."));
 
+    /// <summary>
+    /// Registers a handler for native dialogs (the newest wins) and returns its unsubscribe, which is idempotent. A dialog with no
+    /// handler fails the next step, and is dismissed. A session that does not override it fails with <c>UNSUPPORTED_CAPABILITY</c>.
+    /// </summary>
+    Task<Action> OnDialogAsync(DialogHandler handler, CancellationToken cancellationToken) =>
+        Task.FromException<Action>(new EngineException("UNSUPPORTED_CAPABILITY", "browser.onDialog is not supported by this engine."));
+
+    /// <summary>
+    /// Runs <paramref name="trigger"/> and waits up to <paramref name="timeout"/> for the download it starts, saved under the attempt's
+    /// <c>downloads</c> artifact folder. A trigger that throws fails the call with its own error. A session that does not override it
+    /// fails with <c>UNSUPPORTED_CAPABILITY</c>.
+    /// </summary>
+    Task<BrowserDownload> WaitForDownloadAsync(Func<Task> trigger, TimeSpan timeout, CancellationToken cancellationToken) =>
+        Task.FromException<BrowserDownload>(new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForDownload is not supported by this engine."));
+
     Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(CancellationToken cancellationToken);
 
     Task SetCookiesAsync(IReadOnlyList<BrowserCookie> cookies, CancellationToken cancellationToken);
@@ -127,6 +142,22 @@ public sealed record BrowserCookie
 
     /// <summary><c>Strict</c>, <c>Lax</c>, or <c>None</c>.</summary>
     public string? SameSite { get; init; }
+}
+
+/// <summary>
+/// A download the browser saved as an artifact of the attempt (upstream's <c>waitForDownload</c> result,
+/// <c>{ path, absolutePath, suggestedFilename }</c>).
+/// </summary>
+public sealed record BrowserDownload
+{
+    /// <summary>Relative to the attempt's artifact directory, with <c>/</c> separators: <c>downloads/001-report.csv</c>.</summary>
+    public required string Path { get; init; }
+
+    /// <summary>Where the file is on this machine.</summary>
+    public required string AbsolutePath { get; init; }
+
+    /// <summary>The filename the page or the server suggested, as the browser saw it.</summary>
+    public required string SuggestedFilename { get; init; }
 }
 
 /// <summary>A response an engine observed, with its body still being read.</summary>

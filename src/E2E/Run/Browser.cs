@@ -78,6 +78,9 @@ public sealed class Browser
 
     internal void NotifyFailed() => Failed();
 
+    /// <summary>Keeps a file the fixture wrote as an artifact of the running step (upstream's <c>attachArtifact</c>). Nothing outside a session keeps it.</summary>
+    internal Action<string, string> Attach { get; set; } = static (_, _) => { };
+
     /// <summary>
     /// Navigates to <paramref name="url"/>, resolved against the base URL like <c>App.OpenAsync</c>,
     /// and waits for <see cref="GotoOptions.WaitUntil"/> within <see cref="GotoOptions.Timeout"/>.
@@ -287,6 +290,56 @@ public sealed class Browser
         }
 
         return Require("emulateMedia").EmulateMediaAsync(media, Token(cancellationToken));
+    }
+
+    /// <summary>
+    /// Registers a handler for native dialogs, of every tab, for the rest of the attempt, and returns its unsubscribe. The newest
+    /// registration answers. A dialog with no handler fails the next step and is dismissed; a handler that returns without calling
+    /// <see cref="Dialog.AcceptAsync"/> or <see cref="Dialog.DismissAsync"/>, or throws, fails the next step with that error, and its
+    /// dialog is dismissed. Pass <see cref="DialogHandler.Accept"/> or <see cref="DialogHandler.Dismiss"/> to answer them all alike.
+    /// </summary>
+    public async Task<Func<Task>> OnDialogAsync(DialogHandler handler, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
+        var session = Require("onDialog");
+        Action unsubscribe = static () => { };
+        await RunStepAsync(StepKind.Resource, "browser.onDialog", "", async () => unsubscribe = await session.OnDialogAsync(handler, Token(cancellationToken)).ConfigureAwait(false)).ConfigureAwait(false);
+        return () =>
+        {
+            unsubscribe();
+            return Task.CompletedTask;
+        };
+    }
+
+    /// <summary>Registers a handler that runs <paramref name="handler"/> for each dialog. See <see cref="OnDialogAsync(DialogHandler, CancellationToken)"/>.</summary>
+    public Task<Func<Task>> OnDialogAsync(Func<Dialog, Task> handler, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
+        return OnDialogAsync((DialogHandler)handler, cancellationToken);
+    }
+
+    /// <summary>
+    /// Runs <paramref name="trigger"/> and waits for the download it starts, within <paramref name="timeout"/> (the action timeout by
+    /// default). The file is kept under the attempt's <c>downloads</c> artifact folder, as an artifact of this step. A trigger that
+    /// throws fails the call with its own error, and one that starts no download fails with <c>ACTION_FAILED</c>, naming the wait and
+    /// how long the trigger took.
+    /// </summary>
+    public async Task<BrowserDownload> WaitForDownloadAsync(Func<Task> trigger, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(trigger);
+        if (timeout is { } budget)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(budget, TimeSpan.Zero, nameof(timeout));
+        }
+
+        var session = Require("waitForDownload");
+        BrowserDownload? download = null;
+        await RunStepAsync(StepKind.Resource, "browser.waitForDownload", "", async () =>
+        {
+            download = await AppNotOpen.GuardAsync(() => session.WaitForDownloadAsync(trigger, timeout ?? _actionTimeout, Token(cancellationToken))).ConfigureAwait(false);
+            Attach("download", download.Path);
+        }).ConfigureAwait(false);
+        return download!;
     }
 
     internal IBrowserSession Require(string operation)
