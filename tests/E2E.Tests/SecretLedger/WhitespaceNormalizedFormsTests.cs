@@ -2,9 +2,10 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Internal;
+
 namespace E2E.Tests.SecretLedger;
 
-/// <summary>"holds a value whose whitespace a line break can stand for across lines of a stream" is not ported: the port has no stream redactor.</summary>
 public sealed class WhitespaceNormalizedFormsTests
 {
     private const string Note = "first line 4417\nsecond  line\tQx";
@@ -58,5 +59,14 @@ public sealed class WhitespaceNormalizedFormsTests
     {
         var ledger = Ledger.Of(("phrase", "correct horse battery"));
         Assert.Equal("correct  horse battery correcthorse battery", ledger.Redact("correct  horse battery correcthorse battery"));
+    }
+
+    [Fact]
+    public void Holds_a_value_whose_whitespace_a_line_break_can_stand_for_across_lines_of_a_stream()
+    {
+        var stream = new StreamRedactor(Ledger.Of(("phrase", "correct horse battery")));
+        var first = stream.Push("said correct\n");
+        Assert.Equal("", first);
+        Assert.Equal("said <secret:phrase>\n", first + stream.Push("horse battery\n") + stream.Flush());
     }
 }
