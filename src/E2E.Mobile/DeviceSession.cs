@@ -156,7 +156,7 @@ public sealed partial class DeviceSession : IEngineSession
     }
 
     /// <summary>The budget one input runs under. Upstream's <c>inputBudget</c>, minus the in-flight tracking the port does not have.</summary>
-    internal InputBudget InputBudget(string label) => new(label, ActionTimeout);
+    internal InputBudget InputBudget(string label) => new(label, ActionTimeout, _engine.Clock);
 
     /// <summary>Sends an input under its operation's budget, or directly from a fixture call, which has none. Upstream's <c>sendInput</c>.</summary>
     internal static Task<T> SendInputAsync<T>(InputBudget? input, Func<Task<T>> dispatch, CancellationToken cancellationToken, TimeSpan? hold = null) =>
