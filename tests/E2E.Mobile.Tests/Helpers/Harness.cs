@@ -141,12 +141,12 @@ internal sealed class FakeClock : TimeProvider
 
     public override long TimestampFrequency => TimeSpan.TicksPerSecond;
 
-    public override long GetTimestamp() => _spent;
+    public override long GetTimestamp() => Interlocked.Read(ref _spent);
 
     /// <summary>Time a device command takes: it moves the clock and the budget of every input under way.</summary>
     public void Spend(TimeSpan span)
     {
-        _spent += span.Ticks;
+        Interlocked.Add(ref _spent, span.Ticks);
         Advance(span);
     }
 
