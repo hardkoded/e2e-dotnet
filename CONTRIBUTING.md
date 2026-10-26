@@ -49,8 +49,33 @@ Style is enforced at build time through `.editorconfig` and `Directory.Build.pro
 
 Do not commit API keys.
 
+## Documentation
+
+The site in `docs-site/` is [Astro Starlight](https://starlight.astro.build/). Guides for Get started and Samples are Markdown in `docs-site/src/content/docs/`. The Guide, Compatibility, and Contributing pages are this repository's `README.md`, `COMPATIBILITY.md`, and `CONTRIBUTING.md`, copied when the site starts or builds.
+
+Preview:
+
+```bash
+cd docs-site
+npm install
+npm run dev
+```
+
+The dev server is at http://localhost:4321/e2e-dotnet/ . `npm run build` then `npm run preview` serves the production build, including search.
+
+The API reference is generated from the XML docs of `E2E`, `E2E.NUnit`, and `E2E.XUnit.V3`. After a public API change, regenerate it and commit the pages:
+
+```bash
+cd docs-site
+npm run api
+```
+
+That needs the .NET 10 SDK. It runs DocFX metadata, then writes Markdown into `docs-site/src/content/docs/api/`.
+
+GitHub Pages publishes the site from `main` only (`.github/workflows/docs.yml`). A pull request builds the site and does not deploy. Merging to `main` is what replaces the live site.
+
 ## Release
 
 Push a version tag such as `v0.1.0` (previews use `v0.1.0-preview.1`). `.github/workflows/publish.yml` tests, packs `E2E`, `E2E.NUnit`, `E2E.XUnit.V3`, `E2E.Cli`, `E2E.Mobile`, `E2E.Mobile.DevFlow`, `E2E.Limrun`, `E2E.Eas`, `E2E.TestMu`, and `E2E.Kernel`, and pushes them to nuget.org with trusted publishing. The policy is repository owner `hardkoded`, repository `e2e-dotnet`, workflow file `publish.yml`. The workflow has to be on the default branch before the tag is pushed.
 
-The same tag runs `.github/workflows/docs.yml`, which builds the DocFX site in `docs/` and deploys it to GitHub Pages. Build it locally with `dotnet tool install --global docfx`, then `docfx docs/docfx.json --serve`.
+Docs are not published by the tag. They publish when the docs workflow runs on `main`. See [Documentation](#documentation).

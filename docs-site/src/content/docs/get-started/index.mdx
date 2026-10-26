@@ -1,0 +1,61 @@
+---
+title: Get started
+description: Pick a platform and run a first E2E for .NET test.
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+E2E for .NET drives an app with an agent, then checks the result with locators. Pick the platform your app runs on. Every page ends with a test you can run.
+
+| Platform | Engine | Packages | Runs on |
+| --- | --- | --- | --- |
+| [Web](/get-started/web/) | `WebEngine` (Chromium through Playwright) | `E2E`, `E2E.NUnit` or `E2E.XUnit.V3` | Windows, macOS, Linux |
+| [Mobile](/get-started/mobile/) | `MobileEngine` (iOS simulator, Android emulator) | `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3` | macOS for iOS, any host for Android |
+| [.NET MAUI](/get-started/maui/) | `MobileEngine`, or `DevFlowAgents` for a Debug build | `E2E.Mobile.NUnit`, `E2E.Mobile.DevFlow` | macOS for iOS, any host with the Android SDK |
+| [Windows](/get-started/windows/) | `WinAppEngine` (Windows UI Automation) | `E2E.WinApp.NUnit` or `E2E.WinApp.XUnit.V3` | Windows 10 or 11 |
+
+Every platform shares the same test API: `App`, `Agent`, `Screen`, and `Expect`.
+
+```csharp
+await Agent.ActAsync("sign in as {user}", new ActOptions { Params = new Dictionary<string, object?> { ["user"] = "ada" } });
+await Expect.That(Screen.GetByTestId("greeting")).ToHaveTextAsync("Hello, ada!");
+```
+
+`ActAsync` takes one goal and lets the agent work out the steps. `Expect` checks an exact value with no model call. A verified `ActAsync` is recorded, and the next run replays it with no model call until the screen no longer matches.
+
+## Before you start
+
+1. Install the [.NET 10 SDK](https://dotnet.microsoft.com/download).
+2. Sign in to a model. For a GitHub Copilot plan:
+
+   ```bash
+   dotnet tool install --global E2E.Cli
+   e2e login github-copilot
+   ```
+
+   For an API key, set `provider` and `model` under `agents.default` in `e2e.config.json`, and export the key the provider reads, for example `OPENAI_API_KEY`. See [the guide](/guide/#subscriptions) for ChatGPT, OpenCode Console, and SuperGrok.
+3. Tests that never call the agent need no model, so you can start with locators only. A model request that fails on the network or with a 408, 409, 429, or 5xx answer is sent again up to 5 times before the step fails with `MODEL_PROVIDER_FAILED`.
+
+## The config file
+
+Each test project has an `e2e.config.json` next to its `.csproj`. It names the app under test (`targets`), the agent, and the replay cache:
+
+```json
+{
+  "targets": [{ "name": "web", "platform": "web", "app": { "url": "http://localhost:3000" } }],
+  "actionTimeout": 15000,
+  "assertionTimeout": 10000,
+  "agents": { "default": { "provider": "copilot", "model": "claude-sonnet-5.5" } },
+  "cache": { "dir": ".e2e/cache" }
+}
+```
+
+A `web` target takes `app.url`. An `ios` or `android` target takes `app.bundleId` and `app.appPath`. A `windows` target takes `app.appPath` and `app.bundleId`. The `context` string under `agents.default` tells the agent what the app is, for example that the data is shared and must not be edited.
+
+## Next
+
+<CardGrid>
+  <LinkCard title="Samples" href={`${import.meta.env.BASE_URL}samples/`} description="Finished projects for each platform to copy from." />
+  <LinkCard title="Guide" href={`${import.meta.env.BASE_URL}guide/`} description="Config, model providers, hosted browsers, video, and CI." />
+  <LinkCard title="API reference" href={`${import.meta.env.BASE_URL}api/`} description="Every public type." />
+</CardGrid>
