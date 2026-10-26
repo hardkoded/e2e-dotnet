@@ -186,7 +186,7 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
 
     /// <summary>A session's name when none is set: <c>e2e-&lt;run id&gt;-&lt;target&gt;-&lt;slot&gt;</c>, slots counting from 1. A per-attempt lease takes its attempt id in place of the slot.</summary>
     private static string DefaultSessionName(BrowserRequest request) =>
-        $"e2e-{request.RunId}-{request.TargetName}-{request.AttemptId ?? (request.Slot + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        $"e2e-{request.RunId}-{request.TargetName}-{(request.AttemptId is null ? null : "attempt-" + request.AttemptId) ?? (request.Slot + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)}";
 
     /// <summary><c>LT_USERNAME</c> and <c>LT_ACCESS_KEY</c> (or their <c>TESTMU_</c> aliases) from the run's environment; throws naming each one that is unset or blank.</summary>
     private static (string Username, string AccessKey) Credentials(IReadOnlyDictionary<string, string?> env)
@@ -197,7 +197,7 @@ public sealed class TestMuBrowsers(TestMuBrowsersOptions? options = null) : IBro
         {
             var missing = new[] { username is null ? "LT_USERNAME" : null, accessKey is null ? "LT_ACCESS_KEY" : null }.OfType<string>().ToArray();
             throw new InvalidOperationException(
-                $"{string.Join(" and ", missing)} {(missing.Length == 1 ? "is" : "are")} not set; set LT_USERNAME and LT_ACCESS_KEY (or TESTMU_USERNAME and TESTMU_ACCESS_KEY) to your TestMu AI username and access key in the environment the tests start in");
+                $"{string.Join(" and ", missing)} {(missing.Length == 1 ? "is" : "are")} not set; set LT_USERNAME and LT_ACCESS_KEY (or TESTMU_USERNAME and TESTMU_ACCESS_KEY) to your TestMu AI username and access key in the environment the tests start in. Both are in the TestMu automation dashboard, under Access Key.");
         }
 
         return (username, accessKey);

@@ -215,7 +215,7 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
   Set `LT_USERNAME` and `LT_ACCESS_KEY` (or `TESTMU_USERNAME` and
   `TESTMU_ACCESS_KEY`) in the environment that starts the tests. A blank value
   counts as unset, and the lease fails naming each variable that is missing.
-  Each session is named `e2e-<run id>-<target>-<slot>`, slots counting from 1.
+  Each session is named `e2e-<run id>-<target>-<slot>`, slots counting from 1 (a per-attempt lease is `e2e-<run id>-<target>-attempt-<attempt id>`).
   `TestMuBrowsersOptions` sets `BrowserName` (a Chromium browser), `BrowserVersion`,
   `Platform`, `Build`, `Video`, `Network`, `Console`, `TunnelName`,
   `GeoLocation`, and `Capabilities` for any other `LT:Options` entry.

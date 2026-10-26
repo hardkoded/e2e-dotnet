@@ -64,6 +64,8 @@ public sealed class TestMuBrowsersFunctionTests
 
         Assert.Contains("LT_ACCESS_KEY is not set", (await Acquire(new() { ["LT_USERNAME"] = "alice" })).Message, StringComparison.Ordinal);
         Assert.Contains("LT_USERNAME is not set", (await Acquire(new() { ["LT_USERNAME"] = " ", ["LT_ACCESS_KEY"] = "key" })).Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("alice", (await Acquire(new() { ["LT_ACCESS_KEY"] = "key-secret" })).Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("key-secret", (await Acquire(new() { ["LT_ACCESS_KEY"] = "key-secret" })).Message, StringComparison.Ordinal);
         Assert.Contains("LT_USERNAME and LT_ACCESS_KEY are not set", (await Acquire([])).Message, StringComparison.Ordinal);
     }
 
