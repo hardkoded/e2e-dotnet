@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using Microsoft.Extensions.Time.Testing;
 
 namespace E2E.Mobile.Tests.Support;
 
@@ -11,45 +12,49 @@ public sealed class SupportHelpersTests
     [Fact]
     public async Task Sends_an_input_with_what_is_left_of_its_budget_and_reports_one_cut_off_as_possibly_committed()
     {
+        // Upstream installs fake timers; here the budgets and the devices' answers run on a clock only the test moves.
+        var time = new FakeTimeProvider();
         var never = () => new TaskCompletionSource<int>().Task;
-        var cut = await Assert.ThrowsAsync<EngineException>(() => new InputBudget("tap", TimeSpan.FromMilliseconds(300)).SendAsync(never, CancellationToken.None));
-        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", cut.Code);
+        var cut = Assert.ThrowsAsync<EngineException>(() => new InputBudget("tap", TimeSpan.FromMilliseconds(300), time).SendAsync(never, CancellationToken.None));
+        time.Advance(TimeSpan.FromMilliseconds(300));
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", (await cut).Code);
 
         // Sent with almost nothing left, a tap still gets time to answer.
-        var late = new InputBudget("tap", TimeSpan.FromMilliseconds(10));
-        Assert.Equal("tapped", await late.SendAsync(async () =>
+        var late = new InputBudget("tap", TimeSpan.FromMilliseconds(10), time).SendAsync(async () =>
         {
-            await Task.Delay(150);
+            await Task.Delay(TimeSpan.FromMilliseconds(200), time);
             return "tapped";
-        }, CancellationToken.None));
+        }, CancellationToken.None);
+        time.Advance(TimeSpan.FromMilliseconds(200));
+        Assert.Equal("tapped", await late);
 
         // A spent budget sends nothing; after an input went out, the next one is refused as possibly committed.
-        var spent = new InputBudget("tap", TimeSpan.Zero);
+        var spent = new InputBudget("tap", TimeSpan.FromMilliseconds(100), time);
+        time.Advance(TimeSpan.FromMilliseconds(100));
         var dispatched = false;
         var unsent = await Assert.ThrowsAsync<EngineException>(() => spent.SendAsync(() => Task.FromResult(dispatched = true), CancellationToken.None));
         Assert.Equal("OPERATION_TIMEOUT", unsent.Code);
         Assert.Equal("tap timed out before it was sent", unsent.Message);
         Assert.False(dispatched);
-        var twoStep = new InputBudget("press", TimeSpan.FromMilliseconds(100));
+        var twoStep = new InputBudget("press", TimeSpan.FromMilliseconds(100), time);
         await twoStep.SendAsync(() => Task.FromResult(0), CancellationToken.None);
-        await Task.Delay(150);
+        time.Advance(TimeSpan.FromMilliseconds(100));
         var second = await Assert.ThrowsAsync<EngineException>(() => twoStep.SendAsync(() => Task.FromResult(0), CancellationToken.None));
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", second.Code);
 
         // A command that throws before it is sent does not count as sent.
-        var refused = new InputBudget("press", TimeSpan.FromMilliseconds(100));
+        var refused = new InputBudget("press", TimeSpan.FromMilliseconds(100), time);
         await Assert.ThrowsAsync<InvalidOperationException>(() => refused.SendAsync<int>(() => throw new InvalidOperationException("no target"), CancellationToken.None));
-        await Task.Delay(150);
+        time.Advance(TimeSpan.FromMilliseconds(100));
         var unsentAfter = await Assert.ThrowsAsync<EngineException>(() => refused.SendAsync(() => Task.FromResult(0), CancellationToken.None));
         Assert.Equal("OPERATION_TIMEOUT", unsentAfter.Code);
 
         // A hold the budget cannot cover is refused unsent, with the reason.
         var held = false;
         var hold = await Assert.ThrowsAsync<EngineException>(
-            () => new InputBudget("longPress", TimeSpan.FromSeconds(2)).SendAsync(() => Task.FromResult(held = true), CancellationToken.None, TimeSpan.FromSeconds(3)));
+            () => new InputBudget("longPress", TimeSpan.FromSeconds(2), time).SendAsync(() => Task.FromResult(held = true), CancellationToken.None, TimeSpan.FromSeconds(3)));
         Assert.Equal("NOT_ACTIONABLE", hold.Code);
-        Assert.StartsWith("longPress holds for 3000 ms, but only ", hold.Message, StringComparison.Ordinal);
-        Assert.Contains(" ms of its timeout are left", hold.Message, StringComparison.Ordinal);
+        Assert.StartsWith("longPress holds for 3000 ms, but only 2000 ms of its timeout are left", hold.Message, StringComparison.Ordinal);
         Assert.False(held);
     }
 

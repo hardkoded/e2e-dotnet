@@ -29,6 +29,9 @@ internal sealed class Redactor
         CultureInfo.GetCultureInfo("lt"),
     ];
 
+    /// <summary>What a secret name spells inside its marker; a <c>&gt;</c> closes it.</summary>
+    private static readonly Regex MarkerName = new(@"\A[A-Za-z0-9_.-]*\z", RegexOptions.CultureInvariant, MatchTimeout);
+
     /// <summary>A base64 or base64url run long enough to encode a fragment, padding included.</summary>
     private static readonly Regex EncodedRun = new(@"[A-Za-z0-9+/_-]{8,}={0,2}", RegexOptions.CultureInvariant, MatchTimeout);
 
@@ -37,6 +40,8 @@ internal sealed class Redactor
     private readonly string[] _markers = [];
     private readonly Dictionary<string, int> _fragments = new(StringComparer.Ordinal);
     private readonly string[][] _leadingForms = [];
+    private readonly int _maxMarkerLength;
+    private readonly bool _spansLines;
 
     private Redactor(IEnumerable<(string Marker, string Value)> values)
     {
@@ -53,7 +58,11 @@ internal sealed class Redactor
         _markers = entries.Select(entry => entry.Marker).ToArray();
         var markerAlternatives = string.Join('|', _markers.Distinct(StringComparer.Ordinal).Select(Regex.Escape));
         _known = new Regex("(" + markerAlternatives + ")", RegexOptions.CultureInvariant, MatchTimeout);
-        var source = string.Join('|', entries.Select(entry => "(" + ValuePattern(entry.Value) + ")"));
+        var patterns = entries.Select(entry => ValuePattern(entry.Value)).ToList();
+        var source = string.Join('|', patterns.Select(pattern => "(" + pattern.Source + ")"));
+        MaxFormLength = patterns.Max(pattern => pattern.MaxLength);
+        _maxMarkerLength = _markers.Max(marker => marker.Length);
+        _spansLines = entries.Any(entry => entry.Value.Contains('\n') || Regex.IsMatch(entry.Value.Trim(), @"\s", RegexOptions.None, MatchTimeout));
         _pattern = new Regex(source, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, MatchTimeout);
         _leadingForms = new string[entries.Count][];
         for (var index = 0; index < entries.Count; index++)
@@ -176,6 +185,75 @@ internal sealed class Redactor
         return 0;
     }
 
+    /// <summary>The most text one registered value can match in any spelling; a piece shorter than this holds at most part of one occurrence.</summary>
+    public int MaxFormLength { get; }
+
+    /// <summary>
+    /// Where <paramref name="text"/> must be held back while more may follow: the index from which a later piece
+    /// could complete an occurrence or a marker. That is the last <c>MaxFormLength - 1</c> characters, or only the
+    /// unfinished last line when no value spans lines; moved back over a marker cut short at that point
+    /// (<c>&lt;</c>, <c>&lt;s</c>, ... <c>&lt;secret:</c> and name characters with no <c>&gt;</c> yet) when one
+    /// shorter than the longest known marker could still complete into it, so a marker split across pieces is never
+    /// rewritten inside; then moved back to the start of the one occurrence the redactor would rewrite across that
+    /// point, so each side redacts on its own to what the whole does. The marker move comes first: the other way
+    /// round it could land inside an occurrence holding a <c>&lt;</c>. Occurrences never overlap, so each move is
+    /// one and what is held stays under twice <c>MaxFormLength</c> plus a marker.
+    /// </summary>
+    public int HoldFrom(string text)
+    {
+        if (_pattern is null)
+        {
+            return text.Length;
+        }
+
+        var cut = Math.Max(0, text.Length - (MaxFormLength - 1));
+        if (!_spansLines)
+        {
+            cut = Math.Max(cut, text.LastIndexOf('\n') + 1);
+        }
+
+        cut = UnfinishedMarkerBefore(text, cut, _maxMarkerLength);
+        for (var match = _pattern.Match(text); match.Success && match.Index < cut; match = match.NextMatch())
+        {
+            if (match.Index + match.Length > cut)
+            {
+                return match.Index;
+            }
+        }
+
+        return cut;
+    }
+
+    /// <summary>
+    /// <paramref name="cut"/>, moved back to the <c>&lt;</c> of a marker the text before it cuts short: <c>&lt;</c>,
+    /// <c>&lt;s</c>, ... <c>&lt;secret:</c> and name characters with no <c>&gt;</c> yet. A stretch as long as the
+    /// longest known marker or longer cannot complete into one and is left where it is, so the move stays under
+    /// <paramref name="maxMarkerLength"/>.
+    /// </summary>
+    private static int UnfinishedMarkerBefore(string text, int cut, int maxMarkerLength)
+    {
+        if (cut == 0)
+        {
+            return cut;
+        }
+
+        const string markerOpen = "<secret:";
+        var open = text.LastIndexOf('<', cut - 1);
+        if (open == -1 || cut - open >= maxMarkerLength)
+        {
+            return cut;
+        }
+
+        var head = text.Substring(open + 1, Math.Min(cut, open + markerOpen.Length) - (open + 1));
+        if (!markerOpen.StartsWith("<" + head, StringComparison.Ordinal))
+        {
+            return cut;
+        }
+
+        var name = cut > open + markerOpen.Length ? text.Substring(open + markerOpen.Length, cut - (open + markerOpen.Length)) : "";
+        return MarkerName.IsMatch(name) ? open : cut;
+    }
+
     /// <summary>
     /// <see cref="Redact"/> that also rewrites every run of at least
     /// <see cref="FragmentLength"/> consecutive characters of a value, in any
@@ -194,46 +272,54 @@ internal sealed class Redactor
         return _fragments.Count == 0 ? redacted : MapPieces(redacted, RewriteFragments);
     }
 
-    private static string ValuePattern(string value)
+    private static Pattern ValuePattern(string value)
     {
         var trimmable = new StringInfo(value.Trim()).LengthInTextElements >= Secret.MinLength;
         var pieces = Regex.Split(value, @"(\s+)", RegexOptions.None, MatchTimeout);
-        var builder = new StringBuilder();
-        for (var index = 0; index < pieces.Length; index++)
+        return Concat(pieces.Select((piece, index) =>
         {
-            var piece = pieces[index];
             var run = index % 2 == 1;
             if (run && pieces[index - 1].Length > 0 && pieces[index + 1].Length > 0)
             {
-                builder.Append(WhitespaceRun(piece));
-                continue;
+                return WhitespaceRun(piece);
             }
 
-            var written = string.Concat(piece.EnumerateRunes().Select(rune => Character(rune.ToString())));
-            builder.Append(run && trimmable ? "(?:" + written + ")?" : written);
-        }
-
-        return builder.ToString();
+            var written = Concat(piece.EnumerateRunes().Select(rune => Character(rune.ToString())));
+            return run && trimmable ? new Pattern("(?:" + written.Source + ")?", written.MaxLength) : written;
+        }));
     }
 
-    private static string WhitespaceRun(string run)
+    private static Pattern WhitespaceRun(string run)
     {
         var spelled = new[] { " " }.Concat(run.Select(ch => ch.ToString()))
             .Distinct(StringComparer.Ordinal)
             .SelectMany(Spellings)
             .Where(spelling => !(spelling.Length == 1 && char.IsWhiteSpace(spelling[0])));
-        var one = Alternation(new[] { @"\s" }.Concat(Distinct(spelled).Select(Regex.Escape)));
-        return one + "{1," + run.Length.ToString(CultureInfo.InvariantCulture) + "}";
+        var one = Alternation(new[] { new Pattern(@"\s", 1) }.Concat(Distinct(spelled).Select(Exact)));
+        return new Pattern(one.Source + "{1," + run.Length.ToString(CultureInfo.InvariantCulture) + "}", one.MaxLength * run.Length);
     }
 
-    private static string Character(string ch)
+    private static Pattern Character(string ch)
     {
         var forms = CaseForms(ch);
         var single = forms.Where(form => form.EnumerateRunes().Count() == 1).SelectMany(Spellings);
         var expanded = forms
             .Where(form => form.EnumerateRunes().Count() > 1)
-            .Select(form => string.Concat(form.EnumerateRunes().Select(part => Alternation(Distinct(Spellings(part.ToString())).Select(Regex.Escape)))));
-        return Alternation(Distinct(single).Select(Regex.Escape).Concat(expanded));
+            .Select(form => Concat(form.EnumerateRunes().Select(part => Alternation(Distinct(Spellings(part.ToString())).Select(Exact)))));
+        return Alternation(Distinct(single).Select(Exact).Concat(expanded));
+    }
+
+    /// <summary>The source matching a value, and the most text one match of it can span.</summary>
+    private readonly record struct Pattern(string Source, int MaxLength);
+
+    /// <summary>The text matched literally.</summary>
+    private static Pattern Exact(string text) => new(Regex.Escape(text), text.Length);
+
+    /// <summary>The parts one after another.</summary>
+    private static Pattern Concat(IEnumerable<Pattern> parts)
+    {
+        var all = parts.ToList();
+        return new Pattern(string.Concat(all.Select(part => part.Source)), all.Sum(part => part.MaxLength));
     }
 
     private static List<string> CaseForms(string ch)
@@ -258,10 +344,13 @@ internal sealed class Redactor
         return forms.Distinct(StringComparer.Ordinal).ToList();
     }
 
-    private static string Alternation(IEnumerable<string> options)
+    /// <summary>The options as one alternation, longest first, so a spelling is never cut short by one it starts with.</summary>
+    private static Pattern Alternation(IEnumerable<Pattern> options)
     {
-        var sorted = options.OrderByDescending(option => option.Length).ToList();
-        return sorted.Count == 1 ? sorted[0] : "(?:" + string.Join('|', sorted) + ")";
+        var sorted = options.OrderByDescending(option => option.MaxLength).ToList();
+        return sorted.Count == 1
+            ? sorted[0]
+            : new Pattern("(?:" + string.Join('|', sorted.Select(option => option.Source)) + ")", sorted[0].MaxLength);
     }
 
     private static IEnumerable<string> Distinct(IEnumerable<string> spellings)
@@ -547,6 +636,52 @@ internal sealed class Redactor
 
             return low == -1 ? index : Breaks[2 * low + 1] + index - Breaks[2 * low];
         }
+    }
+}
+
+/// <summary>
+/// Redaction for text that arrives in pieces, as a stream writes it, so a value split across two writes is still
+/// caught. Each <c>Push</c> returns what is safe to pass on and holds back the rest: the tail a later piece could
+/// complete into a value or a <c>&lt;secret:name&gt;</c> marker, as <see cref="Redactor.HoldFrom"/> measures it.
+/// Bytes are decoded as UTF-8 with a character split across pieces kept whole. <c>Flush</c> releases what is held,
+/// redacted, when the stream ends. The pieces together redact to exactly what the whole text would.
+/// </summary>
+internal sealed class StreamRedactor(Redactor ledger)
+{
+    private readonly Decoder _decoder = Encoding.UTF8.GetDecoder();
+    private string _held = "";
+
+    /// <summary>Redacts and returns what <paramref name="chunk"/> completes; the rest waits for the next piece or <see cref="Flush"/>.</summary>
+    public string Push(string chunk)
+    {
+        ArgumentNullException.ThrowIfNull(chunk);
+        return PushText(chunk);
+    }
+
+    /// <summary>Redacts and returns what the bytes complete, decoded as UTF-8; the rest waits for the next piece or <see cref="Flush"/>.</summary>
+    public string Push(ReadOnlySpan<byte> chunk)
+    {
+        var chars = new char[Encoding.UTF8.GetMaxCharCount(chunk.Length)];
+        var count = _decoder.GetChars(chunk, chars, flush: false);
+        return PushText(new string(chars, 0, count));
+    }
+
+    /// <summary>Redacts and returns whatever is held, an unfinished character included; nothing more will follow.</summary>
+    public string Flush()
+    {
+        var chars = new char[Encoding.UTF8.GetMaxCharCount(4)];
+        var count = _decoder.GetChars([], chars, flush: true);
+        var text = _held + new string(chars, 0, count);
+        _held = "";
+        return ledger.Redact(text);
+    }
+
+    private string PushText(string chunk)
+    {
+        var text = _held + chunk;
+        var cut = ledger.HoldFrom(text);
+        _held = text[cut..];
+        return ledger.Redact(text[..cut]);
     }
 }
 
