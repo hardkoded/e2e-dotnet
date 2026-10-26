@@ -29,7 +29,7 @@ descendants of [Parent](#E2E_LocatorExpression_Parent) when it is set. `filter` 
 
 **Implements:** [IEquatable&lt;LocatorExpression&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L998)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L999)
 
 ## Fields
 
@@ -45,7 +45,7 @@ public const int LastIndex = -1
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1000)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1001)
 
 ## Properties
 
@@ -62,7 +62,7 @@ public bool? Checked { get; init; }
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1017)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1018)
 
 <a id="E2E_LocatorExpression_Disabled_"></a>
 <a id="E2E_LocatorExpression_Disabled"></a>
@@ -77,7 +77,7 @@ public bool? Disabled { get; init; }
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1019)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1020)
 
 <a id="E2E_LocatorExpression_Exact_"></a>
 <a id="E2E_LocatorExpression_Exact"></a>
@@ -92,7 +92,7 @@ public bool Exact { get; init; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1013)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1014)
 
 <a id="E2E_LocatorExpression_Expanded_"></a>
 <a id="E2E_LocatorExpression_Expanded"></a>
@@ -107,7 +107,7 @@ public bool? Expanded { get; init; }
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1023)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1024)
 
 <a id="E2E_LocatorExpression_Has_"></a>
 <a id="E2E_LocatorExpression_Has"></a>
@@ -122,7 +122,7 @@ public LocatorExpression? Has { get; init; }
 
 **Value:** [LocatorExpression](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1039)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1040)
 
 <a id="E2E_LocatorExpression_HasText_"></a>
 <a id="E2E_LocatorExpression_HasText"></a>
@@ -137,7 +137,7 @@ public TextMatch? HasText { get; init; }
 
 **Value:** [TextMatch](/api/E2E/TextMatch/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1029)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1030)
 
 <a id="E2E_LocatorExpression_HasTextExact_"></a>
 <a id="E2E_LocatorExpression_HasTextExact"></a>
@@ -157,7 +157,7 @@ exactness of its own.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1037)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1038)
 
 <a id="E2E_LocatorExpression_Index_"></a>
 <a id="E2E_LocatorExpression_Index"></a>
@@ -172,7 +172,7 @@ public int? Index { get; init; }
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1041)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1042)
 
 <a id="E2E_LocatorExpression_Kind_"></a>
 <a id="E2E_LocatorExpression_Kind"></a>
@@ -187,7 +187,7 @@ public string Kind { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1006)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1007)
 
 <a id="E2E_LocatorExpression_Left_"></a>
 <a id="E2E_LocatorExpression_Left"></a>
@@ -202,7 +202,7 @@ public LocatorExpression? Left { get; init; }
 
 **Value:** [LocatorExpression](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1043)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1044)
 
 <a id="E2E_LocatorExpression_Level_"></a>
 <a id="E2E_LocatorExpression_Level"></a>
@@ -217,7 +217,7 @@ public int? Level { get; init; }
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1027)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1028)
 
 <a id="E2E_LocatorExpression_Parent_"></a>
 <a id="E2E_LocatorExpression_Parent"></a>
@@ -232,7 +232,7 @@ public LocatorExpression? Parent { get; init; }
 
 **Value:** [LocatorExpression](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1002)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1003)
 
 <a id="E2E_LocatorExpression_Pressed_"></a>
 <a id="E2E_LocatorExpression_Pressed"></a>
@@ -247,7 +247,7 @@ public bool? Pressed { get; init; }
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1025)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1026)
 
 <a id="E2E_LocatorExpression_Right_"></a>
 <a id="E2E_LocatorExpression_Right"></a>
@@ -262,7 +262,7 @@ public LocatorExpression? Right { get; init; }
 
 **Value:** [LocatorExpression](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1045)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1046)
 
 <a id="E2E_LocatorExpression_Role_"></a>
 <a id="E2E_LocatorExpression_Role"></a>
@@ -277,7 +277,7 @@ public string? Role { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1008)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1009)
 
 <a id="E2E_LocatorExpression_Selected_"></a>
 <a id="E2E_LocatorExpression_Selected"></a>
@@ -292,7 +292,7 @@ public bool? Selected { get; init; }
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1021)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1022)
 
 <a id="E2E_LocatorExpression_Selector_"></a>
 <a id="E2E_LocatorExpression_Selector"></a>
@@ -309,7 +309,7 @@ The expression of a `selector` query, in the engine's own selector language. A d
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1048)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1049)
 
 <a id="E2E_LocatorExpression_Source_"></a>
 <a id="E2E_LocatorExpression_Source"></a>
@@ -324,7 +324,7 @@ public LocatorExpression? Source { get; init; }
 
 **Value:** [LocatorExpression](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1004)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1005)
 
 <a id="E2E_LocatorExpression_Value_"></a>
 <a id="E2E_LocatorExpression_Value"></a>
@@ -341,7 +341,7 @@ The role query's name, or the value every other query kind matches.
 
 **Value:** [TextMatch](/api/E2E/TextMatch/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1011)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1012)
 
 <a id="E2E_LocatorExpression_Visible_"></a>
 <a id="E2E_LocatorExpression_Visible"></a>
@@ -356,7 +356,7 @@ public bool Visible { get; init; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1015)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1016)
 
 ## Methods
 
@@ -373,4 +373,4 @@ public string Describe()
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1107)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1115)

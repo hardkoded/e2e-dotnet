@@ -185,3 +185,24 @@ public sealed class ScriptedModel : IAgentModel
         return Task.FromResult(_next(request));
     }
 }
+
+/// <summary>The input bounds of upstream's <c>agent/model/adapter.ts</c>, which the observation budget and the judgment pre-flight share.</summary>
+internal static class ModelAdapter
+{
+    /// <summary>Side of the square patch tile-based vision encoders consume an image in.</summary>
+    private const int ImageTilePx = 28;
+
+    /// <summary>
+    /// Conservative token upper bound. UTF-8 byte length bounds every byte-level tokenizer from above, so it is used when a provider
+    /// reports no usage and for the pre-flight ceiling. Every budget that mixes with this one (reserves, ledger size, observation size)
+    /// is therefore in the same byte-scaled units, not in real tokens.
+    /// </summary>
+    public static int TokenUpperBound(string text) => System.Text.Encoding.UTF8.GetByteCount(text);
+
+    /// <summary>
+    /// Conservative token bound for one image: vision providers bill images by fixed-size patches rather than bytes, so the count of
+    /// patches covering the image bounds every such encoder from above.
+    /// </summary>
+    public static int ImageTokenUpperBound(int width, int height) =>
+        (int)Math.Ceiling(Math.Max(1, width) / (double)ImageTilePx) * (int)Math.Ceiling(Math.Max(1, height) / (double)ImageTilePx);
+}

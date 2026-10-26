@@ -77,6 +77,8 @@ public static class ExploreExecutor
             MaxSteps = entry.MaxSteps,
             MaxModelCalls = entry.MaxModelCalls,
             JudgmentTimeout = entry.JudgmentTimeout,
+            MaxObservationBytes = entry.MaxObservationBytes,
+            MaxInputTokens = entry.MaxInputTokens,
             ProviderOptions = entry.ProviderOptions,
             Tools = entry.Tools,
         };
@@ -99,6 +101,8 @@ public static class ExploreExecutor
             MaxSteps = explorer.MaxSteps,
             MaxModelCalls = explorer.MaxModelCalls,
             JudgmentTimeout = explorer.JudgmentTimeout,
+            MaxObservationBytes = explorer.MaxObservationBytes,
+            MaxInputTokens = explorer.MaxInputTokens,
             ProviderOptions = explorer.ProviderOptions,
             Tools = tools,
         };

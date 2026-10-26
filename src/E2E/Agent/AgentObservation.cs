@@ -57,10 +57,6 @@ internal static class AgentObservation
 
     private static readonly HashSet<string> EmptyRoots = new(["document", "screen", "window"], StringComparer.Ordinal);
 
-    /// <summary>The size in bytes of the screen as a model reads it (upstream's <c>observation.bytes</c>).</summary>
-    public static int Bytes(Observation observation, Redactor redactor, string? appOrigin) =>
-        Encoding.UTF8.GetByteCount(SnapshotText.Render(observation, redactor, appOrigin));
-
     /// <summary>
     /// The shape two looks are compared by: the screen as the model reads it, without the per-observation node
     /// references, without focus, which moves without the page changing, and with clock-like values read as one

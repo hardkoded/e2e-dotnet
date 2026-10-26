@@ -15,6 +15,9 @@ namespace E2E;
 /// </summary>
 internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
 {
+    // Whether the executor-facing look in flight asked for pixels, which reserve part of the token ceiling the tree is cut under.
+    private bool _pixels;
+
     private readonly Dictionary<string, SemanticNode> _seen = [];
     private PendingChange? _pending;
 
@@ -26,6 +29,12 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
 
     /// <summary>The step's observation record for the report (upstream's <c>reportDetails</c>).</summary>
     public StepAgentDetails ReportDetails() => new() { ObservationTruncated = _observationTruncated ? true : null };
+
+    /// <summary>
+    /// The limits the step's observations are cut under, upstream's <c>ObservationFeedOptions</c>. Null for a feed that cuts nothing,
+    /// such as a judgment's.
+    /// </summary>
+    public ObservationFeedOptions? Options { get; init; }
 
     /// <summary>The newest observation of the step, if any was captured.</summary>
     public Observation? Latest { get; private set; }
@@ -68,7 +77,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             return new PhaseDetail(count);
         }
 
-        var bytes = AgentObservation.Bytes(observation, scope.Redactor, scope.AppOrigin);
+        var bytes = System.Text.Encoding.UTF8.GetByteCount(Text(observation, _pixels));
         MaxObservationBytes = Math.Max(MaxObservationBytes, bytes);
         return new PhaseDetail(count, bytes);
     }
@@ -141,7 +150,17 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     public async Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options, CancellationToken token)
     {
         var scope = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
-        var observation = await ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
+        _pixels = options?.Pixels == true;
+        Observation observation;
+        try
+        {
+            observation = await ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
+        }
+        finally
+        {
+            _pixels = false;
+        }
+
         var view = View(observation, scope, options);
         if (options?.Pixels != true)
         {
@@ -165,14 +184,51 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// Upstream's <c>view</c>: one capture as the executor sees it, redacted, with the text, the truncation, the keyboard state
     /// and the route, and the tree when asked for. The step's start observation and <see cref="ObserveAsync(ExecutorObserveOptions?, CancellationToken)"/> both read it.
     /// </summary>
-    internal static ExecutorObservation View(Observation observation, AttemptScope scope, ExecutorObserveOptions? options = null) =>
-        new(SnapshotText.Render(observation, scope.Redactor, scope.AppOrigin))
+    internal ExecutorObservation View(Observation observation, AttemptScope scope, ExecutorObserveOptions? options = null)
+    {
+        var text = Text(observation, options?.Pixels == true, out var cut);
+        return new ExecutorObservation(text)
         {
-            Truncated = observation.Truncated,
+            Truncated = observation.Truncated || cut,
             KeyboardVisible = observation.KeyboardVisible,
             Path = scope.Redactor.Redact(observation.Route),
             Tree = options?.Tree == true ? AgentObservation.ProjectTree(observation.Roots, scope.Redactor, scope.AppOrigin) : null,
         };
+    }
+
+    /// <summary>
+    /// The screen as the model reads it, cut at <see cref="ByteBudget"/> (upstream's <c>prepareObservation</c> under <c>capture</c>'s
+    /// <c>maxBytes</c>). A step with a cut screen reports its observation as truncated.
+    /// </summary>
+    public string Text(Observation observation, bool pixels = false) => Text(observation, pixels, out _);
+
+    /// <inheritdoc cref="Text(Observation, bool)"/>
+    /// <param name="observation">The look to render.</param>
+    /// <param name="pixels">Whether a screenshot travels with the text.</param>
+    /// <param name="cut">Whether the byte budget cut the screen.</param>
+    public string Text(Observation observation, bool pixels, out bool cut)
+    {
+        var scope = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
+        var text = SnapshotText.Render(observation, scope.Redactor, scope.AppOrigin, ByteBudget(pixels), out cut);
+        if (cut)
+        {
+            _observationTruncated = true;
+        }
+
+        return text;
+    }
+
+    /// <summary>
+    /// Bytes one act observation may contribute to a model turn, clamped like a judgment's. The loop's history grows past what any one
+    /// observation costs, so the fixed part counted here is what every turn resends: the project context, the prior-step ledger, and the
+    /// step's instruction.
+    /// </summary>
+    private int ByteBudget(bool pixels) =>
+        Options is not { } options
+            ? int.MaxValue
+            : ObservationBudget.ObservationByteBudget(
+                new ObservationBudgetLimits(options.MaxObservationBytes, options.MaxInputTokens),
+                new ObservationBudgetRequest(options.ContextBytes + options.LedgerBytes, options.InstructionBytes, pixels));
 
     /// <summary>The newest node an observation of the step listed under <paramref name="reference"/>, if any.</summary>
     public SemanticNode? LastSeen(string reference) => _seen.GetValueOrDefault(reference);
@@ -224,3 +280,11 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         return name is null && testId is null ? [] : Agent.Find(observation, node.Role, name, testId, null, redactor);
     }
 }
+
+/// <summary>What the step's observations are cut under (upstream's <c>ObservationFeedOptions</c>).</summary>
+/// <param name="MaxObservationBytes">The agent's observation byte ceiling, clamped per capture by the token limit.</param>
+/// <param name="MaxInputTokens">The agent's per-request input token ceiling.</param>
+/// <param name="InstructionBytes">Bytes of the step's instruction, which opens the history every turn resends.</param>
+/// <param name="ContextBytes">Bytes of the project context every turn resends (upstream reads them from the step's metrics).</param>
+/// <param name="LedgerBytes">Bytes of the prior-step ledger every turn resends (upstream reads them from the step's metrics).</param>
+internal sealed record ObservationFeedOptions(int MaxObservationBytes, int MaxInputTokens, int InstructionBytes, int ContextBytes, int LedgerBytes);

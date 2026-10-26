@@ -32,7 +32,7 @@ internal sealed record FailureEvidenceOptions
     public required string AttemptDir { get; init; }
 
     /// <summary>Bytes of text the screen lists before it is cut.</summary>
-    public int MaxObservationBytes { get; init; } = StepScreens.DefaultObservationBytes;
+    public int MaxObservationBytes { get; init; } = E2EDefaults.MaxObservationBytes;
 }
 
 /// <summary>

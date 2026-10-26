@@ -50,7 +50,7 @@ protected virtual TimeSpan ActionTimeout { get; }
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L147)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L153)
 
 <a id="E2E_E2EFixture_Agent_"></a>
 <a id="E2E_E2EFixture_Agent"></a>
@@ -153,7 +153,7 @@ in the AI SDK devtools shape. The process writes them to `ai-trace-<process id>.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L138)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L144)
 
 <a id="E2E_E2EFixture_App_"></a>
 <a id="E2E_E2EFixture_App"></a>
@@ -183,7 +183,7 @@ protected virtual TimeSpan AssertionTimeout { get; }
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L149)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L155)
 
 <a id="E2E_E2EFixture_BaseUrl_"></a>
 <a id="E2E_E2EFixture_BaseUrl"></a>
@@ -200,7 +200,7 @@ protected virtual string? BaseUrl { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L89)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L95)
 
 <a id="E2E_E2EFixture_Browser_"></a>
 <a id="E2E_E2EFixture_Browser"></a>
@@ -232,7 +232,7 @@ protected virtual string CacheDirectory { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L95)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L101)
 
 <a id="E2E_E2EFixture_CacheMode_"></a>
 <a id="E2E_E2EFixture_CacheMode"></a>
@@ -249,7 +249,7 @@ protected virtual CacheMode CacheMode { get; }
 
 **Value:** [CacheMode](/api/E2E/CacheMode/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L98)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L104)
 
 <a id="E2E_E2EFixture_CacheStrict_"></a>
 <a id="E2E_E2EFixture_CacheStrict"></a>
@@ -266,7 +266,7 @@ protected virtual bool CacheStrict { get; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L101)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L107)
 
 <a id="E2E_E2EFixture_CleanupTimeout_"></a>
 <a id="E2E_E2EFixture_CleanupTimeout"></a>
@@ -281,7 +281,7 @@ protected virtual TimeSpan CleanupTimeout { get; }
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L151)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L157)
 
 <a id="E2E_E2EFixture_Config_"></a>
 <a id="E2E_E2EFixture_Config"></a>
@@ -331,7 +331,7 @@ timings to stderr and keeps the transcript of every agent step. Override to turn
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L131)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L137)
 
 <a id="E2E_E2EFixture_JudgmentTimeout_"></a>
 <a id="E2E_E2EFixture_JudgmentTimeout"></a>
@@ -363,7 +363,24 @@ protected virtual TimeSpan LaunchTimeout { get; }
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L145)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L151)
+
+<a id="E2E_E2EFixture_MaxInputTokens_"></a>
+<a id="E2E_E2EFixture_MaxInputTokens"></a>
+
+### MaxInputTokens
+
+
+```csharp
+protected virtual int MaxInputTokens { get; }
+```
+
+
+`agents.default.maxInputTokens`.
+
+**Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L89)
 
 <a id="E2E_E2EFixture_MaxModelCalls_"></a>
 <a id="E2E_E2EFixture_MaxModelCalls"></a>
@@ -380,7 +397,24 @@ protected virtual int MaxModelCalls { get; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L160)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L166)
+
+<a id="E2E_E2EFixture_MaxObservationBytes_"></a>
+<a id="E2E_E2EFixture_MaxObservationBytes"></a>
+
+### MaxObservationBytes
+
+
+```csharp
+protected virtual int MaxObservationBytes { get; }
+```
+
+
+`agents.default.maxObservationBytes`.
+
+**Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L86)
 
 <a id="E2E_E2EFixture_MaxSteps_"></a>
 <a id="E2E_E2EFixture_MaxSteps"></a>
@@ -397,7 +431,7 @@ protected virtual int MaxSteps { get; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L163)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L169)
 
 <a id="E2E_E2EFixture_ProjectRoot_"></a>
 <a id="E2E_E2EFixture_ProjectRoot"></a>
@@ -414,7 +448,7 @@ Anchors the files a test names, such as a route's fulfill path. Defaults to the 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L92)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L98)
 
 <a id="E2E_E2EFixture_ProviderOptions_"></a>
 <a id="E2E_E2EFixture_ProviderOptions"></a>
@@ -431,7 +465,7 @@ protected virtual IReadOnlyDictionary<string, JsonElement>? ProviderOptions { ge
 
 **Value:** [IReadOnlyDictionary&lt;string, JsonElement&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L86)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L92)
 
 <a id="E2E_E2EFixture_ReplayTimeout_"></a>
 <a id="E2E_E2EFixture_ReplayTimeout"></a>
@@ -448,7 +482,7 @@ How long a replay waits for each recorded target and for the recorded end state.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L157)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L163)
 
 <a id="E2E_E2EFixture_ResultsDirectory_"></a>
 <a id="E2E_E2EFixture_ResultsDirectory"></a>
@@ -465,7 +499,7 @@ Where a failed screenshot comparison puts its diff, actual, and expected images.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L110)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L116)
 
 <a id="E2E_E2EFixture_RunAgent_"></a>
 <a id="E2E_E2EFixture_RunAgent"></a>
@@ -532,7 +566,7 @@ How long one `ActAsync` may run unless its options say otherwise. A .NET-only se
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L154)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L160)
 
 <a id="E2E_E2EFixture_TargetName_"></a>
 <a id="E2E_E2EFixture_TargetName"></a>
@@ -549,7 +583,7 @@ protected virtual string TargetName { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L113)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L119)
 
 <a id="E2E_E2EFixture_TestTimeout_"></a>
 <a id="E2E_E2EFixture_TestTimeout"></a>
@@ -564,7 +598,7 @@ protected virtual TimeSpan TestTimeout { get; }
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L143)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L149)
 
 <a id="E2E_E2EFixture_Trace_"></a>
 <a id="E2E_E2EFixture_Trace"></a>
@@ -582,7 +616,7 @@ protected virtual ResolvedRecording Trace { get; }
 
 **Value:** [ResolvedRecording](/api/E2E/ResolvedRecording/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L119)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L125)
 
 <a id="E2E_E2EFixture_UpdateSnapshots_"></a>
 <a id="E2E_E2EFixture_UpdateSnapshots"></a>
@@ -600,7 +634,7 @@ finds missing or different, and passes. Override to turn it on in code.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L107)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L113)
 
 <a id="E2E_E2EFixture_Video_"></a>
 <a id="E2E_E2EFixture_Video"></a>
@@ -618,7 +652,7 @@ protected virtual ResolvedRecording Video { get; }
 
 **Value:** [ResolvedRecording](/api/E2E/ResolvedRecording/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L125)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L131)
 
 ## Methods
 
@@ -645,7 +679,7 @@ Does nothing when setup never started a session.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L233)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L251)
 
 <a id="E2E_E2EFixture_CreateAgents_"></a>
 <a id="E2E_E2EFixture_CreateAgents"></a>
@@ -746,7 +780,7 @@ an `Expect.Soft` failure to the framework (null keeps them on the session), and
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L174)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L180)
 
 <a id="E2E_E2EFixture_TakeSession_"></a>
 <a id="E2E_E2EFixture_TakeSession"></a>
@@ -763,4 +797,4 @@ Hands the running session to the adapter to complete and dispose, or null when s
 
 **Returns:** [E2ESession](/api/E2E/E2ESession/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L236)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L254)

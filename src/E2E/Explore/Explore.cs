@@ -237,6 +237,8 @@ public static class Explore
             MaxSteps = defaultAgent.MaxSteps ?? E2EDefaults.MaxSteps,
             MaxModelCalls = defaultAgent.MaxModelCalls ?? E2EDefaults.MaxModelCalls,
             JudgmentTimeout = defaultAgent.JudgmentTimeout,
+            MaxObservationBytes = defaultAgent.MaxObservationBytes,
+            MaxInputTokens = defaultAgent.MaxInputTokens,
             ProviderOptions = defaultAgent.ProviderOptions,
             Agents = entries.Where(pair => !string.Equals(pair.Key, "default", StringComparison.Ordinal)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal),
             BaseUrl = target.App.Url,
@@ -433,6 +435,8 @@ public static class Explore
         MaxSteps = explorer.MaxSteps ?? DefaultStepBudget,
         MaxModelCalls = explorer.MaxModelCalls ?? DefaultStepBudget,
         JudgmentTimeout = explorer.JudgmentTimeout,
+        MaxObservationBytes = explorer.MaxObservationBytes,
+        MaxInputTokens = explorer.MaxInputTokens,
         ProviderOptions = explorer.ProviderOptions,
         Tools = explorer.Tools,
     };

@@ -42,4 +42,13 @@ public static class E2EDefaults
 
     /// <summary>Upstream <c>maxSteps</c>: actions one <c>act</c> may take.</summary>
     public const int MaxSteps = 25;
+
+    /// <summary>
+    /// Upstream's <c>DEFAULT_OBSERVATION_BYTES</c>, the default of <c>maxObservationBytes</c>. A quarter mebibyte of tree is already tens of
+    /// thousands of tokens on every act turn; the per-call token ceiling clamps a dense screen below it.
+    /// </summary>
+    public const int MaxObservationBytes = 262_144;
+
+    /// <summary>Upstream's <c>DEFAULT_INPUT_TOKENS</c>, the default of <c>maxInputTokens</c>: the input one model request may carry.</summary>
+    public const int MaxInputTokens = 64_000;
 }

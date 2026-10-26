@@ -300,10 +300,20 @@ internal sealed record ReportSummary(int Discovered, int Selected, int Executed,
 internal sealed record ReportLimits(int MaxAgentContextBytes, int MaxLedgerBytes, int MaxObservationBytes, int MaxEventsPerStep, int MaxModelTokensPerCall)
 {
     /// <summary>
-    /// Upstream's <c>DEFAULT_LIMITS</c>. The port has no per-agent <c>maxObservationBytes</c> or <c>maxInputTokens</c> (the config rejects
-    /// them), so every run reports the defaults, as upstream does for a run that failed before its config resolved.
+    /// Upstream's <c>DEFAULT_LIMITS</c>: the limits of a run no agent config has shaped, which is also what a run that failed before its
+    /// config resolved reports.
     /// </summary>
-    public static ReportLimits Default { get; } = new(ResolvedAgent.MaxContextBytes, Ledger.MaxLedgerBytes, StepScreens.DefaultObservationBytes, 1_000, 64_000);
+    public static ReportLimits Default { get; } = new(ResolvedAgent.MaxContextBytes, Ledger.MaxLedgerBytes, E2EDefaults.MaxObservationBytes, 1_000, E2EDefaults.MaxInputTokens);
+
+    /// <summary>
+    /// The limits of two runs merged: the per-agent ones at the largest either allowed, so the report does not read lower than what a step
+    /// could send. The port builds one report per test and merges them into the run's.
+    /// </summary>
+    public ReportLimits Max(ReportLimits other) => this with
+    {
+        MaxObservationBytes = Math.Max(MaxObservationBytes, other.MaxObservationBytes),
+        MaxModelTokensPerCall = Math.Max(MaxModelTokensPerCall, other.MaxModelTokensPerCall),
+    };
 }
 
 /// <summary>What the run used, against <see cref="ReportLimits"/> (upstream's <c>ReportUsage</c>).</summary>

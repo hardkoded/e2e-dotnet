@@ -55,7 +55,7 @@ internal sealed partial class ActContext : StepExecutorContext
     private const int MaxOutcomeChars = 2048;
 
     [SetsRequiredMembers]
-    public ActContext(AttemptScope scope, ObservationFeed feed, StepAccounting budget, ActionDispatcher dispatcher, StepSpec spec, ResolvedAgent agent, int stepIndex, IReadOnlyList<Secret> declared, Observation? start, ReplayedPrefix? prefix)
+    public ActContext(AttemptScope scope, ObservationFeed feed, StepAccounting budget, ActionDispatcher dispatcher, StepSpec spec, ResolvedAgent agent, int stepIndex, IReadOnlyList<Secret> declared, LedgerContext ledger, Observation? start, ReplayedPrefix? prefix)
     {
         _scope = scope;
         _feed = feed;
@@ -81,14 +81,13 @@ internal sealed partial class ActContext : StepExecutorContext
         ReplayedPrefix = prefix;
         Model = agent.Model;
         ProviderOptions = agent.ProviderOptions;
-        var ledger = E2E.Ledger.SerializeLedger(E2E.Ledger.ProjectPriorSteps(scope.Steps.Completed()), E2E.Ledger.MaxLedgerBytes);
         Ledger = ledger.Text;
         LedgerBytes = ledger.Bytes;
         AgentContext = agent.Context is null ? null : scope.Redactor.Redact(agent.Context);
         Budgets = budget;
         Actions = dispatcher;
         Host = new ActHost(scope, feed, budget, spec.Params);
-        Start = start is null ? null : ObservationFeed.View(start, scope);
+        Start = start is null ? null : feed.View(start, scope);
     }
 
     /// <summary>Bytes of <see cref="StepExecutorContext.Ledger"/>, which the step's metrics keep.</summary>
