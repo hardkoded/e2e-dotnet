@@ -102,6 +102,9 @@ Members of `E2ETest` in both frameworks:
   match. Both locators must come from the same screen and attempt.
 - A locator resolves when it is used. A match on two nodes fails with
   `STRICT_MODE`; no match fails with `NOT_FOUND`.
+- `Browser.Locator(css)` and `Browser.FrameLocator(css)` (see the browser
+  fixture) reach a control a role, label, or text query cannot name, and an
+  iframe. Use a selector only when those can't find the element.
 - `Visible = true` (on `TextMatchOptions` or `RoleOptions`) drops nodes the
   page hides (a closed drawer) before the exactly-one rule. Visibility is
   what renders, as `ToBeVisibleAsync` reads it: `display: none`, a
@@ -209,6 +212,12 @@ matcher.
 - `Expect.That(Browser).ToHaveURLAsync("/about")` (a string, or a `Regex`; `ignoreCase`)
   and `ToHaveTitleAsync("About page")` poll the URL and the title, `.Not`
   inverts them, and `Expect.Soft(Browser)` keeps their failures.
+  `ToHaveClassAsync(locator, "card active")` waits for the locator's `class`
+  attribute: a string is the whole normalized class list, a `Regex` is tested
+  against it. A node that is not there yet keeps it polling and a node that
+  never arrives fails it as an assertion (`observed: no node`); `class=""` is
+  an empty list and no `class` attribute is not (`observed: no class
+  attribute`); several matches fail at once with `STRICT_MODE`.
 - `Expect.Soft(locator)` records a failure and lets the test go on; the
   test fails at its end with every failure listed.
 - `Expect.Poll(read)` retries any value: `ToBeAsync`, `ToSatisfyAsync`, and,
@@ -356,6 +365,22 @@ misses.
 - `GotoAsync(url, new GotoOptions { WaitUntil, Timeout })`, `ReloadAsync`, `BackAsync`, `ForwardAsync`, `UrlAsync`, `TitleAsync`,
   `WaitForURLAsync`, `EvaluateAsync<T>`, `SetViewportAsync`, and the raw
   keyboard and mouse.
+- `Locator("css or xpath")`: a locator from a raw CSS or XPath selector, for a
+  control no role, label, or test-id query names. Not portable: a last resort.
+  It reads the same tree as `Screen`, so an element the tree leaves out (no
+  role, test id, or text of its own) matches nothing. A selector that
+  captures with `*` before its last part (`*css=ul >> li`) fails with
+  `INVALID_LOCATOR`; `Filter(has)` narrows instead.
+- `FrameLocator("#payment")`: a `Screen` scoped to one iframe
+  (`Browser.FrameLocator("#payment").GetByLabel("Card number")`); it keeps
+  `Locator(css)` and `FrameLocator(css)` for nesting. Every `Screen` query
+  answers from inside the frame. The frame is the one element the selector
+  names: a read that does not wait (`CountAsync`, `AllAsync`, `IsVisibleAsync`,
+  `ToBeHiddenAsync`, `ToHaveCountAsync`, `WaitForAsync` for `Detached` or
+  `Hidden`) answers no match while it is missing, and an action polls for it
+  until its timeout, then fails with `NOT_FOUND`. Two frames match: `STRICT_MODE`.
+  `Expect.That(frame).ToHaveScreenshotAsync` and `TreeAsync` refuse a frame
+  with `INVALID_ARGUMENT`: call them on `Screen`, or on a locator inside it.
 - `Keyboard.PressAsync(key)`, `Keyboard.TypeAsync(text)`,
   `Keyboard.DownAsync(key)`, `Keyboard.UpAsync(key)`, and `Mouse.*`: unfocused
   input. Only `DownAsync(key)` holds a key or modifier until `UpAsync(key)`;

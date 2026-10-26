@@ -73,6 +73,68 @@ public sealed class BrowserExpect
             cancellationToken);
     }
 
+    /// <summary>
+    /// Waits for the <c>class</c> attribute of <paramref name="target"/> to match <paramref name="expected"/>: a string is the whole class
+    /// list, whitespace-normalized, and a <see cref="Regex"/> is tested against it. An empty <c>class=""</c> is an empty class list; no
+    /// <c>class</c> attribute is not. A node that is not there yet keeps the matcher polling, and a node that never arrives fails it as an
+    /// assertion observing no node, where a read of the same locator would fail with <c>NOT_FOUND</c>. Several matches fail at once with
+    /// <c>STRICT_MODE</c>. Upstream's <c>expect(browser).toHaveClass</c>.
+    /// </summary>
+    public Task ToHaveClassAsync(Locator target, TextMatch expected, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(expected);
+
+        // A locator of another attempt would read another page, and its match would verify this one.
+        _browser.Context?.Root.OwnLocator(target, "toHaveClass");
+        return PollAsync(
+            "toHaveClass",
+            "class " + expected,
+            timeout,
+            async token =>
+            {
+                string? value;
+                try
+                {
+                    // A locator read takes the action timeout; the poll's deadline, which ends the token, is the tighter bound.
+                    var read = await ReadClassAsync(target, token).ConfigureAwait(false);
+                    if (!read.Found)
+                    {
+                        return (null, "no node");
+                    }
+
+                    value = read.Value;
+                }
+                catch (TestException ex) when (ex.Code == "NOT_FOUND")
+                {
+                    return (null, "no node");
+                }
+
+                if (value is null)
+                {
+                    return (false, "no class attribute");
+                }
+
+                return (TextRules.Compare(value, expected, contains: false, normalize: true, ignoreCase: null), "class " + LocatorExpect.Quote(value));
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// The class attribute of one match: not found while nothing matches, and a null value for a node with no <c>class</c> attribute. A
+    /// read waits for its match until the action timeout, so the poll samples absence first: a node that never arrives stays an
+    /// assertion failure.
+    /// </summary>
+    private static async Task<(bool Found, string? Value)> ReadClassAsync(Locator target, CancellationToken token)
+    {
+        if (await target.CountAsync(token).ConfigureAwait(false) == 0)
+        {
+            return (false, null);
+        }
+
+        return (true, await target.GetAttributeAsync("class", token).ConfigureAwait(false));
+    }
+
     // The URL is compared as the browser serializes it, so the expected side goes through the same Uri form as the read one.
     private static string Normalize(string url) => Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.AbsoluteUri : url;
 
@@ -94,10 +156,10 @@ public sealed class BrowserExpect
     /// Polls until the condition holds, or, negated, until it has been false for the negation grace in a row, as
     /// the locator matchers do (see <see cref="Time.PollConditionAsync"/>). Each read is bounded by the time left.
     /// </summary>
-    private Task PollAsync(string matcher, string describeExpected, TimeSpan? timeout, Func<CancellationToken, Task<(bool Holds, string Observed)>> read, CancellationToken cancellationToken) =>
+    private Task PollAsync(string matcher, string describeExpected, TimeSpan? timeout, Func<CancellationToken, Task<(bool? Holds, string Observed)>> read, CancellationToken cancellationToken) =>
         _browser.RunStepAsync(StepKind.Assertion, "expect." + (_negated ? "not." : "") + matcher, "page", () => PollCoreAsync(matcher, describeExpected, timeout, read, cancellationToken), verifies: true);
 
-    private async Task PollCoreAsync(string matcher, string describeExpected, TimeSpan? timeout, Func<CancellationToken, Task<(bool Holds, string Observed)>> read, CancellationToken cancellationToken)
+    private async Task PollCoreAsync(string matcher, string describeExpected, TimeSpan? timeout, Func<CancellationToken, Task<(bool? Holds, string Observed)>> read, CancellationToken cancellationToken)
     {
         if (timeout is { } given)
         {

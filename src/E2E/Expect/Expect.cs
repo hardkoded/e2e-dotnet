@@ -132,7 +132,8 @@ public sealed class LocatorExpect
             matches => matches.Count > 1
                 ? Verdict.Strict(matches.Count)
                 : new Verdict((matches.Count == 1) == attached, matches.Count == 1 ? "attached" : "no node"),
-            cancellationToken);
+            cancellationToken,
+            MissingFrame.Empty);
     }
 
     /// <summary>Waits for enabled state. <paramref name="enabled"/> false waits for disabled state.</summary>
@@ -235,7 +236,8 @@ public sealed class LocatorExpect
             timeout,
             includeHidden: false,
             matches => new Verdict(matches.Count == count, "count " + Number(matches.Count)),
-            cancellationToken);
+            cancellationToken,
+            MissingFrame.Empty);
     }
 
     private Task VisibilityAsync(string matcher, bool visible, TimeSpan? timeout, CancellationToken cancellationToken)
@@ -264,7 +266,8 @@ public sealed class LocatorExpect
                 var hidden = matches.Count == 0 || (matches.Count == 1 && !shown);
                 return new Verdict(visible ? shown : hidden, observed);
             },
-            cancellationToken);
+            cancellationToken,
+            MissingFrame.Empty);
     }
 
     private Task StateAsync(string matcher, Func<SemanticNode, bool> state, bool expected, string describeExpected, TimeSpan? timeout, CancellationToken cancellationToken)
@@ -324,7 +327,8 @@ public sealed class LocatorExpect
                 var holds = field.Contains ? MatchesSubsequence(matches, patterns, Satisfies) : MatchesPositionally(matches, patterns, Satisfies);
                 return new Verdict(holds, field.Label + " [" + string.Join(", ", matches.Select(node => field.Read(node) is { } actual ? field.Print(actual) : "no " + field.Label)) + "]");
             },
-            cancellationToken);
+            cancellationToken,
+            MissingFrame.Empty);
     }
 
     private Task AttributeAsync(string name, TextMatch? value, bool? ignoreCase, TimeSpan? timeout, CancellationToken cancellationToken)
@@ -376,12 +380,13 @@ public sealed class LocatorExpect
         TimeSpan? timeout,
         bool includeHidden,
         Func<IReadOnlyList<SemanticNode>, Verdict> evaluate,
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken,
+        MissingFrame missingFrame = MissingFrame.Wait) =>
         _locator.Screen.RunStepAsync(
             StepKind.Assertion,
             "expect." + (_negated ? "not." : "") + matcher,
             _locator.Query.Describe(),
-            () => PollCoreAsync(matcher, describeExpected, timeout, includeHidden, evaluate, cancellationToken),
+            () => PollCoreAsync(matcher, describeExpected, timeout, includeHidden, evaluate, missingFrame, cancellationToken),
             verifies: true);
 
     private async Task PollCoreAsync(
@@ -390,6 +395,7 @@ public sealed class LocatorExpect
         TimeSpan? timeout,
         bool includeHidden,
         Func<IReadOnlyList<SemanticNode>, Verdict> evaluate,
+        MissingFrame missingFrame,
         CancellationToken cancellationToken)
     {
         if (timeout is { } budget)
@@ -414,7 +420,7 @@ public sealed class LocatorExpect
                 Interval = _locator.Screen.PollInterval,
                 Evaluate = async () =>
                 {
-                    var matches = await _locator.ResolveAsync(token, includeHidden, deadline).ConfigureAwait(false);
+                    var matches = await _locator.ResolveAsync(token, includeHidden, deadline, missingFrame).ConfigureAwait(false);
                     last = evaluate(matches);
                     lastMatches = matches;
                     samples.Add(last.Observed + " (" + Number(matches.Count) + (matches.Count == 1 ? " match)" : " matches)"));
@@ -619,7 +625,10 @@ public sealed class ScreenExpect
     /// written and fails the call, or, with <c>E2E_UPDATE_SNAPSHOTS=1</c>, written and passed. Only the web engine captures pixels.
     /// </summary>
     public Task ToHaveScreenshotAsync(string? name = null, ScreenshotOptions? options = null, [CallerFilePath] string? callerFile = null)
-        => ScreenshotAssertion.ExpectScreenshotAsync(_screen, null, _negated, name, options, callerFile, default);
+        => _screen.IsScoped
+            // A scoped screen (a frame) refuses, since its box is not known.
+            ? Task.FromException(new TestException("INVALID_ARGUMENT", "toHaveScreenshot compares the whole screen or one locator; call it on screen, or on a locator inside the frame"))
+            : ScreenshotAssertion.ExpectScreenshotAsync(_screen, null, _negated, name, options, callerFile, default);
 
     /// <inheritdoc cref="ToHaveScreenshotAsync(string?, ScreenshotOptions?, string?)"/>
     public Task ToHaveScreenshotAsync(ScreenshotOptions options, [CallerFilePath] string? callerFile = null)

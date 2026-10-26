@@ -83,12 +83,13 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ExploreProgress.StepStarted](/api/E2E/ExploreProgress.StepStarted/) |  |
 | [ExtractOptions](/api/E2E/ExtractOptions/) | agent.extract: one extraction and one repair round. The type argument of CancellationToken) is the schema. |
 | [FileStepCache](/api/E2E/FileStepCache/) | JSON files in a directory, one per cache key. Entries over 1 MiB are ignored. |
+| [FrameScreen](/api/E2E/FrameScreen/) | The screen scope FrameLocator(string) returns. Every Screen query answers from inside the frame, and the web-only escape hatches follow it in: Locator(string) for a CSS or XPath selector on a control with no accessible name, and FrameLocator(string) for a frame nested inside this one. Upstream's FrameScreen. |
 | [GoogleModel](/api/E2E/GoogleModel/) | Google Gemini API (Generative Language) client. Tool schemas go as parametersJsonSchema, so the agent's JSON Schemas need no conversion. Thought signatures Gemini attaches to a function call are sent back with it. |
 | [GoogleModelOptions](/api/E2E/GoogleModelOptions/) |  |
 | [GotoOptions](/api/E2E/GotoOptions/) | Options of CancellationToken). |
 | [Locator](/api/E2E/Locator/) | A query that resolves against a fresh observation every time it is used. |
 | [LocatorExpect](/api/E2E/LocatorExpect/) | Matchers that retry until they pass or the assertion timeout elapses. Each takes an optional timeout that replaces the assertion timeout for that call. |
-| [LocatorExpression](/api/E2E/LocatorExpression/) | A locator expression. Query kinds (role, text, label, testid, placeholder, displayValue) search the descendants of Parent when it is set. filter and index narrow Source. union matches either Left or Right, each node once, in document order. |
+| [LocatorExpression](/api/E2E/LocatorExpression/) | A locator expression. Query kinds (role, text, label, testid, placeholder, displayValue) search the descendants of Parent when it is set. filter and index narrow Source. union matches either Left or Right, each node once, in document order. selector is a CSS or XPath selector in the engine's own language, and frame scopes Source into the iframe Selector names. |
 | [LocatorWaitForOptions](/api/E2E/LocatorWaitForOptions/) | Options for CancellationToken). |
 | [ModelImage](/api/E2E/ModelImage/) | An image a model reads: the encoded bytes of a screenshot, already sized for the model. |
 | [ModelMessage](/api/E2E/ModelMessage/) |  |

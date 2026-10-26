@@ -23,7 +23,7 @@ A mutable control on a [DocumentPage](/api/E2E.Engine/DocumentPage/).
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L442)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L456)
 
 ## Properties
 
@@ -42,7 +42,7 @@ Attributes `getAttribute` and `toHaveAttribute` read, such as `href` or `aria-la
 
 **Value:** [Dictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.dictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L479)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L493)
 
 <a id="E2E_Engine_DocumentElement_Checked_"></a>
 <a id="E2E_Engine_DocumentElement_Checked"></a>
@@ -57,7 +57,7 @@ public bool Checked { get; set; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L462)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L476)
 
 <a id="E2E_Engine_DocumentElement_Children_"></a>
 <a id="E2E_Engine_DocumentElement_Children"></a>
@@ -72,7 +72,7 @@ public List<DocumentElement> Children { get; }
 
 **Value:** [List&lt;DocumentElement&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L491)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L505)
 
 <a id="E2E_Engine_DocumentElement_Disabled_"></a>
 <a id="E2E_Engine_DocumentElement_Disabled"></a>
@@ -87,7 +87,7 @@ public bool Disabled { get; set; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L460)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L474)
 
 <a id="E2E_Engine_DocumentElement_Expanded_"></a>
 <a id="E2E_Engine_DocumentElement_Expanded"></a>
@@ -102,7 +102,7 @@ public bool Expanded { get; set; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L468)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L482)
 
 <a id="E2E_Engine_DocumentElement_Focused_"></a>
 <a id="E2E_Engine_DocumentElement_Focused"></a>
@@ -117,7 +117,7 @@ public bool Focused { get; set; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L474)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L488)
 
 <a id="E2E_Engine_DocumentElement_Hidden_"></a>
 <a id="E2E_Engine_DocumentElement_Hidden"></a>
@@ -132,7 +132,7 @@ public bool Hidden { get; set; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L464)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L478)
 
 <a id="E2E_Engine_DocumentElement_InputPurpose_"></a>
 <a id="E2E_Engine_DocumentElement_InputPurpose"></a>
@@ -147,7 +147,7 @@ public string? InputPurpose { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L456)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L470)
 
 <a id="E2E_Engine_DocumentElement_Level_"></a>
 <a id="E2E_Engine_DocumentElement_Level"></a>
@@ -162,7 +162,7 @@ public int? Level { get; init; }
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L458)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L472)
 
 <a id="E2E_Engine_DocumentElement_Name_"></a>
 <a id="E2E_Engine_DocumentElement_Name"></a>
@@ -177,7 +177,7 @@ public string? Name { get; set; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L446)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L460)
 
 <a id="E2E_Engine_DocumentElement_NavigateTo_"></a>
 <a id="E2E_Engine_DocumentElement_NavigateTo"></a>
@@ -192,7 +192,7 @@ public string? NavigateTo { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L476)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L490)
 
 <a id="E2E_Engine_DocumentElement_OnFill_"></a>
 <a id="E2E_Engine_DocumentElement_OnFill"></a>
@@ -207,7 +207,7 @@ public Action<string>? OnFill { get; init; }
 
 **Value:** [Action&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L486)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L500)
 
 <a id="E2E_Engine_DocumentElement_OnScroll_"></a>
 <a id="E2E_Engine_DocumentElement_OnScroll"></a>
@@ -224,7 +224,7 @@ Runs when this element is scrolled with [LocatorAction.Swipe](/api/E2E.Engine/Lo
 
 **Value:** [Action&lt;ScrollDirection&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L489)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L503)
 
 <a id="E2E_Engine_DocumentElement_OnTap_"></a>
 <a id="E2E_Engine_DocumentElement_OnTap"></a>
@@ -239,7 +239,7 @@ public Action? OnTap { get; init; }
 
 **Value:** [Action](https://learn.microsoft.com/dotnet/api/system.action)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L484)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L498)
 
 <a id="E2E_Engine_DocumentElement_Placeholder_"></a>
 <a id="E2E_Engine_DocumentElement_Placeholder"></a>
@@ -254,7 +254,7 @@ public string? Placeholder { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L454)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L468)
 
 <a id="E2E_Engine_DocumentElement_Pressed_"></a>
 <a id="E2E_Engine_DocumentElement_Pressed"></a>
@@ -269,7 +269,7 @@ public bool Pressed { get; set; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L470)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L484)
 
 <a id="E2E_Engine_DocumentElement_Rect_"></a>
 <a id="E2E_Engine_DocumentElement_Rect"></a>
@@ -286,7 +286,7 @@ The box `boundingBox` reports. Null when the page does not lay it out.
 
 **Value:** [BoundingBox](/api/E2E.Engine/BoundingBox/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L482)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L496)
 
 <a id="E2E_Engine_DocumentElement_Role_"></a>
 <a id="E2E_Engine_DocumentElement_Role"></a>
@@ -301,7 +301,7 @@ public string? Role { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L444)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L458)
 
 <a id="E2E_Engine_DocumentElement_Secure_"></a>
 <a id="E2E_Engine_DocumentElement_Secure"></a>
@@ -316,7 +316,7 @@ public bool Secure { get; set; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L472)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L486)
 
 <a id="E2E_Engine_DocumentElement_Selected_"></a>
 <a id="E2E_Engine_DocumentElement_Selected"></a>
@@ -331,7 +331,7 @@ public bool Selected { get; set; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L466)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L480)
 
 <a id="E2E_Engine_DocumentElement_TestId_"></a>
 <a id="E2E_Engine_DocumentElement_TestId"></a>
@@ -346,7 +346,7 @@ public string? TestId { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L452)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L466)
 
 <a id="E2E_Engine_DocumentElement_Text_"></a>
 <a id="E2E_Engine_DocumentElement_Text"></a>
@@ -361,7 +361,7 @@ public string? Text { get; set; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L448)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L462)
 
 <a id="E2E_Engine_DocumentElement_Value_"></a>
 <a id="E2E_Engine_DocumentElement_Value"></a>
@@ -376,4 +376,4 @@ public string? Value { get; set; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L450)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L464)

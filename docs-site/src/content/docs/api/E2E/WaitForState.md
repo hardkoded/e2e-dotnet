@@ -21,7 +21,7 @@ public enum WaitForState
 
 The state `CancellationToken)` waits for.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L967)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1033)
 
 ## Fields
 
@@ -39,7 +39,7 @@ Exactly one match, visible or not.
 
 **Value:** [WaitForState](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L973)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1039)
 
 <a id="E2E_WaitForState_Detached"></a>
 
@@ -55,7 +55,7 @@ No match, visible or not.
 
 **Value:** [WaitForState](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L976)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1042)
 
 <a id="E2E_WaitForState_Hidden"></a>
 
@@ -71,7 +71,7 @@ No visible match.
 
 **Value:** [WaitForState](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L979)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1045)
 
 <a id="E2E_WaitForState_Visible"></a>
 
@@ -87,4 +87,4 @@ Exactly one visible match.
 
 **Value:** [WaitForState](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L970)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1036)

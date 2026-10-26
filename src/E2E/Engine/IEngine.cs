@@ -46,6 +46,9 @@ public sealed class EngineFixtureContext
 
     internal EngineFixtureContext(Screen screen) => _screen = screen;
 
+    /// <summary>The attempt's screen, which a scope such as a frame's is made of.</summary>
+    internal Screen Root => _screen;
+
     /// <summary>Mints a public locator from a raw expression (a platform selector, say). Upstream's <c>locator</c>.</summary>
     public Locator Locator(LocatorExpression expression)
     {

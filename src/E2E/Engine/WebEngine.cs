@@ -1045,14 +1045,149 @@ public sealed partial class WebEngine : IEngine
         /// Resolves a locator against the page as it is now, in the engine: it reads the semantic tree and resolves the expression over
         /// it, so every match is a node of that observation and keeps the ref the page script minted. Upstream's <c>locate</c>
         /// (<c>surface.ts</c>) resolves with Playwright selectors instead; the port's page script is the reader of the page, so the
-        /// resolve is the tree's. <paramref name="timeout"/> is the budget left for the wait: the read runs under it, or under the action timeout when that is shorter.
+        /// resolve is the tree's, and only a <c>selector</c> or <c>frame</c> expression asks Playwright which elements it names
+        /// (<see cref="ProjectAsync(LocatorExpression, TimeSpan, CancellationToken)"/>). <paramref name="timeout"/> is the budget left for the
+        /// wait: the read runs under it, or under the action timeout when that is shorter.
         /// </summary>
         public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(expression);
             var observation = await ObserveAsync(cancellationToken, timeout).ConfigureAwait(false);
             _trace?.ShowScreen(observation);
-            return LocatorResolver.Resolve(observation, expression, expression.IncludeHidden);
+            var projected = WebLocators.NeedsPage(expression)
+                ? await RunAsync("locate", cancellationToken, () => ProjectAsync(expression, timeout, cancellationToken)).ConfigureAwait(false)
+                : expression;
+            return LocatorResolver.Resolve(observation, projected, expression.IncludeHidden);
+        }
+
+        /// <summary>
+        /// The expression with every <c>selector</c> and <c>frame</c> in it replaced by the nodes Playwright says it names, as <c>refs</c>:
+        /// the elements the page script listed in the observation just taken, which is every element that has a ref. An element the tree
+        /// leaves out (no role, test id, or text of its own) matches nothing, and so does the content of a frame it does not show.
+        /// Upstream's <c>project</c> (<c>locators.ts</c>) and <c>frameBox</c> (<c>surface.ts</c>), over the tree.
+        /// </summary>
+        private async Task<LocatorExpression> ProjectAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            WebLocators.FrameSelectors(expression);
+            var budget = Budget("locate", cancellationToken, timeout < _actionTimeout ? TimeSpan.FromMilliseconds(Math.Max(timeout.TotalMilliseconds, MinLocateRead.TotalMilliseconds)) : null);
+            try
+            {
+                return await ProjectAsync(expression, budget).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.StaleOr(ex, "locate");
+            }
+        }
+
+        private async Task<LocatorExpression> ProjectAsync(LocatorExpression expression, OperationBudget budget)
+        {
+            switch (expression.Kind)
+            {
+                case "union":
+                    return expression with { Left = await ProjectAsync(expression.Left!, budget).ConfigureAwait(false), Right = await ProjectAsync(expression.Right!, budget).ConfigureAwait(false) };
+                case "filter":
+                    return expression with
+                    {
+                        Source = await ProjectAsync(expression.Source!, budget).ConfigureAwait(false),
+                        Has = expression.Has is null ? null : await ProjectAsync(WithinSource(expression.Has, expression.Source!), budget).ConfigureAwait(false),
+                    };
+                case "index":
+                    return expression with { Source = await ProjectAsync(expression.Source!, budget).ConfigureAwait(false) };
+                case "selector":
+                    return Named(await RefsOfAsync([], expression.Selector!, budget).ConfigureAwait(false));
+                case "frame":
+                    {
+                        var frames = new List<string>();
+                        var leaf = expression;
+                        while (leaf.Kind == "frame")
+                        {
+                            frames.Add(leaf.Selector!);
+                            leaf = leaf.Source!;
+                        }
+
+                        var frame = await FrameAsync(frames, budget).ConfigureAwait(false);
+                        return leaf.Kind switch
+                        {
+                            "selector" => Named(await RefsOfAsync(frames, leaf.Selector!, budget).ConfigureAwait(false)),
+                            "role" or "text" or "label" or "testid" or "placeholder" or "displayValue" when leaf.Parent is null => leaf with { Parent = Named([frame]) },
+                            _ => throw new EngineException("UNSUPPORTED_CAPABILITY", "a frame scopes a query or a selector, not " + leaf.Kind, retryable: false),
+                        };
+                    }
+
+                default:
+                    return expression.Parent is null ? expression : expression with { Parent = await ProjectAsync(expression.Parent, budget).ConfigureAwait(false) };
+            }
+        }
+
+        /// <summary>
+        /// A <c>has</c> filter resolves inside each match of its source, so a frame the two share is already the source's: the frame's
+        /// iframe would otherwise scope the filter to descendants of the iframe, which the match is not one of. A <c>has</c> in another
+        /// document cannot be joined to its source.
+        /// </summary>
+        private static LocatorExpression WithinSource(LocatorExpression has, LocatorExpression source)
+        {
+            if (!WebLocators.FrameSelectors(has).SequenceEqual(WebLocators.FrameSelectors(source), StringComparer.Ordinal))
+            {
+                throw new EngineException("UNSUPPORTED_CAPABILITY", "locator.filter({ has }) requires both locators in the same document", retryable: false);
+            }
+
+            return WebLocators.WithoutFrameScopes(has);
+        }
+
+        private static LocatorExpression Named(IEnumerable<string> refs) => new() { Kind = "refs", Refs = new HashSet<string>(refs, StringComparer.Ordinal) };
+
+        /// <summary>
+        /// Checks that every frame selector along <paramref name="frames"/> matches exactly one element, each counted inside the frame
+        /// before it (upstream's <c>frameBox</c>; a frame-scoped count is 0 until that frame's document has loaded, which is what makes
+        /// <c>FRAME_NOT_FOUND</c> worth retrying), and returns the ref the innermost iframe node has in the observation. An iframe the
+        /// tree does not list, because it is hidden, is no frame either.
+        /// </summary>
+        private async Task<string> FrameAsync(IReadOnlyList<string> frames, OperationBudget budget)
+        {
+            ILocator? element = null;
+            IFrameLocator? scope = null;
+            foreach (var selector in frames)
+            {
+                element = scope is null ? Page.Locator(selector) : scope.Locator(selector);
+                var count = await budget.WithinAsync(element.CountAsync()).ConfigureAwait(false);
+                if (count == 0)
+                {
+                    throw new EngineException(EngineErrorCodes.FrameNotFound, $"no frame matches {selector}", retryable: true);
+                }
+
+                if (count > 1)
+                {
+                    throw new EngineException(EngineErrorCodes.FrameAmbiguous, $"{count} frames match {selector}", retryable: false);
+                }
+
+                scope = scope is null ? Page.FrameLocator(selector) : scope.FrameLocator(selector);
+            }
+
+            // A selector counts one element; only an iframe is a frame boundary.
+            if (!await budget.WithinAsync(element!.EvaluateAsync<bool>(PageScript.IsFrameElement, null, new LocatorEvaluateOptions { Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false))
+            {
+                throw new EngineException(EngineErrorCodes.FrameNotFound, $"{frames[^1]} matches an element that is not an iframe", retryable: true);
+            }
+
+            var node = await budget.WithinAsync(element.EvaluateAsync<string?>(PageScript.RefOf, null, new LocatorEvaluateOptions { Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
+            return node ?? throw new EngineException(EngineErrorCodes.FrameNotFound, $"frame {frames[^1]} is not in the observation: it is hidden, or the page changed after it", retryable: true);
+        }
+
+        /// <summary>The refs of the nodes the elements <paramref name="selector"/> names have, inside the frame the chain names or the page.</summary>
+        private async Task<List<string>> RefsOfAsync(IReadOnlyList<string> frames, string selector, OperationBudget budget)
+        {
+            WebLocators.RefuseCapture(selector);
+            IFrameLocator? scope = null;
+            foreach (var frame in frames)
+            {
+                scope = scope is null ? Page.FrameLocator(frame) : scope.FrameLocator(frame);
+            }
+
+            var locator = scope is null ? Page.Locator(selector) : scope.Locator(selector);
+            // One round trip for every match: an element the observation did not list has no ref, and is no node.
+            var found = await budget.WithinAsync(locator.EvaluateAllAsync<string?[]>("els => els.map(" + PageScript.RefOf.Trim() + ")")).ConfigureAwait(false);
+            return found.OfType<string>().ToList();
         }
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("perform", cancellationToken, async () =>
