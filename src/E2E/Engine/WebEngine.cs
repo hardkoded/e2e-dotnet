@@ -1158,28 +1158,9 @@ public sealed partial class WebEngine : IEngine
             }
 
             var locator = scope is null ? Page.Locator(selector) : scope.Locator(selector);
-            var handles = await budget.WithinAsync(locator.ElementHandlesAsync()).ConfigureAwait(false);
-            var refs = new List<string>();
-            try
-            {
-                foreach (var handle in handles)
-                {
-                    // An element the observation did not list has no ref: it is no node.
-                    if (await budget.WithinAsync(handle.EvaluateAsync<string?>(PageScript.RefOf)).ConfigureAwait(false) is { } found)
-                    {
-                        refs.Add(found);
-                    }
-                }
-            }
-            finally
-            {
-                foreach (var handle in handles)
-                {
-                    await handle.DisposeAsync().ConfigureAwait(false);
-                }
-            }
-
-            return refs;
+            // One round trip for every match: an element the observation did not list has no ref, and is no node.
+            var found = await budget.WithinAsync(locator.EvaluateAllAsync<string?[]>("els => els.map(" + PageScript.RefOf.Trim() + ")")).ConfigureAwait(false);
+            return found.OfType<string>().ToList();
         }
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("perform", cancellationToken, async () =>
