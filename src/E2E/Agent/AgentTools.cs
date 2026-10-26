@@ -29,6 +29,9 @@ internal static class AgentTools
     /// <summary>Longest text <c>scroll_to</c> pages toward: a row label, never a paragraph.</summary>
     public const int MaxScrollToText = 200;
 
+    /// <summary>Ceiling on a verdict summary (upstream's <c>MAX_VERDICT_SUMMARY_CHARS</c>).</summary>
+    public const int MaxVerdictSummaryChars = 2_000;
+
     private const string Directions = """{ "type": "string", "enum": ["up", "down", "left", "right"] }""";
 
     /// <summary>Codes the model may pick when it ends an act. The runtime assigns every other code.</summary>
@@ -222,7 +225,7 @@ internal static class AgentTools
               "type": "object",
               "properties": {
                 "status": { "type": "string", "enum": {{JsonSerializer.Serialize(statuses)}} },
-                "summary": { "type": "string" },
+                "summary": { "type": "string", "minLength": 1, "maxLength": {{MaxVerdictSummaryChars}}, "description": "One to three sentences for the next step: what you did, what the screen shows now, and any value it will need (a name or id you created, a message you saw). No page narration; under 400 characters." },
                 "code": { "type": "string", "enum": {{JsonSerializer.Serialize(codes)}} }
               },
               "required": ["status", "summary"]
@@ -295,6 +298,15 @@ internal sealed class VerdictTool(ModelTool tool)
             return ToolOutcome.Fail("done status must be passed, failed, or blocked.");
         }
 
+        // Upstream's schema (summary: z.string().min(1).max(2000)) turns an empty or oversized summary back to the model.
+        var summary = Args.String(call.Arguments, "summary");
+        if (string.IsNullOrWhiteSpace(summary) || summary.Length > AgentTools.MaxVerdictSummaryChars)
+        {
+            return ToolOutcome.Fail(
+                "done summary must be a non-empty string of at most " + AgentTools.MaxVerdictSummaryChars.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                " characters: what you did and what the screen shows now.");
+        }
+
         var code = Args.String(call.Arguments, "code");
         if (string.Equals(status, "passed", StringComparison.Ordinal) || !AgentTools.ModelErrorCodes.Contains(code))
         {
@@ -308,7 +320,7 @@ internal sealed class VerdictTool(ModelTool tool)
                 "If the application itself misbehaved, use status failed instead.");
         }
 
-        return ToolOutcome.Finish(status, Args.String(call.Arguments, "summary"), code);
+        return ToolOutcome.Finish(status, summary, code);
     }
 }
 
