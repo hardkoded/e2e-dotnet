@@ -43,6 +43,36 @@ internal static class WebLocators
         }
     }
 
+    /// <summary>
+    /// The expression with the frame scopes of its queries taken off, for a filter that resolves inside the matches of a source that has
+    /// them. A <c>selector</c> keeps its frame: the page decides which elements it names.
+    /// </summary>
+    public static LocatorExpression WithoutFrameScopes(LocatorExpression expression)
+    {
+        switch (expression.Kind)
+        {
+            case "frame":
+                {
+                    var leaf = expression.Source!;
+                    while (leaf.Kind == "frame")
+                    {
+                        leaf = leaf.Source!;
+                    }
+
+                    return leaf.Kind == "selector" ? expression : leaf;
+                }
+
+            case "union":
+                return expression with { Left = WithoutFrameScopes(expression.Left!), Right = WithoutFrameScopes(expression.Right!) };
+            case "filter":
+                return expression with { Source = WithoutFrameScopes(expression.Source!), Has = expression.Has is null ? null : WithoutFrameScopes(expression.Has) };
+            case "index":
+                return expression with { Source = WithoutFrameScopes(expression.Source!) };
+            default:
+                return expression.Parent is null ? expression : expression with { Parent = WithoutFrameScopes(expression.Parent) };
+        }
+    }
+
     /// <summary>Whether resolving the expression needs the page: it holds a <c>selector</c> or a <c>frame</c> somewhere.</summary>
     public static bool NeedsPage(LocatorExpression expression) =>
         expression.Kind is "selector" or "frame"

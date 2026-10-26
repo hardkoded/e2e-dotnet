@@ -84,6 +84,9 @@ public sealed class BrowserExpect
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(expected);
+
+        // A locator of another attempt would read another page, and its match would verify this one.
+        _browser.Context?.Root.OwnLocator(target, "toHaveClass");
         return PollAsync(
             "toHaveClass",
             "class " + expected,

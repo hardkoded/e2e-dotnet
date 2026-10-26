@@ -1090,7 +1090,7 @@ public sealed partial class WebEngine : IEngine
                     return expression with
                     {
                         Source = await ProjectAsync(expression.Source!, budget).ConfigureAwait(false),
-                        Has = expression.Has is null ? null : await ProjectAsync(expression.Has, budget).ConfigureAwait(false),
+                        Has = expression.Has is null ? null : await ProjectAsync(WithinSource(expression.Has, expression.Source!), budget).ConfigureAwait(false),
                     };
                 case "index":
                     return expression with { Source = await ProjectAsync(expression.Source!, budget).ConfigureAwait(false) };
@@ -1118,6 +1118,21 @@ public sealed partial class WebEngine : IEngine
                 default:
                     return expression.Parent is null ? expression : expression with { Parent = await ProjectAsync(expression.Parent, budget).ConfigureAwait(false) };
             }
+        }
+
+        /// <summary>
+        /// A <c>has</c> filter resolves inside each match of its source, so a frame the two share is already the source's: the frame's
+        /// iframe would otherwise scope the filter to descendants of the iframe, which the match is not one of. A <c>has</c> in another
+        /// document cannot be joined to its source.
+        /// </summary>
+        private static LocatorExpression WithinSource(LocatorExpression has, LocatorExpression source)
+        {
+            if (!WebLocators.FrameSelectors(has).SequenceEqual(WebLocators.FrameSelectors(source), StringComparer.Ordinal))
+            {
+                throw new EngineException("UNSUPPORTED_CAPABILITY", "locator.filter({ has }) requires both locators in the same document", retryable: false);
+            }
+
+            return WebLocators.WithoutFrameScopes(has);
         }
 
         private static LocatorExpression Named(IEnumerable<string> refs) => new() { Kind = "refs", Refs = new HashSet<string>(refs, StringComparer.Ordinal) };
@@ -1149,7 +1164,13 @@ public sealed partial class WebEngine : IEngine
                 scope = scope is null ? Page.FrameLocator(selector) : scope.FrameLocator(selector);
             }
 
-            var node = await budget.WithinAsync(element!.EvaluateAsync<string?>(PageScript.RefOf, null, new LocatorEvaluateOptions { Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
+            // A selector counts one element; only an iframe is a frame boundary.
+            if (!await budget.WithinAsync(element!.EvaluateAsync<bool>(PageScript.IsFrameElement, null, new LocatorEvaluateOptions { Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false))
+            {
+                throw new EngineException(EngineErrorCodes.FrameNotFound, $"{frames[^1]} matches an element that is not an iframe", retryable: true);
+            }
+
+            var node = await budget.WithinAsync(element.EvaluateAsync<string?>(PageScript.RefOf, null, new LocatorEvaluateOptions { Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
             return node ?? throw new EngineException(EngineErrorCodes.FrameNotFound, $"frame {frames[^1]} is not in the observation: it is hidden, or the page changed after it", retryable: true);
         }
 
