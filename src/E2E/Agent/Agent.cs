@@ -360,13 +360,24 @@ public sealed partial class Agent
             LoseVision(api, vision, VisionDegradation.PixelTainted);
         }
 
-        var observation = await _scope.ObserveAsync(token).ConfigureAwait(false);
-        if (observation.Truncated)
-        {
-            _scope.Steps.AttachAgentDetails(new StepAgentDetails { ObservationTruncated = true });
-        }
+        // The look and the tree a model reads of it are one phase, whose event tells the nodes read and the bytes of that tree.
+        var (observation, tree) = await Phases.InstrumentPhaseAsync(
+            new PhaseHost(_scope.Steps, _scope.Debug),
+            new PhaseSpec(StepEventKind.Observation, Phases.Observe),
+            async () =>
+            {
+                var seen = await _scope.ObserveAsync(token).ConfigureAwait(false);
+                return (Seen: seen, Tree: SnapshotText.Render(seen, _scope.Redactor, _scope.AppOrigin));
+            },
+            look => new PhaseDetail(LocatorResolver.Walk(look.Seen.Roots).Count(), System.Text.Encoding.UTF8.GetByteCount(look.Tree))).ConfigureAwait(false);
 
-        var tree = SnapshotText.Render(observation, _scope.Redactor, _scope.AppOrigin);
+        // Bytes the request carries, so a tree the call withholds reads as the zero it is.
+        _scope.Steps.AttachAgentDetails(new StepAgentDetails
+        {
+            ObservationTruncated = observation.Truncated ? true : null,
+            ObservationRevision = observation.Revision.Length > 0 ? observation.Revision : null,
+            ObservationBytes = vision == VisionMode.Only ? null : System.Text.Encoding.UTF8.GetByteCount(tree),
+        });
         if (vision == VisionMode.Off || tainted)
         {
             return new Look(tree, null, tree, tree);
@@ -1137,6 +1148,9 @@ internal sealed class AttemptScope
     public async Task<Observation> ObserveAsync(CancellationToken token)
     {
         var observation = await Session.ObserveAsync(token).ConfigureAwait(false);
+
+        // The adapter mints the revision, as upstream's session does: one per capture the attempt took, in order.
+        observation.Revision = "b" + Interlocked.Increment(ref _observed).ToString(CultureInfo.InvariantCulture);
         Screens.Push(observation);
         return observation;
     }
@@ -1228,6 +1242,9 @@ internal sealed class AttemptScope
 
     /// <summary>The zero-based place of the next agent step in the attempt.</summary>
     public int NextStepIndex() => Interlocked.Increment(ref _steps) - 1;
+
+    // Captures the attempt has taken, which the revisions count.
+    private int _observed;
 
     /// <summary>What the engine declared. Scroll and back tools are offered only when it can honor them.</summary>
     public EngineCapabilities EngineCapabilities { get; init; }

@@ -82,6 +82,7 @@ no viewer. It tells, in this order:
 2. The error code and message, then the facts of its `Details` (`Expected:`,
    `Observed: ... (1 match)`, `Asked for: button "Save"`, `Waited:`), `Look at:`
    (the test line the failure unwound through, else the failing step's line),
+   `Also skipped:` (the reason, when the test called `Skip` and still failed),
    and, after a retry, whether every attempt failed alike.
 3. `## Steps`: one line per step, `2. ✗ \`locator.tap\` \`getByRole("button", "Save")\`
    (108ms) — **TIMEOUT** — \`Tests/CheckoutTests.cs:42\``, with the model calls
@@ -180,7 +181,7 @@ The last attempt of each failed result holds:
 | --- | --- |
 | `error` | The code, message, source line, and assertion details |
 | `failure` | The screen and screenshot artifact ids, the `url`, and any locator candidates |
-| `steps` | The calls that led to the failure. Each step's `events` hold what it did (`engine`), what it polled (`poll`), and where the app went (`navigation`). Agent steps add `cache` and recent model turns. `observationTruncated: true` (`ReportStep.ObservationTruncated`) means at least one semantic observation was incomplete. |
+| `steps` | The calls that led to the failure. Each step's `events` hold what it did (`engine`), what it polled (`poll`), and where the app went (`navigation`). Agent steps add `cache` and recent model turns, an `observation` event for every look at the screen (the nodes read and its bytes), an `engine` event for every action (`tap`, `type`, `tool:<name>` for a project tool), and `model` events. `observationTruncated: true` (`ReportStep.ObservationTruncated`) means at least one semantic observation was incomplete. `observationRevision` (`b1`, `b2`, ...) names the last screen the step read, and `metrics.observationBytes` is the largest it read. |
 | `appLog` | What the app logged. Each line's `step` is the `index` of its step, absent before the first step. |
 | `artifacts` | The captured files, with their size and `sha256` |
 
@@ -195,8 +196,9 @@ session is disposed and when the trace page cannot be written. Use it, with
 
 Not in the port's report: serial groups (`run.serialGroups` is always empty),
 `carried`, a step's `visionInput`, `visionDegraded`, and `visionOnly`, and the
-model fields upstream measures (`peakTokensPerCall` reads 0). A judgment step's
-`observationRevision` reads `unrecorded`. See `COMPATIBILITY.md` for the full list.
+model fields upstream measures (`peakTokensPerCall` reads 0). A judgment step that
+failed before it read a screen has `observationRevision` `unrecorded`. See
+`COMPATIBILITY.md` for the full list.
 
 ## Error codes
 

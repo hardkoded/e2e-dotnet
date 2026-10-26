@@ -254,15 +254,23 @@ internal static partial class ReportWire
             ("startedAt", Timestamp(step.StartedAt)),
             ("durationMs", Math.Max(0, step.DurationMs)));
 
-        // A judgment names the observation it judged and says why; the port records no revision, so it says so.
+        // A judgment names the observation it judged and says why; one that failed before it read a screen has none to name.
         if (step.Api == "agent.assert" && (step.Status == StepStatus.Passed || step.Metrics?.ModelCalls >= 1))
         {
-            result["observationRevision"] = UnrecordedRevision;
+            result["observationRevision"] = Clip(step.ObservationRevision ?? UnrecordedRevision, 256);
             result["explanation"] = Clip(step.Explanation ?? "", 8192);
         }
-        else if (step.Explanation is { } explanation)
+        else
         {
-            result["explanation"] = Clip(explanation, 8192);
+            if (step.ObservationRevision is { Length: > 0 } revision)
+            {
+                result["observationRevision"] = Clip(revision, 256);
+            }
+
+            if (step.Explanation is { } explanation)
+            {
+                result["explanation"] = Clip(explanation, 8192);
+            }
         }
 
         if (step.ObservationTruncated == true)

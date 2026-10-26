@@ -38,6 +38,8 @@ public sealed class AgentJudgmentTierTests
         Assert.Equal(1, judge.CallCount);
         // It kept looking, though: observations cost no model call.
         Assert.True(engine.Observations - seen > 2, "observations while waiting: " + (engine.Observations - seen));
+        var step = result.Steps!.Single(candidate => candidate.Api == "agent.waitFor");
+        Assert.True(step.Events.Count(item => item.Kind == StepEventKind.Observation) > 2);
     }
 
     [Fact]
@@ -80,6 +82,8 @@ public sealed class AgentJudgmentTierTests
         Assert.Equal("The judge did not call done.", error.Message);
         // One judgment plus one repair round is the whole budget: no third call, no guessed verdict.
         Assert.Equal(2, judge.CallCount);
+        var step = result.Steps!.Single(candidate => candidate.Api == "agent.assert");
+        Assert.Matches(@"^b\d+\z", step.ObservationRevision);
     }
 
     // Upstream also checks the token ceiling and that no temperature is pinned. Those belong to the provider models in the port.
@@ -334,7 +338,7 @@ public sealed class AgentJudgmentTierTests
         }
 
         session.Complete(error);
-        return new CoreTests.Attempt(error, session.ModelCalls, session.Replayed, session.Missed);
+        return new CoreTests.Attempt(error, session.ModelCalls, session.Replayed, session.Missed, Steps: session.Steps);
     }
 
     private sealed class CounterReading

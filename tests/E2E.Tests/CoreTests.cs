@@ -903,7 +903,7 @@ public sealed class CoreTests
         return Path.Combine(Path.GetTempPath(), "e2e-tests", Guid.NewGuid().ToString("n"));
     }
 
-    internal readonly record struct Attempt(Exception? Error, int ModelCalls, int Replayed, int Missed, int InputTokens = 0, int OutputTokens = 0);
+    internal readonly record struct Attempt(Exception? Error, int ModelCalls, int Replayed, int Missed, int InputTokens = 0, int OutputTokens = 0, IReadOnlyList<StepRecord>? Steps = null);
 
     internal static async Task<Attempt> RunAsync(
         Func<TestContext, Task> body,

@@ -83,7 +83,7 @@ public IReadOnlyList<JsonElement>? ReasoningItems { get; init; }
 ```
 
 
-The reasoning the model returned with this turn, sent back as it came: encrypted items for [OpenAiResponsesModel](/api/E2E/OpenAiResponsesModel/), signed thinking blocks for [AnthropicModel](/api/E2E/AnthropicModel/), the reasoning text as a JSON string for [OpenAiCompatibleModel](/api/E2E/OpenAiCompatibleModel/).
+The reasoning the model returned with this turn, sent back as it came: encrypted items for [OpenAiResponsesModel](/api/E2E/OpenAiResponsesModel/), signed thinking blocks for [AnthropicModel](/api/E2E/AnthropicModel/), thought parts for [GoogleModel](/api/E2E/GoogleModel/), the `reasoningContent` blocks for [BedrockModel](/api/E2E/BedrockModel/), the reasoning text as a JSON string for [OpenAiCompatibleModel](/api/E2E/OpenAiCompatibleModel/).
 
 **Value:** [IReadOnlyList&lt;JsonElement&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 

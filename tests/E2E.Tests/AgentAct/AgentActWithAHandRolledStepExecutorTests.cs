@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using System.Text.RegularExpressions;
 using E2E.Tests.ReportJson;
 using static E2E.Tests.AgentAct.ExecutorKit;
@@ -20,10 +21,11 @@ public sealed partial class AgentActWithAHandRolledStepExecutorTests
     /// <summary>Taps the Increment button, verifies the counter, and passes. No model.</summary>
     private static TestExecutor ScriptedExecutor() => new("scripted-executor", async (context, _) =>
     {
+        var turnStartedAt = DateTimeOffset.UtcNow;
         var observation = await context.ObserveAsync();
         await context.Actions.TapAsync(TargetFor(observation.Text, "button \"Increment\""));
         // Like a tool-using loop: the turn is reported after its tool ran.
-        context.Budgets.RecordModelCall(new ExecutorModelCall { StartedAt = DateTimeOffset.UtcNow, DurationMs = 5 });
+        context.Budgets.RecordModelCall(new ExecutorModelCall { StartedAt = turnStartedAt, DurationMs = 5 });
         observation = await context.ObserveAsync();
         return CounterShowsOne().IsMatch(observation.Text)
             ? Passed("tapped Increment; the counter shows 1")
@@ -49,12 +51,8 @@ public sealed partial class AgentActWithAHandRolledStepExecutorTests
         Assert.Null(result.Error);
     }
 
-    /// <summary>
-    /// Partial: the port records no engine event for an action an executor takes through its context, so the engine event and the
-    /// order of the model event against it are not checked.
-    /// </summary>
     [Fact]
-    public async Task Partial_Records_the_act_step_with_harness_owned_accounting()
+    public async Task Records_the_act_step_with_harness_owned_accounting()
     {
         using var report = new ReportDirectory();
         ActResult? act = null;
@@ -75,8 +73,15 @@ public sealed partial class AgentActWithAHandRolledStepExecutorTests
         Assert.Equal("passed", (string)step["status"]!);
         Assert.Equal(1, (int)step["metrics"]!["actionSteps"]!);
         Assert.Contains("the counter shows 1", (string)step["explanation"]!, StringComparison.Ordinal);
-        var modelEvents = step["events"]!.AsArray().Where(each => (string)each!["kind"]! == "model").ToList();
+        var events = step["events"]!.AsArray();
+        var engineEvents = events.Where(each => (string)each!["kind"]! == "engine").ToList();
+        Assert.Single(engineEvents);
+        var modelEvents = events.Where(each => (string)each!["kind"]! == "model").ToList();
         Assert.Single(modelEvents);
+
+        // Recorded after the tap, stamped with the executor's start: earlier in time than the engine event, later in the list.
+        Assert.True(events.IndexOf(modelEvents[0]) > events.IndexOf(engineEvents[0]));
+        Assert.True(DateTimeOffset.Parse((string)modelEvents[0]!["startedAt"]!, CultureInfo.InvariantCulture) <= DateTimeOffset.Parse((string)engineEvents[0]!["startedAt"]!, CultureInfo.InvariantCulture));
     }
 
     [GeneratedRegex("status \"Counter\" text=\"1\"")]

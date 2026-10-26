@@ -189,7 +189,13 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         {
             var input = call.Arguments.ValueKind == JsonValueKind.Object ? (JsonObject)JsonNode.Parse(call.Arguments.GetRawText())! : new JsonObject();
             var toolContext = context is null ? AgentToolContext.Unavailable : new AgentToolContext(context, tool.Mutates);
-            output = await _scope.Debug.Time(Phases.Action, () => budget.RunToolAsync(call.Name, tool.Mutates, () => tool.RunAsync(input, toolContext, token))).ConfigureAwait(false);
+            output = await budget.RunToolAsync(
+                call.Name,
+                tool.Mutates,
+                () => Phases.InstrumentPhaseAsync(
+                    new PhaseHost(_scope.Steps, _scope.Debug),
+                    new PhaseSpec(StepEventKind.Engine, Phases.Action, ActionNames.ProjectToolEventPrefix + call.Name),
+                    () => tool.RunAsync(input, toolContext, token))).ConfigureAwait(false);
         }
         catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
         {

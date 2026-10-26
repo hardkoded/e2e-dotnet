@@ -163,4 +163,11 @@ public sealed class RenderTracePageTests
         Assert.Contains("**ASSERTION_FAILED** in afterEach", hook, StringComparison.Ordinal);
         Assert.Contains("cleanup '''broke'''", hook, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Names_the_skip_a_failed_attempt_took_before_its_soft_failures_were_settled()
+    {
+        Assert.Contains("Also skipped: flag \\| off  ", Page([Failed(skip: new ReportSkip("explicit", "flag | off"))]), StringComparison.Ordinal);
+        Assert.DoesNotContain("Also skipped", Page([Failed()]), StringComparison.Ordinal);
+    }
 }

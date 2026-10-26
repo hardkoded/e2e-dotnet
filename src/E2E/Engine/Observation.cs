@@ -129,4 +129,11 @@ public sealed class Observation
     /// compares it to see whether a scroll moved anything the tree does not show.
     /// </summary>
     internal string? ScrollPosition { get; init; }
+
+    /// <summary>
+    /// Which capture of the attempt this is (upstream's <c>revision</c>: <c>b1</c>, <c>b2</c>, and so on). The harness stamps it, not the
+    /// engine, as the observation reaches the attempt's agent; it reads empty before then. A step's report names the revision of the
+    /// screen it last read.
+    /// </summary>
+    public string Revision { get; internal set; } = "";
 }

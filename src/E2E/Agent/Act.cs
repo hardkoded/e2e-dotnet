@@ -243,10 +243,12 @@ public sealed partial class Agent
                     ActionSteps = budget.Used,
                     ContextBytes = agent.Context is null ? 0 : System.Text.Encoding.UTF8.GetByteCount(agent.Context),
                     LedgerBytes = context?.LedgerBytes ?? 0,
+                    ObservationBytes = feed.MaxObservationBytes,
                 },
                 Cache = session?.CacheInfo,
                 Turns = context?.Turns,
                 ObservationTruncated = feed.ReportDetails().ObservationTruncated,
+                ObservationRevision = feed.Latest?.Revision is { Length: > 0 } revision ? revision : null,
             });
             context?.WriteTranscript();
         }

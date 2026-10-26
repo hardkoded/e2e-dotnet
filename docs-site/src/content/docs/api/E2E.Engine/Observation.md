@@ -45,6 +45,25 @@ null only when it did not measure it.
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L125)
 
+<a id="E2E_Engine_Observation_Revision_"></a>
+<a id="E2E_Engine_Observation_Revision"></a>
+
+### Revision
+
+
+```csharp
+public string Revision { get; }
+```
+
+
+Which capture of the attempt this is (upstream's `revision`: `b1`, `b2`, and so on). The harness stamps it, not the
+engine, as the observation reaches the attempt's agent; it reads empty before then. A step's report names the revision of the
+screen it last read.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L138)
+
 <a id="E2E_Engine_Observation_Roots_"></a>
 <a id="E2E_Engine_Observation_Roots"></a>
 

@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text;
 using System.Text.RegularExpressions;
 using E2E.Engine;
 using E2E.Internal;
@@ -55,6 +56,10 @@ internal static class AgentObservation
     private static readonly Regex Clock = new(@"\b\d{1,2}:\d{2}(?::\d{2})?\b", RegexOptions.CultureInvariant);
 
     private static readonly HashSet<string> EmptyRoots = new(["document", "screen", "window"], StringComparer.Ordinal);
+
+    /// <summary>The size in bytes of the screen as a model reads it (upstream's <c>observation.bytes</c>).</summary>
+    public static int Bytes(Observation observation, Redactor redactor, string? appOrigin) =>
+        Encoding.UTF8.GetByteCount(SnapshotText.Render(observation, redactor, appOrigin));
 
     /// <summary>
     /// The shape two looks are compared by: the screen as the model reads it, without the per-observation node
