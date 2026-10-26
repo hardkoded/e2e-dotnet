@@ -331,7 +331,7 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
                 var info = new ProcessStartInfo("pgrep") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
                 info.ArgumentList.Add("-P");
                 info.ArgumentList.Add(parent.ToString(CultureInfo.InvariantCulture));
-                using var pgrep = Process.Start(info);
+                var pgrep = Process.Start(info);
                 pgrepProcess = pgrep;
                 if (pgrep is null)
                 {
@@ -358,9 +358,14 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
             }
             finally
             {
-                if (pgrepProcess is { HasExited: false })
+                if (pgrepProcess is not null)
                 {
-                    KillTree(pgrepProcess);
+                    if (!HasExited(pgrepProcess))
+                    {
+                        KillTree(pgrepProcess);
+                    }
+
+                    pgrepProcess.Dispose();
                 }
             }
         }

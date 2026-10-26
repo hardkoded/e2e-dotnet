@@ -31,7 +31,8 @@ internal static class AppProgram
             ReuseExisting = reuseExisting,
             Cwd = cwd,
             Env = env,
-            InheritEnv = inheritEnv,
+            // The apphost finds the runtime through DOTNET_ROOT where .NET is not in a default place (a dotnet-install directory).
+            InheritEnv = [.. inheritEnv ?? [], "DOTNET_ROOT"],
         };
 
     public static string[] Serve(int port, string? extra = null) => extra is null ? ["serve", port.ToString(System.Globalization.CultureInfo.InvariantCulture)] : ["serve", port.ToString(System.Globalization.CultureInfo.InvariantCulture), extra];

@@ -67,7 +67,7 @@ public sealed class ManagedProcessEnvTests : IDisposable
     [Fact]
     public async Task Copies_from_the_environment_the_run_resolves_against_not_the_process_environment_when_one_is_passed()
     {
-        var env = await EnvOf(["E2E_TEST_DATABASE_URL", "E2E_TEST_STRIPE_*"], runEnv: new Dictionary<string, string?> { ["E2E_TEST_DATABASE_URL"] = "postgres://per-task" });
+        var env = await EnvOf(["E2E_TEST_DATABASE_URL", "E2E_TEST_STRIPE_*"], runEnv: new Dictionary<string, string?> { ["E2E_TEST_DATABASE_URL"] = "postgres://per-task", ["DOTNET_ROOT"] = Environment.GetEnvironmentVariable("DOTNET_ROOT") });
         Assert.Equal("postgres://per-task", env["E2E_TEST_DATABASE_URL"]);
         Assert.DoesNotContain("E2E_TEST_STRIPE_KEY", env.Keys);
     }

@@ -19,7 +19,7 @@ public sealed class RunAppsTests
         var config = E2EConfig.Parse(
             $$"""
             { "targets": [{ "app": { "url": "http://127.0.0.1:0",
-              "command": { "executable": {{JsonSerializer.Serialize(AppProgram.Executable)}}, "args": ["serve", "{port}"], "startupTimeout": 20000 } } }] }
+              "command": { "executable": {{JsonSerializer.Serialize(AppProgram.Executable)}}, "args": ["serve", "{port}"], "startupTimeout": 20000, "inheritEnv": ["DOTNET_ROOT"] } } }] }
             """,
             Directory.CreateTempSubdirectory("e2e-runapps-").FullName,
             _ => null);
@@ -40,7 +40,7 @@ public sealed class RunAppsTests
         var config = E2EConfig.Parse(
             $$"""
             { "targets": [{ "app": { "url": "http://127.0.0.1:0",
-              "command": { "executable": {{JsonSerializer.Serialize(AppProgram.Executable)}}, "args": ["serve-for", "{port}", "6000"], "startupTimeout": 20000 } } }] }
+              "command": { "executable": {{JsonSerializer.Serialize(AppProgram.Executable)}}, "args": ["serve-for", "{port}", "6000"], "startupTimeout": 20000, "inheritEnv": ["DOTNET_ROOT"] } } }] }
             """,
             Directory.CreateTempSubdirectory("e2e-runapps-").FullName,
             _ => null);
@@ -68,7 +68,7 @@ public sealed class RunAppsTests
         var config = E2EConfig.Parse(
             $$"""
             { "targets": [{ "app": { "url": "http://127.0.0.1:0",
-              "command": { "executable": {{JsonSerializer.Serialize(AppProgram.Executable)}}, "args": ["exit", "3"], "startupTimeout": 20000 } } }] }
+              "command": { "executable": {{JsonSerializer.Serialize(AppProgram.Executable)}}, "args": ["exit", "3"], "startupTimeout": 20000, "inheritEnv": ["DOTNET_ROOT"] } } }] }
             """,
             Directory.CreateTempSubdirectory("e2e-runapps-").FullName,
             _ => null);
