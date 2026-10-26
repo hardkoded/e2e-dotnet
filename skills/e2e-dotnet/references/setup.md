@@ -71,6 +71,16 @@ Pick the model in `agents.<name>.provider` and `model`:
 - Get model ids from `e2e models <login>`. `e2e models` with no login also lists
   OpenCode Console when only `OPENCODE_API_KEY` is set. Copilot uses a dot
   (`claude-sonnet-5.5`). The Anthropic API uses a dash (`claude-sonnet-5-5`).
+- Every model client sends a request again, up to 5 times, after a network
+  failure or a 408, 409, 429, or 5xx answer. It waits the provider's
+  `retry-after-ms` or `retry-after` when that is under a minute (or under the
+  backoff), otherwise 2 s doubled each time, within the step's remaining
+  timeout. A request with no answer in 120 s is not sent again.
+- `google` and `bedrock` send a model's earlier reasoning back on the next turn
+  (Gemini thought parts with their signature, Bedrock `reasoningContent`
+  blocks), as `anthropic`, `openai-responses`, and `openai` already do. On
+  `bedrock` with an Anthropic model id, that reasoning is left out of the next
+  request after the loop rewrote an earlier message.
 - `apiKeyEnv` overrides the provider's variable. Remove it when you change
   `provider`, or the client sends no key and gets a 401.
 - `e2e models github-copilot` marks `not enabled` and `no chat or responses`,

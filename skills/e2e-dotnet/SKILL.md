@@ -86,7 +86,10 @@ public sealed class BillingTests : E2ETest
    `dotnet test --filter "FullyQualifiedName~<Class>.<Method>"`, with the
    settings in "Rerunning a test while you fix it" below. Agent steps need a
    model in the config and that provider's authentication. Tests without
-   agent steps need no model.
+   agent steps need no model. A model request is sent again, up to 5 times,
+   after a network failure or a 408, 409, 429, or 5xx answer (waiting the
+   provider's `retry-after` when it asks for under a minute, otherwise 2 s
+   doubled each time), and only then fails with `MODEL_PROVIDER_FAILED`.
 5. When it fails, fix it from what the run recorded (next section).
 
 ## Workflow: fixing a failed test
