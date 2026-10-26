@@ -38,3 +38,12 @@ internal static class Secrecy
         }
     }
 }
+
+/// <summary>What a saved session carries of the secrecy of the attempt that saved it (upstream's <c>SavedSecrecy</c>, <c>run/secrecy.ts</c>).</summary>
+/// <param name="Secrets">
+/// Name and value pairs the saving session learned beyond the static config values; they travel only inside the encrypted payload.
+/// </param>
+/// <param name="Tainted">
+/// Whether a secret was filled on the saving session, so its viewport, and any state restored from it, may carry one.
+/// </param>
+internal sealed record SavedSecrecy(IReadOnlyList<(string Name, string Value)> Secrets, bool Tainted);
