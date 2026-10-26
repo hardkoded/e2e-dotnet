@@ -101,7 +101,7 @@ internal static class Ids
     private static void WriteNumber(StringBuilder builder, string raw)
     {
         // An integer that a double holds exactly is digits; beyond 2^53 ECMAScript rounds it to a double, so the port does too.
-        if (long.TryParse(raw, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var integer) && Math.Abs(integer) <= MaxSafeInteger)
+        if (long.TryParse(raw, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var integer) && integer is >= -MaxSafeInteger and <= MaxSafeInteger)
         {
             builder.Append(integer.ToString(CultureInfo.InvariantCulture));
             return;

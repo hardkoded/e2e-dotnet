@@ -42,8 +42,14 @@ public sealed class CanonicalJsonRfc8785Tests
     [InlineData(123456789.125, "123456789.125")]
     [InlineData(9007199254740993.0, "9007199254740992")]
     [InlineData(5e-324, "5e-324")]
+    [InlineData(-9223372036854775808.0, "-9223372036854776000")]
     public void Writes_a_number_as_ECMAScript_does(double value, string expected) =>
         Assert.Equal(expected, IdHelpers.CanonicalJson(JsonNumbers.Create(value)));
+
+    // No upstream it: the smallest long is past 2^53, so it takes the double path and does not overflow an absolute value.
+    [Fact]
+    public void Writes_the_smallest_long_as_a_double_does() =>
+        Assert.Equal("-9223372036854776000", IdHelpers.CanonicalJson(JsonNumbers.Create(long.MinValue)));
 
     // No upstream it: an integer is written as digits whatever its CLR type.
     [Fact]
