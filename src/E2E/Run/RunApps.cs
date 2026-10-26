@@ -15,7 +15,7 @@ namespace E2E;
 /// </summary>
 internal static class RunApps
 {
-    private static readonly SemaphoreSlim Gate = new(1, 1);
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> Gates = new(StringComparer.Ordinal);
     private static readonly ConcurrentDictionary<string, (TargetConfig Target, IAppProcesses Processes)> Started = new(StringComparer.Ordinal);
 
     /// <summary>
@@ -32,7 +32,8 @@ internal static class RunApps
         }
 
         var key = (config.ConfigPath ?? config.ProjectRoot) + "\0" + target.Name;
-        await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var gate = Gates.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             if (Started.TryGetValue(key, out var running))
@@ -60,7 +61,7 @@ internal static class RunApps
         }
         finally
         {
-            Gate.Release();
+            gate.Release();
         }
     }
 }

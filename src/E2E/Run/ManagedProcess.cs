@@ -98,6 +98,7 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
     private readonly ManagedProcessHooks _hooks;
     private Process? _process;
     private OutputPump? _pump;
+    private ProcessJob? _job;
     private bool _reusedExisting;
     private bool _spawned;
 
@@ -209,10 +210,14 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
             }
 
             await EndDescendantsAsync(descendants, shutdownTimeout).ConfigureAwait(false);
+
+            // On Windows what the leader started is in its job, which ends with it whether or not the leader is still there.
+            _job?.Terminate();
         }
         finally
         {
             Live.TryRemove(process, out _);
+            Interlocked.Exchange(ref _job, null)?.Dispose();
             if (pump is not null)
             {
                 await pump.DrainAsync(OutputDrain).ConfigureAwait(false);
@@ -320,12 +325,14 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
         while (pending.Count > 0 && found.Count < 256)
         {
             var parent = pending.Dequeue();
+            Process? pgrepProcess = null;
             try
             {
                 var info = new ProcessStartInfo("pgrep") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
                 info.ArgumentList.Add("-P");
                 info.ArgumentList.Add(parent.ToString(CultureInfo.InvariantCulture));
                 using var pgrep = Process.Start(info);
+                pgrepProcess = pgrep;
                 if (pgrep is null)
                 {
                     break;
@@ -348,6 +355,13 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
             catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or OperationCanceledException or IOException)
             {
                 break;
+            }
+            finally
+            {
+                if (pgrepProcess is { HasExited: false })
+                {
+                    KillTree(pgrepProcess);
+                }
             }
         }
 
@@ -489,7 +503,7 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
         _process = process;
         _spawned = true;
         Live[process] = 0;
-        KillWithParent.Add(process);
+        _job = ProcessJob.Create(process);
         try
         {
             _pump = new OutputPump(process, log);
@@ -725,7 +739,7 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
     /// </summary>
     private sealed class OutputPump : IDisposable
     {
-        private readonly FileStream? _log;
+        private FileStream? _log;
         private readonly Lock _gate = new();
         private readonly Task _out;
         private readonly Task _err;
@@ -768,8 +782,16 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
 
                         if (_log is not null)
                         {
-                            _log.Write(buffer, 0, read);
-                            _log.Flush();
+                            try
+                            {
+                                _log.Write(buffer, 0, read);
+                                _log.Flush();
+                            }
+                            catch (Exception ex) when (ex is IOException or ObjectDisposedException or UnauthorizedAccessException)
+                            {
+                                // The log is gone (a full disk, a deleted file): the output is dropped, and the pipes still drain so the app never blocks on them.
+                                _log = null;
+                            }
                         }
                     }
                 }
@@ -783,63 +805,78 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
 }
 
 /// <summary>
-/// Ties a started process to this one on Windows, so it dies with it even when this process is killed outright, as a test host is once its
-/// run ends and no <c>ProcessExit</c> handler runs (a .NET-only guard: upstream's runner is a command that handles signals). The processes
-/// join a job object that kills its members when its last handle closes, which the system does when this process ends. Elsewhere it does nothing.
+/// The Windows job object one started process runs in (a .NET-only guard: upstream signals a process group). It ends everything the process
+/// started, whether or not the process is still there, and it ends it too when this process is killed outright, as a test host is once its
+/// run ends and no <c>ProcessExit</c> handler runs. Elsewhere <see cref="Create"/> returns null.
 /// </summary>
-internal static class KillWithParent
+internal sealed class ProcessJob : IDisposable
 {
     private const int JobObjectExtendedLimitInformation = 9;
     private const uint KillOnJobClose = 0x2000;
 
-    private static readonly Lazy<IntPtr> Job = new(Create);
+    private IntPtr _job;
 
-    public static void Add(System.Diagnostics.Process process)
-    {
-        if (!OperatingSystem.IsWindows() || Job.Value == IntPtr.Zero)
-        {
-            return;
-        }
+    private ProcessJob(IntPtr job) => _job = job;
 
-        try
-        {
-            _ = AssignProcessToJobObject(Job.Value, process.Handle);
-        }
-        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
-        {
-            // already gone
-        }
-    }
-
-    private static IntPtr Create()
+    public static ProcessJob? Create(Process process)
     {
         if (!OperatingSystem.IsWindows())
         {
-            return IntPtr.Zero;
+            return null;
         }
 
         var job = CreateJobObjectW(IntPtr.Zero, null);
         if (job == IntPtr.Zero)
         {
-            return IntPtr.Zero;
+            return null;
         }
 
         // JOBOBJECT_EXTENDED_LIMIT_INFORMATION: LimitFlags is the fourth field of the basic limits, after two 8-byte times.
         var size = IntPtr.Size == 8 ? 144 : 112;
-        var buffer = System.Runtime.InteropServices.Marshal.AllocHGlobal(size);
+        var buffer = Marshal.AllocHGlobal(size);
         try
         {
             for (var offset = 0; offset < size; offset += 4)
             {
-                System.Runtime.InteropServices.Marshal.WriteInt32(buffer, offset, 0);
+                Marshal.WriteInt32(buffer, offset, 0);
             }
 
-            System.Runtime.InteropServices.Marshal.WriteInt32(buffer, 16, (int)KillOnJobClose);
-            return SetInformationJobObject(job, JobObjectExtendedLimitInformation, buffer, (uint)size) ? job : IntPtr.Zero;
+            Marshal.WriteInt32(buffer, 16, (int)KillOnJobClose);
+            if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, buffer, (uint)size) || !AssignProcessToJobObject(job, process.Handle))
+            {
+                CloseHandle(job);
+                return null;
+            }
+
+            return new ProcessJob(job);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            // the process is already gone
+            CloseHandle(job);
+            return null;
         }
         finally
         {
-            System.Runtime.InteropServices.Marshal.FreeHGlobal(buffer);
+            Marshal.FreeHGlobal(buffer);
+        }
+    }
+
+    /// <summary>Ends every process in the job.</summary>
+    public void Terminate()
+    {
+        if (_job != IntPtr.Zero)
+        {
+            _ = TerminateJobObject(_job, 1);
+        }
+    }
+
+    public void Dispose()
+    {
+        var job = Interlocked.Exchange(ref _job, IntPtr.Zero);
+        if (job != IntPtr.Zero)
+        {
+            CloseHandle(job);
         }
     }
 
@@ -853,4 +890,12 @@ internal static class KillWithParent
     [DllImport("kernel32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
+
+    [DllImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool TerminateJobObject(IntPtr job, uint exitCode);
+
+    [DllImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool CloseHandle(IntPtr handle);
 }

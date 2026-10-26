@@ -183,13 +183,10 @@ public abstract class E2EFixture
         // The app command of the target starts before the first test and serves every later one; its URL is on the port the app was started on.
         var baseUrl = BaseUrl;
         var declared = Config.Target;
-        if (declared.App.Command is not null)
+        if (declared.App.Command is not null && string.Equals(baseUrl, declared.App.Url, StringComparison.Ordinal))
         {
-            var started = await RunApps.StartAsync(Config, declared, null, cancellationToken).ConfigureAwait(false);
-            if (string.Equals(baseUrl, declared.App.Url, StringComparison.Ordinal))
-            {
-                baseUrl = started.App.Url;
-            }
+            // A fixture that points BaseUrl somewhere else does not use the declared app, so the command does not start for it.
+            baseUrl = (await RunApps.StartAsync(Config, declared, null, cancellationToken).ConfigureAwait(false)).App.Url;
         }
 
         _session = await E2ESession.StartAsync(

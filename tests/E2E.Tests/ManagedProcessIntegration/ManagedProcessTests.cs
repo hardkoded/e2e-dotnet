@@ -71,6 +71,43 @@ public sealed class ManagedProcessTests
         Assert.Contains("failed to start", failure.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// .NET-only (the process-group tests of upstream are not ported): the app a command started is ended with it even when the command
+    /// has already exited. It holds on Windows, where the process runs in a job object; elsewhere only a process still running is read for its tree.
+    /// </summary>
+    [Fact]
+    public async Task Ends_what_the_command_started_when_the_command_has_already_exited()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var port = AppProgram.FreePort();
+        var app = new ManagedProcessUnderTest(
+            "app.command",
+            AppProgram.Command(["spawn", port.ToString(System.Globalization.CultureInfo.InvariantCulture)], TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(2)),
+            Path.GetTempPath(),
+            new Readiness(UrlOf(port)));
+        try
+        {
+            await app.StartAsync();
+        }
+        catch (EngineException)
+        {
+            // The command exited before the app it started answered; the start fails and takes that app down with it.
+        }
+
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (await AppProgram.IsReachable(UrlOf(port)) && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(100);
+        }
+
+        Assert.False(await AppProgram.IsReachable(UrlOf(port)));
+        await app.StopAsync();
+    }
+
     [Fact]
     public async Task Times_out_and_cleans_up_when_the_app_never_becomes_ready()
     {
