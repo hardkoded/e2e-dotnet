@@ -28,6 +28,7 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | `tests/E2E.Agent.Tests` | Agent tests against a real model, ported from upstream's `apps/testbed/tests-agent`. They serve upstream's playground pages on a loopback port. All are in the `RealModel` category and need a GitHub Copilot login |
 | `skills/e2e-dotnet` | The agent skill bundled in `E2E.Cli` and printed by `e2e guide` |
 | `skills/create-verification-skill` | A generator skill for consumers that writes a project-local `verify-<app>` skill. Not bundled. Its example, `references/example/verify-todomvc`, names `samples/TodoMvc` tests and locators: update it when they change |
+| `skills/migrate-to-e2e` | A skill for consumers that moves an existing suite to e2e one slice at a time. Not bundled. It reads the `e2e-dotnet` skill's topics: update it when a topic it names is renamed |
 | `samples/E2E.Sample` | NUnit tests against the live Dariten demo. The agent test needs a GitHub Copilot login (`dotnet run --project src/E2E.Cli -- login github-copilot`) |
 | `samples/E2E.XUnit.V3.Sample` | The `samples/E2E.Sample` tests, written for xUnit v3 |
 | `samples/MobileApp` | A small .NET MAUI app (iOS and Android) for the mobile sample. It is not in `E2E.slnx`: building it needs the MAUI workload, and CI has none. Build it with `dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64` |

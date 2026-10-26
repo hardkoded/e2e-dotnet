@@ -9,6 +9,12 @@
       href: get-started/maui.md
     - name: Windows
       href: get-started/windows.md
+- name: Coding agents
+  href: coding-agents.md
+- name: Integrations
+  items:
+    - name: Limrun
+      href: integrations/limrun.md
 - name: Samples
   href: samples/index.md
   items:
