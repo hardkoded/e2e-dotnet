@@ -26,7 +26,7 @@ How [FulfillAsync(RouteFulfillResponse)](/api/E2E/WebRoute/#E2E_WebRoute_Fulfill
 
 **Implements:** [IEquatable&lt;RouteFulfillResponse&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L183)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L214)
 
 ## Properties
 
@@ -43,7 +43,7 @@ public string? Body { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L196)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L227)
 
 <a id="E2E_Engine_RouteFulfillResponse_ContentType_"></a>
 <a id="E2E_Engine_RouteFulfillResponse_ContentType"></a>
@@ -60,7 +60,7 @@ Sets the `Content-Type` response header.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L191)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L222)
 
 <a id="E2E_Engine_RouteFulfillResponse_Headers_"></a>
 <a id="E2E_Engine_RouteFulfillResponse_Headers"></a>
@@ -75,7 +75,7 @@ public IReadOnlyDictionary<string, string>? Headers { get; init; }
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L188)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L219)
 
 <a id="E2E_Engine_RouteFulfillResponse_Json_"></a>
 <a id="E2E_Engine_RouteFulfillResponse_Json"></a>
@@ -92,7 +92,7 @@ A JSON-safe value, sent serialized as `application/json` unless [ContentType](#E
 
 **Value:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L194)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L225)
 
 <a id="E2E_Engine_RouteFulfillResponse_Path_"></a>
 <a id="E2E_Engine_RouteFulfillResponse_Path"></a>
@@ -109,7 +109,7 @@ A file relative to the project root. Its `Content-Type` follows its extension un
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L199)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L230)
 
 <a id="E2E_Engine_RouteFulfillResponse_Status_"></a>
 <a id="E2E_Engine_RouteFulfillResponse_Status"></a>
@@ -126,4 +126,4 @@ HTTP status from 100 to 599. Defaults to 200.
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L186)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L217)

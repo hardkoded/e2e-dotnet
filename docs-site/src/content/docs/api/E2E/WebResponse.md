@@ -23,7 +23,7 @@ A response `CancellationToken)` matched.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L469)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L522)
 
 ## Properties
 
@@ -42,7 +42,7 @@ Response headers, with lower-cased names.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L492)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L545)
 
 <a id="E2E_WebResponse_Status_"></a>
 <a id="E2E_WebResponse_Status"></a>
@@ -59,7 +59,7 @@ HTTP status.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L489)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L542)
 
 <a id="E2E_WebResponse_Url_"></a>
 <a id="E2E_WebResponse_Url"></a>
@@ -76,7 +76,7 @@ Response URL.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L486)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L539)
 
 ## Methods
 
@@ -107,7 +107,7 @@ Waits for the body as [TextAsync(CancellationToken)](#E2E_WebResponse_TextAsync_
 
 **Returns:** [Task&lt;T&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L512)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L565)
 
 <a id="E2E_WebResponse_TextAsync_"></a>
 <a id="E2E_WebResponse_TextAsync_System_Threading_CancellationToken_"></a>
@@ -131,4 +131,4 @@ Waits for the body, up to the action timeout, and reads it as text. Fails with
 
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L498)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L551)
