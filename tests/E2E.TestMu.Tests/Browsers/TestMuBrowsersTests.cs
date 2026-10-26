@@ -47,11 +47,11 @@ public sealed class TestMuBrowsersTests
         Assert.Equal("Chrome", (string?)capabilities["browserName"]);
         Assert.Equal("latest", (string?)capabilities["browserVersion"]);
         var lt = capabilities["LT:Options"]!.AsObject();
-        Assert.Equal("Windows 10", (string?)lt["platform"]);
+        Assert.Equal("Windows 11", (string?)lt["platform"]);
         Assert.Equal("e2e", (string?)lt["project"]);
         Assert.Equal("e2e-run-a", (string?)lt["build"]);
         Assert.Equal(600, (int?)lt["idleTimeout"]);
-        Assert.Equal("web slot 1 of 1", (string?)lt["name"]);
+        Assert.Equal("e2e-run-a-web-1", (string?)lt["name"]);
         Assert.Equal("ada", (string?)lt["user"]);
         Assert.Equal("secret key", (string?)lt["accessKey"]);
         Assert.Equal(["platform", "project", "build", "idleTimeout", "name", "user", "accessKey"], lt.Select(pair => pair.Key));
@@ -91,15 +91,11 @@ public sealed class TestMuBrowsersTests
     }
 
     [Fact]
-    public async Task Names_the_session_after_the_slot_or_the_attempt()
+    public async Task Names_a_per_attempt_session_after_the_attempt()
     {
-        var provider = new TestMuBrowsers();
+        var attempt = Capabilities(await new TestMuBrowsers().AcquireAsync(Request(attemptId: "a-7"), CancellationToken.None));
 
-        var slot = Capabilities(await provider.AcquireAsync(Request(slot: 1, slots: 3), CancellationToken.None));
-        var attempt = Capabilities(await provider.AcquireAsync(Request(attemptId: "a-7"), CancellationToken.None));
-
-        Assert.Equal("web slot 2 of 3", (string?)slot["LT:Options"]!["name"]);
-        Assert.Equal("web a-7", (string?)attempt["LT:Options"]!["name"]);
+        Assert.Equal("e2e-run-a-web-a-7", (string?)attempt["LT:Options"]!["name"]);
     }
 
     [Fact]
@@ -111,19 +107,6 @@ public sealed class TestMuBrowsersTests
 
         Assert.Equal("grace", (string?)lt["user"]);
         Assert.Equal("other", (string?)lt["accessKey"]);
-    }
-
-    [Theory]
-    [InlineData("LT_USERNAME")]
-    [InlineData("LT_ACCESS_KEY")]
-    public async Task Fails_naming_the_variable_when_a_credential_is_missing(string missing)
-    {
-        var env = Credentials.Where(pair => pair.Key != missing).ToDictionary(pair => pair.Key, pair => pair.Value);
-
-        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => new TestMuBrowsers().AcquireAsync(Request(env), CancellationToken.None));
-
-        Assert.Contains(missing, error.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("secret key", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -19,8 +19,8 @@ public sealed class TestMuBrowsersFunctionTests
 
     /// <summary>
     /// Partial: upstream sends <c>browserVersion</c> in <c>capabilities</c> and expects the <c>e2e-run-1-chromium-1</c>
-    /// session name and the build <c>run-1</c>. The port has a <c>BrowserVersion</c> option, names a session
-    /// <c>web slot 1 of 1</c>, and defaults the build to <c>e2e-&lt;run id&gt;</c>.
+    /// session name and the build <c>run-1</c>. The port has a <c>BrowserVersion</c> option and defaults the build to
+    /// <c>e2e-&lt;run id&gt;</c>.
     /// </summary>
     [Fact]
     public async Task Partial_Sends_Edge_browserVersion_next_to_browserName_and_the_rest_as_LT_Options_which_override_the_build_and_project_defaults()
@@ -38,8 +38,33 @@ public sealed class TestMuBrowsersFunctionTests
         Assert.Equal("MicrosoftEdge", (string?)capabilities["browserName"]);
         Assert.Equal("140", (string?)capabilities["browserVersion"]);
         Assert.Equal(
-            """{"platform":"macOS Sequoia","project":"checkout","build":"nightly","idleTimeout":300,"name":"web slot 1 of 1","user":"ada","accessKey":"secret key","video":true,"browserOptions":["--user-data-dir=remote-debug-profile-edge"]}""",
+            """{"platform":"macOS Sequoia","project":"checkout","build":"nightly","idleTimeout":300,"name":"e2e-run-a-web-1","user":"ada","accessKey":"secret key","video":true,"browserOptions":["--user-data-dir=remote-debug-profile-edge"]}""",
             capabilities["LT:Options"]!.ToJsonString());
+    }
+
+    [Fact]
+    public async Task Names_every_session_e2e_run_id_target_slot_as_testmu_does()
+    {
+        static async Task<string?> NameOf(string runId, string targetName, int slot, int slots)
+        {
+            var request = TestMuBrowsersTests.Request(slot: slot, slots: slots) with { RunId = runId, TargetName = targetName };
+            var lease = await new TestMuBrowsers().AcquireAsync(request, CancellationToken.None);
+            return (string?)TestMuBrowsersTests.Capabilities(lease)["LT:Options"]!["name"];
+        }
+
+        Assert.Equal("e2e-01a0fcab-e8da-checkout-web-1", await NameOf("01a0fcab-e8da", "checkout-web", 0, 1));
+        Assert.Equal("e2e-01a0fcab-e8da-checkout-web-3", await NameOf("01a0fcab-e8da", "checkout-web", 2, 3));
+    }
+
+    [Fact]
+    public async Task Fails_the_lease_when_a_credential_is_missing_or_blank()
+    {
+        static Task<InvalidOperationException> Acquire(Dictionary<string, string?> env) =>
+            Assert.ThrowsAsync<InvalidOperationException>(() => new TestMuBrowsers().AcquireAsync(TestMuBrowsersTests.Request(env), CancellationToken.None));
+
+        Assert.Contains("LT_ACCESS_KEY is not set", (await Acquire(new() { ["LT_USERNAME"] = "alice" })).Message, StringComparison.Ordinal);
+        Assert.Contains("LT_USERNAME is not set", (await Acquire(new() { ["LT_USERNAME"] = " ", ["LT_ACCESS_KEY"] = "key" })).Message, StringComparison.Ordinal);
+        Assert.Contains("LT_USERNAME and LT_ACCESS_KEY are not set", (await Acquire([])).Message, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -19,7 +19,7 @@ public sealed record TestMuBrowsersOptions
     /// <summary>The grid's <c>browserVersion</c>. Defaults to <c>latest</c>.</summary>
     public string? BrowserVersion { get; init; }
 
-    /// <summary>The operating system, such as <c>Windows 11</c>. Defaults to <c>Windows 10</c>.</summary>
+    /// <summary>The operating system, such as <c>Windows 11</c>. Defaults to <c>Windows 11</c>.</summary>
     public string? Platform { get; init; }
 
     /// <summary>The build the sessions are grouped under in the dashboard. Defaults to <c>e2e-</c> and the run id.</summary>

@@ -213,11 +213,13 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
 - To run on the TestMu AI web grid, add the `E2E.TestMu` package and set
   `Browser = new TestMuBrowsers()` (`using E2E.TestMu;`) with `Viewport = null`.
   Set `LT_USERNAME` and `LT_ACCESS_KEY` (or `TESTMU_USERNAME` and
-  `TESTMU_ACCESS_KEY`) in the environment that starts the tests.
+  `TESTMU_ACCESS_KEY`) in the environment that starts the tests. A blank value
+  counts as unset, and the lease fails naming each variable that is missing.
+  Each session is named `e2e-<run id>-<target>-<slot>`, slots counting from 1.
   `TestMuBrowsersOptions` sets `BrowserName` (a Chromium browser), `BrowserVersion`,
   `Platform`, `Build`, `Video`, `Network`, `Console`, `TunnelName`,
   `GeoLocation`, and `Capabilities` for any other `LT:Options` entry.
-  `project` defaults to `e2e` and `idleTimeout` to 600 seconds. For Edge
+  `Platform` defaults to `Windows 11`, `project` to `e2e`, and `idleTimeout` to 600 seconds. For Edge
   (`BrowserName = "MicrosoftEdge"`), the provider adds
   `--user-data-dir=remote-debug-profile-edge` to `browserOptions` unless a
   `--user-data-dir=` is there. `new TestMuBrowsers(options)` throws
