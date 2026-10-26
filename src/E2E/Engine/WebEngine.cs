@@ -1013,9 +1013,15 @@ public sealed partial class WebEngine : IEngine
 
         })));
 
-        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => RunAsync("observe", cancellationToken, async () =>
+        public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => ObserveAsync(cancellationToken, null);
+
+        // The least a locate's read is given, so the last poll of a wait at its deadline still reads the page and the wait fails on what it saw.
+        private static readonly TimeSpan MinLocateRead = TimeSpan.FromMilliseconds(500);
+
+        // A locate reads under what is left of its wait, never longer than the action timeout an observation has.
+        private Task<Observation> ObserveAsync(CancellationToken cancellationToken, TimeSpan? timeout) => RunAsync("observe", cancellationToken, async () =>
         {
-            var budget = Budget("observe", cancellationToken);
+            var budget = Budget("observe", cancellationToken, timeout is { } left && left < _actionTimeout ? TimeSpan.FromMilliseconds(Math.Min(Math.Max(left.TotalMilliseconds, MinLocateRead.TotalMilliseconds), _actionTimeout.TotalMilliseconds)) : null);
             var walk = new FrameWalk();
             List<WebNode> roots;
             try
@@ -1040,16 +1046,16 @@ public sealed partial class WebEngine : IEngine
         /// it, so every match is a node of that observation and keeps the ref the page script minted. Upstream's <c>locate</c>
         /// (<c>surface.ts</c>) resolves with Playwright selectors instead; the port's page script is the reader of the page, so the
         /// resolve is the tree's, and only a <c>selector</c> or <c>frame</c> expression asks Playwright which elements it names
-        /// (<see cref="ProjectAsync(LocatorExpression, CancellationToken)"/>). <paramref name="timeout"/> is not used: the read runs under
-        /// the action timeout, as an observation does.
+        /// (<see cref="ProjectAsync(LocatorExpression, TimeSpan, CancellationToken)"/>). <paramref name="timeout"/> is the budget left for the
+        /// wait: the read runs under it, or under the action timeout when that is shorter.
         /// </summary>
         public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(expression);
-            var observation = await ObserveAsync(cancellationToken).ConfigureAwait(false);
+            var observation = await ObserveAsync(cancellationToken, timeout).ConfigureAwait(false);
             _trace?.ShowScreen(observation);
             var projected = WebLocators.NeedsPage(expression)
-                ? await RunAsync("locate", cancellationToken, () => ProjectAsync(expression, cancellationToken)).ConfigureAwait(false)
+                ? await RunAsync("locate", cancellationToken, () => ProjectAsync(expression, timeout, cancellationToken)).ConfigureAwait(false)
                 : expression;
             return LocatorResolver.Resolve(observation, projected, expression.IncludeHidden);
         }
@@ -1060,10 +1066,10 @@ public sealed partial class WebEngine : IEngine
         /// leaves out (no role, test id, or text of its own) matches nothing, and so does the content of a frame it does not show.
         /// Upstream's <c>project</c> (<c>locators.ts</c>) and <c>frameBox</c> (<c>surface.ts</c>), over the tree.
         /// </summary>
-        private async Task<LocatorExpression> ProjectAsync(LocatorExpression expression, CancellationToken cancellationToken)
+        private async Task<LocatorExpression> ProjectAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
         {
             WebLocators.FrameSelectors(expression);
-            var budget = Budget("locate", cancellationToken);
+            var budget = Budget("locate", cancellationToken, timeout < _actionTimeout ? TimeSpan.FromMilliseconds(Math.Max(timeout.TotalMilliseconds, MinLocateRead.TotalMilliseconds)) : null);
             try
             {
                 return await ProjectAsync(expression, budget).ConfigureAwait(false);

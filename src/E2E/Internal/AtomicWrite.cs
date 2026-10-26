@@ -28,15 +28,36 @@ internal static class AtomicWrite
 
     /// <summary>Writes <paramref name="content"/> to <paramref name="filePath"/> atomically; a failed write leaves no temporary file behind.</summary>
     public static Task WriteFileAtomicAsync(string filePath, string content, CancellationToken cancellationToken = default) =>
-        WriteFileAtomicAsync(filePath, Utf8.GetBytes(content), cancellationToken);
+        WriteFileAtomicAsync(filePath, Utf8.GetBytes(content), null, cancellationToken);
+
+    /// <summary>The string form with the file mode of upstream's <c>{ mode }</c> option (ignored on Windows, which has no Unix mode).</summary>
+    public static Task WriteFileAtomicAsync(string filePath, string content, UnixFileMode mode, CancellationToken cancellationToken = default) =>
+        WriteFileAtomicAsync(filePath, Utf8.GetBytes(content), mode, cancellationToken);
 
     /// <summary>The bytes form of <see cref="WriteFileAtomicAsync(string, string, CancellationToken)"/> (upstream accepts a <c>Uint8Array</c>).</summary>
-    public static async Task WriteFileAtomicAsync(string filePath, byte[] content, CancellationToken cancellationToken = default)
+    public static Task WriteFileAtomicAsync(string filePath, byte[] content, CancellationToken cancellationToken = default) =>
+        WriteFileAtomicAsync(filePath, content, null, cancellationToken);
+
+    private static async Task WriteFileAtomicAsync(string filePath, byte[] content, UnixFileMode? mode, CancellationToken cancellationToken)
     {
         var temporary = TemporaryPath(filePath);
         try
         {
-            await File.WriteAllBytesAsync(temporary, content, cancellationToken).ConfigureAwait(false);
+            if (mode is { } createMode && !OperatingSystem.IsWindows())
+            {
+                // The temporary file is created with the mode, so it is never readable wider, even for a moment.
+                var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, UnixCreateMode = createMode };
+                var stream = new FileStream(temporary, options);
+                await using (stream.ConfigureAwait(false))
+                {
+                    await stream.WriteAsync(content, cancellationToken).ConfigureAwait(false);
+                }
+            }
+            else
+            {
+                await File.WriteAllBytesAsync(temporary, content, cancellationToken).ConfigureAwait(false);
+            }
+
             for (var attempt = 1; ; attempt++)
             {
                 try
