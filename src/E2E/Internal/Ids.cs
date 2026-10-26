@@ -100,7 +100,8 @@ internal static class Ids
 
     private static void WriteNumber(StringBuilder builder, string raw)
     {
-        if (long.TryParse(raw, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var integer))
+        // An integer that a double holds exactly is digits; beyond 2^53 ECMAScript rounds it to a double, so the port does too.
+        if (long.TryParse(raw, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var integer) && Math.Abs(integer) <= MaxSafeInteger)
         {
             builder.Append(integer.ToString(CultureInfo.InvariantCulture));
             return;
@@ -112,7 +113,70 @@ internal static class Ids
             throw new ArgumentException("non-finite number in canonical JSON");
         }
 
-        builder.Append(number.ToString("R", CultureInfo.InvariantCulture).Replace("E+", "e+", StringComparison.Ordinal).Replace("E-", "e-", StringComparison.Ordinal));
+        builder.Append(EcmaNumber(number));
+    }
+
+    private const long MaxSafeInteger = 9007199254740992;
+
+    // ECMAScript's Number::toString (ECMA-262, 6.1.6.1.20), which RFC 8785 requires: the shortest round-trip digits, laid out as
+    // plain digits for exponents from -7 to 21 and as d.ddde+x outside it.
+    private static string EcmaNumber(double value)
+    {
+        if (value == 0)
+        {
+            return "0";
+        }
+
+        var sign = value < 0 ? "-" : "";
+
+        // "R" is the shortest round-trip spelling; its digits and exponent are read back from it.
+        var shortest = Math.Abs(value).ToString("R", CultureInfo.InvariantCulture);
+        var digits = ShortestDigits(shortest, out var exponent);
+        var k = digits.Length;
+        var n = exponent + 1;
+        string body;
+        if (k <= n && n <= 21)
+        {
+            body = digits + new string('0', n - k);
+        }
+        else if (0 < n && n <= 21)
+        {
+            body = digits[..n] + "." + digits[n..];
+        }
+        else if (-6 < n && n <= 0)
+        {
+            body = "0." + new string('0', -n) + digits;
+        }
+        else
+        {
+            var e = n - 1;
+            var tail = (e < 0 ? "-" : "+") + Math.Abs(e).ToString(CultureInfo.InvariantCulture);
+            body = k == 1 ? digits + "e" + tail : digits[..1] + "." + digits[1..] + "e" + tail;
+        }
+
+        return sign + body;
+    }
+
+    // The significant digits of a "R" spelling with no trailing zeros, and the exponent of the first digit (1.5e3 is 3).
+    private static string ShortestDigits(string spelling, out int exponent)
+    {
+        var mantissa = spelling;
+        var shift = 0;
+        var e = spelling.IndexOfAny(['E', 'e']);
+        if (e >= 0)
+        {
+            mantissa = spelling[..e];
+            shift = int.Parse(spelling[(e + 1)..], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture);
+        }
+
+        var point = mantissa.IndexOf('.', StringComparison.Ordinal);
+        var whole = point < 0 ? mantissa : mantissa[..point];
+        var fraction = point < 0 ? "" : mantissa[(point + 1)..];
+        var all = whole + fraction;
+        var leading = all.Length - all.TrimStart('0').Length;
+        var digits = all.TrimStart('0').TrimEnd('0');
+        exponent = whole.Length - 1 - leading + shift;
+        return digits;
     }
 
     // JSON.stringify's spelling of a string: only the quote, the backslash, and control characters are escaped, and a lone surrogate.
