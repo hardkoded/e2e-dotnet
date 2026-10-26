@@ -320,7 +320,7 @@ internal sealed class SessionStore
         var payload = ParsePayload(Encoding.UTF8.GetString(plaintext), name);
         var tainted = envelope["secrecy"] is JsonObject secrecy && secrecy["tainted"] is JsonValue flag && flag.TryGetValue<bool>(out var isTainted) && isTainted;
         return new SavedSession(
-            new EngineState(Text(state, "format"), (int)state["version"]!, payload["data"]?.DeepClone(), expiresAt),
+            new EngineState(Text(state, "format"), state["version"]?.GetValue<int>() ?? throw new InvalidOperationException("version is not a number"), payload["data"]?.DeepClone(), expiresAt),
             new SavedSecrecy([.. payload["secrets"]!.AsArray().Select(entry => ((string)entry![0]!, (string)entry[1]!))], tainted));
     }
 
