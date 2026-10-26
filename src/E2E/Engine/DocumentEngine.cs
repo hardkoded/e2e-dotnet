@@ -41,7 +41,7 @@ public sealed class DocumentEngine : IEngine
     public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        IEngineSession session = new DocumentSession(_world);
+        IEngineSession session = new DocumentSession(_world, options.Screen);
         return Task.FromResult(session);
     }
 
@@ -53,9 +53,12 @@ public sealed class DocumentEngine : IEngine
         private Dictionary<string, DocumentElement> _refs = new(StringComparer.Ordinal);
         private readonly List<string> _history = [];
 
-        public DocumentSession(DocumentWorld world)
+        private readonly Action<Observation>? _screen;
+
+        public DocumentSession(DocumentWorld world, Action<Observation>? screen = null)
         {
             _world = world;
+            _screen = screen;
         }
 
         public string Route => _history.Count > 0 ? _history[^1] : "/";
@@ -110,6 +113,17 @@ public sealed class DocumentEngine : IEngine
 
             _refs = refs;
             return Task.FromResult(new Observation { Route = Route, Roots = roots });
+        }
+
+        public bool CanLocate => true;
+
+        /// <summary>Resolves a locator against the document as it is now, over the observation it takes. Upstream's <c>locate</c>. <paramref name="timeout"/> is not used: the document answers at once.</summary>
+        public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(expression);
+            var observation = await ObserveAsync(cancellationToken).ConfigureAwait(false);
+            TraceFeed.Show(_screen, observation);
+            return LocatorResolver.Resolve(observation, expression, expression.IncludeHidden);
         }
 
         public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)

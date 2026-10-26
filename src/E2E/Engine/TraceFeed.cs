@@ -120,6 +120,30 @@ internal sealed class TraceFeed
     }
 
     /// <summary>
+    /// Hands the harness the screen a locate read, which the trace shows as it showed the observation core used to take for it. A sink
+    /// that throws never fails the locate.
+    /// </summary>
+    public void ShowScreen(Observation observation) => Show(_screen, observation);
+
+    internal static void Show(Action<Observation>? sink, Observation observation)
+    {
+        if (sink is null)
+        {
+            return;
+        }
+
+#pragma warning disable CA1031 // The trace is a reader; it never fails a locate.
+        try
+        {
+            sink(observation);
+        }
+        catch (Exception)
+        {
+        }
+#pragma warning restore CA1031
+    }
+
+    /// <summary>
     /// Hands the harness the screen an action left. The read is on the action's path, as the <see cref="EngineStartOptions.Screen"/>
     /// contract allows, and only when the attempt keeps a trace (the harness hands no sink otherwise). The screen is captured like an
     /// observation but never published, so every ref a test or model holds stays valid; a page that cannot answer within a second
