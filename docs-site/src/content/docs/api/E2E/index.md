@@ -40,7 +40,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [BrowserMouse](/api/E2E/BrowserMouse/) | Pointer input for the active tab, in CSS pixels. A call the page does not answer within the action timeout fails with ACTIONMAYHAVECOMMITTED: the input may have reached the page. |
 | [BuiltInAgentOptions](/api/E2E/BuiltInAgentOptions/) | What the built-in agent is built from: an agents entry's system and its tools (upstream's BuiltInAgentOptions). |
 | [CacheConfig](/api/E2E/CacheConfig/) |  |
-| [CacheEntry](/api/E2E/CacheEntry/) | A recording of one verified act. The key is the cache schema, the replay policy version, the engine, the test, the instruction, the params, the agent's name, a digest of the agent's redacted context, and which repeat of that same call in the attempt it is. The model id is not part of the key. |
+| [CacheEntry](/api/E2E/CacheEntry/) | A recording of one verified act. Its file name is the hash of a trace cache key (TraceCacheKeyHash): the cache schema, the replay policy version, the project, the test, the target, the engine's name and contract version, the app's identity, the instruction's and params' digests, the agent's name, a digest of the agent's redacted context, and which repeat of that same call in the attempt it is. The model id and the engine's package version are not part of the key. |
 | [CacheInfo](/api/E2E/CacheInfo/) |  |
 | [CacheLookup](/api/E2E/CacheLookup/) |  |
 | [ClickOptions](/api/E2E/ClickOptions/) | What a tap-family action takes. Upstream's ClickOptions, of which the port has the modifiers. |
@@ -142,6 +142,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ToolLoopExecutorOptions](/api/E2E/ToolLoopExecutorOptions/) | Upstream's ToolLoopExecutorOptions. |
 | [ToolLoopHelpers](/api/E2E/ToolLoopHelpers/) | Loop services for the tool bodies that run work of their own (upstream's ToolLoopHelpers). |
 | [ToolLoopTool](/api/E2E/ToolLoopTool/) | One tool of a loop's vocabulary: what the model is told, and what runs when it calls it. Upstream's tools are AI SDK tools, which the port has no counterpart of, so this is the .NET shape of one entry of its ToolSet. A tool that throws is read by the model as a failed call, except a hard stop of the step, which ends the loop. |
+| [TraceKeyContext](/api/E2E/TraceKeyContext/) | Upstream's TraceKeyContext (cache/trace.ts): every part of a cache key outside the step's own identity, as it was when a step was recorded. An entry stores it as keyedBy: provenance, never read by a replay. When a step's key no longer finds the entry, comparing it with the run's says what changed. |
 | [UniqueValue](/api/E2E/UniqueValue/) | A value that changes every run, such as a timestamp or a fresh email. The replay cache treats every UniqueValue as the same param and substitutes the current value when it types. |
 | [UserCredential](/api/E2E/UserCredential/) | Username plus a Secret password loaded from the environment. |
 | [Values](/api/E2E/Values/) | Wraps a fresh value so the replay cache can still match the step. |

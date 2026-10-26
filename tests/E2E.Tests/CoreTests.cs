@@ -744,63 +744,9 @@ public sealed class CoreTests
     }
 
     [Fact]
-    public void The_key_is_stable_for_identical_parts()
-    {
-        var key = Key();
-
-        Assert.Matches("^[a-f0-9]{64}$", key);
-        Assert.Equal(key, Key());
-    }
-
-    public static TheoryData<string> KeyParts => new() { "instruction", "params", "call index", "test", "engine", "agent", "agent context", "agent context, to none" };
-
-    [Theory]
-    [MemberData(nameof(KeyParts))]
-    public void The_key_changes_when_a_part_changes(string part)
-    {
-        var changed = part switch
-        {
-            "instruction" => Key(instruction: "close billing"),
-            "params" => Key(parameters: new Dictionary<string, object?> { ["fast"] = true }),
-            "call index" => Key(callIndex: 1),
-            "test" => Key(test: "other test"),
-            "engine" => Key(engine: "web"),
-            "agent" => Key(agent: "admin"),
-            "agent context" => Key(agentContext: "The billing period is Daily."),
-            "agent context, to none" => Key(agentContext: null),
-            _ => throw new ArgumentOutOfRangeException(nameof(part)),
-        };
-
-        Assert.NotEqual(Key(), changed);
-    }
-
-    // Every committed .e2e/cache entry is filed under this key, so a change here misses all of them after an upgrade.
-    // Change it only with a COMPATIBILITY.md note saying so.
-    [Fact]
-    public void The_key_hashes_a_fixed_input_to_the_same_value_across_releases()
-    {
-        Assert.Equal("3ccb641142f8e6c3b9c78f60ae3af122693df7d0b1e190cb761fccb6e36ffc8d", Key());
-        Assert.Equal(
-            "e241558c7fa90ab0cd3d483494b219faae6536caf2615cfbe511b16ea4aaf717",
-            Key(instruction: "upgrade to {{plan}}", parameters: new Dictionary<string, object?> { ["plan"] = "Pro", ["seats"] = 3 }, callIndex: 2));
-    }
-
-    private static string Key(
-        string engine = "document",
-        string test = "billing upgrade",
-        string instruction = "open billing",
-        IReadOnlyDictionary<string, object?>? parameters = null,
-        int callIndex = 0,
-        string agent = "default",
-        string? agentContext = "The billing period is Monthly.")
-    {
-        return CacheKeys.ForCall(CacheKeys.Create(engine, test, instruction, parameters, agent, agentContext), callIndex);
-    }
-
-    [Fact]
     public void Nested_params_key_by_their_content()
     {
-        string Key(object? value) => CacheKeys.Create("document", "test", "add items", new Dictionary<string, object?> { ["items"] = value }, "default", null);
+        string Key(object? value) => CacheKeys.ParamsDigest(new Dictionary<string, object?> { ["items"] = value });
 
         Assert.NotEqual(Key(new[] { "apple" }), Key(new[] { "pear" }));
         Assert.Equal(Key(new[] { Values.Unique("a@example.test") }), Key(new[] { Values.Unique("b@example.test") }));

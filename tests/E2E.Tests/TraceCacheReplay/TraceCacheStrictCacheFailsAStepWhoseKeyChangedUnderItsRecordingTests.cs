@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using static E2E.Tests.RekeyedCache;
 
 namespace E2E.Tests.TraceCacheReplay;
@@ -24,6 +25,7 @@ public sealed class TraceCacheStrictCacheFailsAStepWhoseKeyChangedUnderItsRecord
             var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync("upgrade the workspace to the Pro plan"));
             Assert.Equal("REPLAY_STALE", error.Code);
             Assert.Contains("sits under another cache key (" + oldEntry + ")", error.Message, StringComparison.Ordinal);
+            Assert.Contains("since the agent's context (its context, or the test's agentContext) changed after it was recorded", error.Message, StringComparison.Ordinal);
             Assert.EndsWith("re-record it without cache.strict.", error.Message, StringComparison.Ordinal);
             Assert.Equal(1, session.Missed);
             session.Complete(error);
@@ -66,7 +68,16 @@ public sealed class TraceCacheStrictCacheFailsAStepWhoseKeyChangedUnderItsRecord
         var key = Path.GetFileNameWithoutExtension(Directory.GetFiles(directory).Single());
         // The test's title reaches the prompt, not the context, so the key digests an empty context, as upstream's
         // keyedBy.agentContextDigest does, so the entry sits under the key of the step with no context at all.
-        Assert.Equal(CacheKeys.Create("document", "billing > upgrades", "upgrade the workspace to the Pro plan", null, "default", null), key);
+        var expected = Identity.BuildTraceCacheKey(new TraceCacheKeyParts(
+            Identity.ProjectIdentity(""),
+            "billing > upgrades",
+            new CacheTargetIdentity("document", "document", "document", 1, E2E.Internal.Ids.CanonicalDigest(new JsonObject())),
+            Identity.TraceCallSignature("act", "upgrade the workspace to the Pro plan", null),
+            0,
+            new CacheAgentIdentity("default", null),
+            CacheKeys.ReplayPolicyVersion));
+        Assert.Equal(Identity.TraceCacheKeyHash(expected), key);
+        Assert.Equal(Identity.KeyContext(expected), cache.Read(key).Entry!.KeyedBy);
         var legacy = cache.Read(key).Entry!;
         legacy.Engine = null;
         legacy.ParamsDigest = null;

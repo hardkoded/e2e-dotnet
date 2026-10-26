@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using E2E.Engine;
 using E2E.Internal;
@@ -14,10 +15,10 @@ using E2E.Internal;
 namespace E2E;
 
 /// <summary>
-/// A recording of one verified <c>act</c>. The key is the cache schema, the replay
-/// policy version, the engine, the test, the instruction, the params, the agent's name,
-/// a digest of the agent's redacted context, and which repeat of that same call in the
-/// attempt it is. The model id is not part of the key.
+/// A recording of one verified <c>act</c>. Its file name is the hash of a trace cache key (<c>TraceCacheKeyHash</c>):
+/// the cache schema, the replay policy version, the project, the test, the target, the engine's name and contract version, the app's
+/// identity, the instruction's and params' digests, the agent's name, a digest of the agent's redacted context, and which repeat of
+/// that same call in the attempt it is. The model id and the engine's package version are not part of the key.
 /// </summary>
 public sealed class CacheEntry
 {
@@ -46,6 +47,13 @@ public sealed class CacheEntry
     /// </summary>
     [JsonConverter(typeof(OptionalTextConverter))]
     public string? RecordedBy { get; set; }
+
+    /// <summary>
+    /// Upstream's <c>keyedBy</c>: the parts of the key outside the step itself, as they were when it was recorded. Provenance, never read
+    /// by a replay: when a step's key no longer finds this entry, comparing it with the run's says what changed. Null on an older entry.
+    /// </summary>
+    [JsonConverter(typeof(KeyContextConverter))]
+    public TraceKeyContext? KeyedBy { get; set; }
 
     public string? Route { get; set; }
 
@@ -77,6 +85,7 @@ public sealed class CacheEntry
         ParamsDigest = step.ParamsDigest;
         CallIndex = step.CallIndex;
         Agent = step.Agent;
+        KeyedBy = step.KeyedBy;
     }
 }
 
@@ -263,12 +272,12 @@ public sealed class FileStepCache : IStepCache
 
     /// <summary>
     /// The key of an entry recorded for the same step as <paramref name="step"/> under a key other
-    /// than <paramref name="key"/>, or null. Only an entry that records the whole step counts: one
+    /// than <paramref name="key"/>, with the key context it recorded, or null. Only an entry that records the whole step counts: one
     /// written before the engine, params, repeat, and agent were stored could be another call of
     /// the same instruction. Strict mode uses it to tell a step whose key changed under its
     /// recording from a step that was never recorded.
     /// </summary>
-    internal string? UnderAnotherKey(string key, CacheEntry step)
+    internal (string Key, TraceKeyContext? KeyedBy)? UnderAnotherKey(string key, CacheEntry step)
     {
         var stepKey = StepKey(step);
         if (stepKey is null)
@@ -288,9 +297,9 @@ public sealed class FileStepCache : IStepCache
         foreach (var candidate in _recordings.GetValueOrDefault(stepKey) ?? [])
         {
             // Listed once: an entry evicted since is no evidence.
-            if (!string.Equals(candidate, key, StringComparison.Ordinal) && TryRead(candidate) is not null)
+            if (!string.Equals(candidate, key, StringComparison.Ordinal) && TryRead(candidate) is { } recorded)
             {
-                return candidate;
+                return (candidate, recorded.KeyedBy);
             }
         }
 
@@ -378,41 +387,31 @@ internal static class CacheKeys
 
     private static readonly JsonSerializerOptions DisplayJson = Json(new LeafConverter<Secret>(Display), new LeafConverter<UniqueValue>(Display));
 
-    public static string Create(
-        string engine,
-        string test,
-        string instruction,
-        IReadOnlyDictionary<string, object?>? parameters,
-        string agent,
-        string? agentContext)
-    {
-        var builder = new StringBuilder();
-        builder.Append("schema=").Append(FileStepCache.SchemaVersion.ToString(CultureInfo.InvariantCulture)).Append('\n');
-        builder.Append("policy=").Append(ReplayPolicyVersion).Append('\n');
-        builder.Append(engine).Append('\n');
-        builder.Append(test).Append('\n').Append(instruction.Trim()).Append('\n');
-        builder.Append(Params(parameters));
-
-        // The agent acts as one person with one context, so another agent, or a changed context, records again.
-        // The context enters as a digest of its redacted text, so a secret in it contributes only its name.
-        builder.Append("agent=").Append(agent).Append('\n');
-        builder.Append("context=").Append(Hash(agentContext ?? "")).Append('\n');
-        return Hash(builder.ToString());
-    }
-
-    /// <summary>SHA-256 of the params as <see cref="Create"/> keys them, which an entry records as its provenance.</summary>
+    /// <summary>
+    /// SHA-256/JCS of the params as the key digests them (<see cref="Identity.ParamsDigest"/>): a placeholder for each unique value and
+    /// the name of each secret. An entry records it as its provenance.
+    /// </summary>
     public static string ParamsDigest(IReadOnlyDictionary<string, object?>? parameters)
     {
-        return Hash(Params(parameters));
+        return Identity.ParamsDigest(Project(parameters));
     }
 
-    /// <summary>
-    /// The key of one repeat of a signature from <see cref="Create"/>. The first call
-    /// uses the signature itself, and each later identical call gets its own key.
-    /// </summary>
-    public static string ForCall(string signature, int callIndex)
+    /// <summary>Upstream's projected (secret-free) call parameters: the params as JSON, a unique value as its placeholder and a secret as its name.</summary>
+    public static JsonObject? Project(IReadOnlyDictionary<string, object?>? parameters)
     {
-        return callIndex == 0 ? signature : Hash(signature + "\n" + callIndex.ToString(CultureInfo.InvariantCulture));
+        if (parameters is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.SerializeToNode(parameters, KeyJson)!.AsObject();
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        {
+            throw new TestException("INVALID_ARGUMENT", "Act params must serialize as JSON: " + ex.Message, ex);
+        }
     }
 
     public static string Canonical(object? value)
@@ -543,48 +542,6 @@ internal static class CacheKeys
         }
 
         return false;
-    }
-
-    private static string Params(IReadOnlyDictionary<string, object?>? parameters)
-    {
-        var builder = new StringBuilder();
-        if (parameters is not null)
-        {
-            foreach (var key in parameters.Keys.OrderBy(item => item, StringComparer.Ordinal))
-            {
-                builder.Append(Escape(key, "\\=\n")).Append('=').Append(Escape(Canonical(parameters[key]), "\\\n")).Append('\n');
-            }
-        }
-
-        return builder.ToString();
-    }
-
-    // A line is `name=value`. A newline or an `=` inside a part would move the line break or the split,
-    // so two different sets of params could share one key. A part without these characters is unchanged.
-    private static string Escape(string text, string special)
-    {
-        if (text.AsSpan().IndexOfAny(special) < 0)
-        {
-            return text;
-        }
-
-        var builder = new StringBuilder(text.Length + 4);
-        foreach (var character in text)
-        {
-            if (special.Contains(character, StringComparison.Ordinal))
-            {
-                builder.Append('\\');
-            }
-
-            builder.Append(character == '\n' ? 'n' : character);
-        }
-
-        return builder.ToString();
-    }
-
-    private static string Hash(string text)
-    {
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text))).ToLowerInvariant();
     }
 
     private static string Json(object value)

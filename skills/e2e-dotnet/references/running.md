@@ -65,8 +65,8 @@ To watch a run, set `E2E_HEADLESS=0`. A fixture can also pass
 
 ## The replay cache
 
-Entries live under `cache.dir` (`.e2e/cache/` by default), one file per key,
-relative to the config file. `E2E_CACHE_DIR` replaces `cache.dir`, so worktrees can share one directory;
+Entries live under `cache.dir` (`.e2e/cache/` by default), one file per key
+(`<64 hex digits>.json`), relative to the config file. `E2E_CACHE_DIR` replaces `cache.dir`, so worktrees can share one directory;
 it resolves from the config file's directory, a leading `~` or `~/` is the
 home directory, a blank value is ignored, and the mode stays as configured.
 Parallel runs can share the directory: each write replaces its entry file
@@ -82,17 +82,34 @@ replay matches the screen in that same redacted form. Replay finds each
 control again by role, name, and test id. A control with no accessible name is
 named by its text, as the snapshot shows it.
 
-An entry belongs to a test, an instruction, its params, and an agent: its
-name and a hash of its redacted `context`. Running with another agent, or
-changing the agent's `context`, records again. Upgrading to a version that
-changes how entries replay re-keys every entry, so the first run after it
-records them again.
+An entry's file name is the SHA-256 of a key that holds the cache format
+(`trace-1`), the replay policy version, the test, the target, the engine's
+name and contract version, the app's identity, the instruction (normalized:
+line endings, Unicode form, outer whitespace), its params, which repeat of the
+same call in the attempt it is, and the agent: its name and a hash of its
+redacted `context`. Running with another agent, or changing the agent's
+`context`, records again. The engine's package version is not in the key.
+This port has no `projectId` and no `app.identity` or `environment`, so those
+two parts are constants. An entry also records the parts of the key outside
+the step itself (`keyedBy` in the file), which `cache.strict` reads to say what
+changed.
+
+**Upgrading from a version before this key invalidates every recording.** The
+key changed (it is the upstream key now), so a recording made before it sits
+under a file name that no run derives, and its first run records again.
+Re-record in a `read-write` run without `cache.strict`, commit the new
+entries, and delete the old files. Under `cache.strict`, a step whose only
+recording is an old one runs live, because the old entry's params digest is in
+the old form and is not recognized as the same step; it does not fail as
+`REPLAY_STALE`.
 
 `cache.strict` fails a step whose committed recording no longer replays
 (`REPLAY_STALE`) instead of handing it to the agent. That includes a
 `no-entry` miss while the cache directory holds a recording of the same
 step under another key, for example after an `E2E` upgrade or a change
-to the agent's `context` re-keyed it. The message names that file. A custom `IStepCache` is not
+to the agent's `context` re-keyed it. The message names that file, and names what
+changed when the entry recorded its key context (`the engine contract (1 -> 2)`,
+`the agent's context ...`, `the replay policy (4 -> 5)`). A custom `IStepCache` is not
 checked this way. A step never recorded (a new or edited instruction or
 params) and a retry still run live. Re-record with a `read-write` run
 without `cache.strict`, commit the changed entry, and delete the old file

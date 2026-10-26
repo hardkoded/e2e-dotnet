@@ -284,7 +284,7 @@ internal sealed class StepTraceSession
     }
 
     // Under strict mode, ends a step whose key found no entry while the cache directory holds a recording made for the same
-    // step under another key: the runner or the agent's context changed since, and the recording no longer replays. A step
+    // step under another key: the runner, the engine, the app, or the agent's context changed since, and the recording no longer replays. A step
     // whose instruction or params changed is a new step and still runs live. A custom IStepCache is not checked.
     private void FailIfRekeyed()
     {
@@ -295,9 +295,12 @@ internal sealed class StepTraceSession
             return;
         }
 
+        var changes = Pending.Step!.KeyedBy is { } now ? Identity.KeyContextChanges(previous.KeyedBy, now) : [];
+        var why = changes.Count == 0 ? "the runner, the engine, the app, or the agent's context changed" : string.Join(", ", changes) + " changed";
+
         throw new AgentException(
             "REPLAY_STALE",
-            "The recording for '" + _options.Instruction + "' sits under another cache key (" + previous + ".json), since the runner or the agent's context changed after it was recorded. Strict cache mode does not run it live; re-record it without cache.strict.");
+            "The recording for '" + _options.Instruction + "' sits under another cache key (" + previous.Key + ".json), since " + why + " after it was recorded. Strict cache mode does not run it live; re-record it without cache.strict.");
     }
 
     // Replays one hit: decides it against the start route, runs the recorded actions, then checks the postcondition. Actions

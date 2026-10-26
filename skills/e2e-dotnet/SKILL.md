@@ -216,4 +216,4 @@ lines you changed:
   `agent`). Every built-in prompt of a test opens with the test's title
   (`Test: <name>`), judges included (a custom executor reads `context.Attempt.TitlePath`), so name a test for what it covers, not
   for the verdict you expect (topic `agent`).
-- `.e2e/` is output (`report.json`, `results/`, `cache/`); read it, never edit it. Commit `.e2e/cache/` to share replays.
+- `.e2e/` is output (`report.json`, `results/`, `cache/`); read it, never edit it. Commit `.e2e/cache/` to share replays. The cache key changed in the version that added the `trace-1` key: recordings from an older version no longer match and must be re-recorded once (topic `running`).
