@@ -1,0 +1,30 @@
+[
+  {
+    "label": "Overview",
+    "slug": "api"
+  },
+  {
+    "label": "E2E",
+    "slug": "api/E2E"
+  },
+  {
+    "label": "E2E.Engine",
+    "slug": "api/E2E.Engine"
+  },
+  {
+    "label": "E2E.NUnit",
+    "slug": "api/E2E.NUnit"
+  },
+  {
+    "label": "E2E.OAuth",
+    "slug": "api/E2E.OAuth"
+  },
+  {
+    "label": "E2E.Reports",
+    "slug": "api/E2E.Reports"
+  },
+  {
+    "label": "E2E.XUnit.V3",
+    "slug": "api/E2E.XUnit.V3"
+  }
+]
