@@ -20,7 +20,7 @@ tests are NUnit or xUnit v3 tests that derive from `E2ETest`, run with
 One reference does most of the work. Read it; do not restate it.
 
 - The e2e skill: `.agents/skills/e2e-dotnet/SKILL.md` once
-  `npx skills add hardkoded/e2e-dotnet` ran, or `e2e guide <topic>` from the
+  `npx skills add hardkoded/e2e-dotnet --skill e2e-dotnet` ran, or `e2e guide <topic>` from the
   installed `E2E.Cli` tool. Topics named below (`setup`, `writing-tests`,
   `writing-tests-nunit`, `writing-tests-xunit`, `agent`, `mcp`, `running`,
   `debugging`, `mobile`, `windows`) are its reference files.
@@ -72,7 +72,7 @@ Answer these from the repo; ask the user only what you cannot observe.
 | Question | Where the answer is | What it decides |
 | --- | --- | --- |
 | Source runner | The detection table above | The topics read before this table |
-| Tests | Every test class or flow file, with its names, categories, and per-browser or per-platform branches. Count with the runner's own list (`dotnet test --list-tests`), not by grepping, which misses `[TestCase]` and `[Theory]` rows. Count a test once however many cases run it | The progress file's rows, one per source file. Count each test's assertions now so a port can be checked against the count: explicit ones (`Expect(...)`, `Assert.That`, `Assert.Equal`, `assertVisible`), plus, where the runner's steps are its checks (a Maestro `tapOn` fails when its target is missing), those steps |
+| Tests | Every test class or flow file, with its names, categories, and per-browser or per-platform branches. Count with the runner's own list, not by grepping, which misses `[TestCase]` and `[Theory]` rows or tests made in a loop: `dotnet test --list-tests` for a .NET suite, `npx playwright test --list` for Playwright, `npx cypress run --dry-run` is not available so list Cypress `*.cy.*` specs and count their `it(` calls, the `.detoxrc*` `testRunner` list for Detox, and one test per YAML flow file for Maestro (`maestro test --help` has no dry run). Count a test once however many cases, projects, or browsers run it | The progress file's rows, one per source file. Count each test's assertions now so a port can be checked against the count: explicit ones (`Expect(...)`, `Assert.That`, `Assert.Equal`, `assertVisible`), plus, where the runner's steps are its checks (a Maestro `tapOn` fails when its target is missing), those steps |
 | Shared code | Page objects, base classes, fixtures, `[SetUp]` and `[OneTimeSetUp]`, subflows | Helpers to port once, before the first test that needs each |
 | How it runs | The CI job that runs the suite and the scripts it calls: the build, the services and mock servers it starts, seed and reset calls, env files, devices or browsers, ports | The e2e harness. The CI job is usually the only complete description; read it line by line |
 | Where e2e lives | A new test project beside the old one (`MyApp.E2ETests`), referencing `E2E.NUnit` or `E2E.XUnit.V3` (or the `.Mobile` ones) | The config's location and the progress file's. The two runners must not collect each other's tests: they are separate projects, so `dotnet test` on the solution runs both. Check each project's test list |
