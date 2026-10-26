@@ -14,6 +14,24 @@ internal static class Paths
     /// </summary>
     public static string OnDiskPath(string target) => OnDiskPath(target, 0);
 
+    /// <summary>
+    /// <paramref name="target"/> relative to the project root once both are resolved through the filesystem, or null when it is not strictly
+    /// below the root (upstream's <c>relativeToProjectRoot</c>): an in-project symlink pointing outside is refused, a symlinked project root
+    /// still counts as the root, and a name that merely starts with <c>..</c> is an ordinary entry.
+    /// </summary>
+    public static string? RelativeToProjectRoot(string projectRoot, string target)
+    {
+        var relative = Path.GetRelativePath(OnDiskPath(projectRoot), OnDiskPath(target));
+        var inside = relative.Length > 0 && relative != "." && relative != ".."
+            && !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            && !relative.StartsWith(".." + Path.AltDirectorySeparatorChar, StringComparison.Ordinal)
+            && !Path.IsPathRooted(relative);
+        return inside ? relative : null;
+    }
+
+    /// <summary>Whether <paramref name="target"/> is a path strictly below the project root; see <see cref="RelativeToProjectRoot"/>.</summary>
+    public static bool InsideProjectRoot(string projectRoot, string target) => RelativeToProjectRoot(projectRoot, target) is not null;
+
     private static string OnDiskPath(string target, int hops)
     {
         var full = Path.GetFullPath(target);

@@ -16,5 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\E2E\E2E.csproj" />
     <ProjectReference Include="..\E2E.Tests.Schema\E2E.Tests.Schema.csproj" />
+    <!-- The program the app-command tests start. Its apphost lands beside the tests. -->
+    <ProjectReference Include="..\E2E.Tests.App\E2E.Tests.App.csproj" />
   </ItemGroup>
 </Project>

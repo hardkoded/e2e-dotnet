@@ -211,8 +211,11 @@ The loop is:
   it writes no trace page, and `e2e mcp` takes no `--trace`, `--video`, `--debug`,
   or `--ai-trace`, as upstream. A session is for looking and trying; the test is
   what you write afterwards.
-- On the web, a session can stay open while `dotnet test` runs: the port has
-  no `app.command`, so the app runs elsewhere and both use it. On mobile,
+- On the web, a session can stay open while `dotnet test` runs, as long as
+  both reach the app. `app.command` starts the app once for the process that needs it, so a
+  session and a `dotnet test` run in another process each start their own
+  (point both at a fixed port with `reuseExisting`, or start the app
+  yourself). On mobile,
   close the session before each run: a session and a run on one device fight
   over it. It can stay open only on a device no run uses.
 - Parallel agents (subagents) share one server: each opens its own session

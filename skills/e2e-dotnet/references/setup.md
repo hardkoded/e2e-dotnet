@@ -119,7 +119,7 @@ unknown key fails with `INVALID_CONFIG`.
 
 | Key | Default | Notes |
 | --- | --- | --- |
-| `targets` | a `web` target with no URL | One entry: `name`, `platform` (`web`, `ios`, `android`, or `windows`), and `app.url` (a web target) or `app.appPath` and `app.bundleId` (a device or Windows target). A URL without a scheme gets `https://` (`http://` for localhost); plain HTTP is allowed on loopback hosts only, and userinfo, a query, or a fragment is `INVALID_APP_URL`. Without a URL, `App.OpenAsync` takes absolute URLs only. |
+| `targets` | a `web` target with no URL | One entry: `name`, `platform` (`web`, `ios`, `android`, or `windows`), and `app.url` (a web target; port `0` takes a free port) with an optional `app.command` and `app.readyUrl` that start the app (below), or `app.appPath` and `app.bundleId` (a device or Windows target). A URL without a scheme gets `https://` (`http://` for localhost); plain HTTP is allowed on loopback hosts only, and userinfo, a query, or a fragment is `INVALID_APP_URL`. Without a URL, `App.OpenAsync` takes absolute URLs only. |
 | `timeout` | `120000` | Per test, ms. |
 | `launchTimeout` | `60000` | Engine start, ms. |
 | `actionTimeout` | `30000` | Each locator action and engine operation, ms. |
@@ -150,8 +150,72 @@ such as `BaseUrl`, `CacheMode`, or `ActionTimeout`; named agents come from
 ## The app under test
 
 The target declares the app's `url`. `App.OpenAsync(path)` resolves a path
-against it. There is no `app.command`: start the app before `dotnet test`,
-and point `url` at it.
+against it. The `app` also takes `command` and `readyUrl`, which start the
+app for you (below), and a `url` with port `0`, which takes a free port.
+
+### Let the config start the app
+
+Prefer `app.command` to a hand-started dev server: self-contained locally
+and in CI.
+
+```json
+{
+  "targets": [{
+    "platform": "web",
+    "app": {
+      "url": "http://127.0.0.1:3000",
+      "command": {
+        "executable": "pnpm",
+        "args": ["dev"],
+        "env": { "PORT": "3000" },
+        "startupTimeout": 120000,
+        "log": ".e2e/logs/app.log"
+      }
+    }
+  }]
+}
+```
+
+- The first test (or `e2e explore`, or `e2e mcp` session) that needs the app
+  spawns `command`, polls `readyUrl` (default `url`) for a 200 to 499 status
+  within `startupTimeout` (default 60 s), and the later ones find it running.
+  It stops with the test process (`shutdownTimeout`, default 10 s; a process
+  that is killed outright takes the app down with it). Never ready is
+  `APP_UNREACHABLE`, and the test fails before the session opens
+  (`command.log` still gets this boot's output). The port has no runner, so
+  there is one app per test process, not one per run.
+- A `command` is `executable`, `args`, `cwd` (from the config's directory),
+  `env`, `inheritEnv`, `startupTimeout`, `shutdownTimeout`, `log`, and
+  `reuseExisting`; any other key is `INVALID_CONFIG`, naming the nearest.
+  `executable` is started directly, never through a shell, and each `args`
+  entry is passed as it is: name the server itself, not a wrapper script, and
+  on Windows `pnpm.cmd` is not `pnpm`.
+- The child gets only `PATH`, `HOME`, the temp-directory variables,
+  `SystemRoot` and `COMSPEC`, and `command.env`. Pass the rest through `env`,
+  or name host variables in `inheritEnv` (`["DATABASE_URL", "STRIPE_*"]`);
+  `env` wins over them. `inheritEnv` takes names and prefixes ending in `*`,
+  never a bare `*`. Model keys and `E2E_USER_*` values are never inherited
+  unless a name or prefix matches them.
+- Output is discarded unless `log` names a file inside the config's directory,
+  such as `.e2e/logs/app.log`; without it a server dying on boot is
+  invisible. A startup failure quotes the last 20 lines of what the process
+  wrote, with `command.env` and `inheritEnv` values redacted.
+- A `url` answering before the spawn is `APP_ALREADY_RUNNING`;
+  `command.reuseExisting: true` attaches to a running dev server (CI ignores
+  it).
+- `"url": "http://127.0.0.1:0"` (or `[::1]:0`, never `localhost:0`) takes a
+  free port; the command receives it as `{port}` in `args` or `env`
+  (`"args": ["dev", "--port", "{port}"]`), which also expands in `readyUrl`.
+  A fixture's `BaseUrl` and `App.OpenAsync` use the port the app was started
+  on. A port-0 `url` with no `command`, and `reuseExisting` beside one, are
+  `INVALID_CONFIG`. A port grabbed between allocation and spawn fails the
+  start with `APP_UNREACHABLE`; rerun.
+- `readyUrl` is the probe when it differs from `url`; it must be an http(s)
+  URL, and a `command` with neither `url` nor `readyUrl` is
+  `APP_URL_REQUIRED`.
+
+For an app started elsewhere, point `app.url` at it and start it before
+`dotnet test`.
 
 `WebEngine` takes `WebEngineOptions`. Override `CreateEngine()` to set them:
 

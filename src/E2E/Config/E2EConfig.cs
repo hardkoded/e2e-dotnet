@@ -45,12 +45,12 @@ public sealed class E2EConfig
 
     private static readonly string[] UnsupportedTargetKeys = ["engine"];
 
-    private static readonly string[] AppKeys = ["url"];
+    private static readonly string[] AppKeys = ["url", "command", "readyUrl"];
 
-    private static readonly string[] MobileAppKeys = ["bundleId", "appPath"];
+    private static readonly string[] MobileAppKeys = ["bundleId", "appPath", "command", "readyUrl"];
 
     private static readonly string[] UnsupportedAppKeys =
-        ["identity", "environment", "launchArguments", "permissions", "command", "readyUrl"];
+        ["identity", "environment", "launchArguments", "permissions"];
 
     private static readonly string[] Platforms = ["web", "ios", "android", "windows"];
 
@@ -221,7 +221,7 @@ public sealed class E2EConfig
                 ConfigPath = configPath,
                 ProjectRoot = projectRoot,
                 Ci = ci,
-                Targets = ReadTargets(Property(root, "targets"), trace, video),
+                Targets = ReadTargets(Property(root, "targets"), projectRoot, trace, video),
                 Timeout = Milliseconds(root, "timeout", E2EDefaults.TestTimeout),
                 LaunchTimeout = Milliseconds(root, "launchTimeout", E2EDefaults.LaunchTimeout),
                 ActionTimeout = Milliseconds(root, "actionTimeout", E2EDefaults.ActionTimeout),
@@ -235,7 +235,7 @@ public sealed class E2EConfig
         }
     }
 
-    private static List<TargetConfig> ReadTargets(JsonElement? raw, RunRecording trace, RunRecording video)
+    private static List<TargetConfig> ReadTargets(JsonElement? raw, string projectRoot, RunRecording trace, RunRecording video)
     {
         if (raw is null)
         {
@@ -286,10 +286,15 @@ public sealed class E2EConfig
             CheckKeys(rawApp, "targets[0].app", pinned ? MobileAppKeys : AppKeys, UnsupportedAppKeys, null);
             app = new AppConfig
             {
-                Url = OptionalString(rawApp, "url", "targets[0].app.url") is { } url ? Urls.NormalizeAppUrl(url, "targets[0].app.url").Href : null,
+                Url = OptionalString(rawApp, "url", "targets[0].app.url") is { } url ? Urls.NormalizeBaseUrl(url).Href : null,
                 BundleId = OptionalString(rawApp, "bundleId", "targets[0].app.bundleId"),
                 AppPath = OptionalString(rawApp, "appPath", "targets[0].app.appPath"),
+                Command = Property(rawApp, "command") is { } command ? Command.Normalize(command, "target \"" + name + "\" app.command") : null,
+                ReadyUrl = OptionalString(rawApp, "readyUrl", "targets[0].app.readyUrl"),
             };
+
+            // Resolved once here so a bad command, a free port nothing starts on, or a {port} without a URL fails at load, as upstream's resolveConfig does.
+            TargetApps.ResolveTargetApp(name, app, projectRoot);
         }
 
         return [new TargetConfig { Name = name, Platform = platform, App = app, Trace = trace.For(ownTrace), Video = video.For(ownVideo) }];
@@ -670,6 +675,9 @@ public sealed class TargetConfig
 
     public required AppConfig App { get; init; }
 
+    /// <summary>This target with another app: the one resolved on the port its command was started on.</summary>
+    internal TargetConfig WithApp(AppConfig app) => new() { Name = Name, Platform = Platform, App = app, Trace = Trace, Video = Video };
+
     /// <summary>Which attempts write <c>trace.md</c>: <c>E2E_TRACE</c>, else this target's <c>trace</c>, else the config's, else <c>retain-on-failure</c>.</summary>
     public ResolvedRecording Trace { get; init; } = new(RecordingMode.RetainOnFailure, RecordingSource.Default);
 
@@ -710,6 +718,19 @@ public sealed class AppConfig
 
     /// <summary>The build a device target installs, relative to the folder of <c>e2e.config.json</c>.</summary>
     public string? AppPath { get; init; }
+
+    /// <summary>
+    /// The command that starts the app (upstream's <c>app.command</c>), started before the first test and stopped when the process ends.
+    /// <c>{port}</c> in <see cref="CommandConfig.Args"/> and <see cref="CommandConfig.Env"/> is the port the app is served on. A
+    /// <see cref="Url"/> with port 0 asks for a free one, and needs this.
+    /// </summary>
+    public CommandConfig? Command { get; init; }
+
+    /// <summary>The URL that answers once <see cref="Command"/> has started the app (upstream's <c>app.readyUrl</c>). Unset, <see cref="Url"/>.</summary>
+    public string? ReadyUrl { get; init; }
+
+    /// <summary>This app with another URL: the one on the port its command was started on.</summary>
+    internal AppConfig WithUrl(string? url) => new() { Url = url, BundleId = BundleId, AppPath = AppPath, Command = Command, ReadyUrl = ReadyUrl };
 }
 
 /// <summary>

@@ -179,6 +179,16 @@ public abstract class E2EFixture
         }
 
         var cacheMode = CacheMode;
+
+        // The app command of the target starts before the first test and serves every later one; its URL is on the port the app was started on.
+        var baseUrl = BaseUrl;
+        var declared = Config.Target;
+        if (declared.App.Command is not null && string.Equals(baseUrl, declared.App.Url, StringComparison.Ordinal))
+        {
+            // A fixture that points BaseUrl somewhere else does not use the declared app, so the command does not start for it.
+            baseUrl = (await RunApps.StartAsync(Config, declared, null, cancellationToken).ConfigureAwait(false)).App.Url;
+        }
+
         _session = await E2ESession.StartAsync(
             new E2ESessionOptions
             {
@@ -194,7 +204,7 @@ public abstract class E2EFixture
                 Agents = CreateAgents(),
                 Agent = TestAgentOptions.Agent(GetType(), testMethod) ?? RunAgent,
                 TestAgentContext = TestAgentOptions.AgentContext(GetType(), testMethod),
-                BaseUrl = BaseUrl,
+                BaseUrl = baseUrl,
                 ProjectRoot = ProjectRoot,
                 TargetName = TargetName,
                 UpdateSnapshots = UpdateSnapshots,

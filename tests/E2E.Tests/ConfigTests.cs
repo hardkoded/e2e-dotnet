@@ -312,14 +312,6 @@ public sealed class ConfigTests
     }
 
     [Fact]
-    public void Rejects_an_app_URL_that_asks_for_a_free_port_because_nothing_starts_the_app()
-    {
-        var error = Assert.Throws<ConfigurationException>(() => Parse("""{ "targets": [{ "app": { "url": "http://127.0.0.1:0" } }] }"""));
-        Assert.Equal("INVALID_CONFIG", error.Code);
-        Assert.Contains("targets[0].app.url asks for a free port", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task Rejects_a_base_URL_override_that_the_config_would_reject()
     {
         var error = await Assert.ThrowsAsync<ConfigurationException>(() => E2ESession.StartAsync(new E2ESessionOptions

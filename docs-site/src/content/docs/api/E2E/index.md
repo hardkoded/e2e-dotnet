@@ -44,6 +44,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [CacheInfo](/api/E2E/CacheInfo/) |  |
 | [CacheLookup](/api/E2E/CacheLookup/) |  |
 | [ClickOptions](/api/E2E/ClickOptions/) | What a tap-family action takes. Upstream's ClickOptions, of which the port has the modifiers. |
+| [CommandConfig](/api/E2E/CommandConfig/) | The command a target's app.command starts the app with (upstream's CommandConfig). It is a program and its arguments, never a shell line: the executable is started directly and each argument is passed as it is. |
 | [ConfigurationException](/api/E2E/ConfigurationException/) | e2e.config.json is invalid. The code is INVALIDCONFIG. |
 | [Credentials](/api/E2E/Credentials/) | Reads E2EUSER{NAME}USERNAME and E2EUSER{NAME}PASSWORD. The name is uppercased and dashes become underscores. |
 | [DefaultAgent](/api/E2E/DefaultAgent/) | Upstream's createBuiltInAgent (agent/default-agent.ts): the tool loop with the built-in rules, tools, and opening prompt. |
