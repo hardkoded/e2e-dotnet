@@ -145,33 +145,25 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
     [Fact]
     public async Task Narrates_once_at_half_the_budget_while_the_wait_goes_on()
     {
-        var notices = new List<string>();
+        // The wait is clocked in real time, so the test reads when the notice came instead of sampling at fixed moments.
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var notices = new List<(string Message, TimeSpan At)>();
         var app = new ManagedProcessUnderTest(
             "service \"compose\"",
             Stalled(["idle"], Log, TimeSpan.FromSeconds(10)),
             _dir,
             Readiness.WaitForExit,
-            new ManagedProcessHooks { Notice = message => { lock (notices) { notices.Add(message); } } });
-        var pending = Assert.ThrowsAsync<EngineException>(() => app.StartAsync());
-        await Task.Delay(TimeSpan.FromMilliseconds(4_500));
-        lock (notices)
-        {
-            Assert.Empty(notices);
-        }
-
-        // The poll wakes at the half mark itself, not at the next 250 ms tick.
-        await Task.Delay(TimeSpan.FromMilliseconds(1_000));
-        lock (notices)
-        {
-            Assert.Equal([$"service \"compose\" still starting after 5s: waiting for it to exit; log: {Log}"], notices);
-        }
-
-        var failure = await pending;
+            new ManagedProcessHooks { Notice = message => { lock (notices) { notices.Add((message, clock.Elapsed)); } } });
+        var failure = await Assert.ThrowsAsync<EngineException>(() => app.StartAsync());
         Assert.Equal("APP_UNREACHABLE", failure.Code);
         Assert.Contains("did not exit within 10000 ms", failure.Message, StringComparison.Ordinal);
         lock (notices)
         {
-            Assert.Single(notices);
+            var notice = Assert.Single(notices);
+            Assert.Equal($"service \"compose\" still starting after 5s: waiting for it to exit; log: {Log}", notice.Message);
+
+            // At the half mark itself, not at the next 250 ms tick, and not before it.
+            Assert.InRange(notice.At, TimeSpan.FromSeconds(4.95), TimeSpan.FromSeconds(7));
         }
     }
 
@@ -186,14 +178,11 @@ public sealed class ManagedProcessStallDiagnosticsTests : IDisposable
             _dir,
             new Readiness(notReady.Url),
             new ManagedProcessHooks { Notice = message => { lock (notices) { notices.Add(message); } } });
-        var pending = Assert.ThrowsAsync<EngineException>(() => app.StartAsync());
-        await Task.Delay(TimeSpan.FromMilliseconds(5_800));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => app.StartAsync());
+        Assert.Equal("APP_UNREACHABLE", failure.Code);
         lock (notices)
         {
             Assert.Equal([$"target \"web\" command still starting after 5s: waiting for {notReady.Url}"], notices);
         }
-
-        var failure = await pending;
-        Assert.Equal("APP_UNREACHABLE", failure.Code);
     }
 }

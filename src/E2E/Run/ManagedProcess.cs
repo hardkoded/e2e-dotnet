@@ -374,6 +374,7 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
         _pump = new OutputPump(process, log);
         _spawned = true;
         Live[process] = 0;
+        KillWithParent.Add(process);
         try
         {
             await WaitForReadinessAsync(process, readyUrl, startupTimeout, clock, logOffset, cancellationToken).ConfigureAwait(false);
@@ -653,4 +654,77 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
             }
         }
     }
+}
+
+/// <summary>
+/// Ties a started process to this one on Windows, so it dies with it even when this process is killed outright, as a test host is once its
+/// run ends and no <c>ProcessExit</c> handler runs (a .NET-only guard: upstream's runner is a command that handles signals). The processes
+/// join a job object that kills its members when its last handle closes, which the system does when this process ends. Elsewhere it does nothing.
+/// </summary>
+internal static class KillWithParent
+{
+    private const int JobObjectExtendedLimitInformation = 9;
+    private const uint KillOnJobClose = 0x2000;
+
+    private static readonly Lazy<IntPtr> Job = new(Create);
+
+    public static void Add(System.Diagnostics.Process process)
+    {
+        if (!OperatingSystem.IsWindows() || Job.Value == IntPtr.Zero)
+        {
+            return;
+        }
+
+        try
+        {
+            _ = AssignProcessToJobObject(Job.Value, process.Handle);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            // already gone
+        }
+    }
+
+    private static IntPtr Create()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return IntPtr.Zero;
+        }
+
+        var job = CreateJobObjectW(IntPtr.Zero, null);
+        if (job == IntPtr.Zero)
+        {
+            return IntPtr.Zero;
+        }
+
+        // JOBOBJECT_EXTENDED_LIMIT_INFORMATION: LimitFlags is the fourth field of the basic limits, after two 8-byte times.
+        var size = IntPtr.Size == 8 ? 144 : 112;
+        var buffer = System.Runtime.InteropServices.Marshal.AllocHGlobal(size);
+        try
+        {
+            for (var offset = 0; offset < size; offset += 4)
+            {
+                System.Runtime.InteropServices.Marshal.WriteInt32(buffer, offset, 0);
+            }
+
+            System.Runtime.InteropServices.Marshal.WriteInt32(buffer, 16, (int)KillOnJobClose);
+            return SetInformationJobObject(job, JobObjectExtendedLimitInformation, buffer, (uint)size) ? job : IntPtr.Zero;
+        }
+        finally
+        {
+            System.Runtime.InteropServices.Marshal.FreeHGlobal(buffer);
+        }
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr CreateJobObjectW(IntPtr attributes, string? name);
+
+    [DllImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetInformationJobObject(IntPtr job, int infoClass, IntPtr info, uint size);
+
+    [DllImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
 }
