@@ -89,9 +89,10 @@ internal static class ModelHttp
     /// Sends <paramref name="message"/> and returns the body of a successful answer. A timeout, an unreachable
     /// host, or an error status fails with <c>MODEL_PROVIDER_FAILED</c>, or with a blocked <c>CONTEXT_OVERFLOW</c>
     /// when the provider says the request was too large. The failure names the HTTP status and
-    /// the body, redacted with <paramref name="redactor"/> and cut at 1 KB.
+    /// the body, redacted with <paramref name="redactor"/> and cut at 1 KB. <paramref name="sign"/> runs on each attempt's copy just before
+    /// it is sent, so a request that carries a timestamp (Bedrock's SigV4) is signed again for every retry, as the AI SDK signs inside each fetch.
     /// </summary>
-    public static async Task<string> SendAsync(HttpClient http, HttpRequestMessage message, Redactor redactor, CancellationToken cancellationToken)
+    public static async Task<string> SendAsync(HttpClient http, HttpRequestMessage message, Redactor redactor, CancellationToken cancellationToken, Action<HttpRequestMessage>? sign = null)
     {
         ModelEndpoint.AddHeaders(message, RequestHeaders);
         // A request message can be sent once, so each attempt sends a copy of the same bytes.
@@ -103,6 +104,7 @@ internal static class ModelHttp
             HttpResponseMessage response;
             try
             {
+                sign?.Invoke(attempt);
                 response = await http.SendAsync(attempt, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
