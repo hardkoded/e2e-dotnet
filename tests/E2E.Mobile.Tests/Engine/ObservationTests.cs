@@ -340,9 +340,9 @@ public sealed class ObservationTests
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(
             RawNodes.SettingsNodes.Select(node => node.Label == "About" ? node with { Rect = new Rect(0, 400, 390, 44) } : node)));
         var moved = await Screens.Observed(session, "About");
-        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, async (_, _) =>
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
         {
-            await Task.Delay(400);
+            h.Clock.Spend(TimeSpan.FromMilliseconds(400));
             return FakeDeviceClient.SettingsSnapshot();
         });
         int Presses() => h.Fake.Methods().Count(method => method == DeviceMethods.InteractionsPress);
@@ -355,9 +355,9 @@ public sealed class ObservationTests
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
         var field = await Screens.Observed(session, "Search");
         session.Origin = ActionOrigin.Agent;
-        h.Fake.RespondAsync(DeviceMethods.InteractionsPress, async (_, _) =>
+        h.Fake.Respond(DeviceMethods.InteractionsPress, _ =>
         {
-            await Task.Delay(170);
+            h.Clock.Spend(TimeSpan.FromMilliseconds(170));
             return new JsonObject();
         });
         var cut = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(field, new LocatorAction.Press("a"), CancellationToken.None));

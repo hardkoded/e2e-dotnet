@@ -131,12 +131,24 @@ internal sealed class Harness
     }
 }
 
-/// <summary>A clock only a test moves.</summary>
+/// <summary>A clock only a test moves. Its timestamps, which an input budget measures, move only when a test spends time on a device command, not with the engine's waits.</summary>
 internal sealed class FakeClock : TimeProvider
 {
+    private long _spent;
     private DateTimeOffset _now = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     public override DateTimeOffset GetUtcNow() => _now;
+
+    public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+    public override long GetTimestamp() => _spent;
+
+    /// <summary>Time a device command takes: it moves the clock and the budget of every input under way.</summary>
+    public void Spend(TimeSpan span)
+    {
+        _spent += span.Ticks;
+        Advance(span);
+    }
 
     public void Advance(TimeSpan span) => _now += span;
 }
