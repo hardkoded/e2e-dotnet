@@ -46,12 +46,16 @@ coverage.xml
 *.coveragexml
 .dotnet/
 
-## DocFX
-docs/_site/
-docs/api/.manifest
-docs/api/*.yml
-!docs/api/index.md
-docs/obj/
+## Docs site
+docs-site/node_modules/
+docs-site/dist/
+docs-site/.astro/
+docs-site/.api-yaml/
+docs-site/.redirect-staging/
+docs-site/src/content/docs/.api-staging/
+docs-site/src/content/docs/guide.md
+docs-site/src/content/docs/compatibility.md
+docs-site/src/content/docs/contributing.md
 log.txt
 
 ## e2e runs

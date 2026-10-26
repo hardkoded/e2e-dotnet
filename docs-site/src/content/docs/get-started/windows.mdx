@@ -1,0 +1,111 @@
+---
+title: Windows
+description: Drive a WinUI, WPF, WinForms, or Win32 app with WinAppEngine.
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+`WinAppEngine` drives a Windows app through Windows UI Automation. WinUI 3, WPF, WinForms, and Win32 apps all expose it. The engine runs on Windows only and needs no other tool installed.
+
+## Prerequisites
+
+- Windows 10 or 11 and the .NET 10 SDK.
+- An unlocked, interactive desktop. Keys, clicks, and the wheel go to the window in the foreground, so a locked screen or a CI runner without a desktop session fails them with `NOT_ACTIONABLE`.
+- An app the engine can start: an unpackaged build, such as WinUI 3 with `WindowsPackageType` set to `None`, WPF, or WinForms.
+
+## 1. Create the test project
+
+```bash
+dotnet new nunit -n MyApp.E2ETests
+cd MyApp.E2ETests
+dotnet add package E2E.WinApp.NUnit      # or E2E.WinApp.XUnit.V3
+```
+
+A test project on plain `net10.0` also needs this, because the UI Automation library ships Windows assets only. Without it, restore fails with `NU1202`. Or target `net10.0-windows`.
+
+```xml
+<PropertyGroup>
+  <AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0</AssetTargetFallback>
+  <NoWarn>$(NoWarn);NU1701</NoWarn>
+</PropertyGroup>
+```
+
+## 2. Point at your app
+
+Set `AutomationId` on every control a test touches (`AutomationProperties.AutomationId` in XAML).
+
+```json
+{
+  "targets": [
+    {
+      "name": "myapp",
+      "platform": "windows",
+      "app": {
+        "appPath": "../MyApp/bin/x64/Debug/net10.0-windows10.0.22621.0/MyApp.exe",
+        "bundleId": "MyApp"
+      }
+    }
+  ],
+  "actionTimeout": 15000,
+  "assertionTimeout": 10000,
+  "agents": { "default": { "provider": "copilot", "model": "claude-sonnet-5.5", "context": "MyApp is a settings editor." } },
+  "cache": { "dir": ".e2e/cache" }
+}
+```
+
+`appPath` is the executable, relative to the folder of `e2e.config.json`. `bundleId` is the app's process name. `E2E_WINAPP_APP_PATH` names another executable without editing the config.
+
+## 3. Write a test
+
+Derive from `WinAppTest`. It launches the app fresh before each test, ends it after, and gives the agent the `open_app` and `alert` tools.
+
+```csharp
+using E2E.WinApp.NUnit;
+
+[assembly: Category("Windows")]
+[assembly: NonParallelizable]   // one window in the foreground at a time
+
+public sealed class LoginTests : WinAppTest
+{
+    [Test]
+    public async Task Signs_in()
+    {
+        await Screen.GetByTestId("email-input").FillAsync("tester@tester.army");
+        await Screen.GetByTestId("password-input").FillAsync("benchmark123");
+        await Screen.GetByTestId("login-button").TapAsync();
+
+        await Expect.That(Screen.GetByTestId("success-message")).ToHaveTextAsync("Logged in successfully");
+    }
+
+    [Test]
+    [Category("RealModel")]
+    public async Task The_agent_signs_in()
+    {
+        await Agent.ActAsync("sign in as {email}", new ActOptions
+        {
+            Params = new Dictionary<string, object?> { ["email"] = "tester@tester.army" },
+        });
+
+        await Expect.That(Screen.GetByTestId("success-message")).ToBeVisibleAsync();
+    }
+}
+```
+
+Roles follow the browser vocabulary: a `Button` is `button`, an edit is `textbox`, a `ToggleSwitch` is `switch`, a `ContentDialog` is `dialog`. `Window` is the window fixture: `ResizeAsync`, `MaximizeAsync`, `CloseAppAsync`, `OpenAppAsync`, and `AlertAsync(AlertAction.Accept)`.
+
+## 4. Run
+
+```bash
+dotnet test --project .
+dotnet test --project . --filter "TestCategory!=RealModel"   # no model
+```
+
+## Known limits
+
+No video, `App.BackAsync` is `UNSUPPORTED_CAPABILITY` (tap the app's own Back button), and a screenshot is the main window only.
+
+## Next
+
+<CardGrid>
+  <LinkCard title="WinApp benchmark" href={`${import.meta.env.BASE_URL}samples/winapp-benchmark/`} description="A WinUI 3 app of hard scenarios and its tests." />
+</CardGrid>
