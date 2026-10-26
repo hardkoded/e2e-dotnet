@@ -327,7 +327,11 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   every control that appeared (with its text, value, and checked or
   selected state) is there, every one that went away is gone, at least one
   of those changed during the replay, and no new alert showed; otherwise
-  the agent takes over mid-step. The web engine does not observe Next.js
+  the agent takes over mid-step. A replay waits for a slow effect for as
+  long as the recording needed (a report that takes half a minute), up to
+  what the step's clock leaves. A scroll on a list that filled at least
+  half the screen scrolls the viewport instead when the list can no longer
+  be re-found (web engine only); a smaller region hands off. The web engine does not observe Next.js
   App Router's route announcer, so its title echo never counts. Text that
   reads differently on every run, a date, a time, an id, is not checked.
   An entry's key holds the test and its class, the instruction and params,

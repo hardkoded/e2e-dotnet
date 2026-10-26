@@ -782,7 +782,7 @@ public sealed class E2ESession : IAsyncDisposable
     }
 
     // Rewriting an identical flow would only churn a committed cache directory. The model that recorded it decides nothing
-    // a replay does, so another model recording the same flow rewrites nothing.
+    // a replay does, and neither does the measured end wait, so another model recording the same flow rewrites nothing.
     private static bool HoldsSameFlow(IStepCache cache, string key, CacheEntry entry)
     {
         var existing = cache.Read(key).Entry;
@@ -797,6 +797,7 @@ public sealed class E2ESession : IAsyncDisposable
     {
         var flow = JsonSerializer.SerializeToNode(entry, JsonDefaults.Options)!.AsObject();
         flow.Remove("recordedBy");
+        flow.Remove("endWaitMs");
         flow.Remove("keyedBy");
         return flow.ToJsonString();
     }

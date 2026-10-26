@@ -1043,7 +1043,7 @@ internal static class PageScript
           // A read for the trace leaves the elements the test and the model act on as the last real observation set them.
           if (publish) window[Symbol.for("e2e.observation.elements")] = elements;
           // The object itself, not JSON.stringify of it: the application may have replaced that, or added a toJSON.
-          return { next, count, truncated: truncated || full || textCut, scroll, roots };
+          return { next, count, truncated: truncated || full || textCut, scroll, viewport: { width: innerWidth, height: innerHeight }, roots };
         }
         """;
 

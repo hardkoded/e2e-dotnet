@@ -87,6 +87,12 @@ internal sealed class StepTraceSession
     private Observation? _start;
     private CacheEntry? _wholeReplay;
     private int _actionsAtEndMismatch = -1;
+    private long _startedMs;
+    private long? _handedOffMs;
+    private long? _executorCompletedMs;
+
+    // Upstream's END_WAIT_MARGIN_MS: room for a slower day on top of how long the app took to show its end state.
+    private const int EndWaitMarginMs = 10_000;
 
     public StepTraceSession(IStepCacheHost host, StepCacheOptions options)
     {
@@ -150,6 +156,7 @@ internal sealed class StepTraceSession
         // Outside strict mode, a retry records like any step but never replays; the report says so instead of looking
         // like a step that ran with caching off.
         // A screen that cannot be read is the executor's business: the step runs, nothing is replayed or recorded.
+        _startedMs = NowMs();
         _start = await ProbeAsync(SettleMode.HeldStill).ConfigureAwait(false);
         if (_start is null)
         {
@@ -191,6 +198,11 @@ internal sealed class StepTraceSession
     /// </summary>
     public async Task ConcludeAsync(StepOutcome outcome, string? recordedBy = null)
     {
+        if (_handedOffMs is not null)
+        {
+            _executorCompletedMs = NowMs();
+        }
+
         if (outcome != StepOutcome.Passed)
         {
             return;
@@ -262,7 +274,7 @@ internal sealed class StepTraceSession
         Pending.ReadEntry = true;
 
         // Any store can return a hit, so its shape is checked here, at the one read site.
-        return entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null || !entry.Actions.All(action => action.HasValidModifiers())
+        return entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null || !entry.HasValidEndWait() || !entry.Actions.All(action => action.HasValidModifiers() && action.HasValidSpans())
             ? new EntryRead(null, "invalid-entry")
             : new EntryRead(entry, null);
     }
@@ -371,8 +383,19 @@ internal sealed class StepTraceSession
         return new StepVerdict(StepVerdictStatus.Passed, "Replayed recorded actions.");
     }
 
+    private long NowMs() => _host.Time.GetUtcNow().ToUnixTimeMilliseconds();
+
+    // Upstream's endWaitBaselineMs: the app-settling baseline, the executor's verdict or, if it acted, its last action. The
+    // replay's and the executor's own turns are not app settling time.
+    private long EndWaitBaselineMs()
+    {
+        var lastActionAtMs = _recorder.LastActionAtMs ?? _startedMs;
+        return _handedOffMs is null || (_recorder.LastActionAtMs ?? 0) > _handedOffMs ? lastActionAtMs : _executorCompletedMs ?? _handedOffMs.Value;
+    }
+
     private void HandOff(string reason, string? detail, string? uncertain = null)
     {
+        _handedOffMs = NowMs();
         if (string.Equals(reason, "end-mismatch", StringComparison.Ordinal))
         {
             _actionsAtEndMismatch = _recorder.RecordedCount;
@@ -409,27 +432,53 @@ internal sealed class StepTraceSession
         }
 
         var before = baselineAnchors ?? (actedOn is null ? [] : Project(actedOn));
-        var deadline = DateTime.UtcNow + _host.ReplayTimeout;
+        var endRoute = Recorded(entry.EndRoute, parameters);
+
+        // The last action may start a navigation, so the end route gets the replay timeout to show up. A route that never matches is
+        // another screen, whatever it shows.
+        var arrived = await EndScreenAsync(endRoute).ConfigureAwait(false);
+        if (arrived is null)
+        {
+            return new EndStateCheck(false);
+        }
+
+        // Every look the wait takes must still be on the recorded end route: a screen that moved on after the route first matched
+        // is another screen.
         DeltaMismatch? mismatch = null;
+        bool Holds(Observation screen)
+        {
+            if (!CacheRoute.Same(endRoute, screen.Route))
+            {
+                return false;
+            }
+
+            mismatch = Anchors.Mismatch(entry, Project(screen), before);
+            return mismatch is null;
+        }
+
+        var matches = await Replay.VerifyEndState(_host, Holds, new VerifyEndStateOptions { WaitMs = entry.EndWaitMs, Initial = arrived }).ConfigureAwait(false);
+        return matches ? new EndStateCheck(true) : new EndStateCheck(false, Failure: mismatch);
+    }
+
+    // Upstream's endScreen: captures the end state once its route matches the recording, polling while a navigation the last
+    // action started commits. Null when the route never matches within the replay timeout.
+    private async Task<Observation?> EndScreenAsync(string? endRoute)
+    {
+        var deadline = _host.Time.GetUtcNow() + _host.ReplayTimeout;
         while (true)
         {
-            // Every look must still be on the recorded end route: a screen that moved on is another screen.
-            var end = await _host.ObserveAsync(SettleMode.Raw).ConfigureAwait(false);
-            if (CacheRoute.Same(Recorded(entry.EndRoute, parameters), end.Route))
+            var observation = await _host.ObserveAsync(SettleMode.Raw).ConfigureAwait(false);
+            if (CacheRoute.Same(endRoute, observation.Route))
             {
-                mismatch = Anchors.Mismatch(entry, Project(end), before);
-                if (mismatch is null)
-                {
-                    return new EndStateCheck(true);
-                }
+                return observation;
             }
 
-            if (DateTime.UtcNow >= deadline)
+            if (_host.Time.GetUtcNow() >= deadline)
             {
-                return new EndStateCheck(false, Failure: mismatch);
+                return null;
             }
 
-            await Task.Delay(TimeSpan.FromMilliseconds(20), _host.Signal).ConfigureAwait(false);
+            await Task.Delay(TimeSpan.FromMilliseconds(20), _host.Time, _host.Signal).ConfigureAwait(false);
         }
     }
 
@@ -452,7 +501,10 @@ internal sealed class StepTraceSession
             return null;
         }
 
-        return _recorder.Finalize(Pending.Step!, Template(_start!.Route), Template(end.Route), appeared, gone, recordedBy);
+        // How long the app took to show its end state after the last action, plus room for a slower day: the budget a replay waits
+        // for the recorded end state to return. Measured from the last action, not the step's start: the model's thinking time before
+        // that action is no reason for a replay, which does not think, to wait.
+        return _recorder.Finalize(Pending.Step!, Template(_start!.Route), Template(end.Route), appeared, gone, recordedBy, NowMs() - EndWaitBaselineMs() + EndWaitMarginMs);
     }
 
     // One cache capture, settled as far as mode asks, or null when the surface cannot be observed right now, which is the
@@ -586,6 +638,10 @@ internal sealed class StepTraceSession
         public Redactor Redact => inner.Redact;
 
         public TimeSpan ReplayTimeout => inner.ReplayTimeout;
+
+        public int RemainingMs() => inner.RemainingMs();
+
+        public TimeProvider Time => inner.Time;
 
         public async Task<Observation> ObserveAsync(SettleMode mode)
         {
