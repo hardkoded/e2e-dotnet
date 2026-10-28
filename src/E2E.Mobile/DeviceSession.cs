@@ -311,6 +311,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         var client = _client;
         var dangling = _recording;
         _client = null;
+        _tracked = null;
         _recording = null;
         _engine.Unregister(this);
         _appIdentity = null;
