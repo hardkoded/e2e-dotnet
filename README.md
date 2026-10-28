@@ -377,7 +377,7 @@ See [the coding-agents page](docs-site/src/content/docs/coding-agents.mdx).
 
 ## Sample
 
-The sample is a real end-to-end test of [Dariten](https://dariten.vercel.app), a public personal finance demo. It drives Chromium through `WebEngine`, which installs the browser on its first run. The demo data is shared and anyone can edit it, so the tests only read the app and never check specific balances.
+The sample is a real end-to-end test of [Dariten](https://dariten.vercel.app), a public personal finance demo. It drives Chromium through `WebEngine`, which installs the browser on its first run. Each browser keeps its own sample household, so the tests only read the app and never check specific balances.
 
 - `The_dashboard_links_to_the_transaction_register` uses locators only. It needs no model.
 - `An_agent_filters_the_register_by_category` asks the agent to filter the register, then judges the result. It runs `claude-sonnet-5.5` on a GitHub Copilot plan and is in the `RealModel` category, which CI skips. A second passing run replays the filter without asking the model to act.
