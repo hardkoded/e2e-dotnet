@@ -467,7 +467,13 @@ internal sealed class StepTraceSession
         var deadline = _host.Time.GetUtcNow() + _host.ReplayTimeout;
         while (true)
         {
-            var observation = await _host.ObserveAsync(SettleMode.Raw).ConfigureAwait(false);
+            // Upstream's probeScreen: a surface that cannot be observed right now is an end-state miss, not a failure.
+            var observation = await ProbeAsync(SettleMode.Raw).ConfigureAwait(false);
+            if (observation is null)
+            {
+                return null;
+            }
+
             if (CacheRoute.Same(endRoute, observation.Route))
             {
                 return observation;
