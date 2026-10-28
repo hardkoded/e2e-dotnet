@@ -1,6 +1,6 @@
 # E2E for .NET docs
 
-The documentation site is [Astro Starlight](https://starlight.astro.build/). The published site is [https://hardkoded.github.io/e2e-dotnet/](https://hardkoded.github.io/e2e-dotnet/).
+The documentation site is [Astro Starlight](https://starlight.astro.build/). The published site is [https://www.hardkoded.com/e2e-dotnet/](https://www.hardkoded.com/e2e-dotnet/).
 
 ## Preview locally
 
@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:4321/e2e-dotnet/ . The path includes `/e2e-dotnet/` because that is the GitHub Pages project-site base.
+Open http://localhost:4321/e2e-dotnet/ . The path includes `/e2e-dotnet/` because that is the hardkoded.com path base (`siteBase` in `site.mjs`). Local preview keeps that prefix so links match https://www.hardkoded.com/e2e-dotnet/. GitHub Pages is retired, so this is the production path base, not a Pages project-site base.
 
 Search is built with the production output:
 
@@ -36,6 +36,6 @@ That needs the .NET 10 SDK. It restores the local DocFX tool (`dotnet-tools.json
 
 ## GitHub Pages
 
-`.github/workflows/docs.yml` builds this site on every pull request and on every push to `main`. It deploys only from a push to `main`. Merging the docs change is what publishes it. The workflow does not change the repository's Pages source setting.
+GitHub Pages is retired. `.github/workflows/docs.yml` only builds and checks this site on pull requests and on pushes to `main`. It uploads the build as a CI artifact and does not deploy. Vercel is the host. The Vercel Git integration publishes https://www.hardkoded.com/e2e-dotnet/ on push to `main`, through a multi-zone rewrite from the hardkoded blog project.
 
 Old DocFX `.html` URLs redirect to the new paths. Member anchors from DocFX (`#E2E_App_OpenAsync_...`) are kept on the generated pages. A redirect preserves the hash when JavaScript runs.
