@@ -20,7 +20,8 @@ public sealed class BedrockModel : IAgentModel, IDisposable
 
 
 Amazon Bedrock Converse API client. It signs with AWS Signature Version 4 from the standard AWS environment
-variables, or sends a Bedrock API key (`AWS_BEARER_TOKEN_BEDROCK`) as a bearer token when one is set.
+variables or, with none set, from the AWS credential chain (shared profile, SSO, container and instance roles), as the AI SDK's
+`amazon-bedrock` provider does, or sends a Bedrock API key (`AWS_BEARER_TOKEN_BEDROCK`) as a bearer token when one is set.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
