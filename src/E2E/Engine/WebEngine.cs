@@ -1818,14 +1818,14 @@ public sealed partial class WebEngine : IEngine
                 // An ordinary context is engine-owned; a persistent browser belongs to the host, so only the connection closes.
                 if (_context is not null && _persistent is null)
                 {
-                    await _context.CloseAsync().ConfigureAwait(false);
+                    await CloseDroppedAsync(() => _context.CloseAsync()).ConfigureAwait(false);
                 }
             }
             finally
             {
                 try
                 {
-                    await _browser.CloseAsync().ConfigureAwait(false);
+                    await CloseDroppedAsync(() => _browser.CloseAsync()).ConfigureAwait(false);
                 }
                 finally
                 {
@@ -1838,6 +1838,22 @@ public sealed partial class WebEngine : IEngine
                         await _lease.CloseAsync(connected).ConfigureAwait(false);
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Runs a close that finds its target already gone: a grid that dropped the session before the connection noticed answers the close with
+        /// a closed-target error, and a browser that is gone is as closed as the close would leave it. .NET-only (upstream has no Playwright-protocol lease).
+        /// </summary>
+        private static async Task CloseDroppedAsync(Func<Task> close)
+        {
+            try
+            {
+                await close().ConfigureAwait(false);
+            }
+            // Playwright for .NET keeps TargetClosedException internal, so it is told by name.
+            catch (PlaywrightException ex) when (ex.GetType().Name == "TargetClosedException")
+            {
             }
         }
 
