@@ -140,15 +140,20 @@ internal static partial class ArtifactPaths
 
     /// <summary>
     /// Rewrites a text-like download through the session's ledger, and returns the redaction the record can claim: <c>Complete</c> once
-    /// every registered value is gone from it, changed or not, and <c>Incomplete</c> when the file is not UTF-8 text or cannot be read or
-    /// written, in which case it is left as served. A leading byte order mark is kept as part of the text, so a rewritten file starts the
-    /// way it was served. Upstream's <c>redactDownload</c>.
+    /// every registered value is gone from it, changed or not, and <c>Incomplete</c> when the file contains NUL bytes, is not UTF-8 text,
+    /// or cannot be read or written, in which case it is left as served. A leading byte order mark is kept as part of the text, so a
+    /// rewritten file starts the way it was served. Upstream's <c>redactDownload</c>.
     /// </summary>
     public static ArtifactRedaction RedactDownload(string absolute, Redactor ledger)
     {
         try
         {
             var bytes = File.ReadAllBytes(absolute);
+            // BOM-less UTF-16 can pass UTF-8 decoding while NULs keep its secrets from matching.
+            if (bytes.AsSpan().Contains((byte)0))
+            {
+                return ArtifactRedaction.Incomplete;
+            }
 
             // GetString keeps a leading byte order mark as U+FEFF, as upstream's ignoreBOM does.
             var text = new UTF8Encoding(false, true).GetString(bytes);

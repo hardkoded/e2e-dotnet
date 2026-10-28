@@ -151,9 +151,13 @@ public sealed class DownloadRedactionTests : IDisposable
         byte[] binary = [0xff, 0xfe, 0x00, .. Encoding.UTF8.GetBytes(Secret)];
         tainted.AttachArtifact("download", Write("blob.bin", binary));
         tainted.AttachArtifact("download", Write("broken.txt", binary));
+        var utf16 = Encoding.Unicode.GetBytes($"key={Secret}");
+        tainted.AttachArtifact("download", Write("export.csv", utf16));
         Assert.Equal("incomplete", (string?)Record(tainted, 0)["redaction"]);
         Assert.Equal("incomplete", (string?)Record(tainted, 1)["redaction"]);
+        Assert.Equal("incomplete", (string?)Record(tainted, 2)["redaction"]);
         Assert.Equal(binary, File.ReadAllBytes(Path.Combine(_root, "downloads", "blob.bin")));
         Assert.Equal(binary, File.ReadAllBytes(Path.Combine(_root, "downloads", "broken.txt")));
+        Assert.Equal(utf16, File.ReadAllBytes(Path.Combine(_root, "downloads", "export.csv")));
     }
 }

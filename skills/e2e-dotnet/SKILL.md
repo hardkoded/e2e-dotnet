@@ -38,6 +38,8 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 
 Two sibling skills install with `npx skills add hardkoded/e2e-dotnet --skill <name>`. `create-verification-skill` writes a project-local `verify-<app>` skill. `migrate-to-e2e` moves an existing Playwright .NET, Selenium .NET, Appium, Cypress, Detox, or Maestro suite to e2e one slice at a time, with the old suite running beside the new one and a `MIGRATION.md` progress file. Hosted Limrun devices are covered in topic `mobile`.
 
+Text downloads are redacted only when they are UTF-8 without NUL bytes; other files stay as served and `incomplete`. See `writing-tests` for download handling.
+
 ## Quick start
 
 A config with one web target and a model, and a test that drives one goal
