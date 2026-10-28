@@ -85,7 +85,8 @@ public sealed class BedrockModel : IAgentModel, IDisposable
     {
         try
         {
-            var chain = _options.CredentialChain();
+            // Discovery can probe the instance metadata endpoint synchronously, so it runs off the caller's thread and the wait honors the cancel.
+            var chain = await Task.Run(_options.CredentialChain, CancellationToken.None).WaitAsync(cancellationToken).ConfigureAwait(false);
             await chain.GetCredentialsAsync().WaitAsync(cancellationToken).ConfigureAwait(false);
             return chain;
         }
