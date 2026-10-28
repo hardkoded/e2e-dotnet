@@ -127,7 +127,7 @@ internal static partial class ArtifactPaths
             return "application/json";
         }
 
-        if (relativePath.EndsWith(".html", StringComparison.OrdinalIgnoreCase) || relativePath.EndsWith(".htm", StringComparison.Ordinal))
+        if (relativePath.EndsWith(".html", StringComparison.OrdinalIgnoreCase) || relativePath.EndsWith(".htm", StringComparison.OrdinalIgnoreCase))
         {
             return "text/html";
         }
