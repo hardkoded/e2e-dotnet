@@ -1315,6 +1315,20 @@ internal sealed class AttemptScope
         {
             lock (_attached)
             {
+                // Reports must use the final ledger, including values a later fill registered.
+                if (ArtifactsDir is { } directory && Secrecy.RedactsDownloads(Redactor))
+                {
+                    var redactor = Redactor;
+                    for (var index = 0; index < _attached.Count; index++)
+                    {
+                        var entry = _attached[index];
+                        if (entry.Kind == "download" && ArtifactPaths.IsTextLike(ArtifactPaths.MediaTypeFor(entry.Path)))
+                        {
+                            _attached[index] = (entry.Id, entry.Kind, entry.Path, ArtifactPaths.RedactDownload(Path.Combine(directory, entry.Path), redactor));
+                        }
+                    }
+                }
+
                 return [.. _attached];
             }
         }

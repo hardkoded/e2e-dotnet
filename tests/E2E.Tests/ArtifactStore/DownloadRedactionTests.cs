@@ -138,6 +138,65 @@ public sealed class DownloadRedactionTests : IDisposable
         Assert.Equal(19L, (long?)record["size"]);
     }
 
+    // .NET-only: the port snapshots the redactor at attachment and builds artifact records when the attempt ends.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Rescans_downloads_with_values_registered_after_attachment(bool alreadyHasSecret)
+    {
+        var scope = alreadyHasSecret ? Downloads(("api-key", Secret)) : Downloads();
+        const string later = "later-credential-Jk8-5931";
+        scope.AttachArtifact("download", Write("export.txt", $"key={later}\n"));
+        Assert.Equal(alreadyHasSecret ? "complete" : "incomplete", (string?)Record(scope, 0)["redaction"]);
+        Assert.Equal($"key={later}\n", Read("export.txt"));
+
+        if (alreadyHasSecret)
+        {
+            // FillAsync remembers a Secret through this path; the earlier registered value remains known too.
+            scope.Remember(new Dictionary<string, object?> { ["api-key"] = global::E2E.Secret.Create("api-key", later) });
+        }
+        else
+        {
+            scope.Register("api-key", later);
+        }
+        var record = Record(scope, 0);
+        const string redacted = "key=<secret:api-key>\n";
+        Assert.Equal("complete", (string?)record["redaction"]);
+        Assert.Equal(redacted, Read("export.txt"));
+        Assert.Equal(Encoding.UTF8.GetByteCount(redacted), (long?)record["size"]);
+        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(redacted))), (string?)record["sha256"]);
+    }
+
+    // .NET-only: a failed final scan must replace the earlier attachment's successful result.
+    [Fact]
+    public void Reports_a_previously_complete_download_incomplete_when_the_final_scan_fails()
+    {
+        var scope = Downloads(("api-key", Secret));
+        scope.AttachArtifact("download", Write("export.txt", "nothing secret here"));
+        Assert.Equal("complete", (string?)Record(scope, 0)["redaction"]);
+
+        Write("export.txt", [0xff, 0xfe]);
+        scope.Register("api-key", "later-credential-Jk8-5931");
+        Assert.Equal("incomplete", (string?)Record(scope, 0)["redaction"]);
+    }
+
+    // .NET-only regression: upstream's ASCII spelling shortcut also misses these valid JSON encodings.
+    [Theory]
+    [InlineData("""{"key":"\u0068\u0075\u006e\u0074\u0065\u0072\u0032"}""", """{"key":"<secret:api-key>"}""")]
+    [InlineData("""{"key":"\u0068\u0075\u006E\u0074\u0065\u0072\u0032"}""", """{"key":"<secret:api-key>"}""")]
+    [InlineData("""{"key":"hunter\u0032"}""", """{"key":"<secret:api-key>"}""")]
+    [InlineData("""{"text":"{\"key\":\"\\u0068\\u0075\\u006e\\u0074\\u0065\\u0072\\u0032\"}"}""", """{"text":"{\"key\":\"<secret:api-key>\"}"}""")]
+    public void Redacts_JSON_Unicode_escaped_ASCII_secrets_before_reporting_complete(string body, string redacted)
+    {
+        var scope = Downloads(("api-key", "hunter2"));
+        scope.AttachArtifact("download", Write("export.json", body));
+        var record = Record(scope, 0);
+        Assert.Equal("complete", (string?)record["redaction"]);
+        Assert.Equal(redacted, Read("export.json"));
+        Assert.Equal(Encoding.UTF8.GetByteCount(redacted), (long?)record["size"]);
+        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(redacted))), (string?)record["sha256"]);
+    }
+
     [Fact]
     public void Leaves_a_download_as_served_with_no_secret_value_and_a_binary_one_with_a_fill_both_incomplete()
     {

@@ -453,6 +453,9 @@ await Browser.OnDialogAsync(async dialog =>
 
 ### Download a file
 
+Before reporting, text downloads are scanned again with the final secrecy ledger,
+including secrets filled later and ASCII secrets written as JSON Unicode escapes.
+
 ```csharp
 var file = await Browser.WaitForDownloadAsync(() =>
     Screen.GetByRole("link", "Export CSV").TapAsync());

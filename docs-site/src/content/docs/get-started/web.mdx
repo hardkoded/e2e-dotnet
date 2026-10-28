@@ -107,6 +107,9 @@ The first run asks the model to perform each `ActAsync`. A passing run records e
 
 ## Next
 
+Text downloads are rescanned before reporting with all secrets known by then,
+including later fills and ASCII secrets written as JSON Unicode escapes.
+
 <CardGrid>
   <LinkCard title="Dariten sample" href={`${import.meta.env.BASE_URL}samples/dariten/`} description="A locator test and an agent test against a live public app." />
   <LinkCard title="TodoMVC sample" href={`${import.meta.env.BASE_URL}samples/todomvc/`} description="Playwright's TodoMVC suite rewritten as agent steps." />

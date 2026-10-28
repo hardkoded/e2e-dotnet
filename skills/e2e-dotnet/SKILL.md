@@ -11,6 +11,9 @@ judge the screen. `Screen`, `App`, `Browser`, and `Expect` make exact
 interactions and checks without a model. A verified agent step is recorded
 and replayed on the next run with no model call; judgments still run live.
 
+Text downloads are rescanned before reporting with all secrets known by then,
+including later fills and JSON Unicode escapes of ASCII secrets.
+
 ## Start here: pick the reference for the job
 
 Read the one reference that matches the request before doing anything else.

@@ -673,6 +673,8 @@ Upstream writes `report.json`, a `report-1` document of the whole run (`report/b
 
 ## App and browser fixtures
 
+Text downloads are rescanned through the final secrecy ledger before their report records are read, including values filled after attachment. Fragment scans also recognize ASCII secrets written with JSON Unicode escapes, once or twice quoted. These safeguards extend upstream's attachment-time scan and ASCII spelling shortcut; stream redaction keeps its existing buffering. The .NET-only regressions are `DownloadRedactionTests.Rescans_downloads_with_values_registered_after_attachment`, `Reports_a_previously_complete_download_incomplete_when_the_final_scan_fails`, and `Redacts_JSON_Unicode_escaped_ASCII_secrets_before_reporting_complete`.
+
 `App.RestartAsync` closes the tab and opens a new one in the same browser context, so cookies and storage survive. `App.ClearStateAsync` replaces the context with a clean one. Both then reopen the app at its base URL, as upstream, and keep a viewport set with `Browser.SetViewportAsync`. Without a base URL they leave a blank page.
 
 Differences from upstream:
