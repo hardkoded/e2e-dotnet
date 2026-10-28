@@ -79,6 +79,9 @@ internal sealed class Redactor
         }
     }
 
+    /// <summary>Whether no value is registered (upstream's <c>SecretLedger.isEmpty</c>): every text passes through as it is.</summary>
+    public bool IsEmpty => _pattern is null;
+
     /// <summary>A redactor with no values, which leaves every text as it is.</summary>
     public static Redactor None { get; } = new([]);
 

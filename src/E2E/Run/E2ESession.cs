@@ -222,6 +222,7 @@ public sealed class E2ESession : IAsyncDisposable
             var testFailed = options.TestFailed ?? (static () => false);
             var scope = new AttemptScope
             {
+                ArtifactsDir = attemptDir,
                 Session = engine,
                 Screens = screens,
                 Environment = environment,

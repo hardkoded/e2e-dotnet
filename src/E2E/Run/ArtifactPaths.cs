@@ -5,6 +5,8 @@
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using E2E.Internal;
+using E2E.Reports;
 
 namespace E2E;
 
@@ -85,5 +87,82 @@ internal static partial class ArtifactPaths
         }
 
         return string.Join('-', new[] { stem, title, id.Length > ResultDigestChars ? id[..ResultDigestChars] : id }.Where(part => part.Length > 0));
+    }
+
+    /// <summary>The media type of a file by its extension (upstream's <c>mediaTypeFor</c>).</summary>
+    public static string MediaTypeFor(string relativePath)
+    {
+        if (relativePath.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+        {
+            return "image/png";
+        }
+
+        if (relativePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            return "application/zip";
+        }
+
+        if (relativePath.EndsWith(".webm", StringComparison.OrdinalIgnoreCase))
+        {
+            return "video/webm";
+        }
+
+        if (relativePath.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
+        {
+            return "video/mp4";
+        }
+
+        if (relativePath.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
+        {
+            return "text/plain";
+        }
+
+        if (relativePath.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+        {
+            return "text/csv";
+        }
+
+        if (relativePath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+        {
+            return "application/json";
+        }
+
+        if (relativePath.EndsWith(".html", StringComparison.OrdinalIgnoreCase) || relativePath.EndsWith(".htm", StringComparison.Ordinal))
+        {
+            return "text/html";
+        }
+
+        return "application/octet-stream";
+    }
+
+    /// <summary>Whether the bytes of a media type are text the secret redactor can rewrite (upstream's <c>isTextLike</c>).</summary>
+    public static bool IsTextLike(string mediaType) => mediaType.StartsWith("text/", StringComparison.Ordinal) || mediaType == "application/json";
+
+    /// <summary>
+    /// Rewrites a text-like download through the session's ledger, and returns the redaction the record can claim: <c>Complete</c> once
+    /// every registered value is gone from it, changed or not, and <c>Incomplete</c> when the file is not UTF-8 text or cannot be read or
+    /// written, in which case it is left as served. A leading byte order mark is kept as part of the text, so a rewritten file starts the
+    /// way it was served. Upstream's <c>redactDownload</c>.
+    /// </summary>
+    public static ArtifactRedaction RedactDownload(string absolute, Redactor ledger)
+    {
+        try
+        {
+            var bytes = File.ReadAllBytes(absolute);
+
+            // GetString keeps a leading byte order mark as U+FEFF, as upstream's ignoreBOM does.
+            var text = new UTF8Encoding(false, true).GetString(bytes);
+            var redacted = ledger.RedactFragments(text);
+            if (!string.Equals(redacted, text, StringComparison.Ordinal))
+            {
+                AtomicWrite.WriteFileAtomic(absolute, redacted);
+            }
+
+            return ArtifactRedaction.Complete;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DecoderFallbackException or RegexMatchTimeoutException)
+        {
+            return ArtifactRedaction.Incomplete;
+        }
     }
 }

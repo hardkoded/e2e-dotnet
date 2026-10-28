@@ -463,7 +463,7 @@ The file is a `download` artifact of the step, saved under the attempt's
 `downloads` folder with a counted name (`downloads/001-report.csv`). Read it
 through `AbsolutePath`, which works with a hosted browser whose provider
 serves `Downloads` too; `Path` is relative to the attempt's artifact
-directory, not to the project. `SuggestedFilename` is the name the page or
+directory, not to the project. A text download (`text/*` or `application/json`) is rewritten in place when the session holds a secret value: every value, fragment, and encoded form of it becomes `<secret:name>`, a byte order mark stays, and the report records the artifact as `complete`; a binary file, a file that is not UTF-8, or a session with no secret leaves it as served and `incomplete`. `SuggestedFilename` is the name the page or
 server gave it. A trigger that throws fails the call with its own error. One
 that returns and starts no download within the timeout fails with `ACTION_FAILED`, naming how long it
 waited and how long the trigger took. Without `Downloads` on the provider,
