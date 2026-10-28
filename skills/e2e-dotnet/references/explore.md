@@ -30,7 +30,8 @@ config's `cleanupTimeout`. A release that fails or outlives that budget does not
 replace the outcome: it joins it (`CLEANUP_TIMEOUT` for one that outlived the
 budget, `ENGINE_FAILURE` for a plain exception), the status is `Failed`, the exit
 code is the verdict's combined with 3 (precedence 130, 4, 3, 2, 1, 0), and the
-findings stay. With
+findings stay. `ExploreOutcome.Error` is the failure only when the run had no
+error of its own. With
 `E2E_MOBILE_PROVIDER=devflow` it attaches to the MAUI app you launched. `e2e explore` supplies the
 device engine; a library caller of `Explore.ExploreAsync` with an `ios` or
 `android` target must set `ExploreOptions.Engine`. A `windows` target with `app.appPath` (the
