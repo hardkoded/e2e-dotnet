@@ -90,7 +90,7 @@ page calls with one JSON-safe argument. Only a function takes an argument.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L229)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L261)
 
 <a id="E2E_Browser_AddInitScriptAsync_E2E_Engine_WebInitScript_System_Threading_CancellationToken_"></a>
 
@@ -114,7 +114,7 @@ or a function the page calls with no argument ([FromFunction(string)](/api/E2E.E
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L222)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L254)
 
 <a id="E2E_Browser_AddInitScriptAsync_System_String_System_Threading_CancellationToken_"></a>
 
@@ -138,7 +138,7 @@ every tab and frame, from the next navigation on, for the rest of the attempt.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L215)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L247)
 
 <a id="E2E_Browser_BackAsync_"></a>
 <a id="E2E_Browser_BackAsync_System_Threading_CancellationToken_"></a>
@@ -184,7 +184,7 @@ Returns the cookies visible to the browser context.
 
 **Returns:** [Task&lt;IReadOnlyList&lt;BrowserCookie&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L233)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L265)
 
 <a id="E2E_Browser_EmulateMediaAsync_"></a>
 <a id="E2E_Browser_EmulateMediaAsync_E2E_Engine_WebMedia_System_Threading_CancellationToken_"></a>
@@ -211,7 +211,7 @@ before the first navigation, so the page loads with them.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L284)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L316)
 
 <a id="E2E_Browser_EvaluateAsync_"></a>
 <a id="E2E_Browser_EvaluateAsync__1_System_String_System_Object_System_Threading_CancellationToken_"></a>
@@ -242,7 +242,7 @@ Evaluates a function source in the page with one JSON-safe argument.
 
 **Returns:** [Task&lt;T&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L150)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L182)
 
 <a id="E2E_Browser_EvaluateAsync__1_System_String_System_Threading_CancellationToken_"></a>
 
@@ -274,7 +274,7 @@ script that does not finish within the action timeout with `OPERATION_TIMEOUT`.
 
 **Returns:** [Task&lt;T&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L146)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L178)
 
 <a id="E2E_Browser_ForwardAsync_"></a>
 <a id="E2E_Browser_ForwardAsync_System_Threading_CancellationToken_"></a>
@@ -298,6 +298,37 @@ Navigates the history forward once.
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L109)
+
+<a id="E2E_Browser_FrameLocator_"></a>
+<a id="E2E_Browser_FrameLocator_System_String_"></a>
+
+### FrameLocator(string)
+
+
+```csharp
+public FrameScreen FrameLocator(string selector)
+```
+
+
+Creates a screen query scope inside one iframe: every [Screen](/api/E2E/Screen/) query answers from inside the frame. The frame is the
+one element &lt;code class="paramref"&gt;selector&lt;/code&gt; names; none yet is polled for by an action, and answers no match to a read. Upstream's
+`browser.frameLocator`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `selector` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+
+**Returns:** [FrameScreen](/api/E2E/FrameScreen/)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_LOCATOR`: &lt;code class="paramref"&gt;selector&lt;/code&gt; is empty. |
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L159)
 
 <a id="E2E_Browser_GotoAsync_"></a>
 <a id="E2E_Browser_GotoAsync_System_String_E2E_GotoOptions_System_Threading_CancellationToken_"></a>
@@ -325,6 +356,37 @@ and waits for [WaitUntil](/api/E2E/GotoOptions/#E2E_GotoOptions_WaitUntil) withi
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L88)
 
+<a id="E2E_Browser_Locator_"></a>
+<a id="E2E_Browser_Locator_System_String_"></a>
+
+### Locator(string)
+
+
+```csharp
+public Locator Locator(string selector)
+```
+
+
+Creates a web-only locator from a CSS or XPath selector, for a control with no accessible name. Same polling and strictness as any
+locator. A selector that captures with `*` before its last part (`*css=article >> text=Hello`) is refused with
+`INVALID_LOCATOR` when the locator resolves: narrow with [Filter(Locator)](/api/E2E/Locator/#E2E_Locator_Filter_E2E_Locator_) instead. Upstream's `browser.locator`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `selector` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+
+**Returns:** [Locator](/api/E2E/Locator/)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_LOCATOR`: &lt;code class="paramref"&gt;selector&lt;/code&gt; is empty. |
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L146)
+
 <a id="E2E_Browser_OnDialogAsync_"></a>
 <a id="E2E_Browser_OnDialogAsync_E2E_Engine_DialogHandler_System_Threading_CancellationToken_"></a>
 
@@ -350,7 +412,7 @@ dialog is dismissed. Pass [Accept](/api/E2E.Engine/DialogHandler/#E2E_Engine_Dia
 
 **Returns:** [Task&lt;Func&lt;Task&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L301)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L333)
 
 <a id="E2E_Browser_OnDialogAsync_System_Func_E2E_Engine_Dialog_System_Threading_Tasks_Task__System_Threading_CancellationToken_"></a>
 
@@ -373,7 +435,7 @@ Registers a handler that runs &lt;code class="paramref"&gt;handler&lt;/code&gt; 
 
 **Returns:** [Task&lt;Func&lt;Task&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L315)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L347)
 
 <a id="E2E_Browser_ReloadAsync_"></a>
 <a id="E2E_Browser_ReloadAsync_System_Threading_CancellationToken_"></a>
@@ -426,7 +488,7 @@ request is aborted.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L180)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L212)
 
 <a id="E2E_Browser_RouteAsync_System_Text_RegularExpressions_Regex_System_Func_E2E_WebRoute_System_Threading_Tasks_Task__System_Threading_CancellationToken_"></a>
 
@@ -450,7 +512,7 @@ Adds a network route for the URLs &lt;code class="paramref"&gt;pattern&lt;/code&
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L187)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L219)
 
 <a id="E2E_Browser_SetCookiesAsync_"></a>
 <a id="E2E_Browser_SetCookiesAsync_System_Collections_Generic_IReadOnlyList_E2E_Engine_BrowserCookie__System_Threading_CancellationToken_"></a>
@@ -476,7 +538,7 @@ is `POLICY_DENIED`.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L241)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L273)
 
 <a id="E2E_Browser_SetViewportAsync_"></a>
 <a id="E2E_Browser_SetViewportAsync_System_Int32_System_Int32_System_Threading_CancellationToken_"></a>
@@ -501,7 +563,7 @@ Sets the viewport size for the rest of the attempt.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L271)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L303)
 
 <a id="E2E_Browser_TitleAsync_"></a>
 <a id="E2E_Browser_TitleAsync_System_Threading_CancellationToken_"></a>
@@ -547,7 +609,7 @@ Removes every route added through this browser. The configured site headers stay
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L208)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L240)
 
 <a id="E2E_Browser_UnrouteAsync_"></a>
 <a id="E2E_Browser_UnrouteAsync_System_String_System_Threading_CancellationToken_"></a>
@@ -571,7 +633,7 @@ Removes every route added with the same glob.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L194)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L226)
 
 <a id="E2E_Browser_UnrouteAsync_System_Text_RegularExpressions_Regex_System_Threading_CancellationToken_"></a>
 
@@ -594,7 +656,7 @@ Removes every route added with a regex of the same source and options.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L201)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L233)
 
 <a id="E2E_Browser_UrlAsync_"></a>
 <a id="E2E_Browser_UrlAsync_System_Threading_CancellationToken_"></a>
@@ -645,7 +707,7 @@ how long the trigger took.
 
 **Returns:** [Task&lt;BrowserDownload&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L327)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L359)
 
 <a id="E2E_Browser_WaitForResponseAsync_"></a>
 <a id="E2E_Browser_WaitForResponseAsync_System_String_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -673,7 +735,7 @@ the match only, and defaults to the action timeout.
 
 **Returns:** [Task&lt;WebResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L159)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L191)
 
 <a id="E2E_Browser_WaitForResponseAsync_System_Text_RegularExpressions_Regex_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -697,7 +759,7 @@ Waits for a response whose URL matches &lt;code class="paramref"&gt;pattern&lt;/
 
 **Returns:** [Task&lt;WebResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L166)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L198)
 
 <a id="E2E_Browser_WaitForURLAsync_"></a>
 <a id="E2E_Browser_WaitForURLAsync_System_String_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>

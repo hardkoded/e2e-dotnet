@@ -1077,6 +1077,11 @@ internal static class PageScript
         (el) => el[Symbol.for("e2e.observation.ref")] ?? null
         """;
 
+    // Whether an element is a frame, the only element a frame locator can enter.
+    public const string IsFrameElement = """
+        (el) => el.tagName === "IFRAME" || el.tagName === "FRAME"
+        """;
+
     // Where an iframe element's content box, the box its document's viewport
     // fills, sits inside its border box: past the border and the padding.
     public const string FrameInset = """

@@ -281,7 +281,9 @@ public sealed class E2ESession : IAsyncDisposable
                 softFailures,
                 locate: engine.CanLocate ? engine.LocateAsync : null,
                 swipe: engine.SwipeAsync);
-            (engine as IEngineFixtureHost)?.CreateFixtures(new EngineFixtureContext(screen));
+            var fixtureContext = new EngineFixtureContext(screen);
+            browser.Context = fixtureContext;
+            (engine as IEngineFixtureHost)?.CreateFixtures(fixtureContext);
             screen.Steps = scope.Steps;
             screen.Exposure = scope.Exposure;
             screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });

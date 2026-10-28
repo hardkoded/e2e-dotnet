@@ -8,4 +8,4 @@ npm install
 npm run dev
 ```
 
-The site is served at http://localhost:4321/e2e-dotnet/ . See [`docs-site/README.md`](../docs-site/README.md) for the API reference generator and the GitHub Pages workflow.
+The site is served at http://localhost:4321/e2e-dotnet/ . See [`docs-site/README.md`](../docs-site/README.md) for the API reference generator and publishing. The live site is https://www.hardkoded.com/e2e-dotnet/. GitHub Pages is retired.

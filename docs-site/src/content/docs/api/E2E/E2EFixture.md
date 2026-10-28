@@ -645,7 +645,7 @@ Does nothing when setup never started a session.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L233)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L243)
 
 <a id="E2E_E2EFixture_CreateAgents_"></a>
 <a id="E2E_E2EFixture_CreateAgents"></a>
@@ -763,4 +763,4 @@ Hands the running session to the adapter to complete and dispose, or null when s
 
 **Returns:** [E2ESession](/api/E2E/E2ESession/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L236)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L246)

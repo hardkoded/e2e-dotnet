@@ -73,10 +73,10 @@ npm run api
 
 That needs the .NET 10 SDK. It runs DocFX metadata, then writes Markdown into `docs-site/src/content/docs/api/`.
 
-GitHub Pages publishes the site from `main` only (`.github/workflows/docs.yml`). A pull request builds the site and does not deploy. Merging to `main` is what replaces the live site.
+`.github/workflows/docs.yml` builds and checks the site on pull requests and on pushes to `main`. It does not deploy. GitHub Pages is retired. Vercel hosts https://www.hardkoded.com/e2e-dotnet/ and publishes it on push to `main`.
 
 ## Release
 
 Push a version tag such as `v0.1.0` (previews use `v0.1.0-preview.1`). `.github/workflows/publish.yml` tests, packs `E2E`, `E2E.NUnit`, `E2E.XUnit.V3`, `E2E.Cli`, `E2E.Mobile`, `E2E.Mobile.DevFlow`, `E2E.Limrun`, `E2E.Eas`, `E2E.TestMu`, and `E2E.Kernel`, and pushes them to nuget.org with trusted publishing. The policy is repository owner `hardkoded`, repository `e2e-dotnet`, workflow file `publish.yml`. The workflow has to be on the default branch before the tag is pushed.
 
-Docs are not published by the tag. They publish when the docs workflow runs on `main`. See [Documentation](#documentation).
+Docs are not published by the tag. Vercel publishes them on push to `main`. See [Documentation](#documentation).

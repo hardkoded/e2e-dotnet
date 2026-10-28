@@ -8,7 +8,7 @@ namespace E2E.XUnit.V3.Sample;
 
 /// <summary>
 /// The tests of <c>samples/E2E.Sample</c>, written for xUnit v3. They run against the live
-/// Dariten demo at https://dariten.vercel.app. The demo data is shared and anyone can edit it,
+/// Dariten demo at https://dariten.vercel.app. Each browser keeps its own sample household,
 /// so the tests only read and check the app's structure, never specific balances or transactions.
 /// </summary>
 public sealed class DaritenTests : E2ETest
@@ -18,7 +18,7 @@ public sealed class DaritenTests : E2ETest
     {
         await App.OpenAsync("/");
         await Expect.That(Screen.GetByRole("heading", "Dashboard")).ToBeVisibleAsync();
-        await Expect.That(Screen.GetByTestId("demo-banner")).ToContainTextAsync("Shared demo");
+        await Expect.That(Screen.GetByTestId("demo-banner")).ToContainTextAsync("Local demo");
         await Expect.That(Screen.GetByText("Net worth")).ToBeVisibleAsync();
 
         await Screen.GetByRole("link", "Transactions").ClickAsync();

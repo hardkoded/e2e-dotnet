@@ -480,6 +480,62 @@ public sealed class ModelProviderTests
     }
 
     [Fact]
+    public async Task Bedrock_model_signs_each_retry_attempt_again()
+    {
+        // .NET-only: upstream signs inside the AI SDK's fetch, so each attempt carries its own date.
+        var clock = new SteppingClock(new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero));
+        var handler = new ResigningHandler(clock);
+        using var http = new HttpClient(handler);
+        using var model = new BedrockModel(
+            new BedrockModelOptions
+            {
+                Model = "amazon.nova-pro-v1:0",
+                Region = "us-west-2",
+                ApiKeyEnv = "E2E_TEST_UNSET_BEDROCK_KEY",
+                Credentials = new AwsCredentials("AKIDEXAMPLE", "secret"),
+            },
+            http)
+        { Clock = clock };
+
+        await model.CompleteAsync(Conversation(), CancellationToken.None);
+
+        Assert.Equal(["20260102T030405Z", "20260102T031005Z"], handler.Dates);
+        Assert.Equal(2, handler.Authorizations.Distinct(StringComparer.Ordinal).Count());
+    }
+
+    private sealed class SteppingClock(DateTimeOffset start) : TimeProvider
+    {
+        private DateTimeOffset _now = start;
+
+        public void Advance(TimeSpan by) => _now += by;
+
+        public override DateTimeOffset GetUtcNow() => _now;
+    }
+
+    private sealed class ResigningHandler(SteppingClock clock) : HttpMessageHandler
+    {
+        public List<string> Dates { get; } = [];
+
+        public List<string> Authorizations { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Dates.Add(request.Headers.GetValues("x-amz-date").Single());
+            Authorizations.Add(request.Headers.GetValues("Authorization").Single());
+            if (Dates.Count > 1)
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("""{ "output": { "message": { "content": [{ "text": "ok" }] } } }""", Encoding.UTF8, "application/json") });
+            }
+
+            // The wait before the retry outlasts AWS's five minutes.
+            clock.Advance(TimeSpan.FromMinutes(6));
+            var throttled = new HttpResponseMessage(HttpStatusCode.TooManyRequests) { Content = new StringContent("slow down") };
+            throttled.Headers.TryAddWithoutValidation("retry-after-ms", "0");
+            return Task.FromResult(throttled);
+        }
+    }
+
+    [Fact]
     public void SigV4_matches_the_aws_documentation_example()
     {
         // The IAM ListUsers example from the AWS Signature Version 4 documentation.

@@ -93,6 +93,8 @@ public sealed class SoftBrowserExpect
     public Task ToHaveURLAsync(Regex expected, bool? ignoreCase = null, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => _failures.KeepAsync(_expect.ToHaveURLAsync(expected, ignoreCase, timeout, cancellationToken));
 
     public Task ToHaveTitleAsync(TextMatch expected, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => _failures.KeepAsync(_expect.ToHaveTitleAsync(expected, timeout, cancellationToken));
+
+    public Task ToHaveClassAsync(Locator target, TextMatch expected, TimeSpan? timeout = null, CancellationToken cancellationToken = default) => _failures.KeepAsync(_expect.ToHaveClassAsync(target, expected, timeout, cancellationToken));
 }
 
 /// <summary>
