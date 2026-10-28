@@ -503,6 +503,75 @@ public sealed class ModelProviderTests
         Assert.Equal(2, handler.Authorizations.Distinct(StringComparer.Ordinal).Count());
     }
 
+    [Fact]
+    public async Task Bedrock_model_signs_with_the_aws_credential_chain_when_no_static_credentials_are_set()
+    {
+        // .NET-only: upstream's AI SDK resolves the AWS credential chain itself; the port uses the AWS SDK for .NET's chain.
+        var accessKey = System.Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID");
+        var secretKey = System.Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY");
+        var handler = new RecordingHandler("""{ "output": { "message": { "content": [{ "text": "ok" }] } } }""");
+        using var http = new HttpClient(handler);
+        using var model = new BedrockModel(
+            new BedrockModelOptions
+            {
+                Model = "amazon.nova-pro-v1:0",
+                Region = "us-west-2",
+                ApiKeyEnv = "E2E_TEST_UNSET_BEDROCK_KEY",
+                CredentialChain = () => new Amazon.Runtime.SessionAWSCredentials("AKIDCHAIN", "chain-secret", "chain-token"),
+            },
+            http);
+
+        try
+        {
+            System.Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", null);
+            System.Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", null);
+            await model.CompleteAsync(Conversation(), CancellationToken.None);
+        }
+        finally
+        {
+            System.Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", accessKey);
+            System.Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", secretKey);
+        }
+
+        var sent = handler.Requests.Single();
+        Assert.StartsWith("AWS4-HMAC-SHA256 Credential=AKIDCHAIN/", sent.Headers["Authorization"], StringComparison.Ordinal);
+        Assert.Equal("chain-token", sent.Headers["x-amz-security-token"]);
+    }
+
+    [Fact]
+    public async Task Bedrock_model_without_any_aws_credentials_ends_the_step_without_leaking_secrets()
+    {
+        // .NET-only: the chain finds nothing, so the error names the ways to sign in.
+        using var http = new HttpClient(new RecordingHandler("{}"));
+        using var model = new BedrockModel(
+            new BedrockModelOptions
+            {
+                Model = "amazon.nova-pro-v1:0",
+                Region = "us-west-2",
+                ApiKeyEnv = "E2E_TEST_UNSET_BEDROCK_KEY",
+                CredentialChain = () => throw new InvalidOperationException("no credentials"),
+            },
+            http);
+
+        var accessKey = System.Environment.GetEnvironmentVariable("AWS_ACCESS_KEY_ID");
+        var secretKey = System.Environment.GetEnvironmentVariable("AWS_SECRET_ACCESS_KEY");
+        AgentException error;
+        try
+        {
+            System.Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", null);
+            System.Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", null);
+            error = await Assert.ThrowsAsync<AgentException>(() => model.CompleteAsync(Conversation(), CancellationToken.None));
+        }
+        finally
+        {
+            System.Environment.SetEnvironmentVariable("AWS_ACCESS_KEY_ID", accessKey);
+            System.Environment.SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", secretKey);
+        }
+
+        Assert.Equal("MODEL_PROVIDER_FAILED", error.Code);
+        Assert.Contains("AWS profile or SSO", error.Message, StringComparison.Ordinal);
+    }
+
     private sealed class SteppingClock(DateTimeOffset start) : TimeProvider
     {
         private DateTimeOffset _now = start;
