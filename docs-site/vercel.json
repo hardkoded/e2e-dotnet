@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/e2e-dotnet", "destination": "/" },
+    { "source": "/e2e-dotnet/", "destination": "/" },
+    { "source": "/e2e-dotnet/:path*/", "destination": "/:path*/" },
+    { "source": "/e2e-dotnet/:path*", "destination": "/:path*" }
+  ]
+}

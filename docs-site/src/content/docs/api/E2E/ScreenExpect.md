@@ -23,7 +23,7 @@ Matchers on the whole screen: `String)`.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L602)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L608)
 
 ## Properties
 
@@ -42,7 +42,7 @@ Inverts the matcher: waits for the screen to differ from its stored screenshot.
 
 **Value:** [ScreenExpect](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L614)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L620)
 
 ## Methods
 
@@ -70,7 +70,7 @@ written and fails the call, or, with `E2E_UPDATE_SNAPSHOTS=1`, written and passe
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L625)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L634)
 
 <a id="E2E_ScreenExpect_ToHaveScreenshotAsync_System_String_E2E_ScreenshotOptions_System_String_"></a>
 
@@ -96,4 +96,4 @@ written and fails the call, or, with `E2E_UPDATE_SNAPSHOTS=1`, written and passe
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L621)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L627)

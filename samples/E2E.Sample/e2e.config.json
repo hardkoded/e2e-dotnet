@@ -6,7 +6,7 @@
     "default": {
       "model": "claude-sonnet-5.5",
       "provider": "copilot",
-      "context": "Dariten is a shared personal finance demo called Quicken Demo. Every visitor edits the same household, so never add, edit, or delete data."
+      "context": "Dariten is a local personal finance demo called Quicken Demo. This browser keeps its own sample household. Do not enter real bank data, and never add, edit, or delete data."
     }
   },
   "cache": { "dir": ".e2e/cache" }

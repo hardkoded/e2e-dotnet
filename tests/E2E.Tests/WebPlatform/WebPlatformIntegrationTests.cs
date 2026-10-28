@@ -11,19 +11,22 @@ namespace E2E.Tests.WebPlatform;
 [Collection(BrowserCollection.Name)]
 public sealed class WebPlatformIntegrationTests
 {
-    // Partial: upstream "passes" also checks the class assertions, frameLocator, downloads, route, dialogs, CSS locators, and report.json.
-    // Not ported, the port has no such feature: frameLocator, CSS locators (browser.locator), toHaveClass, click modifiers and
-    // secondaryTap, harness step records, and report.json. The downloads scenario is ported in part, below, as
-    // Partial_downloads_are_captured_as_artifacts (it triggers the link with a role tap, not browser.locator('a[download]')). That leaves out
-    // the class assertions "class assertions poll for a node that arrives late" and "class assertions on a node that never
-    // arrives fail as assertions", and the browser.locator('#late-card') read of "reads wait for a node that arrives late",
-    // which is ported as a partial test (text read only).
+    // Partial: upstream "passes" also checks the clicks that hold modifiers, and report.json. Not ported, the port has no such feature: click
+    // modifiers and secondaryTap on a locator, and report.json. The upstream tests that read the harness's step records are ported
+    // below over the session's steps.
     [Theory]
     [InlineData("deterministic queries and reads")]
     [InlineData("a textarea value compares raw")]
     [InlineData("toHaveAttribute reads the value attribute of plain fields")]
     [InlineData("a viewport set before the first navigation holds through app.open")]
-    [InlineData("reads wait for a node that arrives late (partial: the text read only)")]
+    [InlineData("reads wait for a node that arrives late")]
+    [InlineData("class assertions report the observed class on failure")]
+    [InlineData("class assertions poll for a node that arrives late")]
+    [InlineData("an empty class attribute is an empty class list")]
+    [InlineData("reads under an absent frame answer with no match")]
+    [InlineData("a nested absent frame counts as zero matches at once")]
+    [InlineData("absence matchers and waits under an absent frame pass at once")]
+    [InlineData("a *css= capture is refused before the last selector part")]
     [InlineData("toHaveURL ignoreCase folds the comparison")]
     [InlineData("string and RegExp URL patterns match what they name")]
     [InlineData("routes are attempt-scoped: registered before the first page, kept across restart and clearState")]
@@ -33,14 +36,13 @@ public sealed class WebPlatformIntegrationTests
         Assert.Null(await RunAsync(Scenarios[title]));
     }
 
-    // Upstream triggers the download with browser.locator('a[download]').tap(); the port has no CSS locator, so a role tap does.
     [Fact]
-    public async Task Partial_downloads_are_captured_as_artifacts()
+    public async Task Downloads_are_captured_as_artifacts()
     {
         Assert.Null(await RunAsync(async session =>
         {
             await session.App.OpenAsync("/downloads");
-            var download = await session.Browser.WaitForDownloadAsync(() => session.Screen.GetByRole("link", "Download report").TapAsync());
+            var download = await session.Browser.WaitForDownloadAsync(() => session.Browser.Locator("a[download]").TapAsync());
             Assert.Equal("report.csv", download.SuggestedFilename);
             Assert.StartsWith("downloads/", download.Path, StringComparison.Ordinal);
             Assert.Equal("id,total\n1,42\n", await File.ReadAllTextAsync(download.AbsolutePath));
@@ -67,9 +69,8 @@ public sealed class WebPlatformIntegrationTests
         Assert.True(int.Parse(timing.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture) >= 190, error.Message);
     }
 
-    // Upstream triggers the download with browser.locator('a[download]').tap(); the port has no CSS locator, so a role tap does.
     [Fact]
-    public async Task Partial_attributes_a_download_to_the_fixture_step_that_produced_it_not_the_nested_tap()
+    public async Task Attributes_a_download_to_the_fixture_step_that_produced_it_not_the_nested_tap()
     {
         var results = Directory.CreateTempSubdirectory("e2e-download-report-").FullName;
         try
@@ -89,7 +90,7 @@ public sealed class WebPlatformIntegrationTests
                 Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
             });
             await session.App.OpenAsync("/downloads");
-            await session.Browser.WaitForDownloadAsync(() => session.Screen.GetByRole("link", "Download report").TapAsync());
+            await session.Browser.WaitForDownloadAsync(() => session.Browser.Locator("a[download]").TapAsync());
             session.Complete();
             await session.DisposeAsync();
 
@@ -122,6 +123,80 @@ public sealed class WebPlatformIntegrationTests
         Assert.Equal("NOT_FOUND", error.Code);
         Assert.Contains("Never card", error.Message, StringComparison.Ordinal);
         Assert.True(watch.Elapsed >= TimeSpan.FromSeconds(5), "failed after " + watch.Elapsed);
+    }
+
+    [Fact]
+    public async Task Decides_absence_under_an_absent_frame_without_waiting_out_the_deadline()
+    {
+        var (error, steps) = await RunWithStepsAsync(Scenarios["absence matchers and waits under an absent frame pass at once"]);
+        Assert.Null(error);
+        var decided = steps.Where(step => step.Api.StartsWith("expect.", StringComparison.Ordinal) || step.Api == "locator.waitFor").ToList();
+        Assert.Equal(5, decided.Count);
+        foreach (var step in decided)
+        {
+            Assert.True(step.DurationMs < 3000, step.Api + " took " + step.DurationMs + "ms");
+        }
+    }
+
+    [Fact]
+    public async Task Fails_an_action_under_an_absent_frame_with_LOCATOR_NOT_FOUND_once_its_timeout_has_run()
+    {
+        var (error, steps) = await RunWithStepsAsync(async session =>
+        {
+            await session.App.OpenAsync("/frame");
+            await session.Browser.FrameLocator("#absent").GetByRole("button").TapAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(800) });
+        });
+        Assert.Equal("NOT_FOUND", Assert.IsType<TestException>(error).Code);
+        var tap = steps.First(step => step.Api == "locator.tap");
+        Assert.Equal(StepStatus.Failed, tap.Status);
+        Assert.True(tap.DurationMs >= 800, "the tap failed after " + tap.DurationMs + "ms");
+    }
+
+    [Fact]
+    public async Task Keeps_a_class_assertion_polling_while_the_node_is_missing_and_passes_once_it_arrives()
+    {
+        var (error, steps) = await RunWithStepsAsync(Scenarios["class assertions poll for a node that arrives late"]);
+        Assert.Null(error);
+        Assert.True(steps.First(step => step.Api == "expect.toHaveClass").DurationMs > 500);
+    }
+
+    [Fact]
+    public async Task Fails_a_class_assertion_on_an_ambiguous_locator_with_LOCATOR_AMBIGUOUS_before_the_deadline()
+    {
+        var (error, steps) = await RunWithStepsAsync(async session =>
+        {
+            await session.App.OpenAsync("/classes");
+            await Expect.That(session.Browser).ToHaveClassAsync(session.Browser.Locator(".dup"), "dup", TimeSpan.FromMilliseconds(1800));
+        });
+        Assert.Equal("STRICT_MODE", Assert.IsType<TestException>(error).Code);
+        Assert.True(steps.First(step => step.Api == "expect.toHaveClass").DurationMs < 1800);
+    }
+
+    [Fact]
+    public async Task Fails_a_class_assertion_on_a_node_that_never_arrives_as_ASSERTION_FAILED_observing_no_node()
+    {
+        var (error, steps) = await RunWithStepsAsync(async session =>
+        {
+            await session.App.OpenAsync("/classes");
+            await Expect.That(session.Browser).ToHaveClassAsync(session.Browser.Locator("#never-card"), "card", TimeSpan.FromMilliseconds(300));
+        });
+        var failure = Assert.IsType<TestException>(error);
+        Assert.Equal("ASSERTION_FAILED", failure.Code);
+        Assert.Contains("observed: no node", failure.Message, StringComparison.Ordinal);
+        Assert.True(steps.First(step => step.Api == "expect.toHaveClass").DurationMs < 3000);
+    }
+
+    [Fact]
+    public async Task Matches_an_empty_class_string_against_no_class_attribute_only_when_one_is_present()
+    {
+        var error = await RunAsync(async session =>
+        {
+            await session.App.OpenAsync("/classes");
+            await Expect.That(session.Browser).ToHaveClassAsync(session.Screen.GetByTestId("items"), "", TimeSpan.FromMilliseconds(300));
+        });
+        var missing = Assert.IsType<TestException>(error);
+        Assert.Equal("ASSERTION_FAILED", missing.Code);
+        Assert.Contains("observed: no class attribute", missing.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -247,10 +322,69 @@ public sealed class WebPlatformIntegrationTests
     // The upstream kitchen-sink tests these assertions read, by title.
     private static readonly Dictionary<string, Func<E2ESession, Task>> Scenarios = new()
     {
-        ["reads wait for a node that arrives late (partial: the text read only)"] = async session =>
+        ["reads wait for a node that arrives late"] = async session =>
         {
             await session.App.OpenAsync("/classes");
+            Assert.Equal("card late", await session.Browser.Locator("#late-card").GetAttributeAsync("class"));
             Assert.Equal("Late card", await session.Screen.GetByText("Late card").TextContentAsync());
+        },
+        ["class assertions report the observed class on failure"] = async session =>
+        {
+            await session.App.OpenAsync();
+            var failure = await Assert.ThrowsAsync<TestException>(() => Expect.That(session.Browser).ToHaveClassAsync(session.Browser.Locator("#class-card"), "card inactive", TimeSpan.FromMilliseconds(300)));
+            Assert.Contains("class \"card active\"", failure.Message, StringComparison.Ordinal);
+        },
+        ["class assertions poll for a node that arrives late"] = async session =>
+        {
+            await session.App.OpenAsync("/classes");
+            await Expect.That(session.Browser).ToHaveClassAsync(session.Browser.Locator("#late-card"), "card late", TimeSpan.FromMilliseconds(1800));
+        },
+        ["an empty class attribute is an empty class list"] = async session =>
+        {
+            await session.App.OpenAsync("/classes");
+            await Expect.That(session.Browser).ToHaveClassAsync(session.Browser.Locator("#blank-card"), "");
+        },
+        ["reads under an absent frame answer with no match"] = async session =>
+        {
+            await session.App.OpenAsync("/frame");
+            var absent = session.Browser.FrameLocator("#absent").GetByRole("button");
+            Assert.Equal(0, await absent.CountAsync());
+            Assert.Empty(await absent.AllAsync());
+            Assert.Empty(await absent.AllTextContentsAsync());
+            Assert.False(await absent.IsVisibleAsync());
+            Assert.True(await absent.IsHiddenAsync());
+        },
+        ["a nested absent frame counts as zero matches at once"] = async session =>
+        {
+            await session.App.OpenAsync("/frame-nested");
+            Assert.Equal(0, await session.Browser.FrameLocator("#outer").FrameLocator("#absent").GetByRole("button").CountAsync());
+        },
+        ["absence matchers and waits under an absent frame pass at once"] = async session =>
+        {
+            await session.App.OpenAsync("/frame");
+            var absent = session.Browser.FrameLocator("#absent").GetByRole("button");
+            var wait = TimeSpan.FromSeconds(3);
+            await Expect.That(absent).ToBeAttachedAsync(attached: false, timeout: wait);
+            await Expect.That(absent).ToBeVisibleAsync(visible: false, timeout: wait);
+            await Expect.That(absent).ToBeHiddenAsync(timeout: wait);
+            await absent.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Detached, Timeout = wait });
+            await absent.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden, Timeout = wait });
+        },
+        ["a *css= capture is refused before the last selector part"] = async session =>
+        {
+            await session.App.OpenAsync();
+            await Expect.That(session.Browser.Locator("css=ul[data-testid=\"items\"] >> *css=li")).ToHaveCountAsync(3);
+            var capture = "no error";
+            try
+            {
+                await session.Browser.Locator("*css=ul[data-testid=\"items\"] >> li").CountAsync();
+            }
+            catch (Exception ex)
+            {
+                capture = ex.Message;
+            }
+
+            Assert.Contains("a selector that captures with * (*css=article >> text=Hello) is not supported", capture, StringComparison.Ordinal);
         },
         ["toHaveURL ignoreCase folds the comparison"] = async session =>
         {
@@ -329,9 +463,11 @@ public sealed class WebPlatformIntegrationTests
             await Expect.That(screen.GetByTestId("item")).Not.ToContainTextAsync(["Gamma", "Alpha"], timeout: TimeSpan.FromMilliseconds(200));
             await Expect.That(screen.GetByTestId("item")).Not.ToHaveTextAsync(["Item Alpha", "Item Beta"], timeout: TimeSpan.FromMilliseconds(200));
 
-            // The browser.locator('#class-card') and '#fixture-image' reads are not ported: the port has no CSS locator.
             Assert.Null(await screen.GetByTestId("items").GetAttributeAsync("class"));
+            Assert.Equal("card active", await session.Browser.Locator("#class-card").GetAttributeAsync("class"));
             Assert.Equal(string.Empty, await screen.GetByLabel("Readonly").GetAttributeAsync("readonly"));
+            Assert.Equal("/fixture.png", await session.Browser.Locator("#fixture-image").GetAttributeAsync("src"));
+            Assert.Equal("own", await session.Browser.Locator("#class-card").GetAttributeAsync("constructor"));
             Assert.Null(await screen.GetByTestId("items").GetAttributeAsync("constructor"));
             Assert.Null(await screen.GetByTestId("items").GetAttributeAsync("toString"));
             Assert.Null(await screen.GetByTestId("items").GetAttributeAsync("__proto__"));
@@ -427,7 +563,10 @@ public sealed class WebPlatformIntegrationTests
     };
 
     // Runs one upstream test body in its own session and returns what failed it, as the upstream run's result does.
-    private static async Task<Exception?> RunAsync(Func<E2ESession, Task> body)
+    private static async Task<Exception?> RunAsync(Func<E2ESession, Task> body) => (await RunWithStepsAsync(body)).Error;
+
+    // RunAsync, with the steps the attempt recorded, as the upstream run's result keeps them.
+    private static async Task<(Exception? Error, IReadOnlyList<StepRecord> Steps)> RunWithStepsAsync(Func<E2ESession, Task> body)
     {
         using var site = await FixtureApp.StartAsync();
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions
@@ -451,6 +590,6 @@ public sealed class WebPlatformIntegrationTests
         }
 
         session.Complete(error);
-        return error;
+        return (error, session.Steps.ToList());
     }
 }

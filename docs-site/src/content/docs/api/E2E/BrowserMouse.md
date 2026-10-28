@@ -24,7 +24,7 @@ within the action timeout fails with `ACTION_MAY_HAVE_COMMITTED`: the input may 
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L615)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L647)
 
 ## Methods
 
@@ -49,7 +49,7 @@ Presses the primary button.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L631)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L663)
 
 <a id="E2E_BrowserMouse_MoveAsync_"></a>
 <a id="E2E_BrowserMouse_MoveAsync_System_Single_System_Single_System_Threading_CancellationToken_"></a>
@@ -72,7 +72,7 @@ public Task MoveAsync(float x, float y, CancellationToken cancellationToken = de
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L624)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L656)
 
 <a id="E2E_BrowserMouse_UpAsync_"></a>
 <a id="E2E_BrowserMouse_UpAsync_System_Threading_CancellationToken_"></a>
@@ -95,7 +95,7 @@ Releases the primary button.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L635)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L667)
 
 <a id="E2E_BrowserMouse_WheelAsync_"></a>
 <a id="E2E_BrowserMouse_WheelAsync_System_Single_System_Single_System_Threading_CancellationToken_"></a>
@@ -118,4 +118,4 @@ public Task WheelAsync(float deltaX, float deltaY, CancellationToken cancellatio
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L627)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L659)

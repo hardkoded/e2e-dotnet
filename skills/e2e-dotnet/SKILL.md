@@ -25,7 +25,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | --- | --- | --- |
 | Adding e2e to a project, writing `e2e.config.json`, signing in to a model, picking a model provider, browser options | `setup` | [references/setup.md](references/setup.md) |
 | Looking at the running app, checking a UI change, taking a screenshot, or trying a locator before writing it, over `e2e mcp` | `mcp` | [references/mcp.md](references/mcp.md) |
-| Writing or fixing a test: fixture members, locators, actions, matchers, sign-in, the `Browser` member (navigation, routes, cookies, native dialogs, downloads) | `writing-tests` | [references/writing-tests.md](references/writing-tests.md) |
+| Writing or fixing a test: fixture members, locators, actions, matchers, sign-in, the `Browser` member (navigation, routes, cookies, native dialogs, downloads, CSS locators, iframes) | `writing-tests` | [references/writing-tests.md](references/writing-tests.md) |
 | Writing a test with NUnit: the `E2E.NUnit` base class, `[Test]`, `[Category("RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-nunit` | [references/writing-tests-nunit.md](references/writing-tests-nunit.md) |
 | Writing a test with xUnit v3: the `E2E.XUnit.V3` base class, `[Fact]`, `[Trait("TestCategory", "RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-xunit` | [references/writing-tests-xunit.md](references/writing-tests-xunit.md) |
 | Adding `Agent` steps, picking a model, budgets, the replay cache, custom executors | `agent` | [references/agent.md](references/agent.md) |
@@ -241,7 +241,10 @@ lines you changed:
 - Check each act's outcome. Only a verified act is recorded and replayed
   (topic `agent`).
 - Shape the agent for this app: `context` for the vocabulary the screens
-  use, `system` for how it works, named agents under `agents`. A different brain
+  use, `system` for how it works, named agents under `agents`. A screen over
+  the agent's `maxObservationBytes` (default 262144) is cut with an
+  `[observation truncated ...]` marker, and a request over `maxInputTokens`
+  (default 64000) fails before the model call (topic `agent`). A different brain
   is an executor: your own tools in a `ToolLoop`, or an `IStepExecutor` (topic
   `agent`). Every built-in prompt of a test opens with the test's title
   (`Test: <name>`), judges included (a custom executor reads `context.Attempt.TitlePath`), so name a test for what it covers, not

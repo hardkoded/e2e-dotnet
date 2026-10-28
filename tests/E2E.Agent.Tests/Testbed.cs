@@ -649,6 +649,26 @@ internal static class Testbed
             <h1>Downloads</h1>
                    <a href="/files/report.csv" download>Download report</a>
             """),
+
+        // An iframe with an editor in it, and that editor's own page. Both are unlisted in the nav, as the pages above.
+        ["/frames"] = ("Frames", """
+            <h1>Frames</h1>
+                   <iframe id="editor" src="/frames/child" title="editor"></iframe>
+            """),
+
+        ["/frames/child"] = ("Editor frame", """
+            <h2>Embedded editor</h2>
+                   <label for="note">Note</label>
+                   <input id="note" />
+                   <button id="save-note">Save note</button>
+                   <output role="status" aria-label="Note state">empty</output>
+                   <script>
+                     document.getElementById('save-note').addEventListener('click', () => {
+                       document.querySelector('output').textContent =
+                         'saved: ' + document.getElementById('note').value;
+                     });
+                   </script>
+            """),
     };
 
     private static readonly Lazy<string> Server = new(Start, LazyThreadSafetyMode.ExecutionAndPublication);

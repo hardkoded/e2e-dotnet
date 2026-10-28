@@ -13,7 +13,7 @@ namespace E2E;
 /// assertion fails when the query matches more than one node. Narrow it with
 /// <see cref="Locator.Filter(TextMatch)"/>, <see cref="Locator.First"/>, <see cref="Locator.Last"/>, or <see cref="Locator.Nth"/>.
 /// </summary>
-public sealed class Screen
+public class Screen
 {
     private readonly Func<CancellationToken, Task<Observation>> _observe;
     private readonly Func<SemanticNode, LocatorAction, CancellationToken, Task> _perform;
@@ -21,6 +21,15 @@ public sealed class Screen
     private readonly Func<CancellationToken> _cancellation;
     private readonly Action _verified;
     private readonly Func<ScrollDirection, Momentum?, CancellationToken, Task>? _swipe;
+    private readonly Screen? _scopeOf;
+    private readonly Func<LocatorExpression, LocatorExpression>? _wrap;
+    private ScreenshotContext? _screenshots;
+    private Exposure _exposure = new();
+    private Action<Secret>? _rememberSecret;
+    private Func<string, string> _redact = static text => text;
+    private Func<Observation, string>? _renderTree;
+    private StepRecorder? _steps;
+    private Action _failed = static () => { };
 
     internal Screen(
         Func<CancellationToken, Task<Observation>> observe,
@@ -46,6 +55,35 @@ public sealed class Screen
         Clock = clock ?? TimeProvider.System;
     }
 
+    /// <summary>
+    /// A scope of <paramref name="screen"/> whose every query expression goes through <paramref name="wrap"/> first (upstream's
+    /// <c>createScopedScreen</c>): the screen of a frame. It shares the attempt's state with <paramref name="screen"/>.
+    /// </summary>
+    internal Screen(Screen screen, Func<LocatorExpression, LocatorExpression> wrap)
+    {
+        var root = screen.Root;
+        _scopeOf = root;
+        _wrap = wrap;
+        _observe = root._observe;
+        _perform = root._perform;
+        _locate = root._locate;
+        _cancellation = root._cancellation;
+        _verified = root._verified;
+        _swipe = root._swipe;
+        SoftFailures = root.SoftFailures;
+        ActionTimeout = root.ActionTimeout;
+        AssertionTimeout = root.AssertionTimeout;
+        Clock = root.Clock;
+    }
+
+    /// <summary>The screen this one scopes, or this screen when it is not a scope: the one an attempt's state lives on.</summary>
+    internal Screen Root => _scopeOf ?? this;
+
+    /// <summary>Whether this screen is a scope of part of the screen, such as a frame (upstream's <c>scoped</c>).</summary>
+    internal bool IsScoped => _wrap is not null;
+
+    private LocatorExpression Scoped(LocatorExpression expression) => _wrap is null ? expression : _wrap(expression);
+
     internal TimeSpan ActionTimeout { get; }
 
     internal TimeSpan AssertionTimeout { get; }
@@ -57,10 +95,10 @@ public sealed class Screen
     internal TimeSpan PollInterval { get; } = TimeSpan.FromMilliseconds(50);
 
     /// <summary>Where <c>ToHaveScreenshotAsync</c> keeps screenshots; null for a screen outside a session.</summary>
-    internal ScreenshotContext? Screenshots { get; set; }
+    internal ScreenshotContext? Screenshots { get => Root._screenshots; set => Root._screenshots = value; }
 
     /// <summary>How far a secret reached this attempt: a fill lets the app show it outside a secure field, so pixels are withheld. A session shares it with the attempt's agent.</summary>
-    internal Exposure Exposure { get; set; } = new();
+    internal Exposure Exposure { get => Root._exposure; set => Root._exposure = value; }
 
     internal void MarkSecretFilled(Secret secret)
     {
@@ -69,22 +107,22 @@ public sealed class Screen
     }
 
     /// <summary>Makes the attempt know a secret filled through this screen, so every message it redacts covers it.</summary>
-    internal Action<Secret>? RememberSecret { get; set; }
+    internal Action<Secret>? RememberSecret { get => Root._rememberSecret; set => Root._rememberSecret = value; }
 
     /// <summary>Replaces the secrets the attempt knows in text a failure quotes from the screen; the text as it is for a screen outside a session.</summary>
-    internal Func<string, string> Redact { get; set; } = static text => text;
+    internal Func<string, string> Redact { get => Root._redact; set => Root._redact = value; }
 
     /// <summary>Creates a lazy role query. <c>img</c> is read as <c>image</c>. A role query never matches a hidden node.</summary>
     public Locator GetByRole(string role, TextMatch? name = null, bool exact = true)
     {
-        return new Locator(this, LocatorExpression.ForRole(role, name, new RoleOptions { Exact = exact }));
+        return new Locator(this, Scoped(LocatorExpression.ForRole(role, name, new RoleOptions { Exact = exact })));
     }
 
     /// <summary>Creates a lazy role query narrowed by name, states, or heading level.</summary>
     public Locator GetByRole(string role, RoleOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return new Locator(this, LocatorExpression.ForRole(role, options.Name, options));
+        return new Locator(this, Scoped(LocatorExpression.ForRole(role, options.Name, options)));
     }
 
     /// <summary>Creates a lazy role query narrowed to an accessible name and the given options.</summary>
@@ -97,7 +135,7 @@ public sealed class Screen
             throw new TestException("INVALID_LOCATOR", "getByRole takes the \"name\" as its second argument or in the options, not both.");
         }
 
-        return new Locator(this, LocatorExpression.ForRole(role, name, options));
+        return new Locator(this, Scoped(LocatorExpression.ForRole(role, name, options)));
     }
 
     /// <summary>
@@ -110,13 +148,13 @@ public sealed class Screen
     /// Creates a lazy visible-text query. It answers with the innermost match, such as a
     /// <c>&lt;strong&gt;</c> inside a paragraph. Text inside a control's label answers with the control.
     /// </summary>
-    public Locator GetByText(TextMatch text, TextMatchOptions options) => new(this, LocatorExpression.For("text", text, options, nameof(text)));
+    public Locator GetByText(TextMatch text, TextMatchOptions options) => new(this, Scoped(LocatorExpression.For("text", text, options, nameof(text))));
 
     /// <summary>Creates a lazy accessible-label query: any node whose accessible name matches.</summary>
     public Locator GetByLabel(TextMatch label, bool exact = true) => GetByLabel(label, new TextMatchOptions { Exact = exact });
 
     /// <summary>Creates a lazy accessible-label query: any node whose accessible name matches.</summary>
-    public Locator GetByLabel(TextMatch label, TextMatchOptions options) => new(this, LocatorExpression.For("label", label, options, nameof(label)));
+    public Locator GetByLabel(TextMatch label, TextMatchOptions options) => new(this, Scoped(LocatorExpression.For("label", label, options, nameof(label))));
 
     /// <summary>Creates a lazy test-id query. A string matches the whole id, case-sensitive.</summary>
     public Locator GetByTestId(TextMatch testId) => GetByTestId(testId, new TextMatchOptions());
@@ -125,20 +163,20 @@ public sealed class Screen
     public Locator GetByTestId(TextMatch testId, TextMatchOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return new Locator(this, LocatorExpression.For("testid", testId, new TextMatchOptions { Visible = options.Visible }, nameof(testId)));
+        return new Locator(this, Scoped(LocatorExpression.For("testid", testId, new TextMatchOptions { Visible = options.Visible }, nameof(testId))));
     }
 
     /// <summary>Creates a lazy placeholder query.</summary>
     public Locator GetByPlaceholder(TextMatch placeholder, bool exact = true) => GetByPlaceholder(placeholder, new TextMatchOptions { Exact = exact });
 
     /// <summary>Creates a lazy placeholder query.</summary>
-    public Locator GetByPlaceholder(TextMatch placeholder, TextMatchOptions options) => new(this, LocatorExpression.For("placeholder", placeholder, options, nameof(placeholder)));
+    public Locator GetByPlaceholder(TextMatch placeholder, TextMatchOptions options) => new(this, Scoped(LocatorExpression.For("placeholder", placeholder, options, nameof(placeholder))));
 
     /// <summary>Creates a lazy displayed-value query: the current value of an input, text area, or select. A checkbox or radio never shows its value, so it never matches.</summary>
     public Locator GetByDisplayValue(TextMatch value, bool exact = true) => GetByDisplayValue(value, new TextMatchOptions { Exact = exact });
 
     /// <summary>Creates a lazy displayed-value query: the current value of an input, text area, or select. A checkbox or radio never shows its value, so it never matches.</summary>
-    public Locator GetByDisplayValue(TextMatch value, TextMatchOptions options) => new(this, LocatorExpression.For("displayValue", value, options, nameof(value)));
+    public Locator GetByDisplayValue(TextMatch value, TextMatchOptions options) => new(this, Scoped(LocatorExpression.For("displayValue", value, options, nameof(value))));
 
     /// <summary>
     /// Reads the whole screen once, without waiting, as the agent reads it: one node per line, <c>#id role "name" text="…" [states]</c>,
@@ -244,7 +282,7 @@ public sealed class Screen
     /// </summary>
     internal void OwnLocator(Locator candidate, string api)
     {
-        if (!ReferenceEquals(candidate.Screen, this))
+        if (!ReferenceEquals(candidate.Screen.Root, Root))
         {
             throw new TestException(
                 "INVALID_LOCATOR",
@@ -253,7 +291,7 @@ public sealed class Screen
     }
 
     /// <summary>Renders an observation as <see cref="TreeAsync"/> returns it: redacted, one node per line. A session sets its own redactor and app origin; a screen outside one redacts the text with <see cref="Redact"/>.</summary>
-    internal Func<Observation, string>? RenderTree { get; set; }
+    internal Func<Observation, string>? RenderTree { get => Root._renderTree; set => Root._renderTree = value; }
 
     internal static string TreeText(Observation observation, Redactor redactor, string? appOrigin, int maxObservationBytes) =>
         string.Join('\n', FailureEvidence.Listing(observation, redactor, appOrigin, maxObservationBytes).Lines);
@@ -261,6 +299,12 @@ public sealed class Screen
     /// <summary>One observation of the whole screen, rendered, as a screen step.</summary>
     private async Task<string> ReadTreeAsync(string api, ActionOptions? options, CancellationToken cancellationToken)
     {
+        if (IsScoped)
+        {
+            // A frame refuses, since the tree is not scoped.
+            throw new TestException("INVALID_ARGUMENT", api + " reads the whole screen; call it on screen");
+        }
+
         var timeout = options?.Timeout ?? ActionTimeout;
         if (timeout != System.Threading.Timeout.InfiniteTimeSpan)
         {
@@ -319,7 +363,7 @@ public sealed class Screen
     internal void NotifyVerified() => _verified();
 
     /// <summary>The attempt's step timeline; null for a screen outside a session, whose calls then run unrecorded.</summary>
-    internal StepRecorder? Steps { get; set; }
+    internal StepRecorder? Steps { get => Root._steps; set => Root._steps = value; }
 
     /// <summary>Runs one call that touches the app as a recorded step of the attempt, or as it is without a timeline.</summary>
     internal Task RunStepAsync(StepKind kind, string api, string label, Func<Task> body, bool verifies = false) =>
@@ -329,7 +373,7 @@ public sealed class Screen
     internal void RecordEvent(StepEvent stepEvent) => Steps?.RecordEvent(stepEvent);
 
     /// <summary>Tells the attempt that an assertion failed on the app. Nothing outside a session listens.</summary>
-    internal Action Failed { get; set; } = static () => { };
+    internal Action Failed { get => Root._failed; set => Root._failed = value; }
 
     internal void NotifyFailed() => Failed();
 }
@@ -372,7 +416,7 @@ public sealed class Locator
     public Locator Or(Locator other)
     {
         ArgumentNullException.ThrowIfNull(other);
-        if (!ReferenceEquals(other._screen, _screen))
+        if (!ReferenceEquals(other._screen.Root, _screen.Root))
         {
             throw new TestException(
                 "INVALID_LOCATOR",
@@ -393,43 +437,43 @@ public sealed class Locator
     }
 
     /// <summary>Creates a role query among this locator's descendants.</summary>
-    public Locator GetByRole(string role, TextMatch? name = null, bool exact = true) => Scope(_screen.GetByRole(role, name, exact));
+    public Locator GetByRole(string role, TextMatch? name = null, bool exact = true) => Scope(_screen.Root.GetByRole(role, name, exact));
 
     /// <summary>Creates a role query among this locator's descendants.</summary>
-    public Locator GetByRole(string role, RoleOptions options) => Scope(_screen.GetByRole(role, options));
+    public Locator GetByRole(string role, RoleOptions options) => Scope(_screen.Root.GetByRole(role, options));
 
     /// <summary>Creates a role query among this locator's descendants.</summary>
-    public Locator GetByRole(string role, TextMatch name, RoleOptions options) => Scope(_screen.GetByRole(role, name, options));
+    public Locator GetByRole(string role, TextMatch name, RoleOptions options) => Scope(_screen.Root.GetByRole(role, name, options));
 
     /// <summary>Creates a visible-text query among this locator's descendants.</summary>
-    public Locator GetByText(TextMatch text, bool exact = true) => Scope(_screen.GetByText(text, exact));
+    public Locator GetByText(TextMatch text, bool exact = true) => Scope(_screen.Root.GetByText(text, exact));
 
     /// <summary>Creates a visible-text query among this locator's descendants.</summary>
-    public Locator GetByText(TextMatch text, TextMatchOptions options) => Scope(_screen.GetByText(text, options));
+    public Locator GetByText(TextMatch text, TextMatchOptions options) => Scope(_screen.Root.GetByText(text, options));
 
     /// <summary>Creates a label query among this locator's descendants.</summary>
-    public Locator GetByLabel(TextMatch label, bool exact = true) => Scope(_screen.GetByLabel(label, exact));
+    public Locator GetByLabel(TextMatch label, bool exact = true) => Scope(_screen.Root.GetByLabel(label, exact));
 
     /// <summary>Creates a label query among this locator's descendants.</summary>
-    public Locator GetByLabel(TextMatch label, TextMatchOptions options) => Scope(_screen.GetByLabel(label, options));
+    public Locator GetByLabel(TextMatch label, TextMatchOptions options) => Scope(_screen.Root.GetByLabel(label, options));
 
     /// <summary>Creates a test-id query among this locator's descendants.</summary>
-    public Locator GetByTestId(TextMatch testId) => Scope(_screen.GetByTestId(testId));
+    public Locator GetByTestId(TextMatch testId) => Scope(_screen.Root.GetByTestId(testId));
 
     /// <summary>Creates a test-id query among this locator's descendants.</summary>
-    public Locator GetByTestId(TextMatch testId, TextMatchOptions options) => Scope(_screen.GetByTestId(testId, options));
+    public Locator GetByTestId(TextMatch testId, TextMatchOptions options) => Scope(_screen.Root.GetByTestId(testId, options));
 
     /// <summary>Creates a placeholder query among this locator's descendants.</summary>
-    public Locator GetByPlaceholder(TextMatch placeholder, bool exact = true) => Scope(_screen.GetByPlaceholder(placeholder, exact));
+    public Locator GetByPlaceholder(TextMatch placeholder, bool exact = true) => Scope(_screen.Root.GetByPlaceholder(placeholder, exact));
 
     /// <summary>Creates a placeholder query among this locator's descendants.</summary>
-    public Locator GetByPlaceholder(TextMatch placeholder, TextMatchOptions options) => Scope(_screen.GetByPlaceholder(placeholder, options));
+    public Locator GetByPlaceholder(TextMatch placeholder, TextMatchOptions options) => Scope(_screen.Root.GetByPlaceholder(placeholder, options));
 
     /// <summary>Creates a displayed-value query among this locator's descendants.</summary>
-    public Locator GetByDisplayValue(TextMatch value, bool exact = true) => Scope(_screen.GetByDisplayValue(value, exact));
+    public Locator GetByDisplayValue(TextMatch value, bool exact = true) => Scope(_screen.Root.GetByDisplayValue(value, exact));
 
     /// <summary>Creates a displayed-value query among this locator's descendants.</summary>
-    public Locator GetByDisplayValue(TextMatch value, TextMatchOptions options) => Scope(_screen.GetByDisplayValue(value, options));
+    public Locator GetByDisplayValue(TextMatch value, TextMatchOptions options) => Scope(_screen.Root.GetByDisplayValue(value, options));
 
     public Task TapAsync(ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
@@ -546,7 +590,7 @@ public sealed class Locator
     /// <summary>Reads current visibility: true when exactly one visible node matches. More than one match fails.</summary>
     public async Task<bool> IsVisibleAsync(CancellationToken cancellationToken = default)
     {
-        return await ResolveSingleAsync(_screen.Token(cancellationToken)).ConfigureAwait(false) is { States.Hidden: false };
+        return await ResolveSingleAsync(_screen.Token(cancellationToken), missingFrame: MissingFrame.Empty).ConfigureAwait(false) is { States.Hidden: false };
     }
 
     /// <summary>Reads current hidden or absent state, the negation of <see cref="IsVisibleAsync"/>.</summary>
@@ -588,7 +632,7 @@ public sealed class Locator
     /// <summary>Counts current matches without waiting.</summary>
     public async Task<int> CountAsync(CancellationToken cancellationToken = default)
     {
-        var matches = await ResolveAsync(_screen.Token(cancellationToken)).ConfigureAwait(false);
+        var matches = await ResolveAsync(_screen.Token(cancellationToken), missingFrame: MissingFrame.Empty).ConfigureAwait(false);
         return matches.Count;
     }
 
@@ -611,7 +655,7 @@ public sealed class Locator
     /// </summary>
     public async Task<IReadOnlyList<string>> AllTextContentsAsync(CancellationToken cancellationToken = default)
     {
-        var matches = await ResolveAsync(_screen.Token(cancellationToken)).ConfigureAwait(false);
+        var matches = await ResolveAsync(_screen.Token(cancellationToken), missingFrame: MissingFrame.Empty).ConfigureAwait(false);
         DenySecureRead(matches);
         return matches.Select(node => TextRules.Normalize(node.Text ?? "")).ToList();
     }
@@ -646,7 +690,8 @@ public sealed class Locator
         while (true)
         {
             token.ThrowIfCancellationRequested();
-            var matches = await ResolveAsync(token, includeHidden: true, new Deadline(deadline)).ConfigureAwait(false);
+            // The states absence satisfies read a frame missing from the document as zero matches.
+            var matches = await ResolveAsync(token, includeHidden: true, new Deadline(deadline), state is WaitForState.Detached or WaitForState.Hidden ? MissingFrame.Empty : MissingFrame.Wait).ConfigureAwait(false);
             if (matches.Count > 1)
             {
                 throw Ambiguous(matches.Count);
@@ -683,13 +728,13 @@ public sealed class Locator
     /// <summary>
     /// The nodes the locator matches now. An engine that resolves locators answers it, and a role query of its skips a hidden node unless
     /// <paramref name="includeHidden"/> asks for it; any other engine is resolved over its observation. <paramref name="deadline"/> bounds the retries of an engine
-    /// that asks for one, and defaults to the action timeout.
+    /// that asks for one, and defaults to the action timeout. <paramref name="missingFrame"/> says what a frame the engine reports missing means.
     /// </summary>
-    internal async Task<IReadOnlyList<SemanticNode>> ResolveAsync(CancellationToken cancellationToken, bool includeHidden = false, Deadline? deadline = null)
+    internal async Task<IReadOnlyList<SemanticNode>> ResolveAsync(CancellationToken cancellationToken, bool includeHidden = false, Deadline? deadline = null, MissingFrame missingFrame = MissingFrame.Wait)
     {
         if (_screen.LocatesInEngine)
         {
-            return await LocateAsync(deadline ?? new Deadline(_screen.ActionTimeout, _screen.Clock), includeHidden, cancellationToken).ConfigureAwait(false);
+            return await LocateAsync(deadline ?? new Deadline(_screen.ActionTimeout, _screen.Clock), includeHidden, missingFrame, cancellationToken).ConfigureAwait(false);
         }
 
         var observation = await _screen.ObserveAsync(cancellationToken).ConfigureAwait(false);
@@ -697,7 +742,7 @@ public sealed class Locator
     }
 
     /// <summary>One immediate engine resolve, retrying a retryable engine error until the deadline (upstream's <c>resolveOnce</c>).</summary>
-    private async Task<IReadOnlyList<SemanticNode>> LocateAsync(Deadline deadline, bool includeHidden, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<SemanticNode>> LocateAsync(Deadline deadline, bool includeHidden, MissingFrame missingFrame, CancellationToken cancellationToken)
     {
         var expression = includeHidden ? Query with { IncludeHidden = true } : Query;
         while (true)
@@ -711,9 +756,19 @@ public sealed class Locator
                 // predicate here, so it never resolves to a node its own state calls hidden.
                 return Query.Visible && Query.Kind is not ("filter" or "index" or "selector") ? nodes.Where(node => !node.States.Hidden).ToList() : nodes;
             }
+            catch (EngineException ex) when (missingFrame == MissingFrame.Empty && ex is { Code: EngineErrorCodes.FrameNotFound, Retryable: true })
+            {
+                // Nothing under a frame that is not in the document matches, and a read that promised not to wait must not wait for it.
+                return [];
+            }
             catch (EngineException ex) when (ex.Retryable && !deadline.Expired(_screen.Clock.GetUtcNow()) && !cancellationToken.IsCancellationRequested)
             {
                 await Task.Delay(_screen.PollInterval, cancellationToken).ConfigureAwait(false);
+            }
+            catch (EngineException ex) when (ex.Code is EngineErrorCodes.FrameNotFound or EngineErrorCodes.FrameAmbiguous && !cancellationToken.IsCancellationRequested)
+            {
+                // Upstream's translateLocatorError: a frame that is missing or matches twice is a locator that matched nothing, or too much.
+                throw new TestException(ex.Code == EngineErrorCodes.FrameNotFound ? "NOT_FOUND" : "STRICT_MODE", ex.Message + ": " + Query.Describe(), ex) { Details = LocatorResolver.LocatorDetails(Query) };
             }
         }
     }
@@ -899,9 +954,9 @@ public sealed class Locator
     }
 
     /// <summary>Returns the one match, or null when nothing matches. More than one match fails.</summary>
-    internal async Task<SemanticNode?> ResolveSingleAsync(CancellationToken token, Deadline? deadline = null)
+    internal async Task<SemanticNode?> ResolveSingleAsync(CancellationToken token, Deadline? deadline = null, MissingFrame missingFrame = MissingFrame.Wait)
     {
-        var matches = await ResolveAsync(token, deadline: deadline).ConfigureAwait(false);
+        var matches = await ResolveAsync(token, deadline: deadline, missingFrame: missingFrame).ConfigureAwait(false);
         if (matches.Count > 1)
         {
             throw Ambiguous(matches.Count);
@@ -933,6 +988,16 @@ public sealed class Locator
         new("STRICT_MODE", Query.Describe() + " matched " + count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " nodes.") { Details = LocatorResolver.LocatorDetails(Query) with { Matches = count } };
 
     private TestException NotFound(TimeSpan waited) => new("NOT_FOUND", Query.Describe() + " matched 0 nodes.") { Details = LocatorResolver.LocatorDetails(Query, waited) };
+}
+
+/// <summary>What a frame the engine reports missing means to a resolve (upstream's <c>MissingFrame</c>).</summary>
+internal enum MissingFrame
+{
+    /// <summary>Treated like a node that is not there yet: the resolve keeps polling for it.</summary>
+    Wait,
+
+    /// <summary>Answers zero matches.</summary>
+    Empty,
 }
 
 /// <summary>Options for one locator action.</summary>
@@ -994,7 +1059,8 @@ public sealed class LocatorWaitForOptions
 /// <c>testid</c>, <c>placeholder</c>, <c>displayValue</c>) search the
 /// descendants of <see cref="Parent"/> when it is set. <c>filter</c> and
 /// <c>index</c> narrow <see cref="Source"/>. <c>union</c> matches either
-/// <see cref="Left"/> or <see cref="Right"/>, each node once, in document order.
+/// <see cref="Left"/> or <see cref="Right"/>, each node once, in document order. <c>selector</c> is a CSS or XPath selector in the
+/// engine's own language, and <c>frame</c> scopes <see cref="Source"/> into the iframe <see cref="Selector"/> names.
 /// </summary>
 public sealed record LocatorExpression
 {
@@ -1045,8 +1111,18 @@ public sealed record LocatorExpression
 
     public LocatorExpression? Right { get; init; }
 
-    /// <summary>The expression of a <c>selector</c> query, in the engine's own selector language. A device engine answers it.</summary>
+    /// <summary>
+    /// The expression of a <c>selector</c> query, in the engine's own selector language (a device engine's, or the web engine's CSS and
+    /// XPath), or the selector of the iframe a <c>frame</c> expression scopes <see cref="Source"/> into.
+    /// </summary>
     public string? Selector { get; init; }
+
+    /// <summary>
+    /// The refs of the nodes a <c>refs</c> expression names. .NET-only: upstream's web engine projects a <c>selector</c> or <c>frame</c>
+    /// expression onto a Playwright locator, but the port's web engine resolves over its semantic tree, so it asks Playwright which
+    /// elements a selector names and hands the resolver their refs.
+    /// </summary>
+    internal IReadOnlySet<string>? Refs { get; init; }
 
     /// <summary>
     /// Asks an engine that resolves over its tree to match hidden nodes too, which a role query otherwise skips. .NET-only: upstream's
@@ -1105,7 +1181,9 @@ public sealed record LocatorExpression
                 return new ErrorDetails { Role = Role, Name = PatternText(Value) };
             case "testid":
                 return new ErrorDetails { TestId = Value?.Pattern is null ? Value?.Text : null };
-            case "selector":
+            case "frame":
+                return Source!.ExpressionHints();
+            case "selector" or "refs":
                 return new ErrorDetails();
             default:
                 return new ErrorDetails { Name = PatternText(Value) };
@@ -1122,6 +1200,8 @@ public sealed record LocatorExpression
                 return Source!.Describe() + (HasText is not null
                     ? ".filter(hasText: " + HasText + (HasTextExact ? ", exact" : "") + ")"
                     : ".filter(has: " + Has!.Describe() + ")");
+            case "frame":
+                return "frameLocator(" + Quoted(Selector) + ") >> " + Source!.Describe();
             case "index":
                 return Source!.Describe() + (Index == LastIndex
                     ? ".last()"
@@ -1137,11 +1217,15 @@ public sealed record LocatorExpression
             "testid" => "getByTestId(" + Value + visible + ")",
             "placeholder" => "getByPlaceholder(" + Value + visible + ")",
             "displayValue" => "getByDisplayValue(" + Value + visible + ")",
-            "selector" => "locator(\"" + Selector?.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\")",
+            "selector" => "locator(" + Quoted(Selector) + ")",
+            "refs" => "locator(" + string.Join(", ", Refs ?? (IEnumerable<string>)[]) + ")",
             _ => Kind,
         };
         return Parent is null ? core : Parent.Describe() + "." + core;
     }
+
+    private static string Quoted(string? selector) =>
+        "\"" + selector?.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
 
     private string RoleOptions()
     {
@@ -1245,6 +1329,18 @@ internal static class LocatorResolver
                     return position >= 0 && position < source.Count ? [source[position]] : [];
                 }
 
+            case "selector":
+                throw new EngineException(
+                    "UNSUPPORTED_CAPABILITY",
+                    $"selector {System.Text.Json.JsonSerializer.Serialize(query.Selector)} needs a platform selector language, and this surface has none",
+                    retryable: false);
+
+            case "frame":
+                throw new EngineException(
+                    EngineErrorCodes.FrameNotFound,
+                    $"no nested document matches {System.Text.Json.JsonSerializer.Serialize(query.Selector)}: this surface has none to scope a query into",
+                    retryable: false);
+
             default:
                 {
                     if (query.Parent is not null && UsesDisplayValue(query.Parent))
@@ -1286,6 +1382,7 @@ internal static class LocatorResolver
             "placeholder" => value!.Matches(node.Placeholder, query.Exact),
             // A checkbox or radio carries a value it never shows (`on` by default), so it is no candidate.
             "displayValue" => !IsCheckable(node) && value!.Matches(node.Value, query.Exact),
+            "refs" => query.Refs!.Contains(node.Ref),
             _ => false,
         };
     }

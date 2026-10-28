@@ -137,6 +137,39 @@ internal static class FixtureApp
         </html>
         """;
 
+    // Document boundaries (upstream's fixture-pages/frames.ts): a frame, a frame inside a frame, and the frame's own document.
+    private const string Frame = """
+        <!doctype html>
+        <html>
+        <head><title>Frame host</title></head>
+        <body>
+          <h1>Frame host</h1>
+          <iframe id="child" src="/child" title="child"></iframe>
+        </body>
+        </html>
+        """;
+
+    private const string FrameNested = """
+        <!doctype html>
+        <html>
+        <head><title>Nested frame host</title></head>
+        <body>
+          <h1>Nested frame host</h1>
+          <iframe id="outer" src="/frame" title="outer"></iframe>
+        </body>
+        </html>
+        """;
+
+    private const string Child = """
+        <!doctype html>
+        <html>
+        <head><title>Child frame</title></head>
+        <body>
+          <button onclick="this.textContent = 'Frame clicked'">Frame button</button>
+        </body>
+        </html>
+        """;
+
     // The flags the page reads from /api/flags.
     private const string Flags = """
         <!doctype html>
@@ -201,6 +234,9 @@ internal static class FixtureApp
             "/" => TinySite.RespondAsync(context, Home),
             "/about" => TinySite.RespondAsync(context, About),
             "/classes" => TinySite.RespondAsync(context, Classes),
+            "/frame" => TinySite.RespondAsync(context, Frame),
+            "/frame-nested" => TinySite.RespondAsync(context, FrameNested),
+            "/child" => TinySite.RespondAsync(context, Child),
             "/flags" => TinySite.RespondAsync(context, Flags),
             "/api/flags" => RespondJsonAsync(context, """{"betaBoard":false}"""),
             "/editor" => TinySite.RespondAsync(context, Editor),
