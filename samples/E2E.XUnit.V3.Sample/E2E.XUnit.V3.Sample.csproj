@@ -19,4 +19,7 @@
     <ProjectReference Include="..\..\src\E2E\E2E.csproj" />
     <ProjectReference Include="..\..\src\E2E.XUnit.V3\E2E.XUnit.V3.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\DaritenFixture\DaritenFixtureHost.cs" Link="DaritenFixtureHost.cs" />
+  </ItemGroup>
 </Project>

@@ -100,7 +100,8 @@ public sealed class DaritenTests : E2ETest
 ```
 
 `samples/E2E.Sample` in the e2e-dotnet repo holds a longer version of this
-class, run against a live demo.
+class. Its locator test serves a local stand-in of the demo pages; the agent
+test opens the live demo.
 
 ## Run
 

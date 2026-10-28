@@ -118,7 +118,8 @@ public sealed class DaritenTests : E2ETest
 ```
 
 `samples/E2E.XUnit.V3.Sample` in the e2e-dotnet repo holds a longer version
-of this class, run against a live demo.
+of this class. Its locator test serves a local stand-in of the demo pages; the
+agent test opens the live demo.
 
 ## Run
 
