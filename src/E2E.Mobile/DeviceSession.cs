@@ -551,13 +551,17 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 internal sealed class InflightCommands
 {
     private readonly HashSet<Task> _pending = [];
+    private bool _unconfirmedAbort;
 
     /// <summary>Registers one device command as in flight until it settles.</summary>
-    public void Track(Task pending)
+    public void Track(Task pending, CancellationToken abort = default)
     {
         lock (_pending)
         {
-            _pending.Add(pending);
+            if (!_pending.Add(pending))
+            {
+                return;
+            }
         }
 
         _ = pending.ContinueWith(
@@ -567,6 +571,8 @@ internal sealed class InflightCommands
                 _ = settled.Exception;
                 lock (_pending)
                 {
+                    // An aborted request ending is not confirmation that the daemon finished the command.
+                    _unconfirmedAbort |= abort.IsCancellationRequested && !settled.IsCompletedSuccessfully;
                     _pending.Remove(settled);
                 }
             },
@@ -586,6 +592,11 @@ internal sealed class InflightCommands
             Task[] pending;
             lock (_pending)
             {
+                if (_unconfirmedAbort)
+                {
+                    throw new EngineException(EngineErrorCodes.EngineFailure, "an earlier device request was aborted without confirmation that the daemon finished; later attempts on this device are blocked", retryable: false);
+                }
+
                 pending = [.. _pending];
             }
 
@@ -613,14 +624,15 @@ internal sealed class InflightCommands
 /// while the daemon may still run the command; this call runs under a token the caller cannot cancel, and the caller leaves by racing it
 /// (<c>WaitAsync</c> in <c>RunCommandAsync</c>, <c>ActAsync</c>, and <see cref="InputBudget"/>). The call is tracked in flight itself, so it
 /// stays there until the daemon answers. Once the caller left, the request is given <see cref="E2EDefaults.LaunchTimeout"/> to answer (the
-/// bound of <c>SettleInflightAsync</c> on the next start) and is aborted after that. .NET-only: upstream's client has no signal to detach.
+/// bound of <c>SettleInflightAsync</c> on the next start) and is aborted after that. An abort without a successful answer blocks later
+/// attempts on that device, since daemon completion is unknown. .NET-only: upstream's client has no signal to detach.
 /// </summary>
-internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflight) : IDeviceClient
+internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflight, TimeProvider? timeProvider = null) : IDeviceClient
 {
     public Task<JsonNode?> CallAsync(string method, JsonObject? options, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var abort = new CancellationTokenSource();
+        var abort = new CancellationTokenSource(Timeout.InfiniteTimeSpan, timeProvider ?? TimeProvider.System);
         var left = cancellationToken.CanBeCanceled
             ? cancellationToken.Register(static state => ((CancellationTokenSource)state!).CancelAfter(E2EDefaults.LaunchTimeout), abort)
             : default;
@@ -636,7 +648,7 @@ internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflig
             throw;
         }
 
-        inflight.Track(pending);
+        inflight.Track(pending, abort.Token);
         _ = pending.ContinueWith(
             static (_, state) =>
             {

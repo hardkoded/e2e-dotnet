@@ -116,7 +116,7 @@ public sealed class SessionHooksViewportSwipeLocationArtifactsTests
         var pending = session.PerformAsync(about, new LocatorAction.Tap(), controller.Token);
         var sent = await received.Task.WaitAsync(TimeSpan.FromSeconds(10));
         await controller.CancelAsync();
-        var cancelled = await Assert.ThrowsAsync<EngineException>(() => pending);
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() => pending.WaitAsync(TimeSpan.FromSeconds(10)));
         Assert.Equal("CANCELLED", cancelled.Code);
 
         // The request was not aborted with the caller, and the next attempt still waits for the daemon.
