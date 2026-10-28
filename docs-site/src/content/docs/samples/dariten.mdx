@@ -7,7 +7,7 @@ sidebar:
 
 import { LinkCard } from '@astrojs/starlight/components';
 
-A web test of [Dariten](https://dariten.vercel.app), a public personal finance demo. The data is shared and anyone can edit it, so the tests only read the app and never check specific balances.
+A web test of [Dariten](https://dariten.vercel.app), a public personal finance demo. Each browser keeps its own sample household, so the tests only read the app and never check specific balances.
 
 - Source: [`samples/E2E.Sample`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/E2E.Sample) (NUnit) and [`samples/E2E.XUnit.V3.Sample`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/E2E.XUnit.V3.Sample) (xUnit v3).
 - Platform: web, `WebEngine`.
@@ -19,7 +19,7 @@ A web test of [Dariten](https://dariten.vercel.app), a public personal finance d
 ```csharp
 await App.OpenAsync("/");
 await Expect.That(Screen.GetByRole("heading", "Dashboard")).ToBeVisibleAsync();
-await Expect.That(Screen.GetByTestId("demo-banner")).ToContainTextAsync("Shared demo");
+await Expect.That(Screen.GetByTestId("demo-banner")).ToContainTextAsync("Local demo");
 
 await Screen.GetByRole("link", "Transactions").ClickAsync();
 await Expect.That(Screen.GetByRole("heading", "Transactions")).ToBeVisibleAsync();
@@ -43,7 +43,7 @@ dotnet test --project samples/E2E.Sample --filter "TestCategory!=RealModel"   # 
 E2E_HEADLESS=0 dotnet test --project samples/E2E.Sample        # watch the browser
 ```
 
-The config's `agents.default.context` tells the agent the demo is shared and it must never add, edit, or delete data. Use that pattern for any app with shared state.
+The config's `agents.default.context` tells the agent this browser keeps its own sample household, and that it must not enter real bank data or add, edit, or delete data. Use that pattern when a test must not mutate the app's stored data.
 
 To use an API key, change `agents.default` in `e2e.config.json`, for example to `"provider": "openai", "model": "gpt-4.1-mini"` with `OPENAI_API_KEY` set.
 
