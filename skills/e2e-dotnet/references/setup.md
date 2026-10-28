@@ -66,7 +66,7 @@ Pick the model in `agents.<name>.provider` and `model`:
 | SuperGrok or X Premium+ | `grok` | `e2e login spacexai` |
 | Claude on an API key | `anthropic` | `ANTHROPIC_API_KEY`, a workspace key (`sk-ant-api03-...`) |
 | OpenAI on an API key | `openai` (the default) | `OPENAI_API_KEY` |
-| Other | `openai-responses`, `azure`, `google`, `bedrock`, `xai`, `openrouter`, `gateway`, `openai-compatible` | The provider's key; see the README | (`bedrock`: `AWS_BEARER_TOKEN_BEDROCK`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, or the AWS credential chain: profile, SSO, container and instance roles) |
+| Other | `openai-responses`, `azure`, `google`, `bedrock`, `xai`, `openrouter`, `gateway`, `openai-compatible` | The provider's key; see the README (`bedrock`: `AWS_BEARER_TOKEN_BEDROCK`, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, or the AWS credential chain: profile, SSO, container and instance roles) |
 
 - Get model ids from `e2e models <login>`. `e2e models` with no login also lists
   OpenCode Console when only `OPENCODE_API_KEY` is set. Copilot uses a dot
