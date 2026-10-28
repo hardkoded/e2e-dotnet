@@ -6,7 +6,7 @@ This is **not** an official TesterArmy product and is not endorsed by TesterArmy
 
 License: Apache License 2.0. Copyright 2026 TesterArmy.
 
-Docs and API reference: https://hardkoded.github.io/e2e-dotnet/
+Docs and API reference: https://www.hardkoded.com/e2e-dotnet/
 
 ## Install
 
