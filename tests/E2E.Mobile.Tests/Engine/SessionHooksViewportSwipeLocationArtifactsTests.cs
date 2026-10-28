@@ -98,6 +98,37 @@ public sealed class SessionHooksViewportSwipeLocationArtifactsTests
         Assert.False(Directory.Exists(Path.GetDirectoryName(file)));
     }
 
+    // .NET-only: upstream's client takes no abort signal, so a cancel cannot end its request. The port's HTTP client would.
+    [Fact]
+    public async Task Keeps_a_cancelled_command_in_flight_until_the_daemon_answers_even_when_the_client_honours_its_token()
+    {
+        var h = Harness.Create();
+        var pressed = new TaskCompletionSource<JsonNode?>();
+        var received = new TaskCompletionSource<CancellationToken>();
+        h.Fake.RespondAsync(DeviceMethods.InteractionsPress, (_, token) =>
+        {
+            received.TrySetResult(token);
+            return pressed.Task.WaitAsync(token);
+        });
+        var session = await OpenAttempt(h);
+        var about = await Observed(session, "About");
+        using var controller = new CancellationTokenSource();
+        var pending = session.PerformAsync(about, new LocatorAction.Tap(), controller.Token);
+        var sent = await received.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await controller.CancelAsync();
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() => pending);
+        Assert.Equal("CANCELLED", cancelled.Code);
+
+        // The request was not aborted with the caller, and the next attempt still waits for the daemon.
+        Assert.False(sent.IsCancellationRequested);
+        await session.DisposeAsync();
+        var next = h.Boot();
+        await Task.Delay(100);
+        Assert.False(next.IsCompleted);
+        pressed.SetResult(new JsonObject());
+        await next;
+    }
+
     [Fact]
     public async Task Waits_for_an_abandoned_command_to_settle_before_the_next_attempt_starts_and_its_launch_goes_out()
     {

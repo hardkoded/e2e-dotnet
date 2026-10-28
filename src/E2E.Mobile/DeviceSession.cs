@@ -36,6 +36,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     private readonly Action<Observation>? _screenSink;
     private readonly InflightCommands _inflight;
     private IDeviceClient? _client;
+    private IDeviceClient? _tracked;
     private int _idCounter;
     private string? _appIdentity;
 
@@ -110,7 +111,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         _fixtureContext ?? throw DeviceSupport.InvalidState("device.locator needs the attempt's test session: start the engine through a test, not on its own");
 
     /// <summary>The agent-device client of the live session, or <c>INVALID_STATE</c> once it closed.</summary>
-    internal IDeviceClient Client => _client ?? throw DeviceSupport.InvalidState("the agent-device engine is not initialized");
+    internal IDeviceClient Client => _tracked ??= new TrackedClient(_client ?? throw DeviceSupport.InvalidState("the agent-device engine is not initialized"), _inflight);
 
     /// <summary>The session and device this worker drives, for the error messages whose recovery is per device.</summary>
     internal string Where => _where;
@@ -602,5 +603,50 @@ internal sealed class InflightCommands
                 throw DeviceSupport.Cancelled("settling in-flight device commands cancelled");
             }
         }
+    }
+}
+
+/// <summary>
+/// The client a session's commands go through. agent-device takes no abort signal, and upstream's client is called without one, so a command
+/// the caller gave up on keeps running on the device. The port's HTTP client would abort its request on a cancel and end the tracked task
+/// while the daemon may still run the command; this call runs under a token the caller cannot cancel, and the caller leaves by racing it
+/// (<c>WaitAsync</c> in <c>RunCommandAsync</c>, <c>ActAsync</c>, and <see cref="InputBudget"/>). The call is tracked in flight itself, so it
+/// stays there until the daemon answers. Once the caller left, the request is given <see cref="E2EDefaults.LaunchTimeout"/> to answer (the
+/// bound of <c>SettleInflightAsync</c> on the next start) and is aborted after that. .NET-only: upstream's client has no signal to detach.
+/// </summary>
+internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflight) : IDeviceClient
+{
+    public Task<JsonNode?> CallAsync(string method, JsonObject? options, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var abort = new CancellationTokenSource();
+        var left = cancellationToken.CanBeCanceled
+            ? cancellationToken.Register(static state => ((CancellationTokenSource)state!).CancelAfter(E2EDefaults.LaunchTimeout), abort)
+            : default;
+        Task<JsonNode?> pending;
+        try
+        {
+            pending = inner.CallAsync(method, options, abort.Token);
+        }
+        catch
+        {
+            left.Dispose();
+            abort.Dispose();
+            throw;
+        }
+
+        inflight.Track(pending);
+        _ = pending.ContinueWith(
+            static (_, state) =>
+            {
+                var (registration, source) = ((CancellationTokenRegistration, CancellationTokenSource))state!;
+                registration.Dispose();
+                source.Dispose();
+            },
+            (left, abort),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+        return pending;
     }
 }
