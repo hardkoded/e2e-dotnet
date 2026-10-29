@@ -993,8 +993,9 @@ public sealed partial class WebEngine : IEngine
         private Dictionary<string, IFrame> _frames = new(StringComparer.Ordinal);
         private int _nextRef = 1;
 
-        // How many nodes shared each ref's role, name, and test id when the ref was first observed.
-        private Dictionary<string, int> _twins = new(StringComparer.Ordinal);
+        // The locator that matched each located node alone, the way upstream keeps a single match on the strict Playwright locator.
+        // Keyed by the node a locate returned, so a node the observation listed (same ref) is never strict.
+        private readonly System.Runtime.CompilerServices.ConditionalWeakTable<SemanticNode, LocatorExpression> _strict = new();
         private IBrowser _browser;
 
         // Persistent recovery: the remote default context and page the attempt rides,
@@ -1092,7 +1093,6 @@ public sealed partial class WebEngine : IEngine
 
             _frames = walk.Frames;
             _observed = true;
-            _twins = TwinsOf(roots, _twins);
             return new Observation { Route = Route, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll, Viewport = walk.Viewport };
         });
 
@@ -1114,7 +1114,16 @@ public sealed partial class WebEngine : IEngine
             var projected = WebLocators.NeedsPage(expression)
                 ? await RunAsync("locate", cancellationToken, () => ProjectAsync(expression, timeout, cancellationToken)).ConfigureAwait(false)
                 : expression;
-            return LocatorResolver.Resolve(observation, projected, expression.IncludeHidden);
+            var matches = LocatorResolver.Resolve(observation, projected, expression.IncludeHidden);
+            // As upstream's locate: a single match keeps the strict locator, so a node that turns ambiguous between locate and perform
+            // is stale instead of acted on. A match of several is pinned to its own element, and so is every match of a predicate
+            // query (display value, exact label), which upstream pins to the handles of the elements it read.
+            if (matches.Count == 1 && !PinsToElements(expression))
+            {
+                _strict.AddOrUpdate(matches[0], expression);
+            }
+
+            return matches;
         }
 
         /// <summary>
@@ -1977,59 +1986,44 @@ public sealed partial class WebEngine : IEngine
         }
 
         /// <summary>
-        /// Counts the nodes that share each node's role, name, and test id. A ref keeps the count it had
-        /// when first observed: a later observation does not raise it.
+        /// Whether upstream's projection leaves the terminal query's predicate to the surface (<c>ProjectedLocator.displayValue</c> and
+        /// <c>name</c>): a display-value query, or an exact label query. Its matches are pinned to the elements the read returned.
         /// </summary>
-        private static Dictionary<string, int> TwinsOf(List<WebNode> roots, Dictionary<string, int> known)
+        private static bool PinsToElements(LocatorExpression expression)
         {
-            var nodes = Flatten(roots);
-            var twins = nodes.GroupBy(node => Likeness(node.Role, node.Name, node.TestId)).ToDictionary(group => group.Key, group => group.Count());
-            return nodes.ToDictionary(node => node.Ref, node => known.TryGetValue(node.Ref, out var first) ? first : twins[Likeness(node.Role, node.Name, node.TestId)], StringComparer.Ordinal);
-        }
-
-        private static List<WebNode> Flatten(List<WebNode> roots)
-        {
-            var nodes = new List<WebNode>();
-            var pending = new Stack<WebNode>(roots.AsEnumerable().Reverse());
-            while (pending.TryPop(out var node))
+            while (expression.Kind is "filter" or "index" or "frame")
             {
-                nodes.Add(node);
-                foreach (var child in (node.Children ?? []).AsEnumerable().Reverse())
-                {
-                    pending.Push(child);
-                }
+                expression = expression.Source!;
             }
 
-            return nodes;
+            return expression.Kind == "displayValue" || (expression.Kind == "label" && expression.Value?.Text is not null && expression.Exact);
         }
 
-        private static string Likeness(string? role, string? name, string? testId) => string.Join('\0', role, name, testId);
-
         /// <summary>
-        /// A ref names one element. When a second element now matches it as the first did, the ref is
-        /// ambiguous: acting could hit the wrong element, so it is stale.
+        /// A node located as the only match of its locator keeps that locator strict, as upstream's does. When a second element now matches
+        /// it, the node is ambiguous: acting could hit the wrong element, so it is stale. A node the observation listed, or one of several
+        /// matches, names its own element and is never ambiguous.
         /// </summary>
         private async Task RequireNoNewTwinAsync(SemanticNode node, OperationBudget budget)
         {
-            if (!_twins.TryGetValue(node.Ref, out var first))
+            if (!_strict.TryGetValue(node, out var expression))
             {
                 return;
             }
 
-            List<WebNode> roots;
             try
             {
-                roots = await CollectAsync(Page.MainFrame, new FrameWalk(), budget).ConfigureAwait(false);
+                var roots = await CollectAsync(Page.MainFrame, new FrameWalk(), budget).ConfigureAwait(false);
+                var projected = WebLocators.NeedsPage(expression) ? await ProjectAsync(expression, budget).ConfigureAwait(false) : expression;
+                var observation = new Observation { Route = Route, Roots = roots.Select(each => ToNode(each, _testIdAttribute)).ToList() };
+                if (LocatorResolver.Resolve(observation, projected, expression.IncludeHidden).Count > 1)
+                {
+                    throw new EngineException(EngineErrorCodes.NodeStale, $"Node {node.Ref} now matches more than one element. Observe again.", retryable: true);
+                }
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
                 throw WebErrors.NavigationStaleOr(ex, "locate " + node.Ref);
-            }
-
-            var likeness = Likeness(node.Role, node.Name, node.TestId);
-            if (Flatten(roots).Count(each => Likeness(each.Role, each.Name, each.TestId) == likeness) > first)
-            {
-                throw new EngineException(EngineErrorCodes.NodeStale, $"Node {node.Ref} now matches more than one element. Observe again.", retryable: true);
             }
         }
 
@@ -2405,7 +2399,7 @@ public sealed partial class WebEngine : IEngine
             var size = _page?.ViewportSize is { } current ? new ViewportSize { Width = current.Width, Height = current.Height } : _viewport;
             _observed = false;
             _frames = new(StringComparer.Ordinal);
-            _twins = new(StringComparer.Ordinal);
+            _strict.Clear();
             try
             {
                 await VideoPageClosingAsync().ConfigureAwait(false);

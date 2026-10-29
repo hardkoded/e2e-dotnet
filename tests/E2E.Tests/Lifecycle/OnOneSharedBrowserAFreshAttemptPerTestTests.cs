@@ -322,29 +322,17 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
     [Fact]
     public async Task Reports_a_located_ref_stale_once_a_second_element_matches_it_and_acts_on_neither()
     {
-        // Upstream inserts the second button from the test; the port's engine has no page script call, so
-        // the page inserts it a moment after load, once the test has located the first.
-        using var site = await TinySite.StartAsync("""
-            <!DOCTYPE html>
-            <html><body>
-            <script>window.taps = 0; const count = () => { taps++; document.getElementById("taps").textContent = String(taps); };</script>
-            <button onclick="count()">Go</button>
-            <output id="taps">0</output>
-            <script>setTimeout(() => document.body.insertAdjacentHTML("beforeend", '<button onclick="count()">Go</button>'), 500);</script>
-            </body></html>
-            """);
+        using var site = await FixtureApp.StartAsync();
         await using var session = await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions { Headless = true });
-        var go = WebSemanticsTests.Flatten((await session.ObserveAsync(CancellationToken.None)).Roots).Single(node => node.Role == "button");
-        while (WebSemanticsTests.Flatten((await session.ObserveAsync(CancellationToken.None)).Roots).Count(node => node.Role == "button") < 2)
-        {
-            await Task.Delay(50);
-        }
+        var page = WebEngine.SurfaceOf(session)!.Page();
+        await page.SetContentAsync("<script>window.taps = 0</script><button onclick=\"taps++\">Go</button>");
+        var go = (await session.LocateAsync(LocatorExpression.ForRole("button", null, new RoleOptions()), TimeSpan.FromSeconds(5), CancellationToken.None))[0];
+        await page.EvaluateAsync("() => document.body.insertAdjacentHTML('beforeend', '<button onclick=\"taps++\">Go</button>')");
 
         var stale = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(go, new LocatorAction.Tap(), CancellationToken.None));
         Assert.Equal("NODE_STALE", stale.Code);
         Assert.True(stale.Retryable);
-        var status = WebSemanticsTests.Flatten((await session.ObserveAsync(CancellationToken.None)).Roots).Single(node => node.Role == "status");
-        Assert.Equal("0", status.Name);
+        Assert.Equal(0, await page.EvaluateAsync<int>("() => window.taps"));
     }
 
     [Fact]
