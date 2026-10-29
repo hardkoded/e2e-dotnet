@@ -356,7 +356,11 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   long as the recording needed (a report that takes half a minute), up to
   what the step's clock leaves. A scroll on a list that filled at least
   half the screen scrolls the viewport instead when the list can no longer
-  be re-found (web engine only); a smaller region hands off. The web engine does not observe Next.js
+  be re-found (web engine only); a smaller region hands off. The agent's
+  live scroll and `scroll_to` do the same: a list the tree renumbered is
+  re-found by its place (the same role, mostly the same box), one that filled
+  the screen and is gone scrolls the viewport, and a smaller one that is
+  gone fails with `LOCATOR_NOT_FOUND`. The web engine does not observe Next.js
   App Router's route announcer, so its title echo never counts. Text that
   reads differently on every run, a date, a time, an id, is not checked.
   An entry's key holds the test and its class, the instruction and params,

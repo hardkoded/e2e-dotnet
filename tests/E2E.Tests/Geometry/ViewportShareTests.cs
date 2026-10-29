@@ -8,8 +8,7 @@ using E2E.Internal;
 namespace E2E.Tests.Geometry;
 
 /// <summary>
-/// <c>describe('viewportShare')</c> of <c>geometry.test.ts</c>. <c>describe('overlapShare')</c> is not ported: the port has no
-/// <c>overlapShare</c>, which only upstream's live <c>samePlace</c> relocation of a scroll target uses.
+/// <c>describe('viewportShare')</c> of <c>geometry.test.ts</c>. <c>describe('overlapShare')</c> is in <see cref="OverlapShareTests"/>.
 /// </summary>
 public sealed class ViewportShareTests
 {

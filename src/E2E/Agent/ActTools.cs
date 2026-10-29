@@ -342,7 +342,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         {
             // Several actions of one turn name the screen the turn saw. A ref the newest screen no longer carries,
             // because the element remounted, is the one node that reads the same now.
-            matches = ObservationFeed.FindLike(observation, seen, _scope.Redactor);
+            matches = ObservationFeed.FindLike(observation, seen.Node, _scope.Redactor);
         }
 
         if (matches.Count == 0)

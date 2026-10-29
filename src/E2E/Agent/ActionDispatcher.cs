@@ -232,8 +232,8 @@ internal sealed class ActionDispatcher : IExecutorActions
             "scrollUntil",
             async token =>
             {
-                var recorded = list is null ? null : Target(Resolve(list), "scrollUntil");
-                var spans = await PageUntilAsync(text, direction, recorded, token).ConfigureAwait(false);
+                var (paged, spans) = await PageUntilAsync(text, direction, list, token).ConfigureAwait(false);
+                var recorded = paged is null ? null : Target(paged, "scrollUntil");
                 await CommitAsync(new RecordedAction
                 {
                     Kind = "scrollUntil",
@@ -261,34 +261,28 @@ internal sealed class ActionDispatcher : IExecutorActions
             async token =>
             {
                 var actions = _accounting.Recorder.Actions;
-                var node = list is null ? null : Resolve(list);
-                var recorded = node is null ? null : Target(node, "scroll");
-                var viewport = _feed.Latest?.Viewport;
+                SemanticNode? node = null;
                 for (var repeat = 0; repeat < times; repeat++)
                 {
                     if (repeat > 0)
                     {
                         // Each later repeat reads a settled screen first, and pages the list as that screen shows it.
                         _feed.ArmAfter(actions[^1]);
-                        var look = await _feed.ObserveAsync(SettleMode.HeldStill, "page", token).ConfigureAwait(false);
-                        viewport = look.Viewport;
-                        if (recorded is not null)
-                        {
-                            node = Single(Find(look, recorded.Role, recorded.Name, recorded.TestId, null, _scope.Redactor))
-                                ?? throw new TestException("NOT_FOUND", "The scrolled list is no longer on the screen.");
-                        }
+                        await _feed.ObserveAsync(SettleMode.HeldStill, "page", token).ConfigureAwait(false);
                     }
 
-                    if (node is null)
+                    // A list that filled the screen and left the tree scrolls as the viewport does (scroll-target.ts).
+                    var resolved = list is null ? null : ScrollTarget.ResolveScrollTarget(_feed, list);
+                    if (resolved is null)
                     {
                         await _scope.Session.SwipeAsync(direction, token).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        await _scope.Session.PerformAsync(node, new LocatorAction.Swipe(direction), token).ConfigureAwait(false);
+                        RecordScroll(direction, null, null);
+                        continue;
                     }
 
-                    RecordScroll(direction, node, viewport);
+                    node = resolved.Node;
+                    await _scope.Session.PerformAsync(node, new LocatorAction.Swipe(direction), token).ConfigureAwait(false);
+                    RecordScroll(direction, node, resolved.Observation.Viewport);
                 }
 
                 if (list is not null && node is not null)
@@ -379,7 +373,7 @@ internal sealed class ActionDispatcher : IExecutorActions
     {
         ArgumentNullException.ThrowIfNull(target);
         return target.Node
-            ?? (target.Node = _feed.LastSeen(target.Id))
+            ?? (target.Node = _feed.LastSeen(target.Id)?.Node)
             ?? throw new TestException("LOCATOR_NOT_FOUND", "node " + target.Id + " is not on the current screen; it was removed or never existed");
     }
 
@@ -419,10 +413,10 @@ internal sealed class ActionDispatcher : IExecutorActions
     /// list that does not move hands the paging to the viewport. The list is re-found before
     /// every page.
     /// </summary>
-    internal async Task<double?> PageUntilAsync(string text, ScrollDirection direction, RecordedAction? list, CancellationToken token)
+    internal async Task<(SemanticNode? Node, double? Spans)> PageUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list, CancellationToken token)
     {
         string? previous = null;
-        double? spans = null;
+        (SemanticNode? Node, double? Spans) paged = (null, null);
         var still = 0;
         for (var screens = 0; ; screens++)
         {
@@ -434,12 +428,13 @@ internal sealed class ActionDispatcher : IExecutorActions
                 _feed.MarkActing();
             }
 
-            var within = list is null ? null : Single(Find(observation, list.Role, list.Name, list.TestId, null, _scope.Redactor));
+            // Only the list being paged is read while it is on screen; once it is gone the whole screen is.
+            var within = list is null ? null : LocatorResolver.Walk(observation.Roots).FirstOrDefault(node => node.Ref == list.Id.TrimStart('#'));
             var found = Reading.NodeReading(observation, text, _scope.Redactor, within);
             if (found is not null)
             {
                 await _scope.Session.PerformAsync(found, new LocatorAction.ScrollIntoView(), token).ConfigureAwait(false);
-                return spans;
+                return paged;
             }
 
             if (screens >= MaxScrollUntilScreens)
@@ -458,22 +453,42 @@ internal sealed class ActionDispatcher : IExecutorActions
 
             if (still >= ScrollUntilWrongListPages && within is not null)
             {
-                within = null;
+                list = null;
                 still = 0;
             }
 
             previous = shape;
-            if (within is null)
-            {
-                // A list that is gone, or that does not move, gives the paging to the viewport for good.
-                list = null;
-                await _scope.Session.SwipeAsync(direction, token).ConfigureAwait(false);
-            }
-            else
-            {
-                await _scope.Session.PerformAsync(within, new LocatorAction.Swipe(direction), token).ConfigureAwait(false);
-                spans = SpansOf(within, observation.Viewport);
-            }
+            var turned = await PageAsync(direction, list, token).ConfigureAwait(false);
+            paged = turned.Paged;
+            list = turned.Within;
+        }
+    }
+
+    // One page of a scroll to a text: on the re-found list, else on the viewport, which also takes over for good once the
+    // list cannot be re-found. What was paged goes into the record, and the list to page next (upstream's page).
+    private async Task<((SemanticNode? Node, double? Spans) Paged, ExecutorTarget? Within)> PageAsync(ScrollDirection direction, ExecutorTarget? list, CancellationToken token)
+    {
+        var resolved = list is null ? null : ScrollTargetOrLost(list);
+        if (resolved is null)
+        {
+            await _scope.Session.SwipeAsync(direction, token).ConfigureAwait(false);
+            return ((null, null), null);
+        }
+
+        await _scope.Session.PerformAsync(resolved.Node, new LocatorAction.Swipe(direction), token).ConfigureAwait(false);
+        return ((resolved.Node, SpansOf(resolved.Node, resolved.Observation.Viewport)), list);
+    }
+
+    // The list a scroll to a text pages, or null once neither the newest screen nor its old place has it.
+    private Resolved? ScrollTargetOrLost(ExecutorTarget list)
+    {
+        try
+        {
+            return ScrollTarget.ResolveScrollTarget(_feed, list);
+        }
+        catch (TestException exception) when (exception.Code == "LOCATOR_NOT_FOUND")
+        {
+            return null;
         }
     }
 
