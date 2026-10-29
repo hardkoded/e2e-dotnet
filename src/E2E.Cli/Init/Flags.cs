@@ -42,6 +42,10 @@ internal static class InitFlags
             {
                 yes = true;
             }
+            else if (arg.StartsWith('-') && !arg.StartsWith("--", StringComparison.Ordinal))
+            {
+                return (null, "error: unknown option '" + arg + "'");
+            }
             else if (arg.StartsWith("--", StringComparison.Ordinal))
             {
                 var name = arg[2..];
@@ -58,6 +62,11 @@ internal static class InitFlags
                 }
 
                 if (value is null && !e.MoveNext())
+                {
+                    return (null, "error: option '--" + name + "' argument missing");
+                }
+
+                if ((value is not null && value.Length == 0) || (value is null && e.Current.StartsWith('-')))
                 {
                     return (null, "error: option '--" + name + "' argument missing");
                 }

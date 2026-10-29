@@ -59,6 +59,11 @@ internal static class Gateways
             return "Not a URL: " + trimmed;
         }
 
+        if (parsed.UserInfo.Length > 0)
+        {
+            return "Must not contain credentials; set the key in the environment";
+        }
+
         if (parsed.Scheme == "https" || (parsed.Scheme == "http" && Urls.IsLoopbackHost(parsed.Host)))
         {
             return null;

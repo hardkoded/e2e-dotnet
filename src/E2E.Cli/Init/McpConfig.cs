@@ -164,24 +164,9 @@ internal static partial class McpConfig
                 continue;
             }
 
-            var merged = new JsonObject();
-            foreach (var (name, value) in document)
-            {
-                if (name != "mcpServers")
-                {
-                    merged[name] = value?.DeepClone();
-                }
-            }
-
-            var mergedServers = new JsonObject();
-            foreach (var (name, value) in servers)
-            {
-                if (name != McpServerName)
-                {
-                    mergedServers[name] = value?.DeepClone();
-                }
-            }
-
+            // Keys keep their places, as a JavaScript spread keeps them.
+            var merged = (JsonObject)document.DeepClone();
+            var mergedServers = merged["mcpServers"] is JsonObject own ? own : new JsonObject();
             mergedServers[McpServerName] = entry;
             merged["mcpServers"] = mergedServers;
             var original = File.Exists(absolute) ? File.ReadAllText(absolute) : null;

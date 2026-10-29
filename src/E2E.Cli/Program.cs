@@ -141,7 +141,7 @@ public static partial class Program
         {
             return (await Init.RunAsync(root, options, stdout).ConfigureAwait(false)).ExitCode;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
             await stderr.WriteLineAsync("error: " + Clean(ex.Message)).ConfigureAwait(false);
             return 2;

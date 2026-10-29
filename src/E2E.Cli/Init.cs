@@ -225,7 +225,7 @@ internal static partial class Init
         System.IO.Directory.CreateDirectory(cwd);
         if (configFile is { } config)
         {
-            File.WriteAllText(Path.Combine(cwd, config.Relative), config.Content, Utf8);
+            WriteFile(Path.Combine(cwd, config.Relative), config.Content);
             log.Success("Created " + config.Relative);
         }
 
@@ -242,7 +242,7 @@ internal static partial class Init
         foreach (var registration in mcpRegistrations)
         {
             System.IO.Directory.CreateDirectory(Path.GetDirectoryName(registration.Absolute)!);
-            File.WriteAllText(registration.Absolute, registration.Content, Utf8);
+            WriteFile(registration.Absolute, registration.Content);
             log.Success((registration.Existing ? "Updated " : "Created ") + registration.Relative + " (e2e mcp server)");
         }
 
@@ -254,7 +254,7 @@ internal static partial class Init
         if (missingIgnore.Count > 0)
         {
             var prefix = existingIgnore.Length == 0 || existingIgnore.EndsWith('\n') ? "" : "\n";
-            File.WriteAllText(gitignorePath, existingIgnore + prefix + string.Join("\n", missingIgnore) + "\n", Utf8);
+            WriteFile(gitignorePath, existingIgnore + prefix + string.Join("\n", missingIgnore) + "\n");
             log.Success("Updated .gitignore (" + missingIgnore.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " entries)");
         }
 
@@ -327,7 +327,7 @@ internal static partial class Init
                 log.Success("Linked " + symlink.Relative + " -> " + symlink.Target + (symlink.Existing ? " (replaced the copy)" : ""));
                 return;
             }
-            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or NotSupportedException or PlatformNotSupportedException)
             {
                 // Windows lets only a privileged account create a symlink; a copy serves the agent the same.
                 log.Warn("Could not link " + symlink.Relative + " (" + error.Message + "); writing a copy instead");
@@ -335,7 +335,7 @@ internal static partial class Init
                 {
                     var target = Path.Combine(absolute, file.Relative);
                     System.IO.Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                    File.WriteAllText(target, file.Content, Utf8);
+                    WriteFile(target, file.Content);
                 }
 
                 log.Success("Created " + symlink.Relative + "/ (" + bundled.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " files)");
@@ -347,10 +347,25 @@ internal static partial class Init
         foreach (var file in copy.Files)
         {
             System.IO.Directory.CreateDirectory(Path.GetDirectoryName(file.Absolute)!);
-            File.WriteAllText(file.Absolute, file.Content, Utf8);
+            WriteFile(file.Absolute, file.Content);
         }
 
         log.Success((copy.Existing ? "Updated " : "Created ") + copy.Relative + "/ (" + copy.Files.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " files)");
+    }
+
+    /// <summary>Writes through a unique temp name, then moves it over the target, so a crash never leaves a half-written file (.NET-only; upstream writes in place).</summary>
+    private static void WriteFile(string path, string content)
+    {
+        var temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllText(temp, content, Utf8);
+            File.Move(temp, path, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temp);
+        }
     }
 
     [GeneratedRegex(@"\A[A-Za-z0-9_./@%+=:,-]+\z")]
@@ -359,13 +374,13 @@ internal static partial class Init
     /// <summary>.NET-only: the plain lines the port prints where upstream uses clack's log (<c>clack.log.info</c>, <c>warn</c>, <c>error</c>, <c>success</c>, <c>intro</c>, <c>outro</c>).</summary>
     private sealed class InitLog(TextWriter output)
     {
-        public void Intro(string text) => output.WriteLine(text);
+        public void Intro(string text) => output.WriteLine(Program.Clean(text));
 
-        public void Outro(string text) => output.WriteLine(text);
+        public void Outro(string text) => output.WriteLine(Program.Clean(text));
 
-        public void Info(string text) => output.WriteLine(text);
+        public void Info(string text) => output.WriteLine(Program.Clean(text));
 
-        public void Success(string text) => output.WriteLine(text);
+        public void Success(string text) => output.WriteLine(Program.Clean(text));
 
         public void Warn(string text) => output.WriteLine("warning: " + Program.Clean(text));
 
