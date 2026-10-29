@@ -71,7 +71,7 @@ public sealed class TraceCacheStrictCacheFailsAStepWhoseKeyChangedUnderItsRecord
         var expected = Identity.BuildTraceCacheKey(new TraceCacheKeyParts(
             Identity.ProjectIdentity(""),
             "billing > upgrades",
-            new CacheTargetIdentity("document", "document", "document", 1, E2E.Internal.Ids.CanonicalDigest(new JsonObject())),
+            new CacheTargetIdentity("document", "document", "document", 1, E2E.Internal.Ids.CanonicalDigest(new JsonObject { ["environment"] = "test" })),
             Identity.TraceCallSignature("act", "upgrade the workspace to the Pro plan", null),
             0,
             new CacheAgentIdentity("default", null),

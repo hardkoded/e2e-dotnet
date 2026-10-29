@@ -5,6 +5,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using E2E.Internal;
 
@@ -157,6 +158,53 @@ internal static partial class Command
         {
             throw Invalid(label + ".log must be a file inside the project root, got " + JsonSerializer.Serialize(log));
         }
+    }
+
+    /// <summary>A command as it enters the config digest (upstream's <c>digestCommand</c>): the env values reduced to their names.</summary>
+    public static JsonObject DigestCommand(CommandConfig command)
+    {
+        var digest = new JsonObject { ["executable"] = command.Executable };
+        if (command.Args is not null)
+        {
+            digest["args"] = new JsonArray([.. command.Args.Select(arg => (JsonNode?)JsonValue.Create(arg))]);
+        }
+
+        if (command.Cwd is not null)
+        {
+            digest["cwd"] = command.Cwd;
+        }
+
+        if (command.Env is not null)
+        {
+            digest["env"] = new JsonObject(command.Env.Keys.Select(key => KeyValuePair.Create(key, (JsonNode?)new JsonObject { ["envName"] = key })));
+        }
+
+        if (command.InheritEnv is not null)
+        {
+            digest["inheritEnv"] = new JsonArray([.. command.InheritEnv.Select(name => (JsonNode?)JsonValue.Create(name))]);
+        }
+
+        if (command.StartupTimeout is { } startup)
+        {
+            digest["startupTimeout"] = (long)startup.TotalMilliseconds;
+        }
+
+        if (command.ShutdownTimeout is { } shutdown)
+        {
+            digest["shutdownTimeout"] = (long)shutdown.TotalMilliseconds;
+        }
+
+        if (command.Log is not null)
+        {
+            digest["log"] = command.Log;
+        }
+
+        if (command.ReuseExisting is { } reuse)
+        {
+            digest["reuseExisting"] = reuse;
+        }
+
+        return digest;
     }
 
     /// <summary>A value as the author wrote it, for messages that quote the offending input (upstream's <c>describeValue</c>).</summary>

@@ -32,6 +32,7 @@ public static class WinAppTargetEngine
         {
             BundleId = target.App.BundleId,
             AppPath = environment(AppPathVariable) is { Length: > 0 } path ? path : target.App.AppPath,
+            LaunchArguments = target.App.LaunchArguments,
         };
         WinAppEngine.ValidateApp(app, target.App.Url, target.Name);
         return new WinAppEngine(new WinAppOptions { TargetName = target.Name, App = app });

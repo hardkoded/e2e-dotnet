@@ -236,6 +236,7 @@ public sealed class E2ESession : IAsyncDisposable
                 AgentName = options.Agent ?? "default",
                 Cache = options.Cache,
                 CacheEnabled = cacheOn,
+                AppIdentity = options.AppIdentity!,
                 CacheWrite = cacheOn && options.CacheMode == CacheMode.ReadWrite && !options.CacheStrict,
                 ReplayEligible = options.CacheStrict || options.Attempt == 1,
                 CacheStrict = options.CacheStrict,
@@ -864,6 +865,12 @@ public sealed class E2ESessionOptions
     public string? ProjectRoot { get; init; }
 
     public IStepCache? Cache { get; init; }
+
+    /// <summary>
+    /// The digest of the target app's resolved <c>identity</c> and <c>environment</c> that the replay cache keys on (upstream's
+    /// <c>SessionIdentity.appIdentity</c>). Unset, entries key on the <c>test</c> environment alone.
+    /// </summary>
+    public string? AppIdentity { get; init; }
 
     public bool CacheEnabled { get; init; } = true;
 

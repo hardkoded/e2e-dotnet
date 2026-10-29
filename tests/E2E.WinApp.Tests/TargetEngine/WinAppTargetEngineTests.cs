@@ -23,6 +23,13 @@ public sealed class WinAppTargetEngineTests
     }
 
     [Fact]
+    public void Hands_the_targets_launch_arguments_to_the_app()
+    {
+        var target = new TargetConfig { Name = "desk", Platform = "windows", App = new AppConfig { AppPath = "bin/Desk.exe", LaunchArguments = ["--e2e"] } };
+        Assert.Equal(["--e2e"], WinAppTargetEngine.Create(target, Environment()).Options.App.LaunchArguments);
+    }
+
+    [Fact]
     public void The_environment_names_the_executable_over_the_config()
     {
         var target = new TargetConfig { Name = "desk", Platform = "windows", App = new AppConfig { BundleId = "Desk" } };

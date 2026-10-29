@@ -28,7 +28,7 @@ internal static class WinAppHost
         return new WinAppOptions
         {
             TargetName = config.Target.Name,
-            App = new WinAppApp { BundleId = appId, AppPath = appPath },
+            App = new WinAppApp { BundleId = appId, AppPath = appPath, LaunchArguments = config.Target.App.LaunchArguments },
         };
     }
 

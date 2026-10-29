@@ -11,23 +11,27 @@ public sealed class AnAppUrlOnAFreePortTests
 {
     private const string Pnpm = """{ "executable": "pnpm", "args": ["dev"] }""";
 
-    /// <summary>Partial: the port's resolved app has no <c>site</c> or <c>identity</c>.</summary>
     [Fact]
-    public void Partial_Keeps_the_declared_zero_URL_and_asks_for_a_port_until_one_is_assigned()
+    public void Keeps_the_declared_zero_URL_and_asks_for_a_port_until_one_is_assigned()
     {
         var app = ResolveConfigTests.Resolved($$"""{ "url": "http://127.0.0.1:0", "command": {{Pnpm}} }""");
         Assert.Equal("http://127.0.0.1:0/", app.Base!.Href);
         Assert.Equal(new PortRequest("127.0.0.1", null), app.PortRequest);
+        Assert.Equal("127.0.0.1", app.Site);
         Assert.Equal("http://127.0.0.1:0/", app.ReadyUrl);
+        Assert.Equal("http://127.0.0.1:0/", app.Identity);
         Assert.Null(ResolveConfigTests.Resolved("""{ "url": "http://localhost:3000" }""").PortRequest);
         Assert.Null(ResolveConfigTests.Resolved("{}").PortRequest);
     }
 
-    /// <summary>Partial: the port has no <c>identity</c> or config digest to compare before and after the assignment.</summary>
+    /// <summary>Partial: the port has no config digest to compare before and after the assignment, so the identity is compared and the digest is not.</summary>
     [Fact]
-    public void Partial_Substitutes_the_assigned_port_in_the_base_URL_and_the_default_readyUrl()
+    public void Partial_Substitutes_the_assigned_port_in_the_base_URL_and_the_default_readyUrl_keeping_the_identity()
     {
+        var pending = ResolveConfigTests.Resolved($$"""{ "url": "http://127.0.0.1:0/shop/", "command": {{Pnpm}} }""");
         var app = ResolveConfigTests.Resolved($$"""{ "url": "http://127.0.0.1:0/shop/", "command": {{Pnpm}} }""", port: 4321);
+        Assert.Equal(pending.Identity, app.Identity);
+        Assert.Equal("http://127.0.0.1:0/shop/", app.Identity);
         Assert.Equal(new E2E.Internal.NormalizedBaseUrl("http://127.0.0.1:4321/shop/", "http://127.0.0.1:4321", "/shop/"), app.Base);
         Assert.Equal(new PortRequest("127.0.0.1", 4321), app.PortRequest);
         Assert.Equal("http://127.0.0.1:4321/shop/", app.ReadyUrl);
