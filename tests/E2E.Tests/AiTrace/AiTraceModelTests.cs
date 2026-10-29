@@ -37,6 +37,25 @@ public sealed class AiTraceModelTests
     }
 
     [Fact]
+    public async Task Attributes_a_generation_a_tool_starts_to_the_step_that_called_it()
+    {
+        var recorder = new AiTraceRecorder();
+        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "ok"));
+
+        using (var turn = await AiTraceModel.BeginAsync(recorder, model, Request(Redactor.None), CancellationToken.None))
+        {
+            await turn.ExecuteToolAsync(() => AiTraceModel.CompleteAsync(recorder, model, Request(Redactor.None), CancellationToken.None));
+        }
+
+        var document = recorder.Drain();
+
+        Assert.Equal(2, document.Runs.Count);
+        var (outer, inner) = (document.Runs[0], document.Runs[1]);
+        Assert.Equal(outer.Id, inner.ParentRunId);
+        Assert.Equal(document.Steps.Single(step => step.RunId == outer.Id).Id, inner.ParentStepId);
+    }
+
+    [Fact]
     public async Task Records_a_screenshot_as_a_byte_count()
     {
         var recorder = new AiTraceRecorder();
