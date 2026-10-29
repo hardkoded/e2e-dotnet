@@ -105,6 +105,9 @@ public sealed class WebInitScript
 
     public static implicit operator WebInitScript(string source) => FromSource(source);
 
+    /// <summary>The step label of this script (upstream's <c>initScriptLabel</c>): the file a path names, else its kind, never its source.</summary>
+    internal string Label() => Path ?? (Function is null ? "source" : "function");
+
     /// <summary>Why this script cannot run, or <see langword="null"/>.</summary>
     internal string? Problem() => Path is { Length: 0 } ? "path must be a non-empty string" : null;
 

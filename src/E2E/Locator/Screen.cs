@@ -369,6 +369,10 @@ public class Screen
     internal Task RunStepAsync(StepKind kind, string api, string label, Func<Task> body, bool verifies = false) =>
         Steps is null ? body() : Steps.RunAsync(kind, api, label, body, new StepRunOptions { Verifies = verifies });
 
+    /// <summary>Runs one call that touches the app and returns a value as a recorded step of the attempt, or as it is without a timeline.</summary>
+    internal Task<T> RunStepAsync<T>(StepKind kind, string api, string label, Func<Task<T>> body, bool verifies = false) =>
+        Steps is null ? body() : Steps.RunAsync(kind, api, label, body, new StepRunOptions { Verifies = verifies });
+
     /// <summary>Records one child event under the running step; nothing outside a session listens.</summary>
     internal void RecordEvent(StepEvent stepEvent) => Steps?.RecordEvent(stepEvent);
 

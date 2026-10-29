@@ -3,7 +3,30 @@ title: Coding agents
 description: Give a coding agent the skill, a live app session, and a way to migrate your suite.
 ---
 
-A coding agent such as Claude Code, Codex, or Cursor can write, run, and debug e2e tests. It learns e2e from the skill, uses the app through the `e2e mcp` server, and reads the output of a failed `dotnet test`. This page ports upstream's `docs/coding-agents.mdx`. The port has no `e2e init`, so each step below is a separate command.
+A coding agent such as Claude Code, Codex, or Cursor can write, run, and debug e2e tests. It learns e2e from the skill, uses the app through the `e2e mcp` server, and reads the output of a failed `dotnet test`. This page ports upstream's `docs/coding-agents.mdx`. Start with `e2e init`, or run each step below as a separate command.
+
+## Scaffold with `e2e init`
+
+```bash
+dotnet tool install --global E2E.Cli
+e2e init --yes
+```
+
+`e2e init [directory]` scaffolds the e2e side of a project and skips every file that exists. It needs `--yes`, since the port has no prompts. It writes `e2e.config.json` (a web target and a model gateway), installs the skill into `.agents/skills/e2e-dotnet` (with `.claude/skills/e2e-dotnet` as a symlink to it), registers the MCP server in `.mcp.json` and `.cursor/mcp.json`, and adds the `.e2e/` outputs to `.gitignore`. It creates no test project and edits no `.csproj`; the closing line points at `dotnet test`. Re-run it after an upgrade to refresh the skill and the MCP entries. A re-run keeps the settings you added to the e2e entry of an MCP file, and never writes through a symlink.
+
+| Option | Description |
+| --- | --- |
+| `[directory]` | Where to scaffold; created when missing. Default: the working directory. |
+| `-y`, `--yes` | Required. Each answer not given as a flag takes its default: the web engine, the Vercel AI Gateway, the skill and the MCP config in both locations. |
+| `--engine <ids>` | The engine for a new config: `web`, `mobile`, or `none`. One target only. |
+| `--gateway <id>` | The model gateway for agent steps in a new config: `vercel`, `openrouter`, `openai-compatible`, `chatgpt`, `copilot`, `opencode-console`, `grok`, or `none`. The config names the matching `provider`. |
+| `--endpoint <url>` | Base URL for `--gateway openai-compatible`, and implies it. HTTPS, or HTTP on a loopback host. Default: `http://127.0.0.1:11434/v1`. |
+| `--skills <dirs>` | Where to install the agent skill: `.agents/skills`, `.claude/skills`, or `none`. Comma-separated or repeated. |
+| `--mcp <files>` | Where to register the MCP server: `.mcp.json`, `.cursor/mcp.json`, or `none`. Comma-separated or repeated. |
+
+`--engine`, `--gateway`, and `--endpoint` apply only to a new config. Exit code 2 means an unknown flag value, no `--yes`, a directory argument that is a file, or a file or directory in the way of the skill or an invalid MCP file.
+
+For a subscription gateway, sign in before the first run with `e2e login <provider>`. See [COMPATIBILITY.md](/compatibility/#coding-agents) for what the port leaves out.
 
 ## Install the skill
 

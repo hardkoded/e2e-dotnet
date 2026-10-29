@@ -67,7 +67,7 @@ public sealed class BrowserExpect
             timeout,
             async token =>
             {
-                var title = await _browser.TitleAsync(token).ConfigureAwait(false);
+                var title = await _browser.ReadTitleAsync(token).ConfigureAwait(false);
                 return (TextRules.Compare(title, expected, contains: false, normalize: true, ignoreCase: null), "title " + LocatorExpect.Quote(title));
             },
             cancellationToken);
@@ -146,7 +146,7 @@ public sealed class BrowserExpect
             timeout,
             async token =>
             {
-                var url = await _browser.UrlAsync(token).ConfigureAwait(false);
+                var url = await _browser.ReadUrlAsync(token).ConfigureAwait(false);
                 return (matches(url), "URL " + url);
             },
             cancellationToken);

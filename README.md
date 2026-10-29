@@ -349,7 +349,9 @@ foreach (var finding in outcome.Explore.Findings)
 
 ## Coding agents (MCP)
 
-`e2e mcp` serves the project to a coding agent such as Claude Code or Cursor over MCP (stdio). Register it once:
+`e2e init --yes` scaffolds `e2e.config.json`, installs the skill into `.agents/skills/e2e-dotnet` and `.claude/skills/e2e-dotnet`, registers the MCP server in `.mcp.json` and `.cursor/mcp.json`, and updates `.gitignore`, skipping files that exist. It creates no test project. See [COMPATIBILITY.md](COMPATIBILITY.md#coding-agents).
+
+`e2e mcp` serves the project to a coding agent such as Claude Code or Cursor over MCP (stdio). `e2e init` registers it; to do it by hand:
 
 ```bash
 claude mcp add e2e -- e2e mcp
