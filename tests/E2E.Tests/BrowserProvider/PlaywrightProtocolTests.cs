@@ -40,23 +40,25 @@ public sealed class PlaywrightProtocolTests
     private static async Task WaitUntilDroppedAsync(IEngineSession session)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        while (true)
+        while (!timeout.IsCancellationRequested)
         {
             try
             {
                 await session.ObserveAsync(timeout.Token);
             }
-            catch (OperationCanceledException) when (timeout.IsCancellationRequested)
-            {
-                throw new TimeoutException("the engine never noticed the grid drop the session");
-            }
-            catch (Exception)
+            catch (Exception) when (!timeout.IsCancellationRequested)
             {
                 return;
             }
+            catch (Exception)
+            {
+                break;
+            }
 
-            await Task.Delay(50, timeout.Token);
+            await Task.Delay(50, CancellationToken.None);
         }
+
+        throw new TimeoutException("the engine never noticed the grid drop the session");
     }
 
     [Fact]
