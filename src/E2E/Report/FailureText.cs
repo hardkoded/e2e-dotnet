@@ -26,6 +26,9 @@ internal sealed record TracePageOptions
 
     /// <summary>The replay cache directory as the reader should see it; a step's entry is named as a file there.</summary>
     public string? CacheDir { get; init; }
+
+    /// <summary>The page is the whole record of a hosted session: there is no <c>report.json</c> to point at.</summary>
+    public bool Standalone { get; init; }
 }
 
 /// <summary>A step that did not pass, with its position on the page.</summary>
@@ -698,7 +701,8 @@ internal static partial class FailureText
             lines.Add("");
         }
 
-        lines.Add("<sub>e2e " + Cell(run.RunnerVersion, MaxIdChars) + " · run " + Code(run.Id, MaxIdChars) + "</sub>");
+        var footer = "e2e " + Cell(run.RunnerVersion, MaxIdChars) + " · run " + Code(run.Id, MaxIdChars);
+        lines.Add("<sub>" + (options.Standalone ? footer : footer + " · the whole run is in `report.json`") + "</sub>");
         return string.Join('\n', lines) + "\n";
     }
 
