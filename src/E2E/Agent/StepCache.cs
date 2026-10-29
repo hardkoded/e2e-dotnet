@@ -316,7 +316,7 @@ internal sealed class StepTraceSession
     {
         Pending.RecordedActions = entry.Actions.Count;
         _recordedBy = CacheEntry.ReadRecordedBy(entry.RecordedBy);
-        if (Decide.DecideTraceReplay(entry, _start is null ? null : Path(_start), _options.Params) is { Reason: { } missReason })
+        if (Decide.DecideTraceReplay(entry, _start is null ? null : ScreenPath(_start), _options.Params) is { Reason: { } missReason })
         {
             _info = Missed(missReason, entry.Actions.Count);
             return null;
@@ -337,7 +337,7 @@ internal sealed class StepTraceSession
         var outcome = await Replay.ReplayTrace(
             watched,
             entry.Actions,
-            new ReplayOptions { Initial = _start, LooksBeforeFree = () => screens.Count == 0 || !CacheRoute.Same(Path(screens[^1]), endRoute) }).ConfigureAwait(false);
+            new ReplayOptions { Initial = _start, LooksBeforeFree = () => screens.Count == 0 || !CacheRoute.Same(ScreenPath(screens[^1]), endRoute) }).ConfigureAwait(false);
 
         // Where the replay stopped, for the report: the recorded action, one-based, and what went wrong there when
         // more than the reason says.
@@ -421,7 +421,7 @@ internal sealed class StepTraceSession
         {
             // Every look must still be on the recorded end route: a screen that moved on is another screen.
             var end = await _host.ObserveAsync(SettleMode.Raw).ConfigureAwait(false);
-            if (CacheRoute.Same(Recorded(entry.EndRoute, parameters), Path(end)))
+            if (CacheRoute.Same(Recorded(entry.EndRoute, parameters), ScreenPath(end)))
             {
                 mismatch = Anchors.Mismatch(entry, Project(end), before);
                 if (mismatch is null)
@@ -450,7 +450,7 @@ internal sealed class StepTraceSession
     // its recording would replay on mechanics alone.
     private CacheEntry? BuildEntry(Observation baseline, Observation end, string? recordedBy)
     {
-        var routeMoved = !CacheRoute.Same(Path(baseline), Path(end));
+        var routeMoved = !CacheRoute.Same(ScreenPath(baseline), ScreenPath(end));
         var (appeared, gone) = Anchors.Describe(Project(baseline), Project(end), routeMoved);
         if (appeared.Count == 0 && gone.Count == 0 && !routeMoved)
         {
@@ -458,7 +458,7 @@ internal sealed class StepTraceSession
             return null;
         }
 
-        return _recorder.Finalize(Pending.Step!, Template(Path(_start!)), Template(Path(end)), appeared, gone, recordedBy);
+        return _recorder.Finalize(Pending.Step!, Template(ScreenPath(_start!)), Template(ScreenPath(end)), appeared, gone, recordedBy);
     }
 
     // One cache capture, settled as far as mode asks, or null when the surface cannot be observed right now, which is the
@@ -476,10 +476,10 @@ internal sealed class StepTraceSession
         }
     }
 
-    // A route is recorded redacted, with each unique() value as its slot, and read back with this call's values.
     // Upstream's ObservedScreen.path: where the screen is, as the cache compares it (CacheRoute.AppLocation).
-    private string Path(Observation observation) => CacheRoute.AppLocation(observation.Route, _options.AppOrigin);
+    private string ScreenPath(Observation observation) => CacheRoute.AppLocation(observation.Route, _options.AppOrigin);
 
+    // A route is recorded redacted, with each unique() value as its slot, and read back with this call's values.
     private string Template(string route) => CacheKeys.Template(_host.Redact.Redact(route), _options.Params);
 
     private static string? Recorded(string? route, IReadOnlyDictionary<string, object?>? parameters) =>
@@ -525,7 +525,7 @@ internal sealed class StepTraceSession
         Observation? baseline = null;
         foreach (var screen in screens)
         {
-            baseline = CacheRoute.Same(Path(screen), endRoute) ? baseline ?? screen : null;
+            baseline = CacheRoute.Same(ScreenPath(screen), endRoute) ? baseline ?? screen : null;
         }
 
         return baseline;
