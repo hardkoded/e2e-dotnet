@@ -39,7 +39,7 @@ public static partial class Program
           spacexai          SuperGrok or X Premium+
 
         e2e init scaffolds e2e.config.json, installs the agent skill, registers the MCP server, and updates .gitignore.
-        It needs --yes, since the port has no prompts. e2e init --help lists its flags.
+        It asks the questions no flag answered; --yes takes the defaults instead. e2e init --help lists its flags.
 
         e2e explore runs the agent against the app toward a goal, without a test file, and reports its findings. e2e explore --help lists its options.
 
@@ -95,7 +95,7 @@ public static partial class Program
 
         if (args[0] == "init")
         {
-            return await InitAsync(args.Skip(1).ToList(), stdout, stderr).ConfigureAwait(false);
+            return await InitAsync(args.Skip(1).ToList(), stdout, stderr, stdin, interactive).ConfigureAwait(false);
         }
 
         if (args[0] == "install")
@@ -121,7 +121,7 @@ public static partial class Program
         }
     }
 
-    private static async Task<int> InitAsync(List<string> args, TextWriter stdout, TextWriter stderr)
+    private static async Task<int> InitAsync(List<string> args, TextWriter stdout, TextWriter stderr, TextReader stdin, bool interactive)
     {
         if (args.Contains("--help") || args.Contains("-h"))
         {
@@ -139,7 +139,7 @@ public static partial class Program
         var root = Path.GetFullPath(options.Directory ?? Environment.CurrentDirectory);
         try
         {
-            return (await Init.RunAsync(root, options, stdout).ConfigureAwait(false)).ExitCode;
+            return (await Init.RunAsync(root, options with { Interactive = interactive, Prompts = new ConsolePrompts(stdin, stdout) }, stdout).ConfigureAwait(false)).ExitCode;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {

@@ -8,23 +8,17 @@ using System.Text.RegularExpressions;
 namespace E2E.Cli.Tests.CliInit;
 
 /// <summary>
-/// Upstream's <c>describe('e2e init')</c> of <c>tests/unit/cli-init.test.ts</c>. The port has no prompts, no package.json
-/// step, no install, no examples, and no <c>continueWith</c>, so the <c>it</c>s that exist to check those are not ported:
+/// Upstream's <c>describe('e2e init')</c> of <c>tests/unit/cli-init.test.ts</c>. The port has no package.json step, no
+/// install, no examples, and no <c>continueWith</c>, so the <c>it</c>s that exist to check those are not ported:
 /// "matches imports and dependencies to engine=$engine, ai=$ai" (package.json), "writes one target and one example file
-/// per engine when both are selected" (the port runs one target), "offers every gateway and none, and asks an
-/// OpenAI-compatible endpoint for its URL" (prompts), "writes a $gateway subscription model and names the sign-in as the
-/// next step" (the model is a provider id and there is no package.json; the sign-in step is checked in
-/// <see cref="Partial_Writes_a_subscription_model_and_names_the_sign_in_as_the_next_step"/>), "asks only the questions no flag
-/// answered", "adds only the missing script to package.json beside an existing config", "accepts interactive selections and
-/// installs once after writing all files", "writes the selected dependencies when installation is declined", "with
-/// continueWith" (three <c>it</c>s), "leaves the directory untouched when cancelling at %s", the package.json
-/// <c>type</c> <c>it.each</c> (three), "adds missing dependencies without changing existing fields, ranges, or formatting",
-/// "appends to a hand-ordered devDependencies block", the package.json <c>it.each</c> at line 629, "refuses to prompt without
-/// a terminal and names --yes" (merged into <see cref="Partial_Refuses_to_run_without_a_terminal_and_without_yes_even_when_flags_answer_every_question"/>),
-/// "does not create the directory when cancelling", "uses pnpm when selected by the %s", "keeps the scaffold and returns a
-/// failure when installation fails", "is idempotent with both engines and adds no engine-less example beside theirs", and
-/// "validates the endpoint the way config resolution will" (the validator is tested in
-/// <see cref="Partial_Validates_the_endpoint_the_way_config_resolution_will"/>).
+/// per engine when both are selected" (the port runs one target), "writes a $gateway subscription model and names the
+/// sign-in as the next step" (the model is a provider id and there is no package.json; the sign-in step is checked in
+/// <see cref="Partial_Writes_a_subscription_model_and_names_the_sign_in_as_the_next_step"/>), "adds only the missing script
+/// to package.json beside an existing config", "writes the selected dependencies when installation is declined", "with
+/// continueWith" (three <c>it</c>s), the package.json <c>type</c> <c>it.each</c> (three), "adds missing dependencies without
+/// changing existing fields, ranges, or formatting", "appends to a hand-ordered devDependencies block", the package.json
+/// <c>it.each</c> at line 629, "uses pnpm when selected by the %s", "keeps the scaffold and returns a failure when
+/// installation fails", and "is idempotent with both engines and adds no engine-less example beside theirs".
 /// </summary>
 public sealed partial class E2eInitTests : CliInitTestBase
 {
@@ -76,8 +70,8 @@ public sealed partial class E2eInitTests : CliInitTestBase
     // Partial: the port has no package.json to fail on, so the second run that cannot start is a skill-less installation.
     public async Task Partial_Hands_back_a_run_that_could_not_start()
     {
-        Assert.Equal(InitResult.NotInteractive, (await RunInitAsync(yes: false)).Result);
-        Assert.Equal(2, (await RunInitAsync(yes: false)).ExitCode);
+        Assert.Equal(InitResult.NotInteractive, (await RunInitAsync(new InitOptions { Interactive = false })).Result);
+        Assert.Equal(2, (await RunInitAsync(new InitOptions { Interactive = false })).ExitCode);
         var outcome = await RunInitAsync(new InitOptions { Yes = true, ReadSkillFiles = () => [] });
         Assert.Equal(2, outcome.ExitCode);
         Assert.Equal(InitResult.InvalidProject, outcome.Result);
@@ -170,27 +164,162 @@ public sealed partial class E2eInitTests : CliInitTestBase
     }
 
     [Fact]
-    // Partial: the port never asks, so a run without --yes is refused even with a terminal, and the refusal names the flags.
+    // Partial: the flags have no --install, so they answer every question but that one.
     public async Task Partial_Refuses_to_run_without_a_terminal_and_without_yes_even_when_flags_answer_every_question()
     {
-        var outcome = await RunInitAsync(new InitOptions { Engines = ["web"], Gateway = "none", Skills = [], Mcp = [] });
+        var outcome = await RunInitAsync(new InitOptions { Interactive = false, Engines = ["web"], Gateway = "none", Skills = [], Mcp = [] });
         Assert.Equal(2, outcome.ExitCode);
         Assert.Equal(InitResult.NotInteractive, outcome.Result);
         Assert.Empty(Directory.EnumerateFileSystemEntries(Dir));
+        Assert.Empty(Prompts.ConfirmCalls);
+        Assert.Contains("needs an interactive terminal", Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    // Partial: the port has no installation, so the defaults the message names are the engine and the gateway.
+    public async Task Partial_Refuses_to_prompt_without_a_terminal_and_names_yes()
+    {
+        Assert.Equal(2, (await RunInitAsync(new InitOptions { Interactive = false })).ExitCode);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(Dir));
+        Assert.Empty(Prompts.SelectCalls);
+        Assert.Empty(Prompts.ConfirmCalls);
         Assert.Contains("needs an interactive terminal", Output, StringComparison.Ordinal);
         Assert.Contains("pass --yes to accept the defaults (the web engine, the Vercel AI Gateway) or --yes with flags such as --engine for other answers", Output, StringComparison.Ordinal);
     }
 
     [Fact]
-    // Partial: the validator is upstream's validateEndpoint, which the prompt calls; the port has no prompt.
-    public void Partial_Validates_the_endpoint_the_way_config_resolution_will()
+    public async Task Validates_the_endpoint_the_way_config_resolution_will()
     {
-        Assert.Contains("Enter the base URL", Gateways.ValidateEndpoint(null), StringComparison.Ordinal);
-        Assert.Contains("Enter the base URL", Gateways.ValidateEndpoint("   "), StringComparison.Ordinal);
-        Assert.Contains("Not a URL", Gateways.ValidateEndpoint("not a url"), StringComparison.Ordinal);
-        Assert.Contains("HTTPS", Gateways.ValidateEndpoint("http://llm.example/v1"), StringComparison.Ordinal);
-        Assert.Null(Gateways.ValidateEndpoint("http://localhost:11434/v1"));
-        Assert.Null(Gateways.ValidateEndpoint("https://llm.example/v1"));
+        Prompts.Engines = ["web"];
+        Prompts.NextSelect("openai-compatible");
+        Prompts.NextConfirm(true);
+        Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
+        var validate = Prompts.TextCalls[0].Validate;
+        Assert.Contains("Enter the base URL", validate(null), StringComparison.Ordinal);
+        Assert.Contains("Enter the base URL", validate("   "), StringComparison.Ordinal);
+        Assert.Contains("Not a URL", validate("not a url"), StringComparison.Ordinal);
+        Assert.Contains("HTTPS", validate("http://llm.example/v1"), StringComparison.Ordinal);
+        Assert.Null(validate("http://localhost:11434/v1"));
+        Assert.Null(validate("https://llm.example/v1"));
+    }
+
+    [Fact]
+    // Partial: the port has no install question, so it checks neither the installation nor the package.json.
+    public async Task Partial_Accepts_interactive_selections_and_installs_once_after_writing_all_files()
+    {
+        Prompts.Engines = ["web"];
+        Prompts.NextSelect("vercel");
+        Prompts.NextConfirm(true);
+        Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
+        var gateway = Assert.Single(Prompts.SelectCalls);
+        Assert.Contains("Which model gateway", gateway.Message, StringComparison.Ordinal);
+        Assert.Equal("vercel", gateway.InitialValue);
+        Assert.Equal(new ConfirmCall("Apply these changes?", true), Assert.Single(Prompts.ConfirmCalls));
+        Assert.Equal("gateway", (string?)Json("e2e.config.json")["agents"]!["default"]!["provider"]);
+        Assert.Contains("Next: dotnet test", Output, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    // Partial: the port has no install question and no AI SDK in its gateway question.
+    public async Task Partial_Offers_every_gateway_and_none_and_asks_an_OpenAI_compatible_endpoint_for_its_URL()
+    {
+        Prompts.Engines = ["web"];
+        Prompts.NextSelect("openai-compatible");
+        Prompts.NextText(" http://127.0.0.1:11434/v1 ");
+        Prompts.NextConfirm(true);
+        Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
+        var gateway = Assert.Single(Prompts.SelectCalls);
+        Assert.Contains("Which model gateway", gateway.Message, StringComparison.Ordinal);
+        Assert.Equal("vercel", gateway.InitialValue);
+        Assert.Equal(
+            ["vercel", "openrouter", "openai-compatible", "chatgpt", "copilot", "opencode-console", "grok", "none"],
+            gateway.Options.Select(option => option.Value));
+        Assert.Equal("Vercel AI Gateway", gateway.Options[0].Label);
+        Assert.Equal("http://127.0.0.1:11434/v1", Assert.Single(Prompts.TextCalls).Placeholder);
+        var agent = Json("e2e.config.json")["agents"]!["default"]!;
+        Assert.Equal("openai-compatible", (string?)agent["provider"]);
+        Assert.Equal("http://127.0.0.1:11434/v1", (string?)agent["baseUrl"]);
+        Assert.Equal("gpt-6-luna", (string?)agent["model"]);
+    }
+
+    [Fact]
+    // Partial: the port has no install flag, so the flags leave the gateway the only select question and the apply the only confirm.
+    public async Task Partial_Asks_only_the_questions_no_flag_answered()
+    {
+        Prompts.NextSelect("none");
+        Prompts.NextConfirm(true);
+        var outcome = await RunInitAsync(new InitOptions { Engines = ["web"], Skills = [".claude/skills"], Mcp = [] });
+        Assert.Equal(0, outcome.ExitCode);
+        Assert.Equal("web", outcome.Engine);
+        Assert.Equal("none", outcome.Gateway);
+        Assert.Contains("Which model gateway", Assert.Single(Prompts.SelectCalls).Message, StringComparison.Ordinal);
+        Assert.Empty(Prompts.MultiSelectCalls);
+        Assert.Equal("Apply these changes?", Assert.Single(Prompts.ConfirmCalls).Message);
+        Assert.True(File.Exists(Path_(".claude/skills/e2e-dotnet/SKILL.md")));
+        Assert.False(Exists(".agents"));
+    }
+
+    [Fact]
+    // Partial: the port has no install question and runs one target, so the third run chooses mobile alone.
+    public async Task Partial_Hands_back_the_prompted_choices_a_cancellation_with_what_was_chosen_so_far_and_a_failed_install()
+    {
+        Prompts.Engines = ["mobile"];
+        Prompts.NextSelect("none");
+        Prompts.Skills = [".agents/skills"];
+        Prompts.Mcp = null;
+        Assert.Equal(
+            new InitRunOutcome(0, InitResult.Cancelled, false, false, "mobile", "none", true, false),
+            await RunInitAsync(new InitOptions()));
+
+        Prompts.Engines = ["mobile"];
+        Prompts.Mcp = [".mcp.json"];
+        Prompts.NextSelect("none");
+        Prompts.NextConfirm(true);
+        var outcome = await RunInitAsync(new InitOptions());
+        Assert.Equal(0, outcome.ExitCode);
+        Assert.Equal(InitResult.Scaffolded, outcome.Result);
+        Assert.Equal("mobile", outcome.Engine);
+    }
+
+    [Fact]
+    // .NET-only: the port runs one target, so the engines question refuses two before anything is written.
+    public async Task Refuses_two_engines_from_the_prompt_before_writing_anything()
+    {
+        Prompts.Engines = ["web", "mobile"];
+        var outcome = await RunInitAsync(new InitOptions());
+        Assert.Equal(2, outcome.ExitCode);
+        Assert.Equal(InitResult.InvalidProject, outcome.Result);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(Dir));
+        Assert.Contains("the .NET port runs one target; choose one engine", Output, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("engine")]
+    [InlineData("gateway")]
+    [InlineData("endpoint")]
+    [InlineData("skill")]
+    [InlineData("mcp")]
+    [InlineData("files")]
+    // Partial: the port has no install stage.
+    public async Task Partial_Leaves_the_directory_untouched_when_cancelling_at_stage(string stage)
+    {
+        Prompts.Engines = stage == "engine" ? null : ["web"];
+        Prompts.Skills = stage == "skill" ? null : [".agents/skills"];
+        Prompts.Mcp = stage == "mcp" ? null : [".mcp.json"];
+        Prompts.NextSelect(stage == "gateway" ? null : "openai-compatible");
+        Prompts.NextText(stage == "endpoint" ? null : "http://127.0.0.1:11434/v1");
+        Prompts.NextConfirm(stage != "files", null);
+        Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(Dir));
+    }
+
+    [Fact]
+    public async Task Does_not_create_the_directory_when_cancelling()
+    {
+        var target = Path_("later");
+        Prompts.Engines = null;
+        Assert.Equal(0, (await RunInitAsync(new InitOptions { Directory = "later" }, target)).ExitCode);
+        Assert.False(Directory.Exists(target));
     }
 
     [Theory]
@@ -364,21 +493,29 @@ public sealed partial class E2eInitTests : CliInitTestBase
     }
 
     [Fact]
-    // Partial: the missing skill is injected through InitOptions.ReadSkillFiles, in place of mocking readSkillFiles, and there is no prompt to check.
-    public async Task Partial_Fails_before_any_prompt_or_write_when_the_package_lacks_its_skill_files()
+    public async Task Fails_before_any_prompt_or_write_when_the_package_lacks_its_skill_files()
     {
-        var outcome = await RunInitAsync(new InitOptions { Yes = true, ReadSkillFiles = () => [] });
+        // The missing skill is injected through InitOptions.ReadSkillFiles, in place of mocking readSkillFiles.
+        var outcome = await RunInitAsync(new InitOptions { ReadSkillFiles = () => [] });
         Assert.Equal(2, outcome.ExitCode);
         Assert.Empty(Directory.EnumerateFileSystemEntries(Dir));
+        Assert.Empty(Prompts.SelectCalls);
+        Assert.Empty(Prompts.MultiSelectCalls);
         Assert.Contains("reinstall e2e", Output, StringComparison.Ordinal);
     }
 
     [Fact]
-    // Partial: the skill and MCP locations are declined with flags, since the port has no prompt to decline.
+    // Partial: the port has no install question and prints its own commands for the skill and the MCP server.
     public async Task Partial_Offers_the_skill_to_an_initialized_project_and_points_at_e2e_guide_when_declined()
     {
         await File.WriteAllTextAsync(Path_("e2e.config.json"), "{ \"custom\": true }\n");
-        Assert.Equal(0, (await RunInitAsync(new InitOptions { Yes = true, Skills = [], Mcp = [] })).ExitCode);
+        Prompts.Engines = ["web"];
+        Prompts.Skills = [];
+        Prompts.Mcp = [];
+        Prompts.NextConfirm(true);
+        Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
+        Assert.Empty(Prompts.SelectCalls);
+        Assert.Equal(2, Prompts.MultiSelectCalls.Count);
         Assert.False(Exists(".agents"));
         Assert.False(Exists(".claude"));
         Assert.False(Exists(".mcp.json"));

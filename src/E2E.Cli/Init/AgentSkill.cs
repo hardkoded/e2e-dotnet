@@ -164,6 +164,16 @@ internal static class AgentSkill
     }
 
     /// <summary>
+    /// Whether removing the install's links leaves everything but the skill in place: each is the skill directory or inside
+    /// it. A linked parent (<c>.claude/skills</c>) holds more than the skill, so a copy cannot stand in for it.
+    /// </summary>
+    public static bool ReplaceableLinks(SkillInstall install)
+    {
+        ArgumentNullException.ThrowIfNull(install);
+        return install.Links.All(link => link.Relative.StartsWith(install.Relative, StringComparison.Ordinal));
+    }
+
+    /// <summary>
     /// The install's links for a message: a skill directory that is itself the link reads <c>dir -> target</c>; otherwise the
     /// directory, then the links in parentheses.
     /// </summary>

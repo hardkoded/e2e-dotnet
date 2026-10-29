@@ -19,7 +19,7 @@ internal static class InitFlags
         e2e init [directory] [--yes] [--engine <ids>] [--gateway <id>] [--endpoint <url>] [--skills <dirs>] [--mcp <files>]
 
         Scaffolds e2e.config.json, installs the agent skill, registers the MCP server, and updates .gitignore. Existing files are never overwritten.
-          --yes             accept the defaults for every question a flag does not answer (required: the port has no prompts)
+          --yes             accept the defaults for every question a flag does not answer, and ask nothing
           --engine <ids>    engine for a new config: web, mobile, or none
           --gateway <id>    model gateway for agent steps in a new config: vercel, openrouter, openai-compatible, chatgpt, copilot, opencode-console, grok, or none
           --endpoint <url>  base URL of the API for --gateway openai-compatible, which it implies

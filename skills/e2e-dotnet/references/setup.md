@@ -29,9 +29,11 @@
 
 ## Scaffold
 
-`e2e init --yes` scaffolds the e2e side of a project from the installed
-`E2E.Cli` tool; `e2e init my-app --yes` scaffolds into a new directory. It
-needs `--yes`, since the port has no prompts. `--yes` writes `e2e.config.json`
+`e2e init` scaffolds the e2e side of a project from the installed `E2E.Cli`
+tool; `e2e init my-app` scaffolds into a new directory. It asks the questions
+no flag answered (engines, gateway, skill and MCP locations), shows the changes,
+and asks to apply them; a coding agent has no terminal, so it passes `--yes`,
+which asks nothing. `--yes` writes `e2e.config.json`
 (the web engine and the Vercel AI Gateway as provider `gateway`), installs this
 skill in `.agents/skills/e2e-dotnet` (`.claude/skills/e2e-dotnet` symlinks to
 it), registers the MCP server in `.mcp.json` and `.cursor/mcp.json`, and

@@ -12,12 +12,12 @@ dotnet tool install --global E2E.Cli
 e2e init --yes
 ```
 
-`e2e init [directory]` scaffolds the e2e side of a project and skips every file that exists. It needs `--yes`, since the port has no prompts. It writes `e2e.config.json` (a web target and a model gateway), installs the skill into `.agents/skills/e2e-dotnet` (with `.claude/skills/e2e-dotnet` as a symlink to it), registers the MCP server in `.mcp.json` and `.cursor/mcp.json`, and adds the `.e2e/` outputs to `.gitignore`. It creates no test project and edits no `.csproj`; the closing line points at `dotnet test`. Re-run it after an upgrade to refresh the skill and the MCP entries. A re-run keeps the settings you added to the e2e entry of an MCP file, and never writes through a symlink.
+`e2e init [directory]` scaffolds the e2e side of a project and skips every file that exists. It asks the questions no flag answered: the engines, the model gateway (and the endpoint of an OpenAI-compatible one), where to install the skill, and where to register the MCP server. Then it lists the changes and asks to apply them; leaving a question or declining writes nothing. If a skill directory is a symlink, it asks before replacing the link with a copy (or with a link to the other copy), and declines by default. Without a terminal it needs `--yes`. It writes `e2e.config.json` (a web target and a model gateway), installs the skill into `.agents/skills/e2e-dotnet` (with `.claude/skills/e2e-dotnet` as a symlink to it), registers the MCP server in `.mcp.json` and `.cursor/mcp.json`, and adds the `.e2e/` outputs to `.gitignore`. It creates no test project and edits no `.csproj`; the closing line points at `dotnet test`. Re-run it after an upgrade to refresh the skill and the MCP entries. A re-run keeps the settings you added to the e2e entry of an MCP file, and never writes through a symlink.
 
 | Option | Description |
 | --- | --- |
 | `[directory]` | Where to scaffold; created when missing. Default: the working directory. |
-| `-y`, `--yes` | Required. Each answer not given as a flag takes its default: the web engine, the Vercel AI Gateway, the skill and the MCP config in both locations. |
+| `-y`, `--yes` | Ask nothing. Each answer not given as a flag takes its default: the web engine, the Vercel AI Gateway, the skill and the MCP config in both locations. |
 | `--engine <ids>` | The engine for a new config: `web`, `mobile`, or `none`. One target only. |
 | `--gateway <id>` | The model gateway for agent steps in a new config: `vercel`, `openrouter`, `openai-compatible`, `chatgpt`, `copilot`, `opencode-console`, `grok`, or `none`. The config names the matching `provider`. |
 | `--endpoint <url>` | Base URL for `--gateway openai-compatible`, and implies it. HTTPS, or HTTP on a loopback host. Default: `http://127.0.0.1:11434/v1`. |
