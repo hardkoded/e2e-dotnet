@@ -229,7 +229,7 @@ Upstream's `4982d8d` (#1333) documents that the browser engine's semantic tree l
 
 - The steps use what the port has. The launch is the target's `app.command` or the app started by hand, the doctor is a smoke test run with `dotnet test --filter`, and the evidence is the `dotnet test` result and the test's own checks, since the port writes no report or trace page, and a video only when `video` is on.
 - Not ported: the generated bug bash fan-out. It depends on `e2e.bugbash.config.ts`, which the port lacks, and runs many `e2e explore` commands at once, so a feature's charters are goals for a live MCP walk, and a finding is a bug once a repro test fails with `ASSERTION_FAILED`.
-- Not ported: `npx e2e init` as the setup step (`e2e init --yes` scaffolds the config, the skill, and the MCP registration, but no test project: see [Coding agents](#coding-agents)), `e2e list` as a config check, `--output` for proofs, and the `.gitignore` lines for `.e2e/bugbash/` and `.e2e/proof/`. The repo already ignores `.e2e/`.
+- Not ported: `npx e2e init` as the setup step (`e2e init` scaffolds the config, the skill, and the MCP registration, but no test project: see [Coding agents](#coding-agents)), `e2e list` as a config check, `--output` for proofs, and the `.gitignore` lines for `.e2e/bugbash/` and `.e2e/proof/`. The repo already ignores `.e2e/`.
 - The example under `references/example/` is `verify-todomvc` for `samples/TodoMvc`, in place of `verify-playground` for upstream's `apps/testbed`, which the port does not have. It has three features (adding, completing, filtering), not the playground's three (todos, forms, login).
 - Upstream added no tests for this skill, so none are ported.
 

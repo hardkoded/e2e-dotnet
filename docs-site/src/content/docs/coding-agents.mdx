@@ -24,7 +24,7 @@ e2e init --yes
 | `--skills <dirs>` | Where to install the agent skill: `.agents/skills`, `.claude/skills`, or `none`. Comma-separated or repeated. |
 | `--mcp <files>` | Where to register the MCP server: `.mcp.json`, `.cursor/mcp.json`, or `none`. Comma-separated or repeated. |
 
-`--engine`, `--gateway`, and `--endpoint` apply only to a new config. Exit code 2 means an unknown flag value, no `--yes`, a directory argument that is a file, or a file or directory in the way of the skill or an invalid MCP file.
+`--engine`, `--gateway`, and `--endpoint` apply only to a new config. Exit code 2 means an unknown flag value, no terminal and no `--yes`, a directory argument that is a file, or a file or directory in the way of the skill or an invalid MCP file.
 
 For a subscription gateway, sign in before the first run with `e2e login <provider>`. See [COMPATIBILITY.md](/compatibility/#coding-agents) for what the port leaves out.
 
