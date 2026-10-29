@@ -36,6 +36,16 @@ public sealed class ModelRequest
     /// </summary>
     public bool MarkLatest { get; init; }
 
+    /// <summary>
+    /// Upstream's <c>ModelCall.schema</c>: a closed response grammar the provider is asked to fill as structured output. When it is
+    /// set, <see cref="Tools"/> is empty and the model answers with one JSON object that matches it, as <see cref="ModelResponse.Content"/>;
+    /// the agent validates that text itself. Null for a turn that offers tools. A custom <see cref="IAgentModel"/> must handle it.
+    /// </summary>
+    public JsonElement? Schema { get; init; }
+
+    /// <summary>Upstream's <c>ModelCall.schemaName</c>: the name sent with <see cref="Schema"/>, for the providers that name a structured output.</summary>
+    public string? SchemaName { get; init; }
+
     /// <summary>Redacts the secrets of the step from a provider failure that quotes the response body.</summary>
     internal Redactor Redactor { get; init; } = Redactor.None;
 }
@@ -131,6 +141,18 @@ public static class ModelResponses
             : (object)new { status, summary, code });
     }
 
+    /// <summary>
+    /// A judge's answer: one <c>agent-judgment-2</c> object as the content of the turn. <paramref name="verdict"/> is
+    /// <c>holds</c>, <c>fails</c>, or <c>inconclusive</c>.
+    /// </summary>
+    public static ModelResponse Judgment(string verdict, string explanation)
+    {
+        return new ModelResponse
+        {
+            Content = JsonSerializer.Serialize(new { protocolVersion = "agent-judgment-2", explanation, verdict }, JsonDefaults.Options),
+        };
+    }
+
     public static ModelResponse Tap(string role, string name)
     {
         return Call("tap", new { role, name });
@@ -160,7 +182,12 @@ public static class ModelResponses
     }
 }
 
-/// <summary>Returns whatever the callback decides for each request. Records every request.</summary>
+/// <summary>
+/// Returns whatever the callback decides for each request. Records every request. A callback that serves both the act loop
+/// and the judge may answer a judgment (a request with a <see cref="ModelRequest.Schema"/>) with <see cref="ModelResponses.Done"/>:
+/// <c>passed</c> reads as <c>holds</c>, a <c>failed</c> without the code <c>ASSERTION_INCONCLUSIVE</c> as <c>fails</c>, and a
+/// <c>blocked</c> or inconclusive one as <c>inconclusive</c>. <see cref="ModelResponses.Judgment"/> answers it directly.
+/// </summary>
 public sealed class ScriptedModel : IAgentModel
 {
     private readonly Func<ModelRequest, ModelResponse> _next;
@@ -182,6 +209,26 @@ public sealed class ScriptedModel : IAgentModel
         cancellationToken.ThrowIfCancellationRequested();
         CallCount++;
         Requests.Add(request);
-        return Task.FromResult(_next(request));
+        var response = _next(request);
+        return Task.FromResult(request.Schema is null ? response : AsJudgment(response));
+    }
+
+    private static ModelResponse AsJudgment(ModelResponse response)
+    {
+        var done = response.ToolCalls.FirstOrDefault(call => string.Equals(call.Name, "done", StringComparison.Ordinal));
+        if (done is null || response.Content is not null)
+        {
+            return response;
+        }
+
+        var status = Args.String(done.Arguments, "status");
+        var code = Args.String(done.Arguments, "code");
+        var verdict = status switch
+        {
+            "passed" => "holds",
+            "failed" when code != "ASSERTION_INCONCLUSIVE" => "fails",
+            _ => "inconclusive",
+        };
+        return new ModelResponse { Content = ModelResponses.Judgment(verdict, Args.String(done.Arguments, "summary") ?? "").Content, Usage = response.Usage };
     }
 }

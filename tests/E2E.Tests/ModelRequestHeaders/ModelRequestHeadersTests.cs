@@ -10,6 +10,17 @@ namespace E2E.Tests.ModelRequestHeaders;
 
 public sealed class ModelRequestHeadersTests
 {
+    // A structured answer: the JSON object is the content of the message.
+    private static string Answer(string json)
+    {
+        return $$"""
+            {
+              "choices": [{ "message": { "content": {{System.Text.Json.JsonSerializer.Serialize(json)}} }, "finish_reason": "stop" }],
+              "usage": { "prompt_tokens": 10, "completion_tokens": 5 }
+            }
+            """;
+    }
+
     /// <summary>A chat completion that calls <paramref name="tool"/> with <paramref name="arguments"/>.</summary>
     private static string Completion(string tool, string arguments)
     {
@@ -40,7 +51,7 @@ public sealed class ModelRequestHeadersTests
     // The port has no AI SDK; the .NET runtime token takes the place of its user agent.
     public async Task Identifies_e2e_on_a_judgment_call_ahead_of_the_AI_SDK_user_agent()
     {
-        var handler = new RecordingHandler(Completion("done", """{"status":"passed","summary":"holds"}"""));
+        var handler = new RecordingHandler(Answer("""{"protocolVersion":"agent-judgment-2","explanation":"the plan is Free","verdict":"holds"}"""));
 
         await RunAsync(handler, ctx => ctx.Agent.AssertAsync("the plan is Free"));
 

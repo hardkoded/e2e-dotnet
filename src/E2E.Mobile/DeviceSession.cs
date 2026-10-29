@@ -36,6 +36,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     private readonly Action<Observation>? _screenSink;
     private readonly InflightCommands _inflight;
     private IDeviceClient? _client;
+    private IDeviceClient? _tracked;
     private int _idCounter;
     private string? _appIdentity;
 
@@ -110,7 +111,12 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         _fixtureContext ?? throw DeviceSupport.InvalidState("device.locator needs the attempt's test session: start the engine through a test, not on its own");
 
     /// <summary>The agent-device client of the live session, or <c>INVALID_STATE</c> once it closed.</summary>
-    internal IDeviceClient Client => _client ?? throw DeviceSupport.InvalidState("the agent-device engine is not initialized");
+    internal IDeviceClient Client => _tracked ??= _client switch
+    {
+        null => throw DeviceSupport.InvalidState("the agent-device engine is not initialized"),
+        ICancellableDeviceClient cancellable => cancellable,
+        var client => new TrackedClient(client, _inflight),
+    };
 
     /// <summary>The session and device this worker drives, for the error messages whose recovery is per device.</summary>
     internal string Where => _where;
@@ -310,6 +316,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         var client = _client;
         var dangling = _recording;
         _client = null;
+        _tracked = null;
         _recording = null;
         _engine.Unregister(this);
         _appIdentity = null;
@@ -549,13 +556,17 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 internal sealed class InflightCommands
 {
     private readonly HashSet<Task> _pending = [];
+    private bool _unconfirmedAbort;
 
     /// <summary>Registers one device command as in flight until it settles.</summary>
-    public void Track(Task pending)
+    public void Track(Task pending, Func<Task, bool>? unconfirmed = null)
     {
         lock (_pending)
         {
-            _pending.Add(pending);
+            if (!_pending.Add(pending))
+            {
+                return;
+            }
         }
 
         _ = pending.ContinueWith(
@@ -565,6 +576,8 @@ internal sealed class InflightCommands
                 _ = settled.Exception;
                 lock (_pending)
                 {
+                    // A request the caller left that ends without the daemon's answer is not confirmation that the daemon finished the command.
+                    _unconfirmedAbort |= unconfirmed?.Invoke(settled) ?? false;
                     _pending.Remove(settled);
                 }
             },
@@ -584,6 +597,11 @@ internal sealed class InflightCommands
             Task[] pending;
             lock (_pending)
             {
+                if (_unconfirmedAbort)
+                {
+                    throw new EngineException(EngineErrorCodes.EngineFailure, "an earlier device request was aborted without confirmation that the daemon finished; later attempts on this device are blocked", retryable: false);
+                }
+
                 pending = [.. _pending];
             }
 
@@ -603,4 +621,61 @@ internal sealed class InflightCommands
             }
         }
     }
+}
+
+/// <summary>
+/// The client a session's commands go through. agent-device takes no abort signal, and upstream's client is called without one, so a command
+/// the caller gave up on keeps running on the device. The port's HTTP client would abort its request on a cancel and end the tracked task
+/// while the daemon may still run the command; this call runs under a token the caller cannot cancel, and the caller leaves by racing it
+/// (<c>WaitAsync</c> in <c>RunCommandAsync</c>, <c>ActAsync</c>, and <see cref="InputBudget"/>). The call is tracked in flight itself, so it
+/// stays there until the daemon answers. Once the caller left, the request is given <see cref="E2EDefaults.LaunchTimeout"/> to answer (the
+/// bound of <c>SettleInflightAsync</c> on the next start) and is aborted after that. An abort without a successful answer blocks later
+/// attempts on that device, since daemon completion is unknown. .NET-only: upstream's client has no signal to detach.
+/// </summary>
+internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflight, TimeProvider? timeProvider = null) : IDeviceClient
+{
+    public Task<JsonNode?> CallAsync(string method, JsonObject? options, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var abort = new CancellationTokenSource(Timeout.InfiniteTimeSpan, timeProvider ?? TimeProvider.System);
+        var callerLeft = new System.Runtime.CompilerServices.StrongBox<bool>();
+        var left = cancellationToken.CanBeCanceled
+            ? cancellationToken.Register(
+                static state =>
+                {
+                    var (source, flag) = ((CancellationTokenSource, System.Runtime.CompilerServices.StrongBox<bool>))state!;
+                    Volatile.Write(ref flag.Value, true);
+                    source.CancelAfter(E2EDefaults.LaunchTimeout);
+                },
+                (abort, callerLeft))
+            : default;
+        Task<JsonNode?> pending;
+        try
+        {
+            pending = inner.CallAsync(method, options, abort.Token);
+        }
+        catch
+        {
+            left.Dispose();
+            abort.Dispose();
+            throw;
+        }
+
+        inflight.Track(pending, settled => Volatile.Read(ref callerLeft.Value) && !settled.IsCompletedSuccessfully && !DaemonAnswered(settled));
+        _ = pending.ContinueWith(
+            static (_, state) =>
+            {
+                var (registration, source) = ((CancellationTokenRegistration, CancellationTokenSource))state!;
+                registration.Dispose();
+                source.Dispose();
+            },
+            (left, abort),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+        return pending;
+    }
+
+    /// <summary>True when the daemon itself answered with a failure: an error it reported, not a transport failure that carries a cause.</summary>
+    private static bool DaemonAnswered(Task settled) => settled.Exception?.InnerException is AgentDeviceError { Reported: true };
 }

@@ -45,6 +45,12 @@ providers and their logins):
 - A custom `IAgentModel` reads each `ModelMessage.Images` of a `user` turn
   (`ModelImage`: `Data`, `MediaType`, `Width`, `Height`). The five built-in
   providers send them after the turn's text. The agent sends none yet.
+- A judgment sets `ModelRequest.Schema` (and `SchemaName`) and offers no tools:
+  a custom `IAgentModel` must ask its provider for that JSON schema as
+  structured output and return the one JSON object as
+  `ModelResponse.Content`. The built-in providers send `response_format`
+  (chat completions), `text.format` (Responses), or `responseJsonSchema`
+  (Google), and make Anthropic and Bedrock call a forced `json` tool.
 
 ### Choose an agent
 
@@ -186,8 +192,11 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
   also a failure, so reach the right screen first and ask about what is
   visible.
 - Judgments see the statement and the current screen only, never prior
-  steps. Malformed output gets one repair round, then
-  `MODEL_OUTPUT_INVALID`.
+  steps. The judge answers `holds`, `fails`, or `inconclusive` in one
+  `agent-judgment-2` JSON object (`protocolVersion`, `explanation`, `verdict`;
+  `schema/agent-judgment-v2.schema.json`). `fails` is `ASSERTION_FAILED`,
+  `inconclusive` is `ASSERTION_INCONCLUSIVE`. An answer outside that grammar
+  gets one repair round, then `MODEL_OUTPUT_INVALID`.
 - A value shown in more than one place (a total in the summary and on the
   pay button) must agree everywhere, or the judgment fails. Name the one you
   mean (`"the order summary total is $42.00"`) when only it matters.
@@ -323,7 +332,10 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   nothing.
 - A replay re-finds each control by role, name, test id, and path, and
   needs the recorded start route unless the recording opens with a
-  navigation. It passes alone only when the recorded end route is back,
+  navigation. A location on the app's own origin (the `App.Url`'s) is
+  compared by its path, query, and fragment, so a recording follows the app
+  to another port or host; a screen on any other origin is another route.
+  It passes alone only when the recorded end route is back,
   every control that appeared (with its text, value, and checked or
   selected state) is there, every one that went away is gone, at least one
   of those changed during the replay, and no new alert showed; otherwise

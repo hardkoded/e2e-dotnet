@@ -63,7 +63,26 @@ rides a persistent context, with the limits of [ReconnectEndpoint](/api/E2E.Engi
 
 **Value:** [IBrowserProvider](/api/E2E.Engine/IBrowserProvider/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L246)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L253)
+
+<a id="E2E_Engine_WebEngineOptions_BrowserName_"></a>
+<a id="E2E_Engine_WebEngineOptions_BrowserName"></a>
+
+### BrowserName
+
+
+```csharp
+public BrowserName BrowserName { get; init; }
+```
+
+
+The browser the engine launches: Chromium (the default), Firefox, or WebKit. .NET-only split of upstream's
+`browser` option, which is a name or a provider: the name is here and the provider is [Browser](#E2E_Engine_WebEngineOptions_Browser).
+[Connect](#E2E_Engine_WebEngineOptions_Connect) and a provider attach over CDP, so they need Chromium.
+
+**Value:** [BrowserName](/api/E2E.Engine/BrowserName/)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L241)
 
 <a id="E2E_Engine_WebEngineOptions_ColorScheme_"></a>
 <a id="E2E_Engine_WebEngineOptions_ColorScheme"></a>
@@ -99,7 +118,7 @@ Attach to a remote Chromium over CDP instead of launching a local one.
 
 **Value:** [WebConnectOptions](/api/E2E.Engine/WebConnectOptions/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L237)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L244)
 
 <a id="E2E_Engine_WebEngineOptions_Headers_"></a>
 <a id="E2E_Engine_WebEngineOptions_Headers"></a>

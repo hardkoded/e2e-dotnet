@@ -79,7 +79,8 @@ internal static class ReportSerializer
                     (string)finding["actual"]!,
                     [.. finding["reproduction"]!.AsArray().Select(line => (string)line!)],
                     finding["reportedAt"].Deserialize<DateTimeOffset>(options),
-                    (string?)finding["path"]))],
+                    (string?)finding["path"],
+                    ObservationRevision: (string?)finding["observationRevision"]))],
                 (string?)node["summary"]);
         }
 

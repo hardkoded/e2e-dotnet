@@ -48,7 +48,7 @@ public sealed class AgentJudgmentTierTests
         // A reasoning model that ran out of output mid-answer: no verdict.
         var judge = new ScriptedModel(request => request.Messages.Count == 1
             ? new ModelResponse { Content = "thinking" }
-            : ModelResponses.Done("passed", "the Home heading is visible"));
+            : ModelResponses.Judgment("holds", "the Home heading is visible"));
         var result = await RunAsync(
             async ctx =>
             {
@@ -61,10 +61,15 @@ public sealed class AgentJudgmentTierTests
         Assert.Equal(2, judge.CallCount);
         Assert.Equal(2, result.ModelCalls);
         Assert.Contains("Statement: the About heading is visible after a malformed first answer", judge.Requests[1].Messages[0].Content, StringComparison.Ordinal);
-        Assert.Equal("Call done with status passed or failed.", judge.Requests[1].Messages[^1].Content);
+        var repair = judge.Requests[1].Messages[^1].Content;
+        Assert.Contains("<previous-attempt-rejected>", repair, StringComparison.Ordinal);
+        Assert.Contains("previous response: thinking", repair, StringComparison.Ordinal);
+        Assert.Contains("validation errors: response is not a JSON object", repair, StringComparison.Ordinal);
+        Assert.All(judge.Requests, request => Assert.Empty(request.Tools));
+        Assert.All(judge.Requests, request => Assert.Equal("agent-judgment-2", request.SchemaName));
     }
 
-    // Upstream answers in the retired agent-judgment-1 shape. The port has no judgment protocol versions, so its second answer has no verdict.
+    // Upstream answers in the retired agent-judgment-1 shape on the repair round; the port answers with text that has no verdict at all.
     [Fact]
     public async Task Fails_MODEL_OUTPUT_INVALID_when_the_repair_round_gives_no_verdict_either()
     {
@@ -79,7 +84,7 @@ public sealed class AgentJudgmentTierTests
 
         var error = Assert.IsType<AgentException>(result.Error);
         Assert.Equal("MODEL_OUTPUT_INVALID", error.Code);
-        Assert.Equal("The judge did not call done.", error.Message);
+        Assert.StartsWith("The judge did not answer with an agent-judgment-2 object: ", error.Message, StringComparison.Ordinal);
         // One judgment plus one repair round is the whole budget: no third call, no guessed verdict.
         Assert.Equal(2, judge.CallCount);
         var step = result.Steps!.Single(candidate => candidate.Api == "agent.assert");

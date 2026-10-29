@@ -191,11 +191,6 @@ internal static class AgentTools
     public static ModelTool Project(string name, AgentTool tool) =>
         Tool(name, tool.Description, JsonSerializer.SerializeToElement(tool.InputSchema));
 
-    public static IReadOnlyList<ModelTool> Judge { get; } =
-    [
-        Tool("done", "End the judgment. Use ASSERTION_FAILED or ASSERTION_INCONCLUSIVE when status is failed.", JudgeDone),
-    ];
-
     /// <summary>The extract tools, with <c>data</c> described by the JSON schema of the requested type.</summary>
     public static IReadOnlyList<ModelTool> ExtractFor(JsonNode schema)
     {

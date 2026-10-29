@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using E2E.Internal;
+using ArtifactRedaction = E2E.Reports.ArtifactRedaction;
 
 namespace E2E;
 
@@ -333,7 +334,7 @@ internal static partial class ReportWire
     /// <summary>
     /// An artifact as the report keeps it. The size and the digest are read from the file under <paramref name="resultsRoot"/>, which is
     /// where <see cref="ReportArtifact.Path"/> starts; a file that cannot be read leaves the artifact <c>incomplete</c> without them. Pixels
-    /// cannot be proven free of a secret, so only a log reads <c>complete</c>.
+    /// cannot be proven free of a secret, so only a log reads <c>complete</c>, and a download the runner rewrote through the ledger (it carries the claim).
     /// </summary>
     public static JsonObject Artifact(ReportArtifact artifact, string resultsRoot, string? stepId)
     {
@@ -356,7 +357,7 @@ internal static partial class ReportWire
         }
 
         var kind = artifact.Kind is "screenshot" or "video" or "download" or "log" ? artifact.Kind : "other";
-        var complete = kind == "log" && path is not null;
+        var complete = path is not null && (artifact.Redaction is { } claimed ? claimed == ArtifactRedaction.Complete : kind == "log");
         return Compose(
             ("id", artifact.Id),
             ("kind", kind),
@@ -380,18 +381,7 @@ internal static partial class ReportWire
             "log" => "text/plain",
 
             // A download keeps the name the app suggested, so its extension says what it is (upstream's artifact store, mediaTypeFor).
-            "download" => extension switch
-            {
-                ".png" => "image/png",
-                ".zip" => "application/zip",
-                ".webm" => "video/webm",
-                ".mp4" => "video/mp4",
-                ".txt" => "text/plain",
-                ".csv" => "text/csv",
-                ".json" => "application/json",
-                ".html" or ".htm" => "text/html",
-                _ => "application/octet-stream",
-            },
+            "download" => ArtifactPaths.MediaTypeFor(extension),
             _ => "application/octet-stream",
         };
     }
@@ -532,6 +522,7 @@ internal static partial class ReportWire
             ("actual", Clip(finding.Actual, 2000)),
             ("reproduction", Strings(finding.Reproduction.Take(20), 500)),
             ("path", ClipOrNull(finding.Path, 2048)),
+            ("observationRevision", ClipOrNull(finding.ObservationRevision, 256)),
             ("reportedAt", Timestamp(finding.ReportedAt))))])));
 
     /// <summary>The document with every result serialized now, for a caller that keeps none.</summary>

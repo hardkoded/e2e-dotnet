@@ -38,7 +38,7 @@ internal static class StepCacheHarness
     /// <summary>A host on <paramref name="time"/>, which a test fakes as upstream fakes its timers.</summary>
     public static StepHost MakeHost(TimeProvider time, string[] paths, params SemanticNode[][] screens) => new(paths, screens, time);
 
-    public static StepTraceSession MakeSession(CacheContext context, StepHost host, IReadOnlyDictionary<string, object?>? parameters = null, CacheEntry? step = null, int? stepIndex = null)
+    public static StepTraceSession MakeSession(CacheContext context, StepHost host, IReadOnlyDictionary<string, object?>? parameters = null, CacheEntry? step = null, int? stepIndex = null, string? appOrigin = null)
     {
         return new StepTraceSession(
             host,
@@ -53,6 +53,7 @@ internal static class StepCacheHarness
                 Params = parameters,
                 Recorder = host.Recorder,
                 StepIndex = stepIndex,
+                AppOrigin = appOrigin,
             });
     }
 
