@@ -47,7 +47,6 @@ public sealed class WebAndDocumentEngineLocateTests
         <html><body>
         <button type="button" id="add">Add</button>
         <ul id="rows"></ul>
-        <input id="draft" value="draft">
         <p id="log">idle</p>
         <script>
           function row() {
@@ -100,7 +99,7 @@ public sealed class WebAndDocumentEngineLocateTests
     [Fact]
     public async Task The_web_engine_acts_on_a_display_value_match_after_another_input_takes_the_value()
     {
-        using var site = await TinySite.StartAsync(Rows.Replace("</body>", "<button type=\"button\" id=\"copy\" onclick=\"document.body.insertAdjacentHTML('beforeend', '<input value=draft>')\">Copy</button></body>", StringComparison.Ordinal));
+        using var site = await TinySite.StartAsync(Rows.Replace("</body>", "<input value=draft><button type=\"button\" id=\"copy\" onclick=\"document.body.insertAdjacentHTML('beforeend', '<input value=draft>')\">Copy</button></body>", StringComparison.Ordinal));
         await using var session = await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions { Headless = true });
         var draft = Assert.Single(await session.LocateAsync(LocatorExpression.For("displayValue", "draft", new TextMatchOptions(), "displayValue"), Budget, CancellationToken.None));
         var copy = Assert.Single(await session.LocateAsync(LocatorExpression.ForRole("button", "Copy", new RoleOptions()), Budget, CancellationToken.None));
