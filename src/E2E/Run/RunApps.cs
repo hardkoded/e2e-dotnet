@@ -138,6 +138,13 @@ internal static class RunApps
             Notice = notice ?? (message => Console.Error.WriteLine("e2e: " + message)),
         };
         var processes = await Provision.StartDeclaredProcessesAsync([(target.Name, resolved.App)], config.ProjectRoot, () => hooks, DebugTrace.Off, cancellationToken, Pool).ConfigureAwait(false);
+        if (cancellationToken.IsCancellationRequested)
+        {
+            // Provision returns what it held when the token ends, where a caller that remembers the result needs the cancel.
+            await processes.StopAsync(_ => { }).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
         Resolved[key] = resolved;
         return (resolved.Target, processes);
     }

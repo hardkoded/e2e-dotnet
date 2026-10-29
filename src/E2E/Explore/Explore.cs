@@ -226,6 +226,10 @@ public static class Explore
         // The target's app command starts before the session opens, and the URL is on the port it was started on.
         var (appTarget, appProcesses) = await RunApps.AcquireAsync(config, target, notice, cancellationToken).ConfigureAwait(false);
         target = appTarget;
+        var appFailures = new List<Exception>();
+        StandaloneAttempt attempt;
+        try
+        {
         var sessionOptions = new E2ESessionOptions
         {
             Engine = engine,
@@ -262,10 +266,6 @@ public static class Explore
             AiTrace = options.AiTrace || E2EFixture.IsOn("E2E_AI_TRACE"),
         };
 
-        var appFailures = new List<Exception>();
-        StandaloneAttempt attempt;
-        try
-        {
             attempt = await Standalone.OpenAttemptAsync(sessionOptions, cancellationToken).ConfigureAwait(false);
         }
         catch
