@@ -1,6 +1,6 @@
 .claude/worktrees/
 apps/.vscode/
-src712.diff
+*.diff
 docs/_site/
 docs/api/
 .entire/metadata/
