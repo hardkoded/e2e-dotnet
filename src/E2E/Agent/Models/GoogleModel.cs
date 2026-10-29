@@ -233,6 +233,12 @@ public sealed class GoogleModel : IAgentModel, IDisposable
                 else if (part.TryGetProperty("text", out var value))
                 {
                     text.Add(value.GetString() ?? "");
+                    if (ModelHttp.OptionalString(part, "thoughtSignature") is { } textSignature)
+                    {
+                        // A plain text part can carry a signature too; the text stays in Content, so an empty part carries the signature back.
+                        using var signed = JsonDocument.Parse(new JsonObject { ["text"] = "", ["thoughtSignature"] = textSignature }.ToJsonString());
+                        reasoning.Add(signed.RootElement.Clone());
+                    }
                 }
             }
         }
