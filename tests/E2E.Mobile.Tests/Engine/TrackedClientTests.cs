@@ -66,6 +66,45 @@ public sealed class TrackedClientTests
         Assert.Empty(h.Sessions);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_request_that_fails_after_the_caller_left_blocks_later_attempts_only_without_a_daemon_answer(bool transportFailure)
+    {
+        var h = Harness.Create();
+        var time = new FakeTimeProvider();
+        var inflight = h.Engine.InflightOf("ios-simulator", 0, null);
+        var client = new TrackedClient(h.Fake, inflight, time);
+        var daemon = new TaskCompletionSource<JsonNode?>();
+        var received = new TaskCompletionSource();
+        h.Fake.RespondAsync(DeviceMethods.InteractionsPress, async (_, _) =>
+        {
+            received.SetResult();
+            return await daemon.Task;
+        });
+        using var caller = new CancellationTokenSource();
+        var pending = client.CallAsync(DeviceMethods.InteractionsPress, null, caller.Token);
+        await received.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        await caller.CancelAsync();
+        // The failure lands before the abort deadline.
+        daemon.SetException(transportFailure
+            ? new AgentDeviceError("COMMAND_FAILED", "Daemon request failed: connection reset", inner: new HttpRequestException("reset"))
+            : new AgentDeviceError("COMMAND_FAILED", "element not found"));
+        await Assert.ThrowsAsync<AgentDeviceError>(() => pending.WaitAsync(TimeSpan.FromSeconds(10)));
+
+        if (transportFailure)
+        {
+            var failure = await Assert.ThrowsAsync<EngineException>(() => h.Boot().WaitAsync(TimeSpan.FromSeconds(10)));
+            Assert.Equal("ENGINE_FAILURE", failure.Code);
+            Assert.Empty(h.Sessions);
+        }
+        else
+        {
+            await using var session = await h.Boot().WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.Single(h.Sessions);
+        }
+    }
+
     [Fact]
     public async Task Allows_the_next_attempt_when_a_client_ignores_the_abort_and_confirms_completion()
     {
