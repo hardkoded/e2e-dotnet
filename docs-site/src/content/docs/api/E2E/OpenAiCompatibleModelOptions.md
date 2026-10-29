@@ -124,6 +124,25 @@ Headers added to every request. The identity headers (`User-Agent`, `HTTP-Refere
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs#L298)
 
+<a id="E2E_OpenAiCompatibleModelOptions_JsonSchemaResponseFormat_"></a>
+<a id="E2E_OpenAiCompatibleModelOptions_JsonSchemaResponseFormat"></a>
+
+### JsonSchemaResponseFormat
+
+
+```csharp
+public bool JsonSchemaResponseFormat { get; init; }
+```
+
+
+Whether a request that asks for structured output sends `response_format` `json_schema`. On by default. .NET-only: a
+server that rejects the field (some local servers and proxies answer 400) takes `false`, and the judge's prompt, which asks for
+one JSON object, is the only thing that asks for the grammar; the agent validates the answer either way.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs#L314)
+
 <a id="E2E_OpenAiCompatibleModelOptions_Model_"></a>
 <a id="E2E_OpenAiCompatibleModelOptions_Model"></a>
 
@@ -207,4 +226,4 @@ public string? ResolveApiKey()
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs#L309)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs#L316)

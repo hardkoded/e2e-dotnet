@@ -43,6 +43,16 @@ public sealed class ModelResponseSchemaTests
     }
 
     [Fact]
+    public void Chat_completions_leaves_out_response_format_when_the_server_rejects_it()
+    {
+        using var model = new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "m", ApiKey = "k", JsonSchemaResponseFormat = false });
+        var body = model.BuildBody(Request());
+
+        Assert.Null(body["response_format"]);
+        Assert.Null(body["tools"]);
+    }
+
+    [Fact]
     public void Responses_asks_for_a_json_schema_text_format_beside_the_provider_text_options()
     {
         using var model = new OpenAiResponsesModel(new OpenAiResponsesModelOptions { Model = "m", ApiKey = "k" });

@@ -155,7 +155,7 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
         }
 
         // Not strict: strict mode refuses keywords such as maxLength, and the agent validates the answer itself.
-        if (request.Schema is { } schema)
+        if (request.Schema is { } schema && _options.JsonSchemaResponseFormat)
         {
             payload["response_format"] = new JsonObject
             {
@@ -305,6 +305,13 @@ public sealed class OpenAiCompatibleModelOptions
     /// <c>openai/*</c> models on the gateway, as upstream does; chat completions elsewhere get neither. Provider options win over both.
     /// </summary>
     public bool? PromptCacheHints { get; init; }
+
+    /// <summary>
+    /// Whether a request that asks for structured output sends <c>response_format</c> <c>json_schema</c>. On by default. .NET-only: a
+    /// server that rejects the field (some local servers and proxies answer 400) takes <c>false</c>, and the judge's prompt, which asks for
+    /// one JSON object, is the only thing that asks for the grammar; the agent validates the answer either way.
+    /// </summary>
+    public bool JsonSchemaResponseFormat { get; init; } = true;
 
     public string? ResolveApiKey()
     {

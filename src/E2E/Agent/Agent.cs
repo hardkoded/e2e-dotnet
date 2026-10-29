@@ -302,7 +302,7 @@ public sealed partial class Agent
         throw new AgentException(verdict.Code!, Explain(verdict, vision)) { Screenshot = kept };
     }
 
-    // One judgment, with a repair round when the judge did not call done and the budget has a call left.
+    // One judgment, with a repair round when the judge did not answer with an agent-judgment-2 object and the budget has a call left.
     private async Task<Verdict> JudgeOnceAsync(string statement, Look look, ResolvedAgent agent, int callsLeft, CancellationToken token, CancellationToken cancellationToken)
     {
         var messages = new List<ModelMessage>
@@ -566,8 +566,9 @@ public sealed partial class Agent
         {
             value = string.IsNullOrWhiteSpace(response.Content) ? null : JsonNode.Parse(response.Content);
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or ArgumentException)
         {
+            // Repeated property names make JsonNode.Parse throw ArgumentException.
             return ProtocolValidation<JudgmentResponse>.Fail("response is not a JSON object");
         }
 
