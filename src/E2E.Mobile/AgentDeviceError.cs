@@ -22,6 +22,9 @@ public sealed class AgentDeviceError : Exception
 
     public string Code { get; }
 
+    /// <summary>True when the daemon itself reported this failure, which proves it answered. .NET-only: tells a daemon answer from a client-side or transport failure.</summary>
+    internal bool Reported { get; init; }
+
     public IReadOnlyDictionary<string, object?>? Details { get; }
 }
 

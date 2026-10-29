@@ -17,6 +17,14 @@ public interface IDeviceClient
     Task<JsonNode?> CallAsync(string method, JsonObject? options, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// Marks a client that sequences its own steps and stops them when its token is cancelled (a DevFlow boot reads the agent's status, then
+/// claims the lease). The session does not detach such a client from the caller's cancellation, so a cancel cannot be followed by a step
+/// that outlives the cleanup. Only a client of a daemon that keeps running a command after the request ends is detached.
+/// .NET-only: upstream's client takes no token.
+/// </summary>
+public interface ICancellableDeviceClient : IDeviceClient;
+
 /// <summary>Mints the client for one session, with the daemon and configuration a lease supplied, else against the local daemon.</summary>
 public delegate IDeviceClient DeviceClientFactory(string session, DeviceConnection? connection);
 
