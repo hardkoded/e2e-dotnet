@@ -18,9 +18,21 @@ internal static class AiTraceModel
     /// <summary>Asks <paramref name="model"/> for one turn, and records it when <paramref name="recorder"/> is set.</summary>
     public static async Task<ModelResponse> CompleteAsync(AiTraceRecorder? recorder, IAgentModel model, ModelRequest request, CancellationToken cancellationToken)
     {
+        var turn = await BeginAsync(recorder, model, request, cancellationToken).ConfigureAwait(false);
+        turn.End();
+        return turn.Response;
+    }
+
+    /// <summary>
+    /// Asks <paramref name="model"/> for one turn and leaves the generation open, as the AI SDK does while a turn's tools run: the caller
+    /// runs each tool through <see cref="AiTraceTurn.ExecuteToolAsync"/>, so a generation a tool starts is a child of this step, and then
+    /// calls <see cref="AiTraceTurn.End"/>.
+    /// </summary>
+    public static async Task<AiTraceTurn> BeginAsync(AiTraceRecorder? recorder, IAgentModel model, ModelRequest request, CancellationToken cancellationToken)
+    {
         if (recorder is null)
         {
-            return await model.CompleteAsync(request, cancellationToken).ConfigureAwait(false);
+            return new AiTraceTurn(await model.CompleteAsync(request, cancellationToken).ConfigureAwait(false), null, null, null);
         }
 
         var redactor = request.Redactor;
@@ -53,15 +65,14 @@ internal static class AiTraceModel
         }
 
         content.AddRange(response.ToolCalls.Select(call => ToolCall(call, redactor)));
-        recorder.OnStepEnd(new AiTraceStepEndEvent(
+        var stepEnd = new AiTraceStepEndEvent(
             callId,
             0,
             content,
             response.ToolCalls.Count > 0 ? "tool-calls" : "stop",
             response.Usage is null ? null : Obj(null, ("inputTokens", response.Usage.InputTokens), ("outputTokens", response.Usage.OutputTokens)),
-            new AiTraceResponse(ModelId: model.Name, Timestamp: DateTimeOffset.UtcNow, Messages: [Obj(null, ("role", "assistant"), ("content", content))])));
-        recorder.OnEnd(new AiTraceEndEvent(callId));
-        return response;
+            new AiTraceResponse(ModelId: model.Name, Timestamp: DateTimeOffset.UtcNow, Messages: [Obj(null, ("role", "assistant"), ("content", content))]));
+        return new AiTraceTurn(response, recorder, callId, stepEnd);
     }
 
     private static Dictionary<string, object?> Message(ModelMessage message, Redactor redactor)
@@ -131,5 +142,35 @@ internal static class AiTraceModel
         }
 
         return value;
+    }
+}
+
+/// <summary>
+/// No upstream equivalent (see <see cref="AiTraceModel"/>): one model turn whose generation is still open. The AI SDK ends the step and
+/// the generation after the turn's tools ran, and runs each tool under <c>executeTool</c> with the generation's call id.
+/// </summary>
+internal sealed class AiTraceTurn(ModelResponse response, AiTraceRecorder? recorder, string? callId, AiTraceStepEndEvent? stepEnd) : IDisposable
+{
+    private int _ended;
+
+    public ModelResponse Response { get; } = response;
+
+    /// <summary>Runs a tool of this turn, so a generation it starts is attributed to the step that called it.</summary>
+    public Task ExecuteToolAsync(Func<Task> execute) =>
+        recorder is null || callId is null ? execute() : recorder.ExecuteTool(callId, execute);
+
+    /// <summary>Ends the step and the generation, as <see cref="End"/> does.</summary>
+    public void Dispose() => End();
+
+    /// <summary>Ends the step and the generation. Safe to call more than once.</summary>
+    public void End()
+    {
+        if (recorder is null || callId is null || stepEnd is null || Interlocked.Exchange(ref _ended, 1) != 0)
+        {
+            return;
+        }
+
+        recorder.OnStepEnd(stepEnd);
+        recorder.OnEnd(new AiTraceEndEvent(callId));
     }
 }

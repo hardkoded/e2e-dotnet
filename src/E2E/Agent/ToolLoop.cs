@@ -249,11 +249,11 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             }
 
             var offered = stopped ? definitions.Where(tool => string.Equals(tool.Name, "done", StringComparison.Ordinal)).ToList() : definitions;
-            ModelResponse response;
+            AiTraceTurn traced;
             try
             {
                 lastShape = [.. messages.Select(MessageShape.ShapeOf)];
-                response = await CompleteAsync(model, system, messages, offered, context, redactor, token).ConfigureAwait(false);
+                traced = await CompleteAsync(model, system, messages, offered, context, redactor, token).ConfigureAwait(false);
             }
             catch (AgentException overflow) when (string.Equals(overflow.Code, "CONTEXT_OVERFLOW", StringComparison.Ordinal))
             {
@@ -281,6 +281,9 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 continue;
             }
 
+            // The generation stays open while this turn's tools run, as the AI SDK keeps it, so a generation a tool starts is its child.
+            using var generation = traced;
+            var response = traced.Response;
             var turn = turns.Begin(response);
             if (response.ToolCalls.Count == 0)
             {
@@ -302,9 +305,12 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             previous = response.ToolCalls.Select(toolCall => toolCall.Name).ToList();
             foreach (var toolCall in response.ToolCalls)
             {
-                var outcome = stopped && !string.Equals(toolCall.Name, "done", StringComparison.Ordinal)
-                    ? ToolOutcome.Fail("The loop guard stopped the step. Only done is available.")
-                    : await RunToolAsync(toolCall, tools, token).ConfigureAwait(false);
+                var outcome = ToolOutcome.Fail("The loop guard stopped the step. Only done is available.");
+                if (!stopped || string.Equals(toolCall.Name, "done", StringComparison.Ordinal))
+                {
+                    await traced.ExecuteToolAsync(async () => outcome = await RunToolAsync(toolCall, tools, token).ConfigureAwait(false)).ConfigureAwait(false);
+                }
+
                 turns.AddResult(turn, toolCall.Name, outcome.Content);
                 if (hardStop is not null)
                 {
@@ -374,7 +380,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
     }
 
     // One model turn. A request the model refused outright was no turn, and a timeout or a cancel ends the loop like any hard stop.
-    private async Task<ModelResponse> CompleteAsync(
+    private async Task<AiTraceTurn> CompleteAsync(
         IAgentModel model,
         string system,
         List<ModelMessage> messages,
@@ -384,9 +390,9 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         CancellationToken token)
     {
         var started = DateTimeOffset.UtcNow;
-        var response = await (context.Host?.Scope.Debug ?? DebugTrace.Off).Time(
+        var traced = await (context.Host?.Scope.Debug ?? DebugTrace.Off).Time(
             Phases.Model,
-            () => AiTraceModel.CompleteAsync(
+            () => AiTraceModel.BeginAsync(
                 context.Host?.Scope.AiTrace,
                 model,
                 new ModelRequest
@@ -399,18 +405,28 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                     Redactor = redactor,
                 },
                 token)).ConfigureAwait(false);
-        context.Budgets.RecordModelCall(new ExecutorModelCall
+        try
         {
-            InputTokens = response.Usage?.InputTokens,
-            OutputTokens = response.Usage?.OutputTokens,
-            CacheReadTokens = response.Usage?.CacheReadTokens,
-            CacheWriteTokens = response.Usage?.CacheWriteTokens,
-            EstimatedCostUsd = response.Usage?.EstimatedCostUsd,
-            StartedAt = started,
-            DurationMs = (int)(DateTimeOffset.UtcNow - started).TotalMilliseconds,
-            ModelId = model.Name,
-        });
-        return response;
+            var response = traced.Response;
+            context.Budgets.RecordModelCall(new ExecutorModelCall
+            {
+                InputTokens = response.Usage?.InputTokens,
+                OutputTokens = response.Usage?.OutputTokens,
+                CacheReadTokens = response.Usage?.CacheReadTokens,
+                CacheWriteTokens = response.Usage?.CacheWriteTokens,
+                EstimatedCostUsd = response.Usage?.EstimatedCostUsd,
+                StartedAt = started,
+                DurationMs = (int)(DateTimeOffset.UtcNow - started).TotalMilliseconds,
+                ModelId = model.Name,
+            });
+            return traced;
+        }
+        catch
+        {
+            // The turn is still open here; a budget stop must not leave the step unfinished in the trace.
+            traced.Dispose();
+            throw;
+        }
     }
 
     private static async Task<ToolOutcome> RunToolAsync(ModelToolCall call, IReadOnlyList<ToolLoopTool> tools, CancellationToken token)

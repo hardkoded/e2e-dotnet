@@ -294,6 +294,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         {
             Route = Route,
             Roots = [SnapshotProjection.ScreenRoot(projected.Roots, viewport)],
+            Viewport = new TraceViewport((int)Math.Round(viewport.Width), (int)Math.Round(viewport.Height)),
             Truncated = raw.Truncated || raw.Sparse,
             KeyboardVisible = MeasuredKeyboard(raw),
         };

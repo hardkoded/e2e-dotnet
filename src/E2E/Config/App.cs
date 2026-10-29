@@ -4,6 +4,7 @@
 
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Text.Json.Nodes;
 using E2E.Internal;
 
 namespace E2E;
@@ -18,13 +19,35 @@ internal sealed record PortRequest(string Host, int? Port);
 
 /// <summary>
 /// The app one target drives, as <see cref="TargetApps.ResolveTargetApp"/> resolved the target's <c>app</c> declaration (upstream's
-/// <c>ResolvedApp</c>): the part of it the port has, the base URL on the run's port and the command that starts the app there.
+/// <c>ResolvedApp</c>). Navigation policy, cache and session identity, the report's target record, and the app process all read from here.
 /// </summary>
 /// <param name="Base">The normalized base URL on the run's port, or null without a URL.</param>
 /// <param name="PortRequest">The free-port request the declared URL made, or null when it names a port or there is no URL.</param>
+/// <param name="Site">The site of the base URL, as <see cref="Urls.SiteOf"/> reads it. Null without a URL, which is no policy at all.</param>
+/// <param name="Environment"><c>test</c>, <c>staging</c>, or <c>production</c>.</param>
+/// <param name="Identity">
+/// Stable identity keying cache and session entries: the declared identity, else the base URL's origin and path as declared (a free
+/// port still 0), else the bundle id, else the build path. Null when the target declares none of them, so entries key on the target
+/// and environment alone.
+/// </param>
+/// <param name="BundleId"><c>app.bundleId</c>.</param>
+/// <param name="AppPath"><c>app.appPath</c>.</param>
+/// <param name="LaunchArguments"><c>app.launchArguments</c>.</param>
+/// <param name="Permissions"><c>app.permissions</c>.</param>
 /// <param name="Command"><c>app.command</c> with <c>{port}</c> expanded to the port the app is served on.</param>
 /// <param name="ReadyUrl">Readiness probe for <paramref name="Command"/>; set whenever the command is.</param>
-internal sealed record ResolvedApp(NormalizedBaseUrl? Base, PortRequest? PortRequest, CommandConfig? Command, string? ReadyUrl);
+internal sealed record ResolvedApp(
+    NormalizedBaseUrl? Base,
+    PortRequest? PortRequest,
+    string? Site,
+    string Environment,
+    string? Identity,
+    string? BundleId,
+    string? AppPath,
+    IReadOnlyList<string>? LaunchArguments,
+    IReadOnlyDictionary<string, AppPermissionState>? Permissions,
+    CommandConfig? Command,
+    string? ReadyUrl);
 
 /// <summary>Per-target app resolution (upstream's <c>config/app.ts</c>): the declared <c>app</c> checked, then resolved on the port the run assigned when <c>app.url</c> asked for a free one.</summary>
 internal static class TargetApps
@@ -71,7 +94,49 @@ internal static class TargetApps
             throw new ConfigurationException("APP_URL_REQUIRED", where + " declares app.command without a URL to poll: declare app.url or app.readyUrl beside it");
         }
 
-        return new ResolvedApp(baseUrl, portRequest, command, command is null ? null : readyUrl);
+        var hostname = baseUrl is null ? null : new Uri(baseUrl.Href).Host;
+        return new ResolvedApp(
+            baseUrl,
+            portRequest,
+            hostname is null ? null : Urls.SiteOf(hostname),
+            app.Environment ?? (hostname is not null && !Urls.IsImplicitTestHost(hostname) ? "production" : "test"),
+            app.Identity ?? (declaredBase is null ? null : declaredBase.Origin + declaredBase.BasePath) ?? app.BundleId ?? app.AppPath,
+            app.BundleId,
+            app.AppPath,
+            app.LaunchArguments,
+            app.Permissions,
+            command,
+            command is null ? null : readyUrl);
+    }
+
+    /// <summary>
+    /// A target's app as it enters the config digest (upstream's <c>digestTargetApp</c>): the declaration, with the command's env values
+    /// reduced to their names. The run's port never enters it, so a worker handed the port reads the same digest.
+    /// </summary>
+    public static JsonObject DigestTargetApp(AppConfig app)
+    {
+        // A key the app leaves out stays out, as upstream's obj() drops an undefined one.
+        var digest = new JsonObject();
+        void Add(string key, JsonNode? value)
+        {
+            if (value is not null)
+            {
+                digest[key] = value;
+            }
+        }
+
+        Add("url", app.Url);
+        Add("bundleId", app.BundleId);
+        Add("appPath", app.AppPath);
+        Add("identity", app.Identity);
+        Add("environment", app.Environment);
+        Add("launchArguments", app.LaunchArguments is null ? null : new JsonArray([.. app.LaunchArguments.Select(argument => (JsonNode?)JsonValue.Create(argument))]));
+        Add("permissions", app.Permissions is null
+            ? null
+            : new JsonObject(app.Permissions.Select(pair => KeyValuePair.Create(pair.Key, (JsonNode?)JsonValue.Create(pair.Value.ToString().ToLowerInvariant())))));
+        Add("command", app.Command is null ? null : Command.DigestCommand(app.Command));
+        Add("readyUrl", app.ReadyUrl);
+        return digest;
     }
 
     /// <summary>A present value that must be an http(s) URL (upstream's <c>httpUrl</c>).</summary>

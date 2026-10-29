@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Internal;
+
 namespace E2E.Mobile;
 
 /// <summary>
@@ -36,7 +38,13 @@ public static class MobileTargetEngine
             "android" => MobilePlatform.Android,
             _ => throw new ConfigurationException("INVALID_CONFIG", $"target \"{target.Name}\" has platform {target.Platform}, not a device platform (ios or android)"),
         };
-        var app = new MobileApp { BundleId = target.App.BundleId, AppPath = target.App.AppPath };
+        var app = new MobileApp
+        {
+            BundleId = target.App.BundleId,
+            AppPath = target.App.AppPath,
+            LaunchArguments = target.App.LaunchArguments,
+            Permissions = DevicePermissionsOf(target.Name, target.App.Permissions),
+        };
         MobileEngine.ValidateApp(app, target.App.Url, target.Name, platform);
         IDeviceProvider? provider = null;
         if (environment("E2E_MOBILE_PROVIDER") is { Length: > 0 } name && !string.Equals(name, "local", StringComparison.OrdinalIgnoreCase))
@@ -55,5 +63,41 @@ public static class MobileTargetEngine
             TargetName = target.Name,
             App = app,
         });
+    }
+
+    /// <summary>
+    /// The target's <c>app.permissions</c> as the device names them, for <see cref="MobileApp.Permissions"/>. A name agent-device does not know
+    /// is <c>INVALID_CONFIG</c>, with the nearest one (upstream's <c>assertPermissions</c>, which the mobile engine's <c>validateApp</c> runs).
+    /// </summary>
+    /// <exception cref="ConfigurationException"><c>INVALID_CONFIG</c>: a permission name the device does not know.</exception>
+    public static Dictionary<DevicePermission, PermissionState>? DevicePermissionsOf(string targetName, IReadOnlyDictionary<string, AppPermissionState>? permissions)
+    {
+        if (permissions is null)
+        {
+            return null;
+        }
+
+        var known = Enum.GetValues<DevicePermission>().ToDictionary(permission => permission.WireName(), StringComparer.Ordinal);
+        var names = known.Keys.ToList();
+        var resolved = new Dictionary<DevicePermission, PermissionState>();
+        foreach (var (name, state) in permissions)
+        {
+            if (!known.TryGetValue(name, out var permission))
+            {
+                var hint = Suggestions.DidYouMean(name, names);
+                throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    $"target \"{targetName}\" app.permissions has unknown key \"{name}\"" + (hint.Length == 0 ? "; expected one of " + string.Join(", ", names) : hint));
+            }
+
+            resolved[permission] = state switch
+            {
+                AppPermissionState.Grant => PermissionState.Grant,
+                AppPermissionState.Deny => PermissionState.Deny,
+                _ => PermissionState.Reset,
+            };
+        }
+
+        return resolved;
     }
 }

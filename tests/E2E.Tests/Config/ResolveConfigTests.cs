@@ -281,6 +281,81 @@ public sealed class ResolveConfigTests
             Resolved("""{ "url": "http://localhost:3000", "command": { "executable": "x" }, "readyUrl": "http://localhost:3000/health" }""").ReadyUrl);
     }
 
+    [Fact]
+    public void Defaults_environment_to_test_for_loopback_localhost_test_hosts_and_production_elsewhere()
+    {
+        Assert.Equal("test", Resolved("""{ "url": "https://app.test" }""").Environment);
+        Assert.Equal("test", Resolved("""{ "url": "http://localhost:3000" }""").Environment);
+        Assert.Equal("production", Resolved("""{ "url": "https://staging.example.com" }""").Environment);
+        Assert.Equal("staging", Resolved("""{ "url": "https://staging.example.com", "environment": "staging" }""").Environment);
+        Assert.Equal("staging", Resolved("""{ "environment": "staging" }""").Environment);
+        var error = Assert.Throws<ConfigurationException>(() => App("""{ "url": "https://app.test", "environment": "prod" }"""));
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Contains("app.environment must be one of", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Keys_identity_on_the_declared_identity_else_the_URL_origin_and_path_else_the_bundle_id_or_build_else_nothing()
+    {
+        Assert.Equal("checkout-app", Resolved("""{ "url": "https://app.test", "identity": "checkout-app" }""").Identity);
+        Assert.Equal("https://app.test/shop/", Resolved("""{ "url": "https://app.test/shop/" }""").Identity);
+        Assert.Equal("com.example.app", Resolved("""{ "identity": "com.example.app" }""").Identity);
+        Assert.Equal("dev.shop.app", ResolvedOn("ios", """{ "bundleId": "dev.shop.app", "appPath": "./build/Shop.app" }""").Identity);
+        Assert.Equal("./build/shop.apk", ResolvedOn("android", """{ "appPath": "./build/shop.apk" }""").Identity);
+        Assert.Null(Resolved("{}").Identity);
+        var error = Assert.Throws<ConfigurationException>(() => App("""{ "url": "https://app.test", "identity": "  " }"""));
+        Assert.Contains("app.identity must be a non-empty string", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Partial: the port names the field as <c>targets[0].app.url</c>, not <c>target "web" app.url</c>, an <c>app</c> that is not an object likewise, and it has no engine to be missing, so "declares app without an engine" is not reachable.</summary>
+    [Fact]
+    public void Partial_Checks_the_shape_of_every_app_field()
+    {
+        Assert.Contains("app.url must be a non-empty string", Assert.Throws<ConfigurationException>(() => App("""{ "url": 5 }""")).Message, StringComparison.Ordinal);
+        Assert.Contains("app.bundleId must be a non-empty string", Assert.Throws<ConfigurationException>(() => AppOn("ios", """{ "bundleId": "" }""")).Message, StringComparison.Ordinal);
+        Assert.Contains("app.appPath must be a non-empty string", Assert.Throws<ConfigurationException>(() => AppOn("ios", """{ "appPath": " " }""")).Message, StringComparison.Ordinal);
+        Assert.Contains("app.launchArguments must be an array of strings", Assert.Throws<ConfigurationException>(() => AppOn("ios", """{ "bundleId": "dev.shop.app", "launchArguments": ["-a", 1] }""")).Message, StringComparison.Ordinal);
+        var permission = Assert.Throws<ConfigurationException>(() => AppOn("ios", """{ "bundleId": "dev.shop.app", "permissions": { "camera": "allow" } }"""));
+        Assert.Contains("app.permissions.camera must be grant, deny, or reset, got \"allow\"", permission.Message, StringComparison.Ordinal);
+        var notAnObject = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "targets": [{ "app": "https://app.test" }] }""", Root, Env()));
+        Assert.Contains("app must be an object", notAnObject.Message, StringComparison.Ordinal);
+
+        var app = ResolvedOn("ios", """{ "bundleId": "dev.shop.app", "launchArguments": ["-e2e"], "permissions": { "camera": "grant" } }""");
+        Assert.Equal("dev.shop.app", app.BundleId);
+        Assert.Equal(["-e2e"], app.LaunchArguments);
+        Assert.Equal(new Dictionary<string, AppPermissionState> { ["camera"] = AppPermissionState.Grant }, app.Permissions);
+    }
+
+    [Fact]
+    public void Derives_the_site_from_the_base_URL_or_none_without_one()
+    {
+        Assert.Equal("localhost", Resolved("""{ "url": "http://localhost:3000/app" }""").Site);
+        Assert.Equal("example.com", Resolved("""{ "url": "https://app.staging.example.com" }""").Site);
+        Assert.Null(Resolved("{}").Site);
+    }
+
+    /// <summary>Partial: the port has no config digest to compare, so it compares the digest of the target app (<c>DigestTargetApp</c>), which the config digest holds.</summary>
+    [Fact]
+    public void Partial_Digests_the_app_a_target_declares_replacing_command_env_values_by_name()
+    {
+        static string Declare(string platform, string app) => E2E.Internal.Ids.CanonicalDigest(TargetApps.DigestTargetApp(AppOn(platform, app).Target.App));
+        var a = Declare("web", """{ "url": "http://localhost:3000", "command": { "executable": "x", "env": { "TOKEN": "aaa" } } }""");
+        var b = Declare("web", """{ "url": "http://localhost:3000", "command": { "executable": "x", "env": { "TOKEN": "bbb" } } }""");
+        Assert.Equal(a, b);
+        Assert.NotEqual(a, Declare("web", """{ "url": "http://localhost:3000", "command": { "executable": "x", "env": { "OTHER": "aaa" } } }"""));
+        Assert.NotEqual(Declare("web", """{ "url": "http://localhost:3000" }"""), Declare("web", """{ "url": "http://localhost:4000" }"""));
+        Assert.NotEqual(Declare("ios", """{ "bundleId": "a" }"""), Declare("ios", """{ "bundleId": "b" }"""));
+        Assert.NotEqual(Declare("ios", """{ "bundleId": "a", "launchArguments": ["-x"] }"""), Declare("ios", """{ "bundleId": "a" }"""));
+    }
+
+    /// <summary>The config with one target of <paramref name="platform"/> declaring <paramref name="app"/>.</summary>
+    internal static E2EConfig AppOn(string platform, string app) =>
+        E2EConfig.Parse($$"""{ "targets": [{ "platform": "{{platform}}", "app": {{app}} }] }""", Root, Env());
+
+    /// <summary>The target's app on <paramref name="platform"/>, resolved.</summary>
+    internal static ResolvedApp ResolvedOn(string platform, string app) =>
+        TargetApps.ResolveTargetApp("web", AppOn(platform, app).Target.App, Root);
+
     /// <summary>The config with one web target declaring <paramref name="app"/>.</summary>
     internal static E2EConfig App(string app, string? root = null) =>
         E2EConfig.Parse($$"""{ "targets": [{ "app": {{app}} }] }""", root ?? Root, Env());

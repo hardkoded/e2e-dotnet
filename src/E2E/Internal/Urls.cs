@@ -93,6 +93,34 @@ internal static partial class Urls
         || hostname is "::1" or "[::1]"
         || IsLoopbackV4(hostname);
 
+    /// <summary>True when environment may default to <c>test</c> (loopback, <c>.localhost</c>, and <c>.test</c> hosts).</summary>
+    public static bool IsImplicitTestHost(string hostname) =>
+        IsLoopbackHost(hostname) || hostname.EndsWith(".test", StringComparison.Ordinal);
+
+    /// <summary>
+    /// The registrable-domain approximation (upstream's <c>siteOf</c>): the last two labels of a host, or the last three when the last
+    /// is a two-letter country code and the one before it a short second-level label (<c>example.co.uk</c>, <c>shop.com.au</c>). An IP
+    /// literal or a single-label host such as <c>localhost</c> is a site of its own. Where the approximation errs it errs narrow, except
+    /// on shared hosting suffixes such as <c>vercel.app</c>, which it reads as one site.
+    /// </summary>
+    public static string SiteOf(string hostname)
+    {
+        var host = hostname.ToLowerInvariant();
+        if (host.StartsWith('[') || Ipv4Literal().IsMatch(host))
+        {
+            return host;
+        }
+
+        var labels = host.Split('.');
+        if (labels.Length <= 2)
+        {
+            return host;
+        }
+
+        var keep = labels[^1].Length == 2 && labels[^2].Length <= 3 ? 3 : 2;
+        return string.Join('.', labels[^keep..]);
+    }
+
     /// <summary>
     /// True for a literal loopback address, <c>127.x.x.x</c> or <c>[::1]</c>. A free port is free on one address family
     /// only, so a port-0 URL must name the address the command binds rather than a name that may resolve to either.
@@ -140,4 +168,7 @@ internal static partial class Urls
 
     [GeneratedRegex(@"^127(\.\d{1,3}){3}$", RegexOptions.CultureInvariant)]
     private static partial Regex LoopbackV4();
+
+    [GeneratedRegex(@"^\d{1,3}(\.\d{1,3}){3}\z", RegexOptions.CultureInvariant)]
+    private static partial Regex Ipv4Literal();
 }
