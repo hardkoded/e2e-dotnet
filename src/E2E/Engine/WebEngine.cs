@@ -993,8 +993,9 @@ public sealed partial class WebEngine : IEngine
         private Dictionary<string, IFrame> _frames = new(StringComparer.Ordinal);
         private int _nextRef = 1;
 
-        // The locator that matched each ref alone, the way upstream keeps a single match on the strict Playwright locator.
-        private System.Collections.Concurrent.ConcurrentDictionary<string, LocatorExpression> _strict = new(StringComparer.Ordinal);
+        // The locator that matched each located node alone, the way upstream keeps a single match on the strict Playwright locator.
+        // Keyed by the node a locate returned, so a node the observation listed (same ref) is never strict.
+        private readonly System.Runtime.CompilerServices.ConditionalWeakTable<SemanticNode, LocatorExpression> _strict = new();
         private IBrowser _browser;
 
         // Persistent recovery: the remote default context and page the attempt rides,
@@ -1114,18 +1115,12 @@ public sealed partial class WebEngine : IEngine
                 ? await RunAsync("locate", cancellationToken, () => ProjectAsync(expression, timeout, cancellationToken)).ConfigureAwait(false)
                 : expression;
             var matches = LocatorResolver.Resolve(observation, projected, expression.IncludeHidden);
-            // As upstream's locate: a single match keeps the strict locator, so a ref that turns ambiguous between locate and perform
-            // is stale instead of acting on whichever element is first. A ref among several matches is pinned to its own element.
-            foreach (var match in matches)
+            // As upstream's locate: a single match keeps the strict locator, so a node that turns ambiguous between locate and perform
+            // is stale instead of acted on. A match of several is pinned to its own element, and so is every match of a predicate
+            // query (display value, exact label), which upstream pins to the handles of the elements it read.
+            if (matches.Count == 1 && !PinsToElements(expression))
             {
-                if (matches.Count == 1)
-                {
-                    _strict[match.Ref] = expression;
-                }
-                else
-                {
-                    _strict.TryRemove(match.Ref, out _);
-                }
+                _strict.AddOrUpdate(matches[0], expression);
             }
 
             return matches;
@@ -1991,13 +1986,27 @@ public sealed partial class WebEngine : IEngine
         }
 
         /// <summary>
-        /// A ref located as the only match of its locator keeps that locator strict, as upstream's does. When a second element now matches
-        /// it, the ref is ambiguous: acting could hit the wrong element, so it is stale. A ref the observation listed, or one of several
+        /// Whether upstream's projection leaves the terminal query's predicate to the surface (<c>ProjectedLocator.displayValue</c> and
+        /// <c>name</c>): a display-value query, or an exact label query. Its matches are pinned to the elements the read returned.
+        /// </summary>
+        private static bool PinsToElements(LocatorExpression expression)
+        {
+            while (expression.Kind is "filter" or "index" or "frame")
+            {
+                expression = expression.Source!;
+            }
+
+            return expression.Kind == "displayValue" || (expression.Kind == "label" && expression.Value?.Text is not null && expression.Exact);
+        }
+
+        /// <summary>
+        /// A node located as the only match of its locator keeps that locator strict, as upstream's does. When a second element now matches
+        /// it, the node is ambiguous: acting could hit the wrong element, so it is stale. A node the observation listed, or one of several
         /// matches, names its own element and is never ambiguous.
         /// </summary>
         private async Task RequireNoNewTwinAsync(SemanticNode node, OperationBudget budget)
         {
-            if (!_strict.TryGetValue(node.Ref, out var expression))
+            if (!_strict.TryGetValue(node, out var expression))
             {
                 return;
             }
@@ -2390,7 +2399,7 @@ public sealed partial class WebEngine : IEngine
             var size = _page?.ViewportSize is { } current ? new ViewportSize { Width = current.Width, Height = current.Height } : _viewport;
             _observed = false;
             _frames = new(StringComparer.Ordinal);
-            _strict = new(StringComparer.Ordinal);
+            _strict.Clear();
             try
             {
                 await VideoPageClosingAsync().ConfigureAwait(false);

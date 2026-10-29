@@ -47,6 +47,7 @@ public sealed class WebAndDocumentEngineLocateTests
         <html><body>
         <button type="button" id="add">Add</button>
         <ul id="rows"></ul>
+        <input id="draft" value="draft">
         <p id="log">idle</p>
         <script>
           function row() {
@@ -64,19 +65,6 @@ public sealed class WebAndDocumentEngineLocateTests
         """;
 
     [Fact]
-    public async Task The_web_engine_reports_a_ref_located_alone_stale_when_a_twin_appears()
-    {
-        using var site = await TinySite.StartAsync(Rows);
-        await using var session = await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions { Headless = true });
-        var delete = Assert.Single(await session.LocateAsync(LocatorExpression.ForRole("button", "Delete", new RoleOptions()), Budget, CancellationToken.None));
-        var add = Assert.Single(await session.LocateAsync(LocatorExpression.ForRole("button", "Add", new RoleOptions()), Budget, CancellationToken.None));
-        await session.PerformAsync(add, new LocatorAction.Tap(), CancellationToken.None);
-
-        var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(delete, new LocatorAction.Tap(), CancellationToken.None));
-        Assert.Equal((EngineErrorCodes.NodeStale, true), (error.Code, error.Retryable));
-    }
-
-    [Fact]
     public async Task The_web_engine_acts_on_a_ref_of_several_matches_after_more_twins_appear()
     {
         using var site = await TinySite.StartAsync(Rows);
@@ -90,6 +78,37 @@ public sealed class WebAndDocumentEngineLocateTests
         await session.PerformAsync(deletes[0], new LocatorAction.Tap(), CancellationToken.None);
         var log = Assert.Single(await session.LocateAsync(LocatorExpression.For("text", "deleted", new TextMatchOptions(), "text"), Budget, CancellationToken.None));
         Assert.Equal("deleted", log.Text);
+    }
+
+    [Fact]
+    public async Task The_web_engine_acts_on_an_observed_node_after_a_twin_appears_even_when_a_locate_matched_it_alone()
+    {
+        using var site = await TinySite.StartAsync(Rows);
+        await using var session = await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions { Headless = true });
+        var observed = WebSemanticsTests.Flatten((await session.ObserveAsync(CancellationToken.None)).Roots).Single(node => node.Role == "button" && node.Name == "Delete");
+        var located = Assert.Single(await session.LocateAsync(LocatorExpression.ForRole("button", "Delete", new RoleOptions()), Budget, CancellationToken.None));
+        Assert.Equal(observed.Ref, located.Ref);
+        var add = Assert.Single(await session.LocateAsync(LocatorExpression.ForRole("button", "Add", new RoleOptions()), Budget, CancellationToken.None));
+        await session.PerformAsync(add, new LocatorAction.Tap(), CancellationToken.None);
+
+        // The observation names its own element; only the located node was the locator's alone.
+        await session.PerformAsync(observed, new LocatorAction.Tap(), CancellationToken.None);
+        var log = Assert.Single(await session.LocateAsync(LocatorExpression.For("text", "deleted", new TextMatchOptions(), "text"), Budget, CancellationToken.None));
+        Assert.Equal("deleted", log.Text);
+    }
+
+    [Fact]
+    public async Task The_web_engine_acts_on_a_display_value_match_after_another_input_takes_the_value()
+    {
+        using var site = await TinySite.StartAsync(Rows.Replace("</body>", "<button type=\"button\" id=\"copy\" onclick=\"document.body.insertAdjacentHTML('beforeend', '<input value=draft>')\">Copy</button></body>", StringComparison.Ordinal));
+        await using var session = await WebSemanticsTests.OpenAsync(site.Url, new WebEngineOptions { Headless = true });
+        var draft = Assert.Single(await session.LocateAsync(LocatorExpression.For("displayValue", "draft", new TextMatchOptions(), "displayValue"), Budget, CancellationToken.None));
+        var copy = Assert.Single(await session.LocateAsync(LocatorExpression.ForRole("button", "Copy", new RoleOptions()), Budget, CancellationToken.None));
+        await session.PerformAsync(copy, new LocatorAction.Tap(), CancellationToken.None);
+
+        // Upstream pins a display-value match to the element it read, even when it was the only one.
+        await session.PerformAsync(draft, new LocatorAction.Fill("final"), CancellationToken.None);
+        Assert.Equal("final", Assert.Single(await session.LocateAsync(LocatorExpression.For("displayValue", "final", new TextMatchOptions(), "displayValue"), Budget, CancellationToken.None)).Value);
     }
 
     [Fact]
