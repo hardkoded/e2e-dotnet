@@ -412,8 +412,10 @@ public sealed class ModelProviderTests
             CancellationToken.None);
 
         var parts = handler.Requests[1].Json()["contents"]![1]!["parts"]!.AsArray();
-        Assert.Equal("c2ln", parts.Single(part => part!["thoughtSignature"] is not null)!["thoughtSignature"]!.GetValue<string>());
-        Assert.Equal("done", parts.Single(part => part!["text"]!.GetValue<string>() == "done")!["text"]!.GetValue<string>());
+        var part = Assert.Single(parts)!;
+        Assert.Equal("done", part["text"]!.GetValue<string>());
+        Assert.Equal("c2ln", part["thoughtSignature"]!.GetValue<string>());
+        Assert.Null(part["thought"]);
     }
 
     [Fact]
