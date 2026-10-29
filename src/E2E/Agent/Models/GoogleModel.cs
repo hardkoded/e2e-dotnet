@@ -173,7 +173,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             var items = (message.ReasoningItems ?? []).Select(item => JsonNode.Parse(item.GetRawText())).OfType<JsonObject>().ToList();
             // Signed text parts replace Content only while they still spell it; a Content changed since the reply goes as it is.
             var replayed = string.Concat(items.Where(IsPlainText).Select(item => item["text"]?.GetValue<string>()));
-            var keepText = replayed.Length > 0 && string.Equals(replayed, message.Content, StringComparison.Ordinal);
+            var keepText = items.Any(IsPlainText) && string.Equals(replayed, message.Content ?? "", StringComparison.Ordinal);
             foreach (var item in items.Where(item => keepText || !IsPlainText(item)))
             {
                 parts.Add(item);
