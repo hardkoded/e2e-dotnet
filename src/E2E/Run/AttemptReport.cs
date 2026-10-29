@@ -104,7 +104,7 @@ internal static class AttemptReport
         ReportArtifact[] kept =
         [
             .. videos.Select((video, index) => Artifact(video, index, directory, attemptSegment)),
-            .. scope.Attached.Select(attached => new ReportArtifact(attached.Id, attached.Kind, directory + "/" + attemptSegment + "/" + attached.Path)),
+            .. scope.Attached.Select(attached => new ReportArtifact(attached.Id, attached.Kind, directory + "/" + attemptSegment + "/" + attached.Path, Redaction: attached.Redaction)),
             .. failed && evidence?.Screen is { } screen ? new[] { new ReportArtifact(screen, "log", directory + "/" + attemptSegment + "/" + FailureEvidence.ScreenFile) } : [],
             .. failed && evidence?.Screenshot is { } shot ? new[] { new ReportArtifact(shot, "screenshot", directory + "/" + attemptSegment + "/" + FailureEvidence.ScreenshotFile) } : [],
         ];

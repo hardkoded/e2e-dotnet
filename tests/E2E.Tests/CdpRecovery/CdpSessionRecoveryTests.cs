@@ -515,7 +515,21 @@ public sealed class CdpSessionRecoveryTests
         var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = app.Url, ActionTimeout = actionTimeout ?? TimeSpan.FromSeconds(10) }, None);
         try
         {
-            await session.OpenAsync(app.Url + "login", None);
+            // Upstream opens /login under its own 10 s operation and gives only the operation under test the short budget. The session here
+            // has one budget, so a short one also bounds this first navigation, and a cold Chrome on a loaded runner can outlast it. A second
+            // try finds the page warm and the app's responses cached.
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    await session.OpenAsync(app.Url + "login", None);
+                    break;
+                }
+                catch (EngineException failure) when (actionTimeout is not null && failure.Code == "OPERATION_TIMEOUT" && attempt < 3)
+                {
+                }
+            }
+
             return session;
         }
         catch

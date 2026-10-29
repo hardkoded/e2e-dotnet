@@ -12,6 +12,7 @@ using System.Text.Json.Serialization.Metadata;
 using E2E.Cache;
 using E2E.Engine;
 using E2E.Internal;
+using E2E.Reports;
 
 namespace E2E;
 
@@ -1298,18 +1299,36 @@ internal sealed class AttemptScope
 
     public List<PendingAct> Acts { get; } = [];
 
-    private readonly List<(string Id, string Kind, string Path)> _attached = [];
+    private readonly List<(string Id, string Kind, string Path, ArtifactRedaction? Redaction)> _attached = [];
+
+    /// <summary>The attempt's artifact directory (upstream's <c>ArtifactSink.dir</c>); null when the scope has none, as in a unit test.</summary>
+    public string? ArtifactsDir { get; init; }
 
     /// <summary>
-    /// The files fixtures kept for the attempt, such as a download, as the id the step names, the kind, and the path under the attempt's
-    /// artifact directory (upstream's <c>attachArtifact</c>).
+    /// The files fixtures kept for the attempt, such as a download, as the id the step names, the kind, the path under the attempt's
+    /// artifact directory (upstream's <c>attachArtifact</c>), and the redaction the runner claims for it when it rewrote it (null when
+    /// the kind decides).
     /// </summary>
-    public IReadOnlyList<(string Id, string Kind, string Path)> Attached
+    public IReadOnlyList<(string Id, string Kind, string Path, ArtifactRedaction? Redaction)> Attached
     {
         get
         {
             lock (_attached)
             {
+                // Reports must use the final ledger, including values a later fill registered.
+                if (ArtifactsDir is { } directory && Secrecy.RedactsDownloads(Redactor))
+                {
+                    var redactor = Redactor;
+                    for (var index = 0; index < _attached.Count; index++)
+                    {
+                        var entry = _attached[index];
+                        if (entry.Kind == "download" && ArtifactPaths.IsTextLike(ArtifactPaths.MediaTypeFor(entry.Path)))
+                        {
+                            _attached[index] = (entry.Id, entry.Kind, entry.Path, ArtifactPaths.RedactDownload(Path.Combine(directory, entry.Path), redactor));
+                        }
+                    }
+                }
+
                 return [.. _attached];
             }
         }
@@ -1318,11 +1337,24 @@ internal sealed class AttemptScope
     /// <summary>Keeps <paramref name="relative"/> as an artifact of the running step, or of the last one when none runs.</summary>
     public void AttachArtifact(string kind, string relative)
     {
+        // A text-like download is rewritten through the session's ledger before it is measured, so the record claims what that did
+        // (upstream's `sink.register`, `run/artifacts.ts`). Any other download is bytes the app served: incomplete.
+        ArtifactRedaction? redaction = null;
+        if (kind == "download" && ArtifactsDir is { } directory)
+        {
+            redaction = ArtifactRedaction.Incomplete;
+            var redactor = Redactor;
+            if (Secrecy.RedactsDownloads(redactor) && ArtifactPaths.IsTextLike(ArtifactPaths.MediaTypeFor(relative)))
+            {
+                redaction = ArtifactPaths.RedactDownload(Path.Combine(directory, relative), redactor);
+            }
+        }
+
         string id;
         lock (_attached)
         {
             id = kind + "-" + (_attached.Count(entry => entry.Kind == kind)).ToString(System.Globalization.CultureInfo.InvariantCulture);
-            _attached.Add((id, kind, relative));
+            _attached.Add((id, kind, relative, redaction));
         }
 
         Steps.AttachArtifact(id);

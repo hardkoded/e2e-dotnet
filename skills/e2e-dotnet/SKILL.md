@@ -11,6 +11,9 @@ judge the screen. `Screen`, `App`, `Browser`, and `Expect` make exact
 interactions and checks without a model. A verified agent step is recorded
 and replayed on the next run with no model call; judgments still run live.
 
+Text downloads are rescanned before reporting with all secrets known by then,
+including later fills and JSON Unicode escapes of ASCII secrets.
+
 ## Start here: pick the reference for the job
 
 Read the one reference that matches the request before doing anything else.
@@ -37,6 +40,8 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | Asked to bug bash or hunt for bugs: proving each bug with a repro test | `bug-bash` | [references/bug-bash.md](references/bug-bash.md) |
 
 Two sibling skills install with `npx skills add hardkoded/e2e-dotnet --skill <name>`. `create-verification-skill` writes a project-local `verify-<app>` skill. `migrate-to-e2e` moves an existing Playwright .NET, Selenium .NET, Appium, Cypress, Detox, or Maestro suite to e2e one slice at a time, with the old suite running beside the new one and a `MIGRATION.md` progress file. Hosted Limrun devices are covered in topic `mobile`.
+
+Text downloads are redacted only when they are UTF-8 without NUL bytes; other files stay as served and `incomplete`. See `writing-tests` for download handling.
 
 ## Quick start
 
@@ -110,7 +115,7 @@ public sealed class BillingTests : E2ETest
    after a network failure or a 408, 409, 429, or 5xx answer (waiting the
    provider's `retry-after` when it asks for under a minute, otherwise 2 s
    doubled each time), and only then fails with `MODEL_PROVIDER_FAILED`.
-   A SigV4-signed Bedrock request (AWS credentials, not a Bedrock API key) is signed again for every attempt, so a long wait does
+   Bedrock signs with the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` variables or, with none set, the AWS credential chain (shared profile, SSO, container and instance roles). A SigV4-signed Bedrock request (AWS credentials, not a Bedrock API key) is signed again for every attempt, so a long wait does
    not end in `RequestExpired`.
 5. When it fails, fix it from what the run recorded (next section).
 
