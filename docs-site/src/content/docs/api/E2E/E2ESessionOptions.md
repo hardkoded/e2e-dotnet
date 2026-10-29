@@ -194,7 +194,7 @@ public IArtifactStore? ArtifactStore { get; init; }
 
 Where artifacts go besides the results directory (upstream's `artifacts.store`): every artifact the attempt registers, a
 download or a video, is handed to the store as it is produced, and the store's reference is recorded as the artifact's `ref`.
-Null keeps files local only.
+Null keeps files local only. The automatic failure screen text and screenshot are not handed over yet.
 
 **Value:** [IArtifactStore](/api/E2E/IArtifactStore/)
 

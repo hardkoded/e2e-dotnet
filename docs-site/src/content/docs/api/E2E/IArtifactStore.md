@@ -20,7 +20,7 @@ public interface IArtifactStore
 
 
 Where artifacts go (upstream's `ArtifactStore`, `artifacts.store`). The default keeps them under the artifacts directory, and
-the report records their paths. A host-supplied store (object storage, an API) receives every artifact as it is produced, not after the
+the report records their paths. A host-supplied store (object storage, an API) receives each artifact an attempt registers (a download, a video, an attached screenshot or log) as it is produced, not after the
 run, and returns its own reference, which the report records as the artifact's `ref` beside the local path. The cloud seam for
 evidence, the way [IStepCache](/api/E2E/IStepCache/) is for the replay cache. A failed `CancellationToken)` never fails the run: the record
 simply carries no `ref`. Like every live value, a store never crosses a process boundary. Set it with

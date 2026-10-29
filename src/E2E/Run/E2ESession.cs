@@ -898,7 +898,7 @@ public sealed class E2ESessionOptions
     /// <summary>
     /// Where artifacts go besides the results directory (upstream's <c>artifacts.store</c>): every artifact the attempt registers, a
     /// download or a video, is handed to the store as it is produced, and the store's reference is recorded as the artifact's <c>ref</c>.
-    /// Null keeps files local only.
+    /// Null keeps files local only. The automatic failure screen text and screenshot are not handed over yet.
     /// </summary>
     public IArtifactStore? ArtifactStore { get; init; }
 

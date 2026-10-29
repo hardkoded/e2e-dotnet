@@ -1125,7 +1125,7 @@ public sealed record StoredArtifactLink
 
 /// <summary>
 /// Where artifacts go (upstream's <c>ArtifactStore</c>, <c>artifacts.store</c>). The default keeps them under the artifacts directory, and
-/// the report records their paths. A host-supplied store (object storage, an API) receives every artifact as it is produced, not after the
+/// the report records their paths. A host-supplied store (object storage, an API) receives each artifact an attempt registers (a download, a video, an attached screenshot or log) as it is produced, not after the
 /// run, and returns its own reference, which the report records as the artifact's <c>ref</c> beside the local path. The cloud seam for
 /// evidence, the way <see cref="IStepCache"/> is for the replay cache. A failed <see cref="PutAsync"/> never fails the run: the record
 /// simply carries no <c>ref</c>. Like every live value, a store never crosses a process boundary. Set it with
