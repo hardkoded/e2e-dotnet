@@ -15,13 +15,10 @@ namespace E2E;
 /// </summary>
 internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
 {
-    // Whether the executor-facing look in flight asked for pixels, which reserve part of the token ceiling the tree is cut under.
-    private bool _pixels;
-
-    // The newest text rendered, which the same look reuses.
+    // The newest text rendered, which the same look reuses while the redactor it was rendered under is the attempt's current one.
     private Rendered? _rendered;
 
-    private sealed record Rendered(Observation Observation, bool Pixels, string Text, bool Cut);
+    private sealed record Rendered(Observation Observation, bool Pixels, Redactor Redactor, string Text, bool Cut);
 
     private readonly Dictionary<string, Resolved> _seen = [];
     private PendingChange? _pending;
@@ -63,18 +60,22 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// <paramref name="name"/> tells apart when the look is not the step's own (<c>relocate</c>, <c>page</c>), and which books the
     /// observation's size.
     /// </summary>
-    public Task<Observation> ObserveAsync(SettleMode mode, string? name, CancellationToken token) =>
+    public Task<Observation> ObserveAsync(SettleMode mode, string? name, CancellationToken token) => ObserveAsync(mode, name, false, token);
+
+    // Whether the look asks for pixels is this look's own, so a concurrent look books its size by its own ask. Pixels reserve part
+    // of the token ceiling the tree is cut under.
+    private Task<Observation> ObserveAsync(SettleMode mode, string? name, bool pixels, CancellationToken token) =>
         Phases.InstrumentPhaseAsync(
             new PhaseHost(Scope?.Steps, Scope?.Debug ?? DebugTrace.Off),
             new PhaseSpec(StepEventKind.Observation, Phases.Observe, name),
             () => LookAsync(mode, token),
-            Book);
+            observation => Book(observation, pixels));
 
     /// <summary>The size in bytes of the largest observation the step read, as a model reads it (upstream's <c>metrics.observationBytes</c>).</summary>
     public int MaxObservationBytes { get; private set; }
 
     // What an observation event tells (upstream's observationDetail): the nodes read, and the bytes of the text a model reads.
-    private PhaseDetail Book(Observation observation)
+    private PhaseDetail Book(Observation observation, bool pixels)
     {
         var count = LocatorResolver.Walk(observation.Roots).Count();
         if (Scope is not { } scope)
@@ -82,7 +83,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             return new PhaseDetail(count);
         }
 
-        var bytes = System.Text.Encoding.UTF8.GetByteCount(Text(observation, _pixels));
+        var bytes = System.Text.Encoding.UTF8.GetByteCount(Text(observation, pixels));
         MaxObservationBytes = Math.Max(MaxObservationBytes, bytes);
         return new PhaseDetail(count, bytes);
     }
@@ -155,16 +156,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     public async Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options, CancellationToken token)
     {
         var scope = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
-        _pixels = options?.Pixels == true;
-        Observation observation;
-        try
-        {
-            observation = await ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
-        }
-        finally
-        {
-            _pixels = false;
-        }
+        var observation = await ObserveAsync(SettleMode.HeldStill, null, options?.Pixels == true, token).ConfigureAwait(false);
 
         var view = View(observation, scope, options);
         if (options?.Pixels != true)
@@ -214,21 +206,23 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// <param name="cut">Whether the byte budget cut the screen.</param>
     public string Text(Observation observation, bool pixels, out bool cut)
     {
-        // One look is read for its size, for the executor, and for the model; it is rendered once.
-        if (_rendered is { } last && ReferenceEquals(last.Observation, observation) && last.Pixels == pixels)
+        // One look is read for its size, for the executor, and for the model; it is rendered once. A secret registered since
+        // replaces the attempt's redactor, and text rendered under the old one is never reused.
+        var scope = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
+        var redactor = scope.Redactor;
+        if (_rendered is { } last && ReferenceEquals(last.Observation, observation) && last.Pixels == pixels && ReferenceEquals(last.Redactor, redactor))
         {
             cut = last.Cut;
             return last.Text;
         }
 
-        var scope = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
-        var text = SnapshotText.Render(observation, scope.Redactor, scope.AppOrigin, ByteBudget(pixels), out cut);
+        var text = SnapshotText.Render(observation, redactor, scope.AppOrigin, ByteBudget(pixels), out cut);
         if (cut)
         {
             _observationTruncated = true;
         }
 
-        _rendered = new Rendered(observation, pixels, text, cut);
+        _rendered = new Rendered(observation, pixels, redactor, text, cut);
         return text;
     }
 
