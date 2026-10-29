@@ -2,11 +2,21 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Internal;
+
 namespace E2E;
 
 /// <summary>What one live session knows about secrets: the values to redact.</summary>
 internal static class Secrecy
 {
+    /// <summary>
+    /// Whether a text-like download of the session is rewritten through its ledger before it is kept: whenever the ledger holds a
+    /// value, filled or not. A value reaches the app in ways the runner never sees (a URL or a <c>fill</c> the test spelled it into, the
+    /// app's own config), so downloads are redacted like every report and observation, not only after a fill. Upstream's
+    /// <c>redactsDownloads</c>; the port has no <c>SessionSecrecy</c>, so it takes the ledger alone.
+    /// </summary>
+    public static bool RedactsDownloads(Redactor ledger) => !ledger.IsEmpty;
+
     /// <summary>
     /// The plaintext of one secret an engine option carries. The value joins <paramref name="ledger"/> before it is
     /// returned, so it is redacted from the moment it exists, whoever it is handed to.
