@@ -322,6 +322,16 @@ Slow model calls: raise `Timeout` on the call or the fixture's
 for slow UI. `STEP_TIMEOUT` and `STEP_BUDGET_EXHAUSTED` fail the test;
 smaller goals help.
 
+`STEP_TIMEOUT` reads `agent.act exceeded its 30000 ms timeout` (the call's
+name and its `Timeout`). It also covers an engine operation that timed out
+within one poll tick (100 ms) of the step's deadline: that operation had only
+the deadline's remaining time, so its timeout is the step running out. An
+operation that times out with time to spare keeps its own code. A cancelled
+step fails with `CANCELLED` and reads `agent.act was cancelled`. A screen that
+changes as the agent reads it (a redirect, a form still committing) makes the
+read fail with a retryable engine error; the agent reads it again after a poll
+tick, until the step's clock runs out.
+
 A model request the provider refuses as too large ends a judgment with
 `CONTEXT_OVERFLOW`. `ActAsync` shrinks its history once first: it drops every
 superseded screen, cuts any text past 16,384 characters to its head with a
