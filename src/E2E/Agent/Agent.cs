@@ -118,7 +118,7 @@ public sealed partial class Agent
         {
             try
             {
-                return await LookAsync("agent.waitFor", vision, agent, JudgeSystemFor(agent), statement, token).ConfigureAwait(false);
+                return await LookAsync("agent.waitFor", vision, agent, JudgeSystemFor(agent), statement, token, _ => { }).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not AgentException
                 && (linked.IsCancellationRequested || DateTime.UtcNow >= deadline)
@@ -202,9 +202,10 @@ public sealed partial class Agent
         ArgumentException.ThrowIfNullOrWhiteSpace(instruction);
         var agent = _scope.Select(options?.Agent);
         var vision = ResolveVision(options?.Vision ?? VisionMode.Off);
-        using var linked = Link(cancellationToken, ResolveTimeout(options?.Timeout, agent.JudgmentTimeout));
+        var extractTimeout = ResolveTimeout(options?.Timeout, agent.JudgmentTimeout);
+        using var linked = Link(cancellationToken, extractTimeout);
         var token = linked.Token;
-        var look = await LookAsync("agent.extract", vision, agent, ExtractSystemFor(agent), instruction, token).ConfigureAwait(false);
+        var look = await LookAsync("agent.extract", vision, agent, ExtractSystemFor(agent), instruction, token, Guard("agent.extract", cancellationToken, extractTimeout)).ConfigureAwait(false);
         var schema = JsonSchemaExporter.GetJsonSchemaAsNode(ExtractSchemaJson, typeof(T), ExtractSchemaOptions);
         var tools = AgentTools.ExtractFor(schema);
         var messages = new List<ModelMessage>
@@ -287,7 +288,7 @@ public sealed partial class Agent
     {
         using var linked = Link(cancellationToken, timeout);
         var token = linked.Token;
-        var look = await LookAsync("agent.assert", vision, agent, JudgeSystemFor(agent), statement, token).ConfigureAwait(false);
+        var look = await LookAsync("agent.assert", vision, agent, JudgeSystemFor(agent), statement, token, Guard("agent.assert", cancellationToken, timeout)).ConfigureAwait(false);
         var verdict = await JudgeOnceAsync(statement, look, agent, JudgmentModelCalls, token, cancellationToken).ConfigureAwait(false);
 
         // The redacted screenshot is kept whenever Screenshot allows it, on a passing judgment too.
@@ -401,7 +402,7 @@ public sealed partial class Agent
     /// Captures one fresh look. A tainted attempt, a capture the engine cannot make, and masking the engine cannot prove
     /// each degrade the call to the tree alone, except under <see cref="VisionMode.Only"/>, which fails.
     /// </summary>
-    private async Task<Look> LookAsync(string api, VisionMode vision, ResolvedAgent agent, string system, string instruction, CancellationToken token)
+    private async Task<Look> LookAsync(string api, VisionMode vision, ResolvedAgent agent, string system, string instruction, CancellationToken token, Action<Exception?> guard)
     {
         var tainted = vision != VisionMode.Off && _scope.Exposure.WithholdsModelPixels;
         if (tainted)
@@ -415,7 +416,7 @@ public sealed partial class Agent
             new PhaseSpec(StepEventKind.Observation, Phases.Observe),
             async () =>
             {
-                var seen = await _scope.ObserveAsync(token).ConfigureAwait(false);
+                var seen = await Phases.RetryingObserveAsync(() => _scope.ObserveAsync(token), guard, token).ConfigureAwait(false);
                 var text = SnapshotText.Render(seen, _scope.Redactor, _scope.AppOrigin, ObservationByteBudget(agent, system, instruction, vision), out var overBudget);
                 return (Seen: seen, Tree: text, Cut: overBudget);
             },
@@ -944,6 +945,13 @@ public sealed partial class Agent
         }
 
         return requested.Value;
+    }
+
+    // The call's clock check for a failed capture (upstream's checkDeadline): a cancel is the caller's or the attempt's, the deadline the call's own.
+    private Action<Exception?> Guard(string api, CancellationToken caller, TimeSpan timeout)
+    {
+        var deadline = new Deadline(timeout > TimeSpan.Zero && timeout != Timeout.InfiniteTimeSpan ? DateTimeOffset.UtcNow + timeout : DateTimeOffset.MaxValue);
+        return cause => Phases.CheckStepClock(caller.IsCancellationRequested ? caller : _scope.Token(), deadline, api, (long)timeout.TotalMilliseconds, cause);
     }
 
     private CancellationTokenSource Link(CancellationToken cancellationToken, TimeSpan timeout)

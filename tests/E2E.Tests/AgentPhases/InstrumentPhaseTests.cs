@@ -8,7 +8,7 @@ namespace E2E.Tests.AgentPhases;
 
 /// <summary>
 /// Upstream's <c>describe('instrumentPhase')</c> (<c>tests/unit/agent-phases.test.ts</c>). The other two <c>describe</c> blocks of that
-/// file, <c>retryingObserve</c> and <c>checkStepClock</c>, test functions the port has not extracted.
+/// file are <see cref="RetryingObserveTests"/> and <see cref="CheckStepClockTests"/>.
 /// </summary>
 public sealed class InstrumentPhaseTests
 {

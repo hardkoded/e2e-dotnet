@@ -92,7 +92,11 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     // A settled look takes several; a truncated one among them marks the step even when the last one is whole.
     private async Task<Observation> SeeAsync(CancellationToken token)
     {
-        var observation = await (Scope is { } scope ? scope.ObserveAsync(token) : session.ObserveAsync(token)).ConfigureAwait(false);
+        // Retried at the engine while it reports a race, the step's clock checked each time it fails (upstream's retryingObserve).
+        var observation = await Phases.RetryingObserveAsync(
+            () => Scope is { } scope ? scope.ObserveAsync(token) : session.ObserveAsync(token),
+            cause => Accounting?.Checkpoint(cause),
+            token).ConfigureAwait(false);
         if (observation.Truncated)
         {
             _observationTruncated = true;
@@ -147,6 +151,9 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// the engine's capture, and the pixel taint. Null for a feed that serves no executor.
     /// </summary>
     public AttemptScope? Scope { get; init; }
+
+    /// <summary>The step's clock and budgets (upstream's <c>accounting</c>), which a failed capture is checked against. Null for a feed of no step.</summary>
+    public StepAccounting? Accounting { get; init; }
 
     /// <summary>
     /// Upstream's executor-facing <c>observe</c>: the options checked before anything is captured, then one settled look,

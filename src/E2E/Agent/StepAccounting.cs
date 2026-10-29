@@ -120,21 +120,22 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
         new("STEP_TIMEOUT", api + " exceeded its " + _timeout.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture) + " ms timeout", blocked: true);
 
     /// <summary>Fails when the step is cancelled, out of time, or already hard-stopped, and records the hard stop.</summary>
-    public void Checkpoint()
+    /// <param name="cause">The failure being handled when the clock is checked, which a timeout then carries (see <see cref="Phases.CheckStepClock"/>).</param>
+    public void Checkpoint(Exception? cause = null)
     {
         if (_hardStop is { } firstStop && (_stop?.IsCancellationRequested ?? false))
         {
             throw firstStop;
         }
 
-        if (_cancellation.IsCancellationRequested || (_scope?.Token().IsCancellationRequested ?? false))
+        var signal = _cancellation.IsCancellationRequested ? _cancellation : _scope?.Token() ?? CancellationToken.None;
+        try
         {
-            throw Fatalize(new AgentException("CANCELLED", "the step was cancelled"));
+            Phases.CheckStepClock(signal, new Deadline(_deadline ?? DateTimeOffset.MaxValue), api, (long)_timeout.TotalMilliseconds, cause);
         }
-
-        if (_deadline is { } deadline && DateTimeOffset.UtcNow >= deadline)
+        catch (AgentException error)
         {
-            throw Fatalize(TimedOut());
+            throw Fatalize(error);
         }
     }
 
