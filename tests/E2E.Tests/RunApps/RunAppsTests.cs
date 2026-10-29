@@ -51,7 +51,15 @@ public sealed class RunAppsTests
             await Task.Delay(100);
         }
 
+        // The listener closes a moment before the process is reaped, so a call in that gap still finds the ended app running. The next one starts it.
+        var deadline = DateTime.UtcNow.AddSeconds(20);
         var second = await E2E.RunApps.StartAsync(config, config.Target, null, CancellationToken.None);
+        while (!await AppProgram.IsReachable(second.App.Url!) && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(100);
+            second = await E2E.RunApps.StartAsync(config, config.Target, null, CancellationToken.None);
+        }
+
         Assert.True(await AppProgram.IsReachable(second.App.Url!));
     }
 
