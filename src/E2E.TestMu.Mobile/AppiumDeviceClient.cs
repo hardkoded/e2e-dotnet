@@ -21,7 +21,7 @@ namespace E2E.TestMu.Mobile;
 /// <c>settle</c> options are not honored: the engine's own observe loop waits for the screen to settle.
 /// </para>
 /// </summary>
-internal sealed partial class AppiumDeviceClient(WebDriverClient driver, MobilePlatform platform, IPageSourceConverter? converter = null) : ICancellableDeviceClient
+internal sealed partial class AppiumDeviceClient(WebDriverClient driver, MobilePlatform platform, IPageSourceConverter? converter = null) : IDeviceClient
 {
     private readonly ScreenRefs _refs = new();
 

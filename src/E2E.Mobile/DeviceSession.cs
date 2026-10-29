@@ -677,5 +677,5 @@ internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflig
     }
 
     /// <summary>True when the daemon itself answered with a failure: an error it reported, not a transport failure that carries a cause.</summary>
-    private static bool DaemonAnswered(Task settled) => settled.Exception?.InnerException is AgentDeviceError { InnerException: null };
+    private static bool DaemonAnswered(Task settled) => settled.Exception?.InnerException is AgentDeviceError { Reported: true };
 }

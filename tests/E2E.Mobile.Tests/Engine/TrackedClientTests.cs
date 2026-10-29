@@ -89,7 +89,7 @@ public sealed class TrackedClientTests
         // The failure lands before the abort deadline.
         daemon.SetException(transportFailure
             ? new AgentDeviceError("COMMAND_FAILED", "Daemon request failed: connection reset", inner: new HttpRequestException("reset"))
-            : new AgentDeviceError("COMMAND_FAILED", "element not found"));
+            : new AgentDeviceError("COMMAND_FAILED", "element not found") { Reported = true });
         await Assert.ThrowsAsync<AgentDeviceError>(() => pending.WaitAsync(TimeSpan.FromSeconds(10)));
 
         if (transportFailure)
