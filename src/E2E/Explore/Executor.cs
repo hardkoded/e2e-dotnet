@@ -129,7 +129,7 @@ public static class ExploreExecutor
                 var artifactId = observation?.Pixels is { } pixels
                     ? await TryAsync(() => context.AttachScreenshotAsync(pixels, label, cancellationToken), cancellationToken).ConfigureAwait(false)
                     : null;
-                var finding = state.AddFinding(report with { Path = observation?.Path, ArtifactId = artifactId });
+                var finding = state.AddFinding(report with { Path = observation?.Path, ObservationRevision = observation?.Revision, ArtifactId = artifactId });
                 return "Finding " + (finding.Index + 1).ToString(CultureInfo.InvariantCulture) + " recorded (" + (finding.Kind == ReportExploreFindingKind.Issue ? "issue" : "warning")
                     + ", severity " + finding.Severity.ToString(CultureInfo.InvariantCulture) + "): " + finding.Title + ". Do not report it again; continue the charter or conclude the step.";
             })
