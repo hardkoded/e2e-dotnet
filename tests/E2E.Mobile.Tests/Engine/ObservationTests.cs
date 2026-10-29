@@ -95,7 +95,9 @@ public sealed class ObservationTests
         var publishedSession = await OpenAttempt(published);
         // The application node reads 390x844; a published viewport outranks it.
         published.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => WithViewport(402, 874));
-        Assert.Equal(new BoundingBox(0, 0, 402, 874), (await publishedSession.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
+        var publishedObservation = await publishedSession.ObserveAsync(CancellationToken.None);
+        Assert.Equal(new BoundingBox(0, 0, 402, 874), publishedObservation.Roots[0].Rect);
+        Assert.Equal(new TraceViewport(402, 874), publishedObservation.Viewport);
         var tree = Harness.Create();
         var treeSession = await OpenAttempt(tree);
         Assert.Equal(new BoundingBox(0, 0, 390, 844), (await treeSession.ObserveAsync(CancellationToken.None)).Roots[0].Rect);
