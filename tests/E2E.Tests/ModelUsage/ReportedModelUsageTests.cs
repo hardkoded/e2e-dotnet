@@ -30,14 +30,22 @@ public sealed class ReportedModelUsageTests
             TestTimeout = TimeSpan.FromSeconds(10),
             StepTimeout = TimeSpan.FromSeconds(5),
         });
-        await session.Context.App.OpenAsync("/");
-        foreach (var statement in statements)
+        try
         {
-            await session.Context.Agent.AssertAsync(statement);
-        }
+            await session.Context.App.OpenAsync("/");
+            foreach (var statement in statements)
+            {
+                await session.Context.Agent.AssertAsync(statement);
+            }
 
-        session.Complete(null);
-        return session;
+            session.Complete(null);
+            return session;
+        }
+        catch
+        {
+            await session.DisposeAsync();
+            throw;
+        }
     }
 
     [Fact]

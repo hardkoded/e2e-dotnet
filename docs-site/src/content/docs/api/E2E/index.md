@@ -32,7 +32,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [AppConfig](/api/E2E/AppConfig/) |  |
 | [AssertOptions](/api/E2E/AssertOptions/) | agent.assert: one judgment and one repair round, within Timeout. |
 | [AwsCredentials](/api/E2E/AwsCredentials/) | AWS access key credentials for Signature Version 4. |
-| [BedrockModel](/api/E2E/BedrockModel/) | Amazon Bedrock Converse API client. It signs with AWS Signature Version 4 from the standard AWS environment variables or, with none set, from the AWS credential chain (shared profile, SSO, container and instance roles), as the AI SDK's amazon-bedrock provider does, or sends a Bedrock API key (AWSBEARERTOKENBEDROCK) as a bearer token when one is set. |
+| [BedrockModel](/api/E2E/BedrockModel/) | Amazon Bedrock Converse API client. It signs with AWS Signature Version 4 from the standard AWS environment variables or, with none set, from the AWS credential chain (shared profile, SSO, container and instance roles), as the AI SDK's amazon-bedrock provider does, or sends a Bedrock API key (AWS_BEARER_TOKEN_BEDROCK) as a bearer token when one is set. |
 | [BedrockModelOptions](/api/E2E/BedrockModelOptions/) |  |
 | [Browser](/api/E2E/Browser/) | The browser the attempt drives, showing one active tab. It needs an engine session that implements IBrowserSession, such as WebEngine; on any other engine each member fails with UNSUPPORTEDCAPABILITY. |
 | [BrowserExpect](/api/E2E/BrowserExpect/) | Polling assertions for the Browser: its URL and its title. Like the locator matchers, a passing one verifies the previous agent.act. A read is bounded by the matcher's own deadline, so a page that stops answering ends the assertion at its timeout. |
