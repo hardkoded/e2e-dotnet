@@ -64,8 +64,10 @@ start the app yourself before `dotnet test`:
 
 The first test (or `e2e explore`, or `e2e mcp` session) that needs the app
 spawns `app.command` and polls `app.readyUrl` (default `app.url`) for a 200 to
-499 status within `startupTimeout` (default 60 s); later ones find it running,
-and it stops when the test process ends. Never ready is `APP_UNREACHABLE`, with
+499 status within `startupTimeout` (default 60 s); later ones find it running
+and share it. It stops when the last of them lets go: a test's hold lasts until
+the run fixture stops it (`E2ERunFixture`, topic `setup`), or until the test
+process ends. Never ready is `APP_UNREACHABLE`, with
 the last lines of `log` quoted. A `url` answering before the spawn is
 `APP_ALREADY_RUNNING` unless `reuseExisting` is `true` (CI ignores it). The
 process gets only `PATH`, `HOME`, the temp variables, `SystemRoot` and

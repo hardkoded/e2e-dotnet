@@ -224,7 +224,8 @@ public static class Explore
         }
 
         // The target's app command starts before the session opens, and the URL is on the port it was started on.
-        target = await RunApps.StartAsync(config, target, notice, cancellationToken).ConfigureAwait(false);
+        var (appTarget, appProcesses) = await RunApps.AcquireAsync(config, target, notice, cancellationToken).ConfigureAwait(false);
+        target = appTarget;
         var sessionOptions = new E2ESessionOptions
         {
             Engine = engine,
@@ -261,7 +262,19 @@ public static class Explore
             AiTrace = options.AiTrace || E2EFixture.IsOn("E2E_AI_TRACE"),
         };
 
-        var attempt = await Standalone.OpenAttemptAsync(sessionOptions, cancellationToken).ConfigureAwait(false);
+        var appFailures = new List<Exception>();
+        StandaloneAttempt attempt;
+        try
+        {
+            attempt = await Standalone.OpenAttemptAsync(sessionOptions, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // The app this exploration started stops with it, whichever way the open failed.
+            await appProcesses.StopAsync(appFailures.Add).ConfigureAwait(false);
+            throw;
+        }
+
         E2EException? error = null;
         ReportExplore record;
         IReadOnlyList<Exception> cleanup;
@@ -301,7 +314,11 @@ public static class Explore
         finally
         {
             // The attempt is closed on every path. Its failures are the run's cleanup errors: they join the outcome and never replace it.
-            cleanup = await attempt.CloseAsync().ConfigureAwait(false);
+            var closed = await attempt.CloseAsync().ConfigureAwait(false);
+
+            // The app command stops once the engine is done with it, and its failure joins the cleanup errors the same way.
+            await appProcesses.StopAsync(appFailures.Add).ConfigureAwait(false);
+            cleanup = [.. closed, .. appFailures];
         }
 
         var cleanupErrors = cleanup
