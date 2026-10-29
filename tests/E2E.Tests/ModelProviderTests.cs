@@ -416,6 +416,23 @@ public sealed class ModelProviderTests
         Assert.Equal("done", part["text"]!.GetValue<string>());
         Assert.Equal("c2ln", part["thoughtSignature"]!.GetValue<string>());
         Assert.Null(part["thought"]);
+
+        // Content that changed since the reply is sent as it is now, not as the signed text was.
+        await model.CompleteAsync(
+            new ModelRequest
+            {
+                System = "rules",
+                Tools = Tools(),
+                Messages =
+                [
+                    new ModelMessage { Role = "user", Content = "go" },
+                    new ModelMessage { Role = "assistant", Content = "shrunk", ReasoningItems = first.ReasoningItems },
+                    new ModelMessage { Role = "user", Content = "again" },
+                ],
+            },
+            CancellationToken.None);
+        var shrunk = Assert.Single(handler.Requests[2].Json()["contents"]![1]!["parts"]!.AsArray())!;
+        Assert.Equal("shrunk", shrunk["text"]!.GetValue<string>());
     }
 
     [Fact]
