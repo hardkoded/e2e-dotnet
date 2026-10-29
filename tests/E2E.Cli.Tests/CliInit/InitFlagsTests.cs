@@ -10,6 +10,8 @@ public sealed class InitFlagsTests : CliInitTestBase
     [Theory]
     [InlineData("--engine", "--yes")]
     [InlineData("--skills=")]
+    [InlineData("--mcp", " , ")]
+    [InlineData("--engine", "web,mobile")]
     [InlineData("-x")]
     [InlineData("--endpoint", "https://user:key@llm.example/v1")]
     public void Rejects_a_flag_without_a_usable_value_or_an_unknown_option(params string[] args)
@@ -17,6 +19,14 @@ public sealed class InitFlagsTests : CliInitTestBase
         var (options, error) = InitFlags.Parse(args);
         Assert.Null(options);
         Assert.StartsWith("error:", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Merges_a_repeated_list_flag_and_drops_duplicates()
+    {
+        var (options, error) = InitFlags.Parse(["--skills", ".agents/skills", "--skills=.claude/skills,.agents/skills"]);
+        Assert.Null(error);
+        Assert.Equal([".agents/skills", ".claude/skills"], options!.Skills);
     }
 
     [Fact]

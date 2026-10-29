@@ -21,8 +21,8 @@ e2e init --yes
 | `--engine <ids>` | The engine for a new config: `web`, `mobile`, or `none`. One target only. |
 | `--gateway <id>` | The model gateway for agent steps in a new config: `vercel`, `openrouter`, `openai-compatible`, `chatgpt`, `copilot`, `opencode-console`, `grok`, or `none`. The config names the matching `provider`. |
 | `--endpoint <url>` | Base URL for `--gateway openai-compatible`, and implies it. HTTPS, or HTTP on a loopback host. Default: `http://127.0.0.1:11434/v1`. |
-| `--skills <dirs>` | Where to install the agent skill: `.agents/skills`, `.claude/skills`, or `none`. Comma-separated. |
-| `--mcp <files>` | Where to register the MCP server: `.mcp.json`, `.cursor/mcp.json`, or `none`. Comma-separated. |
+| `--skills <dirs>` | Where to install the agent skill: `.agents/skills`, `.claude/skills`, or `none`. Comma-separated or repeated. |
+| `--mcp <files>` | Where to register the MCP server: `.mcp.json`, `.cursor/mcp.json`, or `none`. Comma-separated or repeated. |
 
 `--engine`, `--gateway`, and `--endpoint` apply only to a new config. Exit code 2 means an unknown flag value, no `--yes`, a directory argument that is a file, or a file or directory in the way of the skill or an invalid MCP file.
 

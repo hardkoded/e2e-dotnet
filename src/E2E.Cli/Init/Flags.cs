@@ -66,12 +66,30 @@ internal static class InitFlags
                     return (null, "error: option '--" + name + "' argument missing");
                 }
 
-                if ((value is not null && value.Length == 0) || (value is null && e.Current.StartsWith('-')))
+                if (value is null && e.Current.StartsWith('-'))
                 {
                     return (null, "error: option '--" + name + "' argument missing");
                 }
 
-                values[name] = value ?? e.Current;
+                value ??= e.Current;
+                if (name is "engine" or "skills" or "mcp")
+                {
+                    // Names, comma-separated or repeated, each once; an empty value is a usage error rather than an empty list (upstream's parseNames).
+                    if (value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Length == 0)
+                    {
+                        return (null, "error: option '--" + name + "' argument '" + value + "' is invalid. must name at least one " + (name == "engine" ? "engine" : name == "skills" ? "skill directory" : "MCP config file"));
+                    }
+
+                    values[name] = values.TryGetValue(name, out var previous) ? previous + "," + value : value;
+                }
+                else if (value.Length == 0)
+                {
+                    return (null, "error: option '--" + name + "' argument missing");
+                }
+                else
+                {
+                    values[name] = value;
+                }
             }
             else if (directory is null)
             {
