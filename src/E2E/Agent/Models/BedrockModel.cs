@@ -7,13 +7,15 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Amazon.Runtime;
 using E2E.Internal;
 
 namespace E2E;
 
 /// <summary>
 /// Amazon Bedrock Converse API client. It signs with AWS Signature Version 4 from the standard AWS environment
-/// variables, or sends a Bedrock API key (<c>AWS_BEARER_TOKEN_BEDROCK</c>) as a bearer token when one is set.
+/// variables or, with none set, from the AWS credential chain (shared profile, SSO, container and instance roles), as the AI SDK's
+/// <c>amazon-bedrock</c> provider does, or sends a Bedrock API key (<c>AWS_BEARER_TOKEN_BEDROCK</c>) as a bearer token when one is set.
 /// </summary>
 public sealed class BedrockModel : IAgentModel, IDisposable
 {
@@ -58,18 +60,44 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         }
         else
         {
-            var credentials = _options.ResolveCredentials()
-                ?? throw new AgentException(
-                    "MODEL_PROVIDER_FAILED",
-                    "Amazon Bedrock needs AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, or a Bedrock API key in " + _options.ApiKeyEnv + ".",
-                    blocked: true);
-            // Signed per attempt: a retry after a long wait must not carry the first attempt's x-amz-date.
-            // The credentials are read again too, so a rotated session token is picked up, as the AI SDK resolves them inside each fetch.
-            sign = attempt => SigV4.Sign(attempt, payload, _options.ResolveCredentials() ?? credentials, region, "bedrock", Clock.GetUtcNow());
+            var credentials = _options.ResolveCredentials();
+            if (credentials is not null)
+            {
+                // Signed per attempt: a retry after a long wait must not carry the first attempt's x-amz-date.
+                // The credentials are read again too, so a rotated session token is picked up, as the AI SDK resolves them inside each fetch.
+                sign = attempt => SigV4.Sign(attempt, payload, _options.ResolveCredentials() ?? credentials, region, "bedrock", Clock.GetUtcNow());
+            }
+            else
+            {
+                var chain = await ResolveChainAsync(request.Redactor, cancellationToken).ConfigureAwait(false);
+
+                // The chain caches its credentials and refreshes them before they expire, so each attempt asks it again.
+                sign = attempt => SigV4.Sign(attempt, payload, AwsCredentialChain.Read(chain), region, "bedrock", Clock.GetUtcNow());
+            }
         }
 
         var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, sign).ConfigureAwait(false);
         return ModelHttp.Parse(body, Parse);
+    }
+
+    // The first read is async so a slow instance-role lookup honors the caller's cancel; later reads hit the chain's cache.
+    private async Task<AWSCredentials> ResolveChainAsync(Redactor redactor, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Discovery can probe the instance metadata endpoint synchronously, so it runs off the caller's thread and the wait honors the cancel.
+            var chain = await Task.Run(_options.CredentialChain, CancellationToken.None).WaitAsync(cancellationToken).ConfigureAwait(false);
+            await chain.GetCredentialsAsync().WaitAsync(cancellationToken).ConfigureAwait(false);
+            return chain;
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            throw new AgentException(
+                "MODEL_PROVIDER_FAILED",
+                "Amazon Bedrock found no AWS credentials. Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, sign in with an AWS profile or SSO, "
+                + "run on an AWS role, or set a Bedrock API key in " + _options.ApiKeyEnv + ". " + redactor.Redact(error.Message),
+                blocked: true);
+        }
     }
 
     public void Dispose()
@@ -277,8 +305,14 @@ public sealed class BedrockModelOptions
     /// <summary>Environment variable read when <see cref="ApiKey"/> is empty. Defaults to <c>AWS_BEARER_TOKEN_BEDROCK</c>.</summary>
     public string ApiKeyEnv { get; init; } = "AWS_BEARER_TOKEN_BEDROCK";
 
-    /// <summary>Signing credentials. Unset, they come from <c>AWS_ACCESS_KEY_ID</c>, <c>AWS_SECRET_ACCESS_KEY</c>, and <c>AWS_SESSION_TOKEN</c>.</summary>
+    /// <summary>
+    /// Signing credentials. Unset, they come from <c>AWS_ACCESS_KEY_ID</c>, <c>AWS_SECRET_ACCESS_KEY</c>, and <c>AWS_SESSION_TOKEN</c>
+    /// and, with those unset too, from the AWS credential chain (<c>AWS_PROFILE</c> or the default profile, SSO, container and instance roles).
+    /// </summary>
     public AwsCredentials? Credentials { get; init; }
+
+    /// <summary>.NET-only: the credential chain a request falls back to, so a test can stand in for the machine's AWS profile. Unset, it is the AWS SDK's own chain.</summary>
+    internal Func<AWSCredentials> CredentialChain { get; init; } = AwsCredentialChain.Default;
 
     public int MaxTokens { get; init; } = 8192;
 
@@ -309,6 +343,22 @@ public sealed class BedrockModelOptions
 
 /// <summary>AWS access key credentials for Signature Version 4.</summary>
 public sealed record AwsCredentials(string AccessKeyId, string SecretAccessKey, string? SessionToken = null);
+
+/// <summary>.NET-only: the AWS SDK for .NET's credential chain, which the AI SDK's amazon-bedrock provider has as the AWS SDK for JavaScript's node provider chain.</summary>
+internal static class AwsCredentialChain
+{
+    /// <summary>Environment, shared profile, SSO, container, and instance credentials, in the AWS SDK's own order.</summary>
+    public static AWSCredentials Default() => Amazon.Runtime.Credentials.DefaultAWSCredentialsIdentityResolver.GetCredentials(null);
+
+    public static AwsCredentials Read(AWSCredentials chain)
+    {
+        var credentials = chain.GetCredentials();
+        return new AwsCredentials(
+            credentials.AccessKey,
+            credentials.SecretKey,
+            string.IsNullOrEmpty(credentials.Token) ? null : credentials.Token);
+    }
+}
 
 /// <summary>AWS Signature Version 4 for one JSON request.</summary>
 internal static class SigV4
