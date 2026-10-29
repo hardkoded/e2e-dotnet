@@ -211,6 +211,13 @@ lines you changed:
   the current value; `CountAsync` and `IsVisibleAsync` answer from the current
   screen. Nothing waits for a value to change, so use a matcher when a value
   has to settle.
+- A callback the test hands the app that no step awaits, a `Browser.RouteAsync`
+  handler or an `OnDialogAsync` handler, fails the next step with its error.
+  When no step follows, the test fails with it at its end, within the cleanup
+  timeout (`E2ESession.SettleAttemptAsync`, run by the `E2ETest` base classes
+  after the body and again after the teardown); a handler still running then
+  fails with `CLEANUP_TIMEOUT`. An engine reports such a failure from
+  `IEngineSession.SettleAttemptAsync`, once (topic `writing-tests`).
 - To reach a node below the fold, `Screen.ScrollUntilVisibleAsync(locator,
   new ScrollUntilVisibleOptions { Direction, Momentum, Timeout })` scrolls the viewport
   (`ScrollDirection.Down`, `Momentum.Slow` by default) until the locator resolves
