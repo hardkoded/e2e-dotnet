@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Internal;
+using ArtifactRedaction = E2E.Reports.ArtifactRedaction;
 using VcsInfo = E2E.Reports.VcsInfo;
 
 namespace E2E;
@@ -105,7 +106,8 @@ internal sealed record ReportError(string Code, string Message, string? Phase = 
 /// <param name="Url">Where a hosted service keeps it.</param>
 /// <param name="StartedAt">When a recording began; steps read their offset into it.</param>
 /// <param name="Size">The size of the file in bytes, when known; the run's <c>usage.artifactBytes</c> adds them up.</param>
-internal sealed record ReportArtifact(string Id, string Kind, string? Path = null, string? Url = null, DateTimeOffset? StartedAt = null, long? Size = null);
+/// <param name="Redaction">What the runner claims for the file when it rewrote it (a text-like download); null leaves the kind to decide.</param>
+internal sealed record ReportArtifact(string Id, string Kind, string? Path = null, string? Url = null, DateTimeOffset? StartedAt = null, long? Size = null, ArtifactRedaction? Redaction = null);
 
 /// <summary>What was seen when a failure landed (upstream's <c>FailureEvidence</c>).</summary>
 internal sealed partial record FailureEvidence
