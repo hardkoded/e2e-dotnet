@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
@@ -62,17 +63,43 @@ public abstract class E2ETest : E2EFixture
 
         FailSkippedAfterSoftFailure();
         var current = global::NUnit.Framework.TestContext.CurrentContext;
+
+        // A handler that failed during the teardown, with no step after it, fails the attempt before the verdict.
+        Exception? late = null;
         try
         {
-            session.Complete(ErrorForCache(current.Result), current.CancellationToken);
+            await session.SettleAttemptAsync(current.CancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // The run was cancelled: the test's own result stands.
+        }
+#pragma warning disable CA1031 // Reported below, after the session is released.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            late = ex;
+        }
+
+        try
+        {
+            session.Complete(ErrorForCache(current.Result) ?? late, current.CancellationToken);
         }
         finally
         {
             await session.DisposeAsync().ConfigureAwait(false);
         }
+
+        // A test that failed already keeps its first failure as the verdict.
+        if (late is not null && current.Result.Outcome.Status != global::NUnit.Framework.Interfaces.TestStatus.Failed)
+        {
+            ExceptionDispatchInfo.Throw(late);
+        }
     }
 
     internal Task CaptureEvidenceOf(Exception failure) => CaptureFailureEvidenceAsync(failure);
+
+    internal Task SettleLate() => SettleAttemptAsync();
 
     // NUnit shares one fixture instance among its tests, and the session lives on that instance.
     // Tests that run in parallel on one instance would overwrite each other's session.

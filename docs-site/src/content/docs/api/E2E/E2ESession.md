@@ -222,7 +222,7 @@ looked at when the session is released. Only an attempt whose trace page is kept
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L590)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L611)
 
 <a id="E2E_E2ESession_CloseSoftFailures_"></a>
 <a id="E2E_E2ESession_CloseSoftFailures"></a>
@@ -242,7 +242,7 @@ matchers throw as hard ones would.
 
 **Returns:** [TestException](/api/E2E/TestException/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L335)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L338)
 
 <a id="E2E_E2ESession_Complete_"></a>
 <a id="E2E_E2ESession_Complete_System_Exception_System_Threading_CancellationToken_"></a>
@@ -269,7 +269,7 @@ rewritten. A model outage leaves existing entries in place, unless a failure on 
 | `error` | [Exception](https://learn.microsoft.com/dotnet/api/system.exception) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L345)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L366)
 
 <a id="E2E_E2ESession_DisposeAsync_"></a>
 <a id="E2E_E2ESession_DisposeAsync"></a>
@@ -287,7 +287,7 @@ resetting unmanaged resources asynchronously.
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask) — A task that represents the asynchronous dispose operation.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L364)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L385)
 
 <a id="E2E_E2ESession_Report_"></a>
 <a id="E2E_E2ESession_Report"></a>
@@ -307,6 +307,31 @@ test around it. Artifact paths are relative to the results directory. Upstream's
 **Returns:** [Report](/api/E2E.Reports/Report/)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L113)
+
+<a id="E2E_E2ESession_SettleAttemptAsync_"></a>
+<a id="E2E_E2ESession_SettleAttemptAsync_System_Threading_CancellationToken_"></a>
+
+### SettleAttemptAsync(CancellationToken)
+
+
+```csharp
+public Task SettleAttemptAsync(CancellationToken cancellationToken = default)
+```
+
+
+Collects a failure the engine holds from a path no step awaited (a route or dialog handler), within the cleanup budget, and
+throws it as it was so its code is kept. An adapter calls it when the test body has settled, then again after the teardown, before
+the verdict. Upstream's `settleAttempt`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L345)
 
 <a id="E2E_E2ESession_StartAsync_"></a>
 <a id="E2E_E2ESession_StartAsync_E2E_E2ESessionOptions_System_Threading_CancellationToken_"></a>

@@ -143,6 +143,7 @@ public sealed partial class Agent
         var feed = new ObservationFeed(_scope.Session, TimeProvider.System)
         {
             Scope = _scope,
+            Accounting = budget,
             Options = new ObservationFeedOptions(
                 agent.MaxObservationBytes,
                 agent.MaxInputTokens,

@@ -266,6 +266,13 @@ public abstract class E2EFixture
     /// </summary>
     protected Task CaptureFailureEvidenceAsync(Exception error) => _session?.CaptureFailureEvidenceAsync(error) ?? Task.CompletedTask;
 
+    /// <summary>
+    /// Collects the failure a route or dialog handler raised where no step awaited it, for an adapter to call when the test body has
+    /// settled and again after the teardown, before the verdict. See <see cref="E2ESession.SettleAttemptAsync"/>. Does nothing when setup
+    /// never started a session.
+    /// </summary>
+    protected Task SettleAttemptAsync(CancellationToken cancellationToken = default) => _session?.SettleAttemptAsync(cancellationToken) ?? Task.CompletedTask;
+
     /// <summary>Hands the running session to the adapter to complete and dispose, or null when setup never started one.</summary>
     protected E2ESession? TakeSession()
     {

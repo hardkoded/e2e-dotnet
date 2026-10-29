@@ -339,6 +339,25 @@ public sealed class E2ESession : IAsyncDisposable
     public TestException? CloseSoftFailures() => Screen.SoftFailures.Close();
 
     /// <summary>
+    /// Collects a failure the engine holds from a path no step awaited (a route or dialog handler), within the cleanup budget, and
+    /// throws it as it was so its code is kept. An adapter calls it when the test body has settled, then again after the teardown, before
+    /// the verdict. Upstream's <c>settleAttempt</c>.
+    /// </summary>
+    public async Task SettleAttemptAsync(CancellationToken cancellationToken = default)
+    {
+        var settling = _scope.Session.SettleAttemptAsync(_scope.CleanupTimeout, cancellationToken);
+        try
+        {
+            await (Bounded(_scope.CleanupTimeout) ? settling.WaitAsync(_scope.CleanupTimeout, cancellationToken) : settling).ConfigureAwait(false);
+        }
+        catch (TimeoutException ex) when (!settling.IsCompleted)
+        {
+            // Only the wait timing out: a TimeoutException a handler threw (a Playwright timeout) keeps its own classification.
+            throw new EngineException("CLEANUP_TIMEOUT", "settling the attempt timed out", ex);
+        }
+    }
+
+    /// <summary>
     /// Writes verified acts and evicts the unverified ones this attempt recorded or
     /// replayed. A passed or skipped attempt confirms only what a later check verified.
     /// An act that missed the cache and never passed leaves its key alone. An entry a

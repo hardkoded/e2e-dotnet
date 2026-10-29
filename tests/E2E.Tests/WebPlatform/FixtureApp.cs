@@ -170,6 +170,17 @@ internal static class FixtureApp
         </html>
         """;
 
+    // The flags as a script the document waits for: a route on it is invoked before the page's load event, so before the navigation returns.
+    private const string ScriptFlags = """
+        <!doctype html>
+        <html>
+        <head><title>Flags</title><script src="/api/flags.js"></script></head>
+        <body>
+          <h1>Flags</h1>
+        </body>
+        </html>
+        """;
+
     // The flags the page reads from /api/flags.
     private const string Flags = """
         <!doctype html>
@@ -256,6 +267,7 @@ internal static class FixtureApp
             "/frame" => TinySite.RespondAsync(context, Frame),
             "/frame-nested" => TinySite.RespondAsync(context, FrameNested),
             "/child" => TinySite.RespondAsync(context, Child),
+            "/script-flags" => TinySite.RespondAsync(context, ScriptFlags),
             "/flags" => TinySite.RespondAsync(context, Flags),
             "/api/flags" => RespondJsonAsync(context, """{"betaBoard":false}"""),
             "/editor" => TinySite.RespondAsync(context, Editor),
