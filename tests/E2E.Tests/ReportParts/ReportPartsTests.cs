@@ -15,8 +15,10 @@ namespace E2E.Tests.ReportParts;
 /// </summary>
 public sealed class ReportPartsTests
 {
-    private sealed class FakeEngine(EngineCapabilities capabilities) : IEngine
+    private sealed class FakeEngine(EngineCapabilities capabilities, string? name = null) : IEngine
     {
+        public string Name => name ?? Platform;
+
         public string Platform => "web";
 
         public string Version => "1.2.3";
@@ -35,6 +37,14 @@ public sealed class ReportPartsTests
         Assert.Empty(described.Capabilities);
         Assert.Empty(described.ArtifactCapabilities);
         Assert.False(described.StateCapability);
+    }
+
+    [Fact]
+    public void Names_the_engine_in_the_report_by_its_name_not_its_platform()
+    {
+        var described = BuildReport.DescribeTarget(new FakeEngine(EngineCapabilities.Observation, name: "mobile"));
+
+        Assert.Equal(new ReportEngine("mobile", "1.2.3", 1), described.Engine);
     }
 
     [Fact]

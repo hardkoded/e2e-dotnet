@@ -1219,6 +1219,9 @@ internal sealed class AttemptScope
 
     public required string EnginePlatform { get; init; }
 
+    /// <summary>The engine's name (upstream's <c>engine.name</c>), which the report and the cache key record. Defaults to the platform.</summary>
+    public string EngineName { get => _engineName ?? EnginePlatform; init => _engineName = value; }
+
     /// <summary>The engine's version, which the report names.</summary>
     public string EngineVersion { get; init; } = "";
 
@@ -1240,6 +1243,7 @@ internal sealed class AttemptScope
     private int _steps;
 
     private readonly string? _targetName;
+    private readonly string? _engineName;
 
     /// <summary>The zero-based place of the next agent step in the attempt.</summary>
     public int NextStepIndex() => Interlocked.Increment(ref _steps) - 1;
@@ -1396,7 +1400,7 @@ internal sealed class AttemptScope
         var key = Identity.BuildTraceCacheKey(new TraceCacheKeyParts(
             Identity.ProjectIdentity(CacheProjectId),
             TestTitle,
-            new CacheTargetIdentity(TargetName, EnginePlatform, EnginePlatform, BuildReport.EngineSpiVersion, CacheAppIdentity),
+            new CacheTargetIdentity(TargetName, EnginePlatform, EngineName, BuildReport.EngineSpiVersion, CacheAppIdentity),
             signature,
             callIndex,
             identity,
