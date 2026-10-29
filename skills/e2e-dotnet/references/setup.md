@@ -201,12 +201,21 @@ and in CI.
 
 - The first test (or `e2e explore`, or `e2e mcp` session) that needs the app
   spawns `command`, polls `readyUrl` (default `url`) for a 200 to 499 status
-  within `startupTimeout` (default 60 s), and the later ones find it running.
-  It stops with the test process (`shutdownTimeout`, default 10 s; a process
-  that is killed outright takes the app down with it). Never ready is
-  `APP_UNREACHABLE`, and the test fails before the session opens
+  within `startupTimeout` (default 60 s), and the later ones find it running
+  and share it: a test, `e2e explore`, and an `e2e mcp` session that declare
+  the same command in one process get one instance, and it stops
+  (`shutdownTimeout`, default 10 s) when the last of them lets go. Never ready
+  is `APP_UNREACHABLE`, and the test fails before the session opens
   (`command.log` still gets this boot's output). The port has no runner, so
-  there is one app per test process, not one per run.
+  the tests of a process hold the app until the run ends. Add the run fixture
+  to stop it then, instead of when the test process exits (on Windows, a process
+  killed outright takes the app down with it; on Unix, SIGKILL bypasses the
+  process-exit cleanup): in NUnit, a
+  `[SetUpFixture]` outside any namespace, `public sealed class AppCommands :
+  E2ERunFixture;` (`E2E.NUnit`); in xUnit v3,
+  `[assembly: AssemblyFixture(typeof(E2E.XUnit.V3.E2ERunFixture))]`. Two
+  processes, such as `dotnet test` and `e2e mcp`, still start one app each:
+  give a shared app a fixed port and `reuseExisting`.
 - A `command` is `executable`, `args`, `cwd` (from the config's directory),
   `env`, `inheritEnv`, `startupTimeout`, `shutdownTimeout`, `log`, and
   `reuseExisting`; any other key is `INVALID_CONFIG`, naming the nearest.

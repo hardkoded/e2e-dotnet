@@ -8,8 +8,8 @@ using ManagedProcessUnderTest = E2E.ManagedProcess;
 namespace E2E.Tests.ManagedProcessIntegration;
 
 /// <summary>
-/// <c>tests/integration/managed-process.test.ts</c>. Not ported: the two <c>it.skipIf(win32)</c> tests about a surviving child after the command
-/// leader exits on SIGTERM, since the port stops a process and its tree with <c>Process.Kill</c> and has no process group to signal.
+/// <c>tests/integration/managed-process.test.ts</c>. The two <c>it.skipIf(win32)</c> tests about a surviving child after the command leader
+/// exits on SIGTERM return at once on Windows, as upstream skips them there (xUnit 2 cannot skip at run time).
 /// </summary>
 public sealed class ManagedProcessTests
 {
@@ -47,6 +47,99 @@ public sealed class ManagedProcessTests
         // shutdownTimeout (2s) + kill; anything much longer means the escalation hung.
         Assert.True(DateTime.UtcNow - stoppedAt < TimeSpan.FromSeconds(10));
         Assert.False(await AppProgram.IsReachable(UrlOf(port)));
+    }
+
+    [Fact]
+    public async Task Stops_a_surviving_child_after_the_command_leader_exits_on_SIGTERM()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            // Upstream skips it there (it.skipIf(win32)): Windows has no process group to signal.
+            return;
+        }
+
+        var port = AppProgram.FreePort();
+        var dir = Directory.CreateTempSubdirectory("e2e-process-group-").FullName;
+        var pidFile = Path.Combine(dir, "child.pid");
+        var app = new ManagedProcessUnderTest(
+            "app.command",
+            AppProgram.Command(["wrap", pidFile, .. AppProgram.Serve(port, "ignore-sigterm")], shutdownTimeout: TimeSpan.FromMilliseconds(100)),
+            dir,
+            new Readiness(UrlOf(port)));
+        try
+        {
+            await app.StartAsync();
+            await app.StopAsync();
+            await Unreachable(port);
+            Assert.False(await AppProgram.IsReachable(UrlOf(port)));
+            await app.StopAsync();
+        }
+        finally
+        {
+            await app.StopAsync();
+
+            // Also release the owned descendant when the regression runs before the fix.
+            KillQuietly(pidFile);
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
+    public async Task Lets_a_child_finish_its_shutdown_after_the_leader_exits()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            // Upstream skips it there (it.skipIf(win32)): Windows has no process group to signal.
+            return;
+        }
+
+        var port = AppProgram.FreePort();
+        var dir = Directory.CreateTempSubdirectory("e2e-process-grace-").FullName;
+        var pidFile = Path.Combine(dir, "child.pid");
+        var finished = Path.Combine(dir, "finished");
+        var app = new ManagedProcessUnderTest(
+            "app.command",
+            AppProgram.Command(["wrap", pidFile, "serve-graceful", port.ToString(System.Globalization.CultureInfo.InvariantCulture), finished], shutdownTimeout: TimeSpan.FromSeconds(1)),
+            dir,
+            new Readiness(UrlOf(port)));
+        try
+        {
+            await app.StartAsync();
+            await app.StopAsync();
+            Assert.Equal("finished", await File.ReadAllTextAsync(finished));
+            await Unreachable(port);
+            Assert.False(await AppProgram.IsReachable(UrlOf(port)));
+        }
+        finally
+        {
+            await app.StopAsync();
+            KillQuietly(pidFile);
+            Directory.Delete(dir, true);
+        }
+    }
+
+    // The child is signalled, not awaited, when the stop returns: waits (bounded) until its port no longer answers.
+    private static async Task Unreachable(int port)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (await AppProgram.IsReachable(UrlOf(port)) && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(50);
+        }
+    }
+
+    // The child the leader started, killed when it is still there.
+    private static void KillQuietly(string pidFile)
+    {
+        try
+        {
+            using var child = System.Diagnostics.Process.GetProcessById(int.Parse(File.ReadAllText(pidFile), System.Globalization.CultureInfo.InvariantCulture));
+            child.Kill();
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException or InvalidOperationException or FormatException or System.ComponentModel.Win32Exception)
+        {
+            // already gone
+        }
     }
 
     [Fact]

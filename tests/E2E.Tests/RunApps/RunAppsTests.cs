@@ -8,7 +8,7 @@ using E2E.Tests.ManagedProcess;
 namespace E2E.Tests.RunApps;
 
 /// <summary>
-/// .NET-only: <c>RunApps</c> holds the app command for the life of the test process, where upstream's runner starts it per run. No upstream
+/// .NET-only: <c>RunApps</c> holds the app command for the run of the test process, where upstream's runner starts it per run. No upstream
 /// <c>it</c> covers it (<c>target-processes.test.ts</c> drives the runner, which the port lacks).
 /// </summary>
 public sealed class RunAppsTests
@@ -88,4 +88,37 @@ public sealed class RunAppsTests
         // The failed start is not remembered: the next caller starts afresh and fails the same way.
         await Assert.ThrowsAsync<EngineException>(() => E2E.RunApps.StartAsync(config, config.Target, null, CancellationToken.None));
     }
+
+    [Fact]
+    public async Task Stops_the_commands_held_for_the_run_when_the_run_ends()
+    {
+        var config = ServeConfig();
+        var started = await E2E.RunApps.StartAsync(config, config.Target, null, CancellationToken.None);
+        Assert.True(await AppProgram.IsReachable(started.App.Url!));
+        await E2E.RunApps.StopAllAsync();
+        Assert.False(await AppProgram.IsReachable(started.App.Url!));
+    }
+
+    [Fact]
+    public async Task Keeps_a_command_running_until_the_last_hold_on_it_is_released()
+    {
+        var config = ServeConfig();
+        var (target, lease) = await E2E.RunApps.AcquireAsync(config, config.Target, null, CancellationToken.None);
+        var held = await E2E.RunApps.StartAsync(config, config.Target, null, CancellationToken.None);
+        Assert.Equal(target.App.Url, held.App.Url);
+
+        // The run ends first: the lease still holds the command.
+        await E2E.RunApps.StopAllAsync();
+        Assert.True(await AppProgram.IsReachable(target.App.Url!));
+        await lease.StopAsync(_ => { });
+        Assert.False(await AppProgram.IsReachable(target.App.Url!));
+    }
+
+    private static E2EConfig ServeConfig() => E2EConfig.Parse(
+        $$"""
+        { "targets": [{ "app": { "url": "http://127.0.0.1:0",
+          "command": { "executable": {{JsonSerializer.Serialize(AppProgram.Executable)}}, "args": ["serve", "{port}"], "startupTimeout": 20000, "inheritEnv": ["DOTNET_ROOT"] } } }] }
+        """,
+        Directory.CreateTempSubdirectory("e2e-runapps-").FullName,
+        _ => null);
 }

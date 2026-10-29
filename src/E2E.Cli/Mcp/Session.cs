@@ -295,6 +295,7 @@ internal sealed class SessionHost : IDisposable
         var target = ResolveTarget(config, options.Target);
         var abort = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token, request);
         StandaloneAttempt? attempt = null;
+        IAppProcesses? apps = null;
         try
         {
             abort.Token.ThrowIfCancellationRequested();
@@ -305,7 +306,7 @@ internal sealed class SessionHost : IDisposable
             }
 
             // The target's app command starts before the session opens, and the URL is on the port it was started on.
-            target = await RunApps.StartAsync(config, target, null, abort.Token).ConfigureAwait(false);
+            (target, apps) = await RunApps.AcquireAsync(config, target, null, abort.Token).ConfigureAwait(false);
             attempt = await Standalone.OpenAttemptAsync(
                 new E2ESessionOptions
                 {
@@ -340,7 +341,7 @@ internal sealed class SessionHost : IDisposable
                 await session.App.OpenAsync(null, abort.Token).ConfigureAwait(false);
             }
 
-            var live = new LiveSession(id, target.Name, configPath, headed, engine, attempt, abort);
+            var live = new LiveSession(id, target.Name, configPath, headed, engine, attempt, abort, apps);
             live.Catalog = SessionCatalog.Create(live, engine.Capabilities, config.Secrets.Names.ToList(), Uri.TryCreate(target.App.Url, UriKind.Absolute, out var appBase) ? appBase : null);
             var text = OpeningText(live, target, config, await FirstScreenAsync(live, target, abort.Token).ConfigureAwait(false));
 
@@ -356,6 +357,11 @@ internal sealed class SessionHost : IDisposable
             if (attempt is not null)
             {
                 await DisposeQuietlyAsync(attempt, failure => Log("warning", "closing the session that failed to open also failed: " + failure)).ConfigureAwait(false);
+            }
+
+            if (apps is not null)
+            {
+                await apps.StopAsync(failure => Log("warning", "stopping the app command of the session that failed to open also failed: " + failure.Message)).ConfigureAwait(false);
             }
 
             var cancelled = abort.IsCancellationRequested;
@@ -387,6 +393,8 @@ internal sealed class SessionHost : IDisposable
             lines.Add("Cleanup: " + Tools.CodedMessage(cause));
         }
 
+        // The app command stops with the last session that holds it, after the engine is done with it.
+        await live.Apps.StopAsync(failure => lines.Add("Cleanup: " + Tools.CodedMessage(failure))).ConfigureAwait(false);
         live.Abort.Dispose();
 
         // Redacted here, not only at the tool boundary: CloseAllAsync writes it to stderr.
@@ -603,7 +611,7 @@ internal sealed class SessionHost : IDisposable
     }
 
     /// <summary>One open session: its attempt, its catalog, and the timers that end it.</summary>
-    private sealed class LiveSession(string id, string targetName, string configPath, bool headed, IEngine engine, StandaloneAttempt attempt, CancellationTokenSource abort)
+    private sealed class LiveSession(string id, string targetName, string configPath, bool headed, IEngine engine, StandaloneAttempt attempt, CancellationTokenSource abort, IAppProcesses apps)
         : INamedSession, ISessionContext
     {
         public string Id { get; } = id;
@@ -617,6 +625,9 @@ internal sealed class SessionHost : IDisposable
         public IEngine Engine { get; } = engine;
 
         public StandaloneAttempt Attempt { get; } = attempt;
+
+        /// <summary>The hold on the target's app command, released when the session closes.</summary>
+        public IAppProcesses Apps { get; } = apps;
 
         public E2ESession Session => Attempt.Session;
 

@@ -11,6 +11,9 @@ using System.Text;
 //   serve <port> [ignore-sigterm]  answers every request with 200 on 127.0.0.1 until it is stopped
 //   serve-for <port> <ms>          serves for that long, then exits
 //   spawn <port>                   starts `serve <port>` as a child, then exits at once
+//   serve-logged <port>            appends `app` to startup.log in the working directory, then serves like `serve`
+//   serve-graceful <port> <file>   serves; on SIGTERM it writes `finished` to the file 50 ms later and exits 0
+//   wrap <pidFile> <mode> <arg>... starts `<mode> <arg>...` as a child, writes its pid to the file, and exits 0 on SIGTERM, staying up until then
 //   idle                           stays up and answers nothing
 //   exit <code>                    exits with the code
 //   chatter <code>                 prints a line to stdout and one to stderr, then exits with the code
@@ -37,6 +40,13 @@ switch (args[0])
         child.ArgumentList.Add(args[1]);
         System.Diagnostics.Process.Start(child);
         return 0;
+    case "serve-logged":
+        File.AppendAllText("startup.log", "app\n");
+        return await Serve(int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture), false);
+    case "serve-graceful":
+        return await ServeGraceful(int.Parse(args[1], System.Globalization.CultureInfo.InvariantCulture), args[2]);
+    case "wrap":
+        return await Wrap(args[1], args.Skip(2).ToArray());
     case "idle":
         await Task.Delay(Timeout.Infinite);
         return 0;
@@ -116,4 +126,41 @@ static async Task<int> Serve(int port, bool ignoreSigterm)
             }
         });
     }
+}
+
+static async Task<int> ServeGraceful(int port, string finished)
+{
+    using var registration = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
+    {
+        context.Cancel = true;
+        Thread.Sleep(50);
+        File.WriteAllText(finished, "finished");
+        Environment.Exit(0);
+    });
+    return await Serve(port, false);
+}
+
+static async Task<int> Wrap(string pidFile, string[] childArgs)
+{
+    var info = new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!)
+    {
+        UseShellExecute = false,
+        RedirectStandardInput = true,
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+    };
+    foreach (var arg in childArgs)
+    {
+        info.ArgumentList.Add(arg);
+    }
+
+    var child = System.Diagnostics.Process.Start(info)!;
+    File.WriteAllText(pidFile, child.Id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    using var registration = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
+    {
+        context.Cancel = true;
+        Environment.Exit(0);
+    });
+    await Task.Delay(Timeout.Infinite);
+    return 0;
 }
