@@ -993,8 +993,8 @@ public sealed partial class WebEngine : IEngine
         private Dictionary<string, IFrame> _frames = new(StringComparer.Ordinal);
         private int _nextRef = 1;
 
-        // How many nodes shared each ref's role, name, and test id when the ref was first observed.
-        private Dictionary<string, int> _twins = new(StringComparer.Ordinal);
+        // The locator that matched each ref alone, the way upstream keeps a single match on the strict Playwright locator.
+        private Dictionary<string, LocatorExpression> _strict = new(StringComparer.Ordinal);
         private IBrowser _browser;
 
         // Persistent recovery: the remote default context and page the attempt rides,
@@ -1092,7 +1092,6 @@ public sealed partial class WebEngine : IEngine
 
             _frames = walk.Frames;
             _observed = true;
-            _twins = TwinsOf(roots, _twins);
             return new Observation { Route = Route, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll, Viewport = walk.Viewport };
         });
 
@@ -1114,7 +1113,22 @@ public sealed partial class WebEngine : IEngine
             var projected = WebLocators.NeedsPage(expression)
                 ? await RunAsync("locate", cancellationToken, () => ProjectAsync(expression, timeout, cancellationToken)).ConfigureAwait(false)
                 : expression;
-            return LocatorResolver.Resolve(observation, projected, expression.IncludeHidden);
+            var matches = LocatorResolver.Resolve(observation, projected, expression.IncludeHidden);
+            // As upstream's locate: a single match keeps the strict locator, so a ref that turns ambiguous between locate and perform
+            // is stale instead of acting on whichever element is first. A ref among several matches is pinned to its own element.
+            foreach (var match in matches)
+            {
+                if (matches.Count == 1)
+                {
+                    _strict[match.Ref] = expression;
+                }
+                else
+                {
+                    _strict.Remove(match.Ref);
+                }
+            }
+
+            return matches;
         }
 
         /// <summary>
@@ -1980,56 +1994,31 @@ public sealed partial class WebEngine : IEngine
         /// Counts the nodes that share each node's role, name, and test id. A ref keeps the count it had
         /// when first observed: a later observation does not raise it.
         /// </summary>
-        private static Dictionary<string, int> TwinsOf(List<WebNode> roots, Dictionary<string, int> known)
-        {
-            var nodes = Flatten(roots);
-            var twins = nodes.GroupBy(node => Likeness(node.Role, node.Name, node.TestId)).ToDictionary(group => group.Key, group => group.Count());
-            return nodes.ToDictionary(node => node.Ref, node => known.TryGetValue(node.Ref, out var first) ? first : twins[Likeness(node.Role, node.Name, node.TestId)], StringComparer.Ordinal);
-        }
-
-        private static List<WebNode> Flatten(List<WebNode> roots)
-        {
-            var nodes = new List<WebNode>();
-            var pending = new Stack<WebNode>(roots.AsEnumerable().Reverse());
-            while (pending.TryPop(out var node))
-            {
-                nodes.Add(node);
-                foreach (var child in (node.Children ?? []).AsEnumerable().Reverse())
-                {
-                    pending.Push(child);
-                }
-            }
-
-            return nodes;
-        }
-
-        private static string Likeness(string? role, string? name, string? testId) => string.Join('\0', role, name, testId);
-
         /// <summary>
-        /// A ref names one element. When a second element now matches it as the first did, the ref is
-        /// ambiguous: acting could hit the wrong element, so it is stale.
+        /// A ref located as the only match of its locator keeps that locator strict, as upstream's does. When a second element now matches
+        /// it, the ref is ambiguous: acting could hit the wrong element, so it is stale. A ref the observation listed, or one of several
+        /// matches, names its own element and is never ambiguous.
         /// </summary>
         private async Task RequireNoNewTwinAsync(SemanticNode node, OperationBudget budget)
         {
-            if (!_twins.TryGetValue(node.Ref, out var first))
+            if (!_strict.TryGetValue(node.Ref, out var expression))
             {
                 return;
             }
 
-            List<WebNode> roots;
             try
             {
-                roots = await CollectAsync(Page.MainFrame, new FrameWalk(), budget).ConfigureAwait(false);
+                var roots = await CollectAsync(Page.MainFrame, new FrameWalk(), budget).ConfigureAwait(false);
+                var projected = WebLocators.NeedsPage(expression) ? await ProjectAsync(expression, budget).ConfigureAwait(false) : expression;
+                var observation = new Observation { Route = Route, Roots = roots.Select(each => ToNode(each, _testIdAttribute)).ToList() };
+                if (LocatorResolver.Resolve(observation, projected, expression.IncludeHidden).Count > 1)
+                {
+                    throw new EngineException(EngineErrorCodes.NodeStale, $"Node {node.Ref} now matches more than one element. Observe again.", retryable: true);
+                }
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
                 throw WebErrors.NavigationStaleOr(ex, "locate " + node.Ref);
-            }
-
-            var likeness = Likeness(node.Role, node.Name, node.TestId);
-            if (Flatten(roots).Count(each => Likeness(each.Role, each.Name, each.TestId) == likeness) > first)
-            {
-                throw new EngineException(EngineErrorCodes.NodeStale, $"Node {node.Ref} now matches more than one element. Observe again.", retryable: true);
             }
         }
 
@@ -2405,7 +2394,7 @@ public sealed partial class WebEngine : IEngine
             var size = _page?.ViewportSize is { } current ? new ViewportSize { Width = current.Width, Height = current.Height } : _viewport;
             _observed = false;
             _frames = new(StringComparer.Ordinal);
-            _twins = new(StringComparer.Ordinal);
+            _strict = new(StringComparer.Ordinal);
             try
             {
                 await VideoPageClosingAsync().ConfigureAwait(false);
