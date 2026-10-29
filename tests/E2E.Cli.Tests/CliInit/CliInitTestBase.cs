@@ -43,7 +43,10 @@ public abstract class CliInitTestBase : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private protected Task<InitRunOutcome> RunInitAsync(InitOptions options, string? root = null) => Init.RunAsync(root ?? Dir, options, _output);
+    /// <summary>The answers to the questions init asks; a run reads them from here unless its options bring their own.</summary>
+    private protected FakePrompts Prompts { get; } = new();
+
+    private protected Task<InitRunOutcome> RunInitAsync(InitOptions options, string? root = null) => Init.RunAsync(root ?? Dir, options.Prompts is null ? options with { Prompts = Prompts } : options, _output);
 
     private protected Task<InitRunOutcome> RunInitAsync(bool yes = true) => RunInitAsync(new InitOptions { Yes = yes });
 

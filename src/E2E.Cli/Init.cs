@@ -7,11 +7,14 @@ using System.Text.RegularExpressions;
 
 namespace E2E.Cli;
 
-/// <summary>How <c>e2e init</c> ended (upstream's <c>InitResult</c>, without the results the port cannot reach: it has no prompts and no examples).</summary>
+/// <summary>How <c>e2e init</c> ended (upstream's <c>InitResult</c>, without the results the port cannot reach: it has no examples and no install).</summary>
 internal enum InitResult
 {
     /// <summary>The project was scaffolded.</summary>
     Scaffolded,
+
+    /// <summary>The user left a question or declined the plan; nothing was written.</summary>
+    Cancelled,
 
     /// <summary>The run asked for answers it cannot get without <c>--yes</c>.</summary>
     NotInteractive,
@@ -27,6 +30,12 @@ internal enum InitResult
 internal sealed record InitOptions
 {
     public bool Yes { get; init; }
+
+    /// <summary>
+    /// Whether prompts can be answered. The CLI passes its terminal state; a non-interactive run without <c>--yes</c> stops
+    /// before asking anything, since a prompt nobody can answer would otherwise wait forever. Unset, it can.
+    /// </summary>
+    public bool? Interactive { get; init; }
 
     /// <summary>The directory argument as the user typed it, when the root was chosen from one; the closing <c>Next:</c> line then starts with <c>cd</c> into it.</summary>
     public string? Directory { get; init; }
@@ -44,6 +53,9 @@ internal sealed record InitOptions
 
     public IReadOnlyList<string>? Mcp { get; init; }
 
+    /// <summary>.NET-only: where the questions are asked, in place of <c>@clack/prompts</c>. Unset, they are asked on the console.</summary>
+    internal IInitPrompts? Prompts { get; init; }
+
     /// <summary>Test seam (.NET-only): the bundled skill, in place of <see cref="Skill.ReadFiles"/>.</summary>
     public Func<IReadOnlyList<SkillFile>>? ReadSkillFiles { get; init; }
 
@@ -55,11 +67,12 @@ internal sealed record InitOptions
 internal sealed record InitRunOutcome(int ExitCode, InitResult Result, bool Yes, bool ExistingConfig, string? Engine, string? Gateway, bool Skill, bool Mcp);
 
 /// <summary>
-/// Upstream's <c>cli/init.ts</c>: non-destructive project scaffolding. The port answers every question from a flag or from
-/// <c>--yes</c> (it has no prompt library), writes <c>e2e.config.json</c> where upstream writes <c>e2e.config.ts</c>, and
-/// touches no <c>.csproj</c>: the closing line points at <c>dotnet test</c>. Existing config files are never touched. The
-/// agent skill and MCP registration are written where the flags say; later runs refresh the locations that exist, and
-/// <c>--skills</c> or <c>--mcp</c> replaces that set with exactly the ones it names. Nothing is written through a symlink.
+/// Upstream's <c>cli/init.ts</c>: non-destructive project scaffolding. Every question is answered from a flag, from
+/// <c>--yes</c>, or by asking. The port writes <c>e2e.config.json</c> where upstream writes <c>e2e.config.ts</c>, and
+/// touches no <c>.csproj</c>: the closing line points at <c>dotnet test</c>. Every question is asked before the first write,
+/// and existing config files are never touched. The agent skill and MCP registration are offered once; later runs refresh
+/// the locations that exist, and <c>--skills</c> or <c>--mcp</c> replaces that set with exactly the ones it names. Nothing is
+/// written through a symlink unless the user agrees to replace it.
 /// </summary>
 internal static partial class Init
 {
@@ -87,6 +100,7 @@ internal static partial class Init
     private static InitRunOutcome Run(string root, InitOptions options, TextWriter output)
     {
         var log = new InitLog(output);
+        var prompts = options.Prompts ?? new ConsolePrompts(Console.In, output);
         log.Intro(options.Directory is null ? "e2e init" : "e2e init " + options.Directory);
         string? engineFact = null;
         string? gatewayFact = null;
@@ -94,10 +108,11 @@ internal static partial class Init
         var skillFact = false;
         var mcpFact = false;
         InitRunOutcome Done(InitResult result, int exitCode) => new(exitCode, result, options.Yes, existingConfig, engineFact, gatewayFact, skillFact, mcpFact);
+        InitRunOutcome Cancel() => Done(InitResult.Cancelled, log.Cancelled());
 
-        if (!options.Yes)
+        if (options.Interactive == false && !options.Yes)
         {
-            log.Error("e2e init asks questions and needs an interactive terminal, and the .NET port has no prompts; pass --yes to accept the defaults (the web engine, the Vercel AI Gateway) or --yes with flags such as --engine for other answers");
+            log.Error("e2e init asks questions and needs an interactive terminal; run it from a terminal, or pass --yes to accept the defaults (the web engine, the Vercel AI Gateway) or --yes with flags such as --engine for other answers");
             return Done(InitResult.NotInteractive, 2);
         }
 
@@ -126,11 +141,11 @@ internal static partial class Init
         var ignoreLines = Regex.Split(existingIgnore, "\r?\n");
         var missingIgnore = GitignoreEntries.Where(entry => !ignoreLines.Contains(entry)).ToList();
 
-        // A flag answers its question, an earlier run's locations stand when no flag names others, and --yes answers the rest.
+        // A flag answers its question, an earlier run's locations stand when no flag names others, --yes answers the rest, and a missing one is asked.
         var foundSkillDirs = AgentSkill.FindInstalledSkillDirs(cwd);
         var foundMcpFiles = McpConfig.FindRegisteredMcpFiles(cwd);
-        var skillDirs = options.Skills ?? (foundSkillDirs.Count > 0 ? foundSkillDirs : [.. AgentSkill.SkillLocations.Select(location => location.Dir)]);
-        var mcpFiles = options.Mcp ?? (foundMcpFiles.Count > 0 ? foundMcpFiles : [.. McpConfig.McpLocations.Select(location => location.File)]);
+        IReadOnlyList<string>? givenSkills = options.Skills ?? (foundSkillDirs.Count > 0 ? foundSkillDirs : options.Yes ? [.. AgentSkill.SkillLocations.Select(location => location.Dir)] : null);
+        IReadOnlyList<string>? givenMcp = options.Mcp ?? (foundMcpFiles.Count > 0 ? foundMcpFiles : options.Yes ? [.. McpConfig.McpLocations.Select(location => location.File)] : null);
 
         // Engine and model gateway are choices for a new config only; an existing config keeps its own.
         IReadOnlyList<string> engines = [];
@@ -158,13 +173,48 @@ internal static partial class Init
 
         if (!existingConfig)
         {
-            var selected = options.Engines ?? Engines.DefaultEngineIds;
-            // Preset order, whatever order they were typed in, so the config reads the same each time.
-            engines = [.. Engines.GetEnginePresets().Select(preset => preset.Id).Where(selected.Contains)];
-            var gateway = options.Gateway ?? GatewayDefault;
+            var presets = Engines.GetEnginePresets();
+            var selected = options.Engines ?? (options.Yes ? Engines.DefaultEngineIds : prompts.MultiSelect(
+                "Which engines? Select none for the default target.",
+                [.. presets.Select(preset => new PromptOption(preset.Id, preset.Label, preset.Hint))],
+                Engines.DefaultEngineIds));
+            if (selected is null)
+            {
+                return Cancel();
+            }
+
+            if (selected.Count > 1)
+            {
+                // The flag refuses the same (Flags), and nothing is written yet.
+                log.Error("the .NET port runs one target; choose one engine");
+                return Done(InitResult.InvalidProject, 2);
+            }
+
+            // Preset order, whatever order they were toggled or typed in, so the config reads the same each time.
+            engines = [.. presets.Select(preset => preset.Id).Where(selected.Contains)];
+
+            // The gateway is a visible choice, not a runner default: the config names its provider.
+            var gateway = options.Gateway ?? (options.Yes ? GatewayDefault : prompts.Select(
+                "Which model gateway for agent steps?",
+                [.. Gateways.All.Select(preset => new PromptOption(preset.Id, preset.Label, preset.Hint)), new PromptOption("none", "None", "deterministic tests only; add a gateway later")],
+                GatewayDefault));
+            if (gateway is null)
+            {
+                return Cancel();
+            }
+
             if (gateway == "openai-compatible")
             {
-                model = new ScaffoldModel(gateway, (options.Endpoint ?? Gateways.DefaultEndpoint).Trim());
+                var endpoint = options.Endpoint ?? (options.Yes ? Gateways.DefaultEndpoint : prompts.Text(
+                    "Base URL of the OpenAI-compatible API",
+                    Gateways.DefaultEndpoint,
+                    Gateways.ValidateEndpoint));
+                if (endpoint is null)
+                {
+                    return Cancel();
+                }
+
+                model = new ScaffoldModel(gateway, endpoint.Trim());
             }
             else if (gateway != "none")
             {
@@ -175,13 +225,28 @@ internal static partial class Init
             gatewayFact = model?.Gateway ?? "none";
         }
 
+        var skillDirs = givenSkills ?? AskLocations(
+            prompts,
+            [.. AgentSkill.SkillLocations.Select(location => new PromptOption(location.Dir, location.Dir, location.Hint))],
+            "Install the e2e skill for coding agents?");
+        if (skillDirs is null)
+        {
+            return Cancel();
+        }
+
         skillFact = skillDirs.Count > 0;
         var (copies, links) = AgentSkill.SplitSkillDirs(skillDirs);
         var plannedCopies = AgentSkill.PlanSkillInstall(cwd, copies, bundledSkill);
         var skillInstalls = new List<SkillInstall>();
         foreach (var planned in plannedCopies)
         {
-            if (ConfirmSkillInstall(planned, log))
+            var proceed = ConfirmSkillInstall(planned, options.Yes, prompts, log);
+            if (proceed is null)
+            {
+                return Cancel();
+            }
+
+            if (proceed == true)
             {
                 skillInstalls.Add(planned);
             }
@@ -190,10 +255,30 @@ internal static partial class Init
         foreach (var (dir, linksTo) in links)
         {
             var planned = AgentSkill.PlanSkillLink(cwd, dir, linksTo, bundledSkill, AgentSkill.HoldsCopyAfter(linksTo, plannedCopies, skillInstalls));
-            if (planned is not null && ConfirmSkillInstall(planned, log))
+            if (planned is null)
+            {
+                continue;
+            }
+
+            var proceed = ConfirmSkillInstall(planned, options.Yes, prompts, log);
+            if (proceed is null)
+            {
+                return Cancel();
+            }
+
+            if (proceed == true)
             {
                 skillInstalls.Add(planned);
             }
+        }
+
+        var mcpFiles = givenMcp ?? AskLocations(
+            prompts,
+            [.. McpConfig.McpLocations.Select(location => new PromptOption(location.File, location.File, location.Hint))],
+            "Register the e2e MCP server for coding agents?");
+        if (mcpFiles is null)
+        {
+            return Cancel();
         }
 
         mcpFact = mcpFiles.Count > 0;
@@ -219,6 +304,35 @@ internal static partial class Init
         {
             log.Outro("Nothing to create; project already initialized");
             return Done(InitResult.AlreadyInitialized, 0);
+        }
+
+        if (!options.Yes)
+        {
+            var actions = new List<string>();
+            if (configFile is { } created)
+            {
+                actions.Add("Create " + created.Relative);
+            }
+
+            foreach (var install in skillInstalls)
+            {
+                actions.Add(install is SkillSymlink symlink
+                    ? "Link " + symlink.Relative + " -> " + symlink.Target + LinkReplaces(symlink, "replacing")
+                    : (install.Links.Count > 0 ? "Replace " : install.Existing ? "Update " : "Create ") + install.Relative + "/");
+            }
+
+            actions.AddRange(mcpRegistrations.Select(registration => (registration.Existing ? "Update " : "Create ") + registration.Relative));
+            if (missingIgnore.Count > 0)
+            {
+                actions.Add("Update .gitignore");
+            }
+
+            // One change per line: a dozen paths in one sentence is unreadable.
+            log.Info(string.Join("\n", ["Changes:", .. actions.Select(action => "  - " + action)]));
+            if (prompts.Confirm("Apply these changes?") is not true)
+            {
+                return Cancel();
+            }
         }
 
         // The first write; a directory named on the command line comes into being here.
@@ -291,9 +405,10 @@ internal static partial class Init
 
     /// <summary>
     /// Whether a planned skill write goes ahead. An entry a write cannot pass, or a symlink init would write through, is
-    /// skipped with a warning naming it. The port has no prompt, so a linked skill directory is never replaced.
+    /// skipped with a warning naming it; a linked skill directory is replaced when the user agrees, never under
+    /// <c>--yes</c>. Null when the user leaves the question (upstream's cancel symbol).
     /// </summary>
-    private static bool ConfirmSkillInstall(SkillInstall planned, InitLog log)
+    private static bool? ConfirmSkillInstall(SkillInstall planned, bool yes, IInitPrompts prompts, InitLog log)
     {
         if (planned.Obstacles.Count > 0)
         {
@@ -306,12 +421,47 @@ internal static partial class Init
             return true;
         }
 
-        log.Warn("Symlink, not touching: " + AgentSkill.DescribeLinks(planned));
-        return false;
+        if (yes || !AgentSkill.ReplaceableLinks(planned))
+        {
+            log.Warn("Symlink, not touching: " + AgentSkill.DescribeLinks(planned));
+            return false;
+        }
+
+        var replacement = planned is SkillSymlink symlink ? "a link to " + symlink.Target : "a copy of the skill";
+        return prompts.Confirm("Replace the symlink " + AgentSkill.DescribeLinks(planned) + " with " + replacement + "?", initialValue: false);
+    }
+
+    /// <summary>What a link takes the place of, for the summary (<c>replacing</c>) and the success line (<c>replaced</c>); empty when nothing is there.</summary>
+    private static string LinkReplaces(SkillInstall install, string verb)
+    {
+        var what = install.Links.Count > 0 ? "the symlink" : install.Existing ? "the copy" : null;
+        return what is null ? "" : " (" + verb + " " + what + ")";
+    }
+
+    /// <summary>Asks where an agent-facing artifact (the skill, the MCP registration) goes, every location preselected.</summary>
+    private static IReadOnlyList<string>? AskLocations(IInitPrompts prompts, IReadOnlyList<PromptOption> locations, string message) =>
+        prompts.MultiSelect(message, locations, [.. locations.Select(location => location.Value)]);
+
+    /// <summary>Removes a symlink without touching what it leads to.</summary>
+    private static void RemoveLink(string absolute)
+    {
+        // FileInfo.Attributes reads the link itself and never throws, even for a link whose target is gone.
+        if (OperatingSystem.IsWindows() && ((int)new FileInfo(absolute).Attributes & (int)FileAttributes.Directory) != 0)
+        {
+            System.IO.Directory.Delete(absolute);
+            return;
+        }
+
+        File.Delete(absolute);
     }
 
     private static void WriteSkill(string cwd, SkillInstall skill, IReadOnlyList<SkillFile> bundled, InitLog log)
     {
+        foreach (var link in skill.Links)
+        {
+            RemoveLink(Path.GetFullPath(Path.Combine(cwd, link.Relative)));
+        }
+
         if (skill is SkillSymlink symlink)
         {
             var absolute = Path.GetFullPath(Path.Combine(cwd, symlink.Relative));
@@ -324,7 +474,7 @@ internal static partial class Init
             try
             {
                 System.IO.Directory.CreateSymbolicLink(absolute, symlink.Target.Replace('/', Path.DirectorySeparatorChar));
-                log.Success("Linked " + symlink.Relative + " -> " + symlink.Target + (symlink.Existing ? " (replaced the copy)" : ""));
+                log.Success("Linked " + symlink.Relative + " -> " + symlink.Target + LinkReplaces(symlink, "replaced"));
                 return;
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException or NotSupportedException or PlatformNotSupportedException)
@@ -350,7 +500,7 @@ internal static partial class Init
             WriteFile(file.Absolute, file.Content);
         }
 
-        log.Success((copy.Existing ? "Updated " : "Created ") + copy.Relative + "/ (" + copy.Files.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " files)");
+        log.Success((copy.Links.Count > 0 ? "Replaced " : copy.Existing ? "Updated " : "Created ") + copy.Relative + "/ (" + copy.Files.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " files)");
     }
 
     /// <summary>Writes through a unique temp name, then moves it over the target, so a crash never leaves a half-written file (.NET-only; upstream writes in place).</summary>
@@ -381,6 +531,12 @@ internal static partial class Init
         public void Info(string text) => output.WriteLine(Program.Clean(text));
 
         public void Success(string text) => output.WriteLine(Program.Clean(text));
+
+        public int Cancelled()
+        {
+            output.WriteLine("Cancelled; no changes were made");
+            return 0;
+        }
 
         public void Warn(string text) => output.WriteLine("warning: " + Program.Clean(text));
 

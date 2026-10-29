@@ -7,10 +7,8 @@ using System.Text.RegularExpressions;
 namespace E2E.Cli.Tests.CliInit;
 
 /// <summary>
-/// Upstream's nested <c>describe('a symlinked skill directory')</c> of <c>cli-init.test.ts</c>. Not ported, since the port
-/// has no prompt: "asks before replacing the link with a copy, declining by default" and "is replaced with the link when it
-/// dangles beside a chosen .agents/skills and the user agrees". Every test returns early on a host that cannot create
-/// symlinks, as upstream's <c>describe.skipIf(!symlinks)</c> skips them.
+/// Upstream's nested <c>describe('a symlinked skill directory')</c> of <c>cli-init.test.ts</c>. Every test returns early
+/// on a host that cannot create symlinks, as upstream's <c>describe.skipIf(!symlinks)</c> skips them.
 /// </summary>
 public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
 {
@@ -111,6 +109,46 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
     }
 
     [Fact]
+    public async Task Asks_before_replacing_the_link_with_a_copy_declining_by_default()
+    {
+        if (!Symlinks)
+        {
+            return;
+        }
+
+        var elsewhere = Directory.CreateTempSubdirectory("e2e-init-elsewhere-").FullName;
+        try
+        {
+            var target = Path.Combine(elsewhere, "e2e-dotnet");
+            LinkSkill(".claude/skills", target);
+            var question = new ConfirmCall("Replace the symlink .claude/skills/e2e-dotnet -> " + Real(target) + " with a copy of the skill?", false);
+            Prompts.NextConfirm(false, true);
+            Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
+            Assert.Equal(2, Prompts.ConfirmCalls.Count);
+            Assert.Equal(question, Prompts.ConfirmCalls[0]);
+            Assert.True(IsLink(Path_(".claude/skills/e2e-dotnet")));
+            Untouched(target);
+            Assert.DoesNotContain("Symlink, not touching", Output, StringComparison.Ordinal);
+
+            ClearOutput();
+            Prompts.NextConfirm(true, true);
+            Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
+            Assert.Equal(question, Prompts.ConfirmCalls[2]);
+            Assert.Contains("  - Replace .claude/skills/e2e-dotnet/", Output, StringComparison.Ordinal);
+            Assert.Equal("Apply these changes?", Prompts.ConfirmCalls[3].Message);
+            Assert.False(IsLink(Path_(".claude/skills/e2e-dotnet")));
+            Assert.Matches(SkillFrontmatter(), Read(".claude/skills/e2e-dotnet/SKILL.md"));
+            Assert.Contains("# Setting up e2e for .NET", Read(".claude/skills/e2e-dotnet/references/setup.md"), StringComparison.Ordinal);
+            Untouched(target);
+            Assert.Contains("Replaced .claude/skills/e2e-dotnet/", Output, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(elsewhere, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Is_left_alone_under_yes_when_it_dangles_and_the_warning_names_the_target_as_written()
     {
         if (!Symlinks)
@@ -128,6 +166,32 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
         Assert.False(Exists("gone"));
         // A link to nothing is no installed copy, so --yes takes every location and the other one gets the skill.
         Assert.Matches(SkillFrontmatter(), Read(".agents/skills/e2e-dotnet/SKILL.md"));
+    }
+
+    [Fact]
+    public async Task Is_replaced_with_the_link_when_it_dangles_beside_a_chosen_agents_skills_and_the_user_agrees()
+    {
+        if (!Symlinks)
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(Path_(".claude/skills"));
+        var link = Path_(".claude/skills/e2e-dotnet");
+        Link(link, Path.Combine("..", "..", "gone", "e2e-dotnet"), directory: true);
+        Prompts.NextConfirm(true, true);
+        Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
+        Assert.Equal(
+            new ConfirmCall("Replace the symlink .claude/skills/e2e-dotnet -> " + Path.Combine(Dir, "gone", "e2e-dotnet") + " with a link to ../../.agents/skills/e2e-dotnet?", false),
+            Prompts.ConfirmCalls[0]);
+        Assert.Contains("  - Create .agents/skills/e2e-dotnet/\n", Output.Replace("\r\n", "\n"), StringComparison.Ordinal);
+        Assert.Contains("  - Link .claude/skills/e2e-dotnet -> ../../.agents/skills/e2e-dotnet (replacing the symlink)\n", Output.Replace("\r\n", "\n"), StringComparison.Ordinal);
+        Assert.Equal("Apply these changes?", Prompts.ConfirmCalls[1].Message);
+        Assert.Equal(Path.Combine("..", "..", ".agents", "skills", "e2e-dotnet"), new FileInfo(link).LinkTarget);
+        Assert.Matches(SkillFrontmatter(), Read(".claude/skills/e2e-dotnet/SKILL.md"));
+        Assert.Contains("# Setting up e2e for .NET", Read(".claude/skills/e2e-dotnet/references/setup.md"), StringComparison.Ordinal);
+        Assert.False(Exists("gone"));
+        Assert.Contains("Linked .claude/skills/e2e-dotnet -> ../../.agents/skills/e2e-dotnet (replaced the symlink)", Output, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -186,7 +250,8 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
     }
 
     [Fact]
-    public async Task Is_skipped_without_a_question_when_a_parent_is_the_link()
+    // Partial: the port has no install question, so the apply is the only confirm.
+    public async Task Partial_Is_skipped_without_a_question_when_a_parent_is_the_link()
     {
         if (!Symlinks)
         {
@@ -199,7 +264,9 @@ public sealed partial class ASymlinkedSkillDirectoryTests : CliInitTestBase
         await File.WriteAllTextAsync(Path.Combine(target, "SKILL.md"), "mine\n");
         Directory.CreateDirectory(Path_(".claude"));
         Link(Path_(".claude/skills"), shared, directory: true);
-        Assert.Equal(0, (await RunInitAsync()).ExitCode);
+        Prompts.NextConfirm(true);
+        Assert.Equal(0, (await RunInitAsync(new InitOptions())).ExitCode);
+        Assert.Single(Prompts.ConfirmCalls);
         Assert.Contains("Symlink, not touching: .claude/skills/e2e-dotnet/ (.claude/skills -> " + Real(shared) + ")", Output, StringComparison.Ordinal);
         Untouched(target);
         Assert.True(IsLink(Path_(".claude/skills")));
