@@ -222,7 +222,7 @@ looked at when the session is released. Only an attempt whose trace page is kept
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L588)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L587)
 
 <a id="E2E_E2ESession_CloseSoftFailures_"></a>
 <a id="E2E_E2ESession_CloseSoftFailures"></a>
@@ -242,7 +242,7 @@ matchers throw as hard ones would.
 
 **Returns:** [TestException](/api/E2E/TestException/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L335)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L334)
 
 <a id="E2E_E2ESession_Complete_"></a>
 <a id="E2E_E2ESession_Complete_System_Exception_System_Threading_CancellationToken_"></a>
@@ -269,7 +269,7 @@ rewritten. A model outage leaves existing entries in place, unless a failure on 
 | `error` | [Exception](https://learn.microsoft.com/dotnet/api/system.exception) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L345)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L344)
 
 <a id="E2E_E2ESession_DisposeAsync_"></a>
 <a id="E2E_E2ESession_DisposeAsync"></a>
@@ -287,7 +287,7 @@ resetting unmanaged resources asynchronously.
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask) — A task that represents the asynchronous dispose operation.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L364)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L363)
 
 <a id="E2E_E2ESession_Report_"></a>
 <a id="E2E_E2ESession_Report"></a>

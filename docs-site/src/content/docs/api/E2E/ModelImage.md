@@ -25,7 +25,7 @@ An image a model reads: the encoded bytes of a screenshot, already sized for the
 
 **Implements:** [IEquatable&lt;ModelImage&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L77)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L67)
 
 ## Constructors
 
@@ -51,7 +51,7 @@ An image a model reads: the encoded bytes of a screenshot, already sized for the
 | `Width` | [int](https://learn.microsoft.com/dotnet/api/system.int32) | Width in image pixels. |
 | `Height` | [int](https://learn.microsoft.com/dotnet/api/system.int32) | Height in image pixels. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L77)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L67)
 
 ## Properties
 
@@ -70,7 +70,7 @@ The encoded image.
 
 **Value:** [byte\[\]](https://learn.microsoft.com/dotnet/api/system.byte)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L77)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L67)
 
 <a id="E2E_ModelImage_Height_"></a>
 <a id="E2E_ModelImage_Height"></a>
@@ -87,7 +87,7 @@ Height in image pixels.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L77)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L67)
 
 <a id="E2E_ModelImage_MediaType_"></a>
 <a id="E2E_ModelImage_MediaType"></a>
@@ -104,7 +104,7 @@ The media type of &lt;code class="paramref"&gt;Data&lt;/code&gt;, such as `image
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L77)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L67)
 
 <a id="E2E_ModelImage_Width_"></a>
 <a id="E2E_ModelImage_Width"></a>
@@ -121,4 +121,4 @@ Width in image pixels.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L77)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L67)

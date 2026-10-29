@@ -21,7 +21,7 @@ public sealed class AnthropicModelOptions
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L258)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L239)
 
 ## Properties
 
@@ -38,7 +38,7 @@ public string? ApiKey { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L268)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L249)
 
 <a id="E2E_AnthropicModelOptions_ApiKeyEnv_"></a>
 <a id="E2E_AnthropicModelOptions_ApiKeyEnv"></a>
@@ -55,7 +55,7 @@ Environment variable read when [ApiKey](#E2E_AnthropicModelOptions_ApiKey) is em
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L271)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L252)
 
 <a id="E2E_AnthropicModelOptions_BaseUrl_"></a>
 <a id="E2E_AnthropicModelOptions_BaseUrl"></a>
@@ -72,7 +72,7 @@ The API root; requests go to `{BaseUrl}/messages`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L263)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L244)
 
 <a id="E2E_AnthropicModelOptions_CacheBreakpoints_"></a>
 <a id="E2E_AnthropicModelOptions_CacheBreakpoints"></a>
@@ -89,7 +89,7 @@ Marks the system prompt and the newest message as cache breakpoints. On by defau
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L280)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L261)
 
 <a id="E2E_AnthropicModelOptions_Headers_"></a>
 <a id="E2E_AnthropicModelOptions_Headers"></a>
@@ -104,7 +104,7 @@ public IReadOnlyDictionary<string, string>? Headers { get; init; }
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L282)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L263)
 
 <a id="E2E_AnthropicModelOptions_MaxTokens_"></a>
 <a id="E2E_AnthropicModelOptions_MaxTokens"></a>
@@ -121,7 +121,7 @@ The output cap each call sends. The Messages API requires one.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L277)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L258)
 
 <a id="E2E_AnthropicModelOptions_Model_"></a>
 <a id="E2E_AnthropicModelOptions_Model"></a>
@@ -136,7 +136,7 @@ public required string Model { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L260)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L241)
 
 <a id="E2E_AnthropicModelOptions_Provider_"></a>
 <a id="E2E_AnthropicModelOptions_Provider"></a>
@@ -153,7 +153,7 @@ The key this client reads in [ProviderOptions](/api/E2E/ModelRequest/#E2E_ModelR
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L266)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L247)
 
 <a id="E2E_AnthropicModelOptions_Version_"></a>
 <a id="E2E_AnthropicModelOptions_Version"></a>
@@ -170,7 +170,7 @@ The `anthropic-version` header.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L274)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L255)
 
 ## Methods
 
@@ -187,4 +187,4 @@ public string? ResolveApiKey()
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L284)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs#L265)

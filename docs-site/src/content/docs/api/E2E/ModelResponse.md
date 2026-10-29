@@ -21,7 +21,7 @@ public sealed class ModelResponse
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L113)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L103)
 
 ## Fields
 
@@ -39,7 +39,7 @@ The finish reason of a turn the provider refused (upstream's `content-filter`).
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L131)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L121)
 
 ## Properties
 
@@ -56,7 +56,7 @@ public string? Content { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L115)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L105)
 
 <a id="E2E_ModelResponse_FinishReason_"></a>
 <a id="E2E_ModelResponse_FinishReason"></a>
@@ -73,7 +73,7 @@ The AI SDK finish reason that matters to the agent: [ContentFilter](#E2E_ModelRe
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L125)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L115)
 
 <a id="E2E_ModelResponse_RawFinishReason_"></a>
 <a id="E2E_ModelResponse_RawFinishReason"></a>
@@ -90,7 +90,7 @@ The provider's own word for the stop, such as `refusal`, when it sent one. Provi
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L128)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L118)
 
 <a id="E2E_ModelResponse_ReasoningItems_"></a>
 <a id="E2E_ModelResponse_ReasoningItems"></a>
@@ -107,7 +107,7 @@ The reasoning of the turn that the model can take back, to replay on the next tu
 
 **Value:** [IReadOnlyList&lt;JsonElement&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L122)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L112)
 
 <a id="E2E_ModelResponse_ToolCalls_"></a>
 <a id="E2E_ModelResponse_ToolCalls"></a>
@@ -122,7 +122,7 @@ public IReadOnlyList<ModelToolCall> ToolCalls { get; init; }
 
 **Value:** [IReadOnlyList&lt;ModelToolCall&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L117)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L107)
 
 <a id="E2E_ModelResponse_Usage_"></a>
 <a id="E2E_ModelResponse_Usage"></a>
@@ -137,4 +137,4 @@ public ModelUsage? Usage { get; init; }
 
 **Value:** [ModelUsage](/api/E2E/ModelUsage/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L119)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L109)

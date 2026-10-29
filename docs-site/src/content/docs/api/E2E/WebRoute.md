@@ -25,7 +25,7 @@ it decides, so a rejected option leaves the request undecided, and the request i
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L496)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L494)
 
 ## Properties
 
@@ -44,7 +44,7 @@ The intercepted request.
 
 **Value:** [WebRouteRequest](/api/E2E.Engine/WebRouteRequest/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L510)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L508)
 
 ## Methods
 
@@ -63,7 +63,7 @@ Aborts the request.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L538)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L536)
 
 <a id="E2E_WebRoute_ContinueAsync_"></a>
 <a id="E2E_WebRoute_ContinueAsync_E2E_Engine_RouteContinueOverrides_"></a>
@@ -86,7 +86,7 @@ Sends the request to the network once, skipping every other route.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L523)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L521)
 
 <a id="E2E_WebRoute_FallbackAsync_"></a>
 <a id="E2E_WebRoute_FallbackAsync"></a>
@@ -103,7 +103,7 @@ Hands the request to the route registered before this one, or the network when n
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L531)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L529)
 
 <a id="E2E_WebRoute_FulfillAsync_"></a>
 <a id="E2E_WebRoute_FulfillAsync_E2E_Engine_RouteFulfillResponse_"></a>
@@ -126,4 +126,4 @@ Answers the request.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L515)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L513)

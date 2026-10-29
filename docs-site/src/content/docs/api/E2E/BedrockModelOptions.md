@@ -21,7 +21,7 @@ public sealed class BedrockModelOptions
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L310)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L254)
 
 ## Properties
 
@@ -40,7 +40,7 @@ A Bedrock API key, sent as a bearer token instead of signing.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L325)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L269)
 
 <a id="E2E_BedrockModelOptions_ApiKeyEnv_"></a>
 <a id="E2E_BedrockModelOptions_ApiKeyEnv"></a>
@@ -57,7 +57,7 @@ Environment variable read when [ApiKey](#E2E_BedrockModelOptions_ApiKey) is empt
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L328)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L272)
 
 <a id="E2E_BedrockModelOptions_BaseUrl_"></a>
 <a id="E2E_BedrockModelOptions_BaseUrl"></a>
@@ -74,7 +74,7 @@ The runtime endpoint. Unset, it is `https://bedrock-runtime.{region}.amazonaws.c
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L319)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L263)
 
 <a id="E2E_BedrockModelOptions_Credentials_"></a>
 <a id="E2E_BedrockModelOptions_Credentials"></a>
@@ -87,12 +87,11 @@ public AwsCredentials? Credentials { get; init; }
 ```
 
 
-Signing credentials. Unset, they come from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN`
-and, with those unset too, from the AWS credential chain (`AWS_PROFILE` or the default profile, SSO, container and instance roles).
+Signing credentials. Unset, they come from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN` and, with those unset too, from the AWS credential chain (`AWS_PROFILE` or the default profile, SSO, container and instance roles).
 
 **Value:** [AwsCredentials](/api/E2E/AwsCredentials/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L334)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L275)
 
 <a id="E2E_BedrockModelOptions_MaxTokens_"></a>
 <a id="E2E_BedrockModelOptions_MaxTokens"></a>
@@ -107,7 +106,7 @@ public int MaxTokens { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L339)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L277)
 
 <a id="E2E_BedrockModelOptions_Model_"></a>
 <a id="E2E_BedrockModelOptions_Model"></a>
@@ -124,7 +123,7 @@ A Bedrock model id or inference profile, such as `us.anthropic.claude-sonnet-4-5
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L313)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L257)
 
 <a id="E2E_BedrockModelOptions_Provider_"></a>
 <a id="E2E_BedrockModelOptions_Provider"></a>
@@ -141,7 +140,7 @@ The key this client reads in [ProviderOptions](/api/E2E/ModelRequest/#E2E_ModelR
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L322)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L266)
 
 <a id="E2E_BedrockModelOptions_Region_"></a>
 <a id="E2E_BedrockModelOptions_Region"></a>
@@ -158,7 +157,7 @@ The AWS region. Unset, it is `AWS_REGION`, then `AWS_DEFAULT_REGION`, then `us-e
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L316)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L260)
 
 ## Methods
 
@@ -175,7 +174,7 @@ public string? ResolveApiKey()
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L341)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L279)
 
 <a id="E2E_BedrockModelOptions_ResolveCredentials_"></a>
 <a id="E2E_BedrockModelOptions_ResolveCredentials"></a>
@@ -190,7 +189,7 @@ public AwsCredentials? ResolveCredentials()
 
 **Returns:** [AwsCredentials](/api/E2E/AwsCredentials/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L351)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L289)
 
 <a id="E2E_BedrockModelOptions_ResolveRegion_"></a>
 <a id="E2E_BedrockModelOptions_ResolveRegion"></a>
@@ -205,4 +204,4 @@ public string ResolveRegion()
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L346)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L284)
