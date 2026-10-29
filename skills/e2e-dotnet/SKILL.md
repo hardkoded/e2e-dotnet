@@ -49,8 +49,10 @@ Text downloads are redacted only when they are UTF-8 without NUL bytes; other fi
 the `e2e mcp` server, and updates `.gitignore`, skipping files that exist. In a
 terminal it asks the questions no flag answered (engines, model gateway and
 endpoint, skill locations, MCP locations), lists the changes, and asks to apply
-them. It asks before replacing a symlinked skill directory with a copy, and
-declines by default. Leaving a question or declining writes nothing and exits
+them. It asks before replacing a symlinked skill directory with a copy or a link,
+and declines by default. A rerun never touches an existing `e2e.config.json`,
+but refreshes stale skill copies and updates the e2e entry of existing MCP
+files. Leaving a question or declining writes nothing and exits
 0. You have no terminal, so pass `--yes`: it asks nothing and takes the default
 of each question a flag (`--engine`, `--gateway`, `--endpoint`, `--skills`,
 `--mcp`) did not answer, and it never replaces a symlink. A run with no

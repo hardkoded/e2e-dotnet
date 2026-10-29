@@ -349,7 +349,7 @@ foreach (var finding in outcome.Explore.Findings)
 
 ## Coding agents (MCP)
 
-`e2e init` asks which engine, model gateway, skill locations, and MCP locations to use (each flag skips its question, and `--yes` takes the defaults without asking), lists the changes, and asks to apply them; it asks before replacing a symlinked skill directory, and cancelling writes nothing. It scaffolds `e2e.config.json`, installs the skill into `.agents/skills/e2e-dotnet` and `.claude/skills/e2e-dotnet`, registers the MCP server in `.mcp.json` and `.cursor/mcp.json`, and updates `.gitignore`, skipping files that exist. It creates no test project. See [COMPATIBILITY.md](COMPATIBILITY.md#coding-agents).
+`e2e init` asks which engine, model gateway, skill locations, and MCP locations to use (each flag skips its question, and `--yes` takes the defaults without asking), lists the changes, and asks to apply them; it asks before replacing a symlinked skill directory with a copy or a link, and cancelling writes nothing. It scaffolds `e2e.config.json`, installs the skill into `.agents/skills/e2e-dotnet` and `.claude/skills/e2e-dotnet`, registers the MCP server in `.mcp.json` and `.cursor/mcp.json`, and updates `.gitignore`. It never overwrites an existing config; a rerun refreshes stale skill copies and the e2e entry of existing MCP files. It creates no test project. See [COMPATIBILITY.md](COMPATIBILITY.md#coding-agents).
 
 `e2e mcp` serves the project to a coding agent such as Claude Code or Cursor over MCP (stdio). `e2e init` registers it; to do it by hand:
 
