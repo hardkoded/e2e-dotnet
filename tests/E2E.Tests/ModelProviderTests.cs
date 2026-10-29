@@ -386,6 +386,52 @@ public sealed class ModelProviderTests
     }
 
     [Fact]
+    public async Task Google_model_sends_back_signed_and_unsigned_text_parts_and_thoughts_in_order_ahead_of_function_calls()
+    {
+        var handler = new RecordingHandler(
+            """
+            {
+              "candidates": [{ "content": { "parts": [
+                { "text": "plan", "thought": true, "thoughtSignature": "dA==" },
+                { "text": "one " },
+                { "text": "two", "thoughtSignature": "c2ln" },
+                { "functionCall": { "name": "tap", "args": { "role": "button", "name": "Pay" } } }
+              ] } }]
+            }
+            """,
+            """{ "candidates": [{ "content": { "parts": [{ "text": "ok" }] } }] }""");
+        using var http = new HttpClient(handler);
+        using var model = new GoogleModel(new GoogleModelOptions { Model = "gemini-2.5-pro", ApiKey = "g" }, http);
+
+        var first = await model.CompleteAsync(Conversation(), CancellationToken.None);
+
+        Assert.Equal("one two", first.Content);
+        await model.CompleteAsync(
+            new ModelRequest
+            {
+                System = "rules",
+                Tools = Tools(),
+                Messages =
+                [
+                    new ModelMessage { Role = "user", Content = "go" },
+                    new ModelMessage { Role = "assistant", Content = first.Content, ToolCalls = first.ToolCalls, ReasoningItems = first.ReasoningItems },
+                    new ModelMessage { Role = "tool", ToolCallId = first.ToolCalls[0].Id, Name = "tap", Content = "tapped" },
+                ],
+            },
+            CancellationToken.None);
+
+        var parts = handler.Requests[1].Json()["contents"]![1]!["parts"]!.AsArray();
+        Assert.Equal(4, parts.Count);
+        Assert.True(parts[0]!["thought"]!.GetValue<bool>());
+        Assert.Equal("dA==", parts[0]!["thoughtSignature"]!.GetValue<string>());
+        Assert.Equal("one ", parts[1]!["text"]!.GetValue<string>());
+        Assert.Null(parts[1]!["thoughtSignature"]);
+        Assert.Equal("two", parts[2]!["text"]!.GetValue<string>());
+        Assert.Equal("c2ln", parts[2]!["thoughtSignature"]!.GetValue<string>());
+        Assert.NotNull(parts[3]!["functionCall"]);
+    }
+
+    [Fact]
     public async Task Google_model_sends_back_the_signature_of_a_plain_text_part()
     {
         var handler = new RecordingHandler(
