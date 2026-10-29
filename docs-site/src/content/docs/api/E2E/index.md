@@ -121,7 +121,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [Screen](/api/E2E/Screen/) | Semantic queries against the current screen. An action or a single-node assertion fails when the query matches more than one node. Narrow it with Filter(TextMatch), First(), Last(), or Nth(int). |
 | [ScreenExpect](/api/E2E/ScreenExpect/) | Matchers on the whole screen: String). |
 | [ScreenshotOptions](/api/E2E/ScreenshotOptions/) | Options of ToHaveScreenshotAsync. |
-| [ScriptedModel](/api/E2E/ScriptedModel/) | Returns whatever the callback decides for each request. Records every request. |
+| [ScriptedModel](/api/E2E/ScriptedModel/) | Returns whatever the callback decides for each request. Records every request. A callback that serves both the act loop and the judge may answer a judgment (a request with a Schema) with String): passed reads as holds, a failed without the code ASSERTIONINCONCLUSIVE as fails, and a blocked or inconclusive one as inconclusive. String) answers it directly. |
 | [ScrollUntilVisibleOptions](/api/E2E/ScrollUntilVisibleOptions/) | Options for Screen.ScrollUntilVisibleAsync and Locator.ScrollUntilVisibleAsync. |
 | [Secret](/api/E2E/Secret/) | A value the model must not see. Prompts, transcripts, reports, and the names and test ids an act records in its replay cache entry receive <secret:name>. The agent fills the real value itself. |
 | [Secrets](/api/E2E/Secrets/) | The secrets declared in e2e.config.json. Each value comes from E2ESECRET{NAME} when it is set, else from the config. The name is uppercased and every character other than A-Z and 0-9 becomes an underscore. |

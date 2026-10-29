@@ -316,6 +316,9 @@ public sealed record ExecutorObservation(string Text)
     /// <summary>The location of the screen, redacted, when the engine reports one. Null on an engine without one.</summary>
     public string? Path { get; init; }
 
+    /// <summary>The revision of the capture (<see cref="Observation.Revision"/>), <c>b&lt;n&gt;</c> for the attempt's n-th. Null when the capture carries none. Upstream's <c>revision</c>.</summary>
+    public string? Revision { get; init; }
+
     /// <summary>The redacted node tree. Present when the call asked for it with <see cref="ExecutorObserveOptions.Tree"/>.</summary>
     public IReadOnlyList<ExecutorNode>? Tree { get; init; }
 

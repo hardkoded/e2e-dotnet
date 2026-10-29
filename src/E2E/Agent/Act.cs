@@ -177,6 +177,7 @@ public sealed partial class Agent
                         Instruction = instruction,
                         Params = spec.Params,
                         Recorder = budget.Recorder,
+                        AppOrigin = _scope.AppOrigin,
                     });
                 _scope.Acts.Add(session.Pending);
             }

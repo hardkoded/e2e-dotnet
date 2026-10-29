@@ -166,7 +166,7 @@ public sealed class AgentDeviceRpcClient : IDeviceClient
             }
         }
 
-        return new AgentDeviceError(code, message, details);
+        return new AgentDeviceError(code, message, details) { Reported = true };
     }
 
     private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;

@@ -17,7 +17,8 @@ internal sealed record FindingInput(
     string Actual,
     IReadOnlyList<string> Reproduction,
     string? Path = null,
-    string? ArtifactId = null);
+    string? ArtifactId = null,
+    string? ObservationRevision = null);
 
 /// <summary>
 /// The record of one exploration: the goal, its budgets, the steps the agent planned and ran, and the findings it reported.
@@ -185,7 +186,8 @@ internal sealed class ExploreState(string goal, ExploreBudgets budgets, TimeProv
                 [.. reproduction.Select(entry => Clip(entry, MaxReproductionChars))],
                 now,
                 input.Path is null ? null : Clip(input.Path, MaxPathChars),
-                input.ArtifactId);
+                input.ArtifactId,
+                input.ObservationRevision);
             _findings.Add(finding);
             Notify(new ExploreProgress.FindingReported(finding));
             return finding;

@@ -352,7 +352,9 @@ public sealed class Browser
 
     /// <summary>
     /// Runs <paramref name="trigger"/> and waits for the download it starts, within <paramref name="timeout"/> (the action timeout by
-    /// default). The file is kept under the attempt's <c>downloads</c> artifact folder, as an artifact of this step. A trigger that
+    /// default). The file is kept under the attempt's <c>downloads</c> artifact folder, as an artifact of this step. A text download
+    /// (<c>text/*</c> or <c>application/json</c>) is rewritten in place through the session's secrets when it holds any, and the report
+    /// labels it <c>complete</c>; any other download stays as the app served it, <c>incomplete</c>. A trigger that
     /// throws fails the call with its own error, and one that starts no download fails with <c>ACTION_FAILED</c>, naming the wait and
     /// how long the trigger took.
     /// </summary>

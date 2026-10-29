@@ -104,7 +104,7 @@ internal static class AttemptReport
         ReportArtifact[] kept =
         [
             .. videos.Select((video, index) => Artifact(video, index, directory, attemptSegment)),
-            .. scope.Attached.Select(attached => new ReportArtifact(attached.Id, attached.Kind, directory + "/" + attemptSegment + "/" + attached.Path)),
+            .. scope.Attached.Select(attached => new ReportArtifact(attached.Id, attached.Kind, directory + "/" + attemptSegment + "/" + attached.Path, Redaction: attached.Redaction)),
             .. failed && evidence?.Screen is { } screen ? new[] { new ReportArtifact(screen, "log", directory + "/" + attemptSegment + "/" + FailureEvidence.ScreenFile) } : [],
             .. failed && evidence?.Screenshot is { } shot ? new[] { new ReportArtifact(shot, "screenshot", directory + "/" + attemptSegment + "/" + FailureEvidence.ScreenshotFile) } : [],
         ];
@@ -142,7 +142,7 @@ internal static class AttemptReport
             Attempts = [attempt],
             Directory = directory,
         };
-        return (new Report1Document(new ReportRun(RunId, ModelHttp.PackageVersion(), [new ReportTarget(scope.TargetName, 0, scope.EnginePlatform, BuildReport.DescribeTarget(scope.EnginePlatform, scope.EngineVersion, scope.EngineCapabilities), "test", BuildReport.BaseOrigin(scope.BaseUrl))], [result], explore) { Limits = ResolvedAgent.RunLimits(scope.Agents.Values) }), id);
+        return (new Report1Document(new ReportRun(RunId, ModelHttp.PackageVersion(), [new ReportTarget(scope.TargetName, 0, scope.EnginePlatform, BuildReport.DescribeTarget(scope.EngineName, scope.EngineVersion, scope.EngineCapabilities), "test", BuildReport.BaseOrigin(scope.BaseUrl))], [result], explore) { Limits = ResolvedAgent.RunLimits(scope.Agents.Values) }), id);
     }
 
     // The size of a file the attempt kept, which the run's usage adds up; null for a link and for a file that cannot be read.

@@ -5,7 +5,7 @@ description: Drive Chromium with WebEngine and write a first web test.
 
 import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
-`WebEngine` drives Chromium through [Microsoft.Playwright](https://playwright.dev/dotnet/). The first launch in a process installs the headless shell, so the first run needs network access. Set `E2E_SKIP_BROWSER_INSTALL=1` when the browser is already installed.
+`WebEngine` drives Chromium through [Microsoft.Playwright](https://playwright.dev/dotnet/); set `WebEngineOptions.BrowserName` to `BrowserName.Firefox` or `BrowserName.Webkit` to launch another browser, and install it with `e2e install firefox --with-deps` or `e2e install webkit --with-deps`. The first launch in a process installs the browser it launches (the headless shell for a headless Chromium run), so the first run needs network access. Set `E2E_SKIP_BROWSER_INSTALL=1` when the browser is already installed.
 
 ## 1. Create the test project
 
@@ -106,6 +106,9 @@ E2E_HEADLESS=0 dotnet test --project .      # watch the browser
 The first run asks the model to perform each `ActAsync`. A passing run records each verified step in `.e2e/cache`, and the next run replays it with no model call.
 
 ## Next
+
+Text downloads are rescanned before reporting with all secrets known by then,
+including later fills and ASCII secrets written as JSON Unicode escapes.
 
 <CardGrid>
   <LinkCard title="Dariten sample" href={`${import.meta.env.BASE_URL}samples/dariten/`} description="A locator test and an agent test against a live public app." />

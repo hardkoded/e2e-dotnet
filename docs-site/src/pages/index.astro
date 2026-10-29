@@ -1,0 +1,371 @@
+---
+import "@fontsource-variable/figtree/wght.css";
+import "@fontsource/dm-mono/latin-400.css";
+import "@fontsource/dm-mono/latin-500.css";
+import logo from "../assets/logo.png";
+import { siteOrigin } from "../../site.mjs";
+import "../styles/landing.css";
+
+const base = import.meta.env.BASE_URL;
+const href = (path: string) => `${base}${path.replace(/^\//, "")}`;
+const canonical = new URL(base, siteOrigin).href;
+const repo = "https://github.com/hardkoded/e2e-dotnet";
+// No sponsors URL is checked into this repo. Placeholder until Hardkoded confirms it.
+const sponsor = "https://github.com/sponsors/hardkoded";
+const install = "dotnet add package E2E && dotnet add package E2E.NUnit";
+
+const description =
+    "Describe a goal in plain language, let an agent drive the app, then check the result with locators. Web, mobile, .NET MAUI, and Windows.";
+
+// README sample from "A test", broken across lines so identifiers stay intact in the card.
+const sampleHtml = [
+    `<span class="k">using</span> E2E;`,
+    `<span class="k">using</span> E2E.NUnit;`,
+    `<span class="k">using</span> NUnit.Framework;`,
+    ``,
+    `<span class="k">public sealed class</span> <span class="t">BillingTests</span> : <span class="t">E2ETest</span>`,
+    `{`,
+    `    <span class="k">protected override</span> <span class="t">IAgentModel</span>? <span class="f">CreateModel</span>() =&gt;`,
+    `        <span class="k">new</span> <span class="t">OpenAiCompatibleModel</span>(`,
+    `            <span class="k">new</span> <span class="t">OpenAiCompatibleModelOptions</span>`,
+    `            {`,
+    `                Model = <span class="s">&quot;gpt-4.1-mini&quot;</span>,`,
+    `            });`,
+    ``,
+    `    [<span class="t">Test</span>]`,
+    `    <span class="k">public async</span> <span class="t">Task</span> Member_upgrades_to_Pro()`,
+    `    {`,
+    `        <span class="k">await</span> App.<span class="f">OpenAsync</span>(<span class="s">&quot;/settings/billing&quot;</span>);`,
+    `        <span class="k">await</span> Agent.<span class="f">ActAsync</span>(`,
+    `            <span class="s">&quot;upgrade the workspace to the Pro plan&quot;</span>);`,
+    `        <span class="k">await</span> Agent.<span class="f">AssertAsync</span>(`,
+    `            <span class="s">&quot;the invoice preview shows a prorated amount&quot;</span>);`,
+    `        <span class="k">await</span> Expect.<span class="f">That</span>(Screen.<span class="f">GetByRole</span>(<span class="s">&quot;status&quot;</span>))`,
+    `            .<span class="f">ToContainTextAsync</span>(<span class="s">&quot;Pro&quot;</span>);`,
+    `    }`,
+    `}`,
+].join("\n");
+
+// Verbatim e2e.config.json from Get started.
+const configSample = `{
+  "targets": [{ "name": "web", "platform": "web", "app": { "url": "http://localhost:3000" } }],
+  "actionTimeout": 15000,
+  "assertionTimeout": 10000,
+  "agents": { "default": { "provider": "copilot", "model": "claude-sonnet-5.5" } },
+  "cache": { "dir": ".e2e/cache" }
+}`;
+---
+
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>E2E for .NET</title>
+        <meta name="description" content={description} />
+        <meta name="theme-color" content="#070b12" />
+        <link rel="canonical" href={canonical} />
+        <link rel="icon" href={href("favicon.png")} />
+        <meta property="og:title" content="E2E for .NET" />
+        <meta property="og:description" content={description} />
+        <meta property="og:url" content={canonical} />
+        <meta property="og:type" content="website" />
+    </head>
+    <body>
+        <a class="skip" href="#content">Skip to content</a>
+        <header class="nav">
+            <div class="wrap nav-inner">
+                <div class="nav-start">
+                    <a class="brand" href={base}>
+                        <img src={logo.src} width={logo.width} height={logo.height} alt="" />
+                        <span>E2E <span class="brand-mark">for .NET</span></span>
+                    </a>
+                    <a class="nav-docs" href={href("docs/")}>Docs</a>
+                </div>
+                <div class="nav-links">
+                    <a class="icon-button" href={repo} aria-label="E2E for .NET on GitHub">
+                        <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
+                            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.7 7.7 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"></path>
+                        </svg>
+                    </a>
+                    <a class="button button-ghost" href={sponsor}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 20s-7-4.4-7-9.1C5 8 6.8 6.2 9.2 6.2c1.3 0 2.4.6 2.8 1.6.4-1 1.5-1.6 2.8-1.6C17.2 6.2 19 8 19 10.9 19 15.6 12 20 12 20Z"></path>
+                        </svg>
+                        Sponsor
+                    </a>
+                </div>
+                <a class="button button-primary nav-cta" href={href("get-started/")}>
+                    Get started
+                    <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 8h10M9 4l4 4-4 4"></path>
+                    </svg>
+                </a>
+            </div>
+        </header>
+
+        <main id="content">
+            <section class="hero" aria-labelledby="hero-title">
+                <svg class="hero-art" viewBox="0 0 1400 780" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                    <g fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M0 150h70l36 36h50"></path>
+                        <path d="M0 610h80l32-32h46"></path>
+                        <path d="M1248 96h60l40 40h52"></path>
+                        <path d="M1230 650h70l36-36h64"></path>
+                    </g>
+                    <g fill="none" stroke="currentColor" stroke-width="1.25">
+                        <circle cx="0" cy="150" r="5"></circle>
+                        <circle cx="156" cy="186" r="5"></circle>
+                        <circle cx="0" cy="610" r="5"></circle>
+                        <circle cx="158" cy="578" r="5"></circle>
+                        <circle cx="1248" cy="96" r="5"></circle>
+                        <circle cx="1400" cy="136" r="5"></circle>
+                        <circle cx="1230" cy="650" r="5"></circle>
+                        <circle cx="1400" cy="614" r="5"></circle>
+                    </g>
+                </svg>
+                <div class="wrap hero-grid">
+                    <div>
+                        <p class="eyebrow">E2E for .NET</p>
+                        <h1 id="hero-title">Write the goal.<br />Check the screen.</h1>
+                        <p class="lede">
+                            Describe a goal in plain language, let an agent drive the app, then check the result with locators.
+                            The same test API runs on the web, on iOS and Android, on .NET MAUI, and on Windows.
+                        </p>
+                        <p class="fineprint">
+                            A community port of the <a href="https://github.com/tester-army/e2e">e2e framework</a>.
+                            Not an official TesterArmy product.
+                        </p>
+                        <div class="hero-actions">
+                            <a class="button button-primary" href={href("get-started/")}>
+                                Get started
+                                <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 8h10M9 4l4 4-4 4"></path>
+                                </svg>
+                            </a>
+                            <a class="button button-ghost" href={repo}>
+                                <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
+                                    <path d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.75.75 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Z"></path>
+                                </svg>
+                                Star on GitHub
+                            </a>
+                        </div>
+                        <div class="install">
+                            <span class="prompt" aria-hidden="true">$</span>
+                            <code>{install}</code>
+                            <button type="button" class="copy" data-copy={install}>Copy</button>
+                        </div>
+                        <p class="install-note">
+                            Or <a href="https://www.nuget.org/packages/E2E.XUnit.V3">E2E.XUnit.V3</a> instead of
+                            <a href="https://www.nuget.org/packages/E2E.NUnit">E2E.NUnit</a>.
+                            The packages target <code>net10.0</code>.
+                            <a href="https://www.nuget.org/packages/E2E">E2E on NuGet</a>.
+                        </p>
+                    </div>
+
+                    <figure class="code-card">
+                        <figcaption class="code-bar">
+                            <span class="code-file">
+                                <span class="lang-badge">C#</span>
+                                BillingTests
+                            </span>
+                            <span class="code-status">
+                                <span class="live-dot" aria-hidden="true"></span>
+                                <a href={`${repo}#a-test`}>README sample</a>
+                            </span>
+                        </figcaption>
+                        <pre><code set:html={sampleHtml} /></pre>
+                        <div class="code-foot">
+                            <span>Passing run records the act</span>
+                            <span aria-hidden="true">·</span>
+                            <span>Next run replays it</span>
+                        </div>
+                    </figure>
+                </div>
+            </section>
+
+            <section class="band" aria-label="Where it runs">
+                <div class="wrap band-grid">
+                    <div class="band-item">
+                        <p class="band-kicker">Web</p>
+                        <h2>Browser</h2>
+                        <p>Chrome, Firefox, and WebKit</p>
+                    </div>
+                    <div class="band-item">
+                        <p class="band-kicker">Mobile</p>
+                        <h2>iOS and Android</h2>
+                        <p>Simulators and emulators</p>
+                    </div>
+                    <div class="band-item">
+                        <p class="band-kicker">Windows</p>
+                        <h2>UI Automation</h2>
+                        <p>Windows 10 and 11</p>
+                    </div>
+                    <div class="band-item">
+                        <p class="band-kicker">License</p>
+                        <h2>Apache-2.0</h2>
+                        <p>Free for commercial use</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section" aria-labelledby="features-title">
+                <div class="wrap">
+                    <div class="section-head">
+                        <p class="eyebrow">Why E2E</p>
+                        <h2 id="features-title">The test describes the task. The checks stay exact.</h2>
+                    </div>
+                    <ul class="features">
+                        <li class="feature">
+                            <span class="feature-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="7"></circle>
+                                    <circle cx="12" cy="12" r="2.5"></circle>
+                                    <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"></path>
+                                </svg>
+                            </span>
+                            <h3>A goal, not a script</h3>
+                            <p>
+                                <code>Agent.ActAsync</code> takes one goal. The agent works out the steps. Give it one atomic action per call.
+                            </p>
+                            <a class="more" href={href("get-started/web/#3-write-a-test")}>
+                                Write a test
+                                <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"></path></svg>
+                            </a>
+                        </li>
+                        <li class="feature">
+                            <span class="feature-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24">
+                                    <rect x="4.5" y="4.5" width="15" height="15" rx="3"></rect>
+                                    <path d="M8 12.2l2.4 2.4L16.2 9"></path>
+                                </svg>
+                            </span>
+                            <h3>Checks that skip the model</h3>
+                            <p>
+                                <code>Expect.That</code> and <code>Screen.GetByRole</code> assert an exact value. No model call. Pair each agent step with one.
+                            </p>
+                            <a class="more" href={href("get-started/")}>
+                                Locator checks
+                                <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"></path></svg>
+                            </a>
+                        </li>
+                        <li class="feature">
+                            <span class="feature-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M20 12a8 8 0 1 1-2.3-5.6"></path>
+                                    <path d="M20 4.5V9h-4.5"></path>
+                                </svg>
+                            </span>
+                            <h3>Replay on the next run</h3>
+                            <p>
+                                A verified act is recorded. The next run replays it with no model call until the screen no longer matches.
+                            </p>
+                            <a class="more" href={href("guide/#rerun-a-test-while-you-fix-it")}>
+                                Rerun while you fix
+                                <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"></path></svg>
+                            </a>
+                        </li>
+                        <li class="feature">
+                            <span class="feature-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24">
+                                    <rect x="3.5" y="3.5" width="7" height="7" rx="1.5"></rect>
+                                    <rect x="13.5" y="3.5" width="7" height="7" rx="1.5"></rect>
+                                    <rect x="3.5" y="13.5" width="7" height="7" rx="1.5"></rect>
+                                    <rect x="13.5" y="13.5" width="7" height="7" rx="1.5"></rect>
+                                </svg>
+                            </span>
+                            <h3>One API, four platforms</h3>
+                            <p>
+                                <code>App</code>, <code>Agent</code>, <code>Screen</code>, and <code>Expect</code> on WebEngine, MobileEngine, and WinAppEngine. WebEngine runs Chrome, Firefox, and WebKit.
+                            </p>
+                            <a class="more" href={href("get-started/")}>
+                                Pick a platform
+                                <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"></path></svg>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="section steps-section" aria-labelledby="steps-title">
+                <div class="wrap steps-layout">
+                    <div class="steps-copy">
+                        <p class="eyebrow">Get started</p>
+                        <h2 id="steps-title">From an empty project to a running test, in three steps.</h2>
+                        <p class="lede">
+                            Install the packages, point at the app, and write a test. Each step links to the page that has the rest.
+                        </p>
+                        <a class="button button-primary" href={href("get-started/")}>
+                            Read the getting-started guide
+                            <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 8h10M9 4l4 4-4 4"></path>
+                            </svg>
+                        </a>
+                    </div>
+                    <ol class="steps">
+                        <li class="step">
+                            <span class="step-index" aria-hidden="true"></span>
+                            <div>
+                                <h3>Install the packages</h3>
+                                <p>Add the library and the NUnit fixture. For xUnit v3, add E2E.XUnit.V3 instead of E2E.NUnit.</p>
+                                <pre class="chip"><code>dotnet add package E2E
+dotnet add package E2E.NUnit</code></pre>
+                                <a class="more" href={href("get-started/web/#1-create-the-test-project")}>
+                                    Create the test project
+                                    <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"></path></svg>
+                                </a>
+                            </div>
+                        </li>
+                        <li class="step">
+                            <span class="step-index" aria-hidden="true"></span>
+                            <div>
+                                <h3>Point at your app</h3>
+                                <p>An e2e.config.json names the target, the model, and the replay cache. Every key is optional.</p>
+                                <pre class="chip"><code>{configSample}</code></pre>
+                                <a class="more" href={href("get-started/#the-config-file")}>
+                                    The config file
+                                    <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"></path></svg>
+                                </a>
+                            </div>
+                        </li>
+                        <li class="step">
+                            <span class="step-index" aria-hidden="true"></span>
+                            <div>
+                                <h3>Write a test and run</h3>
+                                <p>Derive from E2ETest. The first passing ActAsync is recorded, and the next run replays it.</p>
+                                <pre class="chip"><code>dotnet test --project .</code></pre>
+                                <a class="more" href={href("get-started/web/#3-write-a-test")}>
+                                    Write a test
+                                    <svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10M9 4l4 4-4 4"></path></svg>
+                                </a>
+                            </div>
+                        </li>
+                    </ol>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <div class="wrap">
+                <p><strong>E2E for .NET</strong></p>
+                <p>
+                    Community port of <a href="https://github.com/tester-army/e2e">tester-army/e2e</a>.
+                    Not an official TesterArmy product.
+                    <a href={`${repo}/blob/main/LICENSE`}>Apache-2.0</a>.
+                    Copyright 2026 TesterArmy.
+                </p>
+                <nav class="footer-links" aria-label="Footer">
+                    <a href={href("docs/")}>Docs</a>
+                    <a href={href("get-started/")}>Get started</a>
+                    <a href={href("guide/")}>Guide</a>
+                    <a href={href("samples/")}>Samples</a>
+                    <a href={href("api/")}>API</a>
+                    <a href={href("compatibility/")}>Compatibility</a>
+                    <a href={repo}>GitHub</a>
+                </nav>
+            </div>
+        </footer>
+        <script>
+            import "../scripts/landing-copy.js";
+        </script>
+    </body>
+</html>

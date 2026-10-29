@@ -74,17 +74,17 @@ internal static class BuildReport
     /// without an engine is agent-tools-only and honestly reports no capabilities (upstream's <c>describeTarget</c>).
     /// </summary>
     /// <remarks>
-    /// .NET-only mapping: the port's <see cref="IEngine"/> has no name, so the name is its <see cref="IEngine.Platform"/>; its
+    /// .NET-only mapping: the engine's name is <see cref="IEngine.Name"/>, which defaults to its <see cref="IEngine.Platform"/>; its
     /// capabilities are flags, so each is spelled in camel case as upstream spells its capability names; and it has no state hooks, so
     /// <c>stateCapability</c> is false.
     /// </remarks>
     public static TargetProvenance DescribeTarget(IEngine? engine) =>
         engine is null
             ? new TargetProvenance(new ReportEngine("none", "unversioned", EngineSpiVersion), [], [], false)
-            : DescribeTarget(engine.Platform, engine.Version, engine.Capabilities);
+            : DescribeTarget(engine.Name, engine.Version, engine.Capabilities);
 
-    /// <summary>The description of an engine known by its platform, version, and capabilities.</summary>
-    public static TargetProvenance DescribeTarget(string platform, string version, EngineCapabilities capabilities)
+    /// <summary>The description of an engine known by its name, version, and capabilities.</summary>
+    public static TargetProvenance DescribeTarget(string name, string version, EngineCapabilities capabilities)
     {
         var artifacts = new List<string>();
         if (capabilities.HasFlag(EngineCapabilities.Screenshot))
@@ -98,7 +98,7 @@ internal static class BuildReport
         }
 
         return new TargetProvenance(
-            new ReportEngine(platform, string.IsNullOrWhiteSpace(version) ? "unversioned" : version, EngineSpiVersion),
+            new ReportEngine(name, string.IsNullOrWhiteSpace(version) ? "unversioned" : version, EngineSpiVersion),
             [.. Enum.GetValues<EngineCapabilities>().Where(each => each != EngineCapabilities.None && capabilities.HasFlag(each)).Select(each => char.ToLowerInvariant(each.ToString()[0]) + each.ToString()[1..]).Order(StringComparer.Ordinal)],
             artifacts,
             false);

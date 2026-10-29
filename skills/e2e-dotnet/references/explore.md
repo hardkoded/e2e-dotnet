@@ -26,8 +26,12 @@ and a booted device, and `E2E_MOBILE_DEVICE` names one (see
 [mobile.md](mobile.md)). With `E2E_MOBILE_PROVIDER=limrun` it leases a hosted
 Limrun device when the exploration starts (set `LIMRUN_API_KEY`) and releases it
 when the exploration ends, also after a failure or Ctrl+C (exit 130), within the
-config's `cleanupTimeout`. A release that fails or outlives that budget ends the
-command with the error in place of the outcome (`CLEANUP_TIMEOUT`, exit 3). With
+config's `cleanupTimeout`. A release that fails or outlives that budget does not
+replace the outcome: it joins it (`CLEANUP_TIMEOUT` for one that outlived the
+budget, `ENGINE_FAILURE` for a plain exception), the status is `Failed`, the exit
+code is the verdict's combined with 3 (precedence 130, 4, 3, 2, 1, 0), and the
+findings stay. `ExploreOutcome.Error` is the failure only when the run had no
+error of its own. With
 `E2E_MOBILE_PROVIDER=devflow` it attaches to the MAUI app you launched. `e2e explore` supplies the
 device engine; a library caller of `Explore.ExploreAsync` with an `ios` or
 `android` target must set `ExploreOptions.Engine`. A `windows` target with `app.appPath` (the
@@ -53,7 +57,7 @@ e2e explore --target web --max-steps 4 --headed
 3. Runs the charter as an `ActAsync` step with the agent's project tools plus
    `report_finding`. The agent reports each defect the moment it has
    evidence: title, `issue` or `warning`, severity 1 to 5, expected, actual,
-   reproduction steps. The run adds the path and a redacted screenshot.
+   reproduction steps. The run adds the path, the observation revision, and a redacted screenshot.
 4. Repeats until the planner finishes, the step limit, the clock, or three
    failed or blocked steps in a row that reported nothing; then asks for a
    closing assessment.
@@ -169,8 +173,10 @@ run, or null for a pass.
 ended (`Finished`, `StepLimit`, `Time`, `Stuck`, `Aborted`), the closing
 assessment in `Summary`, the `Steps` with their status (`Passed`, `Failed`,
 `Blocked`, `Exhausted`), and the `Findings`. A step carries `ErrorCode` only
-when it did not pass. A finding carries `Step`, `Path`, and `ArtifactId`
-only when known. `ArtifactId` is the path, relative to the project root, of
+when it did not pass. A finding carries `Step`, `Path`, `ObservationRevision`, and
+`ArtifactId` only when known. `ObservationRevision` is the revision (`b<n>`) of
+the capture the finding tool took when it reported the finding (its own capture,
+as upstream, so no agent step records the same value). `ArtifactId` is the path, relative to the project root, of
 the evidence screenshot, which lands under
 `.e2e/results/<result>/attempt-1/screenshots/` (`Output` changes the results
 directory). The exploration is a test of the virtual file `explore`, so

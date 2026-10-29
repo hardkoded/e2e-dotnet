@@ -76,6 +76,42 @@ The agent's provider options, keyed by provider, for the model to pass on. Null 
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L31)
 
+<a id="E2E_ModelRequest_Schema_"></a>
+<a id="E2E_ModelRequest_Schema"></a>
+
+### Schema
+
+
+```csharp
+public JsonElement? Schema { get; init; }
+```
+
+
+Upstream's `ModelCall.schema`: a closed response grammar the provider is asked to fill as structured output. When it is
+set, [Tools](#E2E_ModelRequest_Tools) is empty and the model answers with one JSON object that matches it, as [Content](/api/E2E/ModelResponse/#E2E_ModelResponse_Content);
+the agent validates that text itself. Null for a turn that offers tools. A custom [IAgentModel](/api/E2E/IAgentModel/) must handle it.
+
+**Value:** [JsonElement?](https://learn.microsoft.com/dotnet/api/system.text.json.jsonelement)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L44)
+
+<a id="E2E_ModelRequest_SchemaName_"></a>
+<a id="E2E_ModelRequest_SchemaName"></a>
+
+### SchemaName
+
+
+```csharp
+public string? SchemaName { get; init; }
+```
+
+
+Upstream's `ModelCall.schemaName`: the name sent with [Schema](#E2E_ModelRequest_Schema), for the providers that name a structured output.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs#L47)
+
 <a id="E2E_ModelRequest_System_"></a>
 <a id="E2E_ModelRequest_System"></a>
 

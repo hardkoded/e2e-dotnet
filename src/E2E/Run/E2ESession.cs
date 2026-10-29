@@ -223,6 +223,7 @@ public sealed class E2ESession : IAsyncDisposable
             var testFailed = options.TestFailed ?? (static () => false);
             var scope = new AttemptScope
             {
+                ArtifactsDir = attemptDir,
                 Session = engine,
                 Screens = screens,
                 Environment = environment,
@@ -245,6 +246,7 @@ public sealed class E2ESession : IAsyncDisposable
                 TargetName = string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName,
                 Ended = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token),
                 EnginePlatform = options.Engine.Platform,
+                EngineName = options.Engine.Name,
                 EngineVersion = options.Engine.Version,
                 EngineCapabilities = options.Engine.Capabilities,
                 Attempt = options.Attempt,

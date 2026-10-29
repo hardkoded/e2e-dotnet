@@ -13,6 +13,9 @@ namespace E2E.Cache;
 /// query's parameters, with every segment or value that looks minted per record read as one placeholder.
 /// Every other query value is part of the screen. The fragment is dropped, except that an app routing in the
 /// fragment (<c>#/companies/1</c>) routes by that path and its query.
+/// The origin is relative to the app (<see cref="AppLocation"/>): a location on the app's own origin is kept as its path, so a
+/// recording made against one deployment of the app replays on another that shares its <c>app.identity</c>, while a screen on
+/// any other origin keeps its origin and is another route.
 /// </summary>
 internal static partial class CacheRoute
 {
@@ -35,6 +38,22 @@ internal static partial class CacheRoute
         LongValueToken(),
         Timestamp(),
     ];
+
+    /// <summary>
+    /// A location as the cache compares it: a URL on the app's own origin as its path, query, and fragment, so a recording follows
+    /// the app to another deployment of it; anything else (another origin, a device screen title) as it is.
+    /// </summary>
+    public static string AppLocation(string location, string? appOrigin)
+    {
+        if (appOrigin is null || !SchemePrefix().IsMatch(location) || !Uri.TryCreate(location, UriKind.Absolute, out var url))
+        {
+            return location;
+        }
+
+        return url.Scheme is "http" or "https" && string.Equals(url.GetLeftPart(UriPartial.Authority), appOrigin, StringComparison.Ordinal)
+            ? url.PathAndQuery + url.Fragment
+            : location;
+    }
 
     /// <summary>Whether two locations name the same screen: one origin, and segments and query that read alike.</summary>
     public static bool Same(string? recorded, string? live) =>

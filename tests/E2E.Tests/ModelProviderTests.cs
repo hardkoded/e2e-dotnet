@@ -386,6 +386,56 @@ public sealed class ModelProviderTests
     }
 
     [Fact]
+    public async Task Google_model_sends_back_the_signature_of_a_plain_text_part()
+    {
+        var handler = new RecordingHandler(
+            """{ "candidates": [{ "content": { "parts": [{ "text": "done", "thoughtSignature": "c2ln" }] } }] }""",
+            """{ "candidates": [{ "content": { "parts": [{ "text": "ok" }] } }] }""");
+        using var http = new HttpClient(handler);
+        using var model = new GoogleModel(new GoogleModelOptions { Model = "gemini-3-pro", ApiKey = "g" }, http);
+
+        var first = await model.CompleteAsync(Conversation(), CancellationToken.None);
+
+        Assert.Equal("done", first.Content);
+        await model.CompleteAsync(
+            new ModelRequest
+            {
+                System = "rules",
+                Tools = Tools(),
+                Messages =
+                [
+                    new ModelMessage { Role = "user", Content = "go" },
+                    new ModelMessage { Role = "assistant", Content = first.Content, ReasoningItems = first.ReasoningItems },
+                    new ModelMessage { Role = "user", Content = "again" },
+                ],
+            },
+            CancellationToken.None);
+
+        var parts = handler.Requests[1].Json()["contents"]![1]!["parts"]!.AsArray();
+        var part = Assert.Single(parts)!;
+        Assert.Equal("done", part["text"]!.GetValue<string>());
+        Assert.Equal("c2ln", part["thoughtSignature"]!.GetValue<string>());
+        Assert.Null(part["thought"]);
+
+        // Content that changed since the reply is sent as it is now, not as the signed text was.
+        await model.CompleteAsync(
+            new ModelRequest
+            {
+                System = "rules",
+                Tools = Tools(),
+                Messages =
+                [
+                    new ModelMessage { Role = "user", Content = "go" },
+                    new ModelMessage { Role = "assistant", Content = "shrunk", ReasoningItems = first.ReasoningItems },
+                    new ModelMessage { Role = "user", Content = "again" },
+                ],
+            },
+            CancellationToken.None);
+        var shrunk = Assert.Single(handler.Requests[2].Json()["contents"]![1]!["parts"]!.AsArray())!;
+        Assert.Equal("shrunk", shrunk["text"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task Bedrock_model_returns_reasoning_blocks_and_sends_them_back_ahead_of_text_and_tool_calls()
     {
         var handler = new RecordingHandler(

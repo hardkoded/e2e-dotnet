@@ -32,9 +32,11 @@ public sealed class EnsureBrowsersInstalledTests
     {
         // The assertion the install runs on: a headless chromium run launches the
         // shell, so `--only-shell` keeps the full build out of its download. A headed
-        // run launches the full build.
-        Assert.Equal(["--only-shell", "chromium"], WebEngine.InstallArgs(headed: false));
-        Assert.Equal(["chromium"], WebEngine.InstallArgs(headed: true));
+        // run launches the full build, and so does a browser that has no shell.
+        Assert.Equal(["--only-shell", "chromium"], WebEngine.InstallArgs([BrowserName.Chromium], headed: false));
+        Assert.Equal(["chromium"], WebEngine.InstallArgs([BrowserName.Chromium], headed: true));
+        Assert.Equal(["firefox"], WebEngine.InstallArgs([BrowserName.Firefox], headed: false));
+        Assert.Equal(["--only-shell", "chromium", "firefox"], WebEngine.InstallArgs([BrowserName.Chromium, BrowserName.Firefox], headed: false));
     }
 
     [Fact]
