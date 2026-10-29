@@ -3,3 +3,6 @@ apps/.vscode/
 src712.diff
 docs/_site/
 docs/api/
+.entire/metadata/
+.entire/tmp/
+.claude/
