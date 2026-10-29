@@ -36,7 +36,7 @@ public sealed class PlaywrightProtocolTests
     private static async Task<string?> HeadingAsync(IEngineSession session) =>
         WebSemanticsTests.Flatten((await session.ObserveAsync(None)).Roots).First(node => node.Role == "heading").Name;
 
-    /// <summary>Returns once a read of the session fails, which is when its browser connection has seen the grid go.</summary>
+    /// <summary>Returns once a read of the session fails with an engine failure, which is when its browser connection has seen the grid go.</summary>
     private static async Task WaitUntilDroppedAsync(IEngineSession session)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -46,11 +46,16 @@ public sealed class PlaywrightProtocolTests
             {
                 await session.ObserveAsync(timeout.Token);
             }
-            catch (Exception) when (!timeout.IsCancellationRequested)
+            catch (EngineException ex) when (ex.Code == EngineErrorCodes.EngineFailure && !timeout.IsCancellationRequested)
             {
+                // A closed connection reaches the caller as an ENGINE_FAILURE; a read that ran out of time (OPERATION_TIMEOUT) is not a drop.
                 return;
             }
-            catch (Exception)
+            catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
+            {
+                // Keep polling: the helper's own deadline bounds the wait.
+            }
+            catch (OperationCanceledException) when (timeout.IsCancellationRequested)
             {
                 break;
             }
