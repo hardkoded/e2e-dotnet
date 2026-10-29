@@ -36,6 +36,7 @@ internal sealed class Redactor
     private static readonly Regex EncodedRun = new(@"[A-Za-z0-9+/_-]{8,}={0,2}", RegexOptions.CultureInvariant, MatchTimeout);
 
     private readonly Regex? _pattern;
+    private readonly Lazy<Regex>? _fragmentPattern;
     private readonly Regex? _known;
     private readonly string[] _markers = [];
     private readonly Dictionary<string, int> _fragments = new(StringComparer.Ordinal);
@@ -64,6 +65,9 @@ internal sealed class Redactor
         _maxMarkerLength = _markers.Max(marker => marker.Length);
         _spansLines = entries.Any(entry => entry.Value.Contains('\n') || Regex.IsMatch(entry.Value.Trim(), @"\s", RegexOptions.None, MatchTimeout));
         _pattern = new Regex(source, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, MatchTimeout);
+        _fragmentPattern = new(() => new Regex(
+            string.Join('|', entries.Select(entry => "(" + ValuePattern(entry.Value, unicodeEscapes: true).Source + ")")),
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, MatchTimeout));
         _leadingForms = new string[entries.Count][];
         for (var index = 0; index < entries.Count; index++)
         {
@@ -78,6 +82,9 @@ internal sealed class Redactor
             _leadingForms[index] = trimmable && key.TrimStart() != key ? [key, key.TrimStart()] : [key];
         }
     }
+
+    /// <summary>Whether no value is registered (upstream's <c>SecretLedger.isEmpty</c>): every text passes through as it is.</summary>
+    public bool IsEmpty => _pattern is null;
 
     /// <summary>A redactor with no values, which leaves every text as it is.</summary>
     public static Redactor None { get; } = new([]);
@@ -258,7 +265,8 @@ internal sealed class Redactor
     /// <see cref="Redact"/> that also rewrites every run of at least
     /// <see cref="FragmentLength"/> consecutive characters of a value, in any
     /// case and with its whitespace runs collapsed, and every base64 run that
-    /// decodes to text holding a value or a fragment. For raw engine text, such
+    /// decodes to text holding a value or a fragment. Whole values also match
+    /// JSON Unicode escapes of ASCII letters and digits. For raw engine text, such
     /// as an error that quotes a value cut short.
     /// </summary>
     public string RedactFragments(string text)
@@ -268,11 +276,15 @@ internal sealed class Redactor
 
     private string RedactPlainFragments(string text)
     {
-        var redacted = Redact(text);
+        // Fragment scans also cover ASCII letters and digits explicitly escaped by a JSON producer.
+        // Keep the stream redactor's ordinary pattern and buffering contract unchanged.
+        var redacted = text.Contains("\\u", StringComparison.OrdinalIgnoreCase)
+            ? MapPieces(text, piece => Rewrite(piece, _fragmentPattern!.Value))
+            : Redact(text);
         return _fragments.Count == 0 ? redacted : MapPieces(redacted, RewriteFragments);
     }
 
-    private static Pattern ValuePattern(string value)
+    private static Pattern ValuePattern(string value, bool unicodeEscapes = false)
     {
         var trimmable = new StringInfo(value.Trim()).LengthInTextElements >= Secret.MinLength;
         var pieces = Regex.Split(value, @"(\s+)", RegexOptions.None, MatchTimeout);
@@ -284,7 +296,7 @@ internal sealed class Redactor
                 return WhitespaceRun(piece);
             }
 
-            var written = Concat(piece.EnumerateRunes().Select(rune => Character(rune.ToString())));
+            var written = Concat(piece.EnumerateRunes().Select(rune => Character(rune.ToString(), unicodeEscapes)));
             return run && trimmable ? new Pattern("(?:" + written.Source + ")?", written.MaxLength) : written;
         }));
     }
@@ -299,13 +311,13 @@ internal sealed class Redactor
         return new Pattern(one.Source + "{1," + run.Length.ToString(CultureInfo.InvariantCulture) + "}", one.MaxLength * run.Length);
     }
 
-    private static Pattern Character(string ch)
+    private static Pattern Character(string ch, bool unicodeEscapes)
     {
         var forms = CaseForms(ch);
-        var single = forms.Where(form => form.EnumerateRunes().Count() == 1).SelectMany(Spellings);
+        var single = forms.Where(form => form.EnumerateRunes().Count() == 1).SelectMany(form => Spellings(form, unicodeEscapes));
         var expanded = forms
             .Where(form => form.EnumerateRunes().Count() > 1)
-            .Select(form => Concat(form.EnumerateRunes().Select(part => Alternation(Distinct(Spellings(part.ToString())).Select(Exact)))));
+            .Select(form => Concat(form.EnumerateRunes().Select(part => Alternation(Distinct(Spellings(part.ToString(), unicodeEscapes)).Select(Exact)))));
         return Alternation(Distinct(single).Select(Exact).Concat(expanded));
     }
 
@@ -371,11 +383,13 @@ internal sealed class Redactor
     /// escapes it (once and inside another JSON string), as an HTML character
     /// reference, and percent-encoded. ASCII letters and digits have one.
     /// </summary>
-    private static List<string> Spellings(string ch)
+    private static List<string> Spellings(string ch) => Spellings(ch, unicodeEscapes: false);
+
+    private static List<string> Spellings(string ch, bool unicodeEscapes)
     {
         if (ch.Length == 1 && char.IsAsciiLetterOrDigit(ch[0]))
         {
-            return [ch];
+            return unicodeEscapes ? [ch, UnicodeEscape(ch), JsonEscape(UnicodeEscape(ch))] : [ch];
         }
 
         var inJson = new List<string> { JsonEscape(ch), UnicodeEscape(ch) };
@@ -519,7 +533,12 @@ internal sealed class Redactor
 
     private string Rewrite(string text)
     {
-        return _pattern!.Replace(text, match =>
+        return Rewrite(text, _pattern!);
+    }
+
+    private string Rewrite(string text, Regex pattern)
+    {
+        return pattern.Replace(text, match =>
         {
             for (var group = 1; group < match.Groups.Count && group <= _markers.Length; group++)
             {
