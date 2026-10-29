@@ -542,25 +542,35 @@ public sealed partial class WebEngine : IEngine
             return;
         }
 
-        var install = BrowserInstalls.GetOrAdd((name, headed), key => new Lazy<Task<int>>(() => Task.Run(() => RunBrowserInstall(key.Name, key.Headed, Microsoft.Playwright.Program.Main))));
-        int exitCode;
-        try
-        {
-            exitCode = await install.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception) when (!cancellationToken.IsCancellationRequested)
-        {
-            // A failed install is not cached, so a later session retries it.
-            BrowserInstalls.TryRemove(new KeyValuePair<(BrowserName, bool), Lazy<Task<int>>>((name, headed), install));
-            throw;
-        }
-
+        var install = BrowserInstalls.GetOrAdd((name, headed), key => new Lazy<Task<int>>(() => InstallBrowserAsync(key)));
+        var exitCode = await install.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
         if (exitCode != 0)
         {
-            BrowserInstalls.TryRemove(new KeyValuePair<(BrowserName, bool), Lazy<Task<int>>>((name, headed), install));
             throw new EngineException(
                 "ENVIRONMENT_UNAVAILABLE",
                 "Playwright could not install " + BrowserConnection.NameOf(name) + " (exit code " + exitCode.ToString(System.Globalization.CultureInfo.InvariantCulture) + "). Install it yourself and set " + SkipInstallVariable + "=1 to skip this step.");
+        }
+    }
+
+    /// <summary>
+    /// Runs the install behind <see cref="BrowserInstalls"/>. A failed install removes its own entry here, not in a waiter, so it
+    /// is not cached even when every waiter was cancelled before it finished: a later session retries it.
+    /// </summary>
+    private static async Task<int> InstallBrowserAsync((BrowserName Name, bool Headed) key)
+    {
+        var failed = true;
+        try
+        {
+            var exitCode = await Task.Run(() => RunBrowserInstall(key.Name, key.Headed, Microsoft.Playwright.Program.Main)).ConfigureAwait(false);
+            failed = exitCode != 0;
+            return exitCode;
+        }
+        finally
+        {
+            if (failed)
+            {
+                BrowserInstalls.TryRemove(key, out _);
+            }
         }
     }
 
