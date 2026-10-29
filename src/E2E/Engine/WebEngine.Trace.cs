@@ -49,7 +49,7 @@ public sealed partial class WebEngine
             var page = OpenPage() ?? throw new EngineException(EngineErrorCodes.InvalidState, "no app page is open");
             var walk = new FrameWalk { Publish = false };
             var roots = await CollectAsync(page.MainFrame, walk, budget).ConfigureAwait(false);
-            return new Observation { Route = Routes.LocationOf(page.Url), Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll };
+            return new Observation { Route = Routes.LocationOf(page.Url), Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll, Viewport = walk.Viewport };
         }
 
         /// <summary>Runs one navigation the engine itself makes, so the app log leaves it to the step that asked for it. Tells the trace what the attempt runs on once it is done.</summary>

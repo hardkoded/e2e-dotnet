@@ -35,6 +35,9 @@ internal static class StepCacheHarness
 
     public static StepHost MakeHost(string[] paths, params SemanticNode[][] screens) => new(paths, screens);
 
+    /// <summary>A host on <paramref name="time"/>, which a test fakes as upstream fakes its timers.</summary>
+    public static StepHost MakeHost(TimeProvider time, string[] paths, params SemanticNode[][] screens) => new(paths, screens, time);
+
     public static StepTraceSession MakeSession(CacheContext context, StepHost host, IReadOnlyDictionary<string, object?>? parameters = null, CacheEntry? step = null, int? stepIndex = null, string? appOrigin = null)
     {
         return new StepTraceSession(
@@ -64,13 +67,15 @@ internal static class StepCacheHarness
         string? endPath = null,
         RecordedTarget[]? endAnchors = null,
         RecordedTarget[]? goneAnchors = null,
-        RecordedAction[]? actions = null)
+        RecordedAction[]? actions = null,
+        int? endWaitMs = null)
     {
         var entry = new CacheEntry
         {
             Schema = FileStepCache.SchemaVersion,
             Route = startPath,
             EndRoute = endPath,
+            EndWaitMs = endWaitMs,
             Actions = [.. actions ?? [Navigate("/customers")]],
             Appeared = [.. endAnchors ?? []],
             Gone = [.. goneAnchors ?? []],
@@ -155,14 +160,19 @@ internal sealed class StepHost : IStepCacheHost
     private string _path = "/";
     private SemanticNode[] _nodes = [];
 
-    public StepHost(string[] paths, SemanticNode[][] screens)
+    public StepHost(string[] paths, SemanticNode[][] screens, TimeProvider? time = null)
     {
         _paths = new Queue<string>(paths);
         _screens = new Queue<SemanticNode[]>(screens);
-        Actions = new Grammar();
+        Time = time ?? TimeProvider.System;
+        Recorder = new(() => Redactor.None, Time);
+        Actions = new Grammar(this);
     }
 
-    public E2E.Cache.TraceRecorder Recorder { get; } = new(() => Redactor.None);
+    public E2E.Cache.TraceRecorder Recorder { get; }
+
+    /// <summary>Runs for each navigate the replay performs; a throw is the action's failure.</summary>
+    public Action<string>? OnNavigate { get; set; }
 
     /// <summary>How far each look asked to settle, in order.</summary>
     public List<SettleMode> Looks { get; } = [];
@@ -178,6 +188,13 @@ internal sealed class StepHost : IStepCacheHost
 
     /// <summary>Short enough that a missing anchor is not waited for: the end check takes one look.</summary>
     public TimeSpan ReplayTimeout { get; set; } = TimeSpan.Zero;
+
+    /// <summary>What is left of the step's clock. Zero leaves no room to wait for a recording's end wait.</summary>
+    public int Remaining { get; set; }
+
+    public int RemainingMs() => Remaining;
+
+    public TimeProvider Time { get; }
 
     public Observation? Latest { get; private set; }
 
@@ -214,7 +231,7 @@ internal sealed class StepHost : IStepCacheHost
         return Task.CompletedTask;
     }
 
-    private sealed class Grammar : IExecutorActions
+    private sealed class Grammar(StepHost host) : IExecutorActions
     {
         public Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
@@ -238,7 +255,11 @@ internal sealed class StepHost : IStepCacheHost
 
         public Task ScrollAsync(ExecutorTarget? list, ScrollDirection direction, int times = 1, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
-        public Task NavigateAsync(string url, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task NavigateAsync(string url, CancellationToken cancellationToken = default)
+        {
+            host.OnNavigate?.Invoke(url);
+            return Task.CompletedTask;
+        }
 
         public Task BackAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }

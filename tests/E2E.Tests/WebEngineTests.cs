@@ -143,6 +143,22 @@ public sealed class WebEngineTests
         }
     }
 
+    /// <summary>.NET-only: the web engine reports the viewport a capture was taken in, which a recorded scroll measures its list against.</summary>
+    [Fact]
+    public async Task Chromium_observation_reports_the_viewport_it_was_taken_in()
+    {
+        using var site = await TinySite.StartAsync(BillingPage);
+        var session = await new WebEngine(headless: true).StartAsync(new EngineStartOptions { BaseUrl = site.Url }, CancellationToken.None);
+
+        await using (session)
+        {
+            await session.OpenAsync(site.Url, CancellationToken.None);
+            var observation = await session.ObserveAsync(CancellationToken.None);
+
+            Assert.Equal(new TraceViewport(WebViewport.Default.Width, WebViewport.Default.Height), observation.Viewport);
+        }
+    }
+
     private static IEnumerable<SemanticNode> Flatten(IEnumerable<SemanticNode> nodes)
     {
         foreach (var node in nodes)

@@ -28,6 +28,9 @@ internal static class Trace
     /// <summary>Upstream's <c>TRACE_SCHEMA_VERSION</c>.</summary>
     public const string TraceSchemaVersion = "trace-1";
 
+    /// <summary>Upstream's <c>MAX_TRACE_END_WAIT_MS</c>: the longest end wait a recording may ask a replay for.</summary>
+    public const int MaxTraceEndWaitMs = 120_000;
+
     /// <summary>Upstream's <c>KEY_CONTEXT_FIELDS</c>, in upstream's order, each with the value it holds.</summary>
     public static readonly IReadOnlyList<(string Field, Func<TraceKeyContext, object> Get)> KeyContextFields =
     [

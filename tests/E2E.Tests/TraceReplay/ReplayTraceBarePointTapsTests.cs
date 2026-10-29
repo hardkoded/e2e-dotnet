@@ -17,17 +17,15 @@ namespace E2E.Tests.TraceReplay;
 /// them", "ignores a hidden look-alike that keeps its box, as the hit test that recorded the point did", "taps the recorded
 /// point when several nested look-alikes hold it, as a host view and the view inside it do", "hands off when the look-alikes
 /// holding the point merely overlap instead of nesting, since the one on top may have changed", and "hands off among
-/// look-alikes when the point settles nothing or the viewport changed". The port records no share of the viewport a scroll
-/// covered, so "scrolls the viewport when a list that filled the screen cannot be re-found" is not ported either.
+/// look-alikes when the point settles nothing or the viewport changed".
 /// </summary>
 public sealed class ReplayTraceBarePointTapsTests
 {
-    /// <summary>Partial: the port records no share of the viewport a list covered, so a lost list that filled the screen hands off like a small one.</summary>
     [Fact]
-    public async Task Partial_pages_to_a_text_on_the_viewport_on_the_re_found_list_on_the_viewport_for_a_lost_list_that_filled_the_screen_and_hands_off_for_a_lost_small_one()
+    public async Task Pages_to_a_text_on_the_viewport_on_the_re_found_list_on_the_viewport_for_a_lost_list_that_filled_the_screen_and_hands_off_for_a_lost_small_one()
     {
         var calls = new List<object?>();
-        var list = new SemanticNode { Ref = "l", Role = "list", Name = "Ledger" };
+        var list = new SemanticNode { Ref = "l", Role = "list", Name = "Ledger", Rect = new BoundingBox(0, 0, 1280, 200) };
         var host = MakeHost([list], (name, detail) =>
         {
             if (name == "scrollUntil")
@@ -39,15 +37,18 @@ public sealed class ReplayTraceBarePointTapsTests
         var viewport = await Replay.ReplayTrace(host, [new RecordedAction { Kind = "scrollUntil", Text = "Row 333", Direction = "down" }]);
         Assert.True(viewport.Completed);
         Assert.Equal(1, viewport.Executed);
-        var onList = await Replay.ReplayTrace(host, [new RecordedAction { Kind = "scrollUntil", Text = "Row 333", Direction = "down", Role = "list", Name = "Ledger" }]);
+        var onList = await Replay.ReplayTrace(host, [new RecordedAction { Kind = "scrollUntil", Text = "Row 333", Direction = "down", Role = "list", Name = "Ledger", Spans = 0.3 }]);
         Assert.True(onList.Completed);
         Assert.Equal(1, onList.Executed);
         Assert.Equal(new object?[] { ("Row 333", ScrollDirection.Down, (string?)null), ("Row 333", ScrollDirection.Down, "l") }, calls);
 
-        var lost = await Replay.ReplayTrace(MakeHost([]), [new RecordedAction { Kind = "scrollUntil", Text = "Row 333", Direction = "down", Role = "list", Name = "Ledger" }]);
-        Assert.False(lost.Completed);
-        Assert.Equal(0, lost.Executed);
-        Assert.Equal(ReplayHandOffReason.TargetNotFound, lost.StopReason);
+        var lostFull = await Replay.ReplayTrace(MakeHost([]), [new RecordedAction { Kind = "scrollUntil", Text = "Row 333", Direction = "down", Role = "list", Name = "Ledger", Spans = 0.9 }]);
+        Assert.True(lostFull.Completed);
+        Assert.Equal(1, lostFull.Executed);
+        var lostSmall = await Replay.ReplayTrace(MakeHost([]), [new RecordedAction { Kind = "scrollUntil", Text = "Row 333", Direction = "down", Role = "list", Name = "Ledger", Spans = 0.3 }]);
+        Assert.False(lostSmall.Completed);
+        Assert.Equal(0, lostSmall.Executed);
+        Assert.Equal(ReplayHandOffReason.TargetNotFound, lostSmall.StopReason);
     }
 
     [Fact]
@@ -65,6 +66,57 @@ public sealed class ReplayTraceBarePointTapsTests
     }
 
     [Fact]
+    public async Task Scrolls_the_viewport_when_a_list_that_filled_the_screen_cannot_be_re_found()
+    {
+        var targets = new List<object?>();
+        var host = MakeHost([Email], (name, detail) =>
+        {
+            if (name == "scroll")
+            {
+                targets.Add(detail);
+            }
+        });
+        var scroll = Scroll("group", "Rows 1 to 12", "down", 2);
+        scroll.Spans = 0.92;
+
+        var outcome = await Replay.ReplayTrace(host, [scroll]);
+
+        Assert.True(outcome.Completed);
+        Assert.Equal(1, outcome.Executed);
+        Assert.Equal(new object?[] { (ScrollDirection.Down, (string?)null), (ScrollDirection.Down, (string?)null) }, targets);
+    }
+
+    /// <summary>
+    /// Partial: the port relocates on its own cadence (a look every 20 ms until the replay timeout) where upstream backs off over 14 s,
+    /// so the looks and the time of the one wait are the port's.
+    /// </summary>
+    [Fact]
+    public async Task Partial_waits_for_a_lost_list_that_filled_the_screen_once_per_folded_scroll_not_once_per_repeat()
+    {
+        var targets = new List<object?>();
+        var host = MakeHost([Email], (name, detail) =>
+        {
+            if (name == "scroll")
+            {
+                targets.Add(detail);
+            }
+        });
+        host.Time = new AutoAdvanceClock();
+        var started = host.Time.GetUtcNow();
+        var scroll = Scroll("group", "Rows 1 to 12", "down", 4);
+        scroll.Spans = 0.92;
+
+        var outcome = await Replay.ReplayTrace(host, [scroll]);
+
+        Assert.True(outcome.Completed);
+        Assert.Equal(1, outcome.Executed);
+        Assert.Equal(Enumerable.Repeat<object?>((ScrollDirection.Down, (string?)null), 4), targets);
+        // One relocation wait (the first look and a raw one each 20 ms until the replay timeout), then one settled look before each later repeat.
+        Assert.Equal(host.ReplayTimeout, host.Time.GetUtcNow() - started);
+        Assert.Equal([SettleMode.HeldStill, .. Enumerable.Repeat(SettleMode.Raw, 5), .. Enumerable.Repeat(SettleMode.HeldStill, 3)], host.Looks);
+    }
+
+    [Fact]
     public async Task Counts_the_repeats_of_a_folded_scroll_that_ran_before_a_later_one_lost_the_list()
     {
         var list = new SemanticNode { Ref = "g1", Role = "group", Name = "Rows 1 to 12" };
@@ -76,6 +128,7 @@ public sealed class ReplayTraceBarePointTapsTests
             return Screen(host.Calls.Contains("scroll") ? new[] { Email } : new[] { list, Email });
         };
         var scroll = Scroll("group", "Rows 1 to 12", "down", 3);
+        scroll.Spans = 0.3;
 
         var outcome = await Replay.ReplayTrace(host, [scroll]);
 
@@ -91,11 +144,18 @@ public sealed class ReplayTraceBarePointTapsTests
     {
         var host = MakeHost([Email]);
 
-        var outcome = await Replay.ReplayTrace(host, [Scroll("group", "Recommended", "right", null)]);
+        var carousel = Scroll("group", "Recommended", "right", null);
+        carousel.Spans = 0.18;
+
+        var outcome = await Replay.ReplayTrace(host, [carousel]);
 
         Assert.False(outcome.Completed);
         Assert.Equal(0, outcome.Executed);
         Assert.Equal(ReplayHandOffReason.TargetNotFound, outcome.StopReason);
         Assert.Empty(host.Calls);
+        var unknown = await Replay.ReplayTrace(MakeHost([Email]), [Scroll("group", "Recommended", "right", null)]);
+        Assert.False(unknown.Completed);
+        Assert.Equal(0, unknown.Executed);
+        Assert.Equal(ReplayHandOffReason.TargetNotFound, unknown.StopReason);
     }
 }

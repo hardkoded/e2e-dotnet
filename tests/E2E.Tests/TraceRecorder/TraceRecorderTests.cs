@@ -12,11 +12,11 @@ using Recorder = E2E.Cache.TraceRecorder;
 namespace E2E.Tests.TraceRecorder;
 
 /// <summary>
-/// The port's recorder keeps a plain action list: no summaries, CSS selectors, positions, scroll spans, truncation
+/// The port's recorder keeps a plain action list: no summaries, CSS selectors, positions, truncation
 /// flag, action cap, secret names, or entry validation, and no hover, long-press, secondary-tap, drag, upload, or point verbs. So
 /// these upstream its are not ported: "poisons a trace whose target is an unnamed twin no named row tells apart, and keeps one that a row does",
 /// "masks a secret resolved after capture in the container the node sat within", "poisons the trace instead of bending a replay
-/// input", "keeps the smallest coverage when folding scrolls, and none when a repeat lacks one", "truncates past the action cap
+/// input", "truncates past the action cap
 /// instead of dropping the flag", "rejects a stored check, upload, or drag that lost a field", and every it of "TraceRecorder:
 /// bare-point taps". The recorded model is one string, the model's <see cref="IAgentModel.Name"/>, where upstream's is a provider
 /// and a model: its two oversized cases and its blank cases are one theory each. Parts of ported its that need one of those features are named on each test.
@@ -155,6 +155,33 @@ public sealed class TraceRecorderTests
         Assert.Equal([("down", (int?)5), ("up", null)], entry.Actions.Select(action => (action.Direction, action.Times)));
         var read = RoundTrip(entry);
         Assert.Equal(("scroll", "down", (int?)5), (read.Actions[0].Kind, read.Actions[0].Direction, read.Actions[0].Times));
+    }
+
+    /// <summary>
+    /// Partial: the port keeps no summary, so the paged <c>scrollUntil</c>'s summary is not checked.
+    /// </summary>
+    [Fact]
+    public void Partial_keeps_the_smallest_coverage_when_folding_scrolls_and_none_when_a_repeat_lacks_one()
+    {
+        var recorder = MakeRecorder();
+        recorder.RecordScroll(new RecordedAction { Kind = "scroll", Direction = "down", Role = "group", Name = "Rows", Spans = 0.6 });
+        recorder.RecordScroll(new RecordedAction { Kind = "scroll", Direction = "down", Role = "group", Name = "Rows", Spans = 0.4 });
+        var folded = Finalize(recorder)!.Actions[0];
+        Assert.Equal(("scroll", 2, 0.4), (folded.Kind, folded.Times, folded.Spans));
+
+        var paged = MakeRecorder();
+        paged.Record(new RecordedAction { Kind = "scrollUntil", Text = "Row 4322", Direction = "down", Role = "group", Name = "Rows", Spans = 0.6 });
+        paged.Record(new RecordedAction { Kind = "scrollUntil", Text = "Row 12", Direction = "up" });
+        var entry = Finalize(paged)!;
+        Assert.Equal([("Row 4322", "down", (double?)0.6, "group"), ("Row 12", "up", null, null)], entry.Actions.Select(action => (action.Text, action.Direction, action.Spans, action.Role)));
+        Assert.Equal(entry.Actions.Select(action => action.Spans), RoundTrip(entry).Actions.Select(action => action.Spans));
+
+        var mixed = MakeRecorder();
+        mixed.RecordScroll(new RecordedAction { Kind = "scroll", Direction = "down", Role = "group", Name = "Rows", Spans = 0.6 });
+        mixed.RecordScroll(new RecordedAction { Kind = "scroll", Direction = "down", Role = "group", Name = "Rows" });
+        var unfolded = Finalize(mixed)!.Actions[0];
+        Assert.Equal(2, unfolded.Times);
+        Assert.Null(unfolded.Spans);
     }
 
     /// <summary>Partial port of "marks a gap that ends replay for a mutating project tool": the port's gap is an action of kind <c>tool</c> whose text is the tool name, and it has no summary.</summary>

@@ -67,6 +67,19 @@ public sealed class CacheEntry
     /// <summary>Nodes on screen when the step began and gone when it passed.</summary>
     public List<RecordedTarget> Gone { get; set; } = [];
 
+    /// <summary>
+    /// Upstream's <c>endWaitMs</c>: how long the recorded run took from its last action to its passing verdict, plus a margin. A replay
+    /// waits up to this long for the recorded end state to show: the recorded run waited for its effect too (a report that takes half a
+    /// minute), and the click alone proves nothing. Null on an entry recorded before it was stored.
+    /// </summary>
+    public int? EndWaitMs { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="EndWaitMs"/> is well formed: absent, or between zero and <see cref="Trace.MaxTraceEndWaitMs"/>. Upstream's
+    /// <c>readTrace</c>, which makes a malformed entry a miss.
+    /// </summary>
+    internal bool HasValidEndWait() => EndWaitMs is null or >= 0 and <= Trace.MaxTraceEndWaitMs;
+
     private const int MaxRecordedByChars = 300;
 
     /// <summary>
@@ -130,6 +143,16 @@ public sealed class RecordedAction
 
     /// <summary>The text a <c>scrollUntil</c> paged toward.</summary>
     public string? Text { get; set; }
+
+    /// <summary>
+    /// Upstream's <c>spans</c>: the share of the viewport the scrolled list covered when recorded, 0 to 1. A list that filled the screen
+    /// (<see cref="CacheKeys.MainListShare"/>) scrolls as the viewport does when a replay cannot re-find it; a smaller region never does.
+    /// Null for a scroll with no list, and for a list on an engine that does not measure the viewport.
+    /// </summary>
+    public double? Spans { get; set; }
+
+    /// <summary>Whether <see cref="Spans"/> is well formed: absent, or between zero and one on a <c>scroll</c> or <c>scrollUntil</c>. Upstream's <c>readAction</c>.</summary>
+    internal bool HasValidSpans() => Spans is null || (Kind is "scroll" or "scrollUntil" && Spans is >= 0 and <= 1);
 
     /// <summary>Keys a <c>tap</c> or <c>doubleTap</c> held for the click, replayed with it. Null holds none.</summary>
     public List<string>? Modifiers { get; set; }
@@ -382,6 +405,13 @@ internal static class CacheKeys
     /// rules change, so old entries become misses instead of wrong replays.
     /// </summary>
     public const string ReplayPolicyVersion = "4";
+
+    /// <summary>
+    /// Upstream's <c>MAIN_LIST_SHARE</c> (<c>cache/relocate.ts</c>): the share of the viewport a scrolled node must have covered when
+    /// it was addressed to scroll as the viewport does once it cannot be re-found. Scrolling the main list and scrolling the screen
+    /// are the same gesture, while a smaller region that vanished is gone.
+    /// </summary>
+    public const double MainListShare = 0.5;
 
     private static readonly JsonSerializerOptions KeyJson = Json(new LeafConverter<Secret>(Canonical), new LeafConverter<UniqueValue>(Canonical));
 
