@@ -222,7 +222,10 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
   mean (`"the order summary total is $42.00"`) when only it matters.
 - `WaitForAsync` judges at once, then every `Interval` (default 3 s) only
   when the screen changed, and is `STEP_TIMEOUT` after `Timeout` (default the
-  agent's `judgmentTimeout`, 30 s).
+  agent's `judgmentTimeout`, 30 s). A screen capture that outlives `Timeout`
+  is `STEP_TIMEOUT` with `agent.waitFor exceeded its N ms timeout`; once a
+  judgment has been made, the timeout reads `waitFor timed out; last
+  judgment: ...`.
 - `ExtractAsync<T>`: the type is the schema. The model sees the JSON schema
   of `T`, and the answer must deserialize into `T`. Data the screen does not
   show is `ASSERTION_INCONCLUSIVE`; to accept absence, make the member

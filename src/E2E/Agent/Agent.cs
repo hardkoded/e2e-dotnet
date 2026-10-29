@@ -88,6 +88,12 @@ public sealed partial class Agent
         return _scope.Track(StepAsync("agent.assert", statement, agent, verifies: true, () => JudgeAsync(statement, ResolveTimeout(options?.Timeout, agent.JudgmentTimeout), agent, vision, options?.Screenshot, cancellationToken)));
     }
 
+    /// <summary>
+    /// Waits until the statement holds on screen. It judges at once, then again after each <see cref="WaitForOptions.Interval"/> once the
+    /// screen has changed. A capture that outlives <see cref="WaitForOptions.Timeout"/> fails <c>STEP_TIMEOUT</c>
+    /// (<c>agent.waitFor exceeded its N ms timeout</c>); once a judgment has been made, the timeout reads
+    /// <c>waitFor timed out; last judgment: ...</c> and carries that failure as its cause.
+    /// </summary>
     public Task WaitForAsync(string statement, WaitForOptions? options = null, CancellationToken cancellationToken = default) =>
         _scope.Track(WaitForStepAsync(statement, options, cancellationToken));
 
@@ -106,24 +112,33 @@ public sealed partial class Agent
         var timeout = ResolveTimeout(options?.Timeout, agent.JudgmentTimeout);
         var maxCalls = Budget(options?.MaxModelCalls, agent.MaxModelCalls, "MaxModelCalls");
         var vision = ResolveVision(options?.Vision ?? VisionMode.Off);
+        var deadline = DateTime.UtcNow + timeout;
         using var linked = Link(cancellationToken, timeout);
         var token = linked.Token;
-        var deadline = DateTime.UtcNow + timeout;
         var callsBefore = _scope.ModelCalls;
         var last = "the statement did not hold";
 
-        // An observation can outlive the deadline that bounded it, and the engine failure it then reports describes
-        // a truncated budget, not a broken app. The wait owns the timeout message, with the last judgment.
-        async Task<Look> ObserveAsync()
+        // The capture is guarded by the step clock (upstream's invocation.checkDeadline), so a capture that outlives the deadline
+        // reports the step's own STEP_TIMEOUT. Between judgments the wait owns that message, with the last judgment (upstream's
+        // waitForNextJudgment); the first capture, before any judgment, keeps the bare timeout.
+        // It reads the wait's own deadline, so the guard and the wait never disagree about when the clock ran out.
+        var stepClock = new Deadline(new DateTimeOffset(deadline));
+        void guard(Exception? cause) =>
+            Phases.CheckStepClock(cancellationToken.IsCancellationRequested ? cancellationToken : _scope.Token(), stepClock, "agent.waitFor", (long)timeout.TotalMilliseconds, cause);
+
+        Task<Look> ObserveAsync()
+        {
+            guard(null);
+            return LookAsync("agent.waitFor", vision, agent, JudgeSystemFor(agent), statement, token, guard);
+        }
+
+        async Task<Look> ObserveBetweenAsync()
         {
             try
             {
-                return await LookAsync("agent.waitFor", vision, agent, JudgeSystemFor(agent), statement, token, _ => { }).ConfigureAwait(false);
+                return await ObserveAsync().ConfigureAwait(false);
             }
-            catch (Exception ex) when (ex is not AgentException
-                && (linked.IsCancellationRequested || DateTime.UtcNow >= deadline)
-                && !cancellationToken.IsCancellationRequested
-                && !_scope.Token().IsCancellationRequested)
+            catch (AgentException ex) when (ex.Code == "STEP_TIMEOUT")
             {
                 throw new AgentException("STEP_TIMEOUT", "waitFor timed out; last judgment: " + last, ex);
             }
@@ -167,7 +182,7 @@ public sealed partial class Agent
                         await Task.Delay(wait < remaining ? wait : remaining, token).ConfigureAwait(false);
                     }
 
-                    look = await ObserveAsync().ConfigureAwait(false);
+                    look = await ObserveBetweenAsync().ConfigureAwait(false);
                     if (DateTime.UtcNow - judgedAt >= interval && !string.Equals(look.Shape, judged.Shape, StringComparison.Ordinal))
                     {
                         break;
