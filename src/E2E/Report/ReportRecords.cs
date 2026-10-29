@@ -107,7 +107,8 @@ internal sealed record ReportError(string Code, string Message, string? Phase = 
 /// <param name="StartedAt">When a recording began; steps read their offset into it.</param>
 /// <param name="Size">The size of the file in bytes, when known; the run's <c>usage.artifactBytes</c> adds them up.</param>
 /// <param name="Redaction">What the runner claims for the file when it rewrote it (a text-like download); null leaves the kind to decide.</param>
-internal sealed record ReportArtifact(string Id, string Kind, string? Path = null, string? Url = null, DateTimeOffset? StartedAt = null, long? Size = null, ArtifactRedaction? Redaction = null);
+/// <param name="Ref">The reference the host's <c>IArtifactStore</c> returned for the artifact; null when there is none.</param>
+internal sealed record ReportArtifact(string Id, string Kind, string? Path = null, string? Url = null, DateTimeOffset? StartedAt = null, long? Size = null, ArtifactRedaction? Redaction = null, string? Ref = null);
 
 /// <summary>What was seen when a failure landed (upstream's <c>FailureEvidence</c>).</summary>
 internal sealed partial record FailureEvidence

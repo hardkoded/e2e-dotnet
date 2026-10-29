@@ -224,6 +224,7 @@ public sealed class E2ESession : IAsyncDisposable
             var scope = new AttemptScope
             {
                 ArtifactsDir = attemptDir,
+                ArtifactStore = options.ArtifactStore,
                 Session = engine,
                 Screens = screens,
                 Environment = environment,
@@ -426,7 +427,7 @@ public sealed class E2ESession : IAsyncDisposable
             {
                 try
                 {
-                    await _video.StopAsync(_status, _scope.CleanupTimeout).ConfigureAwait(false);
+                    await _video.StopAsync(_status, _scope.CleanupTimeout, _scope.Artifacts?.Sink).ConfigureAwait(false);
                 }
 #pragma warning disable CA1031 // The engine is released first, then this is rethrown.
                 catch (Exception ex)
@@ -634,8 +635,11 @@ public sealed class E2ESession : IAsyncDisposable
         var kept = trace.Keep is { } keep && RecordingModes.Keeps(keep, _status);
         try
         {
+            // The artifacts' sizes and digests, and the hand-offs to the store, finish before the record is read.
+            await SettleArtifactsAsync().ConfigureAwait(false);
+
             // Every attempt joins its test's report, and the run's report.json tells them all.
-            var (single, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Videos, Exploration, _evidence);
+            var (single, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Exploration, _evidence);
             var (report, traced, redact) = RunReport.Add(single, trace.ResultsRoot, _scope.Attempt, kept, _scope.Redactor.Redact);
             // The document is a courtesy too: the page below is still written when it cannot be.
             try
@@ -677,6 +681,31 @@ public sealed class E2ESession : IAsyncDisposable
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             Console.Error.WriteLine("[e2e] could not write the trace page for " + _scope.TestTitle + ": " + _scope.Redactor.Redact(ex.Message));
+        }
+    }
+
+    // A store that hangs must not hold the session: the hand-offs are bounded by the cleanup timeout, and one that is not done by then
+    // leaves its record without a ref (the store's failure is its own).
+    private async Task SettleArtifactsAsync()
+    {
+        if (_scope.Artifacts is not { } artifacts)
+        {
+            return;
+        }
+
+        using var bound = new CancellationTokenSource();
+        if (Bounded(_scope.CleanupTimeout))
+        {
+            bound.CancelAfter(_scope.CleanupTimeout);
+        }
+
+        try
+        {
+            await artifacts.SettleAsync(bound.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (bound.IsCancellationRequested)
+        {
+            Console.Error.WriteLine("[e2e] the artifacts of " + _scope.TestTitle + " were not all stored within the cleanup timeout.");
         }
     }
 
@@ -865,6 +894,13 @@ public sealed class E2ESessionOptions
     public string? ProjectRoot { get; init; }
 
     public IStepCache? Cache { get; init; }
+
+    /// <summary>
+    /// Where artifacts go besides the results directory (upstream's <c>artifacts.store</c>): every artifact the attempt registers, a
+    /// download or a video, is handed to the store as it is produced, and the store's reference is recorded as the artifact's <c>ref</c>.
+    /// Null keeps files local only.
+    /// </summary>
+    public IArtifactStore? ArtifactStore { get; init; }
 
     /// <summary>
     /// The digest of the target app's resolved <c>identity</c> and <c>environment</c> that the replay cache keys on (upstream's

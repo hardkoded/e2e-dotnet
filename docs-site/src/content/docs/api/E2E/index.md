@@ -131,6 +131,8 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [StepExecutorContext](/api/E2E/StepExecutorContext/) | What an executor receives for one step (upstream's StepExecutorContext). The runtime builds it. A test of an executor can build its own and override the members it reads: each one that does work throws until it is overridden. |
 | [StepExecutors](/api/E2E/StepExecutors/) | Upstream's RUNTIMECODES, BLOCKABLECODES and isRuntimeHardStop (agent/executor.ts). |
 | [StepTurn](/api/E2E/StepTurn/) | One model turn of an agent step: the tool calls the model made and what came back, each bounded (upstream's StepTurn). |
+| [StoredArtifact](/api/E2E/StoredArtifact/) | One artifact handed to CancellationToken) (upstream's StoredArtifact): the file's bytes, its digest, and the identity the report files it under. Path is the report-relative path the record carries, stable across runs of the same test, so a host may use it as its own key. |
+| [StoredArtifactLink](/api/E2E/StoredArtifactLink/) | One provider-hosted recording, handed to CancellationToken) once the attempt stopped it (upstream's StoredArtifactLink). |
 | [TargetConfig](/api/E2E/TargetConfig/) | One entry of targets. The port drives the web, ios, and android platforms. |
 | [TestContext](/api/E2E/TestContext/) | The fixtures for one test. Call String) before the first step when a precondition is missing. |
 | [TestException](/api/E2E/TestException/) | A locator, expectation, or test failed. |
@@ -164,6 +166,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | Type | Summary |
 | --- | --- |
 | [IAgentModel](/api/E2E/IAgentModel/) | One turn of the agent model. Tool calls are executed by the agent, never by the model itself. |
+| [IArtifactStore](/api/E2E/IArtifactStore/) | Where artifacts go (upstream's ArtifactStore, artifacts.store). The default keeps them under the artifacts directory, and the report records their paths. A host-supplied store (object storage, an API) receives every artifact as it is produced, not after the run, and returns its own reference, which the report records as the artifact's ref beside the local path. The cloud seam for evidence, the way IStepCache is for the replay cache. A failed CancellationToken) never fails the run: the record simply carries no ref. Like every live value, a store never crosses a process boundary. Set it with ArtifactStore, or override E2EFixture.ArtifactStore. |
 | [IExecutorActions](/api/E2E/IExecutorActions/) | Upstream's ExecutorActions, with the verbs the port's engines support. Every verb bottoms out in the runtime, which enforces the deadline and the action budget and records the action for the step's cache entry. A ref is only valid against the newest observation: a stale one fails the action rather than acting on the wrong node. Actions and observations run in call order. An engine failure is thrown as an E2EException, and a hard stop of the step as an AgentException with a runtime code. CancellationToken) is a verb the port's grammar has and upstream's does not (upstream clears with type). |
 | [IExecutorBudgets](/api/E2E/IExecutorBudgets/) | Step budgets, read and reported by the executor and enforced by the runtime. |
 | [IStepCache](/api/E2E/IStepCache/) |  |

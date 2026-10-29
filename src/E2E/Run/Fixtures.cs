@@ -4,8 +4,35 @@
 
 using E2E.Engine;
 using E2E.Internal;
+using E2E.Reports;
 
 namespace E2E;
+
+/// <summary>What the producer of an artifact knows about it beyond its file (upstream's <c>ArtifactRegistration</c>).</summary>
+internal sealed record ArtifactRegistration
+{
+    /// <summary>When a time-based artifact (a video segment) began recording.</summary>
+    public DateTimeOffset? StartedAt { get; init; }
+}
+
+/// <summary>A provider-hosted recording (upstream's <c>ArtifactSink.link</c> argument).</summary>
+internal sealed record ArtifactLink(string MediaType, DateTimeOffset StartedAt);
+
+/// <summary>
+/// Where an attempt registers the files and links it produced (upstream's <c>ArtifactSink</c>, <c>run/fixtures.ts</c>). Registration is
+/// synchronous and cheap; the size, digest, and hand-off to a store finish in the background (see <c>AttemptArtifacts.SettleAsync</c>).
+/// </summary>
+internal interface IArtifactSink
+{
+    /// <summary>The absolute attempt artifact directory (upstream's <c>dir</c>).</summary>
+    string Dir { get; }
+
+    /// <summary>Registers a file under <see cref="Dir"/> (upstream's <c>register</c>) and returns the artifact's id.</summary>
+    string Register(ArtifactKind kind, string relativePath, ArtifactRegistration? registration = null);
+
+    /// <summary>Registers a video a hosted service keeps, by its URL (upstream's <c>link</c>), and returns the artifact's id.</summary>
+    string Link(string url, ArtifactLink link);
+}
 
 /// <summary>
 /// Opens and resets the app under test. A relative URL is resolved against

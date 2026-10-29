@@ -160,7 +160,7 @@ target is required of its engine (`UNSUPPORTED_ARTIFACT` when it cannot
 record); one at the config root or in `E2E_VIDEO` skips an engine that cannot.
 
 There are no `credentials`, `tests`, `workers`, `reporters`, `output`,
-or `artifacts` keys; each is `INVALID_CONFIG`. Accounts
+or `artifacts` keys; each is `INVALID_CONFIG`. A host store for artifacts is code (upstream's `artifacts.store`): override `ArtifactStore` on the fixture, or set `E2ESessionOptions.ArtifactStore`, to an `IArtifactStore`. Its `PutAsync(StoredArtifact)` receives every artifact an attempt registers (a download, a video file) as it is produced, with `Bytes`, `Sha256`, `Path` (report-relative), `Redaction` (`Complete` or `Incomplete`; a store that exports only what the runner vouches for keeps back an `Incomplete` artifact, a video or a download the runner did not rewrite), and `RunId`, `TestId`, `AttemptId`, `StepId`, `StartedAt`, and returns the reference the report records as the artifact's `ref` beside the local path. `PutLinkAsync(StoredArtifactLink)` receives a video a provider keeps, a link with no bytes (a passed attempt's link under `retain-on-failure` is never handed over). A failed call never fails the run; the record just carries no `ref`. Accounts
 come from `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD`, read
 with `Credentials.User(name)`.
 

@@ -366,6 +366,7 @@ internal static partial class ReportWire
             ("url", artifact.Url is { } url && Uri.TryCreate(url, UriKind.Absolute, out var parsed) && parsed.Scheme is "http" or "https" && url.Length <= 2048 ? url : null),
             ("size", size ?? artifact.Size),
             ("sha256", digest),
+            ("ref", string.IsNullOrEmpty(artifact.Ref) ? null : artifact.Ref),
             ("startedAt", artifact.StartedAt is { } startedAt ? Timestamp(startedAt) : null),
             ("redaction", complete ? "complete" : "incomplete"),
             ("producer", stepId is null ? new JsonObject { ["kind"] = "attempt" } : new JsonObject { ["kind"] = "step", ["stepId"] = stepId }));

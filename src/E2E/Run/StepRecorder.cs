@@ -329,6 +329,15 @@ internal sealed class StepRecorder
         }
     }
 
+    /// <summary>The id of the step <see cref="AttachArtifact"/> would attach to, which a store is told produced the artifact; null when there is none.</summary>
+    public string? ArtifactStepId()
+    {
+        lock (_gate)
+        {
+            return (_scope.Value is null ? _steps.LastOrDefault() : CurrentLocked())?.Id;
+        }
+    }
+
     /// <summary>Records one child event of the running step.</summary>
     public void RecordEvent(StepEvent stepEvent)
     {

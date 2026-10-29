@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json;
 using E2E.Internal;
+using E2E.Reports;
 
 namespace E2E;
 
@@ -1058,4 +1059,88 @@ public enum CacheMode
 
     /// <summary>Replay recordings, record verified acts, and delete unverified ones.</summary>
     ReadWrite,
+}
+
+/// <summary>
+/// One artifact handed to <see cref="IArtifactStore.PutAsync"/> (upstream's <c>StoredArtifact</c>): the file's bytes, its digest, and the
+/// identity the report files it under. <see cref="Path"/> is the report-relative path the record carries, stable across runs of the same
+/// test, so a host may use it as its own key.
+/// </summary>
+public sealed record StoredArtifact
+{
+    /// <summary><see cref="ArtifactKind.Screenshot"/>, <see cref="ArtifactKind.Video"/>, <see cref="ArtifactKind.Download"/>, or <see cref="ArtifactKind.Log"/>.</summary>
+    public required ArtifactKind Kind { get; init; }
+
+    public required string MediaType { get; init; }
+
+    public required ReadOnlyMemory<byte> Bytes { get; init; }
+
+    public required long Size { get; init; }
+
+    public required string Sha256 { get; init; }
+
+    /// <summary>Report-relative path with <c>/</c> separators.</summary>
+    public required string Path { get; init; }
+
+    /// <summary>
+    /// How much of the file the runner masked, as the report records it. A <see cref="ArtifactKind.Download"/> is
+    /// <see cref="ArtifactRedaction.Incomplete"/> unless the runner ran it as text through the session's secret values; a store that exports
+    /// only what the runner vouches for reads this rather than the kind.
+    /// </summary>
+    public required ArtifactRedaction Redaction { get; init; }
+
+    public required string RunId { get; init; }
+
+    public required string TestId { get; init; }
+
+    public required string AttemptId { get; init; }
+
+    /// <summary>The step that produced it, when one was running.</summary>
+    public string? StepId { get; init; }
+
+    /// <summary>When a time-based artifact began recording (a video segment), so a host can align step timestamps with it without reading the report.</summary>
+    public DateTimeOffset? StartedAt { get; init; }
+}
+
+/// <summary>One provider-hosted recording, handed to <see cref="IArtifactStore.PutLinkAsync"/> once the attempt stopped it (upstream's <c>StoredArtifactLink</c>).</summary>
+public sealed record StoredArtifactLink
+{
+    /// <summary>The <c>http(s)</c> URL the service serves the recording from.</summary>
+    public required string Url { get; init; }
+
+    public required string MediaType { get; init; }
+
+    public required string RunId { get; init; }
+
+    public required string TestId { get; init; }
+
+    public required string AttemptId { get; init; }
+
+    /// <summary>When the recording started.</summary>
+    public required DateTimeOffset StartedAt { get; init; }
+
+    /// <summary>The step that was running when the recording was registered, if any.</summary>
+    public string? StepId { get; init; }
+}
+
+/// <summary>
+/// Where artifacts go (upstream's <c>ArtifactStore</c>, <c>artifacts.store</c>). The default keeps them under the artifacts directory, and
+/// the report records their paths. A host-supplied store (object storage, an API) receives every artifact as it is produced, not after the
+/// run, and returns its own reference, which the report records as the artifact's <c>ref</c> beside the local path. The cloud seam for
+/// evidence, the way <see cref="IStepCache"/> is for the replay cache. A failed <see cref="PutAsync"/> never fails the run: the record
+/// simply carries no <c>ref</c>. Like every live value, a store never crosses a process boundary. Set it with
+/// <see cref="E2ESessionOptions.ArtifactStore"/>, or override <c>E2EFixture.ArtifactStore</c>.
+/// </summary>
+public interface IArtifactStore
+{
+    /// <summary>Stores the artifact and returns the reference to record (upstream's <c>put</c>, which returns <c>{ ref }</c>). An empty reference is not recorded.</summary>
+    Task<string> PutAsync(StoredArtifact artifact, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Receives a video a hosted service keeps (a browser or device provider's own recording): a link with no bytes, so <see cref="PutAsync"/>
+    /// never sees it. Returns a reference the report records as the artifact's <c>ref</c> beside its <c>url</c>; the default returns none, so
+    /// a link is only recorded (upstream's optional <c>putLink</c>). A passed attempt's link under <c>retain-on-failure</c> is never handed
+    /// over, since the report leaves it out. A failed call never fails the run, like <see cref="PutAsync"/>.
+    /// </summary>
+    Task<string?> PutLinkAsync(StoredArtifactLink link, CancellationToken cancellationToken = default) => Task.FromResult<string?>(null);
 }

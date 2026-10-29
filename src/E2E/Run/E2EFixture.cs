@@ -70,6 +70,11 @@ public abstract class E2EFixture
     /// </summary>
     protected virtual IStepExecutor? AgentExecutor => null;
 
+    /// <summary>
+    /// <c>artifacts.store</c>: the host store every produced artifact is handed to. None by default: a store is code, so the config file cannot name one.
+    /// </summary>
+    protected virtual IArtifactStore? ArtifactStore => null;
+
     /// <summary><c>agents.default.context</c>: project context told to every model call.</summary>
     protected virtual string? AgentContext => Config.Agent.Context;
 
@@ -212,6 +217,7 @@ public abstract class E2EFixture
                 Model = CreateModel(),
                 Judge = CreateJudge(),
                 AgentExecutor = AgentExecutor,
+                ArtifactStore = ArtifactStore,
                 AgentSystem = AgentSystem,
                 AgentTools = AgentTools,
                 AgentContext = AgentContext,
