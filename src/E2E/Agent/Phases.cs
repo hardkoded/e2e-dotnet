@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics;
+using System.Globalization;
+using E2E.Engine;
 using E2E.Internal;
 
 namespace E2E;
@@ -19,6 +21,68 @@ internal static class Phases
     public const string Model = "agent.model";
 
     public const string Action = "agent.action";
+
+    /// <summary>
+    /// Fails when the step clock has run out (upstream's <c>checkStepClock</c>). <paramref name="cause"/> carries the failure that was
+    /// being handled when the clock was found to be out, so a step that timed out mid-operation still says what the operation reported,
+    /// and decides the clock question when that failure is an operation timeout within one poll tick of the deadline:
+    /// a bounded operation was given the deadline's remaining time, so its timer and the deadline mark one instant on two clocks, and
+    /// running out of that budget is the step running out. An operation that times out on its own, with time to spare, keeps its code.
+    /// </summary>
+    /// <param name="signal">The cancellation of the step; a cancelled one fails the check as <c>CANCELLED</c>.</param>
+    /// <param name="deadline">The step's deadline.</param>
+    /// <param name="api">The call the step is, which the message names.</param>
+    /// <param name="timeoutMs">The step's timeout, which the message names.</param>
+    /// <param name="cause">The failure being handled, if any.</param>
+    /// <param name="clock">The clock the deadline reads. .NET-only: the port's <see cref="Deadline"/> takes its time as an argument.</param>
+    public static void CheckStepClock(CancellationToken signal, Deadline deadline, string api, long timeoutMs, Exception? cause = null, TimeProvider? clock = null)
+    {
+        ArgumentNullException.ThrowIfNull(deadline);
+        if (signal.IsCancellationRequested)
+        {
+            throw cause is null ? new AgentException("CANCELLED", api + " was cancelled") : new AgentException("CANCELLED", api + " was cancelled", cause);
+        }
+
+        var now = (clock ?? TimeProvider.System).GetUtcNow();
+        if (deadline.Expired(now) || TimedOutAtDeadline(cause, deadline, now))
+        {
+            var message = api + " exceeded its " + timeoutMs.ToString(CultureInfo.InvariantCulture) + " ms timeout";
+            throw cause is null ? new AgentException("STEP_TIMEOUT", message, blocked: true) : new AgentException("STEP_TIMEOUT", message, blocked: true, cause);
+        }
+    }
+
+    // True when the cause is an operation timeout and the deadline is less than one poll tick away.
+    private static bool TimedOutAtDeadline(Exception? cause, Deadline deadline, DateTimeOffset now) =>
+        deadline.Remaining(now) < Time.PollInterval && cause is EngineException { Code: EngineErrorCodes.OperationTimeout };
+
+    /// <summary>
+    /// Captures one raw observation, re-capturing while the engine reports a retryable failure and the step clock allows (upstream's
+    /// <c>retryingObserve</c>). A screen that navigates as it is read makes the capture lose its document; that is a race, not a broken
+    /// app, so it is re-read rather than surfaced as a failed call. <paramref name="guard"/> is the caller's clock check, so a capture
+    /// that outlives the deadline reports the step's own timeout rather than whichever transport error the truncated budget produced.
+    /// </summary>
+    public static async Task<Observation> RetryingObserveAsync(Func<Task<Observation>> capture, Action<Exception?> guard, CancellationToken signal)
+    {
+        ArgumentNullException.ThrowIfNull(capture);
+        ArgumentNullException.ThrowIfNull(guard);
+        while (true)
+        {
+            try
+            {
+                return await capture().ConfigureAwait(false);
+            }
+            catch (Exception cause)
+            {
+                guard(cause);
+                if (cause is not EngineException { Retryable: true })
+                {
+                    throw;
+                }
+
+                await Task.Delay(Time.PollInterval, signal).ConfigureAwait(false);
+            }
+        }
+    }
 
     /// <summary>The live activity a phase announces as it begins (upstream's <c>ACTIVITY_BY_PHASE</c>).</summary>
     private static StepActivity? ActivityOf(string phase) => phase switch
