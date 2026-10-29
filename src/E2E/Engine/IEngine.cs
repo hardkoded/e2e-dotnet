@@ -244,6 +244,14 @@ public interface IEngineSession : IAsyncDisposable
     Task<IReadOnlyList<VideoSegment>> StopVideoAsync(CancellationToken cancellationToken) =>
         Task.FromException<IReadOnlyList<VideoSegment>>(new EngineException("UNSUPPORTED_CAPABILITY", "video recording is not supported by this engine."));
 
+    /// <summary>
+    /// After the body has settled, and again after teardown, before the verdict, within the cleanup budget: report a failure that landed
+    /// on a path no step awaited (a callback the session ran for the test: a request interceptor, a native dialog handler). Wait for one
+    /// still running, then throw its error; the attempt fails with it the way a step would, an error already classified keeping its code.
+    /// MUST report each failure once. Upstream's <c>settleAttempt</c>, whose <c>EngineCleanupContext</c> is the timeout and the token.
+    /// </summary>
+    Task SettleAttemptAsync(TimeSpan timeout, CancellationToken cancellationToken) => Task.CompletedTask;
+
     private static Task Unsupported(string operation) =>
         Task.FromException(new EngineException("UNSUPPORTED_CAPABILITY", operation + " is not supported by this engine."));
 }

@@ -679,7 +679,7 @@ Does nothing when setup never started a session.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L251)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L261)
 
 <a id="E2E_E2EFixture_CreateAgents_"></a>
 <a id="E2E_E2EFixture_CreateAgents"></a>
@@ -750,6 +750,31 @@ The model for `agents.default`, or null when the config sets no model.
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L45)
 
+<a id="E2E_E2EFixture_SettleAttemptAsync_"></a>
+<a id="E2E_E2EFixture_SettleAttemptAsync_System_Threading_CancellationToken_"></a>
+
+### SettleAttemptAsync(CancellationToken)
+
+
+```csharp
+protected Task SettleAttemptAsync(CancellationToken cancellationToken = default)
+```
+
+
+Collects the failure a route or dialog handler raised where no step awaited it, for an adapter to call when the test body has
+settled and again after the teardown, before the verdict. See [SettleAttemptAsync(CancellationToken)](/api/E2E/E2ESession/#E2E_E2ESession_SettleAttemptAsync_System_Threading_CancellationToken_). Does nothing when setup
+never started a session.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L268)
+
 <a id="E2E_E2EFixture_StartSessionAsync_"></a>
 <a id="E2E_E2EFixture_StartSessionAsync_System_String_System_Int32_System_Action_E2E_TestException__System_Func_System_Boolean__System_Threading_CancellationToken_System_Reflection_MethodBase_"></a>
 
@@ -797,4 +822,4 @@ Hands the running session to the adapter to complete and dispose, or null when s
 
 **Returns:** [E2ESession](/api/E2E/E2ESession/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L254)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2EFixture.cs#L271)

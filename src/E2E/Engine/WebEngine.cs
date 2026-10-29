@@ -1535,7 +1535,13 @@ public sealed partial class WebEngine : IEngine
         {
             cancellationToken.ThrowIfCancellationRequested();
             var context = RequireContext();
-            Func<IRoute, Task> playwrightHandler = route => HandleRouteAsync(route, handler);
+            // Tracked so the attempt end waits for a handler still running and collects what it latched.
+            Func<IRoute, Task> playwrightHandler = route =>
+            {
+                var work = HandleRouteAsync(route, handler);
+                _latch.Track("route", work);
+                return work;
+            };
             await context.RouteAsync(matches, playwrightHandler).ConfigureAwait(false);
             _routes.Add((matches, playwrightHandler, handler));
         });
@@ -1851,6 +1857,12 @@ public sealed partial class WebEngine : IEngine
                 throw WebErrors.NavigationStaleOr(ex, "screenshot");
             }
         });
+
+        /// <summary>
+        /// Waits for a route or dialog handler still running, then rethrows the error one of them latched after the last step, so it fails
+        /// this attempt instead of the next one's first operation.
+        /// </summary>
+        public Task SettleAttemptAsync(TimeSpan timeout, CancellationToken cancellationToken) => _latch.SettleAsync(timeout, cancellationToken);
 
         public async ValueTask DisposeAsync()
         {

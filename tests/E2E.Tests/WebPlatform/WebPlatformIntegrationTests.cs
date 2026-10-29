@@ -274,6 +274,19 @@ public sealed class WebPlatformIntegrationTests
         Assert.Equal("POLICY_DENIED", error.Code);
     }
 
+    // Partial: upstream also reads the report (phase 'body', attempt.cleanup 'complete', no run errors). The port's session fails with the
+    // handler's error, and the session releases without throwing; the phase and the cleanup field are the runner's and are not asserted.
+    // The handler's assertion throws ASSERTION_FAILED by hand: the port has no expect(value).toBe.
+    [Theory]
+    [InlineData("route", "a route handler assertion that no step follows")]
+    [InlineData("dialog", "a dialog handler assertion that no step follows")]
+    public async Task Partial_Fails_a_handler_assertion_at_the_attempt_end_when_no_step_follows_it(string kind, string title)
+    {
+        var error = Assert.IsType<TestException>(await RunAsync(Scenarios[title]));
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        Assert.Contains("Expected: \"" + (kind == "route" ? "POST" : "Are you sure?") + "\"", error.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task Denies_a_wrapped_or_non_http_s_scheme_on_app_open_and_browser_goto_before_it_loads()
     {
@@ -563,7 +576,35 @@ public sealed class WebPlatformIntegrationTests
             await session.App.OpenAsync();
             await session.App.OpenAsync("javascript:alert(1)");
         },
+        ["a route handler assertion that no step follows"] = async session =>
+        {
+            await session.Browser.RouteAsync("**/api/flags.js", async route =>
+            {
+                await route.FulfillAsync(new RouteFulfillResponse { Body = "", ContentType = "text/javascript" });
+                ExpectToBe(route.Request.Method, "POST");
+            });
+            await session.App.OpenAsync("/script-flags");
+        },
+        ["a dialog handler assertion that no step follows"] = async session =>
+        {
+            await session.App.OpenAsync("/dialog");
+            await session.Browser.OnDialogAsync(async dialog =>
+            {
+                await dialog.AcceptAsync();
+                ExpectToBe(dialog.Message, "Are you sure?");
+            });
+            await session.Screen.GetByRole("button", "Ask").TapAsync();
+        },
     };
+
+    // The port has no value matcher (upstream's expect(value).toBe), so a handler's assertion throws the ASSERTION_FAILED it would.
+    private static void ExpectToBe(string actual, string expected)
+    {
+        if (!string.Equals(actual, expected, StringComparison.Ordinal))
+        {
+            throw new TestException("ASSERTION_FAILED", $"expect(received).toBe(expected)\nExpected: \"{expected}\"\nReceived: \"{actual}\"");
+        }
+    }
 
     // Runs one upstream test body in its own session and returns what failed it, as the upstream run's result does.
     private static async Task<Exception?> RunAsync(Func<E2ESession, Task> body) => (await RunWithStepsAsync(body)).Error;
@@ -590,6 +631,16 @@ public sealed class WebPlatformIntegrationTests
         catch (Exception ex)
         {
             error = ex;
+        }
+
+        // The attempt end: a handler that failed with no step after it fails the attempt, as the runner's settleAttempt does.
+        try
+        {
+            await session.SettleAttemptAsync();
+        }
+        catch (Exception ex)
+        {
+            error ??= ex;
         }
 
         session.Complete(error);
