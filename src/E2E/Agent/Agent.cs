@@ -1408,7 +1408,7 @@ internal sealed class AttemptScope
         var key = Identity.BuildTraceCacheKey(new TraceCacheKeyParts(
             Identity.ProjectIdentity(CacheProjectId),
             TestTitle,
-            new CacheTargetIdentity(TargetName, EnginePlatform, EngineName, BuildReport.EngineSpiVersion, CacheAppIdentity),
+            new CacheTargetIdentity(TargetName, EnginePlatform, EngineName, BuildReport.EngineSpiVersion, AppIdentity),
             signature,
             callIndex,
             identity,
@@ -1424,10 +1424,16 @@ internal sealed class AttemptScope
     private const string CacheProjectId = "";
 
     /// <summary>
-    /// The app identity a key is scoped by: upstream's digest of the target app's declared <c>identity</c> and <c>environment</c>.
-    /// The port declares neither, so it is the digest of the empty declaration, and an app at another URL shares the entries.
+    /// The app identity a key is scoped by: upstream's digest of the target app's resolved <c>identity</c> and <c>environment</c>
+    /// (<c>SessionIdentity.appIdentity</c>). A scope started without one keys on the <c>test</c> environment alone.
     /// </summary>
-    private static readonly string CacheAppIdentity = Ids.CanonicalDigest(new JsonObject());
+    public string AppIdentity
+    {
+        get => _appIdentity ?? Ids.CanonicalDigest(new JsonObject { ["environment"] = "test" });
+        init => _appIdentity = value;
+    }
+
+    private readonly string? _appIdentity;
 
     /// <summary>The agent a call names, or <c>default</c>. An unknown name is <c>INVALID_ARGUMENT</c>.</summary>
     public ResolvedAgent Select(string? name)

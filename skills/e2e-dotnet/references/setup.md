@@ -123,7 +123,7 @@ unknown key fails with `INVALID_CONFIG`.
 
 | Key | Default | Notes |
 | --- | --- | --- |
-| `targets` | a `web` target with no URL | One entry: `name`, `platform` (`web`, `ios`, `android`, or `windows`), and `app.url` (a web target; port `0` takes a free port) with an optional `app.command` and `app.readyUrl` that start the app (below), or `app.appPath` and `app.bundleId` (a device or Windows target). A URL without a scheme gets `https://` (`http://` for localhost); plain HTTP is allowed on loopback hosts only, and userinfo, a query, or a fragment is `INVALID_APP_URL`. Without a URL, `App.OpenAsync` takes absolute URLs only. |
+| `targets` | a `web` target with no URL | One entry: `name`, `platform` (`web`, `ios`, `android`, or `windows`), and `app.url` (a web target; port `0` takes a free port) with an optional `app.command` and `app.readyUrl` that start the app (below), or `app.appPath` and `app.bundleId` (a device or Windows target). Any target takes `app.identity` and `app.environment` (below); a device or Windows target takes `app.launchArguments`, and a device target `app.permissions` (below; a web target's browser permissions are not supported yet). A URL without a scheme gets `https://` (`http://` for localhost); plain HTTP is allowed on loopback hosts only, and userinfo, a query, or a fragment is `INVALID_APP_URL`. Without a URL, `App.OpenAsync` takes absolute URLs only. |
 | `timeout` | `120000` | Per test, ms. |
 | `launchTimeout` | `60000` | Engine start, ms. |
 | `actionTimeout` | `30000` | Each locator action and engine operation, ms. |
@@ -327,6 +327,16 @@ To test without a browser or model, override `CreateEngine()` to return a
 | `E2E_TRACE`, `E2E_VIDEO` | A recording mode (`off`, `on`, `retain-on-failure`, `on-first-retry`, `on-all-retries`) for the run, over the config. Upstream sets these with `--trace` and `--video`. `E2E_VIDEO` records on the web engine. A bad value is `INVALID_CONFIG`. A blank value is ignored. |
 | `E2E_HEADLESS` | `0` or `false` shows the browser. |
 | `E2E_SKIP_BROWSER_INSTALL` | `1` skips the Chromium install. |
+
+## App identity and environment
+
+`app.identity` is the stable name that keys the replay cache: the recordings of one app are found again by it. Unset, it is the URL's origin and path as declared (a port-`0` URL keeps the `:0`, so the port changing every run never misses the cache), else `app.bundleId`, else `app.appPath`. Declare it when the origin changes per deploy (a PR preview), so the preview shares the entries of the app it deploys; different apps need different identities. `app.environment` is `test`, `staging`, or `production`. Unset, it is `test` for a loopback, `.localhost`, or `.test` host and for a target without a URL, and `production` for any other host. The environment always joins the cache key, so an identity never shares entries across environments. The site of the URL (the last two labels of its host, three for `example.co.uk`) is derived, not declared.
+
+```json
+{ "targets": [{ "platform": "web", "app": { "url": "https://pr-12.preview.example.dev", "identity": "shop", "environment": "staging" } }] }
+```
+
+Declaring an identity or environment for an app that had none misses the entries recorded before: they are not read, and the next run records them again.
 
 ## Mobile targets
 

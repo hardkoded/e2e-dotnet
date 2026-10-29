@@ -71,7 +71,10 @@ the last lines of `log` quoted. A `url` answering before the spawn is
 process gets only `PATH`, `HOME`, the temp variables, `SystemRoot` and
 `COMSPEC`, `command.env`, and the host variables `inheritEnv` names. A `url` on port `0` (`http://127.0.0.1:0`, or
 `[::1]:0`) takes a free port, which `{port}` carries into `args`, `env`, and
-`readyUrl`; port `0` needs a `command`. Topic `setup` has the full rules.
+`readyUrl`; port `0` needs a `command`. `app.identity` and `app.environment`
+(`test`, `staging`, `production`) key the replay cache beside the target; a
+device target also takes `app.launchArguments` and `app.permissions`. Topic
+`setup` has the full rules.
 
 ```csharp
 using E2E;

@@ -182,6 +182,7 @@ public abstract class E2EFixture
 
         // The app command of the target starts before the first test and serves every later one; its URL is on the port the app was started on.
         var baseUrl = BaseUrl;
+        var configuredUrl = baseUrl;
         var declared = Config.Target;
         if (declared.App.Command is not null && string.Equals(baseUrl, declared.App.Url, StringComparison.Ordinal))
         {
@@ -189,10 +190,19 @@ public abstract class E2EFixture
             baseUrl = (await RunApps.StartAsync(Config, declared, null, cancellationToken).ConfigureAwait(false)).App.Url;
         }
 
+        // The replay cache keys on the declared app: its identity keeps a free port at :0, so entries survive the port changing every run.
+        // A fixture that points BaseUrl somewhere else is keyed by that URL, in the declared app's identity and environment.
+        var engine = CreateEngine();
+        var declaredApp = string.Equals(configuredUrl, declared.App.Url, StringComparison.Ordinal)
+            ? declared.App
+            : new AppConfig { Url = configuredUrl, BundleId = declared.App.BundleId, AppPath = declared.App.AppPath, Identity = declared.App.Identity, Environment = declared.App.Environment };
+        var identity = Sessions.TargetIdentity(
+            TargetName, declared.Platform, engine, TargetApps.ResolveTargetApp(TargetName, declaredApp, ProjectRoot)).AppIdentity;
         _session = await E2ESession.StartAsync(
             new E2ESessionOptions
             {
-                Engine = CreateEngine(),
+                Engine = engine,
+                AppIdentity = identity,
                 Model = CreateModel(),
                 Judge = CreateJudge(),
                 AgentExecutor = AgentExecutor,

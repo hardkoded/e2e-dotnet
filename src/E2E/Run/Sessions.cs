@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using E2E.Engine;
 using E2E.Internal;
 
 namespace E2E;
@@ -17,6 +18,31 @@ namespace E2E;
 /// it ran against, so a session never restores into another engine, platform, or app.
 /// </summary>
 internal sealed record SessionIdentity(string TargetId, string EngineName, string EngineVersion, int SpiVersion, string Platform, string AppIdentity);
+
+/// <summary>The identity-making function of upstream's <c>run/sessions.ts</c>.</summary>
+internal static class Sessions
+{
+    /// <summary>
+    /// The identity session and replay cache entries key on for one target (upstream's <c>targetIdentity</c>). It comes from the engine's
+    /// name and version and the target's resolved app, so an engine swap never restores another engine's state. The app's declared
+    /// identity (else its URL, bundle id, or build path) keys entries, so an ephemeral per-deploy origin (a PR preview) can share them
+    /// with the app it is a deployment of. The environment always joins the digest: an identity must never bleed entries across
+    /// environments.
+    /// </summary>
+    public static SessionIdentity TargetIdentity(string targetName, string platform, IEngine engine, ResolvedApp app)
+    {
+        ArgumentNullException.ThrowIfNull(engine);
+        ArgumentNullException.ThrowIfNull(app);
+        var identity = new JsonObject();
+        if (app.Identity is not null)
+        {
+            identity["identity"] = app.Identity;
+        }
+
+        identity["environment"] = app.Environment;
+        return new SessionIdentity(targetName, engine.Name, engine.Version, BuildReport.EngineSpiVersion, platform, Ids.CanonicalDigest(identity));
+    }
+}
 
 /// <summary>What one saved session holds once decrypted (upstream's <c>SavedSession</c>).</summary>
 internal sealed record SavedSession(EngineState State, SavedSecrecy Secrecy);

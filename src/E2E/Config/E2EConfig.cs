@@ -45,12 +45,18 @@ public sealed class E2EConfig
 
     private static readonly string[] UnsupportedTargetKeys = ["engine"];
 
-    private static readonly string[] AppKeys = ["url", "command", "readyUrl"];
+    private static readonly string[] AppKeys = ["url", "command", "readyUrl", "identity", "environment"];
 
-    private static readonly string[] MobileAppKeys = ["bundleId", "appPath", "command", "readyUrl"];
+    private static readonly string[] MobileAppKeys =
+        ["bundleId", "appPath", "command", "readyUrl", "identity", "environment", "launchArguments", "permissions"];
 
-    private static readonly string[] UnsupportedAppKeys =
-        ["identity", "environment", "launchArguments", "permissions"];
+    private static readonly string[] WindowsAppKeys =
+        ["bundleId", "appPath", "command", "readyUrl", "identity", "environment", "launchArguments"];
+
+    // A web target grants no browser permissions yet, and a Windows app has none to grant.
+    private static readonly string[] UnsupportedAppKeys = ["permissions"];
+
+    private static readonly string[] Environments = ["test", "staging", "production"];
 
     private static readonly string[] Platforms = ["web", "ios", "android", "windows"];
 
@@ -283,7 +289,8 @@ public sealed class E2EConfig
 
             // A pinned-app target (a device or a Windows app) names its app by bundle id and build path, a web target by URL.
             var pinned = platform != "web";
-            CheckKeys(rawApp, "targets[0].app", pinned ? MobileAppKeys : AppKeys, UnsupportedAppKeys, null);
+            CheckKeys(rawApp, "targets[0].app", !pinned ? AppKeys : platform == "windows" ? WindowsAppKeys : MobileAppKeys, UnsupportedAppKeys, null);
+            var where = "target \"" + name + "\" app";
             app = new AppConfig
             {
                 Url = OptionalString(rawApp, "url", "targets[0].app.url") is { } url ? Urls.NormalizeBaseUrl(url).Href : null,
@@ -291,6 +298,10 @@ public sealed class E2EConfig
                 AppPath = OptionalString(rawApp, "appPath", "targets[0].app.appPath"),
                 Command = Property(rawApp, "command") is { } command ? Command.Normalize(command, "target \"" + name + "\" app.command") : null,
                 ReadyUrl = OptionalString(rawApp, "readyUrl", "targets[0].app.readyUrl"),
+                Identity = OptionalString(rawApp, "identity", "targets[0].app.identity"),
+                Environment = ReadEnvironment(Property(rawApp, "environment"), where + ".environment"),
+                LaunchArguments = ReadLaunchArguments(Property(rawApp, "launchArguments"), where + ".launchArguments"),
+                Permissions = ReadPermissions(Property(rawApp, "permissions"), where + ".permissions"),
             };
 
             // Resolved once here so a bad command, a free port nothing starts on, or a {port} without a URL fails at load, as upstream's resolveConfig does.
@@ -623,6 +634,65 @@ public sealed class E2EConfig
         return text;
     }
 
+    // Checks app.environment: one of test, staging, production.
+    private static string? ReadEnvironment(JsonElement? raw, string label)
+    {
+        if (raw is not { } value)
+        {
+            return null;
+        }
+
+        var text = value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+        return text is not null && Environments.Contains(text, StringComparer.Ordinal)
+            ? text
+            : throw Invalid(label + " must be one of " + string.Join(", ", Environments) + ", got " + value.GetRawText());
+    }
+
+    // Checks app.launchArguments: an array of strings.
+    private static ReadOnlyCollection<string>? ReadLaunchArguments(JsonElement? raw, string label)
+    {
+        if (raw is not { } value)
+        {
+            return null;
+        }
+
+        if (value.ValueKind != JsonValueKind.Array || value.EnumerateArray().Any(argument => argument.ValueKind != JsonValueKind.String))
+        {
+            throw Invalid(label + " must be an array of strings");
+        }
+
+        return value.EnumerateArray().Select(argument => argument.GetString()!).ToList().AsReadOnly();
+    }
+
+    // Checks app.permissions: an object of permission name to grant, deny, or reset.
+    private static ReadOnlyDictionary<string, AppPermissionState>? ReadPermissions(JsonElement? raw, string label)
+    {
+        if (raw is not { } value)
+        {
+            return null;
+        }
+
+        if (value.ValueKind != JsonValueKind.Object)
+        {
+            throw Invalid(label + " must be an object of permission name to grant, deny, or reset");
+        }
+
+        var permissions = new Dictionary<string, AppPermissionState>(StringComparer.Ordinal);
+        foreach (var property in value.EnumerateObject())
+        {
+            var state = property.Value.ValueKind == JsonValueKind.String ? property.Value.GetString() : null;
+            permissions[property.Name] = state switch
+            {
+                "grant" => AppPermissionState.Grant,
+                "deny" => AppPermissionState.Deny,
+                "reset" => AppPermissionState.Reset,
+                _ => throw Invalid(label + "." + property.Name + " must be grant, deny, or reset, got " + property.Value.GetRawText()),
+            };
+        }
+
+        return new ReadOnlyDictionary<string, AppPermissionState>(permissions);
+    }
+
     // A string that may be empty, as upstream system and context.
     private static string? AnyString(JsonElement value, string name, string label)
     {
@@ -729,8 +799,55 @@ public sealed class AppConfig
     /// <summary>The URL that answers once <see cref="Command"/> has started the app (upstream's <c>app.readyUrl</c>). Unset, <see cref="Url"/>.</summary>
     public string? ReadyUrl { get; init; }
 
+    /// <summary>
+    /// The stable identity that keys the replay cache and saved sessions (upstream's <c>app.identity</c>). Unset, the URL's origin and
+    /// path as declared, else <see cref="BundleId"/>, else <see cref="AppPath"/>. An ephemeral per-deploy origin (a PR preview) can
+    /// declare the identity of the app it is a deployment of, and so share its entries.
+    /// </summary>
+    public string? Identity { get; init; }
+
+    /// <summary>
+    /// What the app is: <c>test</c>, <c>staging</c>, or <c>production</c> (upstream's <c>app.environment</c>). Unset, <c>test</c> for a
+    /// loopback, <c>.localhost</c>, or <c>.test</c> host, and <c>production</c> for any other host. The environment always joins the
+    /// cache key, so an identity never bleeds entries across environments.
+    /// </summary>
+    public string? Environment { get; init; }
+
+    /// <summary>Arguments every fresh launch of the app takes: process arguments on iOS, <c>am start</c> arguments on Android, the command line on Windows.</summary>
+    public IReadOnlyList<string>? LaunchArguments { get; init; }
+
+    /// <summary>
+    /// Permissions the app holds before every fresh launch, by permission name (upstream's <c>app.permissions</c>). A device target
+    /// takes the names of <c>DevicePermission</c>.
+    /// </summary>
+    public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init; }
+
     /// <summary>This app with another URL: the one on the port its command was started on.</summary>
-    internal AppConfig WithUrl(string? url) => new() { Url = url, BundleId = BundleId, AppPath = AppPath, Command = Command, ReadyUrl = ReadyUrl };
+    internal AppConfig WithUrl(string? url) => new()
+    {
+        Url = url,
+        BundleId = BundleId,
+        AppPath = AppPath,
+        Identity = Identity,
+        Environment = Environment,
+        LaunchArguments = LaunchArguments,
+        Permissions = Permissions,
+        Command = Command,
+        ReadyUrl = ReadyUrl,
+    };
+}
+
+/// <summary>What a permission is set to before a launch (upstream's <c>AppPermissionState</c>): held, refused, or not asked for yet, so the OS asks again.</summary>
+public enum AppPermissionState
+{
+    /// <summary>The app holds the permission.</summary>
+    Grant,
+
+    /// <summary>The permission is refused.</summary>
+    Deny,
+
+    /// <summary>The permission is not asked for yet.</summary>
+    Reset,
 }
 
 /// <summary>
