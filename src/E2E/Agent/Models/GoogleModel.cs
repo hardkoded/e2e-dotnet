@@ -70,7 +70,7 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             if (message.ToolCalls is { Count: > 0 })
             {
                 var parts = Reasoning(message);
-                if (!string.IsNullOrEmpty(message.Content))
+                if (!string.IsNullOrEmpty(message.Content) && !HasPlainText(parts))
                 {
                     parts.Add(new JsonObject { ["text"] = message.Content });
                 }
@@ -120,7 +120,11 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             {
                 var role = string.Equals(message.Role, "assistant", StringComparison.Ordinal) ? "model" : "user";
                 var parts = Reasoning(message);
-                parts.Add(new JsonObject { ["text"] = message.Content ?? "" });
+                if (!HasPlainText(parts))
+                {
+                    parts.Add(new JsonObject { ["text"] = message.Content ?? "" });
+                }
+
                 foreach (var image in ModelHttp.UserImages(message))
                 {
                     parts.Add(new JsonObject
@@ -175,6 +179,9 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         return parts;
     }
 
+    // A signed text part comes back among the reasoning items with its text, so the message's Content is not sent again.
+    private static bool HasPlainText(JsonArray parts) => parts.Any(part => part is JsonObject { } item && item.ContainsKey("text") && !item.ContainsKey("thought"));
+
     private static void Append(JsonArray contents, string role, JsonArray parts)
     {
         if (contents.Count > 0 && contents[^1]?["role"]?.GetValue<string>() == role && contents[^1]?["parts"] is JsonArray previous)
@@ -196,6 +203,8 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         var text = new List<string>();
         var calls = new List<ModelToolCall>();
         var reasoning = new List<JsonElement>();
+        var plainParts = new List<JsonObject>();
+        var signedText = false;
         if (root.TryGetProperty("candidates", out var candidates) && candidates.ValueKind == JsonValueKind.Array && candidates.GetArrayLength() > 0
             && candidates[0].TryGetProperty("content", out var content) && content.TryGetProperty("parts", out var parts))
         {
@@ -233,13 +242,25 @@ public sealed class GoogleModel : IAgentModel, IDisposable
                 else if (part.TryGetProperty("text", out var value))
                 {
                     text.Add(value.GetString() ?? "");
+                    var plain = new JsonObject { ["text"] = value.GetString() ?? "" };
                     if (ModelHttp.OptionalString(part, "thoughtSignature") is { } textSignature)
                     {
-                        // A plain text part can carry a signature too; the text stays in Content, so an empty part carries the signature back.
-                        using var signed = JsonDocument.Parse(new JsonObject { ["text"] = "", ["thoughtSignature"] = textSignature }.ToJsonString());
-                        reasoning.Add(signed.RootElement.Clone());
+                        plain["thoughtSignature"] = textSignature;
+                        signedText = true;
                     }
+
+                    plainParts.Add(plain);
                 }
+            }
+        }
+
+        // A plain text part can carry a signature too. Its parts go back as they came, signature on the part it belongs to.
+        if (signedText)
+        {
+            foreach (var plain in plainParts)
+            {
+                using var document = JsonDocument.Parse(plain.ToJsonString());
+                reasoning.Add(document.RootElement.Clone());
             }
         }
 
