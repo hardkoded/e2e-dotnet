@@ -397,7 +397,7 @@ To use an API key instead, change `agents.default` in `samples/E2E.Sample/e2e.co
 
 Runs are headless. To watch a run in a browser window, set `E2E_HEADLESS=0`, for example `E2E_HEADLESS=0 dotnet test --project samples/E2E.Sample`.
 
-[`samples/TodoMvc`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/TodoMvc) ports Playwright's TodoMVC example to agent steps, using the NuGet packages. Its README compares the two.
+[`samples/TodoMvc`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/TodoMvc) ports Playwright's TodoMVC example to agent steps. Its README compares the two.
 
 [`samples/MobileApp`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp) is a small .NET MAUI app, and [`samples/MobileApp.E2ETests`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp.E2ETests) drives it on an iOS simulator or Android emulator with `MobileEngine`. Its README lists the prerequisites (Node 22.12 or newer for agent-device) and the run commands.
 

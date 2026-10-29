@@ -6,6 +6,7 @@
     <Project Path="samples/E2E.Sample/E2E.Sample.csproj" />
     <Project Path="samples/MobileApp.E2ETests/MobileApp.E2ETests.csproj" />
     <Project Path="samples/E2E.XUnit.V3.Sample/E2E.XUnit.V3.Sample.csproj" />
+    <Project Path="samples/TodoMvc/TodoMvc.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/E2E.Cli/E2E.Cli.csproj" />

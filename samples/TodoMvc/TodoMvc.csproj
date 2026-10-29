@@ -5,8 +5,8 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="E2E" Version="0.1.5" />
-    <PackageReference Include="E2E.NUnit" Version="0.1.5" />
+    <ProjectReference Include="..\..\src\E2E\E2E.csproj" />
+    <ProjectReference Include="..\..\src\E2E.NUnit\E2E.NUnit.csproj" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="NUnit" Version="5.0.0" />
     <PackageReference Include="NUnit3TestAdapter" Version="6.3.0" />

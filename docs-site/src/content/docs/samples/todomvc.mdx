@@ -5,7 +5,7 @@ sidebar:
   label: TodoMVC (web)
 ---
 
-Playwright's [`examples/todomvc`](https://github.com/microsoft/playwright/tree/main/examples/todomvc) suite against the [TodoMVC demo](https://demo.playwright.dev/todomvc), with the agent performing the actions. It uses the `E2E` and `E2E.NUnit` NuGet packages, so it shows a project that references the published packages.
+Playwright's [`examples/todomvc`](https://github.com/microsoft/playwright/tree/main/examples/todomvc) suite against the [TodoMVC demo](https://demo.playwright.dev/todomvc), with the agent performing the actions. It references the `E2E` and `E2E.NUnit` projects in `src/`, so it always tests the library at the current commit.
 
 - Source: [`samples/TodoMvc`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/TodoMvc).
 - Platform: web. Every test is in the `RealModel` category.
