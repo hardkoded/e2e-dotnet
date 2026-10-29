@@ -45,7 +45,8 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
         ModelEndpoint.AddHeaders(message, _options.Headers);
         message.Content = ModelHttp.Json(BuildBody(request));
         var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken).ConfigureAwait(false);
-        return ModelHttp.Parse(body, Parse);
+        var response = ModelHttp.Parse(body, Parse);
+        return request.Schema is null ? response : ModelHttp.StructuredAnswer(response);
     }
 
     public void Dispose()
@@ -134,6 +135,17 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
             });
         }
 
+        // A structured answer is the input of one tool the model is made to call.
+        if (request.Schema is { } schema)
+        {
+            tools.Add(new JsonObject
+            {
+                ["name"] = ModelHttp.JsonToolName,
+                ["description"] = ModelHttp.JsonToolDescription(request),
+                ["input_schema"] = JsonNode.Parse(schema.GetRawText()),
+            });
+        }
+
         var payload = new JsonObject
         {
             ["model"] = _options.Model,
@@ -149,6 +161,13 @@ public sealed class AnthropicModel : IAgentModel, IDisposable
         }
 
         ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "messages", "tools", "system");
+
+        // Forcing a tool is refused while the model thinks, so a request that thinks only offers the tool.
+        if (request.Schema is not null && !payload.ContainsKey("thinking"))
+        {
+            payload["tool_choice"] = new JsonObject { ["type"] = "tool", ["name"] = ModelHttp.JsonToolName };
+        }
+
         return payload;
     }
 

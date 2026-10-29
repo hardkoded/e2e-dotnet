@@ -124,10 +124,15 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
             ["model"] = _options.Model,
             ["instructions"] = request.System,
             ["input"] = input,
-            ["tools"] = tools,
-            ["tool_choice"] = "auto",
             ["store"] = false,
         };
+
+        // A request that asks for structured output offers no tool, and a server rejects an empty tool list.
+        if (tools.Count > 0)
+        {
+            payload["tools"] = tools;
+            payload["tool_choice"] = "auto";
+        }
 
         // A reasoning model hands its reasoning back encrypted only when asked. The AI SDK asks every model but the chat ones.
         if (IsReasoningModel(_options.Model))
@@ -143,6 +148,22 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
         }
 
         ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "model", "input", "tools", "instructions");
+
+        // The format joins the text options a provider option may have set (verbosity). Not strict: strict mode refuses keywords
+        // such as maxLength, and the agent validates the answer itself.
+        if (request.Schema is { } schema)
+        {
+            var text = payload["text"] as JsonObject ?? [];
+            text["format"] = new JsonObject
+            {
+                ["type"] = "json_schema",
+                ["name"] = request.SchemaName ?? "response",
+                ["schema"] = JsonNode.Parse(schema.GetRawText()),
+                ["strict"] = false,
+            };
+            payload["text"] = text;
+        }
+
         return payload;
     }
 

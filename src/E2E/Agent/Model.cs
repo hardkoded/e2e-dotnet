@@ -36,6 +36,16 @@ public sealed class ModelRequest
     /// </summary>
     public bool MarkLatest { get; init; }
 
+    /// <summary>
+    /// Upstream's <c>ModelCall.schema</c>: a closed response grammar the provider is asked to fill as structured output. When it is
+    /// set, <see cref="Tools"/> is empty and the model answers with one JSON object that matches it, as <see cref="ModelResponse.Content"/>;
+    /// the agent validates that text itself. Null for a turn that offers tools. A custom <see cref="IAgentModel"/> must handle it.
+    /// </summary>
+    public JsonElement? Schema { get; init; }
+
+    /// <summary>Upstream's <c>ModelCall.schemaName</c>: the name sent with <see cref="Schema"/>, for the providers that name a structured output.</summary>
+    public string? SchemaName { get; init; }
+
     /// <summary>Redacts the secrets of the step from a provider failure that quotes the response body.</summary>
     internal Redactor Redactor { get; init; } = Redactor.None;
 }

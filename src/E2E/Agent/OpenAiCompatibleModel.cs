@@ -145,9 +145,29 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
         {
             ["model"] = _options.Model,
             ["messages"] = messages,
-            ["tools"] = tools,
-            ["tool_choice"] = "auto",
         };
+
+        // A request that asks for structured output offers no tool, and a server rejects an empty tool list.
+        if (tools.Count > 0)
+        {
+            payload["tools"] = tools;
+            payload["tool_choice"] = "auto";
+        }
+
+        // Not strict: strict mode refuses keywords such as maxLength, and the agent validates the answer itself.
+        if (request.Schema is { } schema)
+        {
+            payload["response_format"] = new JsonObject
+            {
+                ["type"] = "json_schema",
+                ["json_schema"] = new JsonObject
+                {
+                    ["name"] = request.SchemaName ?? "response",
+                    ["schema"] = JsonNode.Parse(schema.GetRawText()),
+                    ["strict"] = false,
+                },
+            };
+        }
 
         // OpenAI caches prompt prefixes on its own and takes a routing key, one per system prompt. Nothing is stored.
         // Upstream sends this to Responses models and to openai/* models on the gateway, not to chat completions.
