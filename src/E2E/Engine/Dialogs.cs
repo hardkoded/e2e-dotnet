@@ -113,8 +113,15 @@ internal sealed class DialogRouter(ErrorLatch latch)
         };
     }
 
-    /// <summary>Routes one native dialog to the newest registered handler.</summary>
-    public async Task DispatchAsync(IDialog dialog)
+    /// <summary>Routes one native dialog to the newest registered handler; the attempt end waits for it.</summary>
+    public Task DispatchAsync(IDialog dialog)
+    {
+        var work = RouteAsync(dialog);
+        latch.Track("dialog", work);
+        return work;
+    }
+
+    private async Task RouteAsync(IDialog dialog)
     {
         DialogHandler? handler;
         lock (_gate)

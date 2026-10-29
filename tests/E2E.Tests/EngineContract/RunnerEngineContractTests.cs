@@ -10,7 +10,7 @@ namespace E2E.Tests.EngineContract;
 /// <summary>
 /// Ported from upstream's <c>engine-contract.test.ts</c>, whose tests run a project through the CLI over a fake engine. The
 /// port runs each body in a session over a custom <see cref="IEngine"/>. Not ported, because the port has no such feature:
-/// every other test of the file needs the <c>defineEngine</c> hooks (init, dispose, endAttempt, settleAttempt), the runner
+/// every other test of the file (the settleAttempt one is ported, as a partial) needs the <c>defineEngine</c> hooks (init, dispose, endAttempt), the runner
 /// (retries, workers, serial suites, exit codes, run errors, plan notices), the report, artifacts, sessions and state,
 /// engine-contributed fixtures, or the <c>requires</c> test option. The video tests of the file are in
 /// <c>VideoArtifactsTests</c>. Also not ported, with a feature gap: "names
@@ -51,6 +51,21 @@ public sealed class RunnerEngineContractTests
         }));
         Assert.Equal("UNSUPPORTED_ARTIFACT", error.Code);
         Assert.Equal("target \"fake\" (engine web) cannot record video, and the target sets video: 'on'", error.Message);
+    }
+
+    [Fact]
+    public async Task A_failure_settleAttempt_throws_after_the_body_is_the_verdict_with_its_own_code_PARTIAL_the_phase_the_cleanup_field_and_the_exit_code_are_the_runners()
+    {
+        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = new SettlingEngine(new DocumentEngine(BillingWorld.Create())),
+            BaseUrl = "https://billing.test",
+            TestTitle = "taps a node",
+        });
+        await session.App.OpenAsync("/settings/billing");
+        var error = await Assert.ThrowsAsync<TestException>(() => session.SettleAttemptAsync());
+        Assert.Equal("ASSERTION_FAILED", error.Code);
+        session.Complete(error);
     }
 
     [Fact]
@@ -168,6 +183,38 @@ public sealed class RunnerEngineContractTests
             _token = cancellationToken;
             await Task.Delay(Timeout.Infinite, cancellationToken);
             throw new InvalidOperationException("unreachable");
+        }
+    }
+
+    /// <summary>Wraps an engine whose session throws from <c>SettleAttemptAsync</c> (the fake engine's <c>onSettleAttempt</c>).</summary>
+    private sealed class SettlingEngine(IEngine inner) : IEngine
+    {
+        public string Platform => inner.Platform;
+
+        public string Version => inner.Version;
+
+        public EngineCapabilities Capabilities => inner.Capabilities;
+
+        public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken) =>
+            new Session(await inner.StartAsync(options, cancellationToken).ConfigureAwait(false));
+
+        private sealed class Session(IEngineSession inner) : IEngineSession
+        {
+            public string Route => inner.Route;
+
+            public Task OpenAsync(string url, CancellationToken cancellationToken) => inner.OpenAsync(url, cancellationToken);
+
+            public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => inner.ObserveAsync(cancellationToken);
+
+            public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+                inner.PerformAsync(node, action, cancellationToken);
+
+            public Task PressAsync(string key, CancellationToken cancellationToken) => inner.PressAsync(key, cancellationToken);
+
+            public Task SettleAttemptAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
+                throw new TestException("ASSERTION_FAILED", "a callback the body left running failed");
+
+            public ValueTask DisposeAsync() => inner.DisposeAsync();
         }
     }
 

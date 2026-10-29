@@ -401,7 +401,8 @@ misses.
   (straight to the network), `FallbackAsync()` (the route registered before
   it), or `AbortAsync()`. None or two fails the next step with
   `ACTION_FAILED`, a bad option with `INVALID_ARGUMENT`. `Path` is relative
-  to the project root.
+  to the project root. An error the handler throws fails the next step; when
+  no step follows, it fails the test at its end, after the teardown has run.
 - `UnrouteAllAsync()` removes every route; configured site headers stay.
 - A `RouteAsync`, `UnrouteAsync`, or `WaitForResponseAsync` pattern is a
   glob string or a `Regex` matched against the full URL (`*` stays within
@@ -441,7 +442,7 @@ A function handler gets the `Dialog` (`Type`, `Message`) and must call
 `AcceptAsync(text?)` or `DismissAsync()` before it returns. One that does
 not, or that throws, fails the next step (`INVALID_STATE`, or
 `ENGINE_FAILURE` for a throw that is not an e2e error), and its dialog is
-dismissed:
+dismissed. When no step follows, the test fails with it at its end:
 
 ```csharp
 await Browser.OnDialogAsync(async dialog =>
