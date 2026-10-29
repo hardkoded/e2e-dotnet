@@ -233,6 +233,13 @@ public sealed class WebEngineOptions
     /// </summary>
     public WebScreencastOptions? Screencast { get; init; }
 
+    /// <summary>
+    /// The browser the engine launches: Chromium (the default), Firefox, or WebKit. .NET-only split of upstream's
+    /// <c>browser</c> option, which is a name or a provider: the name is here and the provider is <see cref="Browser"/>.
+    /// <see cref="Connect"/> and a provider attach over CDP, so they need Chromium.
+    /// </summary>
+    public BrowserName BrowserName { get; init; } = BrowserName.Chromium;
+
     /// <summary>Attach to a remote Chromium over CDP instead of launching a local one.</summary>
     public WebConnectOptions? Connect { get; init; }
 
@@ -247,10 +254,10 @@ public sealed class WebEngineOptions
 }
 
 /// <summary>
-/// Browser engine for the web target. It drives Chromium through Playwright,
+/// Browser engine for the web target. It drives Chromium, Firefox, or WebKit through Playwright,
 /// reads a semantic tree (role, name, text, test id, state), and performs the
 /// same node actions the document engine does. Install browsers once with
-/// <c>playwright.ps1 install chromium</c> from this project's build output.
+/// <c>playwright.ps1 install chromium</c> (or <c>firefox</c>, <c>webkit</c>) from this project's build output.
 /// </summary>
 public sealed partial class WebEngine : IEngine
 {
@@ -261,8 +268,8 @@ public sealed partial class WebEngine : IEngine
     private const string SkipBrowserGcVariable = "PLAYWRIGHT_SKIP_BROWSER_GC";
 
     // Playwright's install is a no-op when the build is already there; one run per mode serves every session in the process.
-    private static readonly Lazy<Task<int>> HeadlessChromiumInstall = new(() => Task.Run(() => RunChromiumInstall(headed: false, Microsoft.Playwright.Program.Main)));
-    private static readonly Lazy<Task<int>> HeadedChromiumInstall = new(() => Task.Run(() => RunChromiumInstall(headed: true, Microsoft.Playwright.Program.Main)));
+    // One install per browser and window mode for the process: a download is never charged against a launch timeout or run twice.
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<(BrowserName Name, bool Headed), Lazy<Task<int>>> BrowserInstalls = new();
 
     private readonly WebEngineOptions _options;
     private readonly bool _headless;
@@ -355,7 +362,7 @@ public sealed partial class WebEngine : IEngine
             var initScripts = await ReadInitScriptsAsync(options.ProjectRoot, cancellationToken).ConfigureAwait(false);
             if (connect is null)
             {
-                await EnsureChromiumAsync(!_headless, cancellationToken).ConfigureAwait(false);
+                await EnsureBrowserAsync(_options.BrowserName, !_headless, cancellationToken).ConfigureAwait(false);
             }
 
             var playwright = await CreatePlaywright().ConfigureAwait(false);
@@ -396,7 +403,7 @@ public sealed partial class WebEngine : IEngine
                 }
                 else
                 {
-                    browser = await playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless }).ConfigureAwait(false);
+                    browser = await BrowserConnection.BrowserType(playwright, _options.BrowserName).LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless }).ConfigureAwait(false);
                 }
 
                 session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => InstallSiteHeadersAsync(context, app), url => SiteHeadersFor(url, app), seams, credentials: credentials, lease: lease) { Video = VideoSetupOf(options, lease), ArtifactsDir = options.ArtifactsDir };
@@ -436,7 +443,7 @@ public sealed partial class WebEngine : IEngine
         {
             throw new EngineException(
                 "ENVIRONMENT_UNAVAILABLE",
-                "Chromium is not installed for Playwright. Unset " + SkipInstallVariable + " to install it on launch, or from the build output run: playwright.ps1 install chromium",
+                _options.BrowserName + " is not installed for Playwright. Unset " + SkipInstallVariable + " to install it on launch, or from the build output run: playwright.ps1 install " + BrowserConnection.NameOf(_options.BrowserName),
                 ex);
         }
         catch (Exception ex) when (WebErrors.IsPlaywright(ex))
@@ -484,7 +491,14 @@ public sealed partial class WebEngine : IEngine
     /// <summary>The <c>playwright install</c> arguments for Chromium: <c>--only-shell</c> on a headless run, which launches the headless shell.</summary>
     internal static string[] InstallArgs(bool headed)
     {
-        return headed ? ["chromium"] : ["--only-shell", "chromium"];
+        return InstallArgs([BrowserName.Chromium], headed);
+    }
+
+    /// <summary>The <c>playwright install</c> arguments for <paramref name="names"/> (upstream <c>installArgs</c>): <c>--only-shell</c> on a headless run that installs Chromium.</summary>
+    internal static string[] InstallArgs(IReadOnlyList<BrowserName> names, bool headed)
+    {
+        var browsers = names.Select(BrowserConnection.NameOf);
+        return headed || !names.Contains(BrowserName.Chromium) ? [.. browsers] : ["--only-shell", .. browsers];
     }
 
     /// <summary>
@@ -493,7 +507,13 @@ public sealed partial class WebEngine : IEngine
     /// </summary>
     internal static int RunChromiumInstall(bool headed, Func<string[], int> install)
     {
-        return RunPlaywrightCli(["install", .. InstallArgs(headed)], install);
+        return RunBrowserInstall(BrowserName.Chromium, headed, install);
+    }
+
+    /// <summary>Runs <paramref name="install"/> with the install arguments for <paramref name="name"/>, as <see cref="RunChromiumInstall"/> does for Chromium.</summary>
+    internal static int RunBrowserInstall(BrowserName name, bool headed, Func<string[], int> install)
+    {
+        return RunPlaywrightCli(["install", .. InstallArgs([name], headed)], install);
     }
 
     /// <summary>
@@ -508,7 +528,13 @@ public sealed partial class WebEngine : IEngine
         return (playwright ?? Microsoft.Playwright.Program.Main)(args);
     }
 
-    internal static async Task EnsureChromiumAsync(bool headed, CancellationToken cancellationToken)
+    internal static Task EnsureChromiumAsync(bool headed, CancellationToken cancellationToken)
+    {
+        return EnsureBrowserAsync(BrowserName.Chromium, headed, cancellationToken);
+    }
+
+    /// <summary>Installs <paramref name="name"/> once per process unless <see cref="SkipInstallVariable"/> is set (upstream <c>ensureBrowsersInstalled</c>).</summary>
+    internal static async Task EnsureBrowserAsync(BrowserName name, bool headed, CancellationToken cancellationToken)
     {
         var skip = Environment.GetEnvironmentVariable(SkipInstallVariable);
         if (string.Equals(skip, "1", StringComparison.Ordinal) || string.Equals(skip, "true", StringComparison.OrdinalIgnoreCase))
@@ -516,13 +542,35 @@ public sealed partial class WebEngine : IEngine
             return;
         }
 
-        var install = headed ? HeadedChromiumInstall : HeadlessChromiumInstall;
+        var install = BrowserInstalls.GetOrAdd((name, headed), key => new Lazy<Task<int>>(() => InstallBrowserAsync(key)));
         var exitCode = await install.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
         if (exitCode != 0)
         {
             throw new EngineException(
                 "ENVIRONMENT_UNAVAILABLE",
-                "Playwright could not install Chromium (exit code " + exitCode.ToString(System.Globalization.CultureInfo.InvariantCulture) + "). Install it yourself and set " + SkipInstallVariable + "=1 to skip this step.");
+                "Playwright could not install " + BrowserConnection.NameOf(name) + " (exit code " + exitCode.ToString(System.Globalization.CultureInfo.InvariantCulture) + "). Install it yourself and set " + SkipInstallVariable + "=1 to skip this step.");
+        }
+    }
+
+    /// <summary>
+    /// Runs the install behind <see cref="BrowserInstalls"/>. A failed install removes its own entry here, not in a waiter, so it
+    /// is not cached even when every waiter was cancelled before it finished: a later session retries it.
+    /// </summary>
+    private static async Task<int> InstallBrowserAsync((BrowserName Name, bool Headed) key)
+    {
+        var failed = true;
+        try
+        {
+            var exitCode = await Task.Run(() => RunBrowserInstall(key.Name, key.Headed, Microsoft.Playwright.Program.Main)).ConfigureAwait(false);
+            failed = exitCode != 0;
+            return exitCode;
+        }
+        finally
+        {
+            if (failed)
+            {
+                BrowserInstalls.TryRemove(key, out _);
+            }
         }
     }
 
@@ -531,6 +579,12 @@ public sealed partial class WebEngine : IEngine
         if (options.Browser is { } browser)
         {
             ValidateProvider(browser, options.Connect);
+        }
+
+        if ((options.Connect is not null || options.Browser is not null) && options.BrowserName != BrowserName.Chromium)
+        {
+            var source = options.Connect is not null ? "WebEngineOptions.Connect" : "WebEngineOptions.Browser";
+            throw new EngineException("INVALID_CONFIG", source + " requires the chromium browser; CDP attach is chromium-only, got \"" + BrowserConnection.NameOf(options.BrowserName) + "\".");
         }
 
         if (!AttributeNamePattern().IsMatch(options.TestIdAttribute ?? ""))

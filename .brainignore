@@ -1,1 +1,8 @@
 .claude/worktrees/
+apps/.vscode/
+*.diff
+docs/_site/
+docs/api/
+.entire/metadata/
+.entire/tmp/
+.claude/
