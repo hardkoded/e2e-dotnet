@@ -45,6 +45,12 @@ providers and their logins):
 - A custom `IAgentModel` reads each `ModelMessage.Images` of a `user` turn
   (`ModelImage`: `Data`, `MediaType`, `Width`, `Height`). The five built-in
   providers send them after the turn's text. The agent sends none yet.
+- A judgment sets `ModelRequest.Schema` (and `SchemaName`) and offers no tools:
+  a custom `IAgentModel` must ask its provider for that JSON schema as
+  structured output and return the one JSON object as
+  `ModelResponse.Content`. The built-in providers send `response_format`
+  (chat completions), `text.format` (Responses), or `responseJsonSchema`
+  (Google), and make Anthropic and Bedrock call a forced `json` tool.
 
 ### Choose an agent
 
@@ -186,8 +192,11 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
   also a failure, so reach the right screen first and ask about what is
   visible.
 - Judgments see the statement and the current screen only, never prior
-  steps. Malformed output gets one repair round, then
-  `MODEL_OUTPUT_INVALID`.
+  steps. The judge answers `holds`, `fails`, or `inconclusive` in one
+  `agent-judgment-2` JSON object (`protocolVersion`, `explanation`, `verdict`;
+  `schema/agent-judgment-v2.schema.json`). `fails` is `ASSERTION_FAILED`,
+  `inconclusive` is `ASSERTION_INCONCLUSIVE`. An answer outside that grammar
+  gets one repair round, then `MODEL_OUTPUT_INVALID`.
 - A value shown in more than one place (a total in the summary and on the
   pay button) must agree everywhere, or the judgment fails. Name the one you
   mean (`"the order summary total is $42.00"`) when only it matters.

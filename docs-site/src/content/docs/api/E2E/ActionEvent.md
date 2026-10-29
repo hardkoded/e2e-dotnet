@@ -25,7 +25,7 @@ One completed action of an `agent.act` step, as [OnAction](/api/E2E/ActOptions/#
 
 **Implements:** [IEquatable&lt;ActionEvent&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L933)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L941)
 
 ## Constructors
 
@@ -51,7 +51,7 @@ One completed action of an `agent.act` step, as [OnAction](/api/E2E/ActOptions/#
 | `Summary` | [string](https://learn.microsoft.com/dotnet/api/system.string) | What the action did, secrets redacted. |
 | `Source` | [ActionSource](/api/E2E/ActionSource/) | Who chose the action. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L933)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L941)
 
 ## Properties
 
@@ -70,7 +70,7 @@ The committed action, such as `tap` or `navigate`; a mutating project tool reads
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L933)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L941)
 
 <a id="E2E_ActionEvent_Index_"></a>
 <a id="E2E_ActionEvent_Index"></a>
@@ -87,7 +87,7 @@ public int Index { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L933)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L941)
 
 <a id="E2E_ActionEvent_Source_"></a>
 <a id="E2E_ActionEvent_Source"></a>
@@ -104,7 +104,7 @@ Who chose the action.
 
 **Value:** [ActionSource](/api/E2E/ActionSource/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L933)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L941)
 
 <a id="E2E_ActionEvent_Summary_"></a>
 <a id="E2E_ActionEvent_Summary"></a>
@@ -121,4 +121,4 @@ What the action did, secrets redacted.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L933)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L941)

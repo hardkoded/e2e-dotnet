@@ -32,7 +32,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [AppConfig](/api/E2E/AppConfig/) |  |
 | [AssertOptions](/api/E2E/AssertOptions/) | agent.assert: one judgment and one repair round, within Timeout. |
 | [AwsCredentials](/api/E2E/AwsCredentials/) | AWS access key credentials for Signature Version 4. |
-| [BedrockModel](/api/E2E/BedrockModel/) | Amazon Bedrock Converse API client. It signs with AWS Signature Version 4 from the standard AWS environment variables, or sends a Bedrock API key (AWSBEARERTOKENBEDROCK) as a bearer token when one is set. |
+| [BedrockModel](/api/E2E/BedrockModel/) | Amazon Bedrock Converse API client. It signs with AWS Signature Version 4 from the standard AWS environment variables or, with none set, from the AWS credential chain (shared profile, SSO, container and instance roles), as the AI SDK's amazon-bedrock provider does, or sends a Bedrock API key (AWSBEARERTOKENBEDROCK) as a bearer token when one is set. |
 | [BedrockModelOptions](/api/E2E/BedrockModelOptions/) |  |
 | [Browser](/api/E2E/Browser/) | The browser the attempt drives, showing one active tab. It needs an engine session that implements IBrowserSession, such as WebEngine; on any other engine each member fails with UNSUPPORTEDCAPABILITY. |
 | [BrowserExpect](/api/E2E/BrowserExpect/) | Polling assertions for the Browser: its URL and its title. Like the locator matchers, a passing one verifies the previous agent.act. A read is bounded by the matcher's own deadline, so a page that stops answering ends the assertion at its timeout. |
@@ -121,7 +121,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [Screen](/api/E2E/Screen/) | Semantic queries against the current screen. An action or a single-node assertion fails when the query matches more than one node. Narrow it with Filter(TextMatch), First(), Last(), or Nth(int). |
 | [ScreenExpect](/api/E2E/ScreenExpect/) | Matchers on the whole screen: String). |
 | [ScreenshotOptions](/api/E2E/ScreenshotOptions/) | Options of ToHaveScreenshotAsync. |
-| [ScriptedModel](/api/E2E/ScriptedModel/) | Returns whatever the callback decides for each request. Records every request. |
+| [ScriptedModel](/api/E2E/ScriptedModel/) | Returns whatever the callback decides for each request. Records every request. A callback that serves both the act loop and the judge may answer a judgment (a request with a Schema) with String): passed reads as holds, a failed without the code ASSERTIONINCONCLUSIVE as fails, and a blocked or inconclusive one as inconclusive. String) answers it directly. |
 | [ScrollUntilVisibleOptions](/api/E2E/ScrollUntilVisibleOptions/) | Options for Screen.ScrollUntilVisibleAsync and Locator.ScrollUntilVisibleAsync. |
 | [Secret](/api/E2E/Secret/) | A value the model must not see. Prompts, transcripts, reports, and the names and test ids an act records in its replay cache entry receive <secret:name>. The agent fills the real value itself. |
 | [Secrets](/api/E2E/Secrets/) | The secrets declared in e2e.config.json. Each value comes from E2ESECRET{NAME} when it is set, else from the config. The name is uppercased and every character other than A-Z and 0-9 becomes an underscore. |

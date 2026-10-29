@@ -21,7 +21,7 @@ public sealed class CacheInfo
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1016)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1024)
 
 ## Properties
 
@@ -40,7 +40,7 @@ Where the replay stopped and why, after a hand-off. After an `end-mismatch` it n
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1029)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1037)
 
 <a id="E2E_CacheInfo_Entry_"></a>
 <a id="E2E_CacheInfo_Entry"></a>
@@ -57,7 +57,7 @@ The step's cache key, which names its entry file (`<directory>/<entry>.json` in 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1035)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1043)
 
 <a id="E2E_CacheInfo_Mode_"></a>
 <a id="E2E_CacheInfo_Mode"></a>
@@ -72,7 +72,7 @@ public required string Mode { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1018)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1026)
 
 <a id="E2E_CacheInfo_NotRecorded_"></a>
 <a id="E2E_CacheInfo_NotRecorded"></a>
@@ -89,7 +89,7 @@ public string? NotRecorded { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1032)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1040)
 
 <a id="E2E_CacheInfo_Reason_"></a>
 <a id="E2E_CacheInfo_Reason"></a>
@@ -104,7 +104,7 @@ public string? Reason { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1020)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1028)
 
 <a id="E2E_CacheInfo_RecordedBy_"></a>
 <a id="E2E_CacheInfo_RecordedBy"></a>
@@ -121,7 +121,7 @@ The configured model that recorded the entry a step replayed, as [Name](/api/E2E
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1038)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1046)
 
 <a id="E2E_CacheInfo_ReplayedActions_"></a>
 <a id="E2E_CacheInfo_ReplayedActions"></a>
@@ -138,7 +138,7 @@ The recorded actions the replay ran. 0 for a miss.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1023)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1031)
 
 <a id="E2E_CacheInfo_TotalActions_"></a>
 <a id="E2E_CacheInfo_TotalActions"></a>
@@ -155,4 +155,4 @@ The actions the recording holds. 0 when there was no recording to read.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1026)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1034)

@@ -25,7 +25,7 @@ name, and [FrameLocator(string)](#E2E_FrameScreen_FrameLocator_System_String_) f
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object) → [Screen](/api/E2E/Screen/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L676)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L678)
 
 ## Methods
 
@@ -56,7 +56,7 @@ Creates a screen query scope inside an iframe nested in this frame.
 | --- | --- |
 | [TestException](/api/E2E/TestException/) | `INVALID_LOCATOR`: &lt;code class="paramref"&gt;selector&lt;/code&gt; is empty. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L693)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L695)
 
 <a id="E2E_FrameScreen_Locator_"></a>
 <a id="E2E_FrameScreen_Locator_System_String_"></a>
@@ -85,4 +85,4 @@ Creates a web-only CSS or XPath locator inside this frame.
 | --- | --- |
 | [TestException](/api/E2E/TestException/) | `INVALID_LOCATOR`: &lt;code class="paramref"&gt;selector&lt;/code&gt; is empty. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L688)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L690)

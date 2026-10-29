@@ -693,7 +693,9 @@ public Task<BrowserDownload> WaitForDownloadAsync(Func<Task> trigger, TimeSpan? 
 
 
 Runs &lt;code class="paramref"&gt;trigger&lt;/code&gt; and waits for the download it starts, within &lt;code class="paramref"&gt;timeout&lt;/code&gt; (the action timeout by
-default). The file is kept under the attempt's `downloads` artifact folder, as an artifact of this step. A trigger that
+default). The file is kept under the attempt's `downloads` artifact folder, as an artifact of this step. A text download
+(`text/*` or `application/json`) is rewritten in place through the session's secrets when it holds any, and the report
+labels it `complete`; any other download stays as the app served it, `incomplete`. A trigger that
 throws fails the call with its own error, and one that starts no download fails with `ACTION_FAILED`, naming the wait and
 how long the trigger took.
 
@@ -707,7 +709,7 @@ how long the trigger took.
 
 **Returns:** [Task&lt;BrowserDownload&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L359)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L361)
 
 <a id="E2E_Browser_WaitForResponseAsync_"></a>
 <a id="E2E_Browser_WaitForResponseAsync_System_String_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
