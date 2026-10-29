@@ -994,7 +994,7 @@ public sealed partial class WebEngine : IEngine
         private int _nextRef = 1;
 
         // The locator that matched each ref alone, the way upstream keeps a single match on the strict Playwright locator.
-        private Dictionary<string, LocatorExpression> _strict = new(StringComparer.Ordinal);
+        private System.Collections.Concurrent.ConcurrentDictionary<string, LocatorExpression> _strict = new(StringComparer.Ordinal);
         private IBrowser _browser;
 
         // Persistent recovery: the remote default context and page the attempt rides,
@@ -1124,7 +1124,7 @@ public sealed partial class WebEngine : IEngine
                 }
                 else
                 {
-                    _strict.Remove(match.Ref);
+                    _strict.TryRemove(match.Ref, out _);
                 }
             }
 
@@ -1990,10 +1990,6 @@ public sealed partial class WebEngine : IEngine
             return roots;
         }
 
-        /// <summary>
-        /// Counts the nodes that share each node's role, name, and test id. A ref keeps the count it had
-        /// when first observed: a later observation does not raise it.
-        /// </summary>
         /// <summary>
         /// A ref located as the only match of its locator keeps that locator strict, as upstream's does. When a second element now matches
         /// it, the ref is ambiguous: acting could hit the wrong element, so it is stale. A ref the observation listed, or one of several
