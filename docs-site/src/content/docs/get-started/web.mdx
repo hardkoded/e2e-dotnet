@@ -92,6 +92,7 @@ public sealed class SignupTests : E2ETest
 }
 ```
 
+- A locator that matches two elements fails with `STRICT_MODE`. One that matched a single element when the test resolved it, and gains a second match just before the action runs, stops with a retryable `NODE_STALE` before any input, so it acts on neither; the locator is resolved again, so narrow it if two matches stay.
 - Give `ActAsync` one atomic goal per call. `Params` fills the placeholders.
 - `AssertAsync` asks the model to judge the screen. `Expect.That(...)` checks an exact value with no model call, so pair each agent step with one.
 - Tag tests that call a model, for example `[Category("RealModel")]`, so CI can skip them with `--filter "TestCategory!=RealModel"`.

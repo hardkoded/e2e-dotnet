@@ -205,7 +205,14 @@ lines you changed:
 
 - Text matches are exact by default. A locator that matches two nodes
   fails with `STRICT_MODE`; narrow it, or add `First()` to an `a.Or(b)`
-  whose branches both match (topic `writing-tests`).
+  whose branches both match (topic `writing-tests`). A locator that matched
+  one element when the test resolved it, and matches a second just before the
+  action runs (a screen transition that briefly shows the old and the new
+  page), stops with a retryable `NODE_STALE` before any input, so it acts on neither;
+  the locator is resolved again, and two matches then fail with
+  `STRICT_MODE`. Only a match of one element is strict this way: one of
+  several matches, and a `GetByDisplayValue` or exact `GetByLabel` match, name
+  their own element.
 - Actions wait for readiness and `Expect` retries. Reads such as
   `TextContentAsync` wait for one match until the action timeout, then answer
   the current value; `CountAsync` and `IsVisibleAsync` answer from the current
