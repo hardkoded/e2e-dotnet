@@ -445,7 +445,8 @@ internal static partial class Init
     /// <summary>Removes a symlink without touching what it leads to.</summary>
     private static void RemoveLink(string absolute)
     {
-        if (OperatingSystem.IsWindows() && File.GetAttributes(absolute).HasFlag(FileAttributes.Directory))
+        // FileInfo.Attributes reads the link itself and never throws, even for a link whose target is gone.
+        if (OperatingSystem.IsWindows() && ((int)new FileInfo(absolute).Attributes & (int)FileAttributes.Directory) != 0)
         {
             System.IO.Directory.Delete(absolute);
             return;
