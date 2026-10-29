@@ -19,6 +19,9 @@ internal static partial class Skill
 {
     public const string Name = "e2e-dotnet";
 
+    /// <summary>Printed when a build or an install left the skill files out of the package (upstream's <c>MISSING_SKILL_MESSAGE</c>).</summary>
+    public const string MissingSkillMessage = "this installation ships no skill files; reinstall e2e";
+
     private const string ResourcePrefix = "skill/";
 
     private const string TopicPrefix = "references/";

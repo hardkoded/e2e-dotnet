@@ -111,6 +111,25 @@ public string? EndRoute { get; set; }
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L60)
 
+<a id="E2E_CacheEntry_EndWaitMs_"></a>
+<a id="E2E_CacheEntry_EndWaitMs"></a>
+
+### EndWaitMs
+
+
+```csharp
+public int? EndWaitMs { get; set; }
+```
+
+
+Upstream's `endWaitMs`: how long the recorded run took from its last action to its passing verdict, plus a margin. A replay
+waits up to this long for the recorded end state to show: the recorded run waited for its effect too (a report that takes half a
+minute), and the click alone proves nothing. Null on an entry recorded before it was stored.
+
+**Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L75)
+
 <a id="E2E_CacheEntry_Engine_"></a>
 <a id="E2E_CacheEntry_Engine"></a>
 

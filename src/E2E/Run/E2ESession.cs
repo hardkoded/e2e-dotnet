@@ -133,6 +133,7 @@ public sealed class E2ESession : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(options.Engine);
         ArgumentException.ThrowIfNullOrWhiteSpace(options.TestTitle);
         var agents = ResolveAgents(options);
+        var runLimits = ResolvedAgent.RunLimits(agents.Values);
         if (options.Agent is { } pinned && !agents.ContainsKey(pinned))
         {
             throw new TestException("INVALID_ARGUMENT", "unknown agent \"" + pinned + "\"; configured: " + string.Join(", ", agents.Keys));
@@ -262,7 +263,7 @@ public sealed class E2ESession : IAsyncDisposable
             }
 
             // A screen is read once, when its step ends, redacted with what the attempt knows by then.
-            screens.Route(screen => scope.Steps.RecordScreen(() => StepScreens.TraceScreen(screen, new TraceScreenOptions(scope.Redactor, StepScreens.DefaultObservationBytes, scope.AppOrigin))));
+            screens.Route(screen => scope.Steps.RecordScreen(() => StepScreens.TraceScreen(screen, new TraceScreenOptions(scope.Redactor, runLimits.MaxObservationBytes, scope.AppOrigin))));
 
             // What the app did on its own while the engine launched waits here, and goes under the step it happened in.
             appLog.Route((appEvent, at) => scope.Steps.RecordAppEvent(appEvent, at));
@@ -292,7 +293,7 @@ public sealed class E2ESession : IAsyncDisposable
             screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });
             screen.Redact = text => scope.Redactor.Redact(text);
             screen.Failed = scope.Implicate;
-            screen.RenderTree = observation => Screen.TreeText(observation, scope.Redactor, scope.AppOrigin, StepScreens.DefaultObservationBytes);
+            screen.RenderTree = observation => Screen.TreeText(observation, scope.Redactor, scope.AppOrigin, runLimits.MaxObservationBytes);
             screen.Screenshots = scope.Screenshots = new ScreenshotContext
             {
                 ProjectRoot = projectRoot,
@@ -505,6 +506,8 @@ public sealed class E2ESession : IAsyncDisposable
                 MaxSteps = options.MaxSteps,
                 MaxModelCalls = options.MaxModelCalls,
                 JudgmentTimeout = options.JudgmentTimeout,
+                MaxObservationBytes = options.MaxObservationBytes,
+                MaxInputTokens = options.MaxInputTokens,
                 ProviderOptions = options.ProviderOptions,
                 Tools = options.AgentTools,
             }),
@@ -607,6 +610,7 @@ public sealed class E2ESession : IAsyncDisposable
                 Error = error,
                 Redactor = _scope.Redactor,
                 AppOrigin = _scope.AppOrigin,
+                MaxObservationBytes = ResolvedAgent.RunLimits(_scope.Agents.Values).MaxObservationBytes,
                 AttemptDir = trace.AttemptDir,
             }).ConfigureAwait(false);
         }
@@ -787,7 +791,7 @@ public sealed class E2ESession : IAsyncDisposable
     }
 
     // Rewriting an identical flow would only churn a committed cache directory. The model that recorded it decides nothing
-    // a replay does, so another model recording the same flow rewrites nothing.
+    // a replay does, and neither does the measured end wait, so another model recording the same flow rewrites nothing.
     private static bool HoldsSameFlow(IStepCache cache, string key, CacheEntry entry)
     {
         var existing = cache.Read(key).Entry;
@@ -802,6 +806,7 @@ public sealed class E2ESession : IAsyncDisposable
     {
         var flow = JsonSerializer.SerializeToNode(entry, JsonDefaults.Options)!.AsObject();
         flow.Remove("recordedBy");
+        flow.Remove("endWaitMs");
         flow.Remove("keyedBy");
         return flow.ToJsonString();
     }
@@ -832,6 +837,12 @@ public sealed class E2ESessionOptions
 
     /// <summary>The default agent's <c>judgmentTimeout</c>: the deadline of one <c>assert</c>, <c>waitFor</c>, or <c>extract</c>.</summary>
     public TimeSpan JudgmentTimeout { get; init; } = E2EDefaults.JudgmentTimeout;
+
+    /// <summary>The default agent's <c>maxObservationBytes</c>. See <see cref="AgentOptions.MaxObservationBytes"/>.</summary>
+    public int MaxObservationBytes { get; init; } = E2EDefaults.MaxObservationBytes;
+
+    /// <summary>The default agent's <c>maxInputTokens</c>. See <see cref="AgentOptions.MaxInputTokens"/>.</summary>
+    public int MaxInputTokens { get; init; } = E2EDefaults.MaxInputTokens;
 
     /// <summary>The default agent's provider options, keyed by provider. See <see cref="ModelRequest.ProviderOptions"/>.</summary>
     public IReadOnlyDictionary<string, JsonElement>? ProviderOptions { get; init; }

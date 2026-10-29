@@ -52,6 +52,9 @@ internal static class ReportFile
         public List<ReportTarget> Targets { get; } = [];
 
         public ReportExplore? Explore { get; set; }
+
+        /// <summary>The run's limits: the largest any test's agents allowed.</summary>
+        public ReportLimits? Limits { get; set; }
     }
 
     /// <summary>Where the document of the run whose results go to <paramref name="resultsRoot"/> is written.</summary>
@@ -131,6 +134,7 @@ internal static class ReportFile
             Results = [result],
             ReportTargets = report.Run.Targets,
             Explore = report.Run.Explore,
+            Limits = report.Run.Limits,
             Vcs = await VcsOf(DetectVcs(projectRoot)).ConfigureAwait(false),
             Ci = E2EConfig.IsCi(),
         });
@@ -175,6 +179,7 @@ internal static class ReportFile
             }
 
             state.Explore = report.Run.Explore ?? state.Explore;
+            state.Limits = report.Run.Limits is { } limits ? state.Limits?.Max(limits) ?? limits : state.Limits;
             var (status, exitCode) = StatusOf(state.Results.Values.Select(entry => entry.Result));
             var document = BuildReport.Build(new BuildReportOptions
             {
@@ -186,6 +191,7 @@ internal static class ReportFile
                 ExitCode = exitCode,
                 Results = [.. state.Results.Values.Select(entry => entry.Result)],
                 Explore = state.Explore,
+                Limits = state.Limits,
                 Vcs = await VcsOf(state.Vcs).ConfigureAwait(false),
                 Ci = E2EConfig.IsCi(),
             });

@@ -142,7 +142,7 @@ internal static class AttemptReport
             Attempts = [attempt],
             Directory = directory,
         };
-        return (new Report1Document(new ReportRun(RunId, ModelHttp.PackageVersion(), [new ReportTarget(scope.TargetName, 0, scope.EnginePlatform, BuildReport.DescribeTarget(scope.EngineName, scope.EngineVersion, scope.EngineCapabilities), "test", BuildReport.BaseOrigin(scope.BaseUrl))], [result], explore)), id);
+        return (new Report1Document(new ReportRun(RunId, ModelHttp.PackageVersion(), [new ReportTarget(scope.TargetName, 0, scope.EnginePlatform, BuildReport.DescribeTarget(scope.EngineName, scope.EngineVersion, scope.EngineCapabilities), "test", BuildReport.BaseOrigin(scope.BaseUrl))], [result], explore) { Limits = ResolvedAgent.RunLimits(scope.Agents.Values) }), id);
     }
 
     // The size of a file the attempt kept, which the run's usage adds up; null for a link and for a file that cannot be read.

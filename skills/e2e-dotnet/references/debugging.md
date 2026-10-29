@@ -89,7 +89,11 @@ no viewer. It tells, in this order:
    of an agent step, the hook the step ran in (`in beforeEach` for a step
    called from an NUnit `[SetUp]`, `in afterEach` from a `[TearDown]`, or from
    an xUnit `InitializeAsync` or `DisposeAsync`), and the offset into the
-   video (`, video 0:12`) when one is recorded. Under a step:
+   video (`, video 0:12`) when one is recorded. A `Browser` or `Device` call is
+   a step too, named for the call (`browser.goto` with the URL, `browser.route`
+   with the pattern, `device.openLink` with the link before its query,
+   `device.setNetwork` with `offline`), so a failure there points at the call,
+   and `browser.waitForURL` counts as a verification. Under a step:
    - for a locator action, the node it landed on (`tap button "Save" (12ms)`,
      or `✗` and its code), with `appeared after 340ms` when the node was not
      there at once;
@@ -228,7 +232,7 @@ failed before it read a screen has `observationRevision` `unrecorded`. See
 | `ACTION_MAY_HAVE_COMMITTED` | An action, scroll, key press, typing, or mouse call timed out, or hit a strict mode violation, after its input may have reached the page. On a device, a tap, key, swipe, or `Back` the device did not answer within `actionTimeout`. It is never repeated | Check the page state before you retry by hand |
 | `TIMEOUT` | `locator.WaitForAsync` timed out | Check the state you wait for |
 | `STEP_TIMEOUT`, `STEP_BUDGET_EXHAUSTED` | Goal too big or ambiguous, or a slow provider | Split the goal, use on-screen wording, add vocabulary in `context`; raise `maxSteps` or `maxModelCalls`, `StepTimeout`, or `judgmentTimeout` |
-| `CONTEXT_OVERFLOW` | The provider refused the model request as too large for its context window (`ActAsync` after one shrink-and-retry; a judgment on the first refusal) | Split the goal into smaller steps, or use a model with a larger context window |
+| `CONTEXT_OVERFLOW` | The provider refused the model request as too large for its context window (`ActAsync` after one shrink-and-retry; a judgment on the first refusal) | Lower `agents.<name>.maxObservationBytes`, split the goal into smaller steps, or use a model with a larger context window |
 | `REPLAY_STALE` | `cache.strict` is on and a committed recording no longer replays, or the cache directory holds the step's recording under another key (the message names the file and what changed since it was recorded: the engine contract, the replay policy, the agent's context) | Re-run once in `read-write` mode without `cache.strict` to re-record, then commit the changed entry. Delete the old file once nothing replays it |
 | `AUTOMATION_UNSUPPORTED` | The step needs an action the agent's tools lack (hover, drag) | Do that step with `Screen` actions |
 | `ENVIRONMENT_UNAVAILABLE` with "Chromium is not installed" or "could not install Chromium" | The browser install was skipped or failed | Allow network access for the first run, or run `e2e install` and set `E2E_SKIP_BROWSER_INSTALL=1` |

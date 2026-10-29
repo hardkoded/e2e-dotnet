@@ -27,7 +27,7 @@ public sealed class TheAgentsEntryShapeTests
     {
         var config = E2EConfig.Parse(
             """
-            { "agents": { "default": { "model": "gpt-4.1-mini", "judge": "o4-mini", "system": "Be careful.", "context": "Plans are tiers.", "maxSteps": 5, "judgmentTimeout": 90000 }, "ux": {} } }
+            { "agents": { "default": { "model": "gpt-4.1-mini", "judge": "o4-mini", "system": "Be careful.", "context": "Plans are tiers.", "maxSteps": 5, "judgmentTimeout": 90000, "maxInputTokens": 10000 }, "ux": {} } }
             """,
             Root,
             _ => null);
@@ -39,6 +39,7 @@ public sealed class TheAgentsEntryShapeTests
         Assert.Null(ux.Context);
         Assert.Null(ux.MaxSteps);
         Assert.Equal(E2EDefaults.JudgmentTimeout, ux.JudgmentTimeout);
+        Assert.Equal(64_000, ux.MaxInputTokens);
         Assert.Equal(5, config.Agent.MaxSteps);
     }
 }

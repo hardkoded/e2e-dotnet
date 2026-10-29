@@ -60,6 +60,37 @@ public sealed class ReplayThroughTheActTests
         Assert.Equal([SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.Raw], looks);
     }
 
+    /// <summary>Partial: the act records the list's share of the viewport and replays without the list; the replay's own checks are <c>ReplayTraceBarePointTapsTests</c>.</summary>
+    [Fact]
+    public async Task Partial_Scrolls_the_viewport_when_a_list_that_filled_the_screen_cannot_be_re_found()
+    {
+        var directory = CoreTests.TempCache();
+        var next = 0;
+        ModelResponse[] steps = [ModelResponses.Call("scroll", new { role = "group", name = "Rows 1 to 12", direction = "down", times = 2 })];
+        DocumentWorld World(bool list) => new DocumentWorld().Map("/plan", page =>
+        {
+            var scrolls = 0;
+            var status = page.Status("Scrolled 0");
+            if (list)
+            {
+                page.Roots.Add(new DocumentElement { Role = "group", Name = "Rows 1 to 12", Rect = new BoundingBox(0, 0, 1280, 720), OnScroll = _ => status.Name = status.Text = "Scrolled " + ++scrolls });
+            }
+
+            page.OnScroll = _ => status.Name = status.Text = "Scrolled " + ++scrolls;
+        });
+
+        var recorded = await ActAsync(World(list: true), directory, new ScriptedModel(_ => next < steps.Length ? steps[next++] : ModelResponses.Done("passed", "Done.")));
+        Assert.Equal("missed", recorded.Mode);
+        var scroll = Assert.Single(ScrollTests.ReadEntry(directory).Actions);
+        Assert.Equal((2, 1.0), (scroll.Times, scroll.Spans));
+        // The recording keeps how long the app took to show its end state after the last action, plus the margin a replay waits.
+        Assert.InRange(ScrollTests.ReadEntry(directory).EndWaitMs ?? -1, 10_000, 15_000);
+
+        // The list is gone from the page, but it covered the screen: the viewport takes its scrolls.
+        var replayed = await ActAsync(World(list: false), directory, new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")));
+        Assert.Equal("self-finalized", replayed.Mode);
+    }
+
     [Fact]
     public async Task Partial_Repeats_a_folded_viewport_scroll_as_many_times_as_recorded_with_a_settled_look_between_repeats()
     {

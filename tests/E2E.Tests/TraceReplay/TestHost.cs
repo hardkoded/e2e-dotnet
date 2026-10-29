@@ -48,11 +48,19 @@ internal sealed class TestHost : IReplayHost
 
     public IExecutorActions Actions { get; }
 
-    public CancellationToken Signal => CancellationToken.None;
+    public CancellationToken Signal { get; set; } = CancellationToken.None;
 
     public Redactor Redact => Redactor.None;
 
-    public TimeSpan ReplayTimeout => TimeSpan.FromMilliseconds(100);
+    public TimeSpan ReplayTimeout { get; set; } = TimeSpan.FromMilliseconds(100);
+
+    /// <summary>Upstream's <c>remainingMs</c> option of <c>makeHost</c>: what is left of the step's clock, in milliseconds.</summary>
+    public int Remaining { get; set; } = 60_000;
+
+    public int RemainingMs() => Remaining;
+
+    /// <summary>The clock the replay reads; a test swaps in a fake one, as upstream's fake timers.</summary>
+    public TimeProvider Time { get; set; } = TimeProvider.System;
 
     public static TestHost MakeHost(IReadOnlyList<SemanticNode>? nodes = null, Action<string, object?>? onAction = null) =>
         new(nodes ?? [Upgrade, Email], onAction);

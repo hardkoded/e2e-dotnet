@@ -105,6 +105,9 @@ public sealed class WebInitScript
 
     public static implicit operator WebInitScript(string source) => FromSource(source);
 
+    /// <summary>The step label of this script (upstream's <c>initScriptLabel</c>): the file a path names, else its kind, never its source.</summary>
+    internal string Label() => Path ?? (Function is null ? "source" : "function");
+
     /// <summary>Why this script cannot run, or <see langword="null"/>.</summary>
     internal string? Problem() => Path is { Length: 0 } ? "path must be a non-empty string" : null;
 
@@ -1090,7 +1093,7 @@ public sealed partial class WebEngine : IEngine
             _frames = walk.Frames;
             _observed = true;
             _twins = TwinsOf(roots, _twins);
-            return new Observation { Route = Route, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll };
+            return new Observation { Route = Route, Roots = roots.Select(node => ToNode(node, _testIdAttribute)).ToList(), Truncated = walk.Truncated, ScrollPosition = walk.Scroll, Viewport = walk.Viewport };
         });
 
         public bool CanLocate => true;
@@ -1954,6 +1957,7 @@ public sealed partial class WebEngine : IEngine
             if (frame.ParentFrame is null)
             {
                 walk.Scroll = dto.Scroll;
+                walk.Viewport = dto.Viewport is { Width: > 0, Height: > 0 } size ? new TraceViewport(size.Width, size.Height) : null;
             }
 
             var roots = dto.Roots ?? [];
@@ -2983,7 +2987,16 @@ public sealed partial class WebEngine : IEngine
 
         public string? Scroll { get; set; }
 
+        public TraceViewport? Viewport { get; set; }
+
         public Dictionary<string, IFrame> Frames { get; } = new(StringComparer.Ordinal);
+    }
+
+    private sealed class WebViewportDto
+    {
+        public int Width { get; set; }
+
+        public int Height { get; set; }
     }
 
     private sealed class WebObservation
@@ -2995,6 +3008,8 @@ public sealed partial class WebEngine : IEngine
         public bool Truncated { get; set; }
 
         public string? Scroll { get; set; }
+
+        public WebViewportDto? Viewport { get; set; }
 
         public List<WebNode>? Roots { get; set; }
     }

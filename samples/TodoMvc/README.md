@@ -1,12 +1,11 @@
 # TodoMVC sample
 
-This sample tests the [TodoMVC demo](https://demo.playwright.dev/todomvc) with the `E2E` and `E2E.NUnit` NuGet packages. It covers the same behavior as Playwright's [`examples/todomvc`](https://github.com/microsoft/playwright/tree/main/examples/todomvc) (Apache-2.0, Microsoft), but the agent performs the actions. The test cases and their data come from that example.
+This sample tests the [TodoMVC demo](https://demo.playwright.dev/todomvc) with the `E2E` and `E2E.NUnit` libraries, referenced as projects from `src/`. It covers the same behavior as Playwright's [`examples/todomvc`](https://github.com/microsoft/playwright/tree/main/examples/todomvc) (Apache-2.0, Microsoft), but the agent performs the actions. The test cases and their data come from that example.
 
 ## Run it
 
 ```bash
-dotnet tool install --global E2E.Cli
-e2e login github-copilot
+dotnet run --project src/E2E.Cli -- login github-copilot
 dotnet test --project samples/TodoMvc
 ```
 

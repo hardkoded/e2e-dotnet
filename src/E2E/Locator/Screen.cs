@@ -322,7 +322,7 @@ public class Screen
                 var read = ObserveAsync(bounded.Token);
                 _ = read.ContinueWith(static finished => _ = finished.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
                 var observation = await read.WaitAsync(bounded.Token).ConfigureAwait(false);
-                return RenderTree?.Invoke(observation) ?? Redact(TreeText(observation, Redactor.None, null, StepScreens.DefaultObservationBytes));
+                return RenderTree?.Invoke(observation) ?? Redact(TreeText(observation, Redactor.None, null, E2EDefaults.MaxObservationBytes));
             }
             catch (OperationCanceledException) when (bounded.IsCancellationRequested && !token.IsCancellationRequested)
             {
@@ -367,6 +367,10 @@ public class Screen
 
     /// <summary>Runs one call that touches the app as a recorded step of the attempt, or as it is without a timeline.</summary>
     internal Task RunStepAsync(StepKind kind, string api, string label, Func<Task> body, bool verifies = false) =>
+        Steps is null ? body() : Steps.RunAsync(kind, api, label, body, new StepRunOptions { Verifies = verifies });
+
+    /// <summary>Runs one call that touches the app and returns a value as a recorded step of the attempt, or as it is without a timeline.</summary>
+    internal Task<T> RunStepAsync<T>(StepKind kind, string api, string label, Func<Task<T>> body, bool verifies = false) =>
         Steps is null ? body() : Steps.RunAsync(kind, api, label, body, new StepRunOptions { Verifies = verifies });
 
     /// <summary>Records one child event under the running step; nothing outside a session listens.</summary>

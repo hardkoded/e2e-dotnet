@@ -9,13 +9,12 @@ namespace E2E.Tests.AgentObservation;
 
 /// <summary>
 /// The port renders the screen as one text block in its own format, with no pixel evidence, executor tree, node
-/// index, byte budget, or cut fields. So these upstream its are not ported: "keeps unavailable semantics separate from
+/// index, or cut fields. So these upstream its are not ported: "keeps unavailable semantics separate from
 /// an empty tree and requires permitted masked evidence", "returns evidence without a comparable shape without
 /// repeating capture", "redacts the leading
 /// part of a secret a field cut at its limit ends with, and leaves a cut plain value and a whole field alone", "redacts
 /// every string field a node carries, in the text, the executor tree, and the node index alike", "redacts an earlier
-/// capture again with a secret resolved since, keeping which nodes are leaves", "truncates at the byte limit while
-/// keeping the root and flagging truncation", and "reports the byte cut, not the engine cut, when both apply". The last three
+/// capture again with a secret resolved since, keeping which nodes are leaves". The last three
 /// tests below are .NET-only: upstream proves a granted, tainted, or uncounted capture through its runner.
 /// </summary>
 public sealed class PrepareObservationTests
@@ -28,6 +27,31 @@ public sealed class PrepareObservationTests
         var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree], Truncated = true }, Redactor.None);
         Assert.Contains("button \"One\"", text, StringComparison.Ordinal);
         Assert.EndsWith("\n(More of the page is off screen. Scroll to reach it.)", text, StringComparison.Ordinal);
+    }
+
+    /// <summary>Partial: upstream "truncates at the byte limit while keeping the root and flagging truncation" reads the flag, the node index (201 nodes), and the text from <c>prepareObservation</c>. The port has no node index: it checks the text and the cut flag of <c>Render</c>.</summary>
+    [Fact]
+    public void Partial_truncates_at_the_byte_limit_while_keeping_the_root_and_flagging_truncation()
+    {
+        var children = Enumerable.Range(0, 200).Select(index => new SemanticNode { Ref = "c" + index, Role = "button", Name = "Button number " + index }).ToList();
+        var tree = new SemanticNode { Ref = "n1", Role = "document", Children = children };
+        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree] }, Redactor.None, null, 256, out var cut);
+        Assert.True(cut);
+        Assert.StartsWith("Screen (/):\n- document [ref=n1]", text, StringComparison.Ordinal);
+        Assert.Contains("[observation truncated", text, StringComparison.Ordinal);
+    }
+
+    /// <summary>Partial: upstream "reports the byte cut, not the engine cut, when both apply" reads <c>prepared.bytes</c> and the engine marker's words. The port's engine marker is its own, and it counts the text's bytes itself.</summary>
+    [Fact]
+    public void Partial_reports_the_byte_cut_not_the_engine_cut_when_both_apply()
+    {
+        var children = Enumerable.Range(0, 200).Select(index => new SemanticNode { Ref = "c" + index, Role = "button", Name = "Button " + index }).ToList();
+        var tree = new SemanticNode { Ref = "n1", Role = "document", Children = children };
+        var text = SnapshotText.Render(new Observation { Route = "/", Roots = [tree], Truncated = true }, Redactor.None, null, 256, out var cut);
+        Assert.True(cut);
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(text) <= 256);
+        Assert.EndsWith("[observation truncated at the resolved observation byte limit]", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("off screen", text, StringComparison.Ordinal);
     }
 
     [Fact]

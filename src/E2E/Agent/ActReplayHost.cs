@@ -33,6 +33,10 @@ public sealed partial class Agent
 
         public TimeSpan ReplayTimeout => scope.ReplayTimeout;
 
+        public int RemainingMs() => budget.RemainingMs();
+
+        public TimeProvider Time => TimeProvider.System;
+
         public Observation? FirstActedOn => feed.FirstActedOn;
 
         public Task<Observation> ObserveAsync(SettleMode mode) => feed.ObserveAsync(mode, token);

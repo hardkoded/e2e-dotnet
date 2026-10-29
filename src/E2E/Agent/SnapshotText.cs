@@ -13,27 +13,45 @@ internal static class SnapshotText
     /// <summary>Link target UTF-16 units a line shows; a longer target is cut there and ends with <c>…</c>.</summary>
     private const int MaxHrefLength = 256;
 
+    /// <summary>Appended when the node walk stopped at the observation byte budget (upstream's <c>TRUNCATION_MARKER</c>).</summary>
+    internal const string TruncationMarker = "[observation truncated at the resolved observation byte limit]";
+
     /// <summary>
     /// The screen as the model reads it. A link target on <paramref name="appOrigin"/>, the app base URL's, shows as its
     /// path: the one a navigation to a path resolves against.
     /// </summary>
-    public static string Render(Observation observation, Redactor redactor, string? appOrigin = null)
+    public static string Render(Observation observation, Redactor redactor, string? appOrigin = null) =>
+        Render(observation, redactor, appOrigin, int.MaxValue, out _);
+
+    /// <summary>
+    /// <see cref="Render(Observation, Redactor, string?)"/> within <paramref name="maxBytes"/>, upstream's <c>prepareObservation</c> cut: the
+    /// marker is reserved up front so a cut screen still fits, the first node is always listed, and the first node line that would
+    /// pass the budget ends the listing with <see cref="TruncationMarker"/>. <paramref name="cut"/> says whether the budget cut it.
+    /// </summary>
+    public static string Render(Observation observation, Redactor redactor, string? appOrigin, int maxBytes, out bool cut)
     {
         var builder = new StringBuilder();
         builder.Append("Screen (").Append(redactor.Redact(observation.Route)).Append("):");
-        var any = false;
+        var budget = Math.Max(0, maxBytes - Encoding.UTF8.GetByteCount(TruncationMarker + "\n"));
+        var state = new CutState(Encoding.UTF8.GetByteCount(builder.ToString() + "\n"), budget);
         foreach (var root in observation.Roots)
         {
-            any |= Write(builder, root, 0, redactor, appOrigin);
+            Write(builder, root, 0, redactor, appOrigin, state);
         }
 
-        if (!any)
+        if (!state.Any)
         {
             builder.Append('\n');
             builder.Append("(empty)");
         }
 
-        if (observation.Truncated)
+        cut = state.Cut;
+        if (state.Cut)
+        {
+            builder.Append('\n');
+            builder.Append(TruncationMarker);
+        }
+        else if (observation.Truncated)
         {
             builder.Append('\n');
             builder.Append("(More of the page is off screen. Scroll to reach it.)");
@@ -42,24 +60,45 @@ internal static class SnapshotText
         return builder.ToString();
     }
 
-    private static bool Write(StringBuilder builder, SemanticNode node, int depth, Redactor redactor, string? appOrigin)
+    // The listing's progress against its byte budget: the bytes of the lines written so far, and whether the budget stopped the walk.
+    private sealed class CutState(int bytes, int budget)
     {
-        var wrote = false;
-        if (!(node.States.Hidden || node.States.AriaHidden))
+        public bool Any { get; set; }
+
+        public bool Cut { get; set; }
+
+        public int Bytes { get; set; } = bytes;
+
+        public int Budget { get; } = budget;
+    }
+
+    private static void Write(StringBuilder builder, SemanticNode node, int depth, Redactor redactor, string? appOrigin, CutState state)
+    {
+        if (state.Cut)
         {
-            builder.Append('\n');
-            builder.Append(' ', depth * 2);
-            builder.Append("- ");
-            builder.Append(Describe(node, redactor, appOrigin, listing: true));
-            wrote = true;
+            return;
+        }
+
+        var hidden = node.States.Hidden || node.States.AriaHidden;
+        if (!hidden)
+        {
+            var line = "\n" + new string(' ', depth * 2) + "- " + Describe(node, redactor, appOrigin, listing: true);
+            var size = Encoding.UTF8.GetByteCount(line);
+            if (state.Any && state.Bytes + size > state.Budget)
+            {
+                state.Cut = true;
+                return;
+            }
+
+            state.Bytes += size;
+            builder.Append(line);
+            state.Any = true;
         }
 
         foreach (var child in node.Children)
         {
-            wrote |= Write(builder, child, node.States.Hidden || node.States.AriaHidden ? depth : depth + 1, redactor, appOrigin);
+            Write(builder, child, hidden ? depth : depth + 1, redactor, appOrigin, state);
         }
-
-        return wrote;
     }
 
     /// <summary>Levels of indent a <see cref="FormatNode"/> line keeps; deeper nodes line up with the tenth.</summary>

@@ -377,7 +377,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
     private async Task<string> DescribeAsync(string action, CancellationToken token)
     {
         var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
-        return action + "\n" + SnapshotText.Render(observation, _scope.Redactor, _scope.AppOrigin);
+        return action + "\n" + _feed.Text(observation);
     }
 
     // A name the engine cut at its limit can end with the leading part of a secret, so it is redacted as a cut field.

@@ -30,8 +30,17 @@ internal interface IReplayHost
 
     Redactor Redact { get; }
 
-    /// <summary>How long a replayed action waits for its target to show, where upstream backs off inside the step's clock.</summary>
+    /// <summary>
+    /// How long a replayed action waits for its target to show, and a look at the recorded end state before the recording's own wait
+    /// starts (upstream's <c>RETRY_TIMEOUT_MS</c>, 15 s). Upstream backs off inside the step's clock.
+    /// </summary>
     TimeSpan ReplayTimeout { get; }
+
+    /// <summary>Upstream's <c>remainingMs</c>: the milliseconds left of the step's deadline.</summary>
+    int RemainingMs();
+
+    /// <summary>The clock the end wait reads and sleeps on. No upstream counterpart: upstream reads <c>Date.now()</c> and tests fake the timers.</summary>
+    TimeProvider Time { get; }
 
     /// <summary>
     /// Takes one action slot. False when the step's budget is spent, and the replay hands the step over: upstream's dispatcher
@@ -60,6 +69,16 @@ internal sealed class ReplayOptions
     /// action left goes unseen.
     /// </summary>
     public Func<bool>? LooksBeforeFree { get; init; }
+}
+
+/// <summary>Upstream's options of <c>verifyEndState</c>.</summary>
+internal sealed class VerifyEndStateOptions
+{
+    /// <summary>How long the recording needed to reach its end state (<see cref="CacheEntry.EndWaitMs"/>). Null waits for nothing beyond the settling backoff.</summary>
+    public int? WaitMs { get; init; }
+
+    /// <summary>The end screen already in hand, which nothing has happened to since it was captured: the first look reads it instead of capturing again.</summary>
+    public Observation? Initial { get; init; }
 }
 
 /// <summary>Upstream's <c>ReplayOutcome</c>.</summary>
@@ -146,19 +165,6 @@ internal static class Replay
             }
 
             var summary = DefaultAgent.Describe(action);
-            if (string.Equals(action.Kind, "navigate", StringComparison.Ordinal))
-            {
-                if (!host.TryReserve())
-                {
-                    return Stop(ReplayHandOffReason.ActionBudget);
-                }
-
-                await host.Actions.NavigateAsync(action.Url ?? "/", token).ConfigureAwait(false);
-                await host.CommitAsync(action).ConfigureAwait(false);
-                summaries.Add(summary);
-                previous = action;
-                continue;
-            }
 
             // A replayed action draws on the step's action budget like a live one. The first always fits.
             // An action with a target takes its slot once the target is found, so a lost target is a miss.
@@ -177,6 +183,14 @@ internal static class Replay
                 // A scroll on a list re-finds the list before each repeat.
                 switch (action.Kind)
                 {
+                    case "navigate":
+                        if (!host.TryReserve())
+                        {
+                            return Stop(ReplayHandOffReason.ActionBudget);
+                        }
+
+                        await host.Actions.NavigateAsync(action.Url ?? "/", token).ConfigureAwait(false);
+                        break;
                     case "back":
                         await host.Actions.BackAsync(token).ConfigureAwait(false);
                         break;
@@ -201,22 +215,42 @@ internal static class Replay
 
                         break;
                     case "scroll":
-                        // A scroll on a list is paced by the relocation before each repeat.
+                        // A scroll on a list is paced by the relocation before each repeat. A list that filled the screen when recorded
+                        // and cannot be re-found scrolls as the viewport, which is what scrolling the main list does, for that repeat and
+                        // every later one, instead of waiting out the relocation again on every repeat; a smaller region hands off.
+                        var onList = true;
                         for (var index = 0; index < (action.Times ?? 1); index++)
                         {
-                            var list = await Relocate(host, action, index == 0 ? look : HeldStill).ConfigureAwait(false);
-                            if (list.Node is null)
+                            SemanticNode? scrolledList = null;
+                            if (onList)
                             {
-                                return Stop(list.Failure, Partial());
+                                var list = await Relocate(host, action, index == 0 ? look : HeldStill).ConfigureAwait(false);
+                                if (list.Node is null)
+                                {
+                                    if (!FilledTheScreen(action))
+                                    {
+                                        return Stop(list.Failure, Partial());
+                                    }
+
+                                    onList = false;
+                                }
+
+                                scrolledList = list.Node;
+                            }
+                            else if (index > 0)
+                            {
+                                // A viewport scroll relocates nothing, so each later repeat takes a settled look of its own, as the
+                                // live loop did between them.
+                                await host.ObserveAsync(SettleMode.HeldStill).ConfigureAwait(false);
                             }
 
-                            // One slot for the whole scroll, taken once its list is found.
+                            // One slot for the whole scroll, taken once its first repeat has a place to land.
                             if (index == 0 && !host.TryReserve())
                             {
                                 return Stop(ReplayHandOffReason.ActionBudget);
                             }
 
-                            await host.Actions.ScrollAsync(new ExecutorTarget(list.Node), Direction(action.Direction), 1, token).ConfigureAwait(false);
+                            await host.Actions.ScrollAsync(scrolledList is null ? null : new ExecutorTarget(scrolledList), Direction(action.Direction), 1, token).ConfigureAwait(false);
                             repeated++;
                         }
 
@@ -229,8 +263,9 @@ internal static class Replay
                             break;
                         }
 
+                        // A list that filled the screen and cannot be re-found is paged as the viewport; a smaller region hands off.
                         var scrolled = await Relocate(host, action, look).ConfigureAwait(false);
-                        if (scrolled.Node is null)
+                        if (scrolled.Node is null && !FilledTheScreen(action))
                         {
                             return Stop(scrolled.Failure);
                         }
@@ -240,7 +275,7 @@ internal static class Replay
                             return Stop(ReplayHandOffReason.ActionBudget);
                         }
 
-                        await host.Actions.ScrollUntilAsync(text, Direction(action.Direction), new ExecutorTarget(scrolled.Node) { Recorded = action }, token).ConfigureAwait(false);
+                        await host.Actions.ScrollUntilAsync(text, Direction(action.Direction), scrolled.Node is null ? null : new ExecutorTarget(scrolled.Node) { Recorded = action }, token).ConfigureAwait(false);
                         break;
                     default:
                         var found = await Relocate(host, action, look).ConfigureAwait(false);
@@ -275,6 +310,90 @@ internal static class Replay
         }
 
         return new ReplayOutcome { Completed = true, Executed = summaries.Count, Total = total, Summaries = summaries };
+    }
+
+    /// <summary>Whether the list a recorded scroll moved filled the screen (<see cref="CacheKeys.MainListShare"/>), so it scrolls as the viewport once it is lost.</summary>
+    private static bool FilledTheScreen(RecordedAction action) => (action.Spans ?? 0) >= CacheKeys.MainListShare;
+
+    /// <summary>Poll cadence while a replay waits for the recorded end state beyond the settling backoff.</summary>
+    private static readonly TimeSpan EndWaitPoll = TimeSpan.FromSeconds(1);
+
+    /// <summary>The step clock kept back from that wait, so a hand-off still has room to act.</summary>
+    private const int EndWaitReserveMs = 20_000;
+
+    /// <summary>Backoff between looks at the screen while it settles.</summary>
+    private static readonly TimeSpan[] RetryDelays = [TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(300), TimeSpan.FromMilliseconds(600), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3)];
+
+    /// <summary>
+    /// Waits for a trace's recorded end state on the live screen: <paramref name="holds"/> (the recorded delta, <c>Anchors.Mismatch</c>)
+    /// must be true of one look, or the replay must not pass on its own. Waits on the settling backoff first, because the recording
+    /// run's final look came seconds of model latency after its last action and a replay's comes right away: a save still in flight is
+    /// a wait, not a divergence. Then it waits up to what the recording needed (<see cref="VerifyEndStateOptions.WaitMs"/>), while the
+    /// step clock leaves room for a hand-off to act. A surface that cannot be observed at all is a mismatch too: the executor gets
+    /// the step and judges the live state; only runtime hard stops propagate.
+    /// </summary>
+    public static async Task<bool> VerifyEndState(IReplayHost host, Func<Observation, bool> holds, VerifyEndStateOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(holds);
+        var started = host.Time.GetUtcNow();
+        try
+        {
+            if (await PollSettled(host, holds, options?.Initial is { } initial ? new Look(initial, SettleMode.Raw) : HeldStill).ConfigureAwait(false))
+            {
+                return true;
+            }
+
+            // The settling backoff covers a slow re-render; the recorded run may have waited far longer than that for its effect, a
+            // report that takes half a minute, and so does the replay, up to what the recording needed.
+            var deadline = started + TimeSpan.FromMilliseconds(Math.Min(options?.WaitMs ?? 0, Math.Max(0, host.RemainingMs() - EndWaitReserveMs)));
+            while (true)
+            {
+                var pause = deadline - host.Time.GetUtcNow();
+                if (pause <= TimeSpan.Zero)
+                {
+                    return false;
+                }
+
+                await Task.Delay(pause < EndWaitPoll ? pause : EndWaitPoll, host.Time, host.Signal).ConfigureAwait(false);
+                if (holds(await host.ObserveAsync(SettleMode.Raw).ConfigureAwait(false)))
+                {
+                    return true;
+                }
+            }
+        }
+        catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex) && !host.Signal.IsCancellationRequested)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Upstream's <c>pollSettled</c> for a yes or no answer: probes the first look, then re-probes fresh raw captures on a fixed
+    /// backoff until the probe holds or the wait runs out, so a screen mid-transition gets a few looks before replay gives the step up.
+    /// A screen the caller already settled (the step's start capture) is read as it is.
+    /// </summary>
+    private static async Task<bool> PollSettled(IReplayHost host, Func<Observation, bool> probe, Look look)
+    {
+        var started = host.Time.GetUtcNow();
+        var screen = look.InHand ?? await host.ObserveAsync(look.Settle).ConfigureAwait(false);
+        for (var attempt = 0; ; attempt++)
+        {
+            if (probe(screen))
+            {
+                return true;
+            }
+
+            // The backoff's last delay repeats until the wait runs out: the list shapes the first looks, the timeout bounds them.
+            var delay = RetryDelays[Math.Min(attempt, RetryDelays.Length - 1)];
+            if (host.Time.GetUtcNow() - started + delay > host.ReplayTimeout || host.RemainingMs() <= delay.TotalMilliseconds)
+            {
+                return false;
+            }
+
+            await Task.Delay(delay, host.Time, host.Signal).ConfigureAwait(false);
+            screen = await host.ObserveAsync(SettleMode.Raw).ConfigureAwait(false);
+        }
     }
 
     /// <summary>One recorded action on a node, through the grammar call of its kind.</summary>
@@ -318,7 +437,7 @@ internal static class Replay
     /// </summary>
     private static async Task<(SemanticNode? Node, ReplayHandOffReason Failure)> Relocate(IReplayHost host, RecordedAction action, Look look)
     {
-        var deadline = DateTime.UtcNow + host.ReplayTimeout;
+        var deadline = host.Time.GetUtcNow() + host.ReplayTimeout;
         var first = true;
         while (true)
         {
@@ -336,12 +455,12 @@ internal static class Replay
                 return (null, ReplayHandOffReason.TargetAmbiguous);
             }
 
-            if (DateTime.UtcNow >= deadline)
+            if (host.Time.GetUtcNow() >= deadline)
             {
                 return (null, ReplayHandOffReason.TargetNotFound);
             }
 
-            await Task.Delay(RetryDelay, host.Signal).ConfigureAwait(false);
+            await Task.Delay(RetryDelay, host.Time, host.Signal).ConfigureAwait(false);
         }
     }
 

@@ -41,6 +41,9 @@ public sealed class NodeStates
 /// <summary>A viewport-relative rectangle in CSS pixels.</summary>
 public sealed record BoundingBox(double X, double Y, double Width, double Height);
 
+/// <summary>Upstream's <c>TraceViewport</c>: the size of the viewport a capture was taken in, in CSS pixels.</summary>
+public sealed record TraceViewport(int Width, int Height);
+
 /// <summary>One node of an observation tree. <see cref="Ref"/> is valid only for the observation it came from.</summary>
 public sealed class SemanticNode
 {
@@ -129,6 +132,12 @@ public sealed class Observation
     /// compares it to see whether a scroll moved anything the tree does not show.
     /// </summary>
     internal string? ScrollPosition { get; init; }
+
+    /// <summary>
+    /// Upstream's <c>ObservedScreen.viewport</c>: the viewport the capture was taken in. Null when the engine did not measure it: the
+    /// web engine does, and a scroll on a list then records the share of it the list covered.
+    /// </summary>
+    public TraceViewport? Viewport { get; init; }
 
     /// <summary>
     /// Which capture of the attempt this is (upstream's <c>revision</c>: <c>b1</c>, <c>b2</c>, and so on). The harness stamps it, not the

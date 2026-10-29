@@ -26,6 +26,7 @@ public static partial class Program
           e2e guide [topic]
           e2e install [chromium|firefox|webkit ...] [--with-deps]
           e2e mcp [--config <path>] [--target <name>] [--headed] [--max-sessions <n>]
+          e2e init [directory] [--yes] [--engine <ids>] [--gateway <id>] [--endpoint <url>] [--skills <dirs>] [--mcp <files>]
           e2e explore [goal] [--config <path>] [--target <id>] [--agent <name>] [--max-steps <n>] [--timeout <ms>] [--headed] [--output <dir>]
                        [--debug] [--ai-trace] [--trace [mode]] [--video [mode]]
 
@@ -36,6 +37,9 @@ public static partial class Program
           github-copilot    GitHub Copilot (gh signed in, or --client-id of your OAuth App; --enterprise-url for GHE)
           opencode-console  OpenCode Console workspace (OpenCode Zen and Go)
           spacexai          SuperGrok or X Premium+
+
+        e2e init scaffolds e2e.config.json, installs the agent skill, registers the MCP server, and updates .gitignore.
+        It needs --yes, since the port has no prompts. e2e init --help lists its flags.
 
         e2e explore runs the agent against the app toward a goal, without a test file, and reports its findings. e2e explore --help lists its options.
 
@@ -89,6 +93,11 @@ public static partial class Program
             return await ExploreCommand.RunAsync(args.Skip(1), stdout, stderr, interactive, Explore.ExploreAsync, cancellationToken).ConfigureAwait(false);
         }
 
+        if (args[0] == "init")
+        {
+            return await InitAsync(args.Skip(1).ToList(), stdout, stderr).ConfigureAwait(false);
+        }
+
         if (args[0] == "install")
         {
             return await E2eWebCli.MainAsync(args[1..], new CliIo(stdout, stderr, forwarded => E2E.Engine.WebEngine.RunPlaywrightCli(forwarded))).ConfigureAwait(false);
@@ -109,6 +118,33 @@ public static partial class Program
             default:
                 await stderr.WriteLineAsync("unknown command \"" + args[0] + "\"\n\n" + Usage).ConfigureAwait(false);
                 return 1;
+        }
+    }
+
+    private static async Task<int> InitAsync(List<string> args, TextWriter stdout, TextWriter stderr)
+    {
+        if (args.Contains("--help") || args.Contains("-h"))
+        {
+            await stdout.WriteLineAsync(InitFlags.Usage).ConfigureAwait(false);
+            return 0;
+        }
+
+        var (options, error) = InitFlags.Parse(args);
+        if (options is null)
+        {
+            await stderr.WriteLineAsync(error + "\n\n" + InitFlags.Usage).ConfigureAwait(false);
+            return 2;
+        }
+
+        var root = Path.GetFullPath(options.Directory ?? Environment.CurrentDirectory);
+        try
+        {
+            return (await Init.RunAsync(root, options, stdout).ConfigureAwait(false)).ExitCode;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            await stderr.WriteLineAsync("error: " + Clean(ex.Message)).ConfigureAwait(false);
+            return 2;
         }
     }
 

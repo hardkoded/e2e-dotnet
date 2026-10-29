@@ -137,7 +137,19 @@ public sealed partial class Agent
         using var clock = new CancellationTokenSource(timeout);
         using var expiry = clock.Token.Register(() => budget.Fatalize(budget.TimedOut()));
         var token = stop.Token;
-        var feed = new ObservationFeed(_scope.Session, TimeProvider.System) { Scope = _scope };
+
+        // What every turn resends, which the observation is cut around: the context, the prior-step ledger, and the instruction.
+        var ledger = E2E.Ledger.SerializeLedger(E2E.Ledger.ProjectPriorSteps(_scope.Steps.Completed()), E2E.Ledger.MaxLedgerBytes);
+        var feed = new ObservationFeed(_scope.Session, TimeProvider.System)
+        {
+            Scope = _scope,
+            Options = new ObservationFeedOptions(
+                agent.MaxObservationBytes,
+                agent.MaxInputTokens,
+                ModelAdapter.TokenUpperBound(instruction),
+                agent.Context is null ? 0 : ModelAdapter.TokenUpperBound(agent.Context),
+                ledger.Bytes),
+        };
         _feed = feed;
         var stepIndex = _scope.NextStepIndex();
         _scope.Remember(spec.Params);
@@ -190,7 +202,7 @@ public sealed partial class Agent
 
             // The screen the step began on is stale once a replay acted, so the executor takes a fresh look.
             var prefix = session?.ReplayedPrefix;
-            context = new ActContext(_scope, feed, budget, dispatcher, spec, agent, stepIndex, declared, prefix is not null && recorder.RecordedCount > 0 ? null : start, prefix);
+            context = new ActContext(_scope, feed, budget, dispatcher, spec, agent, stepIndex, declared, ledger, prefix is not null && recorder.RecordedCount > 0 ? null : start, prefix);
             StepVerdict verdict;
             try
             {

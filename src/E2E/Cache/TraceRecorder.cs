@@ -16,12 +16,18 @@ namespace E2E.Cache;
 /// the recorded actions in the order they ran for <see cref="Finalize"/>.
 /// </summary>
 /// <param name="redactor">The step's redactor, read at each record: a secret the step resolves late masks what it recorded after.</param>
-internal sealed class TraceRecorder(Func<Redactor> redactor)
+/// <param name="time">The clock <see cref="LastActionAtMs"/> reads. No upstream counterpart: upstream reads <c>Date.now()</c>.</param>
+internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time = null)
 {
     private readonly List<RecordedAction> _actions = [];
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
+    private long? _lastActionAtMs;
 
     /// <summary>Number of actions recorded so far, gaps included.</summary>
     public int RecordedCount => _actions.Count;
+
+    /// <summary>When the last action or gap was recorded, in Unix milliseconds; null before the first.</summary>
+    public long? LastActionAtMs => _lastActionAtMs;
 
     /// <summary>The recorded actions in order. No upstream equivalent: upstream hands them over only in <see cref="Finalize"/>.</summary>
     public IReadOnlyList<RecordedAction> Actions => _actions;
@@ -38,6 +44,7 @@ internal sealed class TraceRecorder(Func<Redactor> redactor)
     {
         ArgumentNullException.ThrowIfNull(action);
         _actions.Add(action);
+        _lastActionAtMs = _time.GetUtcNow().ToUnixTimeMilliseconds();
         return action;
     }
 
@@ -56,11 +63,16 @@ internal sealed class TraceRecorder(Func<Redactor> redactor)
             && string.Equals(last.Name, scroll.Name, StringComparison.Ordinal)
             && string.Equals(last.TestId, scroll.TestId, StringComparison.Ordinal))
         {
+            // The smallest coverage of the repeats decides the viewport fallback, so a list that shrank on the way is never
+            // promoted by its first size.
             last.Times = (last.Times ?? 1) + 1;
+            last.Spans = last.Spans is { } previous && scroll.Spans is { } current ? Math.Min(previous, current) : null;
+            _lastActionAtMs = _time.GetUtcNow().ToUnixTimeMilliseconds();
             return;
         }
 
         _actions.Add(scroll);
+        _lastActionAtMs = _time.GetUtcNow().ToUnixTimeMilliseconds();
     }
 
     /// <summary>
@@ -73,13 +85,17 @@ internal sealed class TraceRecorder(Func<Redactor> redactor)
     /// Forgets every recorded action. No upstream equivalent: a replay that misses before it ran an action leaves nothing to
     /// keep, and the port's replay commits through this recorder.
     /// </summary>
-    public void Clear() => _actions.Clear();
+    public void Clear()
+    {
+        _actions.Clear();
+        _lastActionAtMs = null;
+    }
 
     /// <summary>
     /// Concludes recording into the entry of <paramref name="step"/>, or null when nothing was recorded: a step that committed no
     /// actions has no flow worth replaying. The routes are already templated and redacted.
     /// </summary>
-    public CacheEntry? Finalize(CacheEntry step, string route, string endRoute, List<RecordedTarget> appeared, List<RecordedTarget> gone, string? recordedBy = null)
+    public CacheEntry? Finalize(CacheEntry step, string route, string endRoute, List<RecordedTarget> appeared, List<RecordedTarget> gone, string? recordedBy = null, long? endWaitMs = null)
     {
         ArgumentNullException.ThrowIfNull(step);
         if (_actions.Count == 0)
@@ -95,6 +111,7 @@ internal sealed class TraceRecorder(Func<Redactor> redactor)
         entry.Actions = [.. _actions];
         entry.Appeared = appeared;
         entry.Gone = gone;
+        entry.EndWaitMs = endWaitMs is { } wait ? (int)Math.Min(Trace.MaxTraceEndWaitMs, Math.Max(0, wait)) : null;
         return entry;
     }
 

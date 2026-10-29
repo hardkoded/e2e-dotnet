@@ -233,7 +233,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             async token =>
             {
                 var recorded = list is null ? null : Target(Resolve(list), "scrollUntil");
-                await PageUntilAsync(text, direction, recorded, token).ConfigureAwait(false);
+                var spans = await PageUntilAsync(text, direction, recorded, token).ConfigureAwait(false);
                 await CommitAsync(new RecordedAction
                 {
                     Kind = "scrollUntil",
@@ -242,6 +242,7 @@ internal sealed class ActionDispatcher : IExecutorActions
                     TestId = recorded?.TestId,
                     Direction = DirectionName(direction),
                     Text = CacheKeys.Template(text, _parameters),
+                    Spans = spans,
                 }).ConfigureAwait(false);
             },
             cancellationToken);
@@ -262,6 +263,7 @@ internal sealed class ActionDispatcher : IExecutorActions
                 var actions = _accounting.Recorder.Actions;
                 var node = list is null ? null : Resolve(list);
                 var recorded = node is null ? null : Target(node, "scroll");
+                var viewport = _feed.Latest?.Viewport;
                 for (var repeat = 0; repeat < times; repeat++)
                 {
                     if (repeat > 0)
@@ -269,6 +271,7 @@ internal sealed class ActionDispatcher : IExecutorActions
                         // Each later repeat reads a settled screen first, and pages the list as that screen shows it.
                         _feed.ArmAfter(actions[^1]);
                         var look = await _feed.ObserveAsync(SettleMode.HeldStill, "page", token).ConfigureAwait(false);
+                        viewport = look.Viewport;
                         if (recorded is not null)
                         {
                             node = Single(Find(look, recorded.Role, recorded.Name, recorded.TestId, null, _scope.Redactor))
@@ -285,7 +288,7 @@ internal sealed class ActionDispatcher : IExecutorActions
                         await _scope.Session.PerformAsync(node, new LocatorAction.Swipe(direction), token).ConfigureAwait(false);
                     }
 
-                    RecordScroll(direction, node);
+                    RecordScroll(direction, node, viewport);
                 }
 
                 if (list is not null && node is not null)
@@ -416,9 +419,10 @@ internal sealed class ActionDispatcher : IExecutorActions
     /// list that does not move hands the paging to the viewport. The list is re-found before
     /// every page.
     /// </summary>
-    internal async Task PageUntilAsync(string text, ScrollDirection direction, RecordedAction? list, CancellationToken token)
+    internal async Task<double?> PageUntilAsync(string text, ScrollDirection direction, RecordedAction? list, CancellationToken token)
     {
         string? previous = null;
+        double? spans = null;
         var still = 0;
         for (var screens = 0; ; screens++)
         {
@@ -435,7 +439,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             if (found is not null)
             {
                 await _scope.Session.PerformAsync(found, new LocatorAction.ScrollIntoView(), token).ConfigureAwait(false);
-                return;
+                return spans;
             }
 
             if (screens >= MaxScrollUntilScreens)
@@ -468,19 +472,26 @@ internal sealed class ActionDispatcher : IExecutorActions
             else
             {
                 await _scope.Session.PerformAsync(within, new LocatorAction.Swipe(direction), token).ConfigureAwait(false);
+                spans = SpansOf(within, observation.Viewport);
             }
         }
     }
+
+    // The share of the viewport a list covered, or null when the engine measured no box or no viewport.
+    private static double? SpansOf(SemanticNode? list, TraceViewport? viewport) =>
+        list?.Rect is { } box && viewport is not null ? Geometry.ViewportShare(box, viewport) : null;
 
     private static SemanticNode? Single(List<SemanticNode> matches)
     {
         return matches.Count == 1 ? matches[0] : null;
     }
 
-    private void RecordScroll(ScrollDirection direction, SemanticNode? list)
+    private void RecordScroll(ScrollDirection direction, SemanticNode? list, TraceViewport? viewport)
     {
         var scroll = list is null ? new RecordedAction { Kind = "scroll" } : Target(list, "scroll");
         scroll.Direction = DirectionName(direction);
+        // How much of the screen the list covered decides, on replay, whether a list that cannot be re-found scrolls as the viewport.
+        scroll.Spans = SpansOf(list, viewport);
         _accounting.Recorder.RecordScroll(scroll);
     }
 

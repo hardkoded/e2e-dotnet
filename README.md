@@ -280,7 +280,7 @@ A Claude Pro or Max plan cannot serve the agent. Anthropic allows that login onl
 
 From a clone of this repo, run the tool with `dotnet run --project src/E2E.Cli -- login github-copilot`.
 
-An agent entry also takes `judge` (the model id for `assert`, `waitFor`, and `extract`), `system`, `context`, `maxSteps`, `maxModelCalls`, `judgmentTimeout`, and `providerOptions`. `agents` can name more agents than `default`; a call picks one with its `Agent` option, such as `new ActOptions { Agent = "careful" }`. Project tools (`AgentTools` on the fixture) are code, so they are not config keys; see topic `agent`. So is a custom executor (`AgentExecutor` on the fixture, `AgentOptions.Executor`), which replaces the built-in agent for `act` and `assert` with a `ToolLoop` of your own tools or your own `IStepExecutor`; see topic `agent`.
+An agent entry also takes `judge` (the model id for `assert`, `waitFor`, and `extract`), `system`, `context`, `maxSteps`, `maxModelCalls`, `judgmentTimeout`, `maxObservationBytes` (the most bytes of the screen one model request carries, 1024 through 16777216, 262144 by default), `maxInputTokens` (the input one model request may carry, 1 through 1000000, 64000 by default; a dense screen is cut to fit under it), and `providerOptions`. `agents` can name more agents than `default`; a call picks one with its `Agent` option, such as `new ActOptions { Agent = "careful" }`. Project tools (`AgentTools` on the fixture) are code, so they are not config keys; see topic `agent`. So is a custom executor (`AgentExecutor` on the fixture, `AgentOptions.Executor`), which replaces the built-in agent for `act` and `assert` with a `ToolLoop` of your own tools or your own `IStepExecutor`; see topic `agent`.
 
 `cache.mode` is `off`, `read-only`, or `read-write`. Unset, it is `read-write` locally and `read-only` when `CI` is set. `cache.strict` fails a recording that no longer matches with `REPLAY_STALE` instead of running the step live. Under `cache.strict`, retries replay too, and the run never writes the cache. `cache.dir` resolves against the config file's directory. `E2E_CACHE_DIR` replaces it, so checkouts and worktrees of one project can share a replay cache without editing the config; the mode stays as configured. Parallel runs can share the directory: each write replaces its entry file atomically, and two writers on one key leave the last write. On Windows, a write the file system refuses while another write replaces the same entry, or while a reader holds it open, is retried for a moment before the step reports it as not written.
 
@@ -349,7 +349,9 @@ foreach (var finding in outcome.Explore.Findings)
 
 ## Coding agents (MCP)
 
-`e2e mcp` serves the project to a coding agent such as Claude Code or Cursor over MCP (stdio). Register it once:
+`e2e init --yes` scaffolds `e2e.config.json`, installs the skill into `.agents/skills/e2e-dotnet` and `.claude/skills/e2e-dotnet`, registers the MCP server in `.mcp.json` and `.cursor/mcp.json`, and updates `.gitignore`, skipping files that exist. It creates no test project. See [COMPATIBILITY.md](COMPATIBILITY.md#coding-agents).
+
+`e2e mcp` serves the project to a coding agent such as Claude Code or Cursor over MCP (stdio). `e2e init` registers it; to do it by hand:
 
 ```bash
 claude mcp add e2e -- e2e mcp
@@ -395,7 +397,7 @@ To use an API key instead, change `agents.default` in `samples/E2E.Sample/e2e.co
 
 Runs are headless. To watch a run in a browser window, set `E2E_HEADLESS=0`, for example `E2E_HEADLESS=0 dotnet test --project samples/E2E.Sample`.
 
-[`samples/TodoMvc`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/TodoMvc) ports Playwright's TodoMVC example to agent steps, using the NuGet packages. Its README compares the two.
+[`samples/TodoMvc`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/TodoMvc) ports Playwright's TodoMVC example to agent steps. Its README compares the two.
 
 [`samples/MobileApp`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp) is a small .NET MAUI app, and [`samples/MobileApp.E2ETests`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp.E2ETests) drives it on an iOS simulator or Android emulator with `MobileEngine`. Its README lists the prerequisites (Node 22.12 or newer for agent-device) and the run commands.
 
