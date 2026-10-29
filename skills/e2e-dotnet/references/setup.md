@@ -8,6 +8,7 @@
 - The config
 - The app under test
 - Environment variables
+- App identity and environment
 - Mobile targets
 - Windows targets
 - Done when
