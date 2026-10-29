@@ -89,7 +89,11 @@ no viewer. It tells, in this order:
    of an agent step, the hook the step ran in (`in beforeEach` for a step
    called from an NUnit `[SetUp]`, `in afterEach` from a `[TearDown]`, or from
    an xUnit `InitializeAsync` or `DisposeAsync`), and the offset into the
-   video (`, video 0:12`) when one is recorded. Under a step:
+   video (`, video 0:12`) when one is recorded. A `Browser` or `Device` call is
+   a step too, named for the call (`browser.goto` with the URL, `browser.route`
+   with the pattern, `device.openLink` with the link before its query,
+   `device.setNetwork` with `offline`), so a failure there points at the call,
+   and `browser.waitForURL` counts as a verification. Under a step:
    - for a locator action, the node it landed on (`tap button "Save" (12ms)`,
      or `✗` and its code), with `appeared after 340ms` when the node was not
      there at once;

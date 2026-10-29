@@ -73,6 +73,10 @@ public sealed class Browser
     internal Task RunStepAsync(StepKind kind, string api, string label, Func<Task> body, bool verifies = false) =>
         Steps is null ? body() : Steps.RunAsync(kind, api, label, body, new StepRunOptions { Verifies = verifies });
 
+    /// <summary>Runs one call that touches the app and returns a value as a recorded step of the attempt, or as it is without a timeline.</summary>
+    internal Task<T> RunStepAsync<T>(StepKind kind, string api, string label, Func<Task<T>> body, bool verifies = false) =>
+        Steps is null ? body() : Steps.RunAsync(kind, api, label, body, new StepRunOptions { Verifies = verifies });
+
     /// <summary>Tells the attempt that an assertion failed on the app. Nothing outside a session listens.</summary>
     internal Action Failed { get; set; } = static () => { };
 
@@ -93,29 +97,40 @@ public sealed class Browser
             ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(budget, TimeSpan.Zero, nameof(options));
         }
 
-        var resolved = Routes.Resolve(_baseUrl, url);
-        return AppNotOpen.GuardAsync(() => Require("goto").GotoAsync(resolved, options?.WaitUntil ?? GotoWaitUntil.Load, options?.Timeout ?? _actionTimeout, Token(cancellationToken)));
+        return RunStepAsync(StepKind.Resource, "browser.goto", url, () =>
+        {
+            var resolved = Routes.Resolve(_baseUrl, url);
+            return AppNotOpen.GuardAsync(() => Require("goto").GotoAsync(resolved, options?.WaitUntil ?? GotoWaitUntil.Load, options?.Timeout ?? _actionTimeout, Token(cancellationToken)));
+        });
     }
 
     /// <summary>Reloads the current document.</summary>
     public Task ReloadAsync(CancellationToken cancellationToken = default) =>
-        AppNotOpen.GuardAsync(() => Require("reload").ReloadAsync(Token(cancellationToken)));
+        RunStepAsync(StepKind.Resource, "browser.reload", "", () => AppNotOpen.GuardAsync(() => Require("reload").ReloadAsync(Token(cancellationToken))));
 
     /// <summary>Navigates the history back once.</summary>
     public Task BackAsync(CancellationToken cancellationToken = default) =>
-        AppNotOpen.GuardAsync(() => Require("back").BackAsync(Token(cancellationToken)));
+        RunStepAsync(StepKind.Resource, "browser.back", "", () => AppNotOpen.GuardAsync(() => Require("back").BackAsync(Token(cancellationToken))));
 
     /// <summary>Navigates the history forward once.</summary>
     public Task ForwardAsync(CancellationToken cancellationToken = default) =>
-        AppNotOpen.GuardAsync(() => Require("forward").ForwardAsync(Token(cancellationToken)));
+        RunStepAsync(StepKind.Resource, "browser.forward", "", () => AppNotOpen.GuardAsync(() => Require("forward").ForwardAsync(Token(cancellationToken))));
 
     /// <summary>Returns the current URL.</summary>
     public Task<string> UrlAsync(CancellationToken cancellationToken = default) =>
+        RunStepAsync(StepKind.Resource, "browser.url", "", () => ReadUrlAsync(cancellationToken));
+
+    /// <summary>The URL read the <c>expect(browser)</c> matchers poll with, which records no step of its own (upstream's <c>currentUrl</c>).</summary>
+    internal Task<string> ReadUrlAsync(CancellationToken cancellationToken) =>
         AppNotOpen.GuardAsync(() => Require("url").GetUrlAsync(Token(cancellationToken)));
+
+    /// <summary>The title read the <c>expect(browser)</c> matchers poll with, which records no step of its own (upstream's <c>currentTitle</c>).</summary>
+    internal Task<string> ReadTitleAsync(CancellationToken cancellationToken) =>
+        AppNotOpen.GuardAsync(() => Require("title").GetTitleAsync(Token(cancellationToken)));
 
     /// <summary>Returns the current title. A page that does not answer within the action timeout fails with <c>OPERATION_TIMEOUT</c>.</summary>
     public Task<string> TitleAsync(CancellationToken cancellationToken = default) =>
-        AppNotOpen.GuardAsync(() => Require("title").GetTitleAsync(Token(cancellationToken)));
+        RunStepAsync(StepKind.Resource, "browser.title", "", () => ReadTitleAsync(cancellationToken));
 
     /// <summary>
     /// Waits until the current URL equals <paramref name="url"/>, resolved
@@ -125,16 +140,22 @@ public sealed class Browser
     public Task WaitForURLAsync(string url, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(url);
-        Require("waitForURL");
-        return new BrowserExpect(this, negated: false).ToHaveURLAsync(url, timeout: timeout, cancellationToken: cancellationToken);
+        return RunStepAsync(StepKind.Resource, "browser.waitForURL", url, () =>
+        {
+            Require("waitForURL");
+            return new BrowserExpect(this, negated: false).ToHaveURLAsync(url, timeout: timeout, cancellationToken: cancellationToken);
+        }, verifies: true);
     }
 
     /// <summary>Waits until the current URL matches <paramref name="pattern"/>. The default timeout is the assertion timeout.</summary>
     public Task WaitForURLAsync(Regex pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(pattern);
-        Require("waitForURL");
-        return new BrowserExpect(this, negated: false).ToHaveURLAsync(pattern, timeout: timeout, cancellationToken: cancellationToken);
+        return RunStepAsync(StepKind.Resource, "browser.waitForURL", Routes.Label(pattern), () =>
+        {
+            Require("waitForURL");
+            return new BrowserExpect(this, negated: false).ToHaveURLAsync(pattern, timeout: timeout, cancellationToken: cancellationToken);
+        }, verifies: true);
     }
 
     /// <summary>
@@ -191,14 +212,14 @@ public sealed class Browser
     public Task<WebResponse> WaitForResponseAsync(string pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(pattern);
-        return WaitForResponseCoreAsync(Routes.CompilePattern(pattern).IsMatch, timeout, cancellationToken);
+        return WaitForResponseCoreAsync(pattern, () => Routes.CompilePattern(pattern).IsMatch, timeout, cancellationToken);
     }
 
     /// <summary>Waits for a response whose URL matches <paramref name="pattern"/>. The timeout bounds the match only, and defaults to the action timeout.</summary>
     public Task<WebResponse> WaitForResponseAsync(Regex pattern, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(pattern);
-        return WaitForResponseCoreAsync(pattern.IsMatch, timeout, cancellationToken);
+        return WaitForResponseCoreAsync(pattern, () => pattern.IsMatch, timeout, cancellationToken);
     }
 
     /// <summary>
@@ -238,7 +259,7 @@ public sealed class Browser
 
     /// <summary>Removes every route added through this browser. The configured site headers stay.</summary>
     public Task UnrouteAllAsync(CancellationToken cancellationToken = default) =>
-        RemoveRoutesAsync("unrouteAll", _ => true, cancellationToken);
+        RunStepAsync(StepKind.Resource, "browser.unrouteAll", "", () => RemoveRoutesAsync("unrouteAll", _ => true, cancellationToken));
 
     /// <summary>
     /// Adds JavaScript source every document runs before the page's own, in
@@ -263,7 +284,7 @@ public sealed class Browser
 
     /// <summary>Returns the cookies visible to the browser context.</summary>
     public Task<IReadOnlyList<BrowserCookie>> CookiesAsync(CancellationToken cancellationToken = default) =>
-        Require("cookies").GetCookiesAsync(Token(cancellationToken));
+        RunStepAsync(StepKind.Resource, "browser.cookies", "", () => Require("cookies").GetCookiesAsync(Token(cancellationToken)));
 
     /// <summary>
     /// Sets cookies. Each target URL, or the origin a domain cookie is sent to, must pass the URL rule. A relative url resolves against the base URL.
@@ -273,6 +294,11 @@ public sealed class Browser
     public Task SetCookiesAsync(IReadOnlyList<BrowserCookie> cookies, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(cookies);
+        return RunStepAsync(StepKind.Resource, "browser.setCookies", "", () => SetCookiesStepAsync(cookies, cancellationToken));
+    }
+
+    private Task SetCookiesStepAsync(IReadOnlyList<BrowserCookie> cookies, CancellationToken cancellationToken)
+    {
         var session = Require("setCookies");
         var scheme = _baseUrl is null ? "http" : new Uri(_baseUrl).Scheme;
         var resolved = new List<BrowserCookie>(cookies.Count);
@@ -304,7 +330,7 @@ public sealed class Browser
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
-        return Require("setViewport").SetViewportAsync(width, height, Token(cancellationToken));
+        return RunStepAsync(StepKind.Resource, "browser.setViewport", "", () => Require("setViewport").SetViewportAsync(width, height, Token(cancellationToken)));
     }
 
     /// <summary>
@@ -316,12 +342,15 @@ public sealed class Browser
     public Task EmulateMediaAsync(WebMedia media, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(media);
-        if (WebMedia.Problem(name => "browser.emulateMedia({ " + name + " })", media) is { } problem)
+        return RunStepAsync(StepKind.Resource, "browser.emulateMedia", media.Label(), () =>
         {
-            throw new TestException("INVALID_ARGUMENT", problem);
-        }
+            if (WebMedia.Problem(name => "browser.emulateMedia({ " + name + " })", media) is { } problem)
+            {
+                throw new TestException("INVALID_ARGUMENT", problem);
+            }
 
-        return Require("emulateMedia").EmulateMediaAsync(media, Token(cancellationToken));
+            return Require("emulateMedia").EmulateMediaAsync(media, Token(cancellationToken));
+        });
     }
 
     /// <summary>
@@ -387,9 +416,14 @@ public sealed class Browser
     internal CancellationToken Token(CancellationToken cancellationToken) =>
         Time.Link(cancellationToken, _token());
 
-    private async Task AddInitScriptCoreAsync(WebInitScript script, object? arg, bool hasArg, CancellationToken cancellationToken)
+    private Task AddInitScriptCoreAsync(WebInitScript script, object? arg, bool hasArg, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(script);
+        return RunStepAsync(StepKind.Resource, "browser.addInitScript", script.Label(), () => AddInitScriptStepAsync(script, arg, hasArg, cancellationToken));
+    }
+
+    private async Task AddInitScriptStepAsync(WebInitScript script, object? arg, bool hasArg, CancellationToken cancellationToken)
+    {
         if (script.Problem() is { } problem)
         {
             throw new TestException("INVALID_ARGUMENT", "browser.addInitScript script " + problem);
@@ -419,8 +453,8 @@ public sealed class Browser
     private async Task<T?> EvaluateCoreAsync<T>(string expression, object? arg, bool hasArg, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(expression);
-        var session = Require("evaluate");
-        var result = await AppNotOpen.GuardAsync(() => session.EvaluateAsync(expression, arg, hasArg, Token(cancellationToken))).ConfigureAwait(false);
+        var result = await RunStepAsync(StepKind.Resource, "browser.evaluate", "", () =>
+            AppNotOpen.GuardAsync(() => Require("evaluate").EvaluateAsync(expression, arg, hasArg, Token(cancellationToken)))).ConfigureAwait(false);
         if (result is not JsonElement element || element.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
         {
             return default;
@@ -436,16 +470,22 @@ public sealed class Browser
         }
     }
 
-    private async Task<WebResponse> WaitForResponseCoreAsync(Func<string, bool> matches, TimeSpan? timeout, CancellationToken cancellationToken)
-    {
-        var session = Require("waitForResponse");
-        var response = await session.WaitForResponseAsync(matches, timeout ?? _actionTimeout, Token(cancellationToken)).ConfigureAwait(false);
-        return new WebResponse(response, _actionTimeout, _token);
-    }
+    private Task<WebResponse> WaitForResponseCoreAsync(object pattern, Func<Func<string, bool>> matcher, TimeSpan? timeout, CancellationToken cancellationToken) =>
+        RunStepAsync(StepKind.Resource, "browser.waitForResponse", Routes.Label(pattern), async () =>
+        {
+            var session = Require("waitForResponse");
+            var response = await session.WaitForResponseAsync(matcher(), timeout ?? _actionTimeout, Token(cancellationToken)).ConfigureAwait(false);
+            return new WebResponse(response, _actionTimeout, _token);
+        });
 
-    private async Task RouteCoreAsync(object pattern, Func<WebRoute, Task> handler, CancellationToken cancellationToken)
+    private Task RouteCoreAsync(object pattern, Func<WebRoute, Task> handler, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(handler);
+        return RunStepAsync(StepKind.Resource, "browser.route", Routes.Label(pattern), () => RouteStepAsync(pattern, handler, cancellationToken));
+    }
+
+    private async Task RouteStepAsync(object pattern, Func<WebRoute, Task> handler, CancellationToken cancellationToken)
+    {
         var session = Require("route");
         async Task Decide(IBrowserRoute engineRoute)
         {
@@ -462,7 +502,8 @@ public sealed class Browser
     }
 
     private Task UnrouteCoreAsync(object pattern, CancellationToken cancellationToken) =>
-        RemoveRoutesAsync("unroute", stored => Routes.PatternsEqual(stored.Pattern, pattern), cancellationToken);
+        RunStepAsync(StepKind.Resource, "browser.unroute", Routes.Label(pattern), () =>
+            RemoveRoutesAsync("unroute", stored => Routes.PatternsEqual(stored.Pattern, pattern), cancellationToken));
 
     /// <summary>Unregisters the stored routes <paramref name="match"/> selects, newest first.</summary>
     private async Task RemoveRoutesAsync(string operation, Func<(object Pattern, Func<IBrowserRoute, Task> Handler), bool> match, CancellationToken cancellationToken)
@@ -617,28 +658,28 @@ public sealed class BrowserKeyboard
     public Task PressAsync(string key, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(key);
-        return AppNotOpen.GuardAsync(() => _browser.Require("keyboard.press").KeyboardPressAsync(key, _browser.Token(cancellationToken)));
+        return _browser.RunStepAsync(StepKind.Resource, "browser.keyboard.press", key, () => AppNotOpen.GuardAsync(() => _browser.Require("keyboard.press").KeyboardPressAsync(key, _browser.Token(cancellationToken))));
     }
 
     /// <summary>Holds one key until <see cref="UpAsync"/>; a repeated down sends a repeat event.</summary>
     public Task DownAsync(string key, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(key);
-        return AppNotOpen.GuardAsync(() => _browser.Require("keyboard.down").KeyboardDownAsync(key, _browser.Token(cancellationToken)));
+        return _browser.RunStepAsync(StepKind.Resource, "browser.keyboard.down", key, () => AppNotOpen.GuardAsync(() => _browser.Require("keyboard.down").KeyboardDownAsync(key, _browser.Token(cancellationToken))));
     }
 
     /// <summary>Releases a held key.</summary>
     public Task UpAsync(string key, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(key);
-        return AppNotOpen.GuardAsync(() => _browser.Require("keyboard.up").KeyboardUpAsync(key, _browser.Token(cancellationToken)));
+        return _browser.RunStepAsync(StepKind.Resource, "browser.keyboard.up", key, () => AppNotOpen.GuardAsync(() => _browser.Require("keyboard.up").KeyboardUpAsync(key, _browser.Token(cancellationToken))));
     }
 
     /// <summary>Types plain text.</summary>
     public Task TypeAsync(string text, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(text);
-        return AppNotOpen.GuardAsync(() => _browser.Require("keyboard.type").KeyboardTypeAsync(text, _browser.Token(cancellationToken)));
+        return _browser.RunStepAsync(StepKind.Resource, "browser.keyboard.type", text.Length.ToString(System.Globalization.CultureInfo.InvariantCulture) + " chars", () => AppNotOpen.GuardAsync(() => _browser.Require("keyboard.type").KeyboardTypeAsync(text, _browser.Token(cancellationToken))));
     }
 }
 
@@ -656,18 +697,18 @@ public sealed class BrowserMouse
     }
 
     public Task MoveAsync(float x, float y, CancellationToken cancellationToken = default) =>
-        AppNotOpen.GuardAsync(() => _browser.Require("mouse.move").MouseMoveAsync(x, y, _browser.Token(cancellationToken)));
+        _browser.RunStepAsync(StepKind.Resource, "browser.mouse.move", "", () => AppNotOpen.GuardAsync(() => _browser.Require("mouse.move").MouseMoveAsync(x, y, _browser.Token(cancellationToken))));
 
     public Task WheelAsync(float deltaX, float deltaY, CancellationToken cancellationToken = default) =>
-        AppNotOpen.GuardAsync(() => _browser.Require("mouse.wheel").MouseWheelAsync(deltaX, deltaY, _browser.Token(cancellationToken)));
+        _browser.RunStepAsync(StepKind.Resource, "browser.mouse.wheel", "", () => AppNotOpen.GuardAsync(() => _browser.Require("mouse.wheel").MouseWheelAsync(deltaX, deltaY, _browser.Token(cancellationToken))));
 
     /// <summary>Presses the primary button.</summary>
     public Task DownAsync(CancellationToken cancellationToken = default) =>
-        AppNotOpen.GuardAsync(() => _browser.Require("mouse.down").MouseDownAsync(_browser.Token(cancellationToken)));
+        _browser.RunStepAsync(StepKind.Resource, "browser.mouse.down", "", () => AppNotOpen.GuardAsync(() => _browser.Require("mouse.down").MouseDownAsync(_browser.Token(cancellationToken))));
 
     /// <summary>Releases the primary button.</summary>
     public Task UpAsync(CancellationToken cancellationToken = default) =>
-        AppNotOpen.GuardAsync(() => _browser.Require("mouse.up").MouseUpAsync(_browser.Token(cancellationToken)));
+        _browser.RunStepAsync(StepKind.Resource, "browser.mouse.up", "", () => AppNotOpen.GuardAsync(() => _browser.Require("mouse.up").MouseUpAsync(_browser.Token(cancellationToken))));
 }
 
 /// <summary>
