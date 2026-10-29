@@ -101,9 +101,7 @@ public sealed partial class Agent
 
         public async Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default)
         {
-            var node = list is null ? null : Resolve(list);
-            var recorded = list?.Recorded ?? (node is null ? null : new RecordedAction { Role = node.Role, Name = RedactLabel(node, scope.Redactor), TestId = Agent.Redact(node.TestId, scope.Redactor) });
-            await dispatcher.PageUntilAsync(CacheKeys.Detemplate(text, parameters), direction, recorded, cancellationToken).ConfigureAwait(false);
+            await dispatcher.PageUntilAsync(CacheKeys.Detemplate(text, parameters), direction, list, cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "scrollUntil" });
         }
 

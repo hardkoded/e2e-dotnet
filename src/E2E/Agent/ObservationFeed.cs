@@ -23,7 +23,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
 
     private sealed record Rendered(Observation Observation, bool Pixels, string Text, bool Cut);
 
-    private readonly Dictionary<string, SemanticNode> _seen = [];
+    private readonly Dictionary<string, Resolved> _seen = [];
     private PendingChange? _pending;
 
     /// <summary>How far each look of the step settled, in order.</summary>
@@ -135,7 +135,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
 
         foreach (var node in LocatorResolver.Walk(observation.Roots))
         {
-            _seen[node.Ref] = node;
+            _seen[node.Ref] = new Resolved(node, observation);
         }
 
         return observation;
@@ -244,8 +244,38 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
                 new ObservationBudgetLimits(options.MaxObservationBytes, options.MaxInputTokens),
                 new ObservationBudgetRequest(options.ContextBytes + options.LedgerBytes, options.InstructionBytes, pixels));
 
-    /// <summary>The newest node an observation of the step listed under <paramref name="reference"/>, if any.</summary>
-    public SemanticNode? LastSeen(string reference) => _seen.GetValueOrDefault(reference);
+    /// <summary>What <paramref name="reference"/> named in the newest observation of the step that carried it, with that observation (upstream's <c>lastSeen</c>).</summary>
+    public Resolved? LastSeen(string reference) => _seen.GetValueOrDefault(reference);
+
+    /// <summary>
+    /// What a target names on the newest screen, if the screen still lists it or its descriptor re-finds it (upstream's <c>lookup</c>).
+    /// The id is the target's without the <c>#</c> the listing prefixes, which a model copies now and then. A caller with its own way of
+    /// re-finding a lost node (<see cref="ScrollTarget"/>) starts here.
+    /// </summary>
+    public Lookup Lookup(ExecutorTarget target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        var id = target.Id.TrimStart('#');
+        var latest = Latest ?? throw NodeGone(id);
+        var node = LocatorResolver.Walk(latest.Roots).FirstOrDefault(candidate => candidate.Ref == id) ?? Refound(id, latest);
+        return new Lookup(id, node, latest);
+    }
+
+    /// <summary>Upstream's <c>nodeGone</c>: the error for a target id the newest screen no longer lists.</summary>
+    public static TestException NodeGone(string id) =>
+        new("LOCATOR_NOT_FOUND", "node " + id + " is not on the current screen; it was removed or never existed");
+
+    // The newest node matching the descriptor of what the id named in a recent observation, if exactly one (upstream's refound).
+    private SemanticNode? Refound(string id, Observation latest)
+    {
+        if (Scope is not { } scope || LastSeen(id) is not { } earlier)
+        {
+            return null;
+        }
+
+        var matches = FindLike(latest, earlier.Node, scope.Redactor);
+        return matches.Count == 1 ? matches[0] : null;
+    }
 
     /// <summary>
     /// Marks the newest observation as the one the step's next action is taken on, when no action came before. An
@@ -294,6 +324,12 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         return name is null && testId is null ? [] : Agent.Find(observation, node.Role, name, testId, null, redactor);
     }
 }
+
+/// <summary>A target resolved to a node of the observation it was found in (upstream's <c>Resolved</c>).</summary>
+internal sealed record Resolved(SemanticNode Node, Observation Observation);
+
+/// <summary>What a target names on the newest screen: the id as the screen lists it, the node or nothing, and the screen looked at (upstream's <c>Lookup</c>).</summary>
+internal sealed record Lookup(string Id, SemanticNode? Node, Observation Observation);
 
 /// <summary>What the step's observations are cut under (upstream's <c>ObservationFeedOptions</c>).</summary>
 /// <param name="MaxObservationBytes">The agent's observation byte ceiling, clamped per capture by the token limit.</param>
