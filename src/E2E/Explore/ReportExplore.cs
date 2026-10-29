@@ -54,7 +54,7 @@ public enum ReportExploreEnded
 /// <param name="Reproduction">The actions that reach the defect, at most 20, each at most 500 characters.</param>
 /// <param name="ReportedAt">When the finding was recorded.</param>
 /// <param name="Path">The redacted location of the screen, when the engine reports one.</param>
-/// <param name="ObservationRevision">The revision of the screen the finding was reported on (<see cref="ExecutorObservation.Revision"/>), when the finding tool observed one. Matches the <c>observationRevision</c> of the agent steps that read the same screen.</param>
+/// <param name="ObservationRevision">The revision of the screen the finding was reported on (<see cref="ExecutorObservation.Revision"/>), when the finding tool observed one.  The tool takes its own capture, as upstream does, so the revision is that capture's and is not one an agent step recorded.</param>
 /// <param name="ArtifactId">Where the evidence screenshot was kept, as a path relative to the project root, when pixels were granted. Upstream names an artifact of the report; the port has no report, so it names the file.</param>
 public sealed record ReportExploreFinding(
     string Id,

@@ -175,8 +175,8 @@ assessment in `Summary`, the `Steps` with their status (`Passed`, `Failed`,
 `Blocked`, `Exhausted`), and the `Findings`. A step carries `ErrorCode` only
 when it did not pass. A finding carries `Step`, `Path`, `ObservationRevision`, and
 `ArtifactId` only when known. `ObservationRevision` is the revision (`b<n>`) of
-the screen the finding was reported on, the same value the agent steps that read
-that screen carry as `observationRevision` in the report. `ArtifactId` is the path, relative to the project root, of
+the capture the finding tool took when it reported the finding (its own capture,
+as upstream, so no agent step records the same value). `ArtifactId` is the path, relative to the project root, of
 the evidence screenshot, which lands under
 `.e2e/results/<result>/attempt-1/screenshots/` (`Output` changes the results
 directory). The exploration is a test of the virtual file `explore`, so

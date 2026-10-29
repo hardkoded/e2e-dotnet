@@ -58,7 +58,7 @@ One finding [Explore](/api/E2E/Explore/) recorded through its `report_finding` t
 | `ReportedAt` | [DateTimeOffset](https://learn.microsoft.com/dotnet/api/system.datetimeoffset) | When the finding was recorded. |
 | `Path` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The redacted location of the screen, when the engine reports one. |
 | `ArtifactId` | [string](https://learn.microsoft.com/dotnet/api/system.string) | Where the evidence screenshot was kept, as a path relative to the project root, when pixels were granted. Upstream names an artifact of the report; the port has no report, so it names the file. |
-| `ObservationRevision` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The revision of the screen the finding was reported on ([Revision](/api/E2E/ExecutorObservation/#E2E_ExecutorObservation_Revision)), when the finding tool observed one. Matches the `observationRevision` of the agent steps that read the same screen. |
+| `ObservationRevision` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The revision of the screen the finding was reported on ([Revision](/api/E2E/ExecutorObservation/#E2E_ExecutorObservation_Revision)), when the finding tool observed one. The tool takes its own capture, as upstream does, so the revision is that capture's and is not one an agent step recorded. |
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L59)
 
@@ -177,7 +177,7 @@ public string? ObservationRevision { get; init; }
 ```
 
 
-The revision of the screen the finding was reported on ([Revision](/api/E2E/ExecutorObservation/#E2E_ExecutorObservation_Revision)), when the finding tool observed one. Matches the `observationRevision` of the agent steps that read the same screen.
+The revision of the screen the finding was reported on ([Revision](/api/E2E/ExecutorObservation/#E2E_ExecutorObservation_Revision)), when the finding tool observed one. The tool takes its own capture, as upstream does, so the revision is that capture's and is not one an agent step recorded.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

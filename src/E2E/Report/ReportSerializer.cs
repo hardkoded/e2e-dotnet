@@ -80,8 +80,7 @@ internal static class ReportSerializer
                     [.. finding["reproduction"]!.AsArray().Select(line => (string)line!)],
                     finding["reportedAt"].Deserialize<DateTimeOffset>(options),
                     (string?)finding["path"],
-                    null,
-                    (string?)finding["observationRevision"]))],
+                    ObservationRevision: (string?)finding["observationRevision"]))],
                 (string?)node["summary"]);
         }
 
