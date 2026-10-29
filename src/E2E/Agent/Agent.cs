@@ -1429,9 +1429,11 @@ internal sealed class AttemptScope
     /// </summary>
     public string AppIdentity
     {
-        get => _appIdentity ?? Ids.CanonicalDigest(new JsonObject { ["environment"] = "test" });
+        get => _appIdentity ?? DefaultAppIdentity;
         init => _appIdentity = value;
     }
+
+    private static readonly string DefaultAppIdentity = Ids.CanonicalDigest(new JsonObject { ["environment"] = "test" });
 
     private readonly string? _appIdentity;
 
