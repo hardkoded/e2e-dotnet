@@ -45,7 +45,7 @@ export default defineConfig({
                 baseUrl: "https://github.com/hardkoded/e2e-dotnet/edit/main/docs-site/",
             },
             sidebar: [
-                { label: "Home", slug: "index" },
+                { label: "Docs", slug: "docs" },
                 {
                     label: "Get started",
                     items: [
