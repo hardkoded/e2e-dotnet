@@ -1393,7 +1393,7 @@ internal sealed class AttemptScope
                         CurrentStepId = Steps.ArtifactStepId,
                         Store = ArtifactStore,
                         Ledger = () => Redactor,
-                        Identity = new ArtifactIdentity(AttemptReport.RunId, AttemptReport.ResultId(TestFile, TestTitle)),
+                        Identity = new ArtifactIdentity(AttemptReport.RunId, AttemptReport.TestId(TestFile ?? "", TestTitle)),
                     });
                 });
         }
