@@ -77,7 +77,8 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         }
 
         var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, sign).ConfigureAwait(false);
-        return ModelHttp.Parse(body, Parse);
+        var response = ModelHttp.Parse(body, Parse);
+        return request.Schema is null ? response : ModelHttp.StructuredAnswer(response);
     }
 
     // The first read is async so a slow instance-role lookup honors the caller's cancel; later reads hit the chain's cache.
@@ -185,6 +186,20 @@ public sealed class BedrockModel : IAgentModel, IDisposable
             });
         }
 
+        // A structured answer is the input of one tool the model is made to call.
+        if (request.Schema is { } schema)
+        {
+            tools.Add(new JsonObject
+            {
+                ["toolSpec"] = new JsonObject
+                {
+                    ["name"] = ModelHttp.JsonToolName,
+                    ["description"] = ModelHttp.JsonToolDescription(request),
+                    ["inputSchema"] = new JsonObject { ["json"] = JsonNode.Parse(schema.GetRawText()) },
+                },
+            });
+        }
+
         var payload = new JsonObject
         {
             ["system"] = new JsonArray { new JsonObject { ["text"] = request.System } },
@@ -198,6 +213,13 @@ public sealed class BedrockModel : IAgentModel, IDisposable
         }
 
         ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "messages", "system", "toolConfig");
+
+        // Forcing a tool is refused while the model thinks, so a request that thinks only offers the tool.
+        if (request.Schema is not null && payload["additionalModelRequestFields"]?["thinking"] is null)
+        {
+            payload["toolConfig"]!["toolChoice"] = new JsonObject { ["tool"] = new JsonObject { ["name"] = ModelHttp.JsonToolName } };
+        }
+
         return payload;
     }
 

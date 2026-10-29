@@ -306,6 +306,36 @@ internal static class ModelHttp
         }
     }
 
+    /// <summary>
+    /// The tool a provider with no structured-output field is made to call to answer with <see cref="ModelRequest.Schema"/>
+    /// (the AI SDK's <c>json</c> tool).
+    /// </summary>
+    public const string JsonToolName = "json";
+
+    public static string JsonToolDescription(ModelRequest request) => "Respond with a JSON object" + (request.SchemaName is null ? "." : " named " + request.SchemaName + ".");
+
+    /// <summary>
+    /// A structured answer given as the forced <see cref="JsonToolName"/> tool call, as the content of the turn: the arguments, as text.
+    /// A turn that made no such call comes back as it is.
+    /// </summary>
+    public static ModelResponse StructuredAnswer(ModelResponse response)
+    {
+        var call = response.ToolCalls.FirstOrDefault(item => string.Equals(item.Name, JsonToolName, StringComparison.Ordinal));
+        if (call is null)
+        {
+            return response;
+        }
+
+        return new ModelResponse
+        {
+            Content = call.Arguments.GetRawText(),
+            Usage = response.Usage,
+            ReasoningItems = response.ReasoningItems,
+            FinishReason = response.FinishReason,
+            RawFinishReason = response.RawFinishReason,
+        };
+    }
+
     public static StringContent Json(JsonNode payload)
     {
         return new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");

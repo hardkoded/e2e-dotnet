@@ -161,6 +161,16 @@ public sealed class GoogleModel : IAgentModel, IDisposable
         }
 
         ModelHttp.MergeProviderOptions(payload, request, _options.Provider, "contents", "tools", "systemInstruction");
+
+        // The format joins the generation options a provider option may have set (thinking).
+        if (request.Schema is { } schema)
+        {
+            var generation = payload["generationConfig"] as JsonObject ?? [];
+            generation["responseMimeType"] = "application/json";
+            generation["responseJsonSchema"] = JsonNode.Parse(schema.GetRawText());
+            payload["generationConfig"] = generation;
+        }
+
         return payload;
     }
 
