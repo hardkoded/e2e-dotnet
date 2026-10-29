@@ -75,5 +75,10 @@ public sealed class ReportedModelUsageTests
         Assert.Equal(3, model.PeakTokensPerCall);
         Assert.Equal(TokenAccounting.AdapterUpperBound, model.TokenAccounting);
         Assert.Equal(0.25, model.EstimatedCostUsd);
+
+        var wire = ReportWire.Step(step)["model"]!;
+        Assert.Equal("adapter-upper-bound", (string?)wire["tokenAccounting"]);
+        Assert.Equal(3, (long?)wire["peakTokensPerCall"]);
+        Assert.Equal(3, (long?)ReportWire.Step(step)["events"]!.AsArray().Single(item => (string?)item!["kind"] == "model")!["outputTokens"]);
     }
 }

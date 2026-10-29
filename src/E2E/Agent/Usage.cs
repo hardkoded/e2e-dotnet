@@ -2,10 +2,6 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Globalization;
-using E2E.Cache;
-using E2E.Internal;
-
 using E2E.Reports;
 
 namespace E2E;
