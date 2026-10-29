@@ -32,8 +32,21 @@ providers and their logins):
 ```
 
 - An agents entry takes `provider`, `model`, `judge`, `baseUrl`, `apiKeyEnv`,
-  `system`, `context`, `maxSteps`, `maxModelCalls`, `judgmentTimeout`, and
-  `providerOptions`. None inherits from `default`.
+  `system`, `context`, `maxSteps`, `maxModelCalls`, `judgmentTimeout`,
+  `maxObservationBytes`, `maxInputTokens`, and `providerOptions`. None inherits
+  from `default`.
+- `maxObservationBytes` (1024 through 16777216, default 262144) is the observation
+  payload ceiling for act turns and judgments. `maxInputTokens` (1 through
+  1000000, default 64000) is the input one model request may carry, counted in
+  UTF-8 bytes. A dense screen is cut to fit under it, with the marker
+  `[observation truncated at the resolved observation byte limit]` as its last
+  line, and the step's `observationTruncated` is set. The budget is the lower of
+  `maxObservationBytes` and `maxInputTokens` less what the rest of the request
+  costs (the system text, the context, the ledger, the instruction, and room for
+  a screenshot under `Vision`), and never under 1024 bytes. A judgment whose
+  request is still over `maxInputTokens` fails with `STEP_BUDGET_EXHAUSTED`
+  before it is sent. `AgentOptions`, `E2ESessionOptions`, and the fixture take
+  the same two values as `MaxObservationBytes` and `MaxInputTokens`.
 - `model` drives `ActAsync`. Judgments use `judge` when set, else `model`.
 - No model and no replay that finishes the step is `MODEL_UNAVAILABLE`, and so
   is a model GitHub Copilot does not serve to the account, at the first call.
@@ -474,8 +487,7 @@ own tools. A step that stays within the grammar verbs replays with no model
 call, so prefer the target's `App.BundleId` over `open_app` when every test
 starts in the same app. `samples/MobileApp.E2ETests` shows it in use.
 
-Not ported: decision models, `maxObservationBytes`,
-`maxInputTokens`, and the `--debug` agent step table. To see every model call, use
+Not ported: decision models and the `--debug` agent step table. To see every model call, use
 `E2E_AI_TRACE=1` (topic `debugging`).
 
 ## Custom executors

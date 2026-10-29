@@ -118,7 +118,7 @@ public sealed partial class Agent
         {
             try
             {
-                return await LookAsync("agent.waitFor", vision, token).ConfigureAwait(false);
+                return await LookAsync("agent.waitFor", vision, agent, JudgeSystemFor(agent), statement, token).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not AgentException
                 && (linked.IsCancellationRequested || DateTime.UtcNow >= deadline)
@@ -204,7 +204,7 @@ public sealed partial class Agent
         var vision = ResolveVision(options?.Vision ?? VisionMode.Off);
         using var linked = Link(cancellationToken, ResolveTimeout(options?.Timeout, agent.JudgmentTimeout));
         var token = linked.Token;
-        var look = await LookAsync("agent.extract", vision, token).ConfigureAwait(false);
+        var look = await LookAsync("agent.extract", vision, agent, ExtractSystemFor(agent), instruction, token).ConfigureAwait(false);
         var schema = JsonSchemaExporter.GetJsonSchemaAsNode(ExtractSchemaJson, typeof(T), ExtractSchemaOptions);
         var tools = AgentTools.ExtractFor(schema);
         var messages = new List<ModelMessage>
@@ -287,7 +287,7 @@ public sealed partial class Agent
     {
         using var linked = Link(cancellationToken, timeout);
         var token = linked.Token;
-        var look = await LookAsync("agent.assert", vision, token).ConfigureAwait(false);
+        var look = await LookAsync("agent.assert", vision, agent, JudgeSystemFor(agent), statement, token).ConfigureAwait(false);
         var verdict = await JudgeOnceAsync(statement, look, agent, JudgmentModelCalls, token, cancellationToken).ConfigureAwait(false);
 
         // The redacted screenshot is kept whenever Screenshot allows it, on a passing judgment too.
@@ -348,6 +348,50 @@ public sealed partial class Agent
         public IReadOnlyList<ModelImage>? Images => Image is null ? null : [Image];
     }
 
+    /// <summary>
+    /// Bytes one observation may contribute to a judgment's request (upstream's <c>observationByteBudget</c> in <c>agent/invocation.ts</c>).
+    /// Under <see cref="VisionMode.Only"/> nothing of the tree reaches the request, so the per-call token ceiling does not bind it: the
+    /// configured ceiling still bounds the walk.
+    /// </summary>
+    private int ObservationByteBudget(ResolvedAgent agent, string system, string instruction, VisionMode vision) =>
+        vision == VisionMode.Only
+            ? agent.MaxObservationBytes
+            : ObservationBudget.ObservationByteBudget(
+                new ObservationBudgetLimits(agent.MaxObservationBytes, agent.MaxInputTokens),
+                new ObservationBudgetRequest(
+                    ModelAdapter.TokenUpperBound(_scope.Redactor.Redact(system)),
+                    ModelAdapter.TokenUpperBound(_scope.Redactor.Redact(instruction)),
+                    vision != VisionMode.Off));
+
+    /// <summary>
+    /// The model adapter's pre-flight (upstream's <c>sdk.ts</c>): the request's input upper bound against the agent's
+    /// <c>maxInputTokens</c>, so unavailable accounting fails before the request is sent.
+    /// </summary>
+    private static void CheckInputBound(string system, IReadOnlyList<ModelMessage> messages, int maxInputTokens)
+    {
+        long bound = ModelAdapter.TokenUpperBound(system);
+        foreach (var message in messages)
+        {
+            bound += message.Content is null ? 0 : ModelAdapter.TokenUpperBound(message.Content);
+            foreach (var call in message.ToolCalls ?? [])
+            {
+                bound += ModelAdapter.TokenUpperBound(call.Arguments.GetRawText());
+            }
+
+            foreach (var image in message.Images ?? [])
+            {
+                bound += ModelAdapter.ImageTokenUpperBound(image.Width, image.Height);
+            }
+        }
+
+        if (bound > maxInputTokens)
+        {
+            throw new AgentException(
+                "STEP_BUDGET_EXHAUSTED",
+                "model input upper bound " + bound.ToString(CultureInfo.InvariantCulture) + " exceeds the agent's maxInputTokens " + maxInputTokens.ToString(CultureInfo.InvariantCulture));
+        }
+    }
+
     private static VisionMode ResolveVision(VisionMode vision)
     {
         return Enum.IsDefined(vision) ? vision : throw new TestException("INVALID_ARGUMENT", "vision must be Off, On, or Only");
@@ -357,7 +401,7 @@ public sealed partial class Agent
     /// Captures one fresh look. A tainted attempt, a capture the engine cannot make, and masking the engine cannot prove
     /// each degrade the call to the tree alone, except under <see cref="VisionMode.Only"/>, which fails.
     /// </summary>
-    private async Task<Look> LookAsync(string api, VisionMode vision, CancellationToken token)
+    private async Task<Look> LookAsync(string api, VisionMode vision, ResolvedAgent agent, string system, string instruction, CancellationToken token)
     {
         var tainted = vision != VisionMode.Off && _scope.Exposure.WithholdsModelPixels;
         if (tainted)
@@ -366,20 +410,21 @@ public sealed partial class Agent
         }
 
         // The look and the tree a model reads of it are one phase, whose event tells the nodes read and the bytes of that tree.
-        var (observation, tree) = await Phases.InstrumentPhaseAsync(
+        var (observation, tree, cut) = await Phases.InstrumentPhaseAsync(
             new PhaseHost(_scope.Steps, _scope.Debug),
             new PhaseSpec(StepEventKind.Observation, Phases.Observe),
             async () =>
             {
                 var seen = await _scope.ObserveAsync(token).ConfigureAwait(false);
-                return (Seen: seen, Tree: SnapshotText.Render(seen, _scope.Redactor, _scope.AppOrigin));
+                var text = SnapshotText.Render(seen, _scope.Redactor, _scope.AppOrigin, ObservationByteBudget(agent, system, instruction, vision), out var overBudget);
+                return (Seen: seen, Tree: text, Cut: overBudget);
             },
             look => new PhaseDetail(LocatorResolver.Walk(look.Seen.Roots).Count(), System.Text.Encoding.UTF8.GetByteCount(look.Tree))).ConfigureAwait(false);
 
         // Bytes the request carries, so a tree the call withholds reads as the zero it is.
         _scope.Steps.AttachAgentDetails(new StepAgentDetails
         {
-            ObservationTruncated = observation.Truncated ? true : null,
+            ObservationTruncated = observation.Truncated || cut ? true : null,
             ObservationRevision = observation.Revision.Length > 0 ? observation.Revision : null,
             ObservationBytes = vision == VisionMode.Only ? null : System.Text.Encoding.UTF8.GetByteCount(tree),
         });
@@ -708,13 +753,15 @@ public sealed partial class Agent
             throw new AgentException("MODEL_UNAVAILABLE", "No model is configured. Agent steps need an IAgentModel, or a replay that finishes on its own.");
         }
 
+        var redactedSystem = _scope.Redactor.Redact(system);
+        CheckInputBound(redactedSystem, messages, agent.MaxInputTokens);
         ModelResponse response;
         var started = DateTimeOffset.UtcNow;
         try
         {
             var request = new ModelRequest
             {
-                System = _scope.Redactor.Redact(system),
+                System = redactedSystem,
                 Messages = messages,
                 Tools = tools,
                 ProviderOptions = agent.ProviderOptions,

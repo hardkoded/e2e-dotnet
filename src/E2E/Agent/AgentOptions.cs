@@ -55,6 +55,19 @@ public sealed class AgentOptions
     public TimeSpan JudgmentTimeout { get; init; } = E2EDefaults.JudgmentTimeout;
 
     /// <summary>
+    /// The most bytes of the screen one model request carries, upstream's <c>maxObservationBytes</c>, 1024 through 16777216. A
+    /// screen over it is cut and ends with a marker. The per-call <see cref="MaxInputTokens"/> ceiling binds first on a large screen.
+    /// </summary>
+    public int MaxObservationBytes { get; init; } = E2EDefaults.MaxObservationBytes;
+
+    /// <summary>
+    /// The input one model request of this agent may carry, upstream's <c>maxInputTokens</c>, 1 through 1000000, counted as upstream's
+    /// <c>tokenUpperBound</c> does: in UTF-8 bytes. The screen is cut to fit under it, and a judgment whose request is over it fails
+    /// with <c>STEP_BUDGET_EXHAUSTED</c> before it is sent.
+    /// </summary>
+    public int MaxInputTokens { get; init; } = E2EDefaults.MaxInputTokens;
+
+    /// <summary>
     /// Provider options every model call carries, keyed by provider. <see cref="OpenAiCompatibleModel"/>
     /// adds the fields under its <see cref="OpenAiCompatibleModelOptions.Provider"/> key to the request body as given.
     /// </summary>
@@ -76,6 +89,15 @@ internal sealed class ResolvedAgent
     /// <summary>The largest <c>maxSteps</c> and <c>maxModelCalls</c> an agent may configure.</summary>
     public const int MaxBudget = 100;
 
+    /// <summary>The smallest <c>maxObservationBytes</c> an agent may configure (1 KiB).</summary>
+    public const int MinObservationBytes = 1_024;
+
+    /// <summary>The largest <c>maxObservationBytes</c> an agent may configure (16 MiB).</summary>
+    public const int MaxObservationBytesLimit = 16_777_216;
+
+    /// <summary>The largest <c>maxInputTokens</c> an agent may configure.</summary>
+    public const int MaxInputTokensLimit = 1_000_000;
+
     public required string Name { get; init; }
 
     public IAgentModel? Model { get; init; }
@@ -95,9 +117,31 @@ internal sealed class ResolvedAgent
 
     public TimeSpan JudgmentTimeout { get; init; } = E2EDefaults.JudgmentTimeout;
 
+    public int MaxObservationBytes { get; init; } = E2EDefaults.MaxObservationBytes;
+
+    public int MaxInputTokens { get; init; } = E2EDefaults.MaxInputTokens;
+
     public IReadOnlyDictionary<string, JsonElement>? ProviderOptions { get; init; }
 
     public IReadOnlyDictionary<string, AgentTool>? Tools { get; init; }
+
+    /// <summary>
+    /// The run's limits over its configured agents (upstream's <c>runLimits</c>, <c>config/agent.ts</c>). A pinned agent's calls are bounded
+    /// by its own values, so the run-level number is the largest any agent may use: the report must not read lower than what a step could
+    /// actually send. Without agents the limits are the defaults.
+    /// </summary>
+    internal static ReportLimits RunLimits(IEnumerable<ResolvedAgent> agents)
+    {
+        ArgumentNullException.ThrowIfNull(agents);
+        var all = agents.ToList();
+        return all.Count == 0
+            ? ReportLimits.Default
+            : ReportLimits.Default with
+            {
+                MaxObservationBytes = all.Max(agent => agent.MaxObservationBytes),
+                MaxModelTokensPerCall = all.Max(agent => agent.MaxInputTokens),
+            };
+    }
 
     /// <summary>
     /// This agent with the test's <c>agentContext</c> joined into its <see cref="Context"/>: the agent's own context, then the
@@ -117,6 +161,8 @@ internal sealed class ResolvedAgent
             MaxSteps = MaxSteps,
             MaxModelCalls = MaxModelCalls,
             JudgmentTimeout = JudgmentTimeout,
+            MaxObservationBytes = MaxObservationBytes,
+            MaxInputTokens = MaxInputTokens,
             ProviderOptions = ProviderOptions,
             Tools = Tools,
         };
@@ -141,6 +187,8 @@ internal sealed class ResolvedAgent
             throw new ConfigurationException("INVALID_CONFIG", label + ".judgmentTimeout must be a positive integer of milliseconds");
         }
 
+        Check(options.MaxObservationBytes, label + ".maxObservationBytes", MinObservationBytes, MaxObservationBytesLimit);
+        Check(options.MaxInputTokens, label + ".maxInputTokens", 1, MaxInputTokensLimit);
         CheckContext(options.Context, label + ".context");
         CheckProviderOptions(options.ProviderOptions, label);
         CheckTools(options.Tools, label);
@@ -157,6 +205,8 @@ internal sealed class ResolvedAgent
             MaxSteps = options.MaxSteps ?? E2EDefaults.MaxSteps,
             MaxModelCalls = options.MaxModelCalls ?? E2EDefaults.MaxModelCalls,
             JudgmentTimeout = options.JudgmentTimeout,
+            MaxObservationBytes = options.MaxObservationBytes,
+            MaxInputTokens = options.MaxInputTokens,
             ProviderOptions = options.ProviderOptions,
             Tools = options.Tools,
         };
@@ -214,13 +264,16 @@ internal sealed class ResolvedAgent
     internal static AgentException MissingModelError(string name, string needs = "the agent fixture requires a model") =>
         new("MODEL_UNAVAILABLE", needs + ", and agents." + name + " has none: set Model on it to an IAgentModel, or model and provider in e2e.config.json");
 
-    internal static void Check(int value, string label)
+    internal static void Check(int value, string label) => Check(value, label, 1, MaxBudget);
+
+    /// <summary>Upstream's <c>boundedInt</c>: an integer within [<paramref name="min"/>, <paramref name="max"/>].</summary>
+    internal static void Check(int value, string label, int min, int max)
     {
-        if (value is < 1 or > MaxBudget)
+        if (value < min || value > max)
         {
             throw new ConfigurationException(
                 "INVALID_CONFIG",
-                label + " must be an integer from 1 to " + MaxBudget.ToString(CultureInfo.InvariantCulture));
+                label + " must be an integer from " + min.ToString(CultureInfo.InvariantCulture) + " through " + max.ToString(CultureInfo.InvariantCulture));
         }
     }
 

@@ -29,6 +29,22 @@ public sealed class E2EConfig
         ["timeouts"] = "timeouts are top-level milliseconds: timeout, launchTimeout, actionTimeout, assertionTimeout, cleanupTimeout",
     };
 
+    // Upstream's REMOVED_TOP_LEVEL_KEYS: keys the runner used to accept, each mapped to what replaces it.
+    private static readonly Dictionary<string, string> RemovedTopLevelKeys = new(StringComparer.Ordinal)
+    {
+        ["specVersion"] = "delete it; the runner version is the format version",
+        ["limits"] = "set maxInputTokens on each agent (it was limits.maxModelTokensPerCall); the runner fixes maxAgentContextBytes, maxLedgerBytes, and maxEventsPerStep",
+    };
+
+    // Upstream's REMOVED_AGENT_KEYS: agent keys the runner used to accept, each mapped to what replaces it.
+    private static readonly Dictionary<string, string> RemovedAgentKeys = new(StringComparer.Ordinal)
+    {
+        ["timeout"] = "use judgmentTimeout, the deadline of one assert, waitFor, or extract call",
+        ["maxTurns"] = "use maxModelCalls, the model requests one agent call may make",
+        ["maxModelTokensPerCall"] = "use maxInputTokens",
+        ["limits"] = "set maxInputTokens on the agent; the runner fixes the other limits",
+    };
+
     private static readonly string[] TopLevelKeys =
     [
         "targets", "timeout", "launchTimeout", "actionTimeout", "assertionTimeout", "cleanupTimeout",
@@ -55,9 +71,9 @@ public sealed class E2EConfig
     private static readonly string[] Platforms = ["web", "ios", "android", "windows"];
 
     private static readonly string[] AgentKeys =
-        ["model", "judge", "provider", "system", "context", "baseUrl", "apiKeyEnv", "maxSteps", "maxModelCalls", "judgmentTimeout", "providerOptions"];
+        ["model", "judge", "provider", "system", "context", "baseUrl", "apiKeyEnv", "maxSteps", "maxModelCalls", "judgmentTimeout", "maxObservationBytes", "maxInputTokens", "providerOptions"];
 
-    private static readonly string[] UnsupportedAgentKeys = ["tools", "executor", "maxObservationBytes", "maxInputTokens"];
+    private static readonly string[] UnsupportedAgentKeys = ["tools", "executor"];
 
     private static readonly string[] CacheKeys = ["mode", "dir", "strict"];
 
@@ -212,7 +228,7 @@ public sealed class E2EConfig
                 throw Invalid("the config must be a JSON object");
             }
 
-            CheckKeys(root, "config", TopLevelKeys, UnsupportedTopLevelKeys, MovedKeys);
+            CheckKeys(root, "config", TopLevelKeys, UnsupportedTopLevelKeys, MovedKeys, RemovedTopLevelKeys);
             var ci = IsCi(environment);
             var trace = ReadRun(root, RecordingKind.Trace, environment);
             var video = ReadRun(root, RecordingKind.Video, environment);
@@ -367,7 +383,7 @@ public sealed class E2EConfig
                     throw Invalid(label + " must be an object");
                 }
 
-                CheckKeys(value, label, AgentKeys, UnsupportedAgentKeys, null);
+                CheckKeys(value, label, AgentKeys, UnsupportedAgentKeys, null, RemovedAgentKeys);
                 var context = AnyString(value, "context", label + ".context");
                 ResolvedAgent.CheckContext(context, label + ".context");
                 var provider = OptionalString(value, "provider", label + ".provider") ?? AgentConfig.DefaultProvider;
@@ -402,6 +418,12 @@ public sealed class E2EConfig
                     JudgmentTimeout = Property(value, "judgmentTimeout") is { } judgment
                         ? TimeSpan.FromMilliseconds(Integer(judgment, label + ".judgmentTimeout", 1, int.MaxValue))
                         : E2EDefaults.JudgmentTimeout,
+                    MaxObservationBytes = Property(value, "maxObservationBytes") is { } bytes
+                        ? Integer(bytes, label + ".maxObservationBytes", ResolvedAgent.MinObservationBytes, ResolvedAgent.MaxObservationBytesLimit)
+                        : E2EDefaults.MaxObservationBytes,
+                    MaxInputTokens = Property(value, "maxInputTokens") is { } tokens
+                        ? Integer(tokens, label + ".maxInputTokens", 1, ResolvedAgent.MaxInputTokensLimit)
+                        : E2EDefaults.MaxInputTokens,
                     ProviderOptions = ReadProviderOptions(Property(value, "providerOptions"), label),
                 };
             }
@@ -572,11 +594,16 @@ public sealed class E2EConfig
         return new Secrets(values);
     }
 
-    private static void CheckKeys(JsonElement value, string label, string[] allowed, string[] unsupported, Dictionary<string, string>? moved)
+    private static void CheckKeys(JsonElement value, string label, string[] allowed, string[] unsupported, Dictionary<string, string>? moved, Dictionary<string, string>? removed = null)
     {
         foreach (var property in value.EnumerateObject())
         {
             var key = property.Name;
+            if (removed is not null && removed.TryGetValue(key, out var replacement))
+            {
+                throw Invalid((label == "config" ? key : label + "." + key) + " was removed: " + replacement);
+            }
+
             if (allowed.Contains(key, StringComparer.Ordinal))
             {
                 continue;
@@ -650,7 +677,7 @@ public sealed class E2EConfig
         {
             throw Invalid(max == int.MaxValue
                 ? label + " must be a positive integer"
-                : label + " must be an integer from " + min.ToString(CultureInfo.InvariantCulture) + " to " + max.ToString(CultureInfo.InvariantCulture));
+                : label + " must be an integer from " + min.ToString(CultureInfo.InvariantCulture) + " through " + max.ToString(CultureInfo.InvariantCulture));
         }
 
         return number;
@@ -781,6 +808,12 @@ public sealed class AgentConfig
 
     public TimeSpan JudgmentTimeout { get; init; } = E2EDefaults.JudgmentTimeout;
 
+    /// <summary>1024 through 16777216. See <see cref="AgentOptions.MaxObservationBytes"/>.</summary>
+    public int MaxObservationBytes { get; init; } = E2EDefaults.MaxObservationBytes;
+
+    /// <summary>1 through 1000000. See <see cref="AgentOptions.MaxInputTokens"/>.</summary>
+    public int MaxInputTokens { get; init; } = E2EDefaults.MaxInputTokens;
+
     /// <summary>Provider options by provider. Each client adds the entry under its own key to its request body.</summary>
     public IReadOnlyDictionary<string, JsonElement>? ProviderOptions { get; init; }
 
@@ -802,6 +835,8 @@ public sealed class AgentConfig
             MaxSteps = MaxSteps,
             MaxModelCalls = MaxModelCalls,
             JudgmentTimeout = JudgmentTimeout,
+            MaxObservationBytes = MaxObservationBytes,
+            MaxInputTokens = MaxInputTokens,
             ProviderOptions = ProviderOptions,
         };
     }

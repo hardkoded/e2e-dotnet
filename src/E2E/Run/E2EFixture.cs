@@ -82,6 +82,12 @@ public abstract class E2EFixture
     /// <summary><c>agents.default.judgmentTimeout</c>.</summary>
     protected virtual TimeSpan JudgmentTimeout => Config.Agent.JudgmentTimeout;
 
+    /// <summary><c>agents.default.maxObservationBytes</c>.</summary>
+    protected virtual int MaxObservationBytes => Config.Agent.MaxObservationBytes;
+
+    /// <summary><c>agents.default.maxInputTokens</c>.</summary>
+    protected virtual int MaxInputTokens => Config.Agent.MaxInputTokens;
+
     /// <summary><c>agents.default.providerOptions</c>.</summary>
     protected virtual IReadOnlyDictionary<string, System.Text.Json.JsonElement>? ProviderOptions => Config.Agent.ProviderOptions;
 
@@ -200,6 +206,8 @@ public abstract class E2EFixture
                 AgentTools = AgentTools,
                 AgentContext = AgentContext,
                 JudgmentTimeout = JudgmentTimeout,
+                MaxObservationBytes = MaxObservationBytes,
+                MaxInputTokens = MaxInputTokens,
                 ProviderOptions = ProviderOptions,
                 Agents = CreateAgents(),
                 Agent = TestAgentOptions.Agent(GetType(), testMethod) ?? RunAgent,

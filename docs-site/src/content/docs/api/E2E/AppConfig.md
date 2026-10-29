@@ -21,7 +21,7 @@ public sealed class AppConfig
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L708)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L735)
 
 ## Properties
 
@@ -40,7 +40,7 @@ The build a device target installs, relative to the folder of `e2e.config.json`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L720)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L747)
 
 <a id="E2E_AppConfig_BundleId_"></a>
 <a id="E2E_AppConfig_BundleId"></a>
@@ -57,7 +57,7 @@ The bundle id (iOS) or package (Android) of an installed app a device target lau
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L717)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L744)
 
 <a id="E2E_AppConfig_Command_"></a>
 <a id="E2E_AppConfig_Command"></a>
@@ -76,7 +76,7 @@ The command that starts the app (upstream's `app.command`), started before the f
 
 **Value:** [CommandConfig](/api/E2E/CommandConfig/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L727)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L754)
 
 <a id="E2E_AppConfig_ReadyUrl_"></a>
 <a id="E2E_AppConfig_ReadyUrl"></a>
@@ -93,7 +93,7 @@ The URL that answers once [Command](#E2E_AppConfig_Command) has started the app 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L730)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L757)
 
 <a id="E2E_AppConfig_Url_"></a>
 <a id="E2E_AppConfig_Url"></a>
@@ -111,4 +111,4 @@ Relative URLs resolve against it.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L714)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L741)

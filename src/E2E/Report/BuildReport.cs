@@ -52,6 +52,9 @@ internal sealed record BuildReportOptions
 
     public bool Ci { get; init; }
 
+    /// <summary>The run's resolved limits (upstream's <c>config.limits</c>); the defaults when null (upstream's <c>DEFAULT_LIMITS</c>).</summary>
+    public ReportLimits? Limits { get; init; }
+
     /// <summary>When the run finished; the time of the build when null (upstream's <c>timestamp()</c>).</summary>
     public DateTimeOffset? FinishedAt { get; init; }
 }
@@ -315,7 +318,7 @@ internal static class BuildReport
             Vcs = options.Vcs,
             Errors = options.RunErrors,
             Summary = summary,
-            Limits = ReportLimits.Default,
+            Limits = options.Limits ?? ReportLimits.Default,
             Usage = ComputeUsage(options.Results, summary.Discovered),
             Changes = options.Changes,
             Filters = options.Filters,

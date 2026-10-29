@@ -100,6 +100,25 @@ Deadline of one `assert`, `waitFor`, or `extract`.
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L55)
 
+<a id="E2E_AgentOptions_MaxInputTokens_"></a>
+<a id="E2E_AgentOptions_MaxInputTokens"></a>
+
+### MaxInputTokens
+
+
+```csharp
+public int MaxInputTokens { get; init; }
+```
+
+
+The input one model request of this agent may carry, upstream's `maxInputTokens`, 1 through 1000000, counted as upstream's
+`tokenUpperBound` does: in UTF-8 bytes. The screen is cut to fit under it, and a judgment whose request is over it fails
+with `STEP_BUDGET_EXHAUSTED` before it is sent.
+
+**Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L68)
+
 <a id="E2E_AgentOptions_MaxModelCalls_"></a>
 <a id="E2E_AgentOptions_MaxModelCalls"></a>
 
@@ -116,6 +135,24 @@ Model requests per agent call, 1 through 100. Null leaves it unset: [MaxModelCal
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L52)
+
+<a id="E2E_AgentOptions_MaxObservationBytes_"></a>
+<a id="E2E_AgentOptions_MaxObservationBytes"></a>
+
+### MaxObservationBytes
+
+
+```csharp
+public int MaxObservationBytes { get; init; }
+```
+
+
+The most bytes of the screen one model request carries, upstream's `maxObservationBytes`, 1024 through 16777216. A
+screen over it is cut and ends with a marker. The per-call [MaxInputTokens](#E2E_AgentOptions_MaxInputTokens) ceiling binds first on a large screen.
+
+**Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L61)
 
 <a id="E2E_AgentOptions_MaxSteps_"></a>
 <a id="E2E_AgentOptions_MaxSteps"></a>
@@ -168,7 +205,7 @@ adds the fields under its [Provider](/api/E2E/OpenAiCompatibleModelOptions/#E2E_
 
 **Value:** [IReadOnlyDictionary&lt;string, JsonElement&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L61)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L74)
 
 <a id="E2E_AgentOptions_System_"></a>
 <a id="E2E_AgentOptions_System"></a>
@@ -204,4 +241,4 @@ declares, and a name the agent already uses is refused.
 
 **Value:** [IReadOnlyDictionary&lt;string, AgentTool&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L67)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L80)

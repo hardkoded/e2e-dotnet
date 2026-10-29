@@ -46,12 +46,14 @@ public sealed class ACustomExecutorTests
             Context = "Plans are tiers.",
             MaxModelCalls = 40,
             JudgmentTimeout = TimeSpan.FromSeconds(60),
+            MaxInputTokens = 8_000,
         });
 
         Assert.Equal("custom-brain", agent.Executor!.Name);
         Assert.Equal("Plans are tiers.", agent.Context);
         Assert.Equal(40, agent.MaxModelCalls);
         Assert.Equal(TimeSpan.FromSeconds(60), agent.JudgmentTimeout);
+        Assert.Equal(8_000, agent.MaxInputTokens);
         Assert.Same(model, agent.Model);
         Assert.Same(judge, agent.Judge);
     }

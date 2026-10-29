@@ -108,6 +108,22 @@ Upstream `launchTimeout`.
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L17)
 
+<a id="E2E_E2EDefaults_MaxInputTokens"></a>
+
+### MaxInputTokens
+
+
+```csharp
+public const int MaxInputTokens = 64000
+```
+
+
+Upstream's `DEFAULT_INPUT_TOKENS`, the default of `maxInputTokens`: the input one model request may carry.
+
+**Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L53)
+
 <a id="E2E_E2EDefaults_MaxModelCalls"></a>
 
 ### MaxModelCalls
@@ -123,6 +139,23 @@ Upstream `maxModelCalls` for one agent call.
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L41)
+
+<a id="E2E_E2EDefaults_MaxObservationBytes"></a>
+
+### MaxObservationBytes
+
+
+```csharp
+public const int MaxObservationBytes = 262144
+```
+
+
+Upstream's `DEFAULT_OBSERVATION_BYTES`, the default of `maxObservationBytes`. A quarter mebibyte of tree is already tens of
+thousands of tokens on every act turn; the per-call token ceiling clamps a dense screen below it.
+
+**Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L50)
 
 <a id="E2E_E2EDefaults_MaxSteps"></a>
 

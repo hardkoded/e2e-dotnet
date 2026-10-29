@@ -322,7 +322,7 @@ public class Screen
                 var read = ObserveAsync(bounded.Token);
                 _ = read.ContinueWith(static finished => _ = finished.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
                 var observation = await read.WaitAsync(bounded.Token).ConfigureAwait(false);
-                return RenderTree?.Invoke(observation) ?? Redact(TreeText(observation, Redactor.None, null, StepScreens.DefaultObservationBytes));
+                return RenderTree?.Invoke(observation) ?? Redact(TreeText(observation, Redactor.None, null, E2EDefaults.MaxObservationBytes));
             }
             catch (OperationCanceledException) when (bounded.IsCancellationRequested && !token.IsCancellationRequested)
             {
