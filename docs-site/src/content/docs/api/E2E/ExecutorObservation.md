@@ -102,7 +102,7 @@ The masked pixels. Present when the call asked for them with [Pixels](/api/E2E/E
 
 **Value:** [ExecutorPixels](/api/E2E/ExecutorPixels/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L323)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L326)
 
 <a id="E2E_ExecutorObservation_PixelsWithheld_"></a>
 <a id="E2E_ExecutorObservation_PixelsWithheld"></a>
@@ -119,7 +119,24 @@ Why requested pixels were withheld.
 
 **Value:** `VisionDegradation?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L326)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L329)
+
+<a id="E2E_ExecutorObservation_Revision_"></a>
+<a id="E2E_ExecutorObservation_Revision"></a>
+
+### Revision
+
+
+```csharp
+public string? Revision { get; init; }
+```
+
+
+The revision of the capture ([Revision](/api/E2E.Engine/Observation/#E2E_Engine_Observation_Revision)), `b<n>` for the attempt's n-th. Null when the capture carries none. Upstream's `revision`.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L320)
 
 <a id="E2E_ExecutorObservation_Text_"></a>
 <a id="E2E_ExecutorObservation_Text"></a>
@@ -153,7 +170,7 @@ The redacted node tree. Present when the call asked for it with [Tree](/api/E2E/
 
 **Value:** [IReadOnlyList&lt;ExecutorNode&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L320)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L323)
 
 <a id="E2E_ExecutorObservation_TreeUnavailable_"></a>
 <a id="E2E_ExecutorObservation_TreeUnavailable"></a>

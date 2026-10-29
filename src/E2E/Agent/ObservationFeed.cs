@@ -171,6 +171,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             Truncated = observation.Truncated,
             KeyboardVisible = observation.KeyboardVisible,
             Path = scope.Redactor.Redact(observation.Route),
+            Revision = observation.Revision.Length > 0 ? observation.Revision : null,
             Tree = options?.Tree == true ? AgentObservation.ProjectTree(observation.Roots, scope.Redactor, scope.AppOrigin) : null,
         };
 

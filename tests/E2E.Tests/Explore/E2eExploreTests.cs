@@ -166,6 +166,7 @@ public sealed class E2eExploreTests
         Assert.Equal(3, finding.Severity);
         Assert.Equal("Counter starts at 0 with no label of what it counts", finding.Title);
         Assert.Equal("/", finding.Path);
+        Assert.NotNull(finding.ObservationRevision);
 
         // The evidence is a screenshot file under the attempt's results, named for the finding.
         Assert.Equal(".e2e/results/" + AttemptReport.ResultSegmentOf(E2E.Explore.ExploreFile, "Explore the home page and find bugs") + "/attempt-1/screenshots/001-finding-1.png", finding.ArtifactId);

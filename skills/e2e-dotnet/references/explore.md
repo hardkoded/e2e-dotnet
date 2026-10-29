@@ -57,7 +57,7 @@ e2e explore --target web --max-steps 4 --headed
 3. Runs the charter as an `ActAsync` step with the agent's project tools plus
    `report_finding`. The agent reports each defect the moment it has
    evidence: title, `issue` or `warning`, severity 1 to 5, expected, actual,
-   reproduction steps. The run adds the path and a redacted screenshot.
+   reproduction steps. The run adds the path, the observation revision, and a redacted screenshot.
 4. Repeats until the planner finishes, the step limit, the clock, or three
    failed or blocked steps in a row that reported nothing; then asks for a
    closing assessment.
@@ -173,8 +173,10 @@ run, or null for a pass.
 ended (`Finished`, `StepLimit`, `Time`, `Stuck`, `Aborted`), the closing
 assessment in `Summary`, the `Steps` with their status (`Passed`, `Failed`,
 `Blocked`, `Exhausted`), and the `Findings`. A step carries `ErrorCode` only
-when it did not pass. A finding carries `Step`, `Path`, and `ArtifactId`
-only when known. `ArtifactId` is the path, relative to the project root, of
+when it did not pass. A finding carries `Step`, `Path`, `ObservationRevision`, and
+`ArtifactId` only when known. `ObservationRevision` is the revision (`b<n>`) of
+the capture the finding tool took when it reported the finding (its own capture,
+as upstream, so no agent step records the same value). `ArtifactId` is the path, relative to the project root, of
 the evidence screenshot, which lands under
 `.e2e/results/<result>/attempt-1/screenshots/` (`Output` changes the results
 directory). The exploration is a test of the virtual file `explore`, so
