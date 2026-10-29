@@ -92,6 +92,10 @@ public sealed class PlaywrightProtocolTests
     {
         using var app = await TinySite.StartAsync(Probe);
         var grids = new List<RemotePlaywrightServer>();
+        WebEngine? runner = null;
+        WebEngine? worker = null;
+        IEngineSession? first = null;
+        var finished = false;
         try
         {
             var cloud = new ToyCloud
@@ -103,13 +107,14 @@ public sealed class PlaywrightProtocolTests
                     return Lease($"session-{grids.Count}", grid.Endpoint);
                 },
             };
-            var (runner, env) = await Runner.PreparedAsync(cloud, 1);
-            var worker = new WebEngine(new WebEngineOptions { Browser = cloud, Locale = "fr-FR", Viewport = new WebViewport(412, 300) });
+            Dictionary<string, string?> env;
+            (runner, env) = await Runner.PreparedAsync(cloud, 1);
+            worker = new WebEngine(new WebEngineOptions { Browser = cloud, Locale = "fr-FR", Viewport = new WebViewport(412, 300) });
             worker.Init(Runner.InitInfo(0, env));
             var options = new EngineStartOptions { AttemptId = "a", BaseUrl = app.Url, ActionTimeout = TimeSpan.FromSeconds(30) };
 
             // The grid drops the session while the attempt rides it.
-            var first = await worker.StartAsync(options, None);
+            first = await worker.StartAsync(options, None);
             await first.OpenAsync(app.Url, None);
             await grids[0].KillAsync();
 
@@ -127,14 +132,44 @@ public sealed class PlaywrightProtocolTests
 
             Assert.Equal(2, grids.Count);
             await worker.DisposeAsync();
+            finished = true;
             await runner.FinishAsync(Runner.FinishInfo(), None);
             Assert.Equal(["session-2", "session-1"], cloud.ReleasedIds);
         }
         finally
         {
-            foreach (var grid in grids)
+            // A failure above must still release the driver, the worker's lease and the grids.
+            try
             {
-                await grid.DisposeAsync();
+                if (first is not null)
+                {
+                    await first.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(30)).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext);
+                }
+            }
+            finally
+            {
+                try
+                {
+                    if (!finished)
+                    {
+                        if (worker is not null)
+                        {
+                            await worker.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(30)).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext);
+                        }
+
+                        if (runner is not null)
+                        {
+                            await runner.FinishAsync(Runner.FinishInfo(), None).WaitAsync(TimeSpan.FromSeconds(30)).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext);
+                        }
+                    }
+                }
+                finally
+                {
+                    foreach (var grid in grids)
+                    {
+                        await grid.DisposeAsync();
+                    }
+                }
             }
         }
     }
