@@ -68,7 +68,7 @@ Public types in the `E2E.Engine` namespace.
 | [VideoSegment](/api/E2E.Engine/VideoSegment/) | One recorded video of an attempt: a file the engine wrote into the attempt artifact directory (VideoFile), or a recording a hosted service keeps and links to (VideoLink). |
 | [WebBasicAuth](/api/E2E.Engine/WebBasicAuth/) | HTTP basic authentication the browser answers a 401 challenge with. |
 | [WebConnectOptions](/api/E2E.Engine/WebConnectOptions/) | Attach to a remote Chromium over CDP instead of launching one. Supplying ReconnectEndpoint opts into a persistent context instead. |
-| [WebEngine](/api/E2E.Engine/WebEngine/) | Browser engine for the web target. It drives Chromium through Playwright, reads a semantic tree (role, name, text, test id, state), and performs the same node actions the document engine does. Install browsers once with playwright.ps1 install chromium from this project's build output. |
+| [WebEngine](/api/E2E.Engine/WebEngine/) | Browser engine for the web target. It drives Chromium, Firefox, or WebKit through Playwright, reads a semantic tree (role, name, text, test id, state), and performs the same node actions the document engine does. Install browsers once with playwright.ps1 install chromium (or firefox, webkit) from this project's build output. |
 | [WebEngineOptions](/api/E2E.Engine/WebEngineOptions/) | Options of the browser engine: how it drives the app. |
 | [WebInitScript](/api/E2E.Engine/WebInitScript/) | A script every document runs before the page's own, in every tab and frame: JavaScript source, a file of it, or a function source the page calls. A string converts to source. |
 | [WebMedia](/api/E2E.Engine/WebMedia/) | User preferences a page reads through @media rules and matchMedia, as Playwright's emulateMedia sets them. A feature left <a href="https://learn.microsoft.com/dotnet/csharp/language-reference/keywords/null">null</a> keeps the browser's own value, or the one an earlier call set. |
@@ -92,6 +92,7 @@ Public types in the `E2E.Engine` namespace.
 
 | Type | Summary |
 | --- | --- |
+| [BrowserName](/api/E2E.Engine/BrowserName/) | A browser the engine launches (upstream BrowserName). |
 | [BrowserProtocol](/api/E2E.Engine/BrowserProtocol/) | The protocol a leased browser's endpoint speaks. .NET-only: upstream's lease always carries a CDP endpoint. |
 | [BrowserProviderScope](/api/E2E.Engine/BrowserProviderScope/) | How long a lease lives. Worker (the default) is one browser per worker slot, acquired in prepare and released in finish. Attempt is a fresh browser per attempt, acquired when the attempt starts and released when it ends, reconnected through the lease's ReconnectEndpoint after a transport drop. |
 | [DialogType](/api/E2E.Engine/DialogType/) | The kind of a native dialog, independent of its message (upstream's Dialog['type']). |

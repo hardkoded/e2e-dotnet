@@ -16,13 +16,15 @@
 
 - The .NET 10 SDK. The packages target `net10.0`.
 - NUnit or xUnit v3. xUnit v2 is not supported.
-- Chromium. The first `WebEngine` launch in a test run installs the build it
-  launches (the headless shell for a headless run), so the first run needs
-  network access. Firefox and WebKit are not exposed yet.
+- Chromium, or the browser `WebEngineOptions.BrowserName` names (Firefox or
+  WebKit). The first `WebEngine` launch in a test run installs the build it
+  launches (the headless shell for a headless Chromium run), so the first run
+  needs network access.
 - On a CI image that already has the browser, or with no network, set
   `E2E_SKIP_BROWSER_INSTALL=1` and install it yourself with the `e2e` tool:
   `e2e install` (below), or from the build output:
-  `pwsh bin/Debug/net10.0/playwright.ps1 install chromium`.
+  `pwsh bin/Debug/net10.0/playwright.ps1 install chromium` (or `firefox`,
+  `webkit`).
 
 ## Scaffold
 
@@ -52,7 +54,7 @@ installs Chromium when no browser is named, and `--with-deps` also installs
 the system libraries on Linux. It keeps the other browsers in the Playwright
 cache, as upstream does, and exits with Playwright's exit code. An unknown
 option or browser exits 2. A local tool runs it as `dotnet e2e install`. The
-engine itself drives Chromium only.
+engine launches the browser `BrowserName` names, Chromium by default.
 
 ## Subscriptions and API keys
 
@@ -242,6 +244,7 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
 | `ColorScheme`, `ReducedMotion` | The `prefers-color-scheme` (`WebColorScheme.Light`, `Dark`, `NoPreference`) and `prefers-reduced-motion` (`WebReducedMotion.Reduce`, `NoPreference`) every page reports to its `@media` rules and `matchMedia`, from first paint. A persistent context takes them too. Each defaults to the browser's own. |
 | `InitScripts` | Scripts every document runs before the page's own (topic `writing-tests`). |
 | `Screencast` | `new WebScreencastOptions { Size, Quality }` for the engine's own video: the frame size in whole pixels (default the viewport's) and the JPEG quality, 0 to 100. Which attempts record is `video`, not this. A browser provider that records ignores it (topic `debugging`). |
+| `BrowserName` | `BrowserName.Chromium` (default), `Firefox`, or `Webkit`: the browser the engine launches. Two browsers on one app are two targets, each with its own `WebEngine`. Install an extra one with `e2e install webkit --with-deps`. `Connect` and `Browser` attach over CDP, so they need Chromium: `Connect` with another browser is `INVALID_CONFIG`. Upstream's single `browser` option is a name or a provider; the port splits it into `BrowserName` and `Browser`. |
 | `Browser` | An `IBrowserProvider` that leases hosted Chromium browsers (over CDP, or Playwright's protocol for a lease with `Protocol = BrowserProtocol.Playwright`) and releases them when their scope ends. Excludes `Connect`. See below. |
 | `Connect` | Attach to a remote Chromium over CDP. `CdpEndpoint` and `ReconnectEndpoint` are resolvers (`ct => Task<string>`), not strings. With `ReconnectEndpoint` it rides one persistent default context and reconnects only to the original browser and page. |
 

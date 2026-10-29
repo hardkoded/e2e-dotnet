@@ -1,6 +1,6 @@
 ---
 title: "WebEngine"
-description: "Browser engine for the web target. It drives Chromium through Playwright, reads a semantic tree (role, name, text, test id, state), and performs the same nod..."
+description: "Browser engine for the web target. It drives Chromium, Firefox, or WebKit through Playwright, reads a semantic tree (role, name, text, test id, state), and p..."
 editUrl: false
 prev: false
 next: false
@@ -19,10 +19,10 @@ public sealed class WebEngine : IEngine, IAsyncDisposable
 ```
 
 
-Browser engine for the web target. It drives Chromium through Playwright,
+Browser engine for the web target. It drives Chromium, Firefox, or WebKit through Playwright,
 reads a semantic tree (role, name, text, test id, state), and performs the
 same node actions the document engine does. Install browsers once with
-`playwright.ps1 install chromium` from this project's build output.
+`playwright.ps1 install chromium` (or `firefox`, `webkit`) from this project's build output.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
@@ -49,7 +49,7 @@ public WebEngine(WebEngineOptions options)
 | --- | --- | --- |
 | `options` | [WebEngineOptions](/api/E2E.Engine/WebEngineOptions/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L282)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L289)
 
 <a id="E2E_Engine_WebEngine__ctor_System_Nullable_System_Boolean__"></a>
 
@@ -67,7 +67,7 @@ public WebEngine(bool? headless = null)
 | --- | --- | --- |
 | `headless` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L277)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L284)
 
 ## Fields
 
@@ -83,7 +83,7 @@ public const string EngineVersion = "1.1.0"
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L257)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L264)
 
 ## Properties
 
@@ -100,7 +100,7 @@ public EngineCapabilities Capabilities { get; }
 
 **Value:** [EngineCapabilities](/api/E2E.Engine/EngineCapabilities/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L318)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L325)
 
 <a id="E2E_Engine_WebEngine_Platform_"></a>
 <a id="E2E_Engine_WebEngine_Platform"></a>
@@ -115,7 +115,7 @@ public string Platform { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L302)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L309)
 
 <a id="E2E_Engine_WebEngine_Version_"></a>
 <a id="E2E_Engine_WebEngine_Version"></a>
@@ -130,7 +130,7 @@ public string Version { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L316)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L323)
 
 ## Methods
 
@@ -246,4 +246,4 @@ public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationT
 
 **Returns:** [Task&lt;IEngineSession&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L329)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L336)
