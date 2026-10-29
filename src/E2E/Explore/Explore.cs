@@ -314,10 +314,17 @@ public static class Explore
         finally
         {
             // The attempt is closed on every path. Its failures are the run's cleanup errors: they join the outcome and never replace it.
-            var closed = await attempt.CloseAsync().ConfigureAwait(false);
+            IReadOnlyList<Exception> closed;
+            try
+            {
+                closed = await attempt.CloseAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                // The app command stops once the engine is done with it, even when closing the attempt throws; its failure joins the cleanup errors the same way.
+                await appProcesses.StopAsync(appFailures.Add).ConfigureAwait(false);
+            }
 
-            // The app command stops once the engine is done with it, and its failure joins the cleanup errors the same way.
-            await appProcesses.StopAsync(appFailures.Add).ConfigureAwait(false);
             cleanup = [.. closed, .. appFailures];
         }
 
