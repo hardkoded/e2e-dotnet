@@ -70,6 +70,23 @@ public sealed record WebMedia
         return null;
     }
 
+    /// <summary>The step label of a <c>browser.emulateMedia</c> call (upstream's <c>mediaLabel</c>): the features it sets, as <c>colorScheme: dark</c>.</summary>
+    internal string Label()
+    {
+        var features = new List<string>(2);
+        if (ColorScheme is { } scheme && Enum.IsDefined(scheme))
+        {
+            features.Add("colorScheme: " + (scheme switch { WebColorScheme.Light => "light", WebColorScheme.Dark => "dark", _ => "no-preference" }));
+        }
+
+        if (ReducedMotion is { } motion && Enum.IsDefined(motion))
+        {
+            features.Add("reducedMotion: " + (motion == WebReducedMotion.Reduce ? "reduce" : "no-preference"));
+        }
+
+        return string.Join(", ", features);
+    }
+
     /// <summary>The Playwright context options carrying these features.</summary>
     internal void ApplyTo(BrowserNewContextOptions context)
     {

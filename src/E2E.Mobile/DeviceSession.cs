@@ -110,6 +110,9 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     internal EngineFixtureContext FixtureContext =>
         _fixtureContext ?? throw DeviceSupport.InvalidState("device.locator needs the attempt's test session: start the engine through a test, not on its own");
 
+    /// <summary>The attempt's fixture context, or null for a session no test harness started, whose fixture calls then run unrecorded.</summary>
+    internal EngineFixtureContext? FixtureContextOrNull => _fixtureContext;
+
     /// <summary>The agent-device client of the live session, or <c>INVALID_STATE</c> once it closed.</summary>
     internal IDeviceClient Client => _tracked ??= _client switch
     {

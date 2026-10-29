@@ -38,7 +38,7 @@ public enum EngineCapabilities
 
 /// <summary>
 /// What an engine's fixture gets from the attempt, once per attempt. Upstream's <c>EngineFixtureContext</c>, of which the port has
-/// <c>locator</c> only: its fixtures take their own cancellation tokens, and record no steps of their own yet.
+/// <c>locator</c> only: its fixtures take their own cancellation tokens, and record their steps through <c>RunOperationAsync</c>.
 /// </summary>
 public sealed class EngineFixtureContext
 {
@@ -48,6 +48,13 @@ public sealed class EngineFixtureContext
 
     /// <summary>The attempt's screen, which a scope such as a frame's is made of.</summary>
     internal Screen Root => _screen;
+
+    /// <summary>
+    /// Runs one fixture call as a recorded step of the attempt (upstream's <c>FixtureRecorder.run</c>, which wraps each operation a fixture
+    /// declares through <c>fixture</c>). .NET-only: the port's fixtures call it themselves instead of declaring their operations.
+    /// </summary>
+    internal Task<T> RunOperationAsync<T>(StepKind kind, string api, string label, Func<Task<T>> body) =>
+        _screen.RunStepAsync(kind, api, label, body);
 
     /// <summary>Mints a public locator from a raw expression (a platform selector, say). Upstream's <c>locator</c>.</summary>
     public Locator Locator(LocatorExpression expression)

@@ -202,8 +202,11 @@ public sealed class WebPlatformIntegrationTests
     [Fact]
     public async Task Sets_a_viewport_before_the_first_navigation_without_opening_a_page()
     {
-        var error = Assert.IsType<TestException>(await RunAsync(Scenarios["a viewport set before the first navigation opens no page"]));
-        Assert.Equal("APP_NOT_OPEN", error.Code);
+        var (error, steps) = await RunWithStepsAsync(Scenarios["a viewport set before the first navigation opens no page"]);
+        Assert.Equal(
+            [("browser.setViewport", StepStatus.Passed), ("locator.tap", StepStatus.Failed)],
+            steps.Select(step => (step.Api, step.Status)).ToArray());
+        Assert.Equal("APP_NOT_OPEN", Assert.IsType<TestException>(error).Code);
     }
 
     [Fact]
