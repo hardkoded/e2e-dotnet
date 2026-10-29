@@ -203,9 +203,10 @@ public sealed partial class Agent
         var agent = _scope.Select(options?.Agent);
         var vision = ResolveVision(options?.Vision ?? VisionMode.Off);
         var extractTimeout = ResolveTimeout(options?.Timeout, agent.JudgmentTimeout);
+        var guard = Guard("agent.extract", cancellationToken, extractTimeout);
         using var linked = Link(cancellationToken, extractTimeout);
         var token = linked.Token;
-        var look = await LookAsync("agent.extract", vision, agent, ExtractSystemFor(agent), instruction, token, Guard("agent.extract", cancellationToken, extractTimeout)).ConfigureAwait(false);
+        var look = await LookAsync("agent.extract", vision, agent, ExtractSystemFor(agent), instruction, token, guard).ConfigureAwait(false);
         var schema = JsonSchemaExporter.GetJsonSchemaAsNode(ExtractSchemaJson, typeof(T), ExtractSchemaOptions);
         var tools = AgentTools.ExtractFor(schema);
         var messages = new List<ModelMessage>
@@ -286,9 +287,10 @@ public sealed partial class Agent
 
     private async Task JudgeAsync(string statement, TimeSpan timeout, ResolvedAgent agent, VisionMode vision, bool? screenshot, CancellationToken cancellationToken)
     {
+        var guard = Guard("agent.assert", cancellationToken, timeout);
         using var linked = Link(cancellationToken, timeout);
         var token = linked.Token;
-        var look = await LookAsync("agent.assert", vision, agent, JudgeSystemFor(agent), statement, token, Guard("agent.assert", cancellationToken, timeout)).ConfigureAwait(false);
+        var look = await LookAsync("agent.assert", vision, agent, JudgeSystemFor(agent), statement, token, guard).ConfigureAwait(false);
         var verdict = await JudgeOnceAsync(statement, look, agent, JudgmentModelCalls, token, cancellationToken).ConfigureAwait(false);
 
         // The redacted screenshot is kept whenever Screenshot allows it, on a passing judgment too.
