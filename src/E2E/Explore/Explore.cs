@@ -107,8 +107,8 @@ public sealed class ExploreOptions
 
 /// <summary>What an exploration ended with. Upstream's <c>ExploreOutcome</c>, which extends the runner's <c>RunOutcome</c>.</summary>
 /// <param name="Status">How the run ended. An agent step the run could not finish for lack of credentials, environment, or setup is <see cref="RunStatus.Blocked"/>.</param>
-/// <param name="ExitCode">0 when the exploration reported no issue (warnings do not count), 1 when it reported one or explored nothing, 2 for a configuration or policy error, 3 for an engine, app, or model provider failure.</param>
-/// <param name="Error">The error that ended the run, or null for a pass.</param>
+/// <param name="ExitCode">0 when the exploration reported no issue (warnings do not count), 1 when it reported one or explored nothing, 2 for a configuration or policy error, 3 for an engine, app, or model provider failure. A failure of closing the exploration joins it: the code is the verdict's combined with the cleanup failure's (precedence 130, 4, 3, 2, 1, 0).</param>
+/// <param name="Error">The error that ended the run, or else the first cleanup failure, or null for a pass.</param>
 /// <param name="Explore">What was asked, did, and found.</param>
 public sealed record ExploreOutcome(RunStatus Status, int ExitCode, E2EException? Error, ReportExplore Explore);
 

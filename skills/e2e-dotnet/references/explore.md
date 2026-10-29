@@ -26,8 +26,12 @@ and a booted device, and `E2E_MOBILE_DEVICE` names one (see
 [mobile.md](mobile.md)). With `E2E_MOBILE_PROVIDER=limrun` it leases a hosted
 Limrun device when the exploration starts (set `LIMRUN_API_KEY`) and releases it
 when the exploration ends, also after a failure or Ctrl+C (exit 130), within the
-config's `cleanupTimeout`. A release that fails or outlives that budget ends the
-command with the error in place of the outcome (`CLEANUP_TIMEOUT`, exit 3). With
+config's `cleanupTimeout`. A release that fails or outlives that budget does not
+replace the outcome: it joins it (`CLEANUP_TIMEOUT` for one that outlived the
+budget, `ENGINE_FAILURE` for a plain exception), the status is `Failed`, the exit
+code is the verdict's combined with 3 (precedence 130, 4, 3, 2, 1, 0), and the
+findings stay. `ExploreOutcome.Error` is the failure only when the run had no
+error of its own. With
 `E2E_MOBILE_PROVIDER=devflow` it attaches to the MAUI app you launched. `e2e explore` supplies the
 device engine; a library caller of `Explore.ExploreAsync` with an `ios` or
 `android` target must set `ExploreOptions.Engine`. A `windows` target with `app.appPath` (the
