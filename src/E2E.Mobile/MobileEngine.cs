@@ -157,6 +157,8 @@ public sealed class MobileEngine : IPreparableEngine
     /// <summary>The wait between two attempts at a sparse snapshot. Tests replace it to spend no time.</summary>
     internal Func<TimeSpan, CancellationToken, Task> Delay { get; init; } = static (span, token) => Task.Delay(span, token);
 
+    public string Name => "mobile";
+
     public string Platform => Options.Platform.WireName();
 
     public string Version => EngineVersion;

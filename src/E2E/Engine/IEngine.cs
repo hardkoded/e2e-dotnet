@@ -144,6 +144,12 @@ internal sealed record ResolveSecretOptions
 /// </summary>
 public interface IEngine
 {
+    /// <summary>
+    /// The engine's name, which the report records in <c>run.targets[].engine</c> and the trace cache keys on (upstream's <c>engine.name</c>).
+    /// Defaults to <see cref="Platform"/>, so an engine that does not name itself keeps compiling and keeps its cache key.
+    /// </summary>
+    string Name => Platform;
+
     string Platform { get; }
 
     string Version { get; }
