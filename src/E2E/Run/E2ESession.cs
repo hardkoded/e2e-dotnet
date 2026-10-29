@@ -349,8 +349,9 @@ public sealed class E2ESession : IAsyncDisposable
         {
             await (Bounded(_scope.CleanupTimeout) ? settling.WaitAsync(_scope.CleanupTimeout, cancellationToken) : settling).ConfigureAwait(false);
         }
-        catch (TimeoutException ex)
+        catch (TimeoutException ex) when (!settling.IsCompleted)
         {
+            // Only the wait timing out: a TimeoutException a handler threw (a Playwright timeout) keeps its own classification.
             throw new EngineException("CLEANUP_TIMEOUT", "settling the attempt timed out", ex);
         }
     }
