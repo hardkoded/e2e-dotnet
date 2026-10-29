@@ -223,6 +223,23 @@ internal static class FixtureApp
         <!doctype html><html><head><title>Downloads</title></head><body><h1>Downloads</h1><a href="/report.csv" download>Download report</a></body></html>
         """;
 
+    // An export that carries what the form was filled with: the link downloads a CSV echoing the key field, the way an app's export
+    // includes its data.
+    private const string Exports = """
+        <!doctype html><html><head><title>Exports</title></head><body>
+          <h1>Exports</h1>
+          <label for="export-key">Export key</label>
+          <input id="export-key" type="password" autocomplete="off" />
+          <a id="export" href="/echo.csv" download>Download export</a>
+          <script>
+            document.getElementById('export').addEventListener('click', () => {
+              const key = document.getElementById('export-key').value;
+              document.getElementById('export').href = '/echo.csv?value=' + encodeURIComponent(key);
+            });
+          </script>
+        </body></html>
+        """;
+
     private const string Dialog = """
         <!doctype html>
         <html>
@@ -240,6 +257,8 @@ internal static class FixtureApp
         return TinySite.StartAsync(context => context.Request.Url!.AbsolutePath switch
         {
             "/downloads" => TinySite.RespondAsync(context, Downloads),
+            "/exports" => TinySite.RespondAsync(context, Exports),
+            "/echo.csv" => RespondEchoCsvAsync(context),
             "/dialog" => TinySite.RespondAsync(context, Dialog),
             "/report.csv" => RespondCsvAsync(context),
             "/" => TinySite.RespondAsync(context, Home),
@@ -262,6 +281,17 @@ internal static class FixtureApp
         var body = System.Text.Encoding.UTF8.GetBytes("id,total\n1,42\n");
         context.Response.ContentType = "text/csv";
         context.Response.AddHeader("Content-Disposition", "attachment; filename=\"report.csv\"");
+        context.Response.ContentLength64 = body.Length;
+        await context.Response.OutputStream.WriteAsync(body);
+        context.Response.Close();
+    }
+
+    private static async Task RespondEchoCsvAsync(HttpListenerContext context)
+    {
+        var value = System.Web.HttpUtility.ParseQueryString(context.Request.Url!.Query)["value"] ?? "";
+        var body = System.Text.Encoding.UTF8.GetBytes($"id,key\n1,{value}\n");
+        context.Response.ContentType = "text/csv";
+        context.Response.AddHeader("Content-Disposition", "attachment; filename=\"export.csv\"");
         context.Response.ContentLength64 = body.Length;
         await context.Response.OutputStream.WriteAsync(body);
         context.Response.Close();

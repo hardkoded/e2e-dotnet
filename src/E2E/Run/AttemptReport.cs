@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using E2E.Engine;
 using E2E.Internal;
+using ArtifactRecord = E2E.Reports.ArtifactRecord;
 
 namespace E2E;
 
@@ -25,13 +26,13 @@ internal sealed record TraceOutput(Keep? Keep, string AttemptDir, string? CacheD
 
 /// <summary>
 /// The in-memory report of one attempt, which the trace page reads. The port has no <c>report.json</c>: the session builds this from
-/// the records it keeps (the step timeline, the environment facts, the videos), adds it to the test's other attempts in
+/// the records it keeps (the step timeline, the environment facts, the attempt's artifacts), adds it to the test's other attempts in
 /// <see cref="RunReport"/>, and hands the result to <see cref="TracePages.WriteTracePagesAsync"/>. Upstream builds the same page from
 /// the report of the whole run.
 /// </summary>
 internal static class AttemptReport
 {
-    private static readonly string RunId = Guid.CreateVersion7().ToString();
+    internal static readonly string RunId = Guid.CreateVersion7().ToString();
 
     // Upstream forbids NUL in a title, so no title-only hash input starts with it and none can equal a hashed test id.
     private const char TestIdMark = '\0';
@@ -91,7 +92,6 @@ internal static class AttemptReport
         AttemptStatus status,
         Exception? error,
         long durationMs,
-        IReadOnlyList<VideoSegment> videos,
         ReportExplore? explore = null,
         FailureEvidence? evidence = null)
     {
@@ -103,8 +103,7 @@ internal static class AttemptReport
         var failed = error is not null && status != AttemptStatus.Passed;
         ReportArtifact[] kept =
         [
-            .. videos.Select((video, index) => Artifact(video, index, directory, attemptSegment)),
-            .. scope.Attached.Select(attached => new ReportArtifact(attached.Id, attached.Kind, directory + "/" + attemptSegment + "/" + attached.Path, Redaction: attached.Redaction)),
+            .. scope.Attached.Select(Artifact),
             .. failed && evidence?.Screen is { } screen ? new[] { new ReportArtifact(screen, "log", directory + "/" + attemptSegment + "/" + FailureEvidence.ScreenFile) } : [],
             .. failed && evidence?.Screenshot is { } shot ? new[] { new ReportArtifact(shot, "screenshot", directory + "/" + attemptSegment + "/" + FailureEvidence.ScreenshotFile) } : [],
         ];
@@ -158,16 +157,7 @@ internal static class AttemptReport
         }
     }
 
-    // A video file is registered under the results directory, as upstream registers an attempt's artifacts; a link stays a link.
-    private static ReportArtifact Artifact(VideoSegment video, int index, string directory, string attemptSegment)
-    {
-        var id = "video-" + index.ToString(CultureInfo.InvariantCulture);
-        var startedAt = DateTimeOffset.TryParse(video.StartedAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed) ? parsed : (DateTimeOffset?)null;
-        return video switch
-        {
-            VideoFile file => new ReportArtifact(id, "video", directory + "/" + attemptSegment + "/" + file.Path.Replace('\\', '/'), StartedAt: startedAt),
-            VideoLink link => new ReportArtifact(id, "video", Url: link.Url, StartedAt: startedAt),
-            _ => new ReportArtifact(id, "video", StartedAt: startedAt),
-        };
-    }
+    // The kept file or link, as the sink registered it: its path already starts at the results directory, as upstream's records do.
+    private static ReportArtifact Artifact(ArtifactRecord record) =>
+        new(record.Id, record.Kind.ToString().ToLowerInvariant(), record.Path, record.Url, record.StartedAt, Redaction: record.Redaction, Ref: record.Ref);
 }

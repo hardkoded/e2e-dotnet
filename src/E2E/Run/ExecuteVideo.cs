@@ -111,7 +111,7 @@ internal sealed class ExecuteVideo
     /// cleanup failure, and so does a link that is not an http(s) URL, once every other recording is kept; a default video
     /// that cannot be finalized is dropped.
     /// </summary>
-    public async Task StopAsync(AttemptStatus status, TimeSpan cleanupTimeout)
+    public async Task StopAsync(AttemptStatus status, TimeSpan cleanupTimeout, IArtifactSink? sink = null)
     {
         using var cleanup = new CancellationTokenSource();
         if (cleanupTimeout > TimeSpan.Zero && cleanupTimeout != Timeout.InfiniteTimeSpan)
@@ -139,7 +139,7 @@ internal sealed class ExecuteVideo
                 return;
             }
 
-            Register(segments);
+            Register(segments, sink);
         }
 #pragma warning disable CA1031 // A default video is best effort: whatever stops it, the attempt reports none.
         catch (Exception) when (_recording.Policy == VideoPolicy.BestEffort)
@@ -153,10 +153,28 @@ internal sealed class ExecuteVideo
     /// provider's is, an http(s) URL; one that is not fails the cleanup once every other recording is kept, so it costs no
     /// other video. Upstream <c>registerVideos</c>.
     /// </summary>
-    private void Register(IReadOnlyList<VideoSegment> segments)
+    // An engine's path is its own word: only a file inside the attempt's directory is ours to register.
+    private bool InsideAttemptDir(string path) =>
+        Path.GetFullPath(Path.Combine(_artifactsDir, path)).StartsWith(Path.GetFullPath(_artifactsDir) + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+
+    private void Register(IReadOnlyList<VideoSegment> segments, IArtifactSink? sink)
     {
         var rejected = segments.OfType<VideoLink>().Where(link => ProviderRecordings.HostedVideoUrl(link.Url) is null).ToList();
         Kept = [.. segments.Where(segment => segment is not VideoLink link || !rejected.Contains(link))];
+        foreach (var segment in Kept)
+        {
+            var startedAt = DateTimeOffset.TryParse(segment.StartedAt, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal, out var parsed) ? parsed : (DateTimeOffset?)null;
+            switch (segment)
+            {
+                case VideoFile file when sink is not null && InsideAttemptDir(file.Path):
+                    sink.Register(E2E.Reports.ArtifactKind.Video, file.Path.Replace(Path.DirectorySeparatorChar, '/'), new ArtifactRegistration { StartedAt = startedAt });
+                    break;
+                case VideoLink link:
+                    sink?.Link(link.Url, new ArtifactLink(link.MediaType, startedAt ?? DateTimeOffset.UtcNow));
+                    break;
+            }
+        }
+
         if (rejected.Count > 0)
         {
             throw new EngineException(EngineErrorCodes.EngineFailure, "the engine returned a video link that is not an http(s) URL: " + string.Join(", ", rejected.Select(link => $"\"{link.Url}\"")), retryable: false);

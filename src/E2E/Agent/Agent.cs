@@ -1368,65 +1368,96 @@ internal sealed class AttemptScope
 
     public List<PendingAct> Acts { get; } = [];
 
-    private readonly List<(string Id, string Kind, string Path, ArtifactRedaction? Redaction)> _attached = [];
-
     /// <summary>The attempt's artifact directory (upstream's <c>ArtifactSink.dir</c>); null when the scope has none, as in a unit test.</summary>
     public string? ArtifactsDir { get; init; }
 
+    /// <summary>The host store every artifact is handed to as it is produced (upstream's <c>artifacts.store</c>); null keeps files local only.</summary>
+    public IArtifactStore? ArtifactStore { get; init; }
+
+    private AttemptArtifacts? _artifacts;
+
     /// <summary>
-    /// The files fixtures kept for the attempt, such as a download, as the id the step names, the kind, the path under the attempt's
-    /// artifact directory (upstream's <c>attachArtifact</c>), and the redaction the runner claims for it when it rewrote it (null when
-    /// the kind decides).
+    /// The attempt's artifacts (upstream's <c>createAttemptArtifacts</c>, which the runner calls once per attempt), made on first use so an
+    /// attempt that keeps nothing leaves no directory. Null when the scope has no <see cref="ArtifactsDir"/>.
     /// </summary>
-    public IReadOnlyList<(string Id, string Kind, string Path, ArtifactRedaction? Redaction)> Attached
+    public AttemptArtifacts? Artifacts
     {
         get
         {
-            lock (_attached)
+            if (ArtifactsDir is not { } directory)
             {
-                // Reports must use the final ledger, including values a later fill registered.
-                if (ArtifactsDir is { } directory && Secrecy.RedactsDownloads(Redactor))
-                {
-                    var redactor = Redactor;
-                    for (var index = 0; index < _attached.Count; index++)
-                    {
-                        var entry = _attached[index];
-                        if (entry.Kind == "download" && ArtifactPaths.IsTextLike(ArtifactPaths.MediaTypeFor(entry.Path)))
-                        {
-                            _attached[index] = (entry.Id, entry.Kind, entry.Path, ArtifactPaths.RedactDownload(Path.Combine(directory, entry.Path), redactor));
-                        }
-                    }
-                }
-
-                return [.. _attached];
+                return null;
             }
+
+            return LazyInitializer.EnsureInitialized(
+                ref _artifacts,
+                () =>
+                {
+                    var attempt = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
+                    var test = Path.GetDirectoryName(attempt)!;
+                    return ArtifactPaths.CreateAttemptArtifacts(new AttemptArtifactsOptions
+                    {
+                        ArtifactsRoot = Path.GetDirectoryName(test)!,
+                        Segments = [Path.GetFileName(test), Path.GetFileName(attempt)],
+                        AttemptId = AttemptId,
+                        CurrentStepId = Steps.ArtifactStepId,
+                        Store = ArtifactStore,
+                        Ledger = () => Redactor,
+                        Identity = new ArtifactIdentity(AttemptReport.RunId, AttemptReport.TestId(TestFile ?? "", TestTitle)),
+                    });
+                });
         }
     }
 
-    /// <summary>Keeps <paramref name="relative"/> as an artifact of the running step, or of the last one when none runs.</summary>
+    /// <summary>The attempt's artifacts when something already made them; null otherwise. Unlike <see cref="Artifacts"/>, it never creates the directory.</summary>
+    internal AttemptArtifacts? CreatedArtifacts => Volatile.Read(ref _artifacts);
+
+    /// <summary>
+    /// The records of the files fixtures kept for the attempt, such as a download, in registration order (upstream's <c>records</c> of
+    /// <c>createAttemptArtifacts</c>). Settle the artifacts first for their size and digest.
+    /// </summary>
+    public IReadOnlyList<ArtifactRecord> Attached
+    {
+        get
+        {
+            if (CreatedArtifacts is not { } artifacts)
+            {
+                return [];
+            }
+
+            // .NET-only: reports must use the final ledger, including values a later fill registered, so a download is scanned again.
+            var records = artifacts.Records;
+            if (ArtifactsDir is { } directory && Secrecy.RedactsDownloads(Redactor))
+            {
+                var redactor = Redactor;
+                var root = Path.GetDirectoryName(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory))))!;
+                records = [.. records.Select(record => record.Kind == ArtifactKind.Download && record.Path is { } path && ArtifactPaths.IsTextLike(record.MediaType)
+                    ? record with { Redaction = ArtifactPaths.RedactDownload(Path.Combine(root, path), redactor) }
+                    : record)];
+            }
+
+            return records;
+        }
+    }
+
+    /// <summary>Keeps <paramref name="relative"/> as an artifact of the running step, or of the last one when none runs (upstream's <c>attachArtifact</c>).</summary>
     public void AttachArtifact(string kind, string relative)
     {
-        // A text-like download is rewritten through the session's ledger before it is measured, so the record claims what that did
-        // (upstream's `sink.register`, `run/artifacts.ts`). Any other download is bytes the app served: incomplete.
-        ArtifactRedaction? redaction = null;
-        if (kind == "download" && ArtifactsDir is { } directory)
+        if (Artifacts is not { } artifacts)
         {
-            redaction = ArtifactRedaction.Incomplete;
-            var redactor = Redactor;
-            if (Secrecy.RedactsDownloads(redactor) && ArtifactPaths.IsTextLike(ArtifactPaths.MediaTypeFor(relative)))
+            return;
+        }
+
+        Steps.AttachArtifact(artifacts.Sink.Register(
+            kind switch
             {
-                redaction = ArtifactPaths.RedactDownload(Path.Combine(directory, relative), redactor);
-            }
-        }
-
-        string id;
-        lock (_attached)
-        {
-            id = kind + "-" + (_attached.Count(entry => entry.Kind == kind)).ToString(System.Globalization.CultureInfo.InvariantCulture);
-            _attached.Add((id, kind, relative, redaction));
-        }
-
-        Steps.AttachArtifact(id);
+                "download" => ArtifactKind.Download,
+                "screenshot" => ArtifactKind.Screenshot,
+                "video" => ArtifactKind.Video,
+                "log" => ArtifactKind.Log,
+                _ => ArtifactKind.Other,
+            },
+            relative));
     }
 
     public int ModelCalls { get; set; }
