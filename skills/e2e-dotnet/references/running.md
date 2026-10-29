@@ -35,7 +35,7 @@ otherwise runs every agent step live (SKILL.md, "Rerunning a test while you fix 
 fixture instance among its tests, so a test class with `ParallelScope.Children`
 or `All` fails at setup unless it also has
 `[FixtureLifeCycle(LifeCycle.InstancePerTestCase)]`. There is no `e2e run`, `e2e list`,
-`e2e init`, `e2e cache`, or `e2e feedback`.
+`e2e cache`, or `e2e feedback`. `e2e init` only scaffolds (topic `setup`).
 
 To rewrite the stored screenshots `ToHaveScreenshotAsync` finds missing or
 different, and pass, set `E2E_UPDATE_SNAPSHOTS=1`.
