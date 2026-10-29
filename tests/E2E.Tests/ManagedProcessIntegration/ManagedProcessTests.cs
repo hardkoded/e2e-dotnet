@@ -70,6 +70,7 @@ public sealed class ManagedProcessTests
         {
             await app.StartAsync();
             await app.StopAsync();
+            await Unreachable(port);
             Assert.False(await AppProgram.IsReachable(UrlOf(port)));
             await app.StopAsync();
         }
@@ -106,6 +107,7 @@ public sealed class ManagedProcessTests
             await app.StartAsync();
             await app.StopAsync();
             Assert.Equal("finished", await File.ReadAllTextAsync(finished));
+            await Unreachable(port);
             Assert.False(await AppProgram.IsReachable(UrlOf(port)));
         }
         finally
@@ -113,6 +115,16 @@ public sealed class ManagedProcessTests
             await app.StopAsync();
             KillQuietly(pidFile);
             Directory.Delete(dir, true);
+        }
+    }
+
+    // The child is signalled, not awaited, when the stop returns: waits (bounded) until its port no longer answers.
+    private static async Task Unreachable(int port)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (await AppProgram.IsReachable(UrlOf(port)) && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(50);
         }
     }
 

@@ -206,8 +206,9 @@ and in CI.
   is `APP_UNREACHABLE`, and the test fails before the session opens
   (`command.log` still gets this boot's output). The port has no runner, so
   the tests of a process hold the app until the run ends. Add the run fixture
-  to stop it then, instead of when the test process exits (a process that is
-  killed outright takes the app down with it either way): in NUnit, a
+  to stop it then, instead of when the test process exits (on Windows, a process
+  killed outright takes the app down with it; on Unix, SIGKILL bypasses the
+  process-exit cleanup): in NUnit, a
   `[SetUpFixture]` outside any namespace, `public sealed class AppCommands :
   E2ERunFixture;` (`E2E.NUnit`); in xUnit v3,
   `[assembly: AssemblyFixture(typeof(E2E.XUnit.V3.E2ERunFixture))]`. Two
