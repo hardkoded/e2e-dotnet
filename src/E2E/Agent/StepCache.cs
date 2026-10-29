@@ -479,7 +479,8 @@ internal sealed class StepTraceSession
                 return observation;
             }
 
-            if (_host.Time.GetUtcNow() >= deadline)
+            // Upstream also stops once the step clock cannot cover another delay, so the miss hands off with time left.
+            if (_host.Time.GetUtcNow() >= deadline || _host.RemainingMs() <= 20)
             {
                 return null;
             }

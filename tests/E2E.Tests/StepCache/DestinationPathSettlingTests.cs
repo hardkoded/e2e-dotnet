@@ -16,6 +16,7 @@ public sealed class DestinationPathSettlingTests
         // the next sees the destination.
         var host = MakeHost(["/pricing", "/pricing", "/customers"]);
         host.ReplayTimeout = TimeSpan.FromSeconds(5);
+        host.Remaining = 60_000;
 
         var verdict = await MakeSession(EntryContext(endPath: "/customers"), host).BeginAsync();
 
@@ -27,6 +28,7 @@ public sealed class DestinationPathSettlingTests
     {
         var host = MakeHost(["/pricing", "/pricing", "/pricing", "/pricing"]);
         host.ReplayTimeout = TimeSpan.FromMilliseconds(250);
+        host.Remaining = 60_000;
         var session = MakeSession(EntryContext(endPath: "/customers"), host);
 
         Assert.Null(await session.BeginAsync());
