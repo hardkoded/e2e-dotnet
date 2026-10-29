@@ -87,7 +87,7 @@ public AwsCredentials? Credentials { get; init; }
 ```
 
 
-Signing credentials. Unset, they come from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN`.
+Signing credentials. Unset, they come from `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN` and, with those unset too, from the AWS credential chain (`AWS_PROFILE` or the default profile, SSO, container and instance roles).
 
 **Value:** [AwsCredentials](/api/E2E/AwsCredentials/)
 

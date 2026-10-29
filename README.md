@@ -245,7 +245,7 @@ With `video` on, an attempt on the web engine writes `video/video.webm` under `.
 | `azure` | `AZURE_API_KEY` | Responses API at `https://$AZURE_RESOURCE_NAME.openai.azure.com/openai/v1`, or `baseUrl`. `model` is the deployment |
 | `anthropic` | `ANTHROPIC_API_KEY` | Messages API, with prompt-cache breakpoints |
 | `google` | `GOOGLE_GENERATIVE_AI_API_KEY` | Gemini API |
-| `bedrock` | AWS credentials, or `AWS_BEARER_TOKEN_BEDROCK` | Converse API in `AWS_REGION` |
+| `bedrock` | `AWS_BEARER_TOKEN_BEDROCK`, or AWS credentials: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, else the AWS credential chain (`AWS_PROFILE` or the default profile, SSO, container and instance roles) | Converse API in `AWS_REGION` |
 | `xai` | `XAI_API_KEY` | SpaceXAI API |
 | `openrouter` | `OPENROUTER_API_KEY` | Model ids such as `openai/gpt-6-luna-fast` |
 | `gateway` | `AI_GATEWAY_API_KEY`, else `VERCEL_OIDC_TOKEN` | Vercel AI Gateway |
