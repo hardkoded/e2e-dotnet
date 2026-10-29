@@ -758,7 +758,7 @@ public sealed record StepModelInfo
 
     public TokenAccounting TokenAccounting { get; init; }
 
-    public int PeakTokensPerCall { get; init; }
+    public long PeakTokensPerCall { get; init; }
 
     public long InputTokens { get; init; }
 

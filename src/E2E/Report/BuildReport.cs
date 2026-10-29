@@ -237,10 +237,10 @@ internal static class BuildReport
                     continue;
                 }
 
-                modelTokens += (long)model.InputTokens + model.OutputTokens;
+                modelTokens = Math.Min(ModelUsage.MaxSafeInteger, modelTokens + model.InputTokens + model.OutputTokens);
                 if (model.CacheReadTokens is { } cacheRead)
                 {
-                    cachedTokens = (cachedTokens ?? 0) + cacheRead;
+                    cachedTokens = Math.Min(ModelUsage.MaxSafeInteger, (cachedTokens ?? 0) + cacheRead);
                 }
 
                 if (model.EstimatedCostUsd is { } estimated)

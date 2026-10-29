@@ -66,7 +66,7 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
             new ScriptedModel(request => new ModelResponse
             {
                 ToolCalls = request.Messages.Any(message => message.Content?.Contains("Statement:", StringComparison.Ordinal) == true) || request.Messages.Any(message => message.Role == "tool") ? ModelResponses.Done("passed", "upgraded").ToolCalls : ModelResponses.Tap("button", "Upgrade to Pro").ToolCalls,
-                Usage = new ModelUsage { InputTokens = 11, OutputTokens = 3 },
+                Usage = new ModelCallUsage { InputTokens = 11, OutputTokens = 3 },
             }),
             "fake-loop/scripted-loop");
         var result = await RunAsync(

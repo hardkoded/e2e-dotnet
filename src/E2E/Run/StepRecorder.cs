@@ -482,6 +482,7 @@ internal sealed class StepRecorder
     public void AddModelCall(ExecutorModelCall? call)
     {
         StepRecord current;
+        long tokens;
         lock (_gate)
         {
             if (CurrentLocked() is not { } running)
@@ -491,17 +492,15 @@ internal sealed class StepRecorder
 
             current = running;
             var before = current.Model;
-            current.Model = new StepModelInfo
-            {
-                Provider = call?.Provider ?? before?.Provider,
-                Model = call?.ModelId ?? before?.Model,
-                Calls = (before?.Calls ?? 0) + 1,
-                InputTokens = (before?.InputTokens ?? 0) + (call?.InputTokens ?? 0),
-                OutputTokens = (before?.OutputTokens ?? 0) + (call?.OutputTokens ?? 0),
-                CacheReadTokens = Sum(before?.CacheReadTokens, call?.CacheReadTokens),
-                CacheWriteTokens = Sum(before?.CacheWriteTokens, call?.CacheWriteTokens),
-                EstimatedCostUsd = call?.EstimatedCostUsd is { } cost ? (before?.EstimatedCostUsd ?? 0) + cost : before?.EstimatedCostUsd,
-            };
+            tokens = current.Usage.Record(new ModelUsage.Usage(
+                call?.InputTokens,
+                call?.OutputTokens,
+                call?.CacheReadTokens,
+                call?.CacheWriteTokens,
+                EstimatedCostUsd: call?.EstimatedCostUsd));
+            current.Model = current.Usage.Report(
+                new StepModelInfo { Provider = call?.Provider ?? before?.Provider, Model = call?.ModelId ?? before?.Model },
+                (before?.Calls ?? 0) + 1);
         }
 
         Push(
@@ -512,11 +511,9 @@ internal sealed class StepRecorder
                 StartedAt = call?.StartedAt ?? DateTimeOffset.UtcNow,
                 DurationMs = Math.Max(0, call?.DurationMs ?? 0),
                 Name = "executor",
-                Count = (call?.InputTokens ?? 0) + (call?.OutputTokens ?? 0),
+                Count = (int)Math.Min(int.MaxValue, tokens),
             });
     }
-
-    private static int? Sum(int? left, int? right) => left is null && right is null ? null : (left ?? 0) + (right ?? 0);
 
     /// <summary>
     /// Notes a screen the running step saw; the newest one stands. <paramref name="read"/> renders it, redacted, and runs once, when

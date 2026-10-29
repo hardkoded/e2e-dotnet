@@ -32,7 +32,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [AppConfig](/api/E2E/AppConfig/) |  |
 | [AssertOptions](/api/E2E/AssertOptions/) | agent.assert: one judgment and one repair round, within Timeout. |
 | [AwsCredentials](/api/E2E/AwsCredentials/) | AWS access key credentials for Signature Version 4. |
-| [BedrockModel](/api/E2E/BedrockModel/) | Amazon Bedrock Converse API client. It signs with AWS Signature Version 4 from the standard AWS environment variables, or sends a Bedrock API key (AWSBEARERTOKENBEDROCK) as a bearer token when one is set. |
+| [BedrockModel](/api/E2E/BedrockModel/) | Amazon Bedrock Converse API client. It signs with AWS Signature Version 4 from the standard AWS environment variables or, with none set, from the AWS credential chain (shared profile, SSO, container and instance roles), as the AI SDK's amazon-bedrock provider does, or sends a Bedrock API key (AWSBEARERTOKENBEDROCK) as a bearer token when one is set. |
 | [BedrockModelOptions](/api/E2E/BedrockModelOptions/) |  |
 | [Browser](/api/E2E/Browser/) | The browser the attempt drives, showing one active tab. It needs an engine session that implements IBrowserSession, such as WebEngine; on any other engine each member fails with UNSUPPORTEDCAPABILITY. |
 | [BrowserExpect](/api/E2E/BrowserExpect/) | Polling assertions for the Browser: its URL and its title. Like the locator matchers, a passing one verifies the previous agent.act. A read is bounded by the matcher's own deadline, so a page that stops answering ends the assertion at its timeout. |
@@ -91,6 +91,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [LocatorExpect](/api/E2E/LocatorExpect/) | Matchers that retry until they pass or the assertion timeout elapses. Each takes an optional timeout that replaces the assertion timeout for that call. |
 | [LocatorExpression](/api/E2E/LocatorExpression/) | A locator expression. Query kinds (role, text, label, testid, placeholder, displayValue) search the descendants of Parent when it is set. filter and index narrow Source. union matches either Left or Right, each node once, in document order. selector is a CSS or XPath selector in the engine's own language, and frame scopes Source into the iframe Selector names. |
 | [LocatorWaitForOptions](/api/E2E/LocatorWaitForOptions/) | Options for CancellationToken). |
+| [ModelCallUsage](/api/E2E/ModelCallUsage/) |  |
 | [ModelImage](/api/E2E/ModelImage/) | An image a model reads: the encoded bytes of a screenshot, already sized for the model. |
 | [ModelMessage](/api/E2E/ModelMessage/) |  |
 | [ModelProviders](/api/E2E/ModelProviders/) | Ready-made models for the providers upstream's e2e init and docs name, each reading the key from the environment variable the AI SDK reads. Subscription logins are in Subscriptions. |
@@ -99,7 +100,6 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ModelResponses](/api/E2E/ModelResponses/) | Builds the tool calls a ScriptedModel (or a test) returns. |
 | [ModelTool](/api/E2E/ModelTool/) |  |
 | [ModelToolCall](/api/E2E/ModelToolCall/) |  |
-| [ModelUsage](/api/E2E/ModelUsage/) |  |
 | [OpenAiCompatibleModel](/api/E2E/OpenAiCompatibleModel/) | Chat-completions client for OpenAI and any server that speaks the same tool-call JSON. Set BaseUrl to a local server such as http://127.0.0.1:11434/v1. The API key is optional for servers that do not check one. ModelProviders has presets for OpenRouter, the Vercel AI Gateway, SpaceXAI, and Ollama. |
 | [OpenAiCompatibleModelOptions](/api/E2E/OpenAiCompatibleModelOptions/) |  |
 | [OpenAiResponsesModel](/api/E2E/OpenAiResponsesModel/) | OpenAI Responses API client: OpenAI itself, Azure OpenAI (String)), and the subscription backends that only speak Responses. Nothing is stored server side, so each turn carries the whole conversation. A server-sent-event answer is folded back into the completed response. |
@@ -177,6 +177,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ActionSource](/api/E2E/ActionSource/) | Who chose an action an ActionEvent reports. |
 | [AppLogLevel](/api/E2E/AppLogLevel/) | How bad a line the app logged was. |
 | [AppLogSource](/api/E2E/AppLogSource/) | Where a line the app logged came from (upstream's AppLogSource). |
+| [AppPermissionState](/api/E2E/AppPermissionState/) | What a permission is set to before a launch (upstream's AppPermissionState): held, refused, or not asked for yet, so the OS asks again. |
 | [CacheMode](/api/E2E/CacheMode/) | How the replay cache is used. |
 | [ExecutorCache](/api/E2E/ExecutorCache/) | Trace-cache participation for an executor's steps. Upstream's cache: 'inherit' \| 'off'. |
 | [ExecutorStepKind](/api/E2E/ExecutorStepKind/) | Upstream's ExecutorStep.kind. |
