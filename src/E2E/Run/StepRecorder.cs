@@ -483,6 +483,7 @@ internal sealed class StepRecorder
     {
         StepRecord current;
         long tokens;
+        (long? InputTokens, long? OutputTokens) fields;
         lock (_gate)
         {
             if (CurrentLocked() is not { } running)
@@ -492,12 +493,14 @@ internal sealed class StepRecorder
 
             current = running;
             var before = current.Model;
-            tokens = current.Usage.Record(new ModelUsage.Usage(
+            var usage = new ModelUsage.Usage(
                 call?.InputTokens,
                 call?.OutputTokens,
                 call?.CacheReadTokens,
                 call?.CacheWriteTokens,
-                EstimatedCostUsd: call?.EstimatedCostUsd));
+                EstimatedCostUsd: call?.EstimatedCostUsd);
+            tokens = current.Usage.Record(usage);
+            fields = ModelUsage.TokenFields(usage);
             current.Model = current.Usage.Report(
                 new StepModelInfo { Provider = call?.Provider ?? before?.Provider, Model = call?.ModelId ?? before?.Model },
                 (before?.Calls ?? 0) + 1);
@@ -512,6 +515,8 @@ internal sealed class StepRecorder
                 DurationMs = Math.Max(0, call?.DurationMs ?? 0),
                 Name = "executor",
                 Count = (int)Math.Min(int.MaxValue, tokens),
+                InputTokens = fields.InputTokens,
+                OutputTokens = fields.OutputTokens,
             });
     }
 

@@ -64,7 +64,10 @@ public sealed class ReportedModelUsageTests
         await using var session = await JudgeAsync(new ModelCallUsage { InputTokens = -1, OutputTokens = 3, EstimatedCostUsd = 0.25 }, "ready");
 
         var step = session.Steps.Single(item => item.Api == "agent.assert");
-        Assert.Equal(3, step.Events.First(item => item.Kind == StepEventKind.Model).Count);
+        var modelEvent = step.Events.First(item => item.Kind == StepEventKind.Model);
+        Assert.Equal(3, modelEvent.Count);
+        Assert.Null(modelEvent.InputTokens);
+        Assert.Equal(3, modelEvent.OutputTokens);
         var model = step.Model!;
         Assert.Equal(1, model.Calls);
         Assert.Equal(0, model.InputTokens);

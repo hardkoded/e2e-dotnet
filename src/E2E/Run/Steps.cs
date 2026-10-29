@@ -109,6 +109,11 @@ internal sealed record StepEvent
 
     public int? Count { get; init; }
 
+    /// <summary>A <c>model</c> event's input tokens, present only when the provider reported a representable count (upstream's <c>tokenFields</c>).</summary>
+    public long? InputTokens { get; init; }
+
+    public long? OutputTokens { get; init; }
+
     public int? Bytes { get; init; }
 
     public string? Code { get; init; }

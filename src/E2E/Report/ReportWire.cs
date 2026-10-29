@@ -154,6 +154,8 @@ internal static partial class ReportWire
         ("status", step.Status.ToString().ToLowerInvariant()),
         ("name", ClipOrNull(step.Name, 256)),
         ("count", step.Count),
+        ("inputTokens", step.InputTokens),
+        ("outputTokens", step.OutputTokens),
         ("bytes", step.Bytes),
         ("code", ClipOrNull(step.Code, 128)),
         ("detail", ClipOrNull(step.Detail, 300)));
