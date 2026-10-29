@@ -246,10 +246,10 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
             }
         }
 
-        ModelUsage? usage = null;
+        ModelCallUsage? usage = null;
         if (root.TryGetProperty("usage", out var usageElement) && usageElement.ValueKind == JsonValueKind.Object)
         {
-            usage = new ModelUsage
+            usage = new ModelCallUsage
             {
                 InputTokens = ModelHttp.Int(usageElement, "input_tokens"),
                 OutputTokens = ModelHttp.Int(usageElement, "output_tokens"),

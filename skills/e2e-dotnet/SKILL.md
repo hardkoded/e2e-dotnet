@@ -276,7 +276,7 @@ lines you changed:
   use, `system` for how it works, named agents under `agents`. A screen over
   the agent's `maxObservationBytes` (default 262144) is cut with an
   `[observation truncated ...]` marker, and a request over `maxInputTokens`
-  (default 64000) fails before the model call of a built-in judgment; a custom `ToolLoop` sends its own requests and is not checked first (topic `agent`). A different brain
+  (default 64000) fails before the model call of a built-in judgment; a custom `ToolLoop` sends its own requests and is not checked first (topic `agent`). A custom `IAgentModel` returns its token counts in `ModelResponse.Usage` (`ModelCallUsage`); the step report marks a step `adapter-upper-bound` when a call returns none (topic `agent`). A different brain
   is an executor: your own tools in a `ToolLoop`, or an `IStepExecutor` (topic
   `agent`). Every built-in prompt of a test opens with the test's title
   (`Test: <name>`), judges included (a custom executor reads `context.Attempt.TitlePath`), so name a test for what it covers, not

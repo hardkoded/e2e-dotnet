@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Internal;
+using E2E.Reports;
 
 namespace E2E;
 
@@ -105,7 +106,12 @@ internal sealed record StepEvent
 
     public string? Name { get; init; }
 
-    public int? Count { get; init; }
+    public long? Count { get; init; }
+
+    /// <summary>A <c>model</c> event's input tokens, present only when the provider reported a representable count (upstream's <c>tokenFields</c>).</summary>
+    public long? InputTokens { get; init; }
+
+    public long? OutputTokens { get; init; }
 
     public int? Bytes { get; init; }
 
@@ -132,7 +138,7 @@ internal sealed record StepMetrics
 
 /// <summary>
 /// Model usage for one model-backed step (upstream's <c>StepModelInfo</c>). The port does not keep the provenance fields upstream also
-/// reports (<c>endpoint</c>, <c>adapterVersion</c>, <c>policyVersion</c>, <c>tokenAccounting</c>, <c>peakTokensPerCall</c>).
+/// reports (<c>endpoint</c>, <c>adapterVersion</c>, <c>policyVersion</c>).
 /// <see cref="IAgentModel.Name"/> already spells provider and model id together, so a step normally carries it in <see cref="Model"/>
 /// and no <see cref="Provider"/>.
 /// </summary>
@@ -146,14 +152,18 @@ internal sealed record StepModelInfo
 
     public int Calls { get; init; }
 
-    public int InputTokens { get; init; }
+    public TokenAccounting TokenAccounting { get; init; } = TokenAccounting.Provider;
 
-    public int OutputTokens { get; init; }
+    public long PeakTokensPerCall { get; init; }
+
+    public long InputTokens { get; init; }
+
+    public long OutputTokens { get; init; }
 
     /// <summary>Input tokens the provider served from its prompt cache, summed over the step's calls; null unless the provider reports the split. They are part of <see cref="InputTokens"/>.</summary>
-    public int? CacheReadTokens { get; init; }
+    public long? CacheReadTokens { get; init; }
 
-    public int? CacheWriteTokens { get; init; }
+    public long? CacheWriteTokens { get; init; }
 
     /// <summary>The summed cost of the calls that reported one; null when none did.</summary>
     public double? EstimatedCostUsd { get; init; }
@@ -263,6 +273,9 @@ internal sealed class StepRecord
 
     /// <summary>The model's usage across the step's calls; null for a step that made none.</summary>
     public StepModelInfo? Model { get; set; }
+
+    /// <summary>The accumulator behind <see cref="Model"/> (upstream's <c>StepAccounting.usage</c>).</summary>
+    public ModelUsage Usage { get; } = new();
 
     /// <summary>The model turns of an agent step, most recent last, bounded.</summary>
     public IReadOnlyList<StepTurn>? Turns { get; set; }

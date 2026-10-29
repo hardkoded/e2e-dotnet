@@ -64,6 +64,13 @@ providers and their logins):
   `ModelResponse.Content`. The built-in providers send `response_format`
   (chat completions), `text.format` (Responses), or `responseJsonSchema`
   (Google), and make Anthropic and Bedrock call a forced `json` tool.
+- A custom `IAgentModel` reports each call's tokens, cache tokens, and cost in
+  `ModelResponse.Usage` (a `ModelCallUsage`; it was `ModelUsage`, which is now
+  the step's internal accumulator, as upstream's). The step's report sums
+  them: a count that is negative is dropped, a sum past 2^53-1 is capped, and
+  a cost total that overflows is omitted. A call with no `Usage`, or with one
+  side of the token counts missing, marks the step's `tokenAccounting` as
+  `adapter-upper-bound`; `peakTokensPerCall` is the largest call.
 
 ### Choose an agent
 

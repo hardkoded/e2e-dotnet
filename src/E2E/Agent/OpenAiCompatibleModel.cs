@@ -241,11 +241,11 @@ public sealed class OpenAiCompatibleModel : IAgentModel, IDisposable
             }
         }
 
-        ModelUsage? usage = null;
+        ModelCallUsage? usage = null;
         if (root.TryGetProperty("usage", out var usageElement) && usageElement.ValueKind == JsonValueKind.Object)
         {
             var details = ModelHttp.Details(usageElement, "prompt_tokens_details");
-            usage = new ModelUsage
+            usage = new ModelCallUsage
             {
                 InputTokens = ModelHttp.Int(usageElement, "prompt_tokens"),
                 OutputTokens = ModelHttp.Int(usageElement, "completion_tokens"),

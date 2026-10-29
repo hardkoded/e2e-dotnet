@@ -173,11 +173,11 @@ public long OutputTokens { get; init; }
 
 
 ```csharp
-public int PeakTokensPerCall { get; init; }
+public long PeakTokensPerCall { get; init; }
 ```
 
 
-**Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
+**Value:** [long](https://learn.microsoft.com/dotnet/api/system.int64)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L761)
 

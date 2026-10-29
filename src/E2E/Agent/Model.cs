@@ -94,7 +94,7 @@ public sealed class ModelToolCall
     public required JsonElement Arguments { get; init; }
 }
 
-public sealed class ModelUsage
+public sealed class ModelCallUsage
 {
     public int InputTokens { get; init; }
 
@@ -116,7 +116,7 @@ public sealed class ModelResponse
 
     public IReadOnlyList<ModelToolCall> ToolCalls { get; init; } = [];
 
-    public ModelUsage? Usage { get; init; }
+    public ModelCallUsage? Usage { get; init; }
 
     /// <summary>The reasoning of the turn that the model can take back, to replay on the next turn. Empty when the model gave none.</summary>
     public IReadOnlyList<JsonElement> ReasoningItems { get; init; } = [];

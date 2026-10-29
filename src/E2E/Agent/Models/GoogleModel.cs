@@ -275,10 +275,10 @@ public sealed class GoogleModel : IAgentModel, IDisposable
             reasoning.Add(JsonSerializer.SerializeToElement(item));
         }
 
-        ModelUsage? usage = null;
+        ModelCallUsage? usage = null;
         if (root.TryGetProperty("usageMetadata", out var usageElement) && usageElement.ValueKind == JsonValueKind.Object)
         {
-            usage = new ModelUsage
+            usage = new ModelCallUsage
             {
                 InputTokens = ModelHttp.Int(usageElement, "promptTokenCount"),
                 OutputTokens = ModelHttp.Int(usageElement, "candidatesTokenCount") + ModelHttp.Int(usageElement, "thoughtsTokenCount"),
