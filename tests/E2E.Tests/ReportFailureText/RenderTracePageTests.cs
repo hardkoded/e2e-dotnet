@@ -53,7 +53,6 @@ public sealed class RenderTracePageTests
         Assert.DoesNotMatch(@"[^`]@octocat", body);
     }
 
-    // The footer has no pointer to `report.json`: the port writes none.
     [Fact]
     public void Tells_the_whole_story_the_error_in_full_its_facts_the_line_every_step_the_turns_the_screen_inline_and_the_evidence()
     {
@@ -137,7 +136,7 @@ public sealed class RenderTracePageTests
                 "- screenshot `.e2e/artifacts/t/001-failure.png`",
                 "- screen `.e2e/artifacts/t/screen-at-failure.txt`",
                 "",
-                "<sub>e2e 0.0.0 · run `run-1`</sub>",
+                "<sub>e2e 0.0.0 · run `run-1` · the whole run is in `report.json`</sub>",
                 ""),
             body);
     }
