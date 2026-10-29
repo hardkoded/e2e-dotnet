@@ -36,6 +36,29 @@ public sealed class PlaywrightProtocolTests
     private static async Task<string?> HeadingAsync(IEngineSession session) =>
         WebSemanticsTests.Flatten((await session.ObserveAsync(None)).Roots).First(node => node.Role == "heading").Name;
 
+    /// <summary>Returns once a read of the session fails, which is when its browser connection has seen the grid go.</summary>
+    private static async Task WaitUntilDroppedAsync(IEngineSession session)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        while (true)
+        {
+            try
+            {
+                await session.ObserveAsync(timeout.Token);
+            }
+            catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+            {
+                throw new TimeoutException("the engine never noticed the grid drop the session");
+            }
+            catch (Exception)
+            {
+                return;
+            }
+
+            await Task.Delay(50, timeout.Token);
+        }
+    }
+
     [Fact]
     public async Task Connects_with_the_playwright_protocol_opens_its_own_context_with_the_engines_options_and_closes_the_connection_at_the_end()
     {
@@ -87,6 +110,10 @@ public sealed class PlaywrightProtocolTests
             var first = await worker.StartAsync(options, None);
             await first.OpenAsync(app.Url, None);
             await grids[0].KillAsync();
+
+            // The engine's connection learns of the drop on its own time. A dispose that beats it counts the browser as still
+            // held, and the worker would dial the dead grid again instead of leasing a new one (ECONNREFUSED).
+            await WaitUntilDroppedAsync(first);
             await first.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(30));
             Assert.Single(grids);
 
