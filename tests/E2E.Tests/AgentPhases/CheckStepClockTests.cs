@@ -16,7 +16,7 @@ public sealed class CheckStepClockTests
     private static readonly FakeTimeProvider Clock = new();
 
     private static Action Check(Deadline deadline, Exception cause) =>
-        () => Phases.CheckStepClock(new CancellationTokenSource().Token, deadline, "agent.waitFor", 3_000, cause, Clock);
+        () => Phases.CheckStepClock(CancellationToken.None, deadline, "agent.waitFor", 3_000, cause, Clock);
 
     private static Deadline In(int ms) => new(TimeSpan.FromMilliseconds(ms), Clock);
 
