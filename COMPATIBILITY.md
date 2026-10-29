@@ -14,7 +14,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 | `e2e.config.ts` | `e2e.config.json`, the same keys as JSON. `E2ETest` finds and applies it; fixture properties override it |
 | Vercel AI SDK model | `OpenAiCompatibleModel`, `OpenAiResponsesModel`, `AnthropicModel`, `GoogleModel`, and `BedrockModel`, built from `provider` in JSON or `ModelProviders` in code. See [Models](#models) |
 | `e2e/oauth/chatgpt`, `copilot`, `grok`, `opencode-console` | `E2E.OAuth.Subscriptions` |
-| `e2e login`, `e2e logout`, `e2e models`, `e2e guide`, `e2e mcp`, `e2e explore`, `e2e-web install` | `E2E.Cli`, a .NET tool whose command is `e2e`. `e2e explore` is ported in part: see [Explore](#explore). `e2e guide [topic]` prints the bundled skill, as upstream; an unknown topic exits 2. `e2e-web install` is `e2e install`: see [Browser install command](#browser-install-command). `e2e mcp` is ported apart from video recording tools, project tools, and `e2e init`: see [MCP server](#mcp-server) |
+| `e2e login`, `e2e logout`, `e2e models`, `e2e guide`, `e2e mcp`, `e2e explore`, `e2e init`, `e2e-web install` | `E2E.Cli`, a .NET tool whose command is `e2e`. `e2e init` is ported in part: see [Coding agents](#coding-agents). `e2e explore` is ported in part: see [Explore](#explore). `e2e guide [topic]` prints the bundled skill, as upstream; an unknown topic exits 2. `e2e-web install` is `e2e install`: see [Browser install command](#browser-install-command). `e2e mcp` is ported apart from video recording tools and project tools: see [MCP server](#mcp-server) |
 | `@e2e-dev/kernel` | `E2E.Kernel`, `KernelProvider`: Kernel hosted browsers on the `IBrowserProvider` seam. See [Kernel](#kernel) |
 | `@e2e-dev/eas` | `E2E.Eas`, `EasSimulators`: see [EAS Simulators](#eas-simulators) |
 | `@e2e-dev/limrun` | `E2E.Limrun`, `LimrunSimulators`: see [Limrun](#limrun) |
@@ -122,7 +122,7 @@ Names are C# versions of the JavaScript API: `agent.act` is `ActAsync`, `screen.
 
 - The `e2e` command-line tool apart from `login`, `logout`, `models`, `guide`, and `mcp`: the custom runner, `[E2ETest]` discovery, `--grep`, `test.only`, and the JSON report
 - `@e2e-dev/mobile` apart from its snapshot model and engine (see [Mobile snapshot model](#mobile-snapshot-model) and [Mobile engine](#mobile-engine)), `@e2e-dev/github`
-- `e2e init` (see [Coding agents](#coding-agents)), `e2e upgrade`, the update notice, `e2e run --watch`, `e2e run --max-duration` and `maxDuration`, `e2e feedback`, and upstream's Claude and Codex plugins (`plugins/e2e`, `.claude-plugin`). The port has no runner, and ships its skill with `npx skills add`
+- `e2e upgrade`, the update notice, `e2e run --watch`, `e2e run --max-duration` and `maxDuration`, `e2e feedback`, and upstream's Claude and Codex plugins (`plugins/e2e`, `.claude-plugin`). The port has no runner, and ships its skill with `npx skills add`
 - The other upstream packages and what they do: see [Upstream packages](#upstream-packages)
 - Vision on `act` (the screenshot and point tools). `app.screenshot()` is not ported either. Video is ported on the web engine and on `MobileEngine` with agent-device's own recording: see [Video](#video). Vision on judgments is ported: see [Agents](#agents). `ToHaveScreenshotAsync` is: see [Visual comparison](#visual-comparison)
 - Parallel workers and serial suites
@@ -154,7 +154,7 @@ Ported in part (the test name carries `Partial_` or a `PARTIAL` suffix):
 
 Not ported, because the feature is not in the port:
 
-- No `ListReporter`, run header, or live window; no JUnit or Markdown report renderer; no serial groups, workers, shards, runner, `e2e run`, `e2e init`, or `e2e list`; no JavaScript config loader; no `test.extend`; no telemetry; no wordmark; no `projectId`; no `runWithRetries`: the `report-list`, `report-junit`, `report-markdown`, `cli-run`, `cli-boot`, `config-load`, `parallel-workers`, `extended-fixtures`, `telemetry-*`, `wordmark`, `target-identity`, and `retry` tests, and the three `report-status` tests about the last attempt of a serial group
+- No `ListReporter`, run header, or live window; no JUnit or Markdown report renderer; no serial groups, workers, shards, runner, `e2e run`, or `e2e list`; no JavaScript config loader; no `test.extend`; no telemetry; no wordmark; no `projectId`; no `runWithRetries`: the `report-list`, `report-junit`, `report-markdown`, `cli-run`, `cli-boot`, `config-load`, `parallel-workers`, `extended-fixtures`, `telemetry-*`, `wordmark`, `target-identity`, and `retry` tests, and the three `report-status` tests about the last attempt of a serial group
 - No value expectations (`expect-values` `truthy/falsy/null/undefined fail on the wrong value, and pass negated`), or click-modifier tests; the `waitForResponse`, `route`, and `unroute` predicate tests and the `an option ... does not take is refused` tests cannot happen, because C# overloads are typed
 - No run-wide usage accumulator (the port has `ModelUsage`, but no overflow-capping total or usage events), `withStallGuard`, `realmSlot`, or `verifyEndState` with `waitMs`: the `model-usage`, `tool-loop-stall`, `realm-slot`, and `trace-replay` end-wait tests
 - No `pixelFallback` observe option, `tap_at` or `select_at`, upload tool, or `schema` and `vision` options on `act`: the `agent-fallback-handoff`, `agent-act-pixel-tools`, `agent-act-verbs` hidden-file, `act-validation`, and `agent-screen-update` tests
@@ -194,7 +194,7 @@ The packages in tester-army/e2e at the target commit, and what the port has:
 
 | Upstream | Status | Notes |
 | --- | --- | --- |
-| `e2e` (`packages/e2e`) | Ported in part | Everything under [Ported](#ported) and the sections after it. The runner, reporters, `e2e run`, `e2e init`, `e2e upgrade`, telemetry, and the hosted session (`e2e/runner`) are not ported: see [Not ported](#not-ported) |
+| `e2e` (`packages/e2e`) | Ported in part | Everything under [Ported](#ported) and the sections after it. The runner, reporters, `e2e run`, `e2e upgrade`, telemetry, and the hosted session (`e2e/runner`) are not ported: see [Not ported](#not-ported) |
 | `@e2e-dev/web` | Ported | `WebEngine` in `E2E`: see [Web engine](#web-engine) |
 | `@e2e-dev/mobile` | Ported in part | `E2E.Mobile`: see [Mobile snapshot model](#mobile-snapshot-model) and [Mobile engine](#mobile-engine) |
 | `@e2e-dev/eas` | Ported | `E2E.Eas`: see [EAS Simulators](#eas-simulators) |
@@ -229,13 +229,13 @@ Upstream's `4982d8d` (#1333) documents that the browser engine's semantic tree l
 
 - The steps use what the port has. The launch is the target's `app.command` or the app started by hand, the doctor is a smoke test run with `dotnet test --filter`, and the evidence is the `dotnet test` result and the test's own checks, since the port writes no report or trace page, and a video only when `video` is on.
 - Not ported: the generated bug bash fan-out. It depends on `e2e.bugbash.config.ts`, which the port lacks, and runs many `e2e explore` commands at once, so a feature's charters are goals for a live MCP walk, and a finding is a bug once a repro test fails with `ASSERTION_FAILED`.
-- Not ported: `npx e2e init` as the setup step, `e2e list` as a config check, `--output` for proofs, and the `.gitignore` lines for `.e2e/bugbash/` and `.e2e/proof/`. The repo already ignores `.e2e/`.
+- Not ported: `npx e2e init` as the setup step (`e2e init --yes` scaffolds the config, the skill, and the MCP registration, but no test project: see [Coding agents](#coding-agents)), `e2e list` as a config check, `--output` for proofs, and the `.gitignore` lines for `.e2e/bugbash/` and `.e2e/proof/`. The repo already ignores `.e2e/`.
 - The example under `references/example/` is `verify-todomvc` for `samples/TodoMvc`, in place of `verify-playground` for upstream's `apps/testbed`, which the port does not have. It has three features (adding, completing, filtering), not the playground's three (todos, forms, login).
 - Upstream added no tests for this skill, so none are ported.
 
 `skills/migrate-to-e2e/` ports upstream's third skill (`e6885dc`, `feat(skills): add migrate-to-e2e (#1109)`, and `6609428`). Install it with `npx skills add hardkoded/e2e-dotnet --skill migrate-to-e2e`; like upstream, it is not bundled in `E2E.Cli`. Differences:
 
-- The source runners are Playwright .NET, Selenium .NET, and Appium, with upstream's Node ones (Playwright, Cypress, Detox, Maestro) kept. The e2e side is an NUnit or xUnit v3 test project run with `dotnet test`, in place of `e2e.config.ts`, `*.e2e.ts` files, `npx e2e init`, `e2e run --repeat-each 3`, and `e2e list`.
+- The source runners are Playwright .NET, Selenium .NET, and Appium, with upstream's Node ones (Playwright, Cypress, Detox, Maestro) kept. The e2e side is an NUnit or xUnit v3 test project run with `dotnet test`, in place of `e2e.config.ts`, `*.e2e.ts` files, `npx e2e init` (the port's `e2e init` creates no test project), `e2e run --repeat-each 3`, and `e2e list`.
 - Not ported: upstream's migration guides (`docs/migrate/*.mdx`) and the edits to them in `e6885dc`. The port has no such guides, so the skill reads the `e2e-dotnet` skill's topics, and the hand-over offers an issue at `hardkoded/e2e-dotnet` in place of `e2e feedback`.
 - Not ported: the plugin copy (`plugins/e2e/skills/migrate-to-e2e`), since the port has no plugin; the `AGENTS.md` and `CONTRIBUTING.md` lines about it map to `CONTRIBUTING.md` here.
 - Upstream added no tests for this skill, so none are ported.
@@ -243,7 +243,19 @@ Upstream's `4982d8d` (#1333) documents that the browser engine's semantic tree l
 
 ## Coding agents
 
-Not ported: `e2e init`, which scaffolds the config, installs the skill into `.agents/skills` and `.claude/skills`, registers the MCP server, and adds a `test:e2e` script. The port installs the skill with `npx skills add hardkoded/e2e-dotnet` and registers the MCP server with `claude mcp add e2e -- e2e mcp`. The bug-bash config (`e2e.bugbash.config.ts`) and its fan-out are not ported either: see [Verification skill](#verification-skill).
+`e2e init` is ported in part (upstream `packages/e2e/src/cli/init.ts` and `init/*.ts`; `Init` and `E2E.Cli/Init/*`). It scaffolds `e2e.config.json`, installs the skill into `.agents/skills/e2e-dotnet` (and `.claude/skills/e2e-dotnet`, a symlink to it when both are chosen), registers the MCP server in `.mcp.json` and `.cursor/mcp.json`, and appends the `.e2e/` outputs to `.gitignore`. It never overwrites an existing config, refreshes a damaged or stale skill copy, merges into an MCP file without touching other servers, settings, or its indentation, and does not write through a symlink (a linked skill directory, a linked MCP file, or a linked parent is reported and skipped). Flags are upstream's `--yes`, `--engine`, `--gateway`, `--endpoint`, `--skills`, and `--mcp`. Differences:
+
+- Not ported: the prompts (the wizard is clack; the port has no prompt library), so `--yes` is required and a run without it exits 2 naming the flag. A follow-up issue tracks the prompts. The plan summary and its confirmation, and the question that replaces a symlinked skill directory with a copy, go with them: under `--yes` a link is always left alone.
+- Not ported: `--example` and the example apps, the wordmark, `--install` and `--no-install`, `continueWith` (upstream's `e2e explore` hand-off), the `package.json` step (dependencies and the `test:e2e` script), `tests/example.e2e.ts`, and the `tsconfig.json` note. The port scaffolds no test project and edits no `.csproj`: create one as topic `setup` says. The closing line is `Next: [cd <directory>, then ][e2e login <provider>, then ]dotnet test`.
+- The config is JSON. `agents.default` names a `provider`, a `model`, and `system`, where upstream writes the import and construction of an AI SDK model; the gateway `vercel` is provider `gateway`. A subscription gateway names the sign-in as the next step, as upstream does. The `openai-compatible` gateway writes `baseUrl`. There is no comment above the model, since JSON has none.
+- `--engine` takes `web` or `mobile` (iOS on macOS, Android elsewhere), and one of them: the port runs one target (`e2e.config.json` rejects a second one). `none` writes no `targets`, which keeps the default web target.
+- The `.gitignore` entries are the paths the port writes: `.e2e/results/`, `.e2e/cache/`, `.e2e/report.json`, and `.e2e/ai-trace-*.json`. The `.e2e/cache/` note about committing replays is not printed, since the docs site has no such page.
+- The skill is `e2e-dotnet`, and the MCP entry is `{"command": "e2e", "args": ["mcp"]}` (the installed tool, where upstream's is `npx e2e mcp`). An MCP entry upstream would call current is rewritten once here when it still says `npx`.
+- On Windows without the symlink privilege, the link from `.claude/skills` is written as a copy with a warning. Upstream uses a junction.
+- .NET-only symbols: `InitLog` (the plain lines in place of clack's log), `InitOptions.ReadSkillFiles` and `InitOptions.Windows` (test seams in place of mocking `readSkillFiles` and `os.platform`), `Engines.GetEnginePresets(darwin)` (the same seam), `InitFlags.Parse` (the flags are parsed by hand in place of commander), `InitResult` and `InitRunOutcome` (upstream's strings and `InitOutcome`, without telemetry), and `Skill.MissingSkillMessage`.
+- Ported tests are under `tests/E2E.Cli.Tests/CliInit` (upstream `cli-init.test.ts`, both files), `CliGuide` (`installs the skill into both agent directories with init --yes` of `cli-guide.test.ts`) and `InitGateways` (`init-gateways.test.ts`). The ported `it`s that run only in part carry the prefix `Partial_` and say what they leave out. Not ported: `init-versions.test.ts` and `init-examples.test.ts` (no `package.json` and no examples), and every `it` of `cli-init.test.ts` that needs a prompt, a dependency install, `continueWith`, two targets, or the TypeScript scaffold; the list is on `E2eInitTests` and the other classes of that folder.
+
+The port installs the skill with `npx skills add hardkoded/e2e-dotnet` and registers the MCP server with `claude mcp add e2e -- e2e mcp` when `e2e init` is not used. The bug-bash config (`e2e.bugbash.config.ts`) and its fan-out are not ported either: see [Verification skill](#verification-skill).
 
 ## MobileAppTest (not in upstream)
 
@@ -460,7 +472,7 @@ Not ported:
 
 - `start_recording` and `stop_recording` (Kernel video), the project's own tools (`defineTool`, `toModelOutput`), custom engines, mobile tools, and per-session telemetry.
 - Redaction of what user code prints: a config is JSON, so no user code runs in the server.
-- `e2e init` registering the server. The port has no `e2e init` (see below); register it with `claude mcp add e2e -- e2e mcp` or a `.mcp.json` entry.
+- `e2e init` registers the server (see [Coding agents](#coding-agents)); by hand, use `claude mcp add e2e -- e2e mcp` or a `.mcp.json` entry.
 
 ## Agents
 
@@ -733,4 +745,4 @@ Differences:
 - `e2e login` with no provider shows a numbered list instead of upstream's picker. `e2e models` prints the same columns. `e2e login` prints the sign-in URL on a line of its own, as upstream does, with plain lines where upstream uses clack log steps
 - A `ModelMessage` of the `user` role can carry `Images` (`ModelImage`: the bytes, a media type, and the size), and every provider sends them after the turn's text: an `image_url` part with a data URL for chat completions, `input_image` for Responses, a base64 `image` block for Anthropic, `inlineData` for Google, and an `image` block with its format for Bedrock. The AI SDK builds these parts upstream, so the port writes each provider's shape itself. A model that cannot read images answers with the provider's error, which ends the step with `MODEL_PROVIDER_FAILED`. A judgment sends one when it asks for vision (see [Agents](#agents)); vision on `act` is [not ported](#not-ported). `Pixels.SizeForModel` (internal) caps a screenshot's long side at 768 pixels with upstream's box filter and keeps the scale (image pixels per CSS pixel) in step
 - `EngineScreenshot.MaskedRegionCount` counts the regions the engine covered, which upstream carries as `maskedRegionCount` on observed pixels: the web engine counts the secure fields of every frame, and the mobile engine the secure nodes it painted. It is null for an engine that cannot say. A secret fill, by a locator or by the agent, raises the attempt's exposure, which withholds pixels from a model for the rest of the attempt; the port has upstream's `filled` level only, because it has no engine-held secrets
-- Not ported: `e2e init` writing the model config
+- `e2e init` writes the model config as a `provider` and `model` (see [Coding agents](#coding-agents)), not a constructed model

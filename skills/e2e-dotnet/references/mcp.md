@@ -24,8 +24,8 @@ launch) or `app.bundleId` (the process name of a running app) runs on
 unlocked desktop for keys and clicks (see [windows.md](windows.md)); it launches
 the app before the first observation and has no `navigate` tool either. The catalog is the testing agent's own actions plus `locate`,
 `test_lines`, and `screenshot`. Not ported: recording a video, the project's own tools,
-and the tap, hover, and type at a point. `e2e init` does not exist, so
-register the server yourself (below).
+and the tap, hover, and type at a point. `e2e init --yes` registers the
+server in `.mcp.json` and `.cursor/mcp.json`; to do it yourself, see below.
 
 ## Contents
 

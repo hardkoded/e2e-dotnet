@@ -31,6 +31,29 @@ public sealed class TheBuiltCliAndTheBundledSkillTests
         }
     }
 
+    [Fact]
+    // Partial: the skill is e2e-dotnet, and the .claude copy is a link to the .agents one (or a copy where links are not allowed).
+    public async Task Partial_Installs_the_skill_into_both_agent_directories_with_init_yes()
+    {
+        var dir = Directory.CreateTempSubdirectory("e2e-guide-").FullName;
+        try
+        {
+            var init = await RunAsync(dir, "init", "--yes");
+            Assert.Equal(0, init.Code);
+            foreach (var location in new[] { ".agents/skills", ".claude/skills" })
+            {
+                var skill = Path.Combine(dir, location, "e2e-dotnet", "SKILL.md");
+                Assert.True(File.Exists(skill), skill);
+                Assert.Equal(await File.ReadAllTextAsync(Path.Combine(RepoSkill(), "SKILL.md")), await File.ReadAllTextAsync(skill));
+                Assert.True(File.Exists(Path.Combine(dir, location, "e2e-dotnet", "references", "setup.md")));
+            }
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
     /// <summary>Runs the built <c>e2e</c> tool in <paramref name="dir"/>.</summary>
     private static async Task<(int Code, string Stdout, string Stderr)> RunAsync(string dir, params string[] args)
     {

@@ -28,7 +28,23 @@
 
 ## Scaffold
 
-There is no `e2e init`. Create a test project and add the packages:
+`e2e init --yes` scaffolds the e2e side of a project from the installed
+`E2E.Cli` tool; `e2e init my-app --yes` scaffolds into a new directory. It
+needs `--yes`, since the port has no prompts. `--yes` writes `e2e.config.json`
+(the web engine and the Vercel AI Gateway as provider `gateway`), installs this
+skill in `.agents/skills/e2e-dotnet` (`.claude/skills/e2e-dotnet` symlinks to
+it), registers the MCP server in `.mcp.json` and `.cursor/mcp.json`, and
+updates `.gitignore`. A flag per question overrides one default: `--engine`
+(`web` or `mobile`), `--gateway` (`vercel`, `openrouter`, `openai-compatible`,
+`chatgpt`, `copilot`, `opencode-console`, `grok`, or `none`), `--endpoint`,
+`--skills`, `--mcp` (comma-separated locations, or `none`); `e2e init --help`
+lists the values. `--engine`, `--gateway`, and `--endpoint` apply to a new
+config only. Init leaves an existing config alone, refreshes the skill and MCP
+entries on a re-run, and never writes through a symlink. A subscription
+gateway needs its sign-in before the first run (`e2e login <provider>`).
+
+Init does not create the test project or edit a `.csproj`. Create one and add
+the packages:
 
 ```bash
 dotnet new nunit -n MyApp.E2E
