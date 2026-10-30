@@ -199,7 +199,12 @@ lines you changed:
 - Keep the replay cache on. A failed run keeps the recording of every goal
   whose check passed, and the next run replays those with no model call. New,
   changed, and failed goals run live, and so does a replay the trace page
-  shows as handed off. `AssertAsync`, `WaitForAsync`, and `ExtractAsync`
+  shows as handed off. A handed-off goal's first prompt lists the replayed
+  actions, says `Replay stopped (<reason>) after N of M recorded actions.`, and
+  tells the agent to continue from the current screen without redoing them;
+  an `end-mismatch` adds a warning to check the step took effect, and an
+  action that failed with an unknown commit state adds a warning to verify the
+  current state first. `AssertAsync`, `WaitForAsync`, and `ExtractAsync`
   always call the model. Leave `cache.mode` at `read-write` rather than
   `off`: `off` sends every goal to the model again. Only a `read-write` cache
   records: the local default, but not with `CI` set and no cache mode in the

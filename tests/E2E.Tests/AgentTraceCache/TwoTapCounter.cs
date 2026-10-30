@@ -30,17 +30,17 @@ internal static class TwoTapCounter
     /// <summary>The actions the hand-off notice at the top of the first message lists as already run.</summary>
     public static int Replayed(string firstMessage)
     {
-        const string marker = "after these actions:\n";
+        const string marker = "Cached replay already performed these recorded actions for this step:\n";
         var start = firstMessage.IndexOf(marker, StringComparison.Ordinal);
         if (start < 0)
         {
             return 0;
         }
 
-        var end = firstMessage.IndexOf("Continue from", start, StringComparison.Ordinal);
-        Assert.True(end > start, "the hand-off notice ends with 'Continue from'");
+        var end = firstMessage.IndexOf("Replay stopped (", start, StringComparison.Ordinal);
+        Assert.True(end > start, "the hand-off notice lists the actions, then says why the replay stopped");
         var notice = firstMessage[(start + marker.Length)..end];
-        return notice.Split('\n').Count(line => line.StartsWith("- ", StringComparison.Ordinal));
+        return System.Text.RegularExpressions.Regex.Matches(notice, @"^\d+\. ", System.Text.RegularExpressions.RegexOptions.Multiline).Count;
     }
 
     /// <summary>A model whose provider never answers: every request fails, as with a missing key or an outage.</summary>

@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.RegularExpressions;
 using E2E.Engine;
 using E2E.Tests.AgentTraceCache;
 
@@ -86,7 +87,7 @@ public sealed class TraceCacheAChangedScreenHandsTheStepToTheAgentWhichReRecords
     /// lenient run leaves, which keeps the renamed button's old name. The port rewrites the entry after a hand-off.
     /// </summary>
     [Fact]
-    public async Task Hands_off_at_the_renamed_button_after_the_typing_and_tells_the_model_what_already_ran()
+    public async Task Partial_Hands_off_at_the_renamed_button_after_the_typing_and_tells_the_model_what_already_ran()
     {
         var directory = TempCache();
         await RunAsync(Company, directory, replay: false, strict: false);
@@ -97,7 +98,10 @@ public sealed class TraceCacheAChangedScreenHandsTheStepToTheAgentWhichReRecords
         Assert.Equal(("agent-concluded", "target-not-found", 1, 2), (replayed.Result?.Cache?.Mode, replayed.Result?.Cache?.Reason, replayed.Result?.Cache?.ReplayedActions, replayed.Result?.Cache?.TotalActions));
         Assert.True(replayed.ModelCalls > 0);
         var notice = replayed.Model.Requests[0].Messages[0].Content!;
-        Assert.Contains("Replay stopped (target-not-found) after these actions:\n- fill textbox \"Name\"", notice, StringComparison.Ordinal);
+        Assert.Contains("1. fill textbox \"Name\"", notice, StringComparison.Ordinal);
+        var line = Regex.Match(notice, "^Replay stopped .*$", RegexOptions.Multiline).Value;
+        Assert.Matches("target-not-found", line);
+        Assert.Matches(@"\b1 of 2\b", line);
         Assert.Equal(["fill", "tap"], Entry(directory).Actions.Select(action => action.Kind));
         Assert.Equal("Save company", Entry(directory).Actions[1].Name);
     }

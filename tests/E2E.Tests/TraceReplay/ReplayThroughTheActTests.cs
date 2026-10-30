@@ -197,7 +197,7 @@ public sealed class ReplayThroughTheActTests
         Assert.Equal(("agent-concluded", "action-uncertain", 1), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
         Assert.Contains("tap button \"Upgrade\"", replay.Cache?.Detail, StringComparison.Ordinal);
         var opening = model.Requests[0].Messages[0].Content!;
-        Assert.Contains("Replay stopped (action-uncertain) after these actions:", opening, StringComparison.Ordinal);
+        Assert.Contains("Replay stopped (action-uncertain) after 1 of 2 recorded actions.", opening, StringComparison.Ordinal);
         Assert.Contains("WARNING: the next action (tap button \"Upgrade\") failed with an UNKNOWN commit state", opening, StringComparison.Ordinal);
     }
 
