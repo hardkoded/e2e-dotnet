@@ -478,19 +478,27 @@ internal static class CacheKeys
             return value;
         }
 
-        // Each value is looked for as typed and form-encoded, as a URL spells it. The longer text goes first,
-        // so a value that contains another is replaced whole.
+        // Each value is looked for as typed, form-encoded as a URL spells it, and on one line as the screen shows a
+        // multi-line value. The longer text goes first, so a value that contains another is replaced whole.
         var spellings = parameters
             .Where(pair => pair.Value is UniqueValue { Value.Length: > 0 })
             .SelectMany(pair =>
             {
                 var text = ((UniqueValue)pair.Value!).Value;
-                var form = FormEncode(text);
-                return form == text
-                    ? [(text, "\u0001" + pair.Key + "\u0001")]
-                    : new[] { (text, "\u0001" + pair.Key + "\u0001"), (form, "\u0001" + pair.Key + FormSuffix + "\u0001") };
+                var seen = new HashSet<string>(StringComparer.Ordinal) { text };
+                var found = new List<(string Text, string Slot)> { (text, "\u0001" + pair.Key + "\u0001") };
+                foreach (var (suffix, encode) in Encodings)
+                {
+                    var spelled = encode(text);
+                    if (spelled.Length > 0 && seen.Add(spelled))
+                    {
+                        found.Add((spelled, "\u0001" + pair.Key + suffix + "\u0001"));
+                    }
+                }
+
+                return found;
             })
-            .OrderByDescending(spelling => spelling.Item1.Length);
+            .OrderByDescending(spelling => spelling.Text.Length);
         foreach (var (text, slot) in spellings)
         {
             value = value.Replace(text, slot, StringComparison.Ordinal);
@@ -510,9 +518,12 @@ internal static class CacheKeys
         {
             if (pair.Value is UniqueValue unique)
             {
-                value = value
-                    .Replace("\u0001" + pair.Key + FormSuffix + "\u0001", FormEncode(unique.Value), StringComparison.Ordinal)
-                    .Replace("\u0001" + pair.Key + "\u0001", unique.Value, StringComparison.Ordinal);
+                foreach (var (suffix, encode) in Encodings)
+                {
+                    value = value.Replace("\u0001" + pair.Key + suffix + "\u0001", encode(unique.Value), StringComparison.Ordinal);
+                }
+
+                value = value.Replace("\u0001" + pair.Key + "\u0001", unique.Value, StringComparison.Ordinal);
             }
         }
 
@@ -520,6 +531,18 @@ internal static class CacheKeys
     }
 
     private const string FormSuffix = "|form";
+
+    private const string FlatSuffix = "|flat";
+
+    /// <summary>
+    /// Upstream's <c>ENCODERS</c>: the other spellings a value takes in recorded text. <c>form</c> is a URL's, and <c>flat</c> is
+    /// <c>normalizeText</c>, the way the screen and the end anchors show a multi-line value.
+    /// </summary>
+    private static readonly (string Suffix, Func<string, string> Encode)[] Encodings =
+    [
+        (FormSuffix, FormEncode),
+        (FlatSuffix, TextRules.Normalize),
+    ];
 
     /// <summary>The value as a form submission writes it: <c>+</c> for a space, and everything but letters, digits and <c>*-._</c> percent-encoded.</summary>
     private static string FormEncode(string value)
@@ -551,23 +574,24 @@ internal static class CacheKeys
             return false;
         }
 
+        // Upstream's templatesCollide asks it of every spelling a recording can give a marked value, not only the raw one.
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var value in parameters.Values)
         {
-            var text = value switch
+            string[] spellings = value switch
             {
-                UniqueValue unique => unique.Value,
-                string textValue => textValue,
-                _ => null,
+                UniqueValue unique => [unique.Value, .. Encodings.Select(encoding => encoding.Encode(unique.Value))],
+                string textValue => [textValue],
+                _ => [],
             };
-            if (string.IsNullOrEmpty(text))
-            {
-                continue;
-            }
 
-            if (!seen.Add(text))
+            // One value's own spellings may repeat each other; they collide only with another param's.
+            foreach (var text in spellings.Where(text => !string.IsNullOrEmpty(text)).Distinct(StringComparer.Ordinal))
             {
-                return true;
+                if (!seen.Add(text))
+                {
+                    return true;
+                }
             }
         }
 

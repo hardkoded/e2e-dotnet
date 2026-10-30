@@ -62,6 +62,14 @@ public sealed class TemplateTraceAndExpandTraceTests
         Assert.False(CacheKeys.Collides(new Dictionary<string, object?> { ["title"] = Values.Unique("Cabin xyz"), ["frequency"] = "Daily" }));
         Assert.False(CacheKeys.Collides(new Dictionary<string, object?> { ["label"] = Values.Unique("Pine Way"), ["street"] = "Way" }));
         Assert.False(CacheKeys.Collides(new Dictionary<string, object?> { ["title"] = Values.Unique("Daily") }));
+
+        // A multi-line value is also spelled on one line, so a plain param with that spelling collides.
+        Assert.True(CacheKeys.Collides(new Dictionary<string, object?> { ["address"] = Values.Unique("Ada\nLovelace"), ["name"] = "Ada Lovelace" }));
+        Assert.False(CacheKeys.Collides(new Dictionary<string, object?> { ["address"] = Values.Unique("Ada\nLovelace") }));
+
+        // The form spelling, and a second marked value that spells the first in any spelling.
+        Assert.True(CacheKeys.Collides(new Dictionary<string, object?> { ["q"] = Values.Unique("a b"), ["plus"] = "a+b" }));
+        Assert.True(CacheKeys.Collides(new Dictionary<string, object?> { ["one"] = Values.Unique("a b"), ["two"] = Values.Unique("a+b") }));
         Assert.False(CacheKeys.Collides(null));
     }
 
@@ -95,6 +103,26 @@ public sealed class TemplateTraceAndExpandTraceTests
 
         // A value no encoding changes has one spelling and one placeholder.
         Assert.Equal("/tags/\u0001tag\u0001?q=\u0001tag\u0001", CacheKeys.Template("/tags/vip?q=vip", new Dictionary<string, object?> { ["tag"] = Values.Unique("vip") }));
+    }
+
+    [Fact]
+    public void Spells_a_multi_line_value_on_one_line_as_the_screen_shows_it_and_fills_it_back_the_same_way()
+    {
+        var address = new Dictionary<string, object?> { ["address"] = Values.Unique("Ada Lovelace\n12 Example Street\nE2E 1") };
+        Assert.Equal("Saved: \u0001address|flat\u0001", CacheKeys.Template("Saved: Ada Lovelace 12 Example Street E2E 1", address));
+        Assert.Equal("\u0001address\u0001", CacheKeys.Template("Ada Lovelace\n12 Example Street\nE2E 1", address));
+
+        // A textarea keeps `\r\n` as `\n`, so a value joined with `\r\n` shows on one line too.
+        Assert.Equal(
+            "Saved: \u0001address|flat\u0001",
+            CacheKeys.Template(
+                "Saved: Ada Lovelace 12 Example Street E2E 1",
+                new Dictionary<string, object?> { ["address"] = Values.Unique("Ada Lovelace\r\n12 Example Street\r\nE2E 1") }));
+        Assert.Equal(
+            "Saved: Grace Hopper 7 Navy Way E2E 2",
+            CacheKeys.Detemplate(
+                "Saved: \u0001address|flat\u0001",
+                new Dictionary<string, object?> { ["address"] = Values.Unique(" Grace Hopper\n\n 7 Navy Way\tE2E 2 ") }));
     }
 
     /// <summary>
