@@ -174,6 +174,26 @@ public sealed class ReportFileTests : IDisposable
     }
 
     [Fact]
+    public async Task Does_not_exit_130_for_a_retry_that_timed_out()
+    {
+        await using (var failing = await StartAsync("shop > pays", 1))
+        {
+            await failing.App.OpenAsync("/");
+            failing.Complete(new TestException("TEST_FAILED", "nope"));
+        }
+
+        await using (var retry = await StartAsync("shop > pays", 2))
+        {
+            await retry.App.OpenAsync("/");
+            retry.Complete(new TestException("TEST_TIMEOUT", "too slow"));
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("timed-out", (string)run["results"]![0]!["status"]!);
+        Assert.Equal(1, (int)run["exitCode"]!);
+    }
+
+    [Fact]
     public void Ignores_a_cleanup_error_of_an_attempt_whose_cleanup_completed()
     {
         var cleanup = ReportBuilders.Error() with { Category = "infrastructure", Phase = "cleanup" };
