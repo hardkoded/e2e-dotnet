@@ -7,7 +7,7 @@ using E2E.Reports;
 namespace E2E.Tests.ModelUsage;
 
 /// <summary>
-/// Upstream's <c>tests/unit/model-usage.test.ts</c>, <c>describe('model usage accounting')</c>. The third <c>it</c> is partial: a
+/// Upstream's <c>tests/unit/model-usage.test.ts</c> as of commit 2b3342df8936, <c>describe('model usage accounting')</c>, one method per <c>it</c>. The third <c>it</c> is partial: a
 /// C# token count is a <c>long?</c>, so it cannot hold Infinity, and that case of the test is left out.
 /// </summary>
 public sealed class ModelUsageAccountingTests
@@ -34,9 +34,10 @@ public sealed class ModelUsageAccountingTests
     }
 
     [Theory]
+    [InlineData(null, null, null)]
     [InlineData(1L, null, null)]
     [InlineData(1L, 2L, TokenAccounting.AdapterUpperBound)]
-    public void Keeps_mixed_usage_non_authoritative_after_later_complete_reports(long input, long? output, TokenAccounting? accounting)
+    public void Keeps_mixed_usage_non_authoritative_after_later_complete_reports(long? input, long? output, TokenAccounting? accounting)
     {
         var usage = new E2E.ModelUsage();
         usage.Record(Usage(input, output, accounting: accounting));
@@ -61,7 +62,7 @@ public sealed class ModelUsageAccountingTests
     }
 
     [Fact]
-    public void Caps_overflowing_token_sums_and_omits_an_overflowing_cost_total_even_after_later_finite_costs_arrive()
+    public void Caps_overflowing_token_sums_and_preserves_non_authoritative_accounting()
     {
         var usage = new E2E.ModelUsage();
         const long maximum = E2E.ModelUsage.MaxSafeInteger;
@@ -75,7 +76,11 @@ public sealed class ModelUsageAccountingTests
         Assert.Equal(maximum, report.InputTokens);
         Assert.Equal(maximum, report.OutputTokens);
         Assert.Equal(maximum, report.PeakTokensPerCall);
+    }
 
+    [Fact]
+    public void Omits_an_overflowing_cost_total_even_after_later_finite_costs_arrive()
+    {
         var costs = new E2E.ModelUsage();
         costs.Record(Usage(1, 1, double.MaxValue));
         Assert.Equal(double.MaxValue, costs.Report(Provenance, 1).EstimatedCostUsd);

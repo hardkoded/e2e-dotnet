@@ -85,7 +85,7 @@ internal static partial class MarkdownText
     }
 
     /// <summary><c>1 turn</c>, <c>2 turns</c>.</summary>
-    public static string Plural(int count, string noun) => count.ToString(CultureInfo.InvariantCulture) + " " + noun + (count == 1 ? "" : "s");
+    public static string Plural(long count, string noun) => count.ToString(CultureInfo.InvariantCulture) + " " + noun + (count == 1 ? "" : "s");
 
     // Upstream's collapseText: ANSI sequences and control characters gone, whitespace collapsed.
     private static string Collapse(string text) => TextRules.Collapse(TextRules.SanitizeText(text));

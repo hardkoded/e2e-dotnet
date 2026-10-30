@@ -514,7 +514,7 @@ internal sealed class StepRecorder
                 StartedAt = call?.StartedAt ?? DateTimeOffset.UtcNow,
                 DurationMs = Math.Max(0, call?.DurationMs ?? 0),
                 Name = "executor",
-                Count = (int)Math.Min(int.MaxValue, tokens),
+                Count = tokens,
                 InputTokens = fields.InputTokens,
                 OutputTokens = fields.OutputTokens,
             });

@@ -822,7 +822,7 @@ public sealed record StepEvent
 
     public string? Name { get; init; }
 
-    public int? Count { get; init; }
+    public long? Count { get; init; }
 
     public long? InputTokens { get; init; }
 
