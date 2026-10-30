@@ -368,7 +368,7 @@ Declaring an identity or environment for an app that had none misses the entries
 
 ## Mobile targets
 
-iOS and Android are driven by `MobileEngine` in the `E2E.Mobile` project. Install `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3`, declare the app as `"targets": [{ "platform": "ios", "app": { "bundleId": "...", "appPath": "..." } }]`, and derive from its `MobileAppTest`. It needs Node 22.12 or newer, and a booted simulator or emulator that no other agent-device session holds (with none free, `prepare` fails). For device selection, hosted Limrun devices, and known limits, read [mobile.md](mobile.md).
+iOS and Android are driven by `MobileEngine` in the `E2E.Mobile` project. Install `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3`, declare the app as `"targets": [{ "platform": "ios", "app": { "bundleId": "...", "appPath": "..." } }]`, and derive from its `MobileAppTest`. It needs Node 22.12 or newer, and a booted simulator or emulator that no other agent-device session holds (with none booted, agent-device boots one; with every booted one held, `prepare` fails with `ENGINE_FAILURE`). For device selection, hosted Limrun devices, and known limits, read [mobile.md](mobile.md).
 
 ## Windows targets
 
