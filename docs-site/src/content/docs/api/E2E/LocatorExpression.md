@@ -125,6 +125,58 @@ public LocatorExpression? Has { get; init; }
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1106)
 
+<a id="E2E_LocatorExpression_HasNot_"></a>
+<a id="E2E_LocatorExpression_HasNot"></a>
+
+### HasNot
+
+
+```csharp
+public LocatorExpression? HasNot { get; init; }
+```
+
+
+Upstream's `hasNot`: drops a match whose subtree resolves the inner expression.
+
+**Value:** [LocatorExpression](./)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1159)
+
+<a id="E2E_LocatorExpression_HasNotText_"></a>
+<a id="E2E_LocatorExpression_HasNotText"></a>
+
+### HasNotText
+
+
+```csharp
+public TextMatch? HasNotText { get; init; }
+```
+
+
+Upstream's `hasNotText`: drops a match whose subtree text matches. A case-insensitive substring unless [HasNotTextExact](#E2E_LocatorExpression_HasNotTextExact).
+
+**Value:** [TextMatch](/api/E2E/TextMatch/)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1148)
+
+<a id="E2E_LocatorExpression_HasNotTextExact_"></a>
+<a id="E2E_LocatorExpression_HasNotTextExact"></a>
+
+### HasNotTextExact
+
+
+```csharp
+public bool HasNotTextExact { get; init; }
+```
+
+
+Whether [HasNotText](#E2E_LocatorExpression_HasNotText) must equal the text instead of being a case-insensitive substring of it. .NET-only, as
+[HasTextExact](#E2E_LocatorExpression_HasTextExact) is: [TextMatch](/api/E2E/TextMatch/) holds no exactness of its own.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1154)
+
 <a id="E2E_LocatorExpression_HasText_"></a>
 <a id="E2E_LocatorExpression_HasText"></a>
 

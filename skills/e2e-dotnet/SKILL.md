@@ -223,6 +223,11 @@ lines you changed:
 - Text matches are exact by default. A locator that matches two nodes
   fails with `STRICT_MODE`; narrow it, or add `First()` to an `a.Or(b)`
   whose branches both match (topic `writing-tests`).
+- Narrow a locator with `Filter(hasText:, hasNotText:, has:, hasNot:)`; any
+  of the four, at least one. `hasText` and `hasNotText` are case-insensitive
+  substrings (or a `Regex`) over the subtree text. `has` keeps, and `hasNot`
+  drops, a match whose subtree resolves the inner locator. `Filter()` with
+  none is `INVALID_LOCATOR` (topic `writing-tests`).
 - Actions wait for readiness and `Expect` retries. Reads such as
   `TextContentAsync` wait for one match until the action timeout, then answer
   the current value; `CountAsync` and `IsVisibleAsync` answer from the current

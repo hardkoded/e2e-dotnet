@@ -1156,7 +1156,8 @@ public sealed partial class WebEngine : IEngine
                     return expression with
                     {
                         Source = await ProjectAsync(expression.Source!, budget).ConfigureAwait(false),
-                        Has = expression.Has is null ? null : await ProjectAsync(WithinSource(expression.Has, expression.Source!), budget).ConfigureAwait(false),
+                        Has = expression.Has is null ? null : await ProjectAsync(WithinSource(expression.Has, expression.Source!, "has"), budget).ConfigureAwait(false),
+                        HasNot = expression.HasNot is null ? null : await ProjectAsync(WithinSource(expression.HasNot, expression.Source!, "hasNot"), budget).ConfigureAwait(false),
                     };
                 case "index":
                     return expression with { Source = await ProjectAsync(expression.Source!, budget).ConfigureAwait(false) };
@@ -1191,11 +1192,11 @@ public sealed partial class WebEngine : IEngine
         /// iframe would otherwise scope the filter to descendants of the iframe, which the match is not one of. A <c>has</c> in another
         /// document cannot be joined to its source.
         /// </summary>
-        private static LocatorExpression WithinSource(LocatorExpression has, LocatorExpression source)
+        private static LocatorExpression WithinSource(LocatorExpression has, LocatorExpression source, string key)
         {
             if (!WebLocators.FrameSelectors(has).SequenceEqual(WebLocators.FrameSelectors(source), StringComparer.Ordinal))
             {
-                throw new EngineException("UNSUPPORTED_CAPABILITY", "locator.filter({ has }) requires both locators in the same document", retryable: false);
+                throw new EngineException("UNSUPPORTED_CAPABILITY", $"locator.filter({{ {key} }}) requires both locators in the same document", retryable: false);
             }
 
             return WebLocators.WithoutFrameScopes(has);

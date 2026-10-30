@@ -95,8 +95,12 @@ Members of `E2ETest` in both frameworks:
   a link or button around it. A node with no name reports `Name` null.
 - `RoleOptions` adds `Checked`, `Disabled`, `Selected`, `Expanded`,
   `Pressed`, and `Level`.
-- Narrow with `Filter(text)` or `Filter(locator)`, and pick with `First()`,
-  `Last()`, or `Nth(i)` when the order is the point. A locator also offers
+- Narrow with `Filter(text)` (a case-insensitive substring, unlike a query),
+  `Filter(locator)`, or `Filter(hasText:, hasNotText:, has:, hasNot:)`, which
+  takes any of the four by name and needs at least one. `hasNotText` excludes
+  matching subtree text, and `hasNot` drops a match whose subtree resolves the
+  inner locator. Pick with `First()`, `Last()`, or `Nth(i)` when the order is
+  the point. An empty `Filter()` is `INVALID_LOCATOR`. A locator also offers
   every query, scoped to its matches' descendants.
 - `a.Or(b)` matches either, still strict: add `First()` when both may
   match. Both locators must come from the same screen and attempt.

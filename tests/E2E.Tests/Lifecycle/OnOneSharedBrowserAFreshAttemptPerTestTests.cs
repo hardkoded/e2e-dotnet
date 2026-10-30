@@ -254,7 +254,7 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
             // compositions those are.
             var child = await Assert.ThrowsAnyAsync<E2EException>(() => Names(shared.GetByRole("textbox")));
             Assert.Equal("UNSUPPORTED_CAPABILITY", child.Code);
-            Assert.Equal("displayValue queries cannot scope child queries or serve as a has-filter in this engine", child.Message);
+            Assert.Equal("displayValue queries cannot scope child queries or serve as a has or hasNot filter in this engine", child.Message);
             var has = await Assert.ThrowsAnyAsync<E2EException>(() => Names(screen.GetByRole("main").Filter(shared)));
             Assert.Equal("UNSUPPORTED_CAPABILITY", has.Code);
         });

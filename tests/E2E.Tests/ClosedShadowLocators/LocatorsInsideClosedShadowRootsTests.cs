@@ -95,6 +95,8 @@ public sealed class LocatorsInsideClosedShadowRootsTests
             var advanced = screen.GetByRole("region");
             Assert.Equal(1, await advanced.Filter(screen.GetByRole("button", "Open inside closed")).CountAsync());
             Assert.Equal(0, await advanced.Filter(screen.GetByRole("button", "Sidecar")).CountAsync());
+            Assert.Equal(0, await advanced.Filter(hasNot: screen.GetByRole("button", "Open inside closed")).CountAsync());
+            Assert.Equal(1, await advanced.Filter(hasNot: screen.GetByRole("button", "Sidecar")).CountAsync());
         });
     }
 
@@ -106,6 +108,30 @@ public sealed class LocatorsInsideClosedShadowRootsTests
             // Not ported: the `x-access` host half. The port has no CSS selector locator, and the host is
             // no node of the tree. Inside the root the text is ordinary text again.
             Assert.Equal(1, await screen.GetByTestId("hint").Filter("SHADOW-42").CountAsync());
+        });
+    }
+
+    /// <summary>Partial: the <c>x-access</c> host half is not ported. The port has no CSS selector locator, and the host is no node of the tree. Inside the root the text is ordinary text again.</summary>
+    [Fact]
+    public async Task Partial_Reads_hasNotText_as_Playwright_does_so_text_inside_a_closed_root_does_not_exclude_the_host()
+    {
+        await WithScreenAsync(async screen =>
+        {
+            Assert.Equal(0, await screen.GetByTestId("hint").Filter(hasNotText: "SHADOW-42").CountAsync());
+        });
+    }
+
+    [Fact]
+    public async Task Excludes_button_text_with_string_and_RegExp_filters_across_roots()
+    {
+        await WithScreenAsync(async screen =>
+        {
+            var buttons = screen.GetByRole("button");
+            var retained = await buttons.Filter(hasNotText: "twin").ResolveAsync(CancellationToken.None);
+            Assert.Equal(["Submit", "Open inside closed", "Closed inside open", "Sidecar"], retained.Select(node => node.Name));
+            var regex = await buttons.Filter(hasNotText: new Regex("^Twin$", RegexOptions.IgnoreCase)).ResolveAsync(CancellationToken.None);
+            Assert.Equal(retained.Select(node => node.Name), regex.Select(node => node.Name));
+            Assert.Empty(await buttons.Filter(hasText: "Twin", hasNotText: "Twin").ResolveAsync(CancellationToken.None));
         });
     }
 

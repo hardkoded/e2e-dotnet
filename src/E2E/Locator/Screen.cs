@@ -412,6 +412,43 @@ public sealed class Locator
     }
 
     /// <summary>
+    /// Adds deterministic filters, upstream's <c>locator.filter({ hasText, hasNotText, has, hasNot })</c>. Every filter given must hold
+    /// for a match. <c>hasText</c> and <c>hasNotText</c> are case-insensitive substrings of the match's own or descendants' name, text, or
+    /// value, or a <see cref="System.Text.RegularExpressions.Regex"/> as written. <c>has</c> keeps a match whose subtree resolves the inner
+    /// locator, and <c>hasNot</c> drops it. Both resolve inside each match. .NET-only: the named-argument form of upstream's options
+    /// object, beside <see cref="Filter(TextMatch)"/> and <see cref="Filter(Locator)"/>.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_LOCATOR</c>: no filter is given, or the <c>has</c> or <c>hasNot</c> locator belongs to another screen or attempt.</exception>
+    public Locator Filter(TextMatch? hasText = null, TextMatch? hasNotText = null, Locator? has = null, Locator? hasNot = null)
+    {
+        if (hasText is null && hasNotText is null && has is null && hasNot is null)
+        {
+            throw new TestException("INVALID_LOCATOR", "filter() requires hasText, hasNotText, has, and/or hasNot");
+        }
+
+        hasText?.ThrowIfBlank(nameof(hasText));
+        if (has is not null)
+        {
+            _screen.OwnLocator(has, "filter({ has })");
+        }
+
+        if (hasNot is not null)
+        {
+            _screen.OwnLocator(hasNot, "filter({ hasNot })");
+        }
+
+        return new Locator(_screen, new LocatorExpression
+        {
+            Kind = "filter",
+            Source = Query,
+            HasText = hasText,
+            HasNotText = hasNotText,
+            Has = has?.Query,
+            HasNot = hasNot?.Query,
+        });
+    }
+
+    /// <summary>
     /// Matches either locator, preserving document order without duplicate nodes. <c>a.Or(b)</c> stays strict: when both match
     /// different nodes, an action fails with <c>STRICT_MODE</c>, so add <see cref="First"/> if either will do. Both locators must come
     /// from the same screen and attempt. Upstream's <c>locator.or</c>.
@@ -1107,7 +1144,19 @@ public sealed record LocatorExpression
     /// </summary>
     public bool HasTextExact { get; init; }
 
+    /// <summary>Upstream's <c>hasNotText</c>: drops a match whose subtree text matches. A case-insensitive substring unless <see cref="HasNotTextExact"/>.</summary>
+    public TextMatch? HasNotText { get; init; }
+
+    /// <summary>
+    /// Whether <see cref="HasNotText"/> must equal the text instead of being a case-insensitive substring of it. .NET-only, as
+    /// <see cref="HasTextExact"/> is: <see cref="TextMatch"/> holds no exactness of its own.
+    /// </summary>
+    public bool HasNotTextExact { get; init; }
+
     public LocatorExpression? Has { get; init; }
+
+    /// <summary>Upstream's <c>hasNot</c>: drops a match whose subtree resolves the inner expression.</summary>
+    public LocatorExpression? HasNot { get; init; }
 
     public int? Index { get; init; }
 
@@ -1201,9 +1250,30 @@ public sealed record LocatorExpression
             case "union":
                 return Left!.Describe() + ".or(" + Right!.Describe() + ")";
             case "filter":
-                return Source!.Describe() + (HasText is not null
-                    ? ".filter(hasText: " + HasText + (HasTextExact ? ", exact" : "") + ")"
-                    : ".filter(has: " + Has!.Describe() + ")");
+                {
+                    var parts = new List<string>();
+                    if (HasText is not null)
+                    {
+                        parts.Add("hasText: " + HasText + (HasTextExact ? ", exact" : ""));
+                    }
+
+                    if (HasNotText is not null)
+                    {
+                        parts.Add("hasNotText: " + HasNotText + (HasNotTextExact ? ", exact" : ""));
+                    }
+
+                    if (Has is not null)
+                    {
+                        parts.Add("has: " + Has.Describe());
+                    }
+
+                    if (HasNot is not null)
+                    {
+                        parts.Add("hasNot: " + HasNot.Describe());
+                    }
+
+                    return Source!.Describe() + ".filter(" + string.Join(", ", parts) + ")";
+                }
             case "frame":
                 return "frameLocator(" + Quoted(Selector) + ") >> " + Source!.Describe();
             case "index":
@@ -1308,7 +1378,7 @@ internal static class LocatorResolver
 
             case "filter":
                 {
-                    if (query.Has is not null && UsesDisplayValue(query.Has))
+                    if ((query.Has is not null && UsesDisplayValue(query.Has)) || (query.HasNot is not null && UsesDisplayValue(query.HasNot)))
                     {
                         throw UnsupportedDisplayValue();
                     }
@@ -1322,7 +1392,23 @@ internal static class LocatorResolver
                             return false;
                         }
 
-                        return query.Has is null || Resolve(query.Has, tree.DescendantsOf([node], candidates), tree, includeHidden).Count > 0;
+                        if (query.HasNotText is not null && SubtreeHasText(node, query.HasNotText, query.HasNotTextExact, includeValue))
+                        {
+                            return false;
+                        }
+
+                        if (query.Has is null && query.HasNot is null)
+                        {
+                            return true;
+                        }
+
+                        var within = tree.DescendantsOf([node], candidates);
+                        if (query.Has is not null && Resolve(query.Has, within, tree, includeHidden).Count == 0)
+                        {
+                            return false;
+                        }
+
+                        return query.HasNot is null || Resolve(query.HasNot, within, tree, includeHidden).Count == 0;
                     }).ToList();
                 }
 
@@ -1367,7 +1453,7 @@ internal static class LocatorResolver
         || (query.Parent is not null && UsesDisplayValue(query.Parent));
 
     private static EngineException UnsupportedDisplayValue() =>
-        new("UNSUPPORTED_CAPABILITY", "displayValue queries cannot scope child queries or serve as a has-filter in this engine");
+        new("UNSUPPORTED_CAPABILITY", "displayValue queries cannot scope child queries or serve as a has or hasNot filter in this engine");
 
     private static bool Matches(SemanticNode node, LocatorExpression query, bool includeHidden)
     {
