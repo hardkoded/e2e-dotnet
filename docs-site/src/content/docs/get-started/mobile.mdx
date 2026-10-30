@@ -96,6 +96,16 @@ await Expect.That(Device.Locator("role=navigation-bar id=About")).ToBeVisibleAsy
 await Device.Locator("id=SW_VERSION_SPECIFIER role=button").TapAsync();
 ```
 
+For anything `Device` does not cover, `Device.UnstableRaw` has an [agent-device](https://github.com/callstack/agent-device) client bound to the test's session, plus the session name and the device's id and name. It is unstable and may change or go away in any release:
+
+```csharp
+var raw = Device.UnstableRaw;
+var sessions = await raw.Client.CallAsync("sessions.list", null, CancellationToken.None);
+await raw.Client.CallAsync("apps.list", raw.Selection.ToArgs(), CancellationToken.None);
+```
+
+`raw.Selection` is the device selection the engine passes commands (`ToArgs()` turns it into call options), for a call that can run before `app.open()`. `raw.Platform`, `raw.Session` (`e2e-<target>-<worker slot>`, or `<session>-<worker slot>` with the `Session` option), `raw.DeviceId` (a simulator UDID or an Android serial), and `raw.DeviceName` name the session and device. Client calls aren't steps: the report and trace leave them out, the agent cache doesn't replay them, secrets passed to them aren't redacted, and nothing waits for the screen to settle after one. After the worker disposes the session, reading `UnstableRaw` or its `Client` throws `INVALID_STATE`.
+
 ## 4. Run
 
 Boot exactly one simulator, then run:

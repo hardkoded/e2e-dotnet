@@ -57,6 +57,42 @@ public enum BiometricResult
 /// <param name="BundleId">The bundle id or package, when the device reported one.</param>
 public sealed record ForegroundApp(string Name, string? BundleId = null);
 
+/// <summary>
+/// The agent-device session behind <c>device</c>; see <see cref="Device.UnstableRaw"/>. Upstream's <c>DeviceSession</c> interface
+/// (<c>device.ts</c>). .NET-only name: the port's <see cref="DeviceSession"/> is the surface (upstream's <c>AgentDeviceSurface</c>), so the
+/// interface cannot take its name.
+/// </summary>
+public sealed class RawDeviceSession
+{
+    private readonly DeviceSession _session;
+
+    internal RawDeviceSession(DeviceSession session, BoundDevice bound)
+    {
+        _session = session;
+        Session = bound.Session;
+        DeviceId = bound.DeviceId;
+        DeviceName = bound.DeviceName;
+    }
+
+    /// <summary>The platform the target drives.</summary>
+    public MobilePlatform Platform => _session.Options.Platform;
+
+    /// <summary>The agent-device session name: <c>e2e-&lt;target&gt;-&lt;worker slot&gt;</c>, or <c>&lt;session&gt;-&lt;worker slot&gt;</c> with the <c>Session</c> option.</summary>
+    public string Session { get; }
+
+    /// <summary>The device's agent-device id: a simulator UDID or an Android serial.</summary>
+    public string DeviceId { get; }
+
+    /// <summary>The device's name.</summary>
+    public string DeviceName { get; }
+
+    /// <summary>The device selection the engine passes commands; <see cref="DeviceSelection.ToArgs"/> it into a call that can run before <c>app.open()</c>.</summary>
+    public DeviceSelection Selection => _session.Selection;
+
+    /// <summary>agent-device's client, bound to this session. <c>INVALID_STATE</c> once the worker disposed the session.</summary>
+    public IDeviceClient Client => _session.Client;
+}
+
 /// <summary>A simulated location.</summary>
 public readonly record struct Coordinates(double Latitude, double Longitude);
 
@@ -100,6 +136,14 @@ public sealed class Device
     {
         _session = session;
     }
+
+    /// <summary>
+    /// The agent-device session this test drives, for what the methods here do not cover (upstream's <c>unstable_raw</c>). Calls through
+    /// <see cref="RawDeviceSession.Client"/> bypass e2e: they are not steps, so the report and trace leave them out, the agent's cache does
+    /// not replay them, their arguments reach agent-device unredacted, and nothing waits for the screen to settle after one. Unstable: it
+    /// may change or go away in any release. After the worker disposes the session, reading it, or its <c>Client</c>, throws <c>INVALID_STATE</c>.
+    /// </summary>
+    public RawDeviceSession UnstableRaw => new(_session, _session.BoundDevice);
 
     /// <summary>
     /// A locator from an agent-device selector (<c>"id=SW_VERSION_SPECIFIER"</c>, <c>"role=text label=\"26.2\""</c>), for nodes the closed
