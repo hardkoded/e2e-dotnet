@@ -1135,11 +1135,14 @@ internal static class PageScript
     // list, never by recursion from the tree above it, so each element is reached from exactly one root. A document
     // that has attached no closed root has none to find, and the walk is skipped. It runs in the page's main world
     // (not as a content script) because that is where the record lives. A document without the record is refused:
-    // a mask that cannot prove its coverage must fail closed.
+    // a mask that cannot prove its coverage must fail closed. The record counts as present when the init script
+    // defined it on the global, checked with in because it calls nothing the page can replace: instanceof WeakMap
+    // reads the page's own WeakMap, which a polyfill may swap out.
     public const string ClosedShadowSelectorEngineSource = """
         () => {
-          const roots = globalThis[Symbol.for("e2e.closedShadowRoots")];
-          const tracked = roots instanceof WeakMap;
+          const key = Symbol.for("e2e.closedShadowRoots");
+          const tracked = key in globalThis;
+          const roots = globalThis[key];
           const closedRootsUnder = (root, out) => {
             if (!tracked || roots.count === 0) return out;
             const scan = (el) => {
@@ -1172,7 +1175,7 @@ internal static class PageScript
 
     // Whether a document ran RecordClosedShadowRoots.
     public const string TracksClosedShadowRoots = """
-        () => globalThis[Symbol.for("e2e.closedShadowRoots")] instanceof WeakMap
+        () => Symbol.for("e2e.closedShadowRoots") in globalThis
         """;
 
     public const string Find = """

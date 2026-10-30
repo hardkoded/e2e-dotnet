@@ -36,8 +36,8 @@ internal static class ScreenshotCaret
             roots.push(root);
             root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
             for (const element of root.querySelectorAll("*")) {
-              const shadow = element.shadowRoot ?? (closed instanceof WeakMap ? closed.get(element) : null);
-              if (shadow instanceof ShadowRoot) visit(shadow);
+              const shadow = element.shadowRoot ?? closed?.get(element);
+              if (shadow !== null && shadow !== undefined) visit(shadow);
             }
           };
           visit(document);
