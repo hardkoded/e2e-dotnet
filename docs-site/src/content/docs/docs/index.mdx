@@ -30,7 +30,7 @@ dotnet add package E2E.NUnit   # or E2E.XUnit.V3 for xUnit v3
 
 ## Exit code of an interrupted run
 
-`run.exitCode` in `report.json` is 130, and `run.status` is `interrupted`, once any test of the run was cancelled by the user, as upstream's runner reads its interrupt flag. This holds when the cancelled attempt was a retry: that test keeps its `failed` (or `timed-out`) verdict, since the failure came first, and the run still exits 130. A test that times out is not an interrupt.
+`run.exitCode` in `report.json` is 130, and `run.status` is `interrupted`, once any test of the run was cancelled by the user, as upstream's runner reads its interrupt flag. This holds when the cancelled attempt was a retry: that test keeps its `failed` (or `timed-out`) verdict, since the failure came first, and the run still exits 130. A test that times out is not an interrupt. Limitation ([#837](https://github.com/hardkoded/e2e-dotnet/issues/837)): the xUnit and NUnit adapters report a cancelled test as a plain failure, so under them the run still exits 1; the flag is set only for an attempt that ends as an `OperationCanceledException` while the runner's token is cancelled (as `E2ESession.Complete` is called with it).
 
 ## Filtering a locator
 
