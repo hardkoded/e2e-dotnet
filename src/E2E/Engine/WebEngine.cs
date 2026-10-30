@@ -1544,7 +1544,14 @@ public sealed partial class WebEngine : IEngine
                     $"restoring a state is unavailable with {PersistentMode(_persistent.Provider)}: it replaces the browser context, and the attempt rides one persistent context");
             }
 
-            await ReplaceContextAsync(data.ToJsonString()).ConfigureAwait(false);
+            try
+            {
+                await ReplaceContextAsync(data.ToJsonString()).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.Translate(ex, "state restore");
+            }
         }
 
         public Task<string> GetUrlAsync(CancellationToken cancellationToken) => RunAsync("url", cancellationToken, () =>

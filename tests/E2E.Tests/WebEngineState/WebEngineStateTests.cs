@@ -62,6 +62,79 @@ public sealed class WebEngineStateTests
         Assert.Equal("plan:pro", await PlanAsync(fresh));
     }
 
+    [Fact]
+    public async Task Captures_and_restores_IndexedDB_with_the_storage()
+    {
+        const string idbPage = """
+            <!DOCTYPE html>
+            <html><body>
+            <button type="button" id="v">idb:loading</button>
+            <script>
+              const open = indexedDB.open("app", 1);
+              open.onupgradeneeded = () => open.result.createObjectStore("kv");
+              open.onsuccess = () => {
+                const db = open.result;
+                if (location.search === "?set") db.transaction("kv", "readwrite").objectStore("kv").put("pro", "plan");
+                const read = db.transaction("kv").objectStore("kv").get("plan");
+                read.onsuccess = () => { document.getElementById("v").textContent = "idb:" + (read.result ?? "none"); };
+              };
+            </script>
+            </body></html>
+            """;
+        using var site = await TinySite.StartAsync(idbPage);
+        EngineState state;
+        await using (var saving = await StartAsync(site.Url))
+        {
+            await saving.OpenAsync(site.Url + "/?set", CancellationToken.None);
+            await EventuallyAsync(saving, "idb:pro");
+            state = await saving.CaptureStateAsync(CancellationToken.None);
+        }
+
+        await using var fresh = await StartAsync(site.Url);
+        await fresh.RestoreStateAsync(state, CancellationToken.None);
+        await fresh.OpenAsync(site.Url, CancellationToken.None);
+        await EventuallyAsync(fresh, "idb:pro");
+    }
+
+    private static async Task EventuallyAsync(IEngineSession session, string expected)
+    {
+        string? actual = null;
+        for (var attempt = 0; attempt < 50; attempt++)
+        {
+            actual = await PlanAsync(session);
+            if (actual == expected)
+            {
+                return;
+            }
+
+            await Task.Delay(100);
+        }
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public async Task Refuses_a_state_Playwright_rejects_with_an_engine_error()
+    {
+        await using var session = await StartAsync("http://127.0.0.1:1/");
+        var cookie = new JsonObject { ["name"] = "a" };
+        var data = new JsonObject { ["cookies"] = new JsonArray(cookie), ["origins"] = new JsonArray() };
+
+        var error = await Assert.ThrowsAsync<EngineException>(() => session.RestoreStateAsync(new EngineState("playwright-storage-state", 1, data), CancellationToken.None));
+        Assert.NotEmpty(error.Code);
+    }
+
+    [Fact]
+    public async Task Refuses_a_cancelled_token()
+    {
+        await using var session = await StartAsync("http://127.0.0.1:1/");
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.CaptureStateAsync(cancelled.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.RestoreStateAsync(new EngineState("playwright-storage-state", 1, new JsonObject { ["cookies"] = new JsonArray(), ["origins"] = new JsonArray() }), cancelled.Token));
+    }
+
     [Theory]
     [InlineData("other-format", 1, "unsupported state format other-format@1")]
     [InlineData("playwright-storage-state", 2, "unsupported state format playwright-storage-state@2")]
