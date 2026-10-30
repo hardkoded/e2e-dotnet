@@ -51,7 +51,7 @@ public required string AttemptId { get; init; }
 
 
 ```csharp
-public ArtifactKind Kind { get; init; }
+public ArtifactKind Kind { get; }
 ```
 
 
@@ -83,7 +83,7 @@ public required string MediaType { get; init; }
 
 
 ```csharp
-public ArtifactRedaction Redaction { get; init; }
+public ArtifactRedaction Redaction { get; }
 ```
 
 

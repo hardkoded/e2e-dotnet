@@ -1106,10 +1106,10 @@ public sealed record StoredArtifact
 public sealed record StoredArtifactLink
 {
     /// <summary>Always <see cref="ArtifactKind.Video"/>: a hosted recording is the only link there is.</summary>
-    public ArtifactKind Kind { get; init; } = ArtifactKind.Video;
+    public ArtifactKind Kind => ArtifactKind.Video;
 
     /// <summary>A recording masks nothing, so a link is always <see cref="ArtifactRedaction.Incomplete"/>.</summary>
-    public ArtifactRedaction Redaction { get; init; } = ArtifactRedaction.Incomplete;
+    public ArtifactRedaction Redaction => ArtifactRedaction.Incomplete;
 
     /// <summary>The <c>http(s)</c> URL the service serves the recording from.</summary>
     public required string Url { get; init; }

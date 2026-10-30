@@ -39,16 +39,16 @@ public sealed class ArtifactStorePutLinkTests : IDisposable
         Assert.Equal(
             new StoredArtifactLink
             {
-                Kind = ArtifactKind.Video,
                 Url = Hosted,
                 MediaType = "video/mp4",
-                Redaction = ArtifactRedaction.Incomplete,
                 RunId = report.Run.Id,
                 TestId = AttemptReport.TestId("", "taps a node"),
                 AttemptId = attempt.Id,
                 StartedAt = hosted.StartedAt!.Value,
             },
             link);
+        Assert.Equal(ArtifactKind.Video, link.Kind);
+        Assert.Equal(ArtifactRedaction.Incomplete, link.Redaction);
 
         // The file segment still goes to put, and the link never does.
         Assert.EndsWith("video/fake.webm", Assert.Single(capture.Puts, artifact => artifact.Kind == ArtifactKind.Video).Path, StringComparison.Ordinal);
@@ -68,6 +68,7 @@ public sealed class ArtifactStorePutLinkTests : IDisposable
         failing.Complete();
         await failing.DisposeAsync();
         Assert.Single(broken.Links);
+        Assert.Equal(ReportRunStatus.Passed, failing.Report()!.Run.Status);
         var hosted = failing.Report()!.Run.Results[0].Attempts[0].Artifacts.Single(artifact => artifact.Url == Hosted);
         Assert.Null(hosted.Ref);
     }
