@@ -94,7 +94,7 @@ The fixture also has `SetAppearanceAsync(Appearance.Dark)` and `InstallAppAsync(
 
 ## Choosing a device
 
-**A local simulator or emulator.** Without `MobileOptions.Device`, the engine drives the booted device of the platform. Set `E2E_MOBILE_PLATFORM=android` for an emulator. Boot exactly one device:
+**A local simulator or emulator.** Without `MobileOptions.Device`, the engine drives every booted device of the platform that no other agent-device session holds, as many as the run has slots. A device another tool holds through its own agent-device session is skipped. With every booted one held, `prepare` fails with `ENGINE_FAILURE` naming the holding sessions: boot another device, close a holding session, or name the device. A booted device nothing holds, such as one you use by hand, stays in the pool: name the device to keep the run off it. Set `E2E_MOBILE_PLATFORM=android` for an emulator. Boot exactly one device:
 
 ```bash
 xcrun simctl boot "iPhone 17"
