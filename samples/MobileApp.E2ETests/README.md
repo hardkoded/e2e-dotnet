@@ -12,7 +12,7 @@ All tests are in the `RealModel` and `Device` categories. They need a device, so
 ## Prerequisites
 
 - macOS with Xcode and an iOS simulator runtime, or an Android emulator (set `E2E_MOBILE_PLATFORM=android`).
-- Node 22.12 or newer. `MobileEngine` starts [agent-device](https://github.com/callstack/agent-device) through `npx`, and agent-device drives the device. Check the setup once with `npx --yes agent-device@0.21.33 doctor`.
+- Node 22.12 or newer. `MobileEngine` starts [agent-device](https://github.com/callstack/agent-device) through `npx`, and agent-device drives the device. Check the setup once with `npx --yes agent-device@0.21.35 doctor`.
 - The MAUI workload: `dotnet workload install maui`.
 - A model login for the agent tests: `dotnet run --project src/E2E.Cli -- login github-copilot`, or an API key in `e2e.config.json`.
 
