@@ -143,6 +143,37 @@ public sealed class ReportFileTests : IDisposable
     }
 
     [Fact]
+    public void Exits_130_when_the_run_was_interrupted_whatever_the_results_say()
+    {
+        var failed = ReportBuilders.Result(attempts: [ReportBuilders.Attempt(AttemptStatus.Failed)]) with { Status = ResultStatus.Failed };
+
+        Assert.Equal((ReportRunStatus.Interrupted, 130), ReportFile.StatusOf([failed], interrupted: true));
+        Assert.Equal((ReportRunStatus.Interrupted, 130), ReportFile.StatusOf([], interrupted: true));
+        Assert.Equal((ReportRunStatus.Failed, 1), ReportFile.StatusOf([failed]));
+    }
+
+    [Fact]
+    public async Task Exits_130_when_a_retry_after_a_failure_was_interrupted_and_keeps_the_failed_verdict()
+    {
+        await using (var failing = await StartAsync("shop > pays", 1))
+        {
+            await failing.App.OpenAsync("/");
+            failing.Complete(new TestException("TEST_FAILED", "nope"));
+        }
+
+        await using (var retry = await StartAsync("shop > pays", 2))
+        {
+            await retry.App.OpenAsync("/");
+            retry.Complete(new OperationCanceledException());
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("failed", (string)run["results"]![0]!["status"]!);
+        Assert.Equal("interrupted", (string)run["status"]!);
+        Assert.Equal(130, (int)run["exitCode"]!);
+    }
+
+    [Fact]
     public void Ignores_a_cleanup_error_of_an_attempt_whose_cleanup_completed()
     {
         var cleanup = ReportBuilders.Error() with { Category = "infrastructure", Phase = "cleanup" };

@@ -28,6 +28,10 @@ dotnet add package E2E.NUnit   # or E2E.XUnit.V3 for xUnit v3
 
 [Test filters](/compatibility/#test-filters) (`ITestFilter`, `TestFilterContext`, and `TestFilterResult`) leave out the tests a change cannot affect. The seam, the change detection (`INVALID_CHANGED_SINCE`), and the `run.changes` and `run.filters` report fields are ported; no `dotnet test` host calls a filter yet.
 
+## Exit code of an interrupted run
+
+`run.exitCode` in `report.json` is 130, and `run.status` is `interrupted`, once any test of the run was cancelled by the user, as upstream's runner reads its interrupt flag. This holds when the cancelled attempt was a retry: that test keeps its `failed` (or `timed-out`) verdict, since the failure came first, and the run still exits 130. A test that times out is not an interrupt.
+
 ## Filtering a locator
 
 `Locator.Filter` keeps or drops the matches of a locator by their subtree. It takes any of four named arguments, and at least one.
