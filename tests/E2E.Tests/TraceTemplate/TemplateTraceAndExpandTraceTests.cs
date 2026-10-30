@@ -103,12 +103,8 @@ public sealed class TemplateTraceAndExpandTraceTests
         Assert.Equal("/tags/\u0001tag\u0001?q=\u0001tag\u0001", CacheKeys.Template("/tags/vip?q=vip", new Dictionary<string, object?> { ["tag"] = Values.Unique("vip") }));
     }
 
-    /// <summary>
-    /// Partial port of "spells a value as the slug an app derives for a record path, and fills it back the same way": it checks
-    /// the same templating and filling, through <see cref="CacheKeys.Template"/> and <see cref="CacheKeys.Detemplate"/>.
-    /// </summary>
     [Fact]
-    public void Partial_Spells_a_value_as_the_slug_an_app_derives_for_a_record_path_and_fills_it_back_the_same_way()
+    public void Spells_a_value_as_the_slug_an_app_derives_for_a_record_path_and_fills_it_back_the_same_way()
     {
         Assert.Equal(
             "/companies/\u0001name|slug\u0001?q=\u0001name|uri\u0001",
