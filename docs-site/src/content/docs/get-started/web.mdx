@@ -103,7 +103,7 @@ dotnet test --project .
 E2E_HEADLESS=0 dotnet test --project .      # watch the browser
 ```
 
-The first run asks the model to perform each `ActAsync`. A passing run records each verified step in `.e2e/cache`, and the next run replays it with no model call.
+The first run asks the model to perform each `ActAsync`. A passing run records each verified step in `.e2e/cache`, and the next run replays it with no model call. The replay's end check skips text that differs on every run, such as an id, a date, or an ISO 8601 instant, while a stable change exists, and reads one in an alert as a placeholder, so `Saved at 2026-10-24T15:41:27.955Z` matches a later `Saved at 2026-10-24T15:30:00Z`.
 
 ## Granting browser permissions
 
