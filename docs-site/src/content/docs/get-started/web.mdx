@@ -92,7 +92,7 @@ public sealed class SignupTests : E2ETest
 }
 ```
 
-- Give `ActAsync` one atomic goal per call. `Params` fills the placeholders. Wrap a run-unique value in `Values.Unique(...)` so the replay cache fills in this run's value; the substitution also covers the value as a URL spells it and a multi-line value as the screen shows it, on one line.
+- Give `ActAsync` one atomic goal per call. `Params` fills the placeholders. Wrap a run-unique value in `Values.Unique(...)` so the replay cache fills in this run's value; the substitution also covers the value form-encoded (`Ada+Lovelace`, not a `%20` path spelling) and a multi-line value as the screen shows it, on one line.
 - `AssertAsync` asks the model to judge the screen. `Expect.That(...)` checks an exact value with no model call, so pair each agent step with one.
 - Tag tests that call a model, for example `[Category("RealModel")]`, so CI can skip them with `--filter "TestCategory!=RealModel"`.
 
