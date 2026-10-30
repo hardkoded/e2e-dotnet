@@ -301,7 +301,7 @@ A fixture overrides any value with the matching property, such as `BaseUrl`, `Ca
 
 ### Evidence screenshots
 
-`App.ScreenshotAsync(label)` saves a redacted screenshot under the attempt's `screenshots/` directory and returns the absolute path of the file it wrote (`001-<label>.png`); the report records the path relative to the artifact root. It masks secure fields only, after a `Secret` fill too, so a secret the app shows anywhere else is in the image. An engine that keeps no screenshot artifact fails with `UNSUPPORTED_CAPABILITY`; the web, mobile, and Windows engines keep one.
+`App.ScreenshotAsync(label)` saves a redacted screenshot under the attempt's `screenshots/` directory and returns the absolute path of the file it wrote (`<number>-<label>.png`); the report records the path relative to the artifact root. It masks secure fields only, after a `Secret` fill too, so a secret the app shows anywhere else is in the image. An engine that keeps no screenshot artifact fails with `UNSUPPORTED_CAPABILITY`; the web, mobile, and Windows engines keep one.
 
 ## Visual comparison
 

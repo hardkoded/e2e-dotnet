@@ -19,7 +19,11 @@ public sealed class HostOpenSessionTests : IDisposable
 
     public void Dispose()
     {
-        Directory.Delete(_results, recursive: true);
+        if (Directory.Exists(_results))
+        {
+            Directory.Delete(_results, recursive: true);
+        }
+
         GC.SuppressFinalize(this);
     }
 

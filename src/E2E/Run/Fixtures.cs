@@ -124,11 +124,12 @@ public sealed class App
     public async Task<string> ScreenshotAsync(string? label = null, CancellationToken cancellationToken = default)
     {
         var path = "";
+        var artifactsDir = ArtifactsDir ?? throw new EngineException(EngineErrorCodes.InvalidState, "screenshot outside an attempt: the app has no artifact directory");
         await RunStepAsync("app.screenshot", label ?? "", async () =>
         {
             var relative = await _session.ScreenshotArtifactAsync(label, Token(cancellationToken)).ConfigureAwait(false);
             Attach("screenshot", relative);
-            path = Path.GetFullPath(Path.Combine(ArtifactsDir ?? "", relative));
+            path = Path.GetFullPath(Path.Combine(artifactsDir, relative));
         }).ConfigureAwait(false);
         return path;
     }
