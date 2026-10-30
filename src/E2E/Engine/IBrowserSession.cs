@@ -75,6 +75,9 @@ public interface IBrowserSession : IEngineSession
 
     Task SetCookiesAsync(IReadOnlyList<BrowserCookie> cookies, CancellationToken cancellationToken);
 
+    /// <summary>Removes the cookies matching every filter in <paramref name="options"/>; with none it removes every cookie. Other storage stays.</summary>
+    Task ClearCookiesAsync(CookieFilter? options, CancellationToken cancellationToken);
+
     /// <summary>Sizes the open page, and every page the session opens later in the attempt.</summary>
     Task SetViewportAsync(int width, int height, CancellationToken cancellationToken);
 
@@ -142,6 +145,21 @@ public sealed record BrowserCookie
 
     /// <summary><c>Strict</c>, <c>Lax</c>, or <c>None</c>.</summary>
     public string? SameSite { get; init; }
+}
+
+/// <summary>
+/// Cookie filters are combined; a string matches the field exactly, a regular expression matches its text.
+/// </summary>
+public sealed record CookieFilter
+{
+    /// <summary>Matches the cookie name; a string exactly, a regular expression its text.</summary>
+    public TextMatch? Name { get; init; }
+
+    /// <summary>Matches the cookie domain; a string exactly, a regular expression its text.</summary>
+    public TextMatch? Domain { get; init; }
+
+    /// <summary>Matches the cookie path; a string exactly, a regular expression its text.</summary>
+    public TextMatch? Path { get; init; }
 }
 
 /// <summary>

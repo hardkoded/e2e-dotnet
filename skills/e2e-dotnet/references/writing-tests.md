@@ -411,6 +411,10 @@ misses.
 - `CookiesAsync()`, `SetCookiesAsync([...])`: a target is an http(s) URL,
   relative to the base URL, or a domain. `SetCookiesAsync` refuses a cookie
   URL that is not http(s), `about:blank` included, with `POLICY_DENIED`.
+- `ClearCookiesAsync(new CookieFilter { Name, Domain, Path })`: remove the cookies
+  matching every filter given. A string matches a field exactly, a `Regex` matches
+  its text (Playwright runs it as JavaScript, so write `$` not `\z`). No options removes every
+  cookie, `HttpOnly` ones included; local and session storage stay.
 - `EmulateMediaAsync(new WebMedia { ColorScheme, ReducedMotion })`: what the
   page's `@media` rules and `matchMedia` read, for the rest of the test,
   through `App.RestartAsync` and `App.ClearStateAsync`. Call it before
