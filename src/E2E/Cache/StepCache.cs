@@ -562,11 +562,11 @@ internal static partial class CacheKeys
             }
         }
 
-        return SlotPattern().Replace(value, match => fills.TryGetValue(match.Groups[1].Value, out var filled) ? filled : match.Value);
+        return Placeholder().Replace(value, match => fills.TryGetValue(match.Groups[1].Value, out var filled) ? filled : match.Value);
     }
 
     [GeneratedRegex(@"\u0001([^\u0001]*)\u0001")]
-    private static partial Regex SlotPattern();
+    private static partial Regex Placeholder();
 
     private const string UriSuffix = "|uri";
 
