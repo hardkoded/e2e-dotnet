@@ -112,18 +112,24 @@ public sealed partial class Agent
         var callsBefore = _scope.ModelCalls;
         var last = "the statement did not hold";
 
-        // An observation can outlive the deadline that bounded it, and the engine failure it then reports describes
-        // a truncated budget, not a broken app. The wait owns the timeout message, with the last judgment.
-        async Task<Look> ObserveAsync()
+        // The capture is guarded by the step clock (upstream's invocation.checkDeadline), so a capture that outlives the deadline
+        // reports the step's own STEP_TIMEOUT. Between judgments the wait owns that message, with the last judgment (upstream's
+        // waitForNextJudgment); the first capture, before any judgment, keeps the bare timeout.
+        var guard = Guard("agent.waitFor", cancellationToken, timeout);
+
+        Task<Look> ObserveAsync()
+        {
+            guard(null);
+            return LookAsync("agent.waitFor", vision, agent, JudgeSystemFor(agent), statement, token, guard);
+        }
+
+        async Task<Look> ObserveBetweenAsync()
         {
             try
             {
-                return await LookAsync("agent.waitFor", vision, agent, JudgeSystemFor(agent), statement, token, _ => { }).ConfigureAwait(false);
+                return await ObserveAsync().ConfigureAwait(false);
             }
-            catch (Exception ex) when (ex is not AgentException
-                && (linked.IsCancellationRequested || DateTime.UtcNow >= deadline)
-                && !cancellationToken.IsCancellationRequested
-                && !_scope.Token().IsCancellationRequested)
+            catch (AgentException ex) when (ex.Code == "STEP_TIMEOUT")
             {
                 throw new AgentException("STEP_TIMEOUT", "waitFor timed out; last judgment: " + last, ex);
             }
@@ -167,7 +173,7 @@ public sealed partial class Agent
                         await Task.Delay(wait < remaining ? wait : remaining, token).ConfigureAwait(false);
                     }
 
-                    look = await ObserveAsync().ConfigureAwait(false);
+                    look = await ObserveBetweenAsync().ConfigureAwait(false);
                     if (DateTime.UtcNow - judgedAt >= interval && !string.Equals(look.Shape, judged.Shape, StringComparison.Ordinal))
                     {
                         break;
