@@ -143,10 +143,23 @@ A browser provider or `Connect` takes the `chromium` names: the engine drives it
 
 Each failure is `INVALID_CONFIG`. Config loading does not run `ValidateApp`: a web target without `app.url` still loads. Attempt start validates `app.permissions` separately, through `WebPermissions.ValidatePermissions`.
 
-## Next
+## Downloading files
+
+`Browser.WaitForDownloadAsync(trigger, timeout?)` runs the trigger and returns the file it starts as `{ Path, AbsolutePath, SuggestedFilename }`. Each file is a `download` artifact of the step. Read it through `AbsolutePath`, which also works with a hosted browser whose provider serves `Downloads`.
+
+When one trigger starts several files, `Browser.WaitForDownloadsAsync(trigger, count, timeout?)` calls the trigger once and returns `count` files in start order, each its own artifact, under the same timeout:
+
+```csharp
+var files = await Browser.WaitForDownloadsAsync(
+    () => Screen.GetByRole("button", "Export all").TapAsync(), count: 2);
+```
+
+A `count` below one fails with `INVALID_ARGUMENT` before the trigger runs. When fewer downloads start in time, the `ACTION_FAILED` error names both counts. Extra downloads are ignored. The timeout also bounds each file finishing and being saved, and a download still running at the timeout is canceled.
 
 Text downloads are rescanned before reporting with all secrets known by then,
 including later fills and ASCII secrets written as JSON Unicode escapes.
+
+## Next
 
 <CardGrid>
   <LinkCard title="Dariten sample" href={`${import.meta.env.BASE_URL}samples/dariten/`} description="A locator test and an agent test against a live public app." />

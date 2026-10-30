@@ -5,12 +5,114 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using E2E.Engine;
+using Microsoft.Playwright;
 
 namespace E2E.Tests.Routes;
 
 [Collection(BrowserCollection.Name)]
 public sealed class BrowserRouteDecisionsTests
 {
+    // Not portable, because the C# signature refuses them at compile time (upstream's tests/types/downloads.ts): a batch with no count,
+    // and a trigger that is not asynchronous.
+    [Fact]
+    public Task Rejects_an_invalid_download_count_before_running_the_trigger() => WithRoutesAsync(async routes =>
+    {
+        var calls = 0;
+        var failure = await Assert.ThrowsAsync<TestException>(() => routes.Browser.WaitForDownloadsAsync(() =>
+        {
+            calls++;
+            return Task.CompletedTask;
+        }, 0));
+        Assert.Equal("INVALID_ARGUMENT", failure.Code);
+        Assert.Equal(0, calls);
+    });
+
+    [Fact]
+    public Task Removes_a_multi_download_listener_after_an_incomplete_trigger_times_out() => WithRoutesAsync(async routes =>
+    {
+        var listeners = routes.DownloadListeners();
+        var failure = await Assert.ThrowsAsync<TestException>(() => routes.Browser.WaitForDownloadsAsync(() => Task.CompletedTask, 2, TimeSpan.FromMilliseconds(30)));
+        Assert.Equal("ACTION_FAILED", failure.Code);
+        Assert.Contains("0 of 2 downloads", failure.Message, StringComparison.Ordinal);
+        Assert.Equal(listeners, routes.DownloadListeners());
+    });
+
+    [Theory]
+    [InlineData("waitForDownload")]
+    [InlineData("waitForDownloads")]
+    public Task Bounds_saving_a_download_whose_HTTP_body_never_finishes(string method) => WithRoutesAsync(async routes =>
+    {
+        await routes.AddLinkAsync("/stream-download", "Stream");
+        var baseline = routes.DownloadListeners();
+        var started = routes.NextDownload();
+        Task Trigger() => routes.ClickLinkAsync();
+        var work = routes.Collect(method, Trigger, TimeSpan.FromMilliseconds(500));
+        try
+        {
+            var result = await Task.WhenAny(work, Task.Delay(1500));
+            Assert.True(started.IsCompleted);
+            Assert.Same(work, result);
+            var failure = await Assert.ThrowsAsync<TestException>(() => work);
+            Assert.Equal("ACTION_FAILED", failure.Code);
+            Assert.Contains("did not finish", failure.Message, StringComparison.Ordinal);
+            Assert.Equal(baseline, routes.DownloadListeners());
+        }
+        finally
+        {
+            routes.Site.CloseAllConnections();
+            await CancelAsync(started);
+            await Settle(work);
+        }
+    });
+
+    [Theory]
+    [InlineData("waitForDownload")]
+    [InlineData("waitForDownloads")]
+    public Task Closes_started_downloads_while_its_trigger_is_still_pending(string method) => WithRoutesAsync(async routes =>
+    {
+        await routes.AddLinkAsync("/stream-download", "Pending");
+        var listeners = routes.DownloadListeners();
+        var started = routes.NextDownload();
+        var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        async Task Trigger()
+        {
+            await routes.ClickLinkAsync();
+            await pending.Task;
+        }
+
+        var work = routes.Collect(method, Trigger, TimeSpan.FromMilliseconds(500));
+        try
+        {
+            var result = await Task.WhenAny(work, Task.Delay(1500));
+            Assert.Same(work, result);
+            var failure = await Assert.ThrowsAsync<TestException>(() => work);
+            Assert.Equal("ACTION_FAILED", failure.Code);
+            var download = await started.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(listeners, routes.DownloadListeners());
+            Assert.Contains("cancel", (await download.FailureAsync())!, StringComparison.Ordinal);
+            pending.TrySetResult();
+            await Settle(work);
+            Assert.Empty(routes.Attached);
+        }
+        finally
+        {
+            pending.TrySetResult();
+            routes.Site.CloseAllConnections();
+            await CancelAsync(started);
+            await Settle(work);
+        }
+    });
+
+    [Fact]
+    public Task Keeps_a_trigger_error_and_removes_the_multi_download_listener_immediately() => WithRoutesAsync(async routes =>
+    {
+        var listeners = routes.DownloadListeners();
+        var failure = new TestException("ASSERTION_FAILED", "trigger assertion");
+        var thrown = await Assert.ThrowsAsync<TestException>(() => routes.Browser.WaitForDownloadsAsync(() => throw failure, 2, TimeSpan.FromMilliseconds(30)));
+        Assert.Same(failure, thrown);
+        Assert.Equal(listeners, routes.DownloadListeners());
+    });
+
     [Fact]
     public Task Clears_every_test_route_keeps_configured_site_headers_and_can_register_again() => WithRoutesAsync(async routes =>
     {
@@ -255,7 +357,14 @@ public sealed class BrowserRouteDecisionsTests
             {
                 await session.App.OpenAsync("/");
                 site.Hits.Clear();
-                await body(new RouteSession(site, session.Browser, projectRoot));
+                var attached = new List<string>();
+                var attach = session.Browser.Attach;
+                session.Browser.Attach = (kind, relative) =>
+                {
+                    attached.Add(relative);
+                    attach(kind, relative);
+                };
+                await body(new RouteSession(site, session.Browser, projectRoot, WebEngine.SurfaceOf(session.Engine)!.Page(), attached));
             });
         }
         finally
@@ -268,8 +377,66 @@ public sealed class BrowserRouteDecisionsTests
 
     private sealed record Echo(string Path, string Method, Dictionary<string, string> Headers, string Body);
 
-    private sealed record RouteSession(CountingSite Site, Browser Browser, string ProjectRoot)
+    /// <summary>Cancels a download the test caught, once it arrived, so a body that never finishes does not outlive the test.</summary>
+    private static async Task CancelAsync(Task<IDownload> started)
     {
+        if (started.IsCompletedSuccessfully)
+        {
+            await started.Result.CancelAsync();
+        }
+    }
+
+    /// <summary>Waits for a call whose outcome the test has already checked, whatever it ends with.</summary>
+    private static async Task Settle(Task work)
+    {
+        try
+        {
+            await work;
+        }
+        catch (Exception)
+        {
+            // Checked by the test.
+        }
+    }
+
+    private sealed record RouteSession(CountingSite Site, Browser Browser, string ProjectRoot, IPage Page, List<string> Attached)
+    {
+        /// <summary>How many handlers listen for the page's <c>download</c> event.</summary>
+        public int DownloadListeners()
+        {
+            // A renamed field must fail the test, not read as no listener.
+            var field = Page.GetType().GetField("Download", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?? throw new InvalidOperationException("the Playwright page keeps no field for its download event");
+            return (field.GetValue(Page) as Delegate)?.GetInvocationList().Length ?? 0;
+        }
+
+        /// <summary>Adds the page's only link, to <paramref name="href"/>.</summary>
+        public Task AddLinkAsync(string href, string text) => Page.EvaluateAsync(
+            "([href, text]) => { const link = document.createElement('a'); link.href = href; link.textContent = text; document.body.append(link); }",
+            new[] { href, text });
+
+        /// <summary>Clicks the link from the page's own script.</summary>
+        public Task ClickLinkAsync() => Page.EvaluateAsync("() => document.querySelector('a').click()");
+
+        /// <summary>The next download the page starts, caught by a listener that removes itself.</summary>
+        public Task<IDownload> NextDownload()
+        {
+            var next = new TaskCompletionSource<IDownload>(TaskCreationOptions.RunContinuationsAsynchronously);
+            EventHandler<IDownload>? handler = null;
+            handler = (_, value) =>
+            {
+                Page.Download -= handler;
+                next.TrySetResult(value);
+            };
+            Page.Download += handler;
+            return next.Task;
+        }
+
+        /// <summary>One download through <c>waitForDownload</c>, or through <c>waitForDownloads</c> with a count of one.</summary>
+        public Task Collect(string method, Func<Task> trigger, TimeSpan timeout) => method == "waitForDownload"
+            ? Browser.WaitForDownloadAsync(trigger, timeout)
+            : Browser.WaitForDownloadsAsync(trigger, 1, timeout);
+
         /// <summary>Fetches <paramref name="url"/> from the page; a failed fetch reads as <c>failed</c>.</summary>
         public async Task<string> FetchTextAsync(string url) =>
             (await Browser.EvaluateAsync<string>("(target) => fetch(target).then((reply) => reply.text(), () => 'failed')", url))!;

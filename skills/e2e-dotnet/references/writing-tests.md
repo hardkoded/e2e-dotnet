@@ -441,6 +441,8 @@ misses.
   answers native `alert`, `confirm`, `prompt`, and `beforeunload` dialogs (see below).
 - `WaitForDownloadAsync(trigger, timeout?)` runs the trigger and returns the
   file it downloads (see below).
+- `WaitForDownloadsAsync(trigger, count, timeout?)` calls the trigger once and
+  returns `count` of those files in start order (see below).
 
 ### Handle a dialog
 
@@ -489,7 +491,19 @@ server gave it. A trigger that throws fails the call with its own error. One
 that returns and starts no download within the timeout fails with `ACTION_FAILED`, naming how long it
 waited and how long the trigger took. Without `Downloads` on the provider,
 a download on a browser on another machine fails with `ENGINE_FAILURE`,
-naming the provider.
+naming the provider. The timeout also bounds the file finishing and its save,
+and a download still running at the timeout is canceled.
+
+`WaitForDownloadsAsync(trigger, count, timeout?)` calls the trigger once and
+returns `count` files in start order, each its own `download` artifact, under
+the same timeout. A `count` below one fails with `INVALID_ARGUMENT` before the
+trigger runs. When fewer start in time, the `ACTION_FAILED` error names both
+counts; extra downloads are ignored.
+
+```csharp
+var files = await Browser.WaitForDownloadsAsync(
+    () => Screen.GetByRole("button", "Export all").TapAsync(), count: 2);
+```
 
 ### Run a script before the page
 

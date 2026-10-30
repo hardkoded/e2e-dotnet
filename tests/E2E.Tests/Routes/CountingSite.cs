@@ -49,6 +49,15 @@ internal sealed class CountingSite : IDisposable
     /// <summary>How many requests reached <paramref name="path"/>; null for none, as an unset map entry.</summary>
     public int? HitsOf(string path) => Hits.TryGetValue(path, out var count) ? count : null;
 
+    /// <summary>Closes every open connection, as a Node server's <c>closeAllConnections</c> does, so a body that never finishes ends.</summary>
+    public void CloseAllConnections()
+    {
+        foreach (var client in _clients)
+        {
+            client.Dispose();
+        }
+    }
+
     public void Dispose()
     {
         _listener.Stop();
@@ -85,6 +94,16 @@ internal sealed class CountingSite : IDisposable
             var (method, target, headers, body) = await ReadRequestAsync(stream);
             var path = target.Split('?')[0];
             Hits.AddOrUpdate(path, 1, (_, count) => count + 1);
+            if (path == "/stream-download")
+            {
+                // The head promises 4096 bytes and 1024 arrive; the body never finishes.
+                var head = "HTTP/1.1 200 OK\r\ncontent-type: application/octet-stream\r\ncontent-disposition: attachment; filename=\"stream.bin\"\r\ncontent-length: 4096\r\n\r\n";
+                await stream.WriteAsync(Encoding.ASCII.GetBytes(head));
+                await stream.WriteAsync(Encoding.ASCII.GetBytes(new string('x', 1024)));
+                await stream.FlushAsync();
+                return;
+            }
+
             if (path == "/echo")
             {
                 var echo = JsonSerializer.Serialize(new Dictionary<string, object>

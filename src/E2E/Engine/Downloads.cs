@@ -21,7 +21,7 @@ internal static class Downloads
     /// disk, each file named by its download id, with the download events Playwright's waiter reads left on (upstream's
     /// <c>saveDownloadsTo</c>).
     /// </summary>
-    public static async Task SaveDownloadsToAsync(IPage page, string dir)
+    public static async Task SaveDownloadsToAsync(IPage page, string dir, CancellationToken cancellationToken = default)
     {
         var context = page.Context;
         var browser = context.Browser ?? throw new EngineException(EngineErrorCodes.InvalidState, "the page has no browser to set a download directory on");
@@ -50,6 +50,7 @@ internal static class Downloads
             throw;
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         var arguments = new Dictionary<string, object>
         {
             ["behavior"] = "allowAndName",

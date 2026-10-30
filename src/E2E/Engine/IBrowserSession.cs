@@ -71,6 +71,15 @@ public interface IBrowserSession : IEngineSession
     Task<BrowserDownload> WaitForDownloadAsync(Func<Task> trigger, TimeSpan timeout, CancellationToken cancellationToken) =>
         Task.FromException<BrowserDownload>(new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForDownload is not supported by this engine."));
 
+    /// <summary>
+    /// Runs <paramref name="trigger"/> once and waits up to <paramref name="timeout"/> for the first <paramref name="count"/> downloads it
+    /// starts, saved under the attempt's <c>downloads</c> artifact folder in start order. One budget bounds the start, completion and
+    /// save of every file. A trigger that throws fails the call with its own error. A session that does not override it fails with
+    /// <c>UNSUPPORTED_CAPABILITY</c>.
+    /// </summary>
+    Task<IReadOnlyList<BrowserDownload>> WaitForDownloadsAsync(Func<Task> trigger, int count, TimeSpan timeout, CancellationToken cancellationToken) =>
+        Task.FromException<IReadOnlyList<BrowserDownload>>(new EngineException("UNSUPPORTED_CAPABILITY", "browser.waitForDownloads is not supported by this engine."));
+
     Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(CancellationToken cancellationToken);
 
     Task SetCookiesAsync(IReadOnlyList<BrowserCookie> cookies, CancellationToken cancellationToken);

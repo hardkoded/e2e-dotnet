@@ -28,7 +28,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | --- | --- | --- |
 | Adding e2e to a project, writing `e2e.config.json`, signing in to a model, picking a model provider, browser options | `setup` | [references/setup.md](references/setup.md) |
 | Looking at the running app, checking a UI change, taking a screenshot, or trying a locator before writing it, over `e2e mcp` | `mcp` | [references/mcp.md](references/mcp.md) |
-| Writing or fixing a test: fixture members, locators, actions, matchers, sign-in, the `Browser` member (navigation, routes, cookies with `SetCookiesAsync` and `ClearCookiesAsync(new CookieFilter { ... })`, native dialogs, downloads, CSS locators, iframes) | `writing-tests` | [references/writing-tests.md](references/writing-tests.md) |
+| Writing or fixing a test: fixture members, locators, actions, matchers, sign-in, the `Browser` member (navigation, routes, cookies with `SetCookiesAsync` and `ClearCookiesAsync(new CookieFilter { ... })`, native dialogs, downloads with `WaitForDownloadAsync` and `WaitForDownloadsAsync(trigger, count)` for several files from one trigger, CSS locators, iframes) | `writing-tests` | [references/writing-tests.md](references/writing-tests.md) |
 | Writing a test with NUnit: the `E2E.NUnit` base class, `[Test]`, `[Category("RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-nunit` | [references/writing-tests-nunit.md](references/writing-tests-nunit.md) |
 | Writing a test with xUnit v3: the `E2E.XUnit.V3` base class, `[Fact]`, `[Trait("TestCategory", "RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-xunit` | [references/writing-tests-xunit.md](references/writing-tests-xunit.md) |
 | Adding `Agent` steps, picking a model, budgets, the replay cache, custom executors | `agent` | [references/agent.md](references/agent.md) |
@@ -41,7 +41,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 
 Two sibling skills install with `npx skills add hardkoded/e2e-dotnet --skill <name>`. `create-verification-skill` writes a project-local `verify-<app>` skill. `migrate-to-e2e` moves an existing Playwright .NET, Selenium .NET, Appium, Cypress, Detox, or Maestro suite to e2e one slice at a time, with the old suite running beside the new one and a `MIGRATION.md` progress file. Hosted Limrun devices are covered in topic `mobile`.
 
-Text downloads are redacted only when they are UTF-8 without NUL bytes; other files stay as served and `incomplete`. See `writing-tests` for download handling.
+Text downloads are redacted only when they are UTF-8 without NUL bytes; other files stay as served and `incomplete`. `Browser.WaitForDownloadAsync` returns one file; `Browser.WaitForDownloadsAsync(trigger, count)` calls the trigger once and returns `count` files in start order, each its own artifact. See `writing-tests` for download handling.
 
 ## Scaffold with `e2e init`
 

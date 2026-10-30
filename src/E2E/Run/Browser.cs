@@ -412,6 +412,41 @@ public sealed class Browser
         return download!;
     }
 
+    /// <summary>
+    /// Runs <paramref name="trigger"/> once and waits for the first <paramref name="count"/> downloads it starts, within
+    /// <paramref name="timeout"/> (the action timeout by default), and returns them in start order. Each file is kept under the attempt's
+    /// <c>downloads</c> artifact folder as its own artifact of this step, and a text download is rewritten through the session's secrets
+    /// as <c>WaitForDownloadAsync</c> does. One timeout bounds the start, completion and
+    /// save of every file. When fewer start in time the call fails with <c>ACTION_FAILED</c> naming both counts; extra downloads are
+    /// ignored. A <paramref name="count"/> below one fails with <c>INVALID_ARGUMENT</c> before the trigger runs. A trigger that throws
+    /// fails the call with its own error.
+    /// </summary>
+    public async Task<IReadOnlyList<BrowserDownload>> WaitForDownloadsAsync(Func<Task> trigger, int count, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(trigger);
+        if (timeout is { } budget)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(budget, TimeSpan.Zero, nameof(timeout));
+        }
+
+        var session = Require("waitForDownloads");
+        IReadOnlyList<BrowserDownload> downloads = [];
+        await RunStepAsync(StepKind.Resource, "browser.waitForDownloads", "", async () =>
+        {
+            if (count < 1)
+            {
+                throw new TestException("INVALID_ARGUMENT", "waitForDownloads: count must be a positive safe integer");
+            }
+
+            downloads = await AppNotOpen.GuardAsync(() => session.WaitForDownloadsAsync(trigger, count, timeout ?? _actionTimeout, Token(cancellationToken))).ConfigureAwait(false);
+            foreach (var download in downloads)
+            {
+                Attach("download", download.Path);
+            }
+        }).ConfigureAwait(false);
+        return downloads;
+    }
+
     internal IBrowserSession Require(string operation)
     {
         return _session as IBrowserSession
