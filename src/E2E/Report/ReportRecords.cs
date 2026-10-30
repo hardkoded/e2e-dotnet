@@ -257,6 +257,14 @@ internal sealed record Outcome(long DurationMs, ReportAttempt Final, ReportAttem
     }
 }
 
+/// <summary>Helpers over the records of a run (upstream's <c>run/records.ts</c>).</summary>
+internal static class ReportRecords
+{
+    /// <summary>The cleanup-phase secondary errors of attempts whose cleanup failed (upstream's <c>cleanupErrorsOf</c>).</summary>
+    public static IEnumerable<ReportError> CleanupErrorsOf(IEnumerable<ReportAttempt> attempts) =>
+        attempts.Where(attempt => attempt.Cleanup == AttemptCleanup.Failed).SelectMany(attempt => attempt.SecondaryErrors.Where(secondary => secondary.Phase == "cleanup"));
+}
+
 /// <summary>The engine a target runs on, as the report names it (upstream's <c>engine</c> block of a target).</summary>
 /// <param name="Name">The engine's name; <c>none</c> for a target without an engine.</param>
 /// <param name="Version">The engine's version; <c>unversioned</c> for a target without an engine.</param>

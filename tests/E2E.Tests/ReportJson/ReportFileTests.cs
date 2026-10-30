@@ -143,6 +143,15 @@ public sealed class ReportFileTests : IDisposable
     }
 
     [Fact]
+    public void Ignores_a_cleanup_error_of_an_attempt_whose_cleanup_completed()
+    {
+        var cleanup = ReportBuilders.Error() with { Category = "infrastructure", Phase = "cleanup" };
+        var passed = ReportBuilders.Result(attempts: [ReportBuilders.Attempt(AttemptStatus.Passed, secondaryErrors: [cleanup])]);
+
+        Assert.Equal((ReportRunStatus.Passed, 0), ReportFile.StatusOf([passed]));
+    }
+
+    [Fact]
     public async Task Asks_for_the_commit_once_per_project_root_however_many_sessions_ask_and_asks_again_after_a_failure()
     {
         var root = Path.Combine(_output, "project");

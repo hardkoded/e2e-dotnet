@@ -93,7 +93,7 @@ internal static class ReportFile
         return (exitCode switch { 0 => ReportRunStatus.Passed, 1 => ReportRunStatus.Failed, 130 => ReportRunStatus.Interrupted, _ => ReportRunStatus.Error }, exitCode);
     }
 
-    /// <summary>The exit codes the verdicts imply: a failed result exits 1, or its attempts' error category when that is worse (upstream's <c>verdictExitCodes</c>).</summary>
+    /// <summary>The exit codes the verdicts imply: a failed result exits 1, or its attempts' error category when that is worse. An attempt whose cleanup failed adds its cleanup errors' codes, even when the test passed (upstream's <c>verdictExitCodes</c>).</summary>
     private static IEnumerable<int> VerdictExitCodes(IEnumerable<ReportResult> results)
     {
         foreach (var result in results)
@@ -111,6 +111,11 @@ internal static class ReportFile
                 case ResultStatus.Interrupted:
                     yield return 130;
                     break;
+            }
+
+            foreach (var cleanupError in ReportRecords.CleanupErrorsOf(result.Attempts))
+            {
+                yield return ErrorSerializer.ExitCodeForCategory(cleanupError.Category);
             }
         }
     }
