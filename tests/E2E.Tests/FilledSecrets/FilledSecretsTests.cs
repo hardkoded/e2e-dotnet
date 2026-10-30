@@ -174,7 +174,7 @@ public sealed class FilledSecretsRun : IAsyncLifetime
         var executor = new TestExecutor("secret-filler", async (context, token) =>
         {
             var observation = await context.ObserveAsync(new ExecutorObserveOptions { Tree = true }, token);
-            ExecutorNode Find(Func<ExecutorNode, bool> match) => Flatten(observation.Tree!).First(match);
+            ExecutorNode Find(Func<ExecutorNode, bool> match) => ExecutorTree.FindNode(observation.Tree, match)!;
 
             // Declared secrets are keyed by the credential's name, not the param's.
             await context.Actions.TypeSecretAsync(new ExecutorTarget(Find(node => node.States.Secure).Id), "member.password", token);
@@ -263,9 +263,6 @@ public sealed class FilledSecretsRun : IAsyncLifetime
                 throw new InvalidOperationException(title);
         }
     }
-
-    private static IEnumerable<ExecutorNode> Flatten(IEnumerable<ExecutorNode> nodes) =>
-        nodes.SelectMany(node => new[] { node }.Concat(Flatten(node.Children)));
 }
 
 /// <summary>Upstream's <c>capturing()</c> of <c>filled-secrets.test.ts</c>: a store that keeps what it was handed.</summary>

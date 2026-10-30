@@ -84,6 +84,16 @@ public sealed class DisambiguatingAttributesTests
     }
 
     [Fact]
+    public void Keeps_an_app_link_whose_path_opens_with_a_doubled_slash_whole_so_the_model_never_reads_it_as_another_host()
+    {
+        const string href = "https://app.test//settings";
+        var node = Link("Settings", href);
+
+        Assert.Equal($"  - link \"Settings\" href=\"{href}\" [ref=n]", Lines([node], "https://app.test")[2]);
+        Assert.Equal(href, Tree([node], "https://app.test")[0].Attributes!["href"]);
+    }
+
+    [Fact]
     public void Redacts_a_secret_in_a_link_target_before_cutting_it_so_no_part_of_it_survives_the_cut()
     {
         var path = "/" + new string('p', 250) + "/tok-0123456789";
