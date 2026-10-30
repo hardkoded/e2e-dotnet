@@ -247,6 +247,7 @@ public static class Explore
             ProviderOptions = defaultAgent.ProviderOptions,
             Agents = entries.Where(pair => !string.Equals(pair.Key, "default", StringComparison.Ordinal)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal),
             BaseUrl = target.App.Url,
+            Permissions = target.App.Permissions,
             ProjectRoot = projectRoot,
             TargetName = target.Name,
             ResultsDirectory = options.Output is null ? null : Path.GetFullPath(options.Output, projectRoot),

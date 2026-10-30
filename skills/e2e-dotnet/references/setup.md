@@ -9,6 +9,7 @@
 - The app under test
 - Environment variables
 - App identity and environment
+- Browser permissions
 - Mobile targets
 - Windows targets
 - Done when
@@ -142,7 +143,7 @@ unknown key fails with `INVALID_CONFIG`.
 
 | Key | Default | Notes |
 | --- | --- | --- |
-| `targets` | a `web` target with no URL | One entry: `name`, `platform` (`web`, `ios`, `android`, or `windows`), and `app.url` (a web target; port `0` takes a free port) with an optional `app.command` and `app.readyUrl` that start the app (below), or `app.appPath` and `app.bundleId` (a device or Windows target). Any target takes `app.identity` and `app.environment` (below); a device or Windows target takes `app.launchArguments`, and a device target `app.permissions` (below; a web target's browser permissions are not supported yet). A URL without a scheme gets `https://` (`http://` for localhost); plain HTTP is allowed on loopback hosts only, and userinfo, a query, or a fragment is `INVALID_APP_URL`. Without a URL, `App.OpenAsync` takes absolute URLs only. |
+| `targets` | a `web` target with no URL | One entry: `name`, `platform` (`web`, `ios`, `android`, or `windows`), and `app.url` (a web target; port `0` takes a free port) with an optional `app.command` and `app.readyUrl` that start the app (below), or `app.appPath` and `app.bundleId` (a device or Windows target). Any target takes `app.identity` and `app.environment` (below); a device or Windows target takes `app.launchArguments`, and a device or web target `app.permissions` (below). A URL without a scheme gets `https://` (`http://` for localhost); plain HTTP is allowed on loopback hosts only, and userinfo, a query, or a fragment is `INVALID_APP_URL`. Without a URL, `App.OpenAsync` takes absolute URLs only. |
 | `timeout` | `120000` | Per test, ms. |
 | `launchTimeout` | `60000` | Engine start, ms. |
 | `actionTimeout` | `30000` | Each locator action and engine operation, ms. |
@@ -365,6 +366,24 @@ To test without a browser or model, override `CreateEngine()` to return a
 ```
 
 Declaring an identity or environment for an app that had none misses the entries recorded before: they are not read, and the next run records them again.
+
+## Browser permissions
+
+Headless Chromium refuses a permission the target does not grant, so `navigator.clipboard.writeText` fails even after a click. A web target's `app.permissions` grants it to every page of every attempt, on any origin, after a restart or `ClearStateAsync` too:
+
+```json
+{ "targets": [{ "platform": "web", "app": { "url": "http://localhost:3000", "permissions": { "clipboard-read": "grant", "clipboard-write": "grant" } } }] }
+```
+
+A web target takes `grant` only; `deny` and `reset` are `INVALID_CONFIG` (leave the permission out instead). The names are Playwright's, and each browser grants its own set; an unknown one is `INVALID_CONFIG` naming the nearest, checked when the attempt starts. A fixture overrides `Permissions` to change them in code.
+
+| Browser | Names |
+| --- | --- |
+| `chromium` | `accelerometer`, `ambient-light-sensor`, `background-sync`, `camera`, `clipboard-read`, `clipboard-write`, `geolocation`, `gyroscope`, `local-fonts`, `local-network-access`, `magnetometer`, `microphone`, `midi`, `midi-sysex`, `notifications`, `payment-handler`, `screen-wake-lock`, `storage-access` |
+| `firefox` | `geolocation`, `local-network-access`, `notifications`, `persistent-storage`, `push`, `screen-wake-lock` |
+| `webkit` | `camera`, `clipboard-read`, `geolocation`, `microphone`, `notifications`, `screen-wake-lock` |
+
+A browser provider or `Connect` takes the `chromium` names: the engine drives it over CDP.
 
 ## Mobile targets
 

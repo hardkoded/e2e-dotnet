@@ -105,6 +105,34 @@ E2E_HEADLESS=0 dotnet test --project .      # watch the browser
 
 The first run asks the model to perform each `ActAsync`. A passing run records each verified step in `.e2e/cache`, and the next run replays it with no model call.
 
+## Granting browser permissions
+
+Headless Chromium refuses a permission the target doesn't grant, so `navigator.clipboard.writeText` fails even after a click. To let the app use the clipboard, grant it on the target:
+
+```json
+{
+  "targets": [{
+    "platform": "web",
+    "app": {
+      "url": "http://localhost:3000",
+      "permissions": { "clipboard-read": "grant", "clipboard-write": "grant" }
+    }
+  }]
+}
+```
+
+- Every page of every attempt holds the grant, on any origin.
+- A web target takes `grant` only. `deny` and `reset` are `INVALID_CONFIG`: leave the permission out instead.
+- The names are Playwright's, and each browser grants its own set:
+
+| Browser | Names |
+| --- | --- |
+| `chromium` | `accelerometer`, `ambient-light-sensor`, `background-sync`, `camera`, `clipboard-read`, `clipboard-write`, `geolocation`, `gyroscope`, `local-fonts`, `local-network-access`, `magnetometer`, `microphone`, `midi`, `midi-sysex`, `notifications`, `payment-handler`, `screen-wake-lock`, `storage-access` |
+| `firefox` | `geolocation`, `local-network-access`, `notifications`, `persistent-storage`, `push`, `screen-wake-lock` |
+| `webkit` | `camera`, `clipboard-read`, `geolocation`, `microphone`, `notifications`, `screen-wake-lock` |
+
+A browser provider or `Connect` takes the `chromium` names: the engine drives it over CDP.
+
 ## Next
 
 Text downloads are rescanned before reporting with all secrets known by then,
