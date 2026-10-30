@@ -30,6 +30,9 @@ public sealed class E2ESession : IAsyncDisposable
     private int _evidenceTried;
     private FailureEvidence? _evidence;
     private Exception? _error;
+
+    // What the teardown threw (a required video that did not finalize, the engine session's close): upstream's secondaryErrors of phase cleanup.
+    private readonly List<Exception> _cleanupErrors = [];
     private long _bodyMs;
     private AttemptStatus _status = AttemptStatus.Failed;
     private Lazy<Report>? _report;
@@ -455,6 +458,7 @@ public sealed class E2ESession : IAsyncDisposable
 #pragma warning restore CA1031
                 {
                     videoFailure = ex;
+                    _cleanupErrors.Add(ErrorSerializer.TranslateProvisioningError(ex, " while stopping the video", CancellationToken.None));
                 }
 
                 Videos = _video.Kept;
@@ -462,23 +466,35 @@ public sealed class E2ESession : IAsyncDisposable
 
             await _scope.Debug.Time("session.close", async () =>
             {
-                var cleanup = _engine.DisposeAsync().AsTask();
-                if (Bounded(_scope.CleanupTimeout))
+                try
                 {
-                    await cleanup.WaitAsync(_scope.CleanupTimeout).ConfigureAwait(false);
+                    var cleanup = _engine.DisposeAsync().AsTask();
+                    if (Bounded(_scope.CleanupTimeout))
+                    {
+                        await cleanup.WaitAsync(_scope.CleanupTimeout).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await cleanup.ConfigureAwait(false);
+                    }
                 }
-                else
+#pragma warning disable CA1031 // Recorded for the report, then rethrown.
+                catch (Exception ex) when (ex is not TimeoutException)
+#pragma warning restore CA1031
                 {
-                    await cleanup.ConfigureAwait(false);
+                    _cleanupErrors.Add(ErrorSerializer.TranslateProvisioningError(ex, " while ending the attempt", CancellationToken.None));
+                    throw;
                 }
             }).ConfigureAwait(false);
         }
         catch (TimeoutException ex)
         {
-            throw new EngineException(
+            var timeout = new EngineException(
                 "ENVIRONMENT_UNAVAILABLE",
                 "The engine did not shut down within the cleanup timeout (" + _scope.CleanupTimeout.TotalMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " ms).",
                 ex);
+            _cleanupErrors.Add(timeout);
+            throw timeout;
         }
         finally
         {
@@ -660,7 +676,7 @@ public sealed class E2ESession : IAsyncDisposable
             await SettleArtifactsAsync().ConfigureAwait(false);
 
             // Every attempt joins its test's report, and the run's report.json tells them all.
-            var (single, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Exploration, _evidence);
+            var (single, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Exploration, _evidence, _cleanupErrors);
             var (report, traced, redact) = RunReport.Add(single, trace.ResultsRoot, _scope.Attempt, kept, _scope.Redactor.Redact);
             // The document is a courtesy too: the page below is still written when it cannot be.
             try

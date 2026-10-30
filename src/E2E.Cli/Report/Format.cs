@@ -39,7 +39,7 @@ internal sealed class Colors(bool enabled)
 
 /// <summary>
 /// Pure presentation helpers shared by the terminal reporters: glyphs, durations, and widths. Upstream's <c>report/format.ts</c>,
-/// the part the exploration view uses.
+/// the part the exploration view uses and the cache tally of the run summary row.
 /// </summary>
 internal static partial class Format
 {
@@ -97,6 +97,75 @@ internal static partial class Format
 
     /// <summary>Wall-clock <c>HH:MM:SS</c> for the summary's <c>Start at</c> row.</summary>
     public static string FormatClock(DateTimeOffset time) => time.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
+
+    /// <summary>The trace cache's part in a run's steps, by step (upstream's <c>CacheTally</c>).</summary>
+    public sealed class CacheTally
+    {
+        public int Replayed { get; set; }
+
+        public int HandedOff { get; set; }
+
+        public int Missed { get; set; }
+    }
+
+    /// <summary>Upstream's <c>emptyCacheTally</c>.</summary>
+    public static CacheTally EmptyCacheTally() => new();
+
+    /// <summary>Upstream's <c>addCacheTally</c>.</summary>
+    public static void AddCacheTally(CacheTally into, CacheTally counts)
+    {
+        into.Replayed += counts.Replayed;
+        into.HandedOff += counts.HandedOff;
+        into.Missed += counts.Missed;
+    }
+
+    /// <summary>Upstream's <c>stepsCacheTally</c>: the trace cache's part in several step lists, by step. A step with no cache detail counts nowhere.</summary>
+    public static CacheTally StepsCacheTally(IEnumerable<IEnumerable<StepRecord>> stepLists)
+    {
+        var counts = EmptyCacheTally();
+        foreach (var step in stepLists.SelectMany(steps => steps))
+        {
+            switch (step.Cache?.Mode)
+            {
+                case "self-finalized":
+                    counts.Replayed++;
+                    break;
+                case "agent-concluded":
+                    counts.HandedOff++;
+                    break;
+                case "missed":
+                    counts.Missed++;
+                    break;
+            }
+        }
+
+        return counts;
+    }
+
+    /// <summary>
+    /// Upstream's <c>cacheText</c>: <c>9 replayed · 2 handed off · 4 missed</c>, zero counts left out, or null when no step went
+    /// through the trace cache.
+    /// </summary>
+    public static string? CacheText(Colors pc, CacheTally counts)
+    {
+        List<string> parts = [];
+        if (counts.Replayed > 0)
+        {
+            parts.Add(pc.Green(counts.Replayed.ToString(CultureInfo.InvariantCulture) + " replayed"));
+        }
+
+        if (counts.HandedOff > 0)
+        {
+            parts.Add(pc.Yellow(counts.HandedOff.ToString(CultureInfo.InvariantCulture) + " handed off"));
+        }
+
+        if (counts.Missed > 0)
+        {
+            parts.Add(counts.Missed.ToString(CultureInfo.InvariantCulture) + " missed");
+        }
+
+        return parts.Count == 0 ? null : string.Join(pc.Dim(" · "), parts);
+    }
 
     /// <summary>One padded summary title, right-aligned like vitest's <c>Test Files</c> column.</summary>
     public static string PadTitle(Colors pc, string title) => pc.Dim(title.PadLeft(TitleWidth) + "  ");

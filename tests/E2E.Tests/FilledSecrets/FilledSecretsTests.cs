@@ -5,6 +5,7 @@
 using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using E2E.Engine;
 using E2E.Internal;
 using E2E.Reports;
@@ -29,6 +30,14 @@ public sealed class FilledSecretsTests(FilledSecretsRun run) : IClassFixture<Fil
     {
         Assert.True(run.Failures.IsEmpty, string.Join('\n', run.Failures.Select(failure => failure.Key + ": " + failure.Value)));
         Assert.Equal(FilledSecretsRun.Titles.Count, run.Reports.Count);
+    }
+
+    [Fact]
+    public void Keeps_a_screenshot_after_a_fill()
+    {
+        var attempt = run.AttemptOf("fills a visible field");
+        var screenshot = Assert.Single(attempt.Artifacts, artifact => artifact.Kind == ArtifactKind.Screenshot);
+        Assert.Matches(new Regex(@"after-fill.*\.png\z", RegexOptions.None, TimeSpan.FromSeconds(2)), screenshot.Path);
     }
 
     [Fact]
@@ -85,10 +94,8 @@ public sealed class FilledSecretsTests(FilledSecretsRun run) : IClassFixture<Fil
             });
     }
 
-    // PARTIAL: upstream's suite also fills a visible field and keeps `app.screenshot('after-fill')`; the port has no `app.screenshot`,
-    // so the store never receives that screenshot and its bytes are not read here.
     [Fact]
-    public void Leaves_the_plaintext_nowhere_under_e2e_in_the_report_or_in_what_the_store_received_PARTIAL()
+    public void Leaves_the_plaintext_nowhere_under_e2e_in_the_report_or_in_what_the_store_received()
     {
         Assert.DoesNotContain(FilledSecretsRun.Secret, JsonSerializer.Serialize(run.Reports.Values.ToArray()), StringComparison.Ordinal);
         var plaintext = Encoding.UTF8.GetBytes(FilledSecretsRun.Secret);
@@ -250,6 +257,7 @@ public sealed class FilledSecretsRun : IAsyncLifetime
             case "fills a visible field":
                 await app.OpenAsync();
                 await screen.GetByLabel("Focus target").FillAsync(password);
+                await app.ScreenshotAsync("after-fill");
                 break;
             default:
                 throw new InvalidOperationException(title);
