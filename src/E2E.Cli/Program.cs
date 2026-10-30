@@ -44,7 +44,7 @@ public static partial class Program
         e2e explore runs the agent against the app toward a goal, without a test file, and reports its findings. e2e explore --help lists its options.
 
         e2e mcp serves a coding agent such as Claude Code over MCP (stdio): the fixed tools and the guide
-        resources. Each action prints the test line that repeats it, so the agent writes a test while it walks the real app. Register it with: claude mcp add e2e -- e2e mcp
+        resources. Each action prints the test line that repeats it, or says why it has none, so the agent writes a test while it walks the real app. Register it with: claude mcp add e2e -- e2e mcp
 
         Credentials live in $XDG_CONFIG_HOME/e2e/oauth.json (or ~/.config/e2e/oauth.json).
         E2E_OAUTH_CREDENTIALS holding the same JSON stands in for the file. Use API keys in CI.

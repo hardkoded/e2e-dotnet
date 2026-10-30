@@ -170,16 +170,27 @@ No line: `type` or `press` with no target, `tap` or `double_tap` with
 
 The loop is:
 
-1. Before `open_session`, create the `E2ETest` class (topic `writing-tests`)
-   with its usings, the test method, and the call that opens the screen it
-   covers, such as `App.OpenAsync("/settings/members")`. Then `open_session`,
-   which opens the app, and go to that screen: on the web,
-   `call {tool: "navigate", args: {url: "<the path App.OpenAsync names>"}}`;
-   on a device, the shortest path from the launch screen. Actions that only
-   got you there, such as a sign-in the test's setup replaces, stay out of
-   the test when its opening reaches that screen directly; otherwise they are
-   its first steps. Node refs are valid only for the newest observation, so
-   `observe` again before using new ones.
+1. Before `open_session`, create the target's test class with its usings and
+   the test method, and open the screen it covers. Then `open_session`,
+   which opens the app, and go to that screen. Actions that only got you
+   there, such as a sign-in the test's setup replaces, stay out of the test
+   when its opening reaches that screen directly; otherwise they are its
+   first steps. Node refs are valid only for the newest observation, so
+   `observe` again before using new ones. By target:
+   - Web: an `E2ETest` class (topic `writing-tests`) whose test opens the
+     screen with `App.OpenAsync("/settings/members")`. After `open_session`,
+     `call {tool: "navigate", args: {url: "<the path App.OpenAsync names>"}}`.
+   - iOS or Android: a `MobileAppTest` class (topic `mobile`) whose test opens
+     the screen with `Device.OpenLinkAsync`, or starts on the launch screen
+     when the app has no link for it. After `open_session`, take the shortest
+     path from the launch screen; the actions that took it are the test's
+     first steps unless a link reaches the screen.
+   - Windows: a `WinAppTest` class (topic `windows`). A desktop app has no
+     path: `App.OpenAsync()` relaunches it, and `WinAppTest` already does
+     that before each test when the target names `app.appPath`; a target with
+     only `app.bundleId` attaches to the running app, so the test starts
+     where the walk left it. After `open_session`, take the shortest path from
+     the launch window; those actions are the test's first steps.
 2. Walk the flow one screen at a time, and write each screen's steps into
    the file before you leave it. Do not walk the whole flow first and write
    the test from memory afterwards. Each step is one of two kinds:

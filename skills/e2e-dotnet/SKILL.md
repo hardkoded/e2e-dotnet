@@ -116,8 +116,9 @@ public sealed class BillingTests : E2ETest
 2. With a connected `e2e mcp` server (topic `mcp`), write the test while
    you walk the flow, not from memory after the walk. A test written
    afterwards fails on each name or step you got wrong, one run at a time.
-   Before `open_session`, create the `E2ETest` class, opening on the screen
-   it covers (step 3). Then add each step to the file as you take it in the
+   Before `open_session`, create the target's test class (`E2ETest` for web,
+   `MobileAppTest` for iOS or Android, `WinAppTest` for Windows), opening on
+   the screen it covers (step 3). Then add each step to the file as you take it in the
    session. An `ActAsync` goal goes in before you walk its path, and the
    path's actions stay out of the test. A `Screen` line is the `Test line:`
    its action printed, copied as is. When the outcome shows, `locate` it and
