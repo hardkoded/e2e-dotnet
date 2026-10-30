@@ -79,6 +79,15 @@ public sealed class EngineStartOptions
 {
     public string? BaseUrl { get; init; }
 
+    /// <summary>The target's name, for the errors an engine raises about its <c>app</c>. Upstream's <c>EngineInitContext.targetName</c>.</summary>
+    public string? TargetName { get; init; }
+
+    /// <summary>
+    /// The permissions the app holds, by name: the target's <c>app.permissions</c> (upstream's <c>EngineAppInfo.permissions</c>). What each
+    /// state means is the engine's. A browser grants each name to every page of the attempt and takes <c>grant</c> only.
+    /// </summary>
+    public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init; }
+
     public TimeSpan ActionTimeout { get; init; } = E2EDefaults.ActionTimeout;
 
     /// <summary>Anchors the files the engine options name, such as an init script's <c>Path</c>. Defaults to the working directory.</summary>

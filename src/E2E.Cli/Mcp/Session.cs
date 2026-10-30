@@ -312,6 +312,7 @@ internal sealed class SessionHost : IDisposable
                 {
                     Engine = engine,
                     BaseUrl = target.App.Url,
+                    Permissions = target.App.Permissions,
                     ProjectRoot = config.ProjectRoot,
                     TargetName = target.Name,
                     Cache = null,

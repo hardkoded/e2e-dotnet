@@ -62,7 +62,7 @@ public sealed class E2EConfig
 
     private static readonly string[] UnsupportedTargetKeys = ["engine"];
 
-    private static readonly string[] AppKeys = ["url", "command", "readyUrl", "identity", "environment"];
+    private static readonly string[] AppKeys = ["url", "command", "readyUrl", "identity", "environment", "permissions"];
 
     private static readonly string[] MobileAppKeys =
         ["bundleId", "appPath", "command", "readyUrl", "identity", "environment", "launchArguments", "permissions"];
@@ -70,7 +70,7 @@ public sealed class E2EConfig
     private static readonly string[] WindowsAppKeys =
         ["bundleId", "appPath", "command", "readyUrl", "identity", "environment", "launchArguments"];
 
-    // A web target grants no browser permissions yet, and a Windows app has none to grant.
+    // A Windows app has no permissions to grant.
     private static readonly string[] UnsupportedAppKeys = ["permissions"];
 
     private static readonly string[] Environments = ["test", "staging", "production"];
@@ -845,8 +845,9 @@ public sealed class AppConfig
     public IReadOnlyList<string>? LaunchArguments { get; init; }
 
     /// <summary>
-    /// Permissions the app holds before every fresh launch, by permission name (upstream's <c>app.permissions</c>). A device target
-    /// takes the names of <c>DevicePermission</c>.
+    /// Permissions the app holds, by permission name (upstream's <c>app.permissions</c>). A device target sets each before every fresh
+    /// launch and takes the names of <c>DevicePermission</c>. A web target takes <see cref="AppPermissionState.Grant"/> only, for the names its
+    /// browser grants (Playwright's), and every page of the attempt holds the grant; headless Chromium refuses what is left out.
     /// </summary>
     public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init; }
 

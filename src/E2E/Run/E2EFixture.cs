@@ -99,6 +99,9 @@ public abstract class E2EFixture
     /// <summary><c>targets[0].app.url</c>.</summary>
     protected virtual string? BaseUrl => Config.Target.App.Url;
 
+    /// <summary><c>targets[0].app.permissions</c>: the browser permissions every page of a web attempt holds.</summary>
+    protected virtual IReadOnlyDictionary<string, AppPermissionState>? Permissions => Config.Target.App.Permissions;
+
     /// <summary>Anchors the files a test names, such as a route's fulfill path. Defaults to the config's directory.</summary>
     protected virtual string ProjectRoot => Config.ProjectRoot;
 
@@ -229,6 +232,7 @@ public abstract class E2EFixture
                 Agent = TestAgentOptions.Agent(GetType(), testMethod) ?? RunAgent,
                 TestAgentContext = TestAgentOptions.AgentContext(GetType(), testMethod),
                 BaseUrl = baseUrl,
+                Permissions = Permissions,
                 ProjectRoot = ProjectRoot,
                 TargetName = TargetName,
                 UpdateSnapshots = UpdateSnapshots,

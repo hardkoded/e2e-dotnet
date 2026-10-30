@@ -363,6 +363,13 @@ public sealed partial class WebEngine : IEngine
         try
         {
             var initScripts = await ReadInitScriptsAsync(options.ProjectRoot, cancellationToken).ConfigureAwait(false);
+
+            // A provider or a CDP attach speaks CDP, so it takes Chromium's names.
+            if (options.Permissions is { } permissions)
+            {
+                WebPermissions.ValidatePermissions(options.TargetName ?? "web", connect is null && _options.Browser is null ? _options.BrowserName : BrowserName.Chromium, permissions);
+            }
+
             if (connect is null)
             {
                 await EnsureBrowserAsync(_options.BrowserName, !_headless, cancellationToken).ConfigureAwait(false);
@@ -379,7 +386,7 @@ public sealed partial class WebEngine : IEngine
                     options.ActionTimeout,
                     _options,
                     initScripts,
-                    context => InstallSiteHeadersAsync(context, app),
+                    context => SetUpContextAsync(context, app, options.Permissions),
                     url => SiteHeadersFor(url, app),
                     seams,
                     lease,
@@ -409,7 +416,7 @@ public sealed partial class WebEngine : IEngine
                     browser = await BrowserConnection.BrowserType(playwright, _options.BrowserName).LaunchAsync(new BrowserTypeLaunchOptions { Headless = _headless }).ConfigureAwait(false);
                 }
 
-                session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => InstallSiteHeadersAsync(context, app), url => SiteHeadersFor(url, app), seams, credentials: credentials, lease: lease) { Video = VideoSetupOf(options, lease), ArtifactsDir = options.ArtifactsDir };
+                session = new WebSession(playwright, browser, options.ActionTimeout, _options, initScripts, context => SetUpContextAsync(context, app, options.Permissions), url => SiteHeadersFor(url, app), seams, credentials: credentials, lease: lease) { Video = VideoSetupOf(options, lease), ArtifactsDir = options.ArtifactsDir };
                 session.TraceTo(options);
                 await session.NewContextAsync().ConfigureAwait(false);
 
@@ -906,6 +913,21 @@ public sealed partial class WebEngine : IEngine
     private IReadOnlyDictionary<string, string>? SiteHeadersFor(string url, Uri? app)
     {
         return app is not null && IsAppRequest(url, app) ? _siteHeaders : null;
+    }
+
+    /// <summary>
+    /// What every context of the attempt is set up with before its first page: the site headers, then the permissions the target
+    /// grants (upstream's <c>setUpContext</c> hook).
+    /// </summary>
+    private async Task SetUpContextAsync(IBrowserContext context, Uri? app, IReadOnlyDictionary<string, AppPermissionState>? permissions)
+    {
+        await InstallSiteHeadersAsync(context, app).ConfigureAwait(false);
+
+        // ValidatePermissions admitted only grants.
+        if (permissions is { Count: > 0 })
+        {
+            await context.GrantPermissionsAsync([.. permissions.Keys]).ConfigureAwait(false);
+        }
     }
 
     /// <summary>

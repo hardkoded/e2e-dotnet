@@ -175,6 +175,8 @@ public sealed class E2ESession : IAsyncDisposable
                 new EngineStartOptions
                 {
                     BaseUrl = baseUrl,
+                    TargetName = options.TargetName,
+                    Permissions = options.Permissions,
                     ActionTimeout = options.ActionTimeout,
                     ProjectRoot = projectRoot,
                     Env = env,
@@ -908,6 +910,9 @@ public sealed class E2ESessionOptions
     public string? TestAgentContext { get; init; }
 
     public string? BaseUrl { get; init; }
+
+    /// <summary>The target's <c>app.permissions</c>: what the engine grants the app. Upstream's <c>EngineAppInfo.permissions</c>.</summary>
+    public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init; }
 
     /// <summary>Anchors the files a test names, such as a route's fulfill <c>Path</c>. Defaults to the working directory.</summary>
     public string? ProjectRoot { get; init; }
