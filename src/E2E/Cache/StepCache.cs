@@ -490,7 +490,7 @@ internal static class CacheKeys
                 foreach (var (suffix, encode) in Encodings)
                 {
                     var spelled = encode(text);
-                    if (spelled.Length > 0 && seen.Add(spelled))
+                    if (!string.IsNullOrEmpty(spelled) && seen.Add(spelled))
                     {
                         found.Add((spelled, "\u0001" + pair.Key + suffix + "\u0001"));
                     }
@@ -520,7 +520,11 @@ internal static class CacheKeys
             {
                 foreach (var (suffix, encode) in Encodings)
                 {
-                    value = value.Replace("\u0001" + pair.Key + suffix + "\u0001", encode(unique.Value), StringComparison.Ordinal);
+                    // A value with no such spelling (an unpaired surrogate has no uri spelling) leaves the slot as recorded.
+                    if (encode(unique.Value) is { } spelled)
+                    {
+                        value = value.Replace("\u0001" + pair.Key + suffix + "\u0001", spelled, StringComparison.Ordinal);
+                    }
                 }
 
                 value = value.Replace("\u0001" + pair.Key + "\u0001", unique.Value, StringComparison.Ordinal);
@@ -530,19 +534,88 @@ internal static class CacheKeys
         return value;
     }
 
+    private const string UriSuffix = "|uri";
+
     private const string FormSuffix = "|form";
+
+    private const string SlugSuffix = "|slug";
 
     private const string FlatSuffix = "|flat";
 
     /// <summary>
-    /// Upstream's <c>ENCODERS</c>: the other spellings a value takes in recorded text. <c>form</c> is a URL's, and <c>flat</c> is
-    /// <c>normalizeText</c>, the way the screen and the end anchors show a multi-line value.
+    /// Upstream's <c>ENCODERS</c>: the other spellings a value takes in recorded text, in upstream's order. <c>uri</c> is
+    /// <c>encodeURIComponent</c> (a space is <c>%20</c>), <c>form</c> is a URL's query, <c>slug</c> is the slug an app derives for a
+    /// record's path, and <c>flat</c> is <c>normalizeText</c>, the way the screen and the end anchors show a multi-line value. An
+    /// encoder returns <see langword="null"/> when the value has no such spelling.
     /// </summary>
-    private static readonly (string Suffix, Func<string, string> Encode)[] Encodings =
+    private static readonly (string Suffix, Func<string, string?> Encode)[] Encodings =
     [
+        (UriSuffix, UriEncode),
         (FormSuffix, FormEncode),
+        (SlugSuffix, SlugEncode),
         (FlatSuffix, TextRules.Normalize),
     ];
+
+    /// <summary>
+    /// Upstream's <c>encodeURIComponent</c>: everything but letters, digits and <c>-_.!~*'()</c> percent-encoded. An unpaired
+    /// surrogate cannot be encoded, so the value has no uri spelling.
+    /// </summary>
+    private static string? UriEncode(string value)
+    {
+        for (var index = 0; index < value.Length; index++)
+        {
+            if (char.IsHighSurrogate(value[index]) && index + 1 < value.Length && char.IsLowSurrogate(value[index + 1]))
+            {
+                index++;
+            }
+            else if (char.IsSurrogate(value[index]))
+            {
+                return null;
+            }
+        }
+
+        var builder = new StringBuilder();
+        foreach (var octet in Encoding.UTF8.GetBytes(value))
+        {
+            if (octet is (>= (byte)'a' and <= (byte)'z') or (>= (byte)'A' and <= (byte)'Z') or (>= (byte)'0' and <= (byte)'9')
+                or (byte)'-' or (byte)'_' or (byte)'.' or (byte)'!' or (byte)'~' or (byte)'*' or (byte)'\'' or (byte)'(' or (byte)')')
+            {
+                builder.Append((char)octet);
+            }
+            else
+            {
+                builder.Append('%').Append(octet.ToString("X2", CultureInfo.InvariantCulture));
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>The slug an app derives for a record's path: lowercase, letters and digits kept, every other run as one dash, no dash at either end.</summary>
+    private static string SlugEncode(string value)
+    {
+        var builder = new StringBuilder();
+        var dash = false;
+        foreach (var rune in value.ToLowerInvariant().EnumerateRunes())
+        {
+            if (Rune.IsLetterOrDigit(rune) || Rune.GetUnicodeCategory(rune) is UnicodeCategory.LetterNumber or UnicodeCategory.OtherNumber)
+            {
+                if (dash && builder.Length > 0)
+                {
+                    builder.Append('-');
+                }
+
+                dash = false;
+                builder.Append(rune.ToString());
+            }
+            else
+            {
+                dash = true;
+            }
+        }
+
+        return builder.ToString();
+    }
 
     /// <summary>The value as a form submission writes it: <c>+</c> for a space, and everything but letters, digits and <c>*-._</c> percent-encoded.</summary>
     private static string FormEncode(string value)
@@ -580,7 +653,7 @@ internal static class CacheKeys
         {
             string[] spellings = value switch
             {
-                UniqueValue unique => [unique.Value, .. Encodings.Select(encoding => encoding.Encode(unique.Value))],
+                UniqueValue unique => [unique.Value, .. Encodings.Select(encoding => encoding.Encode(unique.Value) ?? "")],
                 string textValue => [textValue],
                 _ => [],
             };

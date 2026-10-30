@@ -4,6 +4,7 @@
 
 using System.Text.Json;
 using E2E.Engine;
+using E2E.Internal;
 using Microsoft.Playwright;
 
 namespace E2E.Tests.CdpRecovery;
@@ -498,14 +499,8 @@ public sealed class CdpSessionRecoveryTests
         Assert.Equal("ENGINE_FAILURE", (await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(None))).Code);
     }
 
-    /// <summary>
-    /// Partial of upstream "masks password fields in light and closed shadow DOM before and after reconnect": the port does not
-    /// register its selector engines in the CDP default context (upstream's registerCdpSelectors), so a screenshot over a CDP
-    /// attach fails with an unknown engine before it can mask. This checks the part of the upstream change that applies: a page
-    /// that replaced the global WeakMap keeps its closed-root tracking through the reconnect, so recovery does not refuse it.
-    /// </summary>
     [Fact]
-    public async Task Partial_Keeps_the_closed_root_tracking_after_reconnect_on_a_page_that_replaced_the_global_WeakMap()
+    public async Task Masks_password_fields_in_light_and_closed_shadow_DOM_before_and_after_reconnect()
     {
         using var app = await FixtureApp.StartAsync();
         await using var remote = await RemoteChrome.LaunchAsync();
@@ -515,15 +510,40 @@ public sealed class CdpSessionRecoveryTests
               // A polyfill that replaces the global must not hide the record the init script made.
               Reflect.set(globalThis, 'WeakMap', Map);
               document.body.innerHTML = '';
+              document.body.style.background = 'blue';
+              const field = document.createElement('input');
+              field.type = 'password';
+              field.value = 'private';
+              field.style.cssText = 'position:fixed;left:20px;top:20px;width:180px;height:40px';
+              document.body.append(field);
               const shadowHost = document.createElement('div');
               document.body.append(shadowHost);
               const root = shadowHost.attachShadow({ mode: 'closed' });
-              root.innerHTML = '<input type="password" aria-label="Hidden" value="private">';
+              const hiddenField = field.cloneNode(true);
+              hiddenField.style.top = '80px';
+              root.append(hiddenField);
             }
             """);
-        await WebEngine.SurfaceOf(session)!.Context().Browser!.CloseAsync();
-        var observation = await session.ObserveAsync(None);
-        Assert.Contains(LocatorResolver.Walk(observation.Roots), node => node.States.Secure);
+        foreach (var reconnect in new[] { false, true })
+        {
+            if (reconnect)
+            {
+                await WebEngine.SurfaceOf(session)!.Context().Browser!.CloseAsync();
+            }
+
+            var snapshot = await session.ScreenshotAsync(None);
+            Assert.Equal(2, snapshot.MaskedRegionCount);
+            var image = ImageOps.DecodePng(snapshot.Png);
+            Assert.Equal([0, 0, 0, 255], PixelAt(image, 40, 40));
+            Assert.Equal([0, 0, 0, 255], PixelAt(image, 40, 100));
+            Assert.Equal([0, 0, 255, 255], PixelAt(image, 300, 160));
+        }
+    }
+
+    private static byte[] PixelAt(RgbaImage image, int x, int y)
+    {
+        var at = ((y * image.Width) + x) * 4;
+        return image.Data[at..(at + 4)];
     }
 
     private static WebConnectOptions Fixed(RemoteChrome remote) => new()

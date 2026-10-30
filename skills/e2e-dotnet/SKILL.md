@@ -28,7 +28,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | --- | --- | --- |
 | Adding e2e to a project, writing `e2e.config.json`, signing in to a model, picking a model provider, browser options | `setup` | [references/setup.md](references/setup.md) |
 | Looking at the running app, checking a UI change, taking a screenshot, or trying a locator before writing it, over `e2e mcp` | `mcp` | [references/mcp.md](references/mcp.md) |
-| Writing or fixing a test: fixture members, locators, actions, matchers, sign-in, the `Browser` member (navigation, routes, cookies with `SetCookiesAsync` and `ClearCookiesAsync(new CookieFilter { ... })`, native dialogs, downloads with `WaitForDownloadAsync` and `WaitForDownloadsAsync(trigger, count)` for several files from one trigger, CSS locators, iframes), and `Locator.SetInputFilesAsync` for a file input or an upload button that opens a file chooser | `writing-tests` | [references/writing-tests.md](references/writing-tests.md) |
+| Writing or fixing a test: fixture members, locators, actions, matchers, sign-in, the `Browser` member (navigation, routes (`route.FetchAsync()` reads upstream before the handler decides), cookies with `SetCookiesAsync` and `ClearCookiesAsync(new CookieFilter { ... })`, native dialogs, downloads with `WaitForDownloadAsync` and `WaitForDownloadsAsync(trigger, count)` for several files from one trigger, CSS locators, iframes), and `Locator.SetInputFilesAsync` for a file input or an upload button that opens a file chooser | `writing-tests` | [references/writing-tests.md](references/writing-tests.md) |
 | Writing a test with NUnit: the `E2E.NUnit` base class, `[Test]`, `[Category("RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-nunit` | [references/writing-tests-nunit.md](references/writing-tests-nunit.md) |
 | Writing a test with xUnit v3: the `E2E.XUnit.V3` base class, `[Fact]`, `[Trait("TestCategory", "RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-xunit` | [references/writing-tests-xunit.md](references/writing-tests-xunit.md) |
 | Adding `Agent` steps, picking a model, budgets, the replay cache, custom executors | `agent` | [references/agent.md](references/agent.md) |
@@ -204,7 +204,11 @@ lines you changed:
   tells the agent to continue from the current screen without redoing them;
   an `end-mismatch` adds a warning to check the step took effect, and an
   action that failed with an unknown commit state adds a warning to verify the
-  current state first. `AssertAsync`, `WaitForAsync`, and `ExtractAsync`
+  current state first. A replay that stops before it performs any action, for
+  whatever reason (`action-failed` and `action-uncertain` included), is a
+  miss, not a hand-off: outside `cache.strict` the goal runs live from the top
+  with no notice, and under `cache.strict` it fails with `REPLAY_STALE`
+  (except for `gap`). `AssertAsync`, `WaitForAsync`, and `ExtractAsync`
   always call the model. Leave `cache.mode` at `read-write` rather than
   `off`: `off` sends every goal to the model again. Only a `read-write` cache
   records: the local default, but not with `CI` set and no cache mode in the
@@ -221,9 +225,10 @@ lines you changed:
   locator or an expectation keeps the recordings.
 - A run-unique value in `Params` (a timestamped name, a fresh email) goes in as
   `Values.Unique(...)`, so the recording does not change with the value. The
-  substitution also covers the value form-encoded (`Ada+Lovelace`, not a
-  `%20` path spelling) and a multi-line value
-  as the screen shows it, on one line (topic `agent`).
+  substitution also covers the value as a URL spells it (`Ada%20Lovelace` in
+  a path, `Ada+Lovelace` in a query), as the slug an app derives for a record
+  path (`ada-lovelace`), and a multi-line value as the screen shows it, on
+  one line (topic `agent`).
 - Take `[Retry]` off the test while you iterate (NUnit only; xUnit v3 has no
   retry). The first attempt replays; outside `cache.strict`, each retry runs
   every goal live and waits out the failure again.
@@ -294,7 +299,9 @@ lines you changed:
 - `App.ScreenshotAsync(label)` keeps a redacted evidence screenshot under the
   attempt's `screenshots/` and returns the absolute path of the file it wrote.
   It masks secure fields only, after a `Secret` fill too (topic
-  `writing-tests`).
+  `writing-tests`). With `Connect` and `ReconnectEndpoint` the engine registers
+  its selector engines in the browser's default context on every connect and
+  reconnect, so the mask also covers secure fields inside closed shadow roots.
 - Shape the agent for this app: `context` for the vocabulary the screens
   use, `system` for how it works, named agents under `agents`. A screen over
   the agent's `maxObservationBytes` (default 262144) is cut with an

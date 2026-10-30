@@ -92,7 +92,7 @@ public sealed class SignupTests : E2ETest
 }
 ```
 
-- Give `ActAsync` one atomic goal per call. `Params` fills the placeholders. Wrap a run-unique value in `Values.Unique(...)` so the replay cache fills in this run's value; the substitution also covers the value form-encoded (`Ada+Lovelace`, not a `%20` path spelling) and a multi-line value as the screen shows it, on one line.
+- Give `ActAsync` one atomic goal per call. `Params` fills the placeholders. Wrap a run-unique value in `Values.Unique(...)` so the replay cache fills in this run's value; the substitution also covers the value as a URL spells it (`Ada%20Lovelace` in a path, `Ada+Lovelace` in a query), as the slug an app derives for a record path (`ada-lovelace`), and a multi-line value as the screen shows it, on one line.
 - `AssertAsync` asks the model to judge the screen. `Expect.That(...)` checks an exact value with no model call, so pair each agent step with one.
 - Tag tests that call a model, for example `[Category("RealModel")]`, so CI can skip them with `--filter "TestCategory!=RealModel"`.
 
@@ -105,7 +105,7 @@ E2E_HEADLESS=0 dotnet test --project .      # watch the browser
 
 The first run asks the model to perform each `ActAsync`. A passing run records each verified step in `.e2e/cache`, and the next run replays it with no model call. The replay's end check skips text that differs on every run, such as an id, a date, or an ISO 8601 instant, while a stable change exists, and reads one in an alert as a placeholder, so `Saved at 2026-10-24T15:41:27.955Z` matches a later `Saved at 2026-10-24T15:30:00Z`.
 
-When a replay hands off to the agent, the agent takes over from the live screen. The replay may have stopped partway or, after an `end-mismatch`, after every recorded action ran. Its first prompt lists the actions the replay already performed, numbered, then says why it stopped, for example `Replay stopped (target-not-found) after 1 of 2 recorded actions.`, and tells it to continue from the current screen without redoing them. After an `end-mismatch` (`after 2 of 2 recorded actions`) the prompt adds a warning to check that the step took effect. When the next action failed with an unknown commit state (`action-uncertain`), it adds a warning to verify the current state before doing anything like it again. A custom executor gets the same hand-off in `StepExecutorContext.ReplayedPrefix`.
+When a replay hands off to the agent, the agent takes over from the live screen. The replay may have stopped partway or, after an `end-mismatch`, after every recorded action ran. Its first prompt lists the actions the replay already performed, numbered, then says why it stopped, for example `Replay stopped (target-not-found) after 1 of 2 recorded actions.`, and tells it to continue from the current screen without redoing them. After an `end-mismatch` (`after 2 of 2 recorded actions`) the prompt adds a warning to check that the step took effect. When the next action failed with an unknown commit state (`action-uncertain`), it adds a warning to verify the current state before doing anything like it again. A replay that stops before it performs any action is a miss, not a hand-off, whatever stopped it, including a first action that failed (`action-failed`) or may have reached the app (`action-uncertain`): outside `cache.strict` the agent runs the step from the top with no notice, and under `cache.strict` the step fails with `REPLAY_STALE` (except for `gap`). The replay's action budget always lets the first action run, so `action-budget` is never a stop before the first action. A custom executor gets the same hand-off in `StepExecutorContext.ReplayedPrefix`.
 
 ## Granting browser permissions
 
@@ -133,7 +133,7 @@ Headless Chromium refuses a permission the target doesn't grant, so `navigator.c
 | `firefox` | `geolocation`, `local-network-access`, `notifications`, `persistent-storage`, `push`, `screen-wake-lock` |
 | `webkit` | `camera`, `clipboard-read`, `geolocation`, `microphone`, `notifications`, `screen-wake-lock` |
 
-A browser provider or `Connect` takes the `chromium` names: the engine drives it over CDP.
+A browser provider or `Connect` takes the `chromium` names; the engine drives `Connect` and a provider lease with `BrowserProtocol.Cdp` over CDP (a `BrowserProtocol.Playwright` lease uses Playwright's own protocol). With `ReconnectEndpoint` it rides the browser's default context and registers its selector engines there on every connect and reconnect, so screenshots mask secure fields there, including inside closed shadow roots.
 
 `WebEngine.ValidateApp(app, targetName)` checks a web target's `app` explicitly:
 
@@ -158,6 +158,21 @@ A `count` below one fails with `INVALID_ARGUMENT` before the trigger runs. When 
 
 Text downloads are rescanned before reporting with all secrets known by then,
 including later fills and ASCII secrets written as JSON Unicode escapes.
+
+## Inspecting upstream in a route
+
+`Browser.RouteAsync(pattern, handler)` intercepts requests. Inside the handler, `route.FetchAsync()` reads the upstream response without deciding the route, then the handler fulfills, continues, falls back, or aborts as usual:
+
+```csharp
+await Browser.RouteAsync("**/api/quote", async route =>
+{
+    var upstream = await route.FetchAsync();
+    var quote = await upstream.JsonAsync<Quote>();
+    await route.FulfillAsync(new RouteFulfillResponse { Json = quote with { Cents = 1 } });
+});
+```
+
+`FetchAsync()` returns `{ Url, Status, Headers, TextAsync(), JsonAsync<T>() }` with the site's configured headers sent, under the action timeout. It takes no options, and it does not follow redirects, which could take it past the navigation rule: a redirect comes back as its `3xx` status and `location` header. A body the browser could not read fails `TextAsync` and `JsonAsync` with `ACTION_FAILED` naming `route.fetch`, and the metadata stays readable.
 
 ## Next
 

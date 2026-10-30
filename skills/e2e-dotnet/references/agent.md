@@ -148,9 +148,10 @@ outside, `Blocked` is true); `MODEL_OUTPUT_INVALID` (unusable answer),
 
 - `Params`: values the instruction names. The runner fills a `Secret`, at any
   depth of the params, and a `Values.Unique(...)` value keeps the cache
-  working across runs. The substitution also covers the value form-encoded
-  (`Ada+Lovelace`, not a `%20` path spelling) and a multi-line value as the
-  screen shows it, on one line.
+  working across runs. The substitution also covers the value as a URL spells
+  it (`Ada%20Lovelace` in a path, `Ada+Lovelace` in a query), as the slug an
+  app derives for a record path (`ada-lovelace`), and a multi-line value as
+  the screen shows it, on one line.
 - `Timeout`: 30 s by default (`StepTimeout` on the fixture).
 - `MaxSteps` (default 25 actions), `MaxModelCalls` (default 25): may only
   lower the agent's limits, else `INVALID_ARGUMENT`.
@@ -384,7 +385,9 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   every goal in it again, and rewording a goal records that goal again.
   `ActResult.Cache.Reason` says why a replay missed:
   `no-entry`, `invalid-entry`, `wrong-context`, `target-not-found`,
-  `target-ambiguous`, `end-mismatch`, `gap` (the recording stops at a
+  `target-ambiguous`, `action-failed`, `action-uncertain` (the replay stopped
+  before any action; after one it hands off; under `cache.strict` a miss other
+  than `no-entry`, `gap`, and an unreadable store fails with `REPLAY_STALE`), `end-mismatch`, `gap` (the recording stops at a
   project tool, see below).
   `ActResult.Cache.Detail` says where the replay stopped and why
   (`at action 2 of 3, tap button "Apply": ...`). After an `end-mismatch` it

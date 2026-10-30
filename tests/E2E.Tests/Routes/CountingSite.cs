@@ -104,6 +104,14 @@ internal sealed class CountingSite : IDisposable
                 return;
             }
 
+            if (path == "/redirect")
+            {
+                await stream.WriteAsync(Encoding.ASCII.GetBytes("HTTP/1.1 302 Found\r\nlocation: /echo\r\ncontent-length: 0\r\nconnection: close\r\n\r\n"));
+                await stream.FlushAsync();
+                client.Close();
+                return;
+            }
+
             if (path == "/echo")
             {
                 var echo = JsonSerializer.Serialize(new Dictionary<string, object>
