@@ -1,6 +1,6 @@
 ---
 title: "ResultStatus"
-description: "How a test ended, over all its attempts."
+description: "How a test ended, over all its attempts. A pass after an earlier attempt is Flaky, and a retry that was interrupted keeps the Failed or TimedOut verdict of t..."
 editUrl: false
 prev: false
 next: false
@@ -19,7 +19,7 @@ public enum ResultStatus
 ```
 
 
-How a test ended, over all its attempts.
+How a test ended, over all its attempts. A pass after an earlier attempt is [Flaky](#E2E_Reports_ResultStatus_Flaky), and a retry that was interrupted keeps the [Failed](#E2E_Reports_ResultStatus_Failed) or [TimedOut](#E2E_Reports_ResultStatus_TimedOut) verdict of the attempt before it.
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L249)
 

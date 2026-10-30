@@ -89,7 +89,7 @@ public int ExitCode { get; init; }
 ```
 
 
-0, 1, 2, 3, 4, or 130.
+0, 1, 2, 3, 4, or 130. A test that failed or timed out and whose retry was interrupted keeps that verdict and the exit code of its failure, not 130, since the port has no run-level interrupt flag.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 

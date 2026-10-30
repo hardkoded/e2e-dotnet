@@ -102,12 +102,26 @@ public sealed class RunReportTests
         [
             (AttemptStatus.Failed, ResultStatus.Failed),
             (AttemptStatus.TimedOut, ResultStatus.TimedOut),
-            (AttemptStatus.Interrupted, ResultStatus.Interrupted),
             (AttemptStatus.Skipped, ResultStatus.Skipped),
         ];
         foreach (var (final, expected) in cases)
         {
             Assert.Equal(expected, E2E.RunReport.StatusOf([ReportBuilders.Attempt(AttemptStatus.Failed), ReportBuilders.Attempt(final)]));
         }
+    }
+
+    [Fact]
+    public void Keeps_the_earlier_verdict_when_a_retry_is_interrupted_so_the_trace_page_reads_the_attempt_that_failed()
+    {
+        var failed = ReportBuilders.Attempt(AttemptStatus.Failed);
+        var timedOut = ReportBuilders.Attempt(AttemptStatus.TimedOut);
+        var interrupted = ReportBuilders.Attempt(AttemptStatus.Interrupted);
+
+        Assert.Equal(ResultStatus.Failed, E2E.RunReport.StatusOf([failed, interrupted]));
+        Assert.Equal(ResultStatus.TimedOut, E2E.RunReport.StatusOf([timedOut, interrupted]));
+        Assert.Equal(ResultStatus.Interrupted, E2E.RunReport.StatusOf([interrupted]));
+
+        var result = ReportBuilders.Result(attempts: [failed with { DurationMs = 7 }, interrupted with { DurationMs = 99 }]) with { Status = ResultStatus.Failed };
+        Assert.Equal(7, Outcome.Of(result).Verdict.DurationMs);
     }
 }

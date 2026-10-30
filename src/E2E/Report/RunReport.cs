@@ -80,18 +80,10 @@ internal static class RunReport
         return (report with { Run = report.Run with { Results = [result] } }, traced, text => redactors.Aggregate(text, (redacted, each) => each(redacted)));
     }
 
-    /// <summary>How a test ended over its attempts: one that passed after an attempt that did not is flaky.</summary>
-    internal static ResultStatus StatusOf(IReadOnlyList<ReportAttempt> attempts)
-    {
-        var final = attempts.Count == 0 ? AttemptStatus.Skipped : attempts[^1].Status;
-        return final switch
-        {
-            AttemptStatus.Passed when attempts.Take(attempts.Count - 1).Any(earlier => earlier.Status is not (AttemptStatus.Passed or AttemptStatus.Skipped)) => ResultStatus.Flaky,
-            AttemptStatus.Passed => ResultStatus.Passed,
-            AttemptStatus.TimedOut => ResultStatus.TimedOut,
-            AttemptStatus.Interrupted => ResultStatus.Interrupted,
-            AttemptStatus.Skipped => ResultStatus.Skipped,
-            _ => ResultStatus.Failed,
-        };
-    }
+    /// <summary>
+    /// How a test ended over its attempts, as upstream's <c>retryVerdict</c> reads them: one that passed after an attempt is flaky, and a
+    /// retry the run interrupted keeps the failed or timed-out verdict before it.
+    /// </summary>
+    internal static ResultStatus StatusOf(IReadOnlyList<ReportAttempt> attempts) =>
+        Retry.RetryVerdict([.. attempts.Select(attempt => new RetryAttempt(attempt.Status))]);
 }

@@ -30,7 +30,7 @@ public sealed record ReportRun
 
     public ReportRunStatus Status { get; init; }
 
-    /// <summary>0, 1, 2, 3, 4, or 130.</summary>
+    /// <summary>0, 1, 2, 3, 4, or 130. A test that failed or timed out and whose retry was interrupted keeps that verdict and the exit code of its failure, not 130, since the port has no run-level interrupt flag.</summary>
     public int ExitCode { get; init; }
 
     public DateTimeOffset StartedAt { get; init; }
@@ -245,7 +245,7 @@ public enum ResultKind
     Setup,
 }
 
-/// <summary>How a test ended, over all its attempts.</summary>
+/// <summary>How a test ended, over all its attempts. A pass after an earlier attempt is <see cref="Flaky"/>, and a retry that was interrupted keeps the <see cref="Failed"/> or <see cref="TimedOut"/> verdict of the attempt before it.</summary>
 public enum ResultStatus
 {
     Passed,

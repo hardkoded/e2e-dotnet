@@ -77,7 +77,10 @@ written when any of them kept a trace, so a test that passed on a retry reads
 attempt says whether they failed the same way. The time comes from the
 attempt that decided the verdict (`Outcome.Verdict`): the last attempt that
 ended the way the result did, so a retry the run interrupted does not stand for
-a test that failed before it. A failed or timed-out test tells the failure of
+a test that failed before it: a test that failed (or timed out) and whose retry
+was interrupted stays `failed` (or `timed-out`) in the report, as upstream's
+`retryVerdict` reads it, and a test whose first attempt was interrupted is
+`interrupted`. A failed or timed-out test tells the failure of
 that same attempt. A test that passed after a retry (flaky) tells the failure of
 its last failed attempt, and its time is the final attempt's. Open the file; there is
 no viewer. It tells, in this order:
