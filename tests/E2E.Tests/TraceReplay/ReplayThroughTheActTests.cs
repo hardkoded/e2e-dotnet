@@ -144,6 +144,62 @@ public sealed class ReplayThroughTheActTests
     }
 
     [Fact]
+    public async Task A_first_action_that_fails_is_a_miss_not_a_hand_off()
+    {
+        var failing = false;
+        DocumentWorld World() => new DocumentWorld().Map("/home", page =>
+        {
+            var status = page.Status("Idle");
+            page.Button("Upgrade", () =>
+            {
+                if (failing)
+                {
+                    throw new EngineException("ACTION_FAILED", "element detached");
+                }
+
+                status.Name = status.Text = "Upgraded";
+            });
+        });
+        var directory = await RecordAsync(World, ModelResponses.Tap("button", "Upgrade"));
+        failing = true;
+        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "Done."));
+
+        var replay = await StepAsync(World(), new FileStepCache(directory), "/home", null, model);
+
+        Assert.Null(replay.Error);
+        Assert.Equal(("missed", "action-failed", 0), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
+        Assert.DoesNotContain("Replay stopped", model.Requests[0].Messages[0].Content!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_first_action_that_may_have_committed_is_a_miss_not_a_hand_off()
+    {
+        var uncertain = false;
+        DocumentWorld World() => new DocumentWorld().Map("/home", page =>
+        {
+            var status = page.Status("Idle");
+            page.Button("Upgrade", () =>
+            {
+                if (uncertain)
+                {
+                    throw new EngineException(EngineErrorCodes.ActionMayHaveCommitted, "input may have reached the app");
+                }
+
+                status.Name = status.Text = "Upgraded";
+            });
+        });
+        var directory = await RecordAsync(World, ModelResponses.Tap("button", "Upgrade"));
+        uncertain = true;
+        var model = new ScriptedModel(_ => ModelResponses.Done("passed", "Done."));
+
+        var replay = await StepAsync(World(), new FileStepCache(directory), "/home", null, model);
+
+        Assert.Null(replay.Error);
+        Assert.Equal(("missed", "action-uncertain", 0), (replay.Cache?.Mode, replay.Cache?.Reason, replay.Cache?.ReplayedActions));
+        Assert.DoesNotContain("Replay stopped", model.Requests[0].Messages[0].Content!, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Partial_Absorbs_an_action_failure_as_divergence_never_as_a_step_failure()
     {
         var failing = false;
@@ -300,7 +356,7 @@ public sealed class ReplayThroughTheActTests
     }
 
     [Fact]
-    public async Task A_secret_marker_the_step_did_not_declare_hands_off_as_action_failed()
+    public async Task A_secret_marker_the_step_did_not_declare_misses_as_action_failed()
     {
         var directory = CoreTests.TempCache();
         IReadOnlyDictionary<string, object?> Params(string email) => new Dictionary<string, object?> { ["email"] = Values.Unique(email) };
@@ -315,7 +371,7 @@ public sealed class ReplayThroughTheActTests
         }, Params("<secret:absent>"));
 
         Assert.Null(second.Error);
-        Assert.Equal(("agent-concluded", "action-failed"), (cache?.Mode, cache?.Reason));
+        Assert.Equal(("missed", "action-failed"), (cache?.Mode, cache?.Reason));
         Assert.Contains("Replay needs secret 'absent'", cache?.Detail, StringComparison.Ordinal);
     }
 

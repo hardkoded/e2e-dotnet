@@ -359,12 +359,17 @@ internal sealed class StepTraceSession
         if (!outcome.Completed)
         {
             var reason = ReplayHandOffReasons.Name(outcome.StopReason!.Value);
+            if (outcome.Executed == 0)
+            {
+                // A prefix that performed nothing is a miss with a name, not a hand-off: the executor starts from the top and owes
+                // the notice nothing, whatever stopped the replay.
+                _recorder.Clear();
+                _info = Missed(reason, entry.Actions.Count, StoppedAt(outcome.StopReason is ReplayHandOffReason.ActionUncertain or ReplayHandOffReason.ActionFailed ? outcome.Detail : null));
+                return null;
+            }
+
             switch (outcome.StopReason)
             {
-                case ReplayHandOffReason.Gap or ReplayHandOffReason.TargetNotFound or ReplayHandOffReason.TargetAmbiguous or ReplayHandOffReason.InvalidEntry when outcome.Executed == 0:
-                    _recorder.Clear();
-                    _info = Missed(reason, entry.Actions.Count, StoppedAt());
-                    return null;
                 case ReplayHandOffReason.ActionUncertain:
                     HandOff(reason, StoppedAt(outcome.Detail), outcome.UncertainAction);
                     return null;

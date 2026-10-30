@@ -260,7 +260,9 @@ A replay miss is not a failure. The step runs live and records again.
 `ActResult.Cache.Reason` says why it missed: `no-entry` (nothing recorded
 yet), `invalid-entry` (an old or broken file, or a store that could not be
 read), `target-not-found` (the control's role or name changed),
-`target-ambiguous`, `wrong-context` (the app was on another origin, path, or query), or
+`target-ambiguous`, `action-failed` or `action-uncertain` (the first
+recorded action threw, or may have reached the app; a later action hands off
+instead), `wrong-context` (the app was on another origin, path, or query), or
 `end-mismatch` (every action ran, but the recorded route, a control that
 should have appeared or gone away, or a recorded state did not come back;
 the outcome was already on screen before the replay; or the replay raised
