@@ -9,6 +9,7 @@
 - The app under test
 - Environment variables
 - App identity and environment
+- Browser permissions
 - Mobile targets
 - Windows targets
 - Done when
