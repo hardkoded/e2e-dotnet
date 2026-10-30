@@ -262,7 +262,8 @@ lines you changed:
 - An engine that can save and reuse the app's state overrides
   `IEngineSession.CaptureStateAsync` and `RestoreStateAsync` (an `EngineState`:
   a format, a version, opaque data). Without them they fail with
-  `UNSUPPORTED_CAPABILITY`. `WebEngine` implements both (cookies, local
+  `UNSUPPORTED_CAPABILITY`. Each call is bounded by the action timeout
+  (`OPERATION_TIMEOUT`). `WebEngine` implements both (cookies, local
   storage, IndexedDB); the port has no setup tests yet that call them.
 - To reach a node below the fold, `Screen.ScrollUntilVisibleAsync(locator,
   new ScrollUntilVisibleOptions { Direction, Momentum, Timeout })` scrolls the viewport
