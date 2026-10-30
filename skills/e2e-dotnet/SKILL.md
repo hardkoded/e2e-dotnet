@@ -225,9 +225,10 @@ lines you changed:
   locator or an expectation keeps the recordings.
 - A run-unique value in `Params` (a timestamped name, a fresh email) goes in as
   `Values.Unique(...)`, so the recording does not change with the value. The
-  substitution also covers the value form-encoded (`Ada+Lovelace`, not a
-  `%20` path spelling) and a multi-line value
-  as the screen shows it, on one line (topic `agent`).
+  substitution also covers the value as a URL spells it (`Ada%20Lovelace` in
+  a path, `Ada+Lovelace` in a query), as the slug an app derives for a record
+  path (`ada-lovelace`), and a multi-line value as the screen shows it, on
+  one line (topic `agent`).
 - Take `[Retry]` off the test while you iterate (NUnit only; xUnit v3 has no
   retry). The first attempt replays; outside `cache.strict`, each retry runs
   every goal live and waits out the failure again.
