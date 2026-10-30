@@ -3246,7 +3246,17 @@ public sealed partial class WebEngine : IEngine
                 // Read before the response is disposed; a failed read stays in the task, so every read of
                 // the body faults and the metadata stays readable.
                 var body = WebSession.ReadResponseBodyAsync("route.fetch", response.BodyAsync, () => null);
-                await Task.WhenAny(body).ConfigureAwait(false);
+                try
+                {
+                    // Bounded like the fetch: a body that never finishes must not hold the handler back from the metadata.
+                    await Task.WhenAny(body).WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    var budget = ((long)timeout.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    body = Task.FromException<string>(new TestException("ACTION_FAILED", "route.fetch: response body did not finish within " + budget + "ms"));
+                }
+
                 return new BrowserResponse
                 {
                     Url = response.Url,

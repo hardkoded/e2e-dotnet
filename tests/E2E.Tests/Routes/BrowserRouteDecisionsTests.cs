@@ -24,9 +24,9 @@ public sealed class BrowserRouteDecisionsTests
             var echo = (await upstream.JsonAsync<Echo>())!;
             Assert.Equal("open-sesame", echo.Headers["x-gate"]);
             var text = JsonSerializer.Deserialize<Echo>(await upstream.TextAsync(), JsonOptions)!;
+            Assert.Equal(echo, text with { Headers = echo.Headers });
             Assert.Equal(echo.Headers, text.Headers);
-            Assert.Equal(echo.Path, text.Path);
-            await route.FulfillAsync(new RouteFulfillResponse { Json = new { echo.Path, amended = true } });
+            await route.FulfillAsync(new RouteFulfillResponse { Json = new { echo.Path, echo.Method, echo.Headers, echo.Body, amended = true } });
         });
         var amended = JsonDocument.Parse(await routes.FetchTextAsync(routes.Site.Origin + "/echo")).RootElement;
         Assert.True(amended.GetProperty("amended").GetBoolean());
