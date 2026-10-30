@@ -323,6 +323,9 @@ public sealed partial class WebEngine : IEngine
     /// <summary>The clock operation budgets read; tests replace it to control elapsed time.</summary>
     internal TimeProvider Clock { get; init; } = TimeProvider.System;
 
+    /// <summary>What reads a route's upstream response; tests replace it to hand the harness a response whose body is gone.</summary>
+    internal Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> FetchRoute { get; init; } = static (route, options) => route.FetchAsync(options);
+
     public string Version => EngineVersion;
 
     public EngineCapabilities Capabilities =>
@@ -419,7 +422,7 @@ public sealed partial class WebEngine : IEngine
 
             var playwright = await CreatePlaywright().ConfigureAwait(false);
             var app = Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var parsed) ? parsed : null;
-            var seams = new SessionSeams(Clock, ConnectCdp);
+            var seams = new SessionSeams(Clock, ConnectCdp, FetchRoute);
             if (connect is { ReconnectEndpoint: { } reconnect } persistent)
             {
                 var persistentSession = await WebSession.StartPersistentAsync(
@@ -1569,7 +1572,7 @@ public sealed partial class WebEngine : IEngine
                 Url = response.Url,
                 Status = response.Status,
                 Headers = response.Headers,
-                Body = ReadBodyAsync(response),
+                Body = ReadResponseBodyAsync("waitForResponse", response.BodyAsync, () => response.Request.Failure),
             };
         });
 
@@ -2938,7 +2941,7 @@ public sealed partial class WebEngine : IEngine
         /// </summary>
         private async Task HandleRouteAsync(IRoute route, Func<IBrowserRoute, Task> handler)
         {
-            var decision = new PlaywrightRoute(route, _siteHeaders);
+            var decision = new PlaywrightRoute(route, _siteHeaders, _seams.FetchRoute);
             try
             {
                 await handler(decision).ConfigureAwait(false);
@@ -2961,16 +2964,15 @@ public sealed partial class WebEngine : IEngine
         /// declared length), and the error behind the read is the fallback, as for
         /// a redirect, whose body the browser never keeps.
         /// </summary>
-        private static async Task<string> ReadBodyAsync(IResponse response)
+        internal static async Task<string> ReadResponseBodyAsync(string api, Func<Task<byte[]>> body, Func<string?> failure)
         {
             try
             {
-                return System.Text.Encoding.UTF8.GetString(await response.BodyAsync().ConfigureAwait(false));
+                return System.Text.Encoding.UTF8.GetString(await body().ConfigureAwait(false));
             }
             catch (PlaywrightException ex)
             {
-                var reason = response.Request.Failure ?? WebErrors.Message(ex);
-                throw new TestException("ACTION_FAILED", "waitForResponse: response body could not be read: " + reason, ex);
+                throw new TestException("ACTION_FAILED", api + ": response body could not be read: " + (failure() ?? WebErrors.Message(ex)), ex);
             }
         }
 
@@ -3115,11 +3117,13 @@ public sealed partial class WebEngine : IEngine
     {
         private readonly IRoute _route;
         private readonly Func<string, IReadOnlyDictionary<string, string>?> _siteHeaders;
+        private readonly Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> _fetch;
 
-        public PlaywrightRoute(IRoute route, Func<string, IReadOnlyDictionary<string, string>?> siteHeaders)
+        public PlaywrightRoute(IRoute route, Func<string, IReadOnlyDictionary<string, string>?> siteHeaders, Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> fetch)
         {
             _route = route;
             _siteHeaders = siteHeaders;
+            _fetch = fetch;
             var request = route.Request;
             Request = new WebRouteRequest
             {
@@ -3186,6 +3190,56 @@ public sealed partial class WebEngine : IEngine
             }));
         }
 
+        public async Task<BrowserResponse> FetchAsync(TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            // The fetch skips every route registered before this one, the site-header
+            // route included, so it merges those headers itself.
+            var headers = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var (name, value) in Request.Headers)
+            {
+                headers[name.ToLowerInvariant()] = value;
+            }
+
+            foreach (var (name, value) in _siteHeaders(Request.Url) ?? Enumerable.Empty<KeyValuePair<string, string>>())
+            {
+                headers[name] = value;
+            }
+
+            IAPIResponse response;
+            try
+            {
+                response = await _fetch(_route, new RouteFetchOptions
+                {
+                    Headers = headers,
+                    Timeout = (float)timeout.TotalMilliseconds,
+                    MaxRedirects = 0,
+                }).WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.Translate(ex, "route.fetch");
+            }
+
+            try
+            {
+                // Read before the response is disposed; a failed read stays in the task, so every read of
+                // the body faults and the metadata stays readable.
+                var body = WebSession.ReadResponseBodyAsync("route.fetch", response.BodyAsync, () => null);
+                await Task.WhenAny(body).ConfigureAwait(false);
+                return new BrowserResponse
+                {
+                    Url = response.Url,
+                    Status = response.Status,
+                    Headers = response.Headers.ToDictionary(pair => pair.Key.ToLowerInvariant(), pair => pair.Value, StringComparer.Ordinal),
+                    Body = body,
+                };
+            }
+            finally
+            {
+                await response.DisposeAsync().ConfigureAwait(false);
+            }
+        }
+
         public Task FallbackAsync() => DecideAsync("route.fallback", () => _route.FallbackAsync());
 
         public Task AbortAsync() => DecideAsync("route.abort", () => _route.AbortAsync());
@@ -3208,7 +3262,7 @@ public sealed partial class WebEngine : IEngine
     }
 
     /// <summary>What tests replace: the clock budgets read, and the CDP attach.</summary>
-    private sealed record SessionSeams(TimeProvider Clock, Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp);
+    private sealed record SessionSeams(TimeProvider Clock, Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp, Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> FetchRoute);
 
     /// <summary>The <c>connect</c> resolvers of a persistent context, and the default contexts earlier attempts rode.</summary>
     private sealed record PersistentConnect(

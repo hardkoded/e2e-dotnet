@@ -159,6 +159,21 @@ A `count` below one fails with `INVALID_ARGUMENT` before the trigger runs. When 
 Text downloads are rescanned before reporting with all secrets known by then,
 including later fills and ASCII secrets written as JSON Unicode escapes.
 
+## Inspecting upstream in a route
+
+`Browser.RouteAsync(pattern, handler)` intercepts requests. Inside the handler, `route.FetchAsync()` reads the upstream response without deciding the route, then the handler fulfills, continues, falls back, or aborts as usual:
+
+```csharp
+await Browser.RouteAsync("**/api/quote", async route =>
+{
+    var upstream = await route.FetchAsync();
+    var quote = await upstream.JsonAsync<Quote>();
+    await route.FulfillAsync(new RouteFulfillResponse { Json = quote with { Cents = 1 } });
+});
+```
+
+`FetchAsync()` returns `{ Url, Status, Headers, TextAsync(), JsonAsync<T>() }` with the site's configured headers sent, under the action timeout. It takes no options, and it does not follow redirects, which could take it past the navigation rule: a redirect comes back as its `3xx` status and `location` header. A body the browser could not read fails `TextAsync` and `JsonAsync` with `ACTION_FAILED` naming `route.fetch`, and the metadata stays readable.
+
 ## Next
 
 <CardGrid>
