@@ -38,14 +38,11 @@ internal sealed record RunStartedEvent : RunEventFact
     public string? Judge { get; init; }
 }
 
-/// <summary>One test file on one target in the plan.</summary>
-internal sealed record PlannedFile(string File, string Target, int Tests);
-
 /// <summary>
 /// Upstream's <c>plan</c> fact: what the run will execute, emitted once collection, selection, and every target's setup are done.
-/// From here the run executes, so the list reporter's clock starts with it.
+/// From here the run executes, so the list reporter's clock starts with it. <c>Files</c> is upstream's inline <c>{ file, target, tests }</c> list, one tuple per test file on one target.
 /// </summary>
-internal sealed record PlanEvent(int Total, IReadOnlyList<PlannedFile> Files) : RunEventFact;
+internal sealed record PlanEvent(int Total, IReadOnlyList<(string File, string Target, int Tests)> Files) : RunEventFact;
 
 /// <summary>Upstream's <c>notice</c> fact: one line of run-level progress outside any test.</summary>
 internal sealed record NoticeEvent(string Target, string Message) : RunEventFact;
@@ -53,15 +50,13 @@ internal sealed record NoticeEvent(string Target, string Message) : RunEventFact
 /// <summary>Who a test is (upstream's <c>TestIdentity</c>, <c>collect/collect.ts</c>).</summary>
 internal sealed record TestIdentity(IReadOnlyList<string> TitlePath, string Id, string File, int DeclarationIndex);
 
-/// <summary>The target a result ran on, by its stable identity.</summary>
-internal sealed record RunEventTarget(string Name, string Platform);
-
 /// <summary>Upstream's <c>RunEventResult</c>: a test's result with its target's identity. The attempts are the report's.</summary>
 internal sealed record RunEventResult
 {
     public required TestIdentity Test { get; init; }
 
-    public required RunEventTarget Target { get; init; }
+    /// <summary>The target the result ran on, by its stable identity: upstream's inline <c>{ name, platform }</c>.</summary>
+    public required (string Name, string Platform) Target { get; init; }
 
     /// <summary>
     /// The report id of the result, which keys its trace page in <see cref="RunFinishedEvent.Traces"/>. Upstream derives it with

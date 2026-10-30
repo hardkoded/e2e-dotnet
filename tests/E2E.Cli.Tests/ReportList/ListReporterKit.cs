@@ -54,7 +54,7 @@ internal static partial class ListReporterKit
         new()
         {
             Test = new TestIdentity(title ?? ["suite", "case"], id, file, declarationIndex),
-            Target = new RunEventTarget(target, "web"),
+            Target = (target, "web"),
             ResultId = id,
             Agent = agent,
             Repeat = repeat,
@@ -81,7 +81,7 @@ internal static partial class ListReporterKit
     /// <summary>Upstream's <c>plan()</c>.</summary>
     public static PlanEvent Plan(params (string File, int Tests)[] files)
     {
-        var planned = files.Select(entry => new PlannedFile(entry.File, "chromium", entry.Tests)).ToList();
+        var planned = files.Select(entry => (entry.File, "chromium", entry.Tests)).ToList();
         return new PlanEvent(planned.Sum(entry => entry.Tests), planned);
     }
 

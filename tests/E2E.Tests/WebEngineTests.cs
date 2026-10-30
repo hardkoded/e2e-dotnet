@@ -443,16 +443,29 @@ internal sealed class TinySite : IDisposable
 
     public static async Task<TinySite> StartAsync(Func<HttpListenerContext, Task> handler, string host = "127.0.0.1")
     {
-        var listener = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        var site = new TinySite("http://" + host + ":" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/", handler);
-        site._listener.Prefixes.Add(site.Url);
-        site._listener.Start();
-        _ = Task.Run(() => site.ListenAsync(site._stop.Token));
-        await Task.Delay(30);
-        return site;
+        // The free port is probed, released, then bound again, so a parallel test can take it in between: pick another one.
+        for (var attempt = 1; ; attempt++)
+        {
+            var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+            probe.Start();
+            var port = ((IPEndPoint)probe.LocalEndpoint).Port;
+            probe.Stop();
+            var site = new TinySite("http://" + host + ":" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/", handler);
+            site._listener.Prefixes.Add(site.Url);
+            try
+            {
+                site._listener.Start();
+            }
+            catch (HttpListenerException) when (attempt < 5)
+            {
+                site.Dispose();
+                continue;
+            }
+
+            _ = Task.Run(() => site.ListenAsync(site._stop.Token));
+            await Task.Delay(30);
+            return site;
+        }
     }
 
     public void Dispose()
