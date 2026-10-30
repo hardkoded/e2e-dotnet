@@ -498,6 +498,34 @@ public sealed class CdpSessionRecoveryTests
         Assert.Equal("ENGINE_FAILURE", (await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(None))).Code);
     }
 
+    /// <summary>
+    /// Partial of upstream "masks password fields in light and closed shadow DOM before and after reconnect": the port does not
+    /// register its selector engines in the CDP default context (upstream's registerCdpSelectors), so a screenshot over a CDP
+    /// attach fails with an unknown engine before it can mask. This checks the part of the upstream change that applies: a page
+    /// that replaced the global WeakMap keeps its closed-root tracking through the reconnect, so recovery does not refuse it.
+    /// </summary>
+    [Fact]
+    public async Task Partial_Keeps_the_closed_root_tracking_after_reconnect_on_a_page_that_replaced_the_global_WeakMap()
+    {
+        using var app = await FixtureApp.StartAsync();
+        await using var remote = await RemoteChrome.LaunchAsync();
+        await using var session = await StartAsync(app, Fixed(remote));
+        await WebEngine.SurfaceOf(session)!.Page().EvaluateAsync("""
+            () => {
+              // A polyfill that replaces the global must not hide the record the init script made.
+              Reflect.set(globalThis, 'WeakMap', Map);
+              document.body.innerHTML = '';
+              const shadowHost = document.createElement('div');
+              document.body.append(shadowHost);
+              const root = shadowHost.attachShadow({ mode: 'closed' });
+              root.innerHTML = '<input type="password" aria-label="Hidden" value="private">';
+            }
+            """);
+        await WebEngine.SurfaceOf(session)!.Context().Browser!.CloseAsync();
+        var observation = await session.ObserveAsync(None);
+        Assert.Contains(LocatorResolver.Walk(observation.Roots), node => node.States.Secure);
+    }
+
     private static WebConnectOptions Fixed(RemoteChrome remote) => new()
     {
         CdpEndpoint = _ => Task.FromResult(remote.Endpoint),

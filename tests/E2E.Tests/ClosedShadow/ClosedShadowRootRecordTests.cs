@@ -79,6 +79,33 @@ public sealed class ClosedShadowRootRecordTests(ChromiumPage chromium) : IClassF
         Assert.Contains("tracking is unavailable", await untracked.EvaluateAsync<string>(Probe, PageScript.ClosedShadowSelectorEngineSource), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Keeps_the_record_tracked_on_a_page_that_replaced_the_global_WeakMap()
+    {
+        // A page of its own, since the page replaces a global for good.
+        await using var context = await NewContextAsync();
+        var page = await context.NewPageAsync();
+        await page.AddInitScriptAsync(PageScript.RecordClosedShadowRoots);
+        await page.GotoAsync("about:blank");
+        var found = await page.EvaluateAsync<string>(
+            """
+            (source) => {
+              const host = document.createElement("div");
+              document.body.append(host);
+              const root = host.attachShadow({ mode: "closed" });
+              root.innerHTML = '<input type="password">';
+              const field = root.querySelector("input");
+              globalThis.WeakMap = Map;
+              const engine = (0, eval)(`(${source})()`);
+              const matches = engine.queryAll(document, 'input[type="password" i]');
+              return matches.length + "," + (matches[0] === field);
+            }
+            """,
+            PageScript.ClosedShadowSelectorEngineSource);
+        Assert.Equal("1,true", found);
+        Assert.True(await page.EvaluateAsync<bool>(PageScript.TracksClosedShadowRoots));
+    }
+
     private async Task<ContextLease> NewContextAsync() => new(await chromium.Page.Context.Browser!.NewContextAsync());
 
     private sealed class ContextLease(IBrowserContext context) : IAsyncDisposable

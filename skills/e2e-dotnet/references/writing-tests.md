@@ -391,6 +391,9 @@ misses.
   until its timeout, then fails with `NOT_FOUND`. Two frames match: `STRICT_MODE`.
   `Expect.That(frame).ToHaveScreenshotAsync` and `TreeAsync` refuse a frame
   with `INVALID_ARGUMENT`: call them on `Screen`, or on a locator inside it.
+- Shadow DOM: `Screen` queries reach open shadow roots and closed roots attached with `attachShadow`, not declarative closed roots (`<template shadowrootmode="closed">`). The engine
+  tracks the closed roots through a record its init script defines on the page, so a page that
+  replaces the global `WeakMap` keeps them reachable, and a secure field inside one is still masked in screenshots.
 - `Keyboard.PressAsync(key)`, `Keyboard.TypeAsync(text)`,
   `Keyboard.DownAsync(key)`, `Keyboard.UpAsync(key)`, and `Mouse.*`: unfocused
   input. Only `DownAsync(key)` holds a key or modifier until `UpAsync(key)`;
