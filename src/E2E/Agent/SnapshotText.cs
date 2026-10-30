@@ -226,7 +226,12 @@ internal static class SnapshotText
     internal static string Href(string href, Redactor redactor, string? appOrigin)
     {
         var redacted = AgentObservation.RedactText(href, redactor);
-        var shown = CacheRoute.AppNavigation(redacted, appOrigin);
+        return Bound(CacheRoute.AppNavigation(redacted, appOrigin));
+    }
+
+    /// <summary>A link target cut at <see cref="MaxHrefLength"/> with a trailing <c>…</c>, never inside a surrogate pair.</summary>
+    internal static string Bound(string shown)
+    {
         if (shown.Length <= MaxHrefLength)
         {
             return shown;

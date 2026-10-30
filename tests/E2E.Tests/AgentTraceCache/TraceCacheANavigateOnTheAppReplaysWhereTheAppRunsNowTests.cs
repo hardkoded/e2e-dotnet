@@ -19,7 +19,7 @@ public sealed class TraceCacheANavigateOnTheAppReplaysWhereTheAppRunsNowTests
     private const string AppIdentity = "fixture-app";
 
     [Fact]
-    public async Task Records_an_absolute_URL_on_the_app_as_its_path_and_replays_it_on_another_origin_of_the_app()
+    public async Task Partial_Records_an_absolute_URL_on_the_app_as_its_path_and_replays_it_on_another_origin_of_the_app()
     {
         var directory = TwoTapCounter.NewDirectory();
         var recording = 0;

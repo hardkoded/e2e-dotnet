@@ -81,6 +81,12 @@ internal static partial class CacheRoute
             return url;
         }
 
+        // A backslash or a line break reads differently in a web URL parser than in .NET's, so such a rest is kept whole.
+        if (rest.IndexOfAny(['\\', '\t', '\r', '\n']) >= 0)
+        {
+            return url;
+        }
+
         var path = rest.StartsWith('/') ? rest : "/" + rest;
         return Uri.TryCreate(new Uri(appOrigin), path, out var opened) && string.Equals(opened.AbsoluteUri, parsed.AbsoluteUri, StringComparison.Ordinal) ? path : url;
     }

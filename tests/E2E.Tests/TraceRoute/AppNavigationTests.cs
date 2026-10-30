@@ -64,5 +64,7 @@ public sealed class AppNavigationTests
     public void Keeps_a_URL_whose_rest_a_parser_would_read_as_another_host()
     {
         Assert.Equal("http://127.0.0.1:4291//evil.test/x", CacheRoute.AppNavigation("http://127.0.0.1:4291//evil.test/x", App));
+        Assert.Equal("http://127.0.0.1:4291/\\evil.test/x", CacheRoute.AppNavigation("http://127.0.0.1:4291/\\evil.test/x", App));
+        Assert.Equal("http://127.0.0.1:4291/to\ndos", CacheRoute.AppNavigation("http://127.0.0.1:4291/to\ndos", App));
     }
 }

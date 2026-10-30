@@ -174,7 +174,7 @@ public sealed class FilledSecretsRun : IAsyncLifetime
         var executor = new TestExecutor("secret-filler", async (context, token) =>
         {
             var observation = await context.ObserveAsync(new ExecutorObserveOptions { Tree = true }, token);
-            ExecutorNode Find(Func<ExecutorNode, bool> match) => ExecutorTree.FindNode(observation.Tree, match)!;
+            ExecutorNode Find(Func<ExecutorNode, bool> match) => ExecutorTree.FindNode(observation.Tree, match) ?? throw new InvalidOperationException("no node matched");
 
             // Declared secrets are keyed by the credential's name, not the param's.
             await context.Actions.TypeSecretAsync(new ExecutorTarget(Find(node => node.States.Secure).Id), "member.password", token);

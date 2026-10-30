@@ -164,7 +164,7 @@ internal static class AgentObservation
         var redacted = RedactText(href, redactor);
         return appOrigin is null || CacheRoute.AppNavigation(redacted, appOrigin) == redacted
             ? SnapshotText.Href(href, redactor, null)
-            : appOrigin + SnapshotText.Href(href, redactor, appOrigin);
+            : appOrigin + SnapshotText.Bound(CacheRoute.AppNavigation(redacted, appOrigin));
     }
 
     /// <summary>FNV-1a over the image bytes: fast, and equal frames encode to equal bytes.</summary>
