@@ -74,6 +74,32 @@ public sealed class ExplicitScreenshotSecrecyTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// .NET-only: no upstream <c>it</c> puts a secret in a screenshot label. The step record redacts its label, as upstream's
+    /// <c>StepRecorder.run</c> does. The engine receives the label as given and sanitizes it into the file name, as upstream's does (not
+    /// redacted: see the PR for #754).
+    /// </summary>
+    [Fact]
+    public async Task Keeps_a_secret_spelled_into_the_label_out_of_the_step()
+    {
+        var engine = new ScreenshotArtifactEngine("screenshots/evidence.png");
+        var session = await StartAsync(engine);
+        try
+        {
+            session.Remember([Secret.Create("member-password", Sentinel)]);
+            await session.App.ScreenshotAsync("after-" + Sentinel);
+
+            var step = session.Steps[^1];
+            Assert.Equal("app.screenshot", step.Api);
+            Assert.DoesNotContain(Sentinel, step.Label, StringComparison.Ordinal);
+            session.Complete();
+        }
+        finally
+        {
+            await session.DisposeAsync();
+        }
+    }
+
     private string AttemptDir() => Path.Combine(_results, AttemptReport.ResultSegmentOf(null, "explicit screenshot"), "attempt-1");
 
     private Task<E2ESession> StartAsync(ScreenshotArtifactEngine engine) =>
