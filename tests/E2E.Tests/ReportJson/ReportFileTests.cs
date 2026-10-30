@@ -142,6 +142,35 @@ public sealed class ReportFileTests : IDisposable
         Assert.Equal((ReportRunStatus.Passed, 0), ReportFile.StatusOf([]));
     }
 
+    /// <summary>Partial: upstream's <c>engine-contract.test.ts</c> runs a project over a fake engine whose <c>endAttempt</c> throws; the port has no <c>endAttempt</c>, so this feeds a passed result whose cleanup failed to the exit code the report derives.</summary>
+    [Fact]
+    public void A_failing_endAttempt_marks_cleanup_failed_with_a_secondary_error_and_exits_3_even_though_the_test_passed_PARTIAL_the_report_derives_the_exit_code_from_a_result_built_by_hand()
+    {
+        var cleanup = ReportBuilders.Error(message: "attempt end failed: close exploded") with { Category = "infrastructure", Phase = "cleanup" };
+        var passed = ReportBuilders.Result(attempts: [ReportBuilders.Attempt(AttemptStatus.Passed, secondaryErrors: [cleanup]) with { Cleanup = AttemptCleanup.Failed }]);
+
+        Assert.Equal((ReportRunStatus.Error, 3), ReportFile.StatusOf([passed]));
+    }
+
+    /// <summary>Partial: upstream's <c>skip-after-failure.test.ts</c> runs a skipped test whose engine's <c>endAttempt</c> throws; the port has no such engine, so this feeds a skipped result whose cleanup failed to the report.</summary>
+    [Fact]
+    public void Exits_3_when_a_skipped_test_cleanup_fails_keeping_the_test_skipped_PARTIAL_the_report_derives_the_exit_code_from_a_result_built_by_hand()
+    {
+        var cleanup = ReportBuilders.Error() with { Category = "infrastructure", Phase = "cleanup" };
+        var skipped = ReportBuilders.Result(attempts: [ReportBuilders.Attempt(AttemptStatus.Skipped, secondaryErrors: [cleanup]) with { Cleanup = AttemptCleanup.Failed }]) with { Status = ResultStatus.Skipped };
+
+        Assert.Equal((ReportRunStatus.Error, 3), ReportFile.StatusOf([skipped]));
+    }
+
+    [Fact]
+    public void Ignores_a_cleanup_error_of_an_attempt_whose_cleanup_completed()
+    {
+        var cleanup = ReportBuilders.Error() with { Category = "infrastructure", Phase = "cleanup" };
+        var passed = ReportBuilders.Result(attempts: [ReportBuilders.Attempt(AttemptStatus.Passed, secondaryErrors: [cleanup])]);
+
+        Assert.Equal((ReportRunStatus.Passed, 0), ReportFile.StatusOf([passed]));
+    }
+
     [Fact]
     public async Task Asks_for_the_commit_once_per_project_root_however_many_sessions_ask_and_asks_again_after_a_failure()
     {

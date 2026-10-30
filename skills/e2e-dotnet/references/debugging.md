@@ -169,7 +169,11 @@ jq '.run.results[] | select(.status != "passed") | .attempts[-1]
 
 `run.exitCode` is the worst exit code of the results: 1 for a failed test,
 or the category of an attempt error when that is worse (2 `configuration`, 3
-`infrastructure`, 4 `internal`), and 130 for an interruption. `run.status` is
+`infrastructure`, 4 `internal`), and 130 for an interruption. A test whose
+cleanup failed (an attempt with `cleanup: "failed"`, such as a required video
+that was not finalized or a session that did not close) adds the category of
+its `cleanup` secondary errors, usually 3, even when the test passed or
+skipped. `run.status` is
 `passed` for 0, `failed` for 1, `interrupted` for 130, and `error` otherwise.
 A run is `blocked` instead when every failing result carries a blockable
 code. Its exit code is still the worst one: 2 for `AUTH_CREDENTIAL_UNAVAILABLE`,
