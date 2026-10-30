@@ -152,10 +152,13 @@ public sealed record BrowserCookie
 /// </summary>
 public sealed record CookieFilter
 {
+    /// <summary>Matches the cookie name; a string exactly, a regular expression its text.</summary>
     public TextMatch? Name { get; init; }
 
+    /// <summary>Matches the cookie domain; a string exactly, a regular expression its text.</summary>
     public TextMatch? Domain { get; init; }
 
+    /// <summary>Matches the cookie path; a string exactly, a regular expression its text.</summary>
     public TextMatch? Path { get; init; }
 }
 
