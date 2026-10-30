@@ -9,7 +9,6 @@ namespace E2E.Tests.Expression;
 /// <summary>
 /// The port builds expressions through the locator API and describes them in its own format: a quoted value,
 /// the kind "testid", and first() as nth(0).
-/// "rejects empty filters" is not ported: the port's typed Filter overloads cannot express an empty filter.
 /// "hints only a string test id, never a pattern source read as an id" is not ported: the port has no expression hints.
 /// A fractional nth index cannot be written against the port's int parameter.
 /// </summary>
@@ -100,7 +99,29 @@ public sealed class LocatorExpressionsTests
         var source = _screen.GetByRole("listitem");
         Assert.Equal("getByRole(\"listitem\").filter(has: getByRole(\"button\", \"Remove\"))", source.Filter(inner).Query.Describe());
         Assert.Equal(
-            "getByRole(\"listitem\").filter(hasText: \"Pro\").filter(has: getByRole(\"button\", \"Remove\"))",
-            source.Filter("Pro").Filter(inner).Query.Describe());
+            "getByRole(\"listitem\").filter(hasText: \"Pro\", has: getByRole(\"button\", \"Remove\"))",
+            source.Filter(hasText: "Pro", has: inner).Query.Describe());
+    }
+
+    [Fact]
+    public void DescribeExpression_renders_a_hasNot_filter_with_the_inner_locator_after_has_when_both_are_set()
+    {
+        var inner = _screen.GetByRole("button", "Remove");
+        var source = _screen.GetByRole("listitem");
+        Assert.Equal("getByRole(\"listitem\").filter(hasNot: getByRole(\"button\", \"Remove\"))", source.Filter(hasNot: inner).Query.Describe());
+        Assert.Equal(
+            "getByRole(\"listitem\").filter(hasText: \"Pro\", has: getByRole(\"button\", \"Remove\"), hasNot: getByRole(\"button\", \"Remove\"))",
+            source.Filter(hasText: "Pro", has: inner, hasNot: inner).Query.Describe());
+    }
+
+    [Fact]
+    public void Rejects_empty_filters()
+    {
+        var source = _screen.GetByTestId("card");
+
+        var error = Assert.Throws<TestException>(() => source.Filter());
+
+        Assert.Equal("INVALID_LOCATOR", error.Code);
+        Assert.Contains("hasText, hasNotText, has, and/or hasNot", error.Message, StringComparison.Ordinal);
     }
 }

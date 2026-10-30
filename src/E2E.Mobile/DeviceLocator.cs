@@ -52,7 +52,23 @@ internal static partial class DeviceLocator
                 return false;
             }
 
-            return expression.Has is null || ResolveExpression(expression.Has, DescendantsOf([entry], index), platform).Count > 0;
+            if (expression.HasNotText is not null && SubtreeHasText(entry, index, expression.HasNotText, expression.HasNotTextExact))
+            {
+                return false;
+            }
+
+            if (expression.Has is null && expression.HasNot is null)
+            {
+                return true;
+            }
+
+            var within = DescendantsOf([entry], index);
+            if (expression.Has is not null && ResolveExpression(expression.Has, within, platform).Count == 0)
+            {
+                return false;
+            }
+
+            return expression.HasNot is null || ResolveExpression(expression.HasNot, within, platform).Count == 0;
         }).ToList();
     }
 

@@ -9,7 +9,7 @@ namespace E2E.Tests.FilterHas;
 /// <summary>
 /// The port resolves a locator over the observed tree and has no engine <c>locate</c> to hand an expression to. And
 /// <c>Filter(Locator)</c> cannot take a value that is not a locator, so "refuses a has that is not an e2e locator
-/// before any engine call" is not ported: a null is an <see cref="ArgumentNullException"/>.
+/// before any engine call" and its <c>hasNot</c> twin are not ported: a null is an <see cref="ArgumentNullException"/>.
 /// </summary>
 public sealed class LocatorFilterHasTests
 {
@@ -32,6 +32,44 @@ public sealed class LocatorFilterHasTests
         Assert.Same(source.Query, filtered.Query.Source);
         Assert.Same(inner.Query, filtered.Query.Has);
         Assert.Equal(1, await filtered.CountAsync());
+    }
+
+    /// <summary>Partial: there is no engine call to hand the expression to, so the test reads the query the locator builds and the count the screen resolves from it.</summary>
+    [Fact]
+    public async Task Builds_one_filter_query_with_the_inner_locator_query_under_hasNot_unchanged()
+    {
+        var screen = ScreenFixture.Create(Alpha, Beta);
+        var source = screen.GetByRole("listitem");
+        var inner = screen.GetByRole("button", "Remove");
+
+        var filtered = source.Filter(hasNot: inner);
+
+        Assert.Equal("filter", filtered.Query.Kind);
+        Assert.Same(source.Query, filtered.Query.Source);
+        Assert.Same(inner.Query, filtered.Query.HasNot);
+        Assert.Equal(1, await filtered.CountAsync());
+    }
+
+    [Fact]
+    public async Task Keeps_the_items_whose_subtree_does_not_resolve_the_inner_locator()
+    {
+        var screen = ScreenFixture.Create(Alpha, Beta);
+        var items = screen.GetByRole("listitem");
+
+        Assert.Equal(["Beta"], await items.Filter(hasNot: screen.GetByRole("button", "Remove")).AllTextContentsAsync());
+        Assert.Equal(1, await items.Filter(has: screen.GetByRole("button", "Remove"), hasNot: screen.GetByText("Read only")).CountAsync());
+    }
+
+    [Fact]
+    public async Task Names_the_whole_chain_when_a_filtered_read_finds_nothing_with_hasNot()
+    {
+        var screen = ScreenFixture.Create(Alpha, Beta);
+
+        var error = await Assert.ThrowsAsync<TestException>(
+            () => screen.GetByRole("listitem").Filter(has: screen.GetByRole("link"), hasNot: screen.GetByRole("button")).TextContentAsync());
+
+        Assert.Equal("NOT_FOUND", error.Code);
+        Assert.Contains("getByRole(\"listitem\").filter(has: getByRole(\"link\"), hasNot: getByRole(\"button\"))", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

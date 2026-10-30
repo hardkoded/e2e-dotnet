@@ -98,6 +98,8 @@ public sealed class LocatorExpressionsOverADeviceSnapshotTests
         Assert.Equal(["About"], Names(cellsWithAbout));
         var cellsHavingText = new LocatorExpression { Kind = "filter", Source = Role("listitem"), Has = Role("text") };
         Assert.Equal(["About"], Names(cellsHavingText));
+        var cellsWithoutText = new LocatorExpression { Kind = "filter", Source = Role("listitem"), HasNot = Role("text") };
+        Assert.Equal(["Scroller"], Names(cellsWithoutText));
         Assert.Equal(["Scroller"], Names(new LocatorExpression { Kind = "index", Source = Role("listitem"), Index = LocatorExpression.LastIndex }));
         Assert.Empty(Names(new LocatorExpression { Kind = "index", Source = Role("listitem"), Index = 5 }));
     }
@@ -109,6 +111,37 @@ public sealed class LocatorExpressionsOverADeviceSnapshotTests
         var substring = new LocatorExpression { Kind = "filter", Source = Role("listitem"), HasText = Exact("abou") };
         Assert.Equal(["About"], Names(substring));
         Assert.Empty(Names(substring with { HasTextExact = true }));
+    }
+
+    [Fact]
+    public void Excludes_by_subtree_text_with_hasNotText_a_string_as_a_substring_and_a_RegExp_as_written()
+    {
+        var cells = Role("listitem");
+        Assert.Equal(["Scroller"], Names(new LocatorExpression { Kind = "filter", Source = cells, HasNotText = Exact("abo") }));
+        Assert.Equal(["Scroller"], Names(new LocatorExpression { Kind = "filter", Source = cells, HasNotText = TextMatch.FromRegex(new Regex("^About$", RegexOptions.IgnoreCase)) }));
+        Assert.Empty(Names(new LocatorExpression { Kind = "filter", Source = cells, HasText = Exact("About"), HasNotText = Exact("About"), HasTextExact = true, HasNotTextExact = true }));
+    }
+
+    [Fact]
+    public void Excludes_an_unnamed_container_by_its_descendant_text_with_hasNotText()
+    {
+        var index = Project(
+            N("@e1", index: 0, depth: 0, type: "application", label: "Fixture"),
+            N("@e2", index: 1, parentIndex: 0, depth: 1, type: "cell", label: "", identifier: "child-match"),
+            N("@e3", index: 2, parentIndex: 1, depth: 2, type: "static-text", label: "About"),
+            N("@e4", index: 3, parentIndex: 0, depth: 1, type: "cell", label: "", identifier: "child-other"),
+            N("@e5", index: 4, parentIndex: 3, depth: 2, type: "static-text", label: "Other"),
+            N("@e6", index: 5, parentIndex: 0, depth: 1, type: "cell", label: "", identifier: "empty")).Index;
+        var source = Role("listitem");
+        Assert.Equal(["", "", ""], DeviceLocator.ResolveExpression(source, index, MobilePlatform.Ios).Select(entry => entry.Node.Name ?? ""));
+
+        List<string?> Ids(TextMatch pattern, bool exact) => [.. DeviceLocator
+            .ResolveExpression(new LocatorExpression { Kind = "filter", Source = source, HasNotText = pattern, HasNotTextExact = exact }, index, MobilePlatform.Ios)
+            .Select(entry => entry.Node.TestId)];
+
+        Assert.Equal(["child-other", "empty"], Ids(Exact("About"), exact: true));
+        Assert.Equal(["child-other", "empty"], Ids(TextMatch.FromRegex(new Regex("^about$", RegexOptions.IgnoreCase)), exact: false));
+        Assert.Equal(["child-match", "child-other", "empty"], Ids(Exact("Missing"), exact: true));
     }
 
     [Fact]

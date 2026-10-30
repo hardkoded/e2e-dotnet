@@ -65,7 +65,7 @@ internal static class WebLocators
             case "union":
                 return expression with { Left = WithoutFrameScopes(expression.Left!), Right = WithoutFrameScopes(expression.Right!) };
             case "filter":
-                return expression with { Source = WithoutFrameScopes(expression.Source!), Has = expression.Has is null ? null : WithoutFrameScopes(expression.Has) };
+                return expression with { Source = WithoutFrameScopes(expression.Source!), Has = expression.Has is null ? null : WithoutFrameScopes(expression.Has), HasNot = expression.HasNot is null ? null : WithoutFrameScopes(expression.HasNot) };
             case "index":
                 return expression with { Source = WithoutFrameScopes(expression.Source!) };
             default:
@@ -80,7 +80,8 @@ internal static class WebLocators
         || (expression.Parent is { } parent && NeedsPage(parent))
         || (expression.Left is { } left && NeedsPage(left))
         || (expression.Right is { } right && NeedsPage(right))
-        || (expression.Has is { } has && NeedsPage(has));
+        || (expression.Has is { } has && NeedsPage(has))
+        || (expression.HasNot is { } hasNot && NeedsPage(hasNot));
 
     /// <summary>
     /// Refuses a selector that captures with <c>*</c> before its last part. Upstream reads every match through a selector engine

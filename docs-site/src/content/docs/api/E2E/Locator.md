@@ -327,6 +327,41 @@ Keeps the matches whose own or descendants' name, text, or value contains &lt;co
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L395)
 
+<a id="E2E_Locator_Filter_E2E_TextMatch_E2E_TextMatch_E2E_Locator_E2E_Locator_"></a>
+
+### Filter(TextMatch?, TextMatch?, Locator?, Locator?)
+
+
+```csharp
+public Locator Filter(TextMatch? hasText = null, TextMatch? hasNotText = null, Locator? has = null, Locator? hasNot = null)
+```
+
+
+Adds deterministic filters, upstream's `locator.filter({ hasText, hasNotText, has, hasNot })`. Every filter given must hold
+for a match. `hasText` and `hasNotText` are case-insensitive substrings of the match's own or descendants' name, text, or
+value, or a [Regex](https://learn.microsoft.com/dotnet/api/system.text.regularexpressions.regex) as written. `has` keeps a match whose subtree resolves the inner
+locator, and `hasNot` drops it. Both resolve inside each match. .NET-only: the named-argument form of upstream's options
+object, beside [Filter(TextMatch)](#E2E_Locator_Filter_E2E_TextMatch_) and [Filter(Locator)](#E2E_Locator_Filter_E2E_Locator_).
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `hasText` | [TextMatch](/api/E2E/TextMatch/) |  |
+| `hasNotText` | [TextMatch](/api/E2E/TextMatch/) |  |
+| `has` | [Locator](./) |  |
+| `hasNot` | [Locator](./) |  |
+
+**Returns:** [Locator](./)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_LOCATOR`: no filter is given, or the `has` or `hasNot` locator belongs to another screen or attempt. |
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L422)
+
 <a id="E2E_Locator_First_"></a>
 <a id="E2E_Locator_First"></a>
 
