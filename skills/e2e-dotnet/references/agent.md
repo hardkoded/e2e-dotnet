@@ -385,6 +385,10 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   names what did not hold: the recorded nodes that did not show, the ones that did not go away, and
   any alert the recording never saw, or says the outcome already showed
   before the replay acted.
+- A replay finishes as soon as the recorded changes show, which can be before
+  content below them has loaded. To check content that loads after the step,
+  use `WaitForAsync`, which waits for it, rather than `AssertAsync`, which
+  judges the screen once.
 - A step recording no actions, or changing nothing on screen or in the
   route, creates no entry. The screen it passed on is read once it holds
   still, so a late render still counts. One whose `Values.Unique` value
