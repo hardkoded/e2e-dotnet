@@ -27,7 +27,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | When you are | Topic | Read |
 | --- | --- | --- |
 | Adding e2e to a project, writing `e2e.config.json`, signing in to a model, picking a model provider, browser options | `setup` | [references/setup.md](references/setup.md) |
-| Looking at the running app, checking a UI change, taking a screenshot, or trying a locator before writing it, over `e2e mcp` | `mcp` | [references/mcp.md](references/mcp.md) |
+| Looking at the running app, checking a UI change, taking a screenshot, trying a locator, or walking a flow while you write its test, over `e2e mcp` | `mcp` | [references/mcp.md](references/mcp.md) |
 | Writing or fixing a test: fixture members, locators, actions, matchers, sign-in, the `Browser` member (navigation, routes (`route.FetchAsync()` reads upstream before the handler decides), cookies with `SetCookiesAsync` and `ClearCookiesAsync(new CookieFilter { ... })`, native dialogs, downloads with `WaitForDownloadAsync` and `WaitForDownloadsAsync(trigger, count)` for several files from one trigger, CSS locators, iframes), and `Locator.SetInputFilesAsync` for a file input or an upload button that opens a file chooser | `writing-tests` | [references/writing-tests.md](references/writing-tests.md) |
 | Writing a test with NUnit: the `E2E.NUnit` base class, `[Test]`, `[Category("RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-nunit` | [references/writing-tests-nunit.md](references/writing-tests-nunit.md) |
 | Writing a test with xUnit v3: the `E2E.XUnit.V3` base class, `[Fact]`, `[Trait("TestCategory", "RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-xunit` | [references/writing-tests-xunit.md](references/writing-tests-xunit.md) |
@@ -113,12 +113,19 @@ public sealed class BillingTests : E2ETest
 
 1. Look at what exists: `e2e.config.json`, a test project that references
    `E2E.NUnit` or `E2E.XUnit.V3`. Nothing there: follow `setup`.
-2. Learn the screens before writing a test: routes, labels, roles, button
-   text. Semantic locators need the accessible names the app renders, so read
-   the components or watch a run with `E2E_HEADLESS=0`. Over a connected `e2e mcp`
-   server (topic `mcp`), each action prints the test line that repeats it.
-3. Write an `E2ETest` class. Drive the flow with `Agent.ActAsync`, one
-   atomic goal per call, and pin each outcome right after with `Expect.That`
+2. With a connected `e2e mcp` server (topic `mcp`), write the test while
+   you walk the flow, not from memory after the walk. A test written
+   afterwards fails on each name or step you got wrong, one run at a time.
+   Before `open_session`, create the `E2ETest` class, opening on the screen
+   it covers (step 3). Then add each step to the file as you take it in the
+   session. An `ActAsync` goal goes in before you walk its path, and the
+   path's actions stay out of the test. A `Screen` line is the `Test line:`
+   its action printed, copied as is. When the outcome shows, `locate` it and
+   add the `Expect.That`. The walk ends with the test written. Without a
+   server, learn the accessible names the app renders from the components or
+   a run with `E2E_HEADLESS=0`.
+3. A step is an `Agent.ActAsync` goal or `Screen` lines. Drive the flow with
+   `Agent.ActAsync`, one atomic goal per call, and pin each outcome right after with `Expect.That`
    or `Agent.AssertAsync`. A test with three goals makes three calls.
    Start it on the screen it covers, since every rerun pays for the steps
    before: in a browser a sign-in through the app's API in the test's setup

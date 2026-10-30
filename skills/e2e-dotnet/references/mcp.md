@@ -1,8 +1,8 @@
 # Driving the app over MCP
 
 `e2e mcp` serves an e2e project to a coding agent over MCP (stdio). The
-coding agent will drive the app the way the testing agent does: look at a
-screen before writing a test, check a locator before committing to it.
+coding agent will drive the app the way the testing agent does, write a test
+as it walks the flow, and check its locators before writing them.
 Running tests and reading a failed run stay with `dotnet test`.
 
 **In the .NET port** a session drives the one target of `e2e.config.json`. A
@@ -104,7 +104,7 @@ config declares a `secrets` entry.
 | `observe` | The whole current screen |
 | `tap`, `double_tap`, `check`, `uncheck`, `clear` `{target}` | Act on one node. On an engine that declares `TapModifiers` (the web engine), `tap` and `double_tap` also take an optional `modifiers` list (`Shift`, `Control`, `Alt`, `Meta`, `ControlOrMeta`) to hold keys for the click, as a Shift-click extends a selection |
 | `type {target, text}` | Replace the text in a field |
-| `type_secret {target, secret}` | Fill a configured secret into an editable field by name; you never see the value |
+| `type_secret {target, secret}` | Fill a configured secret into an editable field by name; you never see the value, and its test line names the secret (`FillAsync(Secrets.Get(name))`) |
 | `press {key, target?}` | Press a key on a node, or on whatever has focus |
 | `select {target, value}` | Choose an option |
 | `scroll {direction, times?, target?}`, `scroll_to {target?, text?, direction?}` | Move the viewport, or page to a node |
@@ -170,21 +170,63 @@ No line: `type` or `press` with no target, `tap` or `double_tap` with
 
 The loop is:
 
-1. `open_session`, then `call {tool: "observe"}` and act until the screen you
-   want to test is in front of you. Node refs are valid only for the newest
-   observation. Each action prints the test line that repeats it: copy it as
-   you go, or take them all from `test_lines`.
-2. `call {tool: "locate", args: {...}}` for each locator no action printed,
-   such as an assertion's target.
+1. Before `open_session`, create the `E2ETest` class (topic `writing-tests`)
+   with its usings, the test method, and the call that opens the screen it
+   covers, such as `App.OpenAsync("/settings/members")`. Then `open_session`,
+   which opens the app, and go to that screen: on the web,
+   `call {tool: "navigate", args: {url: "<the path App.OpenAsync names>"}}`;
+   on a device, the shortest path from the launch screen. Actions that only
+   got you there, such as a sign-in the test's setup replaces, stay out of
+   the test when its opening reaches that screen directly; otherwise they are
+   its first steps. Node refs are valid only for the newest observation, so
+   `observe` again before using new ones.
+2. Walk the flow one screen at a time, and write each screen's steps into
+   the file before you leave it. Do not walk the whole flow first and write
+   the test from memory afterwards. Each step is one of two kinds:
+   - An `Agent.ActAsync` goal, the default for a path that varies: write the
+     goal with the words on screen and its values in `Params`, then walk its
+     path in the session. Those actions stay out of the test, and so do the
+     test lines they print.
+   - A `Screen` line, for an exact value or interaction: a sign-in form in a
+     setup test, a field that must receive one specific string, an
+     interaction that is the point of the test. Act on the control by node
+     ref, then copy the `Test line:` the action printed into the file. Its
+     locator matched that control alone on the live screen. When the action
+     prints `No test line:` instead, the reason says why; for a control no
+     locator found alone, try one with `locate`.
+
+   With several `Screen` steps on one screen, take their actions, then add
+   the lines they printed in one edit.
+3. When the outcome shows, add its check before the next step: an
+   `Expect.That` on a locator you tried with
+   `call {tool: "locate", args: {...}}`, or an `Agent.AssertAsync`.
    One match: use the printed `Screen.GetByRole(...)` call. Zero or several:
-   adjust before writing the test; the same failure would hit the test as
+   adjust before writing it; the same failure would hit the test as
    `LOCATOR_NOT_FOUND` or `STRICT_MODE`. A role query's `name` matches
    the accessible name only, while `observe` shows a `status`, `alert`, or
    `listitem` by its text: `status "Saved."` on an unlabelled status is its
    text, so match it with `Screen.GetByRole("status").Filter("Saved.")`
    or `Screen.GetByText`.
-3. Write an `E2ETest` class (topic `writing-tests`). Deterministic steps where
-   you saw exact names; `Agent.ActAsync` where the flow varies.
+
+   When the walk ends, the test is written and every locator you copied
+   from a `Test line:` or a `locate` result has matched once; the first run
+   checks the rest, such as a `.Filter()` you wrote yourself. If you missed
+   a line, `test_lines` returns every line printed so far, in order, the act
+   goals' paths included. One walk, in order:
+
+   ```text
+   write   MembersTests.cs: usings, the test method, App.OpenAsync("/settings/members")
+   call    open_session, then navigate {url: "/settings/members"}   its line is the App.OpenAsync already written
+   edit    + await Agent.ActAsync("invite {email} as an editor", new ActOptions { Params = new Dictionary<string, object?> { ["email"] = "ada@example.test" } });
+   call    tap, type, select, tap                   the goal's path; its test lines stay out
+   call    locate {role: "status"}                  1 node matches, text "Invite sent"
+   edit    + await Expect.That(Screen.GetByRole("status")).ToContainTextAsync("Invite sent");
+   call    type {target: "n40", value: "ada"}       prints the test line below
+           Test line: await Screen.GetByRole("searchbox", "Search members").FillAsync("ada");
+   edit    + that line, as printed
+   call    locate {role: "listitem"}                1 node matches
+   edit    + await Expect.That(Screen.GetByRole("listitem")).ToHaveCountAsync(1);
+   ```
 4. Run only that test from the shell:
    `dotnet test --filter "FullyQualifiedName~<Class>.<Method>"` (SKILL.md,
    "Rerunning a test while you fix it"). On a failure, fix from the exception
@@ -210,7 +252,7 @@ The loop is:
 - Nothing a session does is recorded as a test or into the replay cache, and
   it writes no trace page, and `e2e mcp` takes no `--trace`, `--video`, `--debug`,
   or `--ai-trace`, as upstream. A session is for looking and trying; the test is
-  what you write afterwards.
+  the file you write as you walk.
 - On the web, a session can stay open while `dotnet test` runs, as long as
   both reach the app. `app.command` starts the app once for the process that needs it, so a
   session and a `dotnet test` run in another process each start their own
