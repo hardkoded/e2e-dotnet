@@ -3206,14 +3206,23 @@ public sealed partial class WebEngine : IEngine
             }
 
             IAPIResponse response;
+            var fetching = _fetch(_route, new RouteFetchOptions
+            {
+                Headers = headers,
+                Timeout = (float)timeout.TotalMilliseconds,
+                MaxRedirects = 0,
+            });
             try
             {
-                response = await _fetch(_route, new RouteFetchOptions
-                {
-                    Headers = headers,
-                    Timeout = (float)timeout.TotalMilliseconds,
-                    MaxRedirects = 0,
-                }).WaitAsync(cancellationToken).ConfigureAwait(false);
+                response = await fetching.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // The caller gave up: release the response when the fetch still lands.
+                _ = fetching.ContinueWith(
+                    static done => done.IsCompletedSuccessfully ? done.Result.DisposeAsync().AsTask() : Task.CompletedTask,
+                    TaskScheduler.Default);
+                throw;
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
