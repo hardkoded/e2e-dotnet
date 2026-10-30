@@ -1071,6 +1071,14 @@ internal static class PageScript
         (node) => (node instanceof HTMLInputElement && node.type === "radio") || node.getAttribute("role") === "radio"
         """;
 
+    // Whether an element is a file input, or labels one, so setInputFiles can take it directly (upstream's isFileInput).
+    public const string IsFileInput = """
+        (node) => {
+          const control = node instanceof HTMLInputElement ? node : node.closest("label")?.control;
+          return control instanceof HTMLInputElement && control.type === "file";
+        }
+        """;
+
     // The ref an iframe element carries, so the host can hang that frame's
     // observation under the iframe node.
     public const string RefOf = """

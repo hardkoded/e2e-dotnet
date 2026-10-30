@@ -25,7 +25,7 @@ it decides, so a rejected option leaves the request undecided, and the request i
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L494)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L579)
 
 ## Properties
 
@@ -44,7 +44,7 @@ The intercepted request.
 
 **Value:** [WebRouteRequest](/api/E2E.Engine/WebRouteRequest/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L508)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L597)
 
 ## Methods
 
@@ -63,7 +63,7 @@ Aborts the request.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L536)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L637)
 
 <a id="E2E_WebRoute_ContinueAsync_"></a>
 <a id="E2E_WebRoute_ContinueAsync_E2E_Engine_RouteContinueOverrides_"></a>
@@ -86,7 +86,7 @@ Sends the request to the network once, skipping every other route.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L521)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L622)
 
 <a id="E2E_WebRoute_FallbackAsync_"></a>
 <a id="E2E_WebRoute_FallbackAsync"></a>
@@ -103,7 +103,27 @@ Hands the request to the route registered before this one, or the network when n
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L529)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L630)
+
+<a id="E2E_WebRoute_FetchAsync_"></a>
+<a id="E2E_WebRoute_FetchAsync"></a>
+
+### FetchAsync()
+
+
+```csharp
+public Task<WebResponse> FetchAsync()
+```
+
+
+Reads the upstream response without deciding the route or following redirects, under the action
+timeout. The site's configured headers are sent. A redirect comes back unfollowed, because
+following it could take the request past the navigation rule. Decide the route afterwards
+with [FulfillAsync(RouteFulfillResponse)](#E2E_WebRoute_FulfillAsync_E2E_Engine_RouteFulfillResponse_), [ContinueAsync(RouteContinueOverrides)](#E2E_WebRoute_ContinueAsync_E2E_Engine_RouteContinueOverrides_), [FallbackAsync()](#E2E_WebRoute_FallbackAsync), or [AbortAsync()](#E2E_WebRoute_AbortAsync).
+
+**Returns:** [Task&lt;WebResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L607)
 
 <a id="E2E_WebRoute_FulfillAsync_"></a>
 <a id="E2E_WebRoute_FulfillAsync_E2E_Engine_RouteFulfillResponse_"></a>
@@ -126,4 +146,4 @@ Answers the request.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L513)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L614)

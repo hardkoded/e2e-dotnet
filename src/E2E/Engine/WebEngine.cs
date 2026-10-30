@@ -326,6 +326,9 @@ public sealed partial class WebEngine : IEngine
     /// <summary>The clock operation budgets read; tests replace it to control elapsed time.</summary>
     internal TimeProvider Clock { get; init; } = TimeProvider.System;
 
+    /// <summary>What reads a route's upstream response; tests replace it to hand the harness a response whose body is gone.</summary>
+    internal Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> FetchRoute { get; init; } = static (route, options) => route.FetchAsync(options);
+
     public string Version => EngineVersion;
 
     public EngineCapabilities Capabilities =>
@@ -422,7 +425,7 @@ public sealed partial class WebEngine : IEngine
 
             var playwright = await CreatePlaywright().ConfigureAwait(false);
             var app = Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var parsed) ? parsed : null;
-            var seams = new SessionSeams(Clock, ConnectCdp, RegisterCdpSelectors);
+            var seams = new SessionSeams(Clock, ConnectCdp, RegisterCdpSelectors, FetchRoute);
             if (connect is { ReconnectEndpoint: { } reconnect } persistent)
             {
                 var persistentSession = await WebSession.StartPersistentAsync(
@@ -1577,7 +1580,7 @@ public sealed partial class WebEngine : IEngine
                 Url = response.Url,
                 Status = response.Status,
                 Headers = response.Headers,
-                Body = ReadBodyAsync(response),
+                Body = ReadResponseBodyAsync("waitForResponse", response.BodyAsync, () => response.Request.Failure),
             };
         });
 
@@ -2344,6 +2347,9 @@ public sealed partial class WebEngine : IEngine
                 case LocatorAction.Select select:
                     await element.SelectOptionAsync(select.Value, new ElementHandleSelectOptionOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
                     break;
+                case LocatorAction.SetInputFiles files:
+                    await UploadFilesAsync(element, files.Paths, budget).ConfigureAwait(false);
+                    break;
                 case LocatorAction.Check:
                     await SetCheckedAsync(element, true, budget).ConfigureAwait(false);
                     break;
@@ -2950,7 +2956,7 @@ public sealed partial class WebEngine : IEngine
         /// </summary>
         private async Task HandleRouteAsync(IRoute route, Func<IBrowserRoute, Task> handler)
         {
-            var decision = new PlaywrightRoute(route, _siteHeaders);
+            var decision = new PlaywrightRoute(route, _siteHeaders, _seams.FetchRoute);
             try
             {
                 await handler(decision).ConfigureAwait(false);
@@ -2973,17 +2979,52 @@ public sealed partial class WebEngine : IEngine
         /// declared length), and the error behind the read is the fallback, as for
         /// a redirect, whose body the browser never keeps.
         /// </summary>
-        private static async Task<string> ReadBodyAsync(IResponse response)
+        internal static async Task<string> ReadResponseBodyAsync(string api, Func<Task<byte[]>> body, Func<string?> failure)
         {
             try
             {
-                return System.Text.Encoding.UTF8.GetString(await response.BodyAsync().ConfigureAwait(false));
+                return System.Text.Encoding.UTF8.GetString(await body().ConfigureAwait(false));
             }
             catch (PlaywrightException ex)
             {
-                var reason = response.Request.Failure ?? WebErrors.Message(ex);
-                throw new TestException("ACTION_FAILED", "waitForResponse: response body could not be read: " + reason, ex);
+                throw new TestException("ACTION_FAILED", api + ": response body could not be read: " + (failure() ?? WebErrors.Message(ex)), ex);
             }
+        }
+
+        /// <summary>
+        /// Attaches files to a file input, or to a control that opens a native file chooser when clicked, such as a button over a
+        /// hidden input (upstream's <c>uploadFiles</c>, <c>actions.ts</c>). A file input, or a node inside a <c>&lt;label&gt;</c> for
+        /// one, takes the files directly, as Playwright retargets a label to its control. Anything else is clicked with the chooser
+        /// already awaited, and fails <c>NOT_ACTIONABLE</c> if no chooser opens. Every step shares the operation's deadline, and a
+        /// cancelled operation sets no files, even when its chooser opens after the cancel.
+        /// </summary>
+        private async Task UploadFilesAsync(IElementHandle element, IReadOnlyList<string> paths, OperationBudget budget)
+        {
+            if (await element.EvaluateAsync<bool>(PageScript.IsFileInput).ConfigureAwait(false))
+            {
+                budget.ThrowIfExpired();
+                await element.SetInputFilesAsync(paths, new ElementHandleSetInputFilesOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+                return;
+            }
+
+            budget.ThrowIfExpired();
+            var opened = Page.WaitForFileChooserAsync(new PageWaitForFileChooserOptions { Timeout = budget.PlaywrightTimeout });
+
+            // A click that fails first leaves this wait to time out on its own; nothing awaits it then, so its failure is observed here.
+            _ = opened.ContinueWith(static wait => _ = wait.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            await element.ClickAsync(new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+            IFileChooser chooser;
+            try
+            {
+                chooser = await opened.ConfigureAwait(false);
+            }
+            catch (System.TimeoutException ex)
+            {
+                throw new EngineException(EngineErrorCodes.NotActionable, "upload clicked the control but it opened no file chooser", retryable: false, ex);
+            }
+
+            budget.ThrowIfExpired();
+            await chooser.SetFilesAsync(paths, new FileChooserSetFilesOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
         }
 
         /// <summary>How often a check or uncheck reads the control's state after the click.</summary>
@@ -3127,11 +3168,13 @@ public sealed partial class WebEngine : IEngine
     {
         private readonly IRoute _route;
         private readonly Func<string, IReadOnlyDictionary<string, string>?> _siteHeaders;
+        private readonly Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> _fetch;
 
-        public PlaywrightRoute(IRoute route, Func<string, IReadOnlyDictionary<string, string>?> siteHeaders)
+        public PlaywrightRoute(IRoute route, Func<string, IReadOnlyDictionary<string, string>?> siteHeaders, Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> fetch)
         {
             _route = route;
             _siteHeaders = siteHeaders;
+            _fetch = fetch;
             var request = route.Request;
             Request = new WebRouteRequest
             {
@@ -3198,6 +3241,76 @@ public sealed partial class WebEngine : IEngine
             }));
         }
 
+        public async Task<BrowserResponse> FetchAsync(TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            // The fetch skips every route registered before this one, the site-header
+            // route included, so it merges those headers itself.
+            var headers = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var (name, value) in Request.Headers)
+            {
+                headers[name.ToLowerInvariant()] = value;
+            }
+
+            foreach (var (name, value) in _siteHeaders(Request.Url) ?? Enumerable.Empty<KeyValuePair<string, string>>())
+            {
+                headers[name] = value;
+            }
+
+            var deadline = Stopwatch.StartNew();
+            IAPIResponse response;
+            var fetching = _fetch(_route, new RouteFetchOptions
+            {
+                Headers = headers,
+                Timeout = (float)timeout.TotalMilliseconds,
+                MaxRedirects = 0,
+            });
+            try
+            {
+                response = await fetching.WaitAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // The caller gave up: release the response when the fetch still lands.
+                _ = fetching.ContinueWith(
+                    static done => done.IsCompletedSuccessfully ? done.Result.DisposeAsync().AsTask() : Task.CompletedTask,
+                    TaskScheduler.Default);
+                throw;
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.Translate(ex, "route.fetch");
+            }
+
+            try
+            {
+                // Read before the response is disposed; a failed read stays in the task, so every read of
+                // the body faults and the metadata stays readable.
+                var body = WebSession.ReadResponseBodyAsync("route.fetch", response.BodyAsync, () => null);
+                try
+                {
+                    // Bounded like the fetch: a body that never finishes must not hold the handler back from the metadata.
+                    await Task.WhenAny(body).WaitAsync(timeout > deadline.Elapsed ? timeout - deadline.Elapsed : TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
+                }
+                catch (TimeoutException)
+                {
+                    var budget = ((long)timeout.TotalMilliseconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    body = Task.FromException<string>(new TestException("ACTION_FAILED", "route.fetch: response body did not finish within " + budget + "ms"));
+                }
+
+                return new BrowserResponse
+                {
+                    Url = response.Url,
+                    Status = response.Status,
+                    Headers = response.Headers.ToDictionary(pair => pair.Key.ToLowerInvariant(), pair => pair.Value, StringComparer.Ordinal),
+                    Body = body,
+                };
+            }
+            finally
+            {
+                await response.DisposeAsync().ConfigureAwait(false);
+            }
+        }
+
         public Task FallbackAsync() => DecideAsync("route.fallback", () => _route.FallbackAsync());
 
         public Task AbortAsync() => DecideAsync("route.abort", () => _route.AbortAsync());
@@ -3219,8 +3332,8 @@ public sealed partial class WebEngine : IEngine
         }
     }
 
-    /// <summary>What tests replace: the clock budgets read, the CDP attach, and the selector registration in its context.</summary>
-    private sealed record SessionSeams(TimeProvider Clock, Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp, Func<IBrowserContext, TimeSpan, CancellationToken, Task> RegisterCdpSelectors);
+    /// <summary>What tests replace: the clock budgets read, the CDP attach, the selector registration in its context, and the read of a route's upstream response.</summary>
+    private sealed record SessionSeams(TimeProvider Clock, Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp, Func<IBrowserContext, TimeSpan, CancellationToken, Task> RegisterCdpSelectors, Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> FetchRoute);
 
     /// <summary>The <c>connect</c> resolvers of a persistent context, and the default contexts earlier attempts rode.</summary>
     private sealed record PersistentConnect(
@@ -3402,6 +3515,8 @@ internal sealed class OperationBudget
     /// <summary>Waits for <paramref name="call"/> until the deadline, then abandons it as <c>OPERATION_TIMEOUT</c>.</summary>
     public async Task WithinAsync(Task call)
     {
+        // A call abandoned at the deadline or a cancel may still fault later, with nobody awaiting it: observe that fault.
+        _ = call.ContinueWith(static abandoned => _ = abandoned.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         try
         {
             await call.WaitAsync(Remaining(), _clock, _cancellationToken).ConfigureAwait(false);
