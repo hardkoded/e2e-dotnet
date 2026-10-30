@@ -314,6 +314,9 @@ public sealed partial class WebEngine : IEngine
     /// <summary>Attaches to a CDP endpoint; tests replace it to stand in for the remote browser.</summary>
     internal Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp { get; init; } = BrowserConnection.ConnectCdpAsync;
 
+    /// <summary>Registers the selector engines in a CDP default context (upstream <c>registerCdpSelectors</c>); .NET-only seam, so tests that stand in for the remote browser with a fake context replace it.</summary>
+    internal Func<IBrowserContext, TimeSpan, CancellationToken, Task> RegisterCdpSelectors { get; init; } = CdpSelectors.RegisterCdpSelectorsAsync;
+
     /// <summary>Attaches to a Playwright-protocol endpoint (.NET-only); tests replace it to stand in for the remote browser.</summary>
     internal Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectPlaywright { get; init; } = BrowserConnection.ConnectPlaywrightAsync;
 
@@ -419,7 +422,7 @@ public sealed partial class WebEngine : IEngine
 
             var playwright = await CreatePlaywright().ConfigureAwait(false);
             var app = Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var parsed) ? parsed : null;
-            var seams = new SessionSeams(Clock, ConnectCdp);
+            var seams = new SessionSeams(Clock, ConnectCdp, RegisterCdpSelectors);
             if (connect is { ReconnectEndpoint: { } reconnect } persistent)
             {
                 var persistentSession = await WebSession.StartPersistentAsync(
@@ -508,8 +511,13 @@ public sealed partial class WebEngine : IEngine
     /// Registers the engine's selector engines before any context exists, so every context the driver creates carries
     /// them. Every secure-field mask needs them.
     /// </summary>
-    private static Task RegisterSelectorEnginesAsync(IPlaywright playwright) =>
-        playwright.Selectors.RegisterAsync(PageScript.ClosedShadowSelectorEngine, new SelectorsRegisterOptions { Script = "(" + PageScript.ClosedShadowSelectorEngineSource + ")()" });
+    private static async Task RegisterSelectorEnginesAsync(IPlaywright playwright)
+    {
+        foreach (var (name, source) in SelectorEngines.All)
+        {
+            await playwright.Selectors.RegisterAsync(name, new SelectorsRegisterOptions { Script = "(" + source + ")()" }).ConfigureAwait(false);
+        }
+    }
 
     /// <summary>
     /// Asks <c>connect.cdpEndpoint</c> for the endpoint to attach to. A resolver that is still pending when
@@ -2823,6 +2831,10 @@ public sealed partial class WebEngine : IEngine
                     throw RecoveryFailed("reconnectEndpoint returned a different browser");
                 }
 
+                // Playwright seeds custom selectors only in new contexts, so the default context a CDP attach rides needs its own.
+                await seams.RegisterCdpSelectors(context, remaining(), token).ConfigureAwait(false);
+                token.ThrowIfCancellationRequested();
+
                 if (previous?.Target is not { } original)
                 {
                     token.ThrowIfCancellationRequested();
@@ -3207,8 +3219,8 @@ public sealed partial class WebEngine : IEngine
         }
     }
 
-    /// <summary>What tests replace: the clock budgets read, and the CDP attach.</summary>
-    private sealed record SessionSeams(TimeProvider Clock, Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp);
+    /// <summary>What tests replace: the clock budgets read, the CDP attach, and the selector registration in its context.</summary>
+    private sealed record SessionSeams(TimeProvider Clock, Func<IPlaywright, string, TimeSpan, CancellationToken, Task<IBrowser>> ConnectCdp, Func<IBrowserContext, TimeSpan, CancellationToken, Task> RegisterCdpSelectors);
 
     /// <summary>The <c>connect</c> resolvers of a persistent context, and the default contexts earlier attempts rode.</summary>
     private sealed record PersistentConnect(

@@ -294,7 +294,9 @@ lines you changed:
 - `App.ScreenshotAsync(label)` keeps a redacted evidence screenshot under the
   attempt's `screenshots/` and returns the absolute path of the file it wrote.
   It masks secure fields only, after a `Secret` fill too (topic
-  `writing-tests`).
+  `writing-tests`). With `Connect` and `ReconnectEndpoint` the engine registers
+  its selector engines in the browser's default context on every connect and
+  reconnect, so the mask also covers secure fields inside closed shadow roots.
 - Shape the agent for this app: `context` for the vocabulary the screens
   use, `system` for how it works, named agents under `agents`. A screen over
   the agent's `maxObservationBytes` (default 262144) is cut with an
