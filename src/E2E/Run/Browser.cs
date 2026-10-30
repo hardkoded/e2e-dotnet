@@ -297,6 +297,13 @@ public sealed class Browser
         return RunStepAsync(StepKind.Resource, "browser.setCookies", "", () => SetCookiesStepAsync(cookies, cancellationToken));
     }
 
+    /// <summary>
+    /// Removes the cookies matching every filter in <paramref name="options"/>. A string matches a field exactly and a regular expression
+    /// matches its text (Playwright hands the source to the browser, which runs it as JavaScript). With no options it removes every cookie, HttpOnly ones included. Local and session storage stay.
+    /// </summary>
+    public Task ClearCookiesAsync(CookieFilter? options = null, CancellationToken cancellationToken = default) =>
+        RunStepAsync(StepKind.Resource, "browser.clearCookies", "", () => Require("clearCookies").ClearCookiesAsync(options, Token(cancellationToken)));
+
     private Task SetCookiesStepAsync(IReadOnlyList<BrowserCookie> cookies, CancellationToken cancellationToken)
     {
         var session = Require("setCookies");

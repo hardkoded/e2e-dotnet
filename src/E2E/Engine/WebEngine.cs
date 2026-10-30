@@ -1696,6 +1696,20 @@ public sealed partial class WebEngine : IEngine
             }));
         });
 
+        public Task ClearCookiesAsync(CookieFilter? options, CancellationToken cancellationToken) => RunAsync("clearCookies", cancellationToken, () =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return RequireContext().ClearCookiesAsync(options is null ? null : new BrowserContextClearCookiesOptions
+            {
+                Name = options.Name?.Text,
+                NameRegex = options.Name?.Pattern,
+                Domain = options.Domain?.Text,
+                DomainRegex = options.Domain?.Pattern,
+                Path = options.Path?.Text,
+                PathRegex = options.Path?.Pattern,
+            });
+        });
+
         public Task SetViewportAsync(int width, int height, CancellationToken cancellationToken) => RunAsync("setViewport", cancellationToken, async () =>
         {
             if (width < 0 || height < 0)
