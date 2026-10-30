@@ -40,6 +40,28 @@ public sealed class ReportV1SchemaTests
     public void Rejects_the_invalid_fixture() => Assert.False(ReportSchema.IsValid(ReportSchema.ReadJson("fixtures", "report-v1.invalid.json")));
 
     [Fact]
+    public void Accepts_optional_runner_cut_retry_decisions_and_rejects_other_types()
+    {
+        var report = Valid();
+        var attempt = Run(report)["serialGroups"]![0]!["attempts"]![1]!.AsObject();
+
+        foreach (var cutRetry in new[] { true, false })
+        {
+            attempt["cutRetry"] = cutRetry;
+            Assert.True(ReportSchema.IsValid(report));
+        }
+
+        foreach (JsonNode? cutRetry in new JsonNode?[] { System.Text.Json.Nodes.JsonValue.Create("true"), System.Text.Json.Nodes.JsonValue.Create(1), null })
+        {
+            attempt["cutRetry"] = cutRetry;
+            Assert.False(ReportSchema.IsValid(report));
+        }
+
+        attempt.Remove("cutRetry");
+        Assert.True(ReportSchema.IsValid(report));
+    }
+
+    [Fact]
     public void Bounds_what_a_step_tells_and_what_the_app_logged_a_log_lines_source_and_level_a_hook_phase_and_the_cache_detail_entry_and_write()
     {
         var report = Valid();

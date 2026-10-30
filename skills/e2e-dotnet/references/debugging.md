@@ -74,7 +74,12 @@ session is released, beside the `attempt-<n>` directories. A retry is its own
 attempt, and the page tells every attempt the test has had so far: it is
 written when any of them kept a trace, so a test that passed on a retry reads
 "Passed after 1 failed attempt" with the last failure, and one that failed every
-attempt says whether they failed the same way. Open the file; there is
+attempt says whether they failed the same way. The time comes from the
+attempt that decided the verdict (`Outcome.Verdict`): the last attempt that
+ended the way the result did, so a retry the run interrupted does not stand for
+a test that failed before it. A failed or timed-out test tells the failure of
+that same attempt. A test that passed after a retry (flaky) tells the failure of
+its last failed attempt, and its time is the final attempt's. Open the file; there is
 no viewer. It tells, in this order:
 
 1. The title, the test file, the status, and how long the attempt took, then
