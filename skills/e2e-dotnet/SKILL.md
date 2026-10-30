@@ -219,6 +219,10 @@ lines you changed:
   params, or change the agent's `context` once a goal passes. Each is part of
   a recording's key, so every goal it touches records again live. Fixing a
   locator or an expectation keeps the recordings.
+- A run-unique value in `Params` (a timestamped name, a fresh email) goes in as
+  `Values.Unique(...)`, so the recording does not change with the value. The
+  substitution also covers the value as a URL spells it and a multi-line value
+  as the screen shows it, on one line (topic `agent`).
 - Take `[Retry]` off the test while you iterate (NUnit only; xUnit v3 has no
   retry). The first attempt replays; outside `cache.strict`, each retry runs
   every goal live and waits out the failure again.

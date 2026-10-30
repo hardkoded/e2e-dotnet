@@ -62,6 +62,14 @@ public sealed class TemplateTraceAndExpandTraceTests
         Assert.False(CacheKeys.Collides(new Dictionary<string, object?> { ["title"] = Values.Unique("Cabin xyz"), ["frequency"] = "Daily" }));
         Assert.False(CacheKeys.Collides(new Dictionary<string, object?> { ["label"] = Values.Unique("Pine Way"), ["street"] = "Way" }));
         Assert.False(CacheKeys.Collides(new Dictionary<string, object?> { ["title"] = Values.Unique("Daily") }));
+
+        // A multi-line value is also spelled on one line, so a plain param with that spelling collides.
+        Assert.True(CacheKeys.Collides(new Dictionary<string, object?> { ["address"] = Values.Unique("Ada\nLovelace"), ["name"] = "Ada Lovelace" }));
+        Assert.False(CacheKeys.Collides(new Dictionary<string, object?> { ["address"] = Values.Unique("Ada\nLovelace") }));
+
+        // The form spelling, and a second marked value that spells the first in any spelling.
+        Assert.True(CacheKeys.Collides(new Dictionary<string, object?> { ["q"] = Values.Unique("a b"), ["plus"] = "a+b" }));
+        Assert.True(CacheKeys.Collides(new Dictionary<string, object?> { ["one"] = Values.Unique("a b"), ["two"] = Values.Unique("a+b") }));
         Assert.False(CacheKeys.Collides(null));
     }
 

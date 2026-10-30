@@ -574,23 +574,24 @@ internal static class CacheKeys
             return false;
         }
 
+        // Upstream's templatesCollide asks it of every spelling a recording can give a marked value, not only the raw one.
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var value in parameters.Values)
         {
-            var text = value switch
+            string[] spellings = value switch
             {
-                UniqueValue unique => unique.Value,
-                string textValue => textValue,
-                _ => null,
+                UniqueValue unique => [unique.Value, .. Encodings.Select(encoding => encoding.Encode(unique.Value))],
+                string textValue => [textValue],
+                _ => [],
             };
-            if (string.IsNullOrEmpty(text))
-            {
-                continue;
-            }
 
-            if (!seen.Add(text))
+            // One value's own spellings may repeat each other; they collide only with another param's.
+            foreach (var text in spellings.Where(text => !string.IsNullOrEmpty(text)).Distinct(StringComparer.Ordinal))
             {
-                return true;
+                if (!seen.Add(text))
+                {
+                    return true;
+                }
             }
         }
 
