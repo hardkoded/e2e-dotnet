@@ -78,6 +78,19 @@ public sealed class DeltaMismatchTests
     }
 
     [Fact]
+    public void Reads_an_ISO_8601_instant_in_an_alert_as_one_placeholder_whatever_precision_or_offset_it_has()
+    {
+        static SemanticNode Saved(string at) => Node("alert", text: $"Saved at {at}");
+        List<RecordedTarget> recorded = [Anchor("alert", text: "Saved at 2026-10-24T15:41:27.955Z")];
+
+        Assert.True(Holds(recorded, [Saved("2026-10-24T15:45:03.120Z")]));
+        Assert.True(Holds(recorded, [Saved("2026-10-24T15:30:00Z")]));
+        Assert.True(Holds(recorded, [Saved("2026-10-24T15:30+02:00")]));
+        Assert.True(Holds([Anchor("alert", text: "Saved at 2026-10-24T15:30:00Z")], [Saved("2026-10-24T15:30:00.250Z")]));
+        Assert.False(Holds(recorded, [Node("alert", text: "Save failed")]));
+    }
+
+    [Fact]
     public void Forgives_a_churned_test_id_when_the_other_fields_still_identify_the_node()
     {
         var rerendered = Node("link", "PB-Twin-Alpha", testId: "row-9f8e");

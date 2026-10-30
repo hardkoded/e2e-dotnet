@@ -37,14 +37,16 @@ internal static class Anchors
     private static readonly HashSet<string> AlertRoles = new(["alert", "alertdialog"], StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Text that cannot read the same on the next run: a minted id, a countdown or age, a date, a clock
-    /// time. An anchor made of it hands every replay off, so it is skipped while some stable anchor exists;
+    /// Text that cannot read the same on the next run: a minted id, a countdown or age, a date, an ISO 8601
+    /// instant, a clock time. An anchor made of it hands every replay off, so it is skipped while some stable anchor exists;
     /// with nothing else, the volatile ones stay, because a replay that always hands off is still safer than
     /// one that passes on mechanics alone. An alert keeps it, and is compared with these parts read as one
     /// placeholder each (<see cref="AlertShape"/>).
     /// </summary>
     private static readonly Regex[] VolatileSpans =
     [
+        // The lookbehind is upstream's JavaScript \b: .NET's \b also counts non-ASCII letters as word characters.
+        new(@"(?<![A-Za-z0-9_])\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}(?::?\d{2})?)?", RegexOptions.CultureInvariant),
         new(@"\b(?=[A-Za-z0-9_-]*\d)(?=[A-Za-z0-9_-]*[A-Za-z])[A-Za-z0-9_-]{12,}\b", RegexOptions.CultureInvariant),
         new(@"\b\d+\s*(?:ms|s|secs?|seconds?|m|mins?|minutes?|h|hrs?|hours?|d|days?|weeks?|months?|years?)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase),
         new(@"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+\d{1,2}(?:,?\s+\d{4})?\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase),

@@ -205,7 +205,11 @@ lines you changed:
   records: the local default, but not with `CI` set and no cache mode in the
   config, nor under `cache.strict`. A stopped run (Ctrl-C, a command your
   tool's timeout kills) saves nothing, so give the command a timeout longer
-  than the test.
+  than the test. A replay's end check skips text that reads differently on
+  every run (an id, a duration, a date, an ISO 8601 instant, a clock time)
+  while a stable change exists, and reads it in an alert as one placeholder,
+  so `Saved at 2026-10-24T15:41:27.955Z` and `Saved at 2026-10-24T15:30:00Z`
+  are the same alert.
 - Don't rename the test or its class, and don't reword a goal, change its
   params, or change the agent's `context` once a goal passes. Each is part of
   a recording's key, so every goal it touches records again live. Fixing a
