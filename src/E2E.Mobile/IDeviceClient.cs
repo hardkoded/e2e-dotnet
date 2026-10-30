@@ -40,6 +40,7 @@ public static class DeviceMethods
     public const string AppsClose = "apps.close";
     public const string AppsInstall = "apps.install";
     public const string AppsReinstall = "apps.reinstall";
+    public const string AppsList = "apps.list";
     public const string SessionsList = "sessions.list";
     public const string SessionsClose = "sessions.close";
     public const string SettingsUpdate = "settings.update";

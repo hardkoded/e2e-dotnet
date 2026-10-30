@@ -46,6 +46,8 @@ public static class DeviceCommands
                 return new DeviceCommand("install", Take(flags, "app", "appPath"), flags);
             case DeviceMethods.AppsReinstall:
                 return new DeviceCommand("reinstall", Take(flags, "app", "appPath"), flags);
+            case DeviceMethods.AppsList:
+                return new DeviceCommand("apps", [], flags);
             case DeviceMethods.SessionsList:
                 return new DeviceCommand("session_list", [], flags);
             case DeviceMethods.SessionsClose:

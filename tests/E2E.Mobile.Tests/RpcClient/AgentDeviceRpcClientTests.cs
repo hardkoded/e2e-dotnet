@@ -28,6 +28,21 @@ public sealed class AgentDeviceRpcClientTests
         }
     }
 
+    // .NET-only: the translator is the port's stand-in for agent-device's client, and apps.list is the call device.unstable_raw's reference
+    // example makes. Without a translation the production client refuses it before any request goes out.
+    [Fact]
+    public async Task Sends_apps_list_as_the_apps_command_with_the_device_selection()
+    {
+        var daemon = new FakeDaemon();
+        var client = new AgentDeviceRpcClient("e2e-ios-0", new JsonObject(), _ => Task.FromResult(new DaemonEndpoint(new Uri("http://127.0.0.1:1/"), null)), new HttpClient(daemon));
+
+        await client.CallAsync(DeviceMethods.AppsList, new JsonObject { ["platform"] = "ios", ["device"] = "iPhone 17 Pro" }, CancellationToken.None);
+
+        var request = Assert.Single(daemon.Requests);
+        Assert.Contains("\"apps\"", request.ToJsonString());
+        Assert.Contains("iPhone 17 Pro", request.ToJsonString());
+    }
+
     [Fact]
     public async Task Sends_the_whole_lease_scope_in_the_meta_of_a_command_bound_to_a_lease()
     {
