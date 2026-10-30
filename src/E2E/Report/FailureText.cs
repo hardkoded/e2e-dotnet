@@ -147,8 +147,8 @@ internal static partial class FailureText
     }
 
     /// <summary>
-    /// The attempt whose story a page tells: a flaky test's last failure; for a failed or timed-out test, the last attempt that
-    /// reached that verdict, so a retry the run interrupted tells nothing; otherwise the final one.
+    /// The attempt whose story a page tells: a flaky test's last failure; otherwise the outcome's verdict attempt, so a retry the
+    /// run interrupted tells nothing.
     /// </summary>
     public static ReportAttempt ToldAttempt(ReportResult result, Outcome final)
     {
@@ -157,12 +157,7 @@ internal static partial class FailureText
             return final.LastFailed ?? final.Final;
         }
 
-        if (result.Status is ResultStatus.Failed or ResultStatus.TimedOut)
-        {
-            return final.Attempts.LastOrDefault(attempt => attempt.Status is AttemptStatus.Failed or AttemptStatus.TimedOut) ?? final.Final;
-        }
-
-        return final.Final;
+        return final.Verdict;
     }
 
     /// <summary>
