@@ -88,6 +88,12 @@ public sealed partial class Agent
         return _scope.Track(StepAsync("agent.assert", statement, agent, verifies: true, () => JudgeAsync(statement, ResolveTimeout(options?.Timeout, agent.JudgmentTimeout), agent, vision, options?.Screenshot, cancellationToken)));
     }
 
+    /// <summary>
+    /// Waits until the statement holds on screen. It judges at once, then again after each <see cref="WaitForOptions.Interval"/> once the
+    /// screen has changed. A capture that outlives <see cref="WaitForOptions.Timeout"/> fails <c>STEP_TIMEOUT</c>
+    /// (<c>agent.waitFor exceeded its N ms timeout</c>); once a judgment has been made, the timeout reads
+    /// <c>waitFor timed out; last judgment: ...</c> and carries that failure as its cause.
+    /// </summary>
     public Task WaitForAsync(string statement, WaitForOptions? options = null, CancellationToken cancellationToken = default) =>
         _scope.Track(WaitForStepAsync(statement, options, cancellationToken));
 

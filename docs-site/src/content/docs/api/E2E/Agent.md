@@ -112,6 +112,10 @@ members and nullable annotations respected. An answer that does not gets one rep
 
 ### WaitForAsync(string, WaitForOptions?, CancellationToken)
 
+Waits until the statement holds on screen. It judges at once, then again after each [WaitForOptions.Interval](WaitForOptions.md#E2E_WaitForOptions_Interval) once the
+screen has changed. A capture that outlives [WaitForOptions.Timeout](WaitForOptions.md#E2E_WaitForOptions_Timeout) fails `STEP_TIMEOUT`
+(`agent.waitFor exceeded its N ms timeout`); once a judgment has been made, the timeout reads
+`waitFor timed out; last judgment: ...` and carries that failure as its cause.
 
 ```csharp
 public Task WaitForAsync(string statement, WaitForOptions? options = null, CancellationToken cancellationToken = default)
