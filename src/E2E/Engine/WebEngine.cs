@@ -1658,67 +1658,175 @@ public sealed partial class WebEngine : IEngine
             return (relative, absolute);
         }
 
-        public Task<BrowserDownload> WaitForDownloadAsync(Func<Task> trigger, TimeSpan timeout, CancellationToken cancellationToken) => RunAsync("download", cancellationToken, async () =>
+        public async Task<BrowserDownload> WaitForDownloadAsync(Func<Task> trigger, TimeSpan timeout, CancellationToken cancellationToken) =>
+            (await RunAsync("download", cancellationToken, () => CollectDownloadsAsync(trigger, 1, timeout, "browser.waitForDownload", cancellationToken)).ConfigureAwait(false))[0];
+
+        public Task<IReadOnlyList<BrowserDownload>> WaitForDownloadsAsync(Func<Task> trigger, int count, TimeSpan timeout, CancellationToken cancellationToken) =>
+            RunAsync("download", cancellationToken, () => CollectDownloadsAsync(trigger, count, timeout, "browser.waitForDownloads", cancellationToken));
+
+        /// <summary>
+        /// Runs <paramref name="trigger"/> once and saves the first <paramref name="count"/> downloads it starts, in start order (upstream's
+        /// <c>collectDownloads</c>). One budget bounds the start, completion and save of every file; on failure the unfinished downloads are
+        /// canceled and the listener is gone, so late work saves nothing more.
+        /// </summary>
+        private async Task<IReadOnlyList<BrowserDownload>> CollectDownloadsAsync(Func<Task> trigger, int count, TimeSpan timeout, string api, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var budget = Budget("download", cancellationToken, timeout);
+            var waitMs = (long)budget.PlaywrightTimeout;
+            using var scope = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var started = new List<IDownload>();
+            var allStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             Exception? triggerFailure = null;
-            (TimeSpan Wait, TimeSpan Trigger)? awaiting = null;
+            long? triggerMs = null;
+            var closed = false;
+            var finished = false;
+            IPage? page = null;
+            EventHandler<IDownload>? onDownload = null;
+
+            int StartedCount()
+            {
+                lock (started)
+                {
+                    return started.Count;
+                }
+            }
+
+            TestException TimedOut() => new(
+                "ACTION_FAILED",
+                triggerMs is null
+                    ? $"{api} exceeded its timeout of {waitMs}ms"
+                    : StartedCount() < count
+                        ? $"{(count == 1 ? "no download" : $"{StartedCount()} of {count} downloads")} started within {waitMs}ms; the trigger resolved after {triggerMs}ms"
+                        : $"{(count == 1 ? "the download" : $"{count} downloads")} did not finish within {waitMs}ms");
+
+            async Task RunTriggerAsync()
+            {
+                var begun = _seams.Clock.GetTimestamp();
+                try
+                {
+                    await trigger().ConfigureAwait(false);
+                }
+                catch (Exception cause)
+                {
+                    triggerFailure = cause;
+                    throw;
+                }
+
+                triggerMs = (long)_seams.Clock.GetElapsedTime(begun).TotalMilliseconds;
+            }
+
             try
             {
                 var remote = _lease?.Downloads();
                 if (remote is not null)
                 {
-                    await budget.WithinAsync(Downloads.SaveDownloadsToAsync(Page, remote.Dir)).ConfigureAwait(false);
+                    await budget.WithinAsync(Downloads.SaveDownloadsToAsync(Page, remote.Dir, scope.Token)).ConfigureAwait(false);
                 }
 
-                var waitFor = TimeSpan.FromMilliseconds(budget.PlaywrightTimeout);
-                var download = await budget.WithinAsync(Page.RunAndWaitForDownloadAsync(
-                    async () =>
+                budget.ThrowIfExpired();
+                page = Page;
+                onDownload = (_, download) =>
+                {
+                    lock (started)
                     {
-                        var started = _seams.Clock.GetTimestamp();
-                        try
+                        if (closed || started.Count == count)
                         {
-                            await trigger().ConfigureAwait(false);
-                        }
-                        catch (Exception cause)
-                        {
-                            triggerFailure = cause;
-                            throw;
+                            return;
                         }
 
-                        awaiting = (waitFor, _seams.Clock.GetElapsedTime(started));
-                    },
-                    new PageRunAndWaitForDownloadOptions { Timeout = budget.PlaywrightTimeout })).ConfigureAwait(false);
-                awaiting = null;
-                var suggested = download.SuggestedFilename;
-                var (relative, absolute) = ArtifactPath("downloads", suggested, "");
-                await budget.WithinAsync(remote is null
-                    ? Downloads.SaveLocallyAsync(download, absolute, _lease?.UnservedDownloads())
-                    : Downloads.SaveFromBrowserAsync(download, remote, absolute, cancellationToken)).ConfigureAwait(false);
-                return new BrowserDownload { Path = relative, AbsolutePath = absolute, SuggestedFilename = suggested };
+                        started.Add(download);
+                        if (started.Count == count)
+                        {
+                            allStarted.TrySetResult();
+                        }
+                    }
+                };
+                page.Download += onDownload;
+                var running = RunTriggerAsync();
+
+                // A trigger abandoned at the deadline that fails later is already reported as the timeout.
+                _ = running.ContinueWith(static task => _ = task.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                await budget.WithinAsync(running).ConfigureAwait(false);
+                await budget.WithinAsync(allStarted.Task).ConfigureAwait(false);
+                IDownload[] snapshot;
+                lock (started)
+                {
+                    snapshot = [.. started];
+                }
+
+                var files = new List<BrowserDownload>(count);
+                foreach (var download in snapshot)
+                {
+                    var suggested = download.SuggestedFilename;
+                    var (relative, absolute) = ArtifactPath("downloads", suggested, "");
+                    var save = remote is null
+                        ? Downloads.SaveLocallyAsync(download, absolute, _lease?.UnservedDownloads())
+                        : Downloads.SaveFromBrowserAsync(download, remote, absolute, scope.Token);
+
+                    // An abandoned save that fails later is already reported as the timeout.
+                    _ = save.ContinueWith(static task => _ = task.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                    await budget.WithinAsync(save).ConfigureAwait(false);
+                    files.Add(new BrowserDownload { Path = relative, AbsolutePath = absolute, SuggestedFilename = suggested });
+                }
+
+                finished = true;
+                return files;
             }
             catch (Exception cause) when (triggerFailure is not null && ReferenceEquals(cause, triggerFailure))
             {
                 // The trigger is test code, so its errors keep their original classification.
                 throw;
             }
-            catch (Exception cause) when (WebErrors.IsPlaywright(cause) || cause is EngineException { Code: EngineErrorCodes.OperationTimeout })
+            catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
             {
-                var translated = WebErrors.Translate(cause, "download");
-
-                // The waiter's clock starts before the trigger runs, so the message names both.
-                if (awaiting is { } waited && translated.Code == EngineErrorCodes.OperationTimeout)
+                throw TimedOut();
+            }
+            catch (Exception cause) when (WebErrors.IsPlaywright(cause))
+            {
+                throw WebErrors.Translate(cause, "download");
+            }
+            finally
+            {
+                // The owner closes even when a trigger never settles; late work cannot start another save.
+                lock (started)
                 {
-                    throw new TestException(
-                        "ACTION_FAILED",
-                        $"no download started within {(long)waited.Wait.TotalMilliseconds}ms; the trigger resolved after {(long)waited.Trigger.TotalMilliseconds}ms",
-                        cause);
+                    closed = true;
                 }
 
-                throw translated;
+                await scope.CancelAsync().ConfigureAwait(false);
+                if (page is not null && onDownload is not null)
+                {
+                    page.Download -= onDownload;
+                }
+
+                if (!finished)
+                {
+                    IDownload[] unfinished;
+                    lock (started)
+                    {
+                        unfinished = [.. started];
+                    }
+
+                    foreach (var download in unfinished)
+                    {
+                        _ = CancelQuietlyAsync(download);
+                    }
+                }
             }
-        });
+        }
+
+        private static async Task CancelQuietlyAsync(IDownload download)
+        {
+            try
+            {
+                await download.CancelAsync().ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // The download already finished or its page is gone.
+            }
+        }
 
         public Task<IReadOnlyList<BrowserCookie>> GetCookiesAsync(CancellationToken cancellationToken) => RunAsync<IReadOnlyList<BrowserCookie>>("cookies", cancellationToken, async () =>
         {

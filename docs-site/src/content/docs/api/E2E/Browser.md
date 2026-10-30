@@ -736,6 +736,38 @@ how long the trigger took.
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L397)
 
+<a id="E2E_Browser_WaitForDownloadsAsync_"></a>
+<a id="E2E_Browser_WaitForDownloadsAsync_System_Func_System_Threading_Tasks_Task__System_Int32_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
+
+### `WaitForDownloadsAsync(Func<Task>, int, TimeSpan?, CancellationToken)`
+
+
+```csharp
+public Task<IReadOnlyList<BrowserDownload>> WaitForDownloadsAsync(Func<Task> trigger, int count, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
+```
+
+
+Runs &lt;code class="paramref"&gt;trigger&lt;/code&gt; once and waits for the first &lt;code class="paramref"&gt;count&lt;/code&gt; downloads it starts, within
+&lt;code class="paramref"&gt;timeout&lt;/code&gt; (the action timeout by default), and returns them in start order. Each file is kept under the attempt's
+`downloads` artifact folder as its own artifact of this step, and a text download is rewritten through the session's secrets
+as `WaitForDownloadAsync` does. One timeout bounds the start, completion and
+save of every file. When fewer start in time the call fails with `ACTION_FAILED` naming both counts; extra downloads are
+ignored. A &lt;code class="paramref"&gt;count&lt;/code&gt; below one fails with `INVALID_ARGUMENT` before the trigger runs. A trigger that throws
+fails the call with its own error.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `trigger` | [Func&lt;Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-1) |  |
+| `count` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
+| `timeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;IReadOnlyList&lt;BrowserDownload&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L424)
+
 <a id="E2E_Browser_WaitForResponseAsync_"></a>
 <a id="E2E_Browser_WaitForResponseAsync_System_String_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
