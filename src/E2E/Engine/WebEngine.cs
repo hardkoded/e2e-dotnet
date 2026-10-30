@@ -3217,6 +3217,7 @@ public sealed partial class WebEngine : IEngine
                 headers[name] = value;
             }
 
+            var deadline = Stopwatch.StartNew();
             IAPIResponse response;
             var fetching = _fetch(_route, new RouteFetchOptions
             {
@@ -3249,7 +3250,7 @@ public sealed partial class WebEngine : IEngine
                 try
                 {
                     // Bounded like the fetch: a body that never finishes must not hold the handler back from the metadata.
-                    await Task.WhenAny(body).WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
+                    await Task.WhenAny(body).WaitAsync(timeout > deadline.Elapsed ? timeout - deadline.Elapsed : TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
                 }
                 catch (TimeoutException)
                 {
