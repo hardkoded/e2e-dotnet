@@ -208,6 +208,28 @@ public sealed class ReportFileTests : IDisposable
     }
 
     [Fact]
+    public async Task Clears_the_interrupt_flag_when_a_rerun_replaces_the_interrupted_result()
+    {
+        await using (var interrupted = await StartAsync("shop > pays", 1))
+        {
+            await interrupted.App.OpenAsync("/");
+            interrupted.Complete(new OperationCanceledException(), new CancellationToken(canceled: true));
+        }
+
+        Assert.Equal(130, (int)Read()["run"]!["exitCode"]!);
+
+        await using (var rerun = await StartAsync("shop > pays", 1))
+        {
+            await rerun.App.OpenAsync("/");
+            rerun.Complete();
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("passed", (string)run["status"]!);
+        Assert.Equal(0, (int)run["exitCode"]!);
+    }
+
+    [Fact]
     public async Task Does_not_exit_130_for_a_retry_that_timed_out()
     {
         await using (var failing = await StartAsync("shop > pays", 1))

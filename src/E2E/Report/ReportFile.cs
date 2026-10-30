@@ -53,7 +53,7 @@ internal static class ReportFile
 
         public ReportExplore? Explore { get; set; }
 
-        /// <summary>Set once a session of the run was cancelled by the user (upstream's <c>interruptController.signal.aborted</c>); never cleared, whatever the results say later.</summary>
+        /// <summary>Set once a session of the run was cancelled by the user (upstream's <c>interruptController.signal.aborted</c>); read from the results the run holds.</summary>
         public bool Interrupted { get; set; }
 
         /// <summary>The run's limits: the largest any test's agents allowed.</summary>
@@ -191,7 +191,8 @@ internal static class ReportFile
                 state.Targets.Add(target);
             }
 
-            state.Interrupted |= WasInterrupted(added);
+            // Read from the results the run holds: a rerun that replaces an interrupted result clears the flag, while the retries of a test stay in its result.
+            state.Interrupted = state.Results.Values.Any(entry => WasInterrupted(entry.Result));
             state.Explore = report.Run.Explore ?? state.Explore;
             state.Limits = report.Run.Limits is { } limits ? state.Limits?.Max(limits) ?? limits : state.Limits;
             var (status, exitCode) = StatusOf(state.Results.Values.Select(entry => entry.Result), state.Interrupted);
