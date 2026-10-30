@@ -23,10 +23,10 @@ public sealed class TraceCacheANavigateOnTheAppReplaysWhereTheAppRunsNowTests
     {
         var directory = TwoTapCounter.NewDirectory();
         var recording = 0;
-        using (var recordedOn = await WebFixtureApp.StartAsync())
-        {
-            await RunAsync(directory, recordedOn.Url, () => recording++, strict: false);
-        }
+        using var recordedOn = await WebFixtureApp.StartAsync();
+        using var replayedOn = await WebFixtureApp.StartAsync();
+        Assert.NotEqual(recordedOn.Url, replayedOn.Url);
+        await RunAsync(directory, recordedOn.Url, () => recording++, strict: false);
 
         Assert.Equal(1, recording);
         var entry = TwoTapCounter.OnlyEntry(directory);
@@ -35,7 +35,6 @@ public sealed class TraceCacheANavigateOnTheAppReplaysWhereTheAppRunsNowTests
         Assert.Equal(("/", "/about"), (entry.Route, entry.EndRoute));
 
         var replays = 0;
-        using var replayedOn = await WebFixtureApp.StartAsync();
         var result = await RunAsync(directory, replayedOn.Url, () => replays++, strict: true);
 
         Assert.Equal(0, replays);
