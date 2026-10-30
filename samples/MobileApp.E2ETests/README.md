@@ -12,7 +12,7 @@ All tests are in the `RealModel` and `Device` categories. They need a device, so
 ## Prerequisites
 
 - macOS with Xcode and an iOS simulator runtime, or an Android emulator (set `E2E_MOBILE_PLATFORM=android`).
-- Node 22.12 or newer. `MobileEngine` starts [agent-device](https://github.com/callstack/agent-device) through `npx`, and agent-device drives the device. Check the setup once with `npx --yes agent-device@0.21.33 doctor`.
+- Node 22.12 or newer. `MobileEngine` starts [agent-device](https://github.com/callstack/agent-device) through `npx`, and agent-device drives the device. Check the setup once with `npx --yes agent-device@0.21.35 doctor`.
 - The MAUI workload: `dotnet workload install maui`.
 - A model login for the agent tests: `dotnet run --project src/E2E.Cli -- login github-copilot`, or an API key in `e2e.config.json`.
 
@@ -43,7 +43,7 @@ To pick a device yourself, set `E2E_MOBILE_DEVICE` to its UDID. List the UDIDs w
 E2E_MOBILE_DEVICE=<UDID> dotnet test samples/MobileApp.E2ETests
 ```
 
-A name such as `"iPhone 17"` works only when exactly one simulator has that name. Many machines have two simulators with the same name, one per runtime. If no device is booted and the variable is unset or ambiguous, the run fails with `AgentDeviceError` code `AMBIGUOUS_MATCH` and a message like `10 devices match this request equally; select one explicitly.` The details list the devices. Boot one simulator, or set `E2E_MOBILE_DEVICE` to a UDID from the list.
+A name such as `"iPhone 17"` works only when exactly one simulator has that name. Many machines have two simulators with the same name, one per runtime. If the variable is unset, no simulator is booted, and several are shut down, agent-device 0.21.35 selects the newest shut-down simulator for the platform. If the variable names a device that more than one simulator matches, the run fails with `AgentDeviceError` code `AMBIGUOUS_MATCH` and a message like `10 devices match this request equally; select one explicitly.` The details list the devices. Boot one simulator, or set `E2E_MOBILE_DEVICE` to a UDID from the list.
 
 The first test installs the build, and every test launches the app fresh. When you are done, run `xcrun simctl shutdown all`. The agent-device daemon keeps running after the tests, in `~/.agent-device/e2e-dotnet`. Stop it with its `daemon.json` pid if you want it gone.
 

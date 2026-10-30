@@ -25,7 +25,7 @@ public sealed class DevFlowAgentsTests
         TargetName = "mobileapp",
         Slot = 0,
         Slots = 1,
-        AgentDeviceVersion = "0.21.33",
+        AgentDeviceVersion = "0.21.35",
         App = app,
         ProjectRoot = "/work",
         Env = new Dictionary<string, string?>(),
