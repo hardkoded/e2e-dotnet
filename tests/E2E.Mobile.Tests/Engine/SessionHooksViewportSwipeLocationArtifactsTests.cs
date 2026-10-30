@@ -63,33 +63,50 @@ public sealed class SessionHooksViewportSwipeLocationArtifactsTests : IDisposabl
         // A third of the 390x844 viewport: the mask scales the Password field's bounds (y=270, 44 tall) to the image.
         var files = new List<string>();
         Writes(h, PngCodec.Encode(PngCodec.Solid(130, 282, 3, 200)), files);
-        var session = await OpenAttempt(h, _artifactsDir);
-        Assert.Equal("screenshots/001-first_shot.png", await session.ScreenshotArtifactAsync("first shot", CancellationToken.None));
-        Assert.Equal("screenshots/002-screenshot.png", await session.ScreenshotArtifactAsync(null, CancellationToken.None));
-        var written = PngCodec.Decode(await File.ReadAllBytesAsync(Path.Combine(_artifactsDir, "screenshots", "002-screenshot.png")));
-        byte[] At(int x, int y)
+        DeviceSession? session = null;
+        DeviceSession? next = null;
+        try
         {
-            var start = ((y * written.Width) + x) * written.Channels;
-            return written.Pixels[start..(start + 3)];
+            session = await OpenAttempt(h, _artifactsDir);
+            Assert.Equal("screenshots/001-first_shot.png", await session.ScreenshotArtifactAsync("first shot", CancellationToken.None));
+            Assert.Equal("screenshots/002-screenshot.png", await session.ScreenshotArtifactAsync(null, CancellationToken.None));
+            var written = PngCodec.Decode(await File.ReadAllBytesAsync(Path.Combine(_artifactsDir, "screenshots", "002-screenshot.png")));
+            byte[] At(int x, int y)
+            {
+                var start = ((y * written.Width) + x) * written.Channels;
+                return written.Pixels[start..(start + 3)];
+            }
+
+            Assert.Equal([0, 0, 0], At(33, 96));
+            Assert.Equal([200, 200, 200], At(33, 80));
+
+            // The next attempt is a new session, and numbers its screenshots from one.
+            await session.DisposeAsync();
+            next = await OpenAttempt(h, _artifactsDir);
+            Assert.Equal("screenshots/001-again.png", await next.ScreenshotArtifactAsync("again", CancellationToken.None));
+
+            h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => PinOnly());
+            var leak = await Assert.ThrowsAsync<EngineException>(() => next.ScreenshotArtifactAsync("leak", CancellationToken.None));
+            Assert.Equal("ENGINE_FAILURE", leak.Code);
+            Assert.False(File.Exists(Path.Combine(_artifactsDir, "screenshots", "002-leak.png")));
+            Assert.Equal(files.Count, files.Distinct().Count());
+            foreach (var file in files)
+            {
+                Assert.False(File.Exists(file));
+                Assert.False(Directory.Exists(Path.GetDirectoryName(file)));
+            }
         }
-
-        Assert.Equal([0, 0, 0], At(33, 96));
-        Assert.Equal([200, 200, 200], At(33, 80));
-
-        // The next attempt is a new session, and numbers its screenshots from one.
-        await session.DisposeAsync();
-        var next = await OpenAttempt(h, _artifactsDir);
-        Assert.Equal("screenshots/001-again.png", await next.ScreenshotArtifactAsync("again", CancellationToken.None));
-
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => PinOnly());
-        var leak = await Assert.ThrowsAsync<EngineException>(() => next.ScreenshotArtifactAsync("leak", CancellationToken.None));
-        Assert.Equal("ENGINE_FAILURE", leak.Code);
-        Assert.False(File.Exists(Path.Combine(_artifactsDir, "screenshots", "002-leak.png")));
-        Assert.Equal(files.Count, files.Distinct().Count());
-        foreach (var file in files)
+        finally
         {
-            Assert.False(File.Exists(file));
-            Assert.False(Directory.Exists(Path.GetDirectoryName(file)));
+            if (session is not null)
+            {
+                await session.DisposeAsync();
+            }
+
+            if (next is not null)
+            {
+                await next.DisposeAsync();
+            }
         }
     }
 

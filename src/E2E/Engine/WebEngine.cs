@@ -1848,7 +1848,8 @@ public sealed partial class WebEngine : IEngine
             try
             {
                 var page = Page;
-                var (masks, masked) = await SecureFieldMasksAsync(page, budget).ConfigureAwait(false);
+                var masks = SecureFieldMasks(page);
+                var masked = await CountMasksAsync(masks, budget).ConfigureAwait(false);
 
                 // The adopted stylesheet hides the caret where Playwright's own option would write an inline style a hydrating framework flags.
                 var png = await ScreenshotCaret.WithHiddenCaretAsync(page, () => budget.WithinAsync(page.ScreenshotAsync(new PageScreenshotOptions
@@ -1871,9 +1872,12 @@ public sealed partial class WebEngine : IEngine
 
         // Every secure field of every frame is covered before the image leaves the engine: two locators per
         // frame, one through light DOM and open shadow roots, one through the closed roots.
-        private static async Task<(List<ILocator> Masks, int Masked)> SecureFieldMasksAsync(IPage page, OperationBudget budget)
+        private static List<ILocator> SecureFieldMasks(IPage page) =>
+            page.Frames.SelectMany(frame => new[] { frame.Locator(SecureFieldSelector), frame.Locator(ClosedSecureFieldSelector) }).ToList();
+
+        // How many regions the masks cover, which a caller proves the image is at least as redacted as the tree with.
+        private static async Task<int> CountMasksAsync(List<ILocator> masks, OperationBudget budget)
         {
-            var masks = page.Frames.SelectMany(frame => new[] { frame.Locator(SecureFieldSelector), frame.Locator(ClosedSecureFieldSelector) }).ToList();
             var masked = 0;
             foreach (var mask in masks)
             {
@@ -1887,7 +1891,7 @@ public sealed partial class WebEngine : IEngine
                 }
             }
 
-            return (masks, masked);
+            return masked;
         }
 
         /// <summary>
@@ -1901,7 +1905,8 @@ public sealed partial class WebEngine : IEngine
             {
                 var page = Page;
                 var (relative, absolute) = ArtifactPath("screenshots", label, ".png");
-                var (masks, _) = await SecureFieldMasksAsync(page, budget).ConfigureAwait(false);
+                // As upstream's artifact capture, the locators go straight to the screenshot call: no count to spend the budget on.
+                var masks = SecureFieldMasks(page);
                 var png = await budget.WithinAsync(page.ScreenshotAsync(new PageScreenshotOptions
                 {
                     Type = ScreenshotType.Png,
