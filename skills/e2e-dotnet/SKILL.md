@@ -204,7 +204,11 @@ lines you changed:
   tells the agent to continue from the current screen without redoing them;
   an `end-mismatch` adds a warning to check the step took effect, and an
   action that failed with an unknown commit state adds a warning to verify the
-  current state first. `AssertAsync`, `WaitForAsync`, and `ExtractAsync`
+  current state first. A replay that stops before it performs any action, for
+  whatever reason (`action-failed` and `action-uncertain` included), is a
+  miss, not a hand-off: outside `cache.strict` the goal runs live from the top
+  with no notice, and under `cache.strict` it fails with `REPLAY_STALE`
+  (except for `gap`). `AssertAsync`, `WaitForAsync`, and `ExtractAsync`
   always call the model. Leave `cache.mode` at `read-write` rather than
   `off`: `off` sends every goal to the model again. Only a `read-write` cache
   records: the local default, but not with `CI` set and no cache mode in the
