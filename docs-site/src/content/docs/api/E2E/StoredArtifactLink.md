@@ -44,6 +44,23 @@ public required string AttemptId { get; init; }
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1117)
 
+<a id="E2E_StoredArtifactLink_Kind_"></a>
+<a id="E2E_StoredArtifactLink_Kind"></a>
+
+### Kind
+
+
+```csharp
+public ArtifactKind Kind { get; }
+```
+
+
+Always [Video](/api/E2E.Reports/ArtifactKind/#E2E_Reports_ArtifactKind_Video): a hosted recording is the only link there is.
+
+**Value:** [ArtifactKind](/api/E2E.Reports/ArtifactKind/)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1106)
+
 <a id="E2E_StoredArtifactLink_MediaType_"></a>
 <a id="E2E_StoredArtifactLink_MediaType"></a>
 
@@ -58,6 +75,23 @@ public required string MediaType { get; init; }
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1111)
+
+<a id="E2E_StoredArtifactLink_Redaction_"></a>
+<a id="E2E_StoredArtifactLink_Redaction"></a>
+
+### Redaction
+
+
+```csharp
+public ArtifactRedaction Redaction { get; }
+```
+
+
+A recording masks nothing, so a link is always [Incomplete](/api/E2E.Reports/ArtifactRedaction/#E2E_Reports_ArtifactRedaction_Incomplete).
+
+**Value:** [ArtifactRedaction](/api/E2E.Reports/ArtifactRedaction/)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1106)
 
 <a id="E2E_StoredArtifactLink_RunId_"></a>
 <a id="E2E_StoredArtifactLink_RunId"></a>
