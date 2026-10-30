@@ -10,11 +10,11 @@ namespace E2E.Tests.TraceTemplate;
 
 /// <summary>
 /// The port templates the typed value, the navigated URL, the scroll text, and the start and end routes of an entry, with a
-/// slot for each unique value and a <c>|form</c> spelling. It has no JSON pointers, upload paths, action summaries, summary
-/// verdict, descriptor or anchor templating (an anchor naming a unique value is left out), <c>uri</c> or <c>slug</c> spellings, or
-/// encoding suffixes to refuse. So these upstream its are not ported: "templates upload paths", "keeps the verdict summary as
-/// recorded", "refuses to template a recording whose text already spells a placeholder", "spells a value as the slug an app
-/// derives for a record path", and "refuses a placeholder whose encoding it does not know".
+/// slot for each unique value and a spelling suffix (<c>|uri</c>, <c>|form</c>, <c>|slug</c>, <c>|flat</c>). It has no JSON
+/// pointers, upload paths, action summaries, summary verdict, descriptor or anchor templating (an anchor naming a unique value
+/// is left out), or placeholder grammar to refuse an unknown suffix. So these upstream its are not ported: "templates upload
+/// paths", "keeps the verdict summary as recorded", "refuses to template a recording whose text already spells a placeholder",
+/// and "refuses a placeholder whose encoding it does not know".
 /// </summary>
 public sealed class TemplateTraceAndExpandTraceTests
 {
@@ -74,11 +74,11 @@ public sealed class TemplateTraceAndExpandTraceTests
     }
 
     /// <summary>
-    /// Partial port of "spells the form encoding as a form submission does, and skips the encodings of a value that has none":
-    /// the port has no <c>uri</c> spelling, so only the form spelling and the unpaired surrogate are checked.
+    /// The port's slots are <c>\u0001name|encoding\u0001</c>, not JSON-pointer placeholders, so the last upstream
+    /// <c>expandText</c> check (a <c>uri</c> placeholder of an unpaired surrogate is refused) is kept as a slot left as recorded.
     /// </summary>
     [Fact]
-    public void Spells_the_form_encoding_as_a_form_submission_does_and_skips_the_encoding_of_a_value_that_has_none()
+    public void Partial_Spells_the_form_encoding_as_a_form_submission_does_and_skips_the_encodings_of_a_value_that_has_none()
     {
         Assert.Equal(
             "?q=\u0001q|form\u0001",
@@ -86,23 +86,37 @@ public sealed class TemplateTraceAndExpandTraceTests
 
         // An unpaired surrogate cannot be percent-encoded; the value itself still templates and staging does not throw.
         var odd = "bad \ud800 value";
-        Assert.Equal("typed \u0001v\u0001", CacheKeys.Template("typed " + odd, new Dictionary<string, object?> { ["v"] = Values.Unique(odd) }));
+        var unique = new Dictionary<string, object?> { ["v"] = Values.Unique(odd) };
+        Assert.Equal("typed \u0001v\u0001", CacheKeys.Template("typed " + odd, unique));
+        Assert.Equal("\u0001v|uri\u0001", CacheKeys.Detemplate("\u0001v|uri\u0001", unique));
     }
 
-    /// <summary>
-    /// Partial port of "templates the location paths too, in every spelling a URL gives the value, so a value in the URL follows
-    /// the run": the port spells a value as typed and as a form, not as a URI path segment.
-    /// </summary>
     [Fact]
-    public void Templates_the_location_in_the_typed_and_form_spellings_so_a_value_in_the_URL_follows_the_run()
+    public void Templates_the_location_paths_too_in_every_spelling_a_URL_gives_the_value_so_a_value_in_the_URL_follows_the_run()
     {
-        var recorded = CacheKeys.Template("/companies?search=Acme+%26+Co&name=Acme & Co", Name("Acme & Co"));
+        var recorded = CacheKeys.Template("/companies/Acme%20%26%20Co?search=Acme+%26+Co&name=Acme & Co", Name("Acme & Co"));
 
-        Assert.Equal("/companies?search=\u0001name|form\u0001&name=\u0001name\u0001", recorded);
-        Assert.Equal("/companies?search=Globex+Inc&name=Globex Inc", CacheKeys.Detemplate(recorded, Name("Globex Inc")));
+        Assert.Equal("/companies/\u0001name|uri\u0001?search=\u0001name|form\u0001&name=\u0001name\u0001", recorded);
+        Assert.Equal("/companies/Globex%20Inc?search=Globex+Inc&name=Globex Inc", CacheKeys.Detemplate(recorded, Name("Globex Inc")));
 
         // A value no encoding changes has one spelling and one placeholder.
         Assert.Equal("/tags/\u0001tag\u0001?q=\u0001tag\u0001", CacheKeys.Template("/tags/vip?q=vip", new Dictionary<string, object?> { ["tag"] = Values.Unique("vip") }));
+    }
+
+    /// <summary>
+    /// Partial port of "spells a value as the slug an app derives for a record path, and fills it back the same way": it checks
+    /// the same templating and filling, through <see cref="CacheKeys.Template"/> and <see cref="CacheKeys.Detemplate"/>.
+    /// </summary>
+    [Fact]
+    public void Partial_Spells_a_value_as_the_slug_an_app_derives_for_a_record_path_and_fills_it_back_the_same_way()
+    {
+        Assert.Equal(
+            "/companies/\u0001name|slug\u0001?q=\u0001name|uri\u0001",
+            CacheKeys.Template("/companies/e2e-abc-company?q=E2E%20abc%20Company", Name("E2E abc Company")));
+        Assert.Equal("/companies/ada-s-shop-co", CacheKeys.Detemplate("/companies/\u0001name|slug\u0001", Name("Ada's Shop & Co")));
+
+        // A value whose slug is empty has no slug spelling.
+        Assert.Equal("x \u0001v\u0001 y", CacheKeys.Template("x -- y", new Dictionary<string, object?> { ["v"] = Values.Unique("--") }));
     }
 
     [Fact]
