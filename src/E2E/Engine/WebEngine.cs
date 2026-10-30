@@ -1489,8 +1489,9 @@ public sealed partial class WebEngine : IEngine
             await ReplaceContextAsync(null).ConfigureAwait(false);
         }
 
-        // Closes the attempt's context and opens a clean one, seeded with the storage state when there is one.
-        private async Task ReplaceContextAsync(string? storageState)
+        // Closes the attempt's context and opens a clean one, seeded with the storage state when there is one. A restore bounds each wait
+        // by its operation budget (upstream's transition budget); app.clearState() passes none, as it never did.
+        private async Task ReplaceContextAsync(string? storageState, OperationBudget? budget = null)
         {
             ThrowPending();
             await VideoPageClosingAsync().ConfigureAwait(false);
@@ -1499,20 +1500,22 @@ public sealed partial class WebEngine : IEngine
             _page = null;
             if (context is not null)
             {
-                await context.CloseAsync().ConfigureAwait(false);
+                await Within(budget, context.CloseAsync()).ConfigureAwait(false);
             }
 
-            await NewContextAsync(storageState).ConfigureAwait(false);
-            await NewPageAsync(_context!).ConfigureAwait(false);
+            await Within(budget, NewContextAsync(storageState)).ConfigureAwait(false);
+            await Within(budget, NewPageAsync(_context!)).ConfigureAwait(false);
         }
+
+        private static Task Within(OperationBudget? budget, Task call) => budget is null ? call : budget.WithinAsync(call);
 
         /// <summary>Upstream's <c>captureState</c>: the context's cookies, local storage, and IndexedDB, as a Playwright storage state.</summary>
         public Task<EngineState> CaptureStateAsync(CancellationToken cancellationToken) => RunAsync("state capture", cancellationToken, async () =>
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            var budget = Budget("state capture", cancellationToken);
             try
             {
-                var storageState = await RequireContext().StorageStateAsync(new BrowserContextStorageStateOptions { IndexedDB = true }).ConfigureAwait(false);
+                var storageState = await budget.WithinAsync(RequireContext().StorageStateAsync(new BrowserContextStorageStateOptions { IndexedDB = true })).ConfigureAwait(false);
                 return new EngineState(StateFormat, 1, JsonNode.Parse(storageState));
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
@@ -1544,9 +1547,10 @@ public sealed partial class WebEngine : IEngine
                     $"restoring a state is unavailable with {PersistentMode(_persistent.Provider)}: it replaces the browser context, and the attempt rides one persistent context");
             }
 
+            var budget = Budget("state restore", cancellationToken);
             try
             {
-                await ReplaceContextAsync(data.ToJsonString()).ConfigureAwait(false);
+                await ReplaceContextAsync(data.ToJsonString(), budget).ConfigureAwait(false);
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
