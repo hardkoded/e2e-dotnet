@@ -82,7 +82,7 @@ public sealed class GreetingTests : MobileAppTest
 }
 ```
 
-`GetByTestId` finds a control by its accessibility identifier. A field's hint is its `Placeholder`, shown or not, so `GetByPlaceholder` finds it. Compose Multiplatform reports no placeholder on iOS: an empty field appends the text it draws to its label (`Name, Ada Lovelace`) over one `StaticText` child. The projection reads that text as the field's `Placeholder` and leaves the child out of the tree, so `GetByPlaceholder("Ada Lovelace")` finds the field and `GetByText("Ada Lovelace")` does not. `Device` is the device fixture: `HomeAsync`, `OpenAppAsync`, `ForegroundAppAsync`, and `SetAppearanceAsync(Appearance.Dark)`.
+`GetByTestId` finds a control by its accessibility identifier. A field's hint is its `Placeholder`, shown or not, so `GetByPlaceholder` finds it. Compose Multiplatform reports no placeholder on iOS: an empty field appends the text it draws to its label (`Name, Ada Lovelace`) over one `StaticText` child. The projection reads that text as the field's `Placeholder` and leaves the child out of the tree only for an empty, editable, non-secure iOS field that reports no placeholder of its own, whose single child is a `StaticText` with no children and whose text ends the label after `, ` with a name before it. A field of any other shape keeps its label and children as reported. For a field of that shape, `GetByPlaceholder("Ada Lovelace")` finds the field and `GetByText("Ada Lovelace")` does not. `Device` is the device fixture: `HomeAsync`, `OpenAppAsync`, `ForegroundAppAsync`, and `SetAppearanceAsync(Appearance.Dark)`.
 
 ```csharp
 await Device.HomeAsync();
