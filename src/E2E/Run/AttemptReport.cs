@@ -93,7 +93,8 @@ internal static class AttemptReport
         Exception? error,
         long durationMs,
         ReportExplore? explore = null,
-        FailureEvidence? evidence = null)
+        FailureEvidence? evidence = null,
+        IReadOnlyList<Exception>? cleanupErrors = null)
     {
         var steps = scope.Steps.All();
         var id = ResultId(scope.TestFile, scope.TestTitle);
@@ -121,6 +122,9 @@ internal static class AttemptReport
             Artifacts = [.. kept.Select(artifact => artifact with { Size = SizeOf(output.ResultsRoot, artifact.Path) })],
             Environment = scope.Environment.Read(scope.Redactor.Redact),
             AppLog = scope.Steps.AppLog(),
+            // A teardown that threw does not change the verdict: it marks the cleanup failed and adds a cleanup-phase secondary error (upstream's closeSession).
+            Cleanup = cleanupErrors is { Count: > 0 } ? AttemptCleanup.Failed : AttemptCleanup.Complete,
+            SecondaryErrors = [.. (cleanupErrors ?? []).Select(cause => ReportError.Of(ErrorSerializer.Serialize(cause, scope.ProjectRoot, scope.Redactor.Redact), "cleanup"))],
         };
         var result = new ReportResult
         {

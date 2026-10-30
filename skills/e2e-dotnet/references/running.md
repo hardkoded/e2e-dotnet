@@ -142,8 +142,8 @@ otherwise. `run.exitCode` in `report.json` is finer: it follows the error catego
 of a failed test (2 `configuration`, such as a blocked agent step that lacks a
 credential; 3 `infrastructure`; 4 `internal`) and is 130 when interrupted. An
 attempt marked `cleanup: "failed"` adds its cleanup error's code, usually 3, even
-when the test passed; the port's sessions do not mark an attempt that way yet, so
-today only a report built from such attempts shows it. The `e2e` tool exits 0 on success and 1 on an error or an unknown
+when the test passed. A session marks its attempt that way when its engine session
+does not close or a required video is not finalized. The `e2e` tool exits 0 on success and 1 on an error or an unknown
 command. `e2e guide` exits 2 on an unknown topic, and `e2e mcp` and `e2e
 explore` exit 2 on a bad flag. `e2e explore` exits 0 when it reported no
 issue, 1 when it reported one, 3 for an engine or model provider failure, and
