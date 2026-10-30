@@ -1105,6 +1105,12 @@ public sealed record StoredArtifact
 /// <summary>One provider-hosted recording, handed to <see cref="IArtifactStore.PutLinkAsync"/> once the attempt stopped it (upstream's <c>StoredArtifactLink</c>).</summary>
 public sealed record StoredArtifactLink
 {
+    /// <summary>Always <see cref="ArtifactKind.Video"/>: a hosted recording is the only link there is.</summary>
+    public ArtifactKind Kind { get; init; } = ArtifactKind.Video;
+
+    /// <summary>A recording masks nothing, so a link is always <see cref="ArtifactRedaction.Incomplete"/>.</summary>
+    public ArtifactRedaction Redaction { get; init; } = ArtifactRedaction.Incomplete;
+
     /// <summary>The <c>http(s)</c> URL the service serves the recording from.</summary>
     public required string Url { get; init; }
 
