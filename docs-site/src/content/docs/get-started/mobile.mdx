@@ -107,6 +107,8 @@ dotnet test --project .
 
 To pick a device, set `E2E_MOBILE_DEVICE` to a UDID (`xcrun simctl list devices available`). With two booted or matching devices the run fails with `AMBIGUOUS_MATCH`.
 
+Without `MobileOptions.Device`, a booted simulator or emulator that another tool holds through its own agent-device session is skipped, and the run drives the free ones. When every booted device is held, the run fails at `prepare` with `ENGINE_FAILURE`, naming the holding sessions. A booted device nothing holds, such as one you are using by hand, is still in the pool: name the device to keep the run off it.
+
 Tag device tests, for example `[assembly: Category("Device")]`, so a machine without a device can skip them.
 
 ## Hosted devices

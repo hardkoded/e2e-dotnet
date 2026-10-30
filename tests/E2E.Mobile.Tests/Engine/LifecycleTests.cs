@@ -254,6 +254,40 @@ public sealed class LifecycleTests
         Assert.Equal("""[{}]""", coldResult.Env[Harness.PoolVariableIn(coldResult.Env, "IOS")]);
     }
 
+    private static JsonObject Claimed(string id, string session, string workspace) =>
+        new() { ["platform"] = "ios", ["id"] = id, ["name"] = id, ["booted"] = true, ["claimedBy"] = new JsonObject { ["session"] = session, ["workspace"] = workspace } };
+
+    [Fact]
+    public async Task Skips_a_booted_device_another_agent_device_session_holds_keeps_one_its_own_slot_session_holds_and_fails_when_every_booted_one_is_held()
+    {
+        var h = Harness.Create();
+        h.Fake.Respond(DeviceMethods.DevicesList, _ => new JsonArray(
+            Claimed("A", "t3-holder", "/elsewhere"),
+            new JsonObject { ["platform"] = "ios", ["id"] = "B", ["name"] = "B", ["booted"] = true },
+            Claimed("C", "e2e-ios-1", "/project"),
+            Claimed("D", "e2e-ios-2", "/project")));
+        var lines = new List<string>();
+        var result = await h.Engine.PrepareAsync(h.PrepareInfo(2, targetName: "ios", log: lines.Add), CancellationToken.None);
+
+        // e2e-ios-2 is no slot of a two-slot run, so its device is as foreign as another tool's.
+        Assert.Equal(2, result.Workers);
+        var boots = h.Fake.Calls.Where(call => call.Method == "devices.boot").ToList();
+        Assert.Equal(2, boots.Count);
+        JsonAssert.Args("""{"platform":"ios","udid":"B"}""", boots[0].Args);
+        JsonAssert.Args("""{"platform":"ios","udid":"C"}""", boots[1].Args);
+        Assert.Equal(
+            "4 booted ios device(s), skipping 2 held by another agent-device session (A by session \"t3-holder\", D by session \"e2e-ios-2\"); driving 2: B, C",
+            lines[0]);
+
+        var held = Harness.Create();
+        held.Fake.Respond(DeviceMethods.DevicesList, _ => new JsonArray(Claimed("A", "t3-holder", "/elsewhere")));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => held.Engine.PrepareAsync(held.PrepareInfo(1, targetName: "ios"), CancellationToken.None));
+        Assert.Equal(EngineErrorCodes.EngineFailure, failure.Code);
+        Assert.False(failure.Retryable);
+        Assert.Matches(@"every booted ios device is held by another agent-device session \(A by session ""t3-holder""\)", failure.Message);
+        Assert.DoesNotContain("devices.boot", held.Fake.Methods());
+    }
+
     [Fact]
     public async Task Drives_a_discovered_Android_emulator_by_its_serial_and_reads_a_configured_serial_UDID_or_name_as_agent_device_does()
     {

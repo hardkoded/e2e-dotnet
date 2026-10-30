@@ -87,7 +87,7 @@ public sealed record DeviceSelection(MobilePlatform Platform, string? Device = n
 /// <summary>
 /// The devices one target drives: one simulator or emulator per worker slot, each under its own agent-device
 /// session. A named device is a pool of one and a list a pool of many. With no device the pool is every booted
-/// device of the platform, discovered in prepare. A <see cref="IDeviceProvider"/> leases one hosted device per slot
+/// device of the platform no other agent-device session holds, discovered in prepare. A <see cref="IDeviceProvider"/> leases one hosted device per slot
 /// instead. Prepare binds one <see cref="SlotBinding"/> per slot, warms each once per run before any worker exists,
 /// and hands the bindings to the workers through the run's environment.
 /// </summary>
@@ -438,7 +438,13 @@ internal sealed class ConfiguredDevices : IDeviceSource
         Task.FromResult<IReadOnlyList<SlotBinding>>([.. Fallback!.Take(Math.Min(info.Slots, Fallback!.Count))]);
 }
 
-/// <summary>Every booted device of the platform, as many as the run has slots. With none booted, one slot the daemon fills.</summary>
+/// <summary>A booted device as the inventory lists it, with the agent-device session that holds it, when one does.</summary>
+internal sealed record BootedDevice(string Id, string Name, string? ClaimedBy = null);
+
+/// <summary>
+/// Every booted device of the platform no other agent-device session holds, as many as the run has slots. With none
+/// booted, one slot the daemon fills. A device held by one of this target's own slot sessions stays in the pool.
+/// </summary>
 internal sealed class BootedDevices(MobilePlatform platform, DeviceClientFactory createClient, Func<string, int, string> session) : IDeviceSource
 {
     public int? Size => null;
@@ -448,19 +454,31 @@ internal sealed class BootedDevices(MobilePlatform platform, DeviceClientFactory
     public async Task<IReadOnlyList<SlotBinding>> BindAsync(MobilePrepareInfo info, CancellationToken cancellationToken)
     {
         var booted = await InventoryAsync(info.TargetName, cancellationToken).ConfigureAwait(false);
-        var chosen = booted.Take(info.Slots).ToList();
+        var own = Enumerable.Range(0, info.Slots).Select(slot => session(info.TargetName, slot)).ToHashSet();
+        var held = booted.Where(device => device.ClaimedBy is not null && !own.Contains(device.ClaimedBy)).ToList();
+        var chosen = booted.Where(device => !held.Contains(device)).Take(info.Slots).ToList();
+        var heldBy = string.Join(", ", held.Select(device => $"{device.Name} by session \"{device.ClaimedBy}\""));
+        if (chosen.Count == 0 && held.Count > 0)
+        {
+            throw new EngineException(
+                EngineErrorCodes.EngineFailure,
+                $"every booted {platform.WireName()} device is held by another agent-device session ({heldBy}); boot another one, close a holding session, or name the device in the target's `device` option",
+                retryable: false);
+        }
+
         if (chosen.Count == 0)
         {
             info.Log($"no booted {platform.WireName()} device; agent-device boots one");
             return [new SlotBinding()];
         }
 
-        info.Log($"{booted.Count} booted {platform.WireName()} device(s); driving {chosen.Count}: {string.Join(", ", chosen.Select(device => device.Name))}");
+        var skipped = held.Count == 0 ? "" : $", skipping {held.Count} held by another agent-device session ({heldBy})";
+        info.Log($"{booted.Count} booted {platform.WireName()} device(s){skipped}; driving {chosen.Count}: {string.Join(", ", chosen.Select(device => device.Name))}");
         return [.. chosen.Select(device => new SlotBinding { DeviceId = device.Id })];
     }
 
-    /// <summary>Every booted device of the platform, by stable id and name, in agent-device's inventory order.</summary>
-    private async Task<List<(string Id, string Name)>> InventoryAsync(string targetName, CancellationToken cancellationToken)
+    /// <summary>Every booted device of the platform, by stable id and name, with the session holding it, in agent-device's inventory order.</summary>
+    private async Task<List<BootedDevice>> InventoryAsync(string targetName, CancellationToken cancellationToken)
     {
         var client = createClient(session(targetName, 0), null);
         var inventory = await DeviceErrors.RunCommandAsync(
@@ -472,7 +490,7 @@ internal sealed class BootedDevices(MobilePlatform platform, DeviceClientFactory
             return [];
         }
 
-        var result = new List<(string, string)>();
+        var result = new List<BootedDevice>();
         foreach (var node in devices)
         {
             if (node is JsonObject device
@@ -480,7 +498,7 @@ internal sealed class BootedDevices(MobilePlatform platform, DeviceClientFactory
                 && device["booted"] is JsonValue { } booted && booted.TryGetValue<bool>(out var isBooted) && isBooted
                 && Text(device["platform"]) == platform.WireName())
             {
-                result.Add((id, Text(device["name"]) ?? id));
+                result.Add(new BootedDevice(id, Text(device["name"]) ?? id, device["claimedBy"] is JsonObject claim ? Text(claim["session"]) : null));
             }
         }
 
