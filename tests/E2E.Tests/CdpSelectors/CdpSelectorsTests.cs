@@ -16,7 +16,8 @@ public sealed class CdpSelectorsTests
 
     /// <summary>
     /// Partial of upstream "refuses an unsupported context before any locator or capture can run, naming both": the message names
-    /// only the secure-field masks, because the port's locators do not resolve through its selector engines.
+    /// only the secure-field masks, because the port's locators do not resolve through its selector engines (the check that it
+    /// names locators waits for that).
     /// </summary>
     [Fact]
     public async Task Partial_refuses_an_unsupported_context_before_any_locator_or_capture_can_run()
@@ -27,13 +28,29 @@ public sealed class CdpSelectorsTests
         Assert.Matches("secure-field masks", failure.Message);
     }
 
+    /// <summary>Upstream "tolerates only the exact owned-name duplicates from a version that already seeded the context".</summary>
+    [Fact]
+    public async Task Tolerates_only_the_exact_owned_name_duplicates_from_a_version_that_already_seeded_the_context()
+    {
+        var channel = new FakeChannel();
+        foreach (var (name, _) in SelectorEngines.All)
+        {
+            channel.Rejections.Enqueue($"\"{name}\" selector engine has been already registered");
+        }
+
+        channel.Rejections.Enqueue("\"other\" selector engine has been already registered");
+        var context = DispatchProxy.Create<IBrowserContext, UnsupportedContext>();
+        await E2E.Engine.CdpSelectors.RegisterCdpSelectorsAsync(context, channel, Budget, CancellationToken.None);
+        var failure = await Assert.ThrowsAsync<PlaywrightException>(() => E2E.Engine.CdpSelectors.RegisterCdpSelectorsAsync(context, channel, Budget, CancellationToken.None));
+        Assert.Contains("\"other\"", failure.Message);
+    }
+
     /// <summary>
-    /// Partial of upstream "tolerates only the exact owned-name duplicates from a version that already seeded the context": the
-    /// port reaches Playwright's real message channel, which a fake cannot stand in for, so this registers twice in a real default
-    /// context and checks the second registration is tolerated. It cannot check that another name's duplicate still throws.
+    /// .NET-only (no upstream <c>it</c>): the reflected channel to Playwright's real send, which the fake cannot cover. Registers
+    /// twice in a real default context and checks the second registration is tolerated.
     /// </summary>
     [Fact]
-    public async Task Partial_tolerates_an_owned_name_duplicate_in_a_context_that_already_has_the_engines()
+    public async Task Registers_through_the_real_context_channel_and_tolerates_its_duplicate()
     {
         await using var remote = await RemoteChrome.LaunchAsync();
         using var playwright = await Playwright.CreateAsync();
@@ -48,6 +65,15 @@ public sealed class CdpSelectorsTests
         {
             await browser.CloseAsync();
         }
+    }
+
+    /// <summary>The stand-in for the context's <c>registerSelectorEngine</c> channel; each queued message rejects one call.</summary>
+    private sealed class FakeChannel : E2E.Engine.CdpSelectors.ISelectorChannel
+    {
+        public Queue<string> Rejections { get; } = new();
+
+        public Task RegisterSelectorEngineAsync(string name, string source, bool contentScript, TimeSpan timeout, CancellationToken cancellationToken) =>
+            Rejections.TryDequeue(out var message) ? Task.FromException(new PlaywrightException(message)) : Task.CompletedTask;
     }
 
     /// <summary>A context with no message channel to send through.</summary>
