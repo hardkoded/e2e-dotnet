@@ -9,6 +9,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using E2E.Engine;
 using E2E.Internal;
 
@@ -398,7 +399,7 @@ public sealed class FileStepCache : IStepCache
     }
 }
 
-internal static class CacheKeys
+internal static partial class CacheKeys
 {
     /// <summary>
     /// Version of the rules that decide whether a recording replays. Bump it when those
@@ -541,6 +542,9 @@ internal static class CacheKeys
             return value;
         }
 
+        // Upstream's expandText fills every placeholder in one regex pass, so an expanded value is never read again: a value that
+        // spells another slot stays the text it is. A unique value cannot hold the slot marker, so the pass cannot start inside one.
+        var fills = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var pair in parameters)
         {
             if (pair.Value is UniqueValue unique)
@@ -550,16 +554,19 @@ internal static class CacheKeys
                     // A value with no such spelling (an unpaired surrogate has no uri spelling) leaves the slot as recorded.
                     if (encode(unique.Value) is { } spelled)
                     {
-                        value = value.Replace("\u0001" + pair.Key + suffix + "\u0001", spelled, StringComparison.Ordinal);
+                        fills[pair.Key + suffix] = spelled;
                     }
                 }
 
-                value = value.Replace("\u0001" + pair.Key + "\u0001", unique.Value, StringComparison.Ordinal);
+                fills[pair.Key] = unique.Value;
             }
         }
 
-        return value;
+        return SlotPattern().Replace(value, match => fills.TryGetValue(match.Groups[1].Value, out var filled) ? filled : match.Value);
     }
+
+    [GeneratedRegex(@"\u0001([^\u0001]*)\u0001")]
+    private static partial Regex SlotPattern();
 
     private const string UriSuffix = "|uri";
 
