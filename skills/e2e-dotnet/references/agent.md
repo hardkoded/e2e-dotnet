@@ -148,7 +148,8 @@ outside, `Blocked` is true); `MODEL_OUTPUT_INVALID` (unusable answer),
 
 - `Params`: values the instruction names. The runner fills a `Secret`, at any
   depth of the params, and a `Values.Unique(...)` value keeps the cache
-  working across runs.
+  working across runs. The substitution also covers the value as a URL
+  spells it and a multi-line value as the screen shows it, on one line.
 - `Timeout`: 30 s by default (`StepTimeout` on the fixture).
 - `MaxSteps` (default 25 actions), `MaxModelCalls` (default 25): may only
   lower the agent's limits, else `INVALID_ARGUMENT`.

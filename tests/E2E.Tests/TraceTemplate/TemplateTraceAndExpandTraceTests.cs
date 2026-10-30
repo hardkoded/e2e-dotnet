@@ -97,6 +97,26 @@ public sealed class TemplateTraceAndExpandTraceTests
         Assert.Equal("/tags/\u0001tag\u0001?q=\u0001tag\u0001", CacheKeys.Template("/tags/vip?q=vip", new Dictionary<string, object?> { ["tag"] = Values.Unique("vip") }));
     }
 
+    [Fact]
+    public void Spells_a_multi_line_value_on_one_line_as_the_screen_shows_it_and_fills_it_back_the_same_way()
+    {
+        var address = new Dictionary<string, object?> { ["address"] = Values.Unique("Ada Lovelace\n12 Example Street\nE2E 1") };
+        Assert.Equal("Saved: \u0001address|flat\u0001", CacheKeys.Template("Saved: Ada Lovelace 12 Example Street E2E 1", address));
+        Assert.Equal("\u0001address\u0001", CacheKeys.Template("Ada Lovelace\n12 Example Street\nE2E 1", address));
+
+        // A textarea keeps `\r\n` as `\n`, so a value joined with `\r\n` shows on one line too.
+        Assert.Equal(
+            "Saved: \u0001address|flat\u0001",
+            CacheKeys.Template(
+                "Saved: Ada Lovelace 12 Example Street E2E 1",
+                new Dictionary<string, object?> { ["address"] = Values.Unique("Ada Lovelace\r\n12 Example Street\r\nE2E 1") }));
+        Assert.Equal(
+            "Saved: Grace Hopper 7 Navy Way E2E 2",
+            CacheKeys.Detemplate(
+                "Saved: \u0001address|flat\u0001",
+                new Dictionary<string, object?> { ["address"] = Values.Unique(" Grace Hopper\n\n 7 Navy Way\tE2E 2 ") }));
+    }
+
     /// <summary>
     /// Partial port of "templates inputs, descriptors, anchors, and action summaries, and expands them with another run's
     /// value": the typed value and the navigated URL carry the slot and fill from the next run, while descriptors and anchors
