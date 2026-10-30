@@ -3,58 +3,72 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
-using E2E.Tests.Config;
 
 namespace E2E.Tests.TargetApp;
 
 /// <summary>The app under test is the target's: <c>web()</c> checks the target's <c>app</c> for what a browser needs.</summary>
 public sealed class WebAndTheTargetAppTests
 {
-    /// <summary>
-    /// Partial: the port has no <c>validateApp</c> on <see cref="WebEngine"/> to call (issue filed to extract it), so this checks what the
-    /// config load refuses for a web target: the fields of an installed device app. The <c>app.url</c> requirement is not checked: the
-    /// port's fixture supplies the URL, and a web target without one loads.
-    /// </summary>
     [Fact]
-    public void Partial_Needs_app_url_on_the_target_and_refuses_the_fields_of_an_installed_device_app()
+    public void Needs_app_url_on_the_target_and_refuses_the_fields_of_an_installed_device_app()
     {
-        _ = ResolveConfigTests.App("""{ "url": "http://localhost:3000" }""");
-        foreach (var field in new[] { "\"bundleId\": \"x\"", "\"appPath\": \"x\"", "\"launchArguments\": [\"-x\"]" })
+        var web = new WebEngine();
+        const string name = "chromium";
+        web.ValidateApp(new AppConfig { Url = "http://localhost:3000" }, name);
+        var missing = Assert.Throws<ConfigurationException>(() => web.ValidateApp(new AppConfig(), name));
+        Assert.Equal("INVALID_CONFIG", missing.Code);
+        Assert.Contains("target \"chromium\" needs app.url", missing.Message, StringComparison.Ordinal);
+        foreach (var key in new[] { "bundleId", "appPath", "launchArguments" })
         {
-            var error = Assert.Throws<ConfigurationException>(() => ResolveConfigTests.App("{ \"url\": \"http://localhost:3000\", " + field + " }"));
-            Assert.Equal("INVALID_CONFIG", error.Code);
+            var app = key switch
+            {
+                "bundleId" => new AppConfig { Url = "http://localhost:3000", BundleId = "x" },
+                "appPath" => new AppConfig { Url = "http://localhost:3000", AppPath = "x" },
+                _ => new AppConfig { Url = "http://localhost:3000", LaunchArguments = ["-x"] },
+            };
+            var error = Assert.Throws<ConfigurationException>(() => web.ValidateApp(app, name));
+            Assert.Equal($"target \"chromium\" declares app.{key}, which describes an installed device app; a web() target opens app.url", error.Message);
         }
     }
 
-    /// <summary>
-    /// Partial: calls <c>WebPermissions.ValidatePermissions</c>, which upstream's <c>validateApp</c> runs, for the browser the engine would
-    /// pass; the engine's choice of browser (<c>web({ browser: 'webkit' })</c>, a provider or a CDP attach taking Chromium's names) is not
-    /// reached. The config load takes the key on a web target.
-    /// </summary>
     [Fact]
-    public void Partial_Takes_the_permissions_its_browser_grants_and_grants_only()
+    public void Takes_the_permissions_its_browser_grants_and_grants_only()
     {
-        static IReadOnlyDictionary<string, AppPermissionState> Of(string name, AppPermissionState state) => new Dictionary<string, AppPermissionState> { [name] = state };
-        static ConfigurationException Refused(BrowserName browser, IReadOnlyDictionary<string, AppPermissionState> permissions)
+        const string url = "http://localhost:3000";
+        static AppConfig Of(string name, AppPermissionState state) =>
+            new() { Url = url, Permissions = new Dictionary<string, AppPermissionState> { [name] = state } };
+        static ConfigurationException Refused(WebEngine engine, AppConfig app)
         {
-            var error = Assert.Throws<ConfigurationException>(() => WebPermissions.ValidatePermissions("web", browser, permissions));
+            var error = Assert.Throws<ConfigurationException>(() => engine.ValidateApp(app, "web"));
             Assert.Equal("INVALID_CONFIG", error.Code);
             return error;
         }
 
-        var config = ResolveConfigTests.App("""{ "url": "http://localhost:3000", "permissions": { "clipboard-read": "grant", "clipboard-write": "grant" } }""");
-        WebPermissions.ValidatePermissions("web", BrowserName.Chromium, config.Target.App.Permissions!);
-        WebPermissions.ValidatePermissions("web", BrowserName.Webkit, Of("clipboard-read", AppPermissionState.Grant));
+        new WebEngine().ValidateApp(
+            new AppConfig
+            {
+                Url = url,
+                Permissions = new Dictionary<string, AppPermissionState>
+                {
+                    ["clipboard-read"] = AppPermissionState.Grant,
+                    ["clipboard-write"] = AppPermissionState.Grant,
+                },
+            },
+            "web");
+        new WebEngine(new WebEngineOptions { BrowserName = BrowserName.Webkit }).ValidateApp(Of("clipboard-read", AppPermissionState.Grant), "web");
         Assert.Contains(
             "target \"web\" app.permissions on firefox has unknown key \"clipboard-read\"",
-            Refused(BrowserName.Firefox, Of("clipboard-read", AppPermissionState.Grant)).Message,
+            Refused(new WebEngine(new WebEngineOptions { BrowserName = BrowserName.Firefox }), Of("clipboard-read", AppPermissionState.Grant)).Message,
             StringComparison.Ordinal);
-        Assert.Contains("did you mean \"clipboard-write\"", Refused(BrowserName.Chromium, Of("clipboard-wirte", AppPermissionState.Grant)).Message, StringComparison.Ordinal);
+        Assert.Contains(
+            "did you mean \"clipboard-write\"",
+            Refused(new WebEngine(), Of("clipboard-wirte", AppPermissionState.Grant)).Message,
+            StringComparison.Ordinal);
         foreach (var state in new[] { AppPermissionState.Deny, AppPermissionState.Reset })
         {
             Assert.Equal(
                 $"target \"web\" app.permissions.camera is {state.ToString().ToLowerInvariant()}, but a web() target only grants; leave the permission out instead",
-                Refused(BrowserName.Chromium, Of("camera", state)).Message);
+                Refused(new WebEngine(), Of("camera", state)).Message);
         }
     }
 }
