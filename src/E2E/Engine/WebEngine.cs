@@ -1849,15 +1849,16 @@ public sealed partial class WebEngine : IEngine
                     }
                 }
 
-                var png = await budget.WithinAsync(page.ScreenshotAsync(new PageScreenshotOptions
+                // The adopted stylesheet hides the caret where Playwright's own option would write an inline style a hydrating framework flags.
+                var png = await ScreenshotCaret.WithHiddenCaretAsync(page, () => budget.WithinAsync(page.ScreenshotAsync(new PageScreenshotOptions
                 {
                     Type = ScreenshotType.Png,
                     Animations = ScreenshotAnimations.Disabled,
-                    Caret = ScreenshotCaret.Hide,
+                    Caret = Microsoft.Playwright.ScreenshotCaret.Initial,
                     Mask = masks,
                     MaskColor = "#000000",
                     Timeout = budget.PlaywrightTimeout,
-                })).ConfigureAwait(false);
+                }))).ConfigureAwait(false);
                 var scale = await budget.WithinAsync(page.EvaluateAsync<double>("() => window.devicePixelRatio")).ConfigureAwait(false);
                 return new EngineScreenshot(png, scale > 0 ? scale : 1, masked);
             }
