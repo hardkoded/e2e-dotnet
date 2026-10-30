@@ -481,8 +481,10 @@ internal sealed class AttemptArtifacts
             var reference = await store.PutLinkAsync(
                 new StoredArtifactLink
                 {
+                    Kind = E2E.Reports.ArtifactKind.Video,
                     Url = url,
                     MediaType = link.MediaType,
+                    Redaction = ArtifactRedaction.Incomplete,
                     RunId = _options.Identity?.RunId ?? "",
                     TestId = _options.Identity?.TestId ?? "",
                     AttemptId = AttemptIdOf(),
