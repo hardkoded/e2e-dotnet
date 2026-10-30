@@ -230,6 +230,30 @@ public sealed class ReportFileTests : IDisposable
     }
 
     [Fact]
+    public async Task Reads_a_cancellation_by_the_session_test_timeout_as_timed_out()
+    {
+        await using (var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = new ReportEngine(),
+            TestTitle = "shop > slow",
+            BaseUrl = "http://127.0.0.1:4100",
+            ProjectRoot = ProjectRoot(),
+            ResultsDirectory = Results,
+            CacheEnabled = false,
+            Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
+            TestTimeout = TimeSpan.FromMilliseconds(100),
+        }))
+        {
+            await Task.Delay(400);
+            session.Complete(new OperationCanceledException());
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("timed-out", (string)run["results"]![0]!["status"]!);
+        Assert.Equal(1, (int)run["exitCode"]!);
+    }
+
+    [Fact]
     public async Task Does_not_exit_130_for_a_retry_that_timed_out()
     {
         await using (var failing = await StartAsync("shop > pays", 1))
