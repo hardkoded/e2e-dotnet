@@ -34,13 +34,18 @@ public sealed class AgentDeviceRpcClientTests
     public async Task Sends_apps_list_as_the_apps_command_with_the_device_selection()
     {
         var daemon = new FakeDaemon();
-        var client = new AgentDeviceRpcClient("e2e-ios-0", new JsonObject(), _ => Task.FromResult(new DaemonEndpoint(new Uri("http://127.0.0.1:1/"), null)), new HttpClient(daemon));
+        using var http = new HttpClient(daemon);
+        var client = new AgentDeviceRpcClient("e2e-ios-0", new JsonObject(), _ => Task.FromResult(new DaemonEndpoint(new Uri("http://127.0.0.1:1/"), null)), http);
 
         await client.CallAsync(DeviceMethods.AppsList, new JsonObject { ["platform"] = "ios", ["device"] = "iPhone 17 Pro" }, CancellationToken.None);
 
         var request = Assert.Single(daemon.Requests);
-        Assert.Contains("\"apps\"", request.ToJsonString());
-        Assert.Contains("iPhone 17 Pro", request.ToJsonString());
+        Assert.Equal("agent_device.command", request["method"]!.GetValue<string>());
+        var command = request["params"]!.AsObject();
+        Assert.Equal("apps", command["command"]!.GetValue<string>());
+        Assert.Empty(command["positionals"]!.AsArray());
+        Assert.Equal("ios", command["flags"]!["platform"]!.GetValue<string>());
+        Assert.Equal("iPhone 17 Pro", command["flags"]!["device"]!.GetValue<string>());
     }
 
     [Fact]
