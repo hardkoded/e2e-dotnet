@@ -221,7 +221,7 @@ The loop is:
    call    tap, type, select, tap                   the goal's path; its test lines stay out
    call    locate {role: "status"}                  1 node matches, text "Invite sent"
    edit    + await Expect.That(Screen.GetByRole("status")).ToContainTextAsync("Invite sent");
-   call    type {target: "n40", value: "ada"}       prints the test line below
+   call    type {target: "n40", text: "ada"}       prints the test line below
            Test line: await Screen.GetByRole("searchbox", "Search members").FillAsync("ada");
    edit    + that line, as printed
    call    locate {role: "listitem"}                1 node matches
