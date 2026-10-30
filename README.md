@@ -46,7 +46,7 @@ public sealed class BillingTests : E2ETest
 }
 ```
 
-`E2ETest` starts a `WebEngine` session for each `[Test]`. Override `CreateEngine` with a `DocumentEngine` when the test should not open a browser, or with a `WebEngine` whose `Connect` attaches to a remote Chromium over CDP (see [Recovering a CDP transport](#recovering-a-cdp-transport)), or whose `Browser` leases hosted browsers (see [Hosted browsers](#hosted-browsers)). An `act` that a later `assert`, `waitFor`, or locator `Expect` verifies is recorded. The next run replays those actions with no model calls until the screen no longer matches. When the test ends, verified acts are written and unverified acts that recorded or replayed are evicted, whether it passed, failed, or was skipped. `[Retry]` runs the later attempts live, and they still record. Tests that never call the agent need no model. A judgment (`AssertAsync`, `WaitForAsync`, `ExtractAsync`) reads the text snapshot of the screen. Pass `Vision = VisionMode.On` to show it a masked screenshot too, or `VisionMode.Only` for the screenshot alone, when the answer is in pixels. After a test fills a `Secret`, no pixels reach a model. Screenshots kept as artifacts stay on and mask secure fields only.
+`E2ETest` starts a `WebEngine` session for each `[Test]`. Override `CreateEngine` with a `DocumentEngine` when the test should not open a browser, or with a `WebEngine` whose `Connect` attaches to a remote Chromium over CDP (see [Recovering a CDP transport](#recovering-a-cdp-transport)), or whose `Browser` leases hosted browsers (see [Hosted browsers](#hosted-browsers)). An `act` that a later `assert`, `waitFor`, or locator `Expect` verifies is recorded. The next run replays those actions with no model calls until the screen no longer matches. See [Self-healing tests](#self-healing-tests). When the test ends, verified acts are written and unverified acts that recorded or replayed are evicted, whether it passed, failed, or was skipped. `[Retry]` runs the later attempts live, and they still record. Tests that never call the agent need no model. A judgment (`AssertAsync`, `WaitForAsync`, `ExtractAsync`) reads the text snapshot of the screen. Pass `Vision = VisionMode.On` to show it a masked screenshot too, or `VisionMode.Only` for the screenshot alone, when the answer is in pixels. After a test fills a `Secret`, no pixels reach a model. Screenshots kept as artifacts stay on and mask secure fields only.
 
 ### Recovering a CDP transport
 
@@ -285,6 +285,45 @@ An agent entry also takes `judge` (the model id for `assert`, `waitFor`, and `ex
 `cache.mode` is `off`, `read-only`, or `read-write`. Unset, it is `read-write` locally and `read-only` when `CI` is set. `cache.strict` fails a recording that no longer matches with `REPLAY_STALE` instead of running the step live. Under `cache.strict`, retries replay too, and the run never writes the cache. `cache.dir` resolves against the config file's directory. `E2E_CACHE_DIR` replaces it, so checkouts and worktrees of one project can share a replay cache without editing the config; the mode stays as configured. Parallel runs can share the directory: each write replaces its entry file atomically, and two writers on one key leave the last write. On Windows, a write the file system refuses while another write replaces the same entry, or while a reader holds it open, is retried for a moment before the step reports it as not written.
 
 A cache entry belongs to one test, instruction, set of params, and agent. Each of these changes causes a miss: renaming the test or its class, changing the instruction or an ordinary param, running with another configured agent, changing the agent's `context` or a test's `[AgentContext]` (a secret in it enters the key as its name only), or switching to another engine. Changing the model doesn't cause a miss.
+
+### Self-healing tests
+
+A self-healing test keeps passing when the UI changes under a recorded `Agent.ActAsync` step. The replay runs the recording until it no longer matches the screen. Then it hands the rest of the step to the agent, which finishes the goal from the current screen. In `read-write` mode, the same run can save the new flow once a later check passes. Such a step reports `ActResult.Cache.Mode` `agent-concluded`.
+
+Take a step recorded with two actions, and a button that was renamed since:
+
+```csharp
+[Test]
+public async Task Applies_a_discount_code()
+{
+    await App.OpenAsync("/checkout");
+    await Agent.ActAsync("apply the discount code SUMMER");
+    await Expect.That(Screen.GetByRole("status")).ToHaveTextAsync("10% off");
+}
+```
+
+1. The replay types `SUMMER` into the `Discount code` field without a model call.
+2. The replay looks for the recorded button `Apply`. The button is now `Redeem`, so no control matches within 15 seconds (`ReplayTimeout`). The replay stops with `target-not-found`.
+3. The agent gets the step with a record of what the replay did. It reads the screen, sees `Redeem`, and taps it.
+4. The `Expect` passes. At the end of the attempt, the session saves the new recording, with `Redeem` in place of `Apply`.
+5. The next run replays the whole step without a model call.
+
+The replay never guesses. A recorded control that no longer matches is a hand-off, never a tap on the closest control.
+
+The agent's first prompt lists the actions the replay already performed and why it stopped (`Replay stopped (target-not-found) after these actions:`), and tells it to continue from the current screen without repeating an action that already had its effect. When an action failed and may have reached the app (`action-uncertain`), the prompt adds a warning to verify the current state before doing anything like it again. The replayed actions and the wait count toward the step's budgets and deadline. When the replay stops before its first action, the step is a miss, not a hand-off: the agent runs it from the beginning with no notice. A custom executor gets the hand-off in `StepExecutorContext.ReplayedPrefix` and must continue from the current screen too.
+
+A healed step records again like a new step: in `read-write` mode, and only when a check after it passes, such as a locator assertion or `Agent.AssertAsync`. Then the recording is saved with the new controls and end state, unless the store rejected the write (`not-written`). Otherwise the old entry goes away:
+
+- The step failed. The next run doesn't replay a flow that broke.
+- No check passed after the step.
+- The step changed nothing the replay could check, so there is no new flow to save.
+- The agent had to act to fix an `end-mismatch`. The next verified run records a clean flow, not the failed flow plus the fix.
+
+When no model answered or the run was cancelled, the entry stays as it is. The trace page's `cache:` line says what happened, and `ActResult.Cache` carries the same record (`ReplayedActions`, `TotalActions`, `Reason`, `Detail`).
+
+The agent heals toward the goal in the instruction, not toward the recorded clicks. If the discount button moved, the agent finds it. If discounts stop working, the step or the check after it fails. A goal can still pass in a way you didn't intend, for example with a different discount, so follow each `ActAsync` with a deterministic check of the result, such as the `ToHaveTextAsync("10% off")` above. That check runs on every run, replayed or healed.
+
+With `CI` set and `cache.mode` unset, the cache is `read-only`, so a healed step isn't saved. It hands off again on every CI run and pays for model calls each time. Record it again in a local `read-write` run, then commit `.e2e/cache/`. To fail instead of heal, run CI with `cache.strict`. A step whose recording no longer replays fails with `REPLAY_STALE` and makes no model call.
 
 ### Rerun a test while you fix it
 
