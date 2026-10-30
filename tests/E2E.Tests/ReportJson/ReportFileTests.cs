@@ -244,8 +244,11 @@ public sealed class ReportFileTests : IDisposable
             TestTimeout = TimeSpan.FromMilliseconds(100),
         }))
         {
-            await Task.Delay(400);
-            session.Complete(new OperationCanceledException());
+            var token = session.Context.CancellationToken;
+            var timedOut = new TaskCompletionSource();
+            using var registration = token.Register(() => timedOut.TrySetResult());
+            await timedOut.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            session.Complete(new OperationCanceledException(token));
         }
 
         var run = Read()["run"]!;
