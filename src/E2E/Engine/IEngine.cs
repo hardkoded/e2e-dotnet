@@ -231,6 +231,14 @@ public interface IEngineSession : IAsyncDisposable
         Task.FromException<EngineScreenshot>(new EngineException("UNSUPPORTED_CAPABILITY", "toHaveScreenshot is not supported by this engine."));
 
     /// <summary>
+    /// Captures a redacted screenshot into the attempt's artifact directory and returns its artifact-relative path, <c>screenshots/NNN-label.png</c>.
+    /// Every secure field is covered before the file is written. Upstream's <c>session.artifacts.screenshot</c>; an engine that keeps none
+    /// fails with <c>UNSUPPORTED_CAPABILITY</c>, as upstream's guard does.
+    /// </summary>
+    Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken) =>
+        Task.FromException<string>(new EngineException("UNSUPPORTED_CAPABILITY", "screenshots is not supported by this engine."));
+
+    /// <summary>
     /// Starts recording the attempt as video, once its page can be recorded. Engines that declare
     /// <see cref="EngineCapabilities.Video"/> implement it. Upstream's <c>startVideo</c>.
     /// </summary>

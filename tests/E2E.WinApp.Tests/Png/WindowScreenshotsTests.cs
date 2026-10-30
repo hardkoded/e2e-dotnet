@@ -73,6 +73,37 @@ public sealed class WindowScreenshotsTests
     }
 
     [Fact]
+    public async Task The_screenshot_artifact_is_numbered_masked_and_named_by_its_label()
+    {
+        var directory = Directory.CreateTempSubdirectory("e2e-winapp-artifacts-").FullName;
+        try
+        {
+            await using var harness = new Harness { ArtifactsDir = directory };
+            var session = await harness.OpenAsync();
+            harness.Driver.Screenshot = Shot(800, 600);
+            Assert.Equal("screenshots/001-first_shot.png", await session.ScreenshotArtifactAsync("first shot", CancellationToken.None));
+            Assert.Equal("screenshots/002-screenshot.png", await session.ScreenshotArtifactAsync(null, CancellationToken.None));
+            var image = PngReader.Read(await File.ReadAllBytesAsync(Path.Combine(directory, "screenshots", "002-screenshot.png")));
+            Assert.Equal((0, 0, 0, 255), PngReader.Pixel(image, 25, 75));
+            Assert.Equal((30, 20, 10, 255), PngReader.Pixel(image, 25, 60));
+            Assert.Empty(Directory.GetFiles(Path.Combine(directory, "screenshots"), "*.tmp"));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task A_screenshot_artifact_outside_an_attempt_is_INVALID_STATE()
+    {
+        await using var harness = new Harness();
+        var session = await harness.OpenAsync();
+        var error = await Assert.ThrowsAsync<EngineException>(() => session.ScreenshotArtifactAsync("x", CancellationToken.None));
+        Assert.Equal(EngineErrorCodes.InvalidState, error.Code);
+    }
+
+    [Fact]
     public async Task A_secure_field_without_a_box_withholds_the_screenshot()
     {
         await using var harness = new Harness();

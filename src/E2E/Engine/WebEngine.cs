@@ -1848,21 +1848,7 @@ public sealed partial class WebEngine : IEngine
             try
             {
                 var page = Page;
-                // Every secure field of every frame is covered before the image leaves the engine: two locators per
-                // frame, one through light DOM and open shadow roots, one through the closed roots.
-                var masks = page.Frames.SelectMany(frame => new[] { frame.Locator(SecureFieldSelector), frame.Locator(ClosedSecureFieldSelector) }).ToList();
-                var masked = 0;
-                foreach (var mask in masks)
-                {
-                    try
-                    {
-                        masked += await budget.WithinAsync(mask.CountAsync()).ConfigureAwait(false);
-                    }
-                    catch (Exception ex) when (WebErrors.IsPlaywright(ex))
-                    {
-                        // A frame that detaches mid-sweep contributes nothing, which can only push a caller toward withholding the image.
-                    }
-                }
+                var (masks, masked) = await SecureFieldMasksAsync(page, budget).ConfigureAwait(false);
 
                 // The adopted stylesheet hides the caret where Playwright's own option would write an inline style a hydrating framework flags.
                 var png = await ScreenshotCaret.WithHiddenCaretAsync(page, () => budget.WithinAsync(page.ScreenshotAsync(new PageScreenshotOptions
@@ -1876,6 +1862,65 @@ public sealed partial class WebEngine : IEngine
                 }))).ConfigureAwait(false);
                 var scale = await budget.WithinAsync(page.EvaluateAsync<double>("() => window.devicePixelRatio")).ConfigureAwait(false);
                 return new EngineScreenshot(png, scale > 0 ? scale : 1, masked);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.NavigationStaleOr(ex, "screenshot");
+            }
+        });
+
+        // Every secure field of every frame is covered before the image leaves the engine: two locators per
+        // frame, one through light DOM and open shadow roots, one through the closed roots.
+        private static async Task<(List<ILocator> Masks, int Masked)> SecureFieldMasksAsync(IPage page, OperationBudget budget)
+        {
+            var masks = page.Frames.SelectMany(frame => new[] { frame.Locator(SecureFieldSelector), frame.Locator(ClosedSecureFieldSelector) }).ToList();
+            var masked = 0;
+            foreach (var mask in masks)
+            {
+                try
+                {
+                    masked += await budget.WithinAsync(mask.CountAsync()).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+                {
+                    // A frame that detaches mid-sweep contributes nothing, which can only push a caller toward withholding the image.
+                }
+            }
+
+            return (masks, masked);
+        }
+
+        /// <summary>
+        /// A redacted screenshot artifact: secure fields in every frame are masked at the source, as in observation pixels. The file is
+        /// written through a unique temporary name and moved into place (upstream's <c>screenshot</c> in <c>web/src/surface.ts</c>).
+        /// </summary>
+        public Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken) => RunAsync("screenshot", cancellationToken, async () =>
+        {
+            var budget = Budget("screenshot", cancellationToken);
+            try
+            {
+                var page = Page;
+                var (relative, absolute) = ArtifactPath("screenshots", label, ".png");
+                var (masks, _) = await SecureFieldMasksAsync(page, budget).ConfigureAwait(false);
+                var png = await budget.WithinAsync(page.ScreenshotAsync(new PageScreenshotOptions
+                {
+                    Type = ScreenshotType.Png,
+                    Mask = masks,
+                    MaskColor = "#000000",
+                    Timeout = budget.PlaywrightTimeout,
+                })).ConfigureAwait(false);
+                var temporary = absolute + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                try
+                {
+                    await File.WriteAllBytesAsync(temporary, png, cancellationToken).ConfigureAwait(false);
+                    File.Move(temporary, absolute, overwrite: true);
+                }
+                finally
+                {
+                    File.Delete(temporary);
+                }
+
+                return relative;
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {

@@ -572,10 +572,16 @@ public sealed partial class DeviceSession
     /// painted over. Observes first so the regions describe the screen the pixels show. Throws when a secure field
     /// cannot be covered, because an image that may hold a credential must not leave the engine.
     /// </summary>
-    internal async Task<EngineScreenshot> MaskedScreenshotAsync(CancellationToken cancellationToken)
+    internal Task<EngineScreenshot> MaskedScreenshotAsync(CancellationToken cancellationToken) => MaskedScreenshotAsync(normalizeStatusBar: true, cancellationToken);
+
+    /// <summary>
+    /// <see cref="MaskedScreenshotAsync(CancellationToken)"/> with the status bar left as the device shows it when
+    /// <paramref name="normalizeStatusBar"/> is false, as an evidence screenshot is kept (upstream's <c>maskedScreenshot</c>).
+    /// </summary>
+    internal async Task<EngineScreenshot> MaskedScreenshotAsync(bool normalizeStatusBar, CancellationToken cancellationToken)
     {
         var projected = Project(await SnapshotOrEmptyAsync(false, cancellationToken).ConfigureAwait(false));
-        var data = await CaptureScreenshotAsync(async (shot, file) => await File.ReadAllBytesAsync(shot.Path ?? file, cancellationToken).ConfigureAwait(false), normalizeStatusBar: true, cancellationToken).ConfigureAwait(false);
+        var data = await CaptureScreenshotAsync(async (shot, file) => await File.ReadAllBytesAsync(shot.Path ?? file, cancellationToken).ConfigureAwait(false), normalizeStatusBar, cancellationToken).ConfigureAwait(false);
         var viewport = _knownViewport;
         var (masked, regions) = RedactSecure(data, projected, viewport)
             ?? throw new EngineException(EngineErrorCodes.EngineFailure, "a secure field on screen could not be masked; screenshot withheld", retryable: false);

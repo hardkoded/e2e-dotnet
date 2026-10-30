@@ -277,6 +277,10 @@ lines you changed:
   never confirms the act (topic `agent`).
 - Check each act's outcome. Only a verified act is recorded and replayed
   (topic `agent`).
+- `App.ScreenshotAsync(label)` keeps a redacted evidence screenshot under the
+  attempt's `screenshots/` and returns the absolute path of the file it wrote.
+  It masks secure fields only, after a `Secret` fill too (topic
+  `writing-tests`).
 - Shape the agent for this app: `context` for the vocabulary the screens
   use, `system` for how it works, named agents under `agents`. A screen over
   the agent's `maxObservationBytes` (default 262144) is cut with an

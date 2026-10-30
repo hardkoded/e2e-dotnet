@@ -38,6 +38,9 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     private IDeviceClient? _client;
     private IDeviceClient? _tracked;
     private int _idCounter;
+
+    /// <summary>Screenshots the attempt kept, which number their files (upstream's <c>attempt.screenshots</c>).</summary>
+    private int _screenshots;
     private string? _appIdentity;
 
     /// <summary>True from a launch until a snapshot succeeds: an app iOS reports not running in between is still starting, not gone.</summary>
@@ -311,6 +314,34 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 
     public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) =>
         _engine.Actions.ScreenshotAsync(this, cancellationToken);
+
+    /// <summary>
+    /// A redacted screenshot artifact. The device paints secure fields as dots, but the last typed character shows in clear, so every
+    /// secure node's bounds are painted over before the file is kept. An image that cannot be redacted is not written at all (upstream's
+    /// <c>screenshot</c> in <c>mobile/src/surface.ts</c>).
+    /// </summary>
+    public async Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken)
+    {
+        var artifactsDir = _artifactsDir ?? throw DeviceSupport.InvalidState("screenshot outside an attempt");
+        var masked = await MaskedScreenshotAsync(normalizeStatusBar: false, cancellationToken).ConfigureAwait(false);
+        var name = Interlocked.Increment(ref _screenshots).ToString("D3", System.Globalization.CultureInfo.InvariantCulture)
+            + "-" + DeviceSupport.SanitizeFilename(label ?? "screenshot") + ".png";
+        var directory = Path.Combine(artifactsDir, "screenshots");
+        Directory.CreateDirectory(directory);
+        var absolute = Path.Combine(directory, name);
+        var temporary = absolute + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            await File.WriteAllBytesAsync(temporary, masked.Png, cancellationToken).ConfigureAwait(false);
+            File.Move(temporary, absolute, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temporary);
+        }
+
+        return "screenshots/" + name;
+    }
 
     public ValueTask DisposeAsync() => new(CloseAsync(E2EDefaults.CleanupTimeout, CancellationToken.None));
 

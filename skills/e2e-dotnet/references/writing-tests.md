@@ -50,14 +50,19 @@ grouping, setup, and categories are the framework's.
 Members of `E2ETest` in both frameworks:
 
 - `App`: `OpenAsync(path)`, `BackAsync`, `RestartAsync`, `ClearStateAsync`,
-  and `BaseUrl`. A path resolves against the target URL. `OpenAsync` and the
+  `ScreenshotAsync(label)`, and `BaseUrl`. A path resolves against the target URL. `OpenAsync` and the
   agent's navigate step admit only `http:`, `https:`, and the exact
   `about:blank`; any other scheme is `POLICY_DENIED`. `RestartAsync` keeps
   cookies and storage, `ClearStateAsync` drops them, and both reopen the
   target URL inside their own step, so the report shows `app.restart` or
   `app.clearState` alone, with no `app.open` after it. `ClearStateAsync` is
   `UNSUPPORTED_CAPABILITY` with `Connect.ReconnectEndpoint` or an
-  attempt-scoped `Browser` provider.
+  attempt-scoped `Browser` provider. `ScreenshotAsync(label)` saves a redacted
+  screenshot artifact under `screenshots/` and returns its absolute path; the
+  report records the path relative to the artifact root. It masks secure
+  fields only, after a `Secret` fill too, so a secret the app shows anywhere
+  else is in the image. It is `UNSUPPORTED_CAPABILITY` on an engine that keeps
+  no screenshot artifact (the web, mobile, and Windows engines do).
 - `Agent`: `ActAsync`, `AssertAsync`, `WaitForAsync`, `ExtractAsync<T>`
   (topic `agent`).
 - `Screen`: the locators below.

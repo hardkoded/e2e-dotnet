@@ -24,7 +24,7 @@ Opens and resets the app under test. A relative URL is resolved against
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L14)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L41)
 
 ## Properties
 
@@ -43,7 +43,7 @@ The target base URL relative URLs resolve against, or null when the test declare
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L35)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L62)
 
 ## Methods
 
@@ -68,7 +68,7 @@ Goes back one entry in the history. With no earlier entry it does nothing.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L73)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L100)
 
 <a id="E2E_App_ClearStateAsync_"></a>
 <a id="E2E_App_ClearStateAsync_System_Threading_CancellationToken_"></a>
@@ -91,7 +91,7 @@ Discards cookies, storage, and history, and reopens the app at [BaseUrl](#E2E_Ap
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L85)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L112)
 
 <a id="E2E_App_OpenAsync_"></a>
 <a id="E2E_App_OpenAsync_System_String_System_Threading_CancellationToken_"></a>
@@ -117,7 +117,7 @@ for a malformed URL or a scheme other than `http:` or `https:` (the exact `about
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L42)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L69)
 
 <a id="E2E_App_RestartAsync_"></a>
 <a id="E2E_App_RestartAsync_System_Threading_CancellationToken_"></a>
@@ -140,4 +140,30 @@ Closes the current document and reopens the app at [BaseUrl](#E2E_App_BaseUrl). 
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L79)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L106)
+
+<a id="E2E_App_ScreenshotAsync_"></a>
+<a id="E2E_App_ScreenshotAsync_System_String_System_Threading_CancellationToken_"></a>
+
+### ScreenshotAsync(string?, CancellationToken)
+
+
+```csharp
+public Task<string> ScreenshotAsync(string? label = null, CancellationToken cancellationToken = default)
+```
+
+
+Captures a redacted evidence screenshot: secure fields are masked at the source. The file is an attempt artifact under
+`screenshots/`, and the returned path is absolute (upstream's `app.screenshot`, `createApp` in `run/fixtures.ts`).
+Throws `UNSUPPORTED_CAPABILITY` on an engine that keeps no screenshots.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `label` | [string](https://learn.microsoft.com/dotnet/api/system.string) | Names the step and joins the file name. |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) | Cancels the capture. |
+
+**Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L124)

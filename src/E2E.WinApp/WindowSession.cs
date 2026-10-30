@@ -31,6 +31,8 @@ public sealed partial class WindowSession : IEngineSession
 
     private readonly WinAppEngine _engine;
     private readonly string _projectRoot;
+    private readonly string? _artifactsDir;
+    private int _screenshots;
     private readonly Action<AppLogEntry>? _appLog;
     private readonly Action<IReadOnlyDictionary<string, string>>? _environment;
 
@@ -49,6 +51,7 @@ public sealed partial class WindowSession : IEngineSession
         _engine = engine;
         _driver = driver;
         _projectRoot = options.ProjectRoot ?? Directory.GetCurrentDirectory();
+        _artifactsDir = options.ArtifactsDir;
         _appLog = options.AppLog;
         _environment = options.Environment;
     }
@@ -140,6 +143,34 @@ public sealed partial class WindowSession : IEngineSession
 
     public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) =>
         _engine.Actions.ScreenshotAsync(this, cancellationToken);
+
+    /// <summary>
+    /// A redacted screenshot artifact: the main window with every secure field painted over, as <see cref="ScreenshotAsync(CancellationToken)"/>
+    /// returns it. An image that cannot be redacted is not written at all. The Windows counterpart of <c>screenshot</c> in upstream's
+    /// <c>mobile/src/surface.ts</c>.
+    /// </summary>
+    public async Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken)
+    {
+        var artifactsDir = _artifactsDir ?? throw WinAppSupport.InvalidState("screenshot outside an attempt");
+        var masked = await ScreenshotAsync(cancellationToken).ConfigureAwait(false);
+        var name = Interlocked.Increment(ref _screenshots).ToString("D3", System.Globalization.CultureInfo.InvariantCulture)
+            + "-" + WebSupport.SanitizeFilename(label ?? "screenshot") + ".png";
+        var directory = Path.Combine(artifactsDir, "screenshots");
+        Directory.CreateDirectory(directory);
+        var absolute = Path.Combine(directory, name);
+        var temporary = absolute + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            await File.WriteAllBytesAsync(temporary, masked.Png, cancellationToken).ConfigureAwait(false);
+            File.Move(temporary, absolute, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temporary);
+        }
+
+        return "screenshots/" + name;
+    }
 
     public ValueTask DisposeAsync() => new(CloseAsync(E2EDefaults.CleanupTimeout, CancellationToken.None));
 

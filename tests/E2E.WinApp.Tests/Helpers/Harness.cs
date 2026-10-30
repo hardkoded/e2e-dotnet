@@ -30,6 +30,9 @@ public sealed class Harness : IAsyncDisposable
 
     public FakeWindowDriver Driver { get; }
 
+    /// <summary>The artifact directory the next session starts with; null starts it without one.</summary>
+    public string? ArtifactsDir { get; set; }
+
     public WinAppEngine Engine { get; }
 
     public FakeTimeProvider Clock { get; } = new();
@@ -56,6 +59,7 @@ public sealed class Harness : IAsyncDisposable
             new EngineStartOptions
             {
                 ProjectRoot = Root,
+                ArtifactsDir = ArtifactsDir,
                 AppLog = AppLog.Add,
                 Environment = Environment.Add,
             },

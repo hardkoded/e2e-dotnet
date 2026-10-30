@@ -114,6 +114,31 @@ public sealed class App
         return RunStepAsync("app.clearState", "", () => SteerAsync(_session.ClearStateAsync, Token(cancellationToken)));
     }
 
+    /// <summary>
+    /// Captures a redacted evidence screenshot: secure fields are masked at the source. The file is an attempt artifact under
+    /// <c>screenshots/</c>, and the returned path is absolute (upstream's <c>app.screenshot</c>, <c>createApp</c> in <c>run/fixtures.ts</c>).
+    /// Throws <c>UNSUPPORTED_CAPABILITY</c> on an engine that keeps no screenshots.
+    /// </summary>
+    /// <param name="label">Names the step and joins the file name.</param>
+    /// <param name="cancellationToken">Cancels the capture.</param>
+    public async Task<string> ScreenshotAsync(string? label = null, CancellationToken cancellationToken = default)
+    {
+        var path = "";
+        await RunStepAsync("app.screenshot", label ?? "", async () =>
+        {
+            var relative = await _session.ScreenshotArtifactAsync(label, Token(cancellationToken)).ConfigureAwait(false);
+            Attach("screenshot", relative);
+            path = Path.GetFullPath(Path.Combine(ArtifactsDir ?? "", relative));
+        }).ConfigureAwait(false);
+        return path;
+    }
+
+    /// <summary>The attempt's artifact directory, which a screenshot's artifact-relative path is resolved against (upstream's <c>environment.artifacts.dir</c>).</summary>
+    internal string? ArtifactsDir { get; set; }
+
+    /// <summary>Keeps a file the fixture wrote as an artifact of the running step (upstream's <c>attachArtifact</c>). Nothing outside a session keeps it.</summary>
+    internal Action<string, string> Attach { get; set; } = static (_, _) => { };
+
     // Each call that steers the app is a recorded step of the attempt, or runs as it is without a timeline.
     private Task RunStepAsync(string api, string label, Func<Task> body) =>
         _steps is null ? body() : _steps.RunAsync(StepKind.App, api, label, body);
