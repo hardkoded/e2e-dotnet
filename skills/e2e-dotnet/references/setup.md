@@ -277,6 +277,7 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
 | `Browser` | An `IBrowserProvider` that leases hosted Chromium browsers (over CDP, or Playwright's protocol for a lease with `Protocol = BrowserProtocol.Playwright`) and releases them when their scope ends. Excludes `Connect`. See below. |
 | `Connect` | Attach to a remote Chromium over CDP. `CdpEndpoint` and `ReconnectEndpoint` are resolvers (`ct => Task<string>`), not strings. With `ReconnectEndpoint` it rides one persistent default context and reconnects only to the original browser and page. |
 
+- With `ReconnectEndpoint`, the engine registers its selector engines in the browser's default context on every connect and reconnect (Playwright seeds custom selectors only in new contexts), so a screenshot masks secure fields in it, including inside closed shadow roots.
 - `ReconnectEndpoint` rides one persistent context without `Headers`,
   `BasicAuth`, `UserAgent`, `Locale`, `TimezoneId` (`INVALID_CONFIG`), or
   `App.ClearStateAsync`. Each attempt needs a fresh browser from `CdpEndpoint`;

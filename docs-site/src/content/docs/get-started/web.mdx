@@ -133,7 +133,7 @@ Headless Chromium refuses a permission the target doesn't grant, so `navigator.c
 | `firefox` | `geolocation`, `local-network-access`, `notifications`, `persistent-storage`, `push`, `screen-wake-lock` |
 | `webkit` | `camera`, `clipboard-read`, `geolocation`, `microphone`, `notifications`, `screen-wake-lock` |
 
-A browser provider or `Connect` takes the `chromium` names: the engine drives it over CDP.
+A browser provider or `Connect` takes the `chromium` names: the engine drives it over CDP. With `ReconnectEndpoint` it rides the browser's default context and registers its selector engines there on every connect and reconnect, so screenshots mask secure fields there, including inside closed shadow roots.
 
 `WebEngine.ValidateApp(app, targetName)` checks a web target's `app` explicitly:
 
