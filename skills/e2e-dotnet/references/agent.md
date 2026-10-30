@@ -383,7 +383,8 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   `ActResult.Cache.Reason` says why a replay missed:
   `no-entry`, `invalid-entry`, `wrong-context`, `target-not-found`,
   `target-ambiguous`, `action-failed`, `action-uncertain` (the replay stopped
-  before any action; after one it hands off), `end-mismatch`, `gap` (the recording stops at a
+  before any action; after one it hands off; under `cache.strict` a miss other
+  than `no-entry` and `gap` fails with `REPLAY_STALE`), `end-mismatch`, `gap` (the recording stops at a
   project tool, see below).
   `ActResult.Cache.Detail` says where the replay stopped and why
   (`at action 2 of 3, tap button "Apply": ...`). After an `end-mismatch` it
