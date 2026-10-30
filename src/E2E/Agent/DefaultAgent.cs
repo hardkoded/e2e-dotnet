@@ -76,7 +76,31 @@ public static class DefaultAgent
             .ToList();
     }
 
-    // Upstream's formatReplayedPrefix opens the prompt when a replay ran first.
+    // Upstream's formatReplayedPrefix: the mid-step hand-off notice. The agent continues from live state; redoing a replayed
+    // action would double-commit a mutation.
+    private static string FormatReplayedPrefix(ReplayedPrefix prefix)
+    {
+        var lines = new List<string> { "Cached replay already performed these recorded actions for this step:" };
+        for (var index = 0; index < prefix.ReplayedActions.Count; index++)
+        {
+            lines.Add($"{index + 1}. {prefix.ReplayedActions[index]}");
+        }
+
+        lines.Add($"Replay stopped ({ReplayHandOffReasons.Name(prefix.StopReason)}) after {prefix.ReplayedActions.Count} of {prefix.TotalActions} recorded actions.");
+        if (prefix.StopReason == ReplayHandOffReason.EndMismatch)
+        {
+            lines.Add("Every recorded action ran, but the screen does not show the recorded end state. Check whether the step actually took effect before doing anything — the recorded flow may have silently failed to commit.");
+        }
+
+        if (prefix.UncertainAction is not null)
+        {
+            lines.Add($"WARNING: the next action ({prefix.UncertainAction}) failed with an UNKNOWN commit state — its input may have reached the app. Verify the current state before doing anything like it again.");
+        }
+
+        lines.Add("Continue the step from the CURRENT screen state shown below — do NOT redo the actions above.");
+        return string.Join('\n', lines);
+    }
+
     private static async Task<string> Opening(StepExecutorContext context)
     {
         var host = context.Host
@@ -89,20 +113,7 @@ public static class DefaultAgent
 
         if (context.ReplayedPrefix is { } prefix)
         {
-            builder.Append("Replay stopped (").Append(ReplayHandOffReasons.Name(prefix.StopReason)).Append(") after these actions:\n");
-            foreach (var action in prefix.ReplayedActions)
-            {
-                builder.Append("- ").Append(action).Append('\n');
-            }
-
-            if (prefix.UncertainAction is not null)
-            {
-                builder
-                    .Append("WARNING: the next action (").Append(prefix.UncertainAction)
-                    .Append(") failed with an UNKNOWN commit state: its input may have reached the app. Verify the current state before doing anything like it again.\n");
-            }
-
-            builder.Append("Continue from the current screen. Do not repeat an action that already had its effect.\n\n");
+            builder.Append(FormatReplayedPrefix(prefix)).Append("\n\n");
         }
 
         var parameters = host.Params;
