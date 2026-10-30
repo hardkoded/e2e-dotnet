@@ -408,7 +408,9 @@ misses.
   This includes the first `GotoAsync` or `App.OpenAsync`.
 - `RouteAsync(pattern, handler)`, `UnrouteAsync(pattern)`: intercept
   requests, newest route first. `route.Request` has `Url`, `Method`,
-  `Headers`, `PostData`. The handler calls exactly one of
+  `Headers`, `PostData`. `route.FetchAsync()` reads upstream without deciding
+  the route and returns `Url`, `Status`, `Headers`, `TextAsync()`,
+  `JsonAsync<T>()`; redirects are not followed. The handler calls exactly one of
   `FulfillAsync(new RouteFulfillResponse { Status, Headers, ContentType, Json | Body | Path })`,
   `ContinueAsync(new RouteContinueOverrides { Url, Method, Headers, PostData })`
   (straight to the network), `FallbackAsync()` (the route registered before

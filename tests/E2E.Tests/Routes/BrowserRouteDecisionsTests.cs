@@ -12,6 +12,70 @@ namespace E2E.Tests.Routes;
 [Collection(BrowserCollection.Name)]
 public sealed class BrowserRouteDecisionsTests
 {
+    [Fact]
+    public Task Fetches_upstream_once_keeps_site_headers_then_fulfills_an_amended_response() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.RouteAsync("**/echo", async route =>
+        {
+            var upstream = await route.FetchAsync();
+            Assert.Equal(200, upstream.Status);
+            Assert.Equal(routes.Site.Origin + "/echo", upstream.Url);
+            Assert.Contains("application/json", upstream.Headers["content-type"], StringComparison.Ordinal);
+            var echo = (await upstream.JsonAsync<Echo>())!;
+            Assert.Equal("open-sesame", echo.Headers["x-gate"]);
+            var text = JsonSerializer.Deserialize<Echo>(await upstream.TextAsync(), JsonOptions)!;
+            Assert.Equal(echo, text with { Headers = echo.Headers });
+            Assert.Equal(echo.Headers, text.Headers);
+            await route.FulfillAsync(new RouteFulfillResponse { Json = new { echo.Path, echo.Method, echo.Headers, echo.Body, amended = true } });
+        });
+        var amended = JsonDocument.Parse(await routes.FetchTextAsync(routes.Site.Origin + "/echo")).RootElement;
+        Assert.True(amended.GetProperty("amended").GetBoolean());
+        Assert.Equal(1, routes.Site.HitsOf("/echo"));
+    });
+
+    [Fact]
+    public async Task Keeps_upstream_metadata_when_the_native_API_response_body_is_unavailable()
+    {
+        await WithRoutesAsync(async routes =>
+        {
+            await routes.Browser.RouteAsync("**/echo", async route =>
+            {
+                var upstream = await route.FetchAsync();
+                Assert.Equal(200, upstream.Status);
+                Assert.Equal(routes.Site.Origin + "/echo", upstream.Url);
+                Assert.Contains("application/json", upstream.Headers["content-type"], StringComparison.Ordinal);
+                var text = await Assert.ThrowsAsync<TestException>(() => upstream.TextAsync());
+                Assert.Equal("ACTION_FAILED", text.Code);
+                Assert.Contains("route.fetch", text.Message, StringComparison.Ordinal);
+                var json = await Assert.ThrowsAsync<TestException>(() => upstream.JsonAsync<object>());
+                Assert.Equal("ACTION_FAILED", json.Code);
+                await route.FulfillAsync(new RouteFulfillResponse { Body = "safe fallback" });
+            });
+            Assert.Equal("safe fallback", await routes.FetchTextAsync(routes.Site.Origin + "/echo"));
+            Assert.Equal(1, routes.Site.HitsOf("/echo"));
+        }, async (route, options) =>
+        {
+            var response = await route.FetchAsync(options);
+            await response.DisposeAsync();
+            return response;
+        });
+    }
+
+    [Fact]
+    public Task Returns_an_upstream_redirect_without_following_it() => WithRoutesAsync(async routes =>
+    {
+        await routes.Browser.RouteAsync("**/redirect", async route =>
+        {
+            var upstream = await route.FetchAsync();
+            Assert.Equal(302, upstream.Status);
+            Assert.Equal("/echo", upstream.Headers["location"]);
+            await route.FulfillAsync(new RouteFulfillResponse { Body = "inspected redirect" });
+        });
+        Assert.Equal("inspected redirect", await routes.FetchTextAsync(routes.Site.Origin + "/redirect"));
+        Assert.Equal(1, routes.Site.HitsOf("/redirect"));
+        Assert.Null(routes.Site.HitsOf("/echo"));
+    });
+
     // Not portable, because the C# signature refuses them at compile time (upstream's tests/types/downloads.ts): a batch with no count,
     // and a trigger that is not asynchronous.
     [Fact]
@@ -333,7 +397,7 @@ public sealed class BrowserRouteDecisionsTests
     /// is that server, with a configured site header and a project root that holds
     /// <c>quote.json</c>. The page is open on the server's root.
     /// </summary>
-    private static async Task WithRoutesAsync(Func<RouteSession, Task> body)
+    private static async Task WithRoutesAsync(Func<RouteSession, Task> body, Func<IRoute, RouteFetchOptions, Task<IAPIResponse>>? fetchRoute = null)
     {
         using var site = CountingSite.Start();
         var projectRoot = Directory.CreateTempSubdirectory("e2e-routes-").FullName;
@@ -346,7 +410,10 @@ public sealed class BrowserRouteDecisionsTests
                 {
                     Headless = true,
                     Headers = new Dictionary<string, string> { ["X-Gate"] = "open-sesame" },
-                }),
+                })
+                {
+                    FetchRoute = fetchRoute ?? ((route, options) => route.FetchAsync(options)),
+                },
                 BaseUrl = site.Origin + "/",
                 ProjectRoot = projectRoot,
                 TestTitle = "browser.route decisions",
@@ -372,6 +439,8 @@ public sealed class BrowserRouteDecisionsTests
             Directory.Delete(projectRoot, recursive: true);
         }
     }
+
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private sealed record Reply(string? ContentType, string Body);
 

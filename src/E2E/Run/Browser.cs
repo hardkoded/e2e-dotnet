@@ -531,7 +531,7 @@ public sealed class Browser
         var session = Require("route");
         async Task Decide(IBrowserRoute engineRoute)
         {
-            var route = new WebRoute(engineRoute, url => Routes.Resolve(_baseUrl, url), file => System.IO.Path.GetFullPath(file, _projectRoot));
+            var route = new WebRoute(engineRoute, url => Routes.Resolve(_baseUrl, url), file => System.IO.Path.GetFullPath(file, _projectRoot), _actionTimeout, _token);
             await handler(route).ConfigureAwait(false);
             if (!route.Decided)
             {
@@ -581,18 +581,34 @@ public sealed class WebRoute
     private readonly IBrowserRoute _route;
     private readonly Func<string, string> _resolveUrl;
     private readonly Func<string, string> _resolvePath;
+    private readonly TimeSpan _actionTimeout;
+    private readonly Func<CancellationToken> _token;
 
-    internal WebRoute(IBrowserRoute route, Func<string, string> resolveUrl, Func<string, string> resolvePath)
+    internal WebRoute(IBrowserRoute route, Func<string, string> resolveUrl, Func<string, string> resolvePath, TimeSpan actionTimeout, Func<CancellationToken> token)
     {
         _route = route;
         _resolveUrl = resolveUrl;
         _resolvePath = resolvePath;
+        _actionTimeout = actionTimeout;
+        _token = token;
     }
 
     /// <summary>The intercepted request.</summary>
     public WebRouteRequest Request => _route.Request;
 
     internal bool Decided { get; private set; }
+
+    /// <summary>
+    /// Reads the upstream response without deciding the route or following redirects, under the action
+    /// timeout. The site's configured headers are sent. A redirect comes back unfollowed, because
+    /// following it could take the request past the navigation rule. Decide the route afterwards
+    /// with <see cref="FulfillAsync"/>, <see cref="ContinueAsync"/>, <see cref="FallbackAsync"/>, or <see cref="AbortAsync"/>.
+    /// </summary>
+    public async Task<WebResponse> FetchAsync()
+    {
+        var response = await _route.FetchAsync(_actionTimeout, _token()).ConfigureAwait(false);
+        return new WebResponse(response, _actionTimeout, _token);
+    }
 
     /// <summary>Answers the request.</summary>
     public async Task FulfillAsync(RouteFulfillResponse response)

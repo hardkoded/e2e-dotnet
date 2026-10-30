@@ -215,6 +215,12 @@ public interface IBrowserRoute
     /// <summary>Sends the request to the network, skipping every other route. The configured site headers are added on top of the request headers.</summary>
     Task ContinueAsync(RouteContinueOverrides overrides);
 
+    /// <summary>
+    /// Reads the upstream response without deciding the route or following redirects. The configured site headers
+    /// are added on top of the request headers. Bounded by <paramref name="timeout"/>.
+    /// </summary>
+    Task<BrowserResponse> FetchAsync(TimeSpan timeout, CancellationToken cancellationToken);
+
     /// <summary>Hands the request to the route registered before this one, or the network when none matches.</summary>
     Task FallbackAsync();
 
