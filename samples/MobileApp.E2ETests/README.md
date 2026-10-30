@@ -43,7 +43,7 @@ To pick a device yourself, set `E2E_MOBILE_DEVICE` to its UDID. List the UDIDs w
 E2E_MOBILE_DEVICE=<UDID> dotnet test samples/MobileApp.E2ETests
 ```
 
-A name such as `"iPhone 17"` works only when exactly one simulator has that name. Many machines have two simulators with the same name, one per runtime. If no device is booted and the variable is unset or ambiguous, the run fails with `AgentDeviceError` code `AMBIGUOUS_MATCH` and a message like `10 devices match this request equally; select one explicitly.` The details list the devices. Boot one simulator, or set `E2E_MOBILE_DEVICE` to a UDID from the list.
+A name such as `"iPhone 17"` works only when exactly one simulator has that name. Many machines have two simulators with the same name, one per runtime. If the variable is unset, no simulator is booted, and several are shut down, agent-device 0.21.35 selects the newest shut-down simulator for the platform. If the variable names a device that more than one simulator matches, the run fails with `AgentDeviceError` code `AMBIGUOUS_MATCH` and a message like `10 devices match this request equally; select one explicitly.` The details list the devices. Boot one simulator, or set `E2E_MOBILE_DEVICE` to a UDID from the list.
 
 The first test installs the build, and every test launches the app fresh. When you are done, run `xcrun simctl shutdown all`. The agent-device daemon keeps running after the tests, in `~/.agent-device/e2e-dotnet`. Stop it with its `daemon.json` pid if you want it gone.
 
