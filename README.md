@@ -338,6 +338,10 @@ Each secret reads `E2E_SECRET_<NAME>` first, then the config value. `null` means
 
 A fixture overrides any value with the matching property, such as `BaseUrl`, `CacheMode`, or `ActionTimeout`, or replaces the whole config by overriding `Config`.
 
+### Evidence screenshots
+
+`App.ScreenshotAsync(label)` saves a redacted screenshot under the attempt's `screenshots/` directory and returns the absolute path of the file it wrote (`<number>-<label>.png`); the report records the path relative to the artifact root. It masks secure fields only, after a `Secret` fill too, so a secret the app shows anywhere else is in the image. It fails with `UNSUPPORTED_CAPABILITY` only on an engine that keeps no screenshot artifact. The web, mobile, and Windows engines keep screenshot artifacts. A secret spelled into the label is redacted before it names the file.
+
 ## Visual comparison
 
 `ToHaveScreenshotAsync` compares what the app shows against a PNG stored next to the test file. It works on the web engine only; `DocumentEngine` fails with `UNSUPPORTED_CAPABILITY`.

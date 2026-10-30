@@ -114,6 +114,36 @@ public sealed class App
         return RunStepAsync("app.clearState", "", () => SteerAsync(_session.ClearStateAsync, Token(cancellationToken)));
     }
 
+    /// <summary>
+    /// Captures a redacted evidence screenshot: secure fields are masked at the source. The file is an attempt artifact under
+    /// <c>screenshots/</c>, and the returned path is absolute (upstream's <c>app.screenshot</c>, <c>createApp</c> in <c>run/fixtures.ts</c>).
+    /// Throws <c>UNSUPPORTED_CAPABILITY</c> on an engine that keeps no screenshots.
+    /// </summary>
+    /// <param name="label">Names the step and joins the file name.</param>
+    /// <param name="cancellationToken">Cancels the capture.</param>
+    public async Task<string> ScreenshotAsync(string? label = null, CancellationToken cancellationToken = default)
+    {
+        var path = "";
+        var artifactsDir = ArtifactsDir ?? throw new EngineException(EngineErrorCodes.InvalidState, "screenshot outside an attempt: the app has no artifact directory");
+        await RunStepAsync("app.screenshot", label ?? "", async () =>
+        {
+            // .NET-only hardening: the label joins the file name and the artifact path, so a secret spelled into it stops here.
+            var relative = await _session.ScreenshotArtifactAsync(label is null ? null : Redact(label), Token(cancellationToken)).ConfigureAwait(false);
+            Attach("screenshot", relative);
+            path = Path.GetFullPath(Path.Combine(artifactsDir, relative));
+        }).ConfigureAwait(false);
+        return path;
+    }
+
+    /// <summary>The attempt's artifact directory, which a screenshot's artifact-relative path is resolved against (upstream's <c>environment.artifacts.dir</c>).</summary>
+    internal string? ArtifactsDir { get; set; }
+
+    /// <summary>Replaces the secrets the attempt knows in text that reaches a file name; identity outside a session.</summary>
+    internal Func<string, string> Redact { get; set; } = static text => text;
+
+    /// <summary>Keeps a file the fixture wrote as an artifact of the running step (upstream's <c>attachArtifact</c>). Nothing outside a session keeps it.</summary>
+    internal Action<string, string> Attach { get; set; } = static (_, _) => { };
+
     // Each call that steers the app is a recorded step of the attempt, or runs as it is without a timeline.
     private Task RunStepAsync(string api, string label, Func<Task> body) =>
         _steps is null ? body() : _steps.RunAsync(StepKind.App, api, label, body);

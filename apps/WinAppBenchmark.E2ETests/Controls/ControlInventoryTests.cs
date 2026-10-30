@@ -303,8 +303,13 @@ public sealed class ControlInventoryTests : BenchmarkTest
     }
 
     [Test]
-    public async Task Restart_and_clearState_reopen_the_app_on_its_home_list()
+    public async Task Screenshot_restart_and_clearState_reopen_the_app_on_its_home_list()
     {
+        var shot = await App.ScreenshotAsync("inventory");
+        Assert.That(Path.IsPathRooted(shot), Is.True);
+        Assert.That(shot, Does.Match(@"[\\/]screenshots[\\/]\d{3}-inventory\.png\z"));
+        Assert.That(File.Exists(shot), Is.True);
+
         await App.RestartAsync();
         await Expect.That(Screen.GetByTestId("Login Form")).ToBeVisibleAsync();
         await Expect.That(Screen.GetByTestId("inventory-header")).ToBeHiddenAsync();
@@ -318,5 +323,4 @@ public sealed class ControlInventoryTests : BenchmarkTest
     //  - 'a tab role answers getByRole' (android only): the inventory's tabs are buttons here.
     //  - 'a row contains its texts' (skipped upstream).
     //  - 'pointer verbs land at the point asked for': the locator API has no tapAt, tap position, or swipe.
-    //  - the `app.screenshot` half of 'screenshot, restart, and clearState reopen the app on its home list': the port has no app.screenshot.
 }

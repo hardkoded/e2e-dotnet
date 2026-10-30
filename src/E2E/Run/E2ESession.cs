@@ -271,7 +271,7 @@ public sealed class E2ESession : IAsyncDisposable
             // What the app did on its own while the engine launched waits here, and goes under the step it happened in.
             appLog.Route((appEvent, at) => scope.Steps.RecordAppEvent(appEvent, at));
 
-            var app = new App(engine, baseUrl, () => timeout.Token, scope.Steps, (options.Engine.Capabilities & EngineCapabilities.PinnedApp) != 0, scope.TargetName);
+            var app = new App(engine, baseUrl, () => timeout.Token, scope.Steps, (options.Engine.Capabilities & EngineCapabilities.PinnedApp) != 0, scope.TargetName) { ArtifactsDir = attemptDir, Redact = text => scope.Redactor.Redact(text), Attach = scope.AttachArtifact };
             var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures) { Steps = scope.Steps };
             softFailures.Redact = text => scope.Redactor.Redact(text);
             browser.Redact = text => scope.Redactor.Redact(text);
