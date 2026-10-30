@@ -88,6 +88,10 @@ public sealed class ControlsTests
         <input id="attachments" type="file" multiple />
         <output aria-label="Attachments state">none</output>
 
+        <button id="avatar-button" type="button">Choose avatar</button>
+        <input id="avatar" type="file" hidden />
+        <output aria-label="Avatar state">none</output>
+
         <div style="height: 3000px"></div>
         <p id="footnote">Footnote</p>
         <output aria-label="Footnote state">out of view</output>
@@ -169,6 +173,12 @@ public sealed class ControlsTests
           document.getElementById('attachments').addEventListener('change', (event) => {
             document.querySelector('output[aria-label="Attachments state"]').textContent =
               Array.from(event.target.files, (file) => file.name).join(', ') || 'none';
+          });
+
+          const avatar = document.getElementById('avatar');
+          document.getElementById('avatar-button').addEventListener('click', () => avatar.click());
+          avatar.addEventListener('change', () => {
+            document.querySelector('output[aria-label="Avatar state"]').textContent = avatar.files[0]?.name ?? 'none';
           });
 
           const footnoteState = document.querySelector('output[aria-label="Footnote state"]');
@@ -346,6 +356,29 @@ public sealed class ControlsTests
     });
 
     [Fact]
+    public Task Several_files_reach_a_multiple_file_input() => RunAsync(async screen =>
+    {
+        await screen.GetByLabel("Attachments").SetInputFilesAsync(["fixtures/attachment.txt", "fixtures/second.txt"]);
+        await Expect.That(screen.GetByLabel("Attachments state")).ToHaveTextAsync("attachment.txt, second.txt");
+    });
+
+    [Fact]
+    public Task A_button_that_opens_a_hidden_file_input_takes_the_files() => RunAsync(async screen =>
+    {
+        await screen.GetByRole("button", "Choose avatar").SetInputFilesAsync("fixtures/attachment.txt");
+        await Expect.That(screen.GetByLabel("Avatar state")).ToHaveTextAsync("attachment.txt");
+    });
+
+    [Fact]
+    public Task Partial_A_button_that_opens_no_file_chooser_fails_as_ACTION_FAILED() => RunAsync(async screen =>
+    {
+        // The locator hands the engine's error on as it is: Partial: upstream's ACTION_FAILED is the engine's NOT_ACTIONABLE here.
+        var error = await Assert.ThrowsAsync<EngineException>(() => screen.GetByRole("button", "Close A").SetInputFilesAsync("fixtures/attachment.txt", new ActionOptions { Timeout = TimeSpan.FromMilliseconds(500) }));
+        Assert.Equal("NOT_ACTIONABLE", error.Code);
+        Assert.Contains("opened no file chooser", error.Message, StringComparison.Ordinal);
+    });
+
+    [Fact]
     public Task ScrollIntoView_brings_a_node_far_below_into_the_viewport() => RunAsync(async screen =>
     {
         var footnote = screen.GetByText("Footnote", exact: true);
@@ -367,6 +400,18 @@ public sealed class ControlsTests
         Assert.Equal(0, await screen.GetByRole("button", "Nope").CountAsync());
     });
 
+    // Upstream's testbed fixtures: attachment.txt and second.txt under the project root.
+    private static readonly string ProjectRoot = CreateProjectRoot();
+
+    private static string CreateProjectRoot()
+    {
+        var root = Directory.CreateTempSubdirectory("e2e-controls-");
+        var fixtures = root.CreateSubdirectory("fixtures");
+        File.WriteAllText(Path.Combine(fixtures.FullName, "attachment.txt"), "attachment\n");
+        File.WriteAllText(Path.Combine(fixtures.FullName, "second.txt"), "second\n");
+        return root.FullName;
+    }
+
     // Upstream's beforeEach opens /controls.
     private static async Task RunAsync(Func<Screen, Task> test)
     {
@@ -377,6 +422,7 @@ public sealed class ControlsTests
             Model = new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")),
             BaseUrl = site.Url,
             TestTitle = "controls",
+            ProjectRoot = ProjectRoot,
             ActionTimeout = TimeSpan.FromSeconds(5),
             AssertionTimeout = TimeSpan.FromSeconds(5),
         });

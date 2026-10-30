@@ -145,9 +145,21 @@ Members of `E2ETest` in both frameworks:
 `ClickAsync` (and `TapAsync`), `DoubleTapAsync` (and `DblClickAsync`), `FillAsync` (a string or a
 `Secret`), `PressSequentiallyAsync`, `PressAsync`, `CheckAsync`,
 `UncheckAsync`, `ClearAsync`, `SelectOptionAsync` (a value or label),
-`FocusAsync`, and `ScrollIntoViewAsync`. Each waits up to the action timeout
-for exactly one enabled, visible match. There is no hover, drag, file
-upload, long press, or right click.
+`FocusAsync`, `SetInputFilesAsync`, and `ScrollIntoViewAsync`. Each waits up to
+the action timeout for exactly one enabled, visible match. There is no hover,
+drag, long press, or right click.
+
+`SetInputFilesAsync(path)` (or a list of paths) sets the files of exactly one
+file input, or of a control that opens a file chooser, such as a button over a
+hidden input. A locator refuses a hidden node, so target the button or label
+over a hidden input, not the input. Paths resolve from the project root; an empty list or a blank
+entry is an `ArgumentException` (upstream's `INVALID_ARGUMENT`). A file input,
+or a node inside a `<label>` for one, takes the files directly with no click.
+Anything else is clicked with the file chooser already awaited, and the chooser
+takes the files. A control that opens no chooser fails with `NOT_ACTIONABLE`
+(`opened no file chooser`; upstream reports it as `ACTION_FAILED`). Only the
+web engine has it: the others refuse it with `UNSUPPORTED_CAPABILITY`. The
+agent has no `upload` tool yet.
 
 ### Reads
 

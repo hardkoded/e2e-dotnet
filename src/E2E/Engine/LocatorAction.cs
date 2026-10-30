@@ -26,6 +26,12 @@ public abstract record LocatorAction
 
     public sealed record Select(string Value) : LocatorAction;
 
+    /// <summary>
+    /// Sets the files of a file input, or of a control that opens a file chooser when clicked, such as a button over a hidden input.
+    /// <paramref name="Paths"/> are absolute: the locator resolves them from the project root.
+    /// </summary>
+    public sealed record SetInputFiles(IReadOnlyList<string> Paths) : LocatorAction;
+
     public sealed record Check : LocatorAction;
 
     public sealed record Uncheck : LocatorAction;

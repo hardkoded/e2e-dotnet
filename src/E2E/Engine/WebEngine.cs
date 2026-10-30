@@ -2347,6 +2347,9 @@ public sealed partial class WebEngine : IEngine
                 case LocatorAction.Select select:
                     await element.SelectOptionAsync(select.Value, new ElementHandleSelectOptionOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
                     break;
+                case LocatorAction.SetInputFiles files:
+                    await UploadFilesAsync(element, files.Paths, budget).ConfigureAwait(false);
+                    break;
                 case LocatorAction.Check:
                     await SetCheckedAsync(element, true, budget).ConfigureAwait(false);
                     break;
@@ -2988,6 +2991,42 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
+        /// <summary>
+        /// Attaches files to a file input, or to a control that opens a native file chooser when clicked, such as a button over a
+        /// hidden input (upstream's <c>uploadFiles</c>, <c>actions.ts</c>). A file input, or a node inside a <c>&lt;label&gt;</c> for
+        /// one, takes the files directly, as Playwright retargets a label to its control. Anything else is clicked with the chooser
+        /// already awaited, and fails <c>NOT_ACTIONABLE</c> if no chooser opens. Every step shares the operation's deadline, and a
+        /// cancelled operation sets no files, even when its chooser opens after the cancel.
+        /// </summary>
+        private async Task UploadFilesAsync(IElementHandle element, IReadOnlyList<string> paths, OperationBudget budget)
+        {
+            if (await element.EvaluateAsync<bool>(PageScript.IsFileInput).ConfigureAwait(false))
+            {
+                budget.ThrowIfExpired();
+                await element.SetInputFilesAsync(paths, new ElementHandleSetInputFilesOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+                return;
+            }
+
+            budget.ThrowIfExpired();
+            var opened = Page.WaitForFileChooserAsync(new PageWaitForFileChooserOptions { Timeout = budget.PlaywrightTimeout });
+
+            // A click that fails first leaves this wait to time out on its own; nothing awaits it then, so its failure is observed here.
+            _ = opened.ContinueWith(static wait => _ = wait.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            await element.ClickAsync(new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+            IFileChooser chooser;
+            try
+            {
+                chooser = await opened.ConfigureAwait(false);
+            }
+            catch (System.TimeoutException ex)
+            {
+                throw new EngineException(EngineErrorCodes.NotActionable, "upload clicked the control but it opened no file chooser", retryable: false, ex);
+            }
+
+            budget.ThrowIfExpired();
+            await chooser.SetFilesAsync(paths, new FileChooserSetFilesOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+        }
+
         /// <summary>How often a check or uncheck reads the control's state after the click.</summary>
         private static readonly TimeSpan CheckPollInterval = TimeSpan.FromMilliseconds(100);
 
@@ -3476,6 +3515,8 @@ internal sealed class OperationBudget
     /// <summary>Waits for <paramref name="call"/> until the deadline, then abandons it as <c>OPERATION_TIMEOUT</c>.</summary>
     public async Task WithinAsync(Task call)
     {
+        // A call abandoned at the deadline or a cancel may still fault later, with nobody awaiting it: observe that fault.
+        _ = call.ContinueWith(static abandoned => _ = abandoned.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         try
         {
             await call.WaitAsync(Remaining(), _clock, _cancellationToken).ConfigureAwait(false);
