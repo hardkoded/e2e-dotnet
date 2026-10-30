@@ -1409,6 +1409,9 @@ internal sealed class AttemptScope
         }
     }
 
+    /// <summary>The attempt's artifacts when something already made them; null otherwise. Unlike <see cref="Artifacts"/>, it never creates the directory.</summary>
+    internal AttemptArtifacts? CreatedArtifacts => Volatile.Read(ref _artifacts);
+
     /// <summary>
     /// The records of the files fixtures kept for the attempt, such as a download, in registration order (upstream's <c>records</c> of
     /// <c>createAttemptArtifacts</c>). Settle the artifacts first for their size and digest.
@@ -1417,7 +1420,7 @@ internal sealed class AttemptScope
     {
         get
         {
-            if (Artifacts is not { } artifacts)
+            if (CreatedArtifacts is not { } artifacts)
             {
                 return [];
             }

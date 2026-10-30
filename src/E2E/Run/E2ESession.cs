@@ -707,7 +707,7 @@ public sealed class E2ESession : IAsyncDisposable
     // leaves its record without a ref (the store's failure is its own).
     private async Task SettleArtifactsAsync()
     {
-        if (_scope.Artifacts is not { } artifacts)
+        if (_scope.CreatedArtifacts is not { } artifacts)
         {
             return;
         }
