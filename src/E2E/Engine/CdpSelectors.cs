@@ -90,7 +90,8 @@ internal static class CdpSelectors
             var arguments = new Dictionary<string, object> { ["selectorEngine"] = engine };
             try
             {
-                return (Task)send.Invoke(context, ["registerSelectorEngine", arguments, false, (float?)timeout.TotalMilliseconds])!;
+                return send.Invoke(context, ["registerSelectorEngine", arguments, false, (float?)timeout.TotalMilliseconds]) as Task
+                    ?? throw new EngineException(EngineErrorCodes.UnsupportedCapability, "this Playwright version cannot register selector engines in the CDP context; secure-field masks need them", retryable: false);
             }
             catch (TargetInvocationException ex) when (ex.InnerException is not null)
             {
