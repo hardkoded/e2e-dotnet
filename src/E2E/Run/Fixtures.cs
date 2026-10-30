@@ -127,7 +127,8 @@ public sealed class App
         var artifactsDir = ArtifactsDir ?? throw new EngineException(EngineErrorCodes.InvalidState, "screenshot outside an attempt: the app has no artifact directory");
         await RunStepAsync("app.screenshot", label ?? "", async () =>
         {
-            var relative = await _session.ScreenshotArtifactAsync(label, Token(cancellationToken)).ConfigureAwait(false);
+            // .NET-only hardening: the label joins the file name and the artifact path, so a secret spelled into it stops here.
+            var relative = await _session.ScreenshotArtifactAsync(label is null ? null : Redact(label), Token(cancellationToken)).ConfigureAwait(false);
             Attach("screenshot", relative);
             path = Path.GetFullPath(Path.Combine(artifactsDir, relative));
         }).ConfigureAwait(false);
@@ -136,6 +137,9 @@ public sealed class App
 
     /// <summary>The attempt's artifact directory, which a screenshot's artifact-relative path is resolved against (upstream's <c>environment.artifacts.dir</c>).</summary>
     internal string? ArtifactsDir { get; set; }
+
+    /// <summary>Replaces the secrets the attempt knows in text that reaches a file name; identity outside a session.</summary>
+    internal Func<string, string> Redact { get; set; } = static text => text;
 
     /// <summary>Keeps a file the fixture wrote as an artifact of the running step (upstream's <c>attachArtifact</c>). Nothing outside a session keeps it.</summary>
     internal Action<string, string> Attach { get; set; } = static (_, _) => { };

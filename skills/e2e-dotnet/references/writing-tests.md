@@ -61,8 +61,9 @@ Members of `E2ETest` in both frameworks:
   screenshot artifact under `screenshots/` and returns its absolute path; the
   report records the path relative to the artifact root. It masks secure
   fields only, after a `Secret` fill too, so a secret the app shows anywhere
-  else is in the image. It is `UNSUPPORTED_CAPABILITY` on an engine that keeps
-  no screenshot artifact (the web, mobile, and Windows engines do).
+  else is in the image. It is `UNSUPPORTED_CAPABILITY` only on an engine that
+  keeps no screenshot artifact. The web, mobile, and Windows engines keep
+  screenshot artifacts.
 - `Agent`: `ActAsync`, `AssertAsync`, `WaitForAsync`, `ExtractAsync<T>`
   (topic `agent`).
 - `Screen`: the locators below.
