@@ -140,6 +140,19 @@ public sealed class ErrorTranslationTests
     }
 
     [Fact]
+    public void Drops_the_per_code_default_hint_the_daemon_carries_over_which_names_agent_devices_CLI()
+    {
+        var missing = new AgentDeviceError(
+            "APP_NOT_INSTALLED",
+            "No app found matching \"e2eBenchmark\"",
+            Details(("hint", "Run apps to discover the exact installed package or bundle id, or install the app before open.")));
+        var translated = DeviceErrors.TranslateError(missing, "open e2eBenchmark");
+        Assert.Equal("open e2eBenchmark failed: No app found matching \"e2eBenchmark\"", translated.Message);
+        Assert.True(DeviceErrors.IsAppNotInstalled(translated));
+        Assert.False(DeviceErrors.IsAppNotInstalled(DeviceErrors.TranslateError(new AgentDeviceError("COMMAND_FAILED", "plain"), "open x")));
+    }
+
+    [Fact]
     public void Turns_an_AbortError_into_CANCELLED()
     {
         Assert.Equal("CANCELLED", Engine(DeviceErrors.TranslateError(new OperationCanceledException("aborted"), "snapshot")).Code);

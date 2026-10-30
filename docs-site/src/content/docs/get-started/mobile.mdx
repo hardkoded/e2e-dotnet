@@ -53,7 +53,7 @@ dotnet add package E2E.Mobile.NUnit      # or E2E.Mobile.XUnit.V3
 
 ## 3. Write a test
 
-Derive from `MobileAppTest`. It builds a `MobileEngine` from the config, installs the build once per run, launches the app fresh before each test, and gives the agent the `open_app`, `swipe`, and `alert` tools.
+Derive from `MobileAppTest`. It builds a `MobileEngine` from the config, installs the build once per run, launches the app fresh before each test, and gives the agent the `open_app`, `swipe`, and `alert` tools. `open_app` without an app returns to the target's app (`App.BundleId`), so the agent can recover after a system sheet or another app takes the foreground.
 
 ```csharp
 using E2E.Mobile.NUnit;
