@@ -508,8 +508,13 @@ public sealed partial class WebEngine : IEngine
     /// Registers the engine's selector engines before any context exists, so every context the driver creates carries
     /// them. Every secure-field mask needs them.
     /// </summary>
-    private static Task RegisterSelectorEnginesAsync(IPlaywright playwright) =>
-        playwright.Selectors.RegisterAsync(PageScript.ClosedShadowSelectorEngine, new SelectorsRegisterOptions { Script = "(" + PageScript.ClosedShadowSelectorEngineSource + ")()" });
+    private static async Task RegisterSelectorEnginesAsync(IPlaywright playwright)
+    {
+        foreach (var (name, source) in SelectorEngines.All)
+        {
+            await playwright.Selectors.RegisterAsync(name, new SelectorsRegisterOptions { Script = "(" + source + ")()" }).ConfigureAwait(false);
+        }
+    }
 
     /// <summary>
     /// Asks <c>connect.cdpEndpoint</c> for the endpoint to attach to. A resolver that is still pending when
@@ -2703,6 +2708,10 @@ public sealed partial class WebEngine : IEngine
                 {
                     throw RecoveryFailed("reconnectEndpoint returned a different browser");
                 }
+
+                // Playwright seeds custom selectors only in new contexts, so the default context a CDP attach rides needs its own.
+                await CdpSelectors.RegisterCdpSelectorsAsync(context, remaining(), token).ConfigureAwait(false);
+                token.ThrowIfCancellationRequested();
 
                 if (previous?.Target is not { } original)
                 {
