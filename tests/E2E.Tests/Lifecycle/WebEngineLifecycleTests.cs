@@ -41,6 +41,37 @@ public sealed class WebEngineLifecycleTests
     }
 
     [Fact]
+    public async Task Round_trips_persisted_state_through_capture_and_restore_and_reset_drops_it()
+    {
+        using var site = await FixtureApp.StartAsync();
+        await using var session = await OpenAttemptAsync(new WebEngine(new WebEngineOptions { Headless = true }), site.Url);
+
+        await session.OpenAsync(site.Url + "state?set=abc", CancellationToken.None);
+        Assert.Equal("abc", await HeadingAsync(session));
+        var state = await session.CaptureStateAsync(CancellationToken.None);
+        Assert.Equal("playwright-storage-state", state.Format);
+
+        await session.ClearStateAsync(CancellationToken.None);
+        await session.OpenAsync(site.Url + "state", CancellationToken.None);
+        Assert.Equal("none", await HeadingAsync(session));
+
+        await session.RestoreStateAsync(state, CancellationToken.None);
+        await session.OpenAsync(site.Url + "state", CancellationToken.None);
+        Assert.Equal("abc", await HeadingAsync(session));
+
+        // A restart keeps the persisted state and shows nothing until the harness reopens the app.
+        await session.RestartAsync(CancellationToken.None);
+        Assert.Equal("about:blank", WebEngine.SurfaceOf(session)!.Page().Url);
+        // The port's Route is the URL without its origin, so about:blank reads "blank" where upstream's location reads the whole URL.
+        Assert.Equal("blank", (await session.ObserveAsync(CancellationToken.None)).Route);
+        await session.OpenAsync(site.Url + "state", CancellationToken.None);
+        Assert.Equal("abc", await HeadingAsync(session));
+
+        var invalid = await Assert.ThrowsAsync<EngineException>(() => session.RestoreStateAsync(new EngineState("playwright-storage-state", 1, System.Text.Json.Nodes.JsonValue.Create("/etc/passwd")), CancellationToken.None));
+        Assert.Equal("INVALID_STATE", invalid.Code);
+    }
+
+    [Fact]
     public async Task Follows_the_window_under_viewport_null_and_swipes_by_it()
     {
         using var site = await FixtureApp.StartAsync();

@@ -9,23 +9,12 @@ namespace E2E.Tests.WebEngineState;
 
 /// <summary>
 /// <c>captureState</c> and <c>restoreState</c> of the web engine's session (<c>web/src/surface.ts</c>). These are .NET-only tests:
-/// upstream reaches them only through its runner's setup sessions, which the port does not have.
+/// upstream's one test of them is ported as <c>WebEngineLifecycleTests</c>, and the rest reach them only through its runner's setup sessions,
+/// which the port does not have.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class WebEngineStateTests
 {
-    // Shows the stored plan, and stores "pro" when the page is opened with ?set.
-    private const string Page = """
-        <!DOCTYPE html>
-        <html><body>
-        <button type="button" id="plan"></button>
-        <script>
-          if (location.search === "?set") localStorage.setItem("plan", "pro");
-          document.getElementById("plan").textContent = "plan:" + (localStorage.getItem("plan") ?? "none");
-        </script>
-        </body></html>
-        """;
-
     private static Task<IEngineSession> StartAsync(string url) =>
         new WebEngine(new WebEngineOptions()).StartAsync(new EngineStartOptions { BaseUrl = url, ActionTimeout = TimeSpan.FromSeconds(30) }, CancellationToken.None);
 
@@ -37,30 +26,6 @@ public sealed class WebEngineStateTests
 
     private static IEnumerable<SemanticNode> Flatten(IEnumerable<SemanticNode> nodes) =>
         nodes.SelectMany(node => new[] { node }.Concat(Flatten(node.Children)));
-
-    [Fact]
-    public async Task Captures_a_session_s_storage_and_restores_it_into_another()
-    {
-        using var site = await TinySite.StartAsync(Page);
-        EngineState state;
-        await using (var saving = await StartAsync(site.Url))
-        {
-            await saving.OpenAsync(site.Url + "/?set", CancellationToken.None);
-            Assert.Equal("plan:pro", await PlanAsync(saving));
-            state = await saving.CaptureStateAsync(CancellationToken.None);
-        }
-
-        Assert.Equal("playwright-storage-state", state.Format);
-        Assert.Equal(1, state.Version);
-
-        await using var fresh = await StartAsync(site.Url);
-        await fresh.OpenAsync(site.Url, CancellationToken.None);
-        Assert.Equal("plan:none", await PlanAsync(fresh));
-
-        await fresh.RestoreStateAsync(state, CancellationToken.None);
-        await fresh.OpenAsync(site.Url, CancellationToken.None);
-        Assert.Equal("plan:pro", await PlanAsync(fresh));
-    }
 
     [Fact]
     public async Task Captures_and_restores_IndexedDB_with_the_storage()
