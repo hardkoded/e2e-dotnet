@@ -45,6 +45,28 @@ public sealed class CdpSelectorsTests
         Assert.Contains("\"other\"", failure.Message);
     }
 
+    /// <summary>
+    /// .NET-only (no upstream <c>it</c>): the reflected channel to Playwright's real send, which the fake cannot cover. Registers
+    /// twice in a real default context and checks the second registration is tolerated.
+    /// </summary>
+    [Fact]
+    public async Task Registers_through_the_real_context_channel_and_tolerates_its_duplicate()
+    {
+        await using var remote = await RemoteChrome.LaunchAsync();
+        using var playwright = await Playwright.CreateAsync();
+        var browser = await playwright.Chromium.ConnectOverCDPAsync(remote.Endpoint);
+        try
+        {
+            var context = browser.Contexts[0];
+            await E2E.Engine.CdpSelectors.RegisterCdpSelectorsAsync(context, Budget, CancellationToken.None);
+            await E2E.Engine.CdpSelectors.RegisterCdpSelectorsAsync(context, Budget, CancellationToken.None);
+        }
+        finally
+        {
+            await browser.CloseAsync();
+        }
+    }
+
     /// <summary>The stand-in for the context's <c>registerSelectorEngine</c> channel; each queued message rejects one call.</summary>
     private sealed class FakeChannel : E2E.Engine.CdpSelectors.ISelectorChannel
     {
