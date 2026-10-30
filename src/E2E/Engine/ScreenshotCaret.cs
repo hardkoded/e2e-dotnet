@@ -89,7 +89,7 @@ internal static class ScreenshotCaret
         }
 
         _ = work.ContinueWith(
-            late => late.Status == TaskStatus.RanToCompletion ? UndoAsync(late.Result).ContinueWith(_ => { }, TaskScheduler.Default) : Task.CompletedTask,
+            late => late.Status == TaskStatus.RanToCompletion ? UndoAsync(late.Result).ContinueWith(failed => _ = failed.Exception, TaskScheduler.Default) : Task.FromResult(late.Exception),
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
