@@ -182,7 +182,8 @@ The loop is:
      `call {tool: "navigate", args: {url: "<the path App.OpenAsync names>"}}`.
    - iOS or Android: a `MobileAppTest` class (topic `mobile`) whose test opens
      the screen with `Device.OpenLinkAsync`, or starts on the launch screen
-     when the app has no link for it. After `open_session`, take the shortest
+     when the app has no link for it or attaches in the DevFlow preview,
+     where `OpenLinkAsync` fails with `UNSUPPORTED_CAPABILITY`. After `open_session`, take the shortest
      path from the launch screen; the actions that took it are the test's
      first steps unless a link reaches the screen.
    - Windows: a `WinAppTest` class (topic `windows`). A desktop app has no
