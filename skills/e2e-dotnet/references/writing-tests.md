@@ -157,7 +157,7 @@ entry is an `ArgumentException` (upstream's `INVALID_ARGUMENT`). A file input,
 or a node inside a `<label>` for one, takes the files directly with no click.
 Anything else is clicked with the file chooser already awaited, and the chooser
 takes the files. A control that opens no chooser fails with `NOT_ACTIONABLE`
-(`opened no file chooser`; upstream reports it as `ACTION_FAILED`). Only the
+(`opened no file chooser`; upstream reports it as `ACTION_FAILED`, as it does every engine failure of a locator action; the port's locator keeps the engine code, #846). Only the
 web engine has it: the others refuse it with `UNSUPPORTED_CAPABILITY`. The
 agent has no `upload` tool yet.
 
