@@ -156,10 +156,10 @@ var files = await Browser.WaitForDownloadsAsync(
 
 A `count` below one fails with `INVALID_ARGUMENT` before the trigger runs. When fewer downloads start in time, the `ACTION_FAILED` error names both counts. Extra downloads are ignored. The timeout also bounds each file finishing and being saved, and a download still running at the timeout is canceled.
 
-## Next
-
 Text downloads are rescanned before reporting with all secrets known by then,
 including later fills and ASCII secrets written as JSON Unicode escapes.
+
+## Next
 
 <CardGrid>
   <LinkCard title="Dariten sample" href={`${import.meta.env.BASE_URL}samples/dariten/`} description="A locator test and an agent test against a live public app." />

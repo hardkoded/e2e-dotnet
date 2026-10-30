@@ -1692,13 +1692,14 @@ public sealed partial class WebEngine : IEngine
                 }
             }
 
-            TestException TimedOut() => new(
+            TestException TimedOut(Exception inner) => new(
                 "ACTION_FAILED",
                 triggerMs is null
                     ? $"{api} exceeded its timeout of {waitMs}ms"
                     : StartedCount() < count
                         ? $"{(count == 1 ? "no download" : $"{StartedCount()} of {count} downloads")} started within {waitMs}ms; the trigger resolved after {triggerMs}ms"
-                        : $"{(count == 1 ? "the download" : $"{count} downloads")} did not finish within {waitMs}ms");
+                        : $"{(count == 1 ? "the download" : $"{count} downloads")} did not finish within {waitMs}ms",
+                inner);
 
             async Task RunTriggerAsync()
             {
@@ -1746,7 +1747,7 @@ public sealed partial class WebEngine : IEngine
                 var running = RunTriggerAsync();
 
                 // A trigger abandoned at the deadline that fails later is already reported as the timeout.
-                _ = running.ContinueWith(static task => _ = task.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                ObserveFault(running);
                 await budget.WithinAsync(running).ConfigureAwait(false);
                 await budget.WithinAsync(allStarted.Task).ConfigureAwait(false);
                 IDownload[] snapshot;
@@ -1755,7 +1756,7 @@ public sealed partial class WebEngine : IEngine
                     snapshot = [.. started];
                 }
 
-                var files = new List<BrowserDownload>(count);
+                var files = new List<BrowserDownload>();
                 foreach (var download in snapshot)
                 {
                     var suggested = download.SuggestedFilename;
@@ -1765,7 +1766,7 @@ public sealed partial class WebEngine : IEngine
                         : Downloads.SaveFromBrowserAsync(download, remote, absolute, scope.Token);
 
                     // An abandoned save that fails later is already reported as the timeout.
-                    _ = save.ContinueWith(static task => _ = task.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                    ObserveFault(save);
                     await budget.WithinAsync(save).ConfigureAwait(false);
                     files.Add(new BrowserDownload { Path = relative, AbsolutePath = absolute, SuggestedFilename = suggested });
                 }
@@ -1780,7 +1781,7 @@ public sealed partial class WebEngine : IEngine
             }
             catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
             {
-                throw TimedOut();
+                throw TimedOut(ex);
             }
             catch (Exception cause) when (WebErrors.IsPlaywright(cause))
             {
@@ -1794,27 +1795,37 @@ public sealed partial class WebEngine : IEngine
                     closed = true;
                 }
 
-                await scope.CancelAsync().ConfigureAwait(false);
-                if (page is not null && onDownload is not null)
+                try
                 {
-                    page.Download -= onDownload;
+                    await scope.CancelAsync().ConfigureAwait(false);
                 }
-
-                if (!finished)
+                finally
                 {
-                    IDownload[] unfinished;
-                    lock (started)
+                    if (page is not null && onDownload is not null)
                     {
-                        unfinished = [.. started];
+                        page.Download -= onDownload;
                     }
 
-                    foreach (var download in unfinished)
+                    if (!finished)
                     {
-                        _ = CancelQuietlyAsync(download);
+                        IDownload[] unfinished;
+                        lock (started)
+                        {
+                            unfinished = [.. started];
+                        }
+
+                        foreach (var download in unfinished)
+                        {
+                            _ = CancelQuietlyAsync(download);
+                        }
                     }
                 }
             }
         }
+
+        /// <summary>Observes the failure of a task the caller abandoned, which the caller already reported as a timeout.</summary>
+        private static void ObserveFault(Task task) =>
+            _ = task.ContinueWith(static finished => _ = finished.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
 
         private static async Task CancelQuietlyAsync(IDownload download)
         {
