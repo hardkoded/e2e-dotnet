@@ -49,7 +49,7 @@ public WebEngine(WebEngineOptions options)
 | --- | --- | --- |
 | `options` | [WebEngineOptions](/api/E2E.Engine/WebEngineOptions/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L289)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L292)
 
 <a id="E2E_Engine_WebEngine__ctor_System_Nullable_System_Boolean__"></a>
 
@@ -67,7 +67,7 @@ public WebEngine(bool? headless = null)
 | --- | --- | --- |
 | `headless` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L284)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L287)
 
 ## Fields
 
@@ -83,7 +83,7 @@ public const string EngineVersion = "1.1.0"
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L264)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L267)
 
 ## Properties
 
@@ -100,7 +100,7 @@ public EngineCapabilities Capabilities { get; }
 
 **Value:** [EngineCapabilities](/api/E2E.Engine/EngineCapabilities/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L325)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L328)
 
 <a id="E2E_Engine_WebEngine_Platform_"></a>
 <a id="E2E_Engine_WebEngine_Platform"></a>
@@ -115,7 +115,7 @@ public string Platform { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L309)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L312)
 
 <a id="E2E_Engine_WebEngine_Version_"></a>
 <a id="E2E_Engine_WebEngine_Version"></a>
@@ -130,7 +130,7 @@ public string Version { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L323)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L326)
 
 ## Methods
 
@@ -246,4 +246,29 @@ public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationT
 
 **Returns:** [Task&lt;IEngineSession&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L336)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L381)
+
+<a id="E2E_Engine_WebEngine_ValidateApp_"></a>
+<a id="E2E_Engine_WebEngine_ValidateApp_E2E_AppConfig_System_String_"></a>
+
+### ValidateApp(AppConfig, string)
+
+
+```csharp
+public void ValidateApp(AppConfig app, string targetName)
+```
+
+
+A web target opens the app at `app.url`, so the URL is required, and the fields that describe an installed device app
+(`bundleId`, `appPath`, `launchArguments`) have nothing to act on. `app.permissions` must be ones the browser
+grants, and only grants. A provider or a CDP attach speaks CDP, so it takes Chromium's names. Upstream's `validateApp` in
+`web/src/engine.ts`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `app` | [AppConfig](/api/E2E/AppConfig/) |  |
+| `targetName` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L345)

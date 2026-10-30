@@ -135,6 +135,14 @@ Headless Chromium refuses a permission the target doesn't grant, so `navigator.c
 
 A browser provider or `Connect` takes the `chromium` names: the engine drives it over CDP.
 
+`WebEngine.ValidateApp(app, targetName)` checks a web target's `app` explicitly:
+
+- `app.url` is required.
+- `bundleId`, `appPath`, and `launchArguments` describe an installed device app and are refused.
+- `app.permissions` must name permissions the engine's browser grants, and only grants.
+
+Each failure is `INVALID_CONFIG`. Config loading does not run `ValidateApp`: a web target without `app.url` still loads. Attempt start validates `app.permissions` separately, through `WebPermissions.ValidatePermissions`.
+
 ## Next
 
 Text downloads are rescanned before reporting with all secrets known by then,

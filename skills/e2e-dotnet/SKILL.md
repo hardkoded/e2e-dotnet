@@ -90,7 +90,7 @@ process gets only `PATH`, `HOME`, the temp variables, `SystemRoot` and
 `[::1]:0`) takes a free port, which `{port}` carries into `args`, `env`, and
 `readyUrl`; port `0` needs a `command`. `app.identity` and `app.environment`
 (`test`, `staging`, `production`) key the replay cache beside the target; a
-device target also takes `app.launchArguments` and `app.permissions`; a web target takes `app.permissions` too (`grant` only, held by every page). Topic
+device target also takes `app.launchArguments` and `app.permissions`; a web target takes `app.permissions` too (`grant` only, held by every page). `WebEngine.ValidateApp` checks a web `app` explicitly (`app.url` required, device-app fields refused, permissions the browser grants); config loading does not run it. Topic
 `setup` has the full rules.
 
 ```csharp

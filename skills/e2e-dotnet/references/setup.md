@@ -377,6 +377,8 @@ Headless Chromium refuses a permission the target does not grant, so `navigator.
 
 A web target takes `grant` only; `deny` and `reset` are `INVALID_CONFIG` (leave the permission out instead). The names are Playwright's, and each browser grants its own set; an unknown one is `INVALID_CONFIG` naming the nearest, checked when the attempt starts. A fixture overrides `Permissions` to change them in code.
 
+`WebEngine.ValidateApp(app, targetName)` is the check a web target's `app` must pass: `app.url` is required, `bundleId`, `appPath`, and `launchArguments` (the fields of an installed device app) are refused, and `app.permissions` must name permissions the engine's browser grants, `grant` only. A browser provider or `Connect` takes Chromium's names. All of these are `INVALID_CONFIG`. `ValidateApp` is an explicit check: config loading does not run it (a web target without `app.url` still loads, and the device-app fields are already unknown keys there), and attempt start validates `app.permissions` on its own through `WebPermissions.ValidatePermissions`.
+
 | Browser | Names |
 | --- | --- |
 | `chromium` | `accelerometer`, `ambient-light-sensor`, `background-sync`, `camera`, `clipboard-read`, `clipboard-write`, `geolocation`, `gyroscope`, `local-fonts`, `local-network-access`, `magnetometer`, `microphone`, `midi`, `midi-sysex`, `notifications`, `payment-handler`, `screen-wake-lock`, `storage-access` |

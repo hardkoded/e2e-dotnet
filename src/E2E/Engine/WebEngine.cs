@@ -336,6 +336,48 @@ public sealed partial class WebEngine : IEngine
         | EngineCapabilities.TapModifiers
         | EngineCapabilities.Video;
 
+    /// <summary>
+    /// A web target opens the app at <c>app.url</c>, so the URL is required, and the fields that describe an installed device app
+    /// (<c>bundleId</c>, <c>appPath</c>, <c>launchArguments</c>) have nothing to act on. <c>app.permissions</c> must be ones the browser
+    /// grants, and only grants. A provider or a CDP attach speaks CDP, so it takes Chromium's names. Upstream's <c>validateApp</c> in
+    /// <c>web/src/engine.ts</c>.
+    /// </summary>
+    public void ValidateApp(AppConfig app, string targetName)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+        ArgumentNullException.ThrowIfNull(targetName);
+        foreach (var (key, declared) in new[]
+        {
+            ("bundleId", app.BundleId is not null),
+            ("appPath", app.AppPath is not null),
+            ("launchArguments", app.LaunchArguments is not null),
+        })
+        {
+            if (declared)
+            {
+                throw new ConfigurationException(
+                    "INVALID_CONFIG",
+                    $"target \"{targetName}\" declares app.{key}, which describes an installed device app; a web() target opens app.url");
+            }
+        }
+
+        if (app.Url is null)
+        {
+            throw new ConfigurationException(
+                "INVALID_CONFIG",
+                $"target \"{targetName}\" needs app.url: a web() target opens the app at a URL, targets: [{{ engine: web(), app: {{ url: 'http://localhost:3000' }} }}]");
+        }
+
+        if (app.Permissions is { } permissions)
+        {
+            WebPermissions.ValidatePermissions(targetName, PermissionBrowser(_options.Connect), permissions);
+        }
+    }
+
+    // A provider or a CDP attach speaks CDP, so it takes Chromium's names.
+    private BrowserName PermissionBrowser(WebConnectOptions? connect) =>
+        connect is null && _options.Browser is null ? _options.BrowserName : BrowserName.Chromium;
+
     public async Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -367,7 +409,7 @@ public sealed partial class WebEngine : IEngine
             // A provider or a CDP attach speaks CDP, so it takes Chromium's names.
             if (options.Permissions is { } permissions)
             {
-                WebPermissions.ValidatePermissions(options.TargetName ?? "web", connect is null && _options.Browser is null ? _options.BrowserName : BrowserName.Chromium, permissions);
+                WebPermissions.ValidatePermissions(options.TargetName ?? "web", PermissionBrowser(connect), permissions);
             }
 
             if (connect is null)
