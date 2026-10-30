@@ -169,23 +169,25 @@ public sealed class DeviceActions : IDeviceActions
 
     /// <summary>
     /// Keys on a touch surface, in the contract's key grammar: <c>Enter</c> submits through the soft keyboard,
-    /// <c>Space</c> and any single character are typed into the focused field. agent-device exposes no key event bus,
+    /// <c>Space</c> and any single character are typed into the focused field. A field that is not focused is tapped first. agent-device exposes no key event bus,
     /// so modifiers and the other named keys (<c>Escape</c>, <c>Tab</c>, <c>Backspace</c>, the arrows) have nothing to
     /// land on and are refused.
     /// </summary>
     private static async Task PressKeyAsync(IDeviceClient client, NodeBinding entry, string key, JsonObject settle, InputBudget input, CancellationToken cancellationToken)
     {
         var typed = SoftKeyboardKey(key);
+
+        // A key reaches the field through the soft keyboard, which is up only while the field holds focus. Each command of the
+        // input is sent on its own, so no keystroke follows a focus tap that used the budget up.
+        if (entry.Node.Role == "textbox" && !(entry.States.TryGetValue("focused", out var focused) && focused))
+        {
+            await DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsPress, Args(settle, DeviceSession.ActionTarget(entry)), cancellationToken), cancellationToken).ConfigureAwait(false);
+        }
+
         if (typed is null)
         {
             await DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.CommandKeyboard, DeviceArgs.Of(("action", JsonValue.Create("enter"))), cancellationToken), cancellationToken).ConfigureAwait(false);
             return;
-        }
-
-        // Each command of the input is sent on its own, so no keystroke follows a focus tap that used the budget up.
-        if (entry.Node.Role == "textbox" && !(entry.States.TryGetValue("focused", out var focused) && focused))
-        {
-            await DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsPress, Args(settle, DeviceSession.ActionTarget(entry)), cancellationToken), cancellationToken).ConfigureAwait(false);
         }
 
         await DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsType, DeviceArgs.Of(("text", JsonValue.Create(typed))), cancellationToken), cancellationToken).ConfigureAwait(false);

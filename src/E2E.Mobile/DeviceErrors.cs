@@ -178,6 +178,10 @@ public static partial class DeviceErrors
     public static bool IsAppNotRunning(Exception? error) =>
         error?.InnerException is { } cause && Details(cause).GetValueOrDefault("runnerErrorCode") is "APP_NOT_RUNNING";
 
+    /// <summary>True for a translated <c>open</c> agent-device refused because no installed app matches the name.</summary>
+    public static bool IsAppNotInstalled(Exception? error) =>
+        error?.InnerException is AgentDeviceError cause && AgentDeviceErrors.Normalize(cause).Code == "APP_NOT_INSTALLED";
+
     /// <summary>
     /// Runs one agent-device command under a cancellation token and translates its failure onto the engine
     /// taxonomy: the one boundary every command crosses.
@@ -232,13 +236,17 @@ public static partial class DeviceErrors
     /// The normalized message followed by the hint the failure itself declared. That hint is the recovery
     /// path (press return, tap the app's own Done control) and the model only ever sees the error text, so
     /// dropping it leaves the agent retrying the same refused action. The per-code default hint the
-    /// normalizer would add is CLI advice and stays out, and so does agent-device's generic hint.
+    /// normalizer would add is CLI advice (<c>Run apps to discover...</c>) and stays out, also when the daemon carries it
+    /// over in <c>details.hint</c>, and so does agent-device's generic hint.
     /// </summary>
     private static string WithHint(Exception cause, string text)
     {
         if (Details(cause).GetValueOrDefault("hint") is string hint && hint.Trim().Length > 0 && !CliAdvice().IsMatch(hint))
         {
-            text = $"{text} Hint: {hint.Trim()}";
+            if (hint.Trim() != AgentDeviceErrors.DefaultHintForCode(AgentDeviceErrors.Normalize(cause).Code))
+            {
+                text = $"{text} Hint: {hint.Trim()}";
+            }
         }
 
         return AgentDeviceErrors.Normalize(cause).Code == AmbiguousMatchCode ? $"{text} {AmbiguousMatchHint}" : text;

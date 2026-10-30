@@ -51,6 +51,27 @@ public static partial class AgentDeviceErrors
         return new NormalizedAgentDeviceError(error.Code, ProcessFailureMessage(error));
     }
 
+    /// <summary>agent-device's <c>defaultHintForCode</c> (0.21.35): the CLI advice its normalizer adds to a failure of this code.</summary>
+    public static string DefaultHintForCode(string code) => code switch
+    {
+        "INVALID_ARGS" => "Check command arguments and run --help for usage examples.",
+        "SESSION_NOT_FOUND" => "Run open first or pass an explicit device selector.",
+        "TOOL_MISSING" => "Install required platform tooling and ensure it is available in PATH.",
+        "DEVICE_NOT_FOUND" => "Verify the target device is booted/connected and selectors match.",
+        "APP_NOT_INSTALLED" => "Run apps to discover the exact installed package or bundle id, or install the app before open.",
+        "UNSUPPORTED_OPERATION" => "This command is not available for the selected platform/device.",
+        "UNSUPPORTED_PLATFORM" => "This platform is not supported for the requested operation; run devices to inspect available targets.",
+        "AMBIGUOUS_MATCH" => "Multiple candidates matched. Narrow the query or pass an exact identifier.",
+        "DEVICE_IN_USE" => "The device is busy with another agent-device request; retry once it frees up.",
+        "REPLAY_DIVERGENCE" => "Read details.divergence (screen/suggestions) for repair context, or rerun with --json for the full report.",
+        "REPAIR_SESSION_EXPIRED" => "The --save-script repair session was reaped before it was finalized; re-run replay <script> --save-script from the start.",
+        "REPAIR_COMMIT_FAILED" => "The repair transaction completed, but committing its healed script failed at teardown (no-clobber refusal or a filesystem error); inspect the target path/permissions, then re-run replay <script> --save-script to retry.",
+        "NOT_IMPLEMENTED" => "This command is part of the planned API but is not implemented yet.",
+        "UNAUTHORIZED" => "Refresh daemon metadata and retry the command.",
+        "UNKNOWN" => "Unexpected internal error. Retry with --debug and report the diagnostics log if it persists.",
+        _ => "Retry with --debug and inspect diagnostics log for details.",
+    };
+
     private static string ProcessFailureMessage(AgentDeviceError error)
     {
         if (error.Code != "COMMAND_FAILED" || error.Details?.GetValueOrDefault("processExitError") is not true)

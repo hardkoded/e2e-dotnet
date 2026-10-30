@@ -48,6 +48,9 @@ public sealed class PerformTests
             ("interactions.fill", """{"ref":"@e7","text":"blue","settle":true,"settleQuietMs":150}"""),
             ("interactions.fill", """{"ref":"@e7","text":"","settle":true,"settleQuietMs":150}"""),
             ("interactions.press", """{"ref":"@e6","settle":true,"settleQuietMs":150}"""),
+
+            // Enter reaches the field through the soft keyboard, so the unfocused field is tapped first.
+            ("interactions.press", """{"ref":"@e7","settle":true,"settleQuietMs":150}"""),
             ("command.keyboard", """{"action":"enter"}"""),
             ("interactions.press", """{"ref":"@e7","settle":true,"settleQuietMs":150}"""),
             ("interactions.type", """{"text":"a"}"""),
@@ -60,6 +63,21 @@ public sealed class PerformTests
             // The root swipe is the viewport swipe: agent-device's whole-screen scroll at its default amount, settled like a tap.
             ("interactions.scroll", """{"direction":"up","settle":true,"settleQuietMs":150}"""),
             ("interactions.drag", """{"source":"@e4","destination":"@e3"}"""));
+    }
+
+    [Theory]
+    [InlineData("Enter", "command.keyboard")]
+    [InlineData("a", "interactions.type")]
+    public async Task Sends_a_key_to_a_focused_field_without_tapping_it_first(string key, string method)
+    {
+        var h = Harness.Create();
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(
+            [.. RawNodes.SettingsNodes.Select(node => node.Label == "Search" ? node with { Focused = true } : node)]));
+        var session = await OpenAttempt(h);
+        var search = await Observed(session, "Search");
+        var before = h.Fake.Calls.Count;
+        await session.PerformAsync(search, new LocatorAction.Press(key), CancellationToken.None);
+        Assert.Equal([method], h.Fake.Calls.Skip(before).Select(call => call.Method));
     }
 
     [Theory]

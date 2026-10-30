@@ -511,7 +511,7 @@ upstream calls `mobileTools`: `open_app`, `swipe`, and `alert`, offered only on
 the platforms of the engines you pass. Return it from `AgentTools` beside your
 own tools. A step that stays within the grammar verbs replays with no model
 call, so prefer the target's `App.BundleId` over `open_app` when every test
-starts in the same app. `samples/MobileApp.E2ETests` shows it in use.
+starts in the same app. `open_app` takes an optional `app`: without one it returns to the app under test (the target's `App.BundleId`, or the app the build installed), so the agent can recover after a system sheet or another app took the screen. `samples/MobileApp.E2ETests` shows it in use.
 
 Not ported: decision models and the `--debug` agent step table. To see every model call, use
 `E2E_AI_TRACE=1` (topic `debugging`).

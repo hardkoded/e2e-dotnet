@@ -164,7 +164,7 @@ Limits of the preview: the tests attach to the running app, so `Device.InstallAp
 ## Known limits
 
 - On iOS, a plain React Native `View` has no children in the tree, so `Filter(has: ...)` on it and queries scoped to it match nothing, while `Filter(hasNot: ...)` keeps every such row, including one you meant to exclude. Scope to the screen's `ScrollView` (`Device.Locator("role=scroll-area")`), or give the children test ids.
-- Keyboard actions such as `Locator.PressAsync("Enter")` fail with `UNSUPPORTED_CAPABILITY` on iOS, with the pinned agent-device. Tap an app button when the flow has one.
+- `Locator.PressAsync` takes `Enter`, `Space`, or one character, sent through the soft keyboard. A field that is not focused is tapped first, for `Enter` as for a character, so the keyboard is up. Other named keys and every modifier fail with `UNSUPPORTED_CAPABILITY`.
 - Android needs `adb` from the Android SDK Platform-Tools on `PATH`, locally and for the Limrun tunnel.
 - Building the sample iOS app needs `-p:ValidateXcodeVersion=false` when the installed Xcode is newer than the one the .NET iOS pack expects.
 - Agent steps on a device are slower than in a browser. Raise `StepTimeout` to 90 seconds. The 30 second default timed out a two-field step.
