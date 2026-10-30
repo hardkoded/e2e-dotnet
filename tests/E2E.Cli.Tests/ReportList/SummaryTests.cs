@@ -37,42 +37,6 @@ public sealed class SummaryTests
     }
 
     [Fact]
-    public void Counts_the_tests_each_filter_left_out_on_a_Left_out_row_a_test_once_across_targets_and_repeats_as_the_filter_line_counts_them()
-    {
-        // An unselected result `filter` left out.
-        static RunEventResult LeftOut(string id, string target, string filter) =>
-            Result(ResultStatus.Skipped, id: id, target: target, selected: false, attempts: []) with { Skip = new ReportSkip("filtered", "unaffected", filter) };
-
-        var output = new Capture();
-        var reporter = PlainReporter(output);
-        reporter.Handle(Plan(("tests/case.e2e.ts", 1)));
-        reporter.Handle(Finished(Result(ResultStatus.Passed, id: "kept")));
-        reporter.Handle(Finished(LeftOut("pays", "chromium", "areas")));
-        reporter.Handle(Finished(LeftOut("pays", "webkit", "areas")));
-        reporter.Handle(Finished(LeftOut("pays", "chromium", "areas") with { Repeat = 1 }));
-        reporter.Handle(Finished(LeftOut("refunds", "chromium", "areas")));
-        reporter.Handle(Finished(LeftOut("export", "chromium", "jev")));
-        reporter.Handle(Finished(Result(ResultStatus.Skipped, id: "slow", selected: false, attempts: [], skipReason: "carries an excluded tag")));
-        reporter.Handle(RunFinished(reportPath: ".e2e/report.json"));
-        Assert.Contains("      Tests  1 passed (1)", output.Lines);
-        Assert.Contains("   Left out  2 by areas, 1 by jev", output.Lines);
-
-        var one = new Capture();
-        var single = PlainReporter(one);
-        single.Handle(Plan());
-        single.Handle(Finished(LeftOut("pays", "chromium", "areas")));
-        single.Handle(RunFinished(reportPath: ".e2e/report.json"));
-        Assert.Contains("   Left out  1 test by areas", one.Lines);
-        Assert.Contains("      Tests  no tests executed", one.Lines);
-
-        var none = new Capture();
-        var plain = PlainReporter(none);
-        plain.Handle(Finished(Result(ResultStatus.Passed, id: "kept")));
-        plain.Handle(RunFinished(reportPath: ".e2e/report.json"));
-        Assert.DoesNotContain("Left out", string.Join('\n', none.Lines));
-    }
-
-    [Fact]
     public void Starts_the_clock_at_plan_so_a_download_narrated_before_it_is_not_on_it()
     {
         var time = new FakeTime(new DateTimeOffset(2026, 9, 8, 10, 0, 0, TimeSpan.Zero));

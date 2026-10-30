@@ -25,8 +25,8 @@ internal sealed record ListReporterOptions
 /// the run's single event spine, so it can only show what every other sink receives.
 /// <para>
 /// Ported: the run header, a file block per file with its test lines, the <c>Failed Tests</c> section with its evidence rows, the run
-/// errors, and the summary rows (<c>Test Files</c>, <c>Tests</c>, <c>Left out</c>, <c>AI</c>, <c>Cache</c>, <c>Errors</c>,
-/// <c>Cleanup</c>, <c>Start at</c>, <c>Duration</c>, <c>Report</c>, <c>Traces</c>, <c>AI trace</c>). Not ported: the live window, a
+/// errors, and the summary rows (<c>Test Files</c>, <c>Tests</c>, <c>AI</c>, <c>Cache</c>, <c>Errors</c>,
+/// <c>Start at</c>, <c>Duration</c>, <c>Report</c>, <c>Traces</c>, <c>AI trace</c>). Not ported: the live window, a
 /// test's console output, setup steps, serial groups, step streaming, the exploration view, the <c>Repeats</c> row, the
 /// <c>Skipped After Failure</c> section and its <c>Warnings</c> row, the <c>Screenshots</c> row and the video rows, and the code frame
 /// under a failure.
@@ -64,12 +64,6 @@ internal sealed class ListReporter
     private readonly Dictionary<(string Target, string File), FileGroup> _groups = [];
     private readonly List<FileGroup> _groupOrder = [];
     private readonly List<Failure> _failures = [];
-
-    /// <summary>Every result a test filter left out, in the order they arrived, for the <c>Left out</c> row.</summary>
-    private readonly List<(string TestId, ReportSkip? Skip)> _leftOut = [];
-
-    /// <summary>Passed or flaky tests whose cleanup failed, for the summary's <c>Cleanup</c> row.</summary>
-    private readonly List<ReportError> _cleanupFailures = [];
 
     /// <summary>Run-level errors, printed once at the end.</summary>
     private readonly List<ReportError> _errors = [];
@@ -256,7 +250,6 @@ internal sealed class ListReporter
             Failure = told?.Failure,
             ScreenPath = screen,
             AppLog = AppLogTally(told?.AppLog ?? []),
-            CleanupErrors = [.. ReportRecords.CleanupErrorsOf(attempts)],
             SkipReason = told?.Status == E2E.Internal.AttemptStatus.Skipped ? null : told?.Skip?.Reason,
         };
     }
@@ -282,13 +275,7 @@ internal sealed class ListReporter
 
     private void TestFinished(RunEventResult result)
     {
-        // Unselected pairs are report-only: they never print and the plan never counted them. The ones a filter left out are counted
-        // for the summary.
-        if (result.Skip?.Filter is not null)
-        {
-            _leftOut.Add((result.Test.Id, result.Skip));
-        }
-
+        // Unselected pairs are report-only: they never print and the plan never counted them.
         if (!result.Selected)
         {
             return;
@@ -300,11 +287,6 @@ internal sealed class ListReporter
         Format.AddModelTally(_runModels, details.Models);
         Format.AddCacheTally(_runCache, details.Cache);
         var title = TitledAs(string.Join(" > ", result.Test.TitlePath), result.Agent, result.Repeat);
-        if (details.CleanupErrors.Count > 0)
-        {
-            _cleanupFailures.Add(details.CleanupErrors[0]);
-        }
-
         group.Lines.Add(new TestLine
         {
             Title = title,
@@ -314,7 +296,6 @@ internal sealed class ListReporter
             Usage = details.Usage,
             FirstErrorLine = details.Error is null ? null : Format.Bounded(details.Error.Message).Split('\n')[0],
             SkipReason = result.Skip is null ? null : Format.Bounded(result.Skip.Reason),
-            CleanupErrors = details.CleanupErrors,
         });
         if (Format.StatusBucket(result.Status) == "failed")
         {
@@ -413,7 +394,7 @@ internal sealed class ListReporter
         }
 
         Print(string.Join(" ", parts));
-        var verbose = counts.Failed > 0 || counts.Interrupted > 0 || counts.Flaky > 0 || _groups.Count == 1 || group.Lines.Any(line => line.CleanupErrors.Count > 0);
+        var verbose = counts.Failed > 0 || counts.Interrupted > 0 || counts.Flaky > 0 || _groups.Count == 1;
         if (!verbose)
         {
             return;
@@ -437,9 +418,9 @@ internal sealed class ListReporter
         switch (line.Status)
         {
             case ResultStatus.Passed:
-                return [$"   {_pc.Green(Format.Check)} {line.Title} {duration}{ai}", .. CleanupLines(line)];
+                return [$"   {_pc.Green(Format.Check)} {line.Title} {duration}{ai}"];
             case ResultStatus.Flaky:
-                return [$"   {_pc.Yellow(Format.Check)} {line.Title} {_pc.Yellow("(flaky)")} {duration}{ai}", .. CleanupLines(line)];
+                return [$"   {_pc.Yellow(Format.Check)} {line.Title} {_pc.Yellow("(flaky)")} {duration}{ai}"];
             case ResultStatus.Skipped:
             {
                 // `test.skip` without a message records the bare word; repeating it adds nothing.
@@ -468,13 +449,8 @@ internal sealed class ListReporter
     /// <summary>A result status as the report spells it: <c>timed-out</c> for a timeout.</summary>
     private static string StatusName(ResultStatus status) => status == ResultStatus.TimedOut ? "timed-out" : status.ToString().ToLowerInvariant();
 
-    /// <summary>One yellow glance line per cleanup failure under the test.</summary>
-    private IEnumerable<string> CleanupLines(TestLine line) =>
-        line.CleanupErrors.Select(error =>
-            $"     {_pc.Yellow($"{Right} cleanup failed: {Format.Bounded(error.Code)}: {Format.Bounded(error.Message).Split('\n')[0]}")}");
-
     /// <summary>
-    /// vitest's padded summary: files, tests, what the filters left out, model usage, the trace cache's part, run errors, start time, and
+    /// vitest's padded summary: files, tests, model usage, the trace cache's part, run errors, start time, and
     /// elapsed time. The final summary of a run that never reached <c>plan</c> (a config or collection failure) counts from the launch,
     /// so the time it took to fail is still on record.
     /// </summary>
@@ -487,11 +463,6 @@ internal sealed class ListReporter
             Format.PadTitle(_pc, "Test Files") + (files.Total == 0 ? EmptyState("no test files", "none started") : Format.StateString(_pc, files)),
             Format.PadTitle(_pc, "Tests") + (tests.Total == 0 ? EmptyState("no tests executed", "none executed") : Format.StateString(_pc, tests)),
         ];
-        if (LeftOutText() is { } leftOut)
-        {
-            rows.Add(Format.PadTitle(_pc, "Left out") + leftOut);
-        }
-
         if (Format.UsageText(_runUsage) is { } ai)
         {
             var models = Format.ModelsText(_runModels) ?? _models;
@@ -508,36 +479,10 @@ internal sealed class ListReporter
             rows.Add(Format.PadTitle(_pc, "Errors") + _pc.Bold(_pc.Red($"{_errors.Count} error{(_errors.Count == 1 ? string.Empty : "s")}")));
         }
 
-        if (_cleanupFailures.Count > 0)
-        {
-            var first = _cleanupFailures[0];
-            var rest = _cleanupFailures.Count - 1;
-            var message = Format.Bounded(first.Message).Split('\n')[0];
-            rows.Add(
-                Format.PadTitle(_pc, "Cleanup")
-                + _pc.Yellow(
-                    $"{_cleanupFailures.Count} cleanup failure{(_cleanupFailures.Count == 1 ? string.Empty : "s")}: {Format.Bounded(first.Code)}: {message}{(rest == 0 ? string.Empty : $" (+{rest} more)")}"));
-        }
-
         var startedAt = _startedAt ?? _launchedAt;
         rows.Add(Format.PadTitle(_pc, "Start at") + Format.FormatClock(startedAt));
         rows.Add(Format.PadTitle(_pc, "Duration") + Format.DurationText(_pc, _time.GetLocalNow() - startedAt, TimeSpan.Zero));
         return rows;
-    }
-
-    /// <summary>
-    /// The <c>Left out</c> row: how many tests each test filter left out, as its line counts them (<c>35 tests by affected</c>,
-    /// <c>35 by affected, 3 by areas</c>); null when none did.
-    /// </summary>
-    private string? LeftOutText()
-    {
-        var counts = LeftOut.LeftOutTests(_leftOut).Select(pair => (Name: Format.Bounded(pair.Key), Count: pair.Value)).ToList();
-        return counts.Count switch
-        {
-            0 => null,
-            1 => $"{counts[0].Count} test{(counts[0].Count == 1 ? string.Empty : "s")} by {counts[0].Name}",
-            _ => string.Join(", ", counts.Select(entry => $"{entry.Count} by {entry.Name}")),
-        };
     }
 
     /// <summary>A zero counter's label: the plain text, or the interrupt when that is why nothing is counted.</summary>
@@ -721,9 +666,6 @@ internal sealed class ListReporter
 
         /// <summary>What the app logged during the told attempt, as <c>2 errors, 1 warning</c>.</summary>
         public string? AppLog { get; init; }
-
-        /// <summary>Cleanup-phase secondary errors of attempts whose cleanup failed.</summary>
-        public required IReadOnlyList<ReportError> CleanupErrors { get; init; }
 
         /// <summary>Why the told attempt skipped itself, when it failed anyway.</summary>
         public string? SkipReason { get; init; }

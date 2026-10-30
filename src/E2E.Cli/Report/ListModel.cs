@@ -40,7 +40,4 @@ internal sealed record TestLine
     public string? FirstErrorLine { get; init; }
 
     public string? SkipReason { get; init; }
-
-    /// <summary>Cleanup-phase secondary errors, shown under a passed or flaky test.</summary>
-    public IReadOnlyList<ReportError> CleanupErrors { get; init; } = [];
 }

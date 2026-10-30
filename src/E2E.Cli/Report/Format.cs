@@ -329,18 +329,6 @@ internal static partial class Format
             _ => "passed",
         };
 
-    /// <summary>Upstream's <c>STATUS_WORD</c>: a result status as a line of text says it, <c>timed out</c> for a timeout.</summary>
-    public static string StatusWord(ResultStatus status) =>
-        status switch
-        {
-            ResultStatus.TimedOut => "timed out",
-            ResultStatus.Failed => "failed",
-            ResultStatus.Interrupted => "interrupted",
-            ResultStatus.Flaky => "flaky",
-            ResultStatus.Skipped => "skipped",
-            _ => "passed",
-        };
-
     /// <summary>Upstream's <c>tally</c>: counts results by bucket; <c>Total</c> is the number of items.</summary>
     public static Counters Tally(IEnumerable<ResultStatus> statuses)
     {
