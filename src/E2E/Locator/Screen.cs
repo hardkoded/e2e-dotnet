@@ -29,6 +29,7 @@ public class Screen
     private Func<string, string> _redact = static text => text;
     private Func<Observation, string>? _renderTree;
     private StepRecorder? _steps;
+    private string? _projectRoot;
     private Action _failed = static () => { };
 
     internal Screen(
@@ -362,6 +363,9 @@ public class Screen
 
     internal void NotifyVerified() => _verified();
 
+    /// <summary>The project root that <see cref="Locator.SetInputFilesAsync(string, ActionOptions, CancellationToken)"/> resolves paths from (upstream's <c>context.projectRoot</c>); null outside a session, where a path stays as given.</summary>
+    internal string? ProjectRoot { get => Root._projectRoot; set => Root._projectRoot = value; }
+
     /// <summary>The attempt's step timeline; null for a screen outside a session, whose calls then run unrecorded.</summary>
     internal StepRecorder? Steps { get => Root._steps; set => Root._steps = value; }
 
@@ -587,6 +591,32 @@ public sealed class Locator
     {
         ArgumentNullException.ThrowIfNull(value);
         return ActAsync(new LocatorAction.Select(value), options, cancellationToken);
+    }
+
+    /// <summary>
+    /// Sets the files of exactly one file input, or of a control that opens a file chooser; <paramref name="path"/> resolves from the project root.
+    /// On the web it also takes a button that opens a file chooser. A button that opens none fails with <c>NOT_ACTIONABLE</c> (upstream reports <c>ACTION_FAILED</c>).
+    /// </summary>
+    public Task SetInputFilesAsync(string path, ActionOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        return SetInputFilesAsync([path], options, cancellationToken);
+    }
+
+    /// <inheritdoc cref="SetInputFilesAsync(string, ActionOptions, CancellationToken)"/>
+    /// <exception cref="ArgumentException"><paramref name="paths"/> is empty or has a blank entry (upstream's <c>INVALID_ARGUMENT</c>).</exception>
+    public Task SetInputFilesAsync(IEnumerable<string> paths, ActionOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        var list = paths.ToList();
+        if (list.Count == 0 || list.Any(string.IsNullOrWhiteSpace))
+        {
+            throw new ArgumentException("setInputFiles requires one or more non-empty paths", nameof(paths));
+        }
+
+        var root = _screen.ProjectRoot;
+        var resolved = list.Select(entry => root is null ? entry : Path.GetFullPath(entry, root)).ToList();
+        return ActAsync(new LocatorAction.SetInputFiles(resolved), options, cancellationToken);
     }
 
     public Task FocusAsync(ActionOptions? options = null, CancellationToken cancellationToken = default)
@@ -834,6 +864,7 @@ public sealed class Locator
         LocatorAction.Press => "press",
         LocatorAction.PressSequentially => "pressSequentially",
         LocatorAction.Select => "selectOption",
+        LocatorAction.SetInputFiles => "setInputFiles",
         LocatorAction.Check => "check",
         LocatorAction.Uncheck => "uncheck",
         LocatorAction.Clear => "clear",

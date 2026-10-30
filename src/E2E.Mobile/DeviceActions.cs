@@ -401,6 +401,7 @@ public sealed class DeviceActions : IDeviceActions
         LocatorAction.Press => "press",
         LocatorAction.PressSequentially => "pressSequentially",
         LocatorAction.Select => "selectOption",
+        LocatorAction.SetInputFiles => "setInputFiles",
         LocatorAction.Check => "check",
         LocatorAction.Uncheck => "uncheck",
         LocatorAction.Clear => "clear",
