@@ -261,8 +261,8 @@ internal sealed record Outcome(long DurationMs, ReportAttempt Final, ReportAttem
 internal static class ReportRecords
 {
     /// <summary>The cleanup-phase secondary errors of attempts whose cleanup failed (upstream's <c>cleanupErrorsOf</c>).</summary>
-    public static IReadOnlyList<ReportError> CleanupErrorsOf(IEnumerable<ReportAttempt> attempts) =>
-        [.. attempts.SelectMany(attempt => attempt.Cleanup == AttemptCleanup.Failed ? attempt.SecondaryErrors.Where(secondary => secondary.Phase == "cleanup") : [])];
+    public static IEnumerable<ReportError> CleanupErrorsOf(IEnumerable<ReportAttempt> attempts) =>
+        attempts.Where(attempt => attempt.Cleanup == AttemptCleanup.Failed).SelectMany(attempt => attempt.SecondaryErrors.Where(secondary => secondary.Phase == "cleanup"));
 }
 
 /// <summary>The engine a target runs on, as the report names it (upstream's <c>engine</c> block of a target).</summary>

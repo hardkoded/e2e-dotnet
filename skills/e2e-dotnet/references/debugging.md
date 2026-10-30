@@ -173,7 +173,8 @@ or the category of an attempt error when that is worse (2 `configuration`, 3
 cleanup failed (an attempt with `cleanup: "failed"`, such as a required video
 that was not finalized or a session that did not close) adds the category of
 its `cleanup` secondary errors, usually 3, even when the test passed or
-skipped. `run.status` is
+skipped. The port's sessions do not mark an attempt's cleanup as failed yet, so
+a green `report.json` does not prove cleanup succeeded. `run.status` is
 `passed` for 0, `failed` for 1, `interrupted` for 130, and `error` otherwise.
 A run is `blocked` instead when every failing result carries a blockable
 code. Its exit code is still the worst one: 2 for `AUTH_CREDENTIAL_UNAVAILABLE`,
