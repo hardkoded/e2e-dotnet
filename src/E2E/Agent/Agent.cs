@@ -106,16 +106,19 @@ public sealed partial class Agent
         var timeout = ResolveTimeout(options?.Timeout, agent.JudgmentTimeout);
         var maxCalls = Budget(options?.MaxModelCalls, agent.MaxModelCalls, "MaxModelCalls");
         var vision = ResolveVision(options?.Vision ?? VisionMode.Off);
+        var deadline = DateTime.UtcNow + timeout;
         using var linked = Link(cancellationToken, timeout);
         var token = linked.Token;
-        var deadline = DateTime.UtcNow + timeout;
         var callsBefore = _scope.ModelCalls;
         var last = "the statement did not hold";
 
         // The capture is guarded by the step clock (upstream's invocation.checkDeadline), so a capture that outlives the deadline
         // reports the step's own STEP_TIMEOUT. Between judgments the wait owns that message, with the last judgment (upstream's
         // waitForNextJudgment); the first capture, before any judgment, keeps the bare timeout.
-        var guard = Guard("agent.waitFor", cancellationToken, timeout);
+        // It reads the wait's own deadline, so the guard and the wait never disagree about when the clock ran out.
+        var stepClock = new Deadline(new DateTimeOffset(deadline));
+        void guard(Exception? cause) =>
+            Phases.CheckStepClock(cancellationToken.IsCancellationRequested ? cancellationToken : _scope.Token(), stepClock, "agent.waitFor", (long)timeout.TotalMilliseconds, cause);
 
         Task<Look> ObserveAsync()
         {
