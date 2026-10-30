@@ -372,7 +372,11 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   the screen and is gone scrolls the viewport, and a smaller one that is
   gone fails with `LOCATOR_NOT_FOUND`. The web engine does not observe Next.js
   App Router's route announcer, so its title echo never counts. Text that
-  reads differently on every run, a date, a time, an id, is not checked.
+  reads differently on every run, a date, an ISO 8601 instant, a time, an
+  id, is not checked. In an alert it reads as a placeholder, so a replay
+  that shows `Saved at 2026-10-24T15:30:00Z` for a recorded
+  `Saved at 2026-10-24T15:41:27.955Z` passes, whatever the precision or
+  offset of the instant.
   An entry's key holds the test and its class, the instruction and params,
   the agent, and its `context`, so renaming the test or its class records
   every goal in it again, and rewording a goal records that goal again.
