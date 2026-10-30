@@ -43,6 +43,9 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     private int _screenshots;
     private string? _appIdentity;
 
+    /// <summary>The agent-device session this worker drives and the device <c>BootAsync</c> booted under it (upstream's <c>bound</c>).</summary>
+    private BoundDevice? _bound;
+
     /// <summary>True from a launch until a snapshot succeeds: an app iOS reports not running in between is still starting, not gone.</summary>
     private bool _launching;
     private ViewportSize? _knownViewport;
@@ -123,6 +126,9 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         ICancellableDeviceClient cancellable => cancellable,
         var client => new TrackedClient(client, _inflight),
     };
+
+    /// <summary>The agent-device session and the device it runs on; <c>INVALID_STATE</c> before the boot or after the session closed (upstream's <c>boundDevice</c>).</summary>
+    internal BoundDevice BoundDevice => _bound ?? throw DeviceSupport.InvalidState("the agent-device engine is not initialized");
 
     /// <summary>The session and device this worker drives, for the error messages whose recovery is per device.</summary>
     internal string Where => _where;
@@ -230,7 +236,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 
     private async Task BootAsync(CancellationToken cancellationToken)
     {
-        await CommandAsync("boot", DeviceMethods.DevicesBoot, Selection.ToArgs(), cancellationToken).ConfigureAwait(false);
+        var booted = await CommandAsync("boot", DeviceMethods.DevicesBoot, Selection.ToArgs(), cancellationToken).ConfigureAwait(false);
+        _bound = new BoundDevice(_name, Text(booted?["id"]) ?? "", Text(booted?["device"]) ?? "");
 
         // Nothing is installed here: a device provider that installed the build from appPath says so on the binding,
         // and otherwise the suite installs it where it wants to, with device.installApp().
@@ -352,6 +359,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         var dangling = _recording;
         _client = null;
         _tracked = null;
+        _bound = null;
         _recording = null;
         _engine.Unregister(this);
         _appIdentity = null;
@@ -714,3 +722,6 @@ internal sealed class TrackedClient(IDeviceClient inner, InflightCommands inflig
     /// <summary>True when the daemon itself answered with a failure: an error it reported, not a transport failure that carries a cause.</summary>
     private static bool DaemonAnswered(Task settled) => settled.Exception?.InnerException is AgentDeviceError { Reported: true };
 }
+
+/// <summary>The agent-device session a worker drives, and the device agent-device booted for it (upstream's <c>BoundDevice</c>, <c>surface.ts</c>).</summary>
+internal sealed record BoundDevice(string Session, string DeviceId, string DeviceName);
