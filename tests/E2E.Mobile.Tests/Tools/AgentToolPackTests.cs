@@ -138,4 +138,14 @@ public sealed class AgentToolPackTests
         Assert.Contains("No app found matching \"dev.e2e.benchmark\"", failure.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("Omit app", failure.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Rejects_an_explicit_null_app_instead_of_returning_to_the_app_under_test()
+    {
+        var (h, open) = await AttemptTools(app => app with { BundleId = "dev.e2e.benchmark" });
+        var before = h.Fake.Calls.Count;
+        var failure = await Assert.ThrowsAsync<TestException>(() => open("""{"app":null,"relaunch":true}"""));
+        Assert.Equal("INVALID_ARGUMENT", failure.Code);
+        Assert.Equal(before, h.Fake.Calls.Count);
+    }
 }

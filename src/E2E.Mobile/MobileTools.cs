@@ -143,7 +143,7 @@ public static class MobileTools
             : throw new TestException("INVALID_ARGUMENT", $"{name} must be a non-empty string");
 
     private static string? OptionalString(JsonObject input, string name) =>
-        input[name] is null ? null : RequireString(input, name);
+        input.ContainsKey(name) ? RequireString(input, name) : null;
 
     private static bool OptionalBoolean(JsonObject input, string name) =>
         input[name] is JsonValue value && value.TryGetValue<bool>(out var flag) && flag;
