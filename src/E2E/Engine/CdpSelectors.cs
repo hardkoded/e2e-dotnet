@@ -18,7 +18,14 @@ internal static class CdpSelectors
     /// (upstream <c>registerCdpSelectors</c>). A Playwright that cannot take the message fails the connection: every secure-field mask
     /// resolves through these engines.
     /// </summary>
-    public static async Task RegisterCdpSelectorsAsync(IBrowserContext context, TimeSpan timeout, CancellationToken cancellationToken)
+    public static Task RegisterCdpSelectorsAsync(IBrowserContext context, TimeSpan timeout, CancellationToken cancellationToken) =>
+        RegisterCdpSelectorsAsync(context, FindChannel(context), timeout, cancellationToken);
+
+    /// <summary>
+    /// Registers through <paramref name="channel"/>, the context's message channel (upstream reads <c>context._channel</c>); null
+    /// is a context with none. .NET-only overload, so tests can stand in for the channel as upstream's test stubs <c>_channel</c>.
+    /// </summary>
+    internal static async Task RegisterCdpSelectorsAsync(IBrowserContext context, ISelectorChannel? channel, TimeSpan timeout, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (timeout <= TimeSpan.Zero)
@@ -26,26 +33,17 @@ internal static class CdpSelectors
             throw new EngineException(EngineErrorCodes.OperationTimeout, "CDP selector registration timed out", retryable: false);
         }
 
-        var send = FindSend(context)
-            ?? throw new EngineException(EngineErrorCodes.UnsupportedCapability, "this Playwright version cannot register selector engines in the CDP context; secure-field masks need them", retryable: false);
+        if (channel is null)
+        {
+            throw new EngineException(EngineErrorCodes.UnsupportedCapability, "this Playwright version cannot register selector engines in the CDP context; secure-field masks need them", retryable: false);
+        }
+
         foreach (var (name, source) in SelectorEngines.All)
         {
-            var engine = new Dictionary<string, object> { ["name"] = name, ["source"] = "(" + source + ")(undefined)", ["contentScript"] = false };
-            var arguments = new Dictionary<string, object> { ["selectorEngine"] = engine };
             try
             {
-                Task pending;
-                try
-                {
-                    pending = (Task)send.Invoke(context, ["registerSelectorEngine", arguments, false, (float?)timeout.TotalMilliseconds])!;
-                }
-                catch (TargetInvocationException ex) when (ex.InnerException is not null)
-                {
-                    ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
-                    throw;
-                }
-
-                await pending.WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
+                await channel.RegisterSelectorEngineAsync(name, "(" + source + ")(undefined)", contentScript: false, timeout, cancellationToken)
+                    .WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
             }
             catch (TimeoutException ex)
             {
@@ -58,8 +56,15 @@ internal static class CdpSelectors
         }
     }
 
+    /// <summary>The context's <c>registerSelectorEngine</c> message channel (upstream's <c>SelectorChannel</c>); .NET-only seam over Playwright's internal send.</summary>
+    internal interface ISelectorChannel
+    {
+        /// <summary>Sends <c>registerSelectorEngine</c> for one engine.</summary>
+        Task RegisterSelectorEngineAsync(string name, string source, bool contentScript, TimeSpan timeout, CancellationToken cancellationToken);
+    }
+
     // The message channel is internal to Playwright's ChannelOwner, so it is reached by reflection, as upstream reaches _channel.
-    private static MethodInfo? FindSend(IBrowserContext context)
+    private static ReflectedChannel? FindChannel(IBrowserContext context)
     {
         for (var type = context.GetType(); type is not null; type = type.BaseType)
         {
@@ -70,10 +75,28 @@ internal static class CdpSelectors
                     && method.GetParameters().Select(parameter => parameter.ParameterType).SequenceEqual([typeof(string), typeof(Dictionary<string, object>), typeof(bool), typeof(float?)]));
             if (send is not null)
             {
-                return send;
+                return new ReflectedChannel(context, send);
             }
         }
 
         return null;
+    }
+
+    private sealed class ReflectedChannel(IBrowserContext context, MethodInfo send) : ISelectorChannel
+    {
+        public Task RegisterSelectorEngineAsync(string name, string source, bool contentScript, TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            var engine = new Dictionary<string, object> { ["name"] = name, ["source"] = source, ["contentScript"] = contentScript };
+            var arguments = new Dictionary<string, object> { ["selectorEngine"] = engine };
+            try
+            {
+                return (Task)send.Invoke(context, ["registerSelectorEngine", arguments, false, (float?)timeout.TotalMilliseconds])!;
+            }
+            catch (TargetInvocationException ex) when (ex.InnerException is not null)
+            {
+                ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
+                throw;
+            }
+        }
     }
 }
