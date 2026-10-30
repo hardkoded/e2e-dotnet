@@ -28,6 +28,22 @@ dotnet add package E2E.NUnit   # or E2E.XUnit.V3 for xUnit v3
 
 [Test filters](/compatibility/#test-filters) (`ITestFilter`, `TestFilterContext`, and `TestFilterResult`) leave out the tests a change cannot affect. The seam, the change detection (`INVALID_CHANGED_SINCE`), and the `run.changes` and `run.filters` report fields are ported; no `dotnet test` host calls a filter yet.
 
+## Filtering a locator
+
+`Locator.Filter` keeps or drops the matches of a locator by their subtree. It takes any of four named arguments, and at least one.
+
+```csharp
+var row = Screen.GetByRole("listitem").Filter(hasText: "Invoice 42", hasNotText: "Paid");
+await row.GetByRole("button", "Void").TapAsync();
+```
+
+- `hasText` with a string is a case-insensitive substring match over the match and its descendants, unlike a query text, which matches exactly. Pass a `Regex` for anything stricter.
+- `hasNotText` excludes matches with that subtree text, using the same substring or `Regex` rules.
+- `has` keeps a match whose subtree resolves the inner locator.
+- `hasNot` drops a match whose subtree resolves the inner locator. It follows the same scoping rules as `has`.
+
+`Filter()` with none of the four throws `INVALID_LOCATOR`, and so does a `has` or `hasNot` locator made by another screen. `Filter("text")` and `Filter(locator)` remain as the one-argument forms of `hasText` and `has`. On iOS, a plain React Native `View` has no children in the tree, so `has` on it matches nothing and `hasNot` keeps every such row.
+
 ## Scrolling to a node
 
 `Screen.ScrollUntilVisibleAsync(target, options)` scrolls the viewport until `target` resolves visibly. `Locator.ScrollUntilVisibleAsync(target, options)` swipes that node instead, so a feed or table that is its own scroll container pages without the pointer hovering it first.
