@@ -141,7 +141,7 @@ Use the test runner's loggers, such as
 otherwise. `run.exitCode` in `report.json` is finer: it follows the error category
 of a failed test (2 `configuration`, such as a blocked agent step that lacks a
 credential; 3 `infrastructure`; 4 `internal`) and is 130 once any attempt of the run was interrupted by the user (the run's interrupt flag). A test that failed and
-whose retry was interrupted keeps its `failed` verdict, and the run still exits 130. Under the xUnit and NUnit adapters a cancelled test is reported as a plain failure, so the run exits 1 there (#837). An
+whose retry was interrupted keeps its `failed` verdict, and the run still exits 130. Under the xUnit and NUnit adapters a test that ends with a cancellation counts when the runner's token is cancelled. An
 attempt marked `cleanup: "failed"` adds its cleanup error's code, usually 3, even
 when the test passed. A session marks its attempt that way when its engine session
 does not close or a required video is not finalized. The `e2e` tool exits 0 on success and 1 on an error or an unknown
