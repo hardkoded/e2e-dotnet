@@ -232,8 +232,10 @@ internal sealed class ActionDispatcher : IExecutorActions
     }
 
     /// <summary>Authorizes the paths of one upload against the project root, recording the decision on the step (upstream's <c>authorizeUploadPaths</c> call).</summary>
-    internal AuthorizedUpload AuthorizeUpload(IReadOnlyList<string>? paths) =>
-        UploadPaths.AuthorizeUploadPaths(PolicyHost, paths, _scope.ProjectRoot ?? Directory.GetCurrentDirectory());
+    internal AuthorizedUpload AuthorizeUpload(IReadOnlyList<string>? paths) => AuthorizeUpload(_scope, paths);
+
+    internal static AuthorizedUpload AuthorizeUpload(AttemptScope scope, IReadOnlyList<string>? paths) =>
+        UploadPaths.AuthorizeUploadPaths(new StepPolicyHost(scope.Steps), paths, scope.ProjectRoot ?? Directory.GetCurrentDirectory());
 
     /// <summary>The seam a policy records its decisions through, onto this step's events (upstream's <c>policyHost</c>).</summary>
     internal IUploadPolicyHost PolicyHost => new StepPolicyHost(_scope.Steps);

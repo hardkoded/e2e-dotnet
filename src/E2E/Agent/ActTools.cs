@@ -116,6 +116,11 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
             return await DescribeOutcomeAsync("pressed " + key, token).ConfigureAwait(false);
         }
 
+        if (string.Equals(call.Name, "upload", StringComparison.Ordinal))
+        {
+            return await UploadAsync(call.Arguments, actions, budget, token).ConfigureAwait(false);
+        }
+
         SemanticNode node;
         try
         {
@@ -157,8 +162,6 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
                 case "uncheck":
                     await actions.CheckAsync(target, false, token).ConfigureAwait(false);
                     return ToolOutcome.Ok(await DescribeAsync("unchecked " + Label(node), token).ConfigureAwait(false));
-                case "upload":
-                    return await UploadAsync(call.Arguments, target, actions, budget, token).ConfigureAwait(false);
                 case "clear":
                     await actions.ClearAsync(target, token).ConfigureAwait(false);
                     return ToolOutcome.Ok(await DescribeAsync("cleared " + Label(node), token).ConfigureAwait(false));
@@ -308,27 +311,67 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         return ToolOutcome.Ok(await DescribeAsync("filled secret <secret:" + name + "> into " + Label(target.Node!), token).ConfigureAwait(false));
     }
 
-    // Upstream's upload tool wording: `Uploaded "x" to <ref>.` on success, and `upload "x" to <ref> failed: <code>: <message>` on a
-    // refusal, each followed by the screen. The ref stands where upstream's `#id` does.
-    private async Task<ToolOutcome> UploadAsync(JsonElement arguments, ExecutorTarget target, IExecutorActions actions, StepAccounting budget, CancellationToken token)
+    // Upstream's upload tool: the paths are authorized before the node is looked for, so a refused path is the policy's decision whatever the
+    // target, and costs no slot. The wording is upstream's too: `Uploaded "x" to <ref>.` on success, `upload "x" to <ref> failed: <code>:
+    // <message>` on a refusal, each followed by the screen. The resolved node's ref stands where upstream's `#id` does.
+    private async Task<ToolOutcome> UploadAsync(JsonElement arguments, IExecutorActions actions, StepAccounting budget, CancellationToken token)
     {
-        var reference = Args.String(arguments, "ref") ?? "";
+        var reference = Args.String(arguments, "ref") ?? Args.String(arguments, "name") ?? Args.String(arguments, "role") ?? Args.String(arguments, "testId") ?? "target";
         var attempt = "upload to " + reference;
+        List<string> files;
+        string listed;
         try
         {
-            var files = FilesOf(arguments);
-            var listed = string.Join(", ", files.Select(UploadPaths.Quote));
-            attempt = "upload " + listed + " to " + reference;
-            await actions.UploadAsync(target, files, token).ConfigureAwait(false);
-            return ToolOutcome.Ok(await DescribeAsync("Uploaded " + listed + " to " + reference + ".", token).ConfigureAwait(false));
+            files = FilesOf(arguments);
         }
         catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
         {
-            // The files or the path policy turn the call away before the dispatcher takes its slot, as upstream's do.
             budget.RefundPrepaid();
-            return new ToolOutcome { Content = await DescribeAsync(attempt + " failed: " + ex.Code + ": " + ex.Message, token).ConfigureAwait(false), Succeeded = false, Code = ex.Code };
+            return await UploadFailedAsync(attempt, ex, token).ConfigureAwait(false);
         }
+
+        listed = string.Join(", ", files.Select(UploadPaths.Quote));
+        attempt = "upload " + listed + " to " + reference;
+        SemanticNode node;
+        try
+        {
+            node = await ResolveAsync(arguments, token).ConfigureAwait(false);
+        }
+        catch (TestException missing)
+        {
+            // The paths are authorized before the node is looked for, so the policy records its decision whatever the target; a refused
+            // path wins and costs no slot, and a target upstream cannot find has spent its slot.
+            try
+            {
+                ActionDispatcher.AuthorizeUpload(_scope, files);
+            }
+            catch (E2EException refused) when (!StepExecutors.IsRuntimeHardStop(refused))
+            {
+                budget.RefundPrepaid();
+                return await UploadFailedAsync(attempt, refused, token).ConfigureAwait(false);
+            }
+
+            return await UploadFailedAsync(attempt, missing, token).ConfigureAwait(false);
+        }
+
+        reference = node.Ref;
+        attempt = "upload " + listed + " to " + reference;
+        try
+        {
+            await actions.UploadAsync(new ExecutorTarget(node), files, token).ConfigureAwait(false);
+        }
+        catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
+        {
+            // The path policy turns the call away before the dispatcher takes its slot, as upstream's does; a failure after it keeps the slot.
+            budget.RefundPrepaid();
+            return await UploadFailedAsync(attempt, ex, token).ConfigureAwait(false);
+        }
+
+        return ToolOutcome.Ok(await DescribeAsync("Uploaded " + listed + " to " + reference + ".", token).ConfigureAwait(false));
     }
+
+    private async Task<ToolOutcome> UploadFailedAsync(string attempt, E2EException error, CancellationToken token) =>
+        new() { Content = await DescribeAsync(attempt + " failed: " + error.Code + ": " + error.Message, token).ConfigureAwait(false), Succeeded = false, Code = error.Code };
 
     // The files an upload call names. Anything but a list of strings is the model's error, which the policy words as it does an empty list.
     private static List<string> FilesOf(JsonElement arguments)
