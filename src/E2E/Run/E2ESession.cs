@@ -784,10 +784,30 @@ public sealed class E2ESession : IAsyncDisposable
 
     private static bool Bounded(TimeSpan timeout) => timeout > TimeSpan.Zero && timeout != Timeout.InfiniteTimeSpan;
 
+    /// <summary>
+    /// How the attempt ended. The caller's <paramref name="cancellationToken"/> is the user's cancel (upstream's interrupt signal), kept apart
+    /// from the verdict: a cancellation the user did not ask for (an HTTP timeout inside the test, with the token not cancelled) is a
+    /// failure, not an interrupt. A failure is never upgraded, so a timeout the framework reported as a failure stays one.
+    /// </summary>
+    private AttemptStatus StatusOf(Exception? error, CancellationToken cancellationToken)
+    {
+        var status = ExecuteVideo.StatusOf(error);
+        if (status != AttemptStatus.Interrupted || cancellationToken.IsCancellationRequested)
+        {
+            return status;
+        }
+
+        // The session's own test timeout cancels the calls the test awaits: that is a timeout, not a failure.
+        return _timeout.IsCancellationRequested ? AttemptStatus.TimedOut : AttemptStatus.Failed;
+    }
+
     private void Commit(Exception? error, CancellationToken cancellationToken)
     {
-        _status = ExecuteVideo.StatusOf(error);
-        _error = error;
+        _status = StatusOf(error, cancellationToken);
+        // A cancellation nobody asked for fails the test: left as is, its CANCELLED error would read as the interrupt category and exit 130.
+        _error = error is not null && _status is AttemptStatus.Failed or AttemptStatus.TimedOut && ExecuteVideo.StatusOf(error) == AttemptStatus.Interrupted
+            ? new TestException(_status == AttemptStatus.TimedOut ? "TEST_TIMEOUT" : "TEST_FAILED", error.Message, error)
+            : error;
         _bodyMs = (long)System.Diagnostics.Stopwatch.GetElapsedTime(_bodyStarted).TotalMilliseconds;
         if (!_scope.CacheWrite || _scope.Cache is null || cancellationToken.IsCancellationRequested)
         {

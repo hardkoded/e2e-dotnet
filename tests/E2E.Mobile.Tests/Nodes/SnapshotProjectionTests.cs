@@ -447,6 +447,50 @@ public sealed class SnapshotProjectionTests
     }
 
     [Fact]
+    public void Reads_the_placeholder_an_empty_Compose_Multiplatform_field_folds_into_its_label()
+    {
+        // examples/with-kotlin-multiplatform on iOS 27 (agent-device 0.21.33's XCTest tree, Compose Multiplatform 1.12.1):
+        // the field has no placeholder attribute; it appends the text it draws to its label.
+        static ProjectedSnapshot Field(string label, IReadOnlyList<RawNode> children, string? type = null, bool editable = true, string? value = null) => Project(
+        [
+            N("e1", index: 0, depth: 0, type: "Application", label: "with-kotlin-multiplatform"),
+            N("e2", index: 1, parentIndex: 0, depth: 1, type: type ?? "TextView", label: label, identifier: "name", editable: editable, value: value),
+            .. children.Select((child, offset) => child with { Ref = $"e{3 + offset}", Index = 2 + offset, ParentIndex = 1, Depth = 2 }),
+        ]);
+
+        var hint = N(type: "StaticText", label: "Ada Lovelace");
+        var empty = Field("Name, Ada Lovelace", [hint]);
+        Assert.Equal(["with-kotlin-multiplatform", "Name"], Names(empty));
+        Assert.Equal("textbox", empty.Index[1].Node.Role);
+        Assert.Equal("Ada Lovelace", empty.Index[1].Node.Placeholder);
+        Assert.Empty(empty.Index[1].Node.Children);
+
+        // Typed text drops the placeholder from the label and is the value.
+        var typed = Field("Name", [], value: "Grace");
+        Assert.Equal("Name", typed.Index[1].Node.Name);
+        Assert.Equal("Grace", typed.Index[1].Node.Value);
+
+        // Anything but one text that ends the label stays as reported.
+        foreach (var (label, children, type, editable, value) in new (string, RawNode[], string?, bool, string?)[]
+        {
+            ("Name, Ada Lovelace", [hint], null, true, "Ada"),
+            ("Name, Ada Lovelace", [hint], "Other", false, null),
+            ("Name, Ada Lovelace", [hint, N(type: "Button", label: "Clear")], null, true, null),
+            ("Name, Ada Lovelace", [N(type: "Image", label: "Ada Lovelace")], null, true, null),
+            ("Name, Grace Hopper", [hint], null, true, null),
+
+            // A label equal to the text it holds may be the field's own name (a Material label drawn inside).
+            ("Ada Lovelace", [hint], null, true, null),
+        })
+        {
+            var kept = Field(label, children, type, editable, value).Index[1].Node;
+            Assert.Equal(label, kept.Name);
+            Assert.Null(kept.Placeholder);
+            Assert.Equal(children.Length, kept.Children.Count);
+        }
+    }
+
+    [Fact]
     public void Keeps_the_value_of_an_iOS_field_whose_text_is_also_its_label_and_drops_only_the_Android_text_view_echo()
     {
         var projected = Project(

@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using System.Text;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using E2E.Internal;
 using Microsoft.Playwright;
@@ -330,6 +331,9 @@ public sealed partial class WebEngine : IEngine
     internal Func<IRoute, RouteFetchOptions, Task<IAPIResponse>> FetchRoute { get; init; } = static (route, options) => route.FetchAsync(options);
 
     public string Version => EngineVersion;
+
+    // Upstream's STATE_FORMAT (web/src/surface.ts): the format of the state a web session captures.
+    private const string StateFormat = "playwright-storage-state";
 
     public EngineCapabilities Capabilities =>
         EngineCapabilities.Observation
@@ -1482,6 +1486,13 @@ public sealed partial class WebEngine : IEngine
                     $"app.clearState() is unavailable with {PersistentMode(_persistent.Provider)}: it replaces the browser context, and the attempt rides one persistent context{remedy}");
             }
 
+            await ReplaceContextAsync(null).ConfigureAwait(false);
+        }
+
+        // Closes the attempt's context and opens a clean one, seeded with the storage state when there is one. A restore bounds each wait
+        // by its operation budget (upstream's transition budget); app.clearState() passes none, as it never did.
+        private async Task ReplaceContextAsync(string? storageState, OperationBudget? budget = null)
+        {
             ThrowPending();
             await VideoPageClosingAsync().ConfigureAwait(false);
             var context = _context;
@@ -1489,11 +1500,62 @@ public sealed partial class WebEngine : IEngine
             _page = null;
             if (context is not null)
             {
-                await context.CloseAsync().ConfigureAwait(false);
+                await Within(budget, context.CloseAsync()).ConfigureAwait(false);
             }
 
-            await NewContextAsync().ConfigureAwait(false);
-            await NewPageAsync(_context!).ConfigureAwait(false);
+            await Within(budget, NewContextAsync(storageState)).ConfigureAwait(false);
+            await Within(budget, NewPageAsync(_context!)).ConfigureAwait(false);
+        }
+
+        private static Task Within(OperationBudget? budget, Task call) => budget is null ? call : budget.WithinAsync(call);
+
+        /// <summary>Upstream's <c>captureState</c>: the context's cookies, local storage, and IndexedDB, as a Playwright storage state.</summary>
+        public Task<EngineState> CaptureStateAsync(CancellationToken cancellationToken) => RunAsync("state capture", cancellationToken, async () =>
+        {
+            var budget = Budget("state capture", cancellationToken);
+            try
+            {
+                var storageState = await budget.WithinAsync(RequireContext().StorageStateAsync(new BrowserContextStorageStateOptions { IndexedDB = true })).ConfigureAwait(false);
+                return new EngineState(StateFormat, 1, JsonNode.Parse(storageState));
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.Translate(ex, "state capture");
+            }
+        });
+
+        /// <summary>Upstream's <c>restoreState</c>: replaces the attempt's context with one seeded from the storage state.</summary>
+        public async Task RestoreStateAsync(EngineState state, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(state);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (state.Format != StateFormat || state.Version != 1)
+            {
+                throw new EngineException(EngineErrorCodes.InvalidState, $"unsupported state format {state.Format}@{state.Version}", retryable: false);
+            }
+
+            // A string here would be read by Playwright as a file path; a session envelope must never be able to point the browser at the filesystem.
+            if (state.Data is not JsonObject data || data["cookies"] is not JsonArray || data["origins"] is not JsonArray)
+            {
+                throw new EngineException(EngineErrorCodes.InvalidState, "state data must be a storage-state object", retryable: false);
+            }
+
+            if (_persistent is not null)
+            {
+                throw new EngineException(
+                    EngineErrorCodes.UnsupportedCapability,
+                    $"restoring a state is unavailable with {PersistentMode(_persistent.Provider)}: it replaces the browser context, and the attempt rides one persistent context");
+            }
+
+            var budget = Budget("state restore", cancellationToken);
+            try
+            {
+                await ReplaceContextAsync(data.ToJsonString(), budget).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+            {
+                throw WebErrors.Translate(ex, "state restore");
+            }
         }
 
         public Task<string> GetUrlAsync(CancellationToken cancellationToken) => RunAsync("url", cancellationToken, () =>
@@ -2008,9 +2070,11 @@ public sealed partial class WebEngine : IEngine
             InputAsync(() => Page.Mouse.UpAsync(), "mouse.up", cancellationToken));
 
         /// <summary>Opens a clean context at the current viewport. Its first page opens on the first navigation.</summary>
-        public async Task NewContextAsync()
+        public async Task NewContextAsync(string? storageState = null)
         {
-            var context = await _browser.NewContextAsync(ContextOptions(_options, _viewport, _credentials)).ConfigureAwait(false);
+            var options = ContextOptions(_options, _viewport, _credentials);
+            options.StorageState = storageState;
+            var context = await _browser.NewContextAsync(options).ConfigureAwait(false);
             await ConfigureAsync(context).ConfigureAwait(false);
             _context = context;
         }

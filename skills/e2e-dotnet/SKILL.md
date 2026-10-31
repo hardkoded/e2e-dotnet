@@ -27,7 +27,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | When you are | Topic | Read |
 | --- | --- | --- |
 | Adding e2e to a project, writing `e2e.config.json`, signing in to a model, picking a model provider, browser options | `setup` | [references/setup.md](references/setup.md) |
-| Looking at the running app, checking a UI change, taking a screenshot, or trying a locator before writing it, over `e2e mcp` | `mcp` | [references/mcp.md](references/mcp.md) |
+| Looking at the running app, checking a UI change, taking a screenshot, trying a locator, or walking a flow while you write its test, over `e2e mcp` | `mcp` | [references/mcp.md](references/mcp.md) |
 | Writing or fixing a test: fixture members, locators, actions, matchers, sign-in, the `Browser` member (navigation, routes (`route.FetchAsync()` reads upstream before the handler decides), cookies with `SetCookiesAsync` and `ClearCookiesAsync(new CookieFilter { ... })`, native dialogs, downloads with `WaitForDownloadAsync` and `WaitForDownloadsAsync(trigger, count)` for several files from one trigger, CSS locators, iframes), and `Locator.SetInputFilesAsync` for a file input or an upload button that opens a file chooser | `writing-tests` | [references/writing-tests.md](references/writing-tests.md) |
 | Writing a test with NUnit: the `E2E.NUnit` base class, `[Test]`, `[Category("RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-nunit` | [references/writing-tests-nunit.md](references/writing-tests-nunit.md) |
 | Writing a test with xUnit v3: the `E2E.XUnit.V3` base class, `[Fact]`, `[Trait("TestCategory", "RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-xunit` | [references/writing-tests-xunit.md](references/writing-tests-xunit.md) |
@@ -35,11 +35,11 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | Running tests: `dotnet test` filters, the `e2e` tool, `report.json` for scripts, exit codes, CI, test filters (not wired into `dotnet test`: the `ITestFilter` seam and the `run.changes` and `run.filters` report fields) | `running` | [references/running.md](references/running.md) |
 | Handling a failed run: the trace page, `report.json` for scripts, `E2ESession.Report()` for a session you run yourself, error codes and their fixes, a visible browser, replay misses, phase timings, the agent step table, every model call | `debugging` | [references/debugging.md](references/debugging.md) |
 | Exploring an app toward a goal without a test file, with `e2e explore` or `Explore.ExploreAsync` | `explore` | [references/explore.md](references/explore.md) |
-| Testing an iOS or Android app: `MobileEngine`, the `Device` fixture, picking a simulator (without `MobileOptions.Device`, `MobileEngine` skips booted devices another agent-device session holds, and `prepare` fails with `ENGINE_FAILURE` when every booted one is held), video of the device screen, `Device.UnstableRaw` (the test's agent-device session: name, device id and name, selection, and a raw `IDeviceClient` whose calls are not steps, replayed, or redacted; unstable; `INVALID_STATE` after the session is disposed), Limrun hosted devices, a MAUI app through the DevFlow agent, known limits, `Locator.PressAsync("Enter")` tapping an unfocused field first, and the agent's `open_app` returning to the app under test when it names no app | `mobile` | [references/mobile.md](references/mobile.md) |
+| Testing an iOS or Android app: `MobileEngine`, the `Device` fixture, picking a simulator (without `MobileOptions.Device`, `MobileEngine` skips booted devices another agent-device session holds, and `prepare` fails with `ENGINE_FAILURE` when every booted one is held), video of the device screen, `Device.UnstableRaw` (the test's agent-device session: name, device id and name, selection, and a raw `IDeviceClient` whose calls are not steps, replayed, or redacted; unstable; `INVALID_STATE` after the session is disposed), Limrun hosted devices, a MAUI app through the DevFlow agent, known limits, `Locator.PressAsync("Enter")` tapping an unfocused field first, and the agent's `open_app` returning to the app under test when it names no app, a Compose Multiplatform field on iOS (for an empty (no value), editable, non-secure iOS field that reports no placeholder of its own, whose only child is a `StaticText` with no children, and whose label is a non-empty name, then `, `, then that child's text, that text is the field's `Placeholder`, the child is left out, and the name is the label before `, `; a non-empty `ContentDescription` stays the name, and that label is then the `Text`; any other field keeps its label and children) | `mobile` | [references/mobile.md](references/mobile.md) |
 | Testing a Windows desktop app: `WinAppEngine`, `WinAppTest`, the `Window` fixture, the `windows` target in `e2e explore` and `e2e mcp`, the interactive-desktop requirement, known limits | `windows` | [references/windows.md](references/windows.md) |
 | Asked to bug bash or hunt for bugs: proving each bug with a repro test | `bug-bash` | [references/bug-bash.md](references/bug-bash.md) |
 
-Two sibling skills install with `npx skills add hardkoded/e2e-dotnet --skill <name>`. `create-verification-skill` writes a project-local `verify-<app>` skill. `migrate-to-e2e` moves an existing Playwright .NET, Selenium .NET, Appium, Cypress, Detox, or Maestro suite to e2e one slice at a time, with the old suite running beside the new one and a `MIGRATION.md` progress file. Hosted Limrun devices are covered in topic `mobile`.
+Two sibling skills install with `npx skills add hardkoded/e2e-dotnet --skill <name>`. `create-verification-skill` writes a project-local `verify-<app>` skill. `migrate-to-e2e` moves an existing Playwright .NET, Selenium .NET, Appium, Cypress, Detox, Maestro, or TesterArmy suite to e2e one slice at a time, with the old suite running beside the new one and a `MIGRATION.md` progress file. Hosted Limrun devices are covered in topic `mobile`.
 
 Text downloads are redacted only when they are UTF-8 without NUL bytes; other files stay as served and `incomplete`. `Browser.WaitForDownloadAsync` returns one file; `Browser.WaitForDownloadsAsync(trigger, count)` calls the trigger once and returns `count` files in start order, each its own artifact. See `writing-tests` for download handling.
 
@@ -113,12 +113,20 @@ public sealed class BillingTests : E2ETest
 
 1. Look at what exists: `e2e.config.json`, a test project that references
    `E2E.NUnit` or `E2E.XUnit.V3`. Nothing there: follow `setup`.
-2. Learn the screens before writing a test: routes, labels, roles, button
-   text. Semantic locators need the accessible names the app renders, so read
-   the components or watch a run with `E2E_HEADLESS=0`. Over a connected `e2e mcp`
-   server (topic `mcp`), each action prints the test line that repeats it.
-3. Write an `E2ETest` class. Drive the flow with `Agent.ActAsync`, one
-   atomic goal per call, and pin each outcome right after with `Expect.That`
+2. With a connected `e2e mcp` server (topic `mcp`), write the test while
+   you walk the flow, not from memory after the walk. A test written
+   afterwards fails on each name or step you got wrong, one run at a time.
+   Before `open_session`, create the target's test class (`E2ETest` for web,
+   `MobileAppTest` for iOS or Android, `WinAppTest` for Windows), opening on
+   the screen it covers (step 3). Then add each step to the file as you take it in the
+   session. An `ActAsync` goal goes in before you walk its path, and the
+   path's actions stay out of the test. A `Screen` line is the `Test line:`
+   its action printed, copied as is. When the outcome shows, `locate` it and
+   add the `Expect.That`. The walk ends with the test written. Without a
+   server, learn the accessible names the app renders from the components or
+   a run with `E2E_HEADLESS=0`.
+3. A step is an `Agent.ActAsync` goal or `Screen` lines. Drive the flow with
+   `Agent.ActAsync`, one atomic goal per call, and pin each outcome right after with `Expect.That`
    or `Agent.AssertAsync`. A test with three goals makes three calls.
    Start it on the screen it covers, since every rerun pays for the steps
    before: in a browser a sign-in through the app's API in the test's setup
@@ -219,6 +227,10 @@ lines you changed:
   while a stable change exists, and reads it in an alert as one placeholder,
   so `Saved at 2026-10-24T15:41:27.955Z` and `Saved at 2026-10-24T15:30:00Z`
   are the same alert.
+  A `navigate` to a full URL on the app records as its path, query, and
+  fragment and replays on the origin the app runs on then, so a recording
+  follows the app to another port or host; re-record older entries to pick
+  this up.
 - Don't rename the test or its class, and don't reword a goal, change its
   params, or change the agent's `context` once a goal passes. Each is part of
   a recording's key, so every goal it touches records again live. Fixing a
@@ -228,7 +240,7 @@ lines you changed:
   substitution also covers the value as a URL spells it (`Ada%20Lovelace` in
   a path, `Ada+Lovelace` in a query), as the slug an app derives for a record
   path (`ada-lovelace`), and a multi-line value as the screen shows it, on
-  one line (topic `agent`).
+  one line. A short value is never matched inside the slot written for a longer one (topic `agent`).
 - Take `[Retry]` off the test while you iterate (NUnit only; xUnit v3 has no
   retry). The first attempt replays; outside `cache.strict`, each retry runs
   every goal live and waits out the failure again.
@@ -259,6 +271,12 @@ lines you changed:
   after the body and again after the teardown); a handler still running then
   fails with `CLEANUP_TIMEOUT`. An engine reports such a failure from
   `IEngineSession.SettleAttemptAsync`, once (topic `writing-tests`).
+- An engine that can save and reuse the app's state overrides
+  `IEngineSession.CaptureStateAsync` and `RestoreStateAsync` (an `EngineState`:
+  a format, a version, opaque data). Without them they fail with
+  `UNSUPPORTED_CAPABILITY`. Each call is bounded by the action timeout
+  (`OPERATION_TIMEOUT`). `WebEngine` implements both (cookies, local
+  storage, IndexedDB); the port has no setup tests yet that call them.
 - To reach a node below the fold, `Screen.ScrollUntilVisibleAsync(locator,
   new ScrollUntilVisibleOptions { Direction, Momentum, Timeout })` scrolls the viewport
   (`ScrollDirection.Down`, `Momentum.Slow` by default) until the locator resolves
@@ -316,6 +334,6 @@ lines you changed:
   `agent`). Every built-in prompt of a test opens with the test's title
   (`Test: <name>`), judges included (a custom executor reads `context.Attempt.TitlePath`), so name a test for what it covers, not
   for the verdict you expect (topic `agent`).
-- `run.exitCode` in `report.json` is the worst exit code of the results. An attempt marked `cleanup: "failed"` adds its cleanup error's code, usually 3, even when the test passed. A test that failed or timed out and whose retry was interrupted keeps that verdict (`failed` or `timed-out`) and the exit code of its failure, not 130, because the port has no run-level interrupt flag yet (topic `running`).
+- `run.exitCode` in `report.json` is the worst exit code of the results. An attempt marked `cleanup: "failed"` adds its cleanup error's code, usually 3, even when the test passed. A test that failed or timed out and whose retry was interrupted keeps that verdict (`failed` or `timed-out`), and the run still reads `interrupted` with exit code 130: any attempt a user cancel ended sets the run's interrupt flag, as upstream's `interruptController.signal.aborted` does; under the xUnit and NUnit adapters a cancelled test is reported as a plain failure and the flag is not set yet, #837 (topic `running`).
 - `.e2e/` is output (`report.json`, `results/`, `cache/`); read it, never edit it. Commit `.e2e/cache/` to share replays. The cache key changed in the version that added the `trace-1` key: recordings from an older version no longer match and must be re-recorded once (topic `running`).
 - To hand the artifacts an attempt registers (a download, a video file or link, a screenshot or log the test attaches) to your own store as it is produced, implement `IArtifactStore` and override `ArtifactStore` on the fixture, or set `E2ESessionOptions.ArtifactStore` (upstream's `artifacts.store`; code, not a config key). `PutAsync(StoredArtifact)` gets `Bytes`, `Sha256`, the report-relative `Path`, `Redaction` (`Complete` or `Incomplete`: a store that exports only what the runner vouches for keeps back an `Incomplete` artifact, a video or a download the runner did not rewrite) and the `RunId`, `TestId`, `AttemptId`, `StepId` it belongs to, and returns a reference the report records as `ref` beside the local path. `PutLinkAsync(StoredArtifactLink)` gets a provider-hosted video (a link, no bytes: `Url`, `MediaType`, the same identity fields, `Kind` always `Video` and `Redaction` always `Incomplete`); a passed attempt's link under `retain-on-failure` is never handed over. Without a store files stay local only. The automatic failure screen text and failure screenshot are not handed to a store yet; they stay local. A failed or empty store call never fails the run; the artifact keeps its local path and has no `ref` (topic `setup`).

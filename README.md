@@ -286,6 +286,8 @@ An agent entry also takes `judge` (the model id for `assert`, `waitFor`, and `ex
 
 A cache entry belongs to one test, instruction, set of params, and agent. Each of these changes causes a miss: renaming the test or its class, changing the instruction or an ordinary param, running with another configured agent, changing the agent's `context` or a test's `[AgentContext]` (a secret in it enters the key as its name only), or switching to another engine. Changing the model doesn't cause a miss.
 
+A recording follows the app to another port or host that shares its `app.identity`. An agent `navigate` to a full URL on the app is recorded without the origin, as its path, query, and fragment, so the step replays on the origin the app runs on then. Re-record older entries to pick this up.
+
 ### Self-healing tests
 
 A self-healing test keeps passing when the UI changes under a recorded `Agent.ActAsync` step. The replay runs the recording until it no longer matches the screen. Then it hands the rest of the step to the agent, which finishes the goal from the current screen. In `read-write` mode, the same run can save the new flow once a later check passes. Such a step reports `ActResult.Cache.Mode` `agent-concluded`.
@@ -400,7 +402,7 @@ foreach (var finding in outcome.Explore.Findings)
 claude mcp add e2e -- e2e mcp
 ```
 
-The server has four fixed tools (`open_session`, `tools`, `call`, `close_session`) and serves the skill as the resources `e2e://guide` and `e2e://guide/<topic>`. `open_session` boots a Chromium browser on the config's target; `call` then observes, acts, fills a secret, locates, and takes a screenshot, with every secret value shown by name. Each action answers with the test line that repeats it, and `test_lines` returns them as a draft test body. A session ends after 30 minutes idle or 4 hours, and nothing it does is written to the replay cache. The flags are `--config`, `--target`, `--headed`, and `--max-sessions` (1 through 16, default 4). See [COMPATIBILITY.md](COMPATIBILITY.md#mcp-server).
+The server has four fixed tools (`open_session`, `tools`, `call`, `close_session`) and serves the skill as the resources `e2e://guide` and `e2e://guide/<topic>`. `open_session` boots a Chromium browser on the config's target; `call` then observes, acts, fills a secret, locates, and takes a screenshot, with every secret value shown by name. Each action answers with the test line that repeats it, or with `No test line:` and why (for example `scroll`, or `press` without a target), so the agent writes the test while it walks the flow, and `test_lines` returns every line so far as a draft test body, with a `//` comment for an action without a line. A session ends after 30 minutes idle or 4 hours, and nothing it does is written to the replay cache. The flags are `--config`, `--target`, `--headed`, and `--max-sessions` (1 through 16, default 4). See [COMPATIBILITY.md](COMPATIBILITY.md#mcp-server).
 
 ### A verification skill for your app
 
@@ -412,7 +414,7 @@ npx skills add hardkoded/e2e-dotnet --skill create-verification-skill
 
 ### Migrating an existing suite
 
-The `migrate-to-e2e` skill moves a Playwright .NET, Selenium .NET, Appium, Cypress, Detox, or Maestro suite to e2e one slice per session, with the old suite running beside the new tests and a `MIGRATION.md` progress file. Install it, then ask your agent for `/migrate-to-e2e`:
+The `migrate-to-e2e` skill moves a Playwright .NET, Selenium .NET, Appium, Cypress, Detox, Maestro, or TesterArmy suite to e2e one slice per session, with the old suite running beside the new tests and a `MIGRATION.md` progress file. Install it, then ask your agent for `/migrate-to-e2e`:
 
 ```bash
 npx skills add hardkoded/e2e-dotnet --skill migrate-to-e2e
