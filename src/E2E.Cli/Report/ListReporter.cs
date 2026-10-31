@@ -70,7 +70,7 @@ internal sealed class ListReporter
 
     private bool _interrupted;
     private readonly Format.AiUsage _runUsage = Format.EmptyUsage();
-    private readonly Format.ModelTally _runModels = new();
+    private readonly Dictionary<string, int> _runModels = new(StringComparer.Ordinal);
     private readonly Format.CacheTally _runCache = Format.EmptyCacheTally();
 
     /// <summary>The configured models as the header names them; the summary's <c>AI</c> row names the models the steps reported instead.</summary>
@@ -78,7 +78,7 @@ internal sealed class ListReporter
 
     public ListReporter(IListReporterOutput? output = null, ListReporterOptions? options = null, TimeProvider? timeProvider = null)
     {
-        _output = output ?? ConsoleOutput.Instance;
+        _output = output ?? DefaultOutput;
         _time = timeProvider ?? TimeProvider.System;
         _pc = new Colors(options?.Colors ?? (!Console.IsOutputRedirected && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR"))));
         _separator = _pc.Dim(" > ");
@@ -665,7 +665,7 @@ internal sealed class ListReporter
         public required Format.AiUsage Usage { get; init; }
 
         /// <summary>The models its steps reported, with their call counts.</summary>
-        public required Format.ModelTally Models { get; init; }
+        public required Dictionary<string, int> Models { get; init; }
 
         public required Format.CacheTally Cache { get; init; }
 
@@ -687,10 +687,11 @@ internal sealed class ListReporter
     /// <summary>One failed pair, held for the <c>Failed Tests</c> section.</summary>
     private sealed record Failure(string Id, FileGroup Group, string Title, ResultStatus Status, ReportError? Error, FailureEvidence? Evidence, string? ScreenPath, string? AppLog, string? SkipReason);
 
-    private sealed class ConsoleOutput : IListReporterOutput
-    {
-        public static ConsoleOutput Instance { get; } = new();
+    /// <summary>Upstream's <c>DEFAULT_OUTPUT</c>: a line to stdout. A C# interface needs a class to implement it, hence <see cref="StdoutOutput"/>.</summary>
+    private static readonly IListReporterOutput DefaultOutput = new StdoutOutput();
 
+    private sealed class StdoutOutput : IListReporterOutput
+    {
         public void Write(string line) => Console.Out.WriteLine(line);
     }
 }

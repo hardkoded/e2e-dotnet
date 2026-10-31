@@ -479,34 +479,25 @@ internal static partial class Format
     public static string? StepModelLabel(StepModelInfo model) =>
         string.IsNullOrEmpty(model.Provider) || string.IsNullOrEmpty(model.Model) ? null : model.Provider + "/" + model.Model;
 
-    /// <summary>Upstream's <c>ModelTally</c>: the models a run's steps reported, <c>provider/model</c> to the calls each answered.</summary>
-    public sealed class ModelTally
-    {
-        private readonly Dictionary<string, int> _calls = new(StringComparer.Ordinal);
-
-        public IEnumerable<KeyValuePair<string, int>> Entries => _calls;
-
-        public void Add(string label, int calls) => _calls[label] = _calls.GetValueOrDefault(label) + calls;
-    }
-
     /// <summary>Upstream's <c>addModelTally</c>.</summary>
-    public static void AddModelTally(ModelTally into, ModelTally counts)
+    public static void AddModelTally(Dictionary<string, int> into, Dictionary<string, int> counts)
     {
-        foreach (var (label, calls) in counts.Entries)
+        foreach (var (label, calls) in counts)
         {
-            into.Add(label, calls);
+            into[label] = into.GetValueOrDefault(label) + calls;
         }
     }
 
     /// <summary>Upstream's <c>stepsModelTally</c>: the models several step lists reported, with their call counts.</summary>
-    public static ModelTally StepsModelTally(IEnumerable<IEnumerable<StepRecord>> stepLists)
+    public static Dictionary<string, int> StepsModelTally(IEnumerable<IEnumerable<StepRecord>> stepLists)
     {
-        var counts = new ModelTally();
+        // Upstream's ModelTally is a Map<string, number>: provider/model to the calls each answered.
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var step in stepLists.SelectMany(steps => steps))
         {
             if (step.Model is { } model && StepModelLabel(model) is { } label)
             {
-                counts.Add(label, model.Calls);
+                counts[label] = counts.GetValueOrDefault(label) + model.Calls;
             }
         }
 
@@ -517,9 +508,9 @@ internal static partial class Format
     /// Upstream's <c>modelsText</c>: the models that answered, most calls first. One model by its label alone, since the row's call total is
     /// its count, several as <c>gateway/openai/gpt-6-luna-fast (22 calls) · typesafe-ai/jev (1 call)</c>; null when no step reported a model.
     /// </summary>
-    public static string? ModelsText(ModelTally counts)
+    public static string? ModelsText(Dictionary<string, int> counts)
     {
-        var sorted = counts.Entries.OrderByDescending(entry => entry.Value).ThenBy(entry => entry.Key, StringComparer.InvariantCulture).ToList();
+        var sorted = counts.OrderByDescending(entry => entry.Value).ThenBy(entry => entry.Key, StringComparer.InvariantCulture).ToList();
         return sorted.Count switch
         {
             0 => null,
