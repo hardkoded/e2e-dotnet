@@ -241,6 +241,8 @@ lines you changed:
   `Cache  4 replayed · 1 handed off · 1 missed` row; the port's internal
   `ListReporter` renders it, but no command prints a run summary yet (#799), so
   a test run does not show it. Read `ActResult.Cache` for a step instead.
+  The same renderer quotes the app's first 3 errors in a failed test's block,
+  under its `app N errors logged` row; that is not shown today either.
   A `navigate` to a full URL on the app records as its path, query, and
   fragment and replays on the origin the app runs on then, so a recording
   follows the app to another port or host; re-record older entries to pick
