@@ -27,6 +27,10 @@ public sealed class E2ERunFixture : IAsyncDisposable
             {
                 await Reporters.RunFinishedAsync(testAssembly).ConfigureAwait(false);
             }
+            else
+            {
+                Console.Error.WriteLine("e2e: the test assembly is unknown (no entry assembly), so no reporter ran");
+            }
         }
         finally
         {

@@ -20,7 +20,7 @@ public sealed class RunReportersTests
         try
         {
             var finished = new FinishedRun(new Report(), ReportRunStatus.Passed, 0, "/p", "/p/report.json", "/p/results");
-            await E2E.Reporters.RunReportersAsync([new HonoringReporter()], finished, TimeSpan.FromMilliseconds(100), CancellationToken.None);
+            await Runner.RunReportersAsync([new HonoringReporter()], finished, TimeSpan.FromMilliseconds(100), CancellationToken.None);
         }
         finally
         {

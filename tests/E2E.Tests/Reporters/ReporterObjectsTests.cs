@@ -11,7 +11,7 @@ namespace E2E.Tests.Reporters;
 
 /// <summary>
 /// Upstream's <c>describe('reporter objects')</c> (<c>tests/integration/reporters.test.ts</c>). Each test is partial: the port has no runner, so the
-/// reporters run through <see cref="E2E.Reporters.RunReportersAsync"/> on the run <see cref="ReportFile"/> wrote, with no event stream and no
+/// reporters run through <see cref="Runner.RunReportersAsync"/> on the run <see cref="ReportFile"/> wrote, with no event stream and no
 /// <c>leftWorkBehind</c> flag.
 /// </summary>
 [Collection(nameof(ConsoleCollection))]
@@ -45,7 +45,7 @@ public sealed class ReporterObjectsTests : IDisposable
         Console.SetError(stderr);
         try
         {
-            return (await E2E.Reporters.RunReportersAsync(reporters, finished, timeout, force), stderr.ToString());
+            return (await Runner.RunReportersAsync(reporters, finished, timeout, force), stderr.ToString());
         }
         finally
         {
@@ -59,7 +59,7 @@ public sealed class ReporterObjectsTests : IDisposable
         var finished = await FinishedAsync();
         var recording = new RecordingReporter();
 
-        var (rows, _) = await RunAsync([recording], finished, E2E.Reporters.ReporterTimeout);
+        var (rows, _) = await RunAsync([recording], finished, Runner.ReporterTimeout);
 
         var run = Assert.IsType<FinishedRun>(recording.Finished);
         Assert.Equal(ReportRunStatus.Passed, run.Status);
@@ -87,7 +87,7 @@ public sealed class ReporterObjectsTests : IDisposable
         using var force = new CancellationTokenSource();
         await force.CancelAsync();
 
-        var (_, stderr) = await RunAsync([recording], finished, E2E.Reporters.ReporterTimeout, force.Token);
+        var (_, stderr) = await RunAsync([recording], finished, Runner.ReporterTimeout, force.Token);
 
         Assert.Null(recording.Finished);
         Assert.Contains("e2e: reporter \"uploading\" abandoned: the run was forced to stop", stderr, StringComparison.Ordinal);

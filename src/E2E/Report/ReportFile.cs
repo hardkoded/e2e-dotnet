@@ -262,7 +262,7 @@ internal static class ReportFile
                 var report = ReportSerializer.Read(JsonNode.Parse(await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false))!.AsObject());
                 finished.Add(new FinishedRun(report, report.Run.Status, report.Run.ExitCode, state.ProjectRoot, path, resultsRoot));
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 Console.Error.WriteLine($"e2e: the report of run {state.RunId} could not be read for the reporters: {ex.Message}");
             }
