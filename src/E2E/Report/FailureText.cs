@@ -58,6 +58,15 @@ internal static partial class FailureText
     /// <summary>Events a page lists under one step before saying how many more there were.</summary>
     private const int MaxStepEvents = 20;
 
+    /// <summary>Turns shown under a failed agent step on the run page; the trace page shows every kept turn.</summary>
+    private const int MaxSummaryTurns = 3;
+
+    /// <summary>Candidate nodes named on the run page; the trace page lists every one.</summary>
+    private const int MaxSummaryCandidates = 3;
+
+    /// <summary>App errors a failure block quotes; the trace page lists every one.</summary>
+    private const int MaxSummaryAppErrors = 3;
+
     /// <summary>App log lines the page lists in its own section; errors and warnings take the slots first, then the latest of the rest.</summary>
     private const int MaxAppLogLines = 50;
 
@@ -277,6 +286,97 @@ internal static partial class FailureText
         return [.. own, .. rest];
     }
 
+    /// <summary>Where an app log line came from, as the page names it (upstream's <c>APP_SOURCE_TEXT</c>).</summary>
+    private static string AppSourceText(AppLogSource source) => source switch { AppLogSource.Console => "console", AppLogSource.Error => "uncaught", AppLogSource.Network => "network", _ => "system" };
+
+    /// <summary>A loopback URL cannot be opened by anyone reading the page, so its path is the whole of what it says; any other URL is kept whole.</summary>
+    private static string ScreenUrl(string url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var parsed) && Urls.IsLoopbackHost(parsed.Host) ? parsed.PathAndQuery + parsed.Fragment : url;
+
+    /// <summary><c>file:line</c>, linked to the commit when known, else in backticks.</summary>
+    public static string SourceText(SourceLocation source, Func<string, int, string>? sourceUrl)
+    {
+        var text = source.File + ":" + source.Line.ToString(CultureInfo.InvariantCulture);
+        return sourceUrl is null ? Code(text) : Link(Cell(text), sourceUrl(source.File, source.Line));
+    }
+
+    /// <summary>One turn on one line: its calls, then the first line of what came back.</summary>
+    private static string TurnLine(StepTurn turn, int max = MaxDetailChars)
+    {
+        var calls = turn.Calls.Count == 0 ? "no tool call" : string.Join(", ", turn.Calls.Select(call => Code(call, MaxLabelChars * 2)));
+        var outcome = turn.Outcome.Split('\n').FirstOrDefault(line => line.Trim().Length > 0) ?? "";
+        return "Turn " + turn.Index.ToString(CultureInfo.InvariantCulture) + ": " + calls + (outcome.Length == 0 ? "" : " → " + Cell(outcome, max));
+    }
+
+    /// <summary><c>Turn 4: tap(...) → ...</c>, one line per kept turn, the last few of a failed agent step, for the run page.</summary>
+    public static List<string> LastTurnLines(StepRecord? step)
+    {
+        // The verdict turn repeats the explanation the block already quotes.
+        if (step?.Turns is not { } turns)
+        {
+            return [];
+        }
+
+        return [.. turns
+            .Where(turn => !(turn.Calls.Count > 0 && turn.Calls.All(call => call.StartsWith("complete_step(", StringComparison.Ordinal))))
+            .TakeLast(MaxSummaryTurns)
+            .Select(turn => TurnLine(turn, 160))];
+    }
+
+    /// <summary><c>Screen: /path</c> and <c>Closest to the locator: ...</c>, for the run page.</summary>
+    public static List<string> ScreenLines(ReportAttempt told)
+    {
+        if (told.Failure is not { } failure)
+        {
+            return [];
+        }
+
+        List<string> lines = [];
+        if (failure.Url is not null)
+        {
+            lines.Add("Screen: " + Code(ScreenUrl(failure.Url), MaxPathChars));
+        }
+
+        var candidates = failure.Candidates ?? [];
+        if (candidates.Count > 0)
+        {
+            var shown = candidates.Take(MaxSummaryCandidates).Select(line => Code(line, MaxCellChars)).ToList();
+            if (candidates.Count > shown.Count)
+            {
+                shown.Add("and " + (candidates.Count - shown.Count).ToString(CultureInfo.InvariantCulture) + " more");
+            }
+
+            lines.Add("Closest to the locator: " + string.Join(", ", shown));
+        }
+
+        return lines;
+    }
+
+    /// <summary>The errors the app logged during an attempt, as a failure block quotes them (upstream's <c>AppErrors</c>).</summary>
+    /// <param name="Count">How many it logged.</param>
+    /// <param name="Shown">The first few, oldest first: where each came from (<c>console error</c>) and its text, loopback origins dropped.</param>
+    /// <param name="More"><c>2 more app errors logged</c>, when the block leaves some out.</param>
+    public sealed record AppErrors(int Count, IReadOnlyList<(string Label, string Text)> Shown, string? More);
+
+    /// <summary>
+    /// The errors a failure block quotes: the first few, oldest first, since a later error is often fallout of an earlier one. Each is
+    /// redacted and clipped already, as the trace page shows it.
+    /// </summary>
+    public static AppErrors AppErrorsOf(IReadOnlyList<AppLogRecord> appLog)
+    {
+        var errors = appLog.Where(entry => entry.Level == AppLogLevel.Error).OrderBy(entry => entry.At).ToList();
+        var shown = errors.Take(MaxSummaryAppErrors).Select(entry => (Label: AppSourceText(entry.Source) + " error", Text: ShortenLoopback(entry.Text))).ToList();
+        var left = errors.Count - shown.Count;
+        return new AppErrors(errors.Count, shown, left == 0 ? null : Plural(left, "more app error") + " logged");
+    }
+
+    /// <summary><c>App console error: `...`</c>, one line per error the run page quotes, then how many it left out.</summary>
+    public static List<string> AppErrorLines(ReportAttempt told)
+    {
+        var (_, shown, more) = AppErrorsOf(told.AppLog);
+        return [.. shown.Select(error => "App " + error.Label + ": " + Code(error.Text, MaxDetailChars)), .. more is null ? [] : new[] { more }];
+    }
+
     /// <summary>A turn's outcome as the page quotes it: the first result lines, then every loop note, which come last and say why the step ended.</summary>
     private static List<string> TurnOutcomeLines(string outcome)
     {
@@ -317,7 +417,7 @@ internal static partial class FailureText
     {
         var glyph = entry.Level switch { AppLogLevel.Error => "✗", AppLogLevel.Warning => "⚠", _ => "ℹ" };
         var text = Code(ShortenLoopback(entry.Text), MaxDetailChars);
-        var source = entry.Source switch { AppLogSource.Console => "console", AppLogSource.Error => "uncaught", AppLogSource.Network => "network", _ => "system" };
+        var source = AppSourceText(entry.Source);
         return entry.Level == AppLogLevel.Info
             ? glyph + " " + source + ": " + text
             : glyph + " " + source + " " + (entry.Level == AppLogLevel.Error ? "error" : "warning") + ": " + text;
