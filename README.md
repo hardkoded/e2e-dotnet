@@ -402,7 +402,7 @@ foreach (var finding in outcome.Explore.Findings)
 claude mcp add e2e -- e2e mcp
 ```
 
-The server has four fixed tools (`open_session`, `tools`, `call`, `close_session`) and serves the skill as the resources `e2e://guide` and `e2e://guide/<topic>`. `open_session` boots a Chromium browser on the config's target; `call` then observes, acts, fills a secret, locates, and takes a screenshot, with every secret value shown by name. Each action answers with the test line that repeats it, and `test_lines` returns them as a draft test body. A session ends after 30 minutes idle or 4 hours, and nothing it does is written to the replay cache. The flags are `--config`, `--target`, `--headed`, and `--max-sessions` (1 through 16, default 4). See [COMPATIBILITY.md](COMPATIBILITY.md#mcp-server).
+The server has four fixed tools (`open_session`, `tools`, `call`, `close_session`) and serves the skill as the resources `e2e://guide` and `e2e://guide/<topic>`. `open_session` boots a Chromium browser on the config's target; `call` then observes, acts, fills a secret, locates, and takes a screenshot, with every secret value shown by name. Each action answers with the test line that repeats it, or with `No test line:` and why (for example `scroll`, or `press` without a target), so the agent writes the test while it walks the flow, and `test_lines` returns every line so far as a draft test body, with a `//` comment for an action without a line. A session ends after 30 minutes idle or 4 hours, and nothing it does is written to the replay cache. The flags are `--config`, `--target`, `--headed`, and `--max-sessions` (1 through 16, default 4). See [COMPATIBILITY.md](COMPATIBILITY.md#mcp-server).
 
 ### A verification skill for your app
 
