@@ -215,9 +215,10 @@ public static partial class SnapshotProjection
     /// Projects one snapshot. <paramref name="mintId"/> is called once per node in document order, so the
     /// surface's id space stays unique across observations. <paramref name="publishedViewport"/> is the one
     /// agent-device published with the snapshot; a producer that measured none leaves it to <see cref="ViewportOf"/>.
+    /// <paramref name="refsGeneration"/> is the capture the refs were issued from.
     /// Android's system bars are left out with their children, see <see cref="IsSystemBar"/>.
     /// </summary>
-    public static ProjectedSnapshot ProjectSnapshot(IReadOnlyList<RawNode> raw, Func<string> mintId, ViewportSize? publishedViewport = null)
+    public static ProjectedSnapshot ProjectSnapshot(IReadOnlyList<RawNode> raw, Func<string> mintId, ViewportSize? publishedViewport = null, long? refsGeneration = null)
     {
         var viewport = publishedViewport ?? ViewportOf(raw);
         var parents = ParentPositions(raw);
@@ -373,7 +374,7 @@ public static partial class SnapshotProjection
             .Where(position => !IsSystemBar(raw[position], viewport, () => DisplayOnly(position)))
             .Select(position => Build(position, null))
             .ToList();
-        return new ProjectedSnapshot { Roots = rootNodes, Index = index, Viewport = viewport };
+        return new ProjectedSnapshot { Roots = rootNodes, Index = index, Viewport = viewport, RefsGeneration = refsGeneration };
     }
 
     /// <summary>

@@ -38,6 +38,8 @@ public sealed class DeterministicActionsTests
         JsonAssert.Args(expected, h.Fake.LastArgs("interactions.press"));
     }
 
+    private static int Presses(Harness h) => h.Fake.Methods().Count(method => method == "interactions.press");
+
     private static int Snapshots(Harness h) => h.Fake.Methods().Count(method => method == "capture.snapshot");
 
     [Fact]
@@ -89,13 +91,39 @@ public sealed class DeterministicActionsTests
         await Tap(session, inFlight);
         JsonAssert.Args("""{"ref":"@e42"}""", h.Fake.LastArgs("interactions.press"));
 
-        // A control the fresh snapshot no longer lists is acted on as it was.
+        // A missing control must be resolved again before any input is dispatched.
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
         await Tap(session, await Observed(session, "Back"));
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => submit(600, "@e42"));
         var landed = await Observed(session, "Submit");
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
-        await Tap(session, landed);
-        JsonAssert.Args("""{"ref":"@e42"}""", h.Fake.LastArgs("interactions.press"));
+        var presses = Presses(h);
+        var stale = await Assert.ThrowsAsync<EngineException>(() => Tap(session, landed));
+        Assert.Equal("NODE_STALE", stale.Code);
+        Assert.True(stale.Retryable);
+        Assert.Equal(presses, Presses(h));
+    }
+
+    [Fact]
+    public async Task Does_not_tap_a_recycled_ref_when_a_native_button_becomes_a_tab_during_relocation()
+    {
+        var h = WithTransition(120);
+        var session = await OpenTestAttempt(h);
+        await Tap(session, await Observed(session, "Back"));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshotWith(Submit("@e11", 600, "Chat")));
+        var chat = await Observed(session, "Chat");
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshotWith(
+            N("@e10", index: 10, parentIndex: 0, depth: 1, type: "tab-bar"),
+            N("@e12", index: 11, parentIndex: 10, depth: 2, type: "button", label: "Chat"),
+            N("@e11", index: 12, parentIndex: 10, depth: 2, type: "button", label: "Orders")));
+        var presses = Presses(h);
+        var stale = await Assert.ThrowsAsync<EngineException>(() => Tap(session, chat));
+        Assert.Equal("NODE_STALE", stale.Code);
+        Assert.True(stale.Retryable);
+        Assert.Equal(presses, Presses(h));
+
+        await Tap(session, await Observed(session, "Chat"));
+        JsonAssert.Args("""{"ref":"@e12"}""", h.Fake.LastArgs("interactions.press"));
     }
 
     [Fact]

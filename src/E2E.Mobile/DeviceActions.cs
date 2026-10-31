@@ -307,12 +307,15 @@ public sealed class DeviceActions : IDeviceActions
     internal static Task DragToAsync(DeviceSession session, SemanticNode node, SemanticNode destination, CancellationToken cancellationToken) =>
         RunNodeAsync(session, node, "dragTo", (client, target, _, input, token) =>
         {
-            var to = session.Resolve(destination);
+            // A test locates the drop target in a capture of its own, after the source's; agent-device takes both refs
+            // from the newest one only.
+            var source = session.Current(target);
+            var to = session.Current(session.Resolve(destination));
             return DeviceSession.SendInputAsync(
                 input,
                 () => client.CallAsync(
                     DeviceMethods.InteractionsDrag,
-                    DeviceArgs.Of(("source", DeviceSession.ActionTarget(target).Value), ("destination", DeviceSession.ActionTarget(to).Value)),
+                    DeviceArgs.Of(("source", DeviceSession.ActionTarget(source).Value), ("destination", DeviceSession.ActionTarget(to).Value)),
                     token),
                 token);
         }, cancellationToken);
