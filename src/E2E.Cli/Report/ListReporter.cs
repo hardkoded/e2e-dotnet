@@ -151,8 +151,21 @@ internal sealed class ListReporter
             return $"|{name}|";
         }
 
-        var index = Math.Max(0, _targets.ToList().IndexOf(target));
+        var index = Math.Max(0, IndexOfTarget(target));
         return _pc.Black(_pc.BgBright(index, $" {name} "));
+    }
+
+    private int IndexOfTarget(string target)
+    {
+        for (var i = 0; i < _targets.Count; i++)
+        {
+            if (_targets[i] == target)
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>A path relative to the project root when inside it, else as given.</summary>

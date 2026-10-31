@@ -208,14 +208,14 @@ internal static partial class Format
         return info.LengthInTextElements <= columns ? text : info.SubstringByTextElements(0, Math.Max(0, columns - 1)) + "…";
     }
 
-    /// <summary>The terminal width; a terminal without a size reports 0, which counts as unknown (upstream's <c>terminalColumns</c>).</summary>
+    /// <summary>The terminal width; a terminal without a size (or none) gives 80 (upstream's <c>terminalColumns</c>).</summary>
     public static int TerminalColumns()
     {
         try
         {
             return Console.IsOutputRedirected ? 80 : Console.WindowWidth is var width and > 0 ? width : 80;
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or PlatformNotSupportedException or InvalidOperationException)
         {
             return 80;
         }
@@ -267,8 +267,13 @@ internal static partial class Format
     public static (string Before, string After) Rule(string text, RuleAlign align)
     {
         var columns = TerminalColumns();
+        if (align == RuleAlign.Center)
+        {
+            return Rule(text, columns);
+        }
+
         var width = VisibleWidth(text);
-        var after = align == RuleAlign.Center ? Math.Max(0, (int)Math.Ceiling((columns - width) / 2.0)) : 1;
+        var after = 1;
         var before = Math.Max(0, columns - width - after);
         return (new string(LongDash, before), new string(LongDash, after));
     }
