@@ -20,8 +20,7 @@ namespace E2E.Tests.EngineTargets;
 public sealed partial class EngineTargetsTests
 {
     /// <summary>
-    /// Partial: an engine of the port has no name besides its platform, so the target's engine name in the report is the platform
-    /// <c>ios</c>, not upstream's <c>toy-device</c>. The verbs are the ones the engine's capabilities allow: the port's engines declare capabilities, not action kinds.
+    /// Partial: the toy engine's name is <c>toy-device</c> and the report records it. The verbs are the ones the engine's capabilities allow: the port's engines declare capabilities, not action kinds.
     /// </summary>
     [Fact]
     public async Task Partial_Runs_an_agent_step_over_the_adapter_with_lifecycle_and_honest_provenance()
@@ -76,7 +75,7 @@ public sealed partial class EngineTargetsTests
         Assert.Equal(["init", "dispose"], toy.Lifecycle);
         Assert.Equal(0, (int)report.Run()["exitCode"]!);
         var reportTarget = report.Run()["targets"]!.AsArray().Single(entry => (string)entry!["id"]! == "toy-sim")!;
-        Assert.Equal("ios", (string)reportTarget["engine"]!["name"]!);
+        Assert.Equal("toy-device", (string)reportTarget["engine"]!["name"]!);
         Assert.Equal("ios", (string)reportTarget["platform"]!);
     }
 
