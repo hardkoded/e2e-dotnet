@@ -26,8 +26,6 @@ internal static partial class ScreenshotAssertion
     {
         private bool _scrolled = !store.ScrollsIntoView;
 
-        public Task<Capture> CaptureAsync(CancellationToken cancellationToken) => CaptureOnceAsync(cancellationToken);
-
         /// <summary>
         /// One engine read on the window's budget. The port's observe and capture take no budget, so the read ends with it: the token
         /// cancels at the budget, and a read that ends on that is the engine's <c>OPERATION_TIMEOUT</c>, reported as <c>ACTION_FAILED</c>.
@@ -52,7 +50,7 @@ internal static partial class ScreenshotAssertion
                 }
             });
 
-        private async Task<Capture> CaptureOnceAsync(CancellationToken cancellationToken)
+        public async Task<Capture> CaptureAsync(CancellationToken cancellationToken)
         {
             var shown = Subject(subject);
             var observation = await ReadAsync(screen.ObserveAsync, cancellationToken).ConfigureAwait(false);

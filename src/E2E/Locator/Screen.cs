@@ -1027,7 +1027,7 @@ public sealed class Locator
         var reads = _screen.Reads(window);
         while (true)
         {
-            var node = await ResolveCountedAsync(token, reads, sampled: rounds > 0, stamp).ConfigureAwait(false);
+            var node = await ResolveCountedAsync(token, reads, sampled: rounds > 0, () => Stopwatch.GetElapsedTime(stamp)).ConfigureAwait(false);
             rounds++;
             if (node is { States.Disabled: false, States.Hidden: false })
             {
@@ -1086,7 +1086,7 @@ public sealed class Locator
         var sampled = false;
         while (true)
         {
-            var node = await ResolveCountedAsync(token, reads, sampled, started).ConfigureAwait(false);
+            var node = await ResolveCountedAsync(token, reads, sampled, () => _screen.Clock.GetElapsedTime(started)).ConfigureAwait(false);
             sampled = true;
             if (node is { States.Disabled: false, States.Hidden: false })
             {
@@ -1192,7 +1192,7 @@ public sealed class Locator
         var sampled = false;
         while (true)
         {
-            var node = await ResolveCountedAsync(token, reads, sampled, stamp).ConfigureAwait(false);
+            var node = await ResolveCountedAsync(token, reads, sampled, () => Stopwatch.GetElapsedTime(stamp)).ConfigureAwait(false);
             sampled = true;
             if (node is not null)
             {
@@ -1219,7 +1219,7 @@ public sealed class Locator
         var sampled = false;
         while (true)
         {
-            var node = await ResolveCountedAsync(token, reads, sampled, started).ConfigureAwait(false);
+            var node = await ResolveCountedAsync(token, reads, sampled, () => _screen.Clock.GetElapsedTime(started)).ConfigureAwait(false);
             sampled = true;
             if (node is not null)
             {
@@ -1251,7 +1251,7 @@ public sealed class Locator
     /// <see cref="ResolveSingleAsync"/> for a wait: a resolve the deadline cut off, after one that matched nothing, is the wait running out
     /// (upstream's <c>resolveCounted</c>), reported as not found rather than as the timeout of the read.
     /// </summary>
-    private async Task<SemanticNode?> ResolveCountedAsync(CancellationToken token, ReadWindow reads, bool sampled, long startedAt)
+    private async Task<SemanticNode?> ResolveCountedAsync(CancellationToken token, ReadWindow reads, bool sampled, Func<TimeSpan> elapsed)
     {
         try
         {
@@ -1259,7 +1259,7 @@ public sealed class Locator
         }
         catch (Exception ex) when (sampled && !token.IsCancellationRequested && reads.CutOff(ex))
         {
-            throw new TestException("NOT_FOUND", Query.Describe() + " matched 0 nodes.", ex) { Details = LocatorResolver.LocatorDetails(Query, Stopwatch.GetElapsedTime(startedAt)) };
+            throw new TestException("NOT_FOUND", Query.Describe() + " matched 0 nodes.", ex) { Details = LocatorResolver.LocatorDetails(Query, elapsed()) };
         }
     }
 

@@ -457,8 +457,8 @@ public sealed partial class DeviceSession
     public Task DismissKeyboardAsync(CancellationToken cancellationToken) => DismissKeyboardAsync(cancellationToken, InputBudget("device.dismissKeyboard"));
 
     /// <summary>
-    /// <see cref="DismissKeyboardAsync(CancellationToken)"/> under an input's budget, or directly with none: the
-    /// <c>device.dismissKeyboard</c> fixture has no budget. Upstream's <c>dismissKeyboard(signal, input?)</c>.
+    /// <see cref="DismissKeyboardAsync(CancellationToken)"/> under an input's budget: the
+    /// <c>device.dismissKeyboard</c> fixture gets one of its own. Upstream's <c>dismissKeyboard(signal, input?)</c>.
     /// </summary>
     internal async Task DismissKeyboardAsync(CancellationToken cancellationToken, InputBudget input)
     {
