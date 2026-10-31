@@ -265,6 +265,28 @@ public sealed class TemplateTraceAndExpandTraceTests
         Assert.Empty(Directory.Exists(anchored) ? Directory.GetFiles(anchored, "*.json") : []);
     }
 
+    /// <summary>No upstream <c>it</c>: upstream's <c>readTraceEntry</c> shapes the entry, and the port reads it as JSON, where a list can hold a null.</summary>
+    [Fact]
+    public async Task Misses_an_entry_whose_anchor_list_holds_a_null()
+    {
+        var world = new DocumentWorld()
+            .Map("/home", page => page.Heading("Home"))
+            .Map("/companies/create", page => page.Status("Company form"));
+        static Task Form(TestContext ctx) => Expect.That(ctx.Screen.GetByRole("status", "Company form")).ToBeVisibleAsync();
+        var directory = CoreTests.TempCache();
+        var recorded = await StepAsync(world, new FileStepCache(directory), "/home", Form, Script(ModelResponses.Call("navigate", new { url = "/companies/create" })), Name("Acme"));
+        Assert.Null(recorded.Error);
+        var file = Assert.Single(Directory.GetFiles(directory, "*.json"));
+        var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(file))!.AsObject();
+        json["appeared"] = new System.Text.Json.Nodes.JsonArray((System.Text.Json.Nodes.JsonNode?)null);
+        File.WriteAllText(file, json.ToJsonString());
+
+        var replay = await StepAsync(world, new FileStepCache(directory), "/home", Form, Script(ModelResponses.Call("navigate", new { url = "/companies/create" })), Name("Acme"));
+
+        Assert.Null(replay.Error);
+        Assert.Equal(("missed", "invalid-entry"), (replay.Cache?.Mode, replay.Cache?.Reason));
+    }
+
     [Fact]
     public void Refuses_a_placeholder_whose_encoding_it_does_not_know()
     {

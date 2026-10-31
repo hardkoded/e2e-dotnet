@@ -281,11 +281,14 @@ internal sealed class StepTraceSession
 
         // Any store can return a hit, so its shape is checked here, at the one read site. The stored recording has a placeholder for
         // each unique() value (upstream's expandTrace): one this call cannot fill is an entry recorded for another shape.
-        return entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null || !entry.HasValidEndWait() || !entry.Actions.All(action => action.HasValidModifiers() && action.HasValidSpans() && action.HasValidPaths())
+        return entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null || HasNull(entry.Actions) || HasNull(entry.Appeared) || HasNull(entry.Gone) || !entry.HasValidEndWait() || !entry.Actions.All(action => action.HasValidModifiers() && action.HasValidSpans() && action.HasValidPaths())
             || !CacheKeys.TryExpandTrace(entry, _options.Params)
             ? new EntryRead(null, "invalid-entry")
             : new EntryRead(entry, null);
     }
+
+    // A cache file may hold a null where a list holds an action or an anchor; such an entry is a miss, not a crash.
+    private static bool HasNull<T>(List<T> items) where T : class => items.Any(item => item is null);
 
     // Under strict mode, ends a step whose recording exists but no longer replays, rather than handing it to the executor: a
     // committed recording that went stale is a change to re-record in review, not a model call to absorb on every run.
