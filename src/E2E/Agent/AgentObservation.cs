@@ -4,6 +4,7 @@
 
 using System.Text;
 using System.Text.RegularExpressions;
+using E2E.Cache;
 using E2E.Engine;
 using E2E.Internal;
 
@@ -158,10 +159,13 @@ internal static class AgentObservation
     }
 
     // A link target as an executor tree carries it: absolute, and bounded exactly as the line bounds it.
-    private static string TreeHref(string href, Redactor redactor, string? appOrigin) =>
-        appOrigin is not null && RedactText(href, redactor).StartsWith(appOrigin + "/", StringComparison.Ordinal)
-            ? appOrigin + SnapshotText.Href(href, redactor, appOrigin)
-            : SnapshotText.Href(href, redactor, null);
+    private static string TreeHref(string href, Redactor redactor, string? appOrigin)
+    {
+        var redacted = RedactText(href, redactor);
+        return appOrigin is null || CacheRoute.AppNavigation(redacted, appOrigin) == redacted
+            ? SnapshotText.Href(href, redactor, null)
+            : appOrigin + SnapshotText.Bound(CacheRoute.AppNavigation(redacted, appOrigin));
+    }
 
     /// <summary>FNV-1a over the image bytes: fast, and equal frames encode to equal bytes.</summary>
     public static string PixelDigest(ReadOnlySpan<byte> bytes)

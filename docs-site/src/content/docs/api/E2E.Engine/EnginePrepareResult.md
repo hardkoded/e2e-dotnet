@@ -25,7 +25,7 @@ What prepare learned that the run must honour. Upstream's `EnginePrepareResult`.
 
 **Implements:** [IEquatable&lt;EnginePrepareResult&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L322)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L335)
 
 ## Properties
 
@@ -45,7 +45,7 @@ Variables every worker of this target is started with, on top of the run's envir
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L336)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L349)
 
 <a id="E2E_Engine_EnginePrepareResult_Workers_"></a>
 <a id="E2E_Engine_EnginePrepareResult_Workers"></a>
@@ -65,4 +65,4 @@ this repository reads it.
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L330)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L343)

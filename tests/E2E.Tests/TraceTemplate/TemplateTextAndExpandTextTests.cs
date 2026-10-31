@@ -5,8 +5,8 @@
 namespace E2E.Tests.TraceTemplate;
 
 /// <summary>
-/// "refuses to expand a placeholder the current call did not mark" is not ported: the port leaves a slot the call did not
-/// mark as it is, so a replay that cannot fill it misses on its own key.
+/// The port fills a text from the params (<see cref="CacheKeys.Detemplate"/>) and from a pointer-to-value map
+/// (<see cref="CacheKeys.ExpandText"/>, upstream's <c>expandText</c>).
 /// </summary>
 public sealed class TemplateTextAndExpandTextTests
 {
@@ -22,10 +22,22 @@ public sealed class TemplateTextAndExpandTextTests
         var recorded = Params("name", "Ada name");
         var templated = CacheKeys.Template("tap \"Ada name\" then \"name\" in the name column", recorded);
 
-        Assert.Equal("tap \"\u0001full\u0001\" then \"\u0001name\u0001\" in the \u0001name\u0001 column", templated);
+        Assert.Equal("tap \"{{param:/full}}\" then \"{{param:/name}}\" in the {{param:/name}} column", templated);
         Assert.Equal("tap \"Ada name\" then \"name\" in the name column", CacheKeys.Detemplate(templated, recorded));
         Assert.Equal(
             "tap \"Grace Hopper\" then \"Grace\" in the Grace column",
             CacheKeys.Detemplate(templated, Params("Grace", "Grace Hopper")));
+
+        // A value that is part of a slot ("ull" in "full") is not found inside the slot written a moment earlier.
+        var inner = new Dictionary<string, object?> { ["full"] = Values.Unique("Ada"), ["x"] = Values.Unique("ull") };
+        Assert.Equal("{{param:/full}}", CacheKeys.Template("Ada", inner));
+    }
+
+    [Fact]
+    public void Refuses_to_expand_a_placeholder_the_current_call_did_not_mark()
+    {
+        Assert.Null(CacheKeys.ExpandText("tap \"{{param:/name}}\"", new Dictionary<string, string>()));
+        Assert.Null(CacheKeys.ExpandText("tap \"{{param:/name}}\"", new Dictionary<string, string> { ["/title"] = "x" }));
+        Assert.Equal("no placeholders", CacheKeys.ExpandText("no placeholders", new Dictionary<string, string>()));
     }
 }

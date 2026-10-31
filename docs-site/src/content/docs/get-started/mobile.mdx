@@ -82,7 +82,7 @@ public sealed class GreetingTests : MobileAppTest
 }
 ```
 
-`GetByTestId` finds a control by its accessibility identifier. `Device` is the device fixture: `HomeAsync`, `OpenAppAsync`, `ForegroundAppAsync`, and `SetAppearanceAsync(Appearance.Dark)`.
+`GetByTestId` finds a control by its accessibility identifier. A field's hint is its `Placeholder`, shown or not, so `GetByPlaceholder` finds it. Compose Multiplatform reports no placeholder on iOS: an empty field appends the text it draws to its label (`Name, Ada Lovelace`) over one `StaticText` child. For an empty (no value), editable, non-secure iOS field that reports no placeholder of its own, whose only child is a `StaticText` with no children, and whose label is a non-empty name, then `, `, then that child's text (`Name, Ada Lovelace`), that text is the field's `Placeholder`, the child is left out of the tree, and the name is the label before `, ` (a non-empty `ContentDescription` stays the name, and that label is then the `Text`). A field of any other shape keeps its label and children as reported. So `GetByPlaceholder("Ada Lovelace")` finds such a field and `GetByText("Ada Lovelace")` does not. `Device` is the device fixture: `HomeAsync`, `OpenAppAsync`, `ForegroundAppAsync`, and `SetAppearanceAsync(Appearance.Dark)`.
 
 ```csharp
 await Device.HomeAsync();
@@ -95,6 +95,8 @@ await Device.OpenAppAsync(AppId, new OpenAppOptions { Relaunch = true });
 await Expect.That(Device.Locator("role=navigation-bar id=About")).ToBeVisibleAsync();
 await Device.Locator("id=SW_VERSION_SPECIFIER role=button").TapAsync();
 ```
+
+Every action on a node pins its ref to the capture that issued it, so a ref a newer capture replaced is never sent to a different element. If the control changed during the `TransitionMilliseconds` wait (500 ms by default), the action fails with a retryable `NODE_STALE` and a locator resolves it again within its timeout. A direct `Device` call such as `DragToAsync` does not retry, so it surfaces the `NODE_STALE`.
 
 For anything `Device` does not cover, `Device.UnstableRaw` has an [agent-device](https://github.com/callstack/agent-device) client bound to the test's session, plus the session name and the device's id and name. It is unstable and may change or go away in any release:
 
@@ -120,6 +122,22 @@ To pick a device, set `E2E_MOBILE_DEVICE` to a UDID (`xcrun simctl list devices 
 Without `MobileOptions.Device`, a booted simulator or emulator that another tool holds through its own agent-device session is skipped, and the run drives the free ones. When every booted device is held, the run fails at `prepare` with `ENGINE_FAILURE`, naming the holding sessions. A booted device nothing holds, such as one you are using by hand, is still in the pool: name the device to keep the run off it.
 
 Tag device tests, for example `[assembly: Category("Device")]`, so a machine without a device can skip them.
+
+## Record a transition
+
+`App.StartRecordingAsync()` and `App.StopRecordingAsync()` record one span of the screen as an `.mp4`, and return the videos: a file `Path` under the attempt's `recordings/`, or a `Url` when a hosted device keeps the recording. The test's `video` must be off, since the engine has one recorder.
+
+```csharp
+public async Task The_sheet_slides_up()
+{
+    await App.OpenAsync();
+    await App.StartRecordingAsync(new RecordingOptions { Name = "sheet" });
+    await Screen.GetByRole("button", "Open sheet").TapAsync();
+    var videos = await App.StopRecordingAsync();
+}
+```
+
+Start it after `App.OpenAsync()`. A recording started after `Device.CloseAppAsync()` ends the device session when it stops, so open the app again after it. Taps show unless `MobileOptions.VideoTouches` is `false`.
 
 ## Hosted devices
 

@@ -372,7 +372,8 @@ public sealed class ControlsTests
     [Fact]
     public Task Partial_A_button_that_opens_no_file_chooser_fails_as_ACTION_FAILED() => RunAsync(async screen =>
     {
-        // The locator hands the engine's error on as it is: Partial: upstream's ACTION_FAILED is the engine's NOT_ACTIONABLE here.
+        // Partial: upstream's locator reports the engine's NOT_ACTIONABLE as ACTION_FAILED (translateEngineError); the port's locator
+        // hands the engine's code on until that layer is ported (#846), so this asserts NOT_ACTIONABLE.
         var error = await Assert.ThrowsAsync<EngineException>(() => screen.GetByRole("button", "Close A").SetInputFilesAsync("fixtures/attachment.txt", new ActionOptions { Timeout = TimeSpan.FromMilliseconds(500) }));
         Assert.Equal("NOT_ACTIONABLE", error.Code);
         Assert.Contains("opened no file chooser", error.Message, StringComparison.Ordinal);

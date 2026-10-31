@@ -21,7 +21,7 @@ public enum ReportRunStatus
 
 How a run ended (upstream's `BuildReportOptions['status'] | 'blocked'`).
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/ReportRecords.cs#L62)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/ReportRecords.cs#L63)
 
 ## Fields
 
@@ -39,7 +39,7 @@ Not passed, and every failing result carries a blockable code: nothing contradic
 
 **Value:** [ReportRunStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/ReportRecords.cs#L70)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/ReportRecords.cs#L71)
 
 <a id="E2E_ReportRunStatus_Error"></a>
 
@@ -53,7 +53,7 @@ Error = 2
 
 **Value:** [ReportRunStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/ReportRecords.cs#L66)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/ReportRecords.cs#L67)
 
 <a id="E2E_ReportRunStatus_Failed"></a>
 
@@ -67,7 +67,7 @@ Failed = 1
 
 **Value:** [ReportRunStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/ReportRecords.cs#L65)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/ReportRecords.cs#L66)
 
 <a id="E2E_ReportRunStatus_Interrupted"></a>
 
@@ -81,7 +81,7 @@ Interrupted = 3
 
 **Value:** [ReportRunStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/ReportRecords.cs#L67)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/ReportRecords.cs#L68)
 
 <a id="E2E_ReportRunStatus_Passed"></a>
 
@@ -95,4 +95,4 @@ Passed = 0
 
 **Value:** [ReportRunStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/ReportRecords.cs#L64)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/ReportRecords.cs#L65)

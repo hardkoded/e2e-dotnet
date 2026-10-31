@@ -23,7 +23,7 @@ Options for `Screen.ScrollUntilVisibleAsync` and `Locator.ScrollUntilVisibleAsyn
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1248)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1249)
 
 ## Properties
 
@@ -42,7 +42,7 @@ Which way to scroll. Defaults to [Down](/api/E2E.Engine/ScrollDirection/#E2E_Eng
 
 **Value:** `ScrollDirection?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1253)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1254)
 
 <a id="E2E_ScrollUntilVisibleOptions_Momentum_"></a>
 <a id="E2E_ScrollUntilVisibleOptions_Momentum"></a>
@@ -59,7 +59,7 @@ The stride of each step. Defaults to [Slow](/api/E2E.Engine/Momentum/#E2E_Engine
 
 **Value:** `Momentum?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1256)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1257)
 
 <a id="E2E_ScrollUntilVisibleOptions_Timeout_"></a>
 <a id="E2E_ScrollUntilVisibleOptions_Timeout"></a>
@@ -76,4 +76,4 @@ How long to scroll before giving up, every swipe included. Defaults to 30 second
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1259)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1260)

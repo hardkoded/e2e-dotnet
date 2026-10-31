@@ -177,7 +177,7 @@ jq '.run.results[] | select(.status != "passed") | .attempts[-1]
 
 `run.exitCode` is the worst exit code of the results: 1 for a failed test,
 or the category of an attempt error when that is worse (2 `configuration`, 3
-`infrastructure`, 4 `internal`), and 130 for an interruption. A test whose
+`infrastructure`, 4 `internal`), and 130 for an interruption, whatever the results say: a retry the run interrupted keeps its test `failed`, and the run exits 130. A test whose
 cleanup failed (an attempt with `cleanup: "failed"`, such as a required video
 that was not finalized or a session that did not close) adds the category of
 its `cleanup` secondary errors, usually 3, even when the test passed or
@@ -304,6 +304,11 @@ recording gives a link and no local file. `retain-on-failure` deletes the record
 passed. `new WebEngineOptions { Screencast = ... }` sets the frame size and the
 JPEG quality.
 
+`App.StartRecordingAsync` and `App.StopRecordingAsync` record one span with the same recorder, into
+`recordings/001-<name>.<ext>` beside `video/`. The engine has one recorder, so a start fails with
+`UNSUPPORTED_CAPABILITY` while the attempt's `video` records. In the trace page a step's `, video 0:12` offset
+is read in the span only until the step that stopped it ends.
+
 A video masks nothing. It shows whatever the screen showed, secrets included,
 so keep `video` off unless you need it, and do not share the files. A mode set
 on a target is required: an engine that cannot record it (`DocumentEngine`,
@@ -317,6 +322,7 @@ the MAUI DevFlow engine) fails the start with `UNSUPPORTED_ARTIFACT`.
 | `"cache": { "mode": "off" }` | Rule out a stale replay; one run, not every rerun. A failed run deletes the replay that ran into the failure and keeps the ones a check confirmed, so rerun with the cache on first. If the failure repeats after a replay the trace page shows as kept, and the `off` run passes, add or tighten the check right after that goal so a stale replay fails it and is deleted |
 | `"actionTimeout": 5000` | While writing a test: a wrong locator fails in 5 s instead of 30 s (`assertionTimeout` for `Expect`). Keep it longer than the slowest screen takes to load |
 | `E2E_VIDEO=retain-on-failure` | Watch the failed attempt |
+| `App.StartRecordingAsync()`, then `await App.StopRecordingAsync()` | One transition as a video; fails while the test's `video` records |
 | `E2E_TRACE=on` | Keep a trace page for a passing attempt too |
 | `CI=1 dotnet test` | Reproduce CI-only behavior (`read-only` cache) |
 | `Browser.WaitForResponseAsync` | Check what the app's API answered |

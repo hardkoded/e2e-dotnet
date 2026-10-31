@@ -168,7 +168,7 @@ public sealed class DeviceActions : IDeviceActions
                 await HoverNodeAsync(client, target, input, cancellationToken).ConfigureAwait(false);
                 break;
             case LocatorAction.DragTo drag:
-                await DragNodeAsync(client, target, session.Resolve(drag.Target), input, cancellationToken).ConfigureAwait(false);
+                await DragNodeAsync(session, client, target, session.Resolve(drag.Target), input, cancellationToken).ConfigureAwait(false);
                 break;
             default:
                 // Not in NodeActionKinds, so the harness never sends them. A device has no touch equivalent.
@@ -317,16 +317,22 @@ public sealed class DeviceActions : IDeviceActions
 
     /// <summary>A drag from one node to another.</summary>
     internal static Task DragToAsync(DeviceSession session, SemanticNode node, SemanticNode destination, CancellationToken cancellationToken) =>
-        RunNodeAsync(session, node, "dragTo", (client, target, _, input, token) => DragNodeAsync(client, target, session.Resolve(destination), input, token), cancellationToken);
+        RunNodeAsync(session, node, "dragTo", (client, target, _, input, token) => DragNodeAsync(session, client, target, session.Resolve(destination), input, token), cancellationToken);
 
-    private static Task DragNodeAsync(IDeviceClient client, NodeBinding target, NodeBinding to, InputBudget input, CancellationToken token) =>
-        DeviceSession.SendInputAsync(
+    private static Task DragNodeAsync(DeviceSession session, IDeviceClient client, NodeBinding target, NodeBinding destination, InputBudget input, CancellationToken token)
+    {
+        // A test locates the drop target in a capture of its own, after the source's; agent-device takes both refs
+        // from the newest one only.
+        var source = session.Current(target);
+        var to = session.Current(destination);
+        return DeviceSession.SendInputAsync(
             input,
             () => client.CallAsync(
                 DeviceMethods.InteractionsDrag,
-                DeviceArgs.Of(("source", DeviceSession.ActionTarget(target).Value), ("destination", DeviceSession.ActionTarget(to).Value)),
+                DeviceArgs.Of(("source", DeviceSession.ActionTarget(source).Value), ("destination", DeviceSession.ActionTarget(to).Value)),
                 token),
             token);
+    }
 
     /// <summary>A swipe inside a node's bounds, as far as <paramref name="momentum"/> says.</summary>
     internal static Task SwipeAsync(DeviceSession session, SemanticNode node, ScrollDirection direction, Momentum? momentum, CancellationToken cancellationToken) =>

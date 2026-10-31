@@ -1188,7 +1188,7 @@ without the pointer having to hover it first. Both locators must come from the s
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1035)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1036)
 
 <a id="E2E_Locator_SecondaryTapAsync_"></a>
 <a id="E2E_Locator_SecondaryTapAsync_E2E_ClickOptions_System_Threading_CancellationToken_"></a>

@@ -27,7 +27,7 @@ expire; a 401 means signing in again.
 
 **Implements:** [IOAuthProvider](/api/E2E.OAuth/IOAuthProvider/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/obj/Release/net10.0/System.Text.RegularExpressions.Generator/System.Text.RegularExpressions.Generator.RegexGenerator/RegexGenerator.g.cs#L1525)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/obj/Release/net10.0/System.Text.RegularExpressions.Generator/System.Text.RegularExpressions.Generator.RegexGenerator/RegexGenerator.g.cs#L1570)
 
 ## Constructors
 

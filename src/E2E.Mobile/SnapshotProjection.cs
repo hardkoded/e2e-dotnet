@@ -215,9 +215,10 @@ public static partial class SnapshotProjection
     /// Projects one snapshot. <paramref name="mintId"/> is called once per node in document order, so the
     /// surface's id space stays unique across observations. <paramref name="publishedViewport"/> is the one
     /// agent-device published with the snapshot; a producer that measured none leaves it to <see cref="ViewportOf"/>.
+    /// <paramref name="refsGeneration"/> is the capture the refs were issued from.
     /// Android's system bars are left out with their children, see <see cref="IsSystemBar"/>.
     /// </summary>
-    public static ProjectedSnapshot ProjectSnapshot(IReadOnlyList<RawNode> raw, Func<string> mintId, ViewportSize? publishedViewport = null)
+    public static ProjectedSnapshot ProjectSnapshot(IReadOnlyList<RawNode> raw, Func<string> mintId, ViewportSize? publishedViewport = null, long? refsGeneration = null)
     {
         var viewport = publishedViewport ?? ViewportOf(raw);
         var parents = ParentPositions(raw);
@@ -311,7 +312,10 @@ public static partial class SnapshotProjection
             }
 
             var identifier = NonEmpty(source.Identifier);
-            var label = NonEmpty(source.Label);
+            IReadOnlyList<int> kids = children.TryGetValue(position, out var below) ? below : [];
+            var blank = editable && !secure && string.IsNullOrEmpty(value) && NonEmpty(source.Placeholder) is null;
+            var folded = !android && blank ? FoldedPlaceholder(source, kids, raw, children) : null;
+            var label = folded is null ? NonEmpty(source.Label) : folded.Label;
             var name = NonEmpty(source.ContentDescription) ?? label;
             var entry = new ProjectedNode
             {
@@ -324,7 +328,7 @@ public static partial class SnapshotProjection
                 States = reported,
             };
             index.Add(entry);
-            var childNodes = children.TryGetValue(position, out var below) ? below.Select(child => Build(child, entry)).ToList() : [];
+            var childNodes = kids.Where(child => child != folded?.Child).Select(child => Build(child, entry)).ToList();
 
             // A secure field's value is never observed; the tree carries that it is secure, not what it
             // holds. Android echoes a text view's label as its value, which would render every line twice,
@@ -355,7 +359,7 @@ public static partial class SnapshotProjection
                     Checked = checkedState == true,
                     Expanded = expanded == true,
                 },
-                Placeholder = NonEmpty(source.Placeholder),
+                Placeholder = folded?.Placeholder ?? NonEmpty(source.Placeholder),
 
                 // The accessibility identifier (iOS) or resource id (Android) is the node's test id.
                 TestId = identifier,
@@ -370,7 +374,7 @@ public static partial class SnapshotProjection
             .Where(position => !IsSystemBar(raw[position], viewport, () => DisplayOnly(position)))
             .Select(position => Build(position, null))
             .ToList();
-        return new ProjectedSnapshot { Roots = rootNodes, Index = index, Viewport = viewport };
+        return new ProjectedSnapshot { Roots = rootNodes, Index = index, Viewport = viewport, RefsGeneration = refsGeneration };
     }
 
     /// <summary>
@@ -601,6 +605,42 @@ public static partial class SnapshotProjection
         return !string.IsNullOrEmpty(placeholder) && source.Value?.Trim() == placeholder;
     }
 
+    /// <summary>
+    /// The placeholder an empty iOS field folds into its label, with the child that draws it. Compose
+    /// Multiplatform reports no placeholder: it draws one as a text inside the field and appends that text to
+    /// the field's label, so an empty "Name" field with the example "Ada Lovelace" reads
+    /// <c>"Name, Ada Lovelace"</c> over one <c>StaticText</c> child. Null unless the field's only child is that
+    /// text and the field has a label of its own.
+    /// </summary>
+    private static Folded? FoldedPlaceholder(RawNode source, IReadOnlyList<int> kids, IReadOnlyList<RawNode> raw, Dictionary<int, List<int>> children)
+    {
+        if (kids.Count != 1)
+        {
+            return null;
+        }
+
+        var child = kids[0];
+        var text = raw[child];
+        if (children.ContainsKey(child))
+        {
+            return null;
+        }
+
+        var placeholder = NonEmpty(text.Label);
+        var label = source.Label;
+        if (KindOf(text) != "static-text" || placeholder is null || label is null)
+        {
+            return null;
+        }
+
+        if (!label.EndsWith($", {placeholder}", StringComparison.Ordinal) || label.Length == placeholder.Length + 2)
+        {
+            return null;
+        }
+
+        return new Folded(label[..^(placeholder.Length + 2)], placeholder, child);
+    }
+
     /// <summary>The string itself, or null for an absent or empty one.</summary>
     private static string? NonEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
 
@@ -747,4 +787,6 @@ public static partial class SnapshotProjection
 
     /// <summary>What React Native spelled into an iOS accessibility value.</summary>
     private sealed record SpelledValue(string Role, SpelledStates States, string? Value);
+
+    private sealed record Folded(string Label, string Placeholder, int Child);
 }

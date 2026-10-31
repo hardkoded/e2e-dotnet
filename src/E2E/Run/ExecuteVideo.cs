@@ -16,13 +16,13 @@ namespace E2E;
 internal sealed class ExecuteVideo
 {
     private readonly VideoRecording _recording;
-    private readonly IEngineSession _session;
+    private readonly SessionRecordings _recordings;
     private readonly string _artifactsDir;
 
-    private ExecuteVideo(VideoRecording recording, IEngineSession session, string artifactsDir)
+    private ExecuteVideo(VideoRecording recording, SessionRecordings recordings, string artifactsDir)
     {
         _recording = recording;
-        _session = session;
+        _recordings = recordings;
         _artifactsDir = artifactsDir;
     }
 
@@ -61,7 +61,7 @@ internal sealed class ExecuteVideo
     /// Starts the video within the launch timeout. A required video's failure fails the start; a default one's is dropped.
     /// A cancel of <paramref name="cancellationToken"/> is never dropped.
     /// </summary>
-    public static async Task<ExecuteVideo?> StartAsync(VideoRecording? recording, IEngineSession session, string artifactsDir, TimeSpan launchTimeout, CancellationToken cancellationToken)
+    public static async Task<ExecuteVideo?> StartAsync(VideoRecording? recording, SessionRecordings recordings, string artifactsDir, TimeSpan launchTimeout, CancellationToken cancellationToken)
     {
         if (recording is null)
         {
@@ -76,7 +76,7 @@ internal sealed class ExecuteVideo
 
         try
         {
-            await session.StartVideoAsync(launch.Token).ConfigureAwait(false);
+            await recordings.StartAttemptVideoAsync(launch.Token).ConfigureAwait(false);
         }
 #pragma warning disable CA1031 // A default video is best effort: whatever stops it, the attempt goes on without one.
         catch (Exception) when (recording.Policy == VideoPolicy.BestEffort && !cancellationToken.IsCancellationRequested)
@@ -89,7 +89,7 @@ internal sealed class ExecuteVideo
             throw new EngineException("ENVIRONMENT_UNAVAILABLE", "The video did not start within the launch timeout (" + launchTimeout.TotalMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " ms).", ex);
         }
 
-        return new ExecuteVideo(recording, session, artifactsDir);
+        return new ExecuteVideo(recording, recordings, artifactsDir);
     }
 
     /// <summary>How a final attempt ended, from the error the framework reports for it.</summary>
@@ -121,7 +121,7 @@ internal sealed class ExecuteVideo
 
         try
         {
-            var segments = await _session.StopVideoAsync(cleanup.Token).ConfigureAwait(false);
+            var segments = await _recordings.StopAttemptVideoAsync(cleanup.Token).ConfigureAwait(false);
 
             // Recorded so a failure could be looked at; a pass has nothing to show.
             if (!RecordingModes.Keeps(_recording.Keep, status))

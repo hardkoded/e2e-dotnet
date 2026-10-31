@@ -23,7 +23,7 @@ Options of the browser engine: how it drives the app.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L172)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L173)
 
 ## Properties
 
@@ -42,7 +42,7 @@ Basic-auth credentials the browser answers a challenge with, wherever one is iss
 
 **Value:** [WebBasicAuth](/api/E2E.Engine/WebBasicAuth/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L196)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L197)
 
 <a id="E2E_Engine_WebEngineOptions_Browser_"></a>
 <a id="E2E_Engine_WebEngineOptions_Browser"></a>
@@ -63,7 +63,7 @@ rides a persistent context, with the limits of [ReconnectEndpoint](/api/E2E.Engi
 
 **Value:** [IBrowserProvider](/api/E2E.Engine/IBrowserProvider/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L256)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L257)
 
 <a id="E2E_Engine_WebEngineOptions_BrowserName_"></a>
 <a id="E2E_Engine_WebEngineOptions_BrowserName"></a>
@@ -82,7 +82,7 @@ The browser the engine launches: Chromium (the default), Firefox, or WebKit. .NE
 
 **Value:** [BrowserName](/api/E2E.Engine/BrowserName/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L244)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L245)
 
 <a id="E2E_Engine_WebEngineOptions_ColorScheme_"></a>
 <a id="E2E_Engine_WebEngineOptions_ColorScheme"></a>
@@ -101,7 +101,7 @@ browser's own. `Browser.EmulateMediaAsync` changes it for the rest of one attemp
 
 **Value:** `WebColorScheme?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L220)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L221)
 
 <a id="E2E_Engine_WebEngineOptions_Connect_"></a>
 <a id="E2E_Engine_WebEngineOptions_Connect"></a>
@@ -118,7 +118,7 @@ Attach to a remote Chromium over CDP instead of launching a local one.
 
 **Value:** [WebConnectOptions](/api/E2E.Engine/WebConnectOptions/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L247)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L248)
 
 <a id="E2E_Engine_WebEngineOptions_Headers_"></a>
 <a id="E2E_Engine_WebEngineOptions_Headers"></a>
@@ -139,7 +139,7 @@ Routing every request turns the browser's HTTP cache off.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L193)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L194)
 
 <a id="E2E_Engine_WebEngineOptions_Headless_"></a>
 <a id="E2E_Engine_WebEngineOptions_Headless"></a>
@@ -156,7 +156,7 @@ Runs Chromium without a window. When unset, `E2E_HEADLESS=0` or `false` shows th
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L175)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L176)
 
 <a id="E2E_Engine_WebEngineOptions_InitScripts_"></a>
 <a id="E2E_Engine_WebEngineOptions_InitScripts"></a>
@@ -173,7 +173,7 @@ Scripts every document runs before the page's own, in every tab and frame, in or
 
 **Value:** [IReadOnlyList&lt;WebInitScript&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L231)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L232)
 
 <a id="E2E_Engine_WebEngineOptions_Locale_"></a>
 <a id="E2E_Engine_WebEngineOptions_Locale"></a>
@@ -193,7 +193,7 @@ header report. Defaults to the browser's own. An `accept-language` entry in
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L207)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L208)
 
 <a id="E2E_Engine_WebEngineOptions_ReducedMotion_"></a>
 <a id="E2E_Engine_WebEngineOptions_ReducedMotion"></a>
@@ -213,7 +213,7 @@ turn its animations off, so none races an assertion. Defaults to the browser's o
 
 **Value:** `WebReducedMotion?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L228)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L229)
 
 <a id="E2E_Engine_WebEngineOptions_Screencast_"></a>
 <a id="E2E_Engine_WebEngineOptions_Screencast"></a>
@@ -231,7 +231,7 @@ it. Which attempts record is the config's `video`.
 
 **Value:** [WebScreencastOptions](/api/E2E.Engine/WebScreencastOptions/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L237)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L238)
 
 <a id="E2E_Engine_WebEngineOptions_TestIdAttribute_"></a>
 <a id="E2E_Engine_WebEngineOptions_TestIdAttribute"></a>
@@ -248,7 +248,7 @@ The attribute that carries an element's test id: what `GetByTestId` resolves and
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L184)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L185)
 
 <a id="E2E_Engine_WebEngineOptions_TimezoneId_"></a>
 <a id="E2E_Engine_WebEngineOptions_TimezoneId"></a>
@@ -266,7 +266,7 @@ what `Date` and `Intl` resolve local time against. Defaults to the machine's.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L213)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L214)
 
 <a id="E2E_Engine_WebEngineOptions_UserAgent_"></a>
 <a id="E2E_Engine_WebEngineOptions_UserAgent"></a>
@@ -283,7 +283,7 @@ The `User-Agent` the browser sends and `navigator.userAgent` reports. Defaults t
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L199)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L200)
 
 <a id="E2E_Engine_WebEngineOptions_Viewport_"></a>
 <a id="E2E_Engine_WebEngineOptions_Viewport"></a>
@@ -301,4 +301,4 @@ emulates no size: the page fills the browser window, whatever size it has.
 
 **Value:** [WebViewport](/api/E2E.Engine/WebViewport/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L181)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L182)

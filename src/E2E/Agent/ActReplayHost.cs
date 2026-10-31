@@ -61,7 +61,7 @@ public sealed partial class Agent
         // A value is expanded with this call's params before it is read: one that expands to a secret's marker fills that secret.
         public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default)
         {
-            var expanded = CacheKeys.Detemplate(value, parameters);
+            var expanded = Expand(value);
             return expanded.StartsWith("<secret:", StringComparison.Ordinal) && expanded.EndsWith('>')
                 ? TypeSecretAsync(target, expanded["<secret:".Length..^1], cancellationToken, armed: null)
                 : PerformAsync(target, new LocatorAction.Fill(expanded, false), "fill", cancellationToken);
@@ -92,7 +92,7 @@ public sealed partial class Agent
         }
 
         public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) =>
-            PerformAsync(target, new LocatorAction.Select(CacheKeys.Detemplate(value, parameters)), "select", cancellationToken);
+            PerformAsync(target, new LocatorAction.Select(Expand(value)), "select", cancellationToken);
 
         public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) =>
             check ? PerformAsync(target, new LocatorAction.Check(), "check", cancellationToken) : PerformAsync(target, new LocatorAction.Uncheck(), "uncheck", cancellationToken);
@@ -101,7 +101,7 @@ public sealed partial class Agent
 
         public async Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default)
         {
-            await dispatcher.PageUntilAsync(CacheKeys.Detemplate(text, parameters), direction, list, cancellationToken).ConfigureAwait(false);
+            await dispatcher.PageUntilAsync(Expand(text), direction, list, cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "scrollUntil" });
         }
 
@@ -124,7 +124,7 @@ public sealed partial class Agent
 
         public async Task NavigateAsync(string url, CancellationToken cancellationToken = default)
         {
-            await scope.Session.OpenAsync(Routes.Resolve(scope.BaseUrl, CacheKeys.Detemplate(url, parameters)), cancellationToken).ConfigureAwait(false);
+            await scope.Session.OpenAsync(Routes.Resolve(scope.BaseUrl, Expand(url)), cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "navigate" });
         }
 
@@ -135,6 +135,11 @@ public sealed partial class Agent
         }
 
         // The node the replay found: a replay's targets are built from nodes, so an id alone names nothing here.
+        // The entry was expanded whole when it was read (CacheKeys.TryExpandTrace), so a text that fails here is a failed action,
+        // which the replay hands off, not a crash.
+        private string Expand(string value) =>
+            CacheKeys.Detemplate(value, parameters) ?? throw new AgentException("ACTION_FAILED","A recorded placeholder has no value in this call's params.");
+
         private static SemanticNode Resolve(ExecutorTarget target) =>
             target.Node ?? throw new InvalidOperationException("A replayed target holds the node it was found as.");
 

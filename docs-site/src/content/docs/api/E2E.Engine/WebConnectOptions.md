@@ -24,7 +24,7 @@ Attach to a remote Chromium over CDP instead of launching one. Supplying
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L151)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L152)
 
 ## Properties
 
@@ -45,7 +45,7 @@ With [ReconnectEndpoint](#E2E_Engine_WebConnectOptions_ReconnectEndpoint), each 
 
 **Value:** [Func&lt;CancellationToken, Task&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L158)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L159)
 
 <a id="E2E_Engine_WebConnectOptions_ReconnectEndpoint_"></a>
 <a id="E2E_Engine_WebConnectOptions_ReconnectEndpoint"></a>
@@ -67,4 +67,4 @@ Context replacement, headers, basicAuth, userAgent, locale, and timezoneId are u
 
 **Value:** [Func&lt;CancellationToken, Task&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L168)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L169)

@@ -53,6 +53,9 @@ internal static class ReportFile
 
         public ReportExplore? Explore { get; set; }
 
+        /// <summary>Set once a session of the run was cancelled by the user (upstream's <c>interruptController.signal.aborted</c>); read from the results the run holds.</summary>
+        public bool Interrupted { get; set; }
+
         /// <summary>The run's limits: the largest any test's agents allowed.</summary>
         public ReportLimits? Limits { get; set; }
     }
@@ -86,12 +89,17 @@ internal static class ReportFile
     /// <summary>
     /// How a run stands, from its results alone (upstream's <c>statusOf</c> of the exit code that <c>verdictExitCodes</c> implies). A
     /// blocked run reads <c>error</c> here and <c>blocked</c> once <see cref="BuildReport.DeriveRunStatus"/> has read its results.
+    /// <paramref name="interrupted"/> is the run's interrupt flag: when set the exit codes include 130, whatever the results say
+    /// (upstream's <c>currentExitCode</c> adds 130 when <c>interruptController.signal.aborted</c>).
     /// </summary>
-    internal static (ReportRunStatus Status, int ExitCode) StatusOf(IEnumerable<ReportResult> results)
+    internal static (ReportRunStatus Status, int ExitCode) StatusOf(IEnumerable<ReportResult> results, bool interrupted = false)
     {
-        var exitCode = ErrorSerializer.CombineExitCodes(VerdictExitCodes(results));
+        var exitCode = ErrorSerializer.CombineExitCodes(interrupted ? [.. VerdictExitCodes(results), 130] : VerdictExitCodes(results));
         return (exitCode switch { 0 => ReportRunStatus.Passed, 1 => ReportRunStatus.Failed, 130 => ReportRunStatus.Interrupted, _ => ReportRunStatus.Error }, exitCode);
     }
+
+    /// <summary>Whether a session cancelled by the user ended an attempt of <paramref name="result"/>: a retry the run interrupted counts, though the verdict keeps the failure before it.</summary>
+    private static bool WasInterrupted(ReportResult result) => result.Attempts.Any(attempt => attempt.Status == AttemptStatus.Interrupted);
 
     /// <summary>The exit codes the verdicts imply: a failed result exits 1, or its attempts' error category when that is worse. An attempt whose cleanup failed adds its cleanup errors' codes, even when the test passed (upstream's <c>verdictExitCodes</c>).</summary>
     private static IEnumerable<int> VerdictExitCodes(IEnumerable<ReportResult> results)
@@ -128,7 +136,7 @@ internal static class ReportFile
     {
         var result = report.Run.Results[0];
         projectRoot = ProjectRootOf(projectRoot, resultsRoot);
-        var (status, exitCode) = StatusOf([result]);
+        var (status, exitCode) = StatusOf([result], WasInterrupted(result));
         var document = BuildReport.Build(new BuildReportOptions
         {
             RunId = report.Run.Id,
@@ -183,9 +191,11 @@ internal static class ReportFile
                 state.Targets.Add(target);
             }
 
+            // Read from the results the run holds: a rerun that replaces an interrupted result clears the flag, while the retries of a test stay in its result.
+            state.Interrupted = state.Results.Values.Any(entry => WasInterrupted(entry.Result));
             state.Explore = report.Run.Explore ?? state.Explore;
             state.Limits = report.Run.Limits is { } limits ? state.Limits?.Max(limits) ?? limits : state.Limits;
-            var (status, exitCode) = StatusOf(state.Results.Values.Select(entry => entry.Result));
+            var (status, exitCode) = StatusOf(state.Results.Values.Select(entry => entry.Result), state.Interrupted);
             var document = BuildReport.Build(new BuildReportOptions
             {
                 RunId = state.RunId,

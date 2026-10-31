@@ -25,7 +25,7 @@ JSON files in a directory, one per cache key. Entries over 1 MiB are ignored.
 
 **Implements:** [IStepCache](/api/E2E/IStepCache/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L223)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L224)
 
 ## Constructors
 
@@ -46,7 +46,7 @@ public FileStepCache(string directory)
 | --- | --- | --- |
 | `directory` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L232)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L233)
 
 ## Fields
 
@@ -62,7 +62,7 @@ public const int SchemaVersion = 1
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L225)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L226)
 
 ## Methods
 
@@ -85,7 +85,7 @@ Returns when the entry is absent; throws when deletion fails, so the best-effort
 | --- | --- | --- |
 | `key` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L282)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L283)
 
 <a id="E2E_FileStepCache_Read_"></a>
 <a id="E2E_FileStepCache_Read_System_String_"></a>
@@ -106,7 +106,7 @@ public CacheLookup Read(string key)
 
 **Returns:** [CacheLookup](/api/E2E/CacheLookup/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L241)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L242)
 
 <a id="E2E_FileStepCache_Write_"></a>
 <a id="E2E_FileStepCache_Write_System_String_E2E_CacheEntry_"></a>
@@ -126,4 +126,4 @@ public void Write(string key, CacheEntry entry)
 | `key` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `entry` | [CacheEntry](/api/E2E/CacheEntry/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L275)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L276)

@@ -18,8 +18,11 @@ public enum ActionOrigin
     Agent,
 }
 
-/// <summary>Action data only: a bound node never retains a projected snapshot through parent links.</summary>
-internal sealed record NodeBinding(string Id, string Ref, SemanticNode Node, string ControlRef, IReadOnlyDictionary<string, bool> States);
+/// <summary>
+/// Action data only: a bound node never retains a projected snapshot through parent links. <c>RefsGeneration</c> is the
+/// capture <c>Ref</c> and <c>ControlRef</c> came from, pinned on every action so agent-device refuses them once a newer capture supersedes it.
+/// </summary>
+internal sealed record NodeBinding(string Id, string Ref, SemanticNode Node, string ControlRef, IReadOnlyDictionary<string, bool> States, long? RefsGeneration);
 
 public sealed partial class DeviceSession
 {
@@ -47,6 +50,9 @@ public sealed partial class DeviceSession
     /// <summary>Locators of one test may resolve at once, and an action reads the map while a locate fills it.</summary>
     private readonly Lock _locatedLock = new();
     private IReadOnlyList<ProjectedNode>? _latestIndex;
+
+    /// <summary>The newest projected screen, whose capture generation the refs of an action must come from.</summary>
+    private ProjectedSnapshot? _latestScreen;
 
     /// <summary>The screen as last projected before the last action, to tell controls that were already there from ones that came with it.</summary>
     private IReadOnlyList<ProjectedNode>? _indexBeforeAction;
@@ -130,7 +136,7 @@ public sealed partial class DeviceSession
         {
             foreach (var entry in matches)
             {
-                _located[entry.Id] = Bind(entry, projected.Index);
+                _located[entry.Id] = Bind(entry, projected.Index, projected.RefsGeneration);
             }
 
             while (_located.Count > MaxLocatedRefs)
@@ -215,7 +221,7 @@ public sealed partial class DeviceSession
         var reference = control ? entry.ControlRef : entry.Ref;
         return reference.Length == 0
             ? throw DeviceSupport.NotActionable($"node {entry.Id} has no agent-device ref to act on")
-            : ("ref", JsonValue.Create("@" + reference));
+            : ("ref", JsonValue.Create(entry.RefsGeneration is { } generation ? $"@{reference}~s{generation}" : "@" + reference));
     }
 
     /// <summary>
@@ -269,8 +275,25 @@ public sealed partial class DeviceSession
     }
 
     /// <summary>Copies the fields actions use and pre-resolves a toggle's inner control.</summary>
-    private static NodeBinding Bind(ProjectedNode entry, IReadOnlyList<ProjectedNode> snapshot) =>
-        new(entry.Id, entry.Ref, entry.Node, ControlOf(entry, snapshot).Ref, entry.States);
+    private static NodeBinding Bind(ProjectedNode entry, IReadOnlyList<ProjectedNode> snapshot, long? refsGeneration) =>
+        new(entry.Id, entry.Ref, entry.Node, ControlOf(entry, snapshot).Ref, entry.States, refsGeneration);
+
+    /// <summary>The same control in the newest capture: the binding itself when it came from that capture, else found there again where it was.</summary>
+    internal NodeBinding Current(NodeBinding entry)
+    {
+        if (_latestScreen is not { } latest || entry.RefsGeneration == latest.RefsGeneration)
+        {
+            return entry;
+        }
+
+        return SamePlace(entry, latest.Index) is { } found
+            ? Bind(found, latest.Index, latest.RefsGeneration)
+            : throw new EngineException(EngineErrorCodes.NodeStale, $"node {entry.Id} changed since it was located; re-resolve", retryable: true);
+    }
+
+    /// <summary>The node a binding stands for in a snapshot, when it is still where it was.</summary>
+    private static ProjectedNode? SamePlace(NodeBinding entry, IReadOnlyList<ProjectedNode> index) =>
+        Refind(entry, index) is { } found && SameRect(found.Node.Rect, entry.Node.Rect) ? found : null;
 
     /// <summary>The node a binding stands for, in a fresh snapshot: same role, test id, name, and text, and of those the one closest to where it was.</summary>
     private static ProjectedNode? Refind(NodeBinding entry, IReadOnlyList<ProjectedNode> index)
@@ -334,7 +357,7 @@ public sealed partial class DeviceSession
             return entry;
         }
 
-        if (_indexBeforeAction is { } before && Refind(entry, before) is { } prior && SameRect(prior.Node.Rect, entry.Node.Rect))
+        if (_indexBeforeAction is { } before && SamePlace(entry, before) is not null)
         {
             return entry;
         }
@@ -358,11 +381,13 @@ public sealed partial class DeviceSession
         return await RelocatedAsync(entry, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>The same control in a fresh snapshot. The binding as it was when the snapshot no longer lists it.</summary>
+    /// <summary>The same control in a fresh snapshot. A snapshot that no longer lists it is a retryable <c>NODE_STALE</c>, so the locator resolves again.</summary>
     private async Task<NodeBinding> RelocatedAsync(NodeBinding entry, CancellationToken cancellationToken)
     {
         var projected = Project(await SnapshotOrEmptyAsync(false, cancellationToken).ConfigureAwait(false));
-        return Refind(entry, projected.Index) is { } found ? Bind(found, projected.Index) : entry;
+        return Refind(entry, projected.Index) is { } found
+            ? Bind(found, projected.Index, projected.RefsGeneration)
+            : throw new EngineException(EngineErrorCodes.NodeStale, $"node {entry.Id} changed during transition; re-resolve", retryable: true);
     }
 
     /// <summary>

@@ -56,6 +56,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [E2ESessionOptions](/api/E2E/E2ESessionOptions/) | How to open one E2ESession. Retries set Attempt above 1 so the cache records but does not replay, except under CacheStrict, where every attempt replays. |
 | [EngineErrorCodes](/api/E2E/EngineErrorCodes/) | Stable engine error codes, as in the upstream engine contract. |
 | [EngineException](/api/E2E/EngineException/) | The engine refused an operation or could not drive the app. |
+| [EngineState](/api/E2E/EngineState/) | One captured engine state (upstream's EngineState, engine/surface.ts): an opaque, versioned payload an engine can save from a session and restore into another. <code class="paramref">ExpiresAt</code> is an RFC 3339 timestamp after which the state must not be restored. |
 | [ErrorDetails](/api/E2E/ErrorDetails/) | Structured facts of one failure, beside its prose message (upstream's ErrorDetails, internal/errors.ts). An assertion carries what it expected and observed and how many nodes matched. A locator failure carries the locator as written, what it asked for, and how long it waited. A report bounds the text fields. |
 | [ExecutorAttempt](/api/E2E/ExecutorAttempt/) | The attempt a step belongs to: identity and lifecycle. It lets an executor keep state across the ActAsync calls of one test, a running conversation or a plan or notes, without mixing it with the next test's or a retry's. |
 | [ExecutorModelCall](/api/E2E/ExecutorModelCall/) | Usage detail of one model call an executor made. Every field is optional. |
@@ -113,6 +114,10 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [PressSequentiallyOptions](/api/E2E/PressSequentiallyOptions/) | Options for CancellationToken). |
 | [RecordedAction](/api/E2E/RecordedAction/) |  |
 | [RecordedTarget](/api/E2E/RecordedTarget/) |  |
+| [RecordedVideo](/api/E2E/RecordedVideo/) | One video StopRecordingAsync(CancellationToken) returns: a file, or a link to a recording a hosted service keeps (upstream's RecordedVideo). |
+| [RecordedVideoFile](/api/E2E/RecordedVideoFile/) | A video file under the attempt's recordings/ directory (upstream's RecordedVideoFile). |
+| [RecordedVideoLink](/api/E2E/RecordedVideoLink/) | A recording a hosted browser or device service keeps, by URL (upstream's RecordedVideoLink). |
+| [RecordingOptions](/api/E2E/RecordingOptions/) | How CancellationToken) names its file (upstream's RecordingOptions). |
 | [ReplayedPrefix](/api/E2E/ReplayedPrefix/) | Upstream's ReplayedPrefix: the mid-step hand-off from a diverged cache replay. The replayed actions already ran against the live app under the same budgets and recording as the executor's own. The executor continues the step from the current state and does not redo them. |
 | [ReportExplore](/api/E2E/ReportExplore/) | What an exploration was asked, did, and found: upstream's run.explore block of the report. |
 | [ReportExploreFinding](/api/E2E/ReportExploreFinding/) | One finding Explore recorded through its reportfinding tool. |

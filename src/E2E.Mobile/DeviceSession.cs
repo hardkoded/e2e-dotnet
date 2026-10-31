@@ -297,7 +297,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     {
         var raw = await SnapshotOrEmptyAsync(Options.Snapshot == SnapshotMode.Interactive, cancellationToken).ConfigureAwait(false);
         var projected = Project(raw);
-        _generation = projected.Index.ToDictionary(entry => entry.Id, entry => Bind(entry, projected.Index));
+        _generation = projected.Index.ToDictionary(entry => entry.Id, entry => Bind(entry, projected.Index, projected.RefsGeneration));
         var viewport = await ViewportForAsync(projected, cancellationToken).ConfigureAwait(false);
         Route = DeviceSupport.ScreenLocation(raw.AppBundleId ?? raw.AppName ?? _appIdentity, SnapshotProjection.ScreenTitle(projected)) ?? "";
         return new Observation
@@ -366,6 +366,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         InstalledApp = null;
         _knownViewport = null;
         _latestIndex = null;
+        _latestScreen = null;
         _generation = [];
         ClearLocated();
         if (client is null)
@@ -481,7 +482,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// </summary>
     private ProjectedSnapshot Project(RawSnapshot raw)
     {
-        var projected = SnapshotProjection.ProjectSnapshot(raw.Nodes, () => $"n{++_idCounter}", raw.Viewport);
+        var projected = SnapshotProjection.ProjectSnapshot(raw.Nodes, () => $"n{++_idCounter}", raw.Viewport, raw.RefsGeneration);
+        _latestScreen = projected;
         _latestIndex = projected.Index;
         if (projected.Viewport is { } read && (_knownViewport is not { } known || SameScreen(read, known)))
         {
@@ -549,7 +551,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         bool Sparse,
         ViewportSize? Viewport = null,
         string? KeyboardKind = null,
-        Rect? KeyboardFrame = null)
+        Rect? KeyboardFrame = null,
+        long? RefsGeneration = null)
     {
         public static RawSnapshot Empty { get; } = new([], false, null, null, false);
 
@@ -586,7 +589,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
                     && Number(data["keyboard"]?["frame"]?["width"]) is { } frameWidth
                     && Number(data["keyboard"]?["frame"]?["height"]) is { } frameHeight
                     ? new Rect(frameX, frameY, frameWidth, frameHeight)
-                    : null);
+                    : null,
+                Number(data["refsGeneration"]) is { } generation ? (long)generation : null);
         }
     }
 }

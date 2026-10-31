@@ -248,8 +248,10 @@ public interface IEngineSession : IAsyncDisposable
         Task.FromException<string>(new EngineException("UNSUPPORTED_CAPABILITY", "screenshots is not supported by this engine."));
 
     /// <summary>
-    /// Starts recording the attempt as video, once its page can be recorded. Engines that declare
-    /// <see cref="EngineCapabilities.Video"/> implement it. Upstream's <c>startVideo</c>.
+    /// Starts recording the surface, once its page can be recorded. Engines that declare
+    /// <see cref="EngineCapabilities.Video"/> implement it. An attempt may start and stop more than once, never overlapping: the
+    /// runner calls it for the attempt's video and for each <c>app.StartRecordingAsync()</c>, and moves the files a stop returns
+    /// before the next start. Upstream's <c>startVideo</c>.
     /// </summary>
     Task StartVideoAsync(CancellationToken cancellationToken) => Unsupported("video recording");
 
@@ -260,6 +262,17 @@ public interface IEngineSession : IAsyncDisposable
     /// </summary>
     Task<IReadOnlyList<VideoSegment>> StopVideoAsync(CancellationToken cancellationToken) =>
         Task.FromException<IReadOnlyList<VideoSegment>>(new EngineException("UNSUPPORTED_CAPABILITY", "video recording is not supported by this engine."));
+
+    /// <summary>
+    /// Captures the app's state (cookies and storage) as a payload another session can restore. The payload's <c>Data</c> is a mutable
+    /// <c>JsonNode</c>, so a caller must not change it between capture and restore. Upstream's optional
+    /// <c>captureState</c>; a session that keeps none fails with <c>UNSUPPORTED_CAPABILITY</c>, as upstream's <c>session.save()</c> does.
+    /// </summary>
+    Task<EngineState> CaptureStateAsync(CancellationToken cancellationToken) =>
+        Task.FromException<EngineState>(new EngineException("UNSUPPORTED_CAPABILITY", "capturing a state is not supported by this engine."));
+
+    /// <summary>Replaces the app's current state with one <see cref="CaptureStateAsync"/> captured. Upstream's optional <c>restoreState</c>.</summary>
+    Task RestoreStateAsync(EngineState state, CancellationToken cancellationToken) => Unsupported("restoring a state");
 
     /// <summary>
     /// After the body has settled, and again after teardown, before the verdict, within the cleanup budget: report a failure that landed
