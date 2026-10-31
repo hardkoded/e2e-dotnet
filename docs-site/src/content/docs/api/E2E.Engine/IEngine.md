@@ -25,4 +25,4 @@ a recording re-finds its nodes at replay.
 
 **Derived:** [DocumentEngine](/api/E2E.Engine/DocumentEngine/), [WebEngine](/api/E2E.Engine/WebEngine/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L161)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L145)

@@ -25,7 +25,7 @@ One model turn of an agent step: the tool calls the model made and what came bac
 
 **Implements:** [IEquatable&lt;StepTurn&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L176)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L166)
 
 ## Constructors
 
@@ -50,7 +50,7 @@ One model turn of an agent step: the tool calls the model made and what came bac
 | `Calls` | [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) | `tap({"target":"n19"})`, one per tool call, arguments clipped. |
 | `Outcome` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The tool results of the turn, clipped. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L176)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L166)
 
 ## Properties
 
@@ -69,7 +69,7 @@ public IReadOnlyList<string> Calls { get; init; }
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L176)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L166)
 
 <a id="E2E_StepTurn_Index_"></a>
 <a id="E2E_StepTurn_Index"></a>
@@ -86,7 +86,7 @@ One-based turn number within the step.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L176)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L166)
 
 <a id="E2E_StepTurn_Outcome_"></a>
 <a id="E2E_StepTurn_Outcome"></a>
@@ -103,4 +103,4 @@ The tool results of the turn, clipped.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L176)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L166)

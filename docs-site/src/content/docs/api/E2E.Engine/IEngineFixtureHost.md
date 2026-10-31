@@ -23,4 +23,4 @@ An engine session that contributes a fixture, which the harness tells about the 
 declares `fixtures`, factories the harness calls with an [EngineFixtureContext](/api/E2E.Engine/EngineFixtureContext/); the port's session builds its own
 fixture (`Device`), so this hands it the context.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L72)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L65)

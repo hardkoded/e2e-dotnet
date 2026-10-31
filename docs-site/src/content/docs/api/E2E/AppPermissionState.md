@@ -21,7 +21,7 @@ public enum AppPermissionState
 
 What a permission is set to before a launch (upstream's `AppPermissionState`): held, refused, or not asked for yet, so the OS asks again.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L870)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L841)
 
 ## Fields
 
@@ -39,7 +39,7 @@ The permission is refused.
 
 **Value:** [AppPermissionState](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L876)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L847)
 
 <a id="E2E_AppPermissionState_Grant"></a>
 
@@ -55,7 +55,7 @@ The app holds the permission.
 
 **Value:** [AppPermissionState](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L873)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L844)
 
 <a id="E2E_AppPermissionState_Reset"></a>
 
@@ -71,4 +71,4 @@ The permission is not asked for yet.
 
 **Value:** [AppPermissionState](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L879)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L850)

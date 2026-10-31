@@ -23,7 +23,7 @@ One entry of `targets`. The port drives the `web`, `ios`, and `android` platform
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L768)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L697)
 
 ## Properties
 
@@ -40,7 +40,7 @@ public required AppConfig App { get; init; }
 
 **Value:** [AppConfig](/api/E2E/AppConfig/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L774)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L703)
 
 <a id="E2E_TargetConfig_Name_"></a>
 <a id="E2E_TargetConfig_Name"></a>
@@ -55,7 +55,7 @@ public required string Name { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L770)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L699)
 
 <a id="E2E_TargetConfig_Platform_"></a>
 <a id="E2E_TargetConfig_Platform"></a>
@@ -70,7 +70,7 @@ public required string Platform { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L772)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L701)
 
 <a id="E2E_TargetConfig_Trace_"></a>
 <a id="E2E_TargetConfig_Trace"></a>
@@ -87,7 +87,7 @@ Which attempts write `trace.md`: `E2E_TRACE`, else this target's `trace`, else t
 
 **Value:** [ResolvedRecording](/api/E2E/ResolvedRecording/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L780)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L709)
 
 <a id="E2E_TargetConfig_Video_"></a>
 <a id="E2E_TargetConfig_Video"></a>
@@ -104,4 +104,4 @@ Which attempts record a video: `E2E_VIDEO`, else this target's `video`, else the
 
 **Value:** [ResolvedRecording](/api/E2E/ResolvedRecording/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L783)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L712)

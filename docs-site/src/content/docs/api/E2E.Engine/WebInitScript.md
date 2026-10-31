@@ -25,7 +25,7 @@ calls. A string converts to source.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L67)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L66)
 
 ## Properties
 
@@ -46,7 +46,7 @@ variables; `Browser.AddInitScriptAsync` passes it one JSON argument.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L87)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L86)
 
 <a id="E2E_Engine_WebInitScript_Path_"></a>
 <a id="E2E_Engine_WebInitScript_Path"></a>
@@ -63,7 +63,7 @@ The file of JavaScript source, relative to the project root, or &lt;a href="http
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L80)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L79)
 
 <a id="E2E_Engine_WebInitScript_Source_"></a>
 <a id="E2E_Engine_WebInitScript_Source"></a>
@@ -80,7 +80,7 @@ The JavaScript source, or &lt;a href="https://learn.microsoft.com/dotnet/csharp/
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L77)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L76)
 
 ## Methods
 
@@ -103,7 +103,7 @@ public static WebInitScript FromFunction(string function)
 
 **Returns:** [WebInitScript](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L101)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L100)
 
 <a id="E2E_Engine_WebInitScript_FromPath_"></a>
 <a id="E2E_Engine_WebInitScript_FromPath_System_String_"></a>
@@ -124,7 +124,7 @@ public static WebInitScript FromPath(string path)
 
 **Returns:** [WebInitScript](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L95)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L94)
 
 <a id="E2E_Engine_WebInitScript_FromSource_"></a>
 <a id="E2E_Engine_WebInitScript_FromSource_System_String_"></a>
@@ -145,7 +145,7 @@ public static WebInitScript FromSource(string source)
 
 **Returns:** [WebInitScript](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L89)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L88)
 
 ## Operators
 
@@ -168,4 +168,4 @@ public static implicit operator WebInitScript(string source)
 
 **Returns:** [WebInitScript](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L107)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L106)

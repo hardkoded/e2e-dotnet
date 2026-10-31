@@ -27,7 +27,7 @@ of the frames it encodes. Which attempts record is the config's `video`, not an 
 
 **Implements:** [IEquatable&lt;WebScreencastOptions&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L27)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L26)
 
 ## Properties
 
@@ -46,7 +46,7 @@ The JPEG quality of the frames, 0 through 100. Defaults to Playwright's.
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L33)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L32)
 
 <a id="E2E_Engine_WebScreencastOptions_Size_"></a>
 <a id="E2E_Engine_WebScreencastOptions_Size"></a>
@@ -63,4 +63,4 @@ The frame size in whole pixels. Defaults to the page's viewport size when the se
 
 **Value:** [WebViewport](/api/E2E.Engine/WebViewport/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L30)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L29)

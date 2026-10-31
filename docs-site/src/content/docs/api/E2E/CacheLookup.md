@@ -21,7 +21,7 @@ public sealed class CacheLookup
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L205)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L181)
 
 ## Properties
 
@@ -38,7 +38,7 @@ public CacheEntry? Entry { get; init; }
 
 **Value:** [CacheEntry](/api/E2E/CacheEntry/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L207)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L183)
 
 <a id="E2E_CacheLookup_Reason_"></a>
 <a id="E2E_CacheLookup_Reason"></a>
@@ -55,4 +55,4 @@ public string? Reason { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L210)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L186)

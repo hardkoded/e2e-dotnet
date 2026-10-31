@@ -25,7 +25,7 @@ Cookie filters are combined; a string matches the field exactly, a regular expre
 
 **Implements:** [IEquatable&lt;CookieFilter&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L162)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L153)
 
 ## Properties
 
@@ -44,7 +44,7 @@ Matches the cookie domain; a string exactly, a regular expression its text.
 
 **Value:** [TextMatch](/api/E2E/TextMatch/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L168)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L159)
 
 <a id="E2E_Engine_CookieFilter_Name_"></a>
 <a id="E2E_Engine_CookieFilter_Name"></a>
@@ -61,7 +61,7 @@ Matches the cookie name; a string exactly, a regular expression its text.
 
 **Value:** [TextMatch](/api/E2E/TextMatch/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L165)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L156)
 
 <a id="E2E_Engine_CookieFilter_Path_"></a>
 <a id="E2E_Engine_CookieFilter_Path"></a>
@@ -78,4 +78,4 @@ Matches the cookie path; a string exactly, a regular expression its text.
 
 **Value:** [TextMatch](/api/E2E/TextMatch/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L171)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L162)

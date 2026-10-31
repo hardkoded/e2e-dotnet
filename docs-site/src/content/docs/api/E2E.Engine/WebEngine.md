@@ -28,7 +28,7 @@ same node actions the document engine does. Install browsers once with
 
 **Implements:** [IEngine](/api/E2E.Engine/IEngine/), [IAsyncDisposable](https://learn.microsoft.com/dotnet/api/system.iasyncdisposable)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/obj/Release/net10.0/System.Text.RegularExpressions.Generator/System.Text.RegularExpressions.Generator.RegexGenerator/RegexGenerator.g.cs#L437)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/obj/Release/net10.0/System.Text.RegularExpressions.Generator/System.Text.RegularExpressions.Generator.RegexGenerator/RegexGenerator.g.cs#L392)
 
 ## Constructors
 
@@ -49,7 +49,7 @@ public WebEngine(WebEngineOptions options)
 | --- | --- | --- |
 | `options` | [WebEngineOptions](/api/E2E.Engine/WebEngineOptions/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L293)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L292)
 
 <a id="E2E_Engine_WebEngine__ctor_System_Nullable_System_Boolean__"></a>
 
@@ -67,7 +67,7 @@ public WebEngine(bool? headless = null)
 | --- | --- | --- |
 | `headless` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L288)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L287)
 
 ## Fields
 
@@ -83,7 +83,7 @@ public const string EngineVersion = "1.1.0"
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L268)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L267)
 
 ## Properties
 
@@ -100,7 +100,7 @@ public EngineCapabilities Capabilities { get; }
 
 **Value:** [EngineCapabilities](/api/E2E.Engine/EngineCapabilities/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L338)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L328)
 
 <a id="E2E_Engine_WebEngine_Platform_"></a>
 <a id="E2E_Engine_WebEngine_Platform"></a>
@@ -115,7 +115,7 @@ public string Platform { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L313)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L312)
 
 <a id="E2E_Engine_WebEngine_Version_"></a>
 <a id="E2E_Engine_WebEngine_Version"></a>
@@ -130,7 +130,7 @@ public string Version { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L333)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L326)
 
 ## Methods
 
@@ -246,7 +246,7 @@ public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationT
 
 **Returns:** [Task&lt;IEngineSession&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L391)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L381)
 
 <a id="E2E_Engine_WebEngine_ValidateApp_"></a>
 <a id="E2E_Engine_WebEngine_ValidateApp_E2E_AppConfig_System_String_"></a>
@@ -271,4 +271,4 @@ grants, and only grants. A provider or a CDP attach speaks CDP, so it takes Chro
 | `app` | [AppConfig](/api/E2E/AppConfig/) |  |
 | `targetName` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L355)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L345)

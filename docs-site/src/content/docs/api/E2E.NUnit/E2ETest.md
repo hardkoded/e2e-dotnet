@@ -34,7 +34,7 @@ Settings come from [E2EFixture](/api/E2E/E2EFixture/).
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object) → [E2EFixture](/api/E2E/E2EFixture/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ETest.cs#L27)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ETest.cs#L26)
 
 ## Methods
 
@@ -60,7 +60,7 @@ full name, so each test keeps its own replay.
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ETest.cs#L34)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ETest.cs#L33)
 
 <a id="E2E_NUnit_E2ETest_FinishE2ESessionAsync_"></a>
 <a id="E2E_NUnit_E2ETest_FinishE2ESessionAsync"></a>
@@ -76,7 +76,7 @@ public Task FinishE2ESessionAsync()
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ETest.cs#L55)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ETest.cs#L54)
 
 <a id="E2E_NUnit_E2ETest_RecordSoftFailure_"></a>
 <a id="E2E_NUnit_E2ETest_RecordSoftFailure_E2E_TestException_"></a>
@@ -97,7 +97,7 @@ Records an `Expect.Soft` failure on the running NUnit test. The test body runs o
 | --- | --- | --- |
 | `failure` | [TestException](/api/E2E/TestException/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ETest.cs#L41)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ETest.cs#L40)
 
 <a id="E2E_NUnit_E2ETest_StartE2ESessionAsync_"></a>
 <a id="E2E_NUnit_E2ETest_StartE2ESessionAsync"></a>
@@ -113,4 +113,4 @@ public Task StartE2ESessionAsync()
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ETest.cs#L47)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ETest.cs#L46)

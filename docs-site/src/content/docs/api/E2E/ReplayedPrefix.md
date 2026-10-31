@@ -27,7 +27,7 @@ the current state and does not redo them.
 
 **Implements:** [IEquatable&lt;ReplayedPrefix&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L497)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L501)
 
 ## Constructors
 
@@ -55,7 +55,7 @@ the current state and does not redo them.
 | `StopReason` | [ReplayHandOffReason](/api/E2E/ReplayHandOffReason/) | Why the replay stopped. |
 | `UncertainAction` | [string](https://learn.microsoft.com/dotnet/api/system.string) | Present exactly when &lt;code class="paramref"&gt;StopReason&lt;/code&gt; is [ActionUncertain](/api/E2E/ReplayHandOffReason/#E2E_ReplayHandOffReason_ActionUncertain): the summary of a replayed action whose input may have reached the app although it failed. The executor verifies the state before it tries anything like it again. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L497)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L501)
 
 ## Properties
 
@@ -74,7 +74,7 @@ Prose summaries of the actions the replay performed, in order.
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L497)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L501)
 
 <a id="E2E_ReplayedPrefix_StopReason_"></a>
 <a id="E2E_ReplayedPrefix_StopReason"></a>
@@ -91,7 +91,7 @@ Why the replay stopped.
 
 **Value:** [ReplayHandOffReason](/api/E2E/ReplayHandOffReason/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L497)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L501)
 
 <a id="E2E_ReplayedPrefix_TotalActions_"></a>
 <a id="E2E_ReplayedPrefix_TotalActions"></a>
@@ -108,7 +108,7 @@ How many actions the recording holds.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L497)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L501)
 
 <a id="E2E_ReplayedPrefix_UncertainAction_"></a>
 <a id="E2E_ReplayedPrefix_UncertainAction"></a>
@@ -127,4 +127,4 @@ tries anything like it again.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L497)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L501)

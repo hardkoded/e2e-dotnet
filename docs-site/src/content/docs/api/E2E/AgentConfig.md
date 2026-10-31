@@ -25,7 +25,7 @@ Each entry starts from the defaults; none inherits another's values.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L887)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L768)
 
 ## Fields
 
@@ -41,7 +41,7 @@ public const string DefaultProvider = "openai"
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L889)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L770)
 
 ## Properties
 
@@ -60,7 +60,7 @@ The environment variable holding the key. Unset, the one the provider reads, suc
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L920)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L801)
 
 <a id="E2E_AgentConfig_BaseUrl_"></a>
 <a id="E2E_AgentConfig_BaseUrl"></a>
@@ -77,7 +77,7 @@ The API root. Unset, the provider's own; for `azure` it is built from `AZURE_RES
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L917)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L798)
 
 <a id="E2E_AgentConfig_Context_"></a>
 <a id="E2E_AgentConfig_Context"></a>
@@ -94,7 +94,7 @@ Project context told to every model call, at most 16384 UTF-8 bytes.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L914)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L795)
 
 <a id="E2E_AgentConfig_Judge_"></a>
 <a id="E2E_AgentConfig_Judge"></a>
@@ -111,7 +111,7 @@ The model id that judges `assert`, `waitFor`, and `extract`. Unset, the judge is
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L905)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L786)
 
 <a id="E2E_AgentConfig_JudgmentTimeout_"></a>
 <a id="E2E_AgentConfig_JudgmentTimeout"></a>
@@ -126,7 +126,7 @@ public TimeSpan JudgmentTimeout { get; init; }
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L928)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L809)
 
 <a id="E2E_AgentConfig_MaxInputTokens_"></a>
 <a id="E2E_AgentConfig_MaxInputTokens"></a>
@@ -143,7 +143,7 @@ public int MaxInputTokens { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L934)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L815)
 
 <a id="E2E_AgentConfig_MaxModelCalls_"></a>
 <a id="E2E_AgentConfig_MaxModelCalls"></a>
@@ -160,7 +160,7 @@ public int? MaxModelCalls { get; init; }
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L926)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L807)
 
 <a id="E2E_AgentConfig_MaxObservationBytes_"></a>
 <a id="E2E_AgentConfig_MaxObservationBytes"></a>
@@ -177,7 +177,7 @@ public int MaxObservationBytes { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L931)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L812)
 
 <a id="E2E_AgentConfig_MaxSteps_"></a>
 <a id="E2E_AgentConfig_MaxSteps"></a>
@@ -194,7 +194,7 @@ public int? MaxSteps { get; init; }
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L923)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L804)
 
 <a id="E2E_AgentConfig_Model_"></a>
 <a id="E2E_AgentConfig_Model"></a>
@@ -209,7 +209,7 @@ public string? Model { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L902)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L783)
 
 <a id="E2E_AgentConfig_Provider_"></a>
 <a id="E2E_AgentConfig_Provider"></a>
@@ -226,7 +226,7 @@ Who serves [Model](#E2E_AgentConfig_Model) and [Judge](#E2E_AgentConfig_Judge). 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L908)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L789)
 
 <a id="E2E_AgentConfig_ProviderOptions_"></a>
 <a id="E2E_AgentConfig_ProviderOptions"></a>
@@ -243,7 +243,7 @@ Provider options by provider. Each client adds the entry under its own key to it
 
 **Value:** [IReadOnlyDictionary&lt;string, JsonElement&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L937)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L818)
 
 <a id="E2E_AgentConfig_Providers_"></a>
 <a id="E2E_AgentConfig_Providers"></a>
@@ -262,7 +262,7 @@ subscription logins (`chatgpt`, `copilot`, `grok`, `opencode-console`).
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L896)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L777)
 
 <a id="E2E_AgentConfig_System_"></a>
 <a id="E2E_AgentConfig_System"></a>
@@ -279,7 +279,7 @@ Text appended to the act rules. Judges never see it.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L911)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L792)
 
 ## Methods
 
@@ -298,7 +298,7 @@ The model for [Judge](#E2E_AgentConfig_Judge), or null when no judge is set.
 
 **Returns:** [IAgentModel](/api/E2E/IAgentModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L943)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L824)
 
 <a id="E2E_AgentConfig_CreateModel_"></a>
 <a id="E2E_AgentConfig_CreateModel"></a>
@@ -315,7 +315,7 @@ The model for [Model](#E2E_AgentConfig_Model), or null when no model is set.
 
 **Returns:** [IAgentModel](/api/E2E/IAgentModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L940)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L821)
 
 <a id="E2E_AgentConfig_CreateOptions_"></a>
 <a id="E2E_AgentConfig_CreateOptions"></a>
@@ -332,4 +332,4 @@ The [AgentOptions](/api/E2E/AgentOptions/) this entry describes, with its models
 
 **Returns:** [AgentOptions](/api/E2E/AgentOptions/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L946)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L827)
