@@ -59,6 +59,8 @@ internal sealed class ToyEngine(ToyPrepare prepare = ToyPrepare.Ok) : IPreparabl
 
     public string Platform => "ios";
 
+    public string Name => "toy-device";
+
     public string Version => "1.0.0";
 
     public EngineCapabilities Capabilities => EngineCapabilities.Observation | EngineCapabilities.Actions;
