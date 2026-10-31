@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
+using E2E.Cache;
 using E2E.Engine;
 using E2E.Internal;
 
@@ -218,14 +219,19 @@ internal static class SnapshotText
     }
 
     /// <summary>
-    /// A link target as a line shows it: a path when it is on the app's origin, else the whole URL, since a path on another
-    /// site would send the model back to the app. Redacted first, then cut at <see cref="MaxHrefLength"/> with a trailing
+    /// A link target as a line shows it: a path when it is on the app's origin, the one a recorded navigation keeps
+    /// (<see cref="CacheRoute.AppNavigation"/>), else the whole URL, since a path on another site would send the model back to the app. Redacted first, then cut at <see cref="MaxHrefLength"/> with a trailing
     /// <c>…</c>, so a cut target never reads as whole and no part of a secret survives the cut.
     /// </summary>
     internal static string Href(string href, Redactor redactor, string? appOrigin)
     {
         var redacted = AgentObservation.RedactText(href, redactor);
-        var shown = appOrigin is not null && redacted.StartsWith(appOrigin + "/", StringComparison.Ordinal) ? redacted[appOrigin.Length..] : redacted;
+        return Bound(CacheRoute.AppNavigation(redacted, appOrigin));
+    }
+
+    /// <summary>A link target cut at <see cref="MaxHrefLength"/> with a trailing <c>…</c>, never inside a surrogate pair.</summary>
+    internal static string Bound(string shown)
+    {
         if (shown.Length <= MaxHrefLength)
         {
             return shown;

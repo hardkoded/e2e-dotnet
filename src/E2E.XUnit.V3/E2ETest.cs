@@ -203,6 +203,8 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         return Xunit.TestContext.Current.TestState?.Result == TestResult.Failed;
     }
 
+    private static readonly HashSet<string> CancellationTypes = new(StringComparer.Ordinal) { typeof(OperationCanceledException).FullName!, typeof(TaskCanceledException).FullName! };
+
     // xUnit keeps only the failure's type and message. The session itself knows when an agent call hit
     // a model outage or a stale replay, so the cache still keeps its entries then.
     private static Exception? ErrorForCache(TestResultState? state, TestException? soft)
@@ -218,6 +220,12 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
         if (state?.Result == TestResult.Skipped || string.Equals(type, typeof(SkipException).FullName, StringComparison.Ordinal))
         {
             return new SkipException(string.IsNullOrWhiteSpace(message) ? "skipped" : message);
+        }
+
+        // A cancelled test stays a cancellation: the session reads the runner's token to tell the user's cancel from any other.
+        if (type is not null && CancellationTypes.Contains(type))
+        {
+            return new OperationCanceledException(string.IsNullOrWhiteSpace(message) ? "The test was cancelled." : message);
         }
 
         return new TestException("TEST_FAILED", string.IsNullOrWhiteSpace(message) ? "The test failed." : message);

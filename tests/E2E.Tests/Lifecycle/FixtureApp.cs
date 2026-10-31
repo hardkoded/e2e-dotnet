@@ -32,6 +32,22 @@ internal static class FixtureApp
         </html>
         """;
 
+    // Shows the token held in local storage, and stores the one a ?set query names (upstream's engine fixture app, /state).
+    public const string State = """
+        <!doctype html>
+        <html>
+        <head><title>Fixture State</title></head>
+        <body>
+        <h1 id="token">none</h1>
+        <script>
+          const params = new URLSearchParams(location.search);
+          if (params.has('set')) localStorage.setItem('token', params.get('set'));
+          document.getElementById('token').textContent = localStorage.getItem('token') ?? 'none';
+        </script>
+        </body>
+        </html>
+        """;
+
     // Three controls share one value; the last shares it as a textarea.
     public const string Values = """
         <!doctype html>
@@ -145,6 +161,7 @@ internal static class FixtureApp
         ["/contents"] = Contents,
         ["/closed-login"] = ClosedLogin,
         ["/twins"] = Twins,
+        ["/state"] = State,
     };
 
     /// <summary>Starts the app. <c>/slow</c> answers with the home page after five seconds, long enough to cancel first.</summary>

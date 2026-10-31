@@ -27,5 +27,9 @@ public sealed class TemplateTextAndExpandTextTests
         Assert.Equal(
             "tap \"Grace Hopper\" then \"Grace\" in the Grace column",
             CacheKeys.Detemplate(templated, Params("Grace", "Grace Hopper")));
+
+        // A value that is part of a slot ("ull" in "full") is not found inside the slot written a moment earlier.
+        var inner = new Dictionary<string, object?> { ["full"] = Values.Unique("Ada"), ["x"] = Values.Unique("ull") };
+        Assert.Equal("\u0001full\u0001", CacheKeys.Template("Ada", inner));
     }
 }

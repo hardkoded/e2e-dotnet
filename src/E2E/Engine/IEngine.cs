@@ -268,6 +268,17 @@ public interface IEngineSession : IAsyncDisposable
         Task.FromException<IReadOnlyList<VideoSegment>>(new EngineException("UNSUPPORTED_CAPABILITY", "video recording is not supported by this engine."));
 
     /// <summary>
+    /// Captures the app's state (cookies and storage) as a payload another session can restore. The payload's <c>Data</c> is a mutable
+    /// <c>JsonNode</c>, so a caller must not change it between capture and restore. Upstream's optional
+    /// <c>captureState</c>; a session that keeps none fails with <c>UNSUPPORTED_CAPABILITY</c>, as upstream's <c>session.save()</c> does.
+    /// </summary>
+    Task<EngineState> CaptureStateAsync(CancellationToken cancellationToken) =>
+        Task.FromException<EngineState>(new EngineException("UNSUPPORTED_CAPABILITY", "capturing a state is not supported by this engine."));
+
+    /// <summary>Replaces the app's current state with one <see cref="CaptureStateAsync"/> captured. Upstream's optional <c>restoreState</c>.</summary>
+    Task RestoreStateAsync(EngineState state, CancellationToken cancellationToken) => Unsupported("restoring a state");
+
+    /// <summary>
     /// After the body has settled, and again after teardown, before the verdict, within the cleanup budget: report a failure that landed
     /// on a path no step awaited (a callback the session ran for the test: a request interceptor, a native dialog handler). Wait for one
     /// still running, then throw its error; the attempt fails with it the way a step would, an error already classified keeping its code.

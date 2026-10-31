@@ -52,7 +52,7 @@ internal static class Server
         e2e-dotnet is the .NET port of the e2e end-to-end test framework; this server drives an e2e project's app (its e2e.config.json) live.
         Call open_session (optionally with a target, a config path, and headed: true when the user wants to watch) to get a session, its tool catalog, and the first observation. Then call {tool, args} runs any catalog tool: observe, the grammar its engine honors (each action answers with the test line that repeats it), type_secret, locate, test_lines (those lines in order, as a draft test body), and screenshot; tools lists them, tools {tool} shows one tool's arguments. close_session when done.
         Several sessions can be open at once, each with its own browser or device, so parallel agents (subagents) each open their own: pass the session id from open_session to every tools, call, and close_session.
-        Write deterministic tests (E2ETest classes) from what you saw and run them with dotnet test. Resources e2e://guide and e2e://guide/{topic} hold the writing guide.
+        Write the test (an E2ETest class, or MobileAppTest or WinAppTest for a mobile or Windows target) while you walk the flow, adding each step to the file as you take it, and run it with dotnet test. Resources e2e://guide and e2e://guide/{topic} hold the writing guide.
         """;
 
     private const string GuideUri = "e2e://guide";

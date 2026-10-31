@@ -341,7 +341,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             async token =>
             {
                 await _scope.Session.OpenAsync(Routes.Resolve(_scope.BaseUrl, url), token).ConfigureAwait(false);
-                await CommitAsync(new RecordedAction { Kind = "navigate", Url = CacheKeys.Template(url, _parameters) }).ConfigureAwait(false);
+                await CommitAsync(new RecordedAction { Kind = "navigate", Url = CacheKeys.Template(CacheRoute.AppNavigation(url, _scope.AppOrigin), _parameters) }).ConfigureAwait(false);
             },
             cancellationToken);
     }
