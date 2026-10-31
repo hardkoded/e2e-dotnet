@@ -34,7 +34,9 @@
    `Role`, `Name`, `TestId`, and `WaitedMs` (how long it waited).
 3. A failed agent step carries the model's explanation. A passing act's
    `ActResult.Cache` tells whether the step replayed, and why a replay
-   missed.
+   missed. A run summary tallies those by step as `Cache  4 replayed · 1 handed
+   off · 1 missed`; the port's internal `ListReporter` renders it, but no
+   command prints a run summary yet.
 
 Fix from that evidence, never by walking the flow again from the start over
 MCP: the run already saw every screen up to the failure.
