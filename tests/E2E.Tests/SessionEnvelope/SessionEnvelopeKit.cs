@@ -17,7 +17,7 @@ public abstract class SessionEnvelopeKit : IDisposable
     /// <summary>Temp dirs the cases in a class create, removed after each so a run leaves nothing behind.</summary>
     private readonly List<string> _tempDirs = [];
 
-    internal static SavedSecrecy NoSecrets => new([], false);
+    internal static IReadOnlyList<(string Name, string Value)> NoSecrets => [];
 
     /// <summary>The state every case saves.</summary>
     internal static EngineState Cookies() => new("playwright-state", 1, JsonNode.Parse("""{"cookies":[{"name":"sid","value":"abc"}]}"""));
@@ -41,12 +41,12 @@ public abstract class SessionEnvelopeKit : IDisposable
     }
 
     /// <summary>Saves one state and returns the parsed envelope, its raw text, its file, and its store.</summary>
-    internal async Task<(SessionStore Store, string Raw, string File, JsonObject Envelope)> SaveEnvelope(SavedSecrecy? secrecy = null, FakeTimeProvider? time = null)
+    internal async Task<(SessionStore Store, string Raw, string File, JsonObject Envelope)> SaveEnvelope(IReadOnlyList<(string Name, string Value)>? secrets = null, FakeTimeProvider? time = null)
     {
         var root = TempRoot();
         var runId = Guid.CreateVersion7().ToString();
         var store = SessionStore.Create(runId, root, time);
-        await store.SaveAsync("member", Identity, new SavedSession(Cookies(), secrecy ?? NoSecrets));
+        await store.SaveAsync("member", Identity, new SavedSession(Cookies(), secrets ?? NoSecrets));
         var file = Assert.Single(Directory.GetFiles(Path.Combine(root, runId)));
         Assert.Matches(@"^web--member-[0-9a-f]{16}\.json\z", Path.GetFileName(file));
         var raw = await File.ReadAllTextAsync(file);

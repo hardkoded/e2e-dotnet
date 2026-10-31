@@ -9,8 +9,7 @@ namespace E2E.Tests.FixtureRuntime;
 /// <summary>
 /// Upstream's <c>describe('explicit screenshot secrecy')</c> (<c>tests/unit/fixture-runtime.test.ts</c>). Not ported, because the port has
 /// no such feature: the <c>provider</c> case of "captures before and after a %s secret fill", "still captures when a credential provider
-/// fails before supplying a secret", and "refuses a provider value under 6 code points ... at fill time with the unavailable code, pixels
-/// untainted" (they need <c>config.credentials</c> and its provider functions, which the port does not have).
+/// fails before supplying a secret", and "refuses a provider value under 6 code points ... at fill time with the unavailable code" (they need <c>config.credentials</c> and its provider functions, which the port does not have).
 /// </summary>
 public sealed class ExplicitScreenshotSecrecyTests : IDisposable
 {

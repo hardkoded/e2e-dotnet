@@ -542,6 +542,7 @@ public enum StepPhase
 /// <summary>Why a step's pixels were not trusted.</summary>
 public enum VisionDegradation
 {
+    /// <summary>Only on a result an earlier version wrote, such as one <c>--last-failed</c> carries. A step no longer degrades this way.</summary>
     PixelTainted,
     MaskingUnproven,
     UnsupportedCapability,

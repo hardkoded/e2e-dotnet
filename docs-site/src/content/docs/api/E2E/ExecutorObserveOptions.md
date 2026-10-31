@@ -39,7 +39,7 @@ public bool Pixels { get; init; }
 
 
 Includes the masked pixels as [Pixels](/api/E2E/ExecutorObservation/#E2E_ExecutorObservation_Pixels). They are granted only when the engine
-captures pixels, its masking is proven, and no secret was filled in this attempt. Otherwise
+captures pixels, and its masking is proven. Otherwise
 [PixelsWithheld](/api/E2E/ExecutorObservation/#E2E_ExecutorObservation_PixelsWithheld) says why.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)

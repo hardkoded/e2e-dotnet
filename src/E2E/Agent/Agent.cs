@@ -416,17 +416,11 @@ public sealed partial class Agent
     }
 
     /// <summary>
-    /// Captures one fresh look. A tainted attempt, a capture the engine cannot make, and masking the engine cannot prove
+    /// Captures one fresh look. A capture the engine cannot make and masking the engine cannot prove
     /// each degrade the call to the tree alone, except under <see cref="VisionMode.Only"/>, which fails.
     /// </summary>
     private async Task<Look> LookAsync(string api, VisionMode vision, ResolvedAgent agent, string system, string instruction, CancellationToken token, Action<Exception?> guard)
     {
-        var tainted = vision != VisionMode.Off && _scope.Exposure.WithholdsModelPixels;
-        if (tainted)
-        {
-            LoseVision(api, vision, VisionDegradation.PixelTainted);
-        }
-
         // The look and the tree a model reads of it are one phase, whose event tells the nodes read and the bytes of that tree.
         var (observation, tree, cut) = await Phases.InstrumentPhaseAsync(
             new PhaseHost(_scope.Steps, _scope.Debug),
@@ -446,12 +440,12 @@ public sealed partial class Agent
             ObservationRevision = observation.Revision.Length > 0 ? observation.Revision : null,
             ObservationBytes = vision == VisionMode.Only ? null : System.Text.Encoding.UTF8.GetByteCount(tree),
         });
-        if (vision == VisionMode.Off || tainted)
+        if (vision == VisionMode.Off)
         {
             return new Look(tree, null, tree, tree);
         }
 
-        var outcome = AgentObservation.PixelsForModel(observation, await _scope.CaptureAsync(token).ConfigureAwait(false), _scope.Exposure.WithholdsModelPixels);
+        var outcome = AgentObservation.PixelsForModel(observation, await _scope.CaptureAsync(token).ConfigureAwait(false));
         if (outcome.Pixels is not { } pixels)
         {
             LoseVision(api, vision, outcome.Withheld!.Value);
@@ -504,7 +498,6 @@ public sealed partial class Agent
 
         var code = reason switch
         {
-            VisionDegradation.PixelTainted => "PIXEL_TAINTED",
             VisionDegradation.MaskingUnproven => "MASKING_UNPROVEN",
             _ => "UNSUPPORTED_CAPABILITY",
         };
@@ -516,12 +509,12 @@ public sealed partial class Agent
 
     /// <summary>
     /// The vision hint for an inconclusive judgment made from the tree alone, or none when <see cref="VisionMode.On"/> could
-    /// add no evidence in this attempt: the engine declares no screenshot capture, a secret was filled, or an earlier
+    /// add no evidence in this attempt: the engine declares no screenshot capture or an earlier
     /// call's pixel request was already degraded.
     /// </summary>
     private string? VisionHint()
     {
-        if (_scope.Exposure.WithholdsModelPixels || (_scope.EngineCapabilities & EngineCapabilities.Screenshot) == 0 || _scope.VisionDegraded)
+        if ((_scope.EngineCapabilities & EngineCapabilities.Screenshot) == 0 || _scope.VisionDegraded)
         {
             return null;
         }
@@ -1219,9 +1212,6 @@ internal sealed class AttemptScope
     /// <summary>What the engine told about what the attempt runs on.</summary>
     public EnvironmentFacts Environment { get; init; } = new();
 
-    /// <summary>How far a secret reached the attempt. A secret fill, by the agent or by a locator, raises it.</summary>
-    public Exposure Exposure { get; init; } = new();
-
     /// <summary>Where a judgment keeps its screenshot evidence; null for an attempt that keeps no results.</summary>
     public ScreenshotContext? Screenshots { get; set; }
 
@@ -1570,7 +1560,7 @@ internal sealed class AttemptScope
 
     /// <summary>
     /// Registers one value under a name for redaction alone, as the redaction ledger does: it is not a secret
-    /// the agent may fill, and it does not withhold pixels. An earlier value for the name keeps redacting.
+    /// the agent may fill, and a screenshot does not mask it. An earlier value for the name keeps redacting.
     /// </summary>
     public void Register(string name, string value)
     {

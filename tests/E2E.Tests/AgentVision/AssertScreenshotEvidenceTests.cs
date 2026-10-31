@@ -10,9 +10,7 @@ namespace E2E.Tests.AgentVision;
 
 /// <summary>
 /// The screenshot a judgment keeps as evidence, and <see cref="AgentException.Screenshot"/>. These are .NET-only tests:
-/// upstream reads the evidence from the step's artifacts in its report, which the port does not have. The upstream test of
-/// the denial after a secret fill, "suppresses screenshot evidence once the viewport is pixel-tainted", is in
-/// <c>AgentPolicyAndErrorClassificationTests</c>.
+/// upstream reads the evidence from the step's artifacts in its report, which the port does not have.
 /// </summary>
 public sealed class AssertScreenshotEvidenceTests
 {

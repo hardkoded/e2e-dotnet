@@ -580,7 +580,7 @@ internal sealed class SessionHost : IDisposable
         return new McpToolSpec
         {
             Name = "tools",
-            Description = "List the tools a session can run through call: observe, the grammar its engine honors (one tool per action the engine declares, type_secret when a secret is configured, and screenshot, which answers PIXEL_TAINTED once a secret has been filled), locate, and test_lines (the test line each action printed, as a draft test body). With tool, shows that tool's full description and the JSON Schema of its arguments.",
+            Description = "List the tools a session can run through call: observe, the grammar its engine honors (one tool per action the engine declares, type_secret when a secret is configured, and screenshot), locate, and test_lines (the test line each action printed, as a draft test body). With tool, shows that tool's full description and the JSON Schema of its arguments.",
             InputSchema = CatalogSchema,
             ReadOnly = true,
             Call = (args, _) => Task.FromResult(Tools.TextResult(Catalog(String(args, "session"), String(args, "tool")))),
@@ -638,8 +638,6 @@ internal sealed class SessionHost : IDisposable
         public SemaphoreSlim Gate { get; } = new(1, 1);
 
         public SessionCatalog Catalog { get; set; } = null!;
-
-        public bool PixelsTainted { get; set; }
 
         public int Calls { get; set; }
 

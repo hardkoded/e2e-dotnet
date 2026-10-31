@@ -18,16 +18,12 @@ internal sealed class ToolFailedException(string message) : Exception(message);
 internal interface ISessionContext
 {
     E2ESession Session { get; }
-
-    /// <summary>Whether a secret was filled in this session, so a screenshot may show it.</summary>
-    bool PixelsTainted { get; set; }
 }
 
 /// <summary>
 /// The catalog of a live session: every tool <c>call</c> can run. <c>observe</c> shows the whole screen, the
-/// grammar is what the target's engine honors, <c>screenshot</c> answers <c>PIXEL_TAINTED</c> once a secret has
-/// been filled, <c>type_secret</c> exists when the config declares a secret, <c>locate</c> tries a semantic
-/// locator the way a test would, and <c>test_lines</c> returns the test line every action printed. The verbs run through the testing agent's own tool executor, so a coding agent
+/// grammar is what the target's engine honors, <c>screenshot</c> masks secure fields, <c>type_secret</c> exists when the config
+/// declares a secret, <c>locate</c> tries a semantic locator the way a test would, and <c>test_lines</c> returns the test line every action printed. The verbs run through the testing agent's own tool executor, so a coding agent
 /// acts exactly as the model of an <c>act</c> does.
 /// </summary>
 internal sealed class SessionCatalog
@@ -311,14 +307,11 @@ internal sealed class SessionCatalog
     {
         return new CatalogTool
         {
-            Description = "Fill a configured secret into an editable field by its name. You never see the value: every output shows the secret as <secret:name>. After a fill, screenshot withholds pixels.",
+            Description = "Fill a configured secret into an editable field by its name. You never see the value: every output shows the secret as <secret:name>.",
             InputSchema = Schema(Target, ("secret", Property("string", "The secret's name from the config"), true)),
             Execute = async (args, token) =>
             {
                 var mapped = new JsonObject { ["ref"] = args.GetProperty("target").GetString(), ["secret"] = args.GetProperty("secret").GetString() };
-
-                // Before the fill: a fill that reached the page and then failed must still withhold pixels.
-                context.PixelsTainted = true;
                 var outcome = await RunAsync(context, "type_secret", "fill_secret", args, token, mapped).ConfigureAwait(false);
                 return outcome.Content;
             },
@@ -363,15 +356,10 @@ internal sealed class SessionCatalog
     {
         return new CatalogTool
         {
-            Description = "Take a screenshot of the viewport, attached as an image. Secure fields are covered. After a secret was filled in the session, it answers PIXEL_TAINTED and attaches nothing.",
+            Description = "Take a screenshot of the viewport, attached as an image. Secure fields are covered.",
             InputSchema = Schema([]),
             Execute = async (_, token) =>
             {
-                if (context.PixelsTainted)
-                {
-                    return new ScreenshotOutput(null, "No screenshot: a secret was filled in this attempt and the app may show it outside a secure field. PIXEL_TAINTED");
-                }
-
                 var shot = await context.Session.Engine.ScreenshotAsync(token).ConfigureAwait(false);
                 var (width, height) = PngSize(shot.Png);
                 var text = "Screenshot attached: " + width.ToString(CultureInfo.InvariantCulture) + " by " + height.ToString(CultureInfo.InvariantCulture)
@@ -381,9 +369,7 @@ internal sealed class SessionCatalog
             ToModelOutput = (_, output, _) =>
             {
                 var shot = (ScreenshotOutput)output!;
-                IReadOnlyList<ToolOutputPart> parts = shot.Png is null
-                    ? [new ToolOutputPart.Text(shot.Text)]
-                    : [new ToolOutputPart.Text(shot.Text), new ToolOutputPart.File(Convert.ToBase64String(shot.Png), "image/png")];
+                IReadOnlyList<ToolOutputPart> parts = [new ToolOutputPart.Text(shot.Text), new ToolOutputPart.File(Convert.ToBase64String(shot.Png), "image/png")];
                 return Task.FromResult<ToolModelOutput>(new ToolModelOutput.Content(parts));
             },
         };
@@ -492,7 +478,7 @@ internal sealed class SessionCatalog
 
     internal static string Quote(string text) => JsonSerializer.Serialize(text, E2E.Cli.Mcp.Tools.Json);
 
-    private sealed record ScreenshotOutput(byte[]? Png, string Text);
+    private sealed record ScreenshotOutput(byte[] Png, string Text);
 }
 
 /// <summary>The arguments of <c>locate</c>.</summary>

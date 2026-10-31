@@ -13,9 +13,6 @@ namespace E2E;
 /// </summary>
 public enum VisionDegradation
 {
-    /// <summary>A secret was filled in this attempt, so the app may show it outside a secure field and no pixels reach a model.</summary>
-    PixelTainted,
-
     /// <summary>The engine masked fewer regions than the tree has secure nodes, so the image cannot be proven redacted.</summary>
     MaskingUnproven,
 

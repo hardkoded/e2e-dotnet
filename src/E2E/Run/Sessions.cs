@@ -45,7 +45,12 @@ internal static class Sessions
 }
 
 /// <summary>What one saved session holds once decrypted (upstream's <c>SavedSession</c>).</summary>
-internal sealed record SavedSession(EngineState State, SavedSecrecy Secrecy);
+/// <param name="State">The engine's state.</param>
+/// <param name="Secrets">
+/// Name and value pairs the saving session learned beyond the static config values (upstream's <c>SavedSecrets</c>); they travel only
+/// inside the encrypted payload.
+/// </param>
+internal sealed record SavedSession(EngineState State, IReadOnlyList<(string Name, string Value)> Secrets);
 
 /// <summary>
 /// Collects the states saved by one setup attempt and owns the setup session contract (upstream's <c>SessionStaging</c>,
@@ -56,7 +61,7 @@ internal sealed class SessionStaging(IReadOnlyList<string> declared)
     private readonly Dictionary<string, SavedSession> _staged = new(StringComparer.Ordinal);
 
     /// <summary>Stages one captured state with the secret values of the session it came from, rejecting a duplicate or undeclared name.</summary>
-    public void Stage(string name, EngineState state, SavedSecrecy secrecy)
+    public void Stage(string name, EngineState state, IReadOnlyList<(string Name, string Value)> secrets)
     {
         if (_staged.ContainsKey(name))
         {
@@ -68,7 +73,7 @@ internal sealed class SessionStaging(IReadOnlyList<string> declared)
             throw new TestException("SESSION_CONTRACT", $"session \"{name}\" was not declared by this setup test");
         }
 
-        _staged.Add(name, new SavedSession(state, secrecy));
+        _staged.Add(name, new SavedSession(state, secrets));
     }
 
     /// <summary>Declared names the attempt finished without saving.</summary>
@@ -139,8 +144,8 @@ internal sealed class SessionStore
 
     /// <summary>
     /// Encrypts and atomically persists one captured engine state. The secret values the saving session learned ride inside the ciphertext,
-    /// beside the state they may be stored in, so the session that restores it redacts them too; the envelope names them and carries the
-    /// taint in the clear, authenticated.
+    /// beside the state they may be stored in, so the session that restores it redacts them too; the envelope names them in the clear,
+    /// authenticated.
     /// </summary>
     public async Task SaveAsync(string name, SessionIdentity identity, SavedSession saved, CancellationToken cancellationToken = default)
     {
@@ -179,8 +184,7 @@ internal sealed class SessionStore
             ["expiresAt"] = Ids.Timestamp(expiresAt),
             ["secrecy"] = new JsonObject
             {
-                ["tainted"] = saved.Secrecy.Tainted,
-                ["names"] = new JsonArray([.. saved.Secrecy.Secrets.Select(secret => secret.Name).Distinct(StringComparer.Ordinal).Select(each => (JsonNode)each)]),
+                ["names"] = new JsonArray([.. saved.Secrets.Select(secret => secret.Name).Distinct(StringComparer.Ordinal).Select(each => (JsonNode)each)]),
             },
             ["state"] = new JsonObject
             {
@@ -194,7 +198,7 @@ internal sealed class SessionStore
         var payload = new JsonObject
         {
             ["data"] = saved.State.Data?.DeepClone(),
-            ["secrets"] = new JsonArray([.. saved.Secrecy.Secrets.Select(secret => (JsonNode)new JsonArray(secret.Name, secret.Value))]),
+            ["secrets"] = new JsonArray([.. saved.Secrets.Select(secret => (JsonNode)new JsonArray(secret.Name, secret.Value))]),
         };
         var plaintext = Encoding.UTF8.GetBytes(payload.ToJsonString());
         var ciphertext = new byte[plaintext.Length];
@@ -374,10 +378,9 @@ internal sealed class SessionStore
         }
 
         var payload = ParsePayload(Encoding.UTF8.GetString(plaintext), name);
-        var tainted = envelope["secrecy"] is JsonObject secrecy && secrecy["tainted"] is JsonValue flag && flag.TryGetValue<bool>(out var isTainted) && isTainted;
         return new SavedSession(
             new EngineState(Text(state, "format"), state["version"]?.GetValue<int>() ?? throw new InvalidOperationException("version is not a number"), payload["data"]?.DeepClone(), expiresAt),
-            new SavedSecrecy([.. payload["secrets"]!.AsArray().Select(entry => ((string)entry![0]!, (string)entry[1]!))], tainted));
+            [.. payload["secrets"]!.AsArray().Select(entry => ((string)entry![0]!, (string)entry[1]!))]);
     }
 
     private static string Text(JsonObject owner, string key) => (string?)owner[key] ?? throw new InvalidOperationException(key + " is not text");

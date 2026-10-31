@@ -127,25 +127,6 @@ The model the agent's entry is configured with, or the one the executor brought.
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L83)
 
-<a id="E2E_StepExecutorContext_PixelsTainted_"></a>
-<a id="E2E_StepExecutorContext_PixelsTainted"></a>
-
-### PixelsTainted
-
-
-```csharp
-public virtual bool PixelsTainted { get; }
-```
-
-
-True once a secret was filled in this attempt: `CancellationToken)` withholds pixels from the model for the rest of it. An
-executor reads it when it assembles its vocabulary, to leave screenshot tools out rather than offer tools that can
-only decline.
-
-**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L106)
-
 <a id="E2E_StepExecutorContext_ProviderOptions_"></a>
 <a id="E2E_StepExecutorContext_ProviderOptions"></a>
 

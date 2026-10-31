@@ -95,19 +95,13 @@ internal static class AgentObservation
     }
 
     /// <summary>
-    /// Whether requested pixels become model input, decided once per observation for every call that asks. A tainted
-    /// attempt (a secret was filled, which the app may show anywhere on screen) is denied first; then a capture the engine
-    /// could not make; then the proof of masking: every secure node the tree lists must be covered by a masked region, or
+    /// Whether requested pixels become model input, decided once per observation for every call that asks. A capture the engine
+    /// could not make is denied first; then the proof of masking: every secure node the tree lists must be covered by a masked region, or
     /// the engine masked less than it saw and the image cannot be proven redacted. The tree still goes out. The image is
     /// sized for the model here, once, not per capture.
     /// </summary>
-    public static PixelsOutcome PixelsForModel(Observation observation, EngineScreenshot? screenshot, bool tainted)
+    public static PixelsOutcome PixelsForModel(Observation observation, EngineScreenshot? screenshot)
     {
-        if (tainted)
-        {
-            return new PixelsOutcome(null, VisionDegradation.PixelTainted);
-        }
-
         if (screenshot is null)
         {
             return new PixelsOutcome(null, VisionDegradation.UnsupportedCapability);

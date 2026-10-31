@@ -342,7 +342,7 @@ A fixture overrides any value with the matching property, such as `BaseUrl`, `Ca
 
 ### Evidence screenshots
 
-`App.ScreenshotAsync(label)` saves a redacted screenshot under the attempt's `screenshots/` directory and returns the absolute path of the file it wrote (`<number>-<label>.png`); the report records the path relative to the artifact root. It masks secure fields only, after a `Secret` fill too, so a secret the app shows anywhere else is in the image. It fails with `UNSUPPORTED_CAPABILITY` only on an engine that keeps no screenshot artifact. The web, mobile, and Windows engines keep screenshot artifacts. A secret spelled into the label is redacted before it names the file.
+`App.ScreenshotAsync(label)` saves a redacted screenshot under the attempt's `screenshots/` directory and returns the absolute path of the file it wrote (`<number>-<label>.png`); the report records the path relative to the artifact root. It masks secure fields only, after a `Secret` fill too, so a secret the app shows anywhere else is in the image. The screenshots a model sees (`Vision = On`, `Only`, the agent's own looks, `e2e mcp`, and `e2e explore` findings) work the same way: a generic secret filled into a plain input, or a value the app shows outside a secure field, reaches your model provider, so use test credentials. It fails with `UNSUPPORTED_CAPABILITY` only on an engine that keeps no screenshot artifact. The web, mobile, and Windows engines keep screenshot artifacts. A secret spelled into the label is redacted before it names the file.
 
 ## Visual comparison
 

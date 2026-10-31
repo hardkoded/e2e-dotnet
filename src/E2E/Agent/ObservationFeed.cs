@@ -148,7 +148,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
 
     /// <summary>
     /// The attempt the looks belong to, for what an executor's look is redacted and cleared with: the secrets, the app origin,
-    /// the engine's capture, and the pixel taint. Null for a feed that serves no executor.
+    /// the engine's capture. Null for a feed that serves no executor.
     /// </summary>
     public AttemptScope? Scope { get; init; }
 
@@ -158,7 +158,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// <summary>
     /// Upstream's executor-facing <c>observe</c>: the options checked before anything is captured, then one settled look,
     /// redacted and viewed. The text is always there, and the tree and the pixels when asked for. Pixels go out only when the
-    /// engine captures them, its masking is proven, and no secret was filled in the attempt; otherwise the look says why not.
+    /// engine captures them and its masking is proven; otherwise the look says why not.
     /// </summary>
     public async Task<ExecutorObservation> ObserveAsync(ExecutorObserveOptions? options, CancellationToken token)
     {
@@ -171,8 +171,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             return view;
         }
 
-        var tainted = scope.Exposure.WithholdsModelPixels;
-        var outcome = AgentObservation.PixelsForModel(observation, tainted ? null : await scope.CaptureAsync(token).ConfigureAwait(false), tainted);
+        var outcome = AgentObservation.PixelsForModel(observation, await scope.CaptureAsync(token).ConfigureAwait(false));
         if (outcome.Pixels is not { } pixels)
         {
             scope.VisionDegraded = true;

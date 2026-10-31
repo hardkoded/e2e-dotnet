@@ -37,7 +37,7 @@ MaskingUnproven = 1
 
 **Value:** [VisionDegradation](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L546)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L547)
 
 <a id="E2E_Reports_VisionDegradation_PixelTainted"></a>
 
@@ -49,9 +49,11 @@ PixelTainted = 0
 ```
 
 
+Only on a result an earlier version wrote, such as one `--last-failed` carries. A step no longer degrades this way.
+
 **Value:** [VisionDegradation](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L545)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L546)
 
 <a id="E2E_Reports_VisionDegradation_UnsupportedCapability"></a>
 
@@ -65,4 +67,4 @@ UnsupportedCapability = 2
 
 **Value:** [VisionDegradation](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L547)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L548)

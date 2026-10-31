@@ -300,6 +300,10 @@ with `<secret:name>` in these places:
 - A name or text the engine cuts at its limit (256 and 512 characters) can end
   with the start of a secret. When the cut part is the first 8 or more
   characters of a secret (half of one shorter than 16), it shows the marker.
+- Screenshots, the model's and the artifacts', mask secure fields only, after
+  a secret fill too. A generic secret in a plain input, or a value the app
+  shows anywhere else (a show-password toggle, a toast), is in the image and
+  reaches the model provider: use test credentials.
 - `new WebBasicAuth(username, secret)` in `WebEngineOptions.BasicAuth`: the
   attempt redacts the password and the `Authorization` credential the
   browser sends with it. This is text only. Screenshots stay on, and the agent

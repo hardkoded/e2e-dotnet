@@ -139,8 +139,6 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 AuthorizeSecretFill(secret, node);
-                // Before the engine call: a fill that types the value and then fails has still put it on screen.
-                _scope.Exposure.RaiseFilled();
                 await TargetedAsync(node, new LocatorAction.Fill(secret.Value, true), token).ConfigureAwait(false);
                 // Recorded by stable name only; replay runs the full authorization again.
                 await CommitAsync("fill", node, value: "<secret:" + secret.Name + ">").ConfigureAwait(false);

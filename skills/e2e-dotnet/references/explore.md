@@ -181,7 +181,7 @@ the evidence screenshot, which lands under
 `.e2e/results/<result>/attempt-1/screenshots/` (`Output` changes the results
 directory). The exploration is a test of the virtual file `explore`, so
 `<result>` starts with `explore-` and the goal's words, as
-`explore-the-checkout-flow-1a2b3c4d5e6f7a8b`. Once a secret is filled, the model gets no screenshot, so none is kept.
+`explore-the-checkout-flow-1a2b3c4d5e6f7a8b`. A finding keeps its screenshot after a secret fill too; the screenshot masks secure fields only.
 
 `OnProgress` receives each moment as it happens: `Started`, `Planning`,
 `StepStarted`, `FindingReported`, `StepFinished`, and `Finished`.

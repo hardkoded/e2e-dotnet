@@ -80,7 +80,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
     }
 
     [Fact]
-    public async Task Opens_a_session_then_locates_acts_fills_a_secret_and_withholds_screenshots_afterwards()
+    public async Task Opens_a_session_with_its_catalog_then_locates_acts_fills_a_secret_and_keeps_the_screenshot_afterwards()
     {
         var opened = await _served.InvokeAsync("open_session");
         Assert.False(opened.IsError, opened.Text);
@@ -165,10 +165,10 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.Contains("filled secret <secret:adminPassword>", filled.Text, StringComparison.Ordinal);
         Assert.DoesNotContain(Served.AdminPassword, filled.Text, StringComparison.Ordinal);
 
-        var tainted = await _served.CallAsync("screenshot");
-        Assert.Equal(0, tainted.Images);
-        Assert.Contains("No screenshot: a secret was filled in this attempt", tainted.Text, StringComparison.Ordinal);
-        Assert.Contains("PIXEL_TAINTED", tainted.Text, StringComparison.Ordinal);
+        var afterFill = await _served.CallAsync("screenshot");
+        Assert.False(afterFill.IsError, afterFill.Text);
+        Assert.Equal(1, afterFill.Images);
+        Assert.DoesNotContain(Served.AdminPassword, afterFill.Text, StringComparison.Ordinal);
 
         foreach (var url in new[] { "javascript:alert(1)", "file:///etc/passwd", "view-source:file:///etc/passwd", "VIEW-SOURCE:http://example.test/", "about:srcdoc" })
         {
