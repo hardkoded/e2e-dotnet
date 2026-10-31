@@ -138,7 +138,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             async token =>
             {
                 var node = Resolve(target);
-                await TargetedAsync(node, new LocatorAction.Fill(secret.Value, true), token, found => AuthorizeSecretFill(secret, found)).ConfigureAwait(false);
+                node = await TargetedAsync(node, new LocatorAction.Fill(secret.Value, true), token, found => AuthorizeSecretFill(secret, found)).ConfigureAwait(false);
                 // Recorded by stable name only; replay runs the full authorization again.
                 await CommitAsync("fill", node, value: "<secret:" + secret.Name + ">").ConfigureAwait(false);
             },
@@ -565,9 +565,10 @@ internal sealed class ActionDispatcher : IExecutorActions
     /// by its description in a fresh look (<see cref="ObservationFeed.Relocate"/>) and the action retried,
     /// <see cref="MaxStaleRelocations"/> times: a list that remounts its rows between the look and the action keeps the
     /// control on screen under a dead ref. A description that matches nothing, or several nodes, fails the action.
-    /// <paramref name="authorize"/> checks each node before the action reaches it, the relocated one too.
+    /// <paramref name="authorize"/> checks each node before the action reaches it, the relocated one too. Returns the node the
+    /// action reached, which is what the trace records.
     /// </summary>
-    private async Task TargetedAsync(SemanticNode node, LocatorAction action, CancellationToken token, Action<SemanticNode>? authorize = null)
+    private async Task<SemanticNode> TargetedAsync(SemanticNode node, LocatorAction action, CancellationToken token, Action<SemanticNode>? authorize = null)
     {
         for (var relocations = 0; ; relocations++)
         {
@@ -576,7 +577,7 @@ internal sealed class ActionDispatcher : IExecutorActions
                 // Runs on every attempt, so a node found again after a stale answer is authorized as it is now.
                 authorize?.Invoke(node);
                 await _scope.Session.PerformAsync(node, action, token).ConfigureAwait(false);
-                return;
+                return node;
             }
             catch (EngineException ex) when (ex.Code == EngineErrorCodes.NodeStale)
             {
