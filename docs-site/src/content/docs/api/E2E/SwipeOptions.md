@@ -1,6 +1,6 @@
 ---
 title: "SwipeOptions"
-description: "Options for CancellationToken)."
+description: "Options for SwipeAsync."
 editUrl: false
 prev: false
 next: false
@@ -19,11 +19,11 @@ public sealed class SwipeOptions : ActionOptions
 ```
 
 
-Options for `CancellationToken)`.
+Options for `SwipeAsync`.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object) → [ActionOptions](/api/E2E/ActionOptions/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1239)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1241)
 
 ## Properties
 
@@ -42,7 +42,7 @@ Which way the content moves into view, as for [ScrollDirection](/api/E2E.Engine/
 
 **Value:** [ScrollDirection](/api/E2E.Engine/ScrollDirection/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1242)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1244)
 
 <a id="E2E_SwipeOptions_Momentum_"></a>
 <a id="E2E_SwipeOptions_Momentum"></a>
@@ -59,4 +59,4 @@ The stride of the gesture. Without one the engine strides as it does for a scrol
 
 **Value:** `Momentum?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1245)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1247)

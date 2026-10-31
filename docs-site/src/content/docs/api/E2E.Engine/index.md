@@ -19,7 +19,7 @@ Public types in the `E2E.Engine` namespace.
 | [BrowserCookie](/api/E2E.Engine/BrowserCookie/) | A browser cookie. When setting one, give either Url, or Domain with an optional Path, never both. |
 | [BrowserDownload](/api/E2E.Engine/BrowserDownload/) | A download the browser saved as an artifact of the attempt (upstream's waitForDownload result, { path, absolutePath, suggestedFilename }). |
 | [BrowserDownloadContext](/api/E2E.Engine/BrowserDownloadContext/) | Handed to ReadAsync, once per file. |
-| [BrowserLease](/api/E2E.Engine/BrowserLease/) | One leased browser, as CancellationToken) returns it and CancellationToken) gets it back. A provider may derive from it and keep further fields: release gets that same object, while only the declared fields travel from the runner to the worker that attaches to it. |
+| [BrowserLease](/api/E2E.Engine/BrowserLease/) | One leased browser, as AcquireAsync returns it and ReleaseAsync gets it back. A provider may derive from it and keep further fields: release gets that same object, while only the declared fields travel from the runner to the worker that attaches to it. |
 | [BrowserProviderDownloads](/api/E2E.Engine/BrowserProviderDownloads/) | How a download reaches the runner from a browser on another machine. The browser saves every file to its own disk, where the runner cannot open it, so the engine points the browser's downloads at Dir there and reads each finished file back through ReadAsync. |
 | [BrowserReleaseContext](/api/E2E.Engine/BrowserReleaseContext/) | Handed to release, once per lease. |
 | [BrowserRequest](/api/E2E.Engine/BrowserRequest/) | What the engine asks a provider for: one browser for one worker slot, or for one attempt, of a run. |
@@ -31,15 +31,15 @@ Public types in the `E2E.Engine` namespace.
 | [DocumentEngine](/api/E2E.Engine/DocumentEngine/) | In-memory page engine for samples and tests that do not need a browser. Each open builds a fresh page from the route mapped on DocumentWorld. Actions mutate that page until the next open. app.back rebuilds the previous route, and app.restart and app.clearState drop the history and reopen the base URL. The document engine has no browser, so the Browser fixture is unsupported. |
 | [DocumentPage](/api/E2E.Engine/DocumentPage/) | One in-memory screen. Builder methods append controls in reading order. |
 | [DocumentWorld](/api/E2E.Engine/DocumentWorld/) | Routes a DocumentEngine can open. Each open builds a new page from the mapped factory. |
-| [EngineFinishInfo](/api/E2E.Engine/EngineFinishInfo/) | The facts handed to an engine's finish (CancellationToken)), once per run and target after the last worker is gone, with the cleanup budget of one hook. Upstream's EngineFinishInfo. |
+| [EngineFinishInfo](/api/E2E.Engine/EngineFinishInfo/) | The facts handed to an engine's finish (FinishAsync), once per run and target after the last worker is gone, with the cleanup budget of one hook. Upstream's EngineFinishInfo. |
 | [EngineFixtureContext](/api/E2E.Engine/EngineFixtureContext/) | What an engine's fixture gets from the attempt, once per attempt. Upstream's EngineFixtureContext, of which the port has locator only: its fixtures take their own cancellation tokens, and record their steps through RunOperationAsync. |
 | [EngineInitInfo](/api/E2E.Engine/EngineInitInfo/) | What a worker's init is given, once per worker, before its first attempt. Upstream's EngineInitInfo. |
-| [EnginePrepareInfo](/api/E2E.Engine/EnginePrepareInfo/) | The facts handed to an engine's prepare (CancellationToken)), once per run and target in the runner process, before any worker exists. Upstream's EnginePrepareInfo. |
+| [EnginePrepareInfo](/api/E2E.Engine/EnginePrepareInfo/) | The facts handed to an engine's prepare (PrepareAsync), once per run and target in the runner process, before any worker exists. Upstream's EnginePrepareInfo. |
 | [EnginePrepareResult](/api/E2E.Engine/EnginePrepareResult/) | What prepare learned that the run must honour. Upstream's EnginePrepareResult. |
 | [EngineScreenshot](/api/E2E.Engine/EngineScreenshot/) | A captured viewport: PNG bytes, and how many image pixels one viewport (CSS) pixel takes. |
-| [EngineStartOptions](/api/E2E.Engine/EngineStartOptions/) | Passed to CancellationToken) once per test attempt. |
+| [EngineStartOptions](/api/E2E.Engine/EngineStartOptions/) | Passed to StartAsync once per test attempt. |
 | [KeyModifiers](/api/E2E.Engine/KeyModifiers/) | The names of KeyModifier, which a recorded action and an MCP argument spell. Upstream's KEYMODIFIERS and isKeyModifier. |
-| [LocatorAction](/api/E2E.Engine/LocatorAction/) | A deterministic action CancellationToken) carries out on one node. |
+| [LocatorAction](/api/E2E.Engine/LocatorAction/) | A deterministic action PerformAsync carries out on one node. |
 | [LocatorAction.Check](/api/E2E.Engine/LocatorAction.Check/) |  |
 | [LocatorAction.Clear](/api/E2E.Engine/LocatorAction.Clear/) |  |
 | [LocatorAction.DoubleTap](/api/E2E.Engine/LocatorAction.DoubleTap/) | A double tap. <code class="paramref">Modifiers</code> are held for both clicks, as for LocatorAction.Tap. |
@@ -54,7 +54,7 @@ Public types in the `E2E.Engine` namespace.
 | [LocatorAction.SecondaryTap](/api/E2E.Engine/LocatorAction.SecondaryTap/) | A right click, or the platform's equivalent. <code class="paramref">Modifiers</code> are held for the click, as for LocatorAction.Tap. |
 | [LocatorAction.Select](/api/E2E.Engine/LocatorAction.Select/) |  |
 | [LocatorAction.SetInputFiles](/api/E2E.Engine/LocatorAction.SetInputFiles/) | Sets the files of a file input, or of a control that opens a file chooser when clicked, such as a button over a hidden input. <code class="paramref">Paths</code> are absolute: the locator resolves them from the project root. |
-| [LocatorAction.Swipe](/api/E2E.Engine/LocatorAction.Swipe/) | Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is CancellationToken). |
+| [LocatorAction.Swipe](/api/E2E.Engine/LocatorAction.Swipe/) | Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is SwipeAsync. |
 | [LocatorAction.Tap](/api/E2E.Engine/LocatorAction.Tap/) | A tap. <code class="paramref">Modifiers</code> are held for the click, and only an engine that declares TapModifiers receives them. |
 | [LocatorAction.Uncheck](/api/E2E.Engine/LocatorAction.Uncheck/) |  |
 | [NodeStates](/api/E2E.Engine/NodeStates/) | Boolean states a platform can report for one node. |
@@ -63,9 +63,9 @@ Public types in the `E2E.Engine` namespace.
 | [ProviderRecordContext](/api/E2E.Engine/ProviderRecordContext/) | Handed to a provider's RecordAsync, once per attempt that records video. |
 | [ProviderRecording](/api/E2E.Engine/ProviderRecording/) | A recording a provider's service makes of the browser or device it leased, as RecordAsync started it. |
 | [ProviderRecordingResult](/api/E2E.Engine/ProviderRecordingResult/) | What a stopped recording became: a file the provider wrote into the directory it was given, by name (File), or a recording its service keeps, by http(s) URL and media type (Url and MediaType). |
-| [ProviderRecordings](/api/E2E.Engine/ProviderRecordings/) | The recording seam every engine's provider shares (upstream recording.ts): a hosted browser or device service recording the attempt itself, in place of the engine's own capture. A provider's RecordAsync starts a ProviderRecording for the lease the attempt rides; CancellationToken) ends it and checks what the provider handed back, so every engine turns a recording into a VideoSegment the same way. |
-| [ProviderRecordingStopContext](/api/E2E.Engine/ProviderRecordingStopContext/) | Handed to CancellationToken), once per recording. |
-| [ProviderRecordingTarget](/api/E2E.Engine/ProviderRecordingTarget/) | Where the attempt's recording lands and who made it, for CancellationToken). |
+| [ProviderRecordings](/api/E2E.Engine/ProviderRecordings/) | The recording seam every engine's provider shares (upstream recording.ts): a hosted browser or device service recording the attempt itself, in place of the engine's own capture. A provider's RecordAsync starts a ProviderRecording for the lease the attempt rides; StopProviderRecordingAsync ends it and checks what the provider handed back, so every engine turns a recording into a VideoSegment the same way. |
+| [ProviderRecordingStopContext](/api/E2E.Engine/ProviderRecordingStopContext/) | Handed to StopAsync, once per recording. |
+| [ProviderRecordingTarget](/api/E2E.Engine/ProviderRecordingTarget/) | Where the attempt's recording lands and who made it, for StopProviderRecordingAsync. |
 | [RouteContinueOverrides](/api/E2E.Engine/RouteContinueOverrides/) | What ContinueAsync(RouteContinueOverrides) changes about the request before it goes to the network. |
 | [RouteFulfillResponse](/api/E2E.Engine/RouteFulfillResponse/) | How FulfillAsync(RouteFulfillResponse) answers a request. Give at most one of Json, Body, or Path; none is an empty body. |
 | [SemanticNode](/api/E2E.Engine/SemanticNode/) | One node of an observation tree. Ref is valid only for the observation it came from. |
@@ -87,7 +87,7 @@ Public types in the `E2E.Engine` namespace.
 
 | Type | Summary |
 | --- | --- |
-| [IBrowserProvider](/api/E2E.Engine/IBrowserProvider/) | A source of hosted browsers: the seam a hosted browser service plugs into (upstream BrowserProvider). In Worker scope CancellationToken) is called once per worker slot, for every slot at once, in the runner; a worker whose browser drops calls it again, from its own process, for a replacement. In Attempt scope every attempt start calls it from the worker. CancellationToken) is called exactly once per lease, by the process that acquired it, also after an acquire of another slot failed; a worker that dies first never calls it, and CancellationToken) releases what it left. A provider must not rely on runner-process state to serve a request from a worker. Nothing here knows any vendor. |
+| [IBrowserProvider](/api/E2E.Engine/IBrowserProvider/) | A source of hosted browsers: the seam a hosted browser service plugs into (upstream BrowserProvider). In Worker scope AcquireAsync is called once per worker slot, for every slot at once, in the runner; a worker whose browser drops calls it again, from its own process, for a replacement. In Attempt scope every attempt start calls it from the worker. ReleaseAsync is called exactly once per lease, by the process that acquired it, also after an acquire of another slot failed; a worker that dies first never calls it, and SweepAsync releases what it left. A provider must not rely on runner-process state to serve a request from a worker. Nothing here knows any vendor. |
 | [IBrowserRoute](/api/E2E.Engine/IBrowserRoute/) | One intercepted request, as an engine hands it to a route handler. The harness has already validated each decision and takes at most one. |
 | [IBrowserSession](/api/E2E.Engine/IBrowserSession/) | The browser-shaped surface an engine session can add on top of IEngineSession. The Browser fixture uses it, and fails with UNSUPPORTEDCAPABILITY when the session does not implement it. The harness has already validated every argument. |
 | [IEngine](/api/E2E.Engine/IEngine/) | The body of one target. Core knows this contract and never an engine's internals. Version is the engine version. It is not part of the replay cache key: a recording re-finds its nodes at replay. |

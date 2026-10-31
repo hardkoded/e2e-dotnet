@@ -1,6 +1,6 @@
 ---
 title: "Agent"
-description: "One goal (CancellationToken)) or a check against the current screen."
+description: "One goal (ActAsync) or a check against the current screen."
 editUrl: false
 prev: false
 next: false
@@ -19,7 +19,7 @@ public sealed class Agent
 ```
 
 
-One goal (`CancellationToken)`) or a check against the current screen.
+One goal (`ActAsync`) or a check against the current screen.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
