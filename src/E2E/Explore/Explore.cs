@@ -383,7 +383,9 @@ public static class Explore
 
         if (!File.Exists(path))
         {
-            throw E2EConfig.ExplicitConfigNotFound(cwd, options.ConfigPath!, path);
+            throw options.ConfigPath is { } explicitPath
+                ? E2EConfig.ExplicitConfigNotFound(cwd, explicitPath, path)
+                : new ConfigurationException("CONFIG_NOT_FOUND", "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one");
         }
 
         return E2EConfig.Load(path);
