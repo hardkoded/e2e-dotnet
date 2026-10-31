@@ -22,7 +22,7 @@ public sealed class UniqueThroughValidateParamsTests
             ["qty"] = 2,
             ["owner"] = new Dictionary<string, object?> { ["email"] = Values.Unique("a@b.test"), ["tags"] = new object[] { "vip", Values.Unique("new-customer") } },
             ["a/b"] = Values.Unique("slash"),
-        });
+        }, "agent.act");
 
         Assert.True(JsonNode.DeepEquals(
             JsonNode.Parse("{\"name\":\"E2E abc Company\",\"plan\":\"pro\",\"qty\":2,\"owner\":{\"email\":\"a@b.test\",\"tags\":[\"vip\",\"new-customer\"]},\"a/b\":\"slash\"}"),

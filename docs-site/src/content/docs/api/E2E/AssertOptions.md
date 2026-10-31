@@ -44,6 +44,24 @@ The named agent whose judge decides. Defaults to `default`.
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1008)
 
+<a id="E2E_AssertOptions_Params_"></a>
+<a id="E2E_AssertOptions_Params"></a>
+
+### Params
+
+
+```csharp
+public IReadOnlyDictionary<string, object?>? Params { get; init; }
+```
+
+
+Values the assertion refers to as `{name}`, with the same rules as [Params](/api/E2E/ActOptions/#E2E_ActOptions_Params). The judge reads a
+[Unique](/api/E2E/Values/#E2E_Values_Unique_System_String_) value as its string and a [Secret](/api/E2E/Secret/) by name only, never its value.
+
+**Value:** [IReadOnlyDictionary&lt;string, object&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1045)
+
 <a id="E2E_AssertOptions_Screenshot_"></a>
 <a id="E2E_AssertOptions_Screenshot"></a>
 

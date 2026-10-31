@@ -225,12 +225,24 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
   explanation. Too little on screen to decide is `ASSERTION_INCONCLUSIVE`,
   also a failure, so reach the right screen first and ask about what is
   visible.
-- Judgments see the statement and the current screen only, never prior
-  steps. The judge answers `holds`, `fails`, or `inconclusive` in one
+- Judgments see the statement, its `Params`, the agent's context, the test
+  title, and the current screen, never prior steps. The judge answers `holds`, `fails`, or `inconclusive` in one
   `agent-judgment-2` JSON object (`protocolVersion`, `explanation`, `verdict`;
   `schema/agent-judgment-v2.schema.json`). `fails` is `ASSERTION_FAILED`,
   `inconclusive` is `ASSERTION_INCONCLUSIVE`. An answer outside that grammar
   gets one repair round, then `MODEL_OUTPUT_INVALID`.
+- `AssertAsync` and `WaitForAsync` take `Params` like `ActAsync`, with the
+  same rules: `INVALID_ARGUMENT` when invalid, a `Values.Unique` value read as
+  its string, and the statement refers to a value as `{name}`. The judge sees a
+  `Secret` by name only, never its value, so check a secret's value on screen
+  with a locator assertion. A custom executor gets an assert's params in
+  `Step.Params`, and can name a secret but never fill it.
+
+  ```csharp
+  var name = Values.Unique($"acme-{DateTime.UtcNow.Ticks}");
+  await Agent.ActAsync("create a company named {name}", new ActOptions { Params = new Dictionary<string, object?> { ["name"] = name } });
+  await Agent.AssertAsync("the table shows company {name}", new AssertOptions { Params = new Dictionary<string, object?> { ["name"] = name } });
+  ```
 - A value shown in more than one place (a total in the summary and on the
   pay button) must agree everywhere, or the judgment fails. Name the one you
   mean (`"the order summary total is $42.00"`) when only it matters.

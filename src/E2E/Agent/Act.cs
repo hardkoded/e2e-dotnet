@@ -19,7 +19,7 @@ public sealed partial class Agent
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(instruction);
         CheckInstruction(instruction);
-        ActParams.Validate(options?.Params);
+        ActParams.Validate(options?.Params, "agent.act");
         var agent = _scope.Select(options?.Agent);
         return StepAsync(
             "agent.act",
@@ -95,6 +95,7 @@ public sealed partial class Agent
             {
                 Kind = ExecutorStepKind.Assert,
                 Instruction = statement,
+                Params = options?.Params,
                 Timeout = options?.Timeout,
                 Screenshot = options?.Screenshot,
             },
@@ -153,8 +154,12 @@ public sealed partial class Agent
         };
         _feed = feed;
         var stepIndex = _scope.NextStepIndex();
-        _scope.Remember(spec.Params);
-        var declared = ActParams.SecretsIn(spec.Params);
+        // An assert changes no state, so its secrets are named to the executor but never fillable.
+        var declared = spec.Kind == ExecutorStepKind.Act ? ActParams.SecretsIn(spec.Params) : [];
+        if (spec.Kind == ExecutorStepKind.Act)
+        {
+            _scope.Remember(spec.Params);
+        }
         var dispatcher = new ActionDispatcher(_scope, feed, budget, spec.Params, () => declared, spec.OnAction);
         budget.Attach(_scope, timeout, outer.Token, stop, feed.ArmAfter, dispatcher.NotifyToolAsync);
         ActContext? context = null;

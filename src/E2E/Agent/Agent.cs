@@ -50,6 +50,9 @@ public sealed partial class Agent
     // How often waitFor looks for a changed screen once its interval has passed.
     private static readonly TimeSpan WaitForTick = TimeSpan.FromMilliseconds(250);
 
+    // The params line of a judgment, as JSON.stringify writes it: compact, and the text left as typed.
+    private static readonly JsonSerializerOptions ParamsJson = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
     private static readonly JsonSerializerOptions ExtractJson = CreateExtractJson(JsonDefaults.Options.NumberHandling);
 
     // The schema the model sees names a number as a number. Reading stays lenient: a model may still answer "3" for 3.
@@ -81,11 +84,13 @@ public sealed partial class Agent
         // The brain that plans the flows judges the assertions too, so a custom executor takes the assert.
         if (agent.Executor is not null)
         {
+            ActParams.Validate(options?.Params, "agent.assert");
             return _scope.Track(StepAsync("agent.assert", statement, agent, verifies: true, () => AssertWithExecutorAsync(statement, options, agent, cancellationToken)));
         }
 
+        var parameters = JudgmentParams(options?.Params, "agent.assert");
         var vision = ResolveVision(options?.Vision ?? VisionMode.Off);
-        return _scope.Track(StepAsync("agent.assert", statement, agent, verifies: true, () => JudgeAsync(statement, ResolveTimeout(options?.Timeout, agent.JudgmentTimeout), agent, vision, options?.Screenshot, cancellationToken)));
+        return _scope.Track(StepAsync("agent.assert", statement, agent, verifies: true, () => JudgeAsync(statement, parameters, ResolveTimeout(options?.Timeout, agent.JudgmentTimeout), agent, vision, options?.Screenshot, cancellationToken)));
     }
 
     /// <summary>
@@ -101,10 +106,11 @@ public sealed partial class Agent
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(statement);
         var agent = _scope.Select(options?.Agent);
-        await StepAsync("agent.waitFor", statement, agent, verifies: true, () => WaitForCoreAsync(statement, options, cancellationToken)).ConfigureAwait(false);
+        var parameters = JudgmentParams(options?.Params, "agent.waitFor");
+        await StepAsync("agent.waitFor", statement, agent, verifies: true, () => WaitForCoreAsync(statement, parameters, options, cancellationToken)).ConfigureAwait(false);
     }
 
-    private async Task WaitForCoreAsync(string statement, WaitForOptions? options, CancellationToken cancellationToken)
+    private async Task WaitForCoreAsync(string statement, string? parameters, WaitForOptions? options, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(statement);
         var agent = _scope.Select(options?.Agent);
@@ -129,7 +135,7 @@ public sealed partial class Agent
         Task<Look> ObserveAsync()
         {
             guard(null);
-            return LookAsync("agent.waitFor", vision, agent, JudgeSystemFor(agent), statement, token, guard);
+            return LookAsync("agent.waitFor", vision, agent, JudgeSystemFor(agent), WithParameters(statement, parameters), token, guard);
         }
 
         async Task<Look> ObserveBetweenAsync()
@@ -149,7 +155,7 @@ public sealed partial class Agent
             var look = await ObserveAsync().ConfigureAwait(false);
             while (true)
             {
-                var verdict = await JudgeOnceAsync(statement, look, agent, maxCalls - (_scope.ModelCalls - callsBefore), token, cancellationToken).ConfigureAwait(false);
+                var verdict = await JudgeOnceAsync(statement, parameters, look, agent, maxCalls - (_scope.ModelCalls - callsBefore), token, cancellationToken).ConfigureAwait(false);
                 if (string.Equals(verdict.Status, "passed", StringComparison.Ordinal))
                 {
                     _scope.Steps.AttachAgentDetails(new StepAgentDetails { Explanation = verdict.Summary });
@@ -300,13 +306,26 @@ public sealed partial class Agent
         }
     }
 
-    private async Task JudgeAsync(string statement, TimeSpan timeout, ResolvedAgent agent, VisionMode vision, bool? screenshot, CancellationToken cancellationToken)
+    // A judgment's params as the judge reads them (upstream's judgmentParams in agent/index.ts): projected as act projects them, a
+    // Secret by name only and a unique() value as its string, then redacted, so a registered value spelled into a param never reaches
+    // the model. Null without params.
+    private string? JudgmentParams(IReadOnlyDictionary<string, object?>? parameters, string api)
+    {
+        ActParams.Validate(parameters, api);
+        return ActContext.ProjectParams(parameters, _scope.Redactor, api) is { } projected ? JsonSerializer.Serialize(projected, ParamsJson) : null;
+    }
+
+    // The instruction with the line that carries its params (upstream's buildPrompt), for the prompt and for the input budget.
+    private static string WithParameters(string instruction, string? parameters) =>
+        parameters is null ? instruction : instruction + "\nParameters: " + parameters;
+
+    private async Task JudgeAsync(string statement, string? parameters, TimeSpan timeout, ResolvedAgent agent, VisionMode vision, bool? screenshot, CancellationToken cancellationToken)
     {
         var guard = Guard("agent.assert", cancellationToken, timeout);
         using var linked = Link(cancellationToken, timeout);
         var token = linked.Token;
-        var look = await LookAsync("agent.assert", vision, agent, JudgeSystemFor(agent), statement, token, guard).ConfigureAwait(false);
-        var verdict = await JudgeOnceAsync(statement, look, agent, JudgmentModelCalls, token, cancellationToken).ConfigureAwait(false);
+        var look = await LookAsync("agent.assert", vision, agent, JudgeSystemFor(agent), WithParameters(statement, parameters), token, guard).ConfigureAwait(false);
+        var verdict = await JudgeOnceAsync(statement, parameters, look, agent, JudgmentModelCalls, token, cancellationToken).ConfigureAwait(false);
 
         // The redacted screenshot is kept whenever Screenshot allows it, on a passing judgment too.
         var kept = screenshot == false ? null : await KeepEvidenceAsync(token, cancellationToken).ConfigureAwait(false);
@@ -321,11 +340,11 @@ public sealed partial class Agent
     }
 
     // One judgment, with a repair round when the judge did not answer with an agent-judgment-2 object and the budget has a call left.
-    private async Task<Verdict> JudgeOnceAsync(string statement, Look look, ResolvedAgent agent, int callsLeft, CancellationToken token, CancellationToken cancellationToken)
+    private async Task<Verdict> JudgeOnceAsync(string statement, string? parameters, Look look, ResolvedAgent agent, int callsLeft, CancellationToken token, CancellationToken cancellationToken)
     {
         var messages = new List<ModelMessage>
         {
-            new() { Role = "user", Content = _scope.Redactor.Redact(TitleOpening() + "Statement: " + statement + "\n\n") + look.Text, Images = look.Images },
+            new() { Role = "user", Content = _scope.Redactor.Redact(TitleOpening() + WithParameters("Statement: " + statement, parameters) + "\n\n") + look.Text, Images = look.Images },
         };
         var system = JudgeSystemFor(agent);
         var response = await CallModelAsync(agent.Judge, system, messages, [], agent, token, cancellationToken, schema: AgentProtocol.JudgmentSchema).ConfigureAwait(false);
@@ -1019,6 +1038,12 @@ public enum ActionSource
 /// <summary><c>agent.assert</c>: one judgment and one repair round, within <see cref="Timeout"/>.</summary>
 public sealed class AssertOptions
 {
+    /// <summary>
+    /// Values the assertion refers to as <c>{name}</c>, with the same rules as <see cref="ActOptions.Params"/>. The judge reads a
+    /// <see cref="Values.Unique"/> value as its string and a <see cref="Secret"/> by name only, never its value.
+    /// </summary>
+    public IReadOnlyDictionary<string, object?>? Params { get; init; }
+
     /// <summary>Defaults to the agent's <c>JudgmentTimeout</c> (30 s).</summary>
     public TimeSpan? Timeout { get; init; }
 
@@ -1038,6 +1063,12 @@ public sealed class AssertOptions
 /// <summary><c>agent.waitFor</c>: a judgment at most once per <see cref="Interval"/>, and only on a changed screen, until <see cref="Timeout"/>.</summary>
 public sealed class WaitForOptions
 {
+    /// <summary>
+    /// Values the condition refers to as <c>{name}</c>, with the same rules as <see cref="ActOptions.Params"/>. The judge reads a
+    /// <see cref="Values.Unique"/> value as its string and a <see cref="Secret"/> by name only, never its value.
+    /// </summary>
+    public IReadOnlyDictionary<string, object?>? Params { get; init; }
+
     /// <summary>Defaults to the agent's <c>JudgmentTimeout</c> (30 s).</summary>
     public TimeSpan? Timeout { get; init; }
 
