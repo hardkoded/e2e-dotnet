@@ -5,6 +5,7 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using E2E.Internal;
+using ArtifactProducerKind = E2E.Reports.ArtifactProducerKind;
 using static E2E.MarkdownText;
 
 namespace E2E;
@@ -463,20 +464,42 @@ internal static partial class FailureText
     /// <summary>Drops a loopback origin from the URLs in a line: nobody reading the page can open it, and the path says the rest.</summary>
     private static string ShortenLoopback(string text) => LoopbackOrigin().Replace(text, "");
 
+    /// <summary>A video artifact with the span it covers; a recording a step stopped (<c>app.StopRecordingAsync</c>) ends with that step (upstream's <c>TimedVideo</c>).</summary>
+    private sealed record TimedVideo(ReportArtifact Artifact, DateTimeOffset StartsAt, DateTimeOffset? EndsAt);
+
+    /// <summary>The attempt's videos in the order they began, each with the span it covers (upstream's <c>timedVideos</c>).</summary>
+    private static List<TimedVideo> TimedVideos(ReportAttempt told)
+    {
+        var ends = told.Steps.ToDictionary(step => step.Id, step => step.StartedAt.AddMilliseconds(step.DurationMs), StringComparer.Ordinal);
+        return
+        [
+            .. told.Artifacts
+                .Where(artifact => string.Equals(artifact.Kind, "video", StringComparison.Ordinal) && artifact.StartedAt is not null)
+                .Select(artifact => new TimedVideo(
+                    artifact,
+                    artifact.StartedAt!.Value,
+                    artifact.Producer is { Kind: ArtifactProducerKind.Step, StepId: { } stepId } && ends.TryGetValue(stepId, out var end) ? end : null))
+                .OrderBy(video => video.StartsAt),
+        ];
+    }
+
     /// <summary>
     /// <c>, video 0:12</c>: where the step starts in the recording that was running then, the last segment that began before it. An
-    /// attempt cut into several segments (a restart opens a new page) names the segment too: <c>, video-part2 0:03</c>. Nothing
-    /// without a recording.
+    /// attempt cut into several segments (a restart opens a new page) names the segment too: <c>, video-part2 0:03</c>. A step before the
+    /// attempt's video began is at 0:00; one outside every recording a step stopped gets nothing.
     /// </summary>
-    private static string VideoOffset(StepRecord step, IReadOnlyList<ReportArtifact> videos)
+    private static string VideoOffset(StepRecord step, IReadOnlyList<TimedVideo> videos)
     {
-        if (videos.Count == 0)
+        var at = step.StartedAt;
+        var timed = videos.LastOrDefault(candidate => candidate.StartsAt <= at && (candidate.EndsAt is not { } end || at < end))
+            ?? videos.FirstOrDefault(candidate => candidate.EndsAt is null && at < candidate.StartsAt);
+        if (timed is null)
         {
             return "";
         }
 
-        var video = videos.LastOrDefault(candidate => candidate.StartedAt <= step.StartedAt) ?? videos[0];
-        var seconds = Math.Max(0, (long)Math.Floor((step.StartedAt - video.StartedAt!.Value).TotalSeconds));
+        var video = timed.Artifact;
+        var seconds = Math.Max(0, (long)Math.Floor((at - timed.StartsAt).TotalSeconds));
         var name = videos.Count > 1 && video.Path is not null ? System.IO.Path.GetFileNameWithoutExtension(video.Path) : "video";
         return ", " + name + " " + (seconds / 60).ToString(CultureInfo.InvariantCulture) + ":" + (seconds % 60).ToString("00", CultureInfo.InvariantCulture);
     }
@@ -615,7 +638,7 @@ internal static partial class FailureText
         var at = FailedStepOf(told);
         if (told.Steps.Count > 0)
         {
-            var videos = told.Artifacts.Where(artifact => string.Equals(artifact.Kind, "video", StringComparison.Ordinal) && artifact.StartedAt is not null).OrderBy(artifact => artifact.StartedAt).ToList();
+            var videos = TimedVideos(told);
             lines.AddRange(["## Steps", ""]);
             for (var index = 0; index < told.Steps.Count; index++)
             {

@@ -30,11 +30,6 @@ public sealed partial class WebEngine
         {
             var setup = Video;
             var dir = setup?.ArtifactsDir ?? throw new EngineException(EngineErrorCodes.InvalidState, "video needs the attempt's artifact directory; start the session with EngineStartOptions.ArtifactsDir");
-            if (_video is not null)
-            {
-                return;
-            }
-
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetime.Token);
             var token = linked.Token;
             try
@@ -46,6 +41,14 @@ public sealed partial class WebEngine
                 }
 
                 var page = Page;
+
+                // An attempt may start and stop more than once, never overlapping: the recorder the first start made records again.
+                if (_video is { } again)
+                {
+                    await again.ArmAsync(page, token).ConfigureAwait(false);
+                    return;
+                }
+
                 if (setup.Record is { } record)
                 {
                     var provided = new ProviderVideo(record, dir);

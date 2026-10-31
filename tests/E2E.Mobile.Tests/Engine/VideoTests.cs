@@ -86,6 +86,28 @@ public sealed class VideoTests : IDisposable
         Assert.Equal(2, Records(h));
     }
 
+    [Fact]
+    public async Task Records_again_in_the_same_attempt_once_the_runner_moved_the_previous_file_away()
+    {
+        var h = Harness.Create();
+        Recorder(h);
+        var session = await OpenAttempt(h, _artifactsDir);
+        foreach (var moved in new[] { "first.mp4", "second.mp4" })
+        {
+            await session.StartVideoAsync(CancellationToken.None);
+            var segment = Assert.IsType<VideoFile>(Assert.Single(await session.StopVideoAsync(CancellationToken.None)));
+            Assert.Equal("video/video.mp4", segment.Path);
+            Assert.True(DateTime.TryParse(segment.StartedAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out _));
+            File.Move(VideoPath, Path.Combine(_artifactsDir, moved));
+        }
+
+        Assert.Equal(4, Records(h));
+
+        // Nothing is left recording for the attempt's end to stop.
+        await session.DisposeAsync();
+        Assert.Equal(4, Records(h));
+    }
+
     [Theory]
     [InlineData(MobilePlatform.Ios, "73329AAC-8EB6-4AAD-B33C-8A8E911CD2A6", """{"platform":"ios","udid":"73329AAC-8EB6-4AAD-B33C-8A8E911CD2A6"}""")]
     [InlineData(MobilePlatform.Android, "emulator-5554", """{"platform":"android","serial":"emulator-5554"}""")]

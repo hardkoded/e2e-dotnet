@@ -135,6 +135,54 @@ public sealed class App
         return path;
     }
 
+    /// <summary>
+    /// Starts recording the screen, until <see cref="StopRecordingAsync"/>. One recording at a time, and none while the test's
+    /// <c>video</c> records, since the engine has one recorder: set the test's video to <c>off</c>. A recording still running when the
+    /// test ends is stopped and kept. Like the test's video, a recording masks nothing. Upstream's <c>app.startRecording</c>.
+    /// Throws <c>UNSUPPORTED_CAPABILITY</c> while the test's video records or when the engine records no video, and
+    /// <c>INVALID_ARGUMENT</c> when another recording is running.
+    /// </summary>
+    /// <param name="options">Names the file: <c>recordings/001-&lt;name&gt;.&lt;ext&gt;</c>.</param>
+    /// <param name="cancellationToken">Cancels the start.</param>
+    public async Task StartRecordingAsync(RecordingOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var recordings = Recordings ?? throw new EngineException(EngineErrorCodes.InvalidState, "recording outside an attempt: the app has no recorder");
+        var name = options?.Name;
+        await RunStepAsync("app.startRecording", name ?? "", () => recordings.StartSpanAsync(name, Token(cancellationToken))).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Stops the recording and returns its videos, in play order: a file (absolute <c>Path</c>) under the attempt's <c>recordings/</c>,
+    /// named <c>001-&lt;name&gt;.&lt;ext&gt;</c>, or a link when a hosted browser or device keeps the recording. There is one video, except on
+    /// the web when the page was replaced while it recorded (<c>app.RestartAsync()</c>, <c>app.ClearStateAsync()</c>): then one per page.
+    /// The step links each video in the trace. Never empty. Upstream's <c>app.stopRecording</c>. Throws <c>INVALID_ARGUMENT</c> when no
+    /// recording is running and <c>ENGINE_FAILURE</c> when the engine wrote no video.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the stop.</param>
+    public async Task<IReadOnlyList<RecordedVideo>> StopRecordingAsync(CancellationToken cancellationToken = default)
+    {
+        var recordings = Recordings ?? throw new EngineException(EngineErrorCodes.InvalidState, "recording outside an attempt: the app has no recorder");
+        var sink = Sink ?? throw new EngineException(EngineErrorCodes.InvalidState, "recording outside an attempt: the app has no artifact directory");
+        IReadOnlyList<RecordedVideo> videos = [];
+        await RunStepAsync("app.stopRecording", "", async () =>
+        {
+            var stopped = await recordings.StopSpanAsync(sink, Token(cancellationToken)).ConfigureAwait(false);
+            foreach (var id in stopped.Ids)
+            {
+                _steps?.AttachArtifact(id);
+            }
+
+            videos = stopped.Videos;
+        }).ConfigureAwait(false);
+        return videos;
+    }
+
+    /// <summary>The engine's one recorder, shared with the attempt's video (upstream's <c>sessionRecordings</c>).</summary>
+    internal SessionRecordings? Recordings { get; set; }
+
+    /// <summary>Where the attempt registers the videos a recording produced (upstream's <c>environment.artifacts</c>).</summary>
+    internal IArtifactSink? Sink { get; set; }
+
     /// <summary>The attempt's artifact directory, which a screenshot's artifact-relative path is resolved against (upstream's <c>environment.artifacts.dir</c>).</summary>
     internal string? ArtifactsDir { get; set; }
 

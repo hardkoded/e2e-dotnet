@@ -99,6 +99,24 @@ public sealed class VideoRecorderTests : IDisposable
     }
 
     [Fact]
+    public async Task Starts_again_after_a_stop_on_the_same_page_and_the_second_stop_hands_over_only_the_new_segment()
+    {
+        var video = Recorder();
+        var page = new ScriptedPage();
+        await video.ArmAsync(page.Page);
+        Assert.Equal(["video/video.webm"], (await video.StopAsync()).Select(segment => segment.Path));
+
+        // Disarmed between recordings: a page opened now starts nothing.
+        var other = new ScriptedPage();
+        await video.PageOpenedAsync(other.Page);
+        Assert.Empty(other.Started);
+        await video.ArmAsync(page.Page);
+        Assert.Equal(["video/video-part2.webm"], (await video.StopAsync()).Select(segment => segment.Path));
+        Assert.Equal([Path.Combine(_dir, "video", "video.webm"), Path.Combine(_dir, "video", "video-part2.webm")], page.Started);
+        Assert.Equal(2, page.StoppedCount);
+    }
+
+    [Fact]
     public async Task Reports_a_segment_whose_stop_failed_and_left_no_file_once()
     {
         var video = Recorder();

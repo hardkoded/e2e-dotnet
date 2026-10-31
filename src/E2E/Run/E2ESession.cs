@@ -26,6 +26,7 @@ public sealed class E2ESession : IAsyncDisposable
     private int _state;
     private int _disposed;
     private ExecuteVideo? _video;
+    private SessionRecordings? _recordings;
     private TraceOutput? _trace;
     private int _evidenceTried;
     private FailureEvidence? _evidence;
@@ -219,7 +220,8 @@ public sealed class E2ESession : IAsyncDisposable
 
         try
         {
-            var video = await ExecuteVideo.StartAsync(recording, engine, attemptDir, options.LaunchTimeout, timeout.Token).ConfigureAwait(false);
+            var recordings = Recordings.SessionRecordings(engine, string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName, (options.Engine.Capabilities & EngineCapabilities.Video) != 0);
+            var video = await ExecuteVideo.StartAsync(recording, recordings, attemptDir, options.LaunchTimeout, timeout.Token).ConfigureAwait(false);
 
             // Outside strict mode, a later attempt never replays but still records, so the attempt number does not turn the cache off.
             // Strict mode treats the store as the reviewed source of truth: every attempt replays, and nothing is written or evicted.
@@ -274,7 +276,7 @@ public sealed class E2ESession : IAsyncDisposable
             // What the app did on its own while the engine launched waits here, and goes under the step it happened in.
             appLog.Route((appEvent, at) => scope.Steps.RecordAppEvent(appEvent, at));
 
-            var app = new App(engine, baseUrl, () => timeout.Token, scope.Steps, (options.Engine.Capabilities & EngineCapabilities.PinnedApp) != 0, scope.TargetName) { ArtifactsDir = attemptDir, Redact = text => scope.Redactor.Redact(text), Attach = scope.AttachArtifact };
+            var app = new App(engine, baseUrl, () => timeout.Token, scope.Steps, (options.Engine.Capabilities & EngineCapabilities.PinnedApp) != 0, scope.TargetName) { ArtifactsDir = attemptDir, Redact = text => scope.Redactor.Redact(text), Attach = scope.AttachArtifact, Recordings = recordings, Sink = scope.Artifacts?.Sink };
             var browser = new Browser(engine, options.Engine.Platform, baseUrl, projectRoot, options.ActionTimeout, options.AssertionTimeout, () => timeout.Token, scope.MarkVerified, softFailures) { Steps = scope.Steps };
             softFailures.Redact = text => scope.Redactor.Redact(text);
             browser.Redact = text => scope.Redactor.Redact(text);
@@ -324,7 +326,7 @@ public sealed class E2ESession : IAsyncDisposable
             };
             var keep = RecordingModes.AttemptKeep(options.Trace.Mode, options.Attempt - 1);
             var trace = new TraceOutput(keep, attemptDir, (options.Cache as FileStepCache)?.CacheDirectory);
-            return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _trace = trace };
+            return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _recordings = recordings, _trace = trace };
         }
         catch
         {
@@ -448,6 +450,9 @@ public sealed class E2ESession : IAsyncDisposable
                 await CaptureFailureEvidenceAsync(failure).ConfigureAwait(false);
             }
 
+            // A recording the test left running is stopped and kept before the attempt's own video is collected.
+            await StopRunningRecordingAsync().ConfigureAwait(false);
+
             if (_video is not null)
             {
                 try
@@ -510,6 +515,36 @@ public sealed class E2ESession : IAsyncDisposable
         if (videoFailure is not null)
         {
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(videoFailure);
+        }
+    }
+
+    /// <summary>
+    /// Stops a recording the test started with <c>app.StartRecordingAsync</c> and left running, within the cleanup budget, and keeps it as
+    /// the attempt's artifact. One that cannot be finalized is a cleanup failure. Upstream's <c>stopRunningRecording</c>.
+    /// </summary>
+    private async Task StopRunningRecordingAsync()
+    {
+        if (_recordings is not { SpanRunning: true } recordings || _scope.Artifacts?.Sink is not { } sink)
+        {
+            return;
+        }
+
+        try
+        {
+            using var cleanup = new CancellationTokenSource();
+            if (Bounded(_scope.CleanupTimeout))
+            {
+                cleanup.CancelAfter(_scope.CleanupTimeout);
+            }
+
+            // Like the attempt's video, the recording belongs to the attempt: no step links it.
+            await recordings.StopSpanAsync(sink, cleanup.Token).ConfigureAwait(false);
+        }
+#pragma warning disable CA1031 // A recording that cannot be finalized is a cleanup failure, and the rest of the teardown goes on.
+        catch (Exception ex)
+#pragma warning restore CA1031
+        {
+            _cleanupErrors.Add(ErrorSerializer.TranslateProvisioningError(ex, " while stopping the recording", CancellationToken.None));
         }
     }
 

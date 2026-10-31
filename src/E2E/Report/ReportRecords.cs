@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Internal;
+using ArtifactProducer = E2E.Reports.ArtifactProducer;
 using ArtifactRedaction = E2E.Reports.ArtifactRedaction;
 using VcsInfo = E2E.Reports.VcsInfo;
 
@@ -108,7 +109,8 @@ internal sealed record ReportError(string Code, string Message, string? Phase = 
 /// <param name="Size">The size of the file in bytes, when known; the run's <c>usage.artifactBytes</c> adds them up.</param>
 /// <param name="Redaction">What the runner claims for the file when it rewrote it (a text-like download); null leaves the kind to decide.</param>
 /// <param name="Ref">The reference the host's <c>IArtifactStore</c> returned for the artifact; null when there is none.</param>
-internal sealed record ReportArtifact(string Id, string Kind, string? Path = null, string? Url = null, DateTimeOffset? StartedAt = null, long? Size = null, ArtifactRedaction? Redaction = null, string? Ref = null);
+/// <param name="Producer">Who made it; a recording a step stopped covers the video only until that step ends.</param>
+internal sealed record ReportArtifact(string Id, string Kind, string? Path = null, string? Url = null, DateTimeOffset? StartedAt = null, long? Size = null, ArtifactRedaction? Redaction = null, string? Ref = null, ArtifactProducer? Producer = null);
 
 /// <summary>What was seen when a failure landed (upstream's <c>FailureEvidence</c>).</summary>
 internal sealed partial record FailureEvidence

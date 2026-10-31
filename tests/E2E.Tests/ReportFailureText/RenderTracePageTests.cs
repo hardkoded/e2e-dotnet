@@ -4,6 +4,8 @@
 
 using E2E.Internal;
 using E2E.Tests.Traces;
+using ArtifactProducer = E2E.Reports.ArtifactProducer;
+using ArtifactProducerKind = E2E.Reports.ArtifactProducerKind;
 using static E2E.Tests.ReportFailureText.FailureTextKit;
 
 namespace E2E.Tests.ReportFailureText;
@@ -41,6 +43,35 @@ public sealed class RenderTracePageTests
             ],
             lines[(at + 1)..(at + 4)]);
         Assert.DoesNotContain("console.txt", lines[at + 4], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Places_a_step_in_the_recording_that_covers_it_the_attempts_video_from_its_start_a_stopped_recording_only_until_its_stop_step_ends()
+    {
+        DateTimeOffset At(int seconds) => new(2026, 10, 27, 10, 0, seconds, TimeSpan.Zero);
+        ReportArtifact Video(string id, string file, DateTimeOffset startedAt, ArtifactProducer producer) =>
+            new(id, "video", "t/" + file, StartedAt: startedAt, Producer: producer);
+        List<string> Offsets(IReadOnlyList<ReportArtifact> artifacts) =>
+        [
+            .. Page(
+                [
+                    Failed(
+                        steps:
+                        [
+                            Step(0, api: "app.open", startedAt: At(0), durationMs: 500),
+                            Step(1, api: "locator.tap", startedAt: At(5), durationMs: 500),
+                            Step(2, api: "app.stopRecording", startedAt: At(8), durationMs: 1000),
+                            Step(3, api: "locator.tap", status: StepStatus.Failed, error: ReportBuilders.Error(), startedAt: At(12), durationMs: 500),
+                        ],
+                        artifacts: artifacts),
+                ])
+                .Split('\n')
+                .Where(line => System.Text.RegularExpressions.Regex.IsMatch(line, @"^\d\. "))
+                .Select(line => System.Text.RegularExpressions.Regex.Match(line, @"\((?:[^,)]*)(?:, ([^)]*))?\)").Groups[1].Value),
+        ];
+
+        Assert.Equal(["", "video 0:01", "video 0:04", ""], Offsets([Video("a:0", "recordings/001-span.webm", At(4), new ArtifactProducer { Kind = ArtifactProducerKind.Step, StepId = "s2" })]));
+        Assert.Equal(["video 0:00", "video 0:04", "video 0:07", "video 0:11"], Offsets([Video("a:0", "video/video.webm", At(1), new ArtifactProducer { Kind = ArtifactProducerKind.Attempt })]));
     }
 
     [Fact]

@@ -121,6 +121,22 @@ Without `MobileOptions.Device`, a booted simulator or emulator that another tool
 
 Tag device tests, for example `[assembly: Category("Device")]`, so a machine without a device can skip them.
 
+## Record a transition
+
+`App.StartRecordingAsync()` and `App.StopRecordingAsync()` record one span of the screen as an `.mp4`, and return the videos: a file `Path` under the attempt's `recordings/`, or a `Url` when a hosted device keeps the recording. The test's `video` must be off, since the engine has one recorder.
+
+```csharp
+public async Task The_sheet_slides_up()
+{
+    await App.OpenAsync();
+    await App.StartRecordingAsync(new RecordingOptions { Name = "sheet" });
+    await Screen.GetByRole("button", "Open sheet").TapAsync();
+    var videos = await App.StopRecordingAsync();
+}
+```
+
+Start it after `App.OpenAsync()`. A recording started after `Device.CloseAppAsync()` ends the device session when it stops, so open the app again after it. Taps show unless `MobileOptions.VideoTouches` is `false`.
+
 ## Hosted devices
 
 Set `E2E_MOBILE_PROVIDER=limrun` with `LIMRUN_API_KEY` to run on a hosted Limrun simulator. `E2E.Eas` and `E2E.TestMu.Mobile` add other providers. A provider whose service records its devices records the video of an attempt in place of agent-device (`IDeviceProvider.RecordAsync`). See the [mobile sample README](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp.E2ETests) for the full variable list.

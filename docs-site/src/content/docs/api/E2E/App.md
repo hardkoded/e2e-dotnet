@@ -167,3 +167,58 @@ Throws `UNSUPPORTED_CAPABILITY` on an engine that keeps no screenshots.
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L124)
+
+<a id="E2E_App_StartRecordingAsync_"></a>
+<a id="E2E_App_StartRecordingAsync_E2E_RecordingOptions_System_Threading_CancellationToken_"></a>
+
+### StartRecordingAsync(RecordingOptions?, CancellationToken)
+
+
+```csharp
+public Task StartRecordingAsync(RecordingOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Starts recording the screen, until [StopRecordingAsync(CancellationToken)](#E2E_App_StopRecordingAsync_System_Threading_CancellationToken_). One recording at a time, and none while the test's
+`video` records, since the engine has one recorder: set the test's video to `off`. A recording still running when the
+test ends is stopped and kept. Like the test's video, a recording masks nothing. Upstream's `app.startRecording`.
+Throws `UNSUPPORTED_CAPABILITY` while the test's video records or when the engine records no video, and
+`INVALID_ARGUMENT` when another recording is running.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [RecordingOptions](/api/E2E/RecordingOptions/) | Names the file: `recordings/001-<name>.<ext>`. |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) | Cancels the start. |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L147)
+
+<a id="E2E_App_StopRecordingAsync_"></a>
+<a id="E2E_App_StopRecordingAsync_System_Threading_CancellationToken_"></a>
+
+### StopRecordingAsync(CancellationToken)
+
+
+```csharp
+public Task<IReadOnlyList<RecordedVideo>> StopRecordingAsync(CancellationToken cancellationToken = default)
+```
+
+
+Stops the recording and returns its videos, in play order: a file (absolute `Path`) under the attempt's `recordings/`,
+named `001-<name>.<ext>`, or a link when a hosted browser or device keeps the recording. There is one video, except on
+the web when the page was replaced while it recorded (`app.RestartAsync()`, `app.ClearStateAsync()`): then one per page.
+The step links each video in the trace. Never empty. Upstream's `app.stopRecording`. Throws `INVALID_ARGUMENT` when no
+recording is running and `ENGINE_FAILURE` when the engine wrote no video.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) | Cancels the stop. |
+
+**Returns:** [Task&lt;IReadOnlyList&lt;RecordedVideo&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L162)
