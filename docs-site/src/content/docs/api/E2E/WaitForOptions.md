@@ -23,7 +23,7 @@ public sealed class WaitForOptions
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1012)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1046)
 
 ## Properties
 
@@ -42,7 +42,7 @@ The named agent whose judge decides. Defaults to `default`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1027)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1061)
 
 <a id="E2E_WaitForOptions_Interval_"></a>
 <a id="E2E_WaitForOptions_Interval"></a>
@@ -59,7 +59,7 @@ Least time between two judgments, 100 ms through 60 s. Defaults to 3 s.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1018)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1052)
 
 <a id="E2E_WaitForOptions_MaxModelCalls_"></a>
 <a id="E2E_WaitForOptions_MaxModelCalls"></a>
@@ -76,7 +76,7 @@ Model-call budget. Defaults to the configured `MaxModelCalls` and can only lower
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1021)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1055)
 
 <a id="E2E_WaitForOptions_Timeout_"></a>
 <a id="E2E_WaitForOptions_Timeout"></a>
@@ -93,7 +93,7 @@ Defaults to the agent's `JudgmentTimeout` (30 s).
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1015)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1049)
 
 <a id="E2E_WaitForOptions_Vision_"></a>
 <a id="E2E_WaitForOptions_Vision"></a>
@@ -110,4 +110,4 @@ What the judge is shown. [Off](/api/E2E/VisionMode/#E2E_VisionMode_Off) by defau
 
 **Value:** [VisionMode](/api/E2E/VisionMode/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1024)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1058)

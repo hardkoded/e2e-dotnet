@@ -21,7 +21,7 @@ public enum AppLogSource
 
 Where a line the app logged came from (upstream's `AppLogSource`).
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L169)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L179)
 
 ## Fields
 
@@ -37,7 +37,7 @@ Console = 0
 
 **Value:** [AppLogSource](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L171)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L181)
 
 <a id="E2E_AppLogSource_Error"></a>
 
@@ -51,7 +51,7 @@ Error = 1
 
 **Value:** [AppLogSource](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L172)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L182)
 
 <a id="E2E_AppLogSource_Network"></a>
 
@@ -65,7 +65,7 @@ Network = 2
 
 **Value:** [AppLogSource](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L173)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L183)
 
 <a id="E2E_AppLogSource_System"></a>
 
@@ -79,4 +79,4 @@ System = 3
 
 **Value:** [AppLogSource](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L174)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L184)

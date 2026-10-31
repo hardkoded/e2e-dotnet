@@ -21,7 +21,7 @@ public enum Momentum
 
 Fling strength of a swipe: how far the gesture travels. Upstream's `Momentum` (`none`, `slow`, `fast`).
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L54)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L72)
 
 ## Fields
 
@@ -39,7 +39,7 @@ A long stride: four fifths of a node on a device, one and a half extents on the 
 
 **Value:** [Momentum](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L63)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L81)
 
 <a id="E2E_Engine_Momentum_None"></a>
 
@@ -55,7 +55,7 @@ No fling: half an extent on the web, half a node on a device.
 
 **Value:** [Momentum](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L57)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L75)
 
 <a id="E2E_Engine_Momentum_Slow"></a>
 
@@ -71,4 +71,4 @@ A short stride. The engine decides how far: a node swipe on a device is a quarte
 
 **Value:** [Momentum](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L60)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L78)

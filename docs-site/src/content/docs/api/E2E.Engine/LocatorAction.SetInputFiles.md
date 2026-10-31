@@ -26,7 +26,7 @@ Sets the files of a file input, or of a control that opens a file chooser when c
 
 **Implements:** [IEquatable&lt;LocatorAction&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1), [IEquatable&lt;LocatorAction.SetInputFiles&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L33)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L45)
 
 ## Constructors
 
@@ -50,7 +50,7 @@ Sets the files of a file input, or of a control that opens a file chooser when c
 | --- | --- | --- |
 | `Paths` | [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L33)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L45)
 
 ## Properties
 
@@ -67,4 +67,4 @@ public IReadOnlyList<string> Paths { get; init; }
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L33)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L45)

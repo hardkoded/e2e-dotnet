@@ -21,7 +21,7 @@ public enum CacheMode
 
 How the replay cache is used.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L934)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1053)
 
 ## Fields
 
@@ -39,7 +39,7 @@ Never read or write recordings.
 
 **Value:** [CacheMode](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L937)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1056)
 
 <a id="E2E_CacheMode_ReadOnly"></a>
 
@@ -55,7 +55,7 @@ Replay recordings, never write or delete them.
 
 **Value:** [CacheMode](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L940)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1059)
 
 <a id="E2E_CacheMode_ReadWrite"></a>
 
@@ -71,4 +71,4 @@ Replay recordings, record verified acts, and delete unverified ones.
 
 **Value:** [CacheMode](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L943)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1062)

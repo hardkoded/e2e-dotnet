@@ -78,7 +78,7 @@ resetting unmanaged resources asynchronously.
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask) — A task that represents the asynchronous dispose operation.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.XUnit.V3/E2ETest.cs#L94)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.XUnit.V3/E2ETest.cs#L131)
 
 <a id="E2E_XUnit_V3_E2ETest_InitializeAsync_"></a>
 <a id="E2E_XUnit_V3_E2ETest_InitializeAsync"></a>

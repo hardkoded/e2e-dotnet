@@ -13,9 +13,9 @@ namespace E2E.Tests.ScriptedActions;
 /// the engine with the node and payload the test named, and <c>app.open</c>, <c>back</c>, <c>restart</c>, and
 /// <c>clearState</c> reach the session hooks. Upstream runs each case in the real runner and reads the engine
 /// calls and the report steps. The port has no runner, so each case runs in the test body, reads what the engine recorded, and
-/// reads the steps from <c>report.json</c>. Not ported, because the port has no such feature: <c>secondaryTap</c>,
-/// <c>longPress</c>, <c>hover</c>, <c>setInputFiles</c>, <c>dragTo</c>, locator <c>swipe</c>, and the object
-/// forms of <c>selectOption</c> (<c>label</c>, <c>value</c>, <c>index</c>); the first test is partial for that reason. It is partial too
+/// reads the steps from <c>report.json</c>. Not ported, because the port has no such feature: the object
+/// forms of <c>selectOption</c> (<c>label</c>, <c>value</c>, <c>index</c>); the first test is partial for that reason. It also does not run
+/// <c>setInputFiles</c>, whose files the scripted engine does not read. It is partial too
 /// because <c>click</c> and <c>dblclick</c> are the port's <c>tap</c> and <c>doubleTap</c> steps, so their api names are not checked.
 /// </summary>
 public sealed class ScriptedEngineActionsAndAppHooksTests
@@ -35,6 +35,9 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
         await submit.ClickAsync();
         await submit.DoubleTapAsync();
         await submit.DblClickAsync();
+        await submit.SecondaryTapAsync();
+        await submit.LongPressAsync();
+        await submit.LongPressAsync(new LongPressOptions { Duration = TimeSpan.FromMilliseconds(800) });
         await screen.GetByLabel("Email").FillAsync("ada@example.test");
         await Expect.That(screen.GetByLabel("Email")).ToHaveValueAsync("ada@example.test");
         await screen.GetByLabel("Email").ClearAsync();
@@ -60,13 +63,20 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
         await screen.GetByLabel("Focus target").FocusAsync();
         await Expect.That(screen.GetByLabel("Focus target")).ToBeFocusedAsync();
         await Expect.That(screen.GetByLabel("City")).Not.ToBeFocusedAsync(timeout: TimeSpan.FromMilliseconds(500));
+        await submit.HoverAsync();
+        await screen.GetByTestId("drag").DragToAsync(screen.GetByTestId("drop"));
         await submit.ScrollIntoViewAsync();
+        await screen.GetByRole("list", "Feed").SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down, Momentum = Momentum.Slow });
+        await screen.GetByRole("list", "Feed").SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Left });
         await screen.GetByRole("button", "Increment").TapAsync();
         await screen.GetByRole("button", "Increment").TapAsync();
         await Expect.That(screen.GetByRole("status", "Count")).ToHaveTextAsync("2");
         await screen.GetByRole("button", "Bold").TapAsync();
         await Expect.That(screen.GetByRole("button", new RoleOptions { Name = "Bold", Pressed = true })).ToBeVisibleAsync();
 
+        var dragged = Assert.Single(scene.Performs, performed => performed.Action is LocatorAction.DragTo);
+        var dropNode = ((LocatorAction.DragTo)dragged.Action).Target;
+        Assert.Equal("drop", dropNode.Ref);
         Assert.Equal(
             new (string, LocatorAction)[]
             {
@@ -74,6 +84,9 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
                 ("submit", new LocatorAction.Tap()),
                 ("submit", new LocatorAction.DoubleTap()),
                 ("submit", new LocatorAction.DoubleTap()),
+                ("submit", new LocatorAction.SecondaryTap()),
+                ("submit", new LocatorAction.LongPress()),
+                ("submit", new LocatorAction.LongPress(TimeSpan.FromMilliseconds(800))),
                 ("email", new LocatorAction.Fill("ada@example.test", Sensitive: false)),
                 ("email", new LocatorAction.Clear()),
                 ("city", new LocatorAction.PressSequentially("Wa")),
@@ -86,7 +99,11 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
                 ("plan", new LocatorAction.Select("Pro")),
                 ("plan", new LocatorAction.Select("team")),
                 ("focus-target", new LocatorAction.Focus()),
+                ("submit", new LocatorAction.Hover()),
+                ("drag", new LocatorAction.DragTo(dropNode)),
                 ("submit", new LocatorAction.ScrollIntoView()),
+                ("feed", new LocatorAction.Swipe(ScrollDirection.Down, Momentum.Slow)),
+                ("feed", new LocatorAction.Swipe(ScrollDirection.Left)),
                 ("increment", new LocatorAction.Tap()),
                 ("increment", new LocatorAction.Tap()),
                 ("bold", new LocatorAction.Tap()),
@@ -98,7 +115,7 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
         var steps = report.LastAttempt()["steps"]!.AsArray();
         var apis = steps.Select(each => (string)each!["api"]!).ToList();
         Assert.All(
-            new[] { "locator.tap", "locator.doubleTap", "locator.fill", "locator.clear", "locator.pressSequentially", "locator.press", "locator.check", "locator.uncheck", "locator.selectOption", "locator.focus", "locator.scrollIntoView" },
+            new[] { "locator.tap", "locator.doubleTap", "locator.secondaryTap", "locator.longPress", "locator.hover", "locator.dragTo", "locator.swipe", "locator.fill", "locator.clear", "locator.pressSequentially", "locator.press", "locator.check", "locator.uncheck", "locator.selectOption", "locator.focus", "locator.scrollIntoView" },
             api => Assert.Contains(api, apis));
         Assert.Equal("getByLabel(\"Email\")", (string)report.Step("locator.fill")["label"]!);
         Assert.Equal("getByLabel(\"City\")", (string)report.Step("locator.pressSequentially")["label"]!);

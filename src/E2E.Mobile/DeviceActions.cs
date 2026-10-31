@@ -109,13 +109,13 @@ public sealed class DeviceActions : IDeviceActions
             {
                 var settle = session.ActionSettle();
                 var target = session.Origin == ActionOrigin.Test ? await session.SettledAsync(entry, token).ConfigureAwait(false) : entry;
-                await RunAsync(client, target, action, settle, input, token).ConfigureAwait(false);
+                await RunAsync(session, client, target, action, settle, input, token).ConfigureAwait(false);
             },
             cancellationToken).ConfigureAwait(false);
         session.MarkAction(before);
     }
 
-    private static async Task RunAsync(IDeviceClient client, NodeBinding target, LocatorAction action, JsonObject settle, InputBudget input, CancellationToken cancellationToken)
+    private static async Task RunAsync(DeviceSession session, IDeviceClient client, NodeBinding target, LocatorAction action, JsonObject settle, InputBudget input, CancellationToken cancellationToken)
     {
         switch (action)
         {
@@ -160,6 +160,15 @@ public sealed class DeviceActions : IDeviceActions
                 break;
             case LocatorAction.Swipe swipe:
                 await SwipeNodeAsync(client, target, swipe.Direction, swipe.Momentum, input, cancellationToken).ConfigureAwait(false);
+                break;
+            case LocatorAction.LongPress hold:
+                await LongPressNodeAsync(client, target, hold.Duration, settle, input, cancellationToken).ConfigureAwait(false);
+                break;
+            case LocatorAction.Hover:
+                await HoverNodeAsync(client, target, input, cancellationToken).ConfigureAwait(false);
+                break;
+            case LocatorAction.DragTo drag:
+                await DragNodeAsync(client, target, session.Resolve(drag.Target), input, cancellationToken).ConfigureAwait(false);
                 break;
             default:
                 // Not in NodeActionKinds, so the harness never sends them. A device has no touch equivalent.
@@ -287,35 +296,37 @@ public sealed class DeviceActions : IDeviceActions
 
     /// <summary>A hold on a node. Without a duration it holds <see cref="DefaultLongPress"/>.</summary>
     internal static Task LongPressAsync(DeviceSession session, SemanticNode node, TimeSpan? duration, CancellationToken cancellationToken) =>
-        RunNodeAsync(session, node, "longPress", (client, target, settle, input, token) =>
-            DeviceSession.SendInputAsync(
-                input,
-                () => client.CallAsync(
-                    DeviceMethods.InteractionsLongPress,
-                    Args(settle, DeviceSession.ActionTarget(target), ("durationMs", JsonValue.Create((duration ?? DefaultLongPress).TotalMilliseconds))),
-                    token),
-                token,
-                hold: duration ?? DefaultLongPress),
-            cancellationToken);
+        RunNodeAsync(session, node, "longPress", (client, target, settle, input, token) => LongPressNodeAsync(client, target, duration, settle, input, token), cancellationToken);
+
+    private static Task LongPressNodeAsync(IDeviceClient client, NodeBinding target, TimeSpan? duration, JsonObject settle, InputBudget input, CancellationToken token) =>
+        DeviceSession.SendInputAsync(
+            input,
+            () => client.CallAsync(
+                DeviceMethods.InteractionsLongPress,
+                Args(settle, DeviceSession.ActionTarget(target), ("durationMs", JsonValue.Create((duration ?? DefaultLongPress).TotalMilliseconds))),
+                token),
+            token,
+            hold: duration ?? DefaultLongPress);
 
     /// <summary>A pointer hover over a node. agent-device sends no settle wait with it.</summary>
     internal static Task HoverAsync(DeviceSession session, SemanticNode node, CancellationToken cancellationToken) =>
-        RunNodeAsync(session, node, "hover", (client, target, _, input, token) =>
-            DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsHover, DeviceArgs.Of(DeviceSession.ActionTarget(target)), token), token), cancellationToken);
+        RunNodeAsync(session, node, "hover", (client, target, _, input, token) => HoverNodeAsync(client, target, input, token), cancellationToken);
+
+    private static Task HoverNodeAsync(IDeviceClient client, NodeBinding target, InputBudget input, CancellationToken token) =>
+        DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsHover, DeviceArgs.Of(DeviceSession.ActionTarget(target)), token), token);
 
     /// <summary>A drag from one node to another.</summary>
     internal static Task DragToAsync(DeviceSession session, SemanticNode node, SemanticNode destination, CancellationToken cancellationToken) =>
-        RunNodeAsync(session, node, "dragTo", (client, target, _, input, token) =>
-        {
-            var to = session.Resolve(destination);
-            return DeviceSession.SendInputAsync(
-                input,
-                () => client.CallAsync(
-                    DeviceMethods.InteractionsDrag,
-                    DeviceArgs.Of(("source", DeviceSession.ActionTarget(target).Value), ("destination", DeviceSession.ActionTarget(to).Value)),
-                    token),
-                token);
-        }, cancellationToken);
+        RunNodeAsync(session, node, "dragTo", (client, target, _, input, token) => DragNodeAsync(client, target, session.Resolve(destination), input, token), cancellationToken);
+
+    private static Task DragNodeAsync(IDeviceClient client, NodeBinding target, NodeBinding to, InputBudget input, CancellationToken token) =>
+        DeviceSession.SendInputAsync(
+            input,
+            () => client.CallAsync(
+                DeviceMethods.InteractionsDrag,
+                DeviceArgs.Of(("source", DeviceSession.ActionTarget(target).Value), ("destination", DeviceSession.ActionTarget(to).Value)),
+                token),
+            token);
 
     /// <summary>A swipe inside a node's bounds, as far as <paramref name="momentum"/> says.</summary>
     internal static Task SwipeAsync(DeviceSession session, SemanticNode node, ScrollDirection direction, Momentum? momentum, CancellationToken cancellationToken) =>
@@ -408,6 +419,10 @@ public sealed class DeviceActions : IDeviceActions
         LocatorAction.Focus => "focus",
         LocatorAction.ScrollIntoView => "scrollIntoView",
         LocatorAction.Swipe => "swipe",
+        LocatorAction.SecondaryTap => "secondaryTap",
+        LocatorAction.LongPress => "longPress",
+        LocatorAction.Hover => "hover",
+        LocatorAction.DragTo => "dragTo",
         _ => action.GetType().Name,
     };
 

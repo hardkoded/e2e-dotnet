@@ -23,7 +23,7 @@ public sealed record LocatorAction.Press : LocatorAction, IEquatable<LocatorActi
 
 **Implements:** [IEquatable&lt;LocatorAction&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1), [IEquatable&lt;LocatorAction.Press&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L22)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L34)
 
 ## Constructors
 
@@ -44,7 +44,7 @@ public Press(string Key)
 | --- | --- | --- |
 | `Key` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L22)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L34)
 
 ## Properties
 
@@ -61,4 +61,4 @@ public string Key { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L22)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L34)

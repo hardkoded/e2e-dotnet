@@ -26,4 +26,4 @@ in call order. An engine failure is thrown as an [E2EException](/api/E2E/E2EExce
 [AgentException](/api/E2E/AgentException/) with a runtime code. `CancellationToken)` is a verb the port's grammar has and
 upstream's does not (upstream clears with `type`).
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L374)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L370)

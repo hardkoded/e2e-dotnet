@@ -21,7 +21,7 @@ public sealed class AppConfig
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L778)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L806)
 
 ## Properties
 
@@ -40,7 +40,7 @@ The build a device target installs, relative to the folder of `e2e.config.json`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L790)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L818)
 
 <a id="E2E_AppConfig_BundleId_"></a>
 <a id="E2E_AppConfig_BundleId"></a>
@@ -57,7 +57,7 @@ The bundle id (iOS) or package (Android) of an installed app a device target lau
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L787)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L815)
 
 <a id="E2E_AppConfig_Command_"></a>
 <a id="E2E_AppConfig_Command"></a>
@@ -76,7 +76,7 @@ The command that starts the app (upstream's `app.command`), started before the f
 
 **Value:** [CommandConfig](/api/E2E/CommandConfig/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L797)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L825)
 
 <a id="E2E_AppConfig_Environment_"></a>
 <a id="E2E_AppConfig_Environment"></a>
@@ -95,7 +95,7 @@ cache key, so an identity never bleeds entries across environments.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L814)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L842)
 
 <a id="E2E_AppConfig_Identity_"></a>
 <a id="E2E_AppConfig_Identity"></a>
@@ -114,7 +114,7 @@ declare the identity of the app it is a deployment of, and so share its entries.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L807)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L835)
 
 <a id="E2E_AppConfig_LaunchArguments_"></a>
 <a id="E2E_AppConfig_LaunchArguments"></a>
@@ -131,7 +131,7 @@ Arguments every fresh launch of the app takes: process arguments on iOS, `am sta
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L817)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L845)
 
 <a id="E2E_AppConfig_Permissions_"></a>
 <a id="E2E_AppConfig_Permissions"></a>
@@ -144,12 +144,13 @@ public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init;
 ```
 
 
-Permissions the app holds before every fresh launch, by permission name (upstream's `app.permissions`). A device target
-takes the names of `DevicePermission`.
+Permissions the app holds, by permission name (upstream's `app.permissions`). A device target sets each before every fresh
+launch and takes the names of `DevicePermission`. A web target takes [Grant](/api/E2E/AppPermissionState/#E2E_AppPermissionState_Grant) only, for the names its
+browser grants (Playwright's), and every page of the attempt holds the grant; headless Chromium refuses what is left out.
 
 **Value:** [IReadOnlyDictionary&lt;string, AppPermissionState&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L823)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L852)
 
 <a id="E2E_AppConfig_ReadyUrl_"></a>
 <a id="E2E_AppConfig_ReadyUrl"></a>
@@ -166,7 +167,7 @@ The URL that answers once [Command](#E2E_AppConfig_Command) has started the app 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L800)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L828)
 
 <a id="E2E_AppConfig_Url_"></a>
 <a id="E2E_AppConfig_Url"></a>
@@ -184,4 +185,4 @@ Relative URLs resolve against it.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L784)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L812)

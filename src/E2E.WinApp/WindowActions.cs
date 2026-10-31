@@ -290,6 +290,31 @@ public sealed class WindowActions : IWindowActions
             case LocatorAction.ScrollIntoView:
                 await driver.ScrollIntoViewAsync(entry.Handle, cancellationToken).ConfigureAwait(false);
                 break;
+            case LocatorAction.Hover:
+                await ForegroundAndAsync(driver, entry, () => driver.HoverAsync(PointOf(entry, "hover"), cancellationToken), cancellationToken).ConfigureAwait(false);
+                await session.SettleAsync(cancellationToken).ConfigureAwait(false);
+                break;
+            case LocatorAction.SecondaryTap:
+                await ForegroundAndAsync(driver, entry, () => driver.ClickAsync(PointOf(entry, "secondaryTap"), doubleClick: false, rightClick: true, cancellationToken), cancellationToken).ConfigureAwait(false);
+                await session.SettleAsync(cancellationToken).ConfigureAwait(false);
+                break;
+            case LocatorAction.LongPress press:
+                {
+                    var at = PointOf(entry, "longPress");
+                    await ForegroundAndAsync(driver, entry, () => driver.DragAsync(at, at, press.Duration ?? DefaultLongPress, cancellationToken), cancellationToken).ConfigureAwait(false);
+                    await session.SettleAsync(cancellationToken).ConfigureAwait(false);
+                    break;
+                }
+
+            case LocatorAction.DragTo drag:
+                {
+                    var start = PointOf(entry, "dragTo");
+                    var end = PointOf(session.Resolve(drag.Target), "dragTo");
+                    await ForegroundAndAsync(driver, entry, () => driver.DragAsync(start, end, TimeSpan.Zero, cancellationToken), cancellationToken).ConfigureAwait(false);
+                    await session.SettleAsync(cancellationToken).ConfigureAwait(false);
+                    break;
+                }
+
             case LocatorAction.Swipe swipe:
                 if (!UiaProjection.Scrolls(entry.Raw.ScrollDir, swipe.Direction))
                 {
@@ -324,6 +349,13 @@ public sealed class WindowActions : IWindowActions
             default:
                 throw WinAppSupport.Unsupported($"{KindOf(action)} is not supported by the Windows app engine");
         }
+    }
+
+    /// <summary>Brings the control's window forward, then sends a pointer input: the input reaches the foreground window only.</summary>
+    private static async Task ForegroundAndAsync(IWindowDriver driver, NodeBinding entry, Func<Task> input, CancellationToken cancellationToken)
+    {
+        await driver.ForegroundAsync(entry.WindowHandle, cancellationToken).ConfigureAwait(false);
+        await input().ConfigureAwait(false);
     }
 
     /// <summary>A tap is the element's own pattern when it has one (a button's invoke, a list item's select, a check box's toggle), else a click on its middle.</summary>
@@ -434,6 +466,10 @@ public sealed class WindowActions : IWindowActions
         LocatorAction.Clear => "clear",
         LocatorAction.Focus => "focus",
         LocatorAction.ScrollIntoView => "scrollIntoView",
+        LocatorAction.SecondaryTap => "secondaryTap",
+        LocatorAction.LongPress => "longPress",
+        LocatorAction.Hover => "hover",
+        LocatorAction.DragTo => "dragTo",
         LocatorAction.Swipe => "swipe",
         _ => action.GetType().Name,
     };

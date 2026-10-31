@@ -23,7 +23,7 @@ Usage detail of one model call an executor made. Every field is optional.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L461)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L457)
 
 ## Properties
 
@@ -42,7 +42,7 @@ Input tokens the provider served from its prompt cache, when it reports the spli
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L468)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L464)
 
 <a id="E2E_ExecutorModelCall_CacheWriteTokens_"></a>
 <a id="E2E_ExecutorModelCall_CacheWriteTokens"></a>
@@ -59,7 +59,7 @@ Input tokens written to the provider's prompt cache, when it reports the split.
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L471)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L467)
 
 <a id="E2E_ExecutorModelCall_DurationMs_"></a>
 <a id="E2E_ExecutorModelCall_DurationMs"></a>
@@ -74,7 +74,7 @@ public int? DurationMs { get; init; }
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L475)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L471)
 
 <a id="E2E_ExecutorModelCall_EstimatedCostUsd_"></a>
 <a id="E2E_ExecutorModelCall_EstimatedCostUsd"></a>
@@ -91,7 +91,7 @@ The billed cost of the call in US dollars, when the provider reports one.
 
 **Value:** [double?](https://learn.microsoft.com/dotnet/api/system.double)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L482)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L478)
 
 <a id="E2E_ExecutorModelCall_InputTokens_"></a>
 <a id="E2E_ExecutorModelCall_InputTokens"></a>
@@ -106,7 +106,7 @@ public int? InputTokens { get; init; }
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L463)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L459)
 
 <a id="E2E_ExecutorModelCall_ModelId_"></a>
 <a id="E2E_ExecutorModelCall_ModelId"></a>
@@ -121,7 +121,7 @@ public string? ModelId { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L479)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L475)
 
 <a id="E2E_ExecutorModelCall_OutputTokens_"></a>
 <a id="E2E_ExecutorModelCall_OutputTokens"></a>
@@ -136,7 +136,7 @@ public int? OutputTokens { get; init; }
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L465)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L461)
 
 <a id="E2E_ExecutorModelCall_Provider_"></a>
 <a id="E2E_ExecutorModelCall_Provider"></a>
@@ -151,7 +151,7 @@ public string? Provider { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L477)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L473)
 
 <a id="E2E_ExecutorModelCall_Reasoning_"></a>
 <a id="E2E_ExecutorModelCall_Reasoning"></a>
@@ -168,7 +168,7 @@ The model's own reasoning for the turn, when it produced one.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L485)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L481)
 
 <a id="E2E_ExecutorModelCall_StartedAt_"></a>
 <a id="E2E_ExecutorModelCall_StartedAt"></a>
@@ -183,4 +183,4 @@ public DateTimeOffset? StartedAt { get; init; }
 
 **Value:** [DateTimeOffset?](https://learn.microsoft.com/dotnet/api/system.datetimeoffset)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L473)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L469)

@@ -23,4 +23,4 @@ public sealed record LocatorAction.Check : LocatorAction, IEquatable<LocatorActi
 
 **Implements:** [IEquatable&lt;LocatorAction&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1), [IEquatable&lt;LocatorAction.Check&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L29)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L47)

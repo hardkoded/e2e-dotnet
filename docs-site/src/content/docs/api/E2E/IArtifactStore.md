@@ -26,4 +26,4 @@ evidence, the way [IStepCache](/api/E2E/IStepCache/) is for the replay cache. A 
 simply carries no `ref`. Like every live value, a store never crosses a process boundary. Set it with
 [ArtifactStore](/api/E2E/E2ESessionOptions/#E2E_E2ESessionOptions_ArtifactStore), or override `E2EFixture.ArtifactStore`.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1134)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1141)

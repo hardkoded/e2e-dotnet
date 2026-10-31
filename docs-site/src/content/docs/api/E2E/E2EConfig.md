@@ -27,7 +27,7 @@ still override each value. There is no default model.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L19)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L20)
 
 ## Fields
 
@@ -45,7 +45,7 @@ The file name `String%5b%5d)` looks for.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L22)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L23)
 
 ## Properties
 
@@ -62,7 +62,7 @@ public TimeSpan ActionTimeout { get; }
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L106)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L113)
 
 <a id="E2E_E2EConfig_Agent_"></a>
 <a id="E2E_E2EConfig_Agent"></a>
@@ -79,7 +79,7 @@ The `default` agent. It always exists; its model may be null.
 
 **Value:** [AgentConfig](/api/E2E/AgentConfig/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L119)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L126)
 
 <a id="E2E_E2EConfig_Agents_"></a>
 <a id="E2E_E2EConfig_Agents"></a>
@@ -94,7 +94,7 @@ public IReadOnlyDictionary<string, AgentConfig> Agents { get; }
 
 **Value:** [IReadOnlyDictionary&lt;string, AgentConfig&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L116)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L123)
 
 <a id="E2E_E2EConfig_AssertionTimeout_"></a>
 <a id="E2E_E2EConfig_AssertionTimeout"></a>
@@ -109,7 +109,7 @@ public TimeSpan AssertionTimeout { get; }
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L108)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L115)
 
 <a id="E2E_E2EConfig_Cache_"></a>
 <a id="E2E_E2EConfig_Cache"></a>
@@ -124,7 +124,7 @@ public CacheConfig Cache { get; }
 
 **Value:** [CacheConfig](/api/E2E/CacheConfig/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L121)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L128)
 
 <a id="E2E_E2EConfig_Ci_"></a>
 <a id="E2E_E2EConfig_Ci"></a>
@@ -141,7 +141,7 @@ True when the `CI` environment variable is set to a true value.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L93)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L100)
 
 <a id="E2E_E2EConfig_CleanupTimeout_"></a>
 <a id="E2E_E2EConfig_CleanupTimeout"></a>
@@ -158,7 +158,7 @@ Engine shutdown timeout. Upstream `cleanupTimeout`, 30 s by default.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L111)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L118)
 
 <a id="E2E_E2EConfig_ConfigPath_"></a>
 <a id="E2E_E2EConfig_ConfigPath"></a>
@@ -175,7 +175,7 @@ The file this config was read from, or null for the defaults.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L87)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L94)
 
 <a id="E2E_E2EConfig_LaunchTimeout_"></a>
 <a id="E2E_E2EConfig_LaunchTimeout"></a>
@@ -192,7 +192,7 @@ Engine start timeout. Upstream `launchTimeout`, 60 s by default.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L104)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L111)
 
 <a id="E2E_E2EConfig_ProjectRoot_"></a>
 <a id="E2E_E2EConfig_ProjectRoot"></a>
@@ -209,7 +209,7 @@ The config file's directory. Relative paths such as `cache.dir` resolve against 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L90)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L97)
 
 <a id="E2E_E2EConfig_Retries_"></a>
 <a id="E2E_E2EConfig_Retries"></a>
@@ -226,7 +226,7 @@ public int Retries { get; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L114)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L121)
 
 <a id="E2E_E2EConfig_Secrets_"></a>
 <a id="E2E_E2EConfig_Secrets"></a>
@@ -241,7 +241,7 @@ public Secrets Secrets { get; }
 
 **Value:** [Secrets](/api/E2E/Secrets/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L123)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L130)
 
 <a id="E2E_E2EConfig_Target_"></a>
 <a id="E2E_E2EConfig_Target"></a>
@@ -258,7 +258,7 @@ The target a test runs on. The port runs one target.
 
 **Value:** [TargetConfig](/api/E2E/TargetConfig/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L98)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L105)
 
 <a id="E2E_E2EConfig_Targets_"></a>
 <a id="E2E_E2EConfig_Targets"></a>
@@ -273,7 +273,7 @@ public IReadOnlyList<TargetConfig> Targets { get; }
 
 **Value:** [IReadOnlyList&lt;TargetConfig&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L95)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L102)
 
 <a id="E2E_E2EConfig_Timeout_"></a>
 <a id="E2E_E2EConfig_Timeout"></a>
@@ -290,7 +290,7 @@ Whole-test timeout. Upstream `timeout`, 120 s by default.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L101)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L108)
 
 ## Methods
 
@@ -316,7 +316,7 @@ The config with no file: upstream defaults, a `web` target with no URL, and no m
 
 **Returns:** [E2EConfig](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L152)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L159)
 
 <a id="E2E_E2EConfig_Discover_"></a>
 <a id="E2E_E2EConfig_Discover_System_Func_System_String_System_String__"></a>
@@ -340,7 +340,7 @@ above the working directory. Without one, returns `String%7d)` for the working d
 
 **Returns:** [E2EConfig](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L195)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L202)
 
 <a id="E2E_E2EConfig_Find_"></a>
 <a id="E2E_E2EConfig_Find_System_String___"></a>
@@ -365,7 +365,7 @@ looks for the file there and goes no higher.
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L163)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L170)
 
 <a id="E2E_E2EConfig_IsCi_"></a>
 <a id="E2E_E2EConfig_IsCi_System_Func_System_String_System_String__"></a>
@@ -388,7 +388,7 @@ True when `CI` is set to anything but empty, `0`, or `false`.
 
 **Returns:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L202)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L209)
 
 <a id="E2E_E2EConfig_Load_"></a>
 <a id="E2E_E2EConfig_Load_System_String_System_Func_System_String_System_String__"></a>
@@ -412,7 +412,7 @@ Reads and validates a config file. Throws [ConfigurationException](/api/E2E/Conf
 
 **Returns:** [E2EConfig](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L126)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L133)
 
 <a id="E2E_E2EConfig_Parse_"></a>
 <a id="E2E_E2EConfig_Parse_System_String_System_String_System_Func_System_String_System_String__"></a>
@@ -437,4 +437,4 @@ Validates config JSON. &lt;code class="paramref"&gt;projectRoot&lt;/code&gt; anc
 
 **Returns:** [E2EConfig](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L144)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L151)

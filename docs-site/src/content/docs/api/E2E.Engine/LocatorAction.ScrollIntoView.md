@@ -25,4 +25,4 @@ Scrolls the node's nearest scrollable container until the node is in the viewpor
 
 **Implements:** [IEquatable&lt;LocatorAction&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1), [IEquatable&lt;LocatorAction.ScrollIntoView&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L38)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L56)

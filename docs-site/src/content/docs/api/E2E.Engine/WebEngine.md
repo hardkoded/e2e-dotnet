@@ -100,7 +100,7 @@ public EngineCapabilities Capabilities { get; }
 
 **Value:** [EngineCapabilities](/api/E2E.Engine/EngineCapabilities/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L328)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L334)
 
 <a id="E2E_Engine_WebEngine_Platform_"></a>
 <a id="E2E_Engine_WebEngine_Platform"></a>
@@ -130,7 +130,7 @@ public string Version { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L326)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L332)
 
 ## Methods
 
@@ -246,7 +246,7 @@ public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationT
 
 **Returns:** [Task&lt;IEngineSession&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L381)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L387)
 
 <a id="E2E_Engine_WebEngine_ValidateApp_"></a>
 <a id="E2E_Engine_WebEngine_ValidateApp_E2E_AppConfig_System_String_"></a>
@@ -271,4 +271,4 @@ grants, and only grants. A provider or a CDP attach speaks CDP, so it takes Chro
 | `app` | [AppConfig](/api/E2E/AppConfig/) |  |
 | `targetName` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L345)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L351)

@@ -46,6 +46,8 @@ await row.GetByRole("button", "Void").TapAsync();
 
 ## Scrolling to a node
 
+A locator also takes `SecondaryTapAsync` (a right click), `LongPressAsync`, `HoverAsync`, `DragToAsync(target)`, and `SwipeAsync`. `TapAsync`, `DoubleTapAsync`, and `SecondaryTapAsync` hold keys for the click with `new ClickOptions { Modifiers = [KeyModifier.Shift] }` on the web engine; the others refuse them with `UNSUPPORTED_CAPABILITY`.
+
 `Screen.ScrollUntilVisibleAsync(target, options)` scrolls the viewport until `target` resolves visibly. `Locator.ScrollUntilVisibleAsync(target, options)` swipes that node instead, so a feed or table that is its own scroll container pages without the pointer hovering it first.
 
 ```csharp

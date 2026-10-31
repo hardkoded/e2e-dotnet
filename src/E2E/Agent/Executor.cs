@@ -329,13 +329,6 @@ public sealed record ExecutorObservation(string Text)
     public VisionDegradation? PixelsWithheld { get; init; }
 }
 
-/// <summary>What a tap-family action takes. Upstream's <c>ClickOptions</c>, of which the port has the <c>modifiers</c>.</summary>
-public sealed class ClickOptions
-{
-    /// <summary>Keys held for the click, distinct. An empty list holds nothing.</summary>
-    public IReadOnlyList<KeyModifier>? Modifiers { get; init; }
-}
-
 /// <summary>
 /// A node named by its id from the newest observation (upstream's <c>{ id }</c>). The id is the node's ref in the text and in
 /// <see cref="ExecutorNode.Id"/>. A ref the screen no longer lists fails the action instead of acting on the wrong node.

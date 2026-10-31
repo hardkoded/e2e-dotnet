@@ -21,7 +21,7 @@ public enum ScrollDirection
 
 Which way a scroll moves the content into view. [Down](#E2E_Engine_ScrollDirection_Down) reveals what is below.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L45)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L63)
 
 ## Fields
 
@@ -37,7 +37,7 @@ Down = 1
 
 **Value:** [ScrollDirection](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L48)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L66)
 
 <a id="E2E_Engine_ScrollDirection_Left"></a>
 
@@ -51,7 +51,7 @@ Left = 2
 
 **Value:** [ScrollDirection](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L49)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L67)
 
 <a id="E2E_Engine_ScrollDirection_Right"></a>
 
@@ -65,7 +65,7 @@ Right = 3
 
 **Value:** [ScrollDirection](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L50)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L68)
 
 <a id="E2E_Engine_ScrollDirection_Up"></a>
 
@@ -79,4 +79,4 @@ Up = 0
 
 **Value:** [ScrollDirection](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L47)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L65)

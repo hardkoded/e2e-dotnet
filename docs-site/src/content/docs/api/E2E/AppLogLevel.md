@@ -21,7 +21,7 @@ public enum AppLogLevel
 
 How bad a line the app logged was.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L178)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L188)
 
 ## Fields
 
@@ -37,7 +37,7 @@ Error = 2
 
 **Value:** [AppLogLevel](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L182)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L192)
 
 <a id="E2E_AppLogLevel_Info"></a>
 
@@ -51,7 +51,7 @@ Info = 0
 
 **Value:** [AppLogLevel](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L180)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L190)
 
 <a id="E2E_AppLogLevel_Warning"></a>
 
@@ -65,4 +65,4 @@ Warning = 1
 
 **Value:** [AppLogLevel](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L181)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L191)

@@ -26,7 +26,7 @@ A browser cookie. When setting one, give either [Url](#E2E_Engine_BrowserCookie_
 
 **Implements:** [IEquatable&lt;BrowserCookie&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L124)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L136)
 
 ## Properties
 
@@ -43,7 +43,7 @@ public string? Domain { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L132)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L144)
 
 <a id="E2E_Engine_BrowserCookie_Expires_"></a>
 <a id="E2E_Engine_BrowserCookie_Expires"></a>
@@ -60,7 +60,7 @@ Unix timestamp in whole seconds. Null is a session cookie.
 
 **Value:** [long?](https://learn.microsoft.com/dotnet/api/system.int64)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L137)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L149)
 
 <a id="E2E_Engine_BrowserCookie_HttpOnly_"></a>
 <a id="E2E_Engine_BrowserCookie_HttpOnly"></a>
@@ -75,7 +75,7 @@ public bool? HttpOnly { get; init; }
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L139)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L151)
 
 <a id="E2E_Engine_BrowserCookie_Name_"></a>
 <a id="E2E_Engine_BrowserCookie_Name"></a>
@@ -90,7 +90,7 @@ public required string Name { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L126)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L138)
 
 <a id="E2E_Engine_BrowserCookie_Path_"></a>
 <a id="E2E_Engine_BrowserCookie_Path"></a>
@@ -105,7 +105,7 @@ public string? Path { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L134)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L146)
 
 <a id="E2E_Engine_BrowserCookie_SameSite_"></a>
 <a id="E2E_Engine_BrowserCookie_SameSite"></a>
@@ -122,7 +122,7 @@ public string? SameSite { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L144)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L156)
 
 <a id="E2E_Engine_BrowserCookie_Secure_"></a>
 <a id="E2E_Engine_BrowserCookie_Secure"></a>
@@ -137,7 +137,7 @@ public bool? Secure { get; init; }
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L141)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L153)
 
 <a id="E2E_Engine_BrowserCookie_Url_"></a>
 <a id="E2E_Engine_BrowserCookie_Url"></a>
@@ -152,7 +152,7 @@ public string? Url { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L130)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L142)
 
 <a id="E2E_Engine_BrowserCookie_Value_"></a>
 <a id="E2E_Engine_BrowserCookie_Value"></a>
@@ -167,4 +167,4 @@ public required string Value { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L128)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L140)

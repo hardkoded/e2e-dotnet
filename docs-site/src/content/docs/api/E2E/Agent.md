@@ -23,7 +23,7 @@ One goal (`CancellationToken)`) or a check against the current screen.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L19)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L20)
 
 ## Methods
 
@@ -48,7 +48,7 @@ public Task<ActResult> ActAsync(string instruction, ActOptions? options = null, 
 
 **Returns:** [Task&lt;ActResult&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L73)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L74)
 
 <a id="E2E_Agent_AssertAsync_"></a>
 <a id="E2E_Agent_AssertAsync_System_String_E2E_AssertOptions_System_Threading_CancellationToken_"></a>
@@ -71,7 +71,7 @@ public Task AssertAsync(string statement, AssertOptions? options = null, Cancell
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L76)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L77)
 
 <a id="E2E_Agent_ExtractAsync_"></a>
 <a id="E2E_Agent_ExtractAsync__1_System_String_E2E_ExtractOptions_System_Threading_CancellationToken_"></a>
@@ -105,22 +105,23 @@ members and nullable annotations respected. An answer that does not gets one rep
 
 **Returns:** [Task&lt;T&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L189)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L205)
 
 <a id="E2E_Agent_WaitForAsync_"></a>
 <a id="E2E_Agent_WaitForAsync_System_String_E2E_WaitForOptions_System_Threading_CancellationToken_"></a>
 
 ### WaitForAsync(string, WaitForOptions?, CancellationToken)
 
-Waits until the statement holds on screen. It judges at once, then again after each [WaitForOptions.Interval](WaitForOptions.md#E2E_WaitForOptions_Interval) once the
-screen has changed. A capture that outlives [WaitForOptions.Timeout](WaitForOptions.md#E2E_WaitForOptions_Timeout) fails `STEP_TIMEOUT`
-(`agent.waitFor exceeded its N ms timeout`); once a judgment has been made, the timeout reads
-`waitFor timed out; last judgment: ...` and carries that failure as its cause.
 
 ```csharp
 public Task WaitForAsync(string statement, WaitForOptions? options = null, CancellationToken cancellationToken = default)
 ```
 
+
+Waits until the statement holds on screen. It judges at once, then again after each [Interval](/api/E2E/WaitForOptions/#E2E_WaitForOptions_Interval) once the
+screen has changed. A capture that outlives [Timeout](/api/E2E/WaitForOptions/#E2E_WaitForOptions_Timeout) fails `STEP_TIMEOUT`
+(`agent.waitFor exceeded its N ms timeout`); once a judgment has been made, the timeout reads
+`waitFor timed out; last judgment: ...` and carries that failure as its cause.
 
 **Parameters**
 
@@ -132,4 +133,4 @@ public Task WaitForAsync(string statement, WaitForOptions? options = null, Cance
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L90)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L97)

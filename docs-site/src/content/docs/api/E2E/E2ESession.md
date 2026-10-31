@@ -44,7 +44,7 @@ public Agent Agent { get; }
 
 **Value:** [Agent](/api/E2E/Agent/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L55)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L58)
 
 <a id="E2E_E2ESession_App_"></a>
 <a id="E2E_E2ESession_App"></a>
@@ -59,7 +59,7 @@ public App App { get; }
 
 **Value:** [App](/api/E2E/App/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L51)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L54)
 
 <a id="E2E_E2ESession_Browser_"></a>
 <a id="E2E_E2ESession_Browser"></a>
@@ -74,7 +74,7 @@ public Browser Browser { get; }
 
 **Value:** [Browser](/api/E2E/Browser/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L53)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L56)
 
 <a id="E2E_E2ESession_Context_"></a>
 <a id="E2E_E2ESession_Context"></a>
@@ -89,7 +89,7 @@ public TestContext Context { get; }
 
 **Value:** [TestContext](/api/E2E/TestContext/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L59)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L62)
 
 <a id="E2E_E2ESession_HandedOff_"></a>
 <a id="E2E_E2ESession_HandedOff"></a>
@@ -104,7 +104,7 @@ public int HandedOff { get; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L117)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L120)
 
 <a id="E2E_E2ESession_InputTokens_"></a>
 <a id="E2E_E2ESession_InputTokens"></a>
@@ -119,7 +119,7 @@ public int InputTokens { get; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L123)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L126)
 
 <a id="E2E_E2ESession_Missed_"></a>
 <a id="E2E_E2ESession_Missed"></a>
@@ -134,7 +134,7 @@ public int Missed { get; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L119)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L122)
 
 <a id="E2E_E2ESession_ModelCalls_"></a>
 <a id="E2E_E2ESession_ModelCalls"></a>
@@ -149,7 +149,7 @@ public int ModelCalls { get; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L121)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L124)
 
 <a id="E2E_E2ESession_OutputTokens_"></a>
 <a id="E2E_E2ESession_OutputTokens"></a>
@@ -164,7 +164,7 @@ public int OutputTokens { get; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L125)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L128)
 
 <a id="E2E_E2ESession_Replayed_"></a>
 <a id="E2E_E2ESession_Replayed"></a>
@@ -179,7 +179,7 @@ public int Replayed { get; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L115)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L118)
 
 <a id="E2E_E2ESession_Screen_"></a>
 <a id="E2E_E2ESession_Screen"></a>
@@ -194,7 +194,7 @@ public Screen Screen { get; }
 
 **Value:** [Screen](/api/E2E/Screen/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L57)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L60)
 
 ## Methods
 
@@ -222,7 +222,7 @@ looked at when the session is released. Only an attempt whose trace page is kept
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L611)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L633)
 
 <a id="E2E_E2ESession_CloseSoftFailures_"></a>
 <a id="E2E_E2ESession_CloseSoftFailures"></a>
@@ -242,7 +242,7 @@ matchers throw as hard ones would.
 
 **Returns:** [TestException](/api/E2E/TestException/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L338)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L346)
 
 <a id="E2E_E2ESession_Complete_"></a>
 <a id="E2E_E2ESession_Complete_System_Exception_System_Threading_CancellationToken_"></a>
@@ -269,7 +269,7 @@ rewritten. A model outage leaves existing entries in place, unless a failure on 
 | `error` | [Exception](https://learn.microsoft.com/dotnet/api/system.exception) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L366)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L375)
 
 <a id="E2E_E2ESession_DisposeAsync_"></a>
 <a id="E2E_E2ESession_DisposeAsync"></a>
@@ -287,7 +287,7 @@ resetting unmanaged resources asynchronously.
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask) — A task that represents the asynchronous dispose operation.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L385)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L394)
 
 <a id="E2E_E2ESession_Report_"></a>
 <a id="E2E_E2ESession_Report"></a>
@@ -306,7 +306,7 @@ test around it. Artifact paths are relative to the results directory. Upstream's
 
 **Returns:** [Report](/api/E2E.Reports/Report/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L113)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L116)
 
 <a id="E2E_E2ESession_SettleAttemptAsync_"></a>
 <a id="E2E_E2ESession_SettleAttemptAsync_System_Threading_CancellationToken_"></a>
@@ -331,7 +331,7 @@ the verdict. Upstream's `settleAttempt`.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L345)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L353)
 
 <a id="E2E_E2ESession_StartAsync_"></a>
 <a id="E2E_E2ESession_StartAsync_E2E_E2ESessionOptions_System_Threading_CancellationToken_"></a>
@@ -353,4 +353,4 @@ public static Task<E2ESession> StartAsync(E2ESessionOptions options, Cancellatio
 
 **Returns:** [Task&lt;E2ESession&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L127)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L130)

@@ -23,7 +23,7 @@ Upstream's `RUNTIME_CODES`, `BLOCKABLE_CODES` and `isRuntimeHardStop` (`agent/ex
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L559)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L555)
 
 ## Properties
 
@@ -44,7 +44,7 @@ and belongs to a failed verdict.
 
 **Value:** [IReadOnlySet&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlyset-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L572)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L568)
 
 <a id="E2E_StepExecutors_RuntimeCodes_"></a>
 <a id="E2E_StepExecutors_RuntimeCodes"></a>
@@ -62,7 +62,7 @@ but cannot invent one: the runtime rejects a runtime code it did not record.
 
 **Value:** [IReadOnlySet&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlyset-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L565)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L561)
 
 ## Methods
 
@@ -88,4 +88,4 @@ tool call or a replayed action, and is surfaced untouched rather than absorbed a
 
 **Returns:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L615)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L611)

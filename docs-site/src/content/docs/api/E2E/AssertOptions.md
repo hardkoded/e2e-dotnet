@@ -23,7 +23,7 @@ public sealed class AssertOptions
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L993)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1027)
 
 ## Properties
 
@@ -42,7 +42,7 @@ The named agent whose judge decides. Defaults to `default`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1008)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1042)
 
 <a id="E2E_AssertOptions_Screenshot_"></a>
 <a id="E2E_AssertOptions_Screenshot"></a>
@@ -60,7 +60,7 @@ Keep a redacted screenshot of the judged screen under the attempt's results, and
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1005)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1039)
 
 <a id="E2E_AssertOptions_Timeout_"></a>
 <a id="E2E_AssertOptions_Timeout"></a>
@@ -77,7 +77,7 @@ Defaults to the agent's `JudgmentTimeout` (30 s).
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L996)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1030)
 
 <a id="E2E_AssertOptions_Vision_"></a>
 <a id="E2E_AssertOptions_Vision"></a>
@@ -94,4 +94,4 @@ What the judge is shown. [Off](/api/E2E/VisionMode/#E2E_VisionMode_Off) by defau
 
 **Value:** [VisionMode](/api/E2E/VisionMode/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L999)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1033)

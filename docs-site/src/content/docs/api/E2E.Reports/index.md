@@ -70,7 +70,7 @@ Public types in the `E2E.Reports` namespace.
 | [FilterOutcome](/api/E2E.Reports/FilterOutcome/) | Why a filter left nothing out without answering (upstream's FilterOutcome). |
 | [PolicyDecision](/api/E2E.Reports/PolicyDecision/) | Whether a policy allowed a proposal. |
 | [ResultKind](/api/E2E.Reports/ResultKind/) | Whether a result is a test or a setup. |
-| [ResultStatus](/api/E2E.Reports/ResultStatus/) | How a test ended, over all its attempts. |
+| [ResultStatus](/api/E2E.Reports/ResultStatus/) | How a test ended, over all its attempts. A pass after an earlier attempt is Flaky, and a retry that was interrupted keeps the Failed or TimedOut verdict of the attempt before it. |
 | [SkipCause](/api/E2E.Reports/SkipCause/) | The cause of a skip. |
 | [StepEventKind](/api/E2E.Reports/StepEventKind/) | What kind of thing a step event records. |
 | [StepEventStatus](/api/E2E.Reports/StepEventStatus/) | How a step event ended. |
