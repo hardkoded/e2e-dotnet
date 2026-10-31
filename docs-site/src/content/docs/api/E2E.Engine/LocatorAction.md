@@ -1,6 +1,6 @@
 ---
 title: "LocatorAction"
-description: "A deterministic action CancellationToken) carries out on one node."
+description: "A deterministic action PerformAsync carries out on one node."
 editUrl: false
 prev: false
 next: false
@@ -19,7 +19,7 @@ public abstract record LocatorAction : IEquatable<LocatorAction>
 ```
 
 
-A deterministic action `CancellationToken)` carries out on one node.
+A deterministic action `PerformAsync` carries out on one node.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 

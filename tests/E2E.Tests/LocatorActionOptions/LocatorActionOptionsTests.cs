@@ -8,8 +8,7 @@ namespace E2E.Tests.LocatorActionOptions;
 
 /// <summary>
 /// "%s rejects an unknown option before any lookup, action, or step" is not ported: the port's options are a typed
-/// class. "%s performs with a timeout" runs for every verb the port has (not <c>setInputFiles</c>, which the file's
-/// other tests do not reach either). The nested "modifiers" describe is <see cref="LocatorActionOptionsModifiersTests"/>.
+/// class. The nested "modifiers" describe is <see cref="LocatorActionOptionsModifiersTests"/>.
 /// </summary>
 public sealed class LocatorActionOptionsTests
 {
@@ -33,6 +32,7 @@ public sealed class LocatorActionOptionsTests
         ["selectOption"] = (locator, options, _) => locator.SelectOptionAsync("Team", options),
         ["focus"] = (locator, options, _) => locator.FocusAsync(options),
         ["hover"] = (locator, options, _) => locator.HoverAsync(options),
+        ["setInputFiles"] = (locator, options, _) => locator.SetInputFilesAsync("fixtures/a.txt", options),
         ["dragTo"] = (locator, options, screen) => locator.DragToAsync(screen.GetByRole("region", "Bin"), options),
         ["scrollIntoView"] = (locator, options, _) => locator.ScrollIntoViewAsync(options),
         ["swipe"] = (locator, options, _) => locator.SwipeAsync(new SwipeOptions { Direction = ScrollDirection.Down, Timeout = options.Timeout }),
@@ -58,6 +58,7 @@ public sealed class LocatorActionOptionsTests
             TimeSpan.FromSeconds(1))
         {
             Capabilities = tapModifiers ? EngineCapabilities.TapModifiers : EngineCapabilities.None,
+            Steps = new StepRecorder("attempt"),
         };
         return (screen, received);
     }
@@ -71,6 +72,9 @@ public sealed class LocatorActionOptionsTests
         await Calls[verb](screen.GetByLabel("Agree"), new ActionOptions { Timeout = TimeSpan.FromSeconds(1) }, screen);
 
         Assert.Single(performed);
+        var step = Assert.Single(screen.Steps!.All());
+        Assert.Equal($"locator.{verb}", step.Api);
+        Assert.Equal(StepStatus.Passed, step.Status);
     }
 
     [Fact]

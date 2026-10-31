@@ -535,10 +535,11 @@ public sealed class Locator
         ClickWithAsync("tap", static modifiers => new LocatorAction.Tap(modifiers), options, cancellationToken);
 
     /// <summary>Alias of <see cref="TapAsync(ActionOptions, CancellationToken)"/>.</summary>
-    public Task ClickAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => TapAsync(AsClick(options), cancellationToken);
+    public Task ClickAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => ClickAsync(AsClick(options), cancellationToken);
 
     /// <summary>Alias of <see cref="TapAsync(ClickOptions, CancellationToken)"/>.</summary>
-    public Task ClickAsync(ClickOptions? options, CancellationToken cancellationToken = default) => TapAsync(options, cancellationToken);
+    public Task ClickAsync(ClickOptions? options, CancellationToken cancellationToken = default) =>
+        ClickWithAsync("click", static modifiers => new LocatorAction.Tap(modifiers), options, cancellationToken);
 
     /// <summary>Double taps the node, waiting for exactly one enabled match.</summary>
     public Task DoubleTapAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => DoubleTapAsync(AsClick(options), cancellationToken);
@@ -548,10 +549,11 @@ public sealed class Locator
         ClickWithAsync("doubleTap", static modifiers => new LocatorAction.DoubleTap(modifiers), options, cancellationToken);
 
     /// <summary>Alias of <see cref="DoubleTapAsync(ActionOptions, CancellationToken)"/>.</summary>
-    public Task DblClickAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => DoubleTapAsync(AsClick(options), cancellationToken);
+    public Task DblClickAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => DblClickAsync(AsClick(options), cancellationToken);
 
     /// <summary>Alias of <see cref="DoubleTapAsync(ClickOptions, CancellationToken)"/>.</summary>
-    public Task DblClickAsync(ClickOptions? options, CancellationToken cancellationToken = default) => DoubleTapAsync(options, cancellationToken);
+    public Task DblClickAsync(ClickOptions? options, CancellationToken cancellationToken = default) =>
+        ClickWithAsync("dblclick", static modifiers => new LocatorAction.DoubleTap(modifiers), options, cancellationToken);
 
     private static ClickOptions? AsClick(ActionOptions? options) =>
         options as ClickOptions ?? (options is null ? null : new ClickOptions { Timeout = options.Timeout });
