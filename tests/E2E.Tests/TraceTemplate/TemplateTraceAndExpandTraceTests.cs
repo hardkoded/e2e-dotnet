@@ -10,11 +10,11 @@ namespace E2E.Tests.TraceTemplate;
 
 /// <summary>
 /// The port templates the typed value, the navigated URL, the scroll text, and the start and end routes of an entry, with a
-/// slot for each unique value and a spelling suffix (<c>|uri</c>, <c>|form</c>, <c>|slug</c>, <c>|flat</c>). It has no JSON
-/// pointers, upload paths, action summaries, summary verdict, descriptor or anchor templating (an anchor naming a unique value
-/// is left out), or placeholder grammar to refuse an unknown suffix. So these upstream its are not ported: "templates upload
-/// paths", "keeps the verdict summary as recorded", "refuses to template a recording whose text already spells a placeholder",
-/// and "refuses a placeholder whose encoding it does not know".
+/// <c>{{param:/name}}</c> placeholder for each unique value and an encoding after a bar (<c>|uri</c>, <c>|form</c>, <c>|slug</c>,
+/// <c>|flat</c>). It has no upload paths, action summaries, summary verdict, descriptor or anchor templating (an anchor naming a
+/// unique value is left out), or write-side refusal of a text that already spells a placeholder. So these upstream its are not
+/// ported: "templates upload paths", "keeps the verdict summary as recorded", and "refuses to template a recording whose text
+/// already spells a placeholder".
 /// </summary>
 public sealed class TemplateTraceAndExpandTraceTests
 {
@@ -74,21 +74,21 @@ public sealed class TemplateTraceAndExpandTraceTests
     }
 
     /// <summary>
-    /// The port's slots are <c>\u0001name|encoding\u0001</c>, not JSON-pointer placeholders, so the last upstream
+    /// The port's slots are <c>{{param:/name|encoding}}</c>, not JSON-pointer placeholders, so the last upstream
     /// <c>expandText</c> check (a <c>uri</c> placeholder of an unpaired surrogate is refused) is kept as a slot left as recorded.
     /// </summary>
     [Fact]
     public void Partial_Spells_the_form_encoding_as_a_form_submission_does_and_skips_the_encodings_of_a_value_that_has_none()
     {
         Assert.Equal(
-            "?q=\u0001q|form\u0001",
+            "?q={{param:/q|form}}",
             CacheKeys.Template("?q=Ada%27s+%28new%29+shop%7E%21", new Dictionary<string, object?> { ["q"] = Values.Unique("Ada's (new) shop~!") }));
 
         // An unpaired surrogate cannot be percent-encoded; the value itself still templates and staging does not throw.
         var odd = "bad \ud800 value";
         var unique = new Dictionary<string, object?> { ["v"] = Values.Unique(odd) };
-        Assert.Equal("typed \u0001v\u0001", CacheKeys.Template("typed " + odd, unique));
-        Assert.Equal("\u0001v|uri\u0001", CacheKeys.Detemplate("\u0001v|uri\u0001", unique));
+        Assert.Equal("typed {{param:/v}}", CacheKeys.Template("typed " + odd, unique));
+        Assert.Null(CacheKeys.Detemplate("{{param:/v|uri}}", unique));
     }
 
     [Fact]
@@ -96,42 +96,42 @@ public sealed class TemplateTraceAndExpandTraceTests
     {
         var recorded = CacheKeys.Template("/companies/Acme%20%26%20Co?search=Acme+%26+Co&name=Acme & Co", Name("Acme & Co"));
 
-        Assert.Equal("/companies/\u0001name|uri\u0001?search=\u0001name|form\u0001&name=\u0001name\u0001", recorded);
+        Assert.Equal("/companies/{{param:/name|uri}}?search={{param:/name|form}}&name={{param:/name}}", recorded);
         Assert.Equal("/companies/Globex%20Inc?search=Globex+Inc&name=Globex Inc", CacheKeys.Detemplate(recorded, Name("Globex Inc")));
 
         // A value no encoding changes has one spelling and one placeholder.
-        Assert.Equal("/tags/\u0001tag\u0001?q=\u0001tag\u0001", CacheKeys.Template("/tags/vip?q=vip", new Dictionary<string, object?> { ["tag"] = Values.Unique("vip") }));
+        Assert.Equal("/tags/{{param:/tag}}?q={{param:/tag}}", CacheKeys.Template("/tags/vip?q=vip", new Dictionary<string, object?> { ["tag"] = Values.Unique("vip") }));
     }
 
     [Fact]
     public void Spells_a_value_as_the_slug_an_app_derives_for_a_record_path_and_fills_it_back_the_same_way()
     {
         Assert.Equal(
-            "/companies/\u0001name|slug\u0001?q=\u0001name|uri\u0001",
+            "/companies/{{param:/name|slug}}?q={{param:/name|uri}}",
             CacheKeys.Template("/companies/e2e-abc-company?q=E2E%20abc%20Company", Name("E2E abc Company")));
-        Assert.Equal("/companies/ada-s-shop-co", CacheKeys.Detemplate("/companies/\u0001name|slug\u0001", Name("Ada's Shop & Co")));
+        Assert.Equal("/companies/ada-s-shop-co", CacheKeys.Detemplate("/companies/{{param:/name|slug}}", Name("Ada's Shop & Co")));
 
         // A value whose slug is empty has no slug spelling.
-        Assert.Equal("x \u0001v\u0001 y", CacheKeys.Template("x -- y", new Dictionary<string, object?> { ["v"] = Values.Unique("--") }));
+        Assert.Equal("x {{param:/v}} y", CacheKeys.Template("x -- y", new Dictionary<string, object?> { ["v"] = Values.Unique("--") }));
     }
 
     [Fact]
     public void Spells_a_multi_line_value_on_one_line_as_the_screen_shows_it_and_fills_it_back_the_same_way()
     {
         var address = new Dictionary<string, object?> { ["address"] = Values.Unique("Ada Lovelace\n12 Example Street\nE2E 1") };
-        Assert.Equal("Saved: \u0001address|flat\u0001", CacheKeys.Template("Saved: Ada Lovelace 12 Example Street E2E 1", address));
-        Assert.Equal("\u0001address\u0001", CacheKeys.Template("Ada Lovelace\n12 Example Street\nE2E 1", address));
+        Assert.Equal("Saved: {{param:/address|flat}}", CacheKeys.Template("Saved: Ada Lovelace 12 Example Street E2E 1", address));
+        Assert.Equal("{{param:/address}}", CacheKeys.Template("Ada Lovelace\n12 Example Street\nE2E 1", address));
 
         // A textarea keeps `\r\n` as `\n`, so a value joined with `\r\n` shows on one line too.
         Assert.Equal(
-            "Saved: \u0001address|flat\u0001",
+            "Saved: {{param:/address|flat}}",
             CacheKeys.Template(
                 "Saved: Ada Lovelace 12 Example Street E2E 1",
                 new Dictionary<string, object?> { ["address"] = Values.Unique("Ada Lovelace\r\n12 Example Street\r\nE2E 1") }));
         Assert.Equal(
             "Saved: Grace Hopper 7 Navy Way E2E 2",
             CacheKeys.Detemplate(
-                "Saved: \u0001address|flat\u0001",
+                "Saved: {{param:/address|flat}}",
                 new Dictionary<string, object?> { ["address"] = Values.Unique(" Grace Hopper\n\n 7 Navy Way\tE2E 2 ") }));
     }
 
@@ -164,8 +164,8 @@ public sealed class TemplateTraceAndExpandTraceTests
         Assert.Null(first.Error);
 
         var entry = JsonSerializer.Deserialize<CacheEntry>(File.ReadAllText(Assert.Single(Directory.GetFiles(directory, "*.json"))), JsonDefaults())!;
-        Assert.Equal("/companies/create?name=\u0001name|form\u0001", entry.Actions[0].Url);
-        Assert.Equal("\u0001name\u0001", entry.Actions[1].Value);
+        Assert.Equal("/companies/create?name={{param:/name|form}}", entry.Actions[0].Url);
+        Assert.Equal("{{param:/name}}", entry.Actions[1].Value);
         Assert.DoesNotContain("E2E", File.ReadAllText(Assert.Single(Directory.GetFiles(directory, "*.json"))), StringComparison.Ordinal);
 
         typed.Clear();
@@ -174,6 +174,15 @@ public sealed class TemplateTraceAndExpandTraceTests
         Assert.Null(replay.Error);
         Assert.Equal(1, replay.Replayed);
         Assert.Equal(["E2E xyz Company"], typed);
+    }
+
+    [Fact]
+    public void Refuses_a_placeholder_whose_encoding_it_does_not_know()
+    {
+        Assert.Null(CacheKeys.ExpandText("/x/{{param:/name|base64}}", new Dictionary<string, string> { ["/name"] = "Acme" }));
+        Assert.Null(CacheKeys.Detemplate("/x/{{param:/name|base64}}", Name("Acme")));
+        Assert.Null(CacheKeys.Detemplate("/x/{{param:/other}}", Name("Acme")));
+        Assert.Equal("/x/Acme", CacheKeys.Detemplate("/x/{{param:/name}}", Name("Acme")));
     }
 
     private static JsonSerializerOptions JsonDefaults() => new(JsonSerializerDefaults.Web);
