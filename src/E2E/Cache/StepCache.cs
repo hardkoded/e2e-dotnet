@@ -9,6 +9,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using E2E.Engine;
 using E2E.Internal;
 
@@ -398,7 +399,7 @@ public sealed class FileStepCache : IStepCache
     }
 }
 
-internal static class CacheKeys
+internal static partial class CacheKeys
 {
     /// <summary>
     /// Version of the rules that decide whether a recording replays. Bump it when those
@@ -499,12 +500,39 @@ internal static class CacheKeys
                 return found;
             })
             .OrderByDescending(spelling => spelling.Text.Length);
+        // Upstream's templateText tracks literal segments: a slot written for one spelling is not literal text, so a shorter
+        // spelling (a value that is a part of a parameter's name, or of "|uri") never matches inside it.
+        List<(bool Literal, string Text)> segments = [(true, value)];
         foreach (var (text, slot) in spellings)
         {
-            value = value.Replace(text, slot, StringComparison.Ordinal);
+            List<(bool Literal, string Text)> next = [];
+            foreach (var segment in segments)
+            {
+                if (!segment.Literal || !segment.Text.Contains(text, StringComparison.Ordinal))
+                {
+                    next.Add(segment);
+                    continue;
+                }
+
+                var parts = segment.Text.Split(text);
+                for (var index = 0; index < parts.Length; index++)
+                {
+                    if (parts[index].Length > 0)
+                    {
+                        next.Add((true, parts[index]));
+                    }
+
+                    if (index < parts.Length - 1)
+                    {
+                        next.Add((false, slot));
+                    }
+                }
+            }
+
+            segments = next;
         }
 
-        return value;
+        return string.Concat(segments.Select(segment => segment.Text));
     }
 
     public static string Detemplate(string value, IReadOnlyDictionary<string, object?>? parameters)
@@ -514,6 +542,9 @@ internal static class CacheKeys
             return value;
         }
 
+        // Upstream's expandText fills every placeholder in one regex pass, so an expanded value is never read again: a value that
+        // spells another slot stays the text it is. A unique value cannot hold the slot marker, so the pass cannot start inside one.
+        var fills = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var pair in parameters)
         {
             if (pair.Value is UniqueValue unique)
@@ -523,16 +554,19 @@ internal static class CacheKeys
                     // A value with no such spelling (an unpaired surrogate has no uri spelling) leaves the slot as recorded.
                     if (encode(unique.Value) is { } spelled)
                     {
-                        value = value.Replace("\u0001" + pair.Key + suffix + "\u0001", spelled, StringComparison.Ordinal);
+                        fills[pair.Key + suffix] = spelled;
                     }
                 }
 
-                value = value.Replace("\u0001" + pair.Key + "\u0001", unique.Value, StringComparison.Ordinal);
+                fills[pair.Key] = unique.Value;
             }
         }
 
-        return value;
+        return Placeholder().Replace(value, match => fills.TryGetValue(match.Groups[1].Value, out var filled) ? filled : match.Value);
     }
+
+    [GeneratedRegex(@"\u0001([^\u0001]*)\u0001")]
+    private static partial Regex Placeholder();
 
     private const string UriSuffix = "|uri";
 

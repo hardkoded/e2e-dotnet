@@ -240,7 +240,7 @@ lines you changed:
   substitution also covers the value as a URL spells it (`Ada%20Lovelace` in
   a path, `Ada+Lovelace` in a query), as the slug an app derives for a record
   path (`ada-lovelace`), and a multi-line value as the screen shows it, on
-  one line (topic `agent`).
+  one line. A short value is never matched inside the slot written for a longer one (topic `agent`).
 - Take `[Retry]` off the test while you iterate (NUnit only; xUnit v3 has no
   retry). The first attempt replays; outside `cache.strict`, each retry runs
   every goal live and waits out the failure again.
