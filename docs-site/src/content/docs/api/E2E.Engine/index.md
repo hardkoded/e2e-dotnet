@@ -32,7 +32,7 @@ Public types in the `E2E.Engine` namespace.
 | [DocumentPage](/api/E2E.Engine/DocumentPage/) | One in-memory screen. Builder methods append controls in reading order. |
 | [DocumentWorld](/api/E2E.Engine/DocumentWorld/) | Routes a DocumentEngine can open. Each open builds a new page from the mapped factory. |
 | [EngineFinishInfo](/api/E2E.Engine/EngineFinishInfo/) | The facts handed to an engine's finish (CancellationToken)), once per run and target after the last worker is gone, with the cleanup budget of one hook. Upstream's EngineFinishInfo. |
-| [EngineFixtureContext](/api/E2E.Engine/EngineFixtureContext/) | What an engine's fixture gets from the attempt, once per attempt. Upstream's EngineFixtureContext, of which the port has locator only: its fixtures take their own cancellation tokens, and record no steps of their own yet. |
+| [EngineFixtureContext](/api/E2E.Engine/EngineFixtureContext/) | What an engine's fixture gets from the attempt, once per attempt. Upstream's EngineFixtureContext, of which the port has locator only: its fixtures take their own cancellation tokens, and record their steps through RunOperationAsync. |
 | [EngineInitInfo](/api/E2E.Engine/EngineInitInfo/) | What a worker's init is given, once per worker, before its first attempt. Upstream's EngineInitInfo. |
 | [EnginePrepareInfo](/api/E2E.Engine/EnginePrepareInfo/) | The facts handed to an engine's prepare (CancellationToken)), once per run and target in the runner process, before any worker exists. Upstream's EnginePrepareInfo. |
 | [EnginePrepareResult](/api/E2E.Engine/EnginePrepareResult/) | What prepare learned that the run must honour. Upstream's EnginePrepareResult. |
@@ -43,12 +43,17 @@ Public types in the `E2E.Engine` namespace.
 | [LocatorAction.Check](/api/E2E.Engine/LocatorAction.Check/) |  |
 | [LocatorAction.Clear](/api/E2E.Engine/LocatorAction.Clear/) |  |
 | [LocatorAction.DoubleTap](/api/E2E.Engine/LocatorAction.DoubleTap/) | A double tap. <code class="paramref">Modifiers</code> are held for both clicks, as for LocatorAction.Tap. |
+| [LocatorAction.DragTo](/api/E2E.Engine/LocatorAction.DragTo/) | Drags the node onto <code class="paramref">Target</code>, a node of the same observation. |
 | [LocatorAction.Fill](/api/E2E.Engine/LocatorAction.Fill/) |  |
 | [LocatorAction.Focus](/api/E2E.Engine/LocatorAction.Focus/) |  |
+| [LocatorAction.Hover](/api/E2E.Engine/LocatorAction.Hover/) | Moves the pointer over the node. |
+| [LocatorAction.LongPress](/api/E2E.Engine/LocatorAction.LongPress/) | A press held on the node for <code class="paramref">Duration</code>, or for the engine's own default hold when it is null. |
 | [LocatorAction.Press](/api/E2E.Engine/LocatorAction.Press/) |  |
 | [LocatorAction.PressSequentially](/api/E2E.Engine/LocatorAction.PressSequentially/) | Focuses the node and types <code class="paramref">Text</code> one character at a time. |
 | [LocatorAction.ScrollIntoView](/api/E2E.Engine/LocatorAction.ScrollIntoView/) | Scrolls the node's nearest scrollable container until the node is in the viewport. |
+| [LocatorAction.SecondaryTap](/api/E2E.Engine/LocatorAction.SecondaryTap/) | A right click, or the platform's equivalent. <code class="paramref">Modifiers</code> are held for the click, as for LocatorAction.Tap. |
 | [LocatorAction.Select](/api/E2E.Engine/LocatorAction.Select/) |  |
+| [LocatorAction.SetInputFiles](/api/E2E.Engine/LocatorAction.SetInputFiles/) | Sets the files of a file input, or of a control that opens a file chooser when clicked, such as a button over a hidden input. <code class="paramref">Paths</code> are absolute: the locator resolves them from the project root. |
 | [LocatorAction.Swipe](/api/E2E.Engine/LocatorAction.Swipe/) | Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is CancellationToken). |
 | [LocatorAction.Tap](/api/E2E.Engine/LocatorAction.Tap/) | A tap. <code class="paramref">Modifiers</code> are held for the click, and only an engine that declares TapModifiers receives them. |
 | [LocatorAction.Uncheck](/api/E2E.Engine/LocatorAction.Uncheck/) |  |
@@ -64,6 +69,7 @@ Public types in the `E2E.Engine` namespace.
 | [RouteContinueOverrides](/api/E2E.Engine/RouteContinueOverrides/) | What ContinueAsync(RouteContinueOverrides) changes about the request before it goes to the network. |
 | [RouteFulfillResponse](/api/E2E.Engine/RouteFulfillResponse/) | How FulfillAsync(RouteFulfillResponse) answers a request. Give at most one of Json, Body, or Path; none is an empty body. |
 | [SemanticNode](/api/E2E.Engine/SemanticNode/) | One node of an observation tree. Ref is valid only for the observation it came from. |
+| [TraceViewport](/api/E2E.Engine/TraceViewport/) | Upstream's TraceViewport: the size of the viewport a capture was taken in, in CSS pixels. |
 | [VideoFile](/api/E2E.Engine/VideoFile/) | A video file in the attempt artifact directory. |
 | [VideoLink](/api/E2E.Engine/VideoLink/) | A recording a hosted service keeps, by URL: the report links to it and the runner never downloads it. |
 | [VideoSegment](/api/E2E.Engine/VideoSegment/) | One recorded video of an attempt: a file the engine wrote into the attempt artifact directory (VideoFile), or a recording a hosted service keeps and links to (VideoLink). |

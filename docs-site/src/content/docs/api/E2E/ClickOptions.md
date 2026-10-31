@@ -1,6 +1,6 @@
 ---
 title: "ClickOptions"
-description: "What a tap-family action takes. Upstream's ClickOptions, of which the port has the modifiers."
+description: "Options for CancellationToken), CancellationToken), and CancellationToken). Upstream's ClickOptions."
 editUrl: false
 prev: false
 next: false
@@ -15,15 +15,15 @@ Namespace: [E2E](/api/E2E/)
 
 
 ```csharp
-public sealed class ClickOptions
+public class ClickOptions : ActionOptions
 ```
 
 
-What a tap-family action takes. Upstream's `ClickOptions`, of which the port has the `modifiers`.
+Options for `CancellationToken)`, `CancellationToken)`, and `CancellationToken)`. Upstream's `ClickOptions`.
 
-**Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
+**Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object) → [ActionOptions](/api/E2E/ActionOptions/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L330)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1222)
 
 ## Properties
 
@@ -38,8 +38,9 @@ public IReadOnlyList<KeyModifier>? Modifiers { get; init; }
 ```
 
 
-Keys held for the click, distinct. An empty list holds nothing.
+Keys held for the click, as a Shift-click extends a selection. Distinct; an empty list holds nothing. Only an engine that declares
+[TapModifiers](/api/E2E.Engine/EngineCapabilities/#E2E_Engine_EngineCapabilities_TapModifiers) takes them.
 
 **Value:** [IReadOnlyList&lt;KeyModifier&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L333)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1228)

@@ -1343,6 +1343,31 @@ public sealed partial class WebEngine : IEngine
             RequireObservation();
             var budget = Budget(action.GetType().Name.ToLowerInvariant(), cancellationToken);
             await RequireNoNewTwinAsync(node, budget).ConfigureAwait(false);
+            var element = await FindElementAsync(node, action, budget).ConfigureAwait(false);
+            await using var disposeElement = element.ConfigureAwait(false);
+            try
+            {
+                if (action is LocatorAction.DragTo drag)
+                {
+                    // The drop target is a node of the same observation, found like the source.
+                    await RequireNoNewTwinAsync(drag.Target, budget).ConfigureAwait(false);
+                    var drop = await FindElementAsync(drag.Target, action, budget).ConfigureAwait(false);
+                    await using var disposeDrop = drop.ConfigureAwait(false);
+                    await budget.WithinAsync(DragAsync(element, drop, budget)).ConfigureAwait(false);
+                    return;
+                }
+
+                await budget.WithinAsync(DispatchAsync(element, action, budget)).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (WebErrors.IsPlaywright(ex) || ex is EngineException { Code: EngineErrorCodes.OperationTimeout })
+            {
+                throw WebErrors.ClassifyAction(ex, action);
+            }
+        }));
+
+        /// <summary>The page's element for an observed node, or <c>NODE_STALE</c> when the page no longer has it.</summary>
+        private async Task<IElementHandle> FindElementAsync(SemanticNode node, LocatorAction action, OperationBudget budget)
+        {
             var frame = _frames.GetValueOrDefault(node.Ref) ?? Page.MainFrame;
             if (frame.IsDetached)
             {
@@ -1366,23 +1391,29 @@ public sealed partial class WebEngine : IEngine
 
             // A frame's handle to a missing ref is a plain JSHandle, which
             // AsElement rejects instead of returning null.
-            var element = handle as IElementHandle;
-            if (element is null)
+            if (handle is IElementHandle element)
             {
-                await handle.DisposeAsync().ConfigureAwait(false);
-                throw new EngineException(EngineErrorCodes.NodeStale, $"Node {node.Ref} is not on the page. Observe again.", retryable: true);
+                return element;
             }
 
-            await using var disposeElement = element.ConfigureAwait(false);
+            await handle.DisposeAsync().ConfigureAwait(false);
+            throw new EngineException(EngineErrorCodes.NodeStale, $"Node {node.Ref} is not on the page. Observe again.", retryable: true);
+        }
+
+        /// <summary>A pointer drag between two elements, as Playwright's <c>dragTo</c> does it: hover the source, press, hover the target, release.</summary>
+        private async Task DragAsync(IElementHandle source, IElementHandle target, OperationBudget budget)
+        {
+            await source.HoverAsync(new ElementHandleHoverOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+            await Page.Mouse.DownAsync().ConfigureAwait(false);
             try
             {
-                await budget.WithinAsync(DispatchAsync(element, action, budget)).ConfigureAwait(false);
+                await target.HoverAsync(new ElementHandleHoverOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
             }
-            catch (Exception ex) when (WebErrors.IsPlaywright(ex) || ex is EngineException { Code: EngineErrorCodes.OperationTimeout })
+            finally
             {
-                throw WebErrors.ClassifyAction(ex, action);
+                await Page.Mouse.UpAsync().ConfigureAwait(false);
             }
-        }));
+        }
 
         public Task PressAsync(string key, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("keyboard.press", cancellationToken, () =>
         {
@@ -2392,6 +2423,15 @@ public sealed partial class WebEngine : IEngine
                 case LocatorAction.DoubleTap doubleTap:
                     await element.DblClickAsync(new ElementHandleDblClickOptions { Timeout = budget.PlaywrightTimeout, Modifiers = Held(doubleTap.Modifiers) }).ConfigureAwait(false);
                     break;
+                case LocatorAction.SecondaryTap secondary:
+                    await element.ClickAsync(new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout, Button = MouseButton.Right, Modifiers = Held(secondary.Modifiers) }).ConfigureAwait(false);
+                    break;
+                case LocatorAction.LongPress press:
+                    await element.ClickAsync(new ElementHandleClickOptions { Timeout = budget.PlaywrightTimeout, Delay = (float)(press.Duration ?? DefaultLongPress).TotalMilliseconds }).ConfigureAwait(false);
+                    break;
+                case LocatorAction.Hover:
+                    await element.HoverAsync(new ElementHandleHoverOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+                    break;
                 case LocatorAction.Fill fill:
                     await element.FillAsync(fill.Value, new ElementHandleFillOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
                     break;
@@ -3158,6 +3198,9 @@ public sealed partial class WebEngine : IEngine
                 await budget.DelayAsync(wait < CheckPollInterval ? wait : CheckPollInterval).ConfigureAwait(false);
             }
         }
+
+        // How long a long press holds the button when the action names no duration, as upstream's DEFAULT_LONG_PRESS_MS.
+        private static readonly TimeSpan DefaultLongPress = TimeSpan.FromMilliseconds(500);
 
         // The keys Playwright holds for a click. Null holds none.
         private static IEnumerable<KeyboardModifier>? Held(IReadOnlyList<KeyModifier>? modifiers) =>

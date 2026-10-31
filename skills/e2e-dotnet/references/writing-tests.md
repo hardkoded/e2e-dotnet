@@ -155,12 +155,31 @@ Members of `E2ETest` in both frameworks:
 
 ### Actions
 
-`ClickAsync` (and `TapAsync`), `DoubleTapAsync` (and `DblClickAsync`), `FillAsync` (a string or a
+`ClickAsync` (and `TapAsync`), `DoubleTapAsync` (and `DblClickAsync`),
+`SecondaryTapAsync` (a right click), `LongPressAsync`, `HoverAsync`,
+`DragToAsync(target)`, `SwipeAsync`, `FillAsync` (a string or a
 `Secret`), `PressSequentiallyAsync`, `PressAsync`, `CheckAsync`,
 `UncheckAsync`, `ClearAsync`, `SelectOptionAsync` (a value or label),
 `FocusAsync`, `SetInputFilesAsync`, and `ScrollIntoViewAsync`. Each waits up to
-the action timeout for exactly one enabled, visible match. There is no hover,
-drag, long press, or right click.
+the action timeout for exactly one enabled, visible match.
+
+`TapAsync`, `DoubleTapAsync`, and `SecondaryTapAsync` take a `ClickOptions`
+whose `Modifiers` (`Shift`, `Control`, `Alt`, `Meta`, `ControlOrMeta`) are held
+for the click. Only the web engine takes them; any other engine fails with
+`UNSUPPORTED_CAPABILITY` before it resolves the node. A list that repeats a key
+is `INVALID_ARGUMENT`. `LongPressAsync(new LongPressOptions { Duration = ... })`
+holds from 100 ms through 10 s (a whole number of milliseconds, else an
+`ArgumentOutOfRangeException`); without one the engine holds its own default
+(500 ms on the web, one second on a device or a Windows app). `DragToAsync`
+resolves the drop locator in the same retry as the source, and both must come
+from the same screen. `SwipeAsync(new SwipeOptions { Direction = ..., Momentum = ... })`
+scrolls that node. Where each runs: the web engine has all of them; a device
+engine has long press, hover, drag, and swipe (no secondary tap); the Windows
+engine has them all; the document engine has swipe only and fails the rest with
+`UNSUPPORTED_CAPABILITY`. The screen-level `TapAt` and `Swipe`, the tap
+`position`, and the `{ label, value, index }` forms of `SelectOptionAsync` are not
+ported yet, and the agent has no `long_press`, `right_click`, `hover`, or `drag`
+tool yet.
 
 `SetInputFilesAsync(path)` (or a list of paths) sets the files of exactly one
 file input, or of a control that opens a file chooser, such as a button over a

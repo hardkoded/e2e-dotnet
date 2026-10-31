@@ -347,6 +347,27 @@ public sealed class PerformTests
     }
 
     [Fact]
+    public async Task Performs_the_locator_hover_long_press_drag_and_secondary_tap_actions_on_node_middles()
+    {
+        var (harness, session, observation) = await OpenAsync();
+        await using var _ = harness;
+        var save = Harness.ByTestId(observation, "save-button");
+        var list = Harness.ByTestId(observation, "benchmark-list");
+        await session.PerformAsync(save, new LocatorAction.Hover(), CancellationToken.None);
+        await session.PerformAsync(save, new LocatorAction.LongPress(), CancellationToken.None);
+        await session.PerformAsync(save, new LocatorAction.DragTo(list), CancellationToken.None);
+        await session.PerformAsync(save, new LocatorAction.SecondaryTap(), CancellationToken.None);
+        Assert.Equal(
+            [
+                $"foreground {FakeWindowDriver.MainHandle}", "hover 540,615",
+                $"foreground {FakeWindowDriver.MainHandle}", "drag 540,615 -> 540,615 hold 1000",
+                $"foreground {FakeWindowDriver.MainHandle}", "drag 540,615 -> 300,400 hold 0",
+                $"foreground {FakeWindowDriver.MainHandle}", "click 540,615 right",
+            ],
+            harness.Driver.Calls);
+    }
+
+    [Fact]
     public async Task Typing_goes_to_whatever_holds_focus_and_can_replace_it()
     {
         var (harness, session, _) = await OpenAsync();

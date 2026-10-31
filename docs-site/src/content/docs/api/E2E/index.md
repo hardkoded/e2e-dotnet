@@ -32,7 +32,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [AppConfig](/api/E2E/AppConfig/) |  |
 | [AssertOptions](/api/E2E/AssertOptions/) | agent.assert: one judgment and one repair round, within Timeout. |
 | [AwsCredentials](/api/E2E/AwsCredentials/) | AWS access key credentials for Signature Version 4. |
-| [BedrockModel](/api/E2E/BedrockModel/) | Amazon Bedrock Converse API client. It signs with AWS Signature Version 4 from the standard AWS environment variables or, with none set, from the AWS credential chain (shared profile, SSO, container and instance roles), as the AI SDK's amazon-bedrock provider does, or sends a Bedrock API key (AWS_BEARER_TOKEN_BEDROCK) as a bearer token when one is set. |
+| [BedrockModel](/api/E2E/BedrockModel/) | Amazon Bedrock Converse API client. It signs with AWS Signature Version 4 from the standard AWS environment variables or, with none set, from the AWS credential chain (shared profile, SSO, container and instance roles), as the AI SDK's amazon-bedrock provider does, or sends a Bedrock API key (AWSBEARERTOKENBEDROCK) as a bearer token when one is set. |
 | [BedrockModelOptions](/api/E2E/BedrockModelOptions/) |  |
 | [Browser](/api/E2E/Browser/) | The browser the attempt drives, showing one active tab. It needs an engine session that implements IBrowserSession, such as WebEngine; on any other engine each member fails with UNSUPPORTEDCAPABILITY. |
 | [BrowserExpect](/api/E2E/BrowserExpect/) | Polling assertions for the Browser: its URL and its title. Like the locator matchers, a passing one verifies the previous agent.act. A read is bounded by the matcher's own deadline, so a page that stops answering ends the assertion at its timeout. |
@@ -43,7 +43,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [CacheEntry](/api/E2E/CacheEntry/) | A recording of one verified act. Its file name is the hash of a trace cache key (TraceCacheKeyHash): the cache schema, the replay policy version, the project, the test, the target, the engine's name and contract version, the app's identity, the instruction's and params' digests, the agent's name, a digest of the agent's redacted context, and which repeat of that same call in the attempt it is. The model id and the engine's package version are not part of the key. |
 | [CacheInfo](/api/E2E/CacheInfo/) |  |
 | [CacheLookup](/api/E2E/CacheLookup/) |  |
-| [ClickOptions](/api/E2E/ClickOptions/) | What a tap-family action takes. Upstream's ClickOptions, of which the port has the modifiers. |
+| [ClickOptions](/api/E2E/ClickOptions/) | Options for CancellationToken), CancellationToken), and CancellationToken). Upstream's ClickOptions. |
 | [CommandConfig](/api/E2E/CommandConfig/) | The command a target's app.command starts the app with (upstream's CommandConfig). It is a program and its arguments, never a shell line: the executable is started directly and each argument is passed as it is. |
 | [ConfigurationException](/api/E2E/ConfigurationException/) | e2e.config.json is invalid. The code is INVALIDCONFIG. |
 | [Credentials](/api/E2E/Credentials/) | Reads E2EUSER{NAME}USERNAME and E2EUSER{NAME}PASSWORD. The name is uppercased and dashes become underscores. |
@@ -92,6 +92,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [LocatorExpect](/api/E2E/LocatorExpect/) | Matchers that retry until they pass or the assertion timeout elapses. Each takes an optional timeout that replaces the assertion timeout for that call. |
 | [LocatorExpression](/api/E2E/LocatorExpression/) | A locator expression. Query kinds (role, text, label, testid, placeholder, displayValue) search the descendants of Parent when it is set. filter and index narrow Source. union matches either Left or Right, each node once, in document order. selector is a CSS or XPath selector in the engine's own language, and frame scopes Source into the iframe Selector names. |
 | [LocatorWaitForOptions](/api/E2E/LocatorWaitForOptions/) | Options for CancellationToken). |
+| [LongPressOptions](/api/E2E/LongPressOptions/) | Options for CancellationToken). |
 | [ModelCallUsage](/api/E2E/ModelCallUsage/) |  |
 | [ModelImage](/api/E2E/ModelImage/) | An image a model reads: the encoded bytes of a screenshot, already sized for the model. |
 | [ModelMessage](/api/E2E/ModelMessage/) |  |
@@ -113,6 +114,10 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [PressSequentiallyOptions](/api/E2E/PressSequentiallyOptions/) | Options for CancellationToken). |
 | [RecordedAction](/api/E2E/RecordedAction/) |  |
 | [RecordedTarget](/api/E2E/RecordedTarget/) |  |
+| [RecordedVideo](/api/E2E/RecordedVideo/) | One video StopRecordingAsync(CancellationToken) returns: a file, or a link to a recording a hosted service keeps (upstream's RecordedVideo). |
+| [RecordedVideoFile](/api/E2E/RecordedVideoFile/) | A video file under the attempt's recordings/ directory (upstream's RecordedVideoFile). |
+| [RecordedVideoLink](/api/E2E/RecordedVideoLink/) | A recording a hosted browser or device service keeps, by URL (upstream's RecordedVideoLink). |
+| [RecordingOptions](/api/E2E/RecordingOptions/) | How CancellationToken) names its file (upstream's RecordingOptions). |
 | [ReplayedPrefix](/api/E2E/ReplayedPrefix/) | Upstream's ReplayedPrefix: the mid-step hand-off from a diverged cache replay. The replayed actions already ran against the live app under the same budgets and recording as the executor's own. The executor continues the step from the current state and does not redo them. |
 | [ReportExplore](/api/E2E/ReportExplore/) | What an exploration was asked, did, and found: upstream's run.explore block of the report. |
 | [ReportExploreFinding](/api/E2E/ReportExploreFinding/) | One finding Explore recorded through its reportfinding tool. |
@@ -134,6 +139,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [StepTurn](/api/E2E/StepTurn/) | One model turn of an agent step: the tool calls the model made and what came back, each bounded (upstream's StepTurn). |
 | [StoredArtifact](/api/E2E/StoredArtifact/) | One artifact handed to CancellationToken) (upstream's StoredArtifact): the file's bytes, its digest, and the identity the report files it under. Path is the report-relative path the record carries, stable across runs of the same test, so a host may use it as its own key. |
 | [StoredArtifactLink](/api/E2E/StoredArtifactLink/) | One provider-hosted recording, handed to CancellationToken) once the attempt stopped it (upstream's StoredArtifactLink). |
+| [SwipeOptions](/api/E2E/SwipeOptions/) | Options for CancellationToken). |
 | [TargetConfig](/api/E2E/TargetConfig/) | One entry of targets. The port drives the web, ios, and android platforms. |
 | [TestContext](/api/E2E/TestContext/) | The fixtures for one test. Call String) before the first step when a precondition is missing. |
 | [TestException](/api/E2E/TestException/) | A locator, expectation, or test failed. |

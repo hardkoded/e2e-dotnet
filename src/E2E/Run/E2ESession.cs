@@ -297,6 +297,7 @@ public sealed class E2ESession : IAsyncDisposable
             browser.Context = fixtureContext;
             (engine as IEngineFixtureHost)?.CreateFixtures(fixtureContext);
             screen.Steps = scope.Steps;
+            screen.Capabilities = options.Engine.Capabilities;
             screen.ProjectRoot = projectRoot;
             screen.Exposure = scope.Exposure;
             screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });

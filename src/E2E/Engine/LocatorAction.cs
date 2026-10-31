@@ -17,6 +17,18 @@ public abstract record LocatorAction
     /// <summary>A double tap. <paramref name="Modifiers"/> are held for both clicks, as for <see cref="Tap"/>.</summary>
     public sealed record DoubleTap(IReadOnlyList<KeyModifier>? Modifiers = null) : LocatorAction;
 
+    /// <summary>A right click, or the platform's equivalent. <paramref name="Modifiers"/> are held for the click, as for <see cref="Tap"/>.</summary>
+    public sealed record SecondaryTap(IReadOnlyList<KeyModifier>? Modifiers = null) : LocatorAction;
+
+    /// <summary>A press held on the node for <paramref name="Duration"/>, or for the engine's own default hold when it is null.</summary>
+    public sealed record LongPress(TimeSpan? Duration = null) : LocatorAction;
+
+    /// <summary>Moves the pointer over the node.</summary>
+    public sealed record Hover : LocatorAction;
+
+    /// <summary>Drags the node onto <paramref name="Target"/>, a node of the same observation.</summary>
+    public sealed record DragTo(SemanticNode Target) : LocatorAction;
+
     public sealed record Fill(string Value, bool Sensitive = false) : LocatorAction;
 
     public sealed record Press(string Key) : LocatorAction;

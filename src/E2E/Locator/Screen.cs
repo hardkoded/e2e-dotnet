@@ -31,6 +31,7 @@ public class Screen
     private StepRecorder? _steps;
     private string? _projectRoot;
     private Action _failed = static () => { };
+    private EngineCapabilities _capabilities;
 
     internal Screen(
         Func<CancellationToken, Task<Observation>> observe,
@@ -90,6 +91,9 @@ public class Screen
     internal TimeSpan AssertionTimeout { get; }
 
     internal TimeProvider Clock { get; }
+
+    /// <summary>What the attempt's engine declares; none for a screen outside a session. The locator reads <see cref="EngineCapabilities.TapModifiers"/>, upstream's <c>session.tapModifiers</c>.</summary>
+    internal EngineCapabilities Capabilities { get => Root._capabilities; set => Root._capabilities = value; }
 
     internal SoftFailures SoftFailures { get; }
 
@@ -520,21 +524,80 @@ public sealed class Locator
     /// <summary>Creates a displayed-value query among this locator's descendants.</summary>
     public Locator GetByDisplayValue(TextMatch value, TextMatchOptions options) => Scope(_screen.Root.GetByDisplayValue(value, options));
 
-    public Task TapAsync(ActionOptions? options = null, CancellationToken cancellationToken = default)
+    /// <summary>Taps the node, waiting for exactly one enabled match.</summary>
+    public Task TapAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => TapAsync(AsClick(options), cancellationToken);
+
+    /// <summary>
+    /// Taps the node. <see cref="ClickOptions.Modifiers"/> are held for the tap, on an engine that declares
+    /// <see cref="EngineCapabilities.TapModifiers"/>; any other engine refuses them with <c>UNSUPPORTED_CAPABILITY</c> before the node is resolved.
+    /// </summary>
+    public Task TapAsync(ClickOptions? options, CancellationToken cancellationToken = default) =>
+        ClickWithAsync("tap", static modifiers => new LocatorAction.Tap(modifiers), options, cancellationToken);
+
+    /// <summary>Alias of <see cref="TapAsync(ActionOptions, CancellationToken)"/>.</summary>
+    public Task ClickAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => TapAsync(AsClick(options), cancellationToken);
+
+    /// <summary>Alias of <see cref="TapAsync(ClickOptions, CancellationToken)"/>.</summary>
+    public Task ClickAsync(ClickOptions? options, CancellationToken cancellationToken = default) => TapAsync(options, cancellationToken);
+
+    /// <summary>Double taps the node, waiting for exactly one enabled match.</summary>
+    public Task DoubleTapAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => DoubleTapAsync(AsClick(options), cancellationToken);
+
+    /// <summary>Double taps the node. <see cref="ClickOptions.Modifiers"/> are held for both taps, as for <see cref="TapAsync(ClickOptions, CancellationToken)"/>.</summary>
+    public Task DoubleTapAsync(ClickOptions? options, CancellationToken cancellationToken = default) =>
+        ClickWithAsync("doubleTap", static modifiers => new LocatorAction.DoubleTap(modifiers), options, cancellationToken);
+
+    /// <summary>Alias of <see cref="DoubleTapAsync(ActionOptions, CancellationToken)"/>.</summary>
+    public Task DblClickAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => DoubleTapAsync(AsClick(options), cancellationToken);
+
+    /// <summary>Alias of <see cref="DoubleTapAsync(ClickOptions, CancellationToken)"/>.</summary>
+    public Task DblClickAsync(ClickOptions? options, CancellationToken cancellationToken = default) => DoubleTapAsync(options, cancellationToken);
+
+    private static ClickOptions? AsClick(ActionOptions? options) =>
+        options as ClickOptions ?? (options is null ? null : new ClickOptions { Timeout = options.Timeout });
+
+    /// <summary>
+    /// A right click on the node, or the platform's equivalent. <see cref="ClickOptions.Modifiers"/> are held for it, as for <see cref="TapAsync(ClickOptions, CancellationToken)"/>.
+    /// An engine with no secondary tap (a device, the document engine) fails with <c>UNSUPPORTED_CAPABILITY</c>.
+    /// </summary>
+    public Task SecondaryTapAsync(ClickOptions? options = null, CancellationToken cancellationToken = default) =>
+        ClickWithAsync("secondaryTap", static modifiers => new LocatorAction.SecondaryTap(modifiers), options, cancellationToken);
+
+    /// <summary>
+    /// Holds a press on the node for <see cref="LongPressOptions.Duration"/>, from 100 ms through 10 s; without one the engine holds its default.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The duration is not a whole number of milliseconds from 100 through 10000 (upstream's <c>INVALID_ARGUMENT</c>).</exception>
+    public Task LongPressAsync(LongPressOptions? options = null, CancellationToken cancellationToken = default)
     {
-        return ActAsync(new LocatorAction.Tap(), options, cancellationToken);
+        var duration = ValidateLongPress(options?.Duration);
+        return ActAsync(new LocatorAction.LongPress(duration), options, cancellationToken);
     }
 
-    /// <summary>Alias of <see cref="TapAsync"/>.</summary>
-    public Task ClickAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => TapAsync(options, cancellationToken);
+    /// <summary>Moves the pointer over the node.</summary>
+    public Task HoverAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) =>
+        ActAsync(new LocatorAction.Hover(), options, cancellationToken);
 
-    public Task DoubleTapAsync(ActionOptions? options = null, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Drags the node onto <paramref name="target"/>. The drop target resolves inside the retry, so a target that changes under the
+    /// drag is resolved again along with the source.
+    /// </summary>
+    /// <exception cref="TestException"><paramref name="target"/> is a locator of another screen (<c>INVALID_LOCATOR</c>).</exception>
+    public Task DragToAsync(Locator target, ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
-        return ActAsync(new LocatorAction.DoubleTap(), options, cancellationToken);
+        ArgumentNullException.ThrowIfNull(target);
+        _screen.OwnLocator(target, "dragTo");
+        return ActAsync("locator.dragTo", async (deadline, token) => new LocatorAction.DragTo(await target.ResolveExactlyOneAsync(deadline, token).ConfigureAwait(false)), options, null, null, cancellationToken);
     }
 
-    /// <summary>Alias of <see cref="DoubleTapAsync"/>.</summary>
-    public Task DblClickAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => DoubleTapAsync(options, cancellationToken);
+    /// <summary>
+    /// Scrolls the node about three quarters of its extent along <see cref="SwipeOptions.Direction"/>, further or less far with
+    /// <see cref="SwipeOptions.Momentum"/>. The viewport swipe is the screen's.
+    /// </summary>
+    public Task SwipeAsync(SwipeOptions options, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return ActAsync(new LocatorAction.Swipe(options.Direction, options.Momentum), options, cancellationToken);
+    }
 
     public Task FillAsync(string value, ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
@@ -853,7 +916,54 @@ public sealed class Locator
     /// More than one match fails at once.
     /// </summary>
     private Task ActAsync(LocatorAction action, ActionOptions? options, CancellationToken cancellationToken) =>
-        _screen.RunStepAsync(StepKind.Locator, "locator." + ApiName(action), Query.Describe(), () => PerformAsync(action, options, cancellationToken));
+        ActAsync("locator." + ApiName(action), (_, _) => Task.FromResult(action), options, null, null, cancellationToken);
+
+    /// <summary>
+    /// <see cref="ActAsync(LocatorAction, ActionOptions, CancellationToken)"/> for an action built once the node is found, with the step's
+    /// label and a check that runs inside the step before the node is resolved.
+    /// </summary>
+    private Task ActAsync(string api, Func<Deadline, CancellationToken, Task<LocatorAction>> build, ActionOptions? options, string? label, Action? check, CancellationToken cancellationToken) =>
+        _screen.RunStepAsync(StepKind.Locator, api, label ?? Query.Describe(), () =>
+        {
+            check?.Invoke();
+            return PerformAsync(build, options, cancellationToken);
+        });
+
+    /// <summary>
+    /// A tap, double tap, or secondary tap with the keys <see cref="ClickOptions.Modifiers"/> holds. The modifiers are validated at once; an
+    /// engine that does not declare <see cref="EngineCapabilities.TapModifiers"/> refuses them inside the step, before the node is resolved.
+    /// </summary>
+    private Task ClickWithAsync(string api, Func<IReadOnlyList<KeyModifier>?, LocatorAction> make, ClickOptions? options, CancellationToken cancellationToken)
+    {
+        // Validation only: every capability is passed, so the engine's own check waits for the step (RequireClickModifiers below).
+        var modifiers = ActionDispatcher.RequireClickModifiers(options, api, EngineCapabilities.TapModifiers);
+        var label = modifiers is null ? null : Query.Describe() + " with " + string.Join('+', modifiers);
+        var action = make(modifiers);
+        return ActAsync(
+            "locator." + api,
+            (_, _) => Task.FromResult(action),
+            options,
+            label,
+            modifiers is null ? null : () => ActionDispatcher.RequireClickModifiers(options, api, _screen.Capabilities),
+            cancellationToken);
+    }
+
+    /// <summary>The hold of a long press: whole milliseconds from 100 through 10000, or null for the engine's default.</summary>
+    private static TimeSpan? ValidateLongPress(TimeSpan? duration)
+    {
+        if (duration is not { } hold)
+        {
+            return null;
+        }
+
+        var milliseconds = hold.TotalMilliseconds;
+        if (milliseconds != Math.Floor(milliseconds) || milliseconds < 100 || milliseconds > 10_000)
+        {
+            throw new ArgumentOutOfRangeException(nameof(duration), hold, "longPress duration must be an integer from 100 through 10000 milliseconds, got " + milliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        return hold;
+    }
 
     // The method the test called, as upstream names it: tap, doubleTap, fill, selectOption.
     private static string ApiName(LocatorAction action) => action switch
@@ -871,10 +981,14 @@ public sealed class Locator
         LocatorAction.Focus => "focus",
         LocatorAction.ScrollIntoView => "scrollIntoView",
         LocatorAction.Swipe => "swipe",
+        LocatorAction.SecondaryTap => "secondaryTap",
+        LocatorAction.LongPress => "longPress",
+        LocatorAction.Hover => "hover",
+        LocatorAction.DragTo => "dragTo",
         _ => throw new ArgumentOutOfRangeException(nameof(action), action, "unknown locator action"),
     };
 
-    private async Task PerformAsync(LocatorAction action, ActionOptions? options, CancellationToken cancellationToken)
+    private async Task PerformAsync(Func<Deadline, CancellationToken, Task<LocatorAction>> build, ActionOptions? options, CancellationToken cancellationToken)
     {
         var token = _screen.Token(cancellationToken);
         var started = DateTime.UtcNow;
@@ -889,6 +1003,7 @@ public sealed class Locator
             if (node is { States.Disabled: false, States.Hidden: false })
             {
                 var waitedMs = rounds > 1 ? (long)Stopwatch.GetElapsedTime(stamp).TotalMilliseconds : 0;
+                var action = await build(new Deadline(deadline), token).ConfigureAwait(false);
                 try
                 {
                     await _screen.PerformAsync(node, action, token).ConfigureAwait(false);
@@ -1025,6 +1140,30 @@ public sealed class Locator
         }
     }
 
+    /// <summary>
+    /// Waits until <paramref name="deadline"/> for the one match. More than one match fails at once. Upstream's <c>resolveExactlyOne</c>,
+    /// which a drag uses for the node it drops on.
+    /// </summary>
+    internal async Task<SemanticNode> ResolveExactlyOneAsync(Deadline deadline, CancellationToken token)
+    {
+        var started = _screen.Clock.GetTimestamp();
+        while (true)
+        {
+            var node = await ResolveSingleAsync(token, deadline).ConfigureAwait(false);
+            if (node is not null)
+            {
+                return node;
+            }
+
+            if (deadline.Expired(_screen.Clock.GetUtcNow()))
+            {
+                throw NotFound(_screen.Clock.GetElapsedTime(started));
+            }
+
+            await Task.Delay(_screen.PollInterval, token).ConfigureAwait(false);
+        }
+    }
+
     /// <summary>Returns the one match, or null when nothing matches. More than one match fails.</summary>
     internal async Task<SemanticNode?> ResolveSingleAsync(CancellationToken token, Deadline? deadline = null, MissingFrame missingFrame = MissingFrame.Wait)
     {
@@ -1077,6 +1216,33 @@ public class ActionOptions
 {
     /// <summary>How long to wait for exactly one enabled match. Defaults to the configured action timeout.</summary>
     public TimeSpan? Timeout { get; init; }
+}
+
+/// <summary>Options for <see cref="Locator.TapAsync(ClickOptions, CancellationToken)"/>, <see cref="Locator.DoubleTapAsync(ClickOptions, CancellationToken)"/>, and <see cref="Locator.SecondaryTapAsync"/>. Upstream's <c>ClickOptions</c>.</summary>
+public class ClickOptions : ActionOptions
+{
+    /// <summary>
+    /// Keys held for the click, as a Shift-click extends a selection. Distinct; an empty list holds nothing. Only an engine that declares
+    /// <see cref="EngineCapabilities.TapModifiers"/> takes them.
+    /// </summary>
+    public IReadOnlyList<KeyModifier>? Modifiers { get; init; }
+}
+
+/// <summary>Options for <see cref="Locator.LongPressAsync"/>.</summary>
+public sealed class LongPressOptions : ActionOptions
+{
+    /// <summary>How long the press is held: whole milliseconds from 100 through 10000. Without one the engine holds its default.</summary>
+    public TimeSpan? Duration { get; init; }
+}
+
+/// <summary>Options for <see cref="Locator.SwipeAsync"/>.</summary>
+public sealed class SwipeOptions : ActionOptions
+{
+    /// <summary>Which way the content moves into view, as for <see cref="ScrollDirection"/>.</summary>
+    public required ScrollDirection Direction { get; init; }
+
+    /// <summary>The stride of the gesture. Without one the engine strides as it does for a scroll.</summary>
+    public Momentum? Momentum { get; init; }
 }
 
 /// <summary>Options for <c>Screen.ScrollUntilVisibleAsync</c> and <c>Locator.ScrollUntilVisibleAsync</c>.</summary>

@@ -65,6 +65,36 @@ public sealed class PerformTests
             ("interactions.drag", """{"source":"@e4","destination":"@e3"}"""));
     }
 
+    [Fact]
+    public async Task Performs_the_locator_long_press_hover_and_drag_actions_as_the_session_calls_do()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        var root = await RootOf(session);
+        var (about, back) = (Named(root, "About"), Named(root, "Back"));
+        var before = h.Fake.Calls.Count;
+        await session.PerformAsync(about, new LocatorAction.LongPress(TimeSpan.FromMilliseconds(900)), CancellationToken.None);
+        await session.PerformAsync(about, new LocatorAction.LongPress(), CancellationToken.None);
+        await session.PerformAsync(about, new LocatorAction.Hover(), CancellationToken.None);
+        await session.PerformAsync(about, new LocatorAction.DragTo(back), CancellationToken.None);
+        JsonAssert.Calls(
+            h.Fake.Calls,
+            before,
+            ("interactions.longPress", """{"ref":"@e4","settle":true,"settleQuietMs":150,"durationMs":900}"""),
+            ("interactions.longPress", """{"ref":"@e4","settle":true,"settleQuietMs":150,"durationMs":1000}"""),
+            ("interactions.hover", """{"ref":"@e4"}"""),
+            ("interactions.drag", """{"source":"@e4","destination":"@e3"}"""));
+    }
+
+    [Fact]
+    public async Task Refuses_a_secondary_tap_because_a_touch_surface_has_none()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        var about = Named(await RootOf(session), "About");
+        await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(about, new LocatorAction.SecondaryTap(), CancellationToken.None));
+    }
+
     [Theory]
     [InlineData("Enter", "command.keyboard")]
     [InlineData("a", "interactions.type")]

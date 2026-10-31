@@ -177,7 +177,7 @@ public string? ObservationRevision { get; init; }
 ```
 
 
-The revision of the screen the finding was reported on ([Revision](/api/E2E/ExecutorObservation/#E2E_ExecutorObservation_Revision)), when the finding tool observed one. The tool takes its own capture, as upstream does, so the revision is that capture's and is not one an agent step recorded.
+The revision of the screen the finding was reported on ([Revision](/api/E2E/ExecutorObservation/#E2E_ExecutorObservation_Revision)), when the finding tool observed one.  The tool takes its own capture, as upstream does, so the revision is that capture's and is not one an agent step recorded.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

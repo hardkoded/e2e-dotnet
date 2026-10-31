@@ -212,6 +212,8 @@ internal static class ReferenceScene
             },
             new ScriptedNode { Id = "map", Role = "image", Name = "Map", Rect = new BoundingBox(100, 300, 400, 200) },
             new ScriptedNode { Id = "feed", Role = "list", Name = "Feed" },
+            new ScriptedNode { Id = "drag", Role = "button", Name = "Drag me", TestId = "drag" },
+            new ScriptedNode { Id = "drop", Role = "region", Name = "Drop here", TestId = "drop" },
             new ScriptedNode { Id = "focus-target", Role = "textbox", Name = "Focus target", Value = "" },
             new ScriptedNode { Id = "city", Role = "textbox", Name = "City", Value = "" },
             reveal,
