@@ -101,7 +101,7 @@ internal static class UploadPaths
     }
 
     // JSON.stringify of a string, as upstream's messages quote a path.
-    private static string Quote(string entry) => JsonSerializer.Serialize(entry, QuoteOptions);
+    internal static string Quote(string entry) => JsonSerializer.Serialize(entry, QuoteOptions);
 
     // JSON.stringify leaves non-ASCII text and '&', '<', '>' as written, so the relaxed encoder is the one that matches it.
     private static readonly JsonSerializerOptions QuoteOptions = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };

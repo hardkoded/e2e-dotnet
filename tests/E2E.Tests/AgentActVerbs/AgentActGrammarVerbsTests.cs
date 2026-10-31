@@ -66,7 +66,7 @@ public sealed class AgentActGrammarVerbsTests
         Assert.Matches("^upload \"fixtures/attachment\\.txt\" to button \"Attachment\"$", actions[0].Detail);
         var policy = Assert.Single(step.Events, item => item.Kind == StepEventKind.Policy);
         Assert.Equal(("upload.path", PolicyDecision.Allowed), (policy.Name, policy.Decision));
-        Assert.StartsWith("uploaded \"fixtures/attachment.txt\" to button \"Attachment\"", CounterPage.ToolResults(model)[0], StringComparison.Ordinal);
+        Assert.Matches("^Uploaded \"fixtures/attachment\\.txt\" to e\\d+\\.", CounterPage.ToolResults(model)[0]);
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public sealed class AgentActGrammarVerbsTests
         Assert.Equal(("upload.path", PolicyDecision.Denied, "POLICY_DENIED"), (policy.Name, policy.Decision, policy.Code));
         Assert.Equal(0, step.Metrics!.ActionSteps);
         // The refusal reaches the model as the action's failure, naming the path it refused.
-        Assert.Matches("^failed: \"\\.env\" is", CounterPage.ToolResults(model)[0]);
+        Assert.Matches("^upload \"\\.env\" to e\\d+ failed: POLICY_DENIED: \"\\.env\" is", CounterPage.ToolResults(model)[0]);
     }
 
     [Fact]
