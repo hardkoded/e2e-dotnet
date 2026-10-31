@@ -412,7 +412,7 @@ npx skills add hardkoded/e2e-dotnet --skill create-verification-skill
 
 ### Migrating an existing suite
 
-The `migrate-to-e2e` skill moves a Playwright .NET, Selenium .NET, Appium, Cypress, Detox, or Maestro suite to e2e one slice per session, with the old suite running beside the new tests and a `MIGRATION.md` progress file. Install it, then ask your agent for `/migrate-to-e2e`:
+The `migrate-to-e2e` skill moves a Playwright .NET, Selenium .NET, Appium, Cypress, Detox, Maestro, or TesterArmy suite to e2e one slice per session, with the old suite running beside the new tests and a `MIGRATION.md` progress file. Install it, then ask your agent for `/migrate-to-e2e`:
 
 ```bash
 npx skills add hardkoded/e2e-dotnet --skill migrate-to-e2e
