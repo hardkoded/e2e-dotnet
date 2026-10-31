@@ -132,6 +132,10 @@ A provider that drives its devices without agent-device implements `IDeviceClien
 
 With `video` on (see `references/debugging.md`), a local simulator or emulator attempt writes `video/video.mp4` under `.e2e/results/<result>/attempt-<n>/`: agent-device records the whole device screen, not one app, and its segment carries `StartedAt`. Taps show as a touch indicator. `new MobileOptions { VideoTouches = false }` records the plain screen. An iPhone video is built from screenshots at about 15 frames a second. A physical iPhone that `xcrun devicectl list devices` does not list cannot record. A hosted device provider that records its devices (`IDeviceProvider.RecordAsync`) records the attempt instead, and its segment is a file under `video/` or a link. The MAUI DevFlow engine cannot record.
 
+### Record a transition
+
+`App.StartRecordingAsync(new RecordingOptions { Name = "sheet" })` and `App.StopRecordingAsync()` record one span of the device screen as an `.mp4` under `recordings/`, and return the videos (`RecordedVideoFile.Path`, or `RecordedVideoLink.Url` for a hosted device's recording). `Locator.BoundingBoxAsync` gives an element's frame in points (physical pixels on Android). Start after `app.OpenAsync()`. A recording started after `Device.CloseAppAsync()` ends the device session when it stops, so open the app again after it. Taps show unless `MobileOptions.VideoTouches` is `false`. The test's `video` must be off: a start while it records is `UNSUPPORTED_CAPABILITY`.
+
 ## A MAUI app with DevFlow
 
 A .NET MAUI app can be driven through the [MAUI DevFlow](https://github.com/dotnet/maui-labs/tree/main/src/DevFlow) agent instead of agent-device. The agent is an HTTP server inside the app, so no Node is needed, and every control reports its `AutomationId`. Add `Microsoft.Maui.DevFlow.Agent` to the app and register it in `MauiProgram.cs`:

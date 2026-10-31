@@ -64,6 +64,19 @@ Members of `E2ETest` in both frameworks:
   else is in the image. It is `UNSUPPORTED_CAPABILITY` only on an engine that
   keeps no screenshot artifact. The web, mobile, and Windows engines keep
   screenshot artifacts.
+- `App.StartRecordingAsync(new RecordingOptions { Name = "dialog" })`, then
+  `StopRecordingAsync()`: records one span of the screen, such as a single
+  transition, and returns its videos in play order (`RecordedVideoFile.Path`,
+  absolute, under the attempt's `recordings/` as `001-<name>.<ext>`, or
+  `RecordedVideoLink.Url` when a hosted browser or device keeps the recording).
+  There is one video, except on the web when the page was replaced while it
+  recorded (`RestartAsync`, `ClearStateAsync`): then one per page. The step
+  links each video in the trace. One recording at a time (a second start is
+  `INVALID_ARGUMENT`, as is a stop with none running), and none while the
+  test's `video` records, since the engine has one recorder: that start is
+  `UNSUPPORTED_CAPABILITY`, so leave `video` off for the test. A recording
+  still running when the test ends is stopped and kept. Like the test's
+  video, it masks nothing.
 - `Agent`: `ActAsync`, `AssertAsync`, `WaitForAsync`, `ExtractAsync<T>`
   (topic `agent`).
 - `Screen`: the locators below.

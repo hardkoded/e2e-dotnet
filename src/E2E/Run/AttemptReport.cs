@@ -163,5 +163,5 @@ internal static class AttemptReport
 
     // The kept file or link, as the sink registered it: its path already starts at the results directory, as upstream's records do.
     private static ReportArtifact Artifact(ArtifactRecord record) =>
-        new(record.Id, record.Kind.ToString().ToLowerInvariant(), record.Path, record.Url, record.StartedAt, Redaction: record.Redaction, Ref: record.Ref);
+        new(record.Id, record.Kind.ToString().ToLowerInvariant(), record.Path, record.Url, record.StartedAt, Redaction: record.Redaction, Ref: record.Ref, Producer: record.Producer);
 }

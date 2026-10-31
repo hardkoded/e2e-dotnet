@@ -320,6 +320,11 @@ lines you changed:
   `writing-tests`). With `Connect` and `ReconnectEndpoint` the engine registers
   its selector engines in the browser's default context on every connect and
   reconnect, so the mask also covers secure fields inside closed shadow roots.
+- `App.StartRecordingAsync(new RecordingOptions { Name })` and
+  `App.StopRecordingAsync()` record one span, such as a transition, and return
+  the videos (`RecordedVideoFile.Path` or `RecordedVideoLink.Url`). They fail
+  with `UNSUPPORTED_CAPABILITY` while the test's `video` records, so leave
+  `video` off for that test (topic `writing-tests`).
 - Shape the agent for this app: `context` for the vocabulary the screens
   use, `system` for how it works, named agents under `agents`. A screen over
   the agent's `maxObservationBytes` (default 262144) is cut with an
