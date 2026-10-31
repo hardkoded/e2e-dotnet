@@ -243,7 +243,7 @@ lines you changed:
   substitution also covers the value as a URL spells it (`Ada%20Lovelace` in
   a path, `Ada+Lovelace` in a query), as the slug an app derives for a record
   path (`ada-lovelace`), and a multi-line value as the screen shows it, on
-  one line. A short value is never matched inside the slot written for a longer one. A recording with a `{{param:...}}` placeholder the call cannot fill is a miss (`invalid-entry`), and a `Values.Unique` value cannot contain `{{param:` (topic `agent`).
+  one line. A short value is never matched inside the slot written for a longer one. A recording with a `{{param:...}}` placeholder the call cannot fill is a miss (`invalid-entry`), and a `Values.Unique` value cannot contain `{{param:` (topic `agent`). The value may sit at any depth of `Params`, and the slot also stands for it in a target's name and an upload path. A step whose text spells `{{param:` is not recorded.
 - Take `[Retry]` off the test while you iterate (NUnit only; xUnit v3 has no
   retry). The first attempt replays; outside `cache.strict`, each retry runs
   every goal live and waits out the failure again.

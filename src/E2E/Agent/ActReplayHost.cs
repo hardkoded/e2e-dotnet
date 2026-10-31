@@ -47,8 +47,10 @@ public sealed partial class Agent
 
         public Task CommitAsync(RecordedAction action)
         {
-            budget.Recorder.Record(action);
-            return dispatcher.NotifyAsync(action, ActionSource.Replay);
+            // The recording names a target by a placeholder; the step records it as this run read it, and templates it again when it finishes.
+            var expanded = action.WithDescriptor(action.Name is null ? null : Expand(action.Name), action.TestId is null ? null : Expand(action.TestId));
+            budget.Recorder.Record(expanded);
+            return dispatcher.NotifyAsync(expanded, ActionSource.Replay);
         }
 
         public Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => ClickAsync("tap", target, options, cancellationToken);
@@ -155,7 +157,7 @@ public sealed partial class Agent
         // The node the replay found: a replay's targets are built from nodes, so an id alone names nothing here.
         // The entry was expanded whole when it was read (CacheKeys.TryExpandTrace), so a text that fails here is a failed action,
         // which the replay hands off, not a crash.
-        private string Expand(string value) =>
+        public string Expand(string value) =>
             CacheKeys.Detemplate(value, parameters) ?? throw new AgentException("ACTION_FAILED", "A recorded placeholder has no value in this call's params.");
 
         private static SemanticNode Resolve(ExecutorTarget target) =>

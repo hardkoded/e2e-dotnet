@@ -170,6 +170,15 @@ public sealed class RecordedAction
             ? Paths is { Count: > 0 and <= Trace.MaxTraceUploadPaths } && Paths.All(path => !string.IsNullOrEmpty(path) && path.Length <= Trace.MaxTraceInputChars)
             : Paths is null;
 
+    /// <summary>A copy of this action that names its target by <paramref name="name"/> and <paramref name="testId"/>. The role is vocabulary, left alone.</summary>
+    internal RecordedAction WithDescriptor(string? name, string? testId)
+    {
+        var copy = (RecordedAction)MemberwiseClone();
+        copy.Name = name;
+        copy.TestId = testId;
+        return copy;
+    }
+
     /// <summary>Keys a <c>tap</c> or <c>doubleTap</c> held for the click, replayed with it. Null holds none.</summary>
     public List<string>? Modifiers { get; set; }
 
@@ -414,6 +423,9 @@ public sealed class FileStepCache : IStepCache
     }
 }
 
+/// <summary>Upstream's <c>ParamTemplate</c>: one <c>unique()</c> param, its JSON Pointer in the params and this call's value.</summary>
+internal readonly record struct ParamTemplate(string Pointer, string Value);
+
 internal static partial class CacheKeys
 {
     /// <summary>
@@ -442,7 +454,7 @@ internal static partial class CacheKeys
         return Identity.ParamsDigest(Project(parameters));
     }
 
-    /// <summary>Upstream's projected (secret-free) call parameters: the params as JSON, a unique value as its placeholder and a secret as its name.</summary>
+    /// <summary>Upstream's projected (secret-free) call parameters: the params as JSON, a unique value as its placeholder (<see cref="TemplateParams"/>) and a secret as its name.</summary>
     public static JsonObject? Project(IReadOnlyDictionary<string, object?>? parameters)
     {
         if (parameters is null)
@@ -452,12 +464,47 @@ internal static partial class CacheKeys
 
         try
         {
-            return JsonSerializer.SerializeToNode(parameters, KeyJson)!.AsObject();
+            return TemplateParams(JsonSerializer.SerializeToNode(parameters, KeyJson)!.AsObject(), TemplatesOf(parameters));
         }
         catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
             throw new TestException("INVALID_ARGUMENT", "Act params must serialize as JSON: " + ex.Message, ex);
         }
+    }
+
+    /// <summary>
+    /// Upstream's <c>templateParams</c>: the params as the key digests them, each template's leaf replaced by its placeholder, at any depth.
+    /// Two calls whose params differ only in <c>unique()</c> values share a key, and therefore a recording. Upstream walks the
+    /// params; the port replaces the leaves of their serialized form, which has the same pointers.
+    /// </summary>
+    public static JsonObject TemplateParams(JsonObject serialized, IReadOnlyList<ParamTemplate> templates)
+    {
+        foreach (var template in templates)
+        {
+            var segments = template.Pointer[1..].Split('/').Select(segment => segment.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal)).ToArray();
+            JsonNode? parent = serialized;
+            foreach (var segment in segments[..^1])
+            {
+                parent = parent switch
+                {
+                    JsonObject map => map[segment],
+                    JsonArray list when int.TryParse(segment, NumberStyles.None, CultureInfo.InvariantCulture, out var index) && index < list.Count => list[index],
+                    _ => null,
+                };
+            }
+
+            var last = segments[^1];
+            if (parent is JsonObject leafMap && leafMap.ContainsKey(last))
+            {
+                leafMap[last] = Placeholder(template.Pointer, null);
+            }
+            else if (parent is JsonArray leafList && int.TryParse(last, NumberStyles.None, CultureInfo.InvariantCulture, out var at) && at < leafList.Count)
+            {
+                leafList[at] = Placeholder(template.Pointer, null);
+            }
+        }
+
+        return serialized;
     }
 
     public static string Canonical(object? value)
@@ -487,22 +534,35 @@ internal static partial class CacheKeys
         };
     }
 
-    public static string Template(string value, IReadOnlyDictionary<string, object?>? parameters)
+    /// <summary>
+    /// <see cref="TemplateText"/> with the <c>unique()</c> values of <paramref name="parameters"/> at any depth. The port templates a
+    /// text as it records it, so this is the call the recording sites make.
+    /// </summary>
+    public static string Template(string value, IReadOnlyDictionary<string, object?>? parameters) => TemplateText(value, TemplatesOf(parameters));
+
+    /// <summary>The <c>unique()</c> values of the params as templates (upstream's <c>validateParams</c> list); none for no params.</summary>
+    public static List<ParamTemplate> TemplatesOf(IReadOnlyDictionary<string, object?>? parameters) => ActParams.ValidateParams(parameters).Templates;
+
+    /// <summary>
+    /// Upstream's <c>templateText</c>: replaces every occurrence of each template's value in <paramref name="value"/>, in any of its
+    /// spellings, with the matching placeholder.
+    /// </summary>
+    public static string TemplateText(string value, IReadOnlyList<ParamTemplate> templates)
     {
-        if (parameters is null)
+        if (templates.Count == 0)
         {
             return value;
         }
 
         // Each value is looked for as typed, form-encoded as a URL spells it, and on one line as the screen shows a
         // multi-line value. The longer text goes first, so a value that contains another is replaced whole.
-        var spellings = parameters
-            .Where(pair => pair.Value is UniqueValue { Value.Length: > 0 })
-            .SelectMany(pair =>
+        var spellings = templates
+            .Where(template => template.Value.Length > 0)
+            .SelectMany(template =>
             {
-                var text = ((UniqueValue)pair.Value!).Value;
+                var text = template.Value;
                 var seen = new HashSet<string>(StringComparer.Ordinal) { text };
-                var pointer = ParamPointer("", pair.Key);
+                var pointer = template.Pointer;
                 var found = new List<(string Text, string Slot)> { (text, Placeholder(pointer, null)) };
                 foreach (var (name, encode) in Encodings)
                 {
@@ -553,10 +613,13 @@ internal static partial class CacheKeys
 
     /// <summary>
     /// Upstream's <c>paramPointer</c>: extends a JSON Pointer (RFC 6901) by one key; <c>~</c> and <c>/</c> in a key become <c>~0</c> and
-    /// <c>~1</c>. The port's params are a flat map, so a <c>unique()</c> value's pointer is its escaped name after one slash.
+    /// <c>~1</c>.
     /// </summary>
     public static string ParamPointer(string parent, string key) =>
         parent + "/" + key.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
+
+    /// <summary>Upstream's <c>paramPointer</c> for an array index: the index follows its parent after one slash.</summary>
+    public static string ParamPointer(string parent, int index) => parent + "/" + index.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>Upstream's <c>PLACEHOLDER_PREFIX</c>: what every placeholder opens with, so a text that already spells one is told apart.</summary>
     public const string PlaceholderPrefix = "{{param:";
@@ -570,12 +633,9 @@ internal static partial class CacheKeys
     public static string? Detemplate(string value, IReadOnlyDictionary<string, object?>? parameters)
     {
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var pair in parameters ?? new Dictionary<string, object?>())
+        foreach (var template in TemplatesOf(parameters))
         {
-            if (pair.Value is UniqueValue unique)
-            {
-                values[ParamPointer("", pair.Key)] = unique.Value;
-            }
+            values[template.Pointer] = template.Value;
         }
 
         return ExpandText(value, values);
@@ -621,12 +681,18 @@ internal static partial class CacheKeys
 
     /// <summary>
     /// Upstream's <c>expandTrace</c>, as a check: whether every templated text of the entry (the typed value, the navigated URL, the
-    /// scroll text, the start and end routes) fills from this call's params. The entry stays as recorded, with its placeholders, because
+    /// scroll text, the upload paths, the target descriptors, the anchors, the start and end routes) fills from this call's params. The entry stays as recorded, with its placeholders, because
     /// a replay that passes keeps it for the next run; the port expands each text as the replay reaches it.
     /// </summary>
     public static bool TryExpandTrace(CacheEntry entry, IReadOnlyDictionary<string, object?>? parameters)
     {
-        IEnumerable<string?> texts = [entry.Route, entry.EndRoute, .. entry.Actions.SelectMany(action => new[] { action.Value, action.Url, action.Text }.Concat(action.Paths ?? []))];
+        IEnumerable<string?> texts =
+        [
+            entry.Route,
+            entry.EndRoute,
+            .. entry.Actions.SelectMany(action => new[] { action.Name, action.TestId, action.Value, action.Url, action.Text }.Concat(action.Paths ?? [])),
+            .. entry.Appeared.Concat(entry.Gone).SelectMany(anchor => new[] { anchor.Name, anchor.Text, anchor.TestId, anchor.Placeholder, anchor.Value }),
+        ];
         return texts.All(text => text is null || Detemplate(text, parameters) is not null);
     }
 

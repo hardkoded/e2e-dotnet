@@ -151,7 +151,7 @@ outside, `Blocked` is true); `MODEL_OUTPUT_INVALID` (unusable answer),
   working across runs. The substitution also covers the value as a URL spells
   it (`Ada%20Lovelace` in a path, `Ada+Lovelace` in a query), as the slug an
   app derives for a record path (`ada-lovelace`), and a multi-line value as
-  the screen shows it, on one line. A short value is never matched inside the slot written for a longer one. The recording holds each as a `{{param:/name}}` placeholder (`{{param:/name|uri}}` for an encoded spelling); a recording with a placeholder the call cannot fill (a param the call did not mark, an unknown encoding, or a value that encoding cannot spell) is a miss, `invalid-entry`. A `Values.Unique` value cannot contain `{{param:`.
+  the screen shows it, on one line. A short value is never matched inside the slot written for a longer one. The recording holds each as a `{{param:/name}}` placeholder (`{{param:/name|uri}}` for an encoded spelling); a recording with a placeholder the call cannot fill (a param the call did not mark, an unknown encoding, or a value that encoding cannot spell) is a miss, `invalid-entry`. A `Values.Unique` value cannot contain `{{param:`. A `Values.Unique` value may sit at any depth of `Params` (`/owner/tags/1`). The slot also stands for the value in a target's name and in an upload path. A step that typed, read or navigated to text that itself spells `{{param:` is not recorded, so it runs live each time.
 - `Timeout`: 30 s by default (`StepTimeout` on the fixture).
 - `MaxSteps` (default 25 actions), `MaxModelCalls` (default 25): may only
   lower the agent's limits, else `INVALID_ARGUMENT`.
