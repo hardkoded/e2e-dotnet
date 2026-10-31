@@ -16,9 +16,9 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | --- | --- |
 | [ActionEvent](/api/E2E/ActionEvent/) | One completed action of an agent.act step, as OnAction receives it. |
 | [ActionOptions](/api/E2E/ActionOptions/) | Options for one locator action. |
-| [ActOptions](/api/E2E/ActOptions/) | Values passed into one CancellationToken) goal. Put fresh data in Unique(string). |
+| [ActOptions](/api/E2E/ActOptions/) | Values passed into one ActAsync goal. Put fresh data in Unique(string). |
 | [ActResult](/api/E2E/ActResult/) |  |
-| [Agent](/api/E2E/Agent/) | One goal (CancellationToken)) or a check against the current screen. |
+| [Agent](/api/E2E/Agent/) | One goal (ActAsync) or a check against the current screen. |
 | [AgentAttribute](/api/E2E/AgentAttribute/) | Pins the agent that the calls of a test, or of every test in a class, use when they name none. Upstream's agent option of test and describe. The closest pin wins: a call's Agent, then the method, then the class, then an enclosing or base class, then the E2EAGENT environment variable. Base and enclosing classes count although the attribute is not inherited: TestAgentOptions reads each layer itself. An unknown name fails the test with INVALIDARGUMENT. |
 | [AgentConfig](/api/E2E/AgentConfig/) | One entry of agents. Upstream model and judge are AI SDK instances; here they are model ids for Provider, which share BaseUrl and ApiKeyEnv. Each entry starts from the defaults; none inherits another's values. |
 | [AgentContextAttribute](/api/E2E/AgentContextAttribute/) | Appends facts only this test knows to the context of every agent, after the agent's own context. Upstream's agentContext option of test and describe. Layers join outer to inner, one per line. Keep instructions out of it: it reaches the judges too. |
@@ -43,7 +43,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [CacheEntry](/api/E2E/CacheEntry/) | A recording of one verified act. Its file name is the hash of a trace cache key (TraceCacheKeyHash): the cache schema, the replay policy version, the project, the test, the target, the engine's name and contract version, the app's identity, the instruction's and params' digests, the agent's name, a digest of the agent's redacted context, and which repeat of that same call in the attempt it is. The model id and the engine's package version are not part of the key. |
 | [CacheInfo](/api/E2E/CacheInfo/) |  |
 | [CacheLookup](/api/E2E/CacheLookup/) |  |
-| [ClickOptions](/api/E2E/ClickOptions/) | Options for CancellationToken), CancellationToken), and CancellationToken). Upstream's ClickOptions. |
+| [ClickOptions](/api/E2E/ClickOptions/) | Options for TapAsync, DoubleTapAsync, and SecondaryTapAsync. Upstream's ClickOptions. |
 | [CommandConfig](/api/E2E/CommandConfig/) | The command a target's app.command starts the app with (upstream's CommandConfig). It is a program and its arguments, never a shell line: the executable is started directly and each argument is passed as it is. |
 | [ConfigurationException](/api/E2E/ConfigurationException/) | e2e.config.json is invalid. The code is INVALIDCONFIG. |
 | [Credentials](/api/E2E/Credentials/) | Reads E2EUSER{NAME}USERNAME and E2EUSER{NAME}PASSWORD. The name is uppercased and dashes become underscores. |
@@ -51,8 +51,8 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [E2EConfig](/api/E2E/E2EConfig/) | The resolved e2e.config.json. The JSON shape follows upstream e2e.config.ts: targets[].app.url, named agents, top-level timeouts in milliseconds, retries, cache, and secrets. Unknown keys fail with INVALIDCONFIG. E2ETest finds and applies this file; a fixture can still override each value. There is no default model. |
 | [E2EDefaults](/api/E2E/E2EDefaults/) | The upstream defaults, in one place. E2EConfig, E2ESessionOptions, and the NUnit fixture all start from these values. |
 | [E2EException](/api/E2E/E2EException/) | Base exception for the agent and engines. Code is stable. |
-| [E2EFixture](/api/E2E/E2EFixture/) | The part of a test base class that every test framework shares. It holds the settings and starts one E2ESession per test. A framework adapter, such as E2E.NUnit.E2ETest, calls MethodBase) before the test body and commits the session from the framework's result after it. <p> Settings come from Config, the nearest e2e.config.json above the test assembly or the working directory. Override a property to change one value for a fixture. </p> |
-| [E2ESession](/api/E2E/E2ESession/) | One test attempt: an engine session, the fixtures, and the replay cache. Call CancellationToken) after the test body. Disposing without CancellationToken) records the attempt as failed. |
+| [E2EFixture](/api/E2E/E2EFixture/) | The part of a test base class that every test framework shares. It holds the settings and starts one E2ESession per test. A framework adapter, such as E2E.NUnit.E2ETest, calls StartSessionAsync before the test body and commits the session from the framework's result after it. <p> Settings come from Config, the nearest e2e.config.json above the test assembly or the working directory. Override a property to change one value for a fixture. </p> |
+| [E2ESession](/api/E2E/E2ESession/) | One test attempt: an engine session, the fixtures, and the replay cache. Call Complete after the test body. Disposing without Complete records the attempt as failed. |
 | [E2ESessionOptions](/api/E2E/E2ESessionOptions/) | How to open one E2ESession. Retries set Attempt above 1 so the cache records but does not replay, except under CacheStrict, where every attempt replays. |
 | [EngineErrorCodes](/api/E2E/EngineErrorCodes/) | Stable engine error codes, as in the upstream engine contract. |
 | [EngineException](/api/E2E/EngineException/) | The engine refused an operation or could not drive the app. |
@@ -62,7 +62,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ExecutorModelCall](/api/E2E/ExecutorModelCall/) | Usage detail of one model call an executor made. Every field is optional. |
 | [ExecutorNode](/api/E2E/ExecutorNode/) | One node of the redacted semantic tree. Names, text, values, and attribute values are secret-redacted, and a secure node carries no value at all. Id is the node's ref in the observation, which an action names it by. |
 | [ExecutorObservation](/api/E2E/ExecutorObservation/) | A redacted, size-bounded observation an executor may show its model. |
-| [ExecutorObserveOptions](/api/E2E/ExecutorObserveOptions/) | What an executor asks CancellationToken) to include beyond the text. |
+| [ExecutorObserveOptions](/api/E2E/ExecutorObserveOptions/) | What an executor asks ObserveAsync to include beyond the text. |
 | [ExecutorPixels](/api/E2E/ExecutorPixels/) | Masked viewport pixels cleared for model input: the engine's capture, sized for the model, and its proven mask count. |
 | [ExecutorSecret](/api/E2E/ExecutorSecret/) | A secret declared in a step's params: its stable name and what it is for. Never its value. |
 | [ExecutorStep](/api/E2E/ExecutorStep/) | One step handed to an executor. An Act plans and executes a flow. An Assert judges a condition and must not change the app. |
@@ -73,7 +73,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ExploreBounds&lt;T&gt;](/api/E2E/ExploreBounds-1/) | The least, the most, and the default of a bound option. Upstream's inline { min, max, default }. |
 | [ExploreBudgets](/api/E2E/ExploreBudgets/) | What an exploration was given to spend: its step cap and its wall clock. |
 | [ExploreExecutor](/api/E2E/ExploreExecutor/) | The explorer: the built-in agent with exploration guidance appended to the project's and one tool added to the project's vocabulary, reportfinding. Nothing else changes: budgets, loop guards, wind-down, secrets, origin policy, and the transcript are the harness's, and each exploration step runs as one ordinary ActAsync step. |
-| [ExploreOptions](/api/E2E/ExploreOptions/) | What CancellationToken) explores, as, and with. |
+| [ExploreOptions](/api/E2E/ExploreOptions/) | What ExploreAsync explores, as, and with. |
 | [ExploreOutcome](/api/E2E/ExploreOutcome/) | What an exploration ended with. Upstream's ExploreOutcome, which extends the runner's RunOutcome. |
 | [ExploreProgress](/api/E2E/ExploreProgress/) | The exploration's progress, one moment at a time: the step in progress, each finding the moment it is reported, and the end. ReportExplore is the record; these are its moments. Upstream carries them as explore run events, which its list reporter renders; the port has no run events, so OnProgress receives them. |
 | [ExploreProgress.FindingReported](/api/E2E/ExploreProgress.FindingReported/) | One finding, as recorded; its evidence screenshot, when kept, is the one ArtifactId names. Upstream's finding phase. |
@@ -82,17 +82,17 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ExploreProgress.Started](/api/E2E/ExploreProgress.Started/) | The exploration begins: its test has started and the app is about to open. |
 | [ExploreProgress.StepFinished](/api/E2E/ExploreProgress.StepFinished/) |  |
 | [ExploreProgress.StepStarted](/api/E2E/ExploreProgress.StepStarted/) |  |
-| [ExtractOptions](/api/E2E/ExtractOptions/) | agent.extract: one extraction and one repair round. The type argument of CancellationToken) is the schema. |
+| [ExtractOptions](/api/E2E/ExtractOptions/) | agent.extract: one extraction and one repair round. The type argument of ExtractAsync<T> is the schema. |
 | [FileStepCache](/api/E2E/FileStepCache/) | JSON files in a directory, one per cache key. Entries over 1 MiB are ignored. |
 | [FrameScreen](/api/E2E/FrameScreen/) | The screen scope FrameLocator(string) returns. Every Screen query answers from inside the frame, and the web-only escape hatches follow it in: Locator(string) for a CSS or XPath selector on a control with no accessible name, and FrameLocator(string) for a frame nested inside this one. Upstream's FrameScreen. |
 | [GoogleModel](/api/E2E/GoogleModel/) | Google Gemini API (Generative Language) client. Tool schemas go as parametersJsonSchema, so the agent's JSON Schemas need no conversion. Thought signatures Gemini attaches to a function call are sent back with it. |
 | [GoogleModelOptions](/api/E2E/GoogleModelOptions/) |  |
-| [GotoOptions](/api/E2E/GotoOptions/) | Options of CancellationToken). |
+| [GotoOptions](/api/E2E/GotoOptions/) | Options of GotoAsync. |
 | [Locator](/api/E2E/Locator/) | A query that resolves against a fresh observation every time it is used. |
 | [LocatorExpect](/api/E2E/LocatorExpect/) | Matchers that retry until they pass or the assertion timeout elapses. Each takes an optional timeout that replaces the assertion timeout for that call. |
 | [LocatorExpression](/api/E2E/LocatorExpression/) | A locator expression. Query kinds (role, text, label, testid, placeholder, displayValue) search the descendants of Parent when it is set. filter and index narrow Source. union matches either Left or Right, each node once, in document order. selector is a CSS or XPath selector in the engine's own language, and frame scopes Source into the iframe Selector names. |
-| [LocatorWaitForOptions](/api/E2E/LocatorWaitForOptions/) | Options for CancellationToken). |
-| [LongPressOptions](/api/E2E/LongPressOptions/) | Options for CancellationToken). |
+| [LocatorWaitForOptions](/api/E2E/LocatorWaitForOptions/) | Options for WaitForAsync. |
+| [LongPressOptions](/api/E2E/LongPressOptions/) | Options for LongPressAsync. |
 | [ModelCallUsage](/api/E2E/ModelCallUsage/) |  |
 | [ModelImage](/api/E2E/ModelImage/) | An image a model reads: the encoded bytes of a screenshot, already sized for the model. |
 | [ModelMessage](/api/E2E/ModelMessage/) |  |
@@ -104,20 +104,20 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ModelToolCall](/api/E2E/ModelToolCall/) |  |
 | [OpenAiCompatibleModel](/api/E2E/OpenAiCompatibleModel/) | Chat-completions client for OpenAI and any server that speaks the same tool-call JSON. Set BaseUrl to a local server such as http://127.0.0.1:11434/v1. The API key is optional for servers that do not check one. ModelProviders has presets for OpenRouter, the Vercel AI Gateway, SpaceXAI, and Ollama. |
 | [OpenAiCompatibleModelOptions](/api/E2E/OpenAiCompatibleModelOptions/) |  |
-| [OpenAiResponsesModel](/api/E2E/OpenAiResponsesModel/) | OpenAI Responses API client: OpenAI itself, Azure OpenAI (String)), and the subscription backends that only speak Responses. Nothing is stored server side, so each turn carries the whole conversation. A server-sent-event answer is folded back into the completed response. |
+| [OpenAiResponsesModel](/api/E2E/OpenAiResponsesModel/) | OpenAI Responses API client: OpenAI itself, Azure OpenAI (AzureOpenAi), and the subscription backends that only speak Responses. Nothing is stored server side, so each turn carries the whole conversation. A server-sent-event answer is folded back into the completed response. |
 | [OpenAiResponsesModelOptions](/api/E2E/OpenAiResponsesModelOptions/) |  |
 | [OpenedStep](/api/E2E/OpenedStep/) | A step as opened: title and charter bounded to the report's ceilings, which is what the step runs with. |
 | [PollExpectation&lt;T&gt;](/api/E2E/PollExpectation-1/) | Re-reads a value until the chosen matcher holds or the timeout passes. A read that throws is retried, and its error is reported if the poll times out. A matcher that refuses the read value's type counts as not yet. With NUnit, ToMatchAsync from E2E.NUnit takes any NUnit constraint. |
-| [PollOptions](/api/E2E/PollOptions/) | How PollOptions) re-reads a value. |
+| [PollOptions](/api/E2E/PollOptions/) | How Poll<T> re-reads a value. |
 | [PreparedMessages](/api/E2E/PreparedMessages/) | What PrepareMessages hands back: the history for the next turn, and optionally a reason to stop. The executor has evidence the loop guards cannot see that the step is not progressing. A stop leaves the model only done, like a loop guard. |
 | [PreparedTurn](/api/E2E/PreparedTurn/) | What PrepareMessages learns about the turn that is about to run. |
-| [PressSequentiallyOptions](/api/E2E/PressSequentiallyOptions/) | Options for CancellationToken). |
+| [PressSequentiallyOptions](/api/E2E/PressSequentiallyOptions/) | Options for PressSequentiallyAsync. |
 | [RecordedAction](/api/E2E/RecordedAction/) |  |
 | [RecordedTarget](/api/E2E/RecordedTarget/) |  |
 | [RecordedVideo](/api/E2E/RecordedVideo/) | One video StopRecordingAsync(CancellationToken) returns: a file, or a link to a recording a hosted service keeps (upstream's RecordedVideo). |
 | [RecordedVideoFile](/api/E2E/RecordedVideoFile/) | A video file under the attempt's recordings/ directory (upstream's RecordedVideoFile). |
 | [RecordedVideoLink](/api/E2E/RecordedVideoLink/) | A recording a hosted browser or device service keeps, by URL (upstream's RecordedVideoLink). |
-| [RecordingOptions](/api/E2E/RecordingOptions/) | How CancellationToken) names its file (upstream's RecordingOptions). |
+| [RecordingOptions](/api/E2E/RecordingOptions/) | How StartRecordingAsync names its file (upstream's RecordingOptions). |
 | [ReplayedPrefix](/api/E2E/ReplayedPrefix/) | Upstream's ReplayedPrefix: the mid-step hand-off from a diverged cache replay. The replayed actions already ran against the live app under the same budgets and recording as the executor's own. The executor continues the step from the current state and does not redo them. |
 | [ReportExplore](/api/E2E/ReportExplore/) | What an exploration was asked, did, and found: upstream's run.explore block of the report. |
 | [ReportExploreFinding](/api/E2E/ReportExploreFinding/) | One finding Explore recorded through its reportfinding tool. |
@@ -125,23 +125,23 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ResolvedRecording](/api/E2E/ResolvedRecording/) | One effective mode and where it came from. Upstream ResolvedRecording. |
 | [RoleOptions](/api/E2E/RoleOptions/) | Role query options. A null state is not checked. |
 | [Screen](/api/E2E/Screen/) | Semantic queries against the current screen. An action or a single-node assertion fails when the query matches more than one node. Narrow it with Filter(TextMatch), First(), Last(), or Nth(int). |
-| [ScreenExpect](/api/E2E/ScreenExpect/) | Matchers on the whole screen: String). |
+| [ScreenExpect](/api/E2E/ScreenExpect/) | Matchers on the whole screen: ToHaveScreenshotAsync. |
 | [ScreenshotOptions](/api/E2E/ScreenshotOptions/) | Options of ToHaveScreenshotAsync. |
-| [ScriptedModel](/api/E2E/ScriptedModel/) | Returns whatever the callback decides for each request. Records every request. A callback that serves both the act loop and the judge may answer a judgment (a request with a Schema) with String): passed reads as holds, a failed without the code ASSERTIONINCONCLUSIVE as fails, and a blocked or inconclusive one as inconclusive. String) answers it directly. |
+| [ScriptedModel](/api/E2E/ScriptedModel/) | Returns whatever the callback decides for each request. Records every request. A callback that serves both the act loop and the judge may answer a judgment (a request with a Schema) with Done: passed reads as holds, a failed without the code ASSERTIONINCONCLUSIVE as fails, and a blocked or inconclusive one as inconclusive. Judgment answers it directly. |
 | [ScrollUntilVisibleOptions](/api/E2E/ScrollUntilVisibleOptions/) | Options for Screen.ScrollUntilVisibleAsync and Locator.ScrollUntilVisibleAsync. |
 | [Secret](/api/E2E/Secret/) | A value the model must not see. Prompts, transcripts, reports, and the names and test ids an act records in its replay cache entry receive <secret:name>. The agent fills the real value itself. |
 | [Secrets](/api/E2E/Secrets/) | The secrets declared in e2e.config.json. Each value comes from E2ESECRET{NAME} when it is set, else from the config. The name is uppercased and every character other than A-Z and 0-9 becomes an underscore. |
-| [SkipException](/api/E2E/SkipException/) | Thrown by String) when a test stops early and is reported skipped. |
+| [SkipException](/api/E2E/SkipException/) | Thrown by Skip when a test stops early and is reported skipped. |
 | [SoftBrowserExpect](/api/E2E/SoftBrowserExpect/) | The browser matchers of BrowserExpect, but an ASSERTIONFAILED is kept on the session instead of thrown, as SoftLocatorExpect does. |
 | [SoftLocatorExpect](/api/E2E/SoftLocatorExpect/) | The locator matchers of LocatorExpect, but an ASSERTIONFAILED is kept on the session instead of thrown, and the test body runs on. Any other error, such as STRICTMODE, still throws. |
 | [StepExecutorContext](/api/E2E/StepExecutorContext/) | What an executor receives for one step (upstream's StepExecutorContext). The runtime builds it. A test of an executor can build its own and override the members it reads: each one that does work throws until it is overridden. |
 | [StepExecutors](/api/E2E/StepExecutors/) | Upstream's RUNTIMECODES, BLOCKABLECODES and isRuntimeHardStop (agent/executor.ts). |
 | [StepTurn](/api/E2E/StepTurn/) | One model turn of an agent step: the tool calls the model made and what came back, each bounded (upstream's StepTurn). |
-| [StoredArtifact](/api/E2E/StoredArtifact/) | One artifact handed to CancellationToken) (upstream's StoredArtifact): the file's bytes, its digest, and the identity the report files it under. Path is the report-relative path the record carries, stable across runs of the same test, so a host may use it as its own key. |
-| [StoredArtifactLink](/api/E2E/StoredArtifactLink/) | One provider-hosted recording, handed to CancellationToken) once the attempt stopped it (upstream's StoredArtifactLink). |
-| [SwipeOptions](/api/E2E/SwipeOptions/) | Options for CancellationToken). |
+| [StoredArtifact](/api/E2E/StoredArtifact/) | One artifact handed to PutAsync (upstream's StoredArtifact): the file's bytes, its digest, and the identity the report files it under. Path is the report-relative path the record carries, stable across runs of the same test, so a host may use it as its own key. |
+| [StoredArtifactLink](/api/E2E/StoredArtifactLink/) | One provider-hosted recording, handed to PutLinkAsync once the attempt stopped it (upstream's StoredArtifactLink). |
+| [SwipeOptions](/api/E2E/SwipeOptions/) | Options for SwipeAsync. |
 | [TargetConfig](/api/E2E/TargetConfig/) | One entry of targets. The port drives the web, ios, and android platforms. |
-| [TestContext](/api/E2E/TestContext/) | The fixtures for one test. Call String) before the first step when a precondition is missing. |
+| [TestContext](/api/E2E/TestContext/) | The fixtures for one test. Call Skip before the first step when a precondition is missing. |
 | [TestException](/api/E2E/TestException/) | A locator, expectation, or test failed. |
 | [TestFilterCandidate](/api/E2E/TestFilterCandidate/) | One test a filter may leave out: what names it, never its body (upstream's TestFilterCandidate). |
 | [TestFilterChanges](/api/E2E/TestFilterChanges/) | What a run's test filters judge: every file that differs from the base commit (upstream's TestFilterChanges). |
@@ -158,8 +158,8 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [UserCredential](/api/E2E/UserCredential/) | Username plus a Secret password loaded from the environment. |
 | [Values](/api/E2E/Values/) | Wraps a fresh value so the replay cache can still match the step. |
 | [WaitForOptions](/api/E2E/WaitForOptions/) | agent.waitFor: a judgment at most once per Interval, and only on a changed screen, until Timeout. |
-| [WebResponse](/api/E2E/WebResponse/) | A response CancellationToken) matched. |
-| [WebRoute](/api/E2E/WebRoute/) | One request a CancellationToken) handler intercepted. Take exactly one decision. Each validates its options before it decides, so a rejected option leaves the request undecided, and the request is aborted. |
+| [WebResponse](/api/E2E/WebResponse/) | A response WaitForResponseAsync matched. |
+| [WebRoute](/api/E2E/WebRoute/) | One request a RouteAsync handler intercepted. Take exactly one decision. Each validates its options before it decides, so a rejected option leaves the request undecided, and the request is aborted. |
 
 ## Structs
 
@@ -173,8 +173,8 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | Type | Summary |
 | --- | --- |
 | [IAgentModel](/api/E2E/IAgentModel/) | One turn of the agent model. Tool calls are executed by the agent, never by the model itself. |
-| [IArtifactStore](/api/E2E/IArtifactStore/) | Where artifacts go (upstream's ArtifactStore, artifacts.store). The default keeps them under the artifacts directory, and the report records their paths. A host-supplied store (object storage, an API) receives each artifact an attempt registers (a download, a video, an attached screenshot or log) as it is produced, not after the run, and returns its own reference, which the report records as the artifact's ref beside the local path. The cloud seam for evidence, the way IStepCache is for the replay cache. A failed CancellationToken) never fails the run: the record simply carries no ref. Like every live value, a store never crosses a process boundary. Set it with ArtifactStore, or override E2EFixture.ArtifactStore. |
-| [IExecutorActions](/api/E2E/IExecutorActions/) | Upstream's ExecutorActions, with the verbs the port's engines support. Every verb bottoms out in the runtime, which enforces the deadline and the action budget and records the action for the step's cache entry. A ref is only valid against the newest observation: a stale one fails the action rather than acting on the wrong node. Actions and observations run in call order. An engine failure is thrown as an E2EException, and a hard stop of the step as an AgentException with a runtime code. CancellationToken) is a verb the port's grammar has and upstream's does not (upstream clears with type). |
+| [IArtifactStore](/api/E2E/IArtifactStore/) | Where artifacts go (upstream's ArtifactStore, artifacts.store). The default keeps them under the artifacts directory, and the report records their paths. A host-supplied store (object storage, an API) receives each artifact an attempt registers (a download, a video, an attached screenshot or log) as it is produced, not after the run, and returns its own reference, which the report records as the artifact's ref beside the local path. The cloud seam for evidence, the way IStepCache is for the replay cache. A failed PutAsync never fails the run: the record simply carries no ref. Like every live value, a store never crosses a process boundary. Set it with ArtifactStore, or override E2EFixture.ArtifactStore. |
+| [IExecutorActions](/api/E2E/IExecutorActions/) | Upstream's ExecutorActions, with the verbs the port's engines support. Every verb bottoms out in the runtime, which enforces the deadline and the action budget and records the action for the step's cache entry. A ref is only valid against the newest observation: a stale one fails the action rather than acting on the wrong node. Actions and observations run in call order. An engine failure is thrown as an E2EException, and a hard stop of the step as an AgentException with a runtime code. ClearAsync is a verb the port's grammar has and upstream's does not (upstream clears with type). |
 | [IExecutorBudgets](/api/E2E/IExecutorBudgets/) | Step budgets, read and reported by the executor and enforced by the runtime. |
 | [IStepCache](/api/E2E/IStepCache/) |  |
 | [IStepExecutor](/api/E2E/IStepExecutor/) | Upstream's StepExecutor (agent/executor.ts): the part of an act step that thinks. The runtime owns the step's cache, budget, deadline, and verdict; an executor reads the screen, acts through the context, and returns a verdict. Swapping executors changes the thinking, never the safety, the budgets, or the verdict grammar. <p> An executor is trusted project code, in the same trust domain as the test project that builds it: it may hold its own model and credentials. What the runtime enforces against it is accounting, not secrecy: the budgets, the deadline, the recording, and the verdict grammar hold whoever thinks. </p> |
@@ -192,7 +192,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ExecutorCache](/api/E2E/ExecutorCache/) | Trace-cache participation for an executor's steps. Upstream's cache: 'inherit' \| 'off'. |
 | [ExecutorStepKind](/api/E2E/ExecutorStepKind/) | Upstream's ExecutorStep.kind. |
 | [ExecutorVerb](/api/E2E/ExecutorVerb/) | One verb of IExecutorActions. The port has the verbs its engines can perform. |
-| [GotoWaitUntil](/api/E2E/GotoWaitUntil/) | When CancellationToken) counts a navigation as done. |
+| [GotoWaitUntil](/api/E2E/GotoWaitUntil/) | When GotoAsync counts a navigation as done. |
 | [RecordingMode](/api/E2E/RecordingMode/) | Which attempts of a test record a trace or a video. Upstream RecordingMode. In e2e.config.json and in E2ETRACE and E2EVIDEO a mode is written off, on, retain-on-failure, on-first-retry, or on-all-retries. |
 | [RecordingSource](/api/E2E/RecordingSource/) | Where an effective RecordingMode was set. Upstream RecordingSource. A Run mode (the config root or the environment variable) applies to every engine that can record. A Target or Test mode was asked for by name, so the engine must be able to record it. |
 | [ReplayHandOffReason](/api/E2E/ReplayHandOffReason/) | Upstream's ReplayHandOffReason, why a cached replay stopped before it finished its trace. ActionBudget and InvalidEntry are the port's: its replay draws on the step's action budget, and reads a recording back from a store that can hold any shape. |
@@ -203,8 +203,8 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [RunStatus](/api/E2E/RunStatus/) | How a run ended. Upstream's RunStatus, with the values a single run in the port can have. |
 | [StepVerdictStatus](/api/E2E/StepVerdictStatus/) | Upstream's StepVerdict.status. |
 | [VisionDegradation](/api/E2E/VisionDegradation/) | Why a vision call fell back to tree-only input. Pixel evidence degrades rather than fails, except under Only, which fails with POLICYDENIED naming the reason. |
-| [VisionMode](/api/E2E/VisionMode/) | What evidence a judgment (CancellationToken), CancellationToken), CancellationToken)) is given: the semantic tree, a masked screenshot of the current screen, or both. <p> Only exists because a tree sent beside pixels is a cheaper path to an answer, and a model takes it: asked whether a form is covered by an overlay, it can read from the tree that the form is present and named and answer yes, while the pixels show the overlay. For a judgment about what the screen presents, the tree is a distractor, so the mode that means it removes it. It also costs fewer input tokens than On. </p> <p> In every mode that sends pixels and the tree, pixel evidence degrades away rather than failing the call when it cannot be proven redacted. Only has nothing to degrade to, so it fails with POLICYDENIED instead of answering the wrong question from the tree. </p> <p> CancellationToken) takes no vision mode: the act model works from the tree. </p> |
-| [WaitForState](/api/E2E/WaitForState/) | The state CancellationToken) waits for. |
+| [VisionMode](/api/E2E/VisionMode/) | What evidence a judgment (AssertAsync, WaitForAsync, ExtractAsync<T>) is given: the semantic tree, a masked screenshot of the current screen, or both. <p> Only exists because a tree sent beside pixels is a cheaper path to an answer, and a model takes it: asked whether a form is covered by an overlay, it can read from the tree that the form is present and named and answer yes, while the pixels show the overlay. For a judgment about what the screen presents, the tree is a distractor, so the mode that means it removes it. It also costs fewer input tokens than On. </p> <p> In every mode that sends pixels and the tree, pixel evidence degrades away rather than failing the call when it cannot be proven redacted. Only has nothing to degrade to, so it fails with POLICYDENIED instead of answering the wrong question from the tree. </p> <p> ActAsync takes no vision mode: the act model works from the tree. </p> |
+| [WaitForState](/api/E2E/WaitForState/) | The state WaitForAsync waits for. |
 
 ## Delegates
 

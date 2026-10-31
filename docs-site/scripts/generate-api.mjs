@@ -368,13 +368,21 @@ function hrefBetween(fromId, toId, hash = "") {
     return `/${toId}/${hash}`;
 }
 
+function decodeUid(uid) {
+    try {
+        return decodeURIComponent(uid);
+    } catch {
+        return uid;
+    }
+}
+
 function labelFor(uid) {
     const ref = refs.get(uid);
     if (ref?.name) return ref.name;
     const item = byUid.get(uid);
     if (item) return displayName(item);
-    const short = uid.split(".").pop() || uid;
-    return short.replace(/`(\d+)/g, "<T>");
+    const short = decodeUid(uid).replace(/\(.*$/, "").split(".").pop() || uid;
+    return short.replace(/`+(\d+)/g, "<T>");
 }
 
 function displayName(item) {
