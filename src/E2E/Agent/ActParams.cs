@@ -50,6 +50,17 @@ internal static class ActParams
     public static JsonObject? Projected(IReadOnlyDictionary<string, object?> parameters) =>
         Project(parameters, 0, new HashSet<object>(ReferenceEqualityComparer.Instance), null) as JsonObject;
 
+    /// <summary>
+    /// Upstream's <c>validateParams</c> result: the params as the model reads them, and the JSON Pointer (RFC 6901) and value of every
+    /// <see cref="UniqueValue"/> at any depth, in the order the walk meets them.
+    /// </summary>
+    public static (JsonObject? Projected, List<ParamTemplate> Templates) ValidateParams(IReadOnlyDictionary<string, object?>? parameters)
+    {
+        List<ParamTemplate> templates = [];
+        var projected = parameters is null ? null : Project(parameters, 0, new HashSet<object>(ReferenceEqualityComparer.Instance), null, "", templates) as JsonObject;
+        return (projected, templates);
+    }
+
     /// <summary>The secrets the params declare at any depth, one per name, as upstream's walk of the params finds them.</summary>
     public static List<Secret> SecretsIn(IReadOnlyDictionary<string, object?>? parameters)
     {
@@ -62,7 +73,7 @@ internal static class ActParams
         return [.. found.Values];
     }
 
-    private static JsonNode? Project(object? value, int depth, HashSet<object> ancestors, Dictionary<(string Name, string Value), Secret>? found)
+    private static JsonNode? Project(object? value, int depth, HashSet<object> ancestors, Dictionary<(string Name, string Value), Secret>? found, string pointer = "", List<ParamTemplate>? templates = null)
     {
         if (depth > MaxDepth)
         {
@@ -87,6 +98,7 @@ internal static class ActParams
 
                 return projected;
             case UniqueValue unique:
+                templates?.Add(new ParamTemplate(pointer, unique.Value));
                 return JsonValue.Create(unique.Value);
             case string text:
                 return JsonValue.Create(text);
@@ -125,7 +137,7 @@ internal static class ActParams
                     var map = new JsonObject();
                     foreach (var (key, entry) in Entries((IEnumerable)value))
                     {
-                        map[key] = Project(entry, depth + 1, ancestors, found);
+                        map[key] = Project(entry, depth + 1, ancestors, found, CacheKeys.ParamPointer(pointer, key), templates);
                     }
 
                     return map;
@@ -133,7 +145,7 @@ internal static class ActParams
                     var list = new JsonArray();
                     foreach (var entry in (IEnumerable)value)
                     {
-                        list.Add(Project(entry, depth + 1, ancestors, found));
+                        list.Add(Project(entry, depth + 1, ancestors, found, CacheKeys.ParamPointer(pointer, list.Count), templates));
                     }
 
                     return list;
@@ -143,7 +155,7 @@ internal static class ActParams
                     {
                         if (property.Get is { } get)
                         {
-                            shape[property.Name] = Project(get(value), depth + 1, ancestors, found);
+                            shape[property.Name] = Project(get(value), depth + 1, ancestors, found, CacheKeys.ParamPointer(pointer, property.Name), templates);
                         }
                     }
 

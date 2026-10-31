@@ -281,11 +281,14 @@ internal sealed class StepTraceSession
 
         // Any store can return a hit, so its shape is checked here, at the one read site. The stored recording has a placeholder for
         // each unique() value (upstream's expandTrace): one this call cannot fill is an entry recorded for another shape.
-        return entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null || !entry.HasValidEndWait() || !entry.Actions.All(action => action.HasValidModifiers() && action.HasValidSpans() && action.HasValidPaths())
+        return entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null || HasNull(entry.Actions) || HasNull(entry.Appeared) || HasNull(entry.Gone) || !entry.HasValidEndWait() || !entry.Actions.All(action => action.HasValidModifiers() && action.HasValidSpans() && action.HasValidPaths())
             || !CacheKeys.TryExpandTrace(entry, _options.Params)
             ? new EntryRead(null, "invalid-entry")
             : new EntryRead(entry, null);
     }
+
+    // A cache file may hold a null where a list holds an action or an anchor; such an entry is a miss, not a crash.
+    private static bool HasNull<T>(List<T> items) where T : class => items.Any(item => item is null);
 
     // Under strict mode, ends a step whose recording exists but no longer replays, rather than handing it to the executor: a
     // committed recording that went stale is a change to re-record in review, not a model call to absorb on every run.
@@ -521,10 +524,18 @@ internal sealed class StepTraceSession
             return null;
         }
 
+        // Upstream's templateTrace refuses a recording whose anchors already spell a placeholder: the screen's own text could not be
+        // told from a slot at replay. The anchors are projected untemplated for that check, as the screen showed them.
+        var (shown, vanished) = Anchors.Describe(Project(baseline, templated: false), Project(end, templated: false), routeMoved);
+        if (shown.Concat(vanished).SelectMany(anchor => new[] { anchor.Name, anchor.Text, anchor.Value, anchor.TestId, anchor.Placeholder }).Any(text => text?.Contains(CacheKeys.PlaceholderPrefix, StringComparison.Ordinal) == true))
+        {
+            return null;
+        }
+
         // How long the app took to show its end state after the last action, plus room for a slower day: the budget a replay waits
         // for the recorded end state to return. Measured from the last action, not the step's start: the model's thinking time before
         // that action is no reason for a replay, which does not think, to wait.
-        return _recorder.Finalize(Pending.Step!, Template(ScreenPath(_start!)), Template(ScreenPath(end)), appeared, gone, recordedBy, NowMs() - EndWaitBaselineMs() + EndWaitMarginMs);
+        return _recorder.Finalize(Pending.Step!, Template(ScreenPath(_start!)), Template(ScreenPath(end)), appeared, gone, recordedBy, NowMs() - EndWaitBaselineMs() + EndWaitMarginMs, _options.Params);
     }
 
     // One cache capture, settled as far as mode asks, or null when the surface cannot be observed right now, which is the
@@ -546,7 +557,7 @@ internal sealed class StepTraceSession
     private string ScreenPath(Observation observation) => CacheRoute.AppLocation(observation.Route, _options.AppOrigin);
 
     // A route is recorded redacted, with each unique() value as its slot, and read back with this call's values.
-    private string Template(string route) => CacheKeys.Template(_host.Redact.Redact(route), _options.Params);
+    private string Template(string route) => _recorder.Template(_host.Redact.Redact(route), _options.Params);
 
     private static string? Recorded(string? route, IReadOnlyDictionary<string, object?>? parameters) =>
         route is null ? null : CacheKeys.Detemplate(route, parameters);
@@ -554,34 +565,21 @@ internal sealed class StepTraceSession
     // Anchors as the recording stores them: a name or text holding a unique param is skipped, every field has
     // secrets redacted, and a name, text, or value has each unique param as its slot. The secrets are read as
     // they are now, so an unchanged node is no delta.
-    private List<AnchorNode> Project(Observation observation)
+    private List<AnchorNode> Project(Observation observation, bool templated = true)
     {
         var redactor = _host.Redact;
         var parameters = _options.Params;
         return Anchors.Project(
             observation,
             text => ContainsParam(text, parameters),
-            value => CacheKeys.Template(redactor.Redact(value), parameters),
+            value => templated ? CacheKeys.Template(redactor.Redact(value), parameters) : redactor.Redact(value),
             redactor.Redact,
             (text, limit) => AgentObservation.RedactText(text, redactor, limit));
     }
 
     private static bool ContainsParam(string name, IReadOnlyDictionary<string, object?>? parameters)
     {
-        if (parameters is null)
-        {
-            return false;
-        }
-
-        foreach (var value in parameters.Values)
-        {
-            if (value is UniqueValue unique && unique.Value.Length > 0 && name.Contains(unique.Value, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return CacheKeys.TemplatesOf(parameters).Any(template => template.Value.Length > 0 && name.Contains(template.Value, StringComparison.Ordinal));
     }
 
     // The first screen of the replay's last stretch on the end route, or null when its last screen before the end
@@ -678,6 +676,8 @@ internal sealed class StepTraceSession
         public void MarkActing() => inner.MarkActing();
 
         public Task CommitAsync(RecordedAction action) => inner.CommitAsync(action);
+
+        public string Expand(string text) => inner.Expand(text);
     }
 }
 

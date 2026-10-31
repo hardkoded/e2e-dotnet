@@ -11,10 +11,10 @@ namespace E2E.Tests.TraceTemplate;
 /// <summary>
 /// The port templates the typed value, the navigated URL, the scroll text, and the start and end routes of an entry, with a
 /// <c>{{param:/name}}</c> placeholder for each unique value and an encoding after a bar (<c>|uri</c>, <c>|form</c>, <c>|slug</c>,
-/// <c>|flat</c>). It has no upload paths, action summaries, summary verdict, descriptor or anchor templating (an anchor naming a
-/// unique value is left out), or write-side refusal of a text that already spells a placeholder. So these upstream its are not
-/// ported: "templates upload paths", "keeps the verdict summary as recorded", and "refuses to template a recording whose text
-/// already spells a placeholder".
+/// <c>|flat</c>), and the upload paths, the target descriptors and the anchors. It records no action summaries and no verdict
+/// summary, so the upstream it "keeps the verdict summary as recorded" is not ported. It templates each text as it records it and
+/// has no <c>templateTrace</c> or <c>expandTrace</c> to call on a finished trace (issue #887 extracts them), so the tests that
+/// reach a trace through them are partial.
 /// </summary>
 public sealed class TemplateTraceAndExpandTraceTests
 {
@@ -137,43 +137,154 @@ public sealed class TemplateTraceAndExpandTraceTests
 
     /// <summary>
     /// Partial port of "templates inputs, descriptors, anchors, and action summaries, and expands them with another run's
-    /// value": the typed value and the navigated URL carry the slot and fill from the next run, while descriptors and anchors
-    /// that name the value are left out of the entry, and there are no summaries.
+    /// value": the typed value, the navigated URL, the target descriptor and the end anchors carry the slot and fill from the next
+    /// run. The port records no action summaries, and has no <c>templateTrace</c> or <c>expandTrace</c> to call on a trace.
     /// </summary>
     [Fact]
-    public async Task Templates_the_typed_value_and_the_URL_and_expands_them_with_another_runs_value()
+    public async Task Partial_Templates_inputs_descriptors_and_anchors_and_expands_them_with_another_runs_value()
     {
         var typed = new List<string>();
         static string Url(string name) => "/companies/create?name=" + Uri.EscapeDataString(name).Replace("%20", "+", StringComparison.Ordinal);
+        DocumentWorld World(string current) => new DocumentWorld()
+            .Map("/home", page => page.Heading("Home"))
+            .Map("/companies/create", page =>
+            {
+                page.Status("Company form");
+                DocumentElement? box = null;
+                box = new DocumentElement
+                {
+                    Role = "textbox",
+                    Name = "Name",
+                    Value = "",
+                    OnFill = value =>
+                    {
+                        typed.Add(value);
+                        box!.Value = value;
+                    },
+                };
+                page.Roots.Add(box);
+                page.Roots.Add(new DocumentElement { Role = "option", Name = current });
+            });
+        const string first = "E2E abc Company";
+        const string second = "E2E xyz Company";
+        static Task Form(TestContext ctx) => Expect.That(ctx.Screen.GetByRole("status", "Company form")).ToBeVisibleAsync();
+        var directory = CoreTests.TempCache();
+        var recorded = await StepAsync(
+            World(first),
+            new FileStepCache(directory),
+            "/home",
+            Form,
+            Script(ModelResponses.Call("navigate", new { url = Url(first) }), ModelResponses.Fill("textbox", "Name", first), ModelResponses.Tap("option", first)),
+            Name(first));
+        Assert.Null(recorded.Error);
+
+        var file = Assert.Single(Directory.GetFiles(directory, "*.json"));
+        var entry = JsonSerializer.Deserialize<CacheEntry>(File.ReadAllText(file), JsonDefaults())!;
+        Assert.Equal("/companies/create?name={{param:/name|form}}", entry.Actions[0].Url);
+        Assert.Equal("{{param:/name}}", entry.Actions[1].Value);
+        Assert.Equal("{{param:/name}}", entry.Actions[2].Name);
+        Assert.Equal("option", entry.Actions[2].Role);
+        Assert.Contains(entry.Appeared, anchor => anchor.Value == "{{param:/name}}");
+        Assert.DoesNotContain("E2E", File.ReadAllText(file), StringComparison.Ordinal);
+
+        typed.Clear();
+        var replay = await StepAsync(World(second), new FileStepCache(directory), "/home", Form, new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")), Name(second));
+        Assert.Null(replay.Error);
+        Assert.Equal(1, replay.Replayed);
+        Assert.Equal(["E2E xyz Company"], typed);
+    }
+
+    /// <summary>
+    /// Partial port of "templates upload paths, so a file named through unique() is re-resolved from each run's value": the
+    /// recorded action's paths carry the slot and fill from the next run's value. The port records no action summary, and has no
+    /// <c>templateTrace</c> or <c>expandTrace</c>, so the paths go through <c>Template</c> and <c>TryExpandTrace</c>.
+    /// </summary>
+    [Fact]
+    public void Partial_Templates_upload_paths_so_a_file_named_through_unique_is_re_resolved_from_each_runs_value()
+    {
+        static Dictionary<string, object?> File(string value) => new() { ["file"] = Values.Unique(value) };
+        var recorded = new RecordedAction
+        {
+            Kind = "upload",
+            Role = "button",
+            Name = "Attachment",
+            Paths = [.. new[] { "fixtures/run-1.json", "fixtures/static.txt" }.Select(path => CacheKeys.Template(path, File("fixtures/run-1.json")))],
+        };
+        var entry = new CacheEntry { Actions = [recorded] };
+
+        Assert.Equal(["{{param:/file}}", "fixtures/static.txt"], recorded.Paths);
+        Assert.Equal(["fixtures/run-2.json", "fixtures/static.txt"], recorded.Paths.Select(path => CacheKeys.Detemplate(path, File("fixtures/run-2.json"))));
+        Assert.True(CacheKeys.TryExpandTrace(entry, File("fixtures/run-2.json")));
+        Assert.False(CacheKeys.TryExpandTrace(entry, new Dictionary<string, object?>()));
+    }
+
+    /// <summary>
+    /// Partial port of "refuses to template a recording whose text already spells a placeholder": the port has no
+    /// <c>templateTrace</c> to call on a finished trace, so the step records a typed value that spells one, with a marked param and
+    /// with none, and writes no recording.
+    /// </summary>
+    [Fact]
+    public async Task Partial_Refuses_to_template_a_recording_whose_text_already_spells_a_placeholder()
+    {
         var world = new DocumentWorld()
             .Map("/home", page => page.Heading("Home"))
             .Map("/companies/create", page =>
             {
                 page.Status("Company form");
-                page.Roots.Add(new DocumentElement { Role = "textbox", Name = "Name", Value = "", OnFill = typed.Add });
+                page.Roots.Add(new DocumentElement { Role = "textbox", Name = "Name", Value = "", OnFill = _ => { } });
             });
         static Task Form(TestContext ctx) => Expect.That(ctx.Screen.GetByRole("status", "Company form")).ToBeVisibleAsync();
+
+        foreach (var parameters in new[] { Name("Acme Corp"), null })
+        {
+            var directory = CoreTests.TempCache();
+            var step = await StepAsync(
+                world,
+                new FileStepCache(directory),
+                "/home",
+                Form,
+                Script(ModelResponses.Call("navigate", new { url = "/companies/create" }), ModelResponses.Fill("textbox", "Name", "typed {{param:/name}} literally")),
+                parameters);
+
+            Assert.Null(step.Error);
+            Assert.Empty(Directory.Exists(directory) ? Directory.GetFiles(directory, "*.json") : []);
+        }
+
+        // The page itself spells one: an end anchor that could not be told from a slot.
+        var spelling = new DocumentWorld()
+            .Map("/home", page => page.Heading("Home"))
+            .Map("/companies/create", page =>
+            {
+                page.Status("Company form");
+                page.Heading("Saved {{param:/x}}");
+            });
+        var anchored = CoreTests.TempCache();
+        var shown = await StepAsync(spelling, new FileStepCache(anchored), "/home", Form, Script(ModelResponses.Call("navigate", new { url = "/companies/create" })), null);
+
+        Assert.Null(shown.Error);
+        Assert.Empty(Directory.Exists(anchored) ? Directory.GetFiles(anchored, "*.json") : []);
+    }
+
+    /// <summary>No upstream <c>it</c>: upstream's <c>readTraceEntry</c> shapes the entry, and the port reads it as JSON, where a list can hold a null.</summary>
+    [Fact]
+    public async Task Misses_an_entry_whose_anchor_list_holds_a_null()
+    {
+        var world = new DocumentWorld()
+            .Map("/home", page => page.Heading("Home"))
+            .Map("/companies/create", page => page.Status("Company form"));
+        static Task Form(TestContext ctx) => Expect.That(ctx.Screen.GetByRole("status", "Company form")).ToBeVisibleAsync();
         var directory = CoreTests.TempCache();
-        var first = await StepAsync(
-            world,
-            new FileStepCache(directory),
-            "/home",
-            Form,
-            Script(ModelResponses.Call("navigate", new { url = Url("E2E abc Company") }), ModelResponses.Fill("textbox", "Name", "E2E abc Company")),
-            Name("E2E abc Company"));
-        Assert.Null(first.Error);
+        var recorded = await StepAsync(world, new FileStepCache(directory), "/home", Form, Script(ModelResponses.Call("navigate", new { url = "/companies/create" })), Name("Acme"));
+        Assert.Null(recorded.Error);
+        var file = Assert.Single(Directory.GetFiles(directory, "*.json"));
+        var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(file))!.AsObject();
+        json["appeared"] = new System.Text.Json.Nodes.JsonArray((System.Text.Json.Nodes.JsonNode?)null);
+        File.WriteAllText(file, json.ToJsonString());
 
-        var entry = JsonSerializer.Deserialize<CacheEntry>(File.ReadAllText(Assert.Single(Directory.GetFiles(directory, "*.json"))), JsonDefaults())!;
-        Assert.Equal("/companies/create?name={{param:/name|form}}", entry.Actions[0].Url);
-        Assert.Equal("{{param:/name}}", entry.Actions[1].Value);
-        Assert.DoesNotContain("E2E", File.ReadAllText(Assert.Single(Directory.GetFiles(directory, "*.json"))), StringComparison.Ordinal);
-
-        typed.Clear();
-        var replay = await StepAsync(world, new FileStepCache(directory), "/home", Form, new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")), Name("E2E xyz Company"));
+        var replay = await StepAsync(world, new FileStepCache(directory), "/home", Form, Script(ModelResponses.Call("navigate", new { url = "/companies/create" })), Name("Acme"));
 
         Assert.Null(replay.Error);
-        Assert.Equal(1, replay.Replayed);
-        Assert.Equal(["E2E xyz Company"], typed);
+        Assert.Equal(("missed", "invalid-entry"), (replay.Cache?.Mode, replay.Cache?.Reason));
     }
 
     [Fact]

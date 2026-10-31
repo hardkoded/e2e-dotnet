@@ -123,7 +123,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Fill(value, false), token).ConfigureAwait(false);
-                await CommitAsync("fill", node, value: CacheKeys.Template(value, _parameters)).ConfigureAwait(false);
+                await CommitAsync("fill", node, value: _accounting.Recorder.Template(value, _parameters)).ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -191,7 +191,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Select(value), token).ConfigureAwait(false);
-                await CommitAsync("select", node, value: CacheKeys.Template(value, _parameters)).ConfigureAwait(false);
+                await CommitAsync("select", node, value: _accounting.Recorder.Template(value, _parameters)).ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -222,7 +222,7 @@ internal sealed class ActionDispatcher : IExecutorActions
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.SetInputFiles(authorized.Resolved), token).ConfigureAwait(false);
                 var recorded = Target(node, "upload");
-                recorded.Paths = [.. authorized.Given.Select(path => CacheKeys.Template(path, _parameters))];
+                recorded.Paths = [.. authorized.Given.Select(path => _accounting.Recorder.Template(path, _parameters))];
                 await CommitAsync(recorded).ConfigureAwait(false);
             },
             cancellationToken);
@@ -274,7 +274,7 @@ internal sealed class ActionDispatcher : IExecutorActions
                     Name = recorded?.Name,
                     TestId = recorded?.TestId,
                     Direction = DirectionName(direction),
-                    Text = CacheKeys.Template(text, _parameters),
+                    Text = _accounting.Recorder.Template(text, _parameters),
                     Spans = spans,
                 }).ConfigureAwait(false);
             },
@@ -340,7 +340,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             async token =>
             {
                 await _scope.Session.OpenAsync(Routes.Resolve(_scope.BaseUrl, url), token).ConfigureAwait(false);
-                await CommitAsync(new RecordedAction { Kind = "navigate", Url = CacheKeys.Template(CacheRoute.AppNavigation(url, _scope.AppOrigin), _parameters) }).ConfigureAwait(false);
+                await CommitAsync(new RecordedAction { Kind = "navigate", Url = _accounting.Recorder.Template(CacheRoute.AppNavigation(url, _scope.AppOrigin), _parameters) }).ConfigureAwait(false);
             },
             cancellationToken);
     }

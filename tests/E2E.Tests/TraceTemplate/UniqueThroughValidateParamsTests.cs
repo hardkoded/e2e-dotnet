@@ -2,14 +2,41 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json.Nodes;
+using E2E.Internal;
+
 namespace E2E.Tests.TraceTemplate;
 
 /// <summary>
-/// "projects the value for the model and lists the pointer for the cache, at any depth" is not ported: the port has no
-/// <c>validateParams</c>, and a <c>unique()</c> value is templated at the top level of the params only.
+/// Upstream's <c>validateParams</c> is <c>ActParams.ValidateParams</c>.
 /// </summary>
 public sealed class UniqueThroughValidateParamsTests
 {
+    [Fact]
+    public void Projects_the_value_for_the_model_and_lists_the_pointer_for_the_cache_at_any_depth()
+    {
+        var (projected, templates) = ActParams.ValidateParams(new Dictionary<string, object?>
+        {
+            ["name"] = Values.Unique("E2E abc Company"),
+            ["plan"] = "pro",
+            ["qty"] = 2,
+            ["owner"] = new Dictionary<string, object?> { ["email"] = Values.Unique("a@b.test"), ["tags"] = new object[] { "vip", Values.Unique("new-customer") } },
+            ["a/b"] = Values.Unique("slash"),
+        });
+
+        Assert.True(JsonNode.DeepEquals(
+            JsonNode.Parse("{\"name\":\"E2E abc Company\",\"plan\":\"pro\",\"qty\":2,\"owner\":{\"email\":\"a@b.test\",\"tags\":[\"vip\",\"new-customer\"]},\"a/b\":\"slash\"}"),
+            projected));
+        Assert.Equal(
+            [
+                new ParamTemplate("/name", "E2E abc Company"),
+                new ParamTemplate("/owner/email", "a@b.test"),
+                new ParamTemplate("/owner/tags/1", "new-customer"),
+                new ParamTemplate("/a~1b", "slash"),
+            ],
+            templates);
+    }
+
     /// <summary>Partial port: a value that is not a string cannot be built in C#, so only the blank and placeholder cases remain.</summary>
     [Fact]
     public void Partial_Refuses_a_blank_value_and_one_that_spells_a_placeholder()
@@ -24,6 +51,7 @@ public sealed class UniqueThroughValidateParamsTests
     {
         Assert.Equal("/a~1b", CacheKeys.ParamPointer("", "a/b"));
         Assert.Equal("/x/a~0b", CacheKeys.ParamPointer("/x", "a~b"));
+        Assert.Equal("/tags/0", CacheKeys.ParamPointer("/tags", 0));
     }
 
     [Fact]

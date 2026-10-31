@@ -51,6 +51,12 @@ internal interface IReplayHost
     /// <summary>Marks the newest observation as the one the step's first action is taken on.</summary>
     void MarkActing();
 
+    /// <summary>
+    /// Upstream's <c>expandText</c> of a recorded text with this call's params: the port expands a descriptor as it looks the target up,
+    /// since the entry stays as recorded. The identity unless the host has params to fill from.
+    /// </summary>
+    string Expand(string text) => text;
+
     /// <summary>Records one action the replay finished, for the step's cache entry, and hands it to the test's <c>OnAction</c> hook.</summary>
     Task CommitAsync(RecordedAction action);
 }
@@ -439,13 +445,15 @@ internal static class Replay
     /// </summary>
     private static async Task<(SemanticNode? Node, ReplayHandOffReason Failure)> Relocate(IReplayHost host, RecordedAction action, Look look)
     {
+        var name = action.Name is null ? null : host.Expand(action.Name);
+        var testId = action.TestId is null ? null : host.Expand(action.TestId);
         var deadline = host.Time.GetUtcNow() + host.ReplayTimeout;
         var first = true;
         while (true)
         {
             var observation = first && look.InHand is { } inHand ? inHand : await host.ObserveAsync(first ? look.Settle : SettleMode.Raw).ConfigureAwait(false);
             first = false;
-            var matches = Find(observation, action.Role, action.Name, action.TestId, null, host.Redact);
+            var matches = Find(observation, action.Role, name, testId, null, host.Redact);
             if (matches.Count == 1)
             {
                 host.MarkActing();
