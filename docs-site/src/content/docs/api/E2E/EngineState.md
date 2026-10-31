@@ -20,7 +20,7 @@ public sealed record EngineState : IEquatable<EngineState>
 
 
 One captured engine state (upstream's `EngineState`, `engine/surface.ts`): an opaque, versioned payload an engine can save
-from a session and restore into another. &lt;code class="paramref"&gt;ExpiresAt&lt;/code&gt; is an RFC 3339 timestamp after which the state must not be restored.
+from a session and restore into another. `ExpiresAt` is an RFC 3339 timestamp after which the state must not be restored.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
@@ -42,7 +42,7 @@ public EngineState(string Format, int Version, JsonNode? Data, string? ExpiresAt
 
 
 One captured engine state (upstream's `EngineState`, `engine/surface.ts`): an opaque, versioned payload an engine can save
-from a session and restore into another. &lt;code class="paramref"&gt;ExpiresAt&lt;/code&gt; is an RFC 3339 timestamp after which the state must not be restored.
+from a session and restore into another. `ExpiresAt` is an RFC 3339 timestamp after which the state must not be restored.
 
 **Parameters**
 

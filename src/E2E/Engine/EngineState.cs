@@ -8,6 +8,6 @@ namespace E2E;
 
 /// <summary>
 /// One captured engine state (upstream's <c>EngineState</c>, <c>engine/surface.ts</c>): an opaque, versioned payload an engine can save
-/// from a session and restore into another. <paramref name="ExpiresAt"/> is an RFC 3339 timestamp after which the state must not be restored.
+/// from a session and restore into another. <c>ExpiresAt</c> is an RFC 3339 timestamp after which the state must not be restored.
 /// </summary>
 public sealed record EngineState(string Format, int Version, JsonNode? Data, string? ExpiresAt = null);
