@@ -104,6 +104,13 @@ internal static class AgentTools
             """,
             "direction"));
 
+    private static readonly ModelTool Upload = Tool(
+        "upload",
+        "Attach one or more files to a file input node, or to a control that opens a file chooser when clicked (an upload button). " +
+        "Paths are relative to the project root, e.g. \"fixtures/photo.png\"; use the paths the step gives you. " +
+        "A file outside the project, a hidden one, or one that does not exist is refused.",
+        Extend(Target, """{ "files": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 } }""", "files"));
+
     private static readonly ModelTool Back = Tool(
         "back",
         "Go back one step in the browser history. The result shows the screen you return to.",
@@ -152,6 +159,11 @@ internal static class AgentTools
     {
         var tools = new List<ModelTool> { Observe };
         tools.AddRange(capabilities.HasFlag(EngineCapabilities.TapModifiers) ? Verbs.Select(HoldingModifiers) : Verbs);
+        if (capabilities.HasFlag(EngineCapabilities.Upload))
+        {
+            tools.Add(Upload);
+        }
+
         if (capabilities.HasFlag(EngineCapabilities.Scroll))
         {
             tools.Add(ScrollTo);
@@ -185,7 +197,7 @@ internal static class AgentTools
     /// <summary>True when <paramref name="name"/> is a tool the agent offers itself, whatever the engine.</summary>
     public static bool IsReserved(string name) =>
         string.Equals(name, VerdictTool.Name, StringComparison.Ordinal) ||
-        CreateGrammarTools(EngineCapabilities.Scroll | EngineCapabilities.History).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
+        CreateGrammarTools(EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Upload).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
 
     /// <summary>The model's view of a project tool: its name, description, and input schema.</summary>
     public static ModelTool Project(string name, AgentTool tool) =>

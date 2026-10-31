@@ -31,6 +31,12 @@ internal static class Trace
     /// <summary>Upstream's <c>MAX_TRACE_END_WAIT_MS</c>: the longest end wait a recording may ask a replay for.</summary>
     public const int MaxTraceEndWaitMs = 120_000;
 
+    /// <summary>Upstream's <c>MAX_TRACE_UPLOAD_PATHS</c>: most files one upload carries; more is a script, not a form.</summary>
+    public const int MaxTraceUploadPaths = 16;
+
+    /// <summary>Upstream's <c>MAX_TRACE_INPUT_CHARS</c>: the longest replay input (a typed value, an upload path) a recording may hold.</summary>
+    public const int MaxTraceInputChars = 4_096;
+
     /// <summary>Upstream's <c>KEY_CONTEXT_FIELDS</c>, in upstream's order, each with the value it holds.</summary>
     public static readonly IReadOnlyList<(string Field, Func<TraceKeyContext, object> Get)> KeyContextFields =
     [

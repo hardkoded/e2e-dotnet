@@ -97,6 +97,13 @@ public sealed partial class Agent
         public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) =>
             check ? PerformAsync(target, new LocatorAction.Check(), "check", cancellationToken) : PerformAsync(target, new LocatorAction.Uncheck(), "uncheck", cancellationToken);
 
+        // The recorded paths are expanded with this call's params, then authorized against the project root again, as the recording's were.
+        public Task UploadAsync(ExecutorTarget target, IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
+        {
+            var authorized = dispatcher.AuthorizeUpload([.. paths.Select(path => CacheKeys.Detemplate(path, parameters))]);
+            return PerformAsync(target, new LocatorAction.SetInputFiles(authorized.Resolved), "upload", cancellationToken);
+        }
+
         public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => PerformAsync(target, new LocatorAction.ScrollIntoView(), "scrollTo", cancellationToken);
 
         public async Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default)

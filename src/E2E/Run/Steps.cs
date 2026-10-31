@@ -115,6 +115,9 @@ internal sealed record StepEvent
 
     public int? Bytes { get; init; }
 
+    /// <summary>A <c>policy</c> event's verdict on the proposal it judged.</summary>
+    public PolicyDecision? Decision { get; init; }
+
     public string? Code { get; init; }
 
     /// <summary>Redacted human prose for what the event did, bounded. Secret values never appear: the name stands in.</summary>

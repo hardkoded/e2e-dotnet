@@ -180,6 +180,11 @@ internal sealed partial class ActContext : StepExecutorContext
             ExecutorVerb.Check,
             ExecutorVerb.Navigate,
         };
+        if (capabilities.HasFlag(EngineCapabilities.Upload))
+        {
+            verbs.Add(ExecutorVerb.Upload);
+        }
+
         if (capabilities.HasFlag(EngineCapabilities.Scroll))
         {
             verbs.UnionWith([ExecutorVerb.ScrollTo, ExecutorVerb.ScrollUntil, ExecutorVerb.Scroll]);

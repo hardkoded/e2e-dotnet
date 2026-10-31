@@ -136,6 +136,13 @@ internal static class GesturesSession
         </html>
         """;
 
+    /// <summary>Upstream's "uploads a project file" flow: the project's own fixture, named relative to the project root.</summary>
+    public static readonly Flow UploadFlow = new(
+        "uploads a project file",
+        "attach the fixture file",
+        (calls, prompt) => calls == 0 ? ModelResponses.Call("upload", new { @ref = RefFor(prompt, "button \"Attachment\""), files = new[] { "fixtures/attachment.txt" } }) : null,
+        screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("attached: attachment.txt"));
+
     /// <summary>
     /// The flows of upstream's record-then-replay pass this port can run: the instruction, the
     /// scripted model's tool call for each turn (null concludes the step), and the check after it.
@@ -157,6 +164,7 @@ internal static class GesturesSession
             "pick Express delivery",
             (calls, prompt) => calls == 0 ? ModelResponses.Call("check", new { @ref = RefFor(prompt, "radio \"Express\"") }) : null,
             screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("delivery: Express")),
+        UploadFlow,
         new(
             "scrolls a listed node into view",
             "scroll to the footnote",
@@ -189,6 +197,23 @@ internal static class GesturesSession
         (calls, prompt) => calls == 0 ? ModelResponses.Call("double_tap", new { @ref = RefFor(prompt, "button \"Tap me twice\"") }) : null,
         screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("double-tapped"));
 
+    /// <summary>Upstream's "refuses a hidden file" flow: the model names the project's <c>.env</c>, which the policy never lets through. It fails, so it has no check.</summary>
+    public static readonly Flow HiddenFileFlow = new(
+        "refuses a hidden file",
+        "attach the env file",
+        (calls, prompt) => calls == 0 ? ModelResponses.Call("upload", new { @ref = RefFor(prompt, "button \"Attachment\""), files = new[] { ".env" } }) : ModelResponses.Done("failed", "the file was refused", "POLICY_DENIED"),
+        _ => Task.CompletedTask);
+
+    /// <summary>The project files beside the suite: one uploadable fixture and one hidden file the policy must refuse (upstream's <c>PROJECT_FILES</c>).</summary>
+    public static string CreateProject()
+    {
+        var root = Directory.CreateTempSubdirectory("e2e-verbs-project-").FullName;
+        Directory.CreateDirectory(Path.Combine(root, "fixtures"));
+        File.WriteAllText(Path.Combine(root, "fixtures", "attachment.txt"), "attached\n");
+        File.WriteAllText(Path.Combine(root, ".env"), "SECRET=never-uploaded\n");
+        return root;
+    }
+
     /// <summary>Serves the gestures page, and the about page at /about.</summary>
     public static Task<TinySite> StartSiteAsync()
     {
@@ -212,17 +237,33 @@ internal static class GesturesSession
     /// Runs one flow as its own test: opens the gestures page, acts on the instruction, and
     /// runs the flow's check. Returns the act's result.
     /// </summary>
-    public static async Task<ActResult> RunFlowAsync(TinySite site, Flow flow, ScriptedModel model, string cacheDirectory)
+    public static async Task<ActResult> RunFlowAsync(TinySite site, Flow flow, ScriptedModel model, string cacheDirectory) =>
+        (await RunFlowWithStepsAsync(site, flow, model, cacheDirectory)).Result;
+
+    /// <summary><see cref="RunFlowAsync"/>, with the steps the session recorded: their events are what the upload tests read.</summary>
+    public static async Task<(ActResult Result, IReadOnlyList<StepRecord> Steps)> RunFlowWithStepsAsync(TinySite site, Flow flow, ScriptedModel model, string cacheDirectory)
     {
         ActResult? result = null;
+        IReadOnlyList<StepRecord> steps = [];
         var session = await StartAsync(site, model, new FileStepCache(cacheDirectory), flow.Title);
         await RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/gestures");
             result = await session.Agent.ActAsync(flow.Instruction);
             await flow.Check(session.Screen);
+            steps = session.Steps;
         });
-        return result!;
+        return (result!, steps);
+    }
+
+    /// <summary>Runs a flow whose act is expected to fail, and returns the failure with the steps the session recorded.</summary>
+    public static async Task<(AgentException Error, IReadOnlyList<StepRecord> Steps)> RunFailingFlowAsync(TinySite site, Flow flow, ScriptedModel model, string cacheDirectory)
+    {
+        await using var session = await StartAsync(site, model, new FileStepCache(cacheDirectory), flow.Title);
+        await session.App.OpenAsync("/gestures");
+        var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync(flow.Instruction));
+        session.Complete(error);
+        return (error, session.Steps);
     }
 
     /// <summary>The ref of the last listed node whose line matches <paramref name="line"/>.</summary>
@@ -238,6 +279,7 @@ internal static class GesturesSession
             Engine = new WebEngine(headless: true),
             Model = model,
             BaseUrl = site.Url,
+            ProjectRoot = CreateProject(),
             Cache = cache,
             CacheEnabled = true,
             TestTitle = "verbs > " + title,

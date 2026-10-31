@@ -249,6 +249,8 @@ internal sealed class StepHost : IStepCacheHost
 
         public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+        public Task UploadAsync(ExecutorTarget target, IReadOnlyList<string> paths, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
         public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default) => Task.CompletedTask;

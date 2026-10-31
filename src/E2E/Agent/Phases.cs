@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Globalization;
 using E2E.Engine;
 using E2E.Internal;
+using PolicyDecision = E2E.Reports.PolicyDecision;
 
 namespace E2E;
 
@@ -83,6 +84,19 @@ internal static class Phases
             }
         }
     }
+
+    /// <summary>Records one policy decision as a child event of the current step (upstream's <c>recordPolicyEvent</c>).</summary>
+    public static void RecordPolicyEvent(StepRecorder? steps, string name, PolicyDecision decision, string? code = null) =>
+        steps?.RecordEvent(new StepEvent
+        {
+            Kind = StepEventKind.Policy,
+            StartedAt = DateTimeOffset.UtcNow,
+            DurationMs = 0,
+            Status = decision == PolicyDecision.Allowed ? StepEventStatus.Passed : StepEventStatus.Failed,
+            Name = name,
+            Decision = decision,
+            Code = code,
+        });
 
     /// <summary>The live activity a phase announces as it begins (upstream's <c>ACTIVITY_BY_PHASE</c>).</summary>
     private static StepActivity? ActivityOf(string phase) => phase switch
