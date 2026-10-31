@@ -219,6 +219,10 @@ lines you changed:
   while a stable change exists, and reads it in an alert as one placeholder,
   so `Saved at 2026-10-24T15:41:27.955Z` and `Saved at 2026-10-24T15:30:00Z`
   are the same alert.
+  A `navigate` to a full URL on the app records as its path, query, and
+  fragment and replays on the origin the app runs on then, so a recording
+  follows the app to another port or host; re-record older entries to pick
+  this up.
 - Don't rename the test or its class, and don't reword a goal, change its
   params, or change the agent's `context` once a goal passes. Each is part of
   a recording's key, so every goal it touches records again live. Fixing a

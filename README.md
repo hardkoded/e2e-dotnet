@@ -286,6 +286,8 @@ An agent entry also takes `judge` (the model id for `assert`, `waitFor`, and `ex
 
 A cache entry belongs to one test, instruction, set of params, and agent. Each of these changes causes a miss: renaming the test or its class, changing the instruction or an ordinary param, running with another configured agent, changing the agent's `context` or a test's `[AgentContext]` (a secret in it enters the key as its name only), or switching to another engine. Changing the model doesn't cause a miss.
 
+A recording follows the app to another port or host that shares its `app.identity`. An agent `navigate` to a full URL on the app is recorded without the origin, as its path, query, and fragment, so the step replays on the origin the app runs on then. Re-record older entries to pick this up.
+
 ### Self-healing tests
 
 A self-healing test keeps passing when the UI changes under a recorded `Agent.ActAsync` step. The replay runs the recording until it no longer matches the screen. Then it hands the rest of the step to the agent, which finishes the goal from the current screen. In `read-write` mode, the same run can save the new flow once a later check passes. Such a step reports `ActResult.Cache.Mode` `agent-concluded`.

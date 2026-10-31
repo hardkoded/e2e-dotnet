@@ -361,6 +361,9 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   navigation. A location on the app's own origin (the `App.Url`'s) is
   compared by its path, query, and fragment, so a recording follows the app
   to another port or host; a screen on any other origin is another route.
+  An agent `navigate` to a full URL on the app is recorded as its path, query,
+  and fragment, so the step replays where the app runs then; re-record older
+  entries to pick this up.
   It passes alone only when the recorded end route is back,
   every control that appeared (with its text, value, and checked or
   selected state) is there, every one that went away is gone, at least one
