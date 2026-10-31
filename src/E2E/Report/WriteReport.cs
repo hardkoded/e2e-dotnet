@@ -7,7 +7,7 @@ using E2E.Internal;
 
 namespace E2E;
 
-/// <summary>Atomic report persistence (upstream's <c>report/write.ts</c>). Upstream's <c>fileReporter</c> has no counterpart: the port has no reporters.</summary>
+/// <summary>Atomic report persistence (upstream's <c>report/write.ts</c>). Upstream's <c>fileReporter</c> has no counterpart: the port has no built-in file reporters; a <see cref="E2E.Reports.Reporter"/> is the extension point.</summary>
 internal static class WriteReport
 {
     // JSON.stringify(document, null, 2): two-space indent, LF line ends whatever the host, and no \u escapes for HTML characters and

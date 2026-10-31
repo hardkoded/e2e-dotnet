@@ -6,6 +6,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Text.Json.Nodes;
 using E2E.Internal;
+using FinishedRun = E2E.Reports.FinishedRun;
 using VcsInfo = E2E.Reports.VcsInfo;
 
 namespace E2E;
@@ -36,8 +37,10 @@ internal static class ReportFile
         public Func<string, string> Redact { get; set; } = text => text;
     }
 
-    private sealed class RunState(string runId, DateTimeOffset startedAt, Task<VcsInfo?> vcs)
+    private sealed class RunState(string runId, string projectRoot, DateTimeOffset startedAt, Task<VcsInfo?> vcs)
     {
+        public string ProjectRoot { get; } = projectRoot;
+
         public SemaphoreSlim Write { get; } = new(1, 1);
 
         public string RunId { get; } = runId;
@@ -172,6 +175,7 @@ internal static class ReportFile
             {
                 state = Runs[resultsRoot] = new RunState(
                     report.Run.Id,
+                    projectRoot,
                     added.Attempts.FirstOrDefault()?.StartedAt ?? DateTimeOffset.UtcNow,
                     DetectVcs(projectRoot));
             }
@@ -232,6 +236,39 @@ internal static class ReportFile
         {
             state.Write.Release();
         }
+    }
+
+    /// <summary>
+    /// What each run this process wrote a report for looks like to a reporter (upstream's <c>FinishedRun</c>): the document read back from
+    /// <c>report.json</c>, so a reporter that uploads it ships the file byte for byte. A run whose file cannot be read is left out.
+    /// </summary>
+    public static async Task<IReadOnlyList<FinishedRun>> FinishedRunsAsync(CancellationToken cancellationToken = default)
+    {
+        List<(string ResultsRoot, RunState State)> runs;
+        lock (Gate)
+        {
+            runs = [.. Runs.Select(pair => (pair.Key, pair.Value))];
+        }
+
+        List<FinishedRun> finished = [];
+        foreach (var (resultsRoot, state) in runs)
+        {
+            // The last write of the run is done once it can take the gate.
+            await state.Write.WaitAsync(cancellationToken).ConfigureAwait(false);
+            state.Write.Release();
+            var path = PathFor(resultsRoot);
+            try
+            {
+                var report = ReportSerializer.Read(JsonNode.Parse(await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false))!.AsObject());
+                finished.Add(new FinishedRun(report, report.Run.Status, report.Run.ExitCode, state.ProjectRoot, path, resultsRoot));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+            {
+                Console.Error.WriteLine($"e2e: the report of run {state.RunId} could not be read for the reporters: {ex.Message}");
+            }
+        }
+
+        return finished;
     }
 
     // Detection never fails a run: a task that faulted reads as no commit.

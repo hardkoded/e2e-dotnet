@@ -13,6 +13,10 @@ Public types in the `E2E.Reports` namespace.
 ## Classes
 
 | Type | Summary |
+| [E2EReporterAttribute](/api/E2E.Reports/E2EReporterAttribute/) | Registers a Reporter for the test assembly: [assembly: E2EReporter(typeof(MyReporter))]. .NET-only: upstream registers reporter objects in the reporters field of its config module, and the port's JSON config holds no code. |
+| [FinishedRun](/api/E2E.Reports/FinishedRun/) | What a reporter receives once the run is over and its report is on disk (upstream's FinishedRun, types.ts). |
+| [Reporter](/api/E2E.Reports/Reporter/) | A reporter, registered with E2EReporterAttribute (upstream's Reporter, types.ts). OnRunFinishedAsync runs once, when the test run is over and report.json is final. |
+| [ReporterSummaryRow](/api/E2E.Reports/ReporterSummaryRow/) | One row a reporter hands back for the terminal summary: a label and its text (upstream's ReporterSummary element). |
 | --- | --- |
 | [AppLogRecord](/api/E2E.Reports/AppLogRecord/) | One line the app logged (upstream's AppLogRecord). |
 | [ArtifactProducer](/api/E2E.Reports/ArtifactProducer/) | Who made an artifact (upstream's ArtifactRecord['producer']). |

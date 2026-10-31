@@ -217,6 +217,15 @@ and in CI.
   `[assembly: AssemblyFixture(typeof(E2E.XUnit.V3.E2ERunFixture))]`. Two
   processes, such as `dotnet test` and `e2e mcp`, still start one app each:
   give a shared app a fixed port and `reuseExisting`.
+- Reporters. `[assembly: E2EReporter(typeof(MyReporter))]` registers a
+  `E2E.Reports.Reporter` (public constructor with no parameters). The run
+  fixture above calls `OnRunFinishedAsync(FinishedRun, CancellationToken)` once,
+  after the last test, with the final `report.json` document (`Report`,
+  `Status`, `ExitCode`, `ProjectRoot`, `ReportPath`, `ArtifactsRoot`). It is
+  awaited for one minute; the `ReporterSummaryRow`s it returns print to
+  standard output. A throw, a timeout, or a row with no label or text is one
+  line on stderr and never changes the outcome. Without the run fixture no
+  reporter runs. Not ported: `OnEvent`, `Traces`, `AiTracePath`, `LastRun`.
 - A `command` is `executable`, `args`, `cwd` (from the config's directory),
   `env`, `inheritEnv`, `startupTimeout`, `shutdownTimeout`, `log`, and
   `reuseExisting`; any other key is `INVALID_CONFIG`, naming the nearest.
