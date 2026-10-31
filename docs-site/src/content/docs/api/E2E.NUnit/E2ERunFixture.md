@@ -1,6 +1,6 @@
 ---
 title: "E2ERunFixture"
-description: "A .NET-only run-level hook (upstream's runner stops the app commands when the run ends; NUnit has no such owner). Derive a [SetUpFixture] from it, outside an..."
+description: "A .NET-only run-level hook (upstream's runner stops the app commands and calls the reporters when the run ends; NUnit has no such owner). Derive a [SetUpFixture] from it, outside an..."
 editUrl: false
 prev: false
 next: false
@@ -19,9 +19,9 @@ public abstract class E2ERunFixture
 ```
 
 
-A .NET-only run-level hook (upstream's runner stops the app commands when the run ends; NUnit has no such owner). Derive a
+A .NET-only run-level hook (upstream's runner stops the app commands and calls the reporters when the run ends; NUnit has no such owner). Derive a
 `[SetUpFixture]` from it, outside any namespace so it covers the whole assembly, and the app commands that the targets declare stop
-when the last test of the assembly is done, not when the test process exits:
+when the last test of the assembly is done, not when the test process exits, and the reporters run (see Reporter):
 
 
 ```csharp
@@ -47,7 +47,7 @@ public Task StopAppCommandsAsync()
 ```
 
 
-Stops the app commands that the tests of this process started.
+Runs the reporters that the test assembly registers with `[assembly: E2EReporter(typeof(...))]` once `report.json` is final, then stops the app commands that the tests of this process started.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 

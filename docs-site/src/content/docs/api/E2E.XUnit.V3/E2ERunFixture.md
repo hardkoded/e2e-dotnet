@@ -1,6 +1,6 @@
 ---
 title: "E2ERunFixture"
-description: "A .NET-only run-level hook (upstream's runner stops the app commands when the run ends; xUnit has no such owner). Register it as an assembly fixture, and the..."
+description: "A .NET-only run-level hook (upstream's runner stops the app commands and calls the reporters when the run ends; xUnit has no such owner). Register it as an assembly fixture, and the..."
 editUrl: false
 prev: false
 next: false
@@ -19,8 +19,8 @@ public sealed class E2ERunFixture : IAsyncDisposable
 ```
 
 
-A .NET-only run-level hook (upstream's runner stops the app commands when the run ends; xUnit has no such owner). Register it as an assembly
-fixture, and the app commands that the targets declare stop when the last test of the assembly is done, not when the test process exits:
+A .NET-only run-level hook (upstream's runner stops the app commands and calls the reporters when the run ends; xUnit has no such owner). Register it as an assembly
+fixture, and the app commands that the targets declare stop when the last test of the assembly is done, not when the test process exits, and the reporters run (see Reporter):
 
 
 ```csharp
@@ -46,7 +46,7 @@ public ValueTask DisposeAsync()
 ```
 
 
-Stops the app commands that the tests of this process started.
+Runs the reporters that the test assembly registers with `[assembly: E2EReporter(typeof(...))]` once `report.json` is final, then stops the app commands that the tests of this process started.
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask)
 

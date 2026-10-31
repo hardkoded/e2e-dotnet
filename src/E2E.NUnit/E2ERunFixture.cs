@@ -7,9 +7,9 @@ using NUnit.Framework;
 namespace E2E.NUnit;
 
 /// <summary>
-/// A .NET-only run-level hook (upstream's runner stops the app commands when the run ends; NUnit has no such owner). Derive a
+/// A .NET-only run-level hook (upstream's runner stops the app commands and calls the reporters when the run ends; NUnit has no such owner). Derive a
 /// <c>[SetUpFixture]</c> from it, outside any namespace so it covers the whole assembly, and the app commands that the targets declare stop
-/// when the last test of the assembly is done, not when the test process exits:
+/// when the last test of the assembly is done, not when the test process exits, and the reporters run (see <c>E2E.Reports.Reporter</c>):
 /// <code>
 /// [SetUpFixture]
 /// public sealed class AppCommands : E2ERunFixture;
@@ -17,7 +17,20 @@ namespace E2E.NUnit;
 /// </summary>
 public abstract class E2ERunFixture
 {
-    /// <summary>Stops the app commands that the tests of this process started.</summary>
+    /// <summary>
+    /// Runs the reporters that the assembly registers with <c>[assembly: E2EReporter(typeof(...))]</c> once <c>report.json</c> is final, then stops
+    /// the app commands that the tests of this process started.
+    /// </summary>
     [OneTimeTearDown]
-    public async Task StopAppCommandsAsync() => await RunApps.StopAllAsync().ConfigureAwait(false);
+    public async Task StopAppCommandsAsync()
+    {
+        try
+        {
+            await Reporters.RunFinishedAsync(GetType().Assembly).ConfigureAwait(false);
+        }
+        finally
+        {
+            await RunApps.StopAllAsync().ConfigureAwait(false);
+        }
+    }
 }
