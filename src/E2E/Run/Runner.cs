@@ -68,7 +68,8 @@ internal static class Runner
             abandon.CancelAfter(timeout);
             try
             {
-                var running = reporter.OnRunFinishedAsync(finished, abandon.Token);
+                // On the thread pool, so a reporter that blocks before it returns a task cannot hold the budget off (a JavaScript promise cannot block its own timer).
+                var running = Task.Run(() => reporter.OnRunFinishedAsync(finished, abandon.Token), CancellationToken.None);
 
                 // The reporter may ignore its token; the run stops waiting for it all the same.
                 var gone = new TaskCompletionSource();

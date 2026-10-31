@@ -17,19 +17,19 @@ public sealed class E2ERunFixture : IAsyncDisposable
 {
     /// <summary>
     /// Runs the reporters that the test assembly registers with <c>[assembly: E2EReporter(typeof(...))]</c> once <c>report.json</c> is final, then
-    /// stops the app commands that the tests of this process started. The test assembly is the entry assembly: an xUnit v3 test project is an executable.
+    /// stops the app commands that the tests of this process started. The test assembly is the one xUnit is running (its path from the test context), else the entry assembly, since an xUnit v3 test project is an executable.
     /// </summary>
     public async ValueTask DisposeAsync()
     {
         try
         {
-            if (Assembly.GetEntryAssembly() is { } testAssembly)
+            if (TestAssemblyOf(Xunit.TestContext.Current.TestAssembly?.AssemblyPath) is { } testAssembly)
             {
                 await Reporters.RunFinishedAsync(testAssembly).ConfigureAwait(false);
             }
             else
             {
-                Console.Error.WriteLine("e2e: the test assembly is unknown (no entry assembly), so no reporter ran");
+                Console.Error.WriteLine("e2e: the test assembly is unknown (xUnit gave no assembly path and there is no entry assembly), so no reporter ran");
             }
         }
         finally
@@ -37,4 +37,11 @@ public sealed class E2ERunFixture : IAsyncDisposable
             await RunApps.StopAllAsync().ConfigureAwait(false);
         }
     }
+
+    // The assembly xUnit is running: already loaded in the usual case, so it is matched by path before anything is loaded.
+    private static Assembly? TestAssemblyOf(string? path) =>
+        path is null
+            ? Assembly.GetEntryAssembly()
+            : Array.Find(AppDomain.CurrentDomain.GetAssemblies(), assembly => !assembly.IsDynamic && string.Equals(assembly.Location, path, StringComparison.OrdinalIgnoreCase))
+                ?? Assembly.LoadFrom(path);
 }

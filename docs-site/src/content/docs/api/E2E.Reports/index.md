@@ -13,23 +13,23 @@ Public types in the `E2E.Reports` namespace.
 ## Classes
 
 | Type | Summary |
-| [E2EReporterAttribute](/api/E2E.Reports/E2EReporterAttribute/) | Registers a Reporter for the test assembly: [assembly: E2EReporter(typeof(MyReporter))]. .NET-only: upstream registers reporter objects in the reporters field of its config module, and the port's JSON config holds no code. |
-| [FinishedRun](/api/E2E.Reports/FinishedRun/) | What a reporter receives once the run is over and its report is on disk (upstream's FinishedRun, types.ts). |
-| [Reporter](/api/E2E.Reports/Reporter/) | A reporter, registered with E2EReporterAttribute (upstream's Reporter, types.ts). OnRunFinishedAsync runs once, when the test run is over and report.json is final. |
-| [ReporterSummaryRow](/api/E2E.Reports/ReporterSummaryRow/) | One row a reporter hands back for the terminal summary: a label and its text (upstream's ReporterSummary element). |
 | --- | --- |
 | [AppLogRecord](/api/E2E.Reports/AppLogRecord/) | One line the app logged (upstream's AppLogRecord). |
 | [ArtifactProducer](/api/E2E.Reports/ArtifactProducer/) | Who made an artifact (upstream's ArtifactRecord['producer']). |
 | [ArtifactRecord](/api/E2E.Reports/ArtifactRecord/) | A file or link an attempt kept (upstream's ArtifactRecord, run/records.ts). |
 | [CacheRecordedBy](/api/E2E.Reports/CacheRecordedBy/) | The model that recorded a cache entry. |
+| [E2EReporterAttribute](/api/E2E.Reports/E2EReporterAttribute/) | Registers a Reporter for the test assembly: [assembly: E2EReporter(typeof(MyReporter))]. .NET-only: upstream registers reporter objects in the reporters field of its config module, and the port's JSON config holds no code. |
 | [FailureEvidence](/api/E2E.Reports/FailureEvidence/) | What the runner saw when a failure landed (upstream's FailureEvidence). |
+| [FinishedRun](/api/E2E.Reports/FinishedRun/) | What a reporter receives once the run is over and its report is on disk (upstream's FinishedRun, types.ts). |
 | [HookScope](/api/E2E.Reports/HookScope/) | The tests a hook failure leaves unverified (upstream's HookScope). |
 | [Report](/api/E2E.Reports/Report/) | The report-1 document, the shape Report() returns and report.json holds (upstream's Report, an alias of Report1Document, report/build.ts). A report is a record of what happened. Changing it changes nothing, and a caller that wants the document as JSON reads report.json. The port has no serial groups and no carried block, so the document has neither. |
 | [ReportAttempt](/api/E2E.Reports/ReportAttempt/) | One attempt of a test (upstream's ReportAttempt). |
 | [ReportChanges](/api/E2E.Reports/ReportChanges/) | The change a run's test filters judged, by counts only, or why no filter ran (upstream's ReportChanges): Base and Files once git measured the change, Skipped alone when no filter ran before git was asked. |
 | [ReportEngine](/api/E2E.Reports/ReportEngine/) | The engine a target runs on (upstream's ReportTarget['engine']). |
 | [ReportEnvironment](/api/E2E.Reports/ReportEnvironment/) | What a run ran on (upstream's run.environment). |
+| [Reporter](/api/E2E.Reports/Reporter/) | A reporter, registered with E2EReporterAttribute (upstream's Reporter, types.ts). OnRunFinishedAsync runs once, when the test run is over and report.json is final. |
 | [ReportError](/api/E2E.Reports/ReportError/) | An error as a report tells it: the serialized error without its stack (upstream's ReportError). |
+| [ReporterSummaryRow](/api/E2E.Reports/ReporterSummaryRow/) | One row a reporter hands back for the terminal summary: a label and its text (upstream's ReporterSummary element). |
 | [ReportFilter](/api/E2E.Reports/ReportFilter/) | One test filter the run applied, in order (upstream's ReportFilter). |
 | [ReportLimits](/api/E2E.Reports/ReportLimits/) | The limits the run ran under (upstream's ReportLimits). |
 | [ReportProject](/api/E2E.Reports/ReportProject/) | The project a run belongs to (upstream's run.project). |

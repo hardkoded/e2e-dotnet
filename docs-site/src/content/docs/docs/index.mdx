@@ -37,6 +37,8 @@ dotnet add package E2E.NUnit   # or E2E.XUnit.V3 for xUnit v3
 A reporter runs once, when the test run is over and `report.json` is final (upstream's `Reporter.onRunFinished`). Derive from `E2E.Reports.Reporter`, override `OnRunFinishedAsync`, and register the type for the test assembly:
 
 ```csharp
+using E2E.Reports;
+
 [assembly: E2EReporter(typeof(UploadReporter))]
 
 public sealed class UploadReporter : Reporter
