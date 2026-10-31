@@ -45,7 +45,11 @@ public sealed class PerformTests
             ("interactions.longPress", """{"ref":"@e4","settle":true,"settleQuietMs":150,"durationMs":1000}"""),
             ("interactions.press", """{"ref":"@e7","settle":true,"settleQuietMs":150}"""),
             ("interactions.hover", """{"ref":"@e4"}"""),
+
+            // A fill or clear reads the field again before typing into it.
+            ("capture.snapshot", """{"interactiveOnly":false}"""),
             ("interactions.fill", """{"ref":"@e7","text":"blue","settle":true,"settleQuietMs":150}"""),
+            ("capture.snapshot", """{"interactiveOnly":false}"""),
             ("interactions.fill", """{"ref":"@e7","text":"","settle":true,"settleQuietMs":150}"""),
             ("interactions.press", """{"ref":"@e6","settle":true,"settleQuietMs":150}"""),
 

@@ -91,6 +91,12 @@ public sealed class DeviceActions : IDeviceActions
         }
 
         var entry = session.Resolve(node);
+        var filling = action is LocatorAction.Fill or LocatorAction.Clear;
+        if (filling && !entry.TakesText)
+        {
+            throw RefuseFill(action, entry);
+        }
+
         var label = $"perform {KindOf(action)}";
 
         // A toggle already in the wanted state sends nothing, so it neither waits for a transition nor counts as an
@@ -108,12 +114,34 @@ public sealed class DeviceActions : IDeviceActions
             async (client, token) =>
             {
                 var settle = session.ActionSettle();
-                var target = session.Origin == ActionOrigin.Test ? await session.SettledAsync(entry, token).ConfigureAwait(false) : entry;
+                NodeBinding target;
+                if (filling)
+                {
+                    // The field is read again before it is typed into, and what it reads as may have changed.
+                    if (session.Origin == ActionOrigin.Test)
+                    {
+                        await session.WaitForTransitionAsync(entry, token).ConfigureAwait(false);
+                    }
+
+                    target = await session.RelocatedAsync(entry, token).ConfigureAwait(false);
+                    if (!target.TakesText)
+                    {
+                        throw RefuseFill(action, target);
+                    }
+                }
+                else
+                {
+                    target = session.Origin == ActionOrigin.Test ? await session.SettledAsync(entry, token).ConfigureAwait(false) : entry;
+                }
+
                 await RunAsync(session, client, target, action, settle, input, token).ConfigureAwait(false);
             },
             cancellationToken).ConfigureAwait(false);
         session.MarkAction(before);
     }
+
+    private static EngineException RefuseFill(LocatorAction action, NodeBinding binding) =>
+        DeviceSupport.Unsupported($"agent-device can only {KindOf(action)} editable fields; node {binding.Id} is {binding.Node.Role ?? "unknown"}");
 
     private static async Task RunAsync(DeviceSession session, IDeviceClient client, NodeBinding target, LocatorAction action, JsonObject settle, InputBudget input, CancellationToken cancellationToken)
     {
