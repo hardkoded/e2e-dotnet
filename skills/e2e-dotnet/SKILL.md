@@ -240,7 +240,7 @@ lines you changed:
   substitution also covers the value as a URL spells it (`Ada%20Lovelace` in
   a path, `Ada+Lovelace` in a query), as the slug an app derives for a record
   path (`ada-lovelace`), and a multi-line value as the screen shows it, on
-  one line. A short value is never matched inside the slot written for a longer one (topic `agent`).
+  one line. A short value is never matched inside the slot written for a longer one. A recording with a `{{param:...}}` placeholder the call cannot fill is a miss (`invalid-entry`), and a `Values.Unique` value cannot contain `{{param:` (topic `agent`).
 - Take `[Retry]` off the test while you iterate (NUnit only; xUnit v3 has no
   retry). The first attempt replays; outside `cache.strict`, each retry runs
   every goal live and waits out the failure again.
@@ -320,6 +320,11 @@ lines you changed:
   `writing-tests`). With `Connect` and `ReconnectEndpoint` the engine registers
   its selector engines in the browser's default context on every connect and
   reconnect, so the mask also covers secure fields inside closed shadow roots.
+- `App.StartRecordingAsync(new RecordingOptions { Name })` and
+  `App.StopRecordingAsync()` record one span, such as a transition, and return
+  the videos (`RecordedVideoFile.Path` or `RecordedVideoLink.Url`). They fail
+  with `UNSUPPORTED_CAPABILITY` while the test's `video` records, so leave
+  `video` off for that test (topic `writing-tests`).
 - Shape the agent for this app: `context` for the vocabulary the screens
   use, `system` for how it works, named agents under `agents`. A screen over
   the agent's `maxObservationBytes` (default 262144) is cut with an

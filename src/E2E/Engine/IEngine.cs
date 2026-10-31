@@ -254,8 +254,10 @@ public interface IEngineSession : IAsyncDisposable
         Task.FromException<string>(new EngineException("UNSUPPORTED_CAPABILITY", "screenshots is not supported by this engine."));
 
     /// <summary>
-    /// Starts recording the attempt as video, once its page can be recorded. Engines that declare
-    /// <see cref="EngineCapabilities.Video"/> implement it. Upstream's <c>startVideo</c>.
+    /// Starts recording the surface, once its page can be recorded. Engines that declare
+    /// <see cref="EngineCapabilities.Video"/> implement it. An attempt may start and stop more than once, never overlapping: the
+    /// runner calls it for the attempt's video and for each <c>app.StartRecordingAsync()</c>, and moves the files a stop returns
+    /// before the next start. Upstream's <c>startVideo</c>.
     /// </summary>
     Task StartVideoAsync(CancellationToken cancellationToken) => Unsupported("video recording");
 
