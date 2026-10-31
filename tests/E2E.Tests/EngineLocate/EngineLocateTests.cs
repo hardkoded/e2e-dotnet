@@ -58,11 +58,12 @@ public sealed class EngineLocateTests
     }
 
     [Fact]
-    public async Task Fails_with_the_engine_error_when_the_deadline_passes_on_a_retryable_one()
+    public async Task Fails_with_the_translated_engine_error_when_the_deadline_passes_on_a_retryable_one()
     {
         var screen = ScreenOver(_ => throw new EngineException("NODE_STALE", "the screen moved", retryable: true), out var calls, out _, TimeSpan.FromSeconds(1));
-        var failure = await Assert.ThrowsAsync<EngineException>(() => screen.GetByRole("alert").CountAsync());
-        Assert.Equal("NODE_STALE", failure.Code);
+        var failure = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("alert").CountAsync());
+        Assert.Equal("NOT_FOUND", failure.Code);
+        Assert.Equal("NODE_STALE", Assert.IsType<EngineException>(failure.InnerException).Code);
         Assert.True(calls() > 1);
     }
 

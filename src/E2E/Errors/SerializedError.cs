@@ -50,6 +50,34 @@ internal static class ErrorSerializer
         };
     }
 
+    /// <summary>
+    /// Upstream's <c>translateEngineError</c> (<c>internal/errors.ts</c>): an engine failure as the test sees it, the engine error kept as the
+    /// cause. A stale node is <c>NOT_FOUND</c> (upstream <c>LOCATOR_NOT_FOUND</c>), a missing frame the same, an ambiguous frame is
+    /// <c>STRICT_MODE</c> (<c>LOCATOR_AMBIGUOUS</c>), a node that cannot take the action, an action that may have committed, and an operation
+    /// that timed out are <c>ACTION_FAILED</c>, and no open app is <c>APP_NOT_OPEN</c>. An error that is no engine error, and an engine
+    /// error of any other code (<c>CANCELLED</c>, <c>UNSUPPORTED_CAPABILITY</c>, <c>ENGINE_FAILURE</c>), is returned as it is.
+    /// </summary>
+    /// <param name="cause">What the engine threw.</param>
+    /// <param name="suffix">Text appended to the message, such as <c>: getByRole("button")</c>.</param>
+    public static Exception TranslateEngineError(Exception cause, string suffix = "")
+    {
+        if (cause is not EngineException engine)
+        {
+            return cause;
+        }
+
+        return engine.Code switch
+        {
+            EngineErrorCodes.NodeStale => new TestException("NOT_FOUND", "node became stale" + suffix, engine),
+            EngineErrorCodes.FrameNotFound => new TestException("NOT_FOUND", engine.Message + suffix, engine),
+            EngineErrorCodes.FrameAmbiguous => new TestException("STRICT_MODE", engine.Message + suffix, engine),
+            EngineErrorCodes.NotActionable or EngineErrorCodes.ActionMayHaveCommitted => new TestException("ACTION_FAILED", engine.Message + suffix, engine),
+            EngineErrorCodes.OperationTimeout => new TestException("ACTION_FAILED", "operation timed out" + suffix, engine),
+            EngineErrorCodes.InvalidState => new TestException("APP_NOT_OPEN", engine.Message, engine),
+            _ => engine,
+        };
+    }
+
     /// <summary>Maps a category to its process exit code (upstream's <c>exitCodeForCategory</c>).</summary>
     public static int ExitCodeForCategory(string category) => category switch
     {

@@ -291,6 +291,13 @@ lines you changed:
   `LOCATOR_NOT_FOUND` when the deadline expires first (a swipe it cut short
   included) and `INVALID_LOCATOR` for a target made by another screen (topic
   `writing-tests`).
+- A locator reports an engine failure in the test's own codes, with the engine's
+  error as `InnerException`: `NOT_ACTIONABLE`, `ACTION_MAY_HAVE_COMMITTED`, and
+  `OPERATION_TIMEOUT` are `ACTION_FAILED` (the timeout reads `operation timed
+  out: <locator>`), a stale node or a missing frame is `NOT_FOUND`, an ambiguous
+  frame is `STRICT_MODE`, and `INVALID_STATE` is `APP_NOT_OPEN`. Match on
+  `ACTION_FAILED`, and read `InnerException` for the engine code. `CANCELLED`,
+  `UNSUPPORTED_CAPABILITY`, and `ENGINE_FAILURE` stay as the engine threw them.
 - A read or navigation that times out fails with `OPERATION_TIMEOUT` and is not
   retried, even when the call log mentions a detached element or a navigation
   race. On a device, an input (tap, fill, key, swipe, `Back`) the device does not

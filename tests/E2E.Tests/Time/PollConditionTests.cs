@@ -171,7 +171,9 @@ public sealed class PollConditionTests
         Assert.True(calls > 1);
 
         var early = Over(_ => throw cut);
-        Assert.Same(cut, await Assert.ThrowsAsync<EngineException>(() => Drive(Expect.That(early.GetByRole("status")).ToBeVisibleAsync(timeout: TimeSpan.FromSeconds(5)))));
+        var timedOut = await Assert.ThrowsAsync<TestException>(() => Drive(Expect.That(early.GetByRole("status")).ToBeVisibleAsync(timeout: TimeSpan.FromSeconds(5))));
+        Assert.Equal("ACTION_FAILED", timedOut.Code);
+        Assert.Same(cut, timedOut.InnerException);
     }
 
     [Fact]
@@ -193,7 +195,9 @@ public sealed class PollConditionTests
             await Task.Delay(rest > TimeSpan.Zero ? rest : TimeSpan.Zero, _time, token);
             throw cut;
         });
-        Assert.Same(cut, await Assert.ThrowsAsync<EngineException>(() => Drive(Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: budget))));
+        var timedOut = await Assert.ThrowsAsync<TestException>(() => Drive(Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: budget)));
+        Assert.Equal("ACTION_FAILED", timedOut.Code);
+        Assert.Same(cut, timedOut.InnerException);
     }
 
     [Fact]
@@ -224,7 +228,10 @@ public sealed class PollConditionTests
         // Gone from 1000 ms: it had not, and the poll fails with the cut-off read as its cause.
         var error = await Assert.ThrowsAsync<TestException>(() => Run(1_000));
         Assert.Equal("ASSERTION_FAILED", error.Code);
-        Assert.Same(cut, error.InnerException);
+
+        // The locator reports the cut-off read as ACTION_FAILED over the engine's OPERATION_TIMEOUT.
+        Assert.Equal("ACTION_FAILED", Assert.IsType<TestException>(error.InnerException).Code);
+        Assert.Same(cut, error.InnerException.InnerException);
     }
 
     [Fact]

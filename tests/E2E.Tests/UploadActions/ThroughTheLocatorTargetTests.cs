@@ -60,7 +60,9 @@ public sealed class ThroughTheLocatorTargetTests
             $"""<button id="pick" type="button">Choose avatar</button><input id="avatar" type="file" hidden>{CountClicks}""",
             async session =>
             {
-                var error = await Assert.ThrowsAsync<EngineException>(() => session.Screen.GetByRole("button", "Choose avatar").SetInputFilesAsync(AvatarFile));
+                var failure = await Assert.ThrowsAsync<TestException>(() => session.Screen.GetByRole("button", "Choose avatar").SetInputFilesAsync(AvatarFile));
+                var error = Assert.IsType<EngineException>(failure.InnerException);
+                Assert.Equal("ACTION_FAILED", failure.Code);
                 Assert.Equal("NOT_ACTIONABLE", error.Code);
                 Assert.Contains("opened no file chooser", error.Message, StringComparison.Ordinal);
                 Assert.Equal("", (await session.Browser.EvaluateAsync<string>(State))!.Split('|')[0]);

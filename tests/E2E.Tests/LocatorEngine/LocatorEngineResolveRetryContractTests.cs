@@ -10,8 +10,9 @@ namespace E2E.Tests.LocatorEngine;
 /// The port resolves a locator over one observation per try and has no engine <c>locate</c> to retry, so the count of
 /// resolves is the count of observations, and the codes are the port's STRICT_MODE and NOT_FOUND (COMPATIBILITY, Web
 /// engine). The other upstream its of this file are not ported: the retry on a stale or frame miss, the deadline cut of a
-/// resolve, the stale read and perform contracts, <c>readAll</c> and <c>readNow</c> by reference, and
-/// <c>translateLocatorError</c>, all of which need the engine reference API the port does not have.
+/// resolve, the stale read contract, and <c>readAll</c> and <c>readNow</c> by reference, all of which need the engine reference API the
+/// port does not have. The perform contract is in <see cref="LocatorEnginePerformContractTests"/>, and <c>translateLocatorError</c> in
+/// <see cref="TranslateLocatorErrorMappingTableTests"/>.
 /// </summary>
 public sealed class LocatorEngineResolveRetryContractTests
 {
