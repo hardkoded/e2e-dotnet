@@ -229,7 +229,7 @@ public class Screen
                 {
                     node = await target.ResolveSingleAsync(token, deadline).ConfigureAwait(false);
                 }
-                catch (EngineException ex) when (sampled && Time.CutOffAtDeadline(ex, startedWith))
+                catch (Exception ex) when (sampled && Time.CutOffAtDeadline(ex, startedWith))
                 {
                     throw NotVisible(ex);
                 }
@@ -255,10 +255,10 @@ public class Screen
                 catch (Exception ex) when (bounded.IsCancellationRequested && !token.IsCancellationRequested)
                 {
                     // The deadline ended the swipe: the scroll timed out, as an engine reporting a timeout on its budget would say.
-                    throw NotVisible(ex is EngineException { Code: EngineErrorCodes.OperationTimeout } ? ex : new EngineException(EngineErrorCodes.OperationTimeout, "swipe exceeded the scroll timeout", retryable: false));
+                    throw NotVisible(Time.IsOperationTimeout(ex) ? ex : new EngineException(EngineErrorCodes.OperationTimeout, "swipe exceeded the scroll timeout", retryable: false));
                 }
                 catch (Exception ex) when (!token.IsCancellationRequested
-                    && (deadline.Expired(Clock.GetUtcNow()) || (ex is EngineException { Code: EngineErrorCodes.OperationTimeout } && deadline.Remaining(Clock.GetUtcNow()) < Time.PollInterval)))
+                    && (deadline.Expired(Clock.GetUtcNow()) || (Time.IsOperationTimeout(ex) && deadline.Remaining(Clock.GetUtcNow()) < Time.PollInterval)))
                 {
                     // The engine's timer can wake a moment before this clock reads the deadline, so a swipe that ran out of its
                     // budget within a poll interval of the deadline is the deadline too, whichever timer fired first.
@@ -652,7 +652,7 @@ public sealed class Locator
 
     /// <summary>
     /// Sets the files of exactly one file input, or of a control that opens a file chooser; <paramref name="path"/> resolves from the project root.
-    /// On the web it also takes a button that opens a file chooser. A button that opens none fails with <c>NOT_ACTIONABLE</c> (upstream reports <c>ACTION_FAILED</c>).
+    /// On the web it also takes a button that opens a file chooser. A button that opens none fails with <c>ACTION_FAILED</c>, caused by the engine's <c>NOT_ACTIONABLE</c>.
     /// </summary>
     public Task SetInputFilesAsync(string path, ActionOptions? options = null, CancellationToken cancellationToken = default)
     {
@@ -865,7 +865,22 @@ public sealed class Locator
             return await LocateAsync(deadline ?? new Deadline(_screen.ActionTimeout, _screen.Clock), includeHidden, missingFrame, cancellationToken).ConfigureAwait(false);
         }
 
-        var observation = await _screen.ObserveAsync(cancellationToken).ConfigureAwait(false);
+        Observation observation;
+        try
+        {
+            observation = await _screen.ObserveAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (EngineException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            var translated = LocatorResolver.TranslateLocatorError(ex, Query);
+            if (ReferenceEquals(translated, ex))
+            {
+                throw;
+            }
+
+            throw translated;
+        }
+
         return LocatorResolver.Resolve(observation, Query, includeHidden);
     }
 
@@ -893,10 +908,15 @@ public sealed class Locator
             {
                 await Task.Delay(_screen.PollInterval, cancellationToken).ConfigureAwait(false);
             }
-            catch (EngineException ex) when (ex.Code is EngineErrorCodes.FrameNotFound or EngineErrorCodes.FrameAmbiguous && !cancellationToken.IsCancellationRequested)
+            catch (EngineException ex) when (!cancellationToken.IsCancellationRequested)
             {
-                // Upstream's translateLocatorError: a frame that is missing or matches twice is a locator that matched nothing, or too much.
-                throw new TestException(ex.Code == EngineErrorCodes.FrameNotFound ? "NOT_FOUND" : "STRICT_MODE", ex.Message + ": " + Query.Describe(), ex) { Details = LocatorResolver.LocatorDetails(Query) };
+                var translated = LocatorResolver.TranslateLocatorError(ex, Query);
+                if (ReferenceEquals(translated, ex))
+                {
+                    throw;
+                }
+
+                throw translated;
             }
         }
     }
@@ -1004,8 +1024,14 @@ public sealed class Locator
                 }
                 catch (Exception ex)
                 {
-                    RecordAction(node, action, startedAt, stamp, waitedMs, token.IsCancellationRequested ? StepEventStatus.Cancelled : StepEventStatus.Failed, ErrorSerializer.Classify(ex).Code);
-                    throw;
+                    var failure = token.IsCancellationRequested ? ex : LocatorResolver.TranslateLocatorError(ex, Query);
+                    RecordAction(node, action, startedAt, stamp, waitedMs, token.IsCancellationRequested ? StepEventStatus.Cancelled : StepEventStatus.Failed, ErrorSerializer.Classify(failure).Code);
+                    if (ReferenceEquals(failure, ex))
+                    {
+                        throw;
+                    }
+
+                    throw failure;
                 }
 
                 RecordAction(node, action, startedAt, stamp, waitedMs, StepEventStatus.Passed, null);
@@ -1039,7 +1065,21 @@ public sealed class Locator
             var node = await ResolveSingleAsync(token, deadline).ConfigureAwait(false);
             if (node is { States.Disabled: false, States.Hidden: false })
             {
-                await _screen.PerformAsync(node, action, token).ConfigureAwait(false);
+                try
+                {
+                    await _screen.PerformAsync(node, action, token).ConfigureAwait(false);
+                }
+                catch (EngineException ex) when (!token.IsCancellationRequested)
+                {
+                    var translated = LocatorResolver.TranslateLocatorError(ex, Query);
+                    if (ReferenceEquals(translated, ex))
+                    {
+                        throw;
+                    }
+
+                    throw translated;
+                }
+
                 return;
             }
 
@@ -1531,6 +1571,18 @@ internal static class LocatorResolver
     /// </summary>
     public static ErrorDetails LocatorDetails(LocatorExpression query, TimeSpan? waited = null) =>
         query.ExpressionHints() with { Locator = query.Describe(), WaitedMs = waited is { } elapsed ? (long)elapsed.TotalMilliseconds : null };
+
+    /// <summary>
+    /// Translates an engine error into the runner-owned public taxonomy (upstream's <c>translateLocatorError</c>, <c>locator/engine.ts</c>),
+    /// naming <paramref name="query"/> in the message when one is given. A missing or ambiguous frame also carries the locator's details.
+    /// </summary>
+    public static Exception TranslateLocatorError(Exception cause, LocatorExpression? query = null)
+    {
+        var translated = ErrorSerializer.TranslateEngineError(cause, query is null ? "" : ": " + query.Describe());
+        return query is not null && translated is TestException { Code: "NOT_FOUND" or "STRICT_MODE" } frame && cause is EngineException { Code: EngineErrorCodes.FrameNotFound or EngineErrorCodes.FrameAmbiguous }
+            ? new TestException(frame.Code, frame.Message, frame.InnerException!) { Details = LocatorDetails(query) }
+            : translated;
+    }
 
     /// <summary>
     /// Returns the nodes <paramref name="query"/> names. <paramref name="includeHidden"/>

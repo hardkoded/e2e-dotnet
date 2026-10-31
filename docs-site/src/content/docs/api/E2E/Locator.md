@@ -1252,7 +1252,7 @@ public Task SetInputFilesAsync(IEnumerable<string> paths, ActionOptions? options
 
 
 Sets the files of exactly one file input, or of a control that opens a file chooser; &lt;code class="paramref"&gt;path&lt;/code&gt; resolves from the project root.
-On the web it also takes a button that opens a file chooser. A button that opens none fails with `NOT_ACTIONABLE` (upstream reports `ACTION_FAILED`).
+On the web it also takes a button that opens a file chooser. A button that opens none fails with `ACTION_FAILED`, caused by the engine's `NOT_ACTIONABLE`.
 
 **Parameters**
 
@@ -1283,7 +1283,7 @@ public Task SetInputFilesAsync(string path, ActionOptions? options = null, Cance
 
 
 Sets the files of exactly one file input, or of a control that opens a file chooser; &lt;code class="paramref"&gt;path&lt;/code&gt; resolves from the project root.
-On the web it also takes a button that opens a file chooser. A button that opens none fails with `NOT_ACTIONABLE` (upstream reports `ACTION_FAILED`).
+On the web it also takes a button that opens a file chooser. A button that opens none fails with `ACTION_FAILED`, caused by the engine's `NOT_ACTIONABLE`.
 
 **Parameters**
 

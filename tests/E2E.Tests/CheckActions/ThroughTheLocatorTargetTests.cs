@@ -141,7 +141,9 @@ public sealed class ThroughTheLocatorTargetTests
             """,
             async session =>
             {
-                var error = await Assert.ThrowsAsync<EngineException>(() => session.Screen.GetByRole("checkbox", "Agree").CheckAsync());
+                var failure = await Assert.ThrowsAsync<TestException>(() => session.Screen.GetByRole("checkbox", "Agree").CheckAsync());
+                var error = Assert.IsType<EngineException>(failure.InnerException);
+                Assert.Equal("ACTION_FAILED", failure.Code);
                 Assert.Equal("NOT_ACTIONABLE", error.Code);
                 Assert.Equal("check clicked the control but its checked state did not change before the control was replaced", error.Message);
             });
@@ -154,7 +156,9 @@ public sealed class ThroughTheLocatorTargetTests
             """<label><input type="checkbox" id="box" onclick="event.preventDefault()">Locked</label>""",
             async session =>
             {
-                var error = await Assert.ThrowsAsync<EngineException>(() => session.Screen.GetByRole("checkbox", "Locked").CheckAsync());
+                var failure = await Assert.ThrowsAsync<TestException>(() => session.Screen.GetByRole("checkbox", "Locked").CheckAsync());
+                var error = Assert.IsType<EngineException>(failure.InnerException);
+                Assert.Equal("ACTION_FAILED", failure.Code);
                 Assert.Equal("NOT_ACTIONABLE", error.Code);
                 Assert.Equal("check clicked the control but its checked state did not change", error.Message);
             });
@@ -167,7 +171,9 @@ public sealed class ThroughTheLocatorTargetTests
             CountClicks + """<label><input type="radio" name="plan" id="pro" checked>Pro</label>""",
             async session =>
             {
-                var error = await Assert.ThrowsAsync<EngineException>(() => session.Screen.GetByRole("radio", "Pro").UncheckAsync());
+                var failure = await Assert.ThrowsAsync<TestException>(() => session.Screen.GetByRole("radio", "Pro").UncheckAsync());
+                var error = Assert.IsType<EngineException>(failure.InnerException);
+                Assert.Equal("ACTION_FAILED", failure.Code);
                 Assert.Equal("NOT_ACTIONABLE", error.Code);
                 Assert.Equal(0, await session.Browser.EvaluateAsync<int>("() => window.clicks"));
             });
@@ -180,7 +186,9 @@ public sealed class ThroughTheLocatorTargetTests
             """<button id="go">Go</button>""",
             async session =>
             {
-                var error = await Assert.ThrowsAsync<EngineException>(() => session.Screen.GetByRole("button", "Go").CheckAsync());
+                var failure = await Assert.ThrowsAsync<TestException>(() => session.Screen.GetByRole("button", "Go").CheckAsync());
+                var error = Assert.IsType<EngineException>(failure.InnerException);
+                Assert.Equal("ACTION_FAILED", failure.Code);
                 Assert.Equal("NOT_ACTIONABLE", error.Code);
             });
     }

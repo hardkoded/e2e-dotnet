@@ -88,7 +88,11 @@ internal static class Time
     /// app stopped answering. A read that started with more and still timed out hung, and its timeout is the failure.
     /// </summary>
     public static bool CutOffAtDeadline(Exception cause, TimeSpan startedWith) =>
-        startedWith < PollInterval && cause is EngineException { Code: EngineErrorCodes.OperationTimeout };
+        startedWith < PollInterval && IsOperationTimeout(cause);
+
+    /// <summary>Whether <paramref name="cause"/> is the engine's <c>OPERATION_TIMEOUT</c>, bare or wrapped by the locator failure it was translated into (upstream's <c>isOperationTimeout</c>).</summary>
+    public static bool IsOperationTimeout(Exception cause) =>
+        (cause as EngineException ?? cause.InnerException as EngineException) is { Code: EngineErrorCodes.OperationTimeout };
 
     /// <summary>
     /// Polls a condition until it holds (or, when negated, until its negation has held continuously for the negation
@@ -119,7 +123,7 @@ internal static class Time
                 value = await options.Evaluate().ConfigureAwait(false);
                 sampled = true;
             }
-            catch (EngineException ex) when (sampled && CutOffAtDeadline(ex, startedWith))
+            catch (Exception ex) when (sampled && CutOffAtDeadline(ex, startedWith))
             {
                 var now = clock.GetUtcNow();
                 if (negated && Holds(now < deadline.EndsAt ? now : deadline.EndsAt))
