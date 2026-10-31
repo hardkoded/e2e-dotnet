@@ -37,9 +37,9 @@ internal sealed class ListReporter
     /// <summary>Indentation under a badge line, matching vitest's banner padding.</summary>
     private const string BadgePadding = "      ";
 
-    private const string Down = "↓";
+    private const string FDown = "↓";
 
-    private const string Right = "→";
+    private const string FRight = "→";
 
     /// <summary>Indentation of the <c>→ first error line</c> under a failed test in a file block.</summary>
     private const int ErrorGlanceIndent = 7;
@@ -363,7 +363,7 @@ internal sealed class ListReporter
         {
             "failed" => _pc.Red(Format.Pointer),
             "interrupted" => _pc.Yellow(Format.Pointer),
-            "skipped" => _pc.Dim(_pc.Gray(Down)),
+            "skipped" => _pc.Dim(_pc.Gray(FDown)),
             _ => _pc.Green(Format.Check),
         };
         List<string> stateParts = [_pc.Dim($"{counts.Total} test{(counts.Total == 1 ? string.Empty : "s")}")];
@@ -438,7 +438,7 @@ internal sealed class ListReporter
             {
                 // `test.skip` without a message records the bare word; repeating it adds nothing.
                 var reason = line.SkipReason is null or "skipped" ? string.Empty : _pc.Dim(_pc.Gray($" [{line.SkipReason}]"));
-                return [$"   {_pc.Dim(_pc.Gray(Down))} {line.Title}{reason}"];
+                return [$"   {_pc.Dim(_pc.Gray(FDown))} {line.Title}{reason}"];
             }
 
             case ResultStatus.Interrupted:
@@ -451,7 +451,7 @@ internal sealed class ListReporter
                 {
                     // A glance line; the `Failed Tests` section carries the whole message.
                     var glance = Format.FitColumns(first, Format.TerminalColumns() - ErrorGlanceIndent);
-                    rows.Add($"     {_pc.Red($"{Right} {glance}")}");
+                    rows.Add($"     {_pc.Red($"{FRight} {glance}")}");
                 }
 
                 return rows;
