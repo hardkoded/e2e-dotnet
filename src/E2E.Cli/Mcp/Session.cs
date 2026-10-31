@@ -306,6 +306,7 @@ internal sealed class SessionHost : IDisposable
             }
 
             // The target's app command starts before the session opens, and the URL is on the port it was started on.
+            var declared = target;
             (target, apps) = await RunApps.AcquireAsync(config, target, null, abort.Token).ConfigureAwait(false);
             attempt = await Standalone.OpenAttemptAsync(
                 new E2ESessionOptions
@@ -343,8 +344,17 @@ internal sealed class SessionHost : IDisposable
             }
 
             var live = new LiveSession(id, target.Name, configPath, headed, engine, attempt, abort, apps);
-            live.Catalog = SessionCatalog.Create(live, engine.Capabilities, config.Secrets.Names.ToList(), Uri.TryCreate(target.App.Url, UriKind.Absolute, out var appBase) ? appBase : null);
-            var text = OpeningText(live, target, config, await FirstScreenAsync(live, target, abort.Token).ConfigureAwait(false));
+            live.Catalog = SessionCatalog.Create(
+                live,
+                engine.Capabilities,
+                config.Secrets.Names.ToList(),
+                config.ProjectRoot,
+                session.App.ArtifactsDir ?? config.ProjectRoot,
+                Uri.TryCreate(target.App.Url, UriKind.Absolute, out var appBase) ? appBase : null);
+
+            // The app as the session resolved it: the declared URL on the port its command was started on.
+            var app = TargetApps.ResolveTargetApp(target.Name, declared.App, config.ProjectRoot, Uri.TryCreate(target.App.Url, UriKind.Absolute, out var served) ? served.Port : null);
+            var text = OpeningText(live, target, app, config, await FirstScreenAsync(live, target, abort.Token).ConfigureAwait(false));
 
             // A first screen that came back despite the cancel must not become a live session nobody asked for.
             abort.Token.ThrowIfCancellationRequested();
@@ -482,21 +492,14 @@ internal sealed class SessionHost : IDisposable
         return opening + (observed.Content.StartsWith("observed\n", StringComparison.Ordinal) ? observed.Content["observed\n".Length..] : observed.Content);
     }
 
-    private string OpeningText(LiveSession live, TargetConfig target, E2EConfig config, string screen)
+    private string OpeningText(LiveSession live, TargetConfig target, ResolvedApp app, E2EConfig config, string screen)
     {
         var lines = new List<string>
         {
             "Session " + live.Id + " open on target \"" + target.Name + "\" (platform " + target.Platform + ", engine " + DescribeEngine(live.Engine) + "), "
-                + (live.Headed ? "headed" : "headless") + "; config " + live.ConfigPath + ".",
+                + (live.Headed ? "headed" : "headless") + "; config " + live.ConfigPath + ", read with the e2e mcp server's environment, not your shell's.",
         };
-        if (!string.IsNullOrEmpty(target.App.Url))
-        {
-            lines.Add("App: " + target.App.Url + ".");
-        }
-        else if (TargetEngines.LaunchesPinnedApp(target, live.Engine) && (target.App.BundleId ?? target.App.AppPath) is { } pinned)
-        {
-            lines.Add("App: " + pinned + ", launched fresh.");
-        }
+        lines.AddRange(AppLines.For(app, TargetEngines.LaunchesPinnedApp(target, live.Engine)));
 
         var names = config.Secrets.Names.ToList();
         if (names.Count > 0)

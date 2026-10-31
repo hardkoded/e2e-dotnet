@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using E2E.Cli.Mcp;
 using E2E.Cli.Tests.Helpers;
@@ -319,6 +320,38 @@ public sealed class SessionHostTests : IAsyncLifetime
         Assert.True(result.IsError);
         Assert.Contains("<secret:bootToken>", text, StringComparison.Ordinal);
         Assert.DoesNotContain("open-fail-token-1", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Names_the_app_command_it_started_and_the_port_it_assigned_without_args_or_env_values()
+    {
+        // The test app runs under the dotnet muxer (`dotnet test` sets DOTNET_HOST_PATH; the other tests start `dotnet` from PATH), as an apphost may be refused by the machine.
+        var executable = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") is { Length: > 0 } host ? host : "dotnet";
+        var command = new JsonObject
+        {
+            ["executable"] = executable,
+            ["args"] = new JsonArray(Path.Combine(AppContext.BaseDirectory, "E2E.Tests.App.dll"), "serve", "{port}", "--token=arg-secret-5678"),
+            ["env"] = new JsonObject { ["DATABASE_URL"] = "postgres://app:db-pass-1234@127.0.0.1:55432/app" },
+            ["inheritEnv"] = new JsonArray("STRIPE_*"),
+            ["log"] = "app log.txt",
+        };
+        var app = new JsonObject { ["url"] = "http://127.0.0.1:0", ["readyUrl"] = "http://127.0.0.1:{port}/health?token=query-secret-42", ["command"] = command };
+        var started = Host(new FakeEngine(), config: new JsonObject { ["targets"] = new JsonArray(new JsonObject { ["name"] = "web", ["platform"] = "web", ["app"] = app }) }.ToJsonString());
+        var text = await started.OpenAsync(new OpenSessionOptions());
+        var port = Regex.Match(text, @"App: http://127\.0\.0\.1:(\d+)/ \(port \1, assigned for the declared port 0\)\.", RegexOptions.None, TimeSpan.FromSeconds(5)).Groups[1].Value;
+        Assert.NotEmpty(port);
+        Assert.Contains(
+            $"Process: app.command {JsonSerializer.Serialize(executable, new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping })} (ready at http://127.0.0.1:{port}/health; env DATABASE_URL; inherits STRIPE_*; log app log.txt). e2e starts no other app process for this session;",
+            text,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("db-pass-1234", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("arg-secret-5678", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("query-secret-42", text, StringComparison.Ordinal);
+        await started.CloseAsync("done");
+
+        var external = Host(new FakeEngine());
+        Assert.Contains("Process: none; the target declares no app.command, so the app runs outside e2e.", await external.OpenAsync(new OpenSessionOptions()), StringComparison.Ordinal);
+        await external.CloseAsync("done");
     }
 
     [Fact]

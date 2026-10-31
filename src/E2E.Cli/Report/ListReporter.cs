@@ -26,9 +26,9 @@ internal sealed record ListReporterOptions
 /// <para>
 /// Ported: the run header, a file block per file with its test lines, the <c>Failed Tests</c> section with its evidence rows, the run
 /// errors, and the summary rows (<c>Test Files</c>, <c>Tests</c>, <c>AI</c>, <c>Cache</c>, <c>Errors</c>,
-/// <c>Start at</c>, <c>Duration</c>, <c>Report</c>, <c>Traces</c>, <c>AI trace</c>). Not ported: the live window, a
+/// <c>Start at</c>, <c>Duration</c>, <c>Report</c>, <c>Traces</c>, <c>Screenshots</c>, <c>AI trace</c>). Not ported: the live window, a
 /// test's console output, setup steps, serial groups, step streaming, the exploration view, the <c>Repeats</c> row, the
-/// <c>Skipped After Failure</c> section and its <c>Warnings</c> row, the <c>Screenshots</c> row and the video rows, and the code frame
+/// <c>Skipped After Failure</c> section and its <c>Warnings</c> row, the video rows, and the code frame
 /// under a failure.
 /// </para>
 /// </summary>
@@ -43,6 +43,9 @@ internal sealed class ListReporter
 
     /// <summary>Indentation of the <c>→ first error line</c> under a failed test in a file block.</summary>
     private const int ErrorGlanceIndent = 7;
+
+    /// <summary>How many <c>app.screenshot</c> files the summary names before it counts the rest.</summary>
+    private const int ShownScreenshots = 10;
 
     private readonly IListReporterOutput _output;
     private readonly Colors _pc;
@@ -72,6 +75,9 @@ internal sealed class ListReporter
     private readonly Format.AiUsage _runUsage = Format.EmptyUsage();
     private readonly Dictionary<string, int> _runModels = new(StringComparer.Ordinal);
     private readonly Format.CacheTally _runCache = Format.EmptyCacheTally();
+
+    /// <summary>Report-relative paths of every <c>app.screenshot</c> file, in result order, for the <c>Screenshots</c> row.</summary>
+    private readonly List<string> _screenshots = [];
 
     /// <summary>The configured models as the header names them; the summary's <c>AI</c> row names the models the steps reported instead.</summary>
     private string? _models;
@@ -260,12 +266,20 @@ internal sealed class ListReporter
             Models = Format.StepsModelTally(steps),
             Cache = Format.StepsCacheTally(steps),
             Error = told?.Error,
+            Screenshots = [.. attempts.SelectMany(attempt => RequestedScreenshots(attempt.Steps, attempt.Artifacts))],
             Failure = told?.Failure,
             ScreenPath = screen,
             AppLog = AppLogSummaryOf(told?.AppLog ?? []),
             SkipReason = told?.Status == E2E.Internal.AttemptStatus.Skipped ? null : told?.Skip?.Reason,
         };
     }
+
+    /// <summary>Report-relative paths of the screenshots the <c>app.screenshot</c> steps among <paramref name="steps"/> attached, in step order (upstream's <c>requestedScreenshots</c>).</summary>
+    private static IEnumerable<string> RequestedScreenshots(IReadOnlyList<StepRecord> steps, IReadOnlyList<ReportArtifact> artifacts) =>
+        steps.Where(step => step.Api == "app.screenshot")
+            .SelectMany(step => step.Artifacts)
+            .Select(id => artifacts.FirstOrDefault(artifact => artifact.Id == id && artifact.Kind == "screenshot")?.Path)
+            .OfType<string>();
 
     /// <summary>What went wrong in the app log, or null when nothing did (upstream's <c>appLogSummary</c>).</summary>
     private static AppLogSummary? AppLogSummaryOf(IReadOnlyList<AppLogRecord> appLog)
@@ -297,6 +311,7 @@ internal sealed class ListReporter
 
         var group = Group(result.Test.File, result.Target.Name);
         var details = DetailsOf(result.Attempts);
+        _screenshots.AddRange(details.Screenshots);
         Format.AddUsage(_runUsage, details.Usage);
         Format.AddModelTally(_runModels, details.Models);
         Format.AddCacheTally(_runCache, details.Cache);
@@ -658,6 +673,7 @@ internal sealed class ListReporter
             Print(Format.PadTitle(_pc, "Traces") + $"{Format.Bounded(dir)}/ {_pc.Dim($"({pages.Count} {(pages.Count == 1 ? "page" : "pages")}, trace.md in each test's directory)")}");
         }
 
+        PrintScreenshots();
         if (finished.AiTracePath is { } aiTrace)
         {
             var shown = DisplayPath(aiTrace);
@@ -665,6 +681,22 @@ internal sealed class ListReporter
         }
 
         Print(string.Empty);
+    }
+
+    /// <summary>The <c>Screenshots</c> row: each <c>app.screenshot</c> file, so a caller never has to search the results directory.</summary>
+    private void PrintScreenshots()
+    {
+        var shown = _screenshots.Take(ShownScreenshots).Select(relative => DisplayPath(_artifactsRoot is null ? relative : Path.Combine(_artifactsRoot, relative))).ToList();
+        for (var index = 0; index < shown.Count; index++)
+        {
+            Print(Format.PadTitle(_pc, index == 0 ? "Screenshots" : string.Empty) + shown[index]);
+        }
+
+        var rest = _screenshots.Count - shown.Count;
+        if (rest > 0)
+        {
+            Print(Format.PadTitle(_pc, string.Empty) + _pc.Dim($"and {rest} more (the report lists every artifact)"));
+        }
     }
 
     /// <summary>What a test line and a failure entry need from a result's execution.</summary>
@@ -680,6 +712,9 @@ internal sealed class ListReporter
         public required Format.CacheTally Cache { get; init; }
 
         public ReportError? Error { get; init; }
+
+        /// <summary>Report-relative paths of the screenshots <c>app.screenshot</c> took, in attempt order.</summary>
+        public required IReadOnlyList<string> Screenshots { get; init; }
 
         /// <summary>What the runner saw when the last failure landed.</summary>
         public FailureEvidence? Failure { get; init; }

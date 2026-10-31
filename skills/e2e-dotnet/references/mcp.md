@@ -79,7 +79,7 @@ tool with the same name, use the `e2e` server's.
 
 | Tool | Does |
 | --- | --- |
-| `open_session` | Loads the config (`config` names another file; default the nearest `e2e.config.json`), boots the browser or device, opens the app (its URL, or launches a device's pinned app; it installs no build, so a local device needs `app.bundleId`), and returns the session id, the catalog, and the first observation. `target` must name the config's target when given. `headed: true` shows the browser when the user wants to watch. |
+| `open_session` | Loads the config (`config` names another file; default the nearest `e2e.config.json`), boots the browser or device, opens the app (its URL, or launches a device's pinned app; it installs no build, so a local device needs `app.bundleId`), and returns the session id, the catalog, and the first observation. Its summary names the app URL, a port assigned for `:0`, and the app command's readiness URL and `env` names; e2e starts nothing else, so a database the app uses runs outside it. The config reads the MCP server's environment, not your shell's. `target` must name the config's target when given. `headed: true` shows the browser when the user wants to watch. |
 | `tools` | The catalog: one line per tool with its argument names (`?` marks optional), the first sentence of its description, and `[read-only]` where it changes nothing. `tools {tool}` shows the full description and the JSON Schema of its arguments. |
 | `call` | Runs one catalog tool: `call {tool: "tap", args: {target: "e12"}}`, where `e12` is the `ref=` of a node in the newest observation. Arguments are checked against the tool's schema first; a wrong one fails with `INVALID_ARGUMENT` naming the field. |
 | `close_session` | Ends the session, disposes the browser or device engine, and releases a hosted device the session leased, each within the config's `cleanupTimeout`. A cleanup that fails or times out is a `Cleanup:` line in the result, with the error's code when it has one (`CLEANUP_TIMEOUT` for a release that outlived the budget). With no session open and no `session` argument, it says `No session is open.` |
@@ -113,7 +113,7 @@ config declares a `secrets` entry.
 | `scroll {direction, times?, target?}`, `scroll_to {target?, text?, direction?}` | Move the viewport, or page to a node |
 | `navigate {url}` | Open a path or an http or https URL. Any other scheme fails with `POLICY_DENIED` |
 | `back` | One step back in the history |
-| `screenshot` | The viewport as an image. It masks secure fields only, after a secret fill too |
+| `screenshot {path?}` | The viewport as an image. It masks secure fields only, after a secret fill too. With `path` (a `.png` inside the project, relative to its root, not hidden or under a hidden directory), also saves a full-resolution masked capture there and returns its absolute path; any other path is `POLICY_DENIED` |
 | `locate {role? name? text? label? placeholder? testId? exact?}` | Try a locator; see the loop below |
 | `test_lines` | Every test line the session's actions printed, in order, as a draft test body; see below |
 

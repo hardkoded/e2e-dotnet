@@ -17,5 +17,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\E2E.Cli\E2E.Cli.csproj" />
+    <ProjectReference Include="..\E2E.Tests.App\E2E.Tests.App.csproj" />
   </ItemGroup>
 </Project>

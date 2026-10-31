@@ -22,7 +22,7 @@ internal interface ISessionContext
 
 /// <summary>
 /// The catalog of a live session: every tool <c>call</c> can run. <c>observe</c> shows the whole screen, the
-/// grammar is what the target's engine honors, <c>screenshot</c> masks secure fields, <c>type_secret</c> exists when the config
+/// grammar is what the target's engine honors, <c>screenshot</c> masks secure fields and also saves a file when given a path, <c>type_secret</c> exists when the config
 /// declares a secret, <c>locate</c> tries a semantic locator the way a test would, and <c>test_lines</c> returns the test line every action printed. The verbs run through the testing agent's own tool executor, so a coding agent
 /// acts exactly as the model of an <c>act</c> does.
 /// </summary>
@@ -58,12 +58,16 @@ internal sealed class SessionCatalog
 
     /// <summary>
     /// Builds the catalog from what the session's engine declares and the secrets the config holds. <paramref name="appBase"/> is the
-    /// target's app URL, which a navigation's test line is made relative to.
+    /// target's app URL, which a navigation's test line is made relative to. <paramref name="projectRoot"/> is where a relative <c>screenshot</c> path
+    /// resolves, and <paramref name="attemptDir"/> the attempt's artifact directory, where the engine writes a screenshot before <c>screenshot</c>
+    /// copies it out.
     /// </summary>
-    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, Uri? appBase = null)
+    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(secrets);
+        ArgumentNullException.ThrowIfNull(projectRoot);
+        ArgumentNullException.ThrowIfNull(attemptDir);
         var lines = new SessionTestLines(new TestLineOptions
         {
             Newest = () => context.Session.Agent.Feed.Latest?.Roots,
@@ -104,7 +108,7 @@ internal sealed class SessionCatalog
 
         if (capabilities.HasFlag(EngineCapabilities.Screenshot))
         {
-            Add("screenshot", Screenshot(context));
+            Add("screenshot", Screenshot(context, projectRoot, attemptDir));
         }
 
         if (secrets.Count > 0)
@@ -352,18 +356,29 @@ internal sealed class SessionCatalog
         return label + " failed: " + (code is null ? "" : code + ": ") + message;
     }
 
-    private static CatalogTool Screenshot(ISessionContext context)
+    private static CatalogTool Screenshot(ISessionContext context, string projectRoot, string attemptDir)
     {
         return new CatalogTool
         {
-            Description = "Take a screenshot of the viewport, attached as an image. Secure fields are covered.",
-            InputSchema = Schema([]),
-            Execute = async (_, token) =>
+            Description = "Take a screenshot of the viewport, attached as an image. Secure fields are covered. With path, also saves the masked full-resolution screenshot as a PNG file and returns its absolute path.",
+            InputSchema = Schema([], ("path", Property("string", "PNG file to save it to, inside the project and relative to its root, e.g. \"screenshots/checkout.png\""), false)),
+            Execute = async (args, token) =>
             {
+                var file = Text(args, "path");
+                if (file is not null && !file.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new ConfigurationException("INVALID_ARGUMENT", "call screenshot: path: a .png file; tools {tool: \"screenshot\"} shows its arguments");
+                }
+
                 var shot = await context.Session.Engine.ScreenshotAsync(token).ConfigureAwait(false);
                 var (width, height) = PngSize(shot.Png);
                 var text = "Screenshot attached: " + width.ToString(CultureInfo.InvariantCulture) + " by " + height.ToString(CultureInfo.InvariantCulture)
                     + " pixels (" + shot.Scale.ToString("0.##", CultureInfo.InvariantCulture) + " per CSS pixel).";
+                if (file is not null)
+                {
+                    text += "\nSaved to " + context.Session.Redactor.Redact(await SaveScreenshotAsync(context, projectRoot, attemptDir, file, token).ConfigureAwait(false));
+                }
+
                 return new ScreenshotOutput(shot.Png, text);
             },
             ToModelOutput = (_, output, _) =>
@@ -373,6 +388,39 @@ internal sealed class SessionCatalog
                 return Task.FromResult<ToolModelOutput>(new ToolModelOutput.Content(parts));
             },
         };
+    }
+
+    /// <summary>
+    /// Saves the engine's masked screenshot, the one <c>app.ScreenshotAsync</c> keeps, to <paramref name="file"/> resolved against the project root,
+    /// and returns the absolute path (upstream's <c>saveScreenshot</c> in <c>mcp/catalog.ts</c>). As with <c>upload</c>, a path outside the project or
+    /// under a hidden directory is <c>POLICY_DENIED</c>.
+    /// </summary>
+    private static async Task<string> SaveScreenshotAsync(ISessionContext context, string projectRoot, string attemptDir, string file, CancellationToken token)
+    {
+        var redactor = context.Session.Redactor;
+        var destination = Path.GetFullPath(file, projectRoot);
+        var relative = Paths.RelativeToProjectRoot(projectRoot, destination)
+            ?? throw new ConfigurationException("POLICY_DENIED", redactor.Redact(Quote(file)) + " is outside the project root; screenshots are saved inside the project");
+        if (relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(segment => segment.StartsWith('.')))
+        {
+            throw new ConfigurationException("POLICY_DENIED", redactor.Redact(Quote(file)) + " is a hidden file or sits under a hidden directory; screenshots are never saved there");
+        }
+
+        var source = Path.Combine(attemptDir, await context.Session.Engine.ScreenshotArtifactAsync(Path.GetFileNameWithoutExtension(destination), token).ConfigureAwait(false));
+        var temporary = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            File.Copy(source, temporary);
+            File.Move(temporary, destination, overwrite: true);
+        }
+        finally
+        {
+            File.Delete(temporary);
+            File.Delete(source);
+        }
+
+        return destination;
     }
 
     private static (int Width, int Height) PngSize(byte[] png) =>

@@ -80,6 +80,16 @@ internal static partial class Urls
     /// <summary>The base URL as a test reads it (upstream's <c>baseUrlOf</c>): <paramref name="href"/> without its trailing slash, so <c>$"{BaseUrl}/path"</c> joins with one slash.</summary>
     public static string BaseUrlOf(string href) => href.EndsWith('/') ? href[..^1] : href;
 
+    /// <summary>
+    /// <paramref name="url"/> without userinfo, query, or fragment, any of which may carry a credential: safe to print (upstream's
+    /// <c>printableUrl</c>).
+    /// </summary>
+    public static string PrintableUrl(string url)
+    {
+        var parsed = new Uri(url);
+        return $"{parsed.Scheme}://{parsed.Host}{(parsed.IsDefaultPort ? "" : ":" + parsed.Port.ToString(System.Globalization.CultureInfo.InvariantCulture))}{parsed.AbsolutePath}";
+    }
+
     /// <summary>True when the URL was declared with port 0: the run picks a free port on its address and substitutes it.</summary>
     public static bool RequestsFreePort(NormalizedBaseUrl url) => new Uri(url.Href).Port == 0;
 

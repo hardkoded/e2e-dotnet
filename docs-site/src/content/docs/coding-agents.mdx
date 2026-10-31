@@ -49,6 +49,8 @@ dotnet tool install --global E2E.Cli
 claude mcp add e2e -- e2e mcp
 ```
 
+`open_session` names the app URL (and the port a free-port `url` was assigned) and the app command it started: its executable, readiness URL, and the names of its `env` and `inheritEnv`. It prints no `args` and no `env` values. The config reads the MCP server's environment, not the agent's shell. The `screenshot` tool takes an optional `path` to save a `.png` file inside the project.
+
 See the [README](/guide/#coding-agents-mcp) and [COMPATIBILITY.md](/compatibility/#mcp-server).
 
 ## Generate a verification skill for your app
