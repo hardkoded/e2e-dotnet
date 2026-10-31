@@ -641,6 +641,34 @@ public static partial class SnapshotProjection
         return new Folded(label[..^(placeholder.Length + 2)], placeholder, child);
     }
 
+    /// <summary>
+    /// Whether a node may take typed text: a text input role, or an <c>other</c> (only iOS reports one, for an element it
+    /// did not classify) that holds a value or nothing but text. agent-device 0.21.33's simulator accessibility tree
+    /// reports a custom-drawn field (Compose Multiplatform, Flutter) that way: a filled one with its text as the value,
+    /// an empty one over the placeholder it draws. A childless, valueless <c>other</c>, such as a React Native
+    /// <c>Pressable</c>, and a container of controls stay refused.
+    /// </summary>
+    public static bool MayTakeText(SemanticNode node)
+    {
+        if (node.Role is null)
+        {
+            return false;
+        }
+
+        if (TextInputRoles.Contains(node.Role))
+        {
+            return true;
+        }
+
+        if (node.Role != "other")
+        {
+            return false;
+        }
+
+        return node.Value is not null
+            || (node.Children.Count > 0 && node.Children.All(child => child.Role == "text" && child.Children.Count == 0));
+    }
+
     /// <summary>The string itself, or null for an absent or empty one.</summary>
     private static string? NonEmpty(string? value) => string.IsNullOrEmpty(value) ? null : value;
 
