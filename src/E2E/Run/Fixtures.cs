@@ -61,7 +61,7 @@ public sealed class App
     /// <summary>
     /// The resolved base URL of the target's app, with the port the run allocated when <c>app.url</c> declared port 0 and no trailing
     /// slash, so <c>$"{BaseUrl}/api/users"</c> joins with one slash; null when the test declares none. <see cref="OpenAsync"/> still
-    /// resolves a relative URL against the base path.
+    /// resolves a relative URL against <c>app.url</c> as declared: a base path that ends in <c>/</c> is kept, and one without it is replaced.
     /// </summary>
     public string? BaseUrl => _baseUrl is null ? null : Urls.BaseUrlOf(_baseUrl);
 

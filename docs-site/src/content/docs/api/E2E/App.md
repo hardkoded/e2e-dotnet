@@ -41,7 +41,7 @@ public string? BaseUrl { get; }
 
 The resolved base URL of the target's app, with the port the run allocated when `app.url` declared port 0 and no trailing
 slash, so `$"{BaseUrl}/api/users"` joins with one slash; null when the test declares none. [OpenAsync(string?, CancellationToken)](#E2E_App_OpenAsync_System_String_System_Threading_CancellationToken_) still
-resolves a relative URL against the base path.
+resolves a relative URL against `app.url` as declared: a base path that ends in `/` is kept, and one without it is replaced.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

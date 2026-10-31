@@ -62,7 +62,7 @@ public sealed class DiscoverConfigTests
     /// <c>ExplicitConfigNotFound</c>, which the MCP server and <c>e2e explore</c> raise.
     /// </summary>
     [Fact]
-    public void Partial_Refuses_an_explicit_path_that_does_not_exist()
+    public void Partial_Refuses_two_spellings_side_by_side_and_an_explicit_path_that_does_not_exist()
     {
         var root = Path.Combine(Path.GetTempPath(), "e2e-discover", Guid.NewGuid().ToString("n"));
         var custom = Path.Combine(root, "custom");

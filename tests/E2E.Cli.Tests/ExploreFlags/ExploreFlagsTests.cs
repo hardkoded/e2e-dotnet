@@ -242,18 +242,24 @@ public sealed class ExploreFlagsTests
         Assert.Equal("", stderr.ToString());
     }
 
-    [Fact]
-    public async Task Runs_the_real_exploration_from_the_program_and_fails_a_missing_config_with_exit_code_2()
+    /// <summary>
+    /// Partial: upstream's <c>keeps CONFIG_NOT_FOUND without a terminal, and with --config</c> also runs <c>explore</c> with no config and no
+    /// <c>--config</c>. The port has no working-directory flag, so that case would search up from the test process's directory.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Partial_Keeps_CONFIG_NOT_FOUND_without_a_terminal_and_with_config_and_exit_code_2(bool interactive)
     {
         var missing = Guid.NewGuid().ToString("N") + ".config.json";
         using var stdout = new StringWriter();
         using var stderr = new StringWriter();
 
-        var code = await Program.RunAsync(["explore", "--config", missing], stdout, stderr, TextReader.Null, interactive: false, CancellationToken.None);
+        var code = await Program.RunAsync(["explore", "--config", missing], stdout, stderr, TextReader.Null, interactive, CancellationToken.None);
 
         Assert.Equal(2, code);
         Assert.Contains(
-            "error CONFIG_NOT_FOUND: config file not found: " + Path.GetFullPath(missing) + " (" + missing + " resolved against the working directory " + Directory.GetCurrentDirectory() + ")",
+            "CONFIG_NOT_FOUND: config file not found: " + Path.GetFullPath(missing) + " (" + missing + " resolved against the working directory " + Directory.GetCurrentDirectory() + ")",
             stderr.ToString(),
             StringComparison.Ordinal);
     }
