@@ -140,9 +140,8 @@ Use the test runner's loggers, such as
 `dotnet test` exits 0 when every test passed or was skipped, and 1
 otherwise. `run.exitCode` in `report.json` is finer: it follows the error category
 of a failed test (2 `configuration`, such as a blocked agent step that lacks a
-credential; 3 `infrastructure`; 4 `internal`) and is 130 when a test's last attempt was interrupted. A test that failed and
-whose retry was interrupted keeps its failure and the exit code of that failure (1 for a test error): the port has no
-run-level interrupt flag yet (#826). An
+credential; 3 `infrastructure`; 4 `internal`) and is 130 once any attempt of the run was interrupted by the user (the run's interrupt flag). A test that failed and
+whose retry was interrupted keeps its `failed` verdict, and the run still exits 130. Under the xUnit and NUnit adapters a cancelled test is reported as a plain failure, so the run exits 1 there (#837). An
 attempt marked `cleanup: "failed"` adds its cleanup error's code, usually 3, even
 when the test passed. A session marks its attempt that way when its engine session
 does not close or a required video is not finalized. The `e2e` tool exits 0 on success and 1 on an error or an unknown
