@@ -8,14 +8,14 @@ namespace E2E.Tests.AgentVision;
 
 /// <summary>
 /// Ported from upstream's <c>agent-vision.test.ts</c>: the vision tier for judgments, with the masked pixels as model
-/// input. The scripted model cannot see; what is under test is the runner half: pixels attached, bounded, masked, degraded
-/// under taint, and refused to the pixels-only mode. Upstream runs one project and reads each result from its report. The
+/// input. The scripted model cannot see; what is under test is the runner half: pixels attached, bounded, masked, kept after a
+/// secret fill, and routed to the pinned vision model. Upstream runs one project and reads each result from its report. The
 /// port runs each test in a session on the fixture app, a real browser. The port has no step record, so four tests are
 /// partial and renamed: "records pixels as model input, not merely as an artifact" (no <c>visionInput</c>, <c>visionDegraded</c>,
-/// <c>pixelBytes</c> or <c>vision.pixels</c> event), "withholds pixels once the viewport is pixel-tainted, keeping the tree" (no
-/// <c>visionDegraded</c> or <c>pixelBytes</c>, and no <c>vision.pixels</c> policy event), "sends pixels alone, with no observation in the request" (no
-/// <c>visionOnly</c> or <c>pixelBytes</c>, which the port does not have), and "fails pixels-only when pixels are withheld instead of judging the tree" (no
-/// <c>visionDegraded</c> or <c>visionInput</c>).
+/// <c>pixelBytes</c> or <c>vision.pixels</c> event), "sends masked pixels after a secret fill, keeping the value out of the text" (no
+/// <c>visionInput</c>, <c>visionDegraded</c> or <c>pixelBytes</c>), "sends pixels alone, with no observation in the request" (no
+/// <c>visionOnly</c> or <c>pixelBytes</c>, which the port does not have), and "judges pixels-only after a secret fill" (no
+/// <c>visionOnly</c>, <c>visionInput</c> or <c>visionDegraded</c>).
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class AgentVisionJudgmentsTests
@@ -88,7 +88,7 @@ public sealed class AgentVisionJudgmentsTests
     }
 
     [Fact]
-    public async Task Withholds_pixels_once_the_session_is_pixel_tainted_keeping_the_tree()
+    public async Task Partial_Sends_masked_pixels_after_a_secret_fill_keeping_the_value_out_of_the_text()
     {
         var run = await VisionRun.StartAsync();
         var result = await run.RunAsync(async session =>
@@ -100,9 +100,9 @@ public sealed class AgentVisionJudgmentsTests
 
         Assert.Null(result.Error);
         var judged = run.Judge.Requests[0].Messages[0];
-        Assert.Null(judged.Images);
-        Assert.Contains("textbox \"Password\"", judged.Content, StringComparison.Ordinal);
-        Assert.DoesNotContain("A screenshot of the current screen is attached", judged.Content, StringComparison.Ordinal);
+        Assert.Single(judged.Images!);
+        Assert.Contains("1 region(s) are masked for security", judged.Content, StringComparison.Ordinal);
+        Assert.DoesNotContain(Password, judged.Content, StringComparison.Ordinal);
         var step = result.Steps!.Single(candidate => candidate.Api == "agent.assert");
         Assert.True(step.Metrics!.ObservationBytes > 0);
     }
@@ -131,7 +131,7 @@ public sealed class AgentVisionJudgmentsTests
     }
 
     [Fact]
-    public async Task Fails_pixels_only_with_POLICY_DENIED_and_no_model_call_when_pixels_are_withheld()
+    public async Task Partial_Judges_pixels_only_after_a_secret_fill()
     {
         var run = await VisionRun.StartAsync();
         var result = await run.RunAsync(async session =>
@@ -141,11 +141,11 @@ public sealed class AgentVisionJudgmentsTests
             await session.Agent.AssertAsync("the password field looks filled", new AssertOptions { Vision = VisionMode.Only });
         });
 
-        var error = Assert.IsType<AgentException>(result.Error);
-        Assert.Equal("POLICY_DENIED", error.Code);
-        Assert.Contains("PIXEL_TAINTED", error.Message, StringComparison.Ordinal);
-        // Nothing was asked of the model: the tree was never an acceptable answer.
-        Assert.Equal(0, run.Judge.CallCount);
+        Assert.Null(result.Error);
+        var judged = run.Judge.Requests[0].Messages[0];
+        Assert.Single(judged.Images!);
+        Assert.DoesNotContain("Screen (", judged.Content, StringComparison.Ordinal);
+        Assert.Contains("no accessibility tree is attached, on purpose", judged.Content, StringComparison.Ordinal);
     }
 }
 

@@ -15,7 +15,7 @@ namespace E2E.Tests.AgentObservation;
 /// part of a secret a field cut at its limit ends with, and leaves a cut plain value and a whole field alone", "redacts
 /// every string field a node carries, in the text, the executor tree, and the node index alike", "redacts an earlier
 /// capture again with a secret resolved since, keeping which nodes are leaves". The last three
-/// tests below are .NET-only: upstream proves a granted, tainted, or uncounted capture through its runner.
+/// tests below are .NET-only: upstream proves a granted or uncounted capture through its runner.
 /// </summary>
 public sealed class PrepareObservationTests
 {
@@ -59,7 +59,7 @@ public sealed class PrepareObservationTests
     {
         // One secure node, zero masked regions: the image is not provably redacted.
         var observation = WithASecureNode();
-        var outcome = global::E2E.AgentObservation.PixelsForModel(observation, Shot(maskedRegionCount: 0), tainted: false);
+        var outcome = global::E2E.AgentObservation.PixelsForModel(observation, Shot(maskedRegionCount: 0));
 
         Assert.Null(outcome.Pixels);
         Assert.Equal(VisionDegradation.MaskingUnproven, outcome.Withheld);
@@ -69,7 +69,7 @@ public sealed class PrepareObservationTests
     [Fact]
     public void Grants_pixels_that_cover_every_secure_node_sized_for_the_model()
     {
-        var outcome = global::E2E.AgentObservation.PixelsForModel(WithASecureNode(), Shot(maskedRegionCount: 1), tainted: false);
+        var outcome = global::E2E.AgentObservation.PixelsForModel(WithASecureNode(), Shot(maskedRegionCount: 1));
 
         Assert.Null(outcome.Withheld);
         Assert.Equal(1, outcome.Pixels!.MaskedRegionCount);
@@ -77,13 +77,11 @@ public sealed class PrepareObservationTests
     }
 
     [Fact]
-    public void Withholds_pixels_the_engine_cannot_count_the_masks_of_and_a_tainted_attempt_before_anything_else()
+    public void Withholds_pixels_the_engine_cannot_count_the_masks_of_or_cannot_capture()
     {
         var observation = WithASecureNode();
-        Assert.Equal(VisionDegradation.MaskingUnproven, global::E2E.AgentObservation.PixelsForModel(observation, Shot(maskedRegionCount: null), tainted: false).Withheld);
-        Assert.Equal(VisionDegradation.UnsupportedCapability, global::E2E.AgentObservation.PixelsForModel(observation, null, tainted: false).Withheld);
-        Assert.Equal(VisionDegradation.PixelTainted, global::E2E.AgentObservation.PixelsForModel(observation, Shot(maskedRegionCount: 1), tainted: true).Withheld);
-        Assert.Equal(VisionDegradation.PixelTainted, global::E2E.AgentObservation.PixelsForModel(observation, null, tainted: true).Withheld);
+        Assert.Equal(VisionDegradation.MaskingUnproven, global::E2E.AgentObservation.PixelsForModel(observation, Shot(maskedRegionCount: null)).Withheld);
+        Assert.Equal(VisionDegradation.UnsupportedCapability, global::E2E.AgentObservation.PixelsForModel(observation, null).Withheld);
     }
 
     private static Observation WithASecureNode() => new()

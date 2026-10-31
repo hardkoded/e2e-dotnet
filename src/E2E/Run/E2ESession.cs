@@ -97,7 +97,7 @@ public sealed class E2ESession : IAsyncDisposable
     internal void Remember(IEnumerable<Secret> secrets) =>
         _scope.Remember(secrets.ToDictionary(secret => secret.Name, secret => (object?)secret, StringComparer.Ordinal));
 
-    /// <summary>Registers a value for redaction alone, as the redaction ledger does: the agent may not fill it, and it withholds no pixels.</summary>
+    /// <summary>Registers a value for redaction alone, as the redaction ledger does: the agent may not fill it, and a screenshot does not mask it.</summary>
     internal void Register(string name, string value) => _scope.Register(name, value);
 
     /// <summary>
@@ -299,7 +299,6 @@ public sealed class E2ESession : IAsyncDisposable
             screen.Steps = scope.Steps;
             screen.Capabilities = options.Engine.Capabilities;
             screen.ProjectRoot = projectRoot;
-            screen.Exposure = scope.Exposure;
             screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });
             screen.Redact = text => scope.Redactor.Redact(text);
             screen.Failed = scope.Implicate;

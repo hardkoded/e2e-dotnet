@@ -24,7 +24,6 @@ public class Screen
     private readonly Screen? _scopeOf;
     private readonly Func<LocatorExpression, LocatorExpression>? _wrap;
     private ScreenshotContext? _screenshots;
-    private Exposure _exposure = new();
     private Action<Secret>? _rememberSecret;
     private Func<string, string> _redact = static text => text;
     private Func<Observation, string>? _renderTree;
@@ -102,14 +101,7 @@ public class Screen
     /// <summary>Where <c>ToHaveScreenshotAsync</c> keeps screenshots; null for a screen outside a session.</summary>
     internal ScreenshotContext? Screenshots { get => Root._screenshots; set => Root._screenshots = value; }
 
-    /// <summary>How far a secret reached this attempt: a fill lets the app show it outside a secure field, so pixels are withheld. A session shares it with the attempt's agent.</summary>
-    internal Exposure Exposure { get => Root._exposure; set => Root._exposure = value; }
-
-    internal void MarkSecretFilled(Secret secret)
-    {
-        Exposure.RaiseFilled();
-        RememberSecret?.Invoke(secret);
-    }
+    internal void MarkSecretFilled(Secret secret) => RememberSecret?.Invoke(secret);
 
     /// <summary>Makes the attempt know a secret filled through this screen, so every message it redacts covers it.</summary>
     internal Action<Secret>? RememberSecret { get => Root._rememberSecret; set => Root._rememberSecret = value; }

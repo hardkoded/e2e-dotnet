@@ -240,13 +240,16 @@ public sealed record TodoSummary(IReadOnlyList<string> Titles, int Remaining);
   question, such as whether an overlay covers a form the snapshot lists as
   present. All three take it: `AssertOptions.Vision`, `WaitForOptions.Vision`,
   `ExtractOptions.Vision`.
-- After a `Secret` is filled, no pixels reach the model. `On` then judges the
-  snapshot alone. `Only` fails with `POLICY_DENIED` rather than answer from the
-  snapshot, and so does an engine that captures no pixels or masks fewer
-  regions than the snapshot has secure fields.
+- A `Secret` fill does not turn the screenshot off: pixels still reach the
+  model, with secure fields masked and the value kept out of the text. A
+  generic secret in a plain input, or a value the app shows outside a secure
+  field, is in the image and reaches the model provider, so use test
+  credentials. `Only` fails with `POLICY_DENIED` rather than answer from the
+  snapshot when the engine captures no pixels or masks fewer regions than the
+  snapshot has secure fields.
 - An inconclusive judgment made without pixels ends with a hint to pass
-  `Vision = VisionMode.On`, unless pixels cannot help (a secret was filled, or
-  the engine captures none).
+  `Vision = VisionMode.On`, unless pixels cannot help (the engine captures
+  none).
 - `AssertAsync` keeps a redacted screenshot of the screen it judged under
   `.e2e/results/<result>/attempt-<n>/screenshots/`, and
   `AgentException.Screenshot` names it on a failure. Set
@@ -627,7 +630,6 @@ What the context holds:
 | `ObserveAsync(options)` | Redacted screen text, and with `Tree` the node tree (`ExecutorNode`, whose `Id` is the ref) and with `Pixels` a masked screenshot, or `PixelsWithheld` with the reason |
 | `Actions` | Checked and recorded verbs: `TapAsync` and `DoubleTapAsync` (both take `new ClickOptions { Modifiers = [KeyModifier.Shift] }` when `Target.TapModifiers`), `TypeAsync`, `TypeSecretAsync`, `ClearAsync`, `PressAsync`, `SelectAsync`, `CheckAsync`, `ScrollToAsync`, `ScrollUntilAsync`, `ScrollAsync`, `NavigateAsync`, `BackAsync`. A node is `new ExecutorTarget(ref)` |
 | `Target` | The target's `Name`, `Platform`, and `Verbs`, the verbs its engine supports, and `TapModifiers`, true when `TapAsync` and `DoubleTapAsync` take `ClickOptions.Modifiers`. Offer a model only these |
-| `PixelsTainted` | True after a secret fill. Then no screenshots reach the model |
 | `ReplayedPrefix` | Set when a cache replay ran some or all of the step's actions first (all of them after an `end-mismatch`). The actions and why it stopped (the agent's prompt reads `Replay stopped (<reason>) after N of M recorded actions.`, plus a warning for `end-mismatch`, and one when the next action failed with an unknown commit state). Continue from the current screen without repeating them |
 | `Model`, `ProviderOptions`, `AgentContext`, `Ledger` | The agent's model and provider options, its project context, and the steps completed before this one, as numbered lines (`1. app.open passed :: /`) in at most 8192 bytes |
 | `Attempt` | `TestId`, `AttemptId`, the test's `TitlePath` (empty outside a test), `Index`, a `CancellationToken` that ends with the attempt, and a `Memory` dictionary the runtime never reads |

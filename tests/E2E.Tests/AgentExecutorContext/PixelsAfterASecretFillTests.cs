@@ -9,22 +9,22 @@ using static E2E.Tests.AgentAct.ExecutorKit;
 namespace E2E.Tests.AgentExecutorContext;
 
 /// <summary>
-/// .NET-only: upstream covers the pixel taint of a context through its judgments and its pixel tools, and has no test of
-/// <c>pixelsTainted</c> and <c>pixelsWithheld</c> on an executor's context.
+/// .NET-only: upstream proves the pixels an executor's context keeps after a secret fill through its restored-session and serial
+/// groups, which the port does not have, and has no test of <c>pixelsWithheld</c> on an executor's context.
 /// </summary>
 public sealed class PixelsAfterASecretFillTests
 {
     [Fact]
-    public async Task Withholds_the_pixels_once_the_executor_filled_a_secret_and_says_why()
+    public async Task Keeps_the_pixels_once_the_executor_filled_a_secret()
     {
-        var before = new List<(bool Tainted, VisionDegradation? Withheld, bool Pixels)>();
+        var before = new List<(VisionDegradation? Withheld, bool Pixels)>();
         var executor = new TestExecutor("filler", async (context, _) =>
         {
             var screen = await context.ObserveAsync(new ExecutorObserveOptions { Pixels = true });
-            before.Add((context.PixelsTainted, screen.PixelsWithheld, screen.Pixels is not null));
+            before.Add((screen.PixelsWithheld, screen.Pixels is not null));
             await context.Actions.TypeSecretAsync(TargetFor(screen.Text, "textbox \"Password\""), "admin.password");
             var after = await context.ObserveAsync(new ExecutorObserveOptions { Pixels = true });
-            before.Add((context.PixelsTainted, after.PixelsWithheld, after.Pixels is not null));
+            before.Add((after.PixelsWithheld, after.Pixels is not null));
             return Passed("filled the password");
         });
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions
@@ -32,7 +32,7 @@ public sealed class PixelsAfterASecretFillTests
             Engine = new ScreenshotEngine(WorldWithAPassword(_ => { }), _ => ScreenshotEngine.Png()),
             AgentExecutor = executor,
             BaseUrl = "https://counter.test",
-            TestTitle = "tainted",
+            TestTitle = "filled",
         });
         await session.App.OpenAsync("/");
 
@@ -41,7 +41,7 @@ public sealed class PixelsAfterASecretFillTests
             new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("admin.password", "admin-pass", "password") } });
         session.Complete();
 
-        Assert.Equal([(false, null, true), (true, VisionDegradation.PixelTainted, false)], before);
+        Assert.Equal([(null, true), (null, true)], before);
     }
 
     [Fact]

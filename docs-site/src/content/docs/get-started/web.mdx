@@ -163,6 +163,10 @@ A `count` below one fails with `INVALID_ARGUMENT` before the trigger runs. When 
 Text downloads are rescanned before reporting with all secrets known by then,
 including later fills and ASCII secrets written as JSON Unicode escapes.
 
+## Screenshots and secrets
+
+A screenshot masks secure fields only, after a secret fill too. This holds for the evidence screenshots (`App.ScreenshotAsync`, assertions, failures) and for the screenshots a model sees (`Vision = VisionMode.On` or `Only`, the agent's own looks, `e2e mcp`, `e2e explore`). A generic `Secret` filled into a plain input, or a value the app shows outside a secure field (a show-password toggle, a toast), is in the image and reaches your model provider, so use test credentials. Secret values are still redacted from all text.
+
 ## Inspecting upstream in a route
 
 `Browser.RouteAsync(pattern, handler)` intercepts requests. Inside the handler, `route.FetchAsync()` reads the upstream response without deciding the route, then the handler fulfills, continues, falls back, or aborts as usual:

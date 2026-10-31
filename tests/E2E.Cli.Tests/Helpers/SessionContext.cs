@@ -16,8 +16,6 @@ internal sealed class SessionContext : ISessionContext, IAsyncDisposable
 
     public E2ESession Session { get; }
 
-    public bool PixelsTainted { get; set; }
-
     public static async Task<SessionContext> StartAsync(FakeEngine engine)
     {
         var session = await E2ESession.StartAsync(new E2ESessionOptions

@@ -12,15 +12,15 @@ namespace E2E.Tests.Agent;
 public sealed class AnInconclusiveJudgmentAfterASecretFillTests
 {
     [Fact]
-    public async Task Carries_the_explanation_alone_when_vision_could_add_nothing_while_pixels_are_withheld()
+    public async Task Carries_the_vision_hint_a_secret_fill_does_not_withhold_pixels()
     {
         var typed = new List<string>();
         var world = new DocumentWorld().Map("/", page =>
         {
             page.Roots.Add(new DocumentElement { Role = "textbox", Name = "Password", Value = "", Secure = true, InputPurpose = "password", OnFill = typed.Add });
         });
-        // The act model fills the password through fill_secret; from then on the attempt is pixel-tainted, and no
-        // screenshot could reach a judge.
+        // The act model fills the password through fill_secret; a screenshot can still reach a judge
+        // afterwards.
         var calls = 0;
         var actor = new ScriptedModel(_ => calls++ == 0
             ? ModelResponses.Call("fill_secret", new { role = "textbox", name = "Password", secret = "member-password" })
@@ -32,10 +32,10 @@ public sealed class AnInconclusiveJudgmentAfterASecretFillTests
             Model = actor,
             Judge = judge,
             BaseUrl = "https://app.test",
-            TestTitle = "the judge is not pointed at vision once a secret was filled",
+            TestTitle = "the judge is pointed at vision after a secret fill",
             TestTimeout = TimeSpan.FromSeconds(10),
             StepTimeout = TimeSpan.FromSeconds(5),
-            ResultsDirectory = Path.Combine(Path.GetTempPath(), "e2e-tainted-" + Guid.NewGuid().ToString("N"), "results"),
+            ResultsDirectory = Path.Combine(Path.GetTempPath(), "e2e-filled-" + Guid.NewGuid().ToString("N"), "results"),
         });
         await session.App.OpenAsync("/");
         var filled = await session.Agent.ActAsync("sign in as the member", new ActOptions
@@ -51,9 +51,8 @@ public sealed class AnInconclusiveJudgmentAfterASecretFillTests
         Assert.Equal("filled the password", filled.Summary);
         Assert.Equal(["hunter2-secret"], typed);
         Assert.Equal("ASSERTION_INCONCLUSIVE", error.Code);
-        // The same judgment on an untainted attempt carries the hint (AgentJudgmentTierTests); here the engine declares
-        // screenshots and no pixel request was degraded, so the fill is the only gate closing it.
-        Assert.Equal("no order total or line items are on this screen", error.Message);
+        Assert.Contains("no order total or line items are on this screen", error.Message, StringComparison.Ordinal);
+        Assert.Contains(Vision.HintUnproven, error.Message, StringComparison.Ordinal);
         session.Complete(error);
     }
 }

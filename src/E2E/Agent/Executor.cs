@@ -98,13 +98,6 @@ public class StepExecutorContext
 
     public required IExecutorActions Actions { get; init; }
 
-    /// <summary>
-    /// True once a secret was filled in this attempt: <see cref="ObserveAsync"/> withholds pixels from the model for the rest of it. An
-    /// executor reads it when it assembles its vocabulary, to leave screenshot tools out rather than offer tools that can
-    /// only decline.
-    /// </summary>
-    public virtual bool PixelsTainted => false;
-
     /// <summary>What the built-in executor reads of the runtime beyond the public context. Null for a context a test built, which the built-in executor cannot drive.</summary>
     internal ActHost? Host { get; init; }
 
@@ -253,7 +246,7 @@ public sealed class ExecutorObserveOptions
 
     /// <summary>
     /// Includes the masked pixels as <see cref="ExecutorObservation.Pixels"/>. They are granted only when the engine
-    /// captures pixels, its masking is proven, and no secret was filled in this attempt. Otherwise
+    /// captures pixels and its masking is proven. Otherwise
     /// <see cref="ExecutorObservation.PixelsWithheld"/> says why.
     /// </summary>
     public bool Pixels { get; init; }
@@ -390,7 +383,7 @@ public interface IExecutorActions
     /// Fills one secret declared in the step's params into an input. The runtime authorizes the fill (a secret the step
     /// declared and the attempt knows, an enabled editable sink, and a password field for a password) and hands the
     /// plaintext straight to the engine: it never passes through the executor or any model. A refusal is
-    /// <c>POLICY_DENIED</c>. Pixel evidence is tainted from here on.
+    /// <c>POLICY_DENIED</c>.
     /// </summary>
     Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken = default);
 

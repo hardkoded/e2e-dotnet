@@ -110,7 +110,7 @@ config declares a `secrets` entry.
 | `scroll {direction, times?, target?}`, `scroll_to {target?, text?, direction?}` | Move the viewport, or page to a node |
 | `navigate {url}` | Open a path or an http or https URL. Any other scheme fails with `POLICY_DENIED` |
 | `back` | One step back in the history |
-| `screenshot` | The viewport as an image. After a secret was filled it answers `PIXEL_TAINTED` and attaches nothing |
+| `screenshot` | The viewport as an image. It masks secure fields only, after a secret fill too |
 | `locate {role? name? text? label? placeholder? testId? exact?}` | Try a locator; see the loop below |
 | `test_lines` | Every test line the session's actions printed, in order, as a draft test body; see below |
 
