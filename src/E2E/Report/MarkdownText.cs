@@ -150,6 +150,43 @@ internal static class ReportFormat
         return (total / 60).ToString(CultureInfo.InvariantCulture) + "m " + (total % 60).ToString(CultureInfo.InvariantCulture) + "s";
     }
 
+    /// <summary>Compact token count: plain under a thousand, <c>12.4k</c>, then <c>4.2M</c> (upstream's <c>formatTokens</c>).</summary>
+    public static string FormatTokens(long count) =>
+        count < 1_000
+            ? count.ToString(CultureInfo.InvariantCulture)
+            : count < 1_000_000
+                ? (count / 1_000.0).ToString("F1", CultureInfo.InvariantCulture) + "k"
+                : (count / 1_000_000.0).ToString("F1", CultureInfo.InvariantCulture) + "M";
+
+    /// <summary>USD with enough precision for sub-cent model calls (upstream's <c>formatCost</c>).</summary>
+    public static string FormatCost(double costUsd) => "$" + costUsd.ToString(costUsd < 0.1 ? "F4" : "F2", CultureInfo.InvariantCulture);
+
+    /// <summary>A commit as the notices and the markdown page name it: its first seven characters (upstream's <c>shortCommit</c>).</summary>
+    public static string ShortCommit(string commit) => commit.Length <= 7 ? commit : commit[..7];
+
+    /// <summary>The counter a result status lands in (upstream's <c>statusBucket</c>): a timeout is a failure, and an interrupted test counts on its own.</summary>
+    public static ResultBucket StatusBucket(ResultStatus status) =>
+        status switch
+        {
+            ResultStatus.TimedOut or ResultStatus.Failed => ResultBucket.Failed,
+            ResultStatus.Interrupted => ResultBucket.Interrupted,
+            ResultStatus.Flaky => ResultBucket.Flaky,
+            ResultStatus.Skipped => ResultBucket.Skipped,
+            _ => ResultBucket.Passed,
+        };
+
+    /// <summary>Counts results by bucket (upstream's <c>tally</c>).</summary>
+    public static Dictionary<ResultBucket, int> Tally(IEnumerable<ResultStatus> statuses)
+    {
+        var counters = Enum.GetValues<ResultBucket>().ToDictionary(bucket => bucket, _ => 0);
+        foreach (var status in statuses)
+        {
+            counters[StatusBucket(status)]++;
+        }
+
+        return counters;
+    }
+
     /// <summary>The title suffix of a repeated run past the first: <c> (repeat #2)</c>; empty for the first.</summary>
     public static string RepeatSuffix(int repeat) => repeat == 0 ? "" : " (repeat #" + repeat.ToString(CultureInfo.InvariantCulture) + ")";
 
@@ -166,4 +203,14 @@ internal static class ReportFormat
 
         return string.IsNullOrEmpty(model.Provider) ? model.Model : model.Provider + "/" + model.Model;
     }
+}
+
+/// <summary>The counter a result status lands in (the return type of upstream's <c>statusBucket</c>).</summary>
+internal enum ResultBucket
+{
+    Passed,
+    Failed,
+    Interrupted,
+    Flaky,
+    Skipped,
 }

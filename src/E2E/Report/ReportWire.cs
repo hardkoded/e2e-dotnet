@@ -399,7 +399,7 @@ internal static partial class ReportWire
         _ => "failed",
     };
 
-    private static string ResultStatusName(ResultStatus status) => status switch
+    internal static string ResultStatusName(ResultStatus status) => status switch
     {
         ResultStatus.Passed => "passed",
         ResultStatus.Flaky => "flaky",
@@ -463,11 +463,10 @@ internal static partial class ReportWire
     /// <summary>Upstream's <c>serializeResult</c>. <paramref name="platform"/> is the platform of the result's target when the result names none.</summary>
     public static JsonObject Result(ReportResult result, string platform, string resultsRoot)
     {
-        var title = result.TitlePath.Count == 0 ? "(untitled)" : string.Join(" ", result.TitlePath);
         var skipped = result.Status == ResultStatus.Skipped;
         var wire = Compose(
             ("id", Sha256Pattern().IsMatch(result.Id) ? result.Id : Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(result.Id)))),
-            ("testId", AttemptReport.TestId(result.File, title)),
+            ("testId", result.TestId),
             ("kind", "test"),
             ("declarationIndex", Math.Max(0, result.DeclarationIndex)),
             ("titlePath", Strings(result.TitlePath.Count == 0 ? ["(untitled)"] : result.TitlePath.Select(part => part.Length == 0 ? "(untitled)" : part), int.MaxValue)),
@@ -483,7 +482,7 @@ internal static partial class ReportWire
         if (skipped)
         {
             var reason = result.Attempts.LastOrDefault(attempt => attempt.Status == AttemptStatus.Skipped);
-            wire["skip"] = Skip(reason?.Skip ?? new ReportSkip("explicit", reason?.Error?.Message ?? "skipped"));
+            wire["skip"] = Skip(result.Skip ?? new ReportSkip("explicit", reason?.Error?.Message ?? "skipped"));
         }
 
         wire["attempts"] = new JsonArray([.. result.Attempts.Select((attempt, index) => (JsonNode?)Attempt(attempt, index, resultsRoot))]);

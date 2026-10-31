@@ -250,15 +250,10 @@ internal static partial class Format
     }
 
     /// <summary>Compact token count: plain under a thousand, <c>12.4k</c>, then <c>4.2M</c> (upstream's <c>formatTokens</c>).</summary>
-    public static string FormatTokens(long count) =>
-        count < 1_000
-            ? count.ToString(CultureInfo.InvariantCulture)
-            : count < 1_000_000
-                ? (count / 1_000.0).ToString("F1", CultureInfo.InvariantCulture) + "k"
-                : (count / 1_000_000.0).ToString("F1", CultureInfo.InvariantCulture) + "M";
+    public static string FormatTokens(long count) => ReportFormat.FormatTokens(count);
 
     /// <summary>USD with enough precision for sub-cent model calls (upstream's <c>formatCost</c>).</summary>
-    public static string FormatCost(double costUsd) => "$" + costUsd.ToString(costUsd < 0.1 ? "F4" : "F2", CultureInfo.InvariantCulture);
+    public static string FormatCost(double costUsd) => ReportFormat.FormatCost(costUsd);
 
     /// <summary>
     /// Upstream's <c>rule</c>: the dashes of a full-width rule around <paramref name="text"/>, centered, or with the text pushed to the

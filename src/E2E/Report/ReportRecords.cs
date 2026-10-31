@@ -222,7 +222,20 @@ internal sealed record ReportResult
 
     public ResultStatus Status { get; init; } = ResultStatus.Passed;
 
+    /// <summary>
+    /// Why a skipped test skipped (upstream's <c>result.skip</c>). A test the selection left out ran no attempt to hold the reason, so it is
+    /// set here; a test that ran and skipped reads it from its last skipped attempt. Null for a test that did not skip.
+    /// </summary>
+    public ReportSkip? Skip
+    {
+        get => field ?? (Status == ResultStatus.Skipped ? Attempts.LastOrDefault(attempt => attempt.Status == AttemptStatus.Skipped)?.Skip : null);
+        init;
+    }
+
     public IReadOnlyList<ReportAttempt> Attempts { get; init; } = [];
+
+    /// <summary>The id the test keeps over its targets, agents, and repeats (upstream's <c>testId</c>).</summary>
+    public string TestId => AttemptReport.TestId(File, TitlePath.Count == 0 ? "(untitled)" : string.Join(" ", TitlePath));
 
     /// <summary>
     /// The directory of the result under the results directory, when it is not the one <see cref="ArtifactPaths.ResultSegment"/> names. The
