@@ -21,7 +21,7 @@ namespace E2E;
 internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
 {
     private static readonly HashSet<string> ActionTools =
-        new(["navigate", "tap", "double_tap", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "back", "scroll", "scroll_to"], StringComparer.Ordinal);
+        new(["navigate", "tap", "double_tap", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "upload", "back", "scroll", "scroll_to"], StringComparer.Ordinal);
 
     private readonly AttemptScope _scope = scope;
     private readonly ObservationFeed _feed = feed;
@@ -157,6 +157,10 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
                 case "uncheck":
                     await actions.CheckAsync(target, false, token).ConfigureAwait(false);
                     return ToolOutcome.Ok(await DescribeAsync("unchecked " + Label(node), token).ConfigureAwait(false));
+                case "upload":
+                    var files = FilesOf(call.Arguments);
+                    await actions.UploadAsync(target, files, token).ConfigureAwait(false);
+                    return ToolOutcome.Ok(await DescribeAsync("uploaded " + string.Join(", ", files.Select(file => "\"" + file + "\"")) + " to " + Label(node), token).ConfigureAwait(false));
                 case "clear":
                     await actions.ClearAsync(target, token).ConfigureAwait(false);
                     return ToolOutcome.Ok(await DescribeAsync("cleared " + Label(node), token).ConfigureAwait(false));
@@ -304,6 +308,20 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         var name = Args.String(arguments, "secret") ?? "";
         await actions.TypeSecretAsync(target, name, token).ConfigureAwait(false);
         return ToolOutcome.Ok(await DescribeAsync("filled secret <secret:" + name + "> into " + Label(target.Node!), token).ConfigureAwait(false));
+    }
+
+    // The files an upload call names. Anything but a list of strings is the model's error, which the policy words as it does an empty list.
+    private static List<string> FilesOf(JsonElement arguments)
+    {
+        if (arguments.ValueKind == JsonValueKind.Object
+            && arguments.TryGetProperty("files", out var files)
+            && files.ValueKind == JsonValueKind.Array
+            && files.EnumerateArray().All(item => item.ValueKind == JsonValueKind.String))
+        {
+            return [.. files.EnumerateArray().Select(item => item.GetString()!)];
+        }
+
+        throw new TestException("INVALID_ARGUMENT", "upload requires one or more non-empty project-relative file paths");
     }
 
     // The keys a tap call holds: absent for none. A value that is no list of key modifier names is the model's error.

@@ -180,11 +180,21 @@ await Agent.ActAsync("open settings and turn on dark mode", new ActOptions
 
 The tools the model can call: `observe`, `tap`, `double_tap`, `fill`,
 `fill_secret` (a `Secret` from `Params`, by name), `press`, `select`,
-`check`, `uncheck`, `clear`, `scroll`, `scroll_to`, `navigate`, `back`, and
-`done`. `scroll` and `scroll_to` come with an engine that can scroll, and
-`back` with one that has history. There is no `hover`, `drag`, `upload`,
+`check`, `uncheck`, `clear`, `upload`, `scroll`, `scroll_to`, `navigate`, `back`, and
+`done`. `scroll` and `scroll_to` come with an engine that can scroll, `back`
+with one that has history, and `upload` with one that declares
+`EngineCapabilities.Upload` (the web engine). There is no `hover`, `drag`,
 `long_press`, `right_click`, `screenshot`, or point tool: a step that needs
 one is `AUTOMATION_UNSUPPORTED`. Do that part with `Screen` actions instead.
+`upload` takes a target and `files`, project-relative paths such as
+`fixtures/photo.png`, and attaches them to a file input or to a control that
+opens a file chooser. The harness authorizes the paths before the engine sees
+them: a path outside the project root (through a symlink too), a hidden file
+or one under a hidden directory (`.env`, `.git`, `.e2e`) is refused as
+`POLICY_DENIED`; a file that does not exist, a directory, an empty list, or
+more than 16 files is `INVALID_ARGUMENT`. Every decision is a `policy` event
+named `upload.path` on the step. The paths are recorded as given and
+authorized again on replay.
 On an engine that declares `EngineCapabilities.TapModifiers` (the web engine),
 `tap` and `double_tap` take an optional `modifiers` list (`Shift`, `Control`,
 `Alt`, `Meta`, `ControlOrMeta`) to hold keys for the click, as a Shift-click
@@ -622,7 +632,7 @@ What the context holds:
 | --- | --- |
 | `Step` | The `Kind`, `Instruction`, `Params`, `Index`, and `Secrets`. A secret value the attempt knows reads `<secret:name>`, and a `Secret` in the params is its name and purpose, never its value |
 | `ObserveAsync(options)` | Redacted screen text, and with `Tree` the node tree (`ExecutorNode`, whose `Id` is the ref) and with `Pixels` a masked screenshot, or `PixelsWithheld` with the reason |
-| `Actions` | Checked and recorded verbs: `TapAsync` and `DoubleTapAsync` (both take `new ClickOptions { Modifiers = [KeyModifier.Shift] }` when `Target.TapModifiers`), `TypeAsync`, `TypeSecretAsync`, `ClearAsync`, `PressAsync`, `SelectAsync`, `CheckAsync`, `ScrollToAsync`, `ScrollUntilAsync`, `ScrollAsync`, `NavigateAsync`, `BackAsync`. A node is `new ExecutorTarget(ref)` |
+| `Actions` | Checked and recorded verbs: `TapAsync` and `DoubleTapAsync` (both take `new ClickOptions { Modifiers = [KeyModifier.Shift] }` when `Target.TapModifiers`), `TypeAsync`, `TypeSecretAsync`, `ClearAsync`, `PressAsync`, `SelectAsync`, `CheckAsync`, `UploadAsync(target, paths)` (when `Target.Verbs` holds `ExecutorVerb.Upload`), `ScrollToAsync`, `ScrollUntilAsync`, `ScrollAsync`, `NavigateAsync`, `BackAsync`. A node is `new ExecutorTarget(ref)` |
 | `Target` | The target's `Name`, `Platform`, and `Verbs`, the verbs its engine supports, and `TapModifiers`, true when `TapAsync` and `DoubleTapAsync` take `ClickOptions.Modifiers`. Offer a model only these |
 | `PixelsTainted` | True after a secret fill. Then no screenshots reach the model |
 | `ReplayedPrefix` | Set when a cache replay ran some or all of the step's actions first (all of them after an `end-mismatch`). The actions and why it stopped (the agent's prompt reads `Replay stopped (<reason>) after N of M recorded actions.`, plus a warning for `end-mismatch`, and one when the next action failed with an unknown commit state). Continue from the current screen without repeating them |
@@ -653,8 +663,8 @@ On an agent with an executor, `AssertAsync` goes to it as a step with `Kind`
 decides what its model sees. `Screenshot` still keeps evidence after the
 verdict.
 
-Not ported: the point verbs, long press, hover, drag, and upload (the port's
-engines have none) and the observation's `Revision`.
+Not ported: the point verbs, long press, hover, and drag (the port's engines
+have none) and the observation's `Revision`.
 
 ## In CI
 

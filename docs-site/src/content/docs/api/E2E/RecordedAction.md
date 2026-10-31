@@ -87,7 +87,7 @@ Keys a `tap` or `doubleTap` held for the click, replayed with it. Null holds non
 
 **Value:** [List&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L158)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L173)
 
 <a id="E2E_RecordedAction_Name_"></a>
 <a id="E2E_RecordedAction_Name"></a>
@@ -103,6 +103,24 @@ public string? Name { get; set; }
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L128)
+
+<a id="E2E_RecordedAction_Paths_"></a>
+<a id="E2E_RecordedAction_Paths"></a>
+
+### Paths
+
+
+```csharp
+public List<string>? Paths { get; set; }
+```
+
+
+Upstream's `paths` of an `upload`: the files attached, by project-relative path as the executor gave them. A replay input like a
+typed value, expanded with the call's params and authorized against the project root again before it reaches the engine.
+
+**Value:** [List&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L161)
 
 <a id="E2E_RecordedAction_Role_"></a>
 <a id="E2E_RecordedAction_Role"></a>

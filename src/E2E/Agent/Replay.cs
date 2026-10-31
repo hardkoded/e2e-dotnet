@@ -419,6 +419,8 @@ internal static class Replay
                 return actions.CheckAsync(target, false, token);
             case "clear":
                 return actions.ClearAsync(target, token);
+            case "upload" when action.Paths is { } paths:
+                return actions.UploadAsync(target, paths, token);
             case "scrollTo":
                 return actions.ScrollToAsync(target, token);
             default:

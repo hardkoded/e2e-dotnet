@@ -177,6 +177,23 @@ The `Modifiers` of [LocatorAction.Tap](/api/E2E.Engine/LocatorAction.Tap/) and [
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L27)
 
+<a id="E2E_Engine_EngineCapabilities_Upload"></a>
+
+### Upload
+
+
+```csharp
+Upload = 1024
+```
+
+
+[LocatorAction.SetInputFiles](/api/E2E.Engine/LocatorAction.SetInputFiles/): the engine attaches files to a file input, or to a control that opens a file chooser. .NET-only
+name for the `upload` verb an upstream engine lists in its `verbs`.
+
+**Value:** [EngineCapabilities](./)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L42)
+
 <a id="E2E_Engine_EngineCapabilities_Video"></a>
 
 ### Video

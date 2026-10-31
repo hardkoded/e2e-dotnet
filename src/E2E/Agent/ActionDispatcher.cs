@@ -7,6 +7,7 @@ using E2E.Cache;
 using E2E.Engine;
 using E2E.Internal;
 using static E2E.Agent;
+using PolicyDecision = E2E.Reports.PolicyDecision;
 
 namespace E2E;
 
@@ -208,6 +209,39 @@ internal sealed class ActionDispatcher : IExecutorActions
                 await CommitAsync(check ? "check" : "uncheck", node).ConfigureAwait(false);
             },
             cancellationToken);
+
+    /// <summary>
+    /// Upstream's <c>upload</c>: attaches files to a file input. The paths are authorized against the project root before the node is
+    /// resolved and before an action slot is taken, each decision recorded on the step; the trace keeps them as given and replay
+    /// authorizes them again.
+    /// </summary>
+    public Task UploadAsync(ExecutorTarget target, IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
+    {
+        var authorized = AuthorizeUpload(paths);
+        return RunAsync(
+            "setInputFiles",
+            async token =>
+            {
+                var node = Resolve(target);
+                await TargetedAsync(node, new LocatorAction.SetInputFiles(authorized.Resolved), token).ConfigureAwait(false);
+                var recorded = Target(node, "upload");
+                recorded.Paths = [.. authorized.Given.Select(path => CacheKeys.Template(path, _parameters))];
+                await CommitAsync(recorded).ConfigureAwait(false);
+            },
+            cancellationToken);
+    }
+
+    /// <summary>Authorizes the paths of one upload against the project root, recording the decision on the step (upstream's <c>authorizeUploadPaths</c> call).</summary>
+    internal AuthorizedUpload AuthorizeUpload(IReadOnlyList<string>? paths) =>
+        UploadPaths.AuthorizeUploadPaths(PolicyHost, paths, _scope.ProjectRoot ?? Directory.GetCurrentDirectory());
+
+    /// <summary>The seam a policy records its decisions through, onto this step's events (upstream's <c>policyHost</c>).</summary>
+    internal IUploadPolicyHost PolicyHost => new StepPolicyHost(_scope.Steps);
+
+    private sealed class StepPolicyHost(StepRecorder steps) : IUploadPolicyHost
+    {
+        public void RecordPolicy(string name, PolicyDecision decision, string? code = null) => Phases.RecordPolicyEvent(steps, name, decision, code);
+    }
 
     public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
         RunAsync(
