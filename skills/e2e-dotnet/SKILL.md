@@ -317,7 +317,11 @@ lines you changed:
 - `App.ScreenshotAsync(label)` keeps a redacted evidence screenshot under the
   attempt's `screenshots/` and returns the absolute path of the file it wrote.
   It masks secure fields only, after a `Secret` fill too (topic
-  `writing-tests`). With `Connect` and `ReconnectEndpoint` the engine registers
+  `writing-tests`). The screenshots a model sees (`Vision`, the agent's looks,
+  `e2e mcp`, `e2e explore`) work the same way: a generic secret filled into a
+  plain input, or a value the app shows outside a secure field (a
+  show-password toggle, a toast), is in the image and reaches your model
+  provider, so use test credentials. With `Connect` and `ReconnectEndpoint` the engine registers
   its selector engines in the browser's default context on every connect and
   reconnect, so the mask also covers secure fields inside closed shadow roots.
 - `App.StartRecordingAsync(new RecordingOptions { Name })` and
