@@ -53,7 +53,7 @@ public sealed class AgentActGrammarVerbsTests
     }
 
     [Fact]
-    public async Task Uploads_a_project_relative_file_recording_the_path_as_given_and_the_policy_decision()
+    public async Task Uploads_a_project_file()
     {
         using var site = await StartSiteAsync();
         var model = ModelFor(UploadFlow);
@@ -70,7 +70,7 @@ public sealed class AgentActGrammarVerbsTests
     }
 
     [Fact]
-    public async Task Refuses_a_hidden_file_before_any_engine_action_as_POLICY_DENIED()
+    public async Task Refuses_a_hidden_file()
     {
         using var site = await StartSiteAsync();
         var model = ModelFor(HiddenFileFlow);

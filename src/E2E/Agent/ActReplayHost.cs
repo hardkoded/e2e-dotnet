@@ -100,7 +100,18 @@ public sealed partial class Agent
         // The recorded paths are expanded with this call's params, then authorized against the project root again, as the recording's were.
         public Task UploadAsync(ExecutorTarget target, IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
         {
-            var authorized = dispatcher.AuthorizeUpload([.. paths.Select(Expand)]);
+            AuthorizedUpload authorized;
+            try
+            {
+                authorized = dispatcher.AuthorizeUpload([.. paths.Select(Expand)]);
+            }
+            catch (E2EException)
+            {
+                // Upstream authorizes before it takes the action slot, so a recorded path that is now refused costs none; the replay took it just before.
+                budget.ReleaseReserved();
+                throw;
+            }
+
             return PerformAsync(target, new LocatorAction.SetInputFiles(authorized.Resolved), "upload", cancellationToken);
         }
 
