@@ -66,7 +66,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
 
         try
         {
-            return await RunActionAsync(call, actions, token).ConfigureAwait(false);
+            return await RunActionAsync(call, actions, budget, token).ConfigureAwait(false);
         }
         finally
         {
@@ -74,7 +74,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         }
     }
 
-    private async Task<ToolOutcome> RunActionAsync(ModelToolCall call, IExecutorActions actions, CancellationToken token)
+    private async Task<ToolOutcome> RunActionAsync(ModelToolCall call, IExecutorActions actions, StepAccounting budget, CancellationToken token)
     {
         switch (call.Name)
         {
@@ -158,8 +158,19 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
                     await actions.CheckAsync(target, false, token).ConfigureAwait(false);
                     return ToolOutcome.Ok(await DescribeAsync("unchecked " + Label(node), token).ConfigureAwait(false));
                 case "upload":
-                    var files = FilesOf(call.Arguments);
-                    await actions.UploadAsync(target, files, token).ConfigureAwait(false);
+                    List<string> files;
+                    try
+                    {
+                        files = FilesOf(call.Arguments);
+                        await actions.UploadAsync(target, files, token).ConfigureAwait(false);
+                    }
+                    catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
+                    {
+                        // The files or the path policy turn the call away before the dispatcher takes its slot, as upstream's do.
+                        budget.RefundPrepaid();
+                        throw;
+                    }
+
                     return ToolOutcome.Ok(await DescribeAsync("uploaded " + string.Join(", ", files.Select(file => "\"" + file + "\"")) + " to " + Label(node), token).ConfigureAwait(false));
                 case "clear":
                     await actions.ClearAsync(target, token).ConfigureAwait(false);

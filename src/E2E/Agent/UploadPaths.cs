@@ -27,7 +27,7 @@ internal sealed record AuthorizedUpload(IReadOnlyList<string> Given, IReadOnlyLi
 internal static class UploadPaths
 {
     /// <summary>
-    /// Authorizes the paths of one upload against the project root, recording every refusal and the final allow as an <c>upload.path</c>
+    /// Authorizes the paths of one upload against the project root, recording the final allow and each policy refusal as an <c>upload.path</c>
     /// policy decision. Malformed input and a path that names no regular file are <c>INVALID_ARGUMENT</c>, the ordinary failure a model
     /// reads and corrects; a path the policy refuses is <c>POLICY_DENIED</c>. Upstream takes <c>unknown</c>; a null list, or a null entry
     /// where the model gave something that is no string, is the typed form of its malformed input.

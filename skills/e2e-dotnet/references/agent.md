@@ -192,9 +192,10 @@ opens a file chooser. The harness authorizes the paths before the engine sees
 them: a path outside the project root (through a symlink too), a hidden file
 or one under a hidden directory (`.env`, `.git`, `.e2e`) is refused as
 `POLICY_DENIED`; a file that does not exist, a directory, an empty list, or
-more than 16 files is `INVALID_ARGUMENT`. Every decision is a `policy` event
-named `upload.path` on the step. The paths are recorded as given and
-authorized again on replay.
+more than 16 files is `INVALID_ARGUMENT`. A refused upload costs no action
+slot. The allow and each `POLICY_DENIED` refusal are `policy` events named
+`upload.path` on the step. The paths are recorded as given and authorized
+again on replay.
 On an engine that declares `EngineCapabilities.TapModifiers` (the web engine),
 `tap` and `double_tap` take an optional `modifiers` list (`Shift`, `Control`,
 `Alt`, `Meta`, `ControlOrMeta`) to hold keys for the click, as a Shift-click

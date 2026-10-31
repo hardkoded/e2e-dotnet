@@ -81,6 +81,7 @@ public sealed class AgentActGrammarVerbsTests
         Assert.DoesNotContain(step.Events, item => item.Kind == StepEventKind.Engine && item.Name == "setInputFiles");
         var policy = Assert.Single(step.Events, item => item.Kind == StepEventKind.Policy);
         Assert.Equal(("upload.path", PolicyDecision.Denied, "POLICY_DENIED"), (policy.Name, policy.Decision, policy.Code));
+        Assert.Equal(0, step.Metrics!.ActionSteps);
         // The refusal reaches the model as the action's failure, naming the path it refused.
         Assert.Matches("^failed: \"\\.env\" is", CounterPage.ToolResults(model)[0]);
     }
