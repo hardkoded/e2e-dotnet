@@ -262,15 +262,16 @@ internal sealed class ListReporter
             Error = told?.Error,
             Failure = told?.Failure,
             ScreenPath = screen,
-            AppLog = AppLogTally(told?.AppLog ?? []),
+            AppLog = AppLogSummaryOf(told?.AppLog ?? []),
             SkipReason = told?.Status == E2E.Internal.AttemptStatus.Skipped ? null : told?.Skip?.Reason,
         };
     }
 
-    /// <summary><c>2 errors, 1 warning</c>: the app log lines that say something went wrong.</summary>
-    private static string? AppLogTally(IReadOnlyList<AppLogRecord> appLog)
+    /// <summary>What went wrong in the app log, or null when nothing did (upstream's <c>appLogSummary</c>).</summary>
+    private static AppLogSummary? AppLogSummaryOf(IReadOnlyList<AppLogRecord> appLog)
     {
-        var errors = appLog.Count(entry => entry.Level == AppLogLevel.Error);
+        var appErrors = FailureText.AppErrorsOf(appLog);
+        var errors = appErrors.Count;
         var warnings = appLog.Count(entry => entry.Level == AppLogLevel.Warning);
         List<string> parts = [];
         if (errors > 0)
@@ -283,7 +284,7 @@ internal sealed class ListReporter
             parts.Add($"{warnings} {(warnings == 1 ? "warning" : "warnings")}");
         }
 
-        return parts.Count == 0 ? null : string.Join(", ", parts);
+        return parts.Count == 0 ? null : new AppLogSummary(string.Join(", ", parts), appErrors);
     }
 
     private void TestFinished(RunEventResult result)
@@ -556,7 +557,7 @@ internal sealed class ListReporter
     /// What the runner saw when the failure landed: the location, the nodes closest to what a failed locator asked for, and where the
     /// trace page is (else the screen text).
     /// </summary>
-    private void PrintEvidence(FailureEvidence? failure, string? screenPath, string? page, string? appLog)
+    private void PrintEvidence(FailureEvidence? failure, string? screenPath, string? page, AppLogSummary? appLog)
     {
         void Row(string label, string text) => Print(_pc.Cyan($" {_pc.Dim(Format.Pointer)} {_pc.Dim(label)} {text}"));
         if (failure?.Url is { } url)
@@ -571,7 +572,16 @@ internal sealed class ListReporter
 
         if (appLog is not null)
         {
-            Row("app", $"{appLog} logged");
+            Row("app", $"{appLog.Tally} logged");
+            foreach (var (label, text) in appLog.Errors.Shown)
+            {
+                Print($"   {_pc.Red($"{Format.Cross} {label}:")} {Format.Bounded(text)}");
+            }
+
+            if (appLog.Errors.More is { } more)
+            {
+                Print(_pc.Dim($"   {more}"));
+            }
         }
 
         // The page tells the screen too, and every step before it.
@@ -677,15 +687,20 @@ internal sealed class ListReporter
         /// <summary>The report path of the screen text the failure points at.</summary>
         public string? ScreenPath { get; init; }
 
-        /// <summary>What the app logged during the told attempt, as <c>2 errors, 1 warning</c>.</summary>
-        public string? AppLog { get; init; }
+        /// <summary>What the app logged during the told attempt that went wrong.</summary>
+        public AppLogSummary? AppLog { get; init; }
 
         /// <summary>Why the told attempt skipped itself, when it failed anyway.</summary>
         public string? SkipReason { get; init; }
     }
 
+    /// <summary>The app log lines that say something went wrong: the tally, and the errors a failure block quotes (upstream's <c>AppLogSummary</c>).</summary>
+    /// <param name="Tally"><c>2 errors, 1 warning</c>.</param>
+    /// <param name="Errors">The errors the block quotes.</param>
+    private sealed record AppLogSummary(string Tally, FailureText.AppErrors Errors);
+
     /// <summary>One failed pair, held for the <c>Failed Tests</c> section.</summary>
-    private sealed record Failure(string Id, FileGroup Group, string Title, ResultStatus Status, ReportError? Error, FailureEvidence? Evidence, string? ScreenPath, string? AppLog, string? SkipReason);
+    private sealed record Failure(string Id, FileGroup Group, string Title, ResultStatus Status, ReportError? Error, FailureEvidence? Evidence, string? ScreenPath, AppLogSummary? AppLog, string? SkipReason);
 
     /// <summary>Upstream's <c>DEFAULT_OUTPUT</c>: a line to stdout. A C# interface needs a class to implement it, hence <see cref="StdoutOutput"/>.</summary>
     private static readonly IListReporterOutput DefaultOutput = new StdoutOutput();

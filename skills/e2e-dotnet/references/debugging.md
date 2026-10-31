@@ -116,6 +116,8 @@ no viewer. It tells, in this order:
      410ms "1 remaining"`) point at a race;
    - what the app logged meanwhile (`✗ network error: POST /api/save 500`,
      `✗ uncaught error: ...`, `⚠ console warning: ...`, `ℹ console: ...`);
+     a run summary's failure block quotes the first 3 errors (`× console error:
+     ...`, `App console error: ...` on the Markdown page), then counts the rest;
    - where the page went (`↪ navigated to /login`, a new tab the app opened,
      a frame that loaded). A navigation the test asked for (`App.OpenAsync`,
      `Browser.GotoAsync`, `ReloadAsync`) is the step itself and is not listed;
