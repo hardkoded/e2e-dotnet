@@ -34,10 +34,11 @@ internal sealed class ManagedProcessHooks
 
     public Action<string>? Notice { get; init; }
 
-    public Action<string>? Starting { get; init; }
+    /// <summary>The label, and the URL the readiness probe polls; null for a command that is ready when it exits.</summary>
+    public Action<string, string?>? Starting { get; init; }
 
-    /// <summary>The label, how long the start took, and whether the process attached to one already serving the URL instead of spawning.</summary>
-    public Action<string, TimeSpan, bool>? Ready { get; init; }
+    /// <summary>The label, the readiness URL (null for a command that is ready when it exits), how long the start took, and whether the process attached to one already serving the URL instead of spawning.</summary>
+    public Action<string, string?, TimeSpan, bool>? Ready { get; init; }
 }
 
 /// <summary>What one started process, or everything a run or a session started, is released by (upstream's <c>AppProcesses</c>).</summary>
@@ -164,9 +165,10 @@ internal sealed partial class ManagedProcess : IAsyncDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         var startedAt = Stopwatch.StartNew();
-        _hooks.Starting?.Invoke(_label);
+        var url = _readiness.ReadyUrl;
+        _hooks.Starting?.Invoke(_label, url);
         await LaunchAsync(cancellationToken).ConfigureAwait(false);
-        _hooks.Ready?.Invoke(_label, startedAt.Elapsed, _reusedExisting);
+        _hooks.Ready?.Invoke(_label, url, startedAt.Elapsed, _reusedExisting);
     }
 
     /// <summary>Gracefully terminates the process, then force-kills its tree. A reused process was never ours to stop. Safe to call before start and more than once.</summary>

@@ -68,7 +68,7 @@ public sealed class InvokeToolTests
     {
         var engine = new FakeEngine();
         await using var context = await SessionContext.StartAsync(engine);
-        var catalog = SessionCatalog.Create(context, engine.Capabilities, secrets: []);
+        var catalog = SessionCatalog.Create(context, engine.Capabilities, secrets: [], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt");
         var error = await Assert.ThrowsAsync<ConfigurationException>(() => Tools.InvokeToolAsync("tap", catalog.Find("tap")!, Json("""{ "target": "n4", "force": true }"""), Extra));
 
         Assert.Equal("INVALID_ARGUMENT", error.Code);
@@ -81,7 +81,7 @@ public sealed class InvokeToolTests
     {
         var engine = new FakeEngine();
         await using var context = await SessionContext.StartAsync(engine);
-        var catalog = SessionCatalog.Create(context, engine.Capabilities, secrets: []);
+        var catalog = SessionCatalog.Create(context, engine.Capabilities, secrets: [], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt");
         var observe = await Assert.ThrowsAsync<ConfigurationException>(() => Tools.InvokeToolAsync("observe", catalog.Find("observe")!, Json("""{ "verbose": true }"""), Extra));
         Assert.Equal("INVALID_ARGUMENT", observe.Code);
         Assert.Equal("call observe: Unrecognized key: \"verbose\"; tools {tool: \"observe\"} shows its arguments", observe.Message);

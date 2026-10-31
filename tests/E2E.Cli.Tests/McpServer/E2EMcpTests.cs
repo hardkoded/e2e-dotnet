@@ -84,7 +84,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
     {
         var opened = await _served.InvokeAsync("open_session");
         Assert.False(opened.IsError, opened.Text);
-        Assert.Matches(new Regex(@"^Session \S+ open on target ""web"" \(platform web, engine web [^)]+\), headless; config .*e2e\.config\.json\.", RegexOptions.None, TimeSpan.FromSeconds(5)), opened.Text);
+        Assert.Matches(new Regex(@"^Session \S+ open on target ""web"" \(platform web, engine web [^)]+\), headless; config .*e2e\.config\.json, read with the e2e mcp server's environment, not your shell's\.", RegexOptions.None, TimeSpan.FromSeconds(5)), opened.Text);
         Assert.Contains($"App: {_served.App.Url}/.", opened.Text, StringComparison.Ordinal);
         Assert.Contains("Secrets: \"adminPassword\", \"apiKey\".", opened.Text, StringComparison.Ordinal);
         Assert.Contains("Tools (run one with call {tool, args}; tools {tool} shows a tool's arguments):", opened.Text, StringComparison.Ordinal);
@@ -169,6 +169,25 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.False(afterFill.IsError, afterFill.Text);
         Assert.Equal(1, afterFill.Images);
         Assert.DoesNotContain(Served.AdminPassword, afterFill.Text, StringComparison.Ordinal);
+
+        // With a path, the masked capture app.screenshot keeps is saved there, relative to the project root, beside the attached image.
+        var saved = await _served.CallAsync("screenshot", new() { ["path"] = "shots/after-fill.png" });
+        Assert.False(saved.IsError, saved.Text);
+        Assert.Equal(1, saved.Images);
+        var file = Regex.Match(saved.Text, @"^Saved to (.+)$", RegexOptions.Multiline, TimeSpan.FromSeconds(5)).Groups[1].Value;
+        Assert.Matches(new Regex(@"[\\/]shots[\\/]after-fill\.png$", RegexOptions.None, TimeSpan.FromSeconds(5)), file);
+        Assert.Equal("PNG", System.Text.Encoding.ASCII.GetString(File.ReadAllBytes(file), 1, 3));
+        var notPng = await _served.CallAsync("screenshot", new() { ["path"] = "shots/after-fill.jpg" });
+        Assert.True(notPng.IsError);
+        Assert.Contains("a .png file", notPng.Text, StringComparison.Ordinal);
+        foreach (var outside in new[] { "../outside.png", "/tmp/outside.png", ".e2e/shot.png" })
+        {
+            var refused = await _served.CallAsync("screenshot", new() { ["path"] = outside });
+            Assert.True(refused.IsError, outside);
+            Assert.Contains("POLICY_DENIED", refused.Text, StringComparison.Ordinal);
+        }
+
+        Assert.False(File.Exists(Path.Combine(_served.Project.Directory, "..", "outside.png")));
 
         foreach (var url in new[] { "javascript:alert(1)", "file:///etc/passwd", "view-source:file:///etc/passwd", "VIEW-SOURCE:http://example.test/", "about:srcdoc" })
         {

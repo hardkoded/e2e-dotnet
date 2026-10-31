@@ -103,6 +103,10 @@ does. A `--config` path (`e2e explore`, `e2e mcp`, `open_session {config}`) is
 absolute or relative to the working directory of that process; a missing file
 is `CONFIG_NOT_FOUND`, naming the resolved path and, for a relative path, the
 working directory it resolved against.
+`open_session` names the app URL, the port a free-port `url` was assigned, and the
+app command (its executable, readiness URL, and `env` and `inheritEnv` names; no
+`args`, no `env` values). The config reads the MCP server's environment, not
+your shell's.
 
 ```csharp
 using E2E;
@@ -347,6 +351,10 @@ lines you changed:
   provider, so use test credentials. With `Connect` and `ReconnectEndpoint` the engine registers
   its selector engines in the browser's default context on every connect and
   reconnect, so the mask also covers secure fields inside closed shadow roots.
+- The `e2e mcp` `screenshot` tool takes an optional `path`: a `.png` inside the
+  project, relative to its root. It saves the same masked capture there and
+  returns the absolute path. A path outside the project, a hidden file, or one
+  under a hidden directory is `POLICY_DENIED` (topic `mcp`).
 - `App.StartRecordingAsync(new RecordingOptions { Name })` and
   `App.StopRecordingAsync()` record one span, such as a transition, and return
   the videos (`RecordedVideoFile.Path` or `RecordedVideoLink.Url`). They fail

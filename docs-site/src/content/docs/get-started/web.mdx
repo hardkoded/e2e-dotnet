@@ -165,7 +165,7 @@ including later fills and ASCII secrets written as JSON Unicode escapes.
 
 ## Screenshots and secrets
 
-A screenshot masks secure fields only, after a secret fill too. This holds for the evidence screenshots (`App.ScreenshotAsync`, assertions, failures) and for the screenshots a model sees (`Vision = VisionMode.On` or `Only`, the agent's own looks, `e2e mcp`, `e2e explore`). A generic `Secret` filled into a plain input, or a value the app shows outside a secure field (a show-password toggle, a toast), is in the image and reaches your model provider, so use test credentials. Secret values are still redacted from all text.
+A screenshot masks secure fields only, after a secret fill too. This holds for the evidence screenshots (`App.ScreenshotAsync`, assertions, failures) and for the screenshots a model sees (`Vision = VisionMode.On` or `Only`, the agent's own looks, `e2e mcp`, `e2e explore`). A generic `Secret` filled into a plain input, or a value the app shows outside a secure field (a show-password toggle, a toast), is in the image and reaches your model provider, so use test credentials. Secret values are still redacted from all text. The `e2e mcp` `screenshot` tool also takes an optional `path`: a `.png` inside the project, relative to its root. It saves the masked full-resolution capture there and returns the absolute path. A path outside the project, a hidden file, or one under a hidden directory (`.git`, `.e2e`) is `POLICY_DENIED`.
 
 ## Inspecting upstream in a route
 
