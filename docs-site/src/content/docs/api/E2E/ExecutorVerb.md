@@ -206,3 +206,17 @@ TypeSecret = 3
 **Value:** [ExecutorVerb](./)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L236)
+
+<a id="E2E_ExecutorVerb_Upload"></a>
+
+### Upload
+
+
+```csharp
+Upload = 13
+```
+
+
+**Value:** [ExecutorVerb](./)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L246)

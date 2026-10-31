@@ -120,6 +120,8 @@ internal sealed class TestHost : IReplayHost
 
         public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) => host.Act("check", (target.Id, check));
 
+        public Task UploadAsync(ExecutorTarget target, IReadOnlyList<string> paths, CancellationToken cancellationToken = default) => host.Act("upload", (target.Id, paths));
+
         public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => host.Act("scrollTo", target.Id);
 
         public Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default) =>

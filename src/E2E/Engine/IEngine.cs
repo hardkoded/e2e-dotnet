@@ -34,6 +34,12 @@ public enum EngineCapabilities
     /// <c>launchesPinnedApp</c>, which tests for a session with a <c>restart</c> and no <c>open</c>; the port's <c>OpenAsync</c> is not optional.
     /// </summary>
     PinnedApp = 512,
+
+    /// <summary>
+    /// <see cref="LocatorAction.SetInputFiles"/>: the engine attaches files to a file input, or to a control that opens a file chooser. .NET-only
+    /// name for the <c>upload</c> verb an upstream engine lists in its <c>verbs</c>.
+    /// </summary>
+    Upload = 1024,
 }
 
 /// <summary>

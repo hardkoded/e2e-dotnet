@@ -21,7 +21,7 @@ namespace E2E;
 internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
 {
     private static readonly HashSet<string> ActionTools =
-        new(["navigate", "tap", "double_tap", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "back", "scroll", "scroll_to"], StringComparer.Ordinal);
+        new(["navigate", "tap", "double_tap", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "upload", "back", "scroll", "scroll_to"], StringComparer.Ordinal);
 
     private readonly AttemptScope _scope = scope;
     private readonly ObservationFeed _feed = feed;
@@ -66,7 +66,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
 
         try
         {
-            return await RunActionAsync(call, actions, token).ConfigureAwait(false);
+            return await RunActionAsync(call, actions, budget, token).ConfigureAwait(false);
         }
         finally
         {
@@ -74,7 +74,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         }
     }
 
-    private async Task<ToolOutcome> RunActionAsync(ModelToolCall call, IExecutorActions actions, CancellationToken token)
+    private async Task<ToolOutcome> RunActionAsync(ModelToolCall call, IExecutorActions actions, StepAccounting budget, CancellationToken token)
     {
         switch (call.Name)
         {
@@ -114,6 +114,11 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
             }
 
             return await DescribeOutcomeAsync("pressed " + key, token).ConfigureAwait(false);
+        }
+
+        if (string.Equals(call.Name, "upload", StringComparison.Ordinal))
+        {
+            return await UploadAsync(call.Arguments, actions, budget, token).ConfigureAwait(false);
         }
 
         SemanticNode node;
@@ -304,6 +309,82 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         var name = Args.String(arguments, "secret") ?? "";
         await actions.TypeSecretAsync(target, name, token).ConfigureAwait(false);
         return ToolOutcome.Ok(await DescribeAsync("filled secret <secret:" + name + "> into " + Label(target.Node!), token).ConfigureAwait(false));
+    }
+
+    // Upstream's upload tool: the paths are authorized before the node is looked for, so a refused path is the policy's decision whatever the
+    // target, and costs no slot. The wording is upstream's too: `Uploaded "x" to <ref>.` on success, `upload "x" to <ref> failed: <code>:
+    // <message>` on a refusal, each followed by the screen. The resolved node's ref stands where upstream's `#id` does.
+    private async Task<ToolOutcome> UploadAsync(JsonElement arguments, IExecutorActions actions, StepAccounting budget, CancellationToken token)
+    {
+        var reference = Args.String(arguments, "ref") ?? Args.String(arguments, "name") ?? Args.String(arguments, "role") ?? Args.String(arguments, "testId") ?? "target";
+        var attempt = "upload to " + reference;
+        List<string> files;
+        string listed;
+        try
+        {
+            files = FilesOf(arguments);
+        }
+        catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
+        {
+            budget.RefundPrepaid();
+            return await UploadFailedAsync(attempt, ex, token).ConfigureAwait(false);
+        }
+
+        listed = string.Join(", ", files.Select(UploadPaths.Quote));
+        attempt = "upload " + listed + " to " + reference;
+        SemanticNode node;
+        try
+        {
+            node = await ResolveAsync(arguments, token).ConfigureAwait(false);
+        }
+        catch (TestException missing)
+        {
+            // The paths are authorized before the node is looked for, so the policy records its decision whatever the target; a refused
+            // path wins and costs no slot, and a target upstream cannot find has spent its slot.
+            try
+            {
+                ActionDispatcher.AuthorizeUpload(_scope, files);
+            }
+            catch (E2EException refused) when (!StepExecutors.IsRuntimeHardStop(refused))
+            {
+                budget.RefundPrepaid();
+                return await UploadFailedAsync(attempt, refused, token).ConfigureAwait(false);
+            }
+
+            return await UploadFailedAsync(attempt, missing, token).ConfigureAwait(false);
+        }
+
+        reference = node.Ref;
+        attempt = "upload " + listed + " to " + reference;
+        try
+        {
+            await actions.UploadAsync(new ExecutorTarget(node), files, token).ConfigureAwait(false);
+        }
+        catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
+        {
+            // The path policy turns the call away before the dispatcher takes its slot, as upstream's does; a failure after it keeps the slot.
+            budget.RefundPrepaid();
+            return await UploadFailedAsync(attempt, ex, token).ConfigureAwait(false);
+        }
+
+        return ToolOutcome.Ok(await DescribeAsync("Uploaded " + listed + " to " + reference + ".", token).ConfigureAwait(false));
+    }
+
+    private async Task<ToolOutcome> UploadFailedAsync(string attempt, E2EException error, CancellationToken token) =>
+        new() { Content = await DescribeAsync(attempt + " failed: " + error.Code + ": " + error.Message, token).ConfigureAwait(false), Succeeded = false, Code = error.Code };
+
+    // The files an upload call names. Anything but a list of strings is the model's error, which the policy words as it does an empty list.
+    private static List<string> FilesOf(JsonElement arguments)
+    {
+        if (arguments.ValueKind == JsonValueKind.Object
+            && arguments.TryGetProperty("files", out var files)
+            && files.ValueKind == JsonValueKind.Array
+            && files.EnumerateArray().All(item => item.ValueKind == JsonValueKind.String))
+        {
+            return [.. files.EnumerateArray().Select(item => item.GetString()!)];
+        }
+
+        throw new TestException("INVALID_ARGUMENT", "upload requires one or more non-empty project-relative file paths");
     }
 
     // The keys a tap call holds: absent for none. A value that is no list of key modifier names is the model's error.

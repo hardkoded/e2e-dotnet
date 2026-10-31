@@ -236,6 +236,7 @@ public enum ExecutorVerb
     Scroll,
     Navigate,
     Back,
+    Upload,
 }
 
 /// <summary>What an executor asks <see cref="StepExecutorContext.ObserveAsync"/> to include beyond the text.</summary>
@@ -399,6 +400,14 @@ public interface IExecutorActions
     /// is what tells this verb from a tap that flips whatever state it finds.
     /// </summary>
     Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Attaches files to a file input, or to a control that opens a file chooser. Paths are taken relative to the project root and
+    /// authorized by the harness before the engine sees them: a file outside the project, under a hidden directory, or absent is refused
+    /// (<see cref="ExecutorVerb.Upload"/> in <see cref="ExecutorTargetInfo.Verbs"/>). A path the policy refuses is <c>POLICY_DENIED</c>,
+    /// and a missing file or a malformed list is <c>INVALID_ARGUMENT</c>.
+    /// </summary>
+    Task UploadAsync(ExecutorTarget target, IReadOnlyList<string> paths, CancellationToken cancellationToken = default);
 
     /// <summary>Brings one listed node into the viewport.</summary>
     Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default);

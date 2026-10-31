@@ -167,6 +167,19 @@ internal sealed class StepAccounting(int maxActions, int maxModelCalls, string a
         return true;
     }
 
+    /// <summary>Gives back a slot <see cref="TryReserve"/> took, for an action that was refused before it ran.</summary>
+    public void ReleaseReserved() => Used--;
+
+    /// <summary>Gives back the prepaid slot if the dispatcher has not taken it, for a call upstream turns away before it takes one.</summary>
+    public void RefundPrepaid()
+    {
+        if (_prepaid > 0)
+        {
+            _prepaid = 0;
+            Used--;
+        }
+    }
+
     /// <summary>Drops a slot the call never spent.</summary>
     public void ClearPrepaid() => _prepaid = 0;
 

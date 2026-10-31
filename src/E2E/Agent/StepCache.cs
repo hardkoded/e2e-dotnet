@@ -281,7 +281,7 @@ internal sealed class StepTraceSession
 
         // Any store can return a hit, so its shape is checked here, at the one read site. The stored recording has a placeholder for
         // each unique() value (upstream's expandTrace): one this call cannot fill is an entry recorded for another shape.
-        return entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null || !entry.HasValidEndWait() || !entry.Actions.All(action => action.HasValidModifiers() && action.HasValidSpans())
+        return entry.Schema != FileStepCache.SchemaVersion || entry.Actions is not { Count: > 0 } || entry.Appeared is null || entry.Gone is null || !entry.HasValidEndWait() || !entry.Actions.All(action => action.HasValidModifiers() && action.HasValidSpans() && action.HasValidPaths())
             || !CacheKeys.TryExpandTrace(entry, _options.Params)
             ? new EntryRead(null, "invalid-entry")
             : new EntryRead(entry, null);

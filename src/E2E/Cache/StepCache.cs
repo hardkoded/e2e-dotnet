@@ -155,6 +155,21 @@ public sealed class RecordedAction
     /// <summary>Whether <see cref="Spans"/> is well formed: absent, or between zero and one on a <c>scroll</c> or <c>scrollUntil</c>. Upstream's <c>readAction</c>.</summary>
     internal bool HasValidSpans() => Spans is null || (Kind is "scroll" or "scrollUntil" && Spans is >= 0 and <= 1);
 
+    /// <summary>
+    /// Upstream's <c>paths</c> of an <c>upload</c>: the files attached, by project-relative path as the executor gave them. A replay input like a
+    /// typed value, expanded with the call's params and authorized against the project root again before it reaches the engine.
+    /// </summary>
+    public List<string>? Paths { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="Paths"/> is well formed: an <c>upload</c> holds one to <see cref="Trace.MaxTraceUploadPaths"/> non-empty paths and
+    /// every other action none. Upstream's <c>readInputPaths</c>, which makes a malformed entry a miss.
+    /// </summary>
+    internal bool HasValidPaths() =>
+        Kind == "upload"
+            ? Paths is { Count: > 0 and <= Trace.MaxTraceUploadPaths } && Paths.All(path => !string.IsNullOrEmpty(path) && path.Length <= Trace.MaxTraceInputChars)
+            : Paths is null;
+
     /// <summary>Keys a <c>tap</c> or <c>doubleTap</c> held for the click, replayed with it. Null holds none.</summary>
     public List<string>? Modifiers { get; set; }
 
@@ -611,7 +626,7 @@ internal static partial class CacheKeys
     /// </summary>
     public static bool TryExpandTrace(CacheEntry entry, IReadOnlyDictionary<string, object?>? parameters)
     {
-        IEnumerable<string?> texts = [entry.Route, entry.EndRoute, .. entry.Actions.SelectMany(action => new[] { action.Value, action.Url, action.Text })];
+        IEnumerable<string?> texts = [entry.Route, entry.EndRoute, .. entry.Actions.SelectMany(action => new[] { action.Value, action.Url, action.Text }.Concat(action.Paths ?? []))];
         return texts.All(text => text is null || Detemplate(text, parameters) is not null);
     }
 

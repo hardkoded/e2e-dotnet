@@ -75,6 +75,7 @@ internal static class SettlePolicy
         ["select"] = Moves,
         ["check"] = Moves,
         ["uncheck"] = Moves,
+        ["upload"] = Moves,
         ["navigate"] = Moves,
         ["back"] = Moves,
         ["fill"] = Types,

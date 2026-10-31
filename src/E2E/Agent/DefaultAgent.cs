@@ -156,6 +156,13 @@ public static class DefaultAgent
     internal static string Describe(RecordedAction action)
     {
         var builder = new StringBuilder(action.Kind);
+
+        // Upstream's summary: the files, then the node they went to.
+        if (action.Paths is { Count: > 0 } paths)
+        {
+            builder.Append(' ').Append(string.Join(", ", paths.Select(path => "\"" + path + "\""))).Append(" to");
+        }
+
         if (action.Role is not null || action.Name is not null || action.TestId is not null)
         {
             builder.Append(' ').Append(action.Role ?? "node");
