@@ -872,7 +872,13 @@ public sealed class Locator
         }
         catch (EngineException ex) when (!cancellationToken.IsCancellationRequested)
         {
-            throw LocatorResolver.TranslateLocatorError(ex, Query);
+            var translated = LocatorResolver.TranslateLocatorError(ex, Query);
+            if (ReferenceEquals(translated, ex))
+            {
+                throw;
+            }
+
+            throw translated;
         }
 
         return LocatorResolver.Resolve(observation, Query, includeHidden);
@@ -904,7 +910,13 @@ public sealed class Locator
             }
             catch (EngineException ex) when (!cancellationToken.IsCancellationRequested)
             {
-                throw LocatorResolver.TranslateLocatorError(ex, Query);
+                var translated = LocatorResolver.TranslateLocatorError(ex, Query);
+                if (ReferenceEquals(translated, ex))
+                {
+                    throw;
+                }
+
+                throw translated;
             }
         }
     }
@@ -1059,7 +1071,13 @@ public sealed class Locator
                 }
                 catch (EngineException ex) when (!token.IsCancellationRequested)
                 {
-                    throw LocatorResolver.TranslateLocatorError(ex, Query);
+                    var translated = LocatorResolver.TranslateLocatorError(ex, Query);
+                    if (ReferenceEquals(translated, ex))
+                    {
+                        throw;
+                    }
+
+                    throw translated;
                 }
 
                 return;
