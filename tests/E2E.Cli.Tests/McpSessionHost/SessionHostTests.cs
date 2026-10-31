@@ -325,8 +325,8 @@ public sealed class SessionHostTests : IAsyncLifetime
     [Fact]
     public async Task Names_the_app_command_it_started_and_the_port_it_assigned_without_args_or_env_values()
     {
-        // The test app runs under the host that runs this test, as an apphost may be refused by the machine.
-        var executable = Environment.ProcessPath!;
+        // The test app runs under the dotnet muxer (`dotnet test` sets DOTNET_HOST_PATH; the other tests start `dotnet` from PATH), as an apphost may be refused by the machine.
+        var executable = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") is { Length: > 0 } host ? host : "dotnet";
         var command = new JsonObject
         {
             ["executable"] = executable,
