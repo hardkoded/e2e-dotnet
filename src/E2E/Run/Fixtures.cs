@@ -147,6 +147,7 @@ public sealed class App
     public async Task StartRecordingAsync(RecordingOptions? options = null, CancellationToken cancellationToken = default)
     {
         var recordings = Recordings ?? throw new EngineException(EngineErrorCodes.InvalidState, "recording outside an attempt: the app has no recorder");
+        _ = SinkOf() ?? throw new EngineException(EngineErrorCodes.InvalidState, "recording outside an attempt: the app has no artifact directory");
         var name = options?.Name;
         await RunStepAsync("app.startRecording", name ?? "", () => recordings.StartSpanAsync(name, Token(cancellationToken))).ConfigureAwait(false);
     }
@@ -162,7 +163,7 @@ public sealed class App
     public async Task<IReadOnlyList<RecordedVideo>> StopRecordingAsync(CancellationToken cancellationToken = default)
     {
         var recordings = Recordings ?? throw new EngineException(EngineErrorCodes.InvalidState, "recording outside an attempt: the app has no recorder");
-        var sink = Sink ?? throw new EngineException(EngineErrorCodes.InvalidState, "recording outside an attempt: the app has no artifact directory");
+        var sink = SinkOf() ?? throw new EngineException(EngineErrorCodes.InvalidState, "recording outside an attempt: the app has no artifact directory");
         IReadOnlyList<RecordedVideo> videos = [];
         await RunStepAsync("app.stopRecording", "", async () =>
         {
@@ -180,8 +181,8 @@ public sealed class App
     /// <summary>The engine's one recorder, shared with the attempt's video (upstream's <c>sessionRecordings</c>).</summary>
     internal SessionRecordings? Recordings { get; set; }
 
-    /// <summary>Where the attempt registers the videos a recording produced (upstream's <c>environment.artifacts</c>).</summary>
-    internal IArtifactSink? Sink { get; set; }
+    /// <summary>Where the attempt registers the videos a recording produced (upstream's <c>environment.artifacts</c>); read when a recording stops, since asking for it creates the attempt's directory.</summary>
+    internal Func<IArtifactSink?> SinkOf { get; set; } = static () => null;
 
     /// <summary>The attempt's artifact directory, which a screenshot's artifact-relative path is resolved against (upstream's <c>environment.artifacts.dir</c>).</summary>
     internal string? ArtifactsDir { get; set; }

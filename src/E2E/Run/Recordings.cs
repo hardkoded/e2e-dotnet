@@ -171,7 +171,7 @@ internal sealed partial class SessionRecordings
             {
                 var url = ProviderRecordings.HostedVideoUrl(link.Url)
                     ?? throw new EngineException(EngineErrorCodes.EngineFailure, "the engine returned a video link that is not an http(s) URL: " + System.Text.Json.JsonSerializer.Serialize(link.Url), retryable: false);
-                var startedAt = ParseStartedAt(link.StartedAt);
+                var startedAt = ParseStartedAt(link.StartedAt) ?? DateTimeOffset.UtcNow;
                 ids.Add(sink.Link(url, new ArtifactLink(link.MediaType, startedAt)));
                 videos.Add(new RecordedVideoLink { Url = url, MediaType = link.MediaType, StartedAt = link.StartedAt });
                 continue;
@@ -180,7 +180,7 @@ internal sealed partial class SessionRecordings
             var file = (VideoFile)segment;
             var part = position == 0 ? "" : "-part" + (position + 1).ToString(CultureInfo.InvariantCulture);
             var relative = "recordings/" + span.Stem + part + Path.GetExtension(file.Path);
-            var absolute = Path.Combine(directory, "recordings", Path.GetFileName(relative));
+            var absolute = Path.GetFullPath(Path.Combine(directory, relative));
 
             // .NET-only hardening: an engine's path is its own word, so only a file inside the attempt's directory is ours to move.
             var source = Path.GetFullPath(Path.Combine(directory, file.Path));
@@ -200,8 +200,8 @@ internal sealed partial class SessionRecordings
             : new StoppedSpan(ids, videos);
     }
 
-    private static DateTimeOffset ParseStartedAt(string startedAt) =>
-        DateTimeOffset.TryParse(startedAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed) ? parsed : DateTimeOffset.UtcNow;
+    private static DateTimeOffset? ParseStartedAt(string startedAt) =>
+        DateTimeOffset.TryParse(startedAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var parsed) ? parsed : null;
 
     /// <summary>A recording name as a file name stem: letters, digits, <c>-</c>, and <c>_</c>, at most 64 characters.</summary>
     private static string FileStem(string? name)

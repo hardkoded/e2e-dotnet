@@ -5,8 +5,8 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using E2E.Internal;
-using ArtifactProducerKind = E2E.Reports.ArtifactProducerKind;
 using static E2E.MarkdownText;
+using ArtifactProducerKind = E2E.Reports.ArtifactProducerKind;
 
 namespace E2E;
 
@@ -470,7 +470,12 @@ internal static partial class FailureText
     /// <summary>The attempt's videos in the order they began, each with the span it covers (upstream's <c>timedVideos</c>).</summary>
     private static List<TimedVideo> TimedVideos(ReportAttempt told)
     {
-        var ends = told.Steps.ToDictionary(step => step.Id, step => step.StartedAt.AddMilliseconds(step.DurationMs), StringComparer.Ordinal);
+        var ends = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
+        foreach (var step in told.Steps)
+        {
+            ends[step.Id] = step.StartedAt.AddMilliseconds(step.DurationMs);
+        }
+
         return
         [
             .. told.Artifacts

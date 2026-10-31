@@ -4,9 +4,9 @@
 
 using E2E.Internal;
 using E2E.Tests.Traces;
+using static E2E.Tests.ReportFailureText.FailureTextKit;
 using ArtifactProducer = E2E.Reports.ArtifactProducer;
 using ArtifactProducerKind = E2E.Reports.ArtifactProducerKind;
-using static E2E.Tests.ReportFailureText.FailureTextKit;
 
 namespace E2E.Tests.ReportFailureText;
 
