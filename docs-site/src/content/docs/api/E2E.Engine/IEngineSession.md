@@ -36,7 +36,8 @@ Task<EngineState> CaptureStateAsync(CancellationToken cancellationToken)
 ```
 
 
-Captures the app's state (cookies and storage) as an immutable payload another session can restore. Upstream's optional
+Captures the app's state (cookies and storage) as a payload another session can restore. The payload's `Data` is a mutable
+`JsonNode`, so a caller must not change it between capture and restore. Upstream's optional
 `captureState`; a session that keeps none fails with `UNSUPPORTED_CAPABILITY`, as upstream's `session.save()` does.
 
 **Parameters**
