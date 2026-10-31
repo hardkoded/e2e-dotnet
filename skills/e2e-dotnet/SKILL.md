@@ -226,7 +226,10 @@ lines you changed:
   every run (an id, a duration, a date, an ISO 8601 instant, a clock time)
   while a stable change exists, and reads it in an alert as one placeholder,
   so `Saved at 2026-10-24T15:41:27.955Z` and `Saved at 2026-10-24T15:30:00Z`
-  are the same alert.
+  are the same alert. A run summary would count the cache by step in a
+  `Cache  4 replayed · 1 handed off · 1 missed` row; the port's internal
+  `ListReporter` renders it, but no command prints a run summary yet (#799), so
+  a test run does not show it. Read `ActResult.Cache` for a step instead.
   A `navigate` to a full URL on the app records as its path, query, and
   fragment and replays on the origin the app runs on then, so a recording
   follows the app to another port or host; re-record older entries to pick
