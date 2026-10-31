@@ -221,7 +221,7 @@ public sealed class WebEngineTests
         await RunAsync(session, async () =>
         {
             var browser = session.Browser;
-            Assert.Equal(site.Url, session.App.BaseUrl);
+            Assert.Equal(site.Url.TrimEnd('/'), session.App.BaseUrl);
             await session.App.OpenAsync("/");
             await browser.SetCookiesAsync([new BrowserCookie { Name = "plan", Value = "pro", Url = site.Url }]);
             var denied = await Assert.ThrowsAsync<TestException>(() => browser.SetCookiesAsync([new BrowserCookie { Name = "x", Value = "y" }]));

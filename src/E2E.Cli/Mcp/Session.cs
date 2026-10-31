@@ -17,7 +17,7 @@ internal sealed class OpenSessionOptions
     /// <summary>The target to open; otherwise the server's <c>--target</c>, else the config's only target.</summary>
     public string? Target { get; init; }
 
-    /// <summary>A config file to load instead of the server's default, relative to the server's directory.</summary>
+    /// <summary>A config file to load instead of the server's default, absolute or relative to the server's working directory.</summary>
     public string? Config { get; init; }
 
     /// <summary>Whether this session shows its UI; otherwise the server's <c>--headed</c>.</summary>
@@ -88,7 +88,7 @@ internal sealed class SessionHost : IDisposable
           "type": "object",
           "properties": {
             "target": { "type": "string", "minLength": 1, "description": "Target name from the config; required when the config declares several" },
-            "config": { "type": "string", "minLength": 1, "description": "Path to an e2e config file, relative to the server's directory; default: the nearest e2e.config.json" },
+            "config": { "type": "string", "minLength": 1, "description": "Path to an e2e config file, absolute or relative to the server's working directory; default: the nearest e2e.config.json" },
             "headed": { "type": "boolean", "description": "Show the browser or simulator, when the engine supports it; pass true when the user wants to watch. Default: headless, unless the server was started with --headed" }
           },
           "additionalProperties": false

@@ -219,6 +219,8 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         var absent = await _served.InvokeAsync("open_session", new() { ["config"] = "missing.config.json" });
         Assert.True(absent.IsError);
         Assert.Contains("CONFIG_NOT_FOUND", absent.Text, StringComparison.Ordinal);
+        // The server's working directory may be the real path of a symlinked temp directory (macOS /var), so match its last segment.
+        Assert.Matches("missing\\.config\\.json resolved against the working directory .*" + Regex.Escape(Path.GetFileName(_served.Project.Directory)) + "\\)", absent.Text);
 
         var reopened = await _served.InvokeAsync("open_session", new() { ["target"] = "web", ["config"] = "e2e.config.json" });
         Assert.False(reopened.IsError, reopened.Text);

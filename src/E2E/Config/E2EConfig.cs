@@ -196,6 +196,23 @@ public sealed class E2EConfig
     }
 
     /// <summary>
+    /// The failure for an explicit config path with no file behind it (upstream's <c>explicitConfigNotFound</c> in <c>config/load.ts</c>).
+    /// A relative path names the <paramref name="cwd"/> it resolved against, which may not be the one the caller meant.
+    /// </summary>
+    internal static ConfigurationException ExplicitConfigNotFound(string cwd, string explicitPath, string absolute)
+    {
+        if (Path.IsPathRooted(explicitPath))
+        {
+            return new ConfigurationException("CONFIG_NOT_FOUND", "config file not found: " + absolute);
+        }
+
+        var baseDirectory = Path.GetFullPath(cwd);
+        return new ConfigurationException(
+            "CONFIG_NOT_FOUND",
+            "config file not found: " + absolute + " (" + explicitPath + " resolved against the working directory " + baseDirectory + "); pass an absolute path, or a path relative to that directory");
+    }
+
+    /// <summary>
     /// Loads the nearest <see cref="FileName"/> above the test assembly directory, then
     /// above the working directory. Without one, returns <see cref="Default"/> for the working directory.
     /// </summary>

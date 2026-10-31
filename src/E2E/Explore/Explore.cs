@@ -376,11 +376,16 @@ public static class Explore
 
         var cwd = Path.GetFullPath(options.Cwd ?? Directory.GetCurrentDirectory());
         var path = options.ConfigPath is null ? E2EConfig.Find(cwd) : Path.GetFullPath(options.ConfigPath, cwd);
-        if (path is null || !File.Exists(path))
+        if (path is null)
         {
-            throw new ConfigurationException(
-                "CONFIG_NOT_FOUND",
-                path is null ? "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one" : "no config file at " + path);
+            throw new ConfigurationException("CONFIG_NOT_FOUND", "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one");
+        }
+
+        if (!File.Exists(path))
+        {
+            throw options.ConfigPath is { } explicitPath
+                ? E2EConfig.ExplicitConfigNotFound(cwd, explicitPath, path)
+                : new ConfigurationException("CONFIG_NOT_FOUND", "no " + E2EConfig.FileName + " found from " + cwd + " upward; create one");
         }
 
         return E2EConfig.Load(path);

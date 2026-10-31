@@ -93,6 +93,16 @@ process gets only `PATH`, `HOME`, the temp variables, `SystemRoot` and
 device target also takes `app.launchArguments` and `app.permissions`; a web target takes `app.permissions` too (`grant` only, held by every page). `WebEngine.ValidateApp` checks a web `app` explicitly (`app.url` required, device-app fields refused, permissions the browser grants); config loading does not run it. Topic
 `setup` has the full rules.
 
+`App.BaseUrl` is `app.url` with the run's port and no trailing slash, so
+`$"{App.BaseUrl}/api/users"` joins with one slash; it is `null` when the target
+declares no `app.url`. `App.OpenAsync("settings")` still resolves against the
+URL as declared: a base path that ends in `/` (`http://127.0.0.1:3000/app/`)
+is kept, and one without it (`.../app`) is replaced, as any URL resolution
+does. A `--config` path (`e2e explore`, `e2e mcp`, `open_session {config}`) is
+absolute or relative to the working directory of that process; a missing file
+is `CONFIG_NOT_FOUND`, naming the resolved path and, for a relative path, the
+working directory it resolved against.
+
 ```csharp
 using E2E;
 using E2E.NUnit;

@@ -20,6 +20,29 @@ public sealed class AppSteeringHooksTests
     }
 
     [Fact]
+    public async Task BaseUrl_has_no_trailing_slash_so_a_template_joins_a_path_onto_it_app_open_still_resolves_against_the_base_path()
+    {
+        await using (var origin = await StartAsync([], "http://127.0.0.1:4599"))
+        {
+            Assert.Equal("http://127.0.0.1:4599", origin.App.BaseUrl);
+            origin.Complete();
+        }
+
+        var calls = new List<string>();
+        await using var nested = await StartAsync(calls, "http://127.0.0.1:4599/app/");
+        Assert.Equal("http://127.0.0.1:4599/app", nested.App.BaseUrl);
+        Assert.Equal("http://127.0.0.1:4599/app/api/hooks", $"{nested.App.BaseUrl}/api/hooks");
+        await nested.App.OpenAsync();
+        await nested.App.OpenAsync("settings");
+        Assert.Equal(["open http://127.0.0.1:4599/app/", "open http://127.0.0.1:4599/app/settings"], calls);
+        nested.Complete();
+
+        await using var none = await StartAsync([], baseUrl: null);
+        Assert.Null(none.App.BaseUrl);
+        none.Complete();
+    }
+
+    [Fact]
     public async Task Reopen_nothing_on_a_surface_without_an_address()
     {
         var calls = new List<string>();

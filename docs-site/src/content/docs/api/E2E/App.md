@@ -39,11 +39,13 @@ public string? BaseUrl { get; }
 ```
 
 
-The target base URL relative URLs resolve against, or null when the test declares none.
+The resolved base URL of the target's app, with the port the run allocated when `app.url` declared port 0 and no trailing
+slash, so `$"{BaseUrl}/api/users"` joins with one slash; null when the test declares none. [OpenAsync(string?, CancellationToken)](#E2E_App_OpenAsync_System_String_System_Threading_CancellationToken_) still
+resolves a relative URL against `app.url` as declared: a base path that ends in `/` is kept, and one without it is replaced.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L62)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L66)
 
 ## Methods
 
@@ -68,7 +70,7 @@ Goes back one entry in the history. With no earlier entry it does nothing.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L100)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L104)
 
 <a id="E2E_App_ClearStateAsync_"></a>
 <a id="E2E_App_ClearStateAsync_System_Threading_CancellationToken_"></a>
@@ -91,7 +93,7 @@ Discards cookies, storage, and history, and reopens the app at [BaseUrl](#E2E_Ap
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L112)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L116)
 
 <a id="E2E_App_OpenAsync_"></a>
 <a id="E2E_App_OpenAsync_System_String_System_Threading_CancellationToken_"></a>
@@ -117,7 +119,7 @@ for a malformed URL or a scheme other than `http:` or `https:` (the exact `about
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L69)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L73)
 
 <a id="E2E_App_RestartAsync_"></a>
 <a id="E2E_App_RestartAsync_System_Threading_CancellationToken_"></a>
@@ -140,7 +142,7 @@ Closes the current document and reopens the app at [BaseUrl](#E2E_App_BaseUrl). 
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L106)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L110)
 
 <a id="E2E_App_ScreenshotAsync_"></a>
 <a id="E2E_App_ScreenshotAsync_System_String_System_Threading_CancellationToken_"></a>
@@ -166,7 +168,7 @@ Throws `UNSUPPORTED_CAPABILITY` on an engine that keeps no screenshots.
 
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L124)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L128)
 
 <a id="E2E_App_StartRecordingAsync_"></a>
 <a id="E2E_App_StartRecordingAsync_E2E_RecordingOptions_System_Threading_CancellationToken_"></a>
@@ -194,7 +196,7 @@ Throws `UNSUPPORTED_CAPABILITY` while the test's video records or when the engin
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L147)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L151)
 
 <a id="E2E_App_StopRecordingAsync_"></a>
 <a id="E2E_App_StopRecordingAsync_System_Threading_CancellationToken_"></a>
@@ -221,4 +223,4 @@ recording is running and `ENGINE_FAILURE` when the engine wrote no video.
 
 **Returns:** [Task&lt;IReadOnlyList&lt;RecordedVideo&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L162)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs#L166)
