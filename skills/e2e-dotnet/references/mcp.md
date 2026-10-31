@@ -56,7 +56,10 @@ In a clone of the e2e-dotnet repo, run it as
 
 Sessions run on the project's config (`e2e.config.json`): in a project
 without one, `open_session` fails with `CONFIG_NOT_FOUND`, so set it up
-first (topic `setup`).
+first (topic `setup`). `open_session {config}` and `--config` take an
+absolute path or one relative to the server's working directory (`cwd` in the
+client's MCP config); a missing file fails `CONFIG_NOT_FOUND` naming the
+resolved path and that directory.
 
 Flags: `--config <path>` names the default config file, `--target <name>`
 fixes the target every session opens on, `--headed` shows the browser in

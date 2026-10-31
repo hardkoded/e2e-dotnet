@@ -31,4 +31,14 @@ public sealed class NetworkTests : E2ETest
         Assert.That(await response.TextAsync(), Does.Contain("<title>Network</title>"));
         await Expect.That(Screen.GetByRole("heading", "Network")).ToBeVisibleAsync();
     }
+
+    [Test]
+    public async Task Calls_the_API_at_a_path_joined_onto_app_baseUrl()
+    {
+        using var http = new HttpClient();
+        using var response = await http.GetAsync($"{App.BaseUrl}/api/users");
+        Assert.That((int)response.StatusCode, Is.EqualTo(200));
+        using var users = System.Text.Json.JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.That(users.RootElement.GetArrayLength(), Is.EqualTo(3));
+    }
 }

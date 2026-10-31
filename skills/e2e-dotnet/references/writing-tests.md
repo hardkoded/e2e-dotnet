@@ -50,7 +50,7 @@ grouping, setup, and categories are the framework's.
 Members of `E2ETest` in both frameworks:
 
 - `App`: `OpenAsync(path)`, `BackAsync`, `RestartAsync`, `ClearStateAsync`,
-  `ScreenshotAsync(label)`, and `BaseUrl`. A path resolves against the target URL. `OpenAsync` and the
+  `ScreenshotAsync(label)`, and `BaseUrl` (the target URL with the run's port and no trailing slash, so `$"{App.BaseUrl}/api/users"` joins with one slash; null when the target declares no `app.url`). A path resolves against the target URL. `OpenAsync` and the
   agent's navigate step admit only `http:`, `https:`, and the exact
   `about:blank`; any other scheme is `POLICY_DENIED`. `RestartAsync` keeps
   cookies and storage, `ClearStateAsync` drops them, and both reopen the

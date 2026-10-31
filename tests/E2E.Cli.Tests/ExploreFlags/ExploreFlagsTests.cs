@@ -245,14 +245,17 @@ public sealed class ExploreFlagsTests
     [Fact]
     public async Task Runs_the_real_exploration_from_the_program_and_fails_a_missing_config_with_exit_code_2()
     {
-        var missing = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "e2e.config.json");
+        var missing = Guid.NewGuid().ToString("N") + ".config.json";
         using var stdout = new StringWriter();
         using var stderr = new StringWriter();
 
         var code = await Program.RunAsync(["explore", "--config", missing], stdout, stderr, TextReader.Null, interactive: false, CancellationToken.None);
 
         Assert.Equal(2, code);
-        Assert.Contains("error CONFIG_NOT_FOUND: no config file at " + missing, stderr.ToString(), StringComparison.Ordinal);
+        Assert.Contains(
+            "error CONFIG_NOT_FOUND: config file not found: " + Path.GetFullPath(missing) + " (" + missing + " resolved against the working directory " + Directory.GetCurrentDirectory() + ")",
+            stderr.ToString(),
+            StringComparison.Ordinal);
     }
 
     [Fact]

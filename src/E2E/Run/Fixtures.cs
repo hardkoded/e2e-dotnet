@@ -58,8 +58,12 @@ public sealed class App
         _steps = steps;
     }
 
-    /// <summary>The target base URL relative URLs resolve against, or null when the test declares none.</summary>
-    public string? BaseUrl => _baseUrl;
+    /// <summary>
+    /// The resolved base URL of the target's app, with the port the run allocated when <c>app.url</c> declared port 0 and no trailing
+    /// slash, so <c>$"{BaseUrl}/api/users"</c> joins with one slash; null when the test declares none. <see cref="OpenAsync"/> still
+    /// resolves a relative URL against the base path.
+    /// </summary>
+    public string? BaseUrl => _baseUrl is null ? null : Urls.BaseUrlOf(_baseUrl);
 
     /// <summary>
     /// Opens a path or URL, resolved against the base URL. No URL opens the base URL itself.

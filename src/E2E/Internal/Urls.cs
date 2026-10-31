@@ -77,6 +77,9 @@ internal static partial class Urls
         return url;
     }
 
+    /// <summary>The base URL as a test reads it (upstream's <c>baseUrlOf</c>): <paramref name="href"/> without its trailing slash, so <c>$"{BaseUrl}/path"</c> joins with one slash.</summary>
+    public static string BaseUrlOf(string href) => href.EndsWith('/') ? href[..^1] : href;
+
     /// <summary>True when the URL was declared with port 0: the run picks a free port on its address and substitutes it.</summary>
     public static bool RequestsFreePort(NormalizedBaseUrl url) => new Uri(url.Href).Port == 0;
 
