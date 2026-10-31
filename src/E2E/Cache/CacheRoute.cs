@@ -55,6 +55,42 @@ internal static partial class CacheRoute
             : location;
     }
 
+    /// <summary>
+    /// A navigation as a recording keeps it: a URL on the app's origin without that origin, the rest as typed. Anything else
+    /// stays as given, and so does a URL with credentials or a rest that would not open the same URL.
+    /// </summary>
+    public static string AppNavigation(string url, string? appOrigin)
+    {
+        // The prefix is the scheme and authority as a URL parser reads them, which skips leading whitespace and any run of slashes.
+        var prefix = UrlOriginPrefix().Match(url);
+        if (appOrigin is null || !prefix.Success)
+        {
+            return url;
+        }
+
+        // .NET's parser rejects the extra slashes that the web's skips, so it parses the URL with them removed.
+        var rest = url[prefix.Length..];
+        var colon = prefix.Value.IndexOf(':', StringComparison.Ordinal);
+        var scheme = prefix.Value[..colon].TrimStart();
+        var authority = prefix.Value[(colon + 1)..].TrimStart('/', '\\');
+        if (!Uri.TryCreate($"{scheme}://{authority}{rest}", UriKind.Absolute, out var parsed)
+            || parsed.Scheme is not ("http" or "https")
+            || !string.Equals(parsed.GetLeftPart(UriPartial.Authority), appOrigin, StringComparison.Ordinal)
+            || parsed.UserInfo.Length > 0)
+        {
+            return url;
+        }
+
+        // A backslash or a line break reads differently in a web URL parser than in .NET's, so such a rest is kept whole.
+        if (rest.IndexOfAny(['\\', '\t', '\r', '\n']) >= 0)
+        {
+            return url;
+        }
+
+        var path = rest.StartsWith('/') ? rest : "/" + rest;
+        return Uri.TryCreate(new Uri(appOrigin), path, out var opened) && string.Equals(opened.AbsoluteUri, parsed.AbsoluteUri, StringComparison.Ordinal) ? path : url;
+    }
+
     /// <summary>Whether two locations name the same screen: one origin, and segments and query that read alike.</summary>
     public static bool Same(string? recorded, string? live) =>
         string.Equals(Identity(recorded), Identity(live), StringComparison.Ordinal);
@@ -129,6 +165,10 @@ internal static partial class CacheRoute
     private static string Decode(string raw) => Uri.UnescapeDataString(raw);
 
     private static string FormDecode(string raw) => Decode(raw.Replace('+', ' '));
+
+    // Scheme and authority as a URL parser skips them: leading whitespace and any run of slashes.
+    [GeneratedRegex(@"^\s*[a-z][a-z\d+.-]*:[/\\]*[^/?#\\]*", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex UrlOriginPrefix();
 
     [GeneratedRegex("^[A-Za-z][A-Za-z0-9+.-]*:")]
     private static partial Regex SchemePrefix();

@@ -143,6 +143,140 @@ public sealed class ReportFileTests : IDisposable
     }
 
     [Fact]
+    public void Exits_130_when_the_run_was_interrupted_whatever_the_results_say()
+    {
+        var failed = ReportBuilders.Result(attempts: [ReportBuilders.Attempt(AttemptStatus.Failed)]) with { Status = ResultStatus.Failed };
+
+        Assert.Equal((ReportRunStatus.Interrupted, 130), ReportFile.StatusOf([failed], interrupted: true));
+        Assert.Equal((ReportRunStatus.Interrupted, 130), ReportFile.StatusOf([], interrupted: true));
+        Assert.Equal((ReportRunStatus.Failed, 1), ReportFile.StatusOf([failed]));
+    }
+
+    [Fact]
+    public async Task Exits_130_when_a_retry_after_a_failure_was_interrupted_and_keeps_the_failed_verdict()
+    {
+        await using (var failing = await StartAsync("shop > pays", 1))
+        {
+            await failing.App.OpenAsync("/");
+            failing.Complete(new TestException("TEST_FAILED", "nope"));
+        }
+
+        await using (var retry = await StartAsync("shop > pays", 2))
+        {
+            await retry.App.OpenAsync("/");
+            retry.Complete(new OperationCanceledException(), new CancellationToken(canceled: true));
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("failed", (string)run["results"]![0]!["status"]!);
+        Assert.Equal("interrupted", (string)run["status"]!);
+        Assert.Equal(130, (int)run["exitCode"]!);
+    }
+
+    [Fact]
+    public async Task Keeps_a_failure_a_failure_when_the_runner_token_is_cancelled_too()
+    {
+        await using (var failed = await StartAsync("shop > pays", 1))
+        {
+            await failed.App.OpenAsync("/");
+            failed.Complete(new TestException("TEST_FAILED", "The test failed."), new CancellationToken(canceled: true));
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("failed", (string)run["results"]![0]!["status"]!);
+        Assert.Equal(1, (int)run["exitCode"]!);
+    }
+
+    [Fact]
+    public async Task Does_not_exit_130_for_a_cancellation_the_user_did_not_ask_for()
+    {
+        await using (var failing = await StartAsync("shop > pays", 1))
+        {
+            await failing.App.OpenAsync("/");
+            failing.Complete(new TestException("TEST_FAILED", "nope"));
+        }
+
+        await using (var retry = await StartAsync("shop > pays", 2))
+        {
+            await retry.App.OpenAsync("/");
+            retry.Complete(new OperationCanceledException("an HTTP call timed out"));
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("failed", (string)run["status"]!);
+        Assert.Equal(1, (int)run["exitCode"]!);
+    }
+
+    [Fact]
+    public async Task Clears_the_interrupt_flag_when_a_rerun_replaces_the_interrupted_result()
+    {
+        await using (var interrupted = await StartAsync("shop > pays", 1))
+        {
+            await interrupted.App.OpenAsync("/");
+            interrupted.Complete(new OperationCanceledException(), new CancellationToken(canceled: true));
+        }
+
+        Assert.Equal(130, (int)Read()["run"]!["exitCode"]!);
+
+        await using (var rerun = await StartAsync("shop > pays", 1))
+        {
+            await rerun.App.OpenAsync("/");
+            rerun.Complete();
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("passed", (string)run["status"]!);
+        Assert.Equal(0, (int)run["exitCode"]!);
+    }
+
+    [Fact]
+    public async Task Reads_a_cancellation_by_the_session_test_timeout_as_timed_out()
+    {
+        await using (var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = new ReportEngine(),
+            TestTitle = "shop > slow",
+            BaseUrl = "http://127.0.0.1:4100",
+            ProjectRoot = ProjectRoot(),
+            ResultsDirectory = Results,
+            CacheEnabled = false,
+            Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
+            TestTimeout = TimeSpan.FromMilliseconds(100),
+        }))
+        {
+            var token = session.Context.CancellationToken;
+            var timedOut = new TaskCompletionSource();
+            using var registration = token.Register(() => timedOut.TrySetResult());
+            await timedOut.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            session.Complete(new OperationCanceledException(token));
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("timed-out", (string)run["results"]![0]!["status"]!);
+        Assert.Equal(1, (int)run["exitCode"]!);
+    }
+
+    [Fact]
+    public async Task Does_not_exit_130_for_a_retry_that_timed_out()
+    {
+        await using (var failing = await StartAsync("shop > pays", 1))
+        {
+            await failing.App.OpenAsync("/");
+            failing.Complete(new TestException("TEST_FAILED", "nope"));
+        }
+
+        await using (var retry = await StartAsync("shop > pays", 2))
+        {
+            await retry.App.OpenAsync("/");
+            retry.Complete(new TestException("TEST_TIMEOUT", "too slow"));
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("timed-out", (string)run["results"]![0]!["status"]!);
+        Assert.Equal(1, (int)run["exitCode"]!);
+    }
+
+    [Fact]
     public void Ignores_a_cleanup_error_of_an_attempt_whose_cleanup_completed()
     {
         var cleanup = ReportBuilders.Error() with { Category = "infrastructure", Phase = "cleanup" };

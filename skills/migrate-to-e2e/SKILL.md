@@ -1,6 +1,6 @@
 ---
 name: migrate-to-e2e
-description: Moves an existing Playwright .NET, Selenium .NET, Appium, Cypress, Detox, or Maestro suite to the .NET port of e2e one slice at a time, with the old suite running beside the new one until each ported test is proven. Keeps a MIGRATION.md progress file so any later session resumes where the last stopped. Optionally plants a defect to show both suites catch it. Use for /migrate-to-e2e, "migrate our tests to e2e", "port these Playwright tests", or when a project has an e2e test project and an older suite still running.
+description: Moves an existing Playwright .NET, Selenium .NET, Appium, Cypress, Detox, Maestro, or TesterArmy suite to the .NET port of e2e one slice at a time, with the old suite running beside the new one until each ported test is proven. Keeps a MIGRATION.md progress file so any later session resumes where the last stopped. Optionally plants a defect to show both suites catch it. Use for /migrate-to-e2e, "migrate our tests to e2e", "port these Playwright tests", "move our TesterArmy tests", or when a project has an e2e test project and an older suite still running.
 disable-model-invocation: true
 ---
 
@@ -34,6 +34,7 @@ the inventory and before writing any code.
 | Selenium .NET | `Selenium.WebDriver` in a `.csproj` | `setup` (web) |
 | Playwright or Cypress (Node) | `playwright.config.*`, `cypress.config.*`, a `cypress/` folder | `setup` (web) |
 | Appium, Detox, Maestro | `Appium.WebDriver` in a `.csproj`, `.detoxrc*`, YAML flows opening with `appId:` and `---` | `mobile` |
+| TesterArmy | `testerarmy` MCP tools, a `testerarmy` entry in an MCP config, `testerarmy` or `tester.army` in a script or workflow, or the user says so | `setup` (web) or `mobile`, by the project's type |
 
 Also read `writing-tests-nunit` when the e2e project uses NUnit, or
 `writing-tests-xunit` when it uses xUnit v3. Follow the source project's
@@ -43,6 +44,32 @@ No guide maps a runner's API to e2e. Use the e2e skill's `writing-tests`
 topics and the locator table in `setup`, and tell the user the mapping is
 by hand. A project with two source runners migrates one at a time, one
 section of the progress file each.
+
+### TesterArmy
+
+TesterArmy tests live in TesterArmy, not in the repo. Read them through
+the TesterArmy MCP server (`https://tester.army/mcp`). When your client has
+no `testerarmy` tools, add it (`npx add-mcp --global --name testerarmy https://tester.army/mcp`,
+or `claude mcp add --transport http testerarmy https://tester.army/mcp` when
+Claude Code uses a custom `CLAUDE_CONFIG_DIR`), ask the user to sign in and
+restart the session, and wait.
+
+- Ask which project to migrate (`list_projects`). Its settings,
+  environments, credentials, memories, and files are the harness inputs
+  (step 3); its groups are the slices (step 4).
+- A source file is a saved test. Its row's Source is the test's title and
+  id, and its assertions are its `assert` steps. A disabled test counts as
+  skipped. A disabled step is left out and not counted.
+- Use the read tools only. `run_test` and `run_group` start cloud runs
+  against the deployed app: in step 6, call them only when the user agrees,
+  else record `Run old: not run`. Never create, update, or delete anything
+  in TesterArmy; retiring a test means the user disables or deletes it.
+- TesterArmy never returns passwords or TOTP secrets. Name each credential
+  in the test project's environment and ask the user to set its variable.
+- The literal port of a step is an agent call (`Agent.ActAsync`,
+  `Agent.AssertAsync`), so the project needs a model (step 3.2). A step that
+  needs no judgment ports to a locator call instead. Learn the exact name
+  first (step 5), and note each swap in the row's Notes.
 
 ## 1. Resume or start
 

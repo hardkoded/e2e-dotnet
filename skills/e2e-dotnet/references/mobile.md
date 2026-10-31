@@ -163,6 +163,7 @@ Limits of the preview: the tests attach to the running app, so `Device.InstallAp
 
 ## Known limits
 
+- Compose Multiplatform reports no placeholder on iOS: an empty field appends the text it draws to its label (`Name, Ada Lovelace`) over one `StaticText` child. For an empty (no value), editable, non-secure iOS field that reports no placeholder of its own, whose only child is a `StaticText` with no children, and whose label is a non-empty name, then `, `, then that child's text (`Name, Ada Lovelace`), that text is the field's `Placeholder`, the child is left out of the tree, and the name is the label before `, ` (a non-empty `ContentDescription` stays the name, and that label is then the `Text`). A field of any other shape keeps its label and children as reported. So `GetByPlaceholder("Ada Lovelace")` finds such a field and `GetByText("Ada Lovelace")` does not.
 - On iOS, a plain React Native `View` has no children in the tree, so `Filter(has: ...)` on it and queries scoped to it match nothing, while `Filter(hasNot: ...)` keeps every such row, including one you meant to exclude. Scope to the screen's `ScrollView` (`Device.Locator("role=scroll-area")`), or give the children test ids.
 - `Locator.PressAsync` takes `Enter`, `Space`, or one character, sent through the soft keyboard. A field that is not focused is tapped first, for `Enter` as for a character, so the keyboard is up. Other named keys and every modifier fail with `UNSUPPORTED_CAPABILITY`.
 - Android needs `adb` from the Android SDK Platform-Tools on `PATH`, locally and for the Limrun tunnel.

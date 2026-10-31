@@ -48,6 +48,36 @@ internal static class Sessions
 internal sealed record SavedSession(EngineState State, SavedSecrecy Secrecy);
 
 /// <summary>
+/// Collects the states saved by one setup attempt and owns the setup session contract (upstream's <c>SessionStaging</c>,
+/// <c>run/sessions.ts</c>): each declared name saved exactly once, nothing undeclared.
+/// </summary>
+internal sealed class SessionStaging(IReadOnlyList<string> declared)
+{
+    private readonly Dictionary<string, SavedSession> _staged = new(StringComparer.Ordinal);
+
+    /// <summary>Stages one captured state with the secret values of the session it came from, rejecting a duplicate or undeclared name.</summary>
+    public void Stage(string name, EngineState state, SavedSecrecy secrecy)
+    {
+        if (_staged.ContainsKey(name))
+        {
+            throw new TestException("SESSION_CONTRACT", $"session \"{name}\" saved twice");
+        }
+
+        if (!declared.Contains(name, StringComparer.Ordinal))
+        {
+            throw new TestException("SESSION_CONTRACT", $"session \"{name}\" was not declared by this setup test");
+        }
+
+        _staged.Add(name, new SavedSession(state, secrecy));
+    }
+
+    /// <summary>Declared names the attempt finished without saving.</summary>
+    public IReadOnlyList<string> Missing() => [.. declared.Where(name => !_staged.ContainsKey(name))];
+
+    public IEnumerable<KeyValuePair<string, SavedSession>> Entries() => _staged;
+}
+
+/// <summary>
 /// The per-run encrypted session store (upstream's <c>SessionStore</c>, <c>run/sessions.ts</c>). It holds the run's AES-256-GCM key in
 /// memory and owns the run's session directory. A session is one envelope file (<c>schema/session-v1.schema.json</c>): the identity, the
 /// expiry, and the secrecy in the clear, all authenticated, and the engine state with the learned secret values inside the ciphertext.

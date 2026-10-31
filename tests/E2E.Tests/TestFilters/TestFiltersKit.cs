@@ -51,7 +51,7 @@ internal static class TestFiltersKit
                     steps.Add(name);
                     return await work();
                 }
-                : (name, work) => step(name, work, steps),
+            : (name, work) => step(name, work, steps),
         };
         return (value, notices, steps);
     }

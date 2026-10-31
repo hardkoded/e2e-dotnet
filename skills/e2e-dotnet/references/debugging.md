@@ -179,7 +179,7 @@ jq '.run.results[] | select(.status != "passed") | .attempts[-1]
 
 `run.exitCode` is the worst exit code of the results: 1 for a failed test,
 or the category of an attempt error when that is worse (2 `configuration`, 3
-`infrastructure`, 4 `internal`), and 130 for an interruption. A test whose
+`infrastructure`, 4 `internal`), and 130 for an interruption, whatever the results say: a retry the run interrupted keeps its test `failed`, and the run exits 130. A test whose
 cleanup failed (an attempt with `cleanup: "failed"`, such as a required video
 that was not finalized or a session that did not close) adds the category of
 its `cleanup` secondary errors, usually 3, even when the test passed or
