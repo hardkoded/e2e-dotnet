@@ -373,8 +373,8 @@ function labelFor(uid) {
     if (ref?.name) return ref.name;
     const item = byUid.get(uid);
     if (item) return displayName(item);
-    const short = uid.replace(/\(.*$/, "").split(".").pop() || uid;
-    return short.replace(/`(\d+)/g, "<T>");
+    const short = decodeURIComponent(uid).replace(/\(.*$/, "").split(".").pop() || uid;
+    return short.replace(/`+(\d+)/g, "<T>");
 }
 
 function displayName(item) {

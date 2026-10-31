@@ -82,7 +82,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ExploreProgress.Started](/api/E2E/ExploreProgress.Started/) | The exploration begins: its test has started and the app is about to open. |
 | [ExploreProgress.StepFinished](/api/E2E/ExploreProgress.StepFinished/) |  |
 | [ExploreProgress.StepStarted](/api/E2E/ExploreProgress.StepStarted/) |  |
-| [ExtractOptions](/api/E2E/ExtractOptions/) | agent.extract: one extraction and one repair round. The type argument of ExtractAsync%60%601 is the schema. |
+| [ExtractOptions](/api/E2E/ExtractOptions/) | agent.extract: one extraction and one repair round. The type argument of ExtractAsync<T> is the schema. |
 | [FileStepCache](/api/E2E/FileStepCache/) | JSON files in a directory, one per cache key. Entries over 1 MiB are ignored. |
 | [FrameScreen](/api/E2E/FrameScreen/) | The screen scope FrameLocator(string) returns. Every Screen query answers from inside the frame, and the web-only escape hatches follow it in: Locator(string) for a CSS or XPath selector on a control with no accessible name, and FrameLocator(string) for a frame nested inside this one. Upstream's FrameScreen. |
 | [GoogleModel](/api/E2E/GoogleModel/) | Google Gemini API (Generative Language) client. Tool schemas go as parametersJsonSchema, so the agent's JSON Schemas need no conversion. Thought signatures Gemini attaches to a function call are sent back with it. |
@@ -108,7 +108,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [OpenAiResponsesModelOptions](/api/E2E/OpenAiResponsesModelOptions/) |  |
 | [OpenedStep](/api/E2E/OpenedStep/) | A step as opened: title and charter bounded to the report's ceilings, which is what the step runs with. |
 | [PollExpectation&lt;T&gt;](/api/E2E/PollExpectation-1/) | Re-reads a value until the chosen matcher holds or the timeout passes. A read that throws is retried, and its error is reported if the poll times out. A matcher that refuses the read value's type counts as not yet. With NUnit, ToMatchAsync from E2E.NUnit takes any NUnit constraint. |
-| [PollOptions](/api/E2E/PollOptions/) | How Poll%60%601 re-reads a value. |
+| [PollOptions](/api/E2E/PollOptions/) | How Poll<T> re-reads a value. |
 | [PreparedMessages](/api/E2E/PreparedMessages/) | What PrepareMessages hands back: the history for the next turn, and optionally a reason to stop. The executor has evidence the loop guards cannot see that the step is not progressing. A stop leaves the model only done, like a loop guard. |
 | [PreparedTurn](/api/E2E/PreparedTurn/) | What PrepareMessages learns about the turn that is about to run. |
 | [PressSequentiallyOptions](/api/E2E/PressSequentiallyOptions/) | Options for PressSequentiallyAsync. |
@@ -203,7 +203,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [RunStatus](/api/E2E/RunStatus/) | How a run ended. Upstream's RunStatus, with the values a single run in the port can have. |
 | [StepVerdictStatus](/api/E2E/StepVerdictStatus/) | Upstream's StepVerdict.status. |
 | [VisionDegradation](/api/E2E/VisionDegradation/) | Why a vision call fell back to tree-only input. Pixel evidence degrades rather than fails, except under Only, which fails with POLICYDENIED naming the reason. |
-| [VisionMode](/api/E2E/VisionMode/) | What evidence a judgment (AssertAsync, WaitForAsync, ExtractAsync%60%601) is given: the semantic tree, a masked screenshot of the current screen, or both. <p> Only exists because a tree sent beside pixels is a cheaper path to an answer, and a model takes it: asked whether a form is covered by an overlay, it can read from the tree that the form is present and named and answer yes, while the pixels show the overlay. For a judgment about what the screen presents, the tree is a distractor, so the mode that means it removes it. It also costs fewer input tokens than On. </p> <p> In every mode that sends pixels and the tree, pixel evidence degrades away rather than failing the call when it cannot be proven redacted. Only has nothing to degrade to, so it fails with POLICYDENIED instead of answering the wrong question from the tree. </p> <p> ActAsync takes no vision mode: the act model works from the tree. </p> |
+| [VisionMode](/api/E2E/VisionMode/) | What evidence a judgment (AssertAsync, WaitForAsync, ExtractAsync<T>) is given: the semantic tree, a masked screenshot of the current screen, or both. <p> Only exists because a tree sent beside pixels is a cheaper path to an answer, and a model takes it: asked whether a form is covered by an overlay, it can read from the tree that the form is present and named and answer yes, while the pixels show the overlay. For a judgment about what the screen presents, the tree is a distractor, so the mode that means it removes it. It also costs fewer input tokens than On. </p> <p> In every mode that sends pixels and the tree, pixel evidence degrades away rather than failing the call when it cannot be proven redacted. Only has nothing to degrade to, so it fails with POLICYDENIED instead of answering the wrong question from the tree. </p> <p> ActAsync takes no vision mode: the act model works from the tree. </p> |
 | [WaitForState](/api/E2E/WaitForState/) | The state WaitForAsync waits for. |
 
 ## Delegates
