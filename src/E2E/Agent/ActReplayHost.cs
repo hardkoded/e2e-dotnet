@@ -135,9 +135,10 @@ public sealed partial class Agent
         }
 
         // The node the replay found: a replay's targets are built from nodes, so an id alone names nothing here.
-        // The entry was expanded whole when it was read (CacheKeys.TryExpandTrace), so a text that fails here is a hand-off, not a crash.
+        // The entry was expanded whole when it was read (CacheKeys.TryExpandTrace), so a text that fails here is a failed action,
+        // which the replay hands off, not a crash.
         private string Expand(string value) =>
-            CacheKeys.Detemplate(value, parameters) ?? throw new AgentException("REPLAY_STALE", "A recorded placeholder has no value in this call's params.");
+            CacheKeys.Detemplate(value, parameters) ?? throw new AgentException("ACTION_FAILED","A recorded placeholder has no value in this call's params.");
 
         private static SemanticNode Resolve(ExecutorTarget target) =>
             target.Node ?? throw new InvalidOperationException("A replayed target holds the node it was found as.");

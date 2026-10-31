@@ -615,7 +615,7 @@ internal static partial class CacheKeys
         return texts.All(text => text is null || Detemplate(text, parameters) is not null);
     }
 
-    [GeneratedRegex(@"\{\{param:([^\n\r  ]*?)\}\}")]
+    [GeneratedRegex(@"\{\{param:([^\n\r\u2028\u2029]*?)\}\}")]
     private static partial Regex PlaceholderPattern();
 
     /// <summary>
