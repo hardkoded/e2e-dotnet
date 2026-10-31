@@ -270,7 +270,7 @@ internal static class MarkdownReport
     private static string Evidence(IReadOnlyList<ReportArtifact> artifacts, MarkdownReportOptions options)
     {
         // A video a hosted service keeps links to itself, wherever the run's files are.
-        var hosted = artifacts.Where(artifact => artifact.Url is not null).Select(artifact => Link(artifact.Kind, artifact.Url!)).ToList();
+        var hosted = artifacts.Where(artifact => artifact.Url is not null).Select(artifact => Uri.TryCreate(artifact.Url, UriKind.Absolute, out var url) && url.Scheme is "http" or "https" ? Link(artifact.Kind, artifact.Url!) : artifact.Kind).ToList();
         var local = artifacts.Where(artifact => artifact.Url is null).ToList();
         if (local.Count == 0)
         {

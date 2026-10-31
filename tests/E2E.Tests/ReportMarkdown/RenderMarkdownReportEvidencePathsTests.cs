@@ -28,6 +28,19 @@ public sealed class RenderMarkdownReportEvidencePathsTests
         Assert.Contains("\n\nEvidence: screenshot\n", named2);
     }
 
+    // .NET-only: upstream links any hosted URL; the port links only http and https (a URL from outside text).
+    [Fact]
+    public void NetOnly_Names_a_hosted_artifact_by_its_kind_when_its_URL_is_not_http_or_https()
+    {
+        var baseAttempt = Attempt(AttemptStatus.Failed, error: new ReportError("E", "m"), artifacts: ["screenshot"]);
+        var evidence = baseAttempt with { Artifacts = [.. baseAttempt.Artifacts, new ReportArtifact("attempt-1:artifact:1", "video", Url: "javascript:alert(1)")] };
+
+        var body = Render(Page(ReportRunStatus.Failed, [Named("t", ResultStatus.Failed, attempts: [evidence])]), new MarkdownReportOptions { ArtifactsUrl = "https://ci.test/run/1" });
+
+        Assert.Contains("\n\nEvidence: [screenshot](https://ci.test/run/1), video\n", body);
+        Assert.DoesNotContain("javascript:", body);
+    }
+
     [Fact]
     public void Links_a_video_a_hosted_service_keeps_to_its_own_URL()
     {

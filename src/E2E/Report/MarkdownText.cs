@@ -205,7 +205,7 @@ internal static class ReportFormat
     }
 }
 
-/// <summary>The counter a result status lands in (the return type of upstream's <c>statusBucket</c>).</summary>
+/// <summary>The counter a result status lands in. .NET-only: upstream's <c>statusBucket</c> returns an inline string union, which C# types as an enum.</summary>
 internal enum ResultBucket
 {
     Passed,
