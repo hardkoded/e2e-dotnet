@@ -163,6 +163,10 @@ Members of `E2ETest` in both frameworks:
 `FocusAsync`, `SetInputFilesAsync`, and `ScrollIntoViewAsync`. Each waits up to
 the action timeout for exactly one enabled, visible match.
 
+`ClickAsync` and `DblClickAsync` run the same action as `TapAsync` and
+`DoubleTapAsync` (the engine receives `Tap` and `DoubleTap`), but record their
+own step: `locator.click` and `locator.dblclick`, as in a report or trace.
+
 `TapAsync`, `DoubleTapAsync`, and `SecondaryTapAsync` take a `ClickOptions`
 whose `Modifiers` (`Shift`, `Control`, `Alt`, `Meta`, `ControlOrMeta`) are held
 for the click. Only the web engine takes them; any other engine fails with

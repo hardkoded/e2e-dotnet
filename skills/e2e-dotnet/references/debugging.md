@@ -103,7 +103,9 @@ no viewer. It tells, in this order:
    a step too, named for the call (`browser.goto` with the URL, `browser.route`
    with the pattern, `device.openLink` with the link before its query,
    `device.setNetwork` with `offline`), so a failure there points at the call,
-   and `browser.waitForURL` counts as a verification. Under a step:
+   and `browser.waitForURL` counts as a verification. `ClickAsync` and
+   `DblClickAsync` are `locator.click` and `locator.dblclick` steps, not
+   `locator.tap` and `locator.doubleTap`. Under a step:
    - for a locator action, the node it landed on (`tap button "Save" (12ms)`,
      or `✗` and its code), with `appeared after 340ms` when the node was not
      there at once;
