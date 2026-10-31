@@ -14,7 +14,7 @@ namespace E2E;
 internal static partial class ScreenshotAssertion
 {
     /// <summary>One call in one attempt.</summary>
-    private sealed class Run(Screen screen, ScreenshotContext store, string api, ScreenshotCall call, string file, string shown, Func<CancellationToken, Task<Capture>> capture)
+    private sealed class Run(Screen screen, ScreenshotContext store, string api, ScreenshotCall call, string file, string shown, Func<CancellationToken, Task<Capture>> capture, ReadWindow reads)
     {
         public Screen Screen { get; } = screen;
 
@@ -29,6 +29,9 @@ internal static partial class ScreenshotAssertion
         public string Shown { get; } = shown;
 
         public Func<CancellationToken, Task<Capture>> Capture { get; } = capture;
+
+        /// <summary>The reads of the call: the last capture may run past the deadline, up to the slowest so far.</summary>
+        public ReadWindow Reads { get; } = reads;
     }
 
     /// <summary>Runs one call as an assertion: of the whole screen when <paramref name="subject"/> is null, else of the one node it matches.</summary>
@@ -53,8 +56,9 @@ internal static partial class ScreenshotAssertion
         var token = screen.Token(cancellationToken);
         var deadline = new Deadline(call.Timeout ?? screen.AssertionTimeout, screen.Clock);
 
-        var capturer = new Capturer(screen, store, api, subject, call, deadline);
-        var run = new Run(screen, store, api, call, file, shown, capturer.CaptureAsync);
+        var reads = screen.Reads(deadline);
+        var capturer = new Capturer(screen, store, api, subject, call, reads);
+        var run = new Run(screen, store, api, call, file, shown, capturer.CaptureAsync, reads);
         var expected = System.IO.File.Exists(file) ? ReadStored(run) : null;
         if (expected is not null && (negated || !store.Update) && store.HasWritten(file))
         {
@@ -160,7 +164,7 @@ internal static partial class ScreenshotAssertion
             {
                 if (latest is null)
                 {
-                    return Failure(run, subject, missing ?? "no screenshot was taken", "no screenshot", cause);
+                    return Failure(run, subject, missing ?? (cause is null ? "no screenshot was taken" : "the last screenshot ran past the timeout"), "no screenshot", cause);
                 }
 
                 if (!settles && expected is not null && latestComparison is { } comparison and not ImageComparison.Match)
@@ -217,22 +221,23 @@ internal static partial class ScreenshotAssertion
             },
             cause => compared
                 ? Failure(run, subject, "the screen still matches " + run.Shown, "matching", cause)
-                : Failure(run, subject, missing ?? "no screenshot was taken", "no screenshot", cause),
+                : Failure(run, subject, missing ?? (cause is null ? "no screenshot was taken" : "the last screenshot ran past the timeout"), "no screenshot", cause),
             negated: true).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Polls the capture for a call (see <see cref="Time.PollConditionAsync"/>).
+    /// Polls the capture for a call (see <see cref="Time.PollReadsAsync"/>).
     /// <paramref name="evaluate"/> returns null when the condition cannot be evaluated yet.
     /// </summary>
     private static Task PollAsync(Run run, Deadline deadline, CancellationToken token, Func<Task<bool?>> evaluate, Func<Exception?, Exception> onTimeout, bool negated) =>
-        Time.PollConditionAsync(new PollConditionOptions
+        Time.PollReadsAsync(new PollReadsOptions
         {
             Deadline = deadline,
+            Reads = run.Reads,
             Clock = run.Screen.Clock,
             Token = token,
             Negated = negated,
-            Evaluate = evaluate,
+            Evaluate = _ => evaluate(),
             OnTimeout = onTimeout,
         });
 

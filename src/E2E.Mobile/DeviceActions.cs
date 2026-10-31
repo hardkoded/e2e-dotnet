@@ -123,7 +123,7 @@ public sealed class DeviceActions : IDeviceActions
                         await session.WaitForTransitionAsync(entry, token).ConfigureAwait(false);
                     }
 
-                    target = await session.RelocatedAsync(entry, token).ConfigureAwait(false);
+                    target = await session.RelocatedAsync(entry, input, token).ConfigureAwait(false);
                     if (!target.TakesText)
                     {
                         throw RefuseFill(action, target);
@@ -131,7 +131,7 @@ public sealed class DeviceActions : IDeviceActions
                 }
                 else
                 {
-                    target = session.Origin == ActionOrigin.Test ? await session.SettledAsync(entry, token).ConfigureAwait(false) : entry;
+                    target = session.Origin == ActionOrigin.Test ? await session.SettledAsync(entry, input, token).ConfigureAwait(false) : entry;
                 }
 
                 await RunAsync(session, client, target, action, settle, input, token).ConfigureAwait(false);
@@ -384,7 +384,7 @@ public sealed class DeviceActions : IDeviceActions
             async (client, token) =>
             {
                 var settle = session.ActionSettle();
-                var target = session.Origin == ActionOrigin.Test ? await session.SettledAsync(entry, token).ConfigureAwait(false) : entry;
+                var target = session.Origin == ActionOrigin.Test ? await session.SettledAsync(entry, input, token).ConfigureAwait(false) : entry;
                 await run(client, target, settle, input, token).ConfigureAwait(false);
             },
             cancellationToken).ConfigureAwait(false);

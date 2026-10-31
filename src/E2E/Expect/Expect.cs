@@ -371,7 +371,7 @@ public sealed class LocatorExpect
 
     /// <summary>
     /// Polls until the condition holds, or, negated, until it has been false for the negation grace in a row
-    /// (see <see cref="Time.PollConditionAsync"/>). A sample that cannot answer resets the negation clock:
+    /// (see <see cref="Time.PollReadsAsync"/>). A sample that cannot answer resets the negation clock:
     /// <c>not.toBeChecked</c> on no node is not a pass.
     /// </summary>
     private Task PollAsync(
@@ -411,16 +411,17 @@ public sealed class LocatorExpect
         try
         {
             var deadline = new Deadline(timeout ?? _locator.Screen.AssertionTimeout, clock);
-            await samples.RecordAsync(_locator.Screen.Steps, token, () => Time.PollConditionAsync(new PollConditionOptions
+            await samples.RecordAsync(_locator.Screen.Steps, token, () => Time.PollReadsAsync(new PollReadsOptions
             {
                 Deadline = deadline,
+                Reads = _locator.Screen.Reads(deadline),
                 Clock = clock,
                 Token = token,
                 Negated = _negated,
                 Interval = _locator.Screen.PollInterval,
-                Evaluate = async () =>
+                Evaluate = async reads =>
                 {
-                    var matches = await _locator.ResolveAsync(token, includeHidden, deadline, missingFrame).ConfigureAwait(false);
+                    var matches = await _locator.ResolveAsync(token, includeHidden, reads, missingFrame).ConfigureAwait(false);
                     last = evaluate(matches);
                     lastMatches = matches;
                     samples.Add(last.Observed + " (" + Number(matches.Count) + (matches.Count == 1 ? " match)" : " matches)"));

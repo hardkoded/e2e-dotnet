@@ -147,9 +147,11 @@ public sealed class E2ESession : IAsyncDisposable
         var recording = ExecuteVideo.Plan(options);
 
         var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        Deadline? budgetDeadline = null;
         if (options.TestTimeout > TimeSpan.Zero && options.TestTimeout != Timeout.InfiniteTimeSpan)
         {
             timeout.CancelAfter(options.TestTimeout);
+            budgetDeadline = new Deadline(options.TestTimeout, TimeProvider.System);
         }
 
         var debug = new DebugTrace(options.Debug);
@@ -298,6 +300,7 @@ public sealed class E2ESession : IAsyncDisposable
             (engine as IEngineFixtureHost)?.CreateFixtures(fixtureContext);
             screen.Steps = scope.Steps;
             screen.Capabilities = options.Engine.Capabilities;
+            screen.BudgetDeadline = budgetDeadline;
             screen.ProjectRoot = projectRoot;
             screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });
             screen.Redact = text => scope.Redactor.Redact(text);

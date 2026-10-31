@@ -19,32 +19,43 @@ internal static partial class ScreenshotAssertion
     /// Captures for one call: the engine's viewport at one image pixel per viewport pixel, so a screenshot is the
     /// same size on every device density, cut to the subject's box when there is one, the masks painted over. The
     /// subject is scrolled into view once, the first time it is found; a subject that is not there yet is a capture
-    /// still missing, so the call's poll keeps waiting and fails as an assertion. So is a capture the deadline cut short.
+    /// still missing, so the call's poll keeps waiting and fails as an assertion. A capture the deadline cut short throws,
+    /// and the poll judges it as it judges any read it cut off.
     /// </summary>
-    private sealed class Capturer(Screen screen, ScreenshotContext store, string api, Locator? subject, ScreenshotCall call, Deadline deadline)
+    private sealed class Capturer(Screen screen, ScreenshotContext store, string api, Locator? subject, ScreenshotCall call, ReadWindow reads)
     {
         private bool _scrolled = !store.ScrollsIntoView;
 
-        public async Task<Capture> CaptureAsync(CancellationToken cancellationToken)
-        {
-            var remaining = deadline.Remaining(screen.Clock.GetUtcNow());
-            using var bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            bounded.CancelAfter(remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero);
-            try
+        public Task<Capture> CaptureAsync(CancellationToken cancellationToken) => CaptureOnceAsync(cancellationToken);
+
+        /// <summary>
+        /// One engine read on the window's budget. The port's observe and capture take no budget, so the read ends with it: the token
+        /// cancels at the budget, and a read that ends on that is the engine's <c>OPERATION_TIMEOUT</c>, reported as <c>ACTION_FAILED</c>.
+        /// </summary>
+        private Task<T> ReadAsync<T>(Func<CancellationToken, Task<T>> read, CancellationToken cancellationToken) =>
+            reads.ReadAsync(async budget =>
             {
-                return await CaptureOnceAsync(bounded.Token).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (!cancellationToken.IsCancellationRequested && (bounded.IsCancellationRequested || deadline.Expired(screen.Clock.GetUtcNow()))
-                && (ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.OperationTimeout or EngineErrorCodes.Cancelled } || ex.InnerException is OperationCanceledException))
-            {
-                return new Capture(null, "the last screenshot ran past the timeout");
-            }
-        }
+                using var bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                bounded.CancelAfter(budget);
+                try
+                {
+                    return await read(bounded.Token).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (bounded.IsCancellationRequested && !cancellationToken.IsCancellationRequested
+                    && (ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.OperationTimeout or EngineErrorCodes.Cancelled } || ex.InnerException is OperationCanceledException))
+                {
+                    throw LocatorResolver.TranslateLocatorError(new EngineException(EngineErrorCodes.OperationTimeout, "the screenshot outlived its budget", retryable: false, ex));
+                }
+                catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
+                {
+                    throw LocatorResolver.TranslateLocatorError(ex);
+                }
+            });
 
         private async Task<Capture> CaptureOnceAsync(CancellationToken cancellationToken)
         {
             var shown = Subject(subject);
-            var observation = await screen.ObserveAsync(cancellationToken).ConfigureAwait(false);
+            var observation = await ReadAsync(screen.ObserveAsync, cancellationToken).ConfigureAwait(false);
             BoundingBox? box = null;
             if (subject is not null)
             {
@@ -60,7 +71,7 @@ internal static partial class ScreenshotAssertion
                     }
 
                     _scrolled = true;
-                    observation = await screen.ObserveAsync(cancellationToken).ConfigureAwait(false);
+                    observation = await ReadAsync(screen.ObserveAsync, cancellationToken).ConfigureAwait(false);
                     node = OneNode(observation);
                 }
 
@@ -77,7 +88,7 @@ internal static partial class ScreenshotAssertion
                 box = node.Rect;
             }
 
-            var shot = await store.Capture(cancellationToken).ConfigureAwait(false);
+            var shot = await ReadAsync(store.Capture, cancellationToken).ConfigureAwait(false);
 
             // Upstream's pixelsProvenMasked: the engine masked at least as many regions as the tree lists secure nodes, or the image is not kept.
             if (shot.MaskedRegionCount is not { } masked || masked < LocatorResolver.Walk(observation.Roots).Count(node => node.States.Secure))

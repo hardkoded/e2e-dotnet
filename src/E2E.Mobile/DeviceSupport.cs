@@ -137,9 +137,9 @@ public static partial class DeviceSupport
 }
 
 /// <summary>
-/// One input operation's budget (<c>actionTimeout</c>), which the harness's token does not enforce. Only the device
-/// commands that send input run under it; reads stay unbounded, so a locator poll keeps its last snapshot and a target
-/// settling before a tap is relocated in full. Upstream's <c>InputBudget</c> in <c>support.ts</c>.
+/// One operation's budget, which the harness's token does not enforce: an input's <c>actionTimeout</c>, or the <c>timeout</c> a
+/// locate gets. Every device command the operation sends runs under it: the inputs through <see cref="SendAsync{T}"/>, the
+/// snapshots through <see cref="ReadAsync{T}"/>. Upstream's <c>InputBudget</c> in <c>support.ts</c>.
 /// </summary>
 /// <remarks>
 /// <paramref name="track"/> keeps the device command itself in flight, past a timeout that abandons it, until it settles. The
@@ -166,10 +166,10 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
     public async Task<T> SendAsync<T>(Func<Task<T>> dispatch, CancellationToken cancellationToken, TimeSpan? hold = null)
     {
         ArgumentNullException.ThrowIfNull(dispatch);
-        var remaining = timeout - _time.GetElapsedTime(_startedAt);
+        var remaining = Remaining;
         if (remaining <= TimeSpan.Zero)
         {
-            throw _sent ? MaybeCommitted() : new EngineException(EngineErrorCodes.OperationTimeout, $"{label} timed out before it was sent", retryable: false);
+            throw Spent();
         }
 
         if (hold is { } held && held >= remaining)
@@ -201,6 +201,46 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
             throw;
         }
     }
+
+    /// <summary>The budget left, zero or less once it is spent. Upstream's <c>remainingMs</c>.</summary>
+    public TimeSpan Remaining => timeout - _time.GetElapsedTime(_startedAt);
+
+    /// <summary>
+    /// Runs one device read with what is left of the budget. With none left it reads nothing. A read that does not answer in time is
+    /// <c>OPERATION_TIMEOUT</c>, or <c>ACTION_MAY_HAVE_COMMITTED</c> once an input of this operation went out, so the runner never
+    /// repeats that input. Upstream's <c>read</c>.
+    /// </summary>
+    public async Task<T> ReadAsync<T>(Func<Task<T>> dispatch, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(dispatch);
+        var remaining = Remaining;
+        if (remaining <= TimeSpan.Zero)
+        {
+            throw Spent();
+        }
+
+        var pending = dispatch();
+        track(pending);
+        try
+        {
+            return await pending.WaitAsync(remaining, _time, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (!pending.IsCompleted && ex is TimeoutException or OperationCanceledException)
+        {
+            // The abandoned command may still fail later; nothing is left to read it.
+            _ = pending.ContinueWith(static abandoned => abandoned.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+            if (ex is TimeoutException)
+            {
+                throw _sent ? MaybeCommitted() : new EngineException(EngineErrorCodes.OperationTimeout, $"{label} timed out before the device answered", retryable: false);
+            }
+
+            throw;
+        }
+    }
+
+    /// <summary>The failure of a command the spent budget did not send.</summary>
+    private EngineException Spent() =>
+        _sent ? MaybeCommitted() : new EngineException(EngineErrorCodes.OperationTimeout, $"{label} timed out before it was sent", retryable: false);
 
     private EngineException MaybeCommitted() =>
         new(EngineErrorCodes.ActionMayHaveCommitted, $"{label} timed out before the device answered; its input may have been dispatched", retryable: false);

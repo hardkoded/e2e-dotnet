@@ -59,6 +59,35 @@ public sealed class SupportHelpersTests
     }
 
     [Fact]
+    public async Task Runs_a_read_with_what_is_left_of_its_budget_and_reports_one_cut_off_after_an_input_as_possibly_committed()
+    {
+        var time = new FakeTimeProvider();
+        var hung = () => new TaskCompletionSource<string>().Task;
+        Assert.Equal("tree", await new InputBudget("snapshot", TimeSpan.FromMilliseconds(300), static _ => { }, time).ReadAsync(() => Task.FromResult("tree"), CancellationToken.None));
+
+        var cut = Assert.ThrowsAsync<EngineException>(() => new InputBudget("snapshot", TimeSpan.FromMilliseconds(200), static _ => { }, time).ReadAsync(hung, CancellationToken.None));
+        time.Advance(TimeSpan.FromMilliseconds(200));
+        var timedOut = await cut;
+        Assert.Equal("OPERATION_TIMEOUT", timedOut.Code);
+        Assert.Equal("snapshot timed out before the device answered", timedOut.Message);
+
+        var spent = new InputBudget("snapshot", TimeSpan.FromMilliseconds(100), static _ => { }, time);
+        time.Advance(TimeSpan.FromMilliseconds(100));
+        var late = await Assert.ThrowsAsync<EngineException>(() => spent.ReadAsync(() => Task.FromResult("late"), CancellationToken.None));
+        Assert.Equal("OPERATION_TIMEOUT", late.Code);
+        Assert.Equal("snapshot timed out before it was sent", late.Message);
+
+        // After a swipe went out, a read that does not answer must not let a replay send the swipe again.
+        var dismissal = new InputBudget("keyboard dismiss", TimeSpan.FromMilliseconds(300), static _ => { }, time);
+        await dismissal.SendAsync(() => Task.FromResult(0), CancellationToken.None);
+        var after = Assert.ThrowsAsync<EngineException>(() => dismissal.ReadAsync(hung, CancellationToken.None));
+        time.Advance(TimeSpan.FromMilliseconds(300));
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", (await after).Code);
+        var again = await Assert.ThrowsAsync<EngineException>(() => dismissal.ReadAsync(() => Task.FromResult("late"), CancellationToken.None));
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", again.Code);
+    }
+
+    [Fact]
     public void Reports_the_app_and_the_screen_title_as_a_location_that_is_not_a_URL()
     {
         Assert.Equal("com.apple.Preferences / General", DeviceSupport.ScreenLocation("com.apple.Preferences", "General"));

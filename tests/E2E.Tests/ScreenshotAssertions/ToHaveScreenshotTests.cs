@@ -11,7 +11,8 @@ namespace E2E.Tests.ScreenshotAssertions;
 /// <c>ToHaveScreenshotAsync</c> through a session over a fake engine, so what is tested is the engine-neutral
 /// path: pixels from the engine, scaled to the viewport, cut to a locator's box, masked, compared against the
 /// PNG stored beside the test file, and rewritten under update. Ported from upstream's
-/// <c>screenshot-assertions.test.ts</c>. Not ported: "reports the mismatch
+/// <c>screenshot-assertions.test.ts</c>. The port polls every 100 ms like upstream, so the timings of the two capture-timeout tests are
+/// upstream's. Not ported: "reports the mismatch
 /// it saw when a later capture comes back without pixels" (an engine returns a PNG or fails), "refuses a screen
 /// scoped to a frame" (the port has no <c>browser.frameLocator</c>), and the unknown-option case of the
 /// invalid-argument table (the type forbids it). The first test is renamed because the port has no
@@ -241,7 +242,40 @@ public sealed class ToHaveScreenshotTests
     }
 
     [Fact]
-    public async Task Reports_the_mismatch_it_saw_when_a_later_capture_runs_past_the_deadline_and_times_out()
+    public async Task Reports_the_mismatch_it_saw_when_the_deadline_cuts_off_a_later_capture_and_a_capture_that_hung_as_a_timeout()
+    {
+        var engine = new ScreenEngine();
+        using var project = new ScreenProject(engine);
+        await project.RunAsync("home", "home", Home);
+        var captures = 0;
+        var hangsAt = 3;
+        engine.Current = () => ScreenEngine.Shot(ScreenEngine.White, ScreenEngine.Red);
+        engine.BeforeCapture = async () =>
+        {
+            if (++captures != hangsAt)
+            {
+                await Task.Delay(300);
+                return;
+            }
+
+            await Task.Delay(1200);
+            throw new EngineException(EngineErrorCodes.OperationTimeout, "the screenshot outlived its budget");
+        };
+        var error = await project.RunAsync("home", "home", Home);
+        Assert.Equal("ASSERTION_FAILED", error?.Code);
+        Assert.Contains(ButtonPixels + " pixels", error!.Message, StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(project.ResultsOf("home"), "screenshots", "home-diff.png")));
+
+        // The second capture starts with most of the budget left and never answers: that is a hang, not the deadline.
+        captures = 0;
+        hangsAt = 2;
+        var hung = await project.RunAsync("home", "home", Home);
+        Assert.Equal("ACTION_FAILED", hung?.Code);
+        Assert.Contains("timed out", hung!.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Passes_a_not_whose_screen_differed_long_enough_when_its_last_capture_runs_past_the_deadline()
     {
         var engine = new ScreenEngine();
         using var project = new ScreenProject(engine);
@@ -250,19 +284,19 @@ public sealed class ToHaveScreenshotTests
         engine.Current = () => ScreenEngine.Shot(ScreenEngine.White, ScreenEngine.Red);
         engine.BeforeCapture = async () =>
         {
-            if (++captures != 2)
+            captures++;
+            await Task.Delay(300);
+            if (captures < 3)
             {
                 return;
             }
 
-            // The second capture starts inside the 1 s budget and ends past it, as a slow engine's does.
-            await Task.Delay(1200);
+            await Task.Delay(300);
             throw new EngineException(EngineErrorCodes.OperationTimeout, "the screenshot outlived its budget");
         };
-        var error = await project.RunAsync("home", "home", Home);
-        Assert.Equal("ASSERTION_FAILED", error?.Code);
-        Assert.Contains(ButtonPixels + " pixels", error!.Message, StringComparison.Ordinal);
-        Assert.True(File.Exists(Path.Combine(project.ResultsOf("home"), "screenshots", "home-diff.png")));
+        var error = await project.RunAsync("home", "home", screen => Expect.That(screen).Not.ToHaveScreenshotAsync("home.png", Quick));
+        Assert.Null(error);
+        Assert.Equal(3, captures);
     }
 
     [Fact]
