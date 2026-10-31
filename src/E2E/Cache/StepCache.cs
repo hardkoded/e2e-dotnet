@@ -405,7 +405,7 @@ internal static partial class CacheKeys
     /// Version of the rules that decide whether a recording replays. Bump it when those
     /// rules change, so old entries become misses instead of wrong replays.
     /// </summary>
-    public const string ReplayPolicyVersion = "4";
+    public const string ReplayPolicyVersion = "5";
 
     /// <summary>
     /// Upstream's <c>MAIN_LIST_SHARE</c> (<c>cache/relocate.ts</c>): the share of the viewport a scrolled node must have covered when
@@ -487,13 +487,14 @@ internal static partial class CacheKeys
             {
                 var text = ((UniqueValue)pair.Value!).Value;
                 var seen = new HashSet<string>(StringComparer.Ordinal) { text };
-                var found = new List<(string Text, string Slot)> { (text, "\u0001" + pair.Key + "\u0001") };
-                foreach (var (suffix, encode) in Encodings)
+                var pointer = ParamPointer("", pair.Key);
+                var found = new List<(string Text, string Slot)> { (text, Placeholder(pointer, null)) };
+                foreach (var (name, encode) in Encodings)
                 {
                     var spelled = encode(text);
                     if (!string.IsNullOrEmpty(spelled) && seen.Add(spelled))
                     {
-                        found.Add((spelled, "\u0001" + pair.Key + suffix + "\u0001"));
+                        found.Add((spelled, Placeholder(pointer, name)));
                     }
                 }
 
@@ -535,46 +536,87 @@ internal static partial class CacheKeys
         return string.Concat(segments.Select(segment => segment.Text));
     }
 
-    public static string Detemplate(string value, IReadOnlyDictionary<string, object?>? parameters)
-    {
-        if (parameters is null)
-        {
-            return value;
-        }
+    /// <summary>
+    /// Upstream's <c>paramPointer</c>: extends a JSON Pointer (RFC 6901) by one key; <c>~</c> and <c>/</c> in a key become <c>~0</c> and
+    /// <c>~1</c>. The port's params are a flat map, so a <c>unique()</c> value's pointer is its escaped name after one slash.
+    /// </summary>
+    public static string ParamPointer(string parent, string key) =>
+        parent + "/" + key.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
 
-        // Upstream's expandText fills every placeholder in one regex pass, so an expanded value is never read again: a value that
-        // spells another slot stays the text it is. A unique value cannot hold the slot marker, so the pass cannot start inside one.
-        var fills = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var pair in parameters)
+    /// <summary>Upstream's <c>PLACEHOLDER_PREFIX</c>: what every placeholder opens with, so a text that already spells one is told apart.</summary>
+    public const string PlaceholderPrefix = "{{param:";
+
+    private static string Placeholder(string pointer, string? encoding) => PlaceholderPrefix + pointer + (encoding is null ? "" : "|" + encoding) + "}}";
+
+    /// <summary>
+    /// Fills a recorded text from this call's params (pointer to value), or returns <see langword="null"/> as
+    /// <see cref="ExpandText"/> does: a placeholder that names a param the call did not mark makes the entry a miss.
+    /// </summary>
+    public static string? Detemplate(string value, IReadOnlyDictionary<string, object?>? parameters)
+    {
+        var values = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var pair in parameters ?? new Dictionary<string, object?>())
         {
             if (pair.Value is UniqueValue unique)
             {
-                foreach (var (suffix, encode) in Encodings)
-                {
-                    // A value with no such spelling (an unpaired surrogate has no uri spelling) leaves the slot as recorded.
-                    if (encode(unique.Value) is { } spelled)
-                    {
-                        fills[pair.Key + suffix] = spelled;
-                    }
-                }
-
-                fills[pair.Key] = unique.Value;
+                values[ParamPointer("", pair.Key)] = unique.Value;
             }
         }
 
-        return Placeholder().Replace(value, match => fills.TryGetValue(match.Groups[1].Value, out var filled) ? filled : match.Value);
+        return ExpandText(value, values);
     }
 
-    [GeneratedRegex(@"\u0001([^\u0001]*)\u0001")]
-    private static partial Regex Placeholder();
+    /// <summary>
+    /// Upstream's <c>expandText</c>: fills every placeholder in one regex pass from <paramref name="values"/> (pointer to value), in the
+    /// encoding the placeholder names, so an expanded value is never read again. Returns <see langword="null"/> (a miss) when one names
+    /// a parameter the call did not mark or an encoding this codec does not know, or when the encoding cannot spell the value (an
+    /// unpaired surrogate has no <c>uri</c> spelling).
+    /// </summary>
+    public static string? ExpandText(string text, IReadOnlyDictionary<string, string> values)
+    {
+        var missing = false;
+        var expanded = PlaceholderPattern().Replace(text, match =>
+        {
+            // Upstream's parsePlaceholder: the encoding follows the last bar; an unknown one makes the placeholder unusable.
+            var inner = match.Groups[1].Value;
+            var bar = inner.LastIndexOf('|');
+            var pointer = bar == -1 ? inner : inner[..bar];
+            Func<string, string?>? encode = null;
+            if (bar != -1)
+            {
+                var name = inner[(bar + 1)..];
+                encode = Encodings.FirstOrDefault(encoding => string.Equals(encoding.Name, name, StringComparison.Ordinal)).Encode;
+                if (encode is null)
+                {
+                    missing = true;
+                    return "";
+                }
+            }
 
-    private const string UriSuffix = "|uri";
+            if (!values.TryGetValue(pointer, out var value) || (encode is null ? value : encode(value)) is not { } filled)
+            {
+                missing = true;
+                return "";
+            }
 
-    private const string FormSuffix = "|form";
+            return filled;
+        });
+        return missing ? null : expanded;
+    }
 
-    private const string SlugSuffix = "|slug";
+    /// <summary>
+    /// Upstream's <c>expandTrace</c>, as a check: whether every templated text of the entry (the typed value, the navigated URL, the
+    /// scroll text, the start and end routes) fills from this call's params. The entry stays as recorded, with its placeholders, because
+    /// a replay that passes keeps it for the next run; the port expands each text as the replay reaches it.
+    /// </summary>
+    public static bool TryExpandTrace(CacheEntry entry, IReadOnlyDictionary<string, object?>? parameters)
+    {
+        IEnumerable<string?> texts = [entry.Route, entry.EndRoute, .. entry.Actions.SelectMany(action => new[] { action.Value, action.Url, action.Text })];
+        return texts.All(text => text is null || Detemplate(text, parameters) is not null);
+    }
 
-    private const string FlatSuffix = "|flat";
+    [GeneratedRegex(@"\{\{param:([^\n\r\u2028\u2029]*?)\}\}")]
+    private static partial Regex PlaceholderPattern();
 
     /// <summary>
     /// Upstream's <c>ENCODERS</c>: the other spellings a value takes in recorded text, in upstream's order. <c>uri</c> is
@@ -582,12 +624,12 @@ internal static partial class CacheKeys
     /// record's path, and <c>flat</c> is <c>normalizeText</c>, the way the screen and the end anchors show a multi-line value. An
     /// encoder returns <see langword="null"/> when the value has no such spelling.
     /// </summary>
-    private static readonly (string Suffix, Func<string, string?> Encode)[] Encodings =
+    private static readonly (string Name, Func<string, string?> Encode)[] Encodings =
     [
-        (UriSuffix, UriEncode),
-        (FormSuffix, FormEncode),
-        (SlugSuffix, SlugEncode),
-        (FlatSuffix, TextRules.Normalize),
+        ("uri", UriEncode),
+        ("form", FormEncode),
+        ("slug", SlugEncode),
+        ("flat", TextRules.Normalize),
     ];
 
     /// <summary>

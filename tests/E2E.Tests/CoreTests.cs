@@ -882,7 +882,7 @@ public sealed class CoreTests
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    [InlineData("a\u0001b")]
+    [InlineData("a{{param:/b}}")]
     public void Unique_rejects_empty_and_marker_values(string value)
     {
         Assert.Equal("INVALID_ARGUMENT", Assert.Throws<TestException>(() => Values.Unique(value)).Code);

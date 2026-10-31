@@ -76,10 +76,10 @@ public sealed class UniqueValue
             throw new TestException("INVALID_ARGUMENT", "Values.Unique takes a non-empty string.");
         }
 
-        // The replay cache records a unique value as a slot between U+0001 marks.
-        if (value.Contains('\u0001', StringComparison.Ordinal))
+        // The replay cache records a unique value as a {{param:<pointer>}} placeholder; a value that spells one could not be told from it.
+        if (value.Contains(CacheKeys.PlaceholderPrefix, StringComparison.Ordinal))
         {
-            throw new TestException("INVALID_ARGUMENT", "A Values.Unique value cannot contain the slot marker U+0001.");
+            throw new TestException("INVALID_ARGUMENT", "A Values.Unique value cannot spell a placeholder (" + CacheKeys.PlaceholderPrefix + ").");
         }
 
         Value = value;
