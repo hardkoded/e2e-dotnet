@@ -341,7 +341,7 @@ public sealed class StepCachePipelineTests
     /// fills it from the next call": the end anchor that names the value is recorded as the slot, and the next call fills it.
     /// </summary>
     [Fact]
-    public async Task Records_an_end_anchor_that_names_a_unique_value_as_its_slot_and_fills_it_from_the_next_call_through_the_pipeline()
+    public async Task Partial_Records_an_end_anchor_that_names_a_unique_value_as_its_slot_and_fills_it_from_the_next_call_through_the_pipeline()
     {
         static DocumentWorld World(string name) => new DocumentWorld().Map("/storage", page =>
         {
