@@ -15,6 +15,21 @@ internal static class Ids
     /// <summary>SHA-256 of a UTF-8 string, lowercase hex.</summary>
     public static string Sha256Hex(string input) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(input)));
 
+    /// <summary>
+    /// Result ID: SHA-256/JCS of <c>{ testId, targetId, agent }</c>, with <c>repeat</c> added for a run past the first under
+    /// <c>--repeat-each</c>; a test run as several agents has one per agent, and one per repeat (upstream's <c>resultId</c>).
+    /// </summary>
+    public static string ResultId(string test, string targetId, string agent, int repeat = 0)
+    {
+        var value = new JsonObject { ["testId"] = test, ["targetId"] = targetId, ["agent"] = agent };
+        if (repeat != 0)
+        {
+            value["repeat"] = repeat;
+        }
+
+        return CanonicalDigest(value);
+    }
+
     /// <summary>RFC 3339 UTC timestamp with exactly millisecond precision (upstream's <c>timestamp</c>, <c>toISOString</c>).</summary>
     public static string Timestamp(DateTimeOffset date) => date.UtcDateTime.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'", CultureInfo.InvariantCulture);
 
