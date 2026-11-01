@@ -52,7 +52,8 @@ internal static class HostTestFilters
         ArgumentNullException.ThrowIfNull(discovered);
         ArgumentNullException.ThrowIfNull(notice);
         var resolved = Resolve(config, filters);
-        var files = SourceFiles(config.ProjectRoot);
+        // With no filter nothing judges a file, so the tree is not walked.
+        var files = filters.Count == 0 ? [] : SourceFiles(config.ProjectRoot);
         var collection = Collect(discovered, files, out var keys);
         var selectionFilters = new SelectionFilters();
         var first = Selector.Select(collection, resolved, selectionFilters, passWithNoTests: true);
