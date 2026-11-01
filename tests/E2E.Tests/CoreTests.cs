@@ -242,7 +242,7 @@ public sealed class CoreTests
                 }
 
                 actCalls++;
-                if (text.Contains("tapped", StringComparison.Ordinal))
+                if (text.Contains("Tapped", StringComparison.Ordinal))
                 {
                     return ModelResponses.Done("passed", "Upgraded to Pro.");
                 }
@@ -281,12 +281,12 @@ public sealed class CoreTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            if (text.Contains("pressed Enter", StringComparison.Ordinal))
+            if (text.Contains("Pressed Enter", StringComparison.Ordinal))
             {
                 return ModelResponses.Done("passed", "Added.");
             }
 
-            return text.Contains("filled", StringComparison.Ordinal)
+            return text.Contains("Typed into", StringComparison.Ordinal)
                 ? ModelResponses.Call("press", new { key = "Enter" })
                 : ModelResponses.Fill("textbox", "New todo", "Buy milk");
         });
@@ -318,7 +318,7 @@ public sealed class CoreTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return text.Contains("pressed Enter", StringComparison.Ordinal)
+            return text.Contains("Pressed Enter", StringComparison.Ordinal)
                 ? ModelResponses.Done("passed", "Saved.")
                 : ModelResponses.Call("press", new { key = "Enter", testId = "save" });
         });
@@ -349,7 +349,7 @@ public sealed class CoreTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return text.Contains("tapped", StringComparison.Ordinal)
+            return text.Contains("Tapped", StringComparison.Ordinal)
                 ? ModelResponses.Done("passed", "Added.")
                 : ModelResponses.Tap("button", "Add two");
         });
@@ -386,7 +386,7 @@ public sealed class CoreTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return text.Contains("double-tapped", StringComparison.Ordinal)
+            return text.Contains("Double-tapped", StringComparison.Ordinal)
                 ? ModelResponses.Done("passed", "Editing.")
                 : ModelResponses.Call("double_tap", new { role = "button", name = "Buy milk" });
         });
@@ -434,7 +434,7 @@ public sealed class CoreTests
         {
             modelCalls++;
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return text.Contains("tapped", StringComparison.Ordinal)
+            return text.Contains("Tapped", StringComparison.Ordinal)
                 ? ModelResponses.Done("passed", "Upgraded to Pro.")
                 : ModelResponses.Tap("button", "Upgrade to Pro");
         });
@@ -475,7 +475,7 @@ public sealed class CoreTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            if (text.Contains("tapped", StringComparison.Ordinal))
+            if (text.Contains("Tapped", StringComparison.Ordinal))
             {
                 return ModelResponses.Done("passed", "done");
             }
@@ -595,7 +595,7 @@ public sealed class CoreTests
         ScriptedModel Model() => new(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            if (text.Contains("filled", StringComparison.Ordinal))
+            if (text.Contains("Typed into", StringComparison.Ordinal))
             {
                 return ModelResponses.Done("passed", "filled");
             }
@@ -714,7 +714,7 @@ public sealed class CoreTests
         {
             actCalls++;
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            if (text.Contains("tapped", StringComparison.Ordinal))
+            if (text.Contains("Tapped", StringComparison.Ordinal))
             {
                 return ModelResponses.Done("passed", "advanced");
             }

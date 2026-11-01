@@ -358,7 +358,7 @@ public sealed class ConfigTests
                 }
 
                 onAct();
-                return text.Contains("tapped", StringComparison.Ordinal)
+                return text.Contains("Tapped", StringComparison.Ordinal)
                     ? ModelResponses.Done("passed", "Upgraded to Pro.")
                     : ModelResponses.Tap("button", button);
             }),

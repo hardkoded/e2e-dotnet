@@ -1674,6 +1674,9 @@ internal sealed class ToolOutcome
 
     public string? Code { get; init; }
 
+    /// <summary>The error message of a failed action alone, which Content leads with in upstream's wording and follows with the screen. A host driving the tools words its own failure from it.</summary>
+    public string? Error { get; init; }
+
     public static ToolOutcome Ok(string content) => new() { Content = content, Succeeded = true };
 
     public static ToolOutcome Fail(string content) => new() { Content = "failed: " + content, Succeeded = false };

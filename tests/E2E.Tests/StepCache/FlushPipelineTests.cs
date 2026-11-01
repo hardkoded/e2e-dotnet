@@ -58,7 +58,7 @@ public sealed class FlushPipelineTests
                 return ModelResponses.Done("passed", "The invoice is prorated.");
             }
 
-            var taps = request.Messages.Count(message => message.Role == "tool" && (message.Content ?? "").StartsWith("tapped", StringComparison.Ordinal));
+            var taps = request.Messages.Count(message => message.Role == "tool" && (message.Content ?? "").StartsWith("Tapped", StringComparison.Ordinal));
             return taps >= 2 ? ModelResponses.Done("passed", "Upgraded to Pro.") : ModelResponses.Tap("button", "Upgrade to Pro");
         });
     }

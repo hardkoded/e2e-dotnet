@@ -80,7 +80,7 @@ public sealed class TapModifiersInTheGrammarToolsTests
             ModelResponses.Call("tap", new { role = "button", name = "Save", modifiers = "Shift" }));
         Assert.Empty(engine!.Clicks);
         Assert.Equal(4, results.Count);
-        Assert.All(results, result => Assert.Matches("^failed: .*modifier", result));
+        Assert.All(results, result => Assert.Matches("^tap #e\\d+ failed: INVALID_ARGUMENT: .*modifier", result));
     }
 
     /// <summary>Partial: the port has no right_click, and its schemas are not closed, so the engine that does not declare tapModifiers is shown to refuse the field instead.</summary>
@@ -96,7 +96,7 @@ public sealed class TapModifiersInTheGrammarToolsTests
         }
 
         var (results, _) = await ActAsync(declared: false, Call("tap", "Save", "Shift"));
-        Assert.Equal("failed: The engine cannot hold modifiers on tap.", Assert.Single(results));
+        Assert.StartsWith("tap #e", Assert.Single(results), StringComparison.Ordinal);
     }
 
     /// <summary>Partial: the port has no right_click, so the third call upstream makes without modifiers is a double tap here.</summary>

@@ -22,7 +22,7 @@ internal static class TwoTapCounter
         return new ScriptedModel(request =>
         {
             var replayed = Replayed(request.Messages[0].Content!);
-            var tapped = request.Messages.Count(message => message.Role == "tool" && message.Content!.Contains("tapped", StringComparison.Ordinal));
+            var tapped = request.Messages.Count(message => message.Role == "tool" && message.Content!.Contains("Tapped", StringComparison.Ordinal));
             return replayed + tapped >= 2 ? ModelResponses.Done("passed", "The counter shows 2.") : ModelResponses.Tap("button", "Increment");
         });
     }

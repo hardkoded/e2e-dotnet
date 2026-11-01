@@ -35,7 +35,7 @@ public sealed class ASecretTheObservedScreenShowsTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return text.Contains("tapped", StringComparison.Ordinal)
+            return text.Contains("Tapped", StringComparison.Ordinal)
                 ? ModelResponses.Done("passed", "revealed")
                 : ModelResponses.Tap("button", "Go <secret:multiline>");
         });

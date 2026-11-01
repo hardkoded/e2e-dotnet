@@ -339,7 +339,7 @@ internal sealed class SessionCatalog
 
         if (!outcome.Succeeded)
         {
-            var message = outcome.Content.StartsWith("failed: ", StringComparison.Ordinal) ? outcome.Content["failed: ".Length..] : outcome.Content;
+            var message = outcome.Error ?? (outcome.Content.StartsWith("failed: ", StringComparison.Ordinal) ? outcome.Content["failed: ".Length..] : outcome.Content);
             throw new ToolFailedException(Failure(label, outcome.Code, message, target));
         }
 

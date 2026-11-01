@@ -46,7 +46,7 @@ public sealed class E2EMcpTestLinesTests : IAsyncLifetime
         Assert.False(opened.IsError, opened.Text);
 
         var navigated = await _cli.CallAsync("navigate", new() { ["url"] = _app.Url + "/test-lines" });
-        Assert.Equal(["navigated to /test-lines", "Test line: await App.OpenAsync(\"/test-lines\");"], navigated.Text.Split('\n').Take(2));
+        Assert.Equal(["Navigated to " + _app.Url + "/test-lines.", "Test line: await App.OpenAsync(\"/test-lines\");"], navigated.Text.Split('\n').Take(2));
         var screen = (await _cli.CallAsync("observe")).Text;
         var afterOfferB = screen[screen.IndexOf("Offer B", StringComparison.Ordinal)..];
         var afterRowTwo = screen[screen.IndexOf("Row two", StringComparison.Ordinal)..];

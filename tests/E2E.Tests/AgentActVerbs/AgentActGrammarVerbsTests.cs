@@ -25,7 +25,7 @@ public sealed class AgentActGrammarVerbsTests
 
         Assert.Equal(1, result.Actions);
         var toolResult = CounterPage.ToolResults(model)[0];
-        Assert.StartsWith("double-tapped button \"Tap me twice\"", toolResult, StringComparison.Ordinal);
+        Assert.Matches("^Double-tapped #e\\d+\\.", toolResult);
         Assert.Contains("status \"Gesture state\" text=\"double-tapped\"", toolResult, StringComparison.Ordinal);
     }
 
@@ -37,7 +37,7 @@ public sealed class AgentActGrammarVerbsTests
         // Two check actions: the second finds the box already checked and flips nothing.
         Assert.Equal(2, result.Actions);
         var toolResults = CounterPage.ToolResults(model);
-        Assert.StartsWith("checked checkbox \"Agree to terms\"", toolResults[0], StringComparison.Ordinal);
+        Assert.Matches("^Checked #e\\d+\\.", toolResults[0]);
         Assert.Contains("status \"Gesture state\" text=\"agreed: true\"", toolResults[0], StringComparison.Ordinal);
         Assert.Contains("status \"Gesture state\" text=\"agreed: true\"", toolResults[1], StringComparison.Ordinal);
         Assert.DoesNotContain("failed", toolResults[1], StringComparison.Ordinal);
@@ -66,7 +66,7 @@ public sealed class AgentActGrammarVerbsTests
         Assert.Matches("^upload \"fixtures/attachment\\.txt\" to button \"Attachment\"$", actions[0].Detail);
         var policy = Assert.Single(step.Events, item => item.Kind == StepEventKind.Policy);
         Assert.Equal(("upload.path", PolicyDecision.Allowed), (policy.Name, policy.Decision));
-        Assert.Matches("^Uploaded \"fixtures/attachment\\.txt\" to e\\d+\\.", CounterPage.ToolResults(model)[0]);
+        Assert.Matches("^Uploaded \"fixtures/attachment\\.txt\" to #e\\d+\\.", CounterPage.ToolResults(model)[0]);
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public sealed class AgentActGrammarVerbsTests
         Assert.Equal(("upload.path", PolicyDecision.Denied, "POLICY_DENIED"), (policy.Name, policy.Decision, policy.Code));
         Assert.Equal(0, step.Metrics!.ActionSteps);
         // The refusal reaches the model as the action's failure, naming the path it refused.
-        Assert.Matches("^upload \"\\.env\" to e\\d+ failed: POLICY_DENIED: \"\\.env\" is", CounterPage.ToolResults(model)[0]);
+        Assert.Matches("^upload \"\\.env\" to #e\\d+ failed: POLICY_DENIED: \"\\.env\" is", CounterPage.ToolResults(model)[0]);
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public sealed class AgentActGrammarVerbsTests
         var (result, model) = await RunOneAsync(ReplayFlows.Single(entry => entry.Title == "scrolls a listed node into view"));
 
         Assert.Equal(1, result.Actions);
-        Assert.StartsWith("scrolled paragraph into view", CounterPage.ToolResults(model)[0], StringComparison.Ordinal);
+        Assert.Matches("^Scrolled into view #e\\d+\\.", CounterPage.ToolResults(model)[0]);
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public sealed class AgentActGrammarVerbsTests
         // Several pages of the list, one action of the budget.
         Assert.Equal(1, result.Actions);
         var toolResult = CounterPage.ToolResults(model)[0];
-        Assert.StartsWith("scrolled down until \"Row 24\" was in view", toolResult, StringComparison.Ordinal);
+        Assert.StartsWith("Scrolled down until \"Row 24\" was in view.", toolResult, StringComparison.Ordinal);
         Assert.Contains("Row 24 · Golden", toolResult, StringComparison.Ordinal);
     }
 
@@ -116,7 +116,7 @@ public sealed class AgentActGrammarVerbsTests
         Assert.Equal(2, result.Actions);
         var toolResults = CounterPage.ToolResults(model);
         Assert.Contains("heading \"About\"", toolResults[0], StringComparison.Ordinal);
-        Assert.StartsWith("navigated back", toolResults[1], StringComparison.Ordinal);
+        Assert.StartsWith("Navigated back.", toolResults[1], StringComparison.Ordinal);
         Assert.Contains("heading \"Gestures\"", toolResults[1], StringComparison.Ordinal);
     }
 
