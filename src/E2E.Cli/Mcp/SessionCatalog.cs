@@ -280,7 +280,7 @@ internal sealed class SessionCatalog
             Execute = async (_, token) =>
             {
                 var outcome = await RunAsync(context, "observe", "observe", default, token).ConfigureAwait(false);
-                return outcome.Content.StartsWith("observed\n", StringComparison.Ordinal) ? outcome.Content["observed\n".Length..] : outcome.Content;
+                return outcome.Content.StartsWith("Observed.\n", StringComparison.Ordinal) ? outcome.Content["Observed.\n".Length..] : outcome.Content;
             },
         };
     }
