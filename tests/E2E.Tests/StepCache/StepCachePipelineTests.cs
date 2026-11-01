@@ -361,8 +361,10 @@ public sealed class StepCachePipelineTests
         Assert.Equal("self-finalized", replayed.Cache?.Mode);
 
         // The slot is filled with this run's value, so a page that shows another name does not hold the end state.
+        directory = CoreTests.TempCache();
+        await StepAsync(World("E2E-abc"), new FileStepCache(directory), "/storage", ctx => Expect.That(ctx.Screen.GetByRole("status", "Saved E2E-abc")).ToBeVisibleAsync(), Script(ModelResponses.Tap("button", "Save marker")), Params("E2E-abc"));
         var drifted = await StepAsync(World("E2E-other"), new FileStepCache(directory), "/storage", null, Script(), Params("E2E-xyz"));
-        Assert.NotEqual("self-finalized", drifted.Cache?.Mode);
+        Assert.Equal(("agent-concluded", "end-mismatch"), (drifted.Cache?.Mode, drifted.Cache?.Reason));
     }
 
     [Fact]
