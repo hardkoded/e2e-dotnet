@@ -62,7 +62,7 @@ public sealed class BillingTests : E2ETest
 
 ## Soft checks and polls
 
-- `Expect.Soft(locator)` records each failure on the NUnit result, as inside
+- `Expect.Soft(locator)` and `Expect.Soft(screen)` record each failure on the NUnit result, as inside
   `Assert.EnterMultipleScope`. The test body runs on, and the test fails
   when it ends, with every failure listed.
 - `Expect.Poll(read)` retries a value. `E2E.NUnit` adds `ToMatchAsync` with

@@ -81,7 +81,7 @@ public sealed class BillingTests : E2ETest
 
 ## Soft checks and polls
 
-- `Expect.Soft(locator)` keeps each failure on the session. The test body
+- `Expect.Soft(locator)` and `Expect.Soft(screen)` keep each failure on the session. The test body
   runs on, and the test fails when it is disposed, with every failure in
   one message.
 - `Expect.Poll(read)` retries a value with `ToBeAsync` or

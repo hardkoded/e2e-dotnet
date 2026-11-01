@@ -1047,22 +1047,23 @@ internal static class PageScript
         }
         """;
 
-    // Moves about three quarters of a screen, so every row shows at least once.
-    public const string ScrollViewport = """
-        ([direction, stride]) => {
-          const x = Math.round(innerWidth * stride);
-          const y = Math.round(innerHeight * stride);
-          const by = { up: [0, -y], down: [0, y], left: [-x, 0], right: [x, 0] }[direction];
-          window.scrollBy({ left: by[0], top: by[1], behavior: "instant" });
+    // Resolves after the next rendered frame, or at once in a hidden document (upstream's nextRenderedFrame).
+    public const string NextRenderedFrame = """
+        () => {
+          if (document.visibilityState === "hidden") return Promise.resolve();
+          return new Promise((resolve) => requestAnimationFrame(() => window.setTimeout(resolve, 0)));
         }
         """;
 
-    public const string ScrollElement = """
-        (el, [direction, stride]) => {
-          const x = Math.round(el.clientWidth * stride);
-          const y = Math.round(el.clientHeight * stride);
-          const by = { up: [0, -y], down: [0, y], left: [-x, 0], right: [x, 0] }[direction];
-          el.scrollBy({ left: by[0], top: by[1], behavior: "instant" });
+    // Where a wheel reaches an element in a top-level document, and the box it read when it was not blocked (upstream's wheelAim).
+    public const string WheelAim = """
+        (element) => {
+          if (window !== window.top || element.getClientRects().length === 0) return { aim: "blocked" };
+          const rect = element.getBoundingClientRect();
+          const box = { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+          if (element.matches(":hover")) return { aim: "pointer", box };
+          const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+          return hit !== null && element.contains(hit) ? { aim: "centre", box } : { aim: "blocked" };
         }
         """;
 

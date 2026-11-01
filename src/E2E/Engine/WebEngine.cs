@@ -2119,7 +2119,7 @@ public sealed partial class WebEngine : IEngine
             var budget = Budget("scroll", cancellationToken);
             try
             {
-                await budget.WithinAsync(Page.EvaluateAsync(PageScript.ScrollViewport, new object[] { Direction(direction), Stride(momentum) })).ConfigureAwait(false);
+                await budget.WithinAsync(PerformViewportSwipeAsync(direction, momentum)).ConfigureAwait(false);
             }
             catch (Exception ex) when (WebErrors.IsPlaywright(ex))
             {
@@ -2131,6 +2131,54 @@ public sealed partial class WebEngine : IEngine
                 throw WebErrors.ClassifyAction(ex, new LocatorAction.Swipe(direction, momentum));
             }
         }));
+
+        /// <summary>Upstream's <c>performViewportSwipe</c>: a wheel gesture of the viewport's extent, sized by the momentum.</summary>
+        private async Task PerformViewportSwipeAsync(ScrollDirection direction, Momentum? momentum)
+        {
+            var viewport = await VideoRecorder.CurrentViewportAsync(Page).ConfigureAwait(false);
+            var distance = SwipeDistance(direction is ScrollDirection.Up or ScrollDirection.Down ? viewport.Height : viewport.Width, momentum);
+            var (deltaX, deltaY) = WheelDelta(direction, distance);
+            await WheelRenderedAsync(deltaX, deltaY).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Upstream's <c>performElementSwipe</c>: a wheel gesture over the node, sized by its own box. A node the pointer
+        /// already hovers takes the wheel where it is; one hit at its centre takes it there; otherwise hover waits for it to
+        /// be actionable, scrolls it into view, and reports whatever intercepts the pointer.
+        /// </summary>
+        private async Task PerformElementSwipeAsync(IElementHandle element, LocatorAction.Swipe swipe, OperationBudget budget)
+        {
+            var aimed = await element.EvaluateAsync<WheelAimDto>(PageScript.WheelAim).ConfigureAwait(false);
+            if (aimed.Aim == "blocked")
+            {
+                await element.HoverAsync(new ElementHandleHoverOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+            }
+
+            budget.ThrowIfExpired();
+            var box = aimed.Aim == "blocked"
+                ? await element.BoundingBoxAsync().ConfigureAwait(false) is { } hovered ? new WebRect { X = hovered.X, Y = hovered.Y, Width = hovered.Width, Height = hovered.Height } : null
+                : aimed.Box;
+            if (box is null)
+            {
+                throw new EngineException(EngineErrorCodes.NotActionable, "element has no visible bounding box", retryable: false);
+            }
+
+            var distance = SwipeDistance(swipe.Direction is ScrollDirection.Up or ScrollDirection.Down ? box.Height : box.Width, swipe.Momentum);
+            var (deltaX, deltaY) = WheelDelta(swipe.Direction, distance);
+            if (aimed.Aim == "centre")
+            {
+                await Page.Mouse.MoveAsync((float)(box.X + box.Width / 2), (float)(box.Y + box.Height / 2)).ConfigureAwait(false);
+            }
+
+            await WheelRenderedAsync(deltaX, deltaY).ConfigureAwait(false);
+        }
+
+        /// <summary>Wheels the page and resolves once a frame rendered the scroll it caused, since the scroll reaches script on the next frame.</summary>
+        private async Task WheelRenderedAsync(double deltaX, double deltaY)
+        {
+            await Page.Mouse.WheelAsync((float)deltaX, (float)deltaY).ConfigureAwait(false);
+            await Page.EvaluateAsync(PageScript.NextRenderedFrame).ConfigureAwait(false);
+        }
 
         public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) => RunAsync("screenshot", cancellationToken, async () =>
         {
@@ -2471,7 +2519,7 @@ public sealed partial class WebEngine : IEngine
                     await element.ScrollIntoViewIfNeededAsync(new ElementHandleScrollIntoViewIfNeededOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
                     break;
                 case LocatorAction.Swipe swipe:
-                    await element.EvaluateAsync(PageScript.ScrollElement, new object[] { Direction(swipe.Direction), Stride(swipe.Momentum) }).ConfigureAwait(false);
+                    await PerformElementSwipeAsync(element, swipe, budget).ConfigureAwait(false);
                     break;
                 default:
                     throw new EngineException(EngineErrorCodes.UnsupportedCapability, "Web engine cannot perform " + action.GetType().Name + ".");
@@ -3214,25 +3262,23 @@ public sealed partial class WebEngine : IEngine
                 _ => KeyboardModifier.ControlOrMeta,
             });
 
-        // The share of the extent a swipe moves, as upstream's swipeDistance ratios: none half, slow three quarters, fast one and a half.
+        // Upstream's swipeDistance: none half the extent, slow three quarters, fast one and a half.
         // A swipe naming no momentum keeps the port's three quarters.
-        private static double Stride(Momentum? momentum) => momentum switch
+        private static double SwipeDistance(double extent, Momentum? momentum) => Math.Round(extent * momentum switch
         {
             Momentum.None => 0.5,
             Momentum.Fast => 1.5,
             _ => 0.75,
-        };
+        }, MidpointRounding.AwayFromZero);
 
-        private static string Direction(ScrollDirection direction)
+        // Upstream's wheelDelta.
+        private static (double X, double Y) WheelDelta(ScrollDirection direction, double distance) => direction switch
         {
-            return direction switch
-            {
-                ScrollDirection.Up => "up",
-                ScrollDirection.Left => "left",
-                ScrollDirection.Right => "right",
-                _ => "down",
-            };
-        }
+            ScrollDirection.Up => (0, -distance),
+            ScrollDirection.Left => (-distance, 0),
+            ScrollDirection.Right => (distance, 0),
+            _ => (0, distance),
+        };
 
         private static SemanticNode ToNode(WebNode dto, string testIdAttribute)
         {
@@ -3555,6 +3601,13 @@ public sealed partial class WebEngine : IEngine
         public List<WebNode>? Inline { get; set; }
 
         public List<WebNode>? Children { get; set; }
+    }
+
+    private sealed class WheelAimDto
+    {
+        public string Aim { get; set; } = "blocked";
+
+        public WebRect? Box { get; set; }
     }
 
     private sealed class WebRect

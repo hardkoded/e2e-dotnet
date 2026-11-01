@@ -80,7 +80,7 @@ Members of `E2ETest` in both frameworks:
 - `Agent`: `ActAsync`, `AssertAsync`, `WaitForAsync`, `ExtractAsync<T>`
   (topic `agent`).
 - `Screen`: the locators below.
-- `Expect`: `Expect.That(locator)`, `Expect.That(Browser)`, `Expect.Soft(locator)`, `Expect.Poll(read)`.
+- `Expect`: `Expect.That(locator)`, `Expect.That(Browser)`, `Expect.Soft(locator)`, `Expect.Soft(screen)`, `Expect.Poll(read)`.
 - `Browser`: URL, title, cookies, viewport, raw keyboard and mouse, and
   responses (below).
 - `Secrets.Get(name)`: a `Secret` from the config. `Credentials.User(name)`:
@@ -276,7 +276,7 @@ matcher.
   never arrives fails it as an assertion (`observed: no node`); `class=""` is
   an empty list and no `class` attribute is not (`observed: no class
   attribute`); several matches fail at once with `STRICT_MODE`.
-- `Expect.Soft(locator)` records a failure and lets the test go on; the
+- `Expect.Soft(locator)` and `Expect.Soft(screen)` record a failure and let the test go on; the
   test fails at its end with every failure listed.
 - `Expect.Poll(read)` retries any value: `ToBeAsync`, `ToSatisfyAsync`, and,
   in `E2E.NUnit`, `ToMatchAsync` with any NUnit constraint. A read that

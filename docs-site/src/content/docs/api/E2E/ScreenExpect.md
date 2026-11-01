@@ -1,6 +1,6 @@
 ---
 title: "ScreenExpect"
-description: "Matchers on the whole screen: String)."
+description: "Matchers on the whole screen: ToHaveScreenshotAsync."
 editUrl: false
 prev: false
 next: false
@@ -19,11 +19,11 @@ public sealed class ScreenExpect
 ```
 
 
-Matchers on the whole screen: `String)`.
+Matchers on the whole screen: `ToHaveScreenshotAsync`.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L608)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L616)
 
 ## Properties
 
@@ -42,7 +42,7 @@ Inverts the matcher: waits for the screen to differ from its stored screenshot.
 
 **Value:** [ScreenExpect](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L620)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L628)
 
 ## Methods
 
@@ -70,7 +70,7 @@ written and fails the call, or, with `E2E_UPDATE_SNAPSHOTS=1`, written and passe
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L634)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L642)
 
 <a id="E2E_ScreenExpect_ToHaveScreenshotAsync_System_String_E2E_ScreenshotOptions_System_String_"></a>
 
@@ -96,4 +96,4 @@ written and fails the call, or, with `E2E_UPDATE_SNAPSHOTS=1`, written and passe
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L627)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L635)
