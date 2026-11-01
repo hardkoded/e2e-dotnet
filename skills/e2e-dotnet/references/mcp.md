@@ -118,7 +118,7 @@ config declares a `secrets` entry.
 | `test_lines` | Every test line the session's actions printed, in order, as a draft test body; see below |
 
 A failed action is an error result that starts with the tool, the node, and
-the code: `tap n9999 failed: NOT_FOUND: ...`.
+the code: `tap n9999 failed: LOCATOR_NOT_FOUND: ...`.
 
 ### Test lines
 
@@ -217,7 +217,7 @@ The loop is:
    `call {tool: "locate", args: {...}}`, or an `Agent.AssertAsync`.
    One match: use the printed `Screen.GetByRole(...)` call. Zero or several:
    adjust before writing it; the same failure would hit the test as
-   `LOCATOR_NOT_FOUND` or `STRICT_MODE`. A role query's `name` matches
+   `LOCATOR_NOT_FOUND` or `LOCATOR_AMBIGUOUS`. A role query's `name` matches
    the accessible name only, while `observe` shows a `status`, `alert`, or
    `listitem` by its text: `status "Saved."` on an unlabelled status is its
    text, so match it with `Screen.GetByRole("status").Filter("Saved.")`

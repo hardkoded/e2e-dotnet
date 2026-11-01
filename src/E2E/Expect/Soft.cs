@@ -11,7 +11,7 @@ namespace E2E;
 /// <summary>
 /// The locator matchers of <see cref="LocatorExpect"/>, but an
 /// <c>ASSERTION_FAILED</c> is kept on the session instead of thrown, and the
-/// test body runs on. Any other error, such as <c>STRICT_MODE</c>, still throws.
+/// test body runs on. Any other error, such as <c>LOCATOR_AMBIGUOUS</c>, still throws.
 /// </summary>
 public sealed class SoftLocatorExpect
 {

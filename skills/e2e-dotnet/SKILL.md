@@ -277,7 +277,7 @@ lines you changed:
 ## Rules
 
 - Text matches are exact by default. A locator that matches two nodes
-  fails with `STRICT_MODE`; narrow it, or add `First()` to an `a.Or(b)`
+  fails with `LOCATOR_AMBIGUOUS`; narrow it, or add `First()` to an `a.Or(b)`
   whose branches both match (topic `writing-tests`).
 - Narrow a locator with `Filter(hasText:, hasNotText:, has:, hasNot:)`; any
   of the four, at least one. `hasText` and `hasNotText` are case-insensitive
@@ -319,8 +319,8 @@ lines you changed:
 - A locator reports an engine failure in the test's own codes, with the engine's
   error as `InnerException`: `NOT_ACTIONABLE`, `ACTION_MAY_HAVE_COMMITTED`, and
   `OPERATION_TIMEOUT` are `ACTION_FAILED` (the timeout reads `operation timed
-  out: <locator>`), a stale node or a missing frame is `NOT_FOUND`, an ambiguous
-  frame is `STRICT_MODE`, and `INVALID_STATE` is `APP_NOT_OPEN`. Match on
+  out: <locator>`), a stale node or a missing frame is `LOCATOR_NOT_FOUND`, an ambiguous
+  frame is `LOCATOR_AMBIGUOUS`, and `INVALID_STATE` is `APP_NOT_OPEN`. Match on
   `ACTION_FAILED`, and read `InnerException` for the engine code. `CANCELLED`
   and `ENGINE_FAILURE` keep their codes, and `UNSUPPORTED_CAPABILITY` is a
   `ConfigurationException`. A stale node found by an action is looked up again

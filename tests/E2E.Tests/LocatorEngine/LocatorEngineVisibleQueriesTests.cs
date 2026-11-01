@@ -79,7 +79,7 @@ public sealed class LocatorEngineVisibleQueriesTests
 
         var error = await Assert.ThrowsAsync<TestException>(() => Query(screen, kind, visible: false).TapAsync());
 
-        Assert.Equal("STRICT_MODE", error.Code);
+        Assert.Equal("LOCATOR_AMBIGUOUS", error.Code);
         Assert.Equal(2, await Query(screen, kind, visible: false).CountAsync());
     }
 
@@ -92,7 +92,7 @@ public sealed class LocatorEngineVisibleQueriesTests
 
         var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByText("Save", new TextMatchOptions { Visible = true }).TapAsync());
 
-        Assert.Equal("STRICT_MODE", error.Code);
+        Assert.Equal("LOCATOR_AMBIGUOUS", error.Code);
         Assert.Contains("getByText(\"Save\", visible: true)", error.Message, StringComparison.Ordinal);
     }
 }

@@ -77,8 +77,8 @@ public sealed class BrowserExpect
     /// Waits for the <c>class</c> attribute of <paramref name="target"/> to match <paramref name="expected"/>: a string is the whole class
     /// list, whitespace-normalized, and a <see cref="Regex"/> is tested against it. An empty <c>class=""</c> is an empty class list; no
     /// <c>class</c> attribute is not. A node that is not there yet keeps the matcher polling, and a node that never arrives fails it as an
-    /// assertion observing no node, where a read of the same locator would fail with <c>NOT_FOUND</c>. Several matches fail at once with
-    /// <c>STRICT_MODE</c>. Upstream's <c>expect(browser).toHaveClass</c>.
+    /// assertion observing no node, where a read of the same locator would fail with <c>LOCATOR_NOT_FOUND</c>. Several matches fail at once with
+    /// <c>LOCATOR_AMBIGUOUS</c>. Upstream's <c>expect(browser).toHaveClass</c>.
     /// </summary>
     public Task ToHaveClassAsync(Locator target, TextMatch expected, TimeSpan? timeout = null, CancellationToken cancellationToken = default)
     {
@@ -105,7 +105,7 @@ public sealed class BrowserExpect
 
                     value = read.Value;
                 }
-                catch (TestException ex) when (ex.Code == "NOT_FOUND")
+                catch (TestException ex) when (ex.Code == "LOCATOR_NOT_FOUND")
                 {
                     return (null, "no node");
                 }

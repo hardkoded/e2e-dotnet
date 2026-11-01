@@ -21,7 +21,7 @@ public sealed class SoftLocatorExpect
 
 The locator matchers of [LocatorExpect](/api/E2E/LocatorExpect/), but an
 `ASSERTION_FAILED` is kept on the session instead of thrown, and the
-test body runs on. Any other error, such as `STRICT_MODE`, still throws.
+test body runs on. Any other error, such as `LOCATOR_AMBIGUOUS`, still throws.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
