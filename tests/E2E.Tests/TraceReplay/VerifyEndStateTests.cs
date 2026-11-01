@@ -24,7 +24,7 @@ public sealed class VerifyEndStateTests
         var entry = new CacheEntry { Appeared = [.. endAnchors] };
         return Replay.VerifyEndState(
             host,
-            screen => Anchors.Mismatch(entry, Anchors.Project(screen, _ => false, text => text, text => text), []) is null,
+            screen => Anchors.Mismatch(entry, Anchors.Project(screen, text => text, text => text), []) is null,
             new VerifyEndStateOptions { WaitMs = waitMs });
     }
 

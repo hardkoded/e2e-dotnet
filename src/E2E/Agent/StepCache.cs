@@ -560,23 +560,15 @@ internal sealed class StepTraceSession
     // A route is recorded redacted.
     private string Redacted(string route) => _host.Redact.Redact(route);
 
-    // Anchors as the recording records them: a name or text holding a unique param is skipped, and every field has secrets
-    // redacted. The secrets are read as they are now, so an unchanged node is no delta.
+    // Anchors as the recording records them: every field has secrets redacted. The secrets are read as they are now, so an unchanged node is no delta.
     private List<AnchorNode> Project(Observation observation)
     {
         var redactor = _host.Redact;
-        var parameters = _options.Params;
         return Anchors.Project(
             observation,
-            text => ContainsParam(text, parameters),
             redactor.Redact,
             redactor.Redact,
             (text, limit) => AgentObservation.RedactText(text, redactor, limit));
-    }
-
-    private static bool ContainsParam(string name, IReadOnlyDictionary<string, object?>? parameters)
-    {
-        return CacheKeys.TemplatesOf(parameters).Any(template => template.Value.Length > 0 && name.Contains(template.Value, StringComparison.Ordinal));
     }
 
     // The first screen of the replay's last stretch on the end route, or null when its last screen before the end

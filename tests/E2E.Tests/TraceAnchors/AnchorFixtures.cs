@@ -46,7 +46,7 @@ internal static class AnchorFixtures
 
     internal static List<AnchorNode> Project(IEnumerable<SemanticNode> nodes, Func<string, string>? record = null)
     {
-        return Anchors.Project(new Observation { Route = "/", Roots = nodes.ToList() }, _ => false, record ?? (value => value), value => value);
+        return Anchors.Project(new Observation { Route = "/", Roots = nodes.ToList() }, record ?? (value => value), value => value);
     }
 
     internal static (List<RecordedTarget> Appeared, List<RecordedTarget> Gone) Describe(IEnumerable<SemanticNode> start, IEnumerable<SemanticNode> end, bool routeMoved = false)

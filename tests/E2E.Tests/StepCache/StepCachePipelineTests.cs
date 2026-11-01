@@ -336,6 +336,30 @@ public sealed class StepCachePipelineTests
         Assert.Equal(("missed", "no-entry"), (unmarked.Cache?.Mode, unmarked.Cache?.Reason));
     }
 
+    /// <summary>
+    /// Partial port of "keys on the params with each unique() value as a placeholder, stages the recording with the slot, and
+    /// fills it from the next call": the end anchor that names the value is recorded as the slot, and the next call fills it.
+    /// </summary>
+    [Fact]
+    public async Task Records_an_end_anchor_that_names_a_unique_value_as_its_slot_and_fills_it_from_the_next_call_through_the_pipeline()
+    {
+        static DocumentWorld World(string name) => new DocumentWorld().Map("/storage", page =>
+        {
+            var saved = new DocumentElement { Role = "status", Name = "Saved " + name, Hidden = true };
+            page.Roots.Add(saved);
+            page.Button("Save marker", () => saved.Hidden = false);
+        });
+        static Dictionary<string, object?> Params(string name) => new() { ["name"] = Values.Unique(name) };
+
+        var directory = CoreTests.TempCache();
+        var recorded = await StepAsync(World("E2E-abc"), new FileStepCache(directory), "/storage", ctx => Expect.That(ctx.Screen.GetByRole("status", "Saved E2E-abc")).ToBeVisibleAsync(), Script(ModelResponses.Tap("button", "Save marker")), Params("E2E-abc"));
+        Assert.Null(recorded.Error);
+        Assert.Equal([("status", "Saved {{param:/name}}")], Entry(directory).Appeared.Select(anchor => (anchor.Role, anchor.Name)));
+
+        var replayed = await StepAsync(World("E2E-xyz"), new FileStepCache(directory), "/storage", null, Script(), Params("E2E-xyz"));
+        Assert.Equal(1, replayed.Replayed);
+    }
+
     [Fact]
     public async Task Degrades_a_hit_that_is_not_a_trace_1_entry_to_a_miss_whichever_store_returned_it_through_the_pipeline()
     {
