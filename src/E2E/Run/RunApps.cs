@@ -142,12 +142,14 @@ internal static class RunApps
             resolved = (target.WithApp(target.App.WithUrl(app.Base?.Href)), app);
         }
 
+        // A sink that throws is quarantined, so it cannot fail the start of the app.
+        var emit = RunEvents.CreateRunEventEmitter([onEvent is null ? null : new RunEventSubscriber("onEvent", onEvent)]);
         var hooks = new ManagedProcessHooks
         {
             Ci = config.Ci,
             Notice = notice ?? (message => Console.Error.WriteLine("e2e: " + message)),
-            Starting = (label, url) => onEvent?.Invoke(new SetupEvent(AppStep(label, url), SetupState.Started)),
-            Ready = (label, url, duration, reused) => onEvent?.Invoke(
+            Starting = (label, url) => emit(new SetupEvent(AppStep(label, url), SetupState.Started)),
+            Ready = (label, url, duration, reused) => emit(
                 new SetupEvent(AppStep(label, url), SetupState.Finished, (long)duration.TotalMilliseconds, reused ? SetupOutcome.Reused : null)),
         };
         var processes = await Provision.StartDeclaredProcessesAsync([(target.Name, resolved.App)], config.ProjectRoot, () => hooks, DebugTrace.Off, cancellationToken, Pool).ConfigureAwait(false);

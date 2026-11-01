@@ -162,3 +162,56 @@ internal sealed record RunFinishedEvent : RunEventFact
     /// <summary>The trace page written for each test that kept a trace, by report result id, as a path from the project root.</summary>
     public IReadOnlyDictionary<string, string>? Traces { get; init; }
 }
+
+/// <summary>One consumer of the run's events (upstream's <c>RunEventSubscriber</c>): a name for the diagnostic and the sink.</summary>
+internal sealed record RunEventSubscriber(string Name, Action<RunEventFact> OnEvent);
+
+/// <summary>The run's event writer (upstream's <c>createRunEventEmitter</c>, <c>run/events.ts</c>).</summary>
+internal static partial class RunEvents
+{
+    /// <summary>
+    /// Builds the run's single event writer over every subscriber. Subscribers are quarantined independently, so one broken sink cannot silence
+    /// another, and each quarantine is one stderr line naming the sink, the event, and the error. Returns a no-op when there is no subscriber, so
+    /// call sites never branch. Not ported: the <c>seq</c> and <c>at</c> envelope, and async sinks (the port's sinks are synchronous).
+    /// </summary>
+    public static Action<RunEventFact> CreateRunEventEmitter(IEnumerable<RunEventSubscriber?> subscribers)
+    {
+        var active = subscribers.OfType<RunEventSubscriber>().ToList();
+        if (active.Count == 0)
+        {
+            return _ => { };
+        }
+
+        var quarantined = new HashSet<RunEventSubscriber>();
+        return fact =>
+        {
+            foreach (var subscriber in active)
+            {
+                if (quarantined.Contains(subscriber))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    subscriber.OnEvent(fact);
+                }
+                catch (Exception cause)
+                {
+                    quarantined.Add(subscriber);
+                    Console.Error.WriteLine($"e2e: reporter \"{subscriber.Name}\" threw on {EventType(fact)}: {cause.Message}; ignoring it for the rest of the run");
+                }
+            }
+        };
+    }
+
+    // The fact as upstream's `type` names it: `SetupEvent` is `setup`, `RunStartedEvent` is `run-started`.
+    private static string EventType(RunEventFact fact)
+    {
+        var name = fact.GetType().Name;
+        return TypeWords().Replace(name.EndsWith("Event", StringComparison.Ordinal) ? name[..^"Event".Length] : name, "$1-$2").ToLowerInvariant();
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex("([a-z])([A-Z])")]
+    private static partial System.Text.RegularExpressions.Regex TypeWords();
+}
