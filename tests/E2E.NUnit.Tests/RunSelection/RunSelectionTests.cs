@@ -92,4 +92,49 @@ public sealed class RunSelectionTests
             E2E.NUnit.RunSelection.Set(new Dictionary<string, string>());
         }
     }
+
+    private sealed class LeaveEverythingOut(string root) : E2ERunFixture
+    {
+        private sealed class All : ITestFilter
+        {
+            public string Name => "all";
+
+            public Task<TestFilterResult> FilterAsync(IReadOnlyList<TestFilterCandidate> tests, TestFilterContext context) =>
+                Task.FromResult(new TestFilterResult { Exclude = tests.ToDictionary(test => test.Id, _ => "left out") });
+        }
+
+        protected override IReadOnlyList<ITestFilter> Filters => [new All()];
+
+        protected override string? ChangedSince => "main";
+
+        protected override E2EConfig Config => E2EConfig.Parse("{}", root, _ => null);
+    }
+
+    [Test]
+    public async Task Never_filters_a_run_that_opens_a_session_on_a_named_test()
+    {
+        var dir = FilteredRealModelTests.FeatureRepo();
+        try
+        {
+            var fixture = new LeaveEverythingOut(dir);
+            var key = typeof(ControlInventory.Agent.ControlInventoryTests);
+
+            // The control: without a session request the filter leaves the test out.
+            await fixture.SelectTestsAsync();
+            Assert.That(E2E.NUnit.RunSelection.ReasonFor(key, nameof(ControlInventory.Agent.ControlInventoryTests.Check_picks_a_radio_the_pick_replaces_with_its_summary)), Is.EqualTo("left out"));
+
+            E2E.NUnit.RunSelection.Set(new Dictionary<string, string>());
+            using (SessionHandover.Begin("any test"))
+            {
+                await fixture.SelectTestsAsync();
+            }
+
+            Assert.That(E2E.NUnit.RunSelection.ReasonFor(key, nameof(ControlInventory.Agent.ControlInventoryTests.Check_picks_a_radio_the_pick_replaces_with_its_summary)), Is.Null);
+        }
+        finally
+        {
+            E2E.NUnit.RunSelection.Set(new Dictionary<string, string>());
+            FilteredRealModelTests.RemoveRepo(dir);
+        }
+    }
 }

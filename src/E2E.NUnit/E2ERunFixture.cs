@@ -36,7 +36,8 @@ public abstract class E2ERunFixture
     [OneTimeSetUp]
     public async Task SelectTestsAsync()
     {
-        if (HostTestFilters.ResolveChangedSince(ChangedSince) is not { } changedSince)
+        // A session the host opens on a named test is never filtered out (upstream's open-session path applies no changedSince).
+        if (SessionHandover.IsActive || HostTestFilters.ResolveChangedSince(ChangedSince) is not { } changedSince)
         {
             return;
         }

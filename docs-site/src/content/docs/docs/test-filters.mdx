@@ -23,7 +23,7 @@ The filters run once, before the first test, and only when a base ref is set:
 - `ChangedSince` on the fixture, or
 - the `E2E_CHANGED_SINCE` environment variable (for example `E2E_CHANGED_SINCE=origin/main dotnet test`).
 
-With no base ref, every test runs. With a base ref and no filter, every test runs and a warning says so.
+With no base ref, every test runs. A session that `e2e mcp` opens on a named test (`open_session {test}`) is never filtered. With a base ref and no filter, every test runs and a warning says so.
 
 ## What happens
 

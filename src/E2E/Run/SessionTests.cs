@@ -30,6 +30,18 @@ internal static class SessionHandover
     private static readonly Lock Gate = new();
     private static Request? _current;
 
+    /// <summary>Whether a host is running one test for its session; the test filters leave such a run alone, as upstream's open-session path never applies <c>changedSince</c>.</summary>
+    public static bool IsActive
+    {
+        get
+        {
+            lock (Gate)
+            {
+                return _current is not null;
+            }
+        }
+    }
+
     /// <summary>Asks for the session of the test named <paramref name="testName"/>. Dispose the request to withdraw it.</summary>
     public static Request Begin(string testName)
     {
