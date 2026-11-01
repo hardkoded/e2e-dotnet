@@ -1400,7 +1400,10 @@ internal sealed class AttemptScope
     /// <summary>The attempt's step timeline: every public call that touches the app is a step, and the ledger later steps read is derived from it.</summary>
     public StepRecorder Steps => LazyInitializer.EnsureInitialized(
         ref _recorder,
-        () => new StepRecorder(AttemptId, new StepRecorderOptions { Attempt = (AttemptId, Attempt - 1), ProjectRoot = ProjectRoot, Redact = text => Redactor.Redact(text), AiTrace = AiTraceScope }));
+        () => new StepRecorder(AttemptId, new StepRecorderOptions { Attempt = (AttemptId, Attempt - 1), OnProgress = OnProgress, ProjectRoot = ProjectRoot, Redact = text => Redactor.Redact(text), AiTrace = AiTraceScope }));
+
+    /// <summary>Live progress of the attempt's steps; null feeds none.</summary>
+    public Action<StepProgress>? OnProgress { get; init; }
 
     public List<PendingAct> Acts { get; } = [];
 

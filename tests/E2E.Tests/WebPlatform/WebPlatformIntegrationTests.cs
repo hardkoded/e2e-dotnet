@@ -644,6 +644,6 @@ public sealed class WebPlatformIntegrationTests
         }
 
         session.Complete(error);
-        return (error, session.Steps.ToList());
+        return (error, session.StepRecords.ToList());
     }
 }

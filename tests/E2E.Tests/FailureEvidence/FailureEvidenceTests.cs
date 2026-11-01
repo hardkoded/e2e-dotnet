@@ -67,10 +67,10 @@ public sealed class FailureEvidenceTests : IDisposable
         // The error and the failing step both resolve to the line in the test file that made the call.
         const string file = "FailureEvidence/FailureEvidenceTests.cs";
         Assert.Equal(file, ErrorSerializer.Serialize(attempt.Error, ProjectRoot()).Source?.File);
-        var failed = Assert.Single(attempt.Session.Steps, step => step.Status != StepStatus.Passed);
+        var failed = Assert.Single(attempt.Session.StepRecords, step => step.Status != StepStatus.Passed);
         Assert.Equal("locator.tap", failed.Api);
         Assert.Equal(file, failed.Source?.File);
-        Assert.Equal(file, attempt.Session.Steps[0].Source?.File);
+        Assert.Equal(file, attempt.Session.StepRecords[0].Source?.File);
 
         var evidence = attempt.Session.Evidence!;
         Assert.Contains("127.0.0.1:4599", evidence.Url, StringComparison.Ordinal);

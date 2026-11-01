@@ -53,7 +53,7 @@ public sealed class ReportedModelUsageTests
     {
         await using var session = await JudgeAsync(new ModelCallUsage { InputTokens = 1, OutputTokens = 0, EstimatedCostUsd = double.MaxValue }, "ready", "still ready");
 
-        var steps = session.Steps.Where(step => step.Api == "agent.assert").ToList();
+        var steps = session.StepRecords.Where(step => step.Api == "agent.assert").ToList();
         Assert.Equal([double.MaxValue, double.MaxValue], steps.Select(step => step.Model?.EstimatedCostUsd).ToArray());
         foreach (var step in steps)
         {
@@ -71,7 +71,7 @@ public sealed class ReportedModelUsageTests
     {
         await using var session = await JudgeAsync(new ModelCallUsage { InputTokens = -1, OutputTokens = 3, EstimatedCostUsd = 0.25 }, "ready");
 
-        var step = session.Steps.Single(item => item.Api == "agent.assert");
+        var step = session.StepRecords.Single(item => item.Api == "agent.assert");
         var modelEvent = step.Events.First(item => item.Kind == StepEventKind.Model);
         Assert.Equal(3, modelEvent.Count);
         Assert.Null(modelEvent.InputTokens);

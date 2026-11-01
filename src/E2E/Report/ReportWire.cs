@@ -147,7 +147,7 @@ internal static partial class ReportWire
         return result;
     }
 
-    private static JsonObject Event(StepEvent step) => Compose(
+    internal static JsonObject Event(StepEvent step) => Compose(
         ("kind", step.Kind.ToString().ToLowerInvariant()),
         ("startedAt", Timestamp(step.StartedAt)),
         ("durationMs", Math.Max(0, step.DurationMs)),

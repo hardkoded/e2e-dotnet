@@ -15,7 +15,7 @@ namespace E2E.Tests.StepCache;
 /// </summary>
 public sealed class CacheWriteTests
 {
-    private static CacheWrite? WriteOf(E2ESession session) => Assert.Single(session.Steps, step => step.Api == "agent.act").CacheWrite;
+    private static CacheWrite? WriteOf(E2ESession session) => Assert.Single(session.StepRecords, step => step.Api == "agent.act").CacheWrite;
 
     [Fact]
     public async Task Saves_a_recording_a_later_check_confirmed_and_keeps_it_when_the_next_run_replays_it()

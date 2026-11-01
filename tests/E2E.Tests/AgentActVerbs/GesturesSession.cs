@@ -251,7 +251,7 @@ internal static class GesturesSession
             await session.App.OpenAsync("/gestures");
             result = await session.Agent.ActAsync(flow.Instruction);
             await flow.Check(session.Screen);
-            steps = session.Steps;
+            steps = session.StepRecords;
         });
         return (result!, steps);
     }
@@ -263,7 +263,7 @@ internal static class GesturesSession
         await session.App.OpenAsync("/gestures");
         var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.ActAsync(flow.Instruction));
         session.Complete(error);
-        return (error, session.Steps);
+        return (error, session.StepRecords);
     }
 
     /// <summary>The ref of the last listed node whose line matches <paramref name="line"/>.</summary>

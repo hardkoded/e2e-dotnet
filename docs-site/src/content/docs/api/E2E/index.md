@@ -52,6 +52,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [E2EDefaults](/api/E2E/E2EDefaults/) | The upstream defaults, in one place. E2EConfig, E2ESessionOptions, and the NUnit fixture all start from these values. |
 | [E2EException](/api/E2E/E2EException/) | Base exception for the agent and engines. Code is stable. |
 | [E2EFixture](/api/E2E/E2EFixture/) | The part of a test base class that every test framework shares. It holds the settings and starts one E2ESession per test. A framework adapter, such as E2E.NUnit.E2ETest, calls StartSessionAsync before the test body and commits the session from the framework's result after it. <p> Settings come from Config, the nearest e2e.config.json above the test assembly or the working directory. Override a property to change one value for a fixture. </p> |
+| [E2EHost](/api/E2E/E2EHost/) | The worker-scoped owner of preparation, app processes, and engine initialization, that opens one isolated session at a time. Upstream's E2EHost (run/open-session.ts). Open one with OpenAsync. |
 | [E2ESession](/api/E2E/E2ESession/) | One test attempt: an engine session, the fixtures, and the replay cache. Call Complete after the test body. Disposing without Complete records the attempt as failed. |
 | [E2ESessionOptions](/api/E2E/E2ESessionOptions/) | How to open one E2ESession. Retries set Attempt above 1 so the cache records but does not replay, except under CacheStrict, where every attempt replays. |
 | [EngineErrorCodes](/api/E2E/EngineErrorCodes/) | Stable engine error codes, as in the upstream engine contract. |
@@ -107,6 +108,8 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [OpenAiResponsesModel](/api/E2E/OpenAiResponsesModel/) | OpenAI Responses API client: OpenAI itself, Azure OpenAI (AzureOpenAi), and the subscription backends that only speak Responses. Nothing is stored server side, so each turn carries the whole conversation. A server-sent-event answer is folded back into the completed response. |
 | [OpenAiResponsesModelOptions](/api/E2E/OpenAiResponsesModelOptions/) |  |
 | [OpenedStep](/api/E2E/OpenedStep/) | A step as opened: title and charter bounded to the report's ceilings, which is what the step runs with. |
+| [OpenHostOptions](/api/E2E/OpenHostOptions/) | What OpenAsync is given. Upstream's OpenHostOptions (run/open-session.ts). |
+| [OpenSessionOptions](/api/E2E/OpenSessionOptions/) | What OpenSessionAsync is given. Upstream's OpenSessionOptions (run/open-session.ts). |
 | [PollExpectation&lt;T&gt;](/api/E2E/PollExpectation-1/) | Re-reads a value until the chosen matcher holds or the timeout passes. A read that throws is retried, and its error is reported if the poll times out. A matcher that refuses the read value's type counts as not yet. With NUnit, ToMatchAsync from E2E.NUnit takes any NUnit constraint. |
 | [PollOptions](/api/E2E/PollOptions/) | How Poll<T> re-reads a value. |
 | [PreparedMessages](/api/E2E/PreparedMessages/) | What PrepareMessages hands back: the history for the next turn, and optionally a reason to stop. The executor has evidence the loop guards cannot see that the step is not progressing. A stop leaves the model only done, like a loop guard. |
