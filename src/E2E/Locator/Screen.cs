@@ -332,8 +332,10 @@ public class Screen
                 var observation = await read.WaitAsync(bounded.Token).ConfigureAwait(false);
                 return RenderTree?.Invoke(observation) ?? Redact(TreeText(observation, Redactor.None, null, E2EDefaults.MaxObservationBytes));
             }
-            catch (OperationCanceledException) when (bounded.IsCancellationRequested && !token.IsCancellationRequested)
+            catch (Exception ex) when (bounded.IsCancellationRequested && !token.IsCancellationRequested
+                && (ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled }))
             {
+                // The engine's own budget ends with the token, so it may report the cancel first.
                 throw new EngineException(EngineErrorCodes.OperationTimeout, api + " timed out", retryable: false);
             }
         }
