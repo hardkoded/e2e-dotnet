@@ -60,6 +60,7 @@ Public types in the `E2E.Engine` namespace.
 | [NodeStates](/api/E2E.Engine/NodeStates/) | Boolean states a platform can report for one node. |
 | [Observation](/api/E2E.Engine/Observation/) | A redacted semantic snapshot of the current screen. |
 | [ObservationLimits](/api/E2E.Engine/ObservationLimits/) | Limits from the engine contract. Engines cut names and text before they reach the model. |
+| [ObserveOptions](/api/E2E.Engine/ObserveOptions/) | What an observation takes besides the tree. Upstream's EngineObserveOptions. |
 | [ProviderRecordContext](/api/E2E.Engine/ProviderRecordContext/) | Handed to a provider's RecordAsync, once per attempt that records video. |
 | [ProviderRecording](/api/E2E.Engine/ProviderRecording/) | A recording a provider's service makes of the browser or device it leased, as RecordAsync started it. |
 | [ProviderRecordingResult](/api/E2E.Engine/ProviderRecordingResult/) | What a stopped recording became: a file the provider wrote into the directory it was given, by name (File), or a recording its service keeps, by http(s) URL and media type (Url and MediaType). |

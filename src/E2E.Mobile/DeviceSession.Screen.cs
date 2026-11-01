@@ -628,6 +628,34 @@ public sealed partial class DeviceSession
     }
 
     /// <summary>
+    /// The viewport's pixels for an observation (upstream's <c>capturePixels</c>). Best effort: a screenshot that cannot be taken, or whose
+    /// secure fields cannot be proven covered, costs the observation its image, not the step, unless the operation's budget ran out.
+    /// </summary>
+    private async Task<EngineScreenshot?> CapturePixelsAsync(ProjectedSnapshot projected, ViewportSize viewport, bool comparable, InputBudget budget, CancellationToken cancellationToken)
+    {
+        byte[] data;
+        try
+        {
+            data = await CaptureScreenshotAsync(async (shot, file) => await File.ReadAllBytesAsync(shot.Path ?? file, cancellationToken).ConfigureAwait(false), comparable, budget, cancellationToken).ConfigureAwait(false);
+        }
+        catch (EngineException cause) when (cause.Code == EngineErrorCodes.OperationTimeout)
+        {
+            throw;
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
+
+        if (RedactSecure(data, projected, viewport) is not { } redacted || DeviceSupport.ReadPngSize(redacted.Data) is not { } size)
+        {
+            return null;
+        }
+
+        return new EngineScreenshot(redacted.Data, viewport.Width > 0 ? size.Width / viewport.Width : 1, redacted.Masked);
+    }
+
+    /// <summary>
     /// Paints every secure node's bounds black on a screenshot of the same screen. Returns the masked bytes, or null
     /// when a secure node has no bounds or the image format cannot be edited: the caller then withholds the image
     /// rather than ship one it could not prove redacted. Bounds are in logical points. The image may be at device

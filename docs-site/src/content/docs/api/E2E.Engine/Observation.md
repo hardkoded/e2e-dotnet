@@ -45,6 +45,25 @@ null only when it did not measure it.
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L128)
 
+<a id="E2E_Engine_Observation_Pixels_"></a>
+<a id="E2E_Engine_Observation_Pixels"></a>
+
+### Pixels
+
+
+```csharp
+public EngineScreenshot? Pixels { get; init; }
+```
+
+
+The screen's pixels, with every secure field covered, when [Pixels](/api/E2E.Engine/ObserveOptions/#E2E_Engine_ObserveOptions_Pixels) asked for them and the engine could
+take them (upstream's `EngineSnapshot.pixels` and `maskedRegionCount`, as [EngineScreenshot](/api/E2E.Engine/EngineScreenshot/)). Null when it did
+not ask, or when the image could not be taken or proven redacted: the observation is then the tree alone.
+
+**Value:** [EngineScreenshot](/api/E2E.Engine/EngineScreenshot/)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L154)
+
 <a id="E2E_Engine_Observation_Revision_"></a>
 <a id="E2E_Engine_Observation_Revision"></a>
 

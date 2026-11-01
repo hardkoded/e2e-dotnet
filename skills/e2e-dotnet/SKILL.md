@@ -339,7 +339,13 @@ lines you changed:
   with `ACTION_FAILED` (`InnerException` `OPERATION_TIMEOUT`) instead of holding
   it until the test timeout. `WaitForAsync`, `Expect`, and `ToHaveScreenshotAsync` give their
   last read extra time, up to their slowest read so far and within the test
-  timeout, so a screen that shows up during it still passes.
+  timeout, so a screen that shows up during it still passes. An engine session
+  takes the screen's pixels with the tree through
+  `ObserveAsync(new ObserveOptions { Pixels = true, Comparable = ... }, timeout, ct)`
+  (`Observation.Pixels`, secure fields covered); the screenshot shares the
+  observation's budget, and a device that stops answering fails the call with
+  `OPERATION_TIMEOUT`. Any other failure of the screenshot leaves the
+  observation with the tree alone.
 - Secrets never appear in test code. Declare them under `secrets` in the
   config and read them with `Secrets.Get(name)`; accounts come from
   `Credentials.User(name)`. Hand the `Secret` only to `FillAsync` or
