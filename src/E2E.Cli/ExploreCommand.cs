@@ -85,7 +85,7 @@ internal static partial class ExploreCommand
         .Replace("{TIMEOUT}", Milliseconds(Explore.TimeoutBounds.Min).ToString(CultureInfo.InvariantCulture) + " through " + Milliseconds(Explore.TimeoutBounds.Max).ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
 
     /// <summary>
-    /// Runs one exploration. <paramref name="explore"/> is <see cref="Explore.ExploreAsync"/>; a test passes its own.
+    /// Runs one exploration. <paramref name="explore"/> is <see cref="Explore.ExploreAsync"/>; a test passes its own. <paramref name="cwd"/> is the working directory (upstream's <c>process.cwd()</c>), the process's by default.
     /// <paramref name="interactive"/> turns colors on, unless <c>NO_COLOR</c> is set.
     /// </summary>
     public static async Task<int> RunAsync(
@@ -94,7 +94,8 @@ internal static partial class ExploreCommand
         TextWriter stderr,
         bool interactive,
         Func<ExploreOptions, CancellationToken, Task<ExploreOutcome>> explore,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? cwd = null)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(stdout);
@@ -128,7 +129,7 @@ internal static partial class ExploreCommand
 
         // The record is the model's and the app's text. Upstream redacts it at its report boundary, which here is this printer, so
         // every field is redacted for the config's secrets and the accounts' passwords before the view sees it.
-        var config = TryLoadConfig(parsed);
+        var config = TryLoadConfig(parsed, cwd);
         var redactor = Redactor.For(
             (config?.Secrets.Names.Select(config.Secrets.Get) ?? []).Concat(accounts.Select(account => account.Credential.Password)).Concat(DeviceTargets.Credentials()));
         var pc = new Colors(interactive && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")));
@@ -180,6 +181,7 @@ internal static partial class ExploreCommand
         var options = new ExploreOptions
         {
             Goal = parsed.Goal,
+            Cwd = cwd,
             ConfigPath = parsed.Config,
             Target = parsed.Target,
             Agent = parsed.Agent,
@@ -285,11 +287,11 @@ internal static partial class ExploreCommand
     }
 
     /// <summary>The config the exploration will load, for its target name and secrets. A config that does not load is the run's error to report.</summary>
-    private static E2EConfig? TryLoadConfig(ExploreArgs args)
+    private static E2EConfig? TryLoadConfig(ExploreArgs args, string? workingDirectory)
     {
         try
         {
-            var cwd = Directory.GetCurrentDirectory();
+            var cwd = Path.GetFullPath(workingDirectory ?? Directory.GetCurrentDirectory());
             var path = args.Config is null ? E2EConfig.Find(cwd) : Path.GetFullPath(args.Config, cwd);
             return path is not null && File.Exists(path) ? E2EConfig.Load(path) : null;
         }
