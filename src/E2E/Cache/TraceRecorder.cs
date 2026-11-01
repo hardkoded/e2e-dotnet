@@ -22,25 +22,12 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     private readonly List<RecordedAction> _actions = [];
     private readonly TimeProvider _time = time ?? TimeProvider.System;
     private long? _lastActionAtMs;
-    private bool _spelledPlaceholder;
 
     /// <summary>Number of actions recorded so far, gaps included.</summary>
     public int RecordedCount => _actions.Count;
 
     /// <summary>When the last action or gap was recorded, in Unix milliseconds; null before the first.</summary>
     public long? LastActionAtMs => _lastActionAtMs;
-
-    /// <summary>
-    /// <see cref="CacheKeys.Template"/> for a text about to be recorded, which also notes a text that already spells a placeholder
-    /// (<see cref="CacheKeys.PlaceholderPrefix"/>). Such a recording could not be told from a templated one at replay, so
-    /// <see cref="Finalize"/> writes none. No upstream function: it is the port's half of <c>templateTrace</c>'s refusal, which
-    /// upstream makes when it templates the finished trace; the port templates each text as it records it.
-    /// </summary>
-    public string Template(string text, IReadOnlyDictionary<string, object?>? parameters)
-    {
-        _spelledPlaceholder |= text.Contains(CacheKeys.PlaceholderPrefix, StringComparison.Ordinal);
-        return CacheKeys.Template(text, parameters);
-    }
 
     /// <summary>The recorded actions in order. No upstream equivalent: upstream hands them over only in <see cref="Finalize"/>.</summary>
     public IReadOnlyList<RecordedAction> Actions => _actions;
@@ -102,21 +89,17 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     {
         _actions.Clear();
         _lastActionAtMs = null;
-        _spelledPlaceholder = false;
     }
 
     /// <summary>
     /// Concludes recording into the entry of <paramref name="step"/>, or null when nothing was recorded: a step that committed no
-    /// actions has no flow worth replaying. The routes are already templated and redacted. Each action's descriptor is templated
-    /// here, as upstream's <c>templateTrace</c> does for its target text. Returns null as well when a text already spelled a
-    /// placeholder (see <see cref="Template"/>), the recording upstream's <c>templateTrace</c> refuses.
+    /// actions has no flow worth replaying. The texts are recorded raw, as the step saw them (the routes redacted), and the caller
+    /// templates the finished entry with <see cref="CacheKeys.TemplateTrace"/>.
     /// </summary>
-    public CacheEntry? Finalize(CacheEntry step, string route, string endRoute, List<RecordedTarget> appeared, List<RecordedTarget> gone, string? recordedBy = null, long? endWaitMs = null, IReadOnlyDictionary<string, object?>? parameters = null)
+    public CacheEntry? Finalize(CacheEntry step, string route, string endRoute, List<RecordedTarget> appeared, List<RecordedTarget> gone, string? recordedBy = null, long? endWaitMs = null)
     {
         ArgumentNullException.ThrowIfNull(step);
-        string? Descriptor(string? text) => text is null ? null : Template(text, parameters);
-        var actions = _actions.Select(action => action.WithDescriptor(Descriptor(action.Name), Descriptor(action.TestId))).ToList();
-        if (_actions.Count == 0 || _spelledPlaceholder)
+        if (_actions.Count == 0)
         {
             return null;
         }
@@ -126,7 +109,7 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
         entry.RecordedBy = CacheEntry.ReadRecordedBy(recordedBy is null ? null : redactor().Redact(recordedBy));
         entry.Route = route;
         entry.EndRoute = endRoute;
-        entry.Actions = actions;
+        entry.Actions = [.. _actions];
         entry.Appeared = appeared;
         entry.Gone = gone;
         entry.EndWaitMs = endWaitMs is { } wait ? (int)Math.Min(Trace.MaxTraceEndWaitMs, Math.Max(0, wait)) : null;

@@ -9,54 +9,136 @@ using static E2E.Tests.StepCache.StepCachePipelineTests;
 namespace E2E.Tests.TraceTemplate;
 
 /// <summary>
-/// The port templates the typed value, the navigated URL, the scroll text, and the start and end routes of an entry, with a
-/// <c>{{param:/name}}</c> placeholder for each unique value and an encoding after a bar (<c>|uri</c>, <c>|form</c>, <c>|slug</c>,
-/// <c>|flat</c>), and the upload paths, the target descriptors and the anchors. It records no action summaries and no verdict
-/// summary, so the upstream it "keeps the verdict summary as recorded" is not ported. It templates each text as it records it and
-/// has no <c>templateTrace</c> or <c>expandTrace</c> to call on a finished trace (issue #887 extracts them), so the tests that
-/// reach a trace through them are partial.
+/// Upstream's <c>templateTrace</c> and <c>expandTrace</c> are <see cref="CacheKeys.TemplateTrace"/> and <see cref="CacheKeys.ExpandTrace"/>,
+/// called on a <see cref="CacheEntry"/>. The port records no action summaries and no verdict summary, and its actions hold no
+/// <c>within</c>, so the checks of those fields are not ported; a test that needs one is partial.
 /// </summary>
 public sealed class TemplateTraceAndExpandTraceTests
 {
-    private static Dictionary<string, object?> Name(string value) => new() { ["name"] = Values.Unique(value) };
+    private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
+
+    private static List<ParamTemplate> Name(string value) => [new("/name", value)];
+
+    private static Dictionary<string, object?> NameParams(string value) => new() { ["name"] = Values.Unique(value) };
+
+    private static Dictionary<string, string> Filled(IEnumerable<ParamTemplate> templates) => templates.ToDictionary(template => template.Pointer, template => template.Value);
+
+    /// <summary>The entry as JSON, so two entries compare by what they hold.</summary>
+    private static string Json(CacheEntry? entry) => JsonSerializer.Serialize(entry, Web);
+
+    /// <summary>Upstream's <c>trace(name)</c> of <c>trace-template.test.ts</c>, as the port records it.</summary>
+    private static CacheEntry Recording(string name) => new()
+    {
+        Actions =
+        [
+            new RecordedAction { Kind = "navigate", Url = "/companies/create" },
+            new RecordedAction { Kind = "fill", Role = "textbox", Name = "Name", Value = name },
+            new RecordedAction { Kind = "fill", Role = "textbox", Name = "Password", Value = "<secret:admin>" },
+            new RecordedAction { Kind = "tap", Role = "option", Name = name },
+            new RecordedAction { Kind = "press", Role = "textbox", Name = "Name", Key = "Enter" },
+        ],
+        Route = "/companies",
+        EndRoute = "/companies/123",
+        Appeared = [new RecordedTarget { Role = "heading", Name = name }],
+    };
+
+    /// <summary>
+    /// Partial port of "templates upload paths, so a file named through unique() is re-resolved from each run's value": the recorded
+    /// action's paths carry the slot and fill from the next run's value. The port records no action summary, so the summary check is
+    /// not ported.
+    /// </summary>
+    [Fact]
+    public void Partial_Templates_upload_paths_so_a_file_named_through_unique_is_re_resolved_from_each_runs_value()
+    {
+        static CacheEntry Upload(string file) => new()
+        {
+            Actions = [new RecordedAction { Kind = "upload", Role = "button", Name = "Attachment", Paths = [file, "fixtures/static.txt"] }],
+            Route = "/",
+        };
+        static List<ParamTemplate> Paths(string value) => [new("/file", value)];
+
+        var recorded = CacheKeys.TemplateTrace(Upload("fixtures/run-1.json"), Paths("fixtures/run-1.json"))!;
+
+        Assert.Equal(["{{param:/file}}", "fixtures/static.txt"], recorded.Actions[0].Paths);
+        Assert.Equal(Json(Upload("fixtures/run-2.json")), Json(CacheKeys.ExpandTrace(recorded, Paths("fixtures/run-2.json"))));
+        Assert.Null(CacheKeys.ExpandTrace(recorded, []));
+    }
+
+    /// <summary>
+    /// Partial port of "templates inputs, descriptors, anchors, and action summaries, and expands them with another run's value": the
+    /// typed value, the target descriptor and the end anchors carry the slot and fill from the next run. The port records no action
+    /// summaries and no verdict summary, and its actions hold no <c>within</c>, so those checks are not ported.
+    /// </summary>
+    [Fact]
+    public void Partial_Templates_inputs_descriptors_anchors_and_action_summaries_and_expands_them_with_another_runs_value()
+    {
+        var recorded = CacheKeys.TemplateTrace(Recording("E2E abc Company"), Name("E2E abc Company"))!;
+
+        Assert.Equal("{{param:/name}}", recorded.Actions[1].Value);
+        Assert.Equal("{{param:/name}}", recorded.Actions[3].Name);
+        Assert.Equal("option", recorded.Actions[3].Role);
+        Assert.Equal("{{param:/name}}", Assert.Single(recorded.Appeared).Name);
+        Assert.Equal("heading", recorded.Appeared[0].Role);
+
+        // Secrets and keys are never text a parameter produced.
+        Assert.Equal("<secret:admin>", recorded.Actions[2].Value);
+        Assert.Equal("Enter", recorded.Actions[4].Key);
+
+        Assert.Equal(Json(Recording("E2E xyz Company")), Json(CacheKeys.ExpandTrace(recorded, Name("E2E xyz Company"))));
+        Assert.Null(CacheKeys.ExpandTrace(recorded, [new("/title", "E2E xyz Company")]));
+        Assert.Null(CacheKeys.ExpandTrace(recorded, []));
+    }
 
     [Fact]
     public void Leaves_a_trace_without_templates_untouched_and_expands_it_as_a_no_op()
     {
-        const string text = "tap option \"Acme\" in row \"Acme\"";
+        var plain = Recording("Acme");
 
-        Assert.Equal(text, CacheKeys.Template(text, null));
-        Assert.Equal(text, CacheKeys.Template(text, new Dictionary<string, object?>()));
-        Assert.Equal(text, CacheKeys.Template(text, new Dictionary<string, object?> { ["name"] = "Acme" }));
-        Assert.Equal(text, CacheKeys.Detemplate(text, null));
-        Assert.Equal(text, CacheKeys.Detemplate(text, new Dictionary<string, object?>()));
+        Assert.Equal(Json(plain), Json(CacheKeys.TemplateTrace(plain, [])));
+        Assert.Equal(Json(plain), Json(CacheKeys.ExpandTrace(plain, [])));
 
         // A marked value the text never spelled leaves no slot; the recording is literal.
-        Assert.Equal(text, CacheKeys.Template(text, Name("Globex")));
+        Assert.Equal(Json(plain), Json(CacheKeys.TemplateTrace(plain, Name("Globex"))));
     }
 
     /// <summary>
-    /// Partial port of "refuses to template when two marked params share a spelling": the port reports two marked params
-    /// with one spelling, and does not look at a value that is another's encoded form.
+    /// Upstream spells the placeholder in the verdict summary; the port has none, so the entry spells it in a typed value, which
+    /// <c>mapTraceText</c> maps as well.
     /// </summary>
     [Fact]
-    public void Reports_two_marked_params_that_share_a_spelling_as_a_collision()
+    public void Refuses_to_template_a_recording_whose_text_already_spells_a_placeholder()
     {
-        var shared = new Dictionary<string, object?> { ["name"] = Values.Unique("Acme Corp"), ["slug"] = Values.Unique("Acme Corp") };
+        var odd = Recording("Acme Corp");
+        odd.Actions[1].Value = "typed {{param:/name}} literally";
 
-        Assert.True(CacheKeys.Collides(shared));
-        Assert.False(CacheKeys.Collides(Name("Acme Corp")));
+        Assert.Null(CacheKeys.TemplateTrace(odd, Name("Acme Corp")));
+        Assert.Null(CacheKeys.TemplateTrace(odd, []));
+    }
+
+    [Fact]
+    public void Refuses_to_template_when_two_marked_params_share_a_spelling_since_the_text_cannot_say_which_one_it_spelled()
+    {
+        List<ParamTemplate> shared = [.. Name("Acme Corp"), new("/slug", "Acme Corp")];
+        Assert.Null(CacheKeys.TemplateTrace(Recording("Acme Corp"), shared));
+
+        // One value is the other's encoded form.
+        List<ParamTemplate> aliased = [.. Name("Acme Corp"), new("/slug", "Acme%20Corp")];
+        Assert.Null(CacheKeys.TemplateTrace(Recording("Acme Corp"), aliased));
     }
 
     /// <summary>
     /// Partial port of "reports a unique() value that another param spells, in any of its spellings, as a collision": the
-    /// port compares the top-level values as text, so a value nested in another param, a number, a flag, or an encoded form is not reported.
+    /// port compares the top-level values as text (<see cref="CacheKeys.Collides"/>), so a value nested in another param, a number, a
+    /// flag, or an encoded form is not reported.
     /// </summary>
     [Fact]
-    public void Reports_a_unique_value_that_another_top_level_param_spells_exactly_as_a_collision()
+    public void Partial_Reports_a_unique_value_that_another_param_spells_in_any_of_its_spellings_as_a_collision()
     {
         // The repro: a run-unique title that happened to equal the plain choice.
         Assert.True(CacheKeys.Collides(new Dictionary<string, object?> { ["title"] = Values.Unique("Daily"), ["frequency"] = "Daily" }));
+
+        // Two marked params with one spelling collide as before.
+        Assert.True(CacheKeys.Collides(new Dictionary<string, object?> { ["name"] = Values.Unique("Acme"), ["slug"] = Values.Unique("Acme") }));
 
         // Distinct values do not, nor does a plain value spelled inside the marked one.
         Assert.False(CacheKeys.Collides(new Dictionary<string, object?> { ["title"] = Values.Unique("Cabin xyz"), ["frequency"] = "Daily" }));
@@ -73,75 +155,74 @@ public sealed class TemplateTraceAndExpandTraceTests
         Assert.False(CacheKeys.Collides(null));
     }
 
-    /// <summary>
-    /// The port's slots are <c>{{param:/name|encoding}}</c>, not JSON-pointer placeholders, so the last upstream
-    /// <c>expandText</c> check (a <c>uri</c> placeholder of an unpaired surrogate is refused) is kept as a slot left as recorded.
-    /// </summary>
     [Fact]
-    public void Partial_Spells_the_form_encoding_as_a_form_submission_does_and_skips_the_encodings_of_a_value_that_has_none()
+    public void Spells_the_form_encoding_as_a_form_submission_does_and_skips_the_encodings_of_a_value_that_has_none()
     {
-        Assert.Equal(
-            "?q={{param:/q|form}}",
-            CacheKeys.Template("?q=Ada%27s+%28new%29+shop%7E%21", new Dictionary<string, object?> { ["q"] = Values.Unique("Ada's (new) shop~!") }));
+        Assert.Equal("?q={{param:/q|form}}", CacheKeys.TemplateText("?q=Ada%27s+%28new%29+shop%7E%21", [new("/q", "Ada's (new) shop~!")]));
 
         // An unpaired surrogate cannot be percent-encoded; the value itself still templates and staging does not throw.
         var odd = "bad \ud800 value";
-        var unique = new Dictionary<string, object?> { ["v"] = Values.Unique(odd) };
-        Assert.Equal("typed {{param:/v}}", CacheKeys.Template("typed " + odd, unique));
-        Assert.Null(CacheKeys.Detemplate("{{param:/v|uri}}", unique));
+        Assert.Equal("typed {{param:/v}}", CacheKeys.TemplateText("typed " + odd, [new("/v", odd)]));
+        Assert.Null(CacheKeys.ExpandText("{{param:/v|uri}}", new Dictionary<string, string> { ["/v"] = odd }));
     }
 
     [Fact]
     public void Templates_the_location_paths_too_in_every_spelling_a_URL_gives_the_value_so_a_value_in_the_URL_follows_the_run()
     {
-        var recorded = CacheKeys.Template("/companies/Acme%20%26%20Co?search=Acme+%26+Co&name=Acme & Co", Name("Acme & Co"));
+        var moved = Recording("Acme & Co");
+        moved.EndRoute = "/companies/Acme%20%26%20Co?search=Acme+%26+Co&name=Acme & Co";
 
-        Assert.Equal("/companies/{{param:/name|uri}}?search={{param:/name|form}}&name={{param:/name}}", recorded);
-        Assert.Equal("/companies/Globex%20Inc?search=Globex+Inc&name=Globex Inc", CacheKeys.Detemplate(recorded, Name("Globex Inc")));
+        var recorded = CacheKeys.TemplateTrace(moved, Name("Acme & Co"))!;
+
+        Assert.Equal("/companies/{{param:/name|uri}}?search={{param:/name|form}}&name={{param:/name}}", recorded.EndRoute);
+        Assert.Equal("/companies/Globex%20Inc?search=Globex+Inc&name=Globex Inc", CacheKeys.ExpandTrace(recorded, Name("Globex Inc"))?.EndRoute);
 
         // A value no encoding changes has one spelling and one placeholder.
-        Assert.Equal("/tags/{{param:/tag}}?q={{param:/tag}}", CacheKeys.Template("/tags/vip?q=vip", new Dictionary<string, object?> { ["tag"] = Values.Unique("vip") }));
+        Assert.Equal("/tags/{{param:/tag}}?q={{param:/tag}}", CacheKeys.TemplateText("/tags/vip?q=vip", [new("/tag", "vip")]));
     }
 
     [Fact]
     public void Spells_a_value_as_the_slug_an_app_derives_for_a_record_path_and_fills_it_back_the_same_way()
     {
-        Assert.Equal(
-            "/companies/{{param:/name|slug}}?q={{param:/name|uri}}",
-            CacheKeys.Template("/companies/e2e-abc-company?q=E2E%20abc%20Company", Name("E2E abc Company")));
-        Assert.Equal("/companies/ada-s-shop-co", CacheKeys.Detemplate("/companies/{{param:/name|slug}}", Name("Ada's Shop & Co")));
+        List<ParamTemplate> templates = [new("/name", "E2E abc Company")];
+
+        Assert.Equal("/companies/{{param:/name|slug}}?q={{param:/name|uri}}", CacheKeys.TemplateText("/companies/e2e-abc-company?q=E2E%20abc%20Company", templates));
+        Assert.Equal("/companies/ada-s-shop-co", CacheKeys.ExpandText("/companies/{{param:/name|slug}}", Filled([new("/name", "Ada's Shop & Co")])));
 
         // A value whose slug is empty has no slug spelling.
-        Assert.Equal("x {{param:/v}} y", CacheKeys.Template("x -- y", new Dictionary<string, object?> { ["v"] = Values.Unique("--") }));
+        Assert.Equal("x {{param:/v}} y", CacheKeys.TemplateText("x -- y", [new("/v", "--")]));
     }
 
     [Fact]
     public void Spells_a_multi_line_value_on_one_line_as_the_screen_shows_it_and_fills_it_back_the_same_way()
     {
-        var address = new Dictionary<string, object?> { ["address"] = Values.Unique("Ada Lovelace\n12 Example Street\nE2E 1") };
-        Assert.Equal("Saved: {{param:/address|flat}}", CacheKeys.Template("Saved: Ada Lovelace 12 Example Street E2E 1", address));
-        Assert.Equal("{{param:/address}}", CacheKeys.Template("Ada Lovelace\n12 Example Street\nE2E 1", address));
+        List<ParamTemplate> templates = [new("/address", "Ada Lovelace\n12 Example Street\nE2E 1")];
+
+        Assert.Equal("Saved: {{param:/address|flat}}", CacheKeys.TemplateText("Saved: Ada Lovelace 12 Example Street E2E 1", templates));
+        Assert.Equal("{{param:/address}}", CacheKeys.TemplateText("Ada Lovelace\n12 Example Street\nE2E 1", templates));
 
         // A textarea keeps `\r\n` as `\n`, so a value joined with `\r\n` shows on one line too.
         Assert.Equal(
             "Saved: {{param:/address|flat}}",
-            CacheKeys.Template(
-                "Saved: Ada Lovelace 12 Example Street E2E 1",
-                new Dictionary<string, object?> { ["address"] = Values.Unique("Ada Lovelace\r\n12 Example Street\r\nE2E 1") }));
+            CacheKeys.TemplateText("Saved: Ada Lovelace 12 Example Street E2E 1", [new("/address", "Ada Lovelace\r\n12 Example Street\r\nE2E 1")]));
         Assert.Equal(
             "Saved: Grace Hopper 7 Navy Way E2E 2",
-            CacheKeys.Detemplate(
-                "Saved: {{param:/address|flat}}",
-                new Dictionary<string, object?> { ["address"] = Values.Unique(" Grace Hopper\n\n 7 Navy Way\tE2E 2 ") }));
+            CacheKeys.ExpandText("Saved: {{param:/address|flat}}", Filled([new("/address", " Grace Hopper\n\n 7 Navy Way\tE2E 2 ")])));
+    }
+
+    [Fact]
+    public void Refuses_a_placeholder_whose_encoding_it_does_not_know()
+    {
+        Assert.Null(CacheKeys.ExpandText("/x/{{param:/name|base64}}", Filled(Name("Acme"))));
+        Assert.Equal("/x/Acme", CacheKeys.ExpandText("/x/{{param:/name}}", Filled(Name("Acme"))));
     }
 
     /// <summary>
-    /// Partial port of "templates inputs, descriptors, anchors, and action summaries, and expands them with another run's
-    /// value": the typed value, the navigated URL, the target descriptor and the end anchors carry the slot and fill from the next
-    /// run. The port records no action summaries, and has no <c>templateTrace</c> or <c>expandTrace</c> to call on a trace.
+    /// No upstream <c>it</c>: upstream's step-cache tests run a step through <c>templateTrace</c> and <c>expandTrace</c> with a real model.
+    /// This one runs the port's step cache with a scripted model: the recording holds the slots, and the next run fills them.
     /// </summary>
     [Fact]
-    public async Task Partial_Templates_inputs_descriptors_and_anchors_and_expands_them_with_another_runs_value()
+    public async Task Records_a_step_with_the_slots_and_replays_it_with_another_runs_value()
     {
         var typed = new List<string>();
         static string Url(string name) => "/companies/create?name=" + Uri.EscapeDataString(name).Replace("%20", "+", StringComparison.Ordinal);
@@ -175,11 +256,11 @@ public sealed class TemplateTraceAndExpandTraceTests
             "/home",
             Form,
             Script(ModelResponses.Call("navigate", new { url = Url(first) }), ModelResponses.Fill("textbox", "Name", first), ModelResponses.Tap("option", first)),
-            Name(first));
+            NameParams(first));
         Assert.Null(recorded.Error);
 
         var file = Assert.Single(Directory.GetFiles(directory, "*.json"));
-        var entry = JsonSerializer.Deserialize<CacheEntry>(File.ReadAllText(file), JsonDefaults())!;
+        var entry = JsonSerializer.Deserialize<CacheEntry>(File.ReadAllText(file), Web)!;
         Assert.Equal("/companies/create?name={{param:/name|form}}", entry.Actions[0].Url);
         Assert.Equal("{{param:/name}}", entry.Actions[1].Value);
         Assert.Equal("{{param:/name}}", entry.Actions[2].Name);
@@ -188,69 +269,20 @@ public sealed class TemplateTraceAndExpandTraceTests
         Assert.DoesNotContain("E2E", File.ReadAllText(file), StringComparison.Ordinal);
 
         typed.Clear();
-        var replay = await StepAsync(World(second), new FileStepCache(directory), "/home", Form, new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")), Name(second));
+        var replay = await StepAsync(World(second), new FileStepCache(directory), "/home", Form, new ScriptedModel(_ => throw new InvalidOperationException("no model call expected")), NameParams(second));
         Assert.Null(replay.Error);
         Assert.Equal(1, replay.Replayed);
         Assert.Equal(["E2E xyz Company"], typed);
     }
 
     /// <summary>
-    /// Partial port of "templates upload paths, so a file named through unique() is re-resolved from each run's value": the
-    /// recorded action's paths carry the slot and fill from the next run's value. The port records no action summary, and has no
-    /// <c>templateTrace</c> or <c>expandTrace</c>, so the paths go through <c>Template</c> and <c>TryExpandTrace</c>.
+    /// No upstream <c>it</c>: the page itself spells a placeholder, so an end anchor could not be told from a slot. Upstream's
+    /// <c>templateTrace</c> refuses it for any mapped text; this runs the port's step cache to see that it writes no recording.
     /// </summary>
     [Fact]
-    public void Partial_Templates_upload_paths_so_a_file_named_through_unique_is_re_resolved_from_each_runs_value()
+    public async Task Writes_no_recording_for_a_step_whose_page_spells_a_placeholder()
     {
-        static Dictionary<string, object?> File(string value) => new() { ["file"] = Values.Unique(value) };
-        var recorded = new RecordedAction
-        {
-            Kind = "upload",
-            Role = "button",
-            Name = "Attachment",
-            Paths = [.. new[] { "fixtures/run-1.json", "fixtures/static.txt" }.Select(path => CacheKeys.Template(path, File("fixtures/run-1.json")))],
-        };
-        var entry = new CacheEntry { Actions = [recorded] };
-
-        Assert.Equal(["{{param:/file}}", "fixtures/static.txt"], recorded.Paths);
-        Assert.Equal(["fixtures/run-2.json", "fixtures/static.txt"], recorded.Paths.Select(path => CacheKeys.Detemplate(path, File("fixtures/run-2.json"))));
-        Assert.True(CacheKeys.TryExpandTrace(entry, File("fixtures/run-2.json")));
-        Assert.False(CacheKeys.TryExpandTrace(entry, new Dictionary<string, object?>()));
-    }
-
-    /// <summary>
-    /// Partial port of "refuses to template a recording whose text already spells a placeholder": the port has no
-    /// <c>templateTrace</c> to call on a finished trace, so the step records a typed value that spells one, with a marked param and
-    /// with none, and writes no recording.
-    /// </summary>
-    [Fact]
-    public async Task Partial_Refuses_to_template_a_recording_whose_text_already_spells_a_placeholder()
-    {
-        var world = new DocumentWorld()
-            .Map("/home", page => page.Heading("Home"))
-            .Map("/companies/create", page =>
-            {
-                page.Status("Company form");
-                page.Roots.Add(new DocumentElement { Role = "textbox", Name = "Name", Value = "", OnFill = _ => { } });
-            });
         static Task Form(TestContext ctx) => Expect.That(ctx.Screen.GetByRole("status", "Company form")).ToBeVisibleAsync();
-
-        foreach (var parameters in new[] { Name("Acme Corp"), null })
-        {
-            var directory = CoreTests.TempCache();
-            var step = await StepAsync(
-                world,
-                new FileStepCache(directory),
-                "/home",
-                Form,
-                Script(ModelResponses.Call("navigate", new { url = "/companies/create" }), ModelResponses.Fill("textbox", "Name", "typed {{param:/name}} literally")),
-                parameters);
-
-            Assert.Null(step.Error);
-            Assert.Empty(Directory.Exists(directory) ? Directory.GetFiles(directory, "*.json") : []);
-        }
-
-        // The page itself spells one: an end anchor that could not be told from a slot.
         var spelling = new DocumentWorld()
             .Map("/home", page => page.Heading("Home"))
             .Map("/companies/create", page =>
@@ -259,6 +291,7 @@ public sealed class TemplateTraceAndExpandTraceTests
                 page.Heading("Saved {{param:/x}}");
             });
         var anchored = CoreTests.TempCache();
+
         var shown = await StepAsync(spelling, new FileStepCache(anchored), "/home", Form, Script(ModelResponses.Call("navigate", new { url = "/companies/create" })), null);
 
         Assert.Null(shown.Error);
@@ -274,27 +307,16 @@ public sealed class TemplateTraceAndExpandTraceTests
             .Map("/companies/create", page => page.Status("Company form"));
         static Task Form(TestContext ctx) => Expect.That(ctx.Screen.GetByRole("status", "Company form")).ToBeVisibleAsync();
         var directory = CoreTests.TempCache();
-        var recorded = await StepAsync(world, new FileStepCache(directory), "/home", Form, Script(ModelResponses.Call("navigate", new { url = "/companies/create" })), Name("Acme"));
+        var recorded = await StepAsync(world, new FileStepCache(directory), "/home", Form, Script(ModelResponses.Call("navigate", new { url = "/companies/create" })), NameParams("Acme"));
         Assert.Null(recorded.Error);
         var file = Assert.Single(Directory.GetFiles(directory, "*.json"));
         var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(file))!.AsObject();
         json["appeared"] = new System.Text.Json.Nodes.JsonArray((System.Text.Json.Nodes.JsonNode?)null);
         File.WriteAllText(file, json.ToJsonString());
 
-        var replay = await StepAsync(world, new FileStepCache(directory), "/home", Form, Script(ModelResponses.Call("navigate", new { url = "/companies/create" })), Name("Acme"));
+        var replay = await StepAsync(world, new FileStepCache(directory), "/home", Form, Script(ModelResponses.Call("navigate", new { url = "/companies/create" })), NameParams("Acme"));
 
         Assert.Null(replay.Error);
         Assert.Equal(("missed", "invalid-entry"), (replay.Cache?.Mode, replay.Cache?.Reason));
     }
-
-    [Fact]
-    public void Refuses_a_placeholder_whose_encoding_it_does_not_know()
-    {
-        Assert.Null(CacheKeys.ExpandText("/x/{{param:/name|base64}}", new Dictionary<string, string> { ["/name"] = "Acme" }));
-        Assert.Null(CacheKeys.Detemplate("/x/{{param:/name|base64}}", Name("Acme")));
-        Assert.Null(CacheKeys.Detemplate("/x/{{param:/other}}", Name("Acme")));
-        Assert.Equal("/x/Acme", CacheKeys.Detemplate("/x/{{param:/name}}", Name("Acme")));
-    }
-
-    private static JsonSerializerOptions JsonDefaults() => new(JsonSerializerDefaults.Web);
 }

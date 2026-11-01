@@ -57,10 +57,10 @@ public sealed class UniqueThroughValidateParamsTests
     [Fact]
     public void Round_trips_a_key_that_contains_a_closing_brace()
     {
-        var recorded = new Dictionary<string, object?> { ["a}b"] = Values.Unique("Acme Corp") };
-        var templated = CacheKeys.Template("tap \"Acme Corp\"", recorded);
+        var templates = new List<ParamTemplate> { new(CacheKeys.ParamPointer("", "a}b"), "Acme Corp") };
+        var templated = CacheKeys.TemplateText("tap \"Acme Corp\"", templates);
 
         Assert.Equal("tap \"{{param:/a}b}}\"", templated);
-        Assert.Equal("tap \"Globex\"", CacheKeys.Detemplate(templated, new Dictionary<string, object?> { ["a}b"] = Values.Unique("Globex") }));
+        Assert.Equal("tap \"Globex\"", CacheKeys.ExpandText(templated, new Dictionary<string, string> { ["/a}b"] = "Globex" }));
     }
 }

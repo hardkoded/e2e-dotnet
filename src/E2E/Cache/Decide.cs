@@ -31,11 +31,10 @@ internal static class Decide
     /// <summary>
     /// Decides whether one entry replays for the current step. A recording that does not open with a navigate carries a start
     /// precondition: the app must be on the screen where the recording began, as a route (<see cref="CacheRoute.Same"/>), or the
-    /// recorded actions would run against a different screen than they were proven on. The recorded route is read back through
-    /// <paramref name="parameters"/>, where upstream's entry already holds it expanded.
+    /// recorded actions would run against a different screen than they were proven on. The entry holds its route expanded.
     /// </summary>
-    public static TraceReplayDecision DecideTraceReplay(CacheEntry entry, string? currentPath, IReadOnlyDictionary<string, object?>? parameters = null) =>
-        OpensWithNavigate(entry) || CacheRoute.Same(entry.Route is null ? null : CacheKeys.Detemplate(entry.Route, parameters), currentPath)
+    public static TraceReplayDecision DecideTraceReplay(CacheEntry entry, string? currentPath) =>
+        OpensWithNavigate(entry) || CacheRoute.Same(entry.Route, currentPath)
             ? TraceReplayDecision.Replay
             : TraceReplayDecision.Miss("wrong-context");
 }

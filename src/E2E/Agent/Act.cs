@@ -160,7 +160,7 @@ public sealed partial class Agent
         {
             _scope.Remember(spec.Params);
         }
-        var dispatcher = new ActionDispatcher(_scope, feed, budget, spec.Params, () => declared, spec.OnAction);
+        var dispatcher = new ActionDispatcher(_scope, feed, budget, () => declared, spec.OnAction);
         budget.Attach(_scope, timeout, outer.Token, stop, feed.ArmAfter, dispatcher.NotifyToolAsync);
         ActContext? context = null;
         StepTraceSession? session = null;
@@ -171,7 +171,7 @@ public sealed partial class Agent
             {
                 var key = _scope.ClaimKey(instruction, spec.Params, agent, out var callIndex, out var keyContext);
                 session = new StepTraceSession(
-                    new ActReplayHost(_scope, feed, budget, dispatcher, spec.Params, token),
+                    new ActReplayHost(_scope, feed, budget, dispatcher, token),
                     new StepCacheOptions
                     {
                         Cache = cache,
