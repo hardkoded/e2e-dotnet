@@ -71,7 +71,8 @@ failure or an un-awaited step does not do that. `host.CloseAsync()` and `Dispose
 `session.Steps()` returns the timeline as `E2E.Reports.ReportStep`, the typed
 form of what `report.json` holds for each step. `Report()` returns the whole
 attempt once the session is closed. `TracePath` is where the trace page is
-written when the trace mode keeps this attempt (`"trace": "on"` always keeps it).
+written when the session closes. A hosted session always writes it, whatever the
+trace mode. The page stands alone: it has no `report.json` to point at.
 
 ## Limits
 

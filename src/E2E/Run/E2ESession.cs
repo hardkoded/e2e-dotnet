@@ -87,8 +87,8 @@ public sealed class E2ESession : IAsyncDisposable
     public string ArtifactsDir => _scope.ArtifactsDir!;
 
     /// <summary>
-    /// The absolute path of the session's trace page. It is written when the session closes, if the trace mode keeps this attempt (upstream
-    /// always writes one). Upstream's <c>tracePath</c>.
+    /// The absolute path of the session's trace page. It is written when the session closes. A session of a test framework writes it if the
+    /// trace mode keeps the attempt; a hosted one (<see cref="E2EHost.OpenSessionAsync"/>) always does, as upstream's. Upstream's <c>tracePath</c>.
     /// </summary>
     public string TracePath => Path.Combine(_trace!.TestDir, TracePages.TracePage);
 
@@ -834,6 +834,22 @@ public sealed class E2ESession : IAsyncDisposable
 
             // Every attempt joins its test's report, and the run's report.json tells them all.
             var (single, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Exploration, _evidence, _cleanupErrors);
+            if (_hostedClose is not null)
+            {
+                // A hosted attempt is a test of another runner: it writes its own page, and no report.json or retries to join.
+                var hosted = await HostTrace.WriteHostTraceAsync(new HostTraceOptions
+                {
+                    Attempt = single,
+                    ProjectRoot = ReportFile.ProjectRootOf(_scope.ProjectRoot, trace.ResultsRoot),
+                    ResultsDir = trace.ResultsRoot,
+                    Segments = [Path.GetFileName(trace.TestDir)],
+                    TracePath = Path.Combine(trace.TestDir, TracePages.TracePage),
+                    Redact = _scope.Redactor.Redact,
+                }).ConfigureAwait(false);
+                Volatile.Write(ref _report, new Lazy<Report>(() => hosted));
+                return;
+            }
+
             var (report, traced, redact) = RunReport.Add(single, trace.ResultsRoot, _scope.Attempt, kept, _scope.Redactor.Redact);
             // The document is a courtesy too: the page below is still written when it cannot be.
             try
