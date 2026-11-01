@@ -105,6 +105,10 @@ public sealed class HostOpenSessionTests : IDisposable
         Assert.Equal("rejected", await settled.WaitAsync(TimeSpan.FromSeconds(10)));
         Assert.Contains(failures, failure => failure is E2EException { Code: "STEP_NOT_AWAITED" });
         Assert.Equal(1, fake.Disposes);
+
+        // A step nobody awaited is a test outcome, not an unclean worker: the host opens the next session.
+        await using var next = await host.OpenSessionAsync(new OpenSessionOptions { Name = "after the abandoned step" });
+        Assert.Equal("kiosk", next.Target);
         await host.CloseAsync();
     }
 

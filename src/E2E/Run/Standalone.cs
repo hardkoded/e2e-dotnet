@@ -172,7 +172,7 @@ internal sealed class StandaloneHost
 
     /// <summary>
     /// Opens the attempt, one at a time. The slot is taken before any engine work runs. A launch that fails has ended what it opened, and the
-    /// host stays usable for the next attempt, unless an attempt closed with failures: what it left may be unclean, so the host refuses another.
+    /// host stays usable for the next attempt, unless an attempt's cleanup failed: what it left may be unclean, so the host refuses another.
     /// A <paramref name="hosted"/> attempt is upstream's hosted kind: its session closes through <see cref="E2ESession.CloseAsync"/> and is disposed by its owner.
     /// </summary>
     public Task<StandaloneAttempt> OpenAttemptAsync(E2ESessionOptions session, CancellationToken cancellationToken = default, bool hosted = false)
@@ -344,7 +344,8 @@ internal sealed class StandaloneHost
                 }
             }
 
-            if (errors.Count > 0)
+            // A hosted session's list also holds test outcomes (a soft failure, a step nobody awaited), which leave the worker clean.
+            if (hosted ? session.CleanupFailed : errors.Count > 0)
             {
                 lock (_gate)
                 {

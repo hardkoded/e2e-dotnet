@@ -112,7 +112,7 @@ public IReadOnlyDictionary<string, string?>? Env { get; init; }
 ```
 
 
-The variables the config and the engine read; null is the process environment. Upstream's `env`.
+The variables the config and the engine's prepare and worker read; null is the process environment. Upstream's `env`.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 

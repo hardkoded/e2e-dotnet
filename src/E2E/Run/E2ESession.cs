@@ -475,10 +475,14 @@ public sealed class E2ESession : IAsyncDisposable
 #pragma warning restore CA1031
         {
             errors.Add(cause);
+            CleanupFailed = true;
         }
 
         return errors;
     }
+
+    /// <summary>Whether releasing the session failed: what it left may be unclean, unlike a test outcome in <see cref="CloseAsync"/>'s list.</summary>
+    internal bool CleanupFailed { get; private set; }
 
     public async ValueTask DisposeAsync()
     {

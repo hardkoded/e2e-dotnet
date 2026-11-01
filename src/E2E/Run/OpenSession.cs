@@ -28,7 +28,7 @@ public sealed record OpenHostOptions
     /// <summary>The target to open. It may be omitted only when the config declares one target. Upstream's <c>target</c>.</summary>
     public string? Target { get; init; }
 
-    /// <summary>The variables the config and the engine read; null is the process environment. Upstream's <c>env</c>.</summary>
+    /// <summary>The variables the config and the engine's prepare and worker read; null is the process environment. Upstream's <c>env</c>.</summary>
     public IReadOnlyDictionary<string, string?>? Env { get; init; }
 
     /// <summary>Whether a web target opens a visible window. Upstream's <c>headed</c>.</summary>
@@ -71,6 +71,9 @@ public sealed record OpenSessionOptions
 /// </summary>
 public sealed class E2EHost : IAsyncDisposable
 {
+    // The longest deadline a CancellationTokenSource takes.
+    private static readonly TimeSpan MaxTimeout = TimeSpan.FromMilliseconds(uint.MaxValue - 1);
+
     private readonly StandaloneHost _host;
     private readonly E2EConfig _config;
     private readonly TargetConfig _declared;
@@ -152,17 +155,18 @@ public sealed class E2EHost : IAsyncDisposable
     /// Opens one isolated session. One opening, live, or closing session per host; open them one after another. Upstream's <c>openSession</c>.
     /// The token cancels the opening and, as the session's own, every operation it runs.
     /// </summary>
-    public Task<E2ESession> OpenSessionAsync(OpenSessionOptions options, CancellationToken cancellationToken = default) =>
-        OpenSession.RedactOpening(async () =>
+    public Task<E2ESession> OpenSessionAsync(OpenSessionOptions options, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return OpenSession.RedactOpening(async () =>
         {
-            ArgumentNullException.ThrowIfNull(options);
             if (string.IsNullOrWhiteSpace(options.Name))
             {
                 throw new ConfigurationException("INVALID_CONFIG", "a hosted session requires a name");
             }
 
             var timeout = options.Timeout ?? _config.Timeout;
-            if (timeout <= TimeSpan.Zero || timeout == System.Threading.Timeout.InfiniteTimeSpan)
+            if (timeout <= TimeSpan.Zero || timeout > MaxTimeout)
             {
                 throw new ConfigurationException("INVALID_CONFIG", "the session timeout must be positive and finite");
             }
@@ -170,6 +174,7 @@ public sealed class E2EHost : IAsyncDisposable
             var attempt = await _host.OpenAttemptAsync(SessionOptions(options, timeout), cancellationToken, hosted: true).ConfigureAwait(false);
             return attempt.Session;
         });
+    }
 
     /// <summary>
     /// Cancels or ends a pending or active session, then disposes the worker and releases resources, once. A second call returns what the first did.
@@ -259,6 +264,7 @@ internal static class OpenSession
 {
     private static readonly Lock Gate = new();
     private static readonly List<Secret> Secrets = [];
+    private static readonly HashSet<(string Name, string Value)> Known = [];
     private static Redactor _redactor = Redactor.None;
 
     /// <summary>Opening errors go straight to the external runner, never through a report writer. Upstream's <c>redactOpening</c>.</summary>
@@ -286,7 +292,14 @@ internal static class OpenSession
     {
         lock (Gate)
         {
-            Secrets.AddRange(secrets);
+            foreach (var secret in secrets)
+            {
+                if (Known.Add((secret.Name, secret.Value)))
+                {
+                    Secrets.Add(secret);
+                }
+            }
+
             _redactor = Redactor.For(Secrets);
         }
     }

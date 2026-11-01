@@ -62,9 +62,9 @@ only its code, category, and message, redacted of the config's secrets.
 the steps the test left running (`STEP_NOT_AWAITED`, and their work is
 cancelled), and the cleanup failures. A second call returns the same list. Check
 `E2EException.Code` for the code. `DisposeAsync` closes and then throws the
-failures as an `AggregateException`, always, even for one. After a session closed
-with failures the host refuses another (`WORKER_PROTOCOL`): what it left may be
-unclean. `host.CloseAsync()` and `DisposeAsync` do the same for the host.
+failures as an `AggregateException`, always, even for one. After a session whose cleanup failed
+the host refuses another (`WORKER_PROTOCOL`): what it left may be unclean. A soft
+failure or an un-awaited step does not do that. `host.CloseAsync()` and `DisposeAsync` do the same for the host.
 
 ## Steps and the report
 
