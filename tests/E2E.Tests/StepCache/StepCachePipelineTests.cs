@@ -358,6 +358,11 @@ public sealed class StepCachePipelineTests
 
         var replayed = await StepAsync(World("E2E-xyz"), new FileStepCache(directory), "/storage", null, Script(), Params("E2E-xyz"));
         Assert.Equal(1, replayed.Replayed);
+        Assert.Equal("self-finalized", replayed.Cache?.Mode);
+
+        // The slot is filled with this run's value, so a page that shows another name does not hold the end state.
+        var drifted = await StepAsync(World("E2E-other"), new FileStepCache(directory), "/storage", null, Script(), Params("E2E-xyz"));
+        Assert.NotEqual("self-finalized", drifted.Cache?.Mode);
     }
 
     [Fact]
