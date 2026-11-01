@@ -34,10 +34,18 @@ public sealed class DevFlowAgentsTests
 
     private static (DevFlowAgents Provider, FakeAgent Agent) Over(DevFlowAgentsOptions? options = null)
     {
+        var (provider, agent, _) = WithTools(options);
+        return (provider, agent);
+    }
+
+    private static (DevFlowAgents Provider, FakeAgent Agent, FakeTools Tools) WithTools(DevFlowAgentsOptions? options = null)
+    {
         var agent = new FakeAgent();
+        var tools = new FakeTools();
         var http = agent.Http;
         var settings = options ?? new DevFlowAgentsOptions();
-        return (new DevFlowAgents(settings, http, new AgentDiscovery(http, settings) { Delay = static (_, _) => Task.CompletedTask }), agent);
+        var discovery = new AgentDiscovery(http, settings) { Delay = static (_, _) => Task.CompletedTask };
+        return (new DevFlowAgents(settings, http, discovery, tools) { RunningProbe = TimeSpan.FromMilliseconds(20) }, agent, tools);
     }
 
     [Fact]
@@ -50,11 +58,90 @@ public sealed class DevFlowAgentsTests
 
         Assert.Equal(["GET /api/v1/agent/status"], agent.Calls.Where(call => call.Uri.Port == 9223).Select(call => call.Route));
         Assert.Equal("localhost:9223", lease.Id);
-        Assert.Equal("MobileApp", lease.Device);
-        Json.AssertEqual("""{"host":"localhost","port":9223,"leaseId":"e2e-run1-0","label":"e2e mobileapp slot 1 of 1"}""", lease.Client);
+        Assert.Equal(FakeTools.Udid, lease.Device);
+        Assert.Equal(FakeTools.Udid, lease.Client!["device"]!.GetValue<string>());
+        Assert.Null(lease.InstalledApp);
+        Json.AssertEqual($$"""{"host":"localhost","port":9223,"leaseId":"e2e-run1-0","label":"e2e mobileapp slot 1 of 1","device":"{{FakeTools.Udid}}"}""", lease.Client);
         Assert.True(DeviceBindings.IsClientConfig(lease.Client));
         Json.AssertEqual("""{"action":"claim","leaseId":"e2e-run1-0","holderKind":"e2e","label":"e2e mobileapp slot 1 of 1"}""", Assert.Single(agent.LeaseCalls).Body);
         Assert.Contains(log, line => line.Contains("attached to MobileApp (ios) at http://localhost:9223/", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task An_app_that_is_not_running_is_installed_and_launched_and_its_agent_waited_for()
+    {
+        var log = new List<string>();
+        var (provider, agent, tools) = WithTools();
+        var launched = false;
+        tools.Script("xcrun simctl launch", _ => { launched = true; return FakeTools.Ok(); });
+        agent.Script("GET", "/api/v1/agent/status", _ => launched ? FakeAgent.Json(FakeAgent.Status()) : throw new HttpRequestException("Connection refused"));
+
+        var lease = await provider.AcquireAsync(Request(log: log) with { AppPath = "/build/MobileApp.app" }, CancellationToken.None);
+
+        Assert.Equal(
+            [
+                "xcrun simctl list devices booted -j",
+                $"xcrun simctl install {FakeTools.Udid} /build/MobileApp.app",
+                $"xcrun simctl launch {FakeTools.Udid} {FakeAgent.PackageId}",
+            ],
+            tools.Commands);
+        Assert.Equal(FakeAgent.PackageId, lease.InstalledApp);
+        Assert.Contains(log, line => line.StartsWith("installing /build/MobileApp.app", StringComparison.Ordinal));
+        Assert.Contains(log, line => line.StartsWith($"launching {FakeAgent.PackageId}", StringComparison.Ordinal));
+        Assert.Single(agent.LeaseCalls);
+    }
+
+    [Fact]
+    public async Task On_Android_the_broker_port_is_reversed_before_the_launch_and_the_agents_port_forwarded_after_it()
+    {
+        var (provider, agent, tools) = WithTools();
+        var launched = false;
+        tools.Script("adb -s emulator-5554 shell monkey", _ => { launched = true; return FakeTools.Ok(); });
+        agent.Script("GET", "/api/agents", _ => FakeAgent.Json(launched ? new JsonArray(Brokered[1]!.DeepClone()) : new JsonArray()), port: DevFlowAgents.DefaultBrokerPort);
+        agent.ScriptRefused("GET", "/api/v1/agent/status", port: 9223);
+        agent.ScriptJson("GET", "/api/v1/agent/status", FakeAgent.Status("android"), port: 10224);
+
+        var lease = await provider.AcquireAsync(Request(MobilePlatform.Android), CancellationToken.None);
+
+        Assert.Equal(
+            [
+                "adb devices -l",
+                $"adb -s {FakeTools.Serial} reverse tcp:19223 tcp:19223",
+                $"adb -s {FakeTools.Serial} forward tcp:9223 tcp:9223",
+                $"adb -s {FakeTools.Serial} shell monkey -p {FakeAgent.PackageId} -c android.intent.category.LAUNCHER 1",
+                $"adb -s {FakeTools.Serial} forward --remove tcp:9223",
+                $"adb -s {FakeTools.Serial} forward tcp:10224 tcp:10224",
+            ],
+            tools.Commands);
+        Assert.Equal(10224, lease.Client!["port"]!.GetValue<int>());
+
+        tools.Commands.Clear();
+        await provider.ReleaseAsync(lease, new DeviceReleaseContext { RunId = "run1", TargetName = "mobileapp", Env = new Dictionary<string, string?>(), Log = _ => { } }, CancellationToken.None);
+        Assert.Equal([$"adb -s {FakeTools.Serial} forward --remove tcp:10224", $"adb -s {FakeTools.Serial} reverse --remove tcp:19223"], tools.Commands);
+    }
+
+    [Fact]
+    public async Task Launching_needs_the_apps_bundle_id()
+    {
+        var (provider, agent, tools) = WithTools();
+        agent.ScriptRefused("GET", "/api/v1/agent/status");
+
+        var error = await Assert.ThrowsAsync<ConfigurationException>(() => provider.AcquireAsync(Request(app: null), CancellationToken.None));
+
+        Assert.Contains("app.bundleId", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(tools.Commands, command => command.Contains("launch", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task With_launch_off_the_provider_attaches_and_touches_no_tool()
+    {
+        var (provider, _, tools) = WithTools(new DevFlowAgentsOptions { Launch = false });
+
+        var lease = await provider.AcquireAsync(Request(), CancellationToken.None);
+
+        Assert.Empty(tools.Commands);
+        Assert.Equal("MobileApp", lease.Device);
+        Assert.Null(lease.Client!["device"]);
     }
 
     [Fact]

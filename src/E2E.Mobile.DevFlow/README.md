@@ -17,6 +17,6 @@ var engine = new MobileEngine(new MobileOptions
 });
 ```
 
-This is a preview. It attaches to an app that is already running: start the app yourself, then run the tests. `device.installApp()`, a relaunch, deep links, the home screen, alerts, permissions, and orientation are not supported yet, and the agent exists only in Debug builds.
+The provider installs the target's build and launches the app on the booted simulator or emulator through `xcrun simctl` and `adb`, or attaches to an app you launched with `Launch = false`. This is a preview: deep links, alerts, permissions, orientation, and the home button on iOS are not supported yet, the agent exists only in Debug builds, and nothing has been run against a real device.
 
 See the [repository](https://github.com/hardkoded/e2e-dotnet) and its `COMPATIBILITY.md` for what differs from upstream.

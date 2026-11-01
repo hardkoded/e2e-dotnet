@@ -74,14 +74,15 @@ On a Limrun iOS device, keyboard actions such as `Locator.PressAsync("Enter")` f
 
 ## Run through the DevFlow agent
 
-The Debug build of the app registers the [MAUI DevFlow](https://github.com/dotnet/maui-labs/tree/main/src/DevFlow) agent (`builder.AddMauiDevFlowAgent()` in `MauiProgram.cs`). With `E2E_MOBILE_PROVIDER=devflow`, the tests drive the app through that agent instead of agent-device: no Node, and the MAUI visual tree with every `AutomationId`. The tests attach to a running app, so launch it first:
+The Debug build of the app registers the [MAUI DevFlow](https://github.com/dotnet/maui-labs/tree/main/src/DevFlow) agent (`builder.AddMauiDevFlowAgent()` in `MauiProgram.cs`). With `E2E_MOBILE_PROVIDER=devflow`, the tests drive the app through that agent instead of agent-device: no Node, and the MAUI visual tree with every `AutomationId`. Build the app and boot one simulator, as for a local run, then:
 
 ```bash
-dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64 -t:Run
+dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64
+xcrun simctl boot "iPhone 17"
 E2E_MOBILE_PROVIDER=devflow dotnet test samples/MobileApp.E2ETests
 ```
 
-`HostedDeviceSetup` finds the agent (through the DevFlow broker when one runs, `maui devflow list`, else on port 9223, or `E2E_DEVFLOW_PORT`), waits up to a minute for it, and holds its mutation lease for the run. Nothing is installed, and the app is not relaunched between tests, so each test starts from the state the last one left. The two device tests that send the app to the background or relaunch it are inconclusive in this mode. On Android, forward the agent's port with `adb forward tcp:<port> tcp:<port>` first. This mode has not been run against a device yet: it is the spike of the DevFlow integration.
+`HostedDeviceSetup` installs the build on the booted simulator (or on `E2E_MOBILE_DEVICE`) through `xcrun simctl`, launches the app, finds its agent (through the DevFlow broker when one runs, `maui devflow list`, else on port 9223, or `E2E_DEVFLOW_PORT`), waits up to a minute for it, and holds its mutation lease for the run. Every test relaunches the app fresh, as in a local run. On Android, set `E2E_MOBILE_PLATFORM=android` and `E2E_MOBILE_APP_PATH` to the `.apk`; `adb` must be on `PATH`, and the provider forwards the agent's port itself. The one test that sends the app to the background is inconclusive on iOS, since `simctl` has no home button. The app keeps running when the tests end. This mode has not been run against a device yet: it is the spike of the DevFlow integration.
 
 ## How the fixture works
 

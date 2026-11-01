@@ -61,12 +61,19 @@ internal sealed class DevFlowAgentClient
         _resolved = endpoint;
     }
 
-    public DevFlowAgentClient(HttpClient http, Func<MobilePlatform?, CancellationToken, Task<Uri>> endpoint, LeaseIdentity? lease)
+    public DevFlowAgentClient(HttpClient http, Func<MobilePlatform?, CancellationToken, Task<Uri>> endpoint, LeaseIdentity? lease, Uri? known = null)
     {
         _http = http;
         _endpoint = endpoint;
         _lease = lease;
+        _resolved = known;
     }
+
+    /// <summary>The endpoint as last resolved, or null before the first resolution.</summary>
+    public Uri? Resolved => _resolved;
+
+    /// <summary>Forgets the resolved endpoint, so the next call resolves it again: a relaunched app may register under another port.</summary>
+    public void Reset() => _resolved = null;
 
     public LeaseIdentity? Lease => _lease;
 

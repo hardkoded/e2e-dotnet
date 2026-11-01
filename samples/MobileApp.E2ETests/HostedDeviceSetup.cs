@@ -12,8 +12,8 @@ namespace MobileApp.E2ETests;
 
 /// <summary>
 /// With <c>E2E_MOBILE_PROVIDER=limrun</c>, leases one hosted device for the whole run and releases it at the end. With
-/// <c>E2E_MOBILE_PROVIDER=devflow</c>, attaches to the running app's MAUI DevFlow agent for the whole run and releases its
-/// mutation lease at the end. The NUnit adapter starts one engine session per test and does not run the engine's prepare and
+/// <c>E2E_MOBILE_PROVIDER=devflow</c>, installs and launches the app on the booted simulator or emulator, holds its MAUI DevFlow
+/// agent's mutation lease for the whole run, and releases it at the end. The NUnit adapter starts one engine session per test and does not run the engine's prepare and
 /// finish hooks, so this does: every test shares the engine, and so the device. Without the variable (or with <c>local</c>) it
 /// does nothing.
 /// </summary>
@@ -28,11 +28,8 @@ public sealed class HostedDeviceSetup
     /// <summary>The engine that owns the leased device, or null when the tests drive a local one.</summary>
     internal static MobileEngine? Engine => s_engine;
 
-    /// <summary>
-    /// True when the tests attach to an app that is already running (the DevFlow agent), so there is no build to install
-    /// and no relaunch: the tests that need one are inconclusive in this mode.
-    /// </summary>
-    internal static bool AttachesToRunningApp { get; private set; }
+    /// <summary>True when an iOS app is driven through the DevFlow agent: the simulator has no home button for it, so the one test that needs it is inconclusive.</summary>
+    internal static bool DrivesIosThroughDevFlow { get; private set; }
 
     [OneTimeSetUp]
     public async Task LeaseDeviceAsync()
@@ -47,11 +44,16 @@ public sealed class HostedDeviceSetup
         {
             // A hosted device that outlives an interrupted run is billed until its hard timeout.
             "limrun" => new LimrunSimulators(new LimrunSimulatorsOptions { HardTimeout = "15m", Ios = new LimrunIosOptions { Model = LimrunIosModel.Iphone } }),
-            // The agent inside the running Debug build of samples/MobileApp. E2E_DEVFLOW_PORT names its port; without it the broker is asked, then 9223.
-            "devflow" => new DevFlowAgents(new DevFlowAgentsOptions { Port = int.TryParse(Environment.GetEnvironmentVariable("E2E_DEVFLOW_PORT"), out var port) ? port : null, AppName = "MobileApp" }),
+            // The agent inside the Debug build of samples/MobileApp, launched on E2E_MOBILE_DEVICE or the booted device. E2E_DEVFLOW_PORT names its port; without it the broker is asked, then 9223.
+            "devflow" => new DevFlowAgents(new DevFlowAgentsOptions
+            {
+                Port = int.TryParse(Environment.GetEnvironmentVariable("E2E_DEVFLOW_PORT"), out var port) ? port : null,
+                AppName = "MobileApp",
+                Device = Environment.GetEnvironmentVariable("E2E_MOBILE_DEVICE") is { Length: > 0 } device ? device : null,
+            }),
             _ => throw new InvalidOperationException($"E2E_MOBILE_PROVIDER must be local, limrun, or devflow, not {name}."),
         };
-        AttachesToRunningApp = name == "devflow";
+        DrivesIosThroughDevFlow = name == "devflow" && !string.Equals(Environment.GetEnvironmentVariable("E2E_MOBILE_PLATFORM"), "android", StringComparison.OrdinalIgnoreCase);
         var options = MobileAppTest.Options(provider);
         s_env = Environment.GetEnvironmentVariables().Cast<DictionaryEntry>().ToDictionary(entry => (string)entry.Key, entry => (string?)entry.Value, StringComparer.Ordinal);
         s_runId = Guid.NewGuid().ToString("N")[..12];

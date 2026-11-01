@@ -139,14 +139,15 @@ using E2E.Mobile.DevFlow;
 var provider = new DevFlowAgents(new DevFlowAgentsOptions { AppName = "MobileApp" });
 ```
 
-Launch the Debug build of the app on a simulator or emulator yourself, then run the tests. The provider finds the agent through the DevFlow broker when one runs (`maui devflow list` shows it), else on port 9223; `DevFlowAgentsOptions.Port` names a port outright. It waits up to `ConnectTimeout` (60 seconds) for the agent, checks that it runs the target's platform and app, and holds the agent's mutation lease while the run lasts. The sample turns this on with `E2E_MOBILE_PROVIDER=devflow`:
+Boot one simulator or emulator and build the app, then run the tests. The provider installs `App.AppPath` when the target names one, launches the app by `App.BundleId` when it is not running, and finds its agent through the DevFlow broker when one runs (`maui devflow list` shows it), else on port 9223; `DevFlowAgentsOptions.Port` names a port outright, and `Device` a simulator UDID or name or an adb serial. It waits up to `ConnectTimeout` (60 seconds) for the agent, checks that it runs the target's platform and app, and holds the agent's mutation lease while the run lasts. iOS goes through `xcrun simctl` and Android through `adb`, which forwards the agent's port. `Launch = false` attaches to an app you launched instead. The sample turns this on with `E2E_MOBILE_PROVIDER=devflow`:
 
 ```bash
-dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64 -t:Run
+dotnet build samples/MobileApp -f net10.0-ios -r iossimulator-arm64
+xcrun simctl boot "iPhone 17"
 E2E_MOBILE_PROVIDER=devflow dotnet test samples/MobileApp.E2ETests
 ```
 
-Limits of the preview: the tests attach to the running app, so `Device.InstallAppAsync()`, `OpenAppAsync` with `Relaunch`, `OpenLinkAsync`, `HomeAsync`, `AlertAsync`, permissions, and orientation fail with `UNSUPPORTED_CAPABILITY`. Open the app without `Relaunch`. `SetAppearanceAsync` changes the app's theme, not the device's. The agent exists only in Debug builds. On Android, forward the agent's port first (`adb forward tcp:<port> tcp:<port>`), and `adb reverse tcp:19223 tcp:19223` before the app starts if a broker runs.
+Limits of the preview: `OpenLinkAsync`, `AlertAsync`, permissions, and orientation fail with `UNSUPPORTED_CAPABILITY`, and `HomeAsync` does on iOS, since `simctl` has no home button. `SetAppearanceAsync` changes the app's theme, not the device's. The agent exists only in Debug builds. With `Launch = false`, install and relaunch are unsupported too, and on Android you forward the agent's port yourself.
 
 ## Known limits
 

@@ -52,31 +52,60 @@ internal sealed class AgentDiscovery(HttpClient http, DevFlowAgentsOptions optio
         return Endpoint(DevFlowAgents.DefaultAgentPort);
     }
 
+    /// <summary>How long one status probe may take while waiting: a port that refuses answers at once, one that hangs must not eat the whole wait.</summary>
+    internal static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(5);
+
     /// <summary>
-    /// Polls the agent's status until it answers or <paramref name="timeout"/> runs out, which also bounds a try the
-    /// agent accepts but never answers (a forwarded port with the app still starting). The last failure is the one reported.
+    /// Polls the agent's status until it answers or <paramref name="timeout"/> runs out. With <paramref name="rediscover"/>,
+    /// the client's endpoint is resolved again after a failed try, since an app that was just launched registers with
+    /// the broker a moment later and may get another port, and a broker that still lists the process that was ended
+    /// beside the new one is a passing state, not a failure. <paramref name="onResolved"/> runs once per distinct
+    /// endpoint, to forward its port on Android. A try the agent accepts but never answers is bounded on its own. The
+    /// last failure is the one reported.
     /// </summary>
-    public async Task<JsonNode?> WaitForStatusAsync(DevFlowAgentClient client, TimeSpan timeout, CancellationToken cancellationToken)
+    public async Task<JsonNode?> WaitForStatusAsync(DevFlowAgentClient client, TimeSpan timeout, CancellationToken cancellationToken, Func<Uri, CancellationToken, Task>? onResolved = null, bool rediscover = false)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(timeout);
         DevFlowAgentException? last = null;
+        Uri? announced = null;
         while (true)
         {
             try
             {
-                return await client.GetAsync("api/v1/agent/status", deadline.Token).ConfigureAwait(false);
+                var endpoint = await client.EndpointAsync(deadline.Token).ConfigureAwait(false);
+                if (onResolved is not null && endpoint != announced)
+                {
+                    await onResolved(endpoint, deadline.Token).ConfigureAwait(false);
+                    announced = endpoint;
+                }
+
+                using var probe = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token);
+                probe.CancelAfter(ProbeTimeout);
+                try
+                {
+                    return await client.GetAsync("api/v1/agent/status", probe.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (!deadline.IsCancellationRequested)
+                {
+                    throw new DevFlowAgentException(null, "timeout", $"the DevFlow agent at {endpoint} accepted the connection but did not answer within {ProbeTimeout.TotalSeconds:0} seconds");
+                }
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
                 // Out of time. A port that refused every connection is an app that is not running; one that accepted and never answered is a hang.
-                throw last is { Code: "unreachable" }
-                    ? new DevFlowAgentException(null, "unreachable", $"{last.Message} (waited {timeout.TotalSeconds:0} seconds)")
+                throw last is { Code: "unreachable" or "ambiguous" }
+                    ? new DevFlowAgentException(null, last.Code, $"{last.Message} (waited {timeout.TotalSeconds:0} seconds)")
                     : new DevFlowAgentException(null, "timeout", $"the DevFlow agent did not answer within {timeout.TotalSeconds:0} seconds; is the app running with the agent registered?");
             }
-            catch (DevFlowAgentException failure) when (failure.Status is null && failure.Code != "ambiguous")
+            catch (DevFlowAgentException failure) when (failure.Status is null && (rediscover || failure.Code != "ambiguous"))
             {
                 last = failure;
+                if (rediscover)
+                {
+                    client.Reset();
+                }
+
                 try
                 {
                     await Delay(PollInterval, deadline.Token).ConfigureAwait(false);

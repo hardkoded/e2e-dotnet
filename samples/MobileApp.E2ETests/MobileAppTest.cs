@@ -61,13 +61,6 @@ public abstract class MobileAppTest : E2ETest
     [SetUp]
     public async Task InstallAndOpenAppAsync()
     {
-        if (HostedDeviceSetup.AttachesToRunningApp)
-        {
-            // The DevFlow agent runs inside the app you launched: there is no build to install, and no relaunch yet.
-            await Device.OpenAppAsync(AppId);
-            return;
-        }
-
         await InstallLock.WaitAsync();
         try
         {
