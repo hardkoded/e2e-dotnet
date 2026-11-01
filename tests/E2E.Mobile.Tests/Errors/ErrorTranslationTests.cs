@@ -100,6 +100,22 @@ public sealed class ErrorTranslationTests
         Assert.Equal("ENGINE_FAILURE", Engine(DeviceErrors.TranslateError(refused, "observe")).Code);
     }
 
+    [Theory]
+    [InlineData("no")]
+    [InlineData("unknown")]
+    [InlineData(null)]
+    public void Retries_a_moving_target_only_when_no_input_was_dispatched(string? dispatched)
+    {
+        var cause = new AgentDeviceError(
+            "COMMAND_FAILED",
+            "Target position was not confirmed",
+            dispatched is null ? Details(("reason", "target_still_moving")) : Details(("reason", "target_still_moving"), ("dispatched", dispatched)));
+        var translated = Engine(DeviceErrors.StaleOr(cause, "perform tap"));
+        Assert.Equal(dispatched == "no" ? "NODE_STALE" : "ENGINE_FAILURE", translated.Code);
+        Assert.Equal(dispatched == "no", translated.Retryable);
+        Assert.Same(cause, translated.InnerException);
+    }
+
     [Fact]
     public void Maps_the_rest_to_ENGINE_FAILURE_with_the_text_a_ref_named_in_a_message_without_a_stale_reason_included()
     {

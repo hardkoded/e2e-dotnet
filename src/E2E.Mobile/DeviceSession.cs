@@ -286,7 +286,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     public async Task BackAsync(CancellationToken cancellationToken)
     {
         var input = InputBudget("back");
-        var before = _latestIndex;
+        var before = _latestScreen;
         await CommandAsync(
             "back",
             (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.CommandBack, ActionSettle(), token), token),
@@ -313,7 +313,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         var budget = InputBudget("observe", timeout);
         var raw = await SnapshotOrEmptyAsync(Options.Snapshot == SnapshotMode.Interactive, budget, cancellationToken).ConfigureAwait(false);
         var projected = Project(raw);
-        _generation = projected.Index.ToDictionary(entry => entry.Id, entry => Bind(entry, projected.Index, projected.RefsGeneration));
+        _generation = projected.Index.ToDictionary(entry => entry.Id, entry => Bind(entry, projected));
         var viewport = await ViewportForAsync(projected, budget, cancellationToken).ConfigureAwait(false);
         Route = DeviceSupport.ScreenLocation(raw.AppBundleId ?? raw.AppName ?? _appIdentity, SnapshotProjection.ScreenTitle(projected)) ?? "";
         var pixels = options?.Pixels == true ? await CapturePixelsAsync(projected, viewport, options.Comparable, budget, cancellationToken).ConfigureAwait(false) : null;
@@ -389,7 +389,6 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         _appIdentity = null;
         InstalledApp = null;
         _knownViewport = null;
-        _latestIndex = null;
         _latestScreen = null;
         _generation = [];
         ClearLocated();
@@ -518,8 +517,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     private ProjectedSnapshot Project(RawSnapshot raw)
     {
         var projected = SnapshotProjection.ProjectSnapshot(raw.Nodes, () => $"n{++_idCounter}", raw.Viewport, raw.RefsGeneration);
+        projected.KeyboardVisible = KeyboardShowing(raw);
         _latestScreen = projected;
-        _latestIndex = projected.Index;
         if (projected.Viewport is { } read && (_knownViewport is not { } known || SameScreen(read, known)))
         {
             _knownViewport = read;

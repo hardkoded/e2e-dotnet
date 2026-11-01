@@ -108,7 +108,7 @@ public sealed class DeviceActions : IDeviceActions
             return;
         }
 
-        var before = session.LatestIndex;
+        var before = session.LatestScreen;
         await session.ActAsync(
             label,
             async (client, token) =>
@@ -123,7 +123,7 @@ public sealed class DeviceActions : IDeviceActions
                         await session.WaitForTransitionAsync(entry, token).ConfigureAwait(false);
                     }
 
-                    target = await session.RelocatedAsync(entry, input, token).ConfigureAwait(false);
+                    target = await session.RelocatedAsync(entry, input, token, forInput: true).ConfigureAwait(false);
                     if (!target.TakesText)
                     {
                         throw RefuseFill(action, target);
@@ -265,7 +265,7 @@ public sealed class DeviceActions : IDeviceActions
 
     private static async Task ScrollScreenAsync(DeviceSession session, ScrollDirection direction, InputBudget? input, CancellationToken cancellationToken)
     {
-        var before = session.LatestIndex;
+        var before = session.LatestScreen;
         await session.CommandAsync(
             "swipe",
             (client, token) => DeviceSession.SendInputAsync(
@@ -289,7 +289,7 @@ public sealed class DeviceActions : IDeviceActions
     private static async Task PressFocusedAsync(DeviceSession session, string key, InputBudget input, CancellationToken cancellationToken)
     {
         var typed = SoftKeyboardKey(key);
-        var before = session.LatestIndex;
+        var before = session.LatestScreen;
         if (typed is null)
         {
             await session.CommandAsync(
@@ -384,7 +384,7 @@ public sealed class DeviceActions : IDeviceActions
         var input = session.InputBudget(kind);
         var label = $"perform {kind}";
         var entry = session.Resolve(node);
-        var before = session.LatestIndex;
+        var before = session.LatestScreen;
         await session.ActAsync(
             label,
             async (client, token) =>

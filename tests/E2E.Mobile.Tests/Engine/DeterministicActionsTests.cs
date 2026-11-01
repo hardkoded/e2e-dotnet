@@ -126,6 +126,138 @@ public sealed class DeterministicActionsTests
         JsonAssert.Args("""{"ref":"@e12"}""", h.Fake.LastArgs("interactions.press"));
     }
 
+    public static TheoryData<string, string> KeyboardOpens()
+    {
+        var data = new TheoryData<string, string>();
+        foreach (var action in new[] { "tap", "focus", "fill", "clear", "type", "press character", "focused character" })
+        {
+            foreach (var signal in new[] { "measured", "tree" })
+            {
+                data.Add(action, signal);
+            }
+        }
+
+        return data;
+    }
+
+    private static readonly JsonObject VisibleKeyboard = new() { ["kind"] = "visible", ["frame"] = new JsonObject { ["x"] = 0, ["y"] = 580, ["width"] = 390, ["height"] = 264 } };
+
+    private static readonly JsonObject AbsentKeyboard = new() { ["kind"] = "absent" };
+
+    /// <summary>The Settings screen with the About cell moved up to a new ref, as the app lays it out once the keyboard transition ends.</summary>
+    private static IEnumerable<RawNode> AboutLanded(IEnumerable<RawNode> nodes) =>
+        nodes.Select(node => node.Identifier == "ABOUT" || node.Label == "About" ? node with { Ref = "@e42", Rect = new Rect(0, 200, 390, 44) } : node);
+
+    [Theory]
+    [MemberData(nameof(KeyboardOpens))]
+    public async Task Reobserves_after_action_when_signal_keyboard_state_changes_before_the_control_moves(string action, string signal)
+    {
+        var h = WithTransition(120);
+        var session = await OpenTestAttempt(h);
+        h.Clock.Advance(TimeSpan.FromMilliseconds(150));
+        var keyboardNode = N("@keyboard", index: 11, type: "Keyboard", rect: new Rect(0, 580, 390, 264));
+        JsonObject Visible(IEnumerable<RawNode> nodes) => signal == "measured"
+            ? FakeDeviceClient.SnapshotOf(nodes, ("keyboard", VisibleKeyboard.DeepClone()))
+            : FakeDeviceClient.SnapshotOf([.. nodes, keyboardNode]);
+        var search = await Observed(session, "Search");
+        switch (action)
+        {
+            case "type":
+                await session.TypeTextAsync("blue", replace: false);
+                break;
+            case "focused character":
+                await session.PressAsync("a", CancellationToken.None);
+                break;
+            case "press character":
+                await session.PerformAsync(search, new LocatorAction.Press("a"), CancellationToken.None);
+                break;
+            case "fill":
+                await session.PerformAsync(search, new LocatorAction.Fill("blue"), CancellationToken.None);
+                break;
+            case "clear":
+                await session.PerformAsync(search, new LocatorAction.Clear(), CancellationToken.None);
+                break;
+            case "focus":
+                await session.PerformAsync(search, new LocatorAction.Focus(), CancellationToken.None);
+                break;
+            default:
+                await session.PerformAsync(search, new LocatorAction.Tap(), CancellationToken.None);
+                break;
+        }
+
+        // The first stale layout already reports the keyboard, as in the live probe.
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Visible(SettingsNodes));
+        var stale = await Observed(session, "About");
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Visible(AboutLanded(SettingsNodes)));
+
+        await Tap(session, stale);
+
+        JsonAssert.Args("""{"ref":"@e42"}""", h.Fake.LastArgs("interactions.press"));
+    }
+
+    [Theory]
+    [InlineData("Enter")]
+    [InlineData("focused Enter")]
+    [InlineData("dismiss")]
+    public async Task Reobserves_after_action_hides_the_keyboard_before_the_control_moves(string action)
+    {
+        var h = WithTransition(120);
+        var session = await OpenTestAttempt(h);
+        h.Clock.Advance(TimeSpan.FromMilliseconds(150));
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(SettingsNodes, ("keyboard", VisibleKeyboard.DeepClone())));
+        var search = await Observed(session, "Search");
+        switch (action)
+        {
+            case "Enter":
+                await session.PerformAsync(search, new LocatorAction.Press("Enter"), CancellationToken.None);
+                break;
+            case "focused Enter":
+                await session.PressAsync("Enter", CancellationToken.None);
+                break;
+            default:
+                await session.DismissKeyboardAsync(CancellationToken.None);
+                break;
+        }
+
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(SettingsNodes, ("keyboard", AbsentKeyboard.DeepClone())));
+        var stale = await Observed(session, "About");
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(AboutLanded(SettingsNodes), ("keyboard", AbsentKeyboard.DeepClone())));
+
+        await Tap(session, stale);
+
+        JsonAssert.Args("""{"ref":"@e42"}""", h.Fake.LastArgs("interactions.press"));
+    }
+
+    [Theory]
+    [InlineData("type")]
+    [InlineData("fill")]
+    [InlineData("clear")]
+    public async Task Keeps_unchanged_controls_immediate_after_action_when_keyboard_state_is_unchanged(string action)
+    {
+        foreach (var visible in new[] { false, true })
+        {
+            var h = WithTransition(120);
+            var session = await OpenTestAttempt(h);
+            h.Clock.Advance(TimeSpan.FromMilliseconds(150));
+            h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(SettingsNodes, ("keyboard", (visible ? VisibleKeyboard : AbsentKeyboard).DeepClone())));
+            var search = await Observed(session, "Search");
+            switch (action)
+            {
+                case "type":
+                    await session.TypeTextAsync("blue", replace: false);
+                    break;
+                case "fill":
+                    await session.PerformAsync(search, new LocatorAction.Fill("blue"), CancellationToken.None);
+                    break;
+                default:
+                    await session.PerformAsync(search, new LocatorAction.Clear(), CancellationToken.None);
+                    break;
+            }
+
+            await TapsAtOnce(h, session, await Observed(session, "About"), """{"ref":"@e4"}""");
+        }
+    }
+
     [Fact]
     public async Task Acts_on_the_duplicate_nearest_where_the_control_was_when_a_fresh_snapshot_lists_several_alike()
     {
