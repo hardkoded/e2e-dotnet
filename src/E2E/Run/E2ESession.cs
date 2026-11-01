@@ -836,17 +836,7 @@ public sealed class E2ESession : IAsyncDisposable
             var (single, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Exploration, _evidence, _cleanupErrors);
             if (_hostedClose is not null)
             {
-                // A hosted attempt is a test of another runner: it writes its own page, and no report.json or retries to join.
-                var hosted = await HostTrace.WriteHostTraceAsync(new HostTraceOptions
-                {
-                    Attempt = single,
-                    ProjectRoot = ReportFile.ProjectRootOf(_scope.ProjectRoot, trace.ResultsRoot),
-                    ResultsDir = trace.ResultsRoot,
-                    Segments = [Path.GetFileName(trace.TestDir)],
-                    TracePath = Path.Combine(trace.TestDir, TracePages.TracePage),
-                    Redact = _scope.Redactor.Redact,
-                }).ConfigureAwait(false);
-                Volatile.Write(ref _report, new Lazy<Report>(() => hosted));
+                await WriteHostTracePageAsync(single, trace).ConfigureAwait(false);
                 return;
             }
 
@@ -892,6 +882,21 @@ public sealed class E2ESession : IAsyncDisposable
         {
             Console.Error.WriteLine("[e2e] could not write the trace page for " + _scope.TestTitle + ": " + _scope.Redactor.Redact(ex.Message));
         }
+    }
+
+    // A hosted attempt is a test of another runner: it writes its own page, and has no report.json or retries to join.
+    private async Task WriteHostTracePageAsync(Report1Document single, TraceOutput trace)
+    {
+        var hosted = await HostTrace.WriteHostTraceAsync(new HostTraceOptions
+        {
+            Attempt = single,
+            ProjectRoot = ReportFile.ProjectRootOf(_scope.ProjectRoot, trace.ResultsRoot),
+            ResultsDir = trace.ResultsRoot,
+            Segments = [Path.GetFileName(trace.TestDir)],
+            TracePath = TracePath,
+            Redact = _scope.Redactor.Redact,
+        }).ConfigureAwait(false);
+        Volatile.Write(ref _report, new Lazy<Report>(() => hosted));
     }
 
     // A store that hangs must not hold the session: the hand-offs are bounded by the cleanup timeout, and one that is not done by then
