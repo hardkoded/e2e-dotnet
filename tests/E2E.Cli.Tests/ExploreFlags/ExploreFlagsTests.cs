@@ -255,6 +255,7 @@ public sealed class ExploreFlagsTests
 
             Assert.Equal(2, code);
             Assert.Contains("CONFIG_NOT_FOUND", stderr.ToString(), StringComparison.Ordinal);
+            Assert.Contains("found from " + dir + " upward", stderr.ToString(), StringComparison.Ordinal);
 
             var missing = "missing.config.json";
             using var stderrWithConfig = new StringWriter();
