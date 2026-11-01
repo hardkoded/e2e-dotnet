@@ -48,6 +48,11 @@ public abstract class E2ETest : E2EFixture
     public async Task StartE2ESessionAsync()
     {
         var current = global::NUnit.Framework.TestContext.CurrentContext;
+        if (RunSelection.ReasonFor(GetType(), current.Test.MethodName) is { } leftOut)
+        {
+            Assert.Ignore(leftOut);
+        }
+
         RejectParallelChildren(current.Test.MethodName);
         await StartSessionAsync(CacheTitle(current.Test), AttemptOf(current), RecordSoftFailure, HasFailed, current.CancellationToken, TestExecutionContext.CurrentContext.CurrentTest.Method?.MethodInfo).ConfigureAwait(false);
     }
