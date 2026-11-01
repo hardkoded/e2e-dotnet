@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using E2E.Internal;
+using InternalTime = E2E.Internal.Time;
 
 namespace E2E.Tests.Time;
 
@@ -253,7 +255,175 @@ public sealed class PollConditionTests
         await Drive(Expect.That(screen.GetByRole("status")).Not.ToBeVisibleAsync(timeout: budget));
     }
 
+    [Fact]
+    public async Task Lets_the_last_read_run_past_the_deadline_by_the_longest_read_the_poll_finished_up_to_the_window_cap()
+    {
+        var deadline = new Deadline(TimeSpan.FromMilliseconds(350), _time);
+        var timeouts = new List<TimeSpan>();
+        var calls = 0;
+        var poll = InternalTime.PollReadsAsync(new PollReadsOptions
+        {
+            Deadline = deadline,
+            Reads = new ReadWindow(deadline, _time, new Deadline(TimeSpan.FromMilliseconds(400), _time)),
+            Clock = _time,
+            Token = CancellationToken.None,
+            Negated = false,
+            Evaluate = reads => reads.ReadAsync<bool?>(async timeout =>
+            {
+                timeouts.Add(timeout);
+                calls++;
+                await Bounded(TimeSpan.FromMilliseconds(calls == 1 ? 200 : 50), timeout);
+                return calls == 2;
+            }),
+            OnTimeout = _ => new InvalidOperationException("poll timed out"),
+        });
+        await Drive(poll);
+        Assert.Equal([TimeSpan.FromMilliseconds(350), TimeSpan.FromMilliseconds(100)], timeouts);
+    }
+
+    [Fact]
+    public async Task Shares_the_extra_time_past_the_deadline_across_the_reads_that_run_in_it()
+    {
+        var deadline = new Deadline(TimeSpan.FromMilliseconds(100), _time);
+        var reads = new ReadWindow(deadline, _time, new Deadline(TimeSpan.FromSeconds(10), _time));
+        await Drive(reads.ReadAsync(async _ =>
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(300), _time);
+            return 0;
+        }));
+        Assert.Equal(TimeSpan.FromMilliseconds(100), reads.Timeout());
+        _time.Advance(TimeSpan.FromMilliseconds(50));
+        Assert.Equal(TimeSpan.FromMilliseconds(50), reads.Timeout());
+        _time.Advance(TimeSpan.FromMilliseconds(100));
+        Assert.Equal(TimeSpan.FromMilliseconds(1), reads.Timeout());
+    }
+
+    [Fact]
+    public async Task Judges_a_cut_off_read_by_when_that_read_started_not_when_its_sample_did()
+    {
+        var deadline = new Deadline(TimeSpan.FromMilliseconds(1_000), _time);
+        var samples = 0;
+        var poll = InternalTime.PollReadsAsync(new PollReadsOptions
+        {
+            Deadline = deadline,
+            Reads = new ReadWindow(deadline, _time, new Deadline(TimeSpan.FromSeconds(10), _time)),
+            Clock = _time,
+            Token = CancellationToken.None,
+            Negated = false,
+            Evaluate = async reads =>
+            {
+                samples++;
+                if (samples == 1)
+                {
+                    await reads.ReadAsync(async _ => await Slept(300));
+                    return false;
+                }
+
+                // The sample starts with 600 ms left; its second read starts with 100.
+                await reads.ReadAsync(async _ => await Slept(500));
+                await reads.ReadAsync<int>(timeout => Hung(timeout));
+                return true;
+            },
+            OnTimeout = _ => new InvalidOperationException("poll timed out"),
+        });
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => Drive(poll));
+        Assert.Equal("poll timed out", error.Message);
+    }
+
+    [Fact]
+    public async Task Counts_a_negation_as_held_only_until_the_deadline_not_through_a_last_read_past_it()
+    {
+        var deadline = new Deadline(TimeSpan.FromMilliseconds(3_000), _time);
+        var samples = 0;
+        var poll = InternalTime.PollReadsAsync(new PollReadsOptions
+        {
+            Deadline = deadline,
+            Reads = new ReadWindow(deadline, _time, new Deadline(TimeSpan.FromSeconds(10), _time)),
+            Clock = _time,
+            Token = CancellationToken.None,
+            Negated = true,
+            Evaluate = async reads =>
+            {
+                samples++;
+
+                // The first read sees the condition; the second starts 400 ms before the deadline and ends 1.1 s past it.
+                await reads.ReadAsync(async _ => await Slept(samples == 1 ? 2_500 : 1_500));
+                return samples == 1;
+            },
+            OnTimeout = _ => new InvalidOperationException("negation timed out"),
+        });
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => Drive(poll));
+        Assert.Equal("negation timed out", error.Message);
+    }
+
+    [Fact]
+    public async Task Ends_on_a_read_cut_off_within_the_longest_read_time_of_the_deadline_and_fails_on_one_that_hung_with_more_left()
+    {
+        var cut = new EngineException("OPERATION_TIMEOUT", "locate timed out");
+        Task Poll(int timeoutMs)
+        {
+            var deadline = new Deadline(TimeSpan.FromMilliseconds(timeoutMs), _time);
+            var calls = 0;
+            return InternalTime.PollReadsAsync(new PollReadsOptions
+            {
+                Deadline = deadline,
+                Reads = new ReadWindow(deadline, _time),
+                Clock = _time,
+                Token = CancellationToken.None,
+                Negated = false,
+                Evaluate = reads => reads.ReadAsync<bool?>(async _ =>
+                {
+                    calls++;
+                    await Slept(300);
+                    return calls == 1 ? false : throw cut;
+                }),
+                OnTimeout = _ => new InvalidOperationException("poll timed out"),
+            });
+        }
+
+        // The second read starts with 200 ms left: under the 300 ms the first took, so the deadline cut it.
+        var within = Assert.ThrowsAsync<InvalidOperationException>(() => Poll(600));
+
+        // With 600 ms left, more than any read took, the read hung.
+        var hung = Assert.ThrowsAsync<EngineException>(() => Poll(1_000));
+        await Drive(Task.WhenAll(within, hung));
+        Assert.Equal("poll timed out", (await within).Message);
+        Assert.Same(cut, await hung);
+    }
+
     private Task Drive(Task pending) => _time.RunAsync(pending);
+
+    private async Task<int> Drive(Task<int> pending)
+    {
+        await _time.RunAsync(pending);
+        return await pending;
+    }
+
+    private async Task<int> Slept(int milliseconds)
+    {
+        await Task.Delay(TimeSpan.FromMilliseconds(milliseconds), _time);
+        return 0;
+    }
+
+    /// <summary>A read that takes <paramref name="duration"/> but is ended at <paramref name="budget"/> by the engine's <c>OPERATION_TIMEOUT</c>, as upstream's <c>withTimeout(sleep(...), timeoutMs, ...)</c>.</summary>
+    private async Task Bounded(TimeSpan duration, TimeSpan budget)
+    {
+        try
+        {
+            await Task.Delay(duration, _time).WaitAsync(budget, _time);
+        }
+        catch (TimeoutException)
+        {
+            throw new EngineException("OPERATION_TIMEOUT", "locate timed out");
+        }
+    }
+
+    /// <summary>A read that never answers on its own: the engine ends it at <paramref name="budget"/> with <c>OPERATION_TIMEOUT</c>.</summary>
+    private async Task<int> Hung(TimeSpan budget)
+    {
+        await Bounded(TimeSpan.FromSeconds(10), budget);
+        return 0;
+    }
 
     /// <summary>A screen whose nth read (from 1) shows the nodes <paramref name="read"/> returns for it.</summary>
     private Screen Scripted(Func<int, SemanticNode[]> read)

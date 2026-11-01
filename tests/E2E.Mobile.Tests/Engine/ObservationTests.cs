@@ -417,17 +417,84 @@ public sealed class ObservationTests
         Assert.Equal("CANCELLED", cancelled.Code);
     }
 
+    private static readonly LocatorExpression About = LocatorExpression.For("text", TextMatch.FromString("About"), new TextMatchOptions(), "value");
+
+    private static Task<JsonNode?> Never() => new TaskCompletionSource<JsonNode?>().Task;
+
+    // The budgets here run on real time, as the harness's clock makes timers: the device's answers are tasks that take real milliseconds.
     [Fact]
-    public async Task Lets_a_locate_outlive_its_budget_a_poll_keeps_its_last_read_so_a_slow_screen_reads_as_missing_not_as_a_timeout()
+    public async Task Bounds_a_snapshot_by_the_operation_budget()
     {
         var h = Harness.Create();
         var session = await Screens.OpenAttempt(h);
+        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, (_, _) => Never());
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.LocateAsync(About, TimeSpan.FromMilliseconds(300), CancellationToken.None));
+        Assert.Equal("OPERATION_TIMEOUT", failure.Code);
+    }
+
+    [Fact]
+    public async Task Returns_a_sparse_capture_when_the_budget_cannot_fit_a_retry_instead_of_timing_out()
+    {
+        var h = Harness.Create();
+        var session = await Screens.OpenAttempt(h);
+        var snapshots = 0;
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ =>
         {
-            h.Clock.Advance(TimeSpan.FromSeconds(3));
+            snapshots++;
+            return Sparse();
+        });
+        Assert.Empty(await session.LocateAsync(About, TimeSpan.FromMilliseconds(500), CancellationToken.None));
+        Assert.Equal(1, snapshots);
+        Assert.Empty(h.Delays);
+    }
+
+    [Fact]
+    public async Task Bounds_the_snapshots_of_a_keyboard_dismissal_by_its_budget_and_reports_one_cut_off_after_the_drag_as_possibly_committed()
+    {
+        var h = Harness.Create();
+        var session = await Screens.OpenAttempt(h);
+        h.Fake.Respond(DeviceMethods.CommandKeyboard, _ => throw new AgentDeviceError("UNSUPPORTED_OPERATION", "Unable to dismiss the iOS keyboard: the keyboard exposes no dismiss key"));
+        var keyboardUp = FakeDeviceClient.SettingsSnapshot();
+        keyboardUp["viewport"] = new JsonObject { ["width"] = 390, ["height"] = 844 };
+        keyboardUp["keyboard"] = new JsonObject { ["kind"] = "visible", ["frame"] = new JsonObject { ["x"] = 0, ["y"] = 583, ["width"] = 390, ["height"] = 261 } };
+        var snapshots = 0;
+        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, (_, _) => snapshots++ == 0 ? Task.FromResult<JsonNode?>(keyboardUp) : Never());
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.DismissKeyboardAsync(CancellationToken.None, session.InputBudget("keyboard dismiss", TimeSpan.FromMilliseconds(300))));
+        Assert.Equal("ACTION_MAY_HAVE_COMMITTED", failure.Code);
+        Assert.Single(h.Fake.Calls, call => call.Method == "interactions.swipe");
+    }
+
+    [Fact]
+    public async Task Lets_a_slow_snapshot_run_for_the_whole_timeout_the_locate_gets()
+    {
+        var h = Harness.Create();
+        var session = await Screens.OpenAttempt(h);
+        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, async (_, _) =>
+        {
+            await Task.Delay(300);
             return FakeDeviceClient.SettingsSnapshot();
         });
-        var about = LocatorExpression.For("text", TextMatch.FromString("About"), new TextMatchOptions(), "value");
-        Assert.Single(await session.LocateAsync(about, TimeSpan.FromSeconds(1), CancellationToken.None));
+        Assert.Single(await session.LocateAsync(About, TimeSpan.FromMilliseconds(500), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Takes_no_second_snapshot_for_a_capture_the_budget_abandoned()
+    {
+        var h = Harness.Create();
+        var session = await Screens.OpenAttempt(h);
+        var snapshots = 0;
+        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, async (_, _) =>
+        {
+            snapshots++;
+            await Task.Delay(500);
+            throw new AgentDeviceError(
+                "COMMAND_FAILED",
+                "regular iOS snapshot presentation requires a valid viewport",
+                new Dictionary<string, object?> { ["reason"] = "invalid-viewport" });
+        });
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.LocateAsync(About, TimeSpan.FromMilliseconds(300), CancellationToken.None));
+        Assert.Equal("OPERATION_TIMEOUT", failure.Code);
+        await Task.Delay(600);
+        Assert.Equal(1, snapshots);
     }
 }

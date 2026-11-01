@@ -208,7 +208,10 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     }
 
     /// <summary>The budget one input runs under. Its device commands stay in flight until they settle. Upstream's <c>inputBudget</c>.</summary>
-    internal InputBudget InputBudget(string label) => new(label, ActionTimeout, pending => Track(pending), _engine.Clock);
+    internal InputBudget InputBudget(string label) => InputBudget(label, ActionTimeout);
+
+    /// <summary>The budget of one operation on <paramref name="timeout"/>, such as the <c>timeout</c> a locate gets. Upstream's <c>inputBudget(label, timeoutMs)</c>.</summary>
+    internal InputBudget InputBudget(string label, TimeSpan timeout) => new(label, timeout, pending => Track(pending), _engine.Clock);
 
     /// <summary>Registers one device command as in flight until it settles. Upstream's <c>track</c>.</summary>
     internal Task<T> Track<T>(Task<T> pending)
@@ -295,7 +298,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 
     public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
     {
-        var raw = await SnapshotOrEmptyAsync(Options.Snapshot == SnapshotMode.Interactive, cancellationToken).ConfigureAwait(false);
+        var raw = await SnapshotOrEmptyAsync(Options.Snapshot == SnapshotMode.Interactive, budget: null, cancellationToken).ConfigureAwait(false);
         var projected = Project(raw);
         _generation = projected.Index.ToDictionary(entry => entry.Id, entry => Bind(entry, projected.Index, projected.RefsGeneration));
         var viewport = await ViewportForAsync(projected, cancellationToken).ConfigureAwait(false);
@@ -405,11 +408,11 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// Snapshot for an observation. Without a pinned app, an observation before anything is open is an empty screen
     /// rather than a fault: the model's next move is the open tool, and failing the step would take that move away.
     /// </summary>
-    private async Task<RawSnapshot> SnapshotOrEmptyAsync(bool interactiveOnly, CancellationToken cancellationToken)
+    private async Task<RawSnapshot> SnapshotOrEmptyAsync(bool interactiveOnly, InputBudget? budget, CancellationToken cancellationToken)
     {
         try
         {
-            return await SnapshotAsync(interactiveOnly, cancellationToken).ConfigureAwait(false);
+            return await SnapshotAsync(interactiveOnly, budget, cancellationToken).ConfigureAwait(false);
         }
         catch (EngineException cause) when (_client is not null && !ManagesApp && cause.Code == EngineErrorCodes.InvalidState)
         {
@@ -417,18 +420,27 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         }
     }
 
-    internal async Task<RawSnapshot> SnapshotAsync(bool interactiveOnly, CancellationToken cancellationToken)
+    internal async Task<RawSnapshot> SnapshotAsync(bool interactiveOnly, InputBudget? budget, CancellationToken cancellationToken)
     {
         var last = RawSnapshot.Empty;
+        var captured = TimeSpan.Zero;
         foreach (var backoff in SparseRetryBackoffMilliseconds)
         {
             if (backoff > 0)
             {
+                // A sparse capture is still the screen: a retry the budget cannot fit returns it instead of timing out.
+                if (budget is not null && budget.Remaining <= TimeSpan.FromMilliseconds(backoff) + captured)
+                {
+                    return last;
+                }
+
                 await _engine.Delay(TimeSpan.FromMilliseconds(backoff), cancellationToken).ConfigureAwait(false);
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            last = await CaptureAsync(interactiveOnly, cancellationToken).ConfigureAwait(false);
+            var startedAt = _engine.Clock.GetTimestamp();
+            last = await CaptureAsync(interactiveOnly, budget, cancellationToken).ConfigureAwait(false);
+            captured = _engine.Clock.GetElapsedTime(startedAt);
             _launching = false;
             if ((last.AppBundleId ?? last.AppName) is { } identity)
             {
@@ -449,13 +461,15 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// (a viewport it could not read, a malformed graph). The check is per capture and a capture is a read, so the
     /// retry is safe. A second failure is the runner's and propagates.
     /// </summary>
-    private async Task<RawSnapshot> CaptureAsync(bool interactiveOnly, CancellationToken cancellationToken)
+    private async Task<RawSnapshot> CaptureAsync(bool interactiveOnly, InputBudget? budget, CancellationToken cancellationToken)
     {
-        async Task<RawSnapshot> Take() => RawSnapshot.Read(await CommandAsync(
+        Task<JsonNode?> Command() => CommandAsync(
             "snapshot",
             DeviceMethods.CaptureSnapshot,
             DeviceArgs.Of(("interactiveOnly", JsonValue.Create(interactiveOnly))),
-            cancellationToken).ConfigureAwait(false));
+            cancellationToken);
+
+        async Task<RawSnapshot> Take() => RawSnapshot.Read(await (budget is null ? Command() : budget.ReadAsync(Command, cancellationToken)).ConfigureAwait(false));
 
         try
         {

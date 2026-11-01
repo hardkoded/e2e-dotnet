@@ -124,7 +124,7 @@ public sealed partial class DeviceSession
     public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(expression);
-        var raw = await LocateSnapshotAsync(timeout, cancellationToken).ConfigureAwait(false);
+        var raw = await LocateSnapshotAsync(InputBudget("locate", timeout), cancellationToken).ConfigureAwait(false);
         if (raw is null)
         {
             return [];
@@ -152,17 +152,18 @@ public sealed partial class DeviceSession
     /// <summary>
     /// Snapshot for a locate; null for a screen agent-device could not read yet (an app still on its splash, or one iOS does not
     /// report running yet after a launch). The harness polls a locate until its deadline, so that screen matches nothing and the
-    /// poll waits for it to render. A capture that leaves no budget for another poll fails with the reason instead, so a wait that
-    /// ends on an unreadable screen says so.
+    /// poll waits for it to render. When what is left of the budget cannot fit another capture as long as this one, the locate fails
+    /// with the reason instead: the budget bounds every capture, so an unreadable one never outlasts it, and the wait that ends on
+    /// an unreadable screen says so.
     /// </summary>
-    private async Task<RawSnapshot?> LocateSnapshotAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    private async Task<RawSnapshot?> LocateSnapshotAsync(InputBudget budget, CancellationToken cancellationToken)
     {
         var started = _engine.Clock.GetUtcNow();
         try
         {
-            return await SnapshotOrEmptyAsync(false, cancellationToken).ConfigureAwait(false);
+            return await SnapshotOrEmptyAsync(false, budget, cancellationToken).ConfigureAwait(false);
         }
-        catch (EngineException cause) when (!cancellationToken.IsCancellationRequested && (DeviceErrors.IsUnreadableCapture(cause) || (_launching && DeviceErrors.IsAppNotRunning(cause))) && _engine.Clock.GetUtcNow() - started < timeout)
+        catch (EngineException cause) when (!cancellationToken.IsCancellationRequested && (DeviceErrors.IsUnreadableCapture(cause) || (_launching && DeviceErrors.IsAppNotRunning(cause))) && budget.Remaining >= _engine.Clock.GetUtcNow() - started)
         {
             return null;
         }
@@ -349,9 +350,9 @@ public sealed partial class DeviceSession
     /// the control landed: Android reports a window's frames while it slides in, so a ref resolved mid-flight would
     /// send the action where the control was.
     /// </summary>
-    internal async Task<NodeBinding> SettledAsync(NodeBinding entry, CancellationToken cancellationToken) =>
+    internal async Task<NodeBinding> SettledAsync(NodeBinding entry, InputBudget input, CancellationToken cancellationToken) =>
         await WaitForTransitionAsync(entry, cancellationToken).ConfigureAwait(false)
-            ? await RelocatedAsync(entry, cancellationToken).ConfigureAwait(false)
+            ? await RelocatedAsync(entry, input, cancellationToken).ConfigureAwait(false)
             : entry;
 
     /// <summary>
@@ -392,9 +393,9 @@ public sealed partial class DeviceSession
     }
 
     /// <summary>The same control in a fresh snapshot. A snapshot that no longer lists it is a retryable <c>NODE_STALE</c>, so the locator resolves again.</summary>
-    internal async Task<NodeBinding> RelocatedAsync(NodeBinding entry, CancellationToken cancellationToken)
+    internal async Task<NodeBinding> RelocatedAsync(NodeBinding entry, InputBudget input, CancellationToken cancellationToken)
     {
-        var projected = Project(await SnapshotOrEmptyAsync(false, cancellationToken).ConfigureAwait(false));
+        var projected = Project(await SnapshotOrEmptyAsync(false, input, cancellationToken).ConfigureAwait(false));
         return Refind(entry, projected.Index) is { } found
             ? Bind(found, projected.Index, projected.RefsGeneration)
             : throw new EngineException(EngineErrorCodes.NodeStale, $"node {entry.Id} changed during transition; re-resolve", retryable: true);
@@ -453,13 +454,13 @@ public sealed partial class DeviceSession
     /// about the screen it never makes on a caller's behalf. The engine makes that guess, the way a user does and
     /// Maestro's <c>hideKeyboard</c> does, in <see cref="DismissKeyboardByGestureAsync"/>.
     /// </summary>
-    public Task DismissKeyboardAsync(CancellationToken cancellationToken) => DismissKeyboardAsync(cancellationToken, input: null);
+    public Task DismissKeyboardAsync(CancellationToken cancellationToken) => DismissKeyboardAsync(cancellationToken, InputBudget("device.dismissKeyboard"));
 
     /// <summary>
-    /// <see cref="DismissKeyboardAsync(CancellationToken)"/> under an input's budget, or directly with none: the
-    /// <c>device.dismissKeyboard</c> fixture has no budget. Upstream's <c>dismissKeyboard(signal, input?)</c>.
+    /// <see cref="DismissKeyboardAsync(CancellationToken)"/> under an input's budget: the
+    /// <c>device.dismissKeyboard</c> fixture gets one of its own. Upstream's <c>dismissKeyboard(signal, input?)</c>.
     /// </summary>
-    internal async Task DismissKeyboardAsync(CancellationToken cancellationToken, InputBudget? input)
+    internal async Task DismissKeyboardAsync(CancellationToken cancellationToken, InputBudget input)
     {
         var before = _latestIndex;
         try
@@ -491,9 +492,9 @@ public sealed partial class DeviceSession
     /// drags fails naming what does work. Each look is the observation's own capture, sparse-tree retries included: a
     /// one-node tree has no keys and would pass for a dismissed keyboard.
     /// </summary>
-    private async Task DismissKeyboardByGestureAsync(InputBudget? input, CancellationToken cancellationToken)
+    private async Task DismissKeyboardByGestureAsync(InputBudget input, CancellationToken cancellationToken)
     {
-        var raw = await DismissKeyboardTipAsync(await SnapshotAsync(false, cancellationToken).ConfigureAwait(false), input, cancellationToken).ConfigureAwait(false);
+        var raw = await DismissKeyboardTipAsync(await SnapshotAsync(false, input, cancellationToken).ConfigureAwait(false), input, cancellationToken).ConfigureAwait(false);
         if (!KeyboardShowing(raw))
         {
             return;
@@ -515,7 +516,7 @@ public sealed partial class DeviceSession
                 "keyboard.dismiss",
                 (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsSwipe, DeviceArgs.Of(("from", PointNode(from)), ("to", PointNode(to))), token), token),
                 cancellationToken).ConfigureAwait(false);
-            raw = await SnapshotAsync(false, cancellationToken).ConfigureAwait(false);
+            raw = await SnapshotAsync(false, input, cancellationToken).ConfigureAwait(false);
             if (!KeyboardShowing(raw))
             {
                 return;
@@ -533,7 +534,7 @@ public sealed partial class DeviceSession
     /// button is the only way past it, and Maestro's <c>hideKeyboard</c> presses it too. Answers the capture after the
     /// press, or the one given when no tip is showing.
     /// </summary>
-    private async Task<RawSnapshot> DismissKeyboardTipAsync(RawSnapshot raw, InputBudget? input, CancellationToken cancellationToken)
+    private async Task<RawSnapshot> DismissKeyboardTipAsync(RawSnapshot raw, InputBudget input, CancellationToken cancellationToken)
     {
         var tip = raw.Nodes.FirstOrDefault(node => (node.Label ?? node.Value ?? "").StartsWith("Speed up your typing", StringComparison.Ordinal));
         if (tip?.Rect is not { } tipRect)
@@ -552,7 +553,7 @@ public sealed partial class DeviceSession
             "keyboard.dismiss",
             (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsPress, DeviceArgs.Of(("x", JsonValue.Create(centre.X)), ("y", JsonValue.Create(centre.Y))), token), token),
             cancellationToken).ConfigureAwait(false);
-        return await SnapshotAsync(false, cancellationToken).ConfigureAwait(false);
+        return await SnapshotAsync(false, input, cancellationToken).ConfigureAwait(false);
     }
 
     internal static JsonObject PointNode(Point point) => new() { ["x"] = point.X, ["y"] = point.Y };
@@ -615,7 +616,7 @@ public sealed partial class DeviceSession
     /// </summary>
     internal async Task<EngineScreenshot> MaskedScreenshotAsync(bool normalizeStatusBar, CancellationToken cancellationToken)
     {
-        var projected = Project(await SnapshotOrEmptyAsync(false, cancellationToken).ConfigureAwait(false));
+        var projected = Project(await SnapshotOrEmptyAsync(false, budget: null, cancellationToken).ConfigureAwait(false));
         var data = await CaptureScreenshotAsync(async (shot, file) => await File.ReadAllBytesAsync(shot.Path ?? file, cancellationToken).ConfigureAwait(false), normalizeStatusBar, cancellationToken).ConfigureAwait(false);
         var viewport = _knownViewport;
         var (masked, regions) = RedactSecure(data, projected, viewport)
