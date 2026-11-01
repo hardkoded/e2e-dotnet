@@ -23,7 +23,7 @@ public enum ActionOrigin
 /// capture <c>Ref</c> and <c>ControlRef</c> came from, pinned on every action so agent-device refuses them once a newer capture supersedes it.
 /// <c>TakesText</c> is whether <c>fill</c> and <c>clear</c> may type into the node, judged with the children <c>Node</c> leaves out.
 /// </summary>
-internal sealed record NodeBinding(string Id, string Ref, SemanticNode Node, string ControlRef, IReadOnlyDictionary<string, bool> States, long? RefsGeneration, bool TakesText);
+internal sealed record NodeBinding(string Id, string Ref, SemanticNode Node, string ControlRef, IReadOnlyDictionary<string, bool> States, long? RefsGeneration, bool TakesText, bool KeyboardVisible);
 
 public sealed partial class DeviceSession
 {
@@ -50,19 +50,18 @@ public sealed partial class DeviceSession
 
     /// <summary>Locators of one test may resolve at once, and an action reads the map while a locate fills it.</summary>
     private readonly Lock _locatedLock = new();
-    private IReadOnlyList<ProjectedNode>? _latestIndex;
 
     /// <summary>The newest projected screen, whose capture generation the refs of an action must come from.</summary>
     private ProjectedSnapshot? _latestScreen;
 
-    /// <summary>The screen as last projected before the last action, to tell controls that were already there from ones that came with it.</summary>
-    private IReadOnlyList<ProjectedNode>? _indexBeforeAction;
+    /// <summary>The screen as last projected before the last action, with its keyboard state, to tell controls that were already there from ones that came with it.</summary>
+    private ProjectedSnapshot? _screenBeforeAction;
 
     /// <summary>When this session last acted on the device (an input or an app launch). The screen may be in transition for a while after.</summary>
     private DateTimeOffset _lastActionAt = DateTimeOffset.MinValue;
 
     /// <summary>The screen as the last look projected it. An action records it as the screen before the action.</summary>
-    internal IReadOnlyList<ProjectedNode>? LatestIndex => _latestIndex;
+    internal ProjectedSnapshot? LatestScreen => _latestScreen;
 
     /// <summary>What agent-device is told about settling after an action: the quiet window, or nothing when <c>Settle</c> is off.</summary>
     internal JsonObject SettleArgs() =>
@@ -81,7 +80,7 @@ public sealed partial class DeviceSession
     /// </summary>
     internal async Task<T> ScreenCommandAsync<T>(string label, Func<IDeviceClient, CancellationToken, Task<T>> run, CancellationToken cancellationToken)
     {
-        var before = _latestIndex;
+        var before = _latestScreen;
         var result = await CommandAsync(label, run, cancellationToken).ConfigureAwait(false);
         MarkAction(before);
         return result;
@@ -91,9 +90,9 @@ public sealed partial class DeviceSession
     /// Records an action the device received: the screen as it was projected before it, and when it returned. The
     /// transition budget counts from the return, since the input lands late in the command's own round trip.
     /// </summary>
-    internal void MarkAction(IReadOnlyList<ProjectedNode>? before)
+    internal void MarkAction(ProjectedSnapshot? before)
     {
-        _indexBeforeAction = before;
+        _screenBeforeAction = before;
         _lastActionAt = _engine.Clock.GetUtcNow();
     }
 
@@ -137,7 +136,7 @@ public sealed partial class DeviceSession
         {
             foreach (var entry in matches)
             {
-                _located[entry.Id] = Bind(entry, projected.Index, projected.RefsGeneration);
+                _located[entry.Id] = Bind(entry, projected);
             }
 
             while (_located.Count > MaxLocatedRefs)
@@ -277,8 +276,8 @@ public sealed partial class DeviceSession
     }
 
     /// <summary>Copies the fields actions use and pre-resolves a toggle's inner control.</summary>
-    private static NodeBinding Bind(ProjectedNode entry, IReadOnlyList<ProjectedNode> snapshot, long? refsGeneration) =>
-        new(entry.Id, entry.Ref, entry.Node, ControlOf(entry, snapshot).Ref, entry.States, refsGeneration, SnapshotProjection.MayTakeText(entry.Node));
+    private static NodeBinding Bind(ProjectedNode entry, ProjectedSnapshot snapshot) =>
+        new(entry.Id, entry.Ref, entry.Node, ControlOf(entry, snapshot.Index).Ref, entry.States, snapshot.RefsGeneration, SnapshotProjection.MayTakeText(entry.Node), snapshot.KeyboardVisible);
 
     /// <summary>The same control in the newest capture: the binding itself when it came from that capture, else found there again where it was.</summary>
     internal NodeBinding Current(NodeBinding entry)
@@ -289,7 +288,7 @@ public sealed partial class DeviceSession
         }
 
         return SamePlace(entry, latest.Index) is { } found
-            ? Bind(found, latest.Index, latest.RefsGeneration)
+            ? Bind(found, latest)
             : throw new EngineException(EngineErrorCodes.NodeStale, $"node {entry.Id} changed since it was located; re-resolve", retryable: true);
     }
 
@@ -344,8 +343,9 @@ public sealed partial class DeviceSession
     /// <summary>
     /// Lets a control that came with the last action finish arriving before a test acts on it, and answers the
     /// binding to act on. A control already present at the same place in the snapshot the last action was resolved
-    /// from is not in transition and is acted on at once. Anything else waits out the remainder of the transition
-    /// budget since that action and is then found again in a fresh snapshot. The budget is the only signal that the
+    /// from is acted on at once only when keyboard state also stayed the same: a keyboard change can precede the app's
+    /// relayout. Anything else waits out the remainder of the transition budget since that action and is then found
+    /// again in a fresh snapshot. The budget is the only signal that the
     /// transition is over, since the tree cannot tell a sliding control from a landed one. The fresh snapshot is where
     /// the control landed: Android reports a window's frames while it slides in, so a ref resolved mid-flight would
     /// send the action where the control was.
@@ -368,7 +368,7 @@ public sealed partial class DeviceSession
             return false;
         }
 
-        if (_indexBeforeAction is { } before && SamePlace(entry, before) is not null)
+        if (_screenBeforeAction is { } before && before.KeyboardVisible == entry.KeyboardVisible && SamePlace(entry, before.Index) is not null)
         {
             return false;
         }
@@ -392,14 +392,30 @@ public sealed partial class DeviceSession
         return true;
     }
 
-    /// <summary>The same control in a fresh snapshot. A snapshot that no longer lists it is a retryable <c>NODE_STALE</c>, so the locator resolves again.</summary>
-    internal async Task<NodeBinding> RelocatedAsync(NodeBinding entry, InputBudget input, CancellationToken cancellationToken)
+    /// <summary>
+    /// The same control in a fresh snapshot. A snapshot that no longer lists it is a retryable <c>NODE_STALE</c>, so the locator resolves again.
+    /// An input mutation (<paramref name="forInput"/>) also refuses an incomplete capture and changed security facts, so the field is observed and authorized again.
+    /// </summary>
+    internal async Task<NodeBinding> RelocatedAsync(NodeBinding entry, InputBudget input, CancellationToken cancellationToken, bool forInput = false)
     {
-        var projected = Project(await SnapshotOrEmptyAsync(false, input, cancellationToken).ConfigureAwait(false));
-        return Refind(entry, projected.Index) is { } found
-            ? Bind(found, projected.Index, projected.RefsGeneration)
+        var raw = await SnapshotOrEmptyAsync(false, input, cancellationToken).ConfigureAwait(false);
+        var projected = Project(raw);
+        var found = Refind(entry, projected.Index);
+        if (forInput && (raw.Truncated || raw.Sparse || found is null || SecurityFactsChanged(entry.Node, found.Node)))
+        {
+            throw new EngineException(EngineErrorCodes.NodeStale, $"input node {entry.Id} changed before mutation; observe and authorize it again", retryable: true);
+        }
+
+        return found is not null
+            ? Bind(found, projected)
             : throw new EngineException(EngineErrorCodes.NodeStale, $"node {entry.Id} changed during transition; re-resolve", retryable: true);
     }
+
+    private static bool SecurityFactsChanged(SemanticNode was, SemanticNode now) =>
+        was.InputPurpose != now.InputPurpose
+        || was.States.Disabled != now.States.Disabled
+        || was.States.Secure != now.States.Secure
+        || was.States.Hidden != now.States.Hidden;
 
     /// <summary>
     /// Runs one action's device command, abandoned when the caller's token fires. A ref agent-device refuses as stale
@@ -462,7 +478,7 @@ public sealed partial class DeviceSession
     /// </summary>
     internal async Task DismissKeyboardAsync(CancellationToken cancellationToken, InputBudget input)
     {
-        var before = _latestIndex;
+        var before = _latestScreen;
         try
         {
             await CommandAsync(

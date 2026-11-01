@@ -96,7 +96,9 @@ await Expect.That(Device.Locator("role=navigation-bar id=About")).ToBeVisibleAsy
 await Device.Locator("id=SW_VERSION_SPECIFIER role=button").TapAsync();
 ```
 
-Every action on a node pins its ref to the capture that issued it, so a ref a newer capture replaced is never sent to a different element. If the control changed during the `TransitionMilliseconds` wait (500 ms by default), the action fails with a retryable `NODE_STALE` and a locator resolves it again within its timeout. A direct `Device` call such as `DragToAsync` does not retry, so it surfaces the `NODE_STALE`.
+Every action on a node pins its ref to the capture that issued it, so a ref a newer capture replaced is never sent to a different element. If the control changed during the `TransitionMilliseconds` wait (500 ms by default), the action fails with a retryable `NODE_STALE` and a locator resolves it again within its timeout. A direct `Device` call such as `DragToAsync` does not retry, so it surfaces the `NODE_STALE`. Unmoved controls are acted on immediately only when keyboard visibility is unchanged: opening or closing the keyboard also uses the remaining `TransitionMilliseconds` budget. A `target_still_moving` refusal from agent-device that reports `dispatched: no` is a retryable `NODE_STALE` as well.
+
+`FillAsync` and `ClearAsync` read the field again before typing. A field the fresh capture no longer lists, a changed input purpose or secure, disabled, or hidden state, or an incomplete capture fails with a retryable `NODE_STALE` before anything is typed, and the locator resolves it again. A node that cannot take text fails with `UNSUPPORTED_CAPABILITY`.
 
 For anything `Device` does not cover, `Device.UnstableRaw` has an [agent-device](https://github.com/callstack/agent-device) client bound to the test's session, plus the session name and the device's id and name. It is unstable and may change or go away in any release:
 

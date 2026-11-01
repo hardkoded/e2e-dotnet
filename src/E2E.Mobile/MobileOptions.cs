@@ -143,7 +143,9 @@ public sealed record MobileOptions
     /// <summary>
     /// How long a control that appeared or moved with the last action is given to finish arriving before a test
     /// acts on it, in milliseconds. Default 500, the length of a modal or screen transition. If the control changes during the
-    /// wait, the action fails with a retryable <c>NODE_STALE</c> and a locator resolves it again.
+    /// wait, the action fails with a retryable <c>NODE_STALE</c> and a locator resolves it again. Unmoved controls are acted
+    /// on immediately only when keyboard visibility is unchanged. Opening or closing the keyboard also uses the remaining
+    /// budget. Raise it for slower transitions.
     /// </summary>
     public int TransitionMilliseconds { get; init; } = DefaultTransitionMilliseconds;
 

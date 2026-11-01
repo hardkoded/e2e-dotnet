@@ -16,6 +16,7 @@ namespace E2E.Mobile;
 /// <item><term>SESSION_NOT_FOUND, or a session-or-device-selector refusal</term><description>INVALID_STATE</description></item>
 /// <item><term>UNSUPPORTED_OPERATION, NOT_IMPLEMENTED, UNSUPPORTED_PLATFORM, or "not supported on this device" under any code</term><description>UNSUPPORTED_CAPABILITY</description></item>
 /// <item><term>a stale-ref refusal, by <c>details.reason</c> (action paths only)</term><description>NODE_STALE (retryable)</description></item>
+/// <item><term><c>target_still_moving</c> with <c>details.dispatched: no</c></term><description>NODE_STALE (retryable)</description></item>
 /// <item><term>the iOS runner busy, wedged, or past its watchdog; a snapshot the runner acquired but could not present</term><description>ENGINE_FAILURE, naming the runner and the recovery</description></item>
 /// <item><term>anything else, agent-device's own timeouts included</term><description>ENGINE_FAILURE with the text</description></item>
 /// </list>
@@ -202,9 +203,9 @@ public static partial class DeviceErrors
     /// <summary>
     /// Like <see cref="TranslateError"/>, but a ref agent-device refused as stale becomes retryable
     /// <c>NODE_STALE</c>: nothing was dispatched, so the harness may re-observe and re-resolve the node
-    /// instead of failing the action. Keyed on the reason alone: agent-device marks a drag's stale ref
-    /// <c>dispatched: 'unknown'</c> after Android blocking-dialog recovery, although it refuses it before
-    /// the gesture.
+    /// instead of failing the action. Existing stale-ref reasons are sufficient on their own: Android dialog
+    /// recovery can mark a refused drag as <c>dispatched: unknown</c>. A <c>target_still_moving</c> refusal
+    /// additionally requires <c>dispatched: no</c>; missing or unknown dispatch is not retryable.
     /// </summary>
     public static Exception StaleOr(Exception cause, string operation, string? where = null)
     {
@@ -213,7 +214,9 @@ public static partial class DeviceErrors
             return cause;
         }
 
-        if (Details(cause).GetValueOrDefault("reason") is string reason && StaleRefReasons.Contains(reason))
+        var details = Details(cause);
+        if (details.GetValueOrDefault("reason") is string reason
+            && (StaleRefReasons.Contains(reason) || (reason == "target_still_moving" && details.GetValueOrDefault("dispatched") is "no")))
         {
             return new EngineException(EngineErrorCodes.NodeStale, $"{operation}: {Message(cause)}", retryable: true, cause);
         }
