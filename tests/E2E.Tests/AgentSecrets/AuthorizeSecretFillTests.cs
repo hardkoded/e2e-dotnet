@@ -49,7 +49,7 @@ public sealed class AuthorizeSecretFillTests
             "sign in",
             new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("admin-password", "hunter2", "password") } });
 
-        Assert.Contains("failed: field purpose none is incompatible with secret purpose password", refusal, StringComparison.Ordinal);
+        Assert.Contains(" failed: POLICY_DENIED: field purpose none is incompatible with secret purpose password", refusal, StringComparison.Ordinal);
         Assert.Empty(typed);
         Assert.DoesNotContain(model.Requests, request => request.Messages.Any(message => message.Content?.Contains("hunter2", StringComparison.Ordinal) == true));
         session.Complete();
@@ -92,7 +92,7 @@ public sealed class AuthorizeSecretFillTests
             "sign in",
             new ActOptions { Params = new Dictionary<string, object?> { ["password"] = Secret.Create("admin-password", "hunter2", "password") } });
 
-        Assert.Contains("failed: " + message, refusal, StringComparison.Ordinal);
+        Assert.Contains(" failed: POLICY_DENIED: " + message, refusal, StringComparison.Ordinal);
         Assert.Empty(typed);
         Assert.DoesNotContain(model.Requests, request => request.Messages.Any(item => item.Content?.Contains("hunter2", StringComparison.Ordinal) == true));
         session.Complete();

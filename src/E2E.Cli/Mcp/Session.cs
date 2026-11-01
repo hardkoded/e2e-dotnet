@@ -530,7 +530,7 @@ internal sealed class SessionHost : IDisposable
                 var navigated = await agent.RunToolAsync("navigate", Parse(JsonSerializer.Serialize(new { url = target.App.Url })), token).ConfigureAwait(false);
                 if (!navigated.Succeeded)
                 {
-                    opening = "Opening " + target.App.Url + " failed: " + navigated.Content + "\nUse navigate once the app is reachable.\n";
+                    opening = "Opening " + target.App.Url + " failed: " + (navigated.Error is null ? navigated.Content : navigated.Code + ": " + navigated.Error) + "\nUse navigate once the app is reachable.\n";
                 }
                 else
                 {
@@ -549,7 +549,7 @@ internal sealed class SessionHost : IDisposable
         }
 
         var observed = await agent.RunToolAsync("observe", Parse("{}"), token).ConfigureAwait(false);
-        return opening + (observed.Content.StartsWith("observed\n", StringComparison.Ordinal) ? observed.Content["observed\n".Length..] : observed.Content);
+        return opening + (observed.Content.StartsWith("Observed.\n", StringComparison.Ordinal) ? observed.Content["Observed.\n".Length..] : observed.Content);
     }
 
     private string OpeningText(LiveSession live, TargetConfig target, ResolvedApp app, E2EConfig config, string screen)

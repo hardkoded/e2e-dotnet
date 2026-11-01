@@ -16,7 +16,7 @@ public sealed class ToolCallsOutsideTheVocabularyTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return text.Contains("tapped", StringComparison.Ordinal)
+            return text.Contains("Tapped", StringComparison.Ordinal)
                 ? ModelResponses.Done("passed", "the counter shows 1", "ACTION_FAILED")
                 : ModelResponses.Tap("button", "Increment");
         });
@@ -41,7 +41,7 @@ public sealed class ToolCallsOutsideTheVocabularyTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            if (text.Contains("tapped", StringComparison.Ordinal))
+            if (text.Contains("Tapped", StringComparison.Ordinal))
             {
                 return ModelResponses.Done("passed", "the counter shows 1");
             }

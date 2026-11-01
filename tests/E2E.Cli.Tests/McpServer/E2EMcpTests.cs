@@ -125,7 +125,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         var observed = await _served.CallAsync("observe");
         var tapped = await _served.CallAsync("tap", new() { ["target"] = ServedCli.RefOf(observed.Text, "button \"Increment\"") });
         Assert.False(tapped.IsError, tapped.Text);
-        Assert.StartsWith("tapped ", tapped.Text, StringComparison.Ordinal);
+        Assert.StartsWith("Tapped #", tapped.Text, StringComparison.Ordinal);
 
         // An action reports the screen after it, and after its lead the test line that repeats it.
         Assert.Equal("Test line: await Screen.GetByRole(\"button\", \"Increment\").TapAsync();", tapped.Text.Split('\n')[1]);
@@ -162,7 +162,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
 
         var filled = await _served.CallAsync("type_secret", new() { ["target"] = ServedCli.RefOf(after.Text, "textbox \"Password\""), ["secret"] = "adminPassword" });
         Assert.False(filled.IsError, filled.Text);
-        Assert.Contains("filled secret <secret:adminPassword>", filled.Text, StringComparison.Ordinal);
+        Assert.Contains("Filled secret \"adminPassword\" into #", filled.Text, StringComparison.Ordinal);
         Assert.DoesNotContain(Served.AdminPassword, filled.Text, StringComparison.Ordinal);
 
         var afterFill = await _served.CallAsync("screenshot");

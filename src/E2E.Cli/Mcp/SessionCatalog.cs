@@ -280,7 +280,7 @@ internal sealed class SessionCatalog
             Execute = async (_, token) =>
             {
                 var outcome = await RunAsync(context, "observe", "observe", default, token).ConfigureAwait(false);
-                return outcome.Content.StartsWith("observed\n", StringComparison.Ordinal) ? outcome.Content["observed\n".Length..] : outcome.Content;
+                return outcome.Content.StartsWith("Observed.\n", StringComparison.Ordinal) ? outcome.Content["Observed.\n".Length..] : outcome.Content;
             },
         };
     }
@@ -339,7 +339,7 @@ internal sealed class SessionCatalog
 
         if (!outcome.Succeeded)
         {
-            var message = outcome.Content.StartsWith("failed: ", StringComparison.Ordinal) ? outcome.Content["failed: ".Length..] : outcome.Content;
+            var message = outcome.Error ?? (outcome.Content.StartsWith("failed: ", StringComparison.Ordinal) ? outcome.Content["failed: ".Length..] : outcome.Content);
             throw new ToolFailedException(Failure(label, outcome.Code, message, target));
         }
 

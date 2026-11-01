@@ -38,7 +38,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         // observe looks and records nothing, so it takes no action slot.
         if (string.Equals(call.Name, "observe", StringComparison.Ordinal))
         {
-            return ToolOutcome.Ok(await DescribeAsync("observed", token).ConfigureAwait(false));
+            return ToolOutcome.Ok(await DescribeAsync("Observed.", token).ConfigureAwait(false));
         }
 
         if (projectTools is not null && projectTools.TryGetValue(call.Name, out var projectTool))
@@ -76,104 +76,105 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
 
     private async Task<ToolOutcome> RunActionAsync(ModelToolCall call, IExecutorActions actions, StepAccounting budget, CancellationToken token)
     {
+        var arguments = call.Arguments;
         switch (call.Name)
         {
             case "back":
-                return await BackAsync(actions, token).ConfigureAwait(false);
+                return await ActingAsync(new ActionLabel("Navigated back.", "back"), () => actions.BackAsync(token), token).ConfigureAwait(false);
             case "scroll":
-                return await ScrollAsync(call.Arguments, actions, token).ConfigureAwait(false);
+                return await ScrollAsync(arguments, actions, token).ConfigureAwait(false);
             case "scroll_to":
-                return await ScrollToAsync(call.Arguments, actions, token).ConfigureAwait(false);
-        }
-
-        if (string.Equals(call.Name, "navigate", StringComparison.Ordinal))
-        {
-            var url = Args.String(call.Arguments, "url") ?? "/";
-            try
-            {
-                await actions.NavigateAsync(url, token).ConfigureAwait(false);
-            }
-            catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
-            {
-                return ToolOutcome.Fail(ex);
-            }
-
-            return await DescribeOutcomeAsync("navigated to " + Routes.PathOf(url), token).ConfigureAwait(false);
-        }
-
-        if (string.Equals(call.Name, "press", StringComparison.Ordinal) && !HasTarget(call.Arguments))
-        {
-            var key = Args.String(call.Arguments, "key") ?? "Enter";
-            try
-            {
-                await actions.PressAsync(null, key, token).ConfigureAwait(false);
-            }
-            catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
-            {
-                return ToolOutcome.Fail(ex);
-            }
-
-            return await DescribeOutcomeAsync("pressed " + key, token).ConfigureAwait(false);
-        }
-
-        if (string.Equals(call.Name, "upload", StringComparison.Ordinal))
-        {
-            return await UploadAsync(call.Arguments, actions, budget, token).ConfigureAwait(false);
+                return await ScrollToAsync(arguments, actions, token).ConfigureAwait(false);
+            case "upload":
+                return await UploadAsync(arguments, actions, budget, token).ConfigureAwait(false);
+            case "navigate":
+                var url = Args.String(arguments, "url") ?? "/";
+                return await ActingAsync(new ActionLabel("Navigated to " + url + ".", "navigate " + url), () => actions.NavigateAsync(url, token), token).ConfigureAwait(false);
+            case "press" when !HasTarget(arguments):
+                var focusedKey = Args.String(arguments, "key") ?? "Enter";
+                return await ActingAsync(NodeLabel(call.Name, arguments, "the focused field"), () => actions.PressAsync(null, focusedKey, token), token).ConfigureAwait(false);
         }
 
         SemanticNode node;
         try
         {
-            node = await ResolveAsync(call.Arguments, token).ConfigureAwait(false);
+            node = await ResolveAsync(arguments, token).ConfigureAwait(false);
         }
         catch (TestException ex)
         {
-            return ToolOutcome.Fail(ex);
+            return await FailedAsync(NodeLabel(call.Name, arguments, ReferenceOf(arguments)), ex, token).ConfigureAwait(false);
         }
 
         var target = new ExecutorTarget(node);
+        return await ActingAsync(
+            NodeLabel(call.Name, arguments, "#" + node.Ref),
+            () => call.Name switch
+            {
+                "tap" => actions.TapAsync(target, ClickOptionsOf(arguments), token),
+                "double_tap" => actions.DoubleTapAsync(target, ClickOptionsOf(arguments), token),
+                "fill" => actions.TypeAsync(target, Args.String(arguments, "value") ?? "", token),
+                "fill_secret" => actions.TypeSecretAsync(target, Args.String(arguments, "secret") ?? "", token),
+                "press" => actions.PressAsync(target, Args.String(arguments, "key") ?? "Enter", token),
+                "select" => actions.SelectAsync(target, Args.String(arguments, "value") ?? "", token),
+                "check" => actions.CheckAsync(target, true, token),
+                "uncheck" => actions.CheckAsync(target, false, token),
+                "clear" => actions.ClearAsync(target, token),
+                _ => throw new TestException("INVALID_ARGUMENT", "Unknown tool " + call.Name + "."),
+            },
+            token).ConfigureAwait(false);
+    }
+
+    // Upstream's `acting`: the action runs, then the screen follows under the label's done lead, or under the failure lead when it threw.
+    private async Task<ToolOutcome> ActingAsync(ActionLabel label, Func<Task> action, CancellationToken token)
+    {
         try
         {
-            switch (call.Name)
-            {
-                case "tap":
-                    await actions.TapAsync(target, ClickOptionsOf(call.Arguments), token).ConfigureAwait(false);
-                    return ToolOutcome.Ok(await DescribeAsync("tapped " + Label(node), token).ConfigureAwait(false));
-                case "double_tap":
-                    await actions.DoubleTapAsync(target, ClickOptionsOf(call.Arguments), token).ConfigureAwait(false);
-                    return ToolOutcome.Ok(await DescribeAsync("double-tapped " + Label(node), token).ConfigureAwait(false));
-                case "fill":
-                    var value = Args.String(call.Arguments, "value") ?? "";
-                    await actions.TypeAsync(target, value, token).ConfigureAwait(false);
-                    return ToolOutcome.Ok(await DescribeAsync("filled " + Label(node), token).ConfigureAwait(false));
-                case "fill_secret":
-                    return await FillSecretAsync(target, call.Arguments, actions, token).ConfigureAwait(false);
-                case "press":
-                    var key = Args.String(call.Arguments, "key") ?? "Enter";
-                    await actions.PressAsync(target, key, token).ConfigureAwait(false);
-                    return ToolOutcome.Ok(await DescribeAsync("pressed " + key + " on " + Label(node), token).ConfigureAwait(false));
-                case "select":
-                    var selected = Args.String(call.Arguments, "value") ?? "";
-                    await actions.SelectAsync(target, selected, token).ConfigureAwait(false);
-                    return ToolOutcome.Ok(await DescribeAsync("selected " + selected, token).ConfigureAwait(false));
-                case "check":
-                    await actions.CheckAsync(target, true, token).ConfigureAwait(false);
-                    return ToolOutcome.Ok(await DescribeAsync("checked " + Label(node), token).ConfigureAwait(false));
-                case "uncheck":
-                    await actions.CheckAsync(target, false, token).ConfigureAwait(false);
-                    return ToolOutcome.Ok(await DescribeAsync("unchecked " + Label(node), token).ConfigureAwait(false));
-                case "clear":
-                    await actions.ClearAsync(target, token).ConfigureAwait(false);
-                    return ToolOutcome.Ok(await DescribeAsync("cleared " + Label(node), token).ConfigureAwait(false));
-                default:
-                    return ToolOutcome.Fail("Unknown tool " + call.Name + ".");
-            }
+            await action().ConfigureAwait(false);
         }
         catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
         {
-            return ToolOutcome.Fail(ex);
+            return await FailedAsync(label, ex, token).ConfigureAwait(false);
         }
+
+        return await DescribeOutcomeAsync(label.Done, token).ConfigureAwait(false);
     }
+
+    // Upstream's `failureLead` on a screen: a failed action still returns the screen, so the model can act on a stale-id or not-found failure at once.
+    private async Task<ToolOutcome> FailedAsync(ActionLabel label, E2EException error, CancellationToken token) =>
+        new() { Content = await DescribeAsync(FailureLead(label, error), token).ConfigureAwait(false), Succeeded = false, Code = error.Code, Error = error.Message };
+
+    // Upstream's failureLead: the attempt, then the error's code, then its message. `navigate file:///etc/passwd failed: POLICY_DENIED: forbidden URL scheme: file:`.
+    private static string FailureLead(ActionLabel label, E2EException error) => label.Attempt + " failed: " + error.Code + ": " + error.Message;
+
+    // The done and attempt leads of a node tool, upstream's wording; `reference` stands where upstream's `#id` does. fill and fill_secret
+    // keep the port's tool names in the attempt, where upstream's are type and type_secret. clear has no upstream tool.
+    private static ActionLabel NodeLabel(string tool, JsonElement arguments, string reference)
+    {
+        var key = Args.String(arguments, "key") ?? "Enter";
+        var value = Args.String(arguments, "value") ?? "";
+        var secret = Args.String(arguments, "secret") ?? "";
+        return tool switch
+        {
+            "tap" => new("Tapped " + reference + ".", "tap " + reference),
+            "double_tap" => new("Double-tapped " + reference + ".", "double_tap " + reference),
+            "fill" => new("Typed into " + reference + ".", "fill " + reference),
+            "fill_secret" => new(
+                "Filled secret \"" + secret + "\" into " + reference + "; its value is masked in every observation.",
+                "fill_secret \"" + secret + "\" into " + reference),
+            "press" => new("Pressed " + key + " on " + reference + ".", "press " + key + " on " + reference),
+            "select" => new("Selected \"" + value + "\" in " + reference + ".", "select \"" + value + "\" in " + reference),
+            "check" => new("Checked " + reference + ".", "check " + reference),
+            "uncheck" => new("Unchecked " + reference + ".", "check " + reference),
+            "clear" => new("Cleared " + reference + ".", "clear " + reference),
+            _ => new(tool + " " + reference, tool + " " + reference),
+        };
+    }
+
+    // The control a call names before it is found, where upstream's `#id` stands: the ref when the call has one.
+    private static string ReferenceOf(JsonElement arguments) =>
+        Args.String(arguments, "ref") is { } reference
+            ? "#" + reference
+            : Args.String(arguments, "name") ?? Args.String(arguments, "role") ?? Args.String(arguments, "testId") ?? "target";
 
     // A mutating tool takes an action slot and is recorded as a gap: the grammar cannot reproduce it, so a replay ends there
     // and hands the step to the model. The budgets record the gap before the tool runs, since a failed tool may have changed the app.
@@ -219,20 +220,6 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         return tool.Mutates ? await DescribeOutcomeAsync(output, token).ConfigureAwait(false) : ToolOutcome.Ok(output);
     }
 
-    private async Task<ToolOutcome> BackAsync(IExecutorActions actions, CancellationToken token)
-    {
-        try
-        {
-            await actions.BackAsync(token).ConfigureAwait(false);
-        }
-        catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
-        {
-            return ToolOutcome.Fail(ex);
-        }
-
-        return await DescribeOutcomeAsync("navigated back", token).ConfigureAwait(false);
-    }
-
     private async Task<ToolOutcome> ScrollAsync(JsonElement arguments, IExecutorActions actions, CancellationToken token)
     {
         if (!TryDirection(Args.String(arguments, "direction"), out var direction))
@@ -246,80 +233,77 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
             return ToolOutcome.Fail("scroll times must be 1 to " + AgentTools.MaxScrollTimes.ToString(CultureInfo.InvariantCulture) + ".");
         }
 
-        try
-        {
-            var target = HasTarget(arguments) ? new ExecutorTarget(await ResolveAsync(arguments, token).ConfigureAwait(false)) : null;
-            await actions.ScrollAsync(target, direction, times, token).ConfigureAwait(false);
-            var list = target?.Node;
-            var done = "scrolled" + (list is null ? "" : " " + Label(list)) + " " + DirectionName(direction);
-            if (times > 1)
+        // Upstream's `scrolled`: the done lead names the way and the screens, the attempt the way and the node.
+        var way = DirectionName(direction);
+        var label = new ActionLabel(
+            times == 1 ? "Scrolled " + way + "." : "Scrolled " + way + " " + times.ToString(CultureInfo.InvariantCulture) + " screens.",
+            "scroll " + way + (HasTarget(arguments) ? " " + ReferenceOf(arguments) : ""));
+        return await ActingAsync(
+            label,
+            async () =>
             {
-                done += " " + times.ToString(CultureInfo.InvariantCulture) + " screens";
-            }
-
-            return ToolOutcome.Ok(await DescribeAsync(done, token).ConfigureAwait(false));
-        }
-        catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
-        {
-            return ToolOutcome.Fail(ex);
-        }
+                var target = HasTarget(arguments) ? new ExecutorTarget(await ResolveAsync(arguments, token).ConfigureAwait(false)) : null;
+                await actions.ScrollAsync(target, direction, times, token).ConfigureAwait(false);
+            },
+            token).ConfigureAwait(false);
     }
 
     private async Task<ToolOutcome> ScrollToAsync(JsonElement arguments, IExecutorActions actions, CancellationToken token)
     {
         var text = Args.String(arguments, "text");
+        if (text is not null)
+        {
+            if (string.IsNullOrWhiteSpace(text) || text.Length > AgentTools.MaxScrollToText)
+            {
+                return ToolOutcome.Fail("scroll_to text must be the text to reach, up to " + AgentTools.MaxScrollToText.ToString(CultureInfo.InvariantCulture) + " characters.");
+            }
+
+            var way = Args.String(arguments, "direction");
+            var direction = ScrollDirection.Down;
+            if (way is not null && !TryDirection(way, out direction))
+            {
+                return ToolOutcome.Fail("scroll_to direction must be up, down, left, or right.");
+            }
+
+            var quoted = UploadPaths.Quote(text);
+            return await ActingAsync(
+                new ActionLabel("Scrolled " + DirectionName(direction) + " until " + quoted + " was in view.", "scroll_to " + quoted),
+                async () =>
+                {
+                    var list = HasTarget(arguments) ? new ExecutorTarget(await ResolveAsync(arguments, token).ConfigureAwait(false)) : null;
+                    await actions.ScrollUntilAsync(text, direction, list, token).ConfigureAwait(false);
+                },
+                token).ConfigureAwait(false);
+        }
+
+        if (!HasTarget(arguments))
+        {
+            return ToolOutcome.Fail("scroll_to takes a target, a text to reach, or both.");
+        }
+
+        var reference = ReferenceOf(arguments);
         try
         {
-            if (text is not null)
-            {
-                if (string.IsNullOrWhiteSpace(text) || text.Length > AgentTools.MaxScrollToText)
-                {
-                    return ToolOutcome.Fail("scroll_to text must be the text to reach, up to " + AgentTools.MaxScrollToText.ToString(CultureInfo.InvariantCulture) + " characters.");
-                }
-
-                var way = Args.String(arguments, "direction");
-                var direction = ScrollDirection.Down;
-                if (way is not null && !TryDirection(way, out direction))
-                {
-                    return ToolOutcome.Fail("scroll_to direction must be up, down, left, or right.");
-                }
-
-                var list = HasTarget(arguments) ? new ExecutorTarget(await ResolveAsync(arguments, token).ConfigureAwait(false)) : null;
-                await actions.ScrollUntilAsync(text, direction, list, token).ConfigureAwait(false);
-                return ToolOutcome.Ok(await DescribeAsync("scrolled " + DirectionName(direction) + " until \"" + text + "\" was in view", token).ConfigureAwait(false));
-            }
-
-            if (!HasTarget(arguments))
-            {
-                return ToolOutcome.Fail("scroll_to takes a target, a text to reach, or both.");
-            }
-
             var node = await ResolveAsync(arguments, token).ConfigureAwait(false);
+            reference = "#" + node.Ref;
             await actions.ScrollToAsync(new ExecutorTarget(node), token).ConfigureAwait(false);
-            return ToolOutcome.Ok(await DescribeAsync("scrolled " + Label(node) + " into view", token).ConfigureAwait(false));
         }
         catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
         {
-            return ToolOutcome.Fail(ex);
+            return await FailedAsync(new ActionLabel("", "scroll_to " + reference), ex, token).ConfigureAwait(false);
         }
-    }
 
-    private async Task<ToolOutcome> FillSecretAsync(ExecutorTarget target, JsonElement arguments, IExecutorActions actions, CancellationToken token)
-    {
-        var name = Args.String(arguments, "secret") ?? "";
-        await actions.TypeSecretAsync(target, name, token).ConfigureAwait(false);
-        return ToolOutcome.Ok(await DescribeAsync("filled secret <secret:" + name + "> into " + Label(target.Node!), token).ConfigureAwait(false));
+        return await DescribeOutcomeAsync("Scrolled into view " + reference + ".", token).ConfigureAwait(false);
     }
 
     // Upstream's upload tool: the paths are authorized before the node is looked for, so a refused path is the policy's decision whatever the
-    // target, and costs no slot. The wording is upstream's too: `Uploaded "x" to <ref>.` on success, `upload "x" to <ref> failed: <code>:
+    // target, and costs no slot. The wording is upstream's too: `Uploaded "x" to #id.` on success, `upload "x" to #id failed: <code>:
     // <message>` on a refusal, each followed by the screen. The resolved node's ref stands where upstream's `#id` does.
     private async Task<ToolOutcome> UploadAsync(JsonElement arguments, IExecutorActions actions, StepAccounting budget, CancellationToken token)
     {
-        var reference = Args.String(arguments, "ref") ?? Args.String(arguments, "name") ?? Args.String(arguments, "role") ?? Args.String(arguments, "testId") ?? "target";
-        var attempt = "upload to " + reference;
+        var reference = ReferenceOf(arguments);
+        var label = new ActionLabel("", "upload to " + reference);
         List<string> files;
-        string listed;
         try
         {
             files = FilesOf(arguments);
@@ -327,11 +311,11 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
         {
             budget.RefundPrepaid();
-            return await UploadFailedAsync(attempt, ex, token).ConfigureAwait(false);
+            return await FailedAsync(label, ex, token).ConfigureAwait(false);
         }
 
-        listed = string.Join(", ", files.Select(UploadPaths.Quote));
-        attempt = "upload " + listed + " to " + reference;
+        var listed = string.Join(", ", files.Select(UploadPaths.Quote));
+        label = new ActionLabel("", "upload " + listed + " to " + reference);
         SemanticNode node;
         try
         {
@@ -348,14 +332,14 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
             catch (E2EException refused) when (!StepExecutors.IsRuntimeHardStop(refused))
             {
                 budget.RefundPrepaid();
-                return await UploadFailedAsync(attempt, refused, token).ConfigureAwait(false);
+                return await FailedAsync(label, refused, token).ConfigureAwait(false);
             }
 
-            return await UploadFailedAsync(attempt, missing, token).ConfigureAwait(false);
+            return await FailedAsync(label, missing, token).ConfigureAwait(false);
         }
 
-        reference = node.Ref;
-        attempt = "upload " + listed + " to " + reference;
+        reference = "#" + node.Ref;
+        label = new ActionLabel("Uploaded " + listed + " to " + reference + ".", "upload " + listed + " to " + reference);
         try
         {
             await actions.UploadAsync(new ExecutorTarget(node), files, token).ConfigureAwait(false);
@@ -364,14 +348,11 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         {
             // The path policy turns the call away before the dispatcher takes its slot, as upstream's does; a failure after it keeps the slot.
             budget.RefundPrepaid();
-            return await UploadFailedAsync(attempt, ex, token).ConfigureAwait(false);
+            return await FailedAsync(label, ex, token).ConfigureAwait(false);
         }
 
-        return ToolOutcome.Ok(await DescribeAsync("Uploaded " + listed + " to " + reference + ".", token).ConfigureAwait(false));
+        return ToolOutcome.Ok(await DescribeAsync(label.Done, token).ConfigureAwait(false));
     }
-
-    private async Task<ToolOutcome> UploadFailedAsync(string attempt, E2EException error, CancellationToken token) =>
-        new() { Content = await DescribeAsync(attempt + " failed: " + error.Code + ": " + error.Message, token).ConfigureAwait(false), Succeeded = false, Code = error.Code };
 
     // The files an upload call names. Anything but a list of strings is the model's error, which the policy words as it does an empty list.
     private static List<string> FilesOf(JsonElement arguments)
@@ -461,10 +442,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         return action + "\n" + _feed.Text(observation);
     }
 
-    // A name the engine cut at its limit can end with the leading part of a secret, so it is redacted as a cut field.
-    private string Label(SemanticNode node)
-    {
-        var role = node.Role ?? "node";
-        return node.Name is null ? role : role + " \"" + AgentObservation.RedactText(node.Name, _scope.Redactor, ObservationLimits.Name) + "\"";
-    }
+    // Upstream's ActionLabel: what an action's result opens with, `Done` when it ran, and `Attempt`, the tool and what it was aimed at,
+    // for the lead of a failure, so a failed action never reads as done.
+    private readonly record struct ActionLabel(string Done, string Attempt);
 }

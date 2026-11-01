@@ -310,7 +310,7 @@ public sealed class ReplayThroughTheActTests
     private static DocumentWorld Signup() => new DocumentWorld().Map("/signup", page => page.Textbox("Email"));
 
     private static ScriptedModel FillsEmail(string email) => new(request =>
-        string.Join('\n', request.Messages.Select(message => message.Content)).Contains("filled", StringComparison.Ordinal)
+        string.Join('\n', request.Messages.Select(message => message.Content)).Contains("Typed into", StringComparison.Ordinal)
             ? ModelResponses.Done("passed", "filled")
             : ModelResponses.Fill("textbox", "Email", email));
 

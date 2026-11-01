@@ -80,7 +80,7 @@ public sealed class WebEngineTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            if (text.Contains("tapped", StringComparison.Ordinal))
+            if (text.Contains("Tapped", StringComparison.Ordinal))
             {
                 return ModelResponses.Done("passed", "deleted");
             }
@@ -343,7 +343,7 @@ public sealed class WebEngineTests
         {
             onCall();
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            if (text.Contains("tapped", StringComparison.Ordinal))
+            if (text.Contains("Tapped", StringComparison.Ordinal))
             {
                 return ModelResponses.Done("passed", "upgraded");
             }

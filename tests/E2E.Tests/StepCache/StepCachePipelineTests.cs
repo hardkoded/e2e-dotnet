@@ -125,7 +125,7 @@ public sealed class StepCachePipelineTests
         {
             modelCalls++;
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return text.Contains("tapped", StringComparison.Ordinal) || text.Contains("end-mismatch", StringComparison.Ordinal)
+            return text.Contains("Tapped", StringComparison.Ordinal) || text.Contains("end-mismatch", StringComparison.Ordinal)
                 ? ModelResponses.Done("passed", "Submitted.")
                 : ModelResponses.Tap("button", "Submit");
         });
@@ -163,7 +163,7 @@ public sealed class StepCachePipelineTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return text.Contains("tapped", StringComparison.Ordinal)
+            return text.Contains("Tapped", StringComparison.Ordinal)
                 ? ModelResponses.Done("passed", "Copied.")
                 : ModelResponses.Tap("button", "Copy link");
         });
@@ -192,7 +192,7 @@ public sealed class StepCachePipelineTests
         var model = new ScriptedModel(request =>
         {
             var text = string.Join('\n', request.Messages.Select(message => message.Content));
-            return text.Contains("tapped", StringComparison.Ordinal)
+            return text.Contains("Tapped", StringComparison.Ordinal)
                 ? ModelResponses.Done("passed", "Deleted.")
                 : ModelResponses.Tap("button", "Delete");
         });
@@ -266,7 +266,7 @@ public sealed class StepCachePipelineTests
         var lost = false;
         var model = new ScriptedModel(request =>
         {
-            if (Text(request).Contains("tapped", StringComparison.Ordinal))
+            if (Text(request).Contains("Tapped", StringComparison.Ordinal))
             {
                 // The surface fails the look that reads the passing screen, once, then recovers.
                 lost = true;
@@ -302,7 +302,7 @@ public sealed class StepCachePipelineTests
         var lost = false;
         var model = new ScriptedModel(request =>
         {
-            if (Text(request).Contains("tapped", StringComparison.Ordinal))
+            if (Text(request).Contains("Tapped", StringComparison.Ordinal))
             {
                 lost = true;
                 return ModelResponses.Done("passed", "Saved.");

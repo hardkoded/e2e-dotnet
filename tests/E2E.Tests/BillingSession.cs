@@ -45,7 +45,7 @@ internal static class BillingSession
             }
 
             onAct();
-            if (text.Contains("tapped", StringComparison.Ordinal))
+            if (text.Contains("Tapped", StringComparison.Ordinal))
             {
                 return ModelResponses.Done("passed", "Upgraded to Pro.");
             }

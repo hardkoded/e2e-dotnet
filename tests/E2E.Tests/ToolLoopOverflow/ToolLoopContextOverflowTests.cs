@@ -54,12 +54,12 @@ public sealed class ToolLoopContextOverflowTests
 
         Assert.Null(attempt.Error);
         Assert.Equal(3, model.CallCount);
-        // The second request carried the whole opening screen; the retried request carries its head and a notice,
-        // and the tool result it follows is unchanged.
+        // The second request carried the whole opening screen. The failed tap answers with the screen again, so the retried request
+        // elides the superseded opening screen and clips the newest one, which rides the tool result, to its head and a notice.
         Assert.True(requests[1][0]!.Length > 16_384);
-        Assert.True(requests[2][0]!.Length < 16_384 + 200);
-        Assert.Contains("more characters cut: the request exceeded the model's context window", requests[2][0], StringComparison.Ordinal);
-        Assert.Equal(requests[1][^1], requests[2][^1]);
+        Assert.Contains("[earlier screen elided", requests[2][0], StringComparison.Ordinal);
+        Assert.True(requests[2][^1]!.Length < 16_384 + 200);
+        Assert.Contains("more characters cut: the request exceeded the model's context window", requests[2][^1], StringComparison.Ordinal);
         // The refused request never answered, so it is not a model call the step paid for.
         Assert.Equal(2, result!.ModelCalls);
     }
