@@ -34,7 +34,12 @@ internal static class RunApps
     /// The target as the run sees it: its app command started and held for the run, if it declares one, and its URL on the port the app is
     /// served on. A target that declares no command is returned as it is.
     /// </summary>
-    public static async Task<TargetConfig> StartAsync(E2EConfig config, TargetConfig target, Action<string>? notice, CancellationToken cancellationToken)
+    public static async Task<TargetConfig> StartAsync(
+        E2EConfig config,
+        TargetConfig target,
+        Action<string>? notice,
+        CancellationToken cancellationToken,
+        Action<RunEventFact>? onEvent = null)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(target);
@@ -61,7 +66,7 @@ internal static class RunApps
                 await held.StopAsync(_ => { }).ConfigureAwait(false);
             }
 
-            var (resolved, processes) = await AcquireLockedAsync(key, config, target, notice, cancellationToken).ConfigureAwait(false);
+            var (resolved, processes) = await AcquireLockedAsync(key, config, target, notice, cancellationToken, onEvent).ConfigureAwait(false);
             RunHolds[key] = processes;
             return resolved;
         }
@@ -79,7 +84,8 @@ internal static class RunApps
         E2EConfig config,
         TargetConfig target,
         Action<string>? notice,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<RunEventFact>? onEvent = null)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(target);
@@ -93,7 +99,7 @@ internal static class RunApps
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            return await AcquireLockedAsync(key, config, target, notice, cancellationToken).ConfigureAwait(false);
+            return await AcquireLockedAsync(key, config, target, notice, cancellationToken, onEvent).ConfigureAwait(false);
         }
         finally
         {
@@ -117,6 +123,9 @@ internal static class RunApps
         }
     }
 
+    // The app command's setup step, named with the URL it answers on (upstream's `appStep` in `runner.ts`).
+    private static AppSetupStep AppStep(string label, string? url) => new(label, url is null ? null : Urls.PrintableUrl(url));
+
     private static string KeyOf(E2EConfig config, TargetConfig target) => (config.ConfigPath ?? config.ProjectRoot) + "\0" + target.Name;
 
     private static async Task<(TargetConfig Target, IAppProcesses Processes)> AcquireLockedAsync(
@@ -124,7 +133,8 @@ internal static class RunApps
         E2EConfig config,
         TargetConfig target,
         Action<string>? notice,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<RunEventFact>? onEvent)
     {
         if (!Resolved.TryGetValue(key, out var resolved))
         {
@@ -136,6 +146,9 @@ internal static class RunApps
         {
             Ci = config.Ci,
             Notice = notice ?? (message => Console.Error.WriteLine("e2e: " + message)),
+            Starting = (label, url) => onEvent?.Invoke(new SetupEvent(AppStep(label, url), SetupState.Started)),
+            Ready = (label, url, duration, reused) => onEvent?.Invoke(
+                new SetupEvent(AppStep(label, url), SetupState.Finished, (long)duration.TotalMilliseconds, reused ? SetupOutcome.Reused : null)),
         };
         var processes = await Provision.StartDeclaredProcessesAsync([(target.Name, resolved.App)], config.ProjectRoot, () => hooks, DebugTrace.Off, cancellationToken, Pool).ConfigureAwait(false);
         if (cancellationToken.IsCancellationRequested)

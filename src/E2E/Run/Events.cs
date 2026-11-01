@@ -7,7 +7,7 @@ namespace E2E;
 /// <summary>
 /// Structured run events: the run's single event spine (upstream's <c>run/events.ts</c>). The list reporter consumes exactly this
 /// stream (<c>ListReporter.Handle</c>), so no two consumers can drift. Only the events the port's list reporter reads are here: the
-/// run's start, plan, notices, finished tests, errors, interrupts, and end. Not ported: <c>output</c>, <c>setup</c>,
+/// run's start, plan, notices, setup steps, finished tests, errors, interrupts, and end. Not ported: <c>output</c>,
 /// <c>test-started</c>, <c>step</c>, <c>serial-group</c>, and <c>explore</c>, which feed the live window the port has no use for yet.
 /// </summary>
 internal abstract record RunEventFact;
@@ -46,6 +46,55 @@ internal sealed record PlanEvent(int Total, IReadOnlyList<(string File, string T
 
 /// <summary>Upstream's <c>notice</c> fact: one line of run-level progress outside any test.</summary>
 internal sealed record NoticeEvent(string Target, string Message) : RunEventFact;
+
+/// <summary>
+/// What one setup step is about (upstream's <c>SetupStep</c>, <c>run/events.ts</c>). <c>collect</c> loads the test files; <c>filter</c> is one test
+/// filter, by its name; <c>prepare</c> is one target's engine provisioning; <c>service</c> and <c>app</c> are the processes the run owns, labelled
+/// the way the runner names them (<c>service "postgres"</c>, <c>target "web" command</c>).
+/// </summary>
+internal abstract record SetupStep;
+
+/// <summary>Upstream's <c>{ kind: 'collect' }</c> step.</summary>
+internal sealed record CollectSetupStep : SetupStep;
+
+/// <summary>Upstream's <c>{ kind: 'filter' }</c> step.</summary>
+internal sealed record FilterSetupStep(string Name) : SetupStep;
+
+/// <summary>Upstream's <c>{ kind: 'prepare' }</c> step.</summary>
+internal sealed record PrepareSetupStep(string Target, string Engine) : SetupStep;
+
+/// <summary>Upstream's <c>{ kind: 'service' }</c> step.</summary>
+internal sealed record ServiceSetupStep(string Label) : SetupStep;
+
+/// <summary>
+/// Upstream's <c>{ kind: 'app' }</c> step. <paramref name="Url"/> is the one its readiness probe polls, with a free port already assigned and
+/// without userinfo or query; null for a command that is ready when it exits.
+/// </summary>
+internal sealed record AppSetupStep(string Label, string? Url = null) : SetupStep;
+
+/// <summary>
+/// How a setup step ended other than plainly done (upstream's <c>SetupOutcome</c>): <c>Reused</c> when a service or app command attached to a process
+/// already serving its URL instead of spawning; <c>Failed</c> and <c>TimedOut</c> for a test filter (upstream's <c>FilterOutcome</c>).
+/// </summary>
+internal enum SetupOutcome
+{
+    Reused,
+    Failed,
+    TimedOut,
+}
+
+/// <summary>Whether a <see cref="SetupEvent"/> opens its step or closes it.</summary>
+internal enum SetupState
+{
+    Started,
+    Finished,
+}
+
+/// <summary>
+/// Upstream's <c>setup</c> fact: the work before the tests start. Upstream has two members of one type, <c>started</c> and <c>finished</c>; here
+/// <see cref="DurationMs"/> and <see cref="Outcome"/> are set only when <see cref="State"/> is <see cref="SetupState.Finished"/>.
+/// </summary>
+internal sealed record SetupEvent(SetupStep Step, SetupState State, long DurationMs = 0, SetupOutcome? Outcome = null) : RunEventFact;
 
 /// <summary>Who a test is (upstream's <c>TestIdentity</c>, <c>collect/collect.ts</c>).</summary>
 internal sealed record TestIdentity(IReadOnlyList<string> TitlePath, string Id, string File, int DeclarationIndex);
