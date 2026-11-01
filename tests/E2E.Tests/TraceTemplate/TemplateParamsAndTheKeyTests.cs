@@ -12,13 +12,8 @@ namespace E2E.Tests.TraceTemplate;
 /// </summary>
 public sealed class TemplateParamsAndTheKeyTests
 {
-    /// <summary>
-    /// Partial port of "puts a placeholder where each unique value was and leaves everything else literal": a secret keys as
-    /// <c>&lt;secret:name&gt;</c> in the port, not as upstream's <c>{ kind, name, purpose }</c>, and a missing params object keys as
-    /// null, not as the empty object (so <c>act(x)</c> and <c>act(x, {})</c> are two entries).
-    /// </summary>
     [Fact]
-    public void Partial_Puts_a_placeholder_where_each_unique_value_was_and_leaves_everything_else_literal()
+    public void Puts_a_placeholder_where_each_unique_value_was_and_leaves_everything_else_literal()
     {
         var projected = CacheKeys.Project(new Dictionary<string, object?>
         {
@@ -29,8 +24,9 @@ public sealed class TemplateParamsAndTheKeyTests
         });
 
         Assert.True(JsonNode.DeepEquals(
-            JsonNode.Parse("{\"name\":\"{{param:/name}}\",\"qty\":2,\"s\":\"<secret:admin>\",\"owner\":{\"tags\":[\"vip\",\"{{param:/owner/tags/1}}\"]}}"),
+            JsonNode.Parse("{\"name\":\"{{param:/name}}\",\"qty\":2,\"s\":{\"kind\":\"secret\",\"name\":\"admin\",\"purpose\":\"password\"},\"owner\":{\"tags\":[\"vip\",\"{{param:/owner/tags/1}}\"]}}"),
             projected));
+        Assert.True(JsonNode.DeepEquals(new JsonObject(), CacheKeys.Project(null)));
     }
 
     private static string Key(string name, string plan, bool marked = true) => CacheKeys.ParamsDigest(new Dictionary<string, object?>
