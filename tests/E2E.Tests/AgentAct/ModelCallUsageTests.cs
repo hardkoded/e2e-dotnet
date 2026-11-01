@@ -38,7 +38,7 @@ public sealed class ModelCallUsageTests
 
         foreach (var api in new[] { "agent.act", "agent.assert" })
         {
-            var info = session.Steps.Single(step => step.Api == api).Model!;
+            var info = session.StepRecords.Single(step => step.Api == api).Model!;
             Assert.Equal(60 * info.Calls, info.CacheReadTokens);
             Assert.Equal(10 * info.Calls, info.CacheWriteTokens);
             Assert.Equal(0.25 * info.Calls, info.EstimatedCostUsd);

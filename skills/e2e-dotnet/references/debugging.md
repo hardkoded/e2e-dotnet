@@ -217,7 +217,8 @@ in C# casing (`report.Run.Results[0].Attempts[0].Error`). It is a record the ses
 is the session's, not your runner's test-body verdict, and artifact paths are relative
 to the results directory, not the attempt's directory. It returns `null` before the
 session is disposed and when the trace page cannot be written. Use it, with
-`CloseSoftFailures()`, in a runner that owns its reporting.
+`CloseSoftFailures()`, in a runner that owns its reporting. A session from
+`E2EHost.OpenSessionAsync` also has `Steps()` and `CloseAsync()` (see [host.md](host.md)).
 
 Not in the port's report: serial groups (`run.serialGroups` is always empty),
 `carried`, a step's `visionInput`, `visionDegraded`, and `visionOnly`, and the

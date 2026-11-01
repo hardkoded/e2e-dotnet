@@ -24,6 +24,12 @@ internal sealed record StandaloneHostOptions
 
     /// <summary>Ends the host: an opening attempt is cancelled and the engine is finished. Upstream's <c>signal</c>.</summary>
     public CancellationToken CancellationToken { get; init; }
+
+    /// <summary>Progress outside steps: provisioning and leases. Upstream's <c>notice</c>. Null drops it.</summary>
+    public Action<string, string>? Notice { get; init; }
+
+    /// <summary>The run's id, when the host belongs to a hosted run. Null mints one.</summary>
+    public string? RunId { get; init; }
 }
 
 /// <summary>One attempt on a standalone host. Upstream's <c>StandaloneAttempt</c> (<c>run/standalone-attempt.ts</c>), over the port's session.</summary>
@@ -133,7 +139,7 @@ internal sealed class StandaloneHost
     private static readonly TimeSpan ExitGrace = TimeSpan.FromSeconds(2);
 
     private readonly StandaloneHostOptions _options;
-    private readonly string _runId = Guid.NewGuid().ToString("n");
+    private readonly string _runId;
     private readonly IReadOnlyDictionary<string, string?> _env;
     private readonly PreparedEngines _engines = new();
     private readonly CancellationTokenSource _hostEnd;
@@ -147,10 +153,12 @@ internal sealed class StandaloneHost
     private Task<StandaloneAttempt>? _opening;
     private StandaloneAttempt? _live;
     private bool _closed;
+    private bool _unsafeToReuse;
 
     internal StandaloneHost(StandaloneHostOptions options)
     {
         _options = options;
+        _runId = options.RunId ?? Guid.NewGuid().ToString("n");
         _env = options.Env ?? PreparedEngines.ProcessEnvironment();
         _workerEnv = options.Env;
         _hostEnd = CancellationTokenSource.CreateLinkedTokenSource(options.CancellationToken);
@@ -164,9 +172,10 @@ internal sealed class StandaloneHost
 
     /// <summary>
     /// Opens the attempt, one at a time. The slot is taken before any engine work runs. A launch that fails has ended what it opened, and the
-    /// host stays usable for the next attempt.
+    /// host stays usable for the next attempt, unless an attempt's cleanup failed: what it left may be unclean, so the host refuses another.
+    /// A <paramref name="hosted"/> attempt is upstream's hosted kind: its session closes through <see cref="E2ESession.CloseAsync"/> and is disposed by its owner.
     /// </summary>
-    public Task<StandaloneAttempt> OpenAttemptAsync(E2ESessionOptions session, CancellationToken cancellationToken = default)
+    public Task<StandaloneAttempt> OpenAttemptAsync(E2ESessionOptions session, CancellationToken cancellationToken = default, bool hosted = false)
     {
         ArgumentNullException.ThrowIfNull(session);
         var result = new TaskCompletionSource<StandaloneAttempt>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -177,6 +186,11 @@ internal sealed class StandaloneHost
                 return Task.FromException<StandaloneAttempt>(new EngineException("WORKER_PROTOCOL", "the e2e host is closed"));
             }
 
+            if (_unsafeToReuse)
+            {
+                return Task.FromException<StandaloneAttempt>(new EngineException("WORKER_PROTOCOL", "the e2e host cannot open another session after one closed with failures"));
+            }
+
             if (_opening is not null || _live is not null)
             {
                 return Task.FromException<StandaloneAttempt>(new EngineException("WORKER_PROTOCOL", "the e2e host already has an opening or live session"));
@@ -185,7 +199,7 @@ internal sealed class StandaloneHost
             _opening = result.Task;
         }
 
-        _ = LaunchAsync(session, cancellationToken, result);
+        _ = LaunchAsync(session, cancellationToken, result, hosted);
         return result.Task;
     }
 
@@ -227,7 +241,7 @@ internal sealed class StandaloneHost
             _options.Engine,
             _options.TargetName,
             1,
-            new PrepareScope { RunId = _runId, ProjectRoot = _options.ProjectRoot, Env = _env, Notice = Ignore },
+            new PrepareScope { RunId = _runId, ProjectRoot = _options.ProjectRoot, Env = _env, Notice = Notice },
             _signal).ConfigureAwait(false);
         if (prepared is not null)
         {
@@ -252,7 +266,7 @@ internal sealed class StandaloneHost
         }
     }
 
-    private async Task LaunchAsync(E2ESessionOptions session, CancellationToken cancellationToken, TaskCompletionSource<StandaloneAttempt> result)
+    private async Task LaunchAsync(E2ESessionOptions session, CancellationToken cancellationToken, TaskCompletionSource<StandaloneAttempt> result, bool hosted)
     {
         // The attempt's own scope outlives the open: it ends the session when the host or its caller does.
         var scope = CancellationTokenSource.CreateLinkedTokenSource(_signal, cancellationToken);
@@ -269,7 +283,7 @@ internal sealed class StandaloneHost
                 throw cancelled;
             }
 
-            var attempt = Wrap(started, scope);
+            var attempt = Wrap(started, scope, hosted);
             lock (_gate)
             {
                 _live = attempt;
@@ -295,7 +309,7 @@ internal sealed class StandaloneHost
         }
     }
 
-    private StandaloneAttempt Wrap(E2ESession session, CancellationTokenSource scope)
+    private StandaloneAttempt Wrap(E2ESession session, CancellationTokenSource scope, bool hosted)
     {
         StandaloneAttempt? attempt = null;
         var ending = new Lazy<Task<IReadOnlyList<Exception>>>(async () =>
@@ -303,7 +317,14 @@ internal sealed class StandaloneHost
             var errors = new List<Exception>();
             try
             {
-                await session.DisposeAsync().ConfigureAwait(false);
+                if (hosted)
+                {
+                    errors.AddRange(await session.EndAsync().ConfigureAwait(false));
+                }
+                else
+                {
+                    await session.DisposeAsync().ConfigureAwait(false);
+                }
             }
 #pragma warning disable CA1031 // The attempt's failures are reported together, whichever step they came from.
             catch (Exception cause)
@@ -323,9 +344,23 @@ internal sealed class StandaloneHost
                 }
             }
 
+            // Only a hosted session reports its failures as a list, and it also holds test outcomes (a soft failure, a step nobody awaited), which leave the worker clean.
+            if (hosted && session.CleanupFailed)
+            {
+                lock (_gate)
+                {
+                    _unsafeToReuse = true;
+                }
+            }
+
             return errors;
         });
         attempt = new StandaloneAttempt(session, () => ending.Value);
+        if (hosted)
+        {
+            session.Host(attempt.CloseAsync);
+        }
+
         return attempt;
     }
 
@@ -375,7 +410,7 @@ internal sealed class StandaloneHost
                 RunId = _runId,
                 Env = _env,
                 CleanupTimeout = _options.CleanupTimeout,
-                Notice = Ignore,
+                Notice = Notice,
                 OnFailure = failure => Add([failure]),
             }).ConfigureAwait(false);
         }
@@ -414,8 +449,18 @@ internal sealed class StandaloneHost
         }
     }
 
-    private static void Ignore(string target, string line)
+    // A host with no reporter has nowhere to send a progress line, and a lease id or session URL in it would only be one more thing to redact.
+    // One that has an owner hands each line over, and what the owner's callback throws never stops provisioning.
+    private void Notice(string target, string line)
     {
-        // The host has no reporter: a progress line has nowhere to go, and a lease id or session URL in it would only be one more thing to redact.
+        try
+        {
+            _options.Notice?.Invoke(target, line);
+        }
+#pragma warning disable CA1031 // The callback must not throw; a throwing one is not a failure of the host.
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+        }
     }
 }

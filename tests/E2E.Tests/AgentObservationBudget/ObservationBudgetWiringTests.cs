@@ -28,7 +28,7 @@ public sealed class ObservationBudgetWiringTests
         Assert.Contains("Button number 0", message, StringComparison.Ordinal);
         Assert.DoesNotContain("Button number 299", message, StringComparison.Ordinal);
         Assert.Contains(SnapshotText.TruncationMarker, message, StringComparison.Ordinal);
-        Assert.True(session.Steps.Single(step => step.Api == "agent.assert").ObservationTruncated);
+        Assert.True(session.StepRecords.Single(step => step.Api == "agent.assert").ObservationTruncated);
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public sealed class ObservationBudgetWiringTests
         var text = string.Join('\n', actor.Requests[0].Messages.Select(message => message.Content));
         Assert.Contains(SnapshotText.TruncationMarker, text, StringComparison.Ordinal);
         Assert.DoesNotContain("Button number 299", text, StringComparison.Ordinal);
-        Assert.True(session.Steps.Single(step => step.Api == "agent.act").ObservationTruncated);
+        Assert.True(session.StepRecords.Single(step => step.Api == "agent.act").ObservationTruncated);
     }
 
     private static async Task<E2ESession> StartAsync(ScriptedModel? actor = null, ScriptedModel? judge = null, int? maxObservationBytes = null, int? maxInputTokens = null) =>

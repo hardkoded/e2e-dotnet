@@ -98,6 +98,6 @@ internal static class ToolLoopPrefixHelpers
         }
 
         session.Complete(error);
-        return (error, session.Steps.Single(step => step.Api == "agent.act").Turns ?? []);
+        return (error, session.StepRecords.Single(step => step.Api == "agent.act").Turns ?? []);
     }
 }

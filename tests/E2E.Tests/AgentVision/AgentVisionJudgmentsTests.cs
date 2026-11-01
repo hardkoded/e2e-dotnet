@@ -196,6 +196,6 @@ internal sealed class VisionRun
 
         session.Complete(error);
         _site.Dispose();
-        return new CoreTests.Attempt(error, session.ModelCalls, session.Replayed, session.Missed, Steps: session.Steps);
+        return new CoreTests.Attempt(error, session.ModelCalls, session.Replayed, session.Missed, Steps: session.StepRecords);
     }
 }

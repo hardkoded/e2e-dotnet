@@ -44,18 +44,18 @@ public sealed class ExplicitScreenshotSecrecyTests : IDisposable
             var expected = Path.Combine(AttemptDir(), "screenshots", "evidence.png");
             Assert.Equal(expected, await session.App.ScreenshotAsync("before-fill"));
             Assert.Equal(["before-fill"], engine.Labels);
-            Assert.Single(session.Steps[^1].Artifacts);
+            Assert.Single(session.StepRecords[^1].Artifacts);
             engine.Labels.Clear();
 
             await session.Screen.GetByRole("textbox").FillAsync(secret);
             Assert.Equal(Sentinel, engine.Filled);
             Assert.Equal(expected, await session.App.ScreenshotAsync("after-fill"));
             Assert.Equal(["after-fill"], engine.Labels);
-            Assert.Single(session.Steps[^1].Artifacts);
-            var last = session.Steps[^1];
+            Assert.Single(session.StepRecords[^1].Artifacts);
+            var last = session.StepRecords[^1];
             Assert.Equal("app.screenshot", last.Api);
             Assert.Equal(StepStatus.Passed, last.Status);
-            Assert.DoesNotContain(Sentinel, JsonSerializer.Serialize(session.Steps.Select(step => new { step.Api, step.Label, step.Explanation, step.Error })), StringComparison.Ordinal);
+            Assert.DoesNotContain(Sentinel, JsonSerializer.Serialize(session.StepRecords.Select(step => new { step.Api, step.Label, step.Explanation, step.Error })), StringComparison.Ordinal);
 
             session.Complete();
             await session.DisposeAsync();
@@ -88,7 +88,7 @@ public sealed class ExplicitScreenshotSecrecyTests : IDisposable
             session.Remember([Secret.Create("member-password", Sentinel)]);
             await session.App.ScreenshotAsync("after-" + Sentinel);
 
-            var step = session.Steps[^1];
+            var step = session.StepRecords[^1];
             Assert.Equal("app.screenshot", step.Api);
             Assert.DoesNotContain(Sentinel, step.Label, StringComparison.Ordinal);
             Assert.DoesNotContain(Sentinel, Assert.Single(engine.Labels)!, StringComparison.Ordinal);

@@ -157,7 +157,7 @@ public sealed class AttachedTurnsTests
         Assert.Equal("ab😀", TurnLog.Truncate("ab😀", 4));
     }
 
-    private static StepRecord AgentStep(E2ESession session) => session.Steps.Single(step => step.Api == "agent.act");
+    private static StepRecord AgentStep(E2ESession session) => session.StepRecords.Single(step => step.Api == "agent.act");
 
     private static Task<E2ESession> StartAsync(IStepExecutor? executor, IAgentModel? model = null) =>
         E2ESession.StartAsync(new E2ESessionOptions

@@ -343,7 +343,7 @@ public sealed class AgentJudgmentTierTests
         }
 
         session.Complete(error);
-        return new CoreTests.Attempt(error, session.ModelCalls, session.Replayed, session.Missed, Steps: session.Steps);
+        return new CoreTests.Attempt(error, session.ModelCalls, session.Replayed, session.Missed, Steps: session.StepRecords);
     }
 
     private sealed class CounterReading

@@ -392,6 +392,18 @@ foreach (var finding in outcome.Explore.Findings)
 
 `outcome.Status` is `Failed` when the agent reported an `issue` (a `warning` does not fail the run) and `Blocked` when it could not explore. The budgets are 1 to 12 steps and 3 to 15 minutes. `OnProgress` follows the run as it happens, and `Credentials` gives the accounts the agent can sign in with. The command takes `--trace`, `--video`, `--debug`, and `--ai-trace` as upstream does, and has no `--session` or `--reporter`. See [COMPATIBILITY.md](COMPATIBILITY.md#explore) and topic `explore`.
 
+## Hosting sessions in your own runner
+
+`E2EHost` opens isolated per-test sessions for a runner that is not NUnit or xUnit (upstream's `openHost`). It loads the config, starts the target's app command, prepares the engine once, and opens one session at a time.
+
+```csharp
+await using var host = await E2EHost.OpenAsync(new OpenHostOptions { Cwd = projectDir });
+await using var session = await host.OpenSessionAsync(new OpenSessionOptions { Name = "home screen" });
+await session.Fixtures.App.OpenAsync("/");
+```
+
+`OpenHostOptions.Config` takes an `E2EConfig` value instead of a file; `EngineFactory` builds the engine of a target, because a config file holds no engine. `session.CloseAsync()` returns the soft assertion, abandoned-step (`STEP_NOT_AWAITED`), and cleanup failures; `DisposeAsync` throws them as an `AggregateException`. `session.Steps()` and `OpenSessionOptions.OnStep` report the steps as `E2E.Reports` types.
+
 ## Coding agents (MCP)
 
 `e2e init` asks which engine, model gateway (and the base URL of an `openai-compatible` one), skill locations, and MCP locations to use (each flag skips its question, and `--yes` takes the defaults without asking), lists the changes, and asks to apply them. The engine, gateway, and endpoint questions are asked only when `e2e.config.json` does not exist; the skill and MCP questions are asked only when no flag names the locations and no earlier run left any (which a rerun then refreshes). It asks before replacing a symlinked skill directory with a copy or a link (never under `--yes`, which leaves it alone), and cancelling a question or declining the plan writes nothing. Init scaffolds `e2e.config.json`, installs the skill into `.agents/skills/e2e-dotnet` and `.claude/skills/e2e-dotnet`, registers the MCP server in `.mcp.json` and `.cursor/mcp.json`, and updates `.gitignore`. An existing config is never overwritten; a rerun refreshes stale skill copies and the e2e entry of existing MCP files. No test project is created. See [COMPATIBILITY.md](COMPATIBILITY.md#coding-agents).

@@ -82,7 +82,7 @@ public sealed class SecretFillStaleRetryTests
             session.Complete(null);
         }
 
-        var step = session.Steps.Single(candidate => candidate.Api == "agent.act");
+        var step = session.StepRecords.Single(candidate => candidate.Api == "agent.act");
         Assert.Equal(disabled ? StepStatus.Blocked : StepStatus.Passed, step.Status);
         Assert.Equal(disabled ? 0 : 1, dispatched);
         Assert.Equal(1, step.Metrics!.ActionSteps);
@@ -93,7 +93,7 @@ public sealed class SecretFillStaleRetryTests
             Assert.Contains("the target field is disabled", JsonSerializer.Serialize(step), StringComparison.Ordinal);
         }
 
-        Assert.DoesNotContain(Value, JsonSerializer.Serialize(session.Steps), StringComparison.Ordinal);
+        Assert.DoesNotContain(Value, JsonSerializer.Serialize(session.StepRecords), StringComparison.Ordinal);
     }
 
     /// <summary>The document engine, failing the first fill after <see cref="Stale"/> is set with a stale node, once the page has changed.</summary>

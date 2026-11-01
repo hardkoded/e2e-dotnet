@@ -44,10 +44,10 @@ public sealed class AnInconclusiveJudgmentAfterASecretFillTests
         });
         var error = await Assert.ThrowsAsync<AgentException>(() => session.Agent.AssertAsync("the order total equals the sum of the line items"));
 
-        var act = session.Steps.Single(step => step.Api == "agent.act");
+        var act = session.StepRecords.Single(step => step.Api == "agent.act");
         Assert.Equal(StepStatus.Passed, act.Status);
         Assert.Contains(act.Events, item => item is { Kind: StepEventKind.Engine, Name: "typeSecret", Status: StepEventStatus.Passed });
-        Assert.Equal(StepStatus.Failed, session.Steps.Single(step => step.Api == "agent.assert").Status);
+        Assert.Equal(StepStatus.Failed, session.StepRecords.Single(step => step.Api == "agent.assert").Status);
         Assert.Equal("filled the password", filled.Summary);
         Assert.Equal(["hunter2-secret"], typed);
         Assert.Equal("ASSERTION_INCONCLUSIVE", error.Code);
