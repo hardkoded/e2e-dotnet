@@ -8,10 +8,9 @@ using E2E.Internal;
 namespace E2E.Tests.LocatorEngine;
 
 /// <summary>
-/// Upstream's <c>LocatorEngine perform contract</c>. Three of its seven its are not ported: 're-resolves and retries the action after a
-/// retryable stale node' (the port retries no stale node on an action), 'never sends a positioned tap whose target became visible past
-/// the deadline' (the port has no positioned tap with a scroll into view), and 'marks every action it performs with the test origin'
-/// (the port has no operation context).
+/// Upstream's <c>LocatorEngine perform contract</c>. Two of its seven its are not ported: 'never sends a positioned tap whose target
+/// became visible past the deadline' (the port has no positioned tap with a scroll into view) and 'marks every action it performs
+/// with the test origin' (the port has no operation context).
 /// </summary>
 public sealed class LocatorEnginePerformContractTests
 {
@@ -26,6 +25,41 @@ public sealed class LocatorEnginePerformContractTests
         () => { },
         TimeSpan.FromMilliseconds(1000),
         TimeSpan.FromMilliseconds(1000));
+
+    [Fact]
+    public async Task Re_resolves_and_retries_the_action_after_a_retryable_stale_node()
+    {
+        var resolves = 0;
+        var performs = 0;
+        var screen = new Screen(
+            _ =>
+            {
+                resolves++;
+                return Task.FromResult(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "node-1", Role = "button", Name = "Submit" }] });
+            },
+            (_, _, _) => ++performs == 1 ? throw new EngineException(EngineErrorCodes.NodeStale, "stale", retryable: true) : Task.CompletedTask,
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromMilliseconds(1000),
+            TimeSpan.FromMilliseconds(1000));
+
+        await screen.GetByRole("button").TapAsync();
+
+        Assert.Equal(2, performs);
+        Assert.Equal(2, resolves);
+    }
+
+    [Fact]
+    public async Task NET_only_a_stale_node_that_is_not_retryable_fails_without_a_second_try()
+    {
+        var performs = 0;
+        var screen = ScreenThatPerforms(() => throw new EngineException(EngineErrorCodes.NodeStale, "stale", retryable: false), () => performs++);
+
+        var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button").TapAsync());
+
+        Assert.Equal("NOT_FOUND", error.Code);
+        Assert.Equal(1, performs);
+    }
 
     [Fact]
     public async Task Never_repeats_an_action_that_may_have_committed()

@@ -54,16 +54,23 @@ internal static class ErrorSerializer
     /// Upstream's <c>translateEngineError</c> (<c>internal/errors.ts</c>): an engine failure as the test sees it, the engine error kept as the
     /// cause. A stale node is <c>NOT_FOUND</c> (upstream <c>LOCATOR_NOT_FOUND</c>), a missing frame the same, an ambiguous frame is
     /// <c>STRICT_MODE</c> (<c>LOCATOR_AMBIGUOUS</c>), a node that cannot take the action, an action that may have committed, and an operation
-    /// that timed out are <c>ACTION_FAILED</c>, and no open app is <c>APP_NOT_OPEN</c>. An error that is no engine error, and an engine
-    /// error of any other code (<c>CANCELLED</c>, <c>UNSUPPORTED_CAPABILITY</c>, <c>ENGINE_FAILURE</c>), is returned as it is.
+    /// that timed out are <c>ACTION_FAILED</c>, and no open app is <c>APP_NOT_OPEN</c>. <c>CANCELLED</c> is an infrastructure failure,
+    /// <c>UNSUPPORTED_CAPABILITY</c> a configuration failure, and <c>ENGINE_FAILURE</c>, any other engine code, and any error that is no
+    /// e2e error are an infrastructure <c>ENGINE_FAILURE</c>. An e2e error that is no engine error is returned as it is.
     /// </summary>
     /// <param name="cause">What the engine threw.</param>
     /// <param name="suffix">Text appended to the message, such as <c>: getByRole("button")</c>.</param>
     public static Exception TranslateEngineError(Exception cause, string suffix = "")
     {
-        if (cause is not EngineException engine)
+        // A caller's cancel must surface as cancellation, not as an engine failure (.NET-only).
+        if (cause is OperationCanceledException or (E2EException and not EngineException))
         {
             return cause;
+        }
+
+        if (cause is not EngineException engine)
+        {
+            return new EngineException(EngineErrorCodes.EngineFailure, cause.Message, cause);
         }
 
         return engine.Code switch
@@ -73,8 +80,10 @@ internal static class ErrorSerializer
             EngineErrorCodes.FrameAmbiguous => new TestException("STRICT_MODE", engine.Message + suffix, engine),
             EngineErrorCodes.NotActionable or EngineErrorCodes.ActionMayHaveCommitted => new TestException("ACTION_FAILED", engine.Message + suffix, engine),
             EngineErrorCodes.OperationTimeout => new TestException("ACTION_FAILED", "operation timed out" + suffix, engine),
+            EngineErrorCodes.Cancelled => new EngineException(EngineErrorCodes.Cancelled, "operation cancelled", engine),
+            EngineErrorCodes.UnsupportedCapability => new ConfigurationException(EngineErrorCodes.UnsupportedCapability, engine.Message, engine),
             EngineErrorCodes.InvalidState => new TestException("APP_NOT_OPEN", engine.Message, engine),
-            _ => engine,
+            _ => new EngineException(EngineErrorCodes.EngineFailure, engine.Message, engine),
         };
     }
 
