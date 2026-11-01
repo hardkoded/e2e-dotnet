@@ -245,7 +245,9 @@ public sealed class ExploreFlagsTests
     [Fact]
     public async Task Keeps_CONFIG_NOT_FOUND_without_a_terminal_and_with_config()
     {
+        // The .git directory stops config discovery here, whatever the temp directory's parents hold.
         var dir = Directory.CreateTempSubdirectory("e2e-explore-881-").FullName;
+        Directory.CreateDirectory(Path.Combine(dir, ".git"));
         try
         {
             using var stdout = new StringWriter();

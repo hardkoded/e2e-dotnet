@@ -76,7 +76,7 @@ public static partial class Program
         RunAsync(args, stdout, stderr, stdin, interactive, cancellationToken, cwd: null);
 
     /// <summary>Runs one command. <paramref name="cwd"/> is the working directory <c>explore</c> searches for its config from; the process's by default.</summary>
-    public static async Task<int> RunAsync(string[] args, TextWriter stdout, TextWriter stderr, TextReader stdin, bool interactive, CancellationToken cancellationToken, string? cwd)
+    internal static async Task<int> RunAsync(string[] args, TextWriter stdout, TextWriter stderr, TextReader stdin, bool interactive, CancellationToken cancellationToken, string? cwd)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(stdout);
