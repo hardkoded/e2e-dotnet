@@ -182,14 +182,18 @@ internal static partial class RunEvents
             return _ => { };
         }
 
+        // .NET-only lock: hooks run on whatever thread a process lifecycle uses, where upstream's emitter is called from one thread.
         var quarantined = new HashSet<RunEventSubscriber>();
         return fact =>
         {
             foreach (var subscriber in active)
             {
-                if (quarantined.Contains(subscriber))
+                lock (quarantined)
                 {
-                    continue;
+                    if (quarantined.Contains(subscriber))
+                    {
+                        continue;
+                    }
                 }
 
                 try
@@ -198,7 +202,14 @@ internal static partial class RunEvents
                 }
                 catch (Exception cause)
                 {
-                    quarantined.Add(subscriber);
+                    lock (quarantined)
+                    {
+                        if (!quarantined.Add(subscriber))
+                        {
+                            continue;
+                        }
+                    }
+
                     Console.Error.WriteLine($"e2e: reporter \"{subscriber.Name}\" threw on {EventType(fact)}: {cause.Message}; ignoring it for the rest of the run");
                 }
             }
