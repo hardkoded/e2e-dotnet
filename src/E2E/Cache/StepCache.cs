@@ -90,6 +90,9 @@ public sealed class CacheEntry
     internal static string? ReadRecordedBy(string? value) =>
         string.IsNullOrWhiteSpace(value) || value.Length > MaxRecordedByChars ? null : value;
 
+    /// <summary>A shallow copy of this entry, which <see cref="Trace.MapTraceText"/> rewrites the text of.</summary>
+    internal CacheEntry Copy() => (CacheEntry)MemberwiseClone();
+
     /// <summary>Sets the fields that name the step this entry is recorded for, from <paramref name="step"/>.</summary>
     internal void SetStep(CacheEntry step)
     {
@@ -170,14 +173,8 @@ public sealed class RecordedAction
             ? Paths is { Count: > 0 and <= Trace.MaxTraceUploadPaths } && Paths.All(path => !string.IsNullOrEmpty(path) && path.Length <= Trace.MaxTraceInputChars)
             : Paths is null;
 
-    /// <summary>A copy of this action that names its target by <paramref name="name"/> and <paramref name="testId"/>. The role is vocabulary, left alone.</summary>
-    internal RecordedAction WithDescriptor(string? name, string? testId)
-    {
-        var copy = (RecordedAction)MemberwiseClone();
-        copy.Name = name;
-        copy.TestId = testId;
-        return copy;
-    }
+    /// <summary>A shallow copy of this action, which <see cref="Trace.MapTraceText"/> rewrites the text of.</summary>
+    internal RecordedAction Copy() => (RecordedAction)MemberwiseClone();
 
     /// <summary>Keys a <c>tap</c> or <c>doubleTap</c> held for the click, replayed with it. Null holds none.</summary>
     public List<string>? Modifiers { get; set; }
@@ -216,6 +213,9 @@ public sealed class RecordedTarget
 
     /// <summary>An anchor's <c>checked</c>, <c>expanded</c>, <c>pressed</c>, and <c>selected</c> states that are on. Null for none.</summary>
     public List<string>? States { get; set; }
+
+    /// <summary>A shallow copy of this node, which <see cref="Trace.MapTraceText"/> rewrites the text of.</summary>
+    internal RecordedTarget Copy() => (RecordedTarget)MemberwiseClone();
 
     /// <summary>A node as every report line that names one reads it (upstream's <c>targetLabel</c>): its role, then its label in quotes.</summary>
     internal static string TargetLabel(RecordedTarget target)
@@ -534,14 +534,56 @@ internal static partial class CacheKeys
         };
     }
 
-    /// <summary>
-    /// <see cref="TemplateText"/> with the <c>unique()</c> values of <paramref name="parameters"/> at any depth. The port templates a
-    /// text as it records it, so this is the call the recording sites make.
-    /// </summary>
-    public static string Template(string value, IReadOnlyDictionary<string, object?>? parameters) => TemplateText(value, TemplatesOf(parameters));
-
     /// <summary>The <c>unique()</c> values of the params as templates (upstream's <c>validateParams</c> list); none for no params.</summary>
     public static List<ParamTemplate> TemplatesOf(IReadOnlyDictionary<string, object?>? parameters) => ActParams.ValidateParams(parameters, "agent.act").Templates;
+
+    /// <summary>
+    /// Upstream's <c>spellings</c>: every distinct spelling of every template (as typed, then each encoding that differs), with the
+    /// placeholder that stands for it, longest text first so a longer value, or a longer encoding of one, is claimed whole. Equal
+    /// lengths order by pointer, then placeholder, so the result is stable.
+    /// </summary>
+    private static List<(string Text, string Slot, string Pointer)> Spellings(IReadOnlyList<ParamTemplate> templates)
+    {
+        var found = new List<(string Text, string Slot, string Pointer)>();
+        foreach (var template in templates.Where(template => template.Value.Length > 0))
+        {
+            var seen = new HashSet<string>(StringComparer.Ordinal) { template.Value };
+            found.Add((template.Value, Placeholder(template.Pointer, null), template.Pointer));
+            foreach (var (name, encode) in Encodings)
+            {
+                var spelled = encode(template.Value);
+                if (!string.IsNullOrEmpty(spelled) && seen.Add(spelled))
+                {
+                    found.Add((spelled, Placeholder(template.Pointer, name), template.Pointer));
+                }
+            }
+        }
+
+        return [.. found
+            .OrderByDescending(spelling => spelling.Text.Length)
+            .ThenBy(spelling => spelling.Pointer, StringComparer.InvariantCulture)
+            .ThenBy(spelling => spelling.Slot, StringComparer.InvariantCulture)];
+    }
+
+    /// <summary>
+    /// Upstream's <c>spellingsDistinct</c>: whether no two templates share a spelling. Two marked params with one value, or one whose
+    /// value is another's encoded form (<c>a b</c> and <c>a%20b</c>), would leave the text unable to say which param it spelled.
+    /// </summary>
+    private static bool SpellingsDistinct(IReadOnlyList<ParamTemplate> templates)
+    {
+        var owners = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (text, _, pointer) in Spellings(templates))
+        {
+            if (owners.TryGetValue(text, out var owner) && !string.Equals(owner, pointer, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            owners[text] = pointer;
+        }
+
+        return true;
+    }
 
     /// <summary>
     /// Upstream's <c>templateText</c>: replaces every occurrence of each template's value in <paramref name="value"/>, in any of its
@@ -554,32 +596,10 @@ internal static partial class CacheKeys
             return value;
         }
 
-        // Each value is looked for as typed, form-encoded as a URL spells it, and on one line as the screen shows a
-        // multi-line value. The longer text goes first, so a value that contains another is replaced whole.
-        var spellings = templates
-            .Where(template => template.Value.Length > 0)
-            .SelectMany(template =>
-            {
-                var text = template.Value;
-                var seen = new HashSet<string>(StringComparer.Ordinal) { text };
-                var pointer = template.Pointer;
-                var found = new List<(string Text, string Slot)> { (text, Placeholder(pointer, null)) };
-                foreach (var (name, encode) in Encodings)
-                {
-                    var spelled = encode(text);
-                    if (!string.IsNullOrEmpty(spelled) && seen.Add(spelled))
-                    {
-                        found.Add((spelled, Placeholder(pointer, name)));
-                    }
-                }
-
-                return found;
-            })
-            .OrderByDescending(spelling => spelling.Text.Length);
         // Upstream's templateText tracks literal segments: a slot written for one spelling is not literal text, so a shorter
         // spelling (a value that is a part of a parameter's name, or of "|uri") never matches inside it.
         List<(bool Literal, string Text)> segments = [(true, value)];
-        foreach (var (text, slot) in spellings)
+        foreach (var (text, slot, _) in Spellings(templates))
         {
             List<(bool Literal, string Text)> next = [];
             foreach (var segment in segments)
@@ -627,21 +647,6 @@ internal static partial class CacheKeys
     private static string Placeholder(string pointer, string? encoding) => PlaceholderPrefix + pointer + (encoding is null ? "" : "|" + encoding) + "}}";
 
     /// <summary>
-    /// Fills a recorded text from this call's params (pointer to value), or returns <see langword="null"/> as
-    /// <see cref="ExpandText"/> does: a placeholder that names a param the call did not mark makes the entry a miss.
-    /// </summary>
-    public static string? Detemplate(string value, IReadOnlyDictionary<string, object?>? parameters)
-    {
-        var values = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var template in TemplatesOf(parameters))
-        {
-            values[template.Pointer] = template.Value;
-        }
-
-        return ExpandText(value, values);
-    }
-
-    /// <summary>
     /// Upstream's <c>expandText</c>: fills every placeholder in one regex pass from <paramref name="values"/> (pointer to value), in the
     /// encoding the placeholder names, so an expanded value is never read again. Returns <see langword="null"/> (a miss) when one names
     /// a parameter the call did not mark or an encoding this codec does not know, or when the encoding cannot spell the value (an
@@ -677,23 +682,6 @@ internal static partial class CacheKeys
             return filled;
         });
         return missing ? null : expanded;
-    }
-
-    /// <summary>
-    /// Upstream's <c>expandTrace</c>, as a check: whether every templated text of the entry (the typed value, the navigated URL, the
-    /// scroll text, the upload paths, the target descriptors, the anchors, the start and end routes) fills from this call's params. The entry stays as recorded, with its placeholders, because
-    /// a replay that passes keeps it for the next run; the port expands each text as the replay reaches it.
-    /// </summary>
-    public static bool TryExpandTrace(CacheEntry entry, IReadOnlyDictionary<string, object?>? parameters)
-    {
-        IEnumerable<string?> texts =
-        [
-            entry.Route,
-            entry.EndRoute,
-            .. entry.Actions.SelectMany(action => new[] { action.Name, action.TestId, action.Value, action.Url, action.Text }.Concat(action.Paths ?? [])),
-            .. entry.Appeared.Concat(entry.Gone).SelectMany(anchor => new[] { anchor.Name, anchor.Text, anchor.TestId, anchor.Placeholder, anchor.Value }),
-        ];
-        return texts.All(text => text is null || Detemplate(text, parameters) is not null);
     }
 
     [GeneratedRegex(@"\{\{param:([^\n\r\u2028\u2029]*?)\}\}")]

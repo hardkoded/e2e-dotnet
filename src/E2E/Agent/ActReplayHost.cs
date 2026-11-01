@@ -14,15 +14,14 @@ public sealed partial class Agent
     /// <summary>
     /// The host an act replays a recording through (upstream builds it in <c>agent/step-cache.ts</c>, as <c>StepCacheHost</c>). Its actions perform one
     /// recorded action on the engine and arm the change wait its settle policy asks for, like the dispatcher's, but take no
-    /// action slot and record nothing: the replay takes the slot and records the action as the recording holds it, with the
-    /// slots of its params in it. Values arrive as recorded and are expanded with this call's params here.
+    /// action slot and record nothing: the replay takes the slot and records the action as the recording holds it. Values arrive
+    /// expanded with this call's params, when the entry is read (upstream's <c>expandTrace</c>).
     /// </summary>
     private sealed class ActReplayHost(
         AttemptScope scope,
         ObservationFeed feed,
         StepAccounting budget,
         ActionDispatcher dispatcher,
-        IReadOnlyDictionary<string, object?>? parameters,
         CancellationToken token) : IStepCacheHost, IExecutorActions
     {
         public IExecutorActions Actions => this;
@@ -47,10 +46,9 @@ public sealed partial class Agent
 
         public Task CommitAsync(RecordedAction action)
         {
-            // The recording names a target by a placeholder; the step records it as this run read it, and templates it again when it finishes.
-            var expanded = action.WithDescriptor(action.Name is null ? null : Expand(action.Name), action.TestId is null ? null : Expand(action.TestId));
-            budget.Recorder.Record(expanded);
-            return dispatcher.NotifyAsync(expanded, ActionSource.Replay);
+            // The entry was expanded when it was read, so the step records the action as this run read it, and templates it when it finishes.
+            budget.Recorder.Record(action);
+            return dispatcher.NotifyAsync(action, ActionSource.Replay);
         }
 
         public Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => ClickAsync("tap", target, options, cancellationToken);
@@ -63,10 +61,9 @@ public sealed partial class Agent
         // A value is expanded with this call's params before it is read: one that expands to a secret's marker fills that secret.
         public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default)
         {
-            var expanded = Expand(value);
-            return expanded.StartsWith("<secret:", StringComparison.Ordinal) && expanded.EndsWith('>')
-                ? TypeSecretAsync(target, expanded["<secret:".Length..^1], cancellationToken, armed: null)
-                : PerformAsync(target, new LocatorAction.Fill(expanded, false), "fill", cancellationToken);
+            return value.StartsWith("<secret:", StringComparison.Ordinal) && value.EndsWith('>')
+                ? TypeSecretAsync(target, value["<secret:".Length..^1], cancellationToken, armed: null)
+                : PerformAsync(target, new LocatorAction.Fill(value, false), "fill", cancellationToken);
         }
 
         public Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken = default) =>
@@ -94,7 +91,7 @@ public sealed partial class Agent
         }
 
         public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) =>
-            PerformAsync(target, new LocatorAction.Select(Expand(value)), "select", cancellationToken);
+            PerformAsync(target, new LocatorAction.Select(value), "select", cancellationToken);
 
         public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) =>
             check ? PerformAsync(target, new LocatorAction.Check(), "check", cancellationToken) : PerformAsync(target, new LocatorAction.Uncheck(), "uncheck", cancellationToken);
@@ -105,7 +102,7 @@ public sealed partial class Agent
             AuthorizedUpload authorized;
             try
             {
-                authorized = dispatcher.AuthorizeUpload([.. paths.Select(Expand)]);
+                authorized = dispatcher.AuthorizeUpload(paths);
             }
             catch (E2EException)
             {
@@ -121,7 +118,7 @@ public sealed partial class Agent
 
         public async Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default)
         {
-            await dispatcher.PageUntilAsync(Expand(text), direction, list, cancellationToken).ConfigureAwait(false);
+            await dispatcher.PageUntilAsync(text, direction, list, cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "scrollUntil" });
         }
 
@@ -144,7 +141,7 @@ public sealed partial class Agent
 
         public async Task NavigateAsync(string url, CancellationToken cancellationToken = default)
         {
-            await scope.Session.OpenAsync(Routes.Resolve(scope.BaseUrl, Expand(url)), cancellationToken).ConfigureAwait(false);
+            await scope.Session.OpenAsync(Routes.Resolve(scope.BaseUrl, url), cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "navigate" });
         }
 
@@ -153,12 +150,6 @@ public sealed partial class Agent
             await scope.Session.BackAsync(cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "back" });
         }
-
-        // The node the replay found: a replay's targets are built from nodes, so an id alone names nothing here.
-        // The entry was expanded whole when it was read (CacheKeys.TryExpandTrace), so a text that fails here is a failed action,
-        // which the replay hands off, not a crash.
-        public string Expand(string value) =>
-            CacheKeys.Detemplate(value, parameters) ?? throw new AgentException("ACTION_FAILED", "A recorded placeholder has no value in this call's params.");
 
         private static SemanticNode Resolve(ExecutorTarget target) =>
             target.Node ?? throw new InvalidOperationException("A replayed target holds the node it was found as.");

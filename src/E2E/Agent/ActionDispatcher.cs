@@ -31,17 +31,15 @@ internal sealed class ActionDispatcher : IExecutorActions
     private readonly AttemptScope _scope;
     private readonly ObservationFeed _feed;
     private readonly StepAccounting _accounting;
-    private readonly IReadOnlyDictionary<string, object?>? _parameters;
     private readonly Func<IReadOnlyList<Secret>> _secrets;
     private readonly ActionHook? _onAction;
 
     // secrets: what TypeSecretAsync may fill, the secrets the step's params declare. onAction: the test's hook for each completed action.
-    public ActionDispatcher(AttemptScope scope, ObservationFeed feed, StepAccounting accounting, IReadOnlyDictionary<string, object?>? parameters, Func<IReadOnlyList<Secret>> secrets, ActionHook? onAction = null)
+    public ActionDispatcher(AttemptScope scope, ObservationFeed feed, StepAccounting accounting, Func<IReadOnlyList<Secret>> secrets, ActionHook? onAction = null)
     {
         _scope = scope;
         _feed = feed;
         _accounting = accounting;
-        _parameters = parameters;
         _secrets = secrets;
         _onAction = onAction;
     }
@@ -123,7 +121,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Fill(value, false), token).ConfigureAwait(false);
-                await CommitAsync("fill", node, value: _accounting.Recorder.Template(value, _parameters)).ConfigureAwait(false);
+                await CommitAsync("fill", node, value: value).ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -191,7 +189,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Select(value), token).ConfigureAwait(false);
-                await CommitAsync("select", node, value: _accounting.Recorder.Template(value, _parameters)).ConfigureAwait(false);
+                await CommitAsync("select", node, value: value).ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -222,7 +220,7 @@ internal sealed class ActionDispatcher : IExecutorActions
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.SetInputFiles(authorized.Resolved), token).ConfigureAwait(false);
                 var recorded = Target(node, "upload");
-                recorded.Paths = [.. authorized.Given.Select(path => _accounting.Recorder.Template(path, _parameters))];
+                recorded.Paths = [.. authorized.Given];
                 await CommitAsync(recorded).ConfigureAwait(false);
             },
             cancellationToken);
@@ -274,7 +272,7 @@ internal sealed class ActionDispatcher : IExecutorActions
                     Name = recorded?.Name,
                     TestId = recorded?.TestId,
                     Direction = DirectionName(direction),
-                    Text = _accounting.Recorder.Template(text, _parameters),
+                    Text = text,
                     Spans = spans,
                 }).ConfigureAwait(false);
             },
@@ -340,7 +338,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             async token =>
             {
                 await _scope.Session.OpenAsync(Routes.Resolve(_scope.BaseUrl, url), token).ConfigureAwait(false);
-                await CommitAsync(new RecordedAction { Kind = "navigate", Url = _accounting.Recorder.Template(CacheRoute.AppNavigation(url, _scope.AppOrigin), _parameters) }).ConfigureAwait(false);
+                await CommitAsync(new RecordedAction { Kind = "navigate", Url = CacheRoute.AppNavigation(url, _scope.AppOrigin) }).ConfigureAwait(false);
             },
             cancellationToken);
     }

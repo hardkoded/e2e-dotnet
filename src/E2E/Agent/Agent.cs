@@ -665,7 +665,7 @@ public sealed partial class Agent
     internal Task<ToolOutcome> RunToolAsync(string name, JsonElement arguments, CancellationToken token)
     {
         var budget = new StepAccounting(int.MaxValue, int.MaxValue);
-        return _scope.Track(new ActTools(_scope, _feed).ExecuteAsync(new ModelToolCall { Id = name, Name = name, Arguments = arguments }, new ActionDispatcher(_scope, _feed, budget, null, () => _scope.Secrets), budget, null, token));
+        return _scope.Track(new ActTools(_scope, _feed).ExecuteAsync(new ModelToolCall { Id = name, Name = name, Arguments = arguments }, new ActionDispatcher(_scope, _feed, budget, () => _scope.Secrets), budget, null, token));
     }
 
     internal static bool HasTarget(JsonElement arguments)

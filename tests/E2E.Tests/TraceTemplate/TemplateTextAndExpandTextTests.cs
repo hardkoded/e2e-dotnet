@@ -4,33 +4,27 @@
 
 namespace E2E.Tests.TraceTemplate;
 
-/// <summary>
-/// The port fills a text from the params (<see cref="CacheKeys.Detemplate"/>) and from a pointer-to-value map
-/// (<see cref="CacheKeys.ExpandText"/>, upstream's <c>expandText</c>).
-/// </summary>
+/// <summary>Upstream's <c>templateText</c> and <c>expandText</c>: <see cref="CacheKeys.TemplateText"/> and <see cref="CacheKeys.ExpandText"/>.</summary>
 public sealed class TemplateTextAndExpandTextTests
 {
-    private static Dictionary<string, object?> Params(string name, string full) => new()
-    {
-        ["name"] = Values.Unique(name),
-        ["full"] = Values.Unique(full),
-    };
+    private static List<ParamTemplate> Templates(string name, string full) => [new("/name", name), new("/full", full)];
+
+    private static Dictionary<string, string> Filled(IEnumerable<ParamTemplate> templates) => templates.ToDictionary(template => template.Pointer, template => template.Value);
 
     [Fact]
     public void Round_trips_claims_the_longer_value_first_and_never_templates_inside_a_placeholder()
     {
-        var recorded = Params("name", "Ada name");
-        var templated = CacheKeys.Template("tap \"Ada name\" then \"name\" in the name column", recorded);
+        var recorded = Templates("name", "Ada name");
+        var templated = CacheKeys.TemplateText("tap \"Ada name\" then \"name\" in the name column", recorded);
 
         Assert.Equal("tap \"{{param:/full}}\" then \"{{param:/name}}\" in the {{param:/name}} column", templated);
-        Assert.Equal("tap \"Ada name\" then \"name\" in the name column", CacheKeys.Detemplate(templated, recorded));
+        Assert.Equal("tap \"Ada name\" then \"name\" in the name column", CacheKeys.ExpandText(templated, Filled(recorded)));
         Assert.Equal(
             "tap \"Grace Hopper\" then \"Grace\" in the Grace column",
-            CacheKeys.Detemplate(templated, Params("Grace", "Grace Hopper")));
+            CacheKeys.ExpandText(templated, Filled(Templates("Grace", "Grace Hopper"))));
 
         // A value that is part of a slot ("ull" in "full") is not found inside the slot written a moment earlier.
-        var inner = new Dictionary<string, object?> { ["full"] = Values.Unique("Ada"), ["x"] = Values.Unique("ull") };
-        Assert.Equal("{{param:/full}}", CacheKeys.Template("Ada", inner));
+        Assert.Equal("{{param:/full}}", CacheKeys.TemplateText("Ada", [new("/full", "Ada"), new("/x", "ull")]));
     }
 
     [Fact]
