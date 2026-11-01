@@ -50,6 +50,13 @@ public static class Expect
         return new SoftLocatorExpect(new LocatorExpect(locator, negated: false), locator.Screen.SoftFailures);
     }
 
+    /// <summary>The screen matcher, but a failure is kept as <see cref="Soft(Locator)"/> keeps one.</summary>
+    public static SoftScreenExpect Soft(Screen screen)
+    {
+        ArgumentNullException.ThrowIfNull(screen);
+        return new SoftScreenExpect(new ScreenExpect(screen, negated: false), screen.SoftFailures);
+    }
+
     /// <summary>The browser matchers, but a failure is kept as <see cref="Soft(Locator)"/> keeps one.</summary>
     public static SoftBrowserExpect Soft(Browser browser)
     {

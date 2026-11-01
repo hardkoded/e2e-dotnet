@@ -134,6 +134,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [SkipException](/api/E2E/SkipException/) | Thrown by Skip when a test stops early and is reported skipped. |
 | [SoftBrowserExpect](/api/E2E/SoftBrowserExpect/) | The browser matchers of BrowserExpect, but an ASSERTIONFAILED is kept on the session instead of thrown, as SoftLocatorExpect does. |
 | [SoftLocatorExpect](/api/E2E/SoftLocatorExpect/) | The locator matchers of LocatorExpect, but an ASSERTIONFAILED is kept on the session instead of thrown, and the test body runs on. Any other error, such as STRICTMODE, still throws. |
+| [SoftScreenExpect](/api/E2E/SoftScreenExpect/) | The screen matchers of ScreenExpect, but an ASSERTIONFAILED is kept on the session instead of thrown, as SoftLocatorExpect does. |
 | [StepExecutorContext](/api/E2E/StepExecutorContext/) | What an executor receives for one step (upstream's StepExecutorContext). The runtime builds it. A test of an executor can build its own and override the members it reads: each one that does work throws until it is overridden. |
 | [StepExecutors](/api/E2E/StepExecutors/) | Upstream's RUNTIMECODES, BLOCKABLECODES and isRuntimeHardStop (agent/executor.ts). |
 | [StepTurn](/api/E2E/StepTurn/) | One model turn of an agent step: the tool calls the model made and what came back, each bounded (upstream's StepTurn). |

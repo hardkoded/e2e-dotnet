@@ -58,7 +58,7 @@ Re-reads &lt;code class="paramref"&gt;read&lt;/code&gt; until the chosen matcher
 
 **Returns:** `PollExpectation&lt;T&gt;`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L61)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L68)
 
 <a id="E2E_Expect_Poll__1_System_Func_System_Threading_Tasks_Task___0___E2E_PollOptions_"></a>
 
@@ -87,7 +87,7 @@ Re-reads &lt;code class="paramref"&gt;read&lt;/code&gt; until the chosen matcher
 
 **Returns:** `PollExpectation&lt;T&gt;`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L70)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L77)
 
 <a id="E2E_Expect_Poll__1_System_Func___0__E2E_PollOptions_"></a>
 
@@ -116,7 +116,7 @@ Re-reads &lt;code class="paramref"&gt;read&lt;/code&gt; until the chosen matcher
 
 **Returns:** `PollExpectation&lt;T&gt;`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L77)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L84)
 
 <a id="E2E_Expect_Soft_"></a>
 <a id="E2E_Expect_Soft_E2E_Browser_"></a>
@@ -139,7 +139,7 @@ The browser matchers, but a failure is kept as [Soft(Locator)](#E2E_Expect_Soft_
 
 **Returns:** [SoftBrowserExpect](/api/E2E/SoftBrowserExpect/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L54)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L61)
 
 <a id="E2E_Expect_Soft_E2E_Locator_"></a>
 
@@ -164,6 +164,28 @@ failure. `E2ETest` records each one as an NUnit assertion failure.
 **Returns:** [SoftLocatorExpect](/api/E2E/SoftLocatorExpect/)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L47)
+
+<a id="E2E_Expect_Soft_E2E_Screen_"></a>
+
+### Soft(Screen)
+
+
+```csharp
+public static SoftScreenExpect Soft(Screen screen)
+```
+
+
+The screen matcher, but a failure is kept as [Soft(Locator)](#E2E_Expect_Soft_E2E_Locator_) keeps one.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `screen` | [Screen](/api/E2E/Screen/) |  |
+
+**Returns:** [SoftScreenExpect](/api/E2E/SoftScreenExpect/)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L54)
 
 <a id="E2E_Expect_That_"></a>
 <a id="E2E_Expect_That_E2E_Browser_"></a>
@@ -218,7 +240,7 @@ public static ScreenExpect That(Screen screen)
 ```
 
 
-Compares the whole screen against a stored screenshot with `String)`.
+Compares the whole screen against a stored screenshot with `ToHaveScreenshotAsync`.
 
 **Parameters**
 

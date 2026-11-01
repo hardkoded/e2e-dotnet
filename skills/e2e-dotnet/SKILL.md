@@ -312,6 +312,9 @@ lines you changed:
   `LOCATOR_NOT_FOUND` when the deadline expires first (a swipe it cut short
   included) and `INVALID_LOCATOR` for a target made by another screen (topic
   `writing-tests`).
+- On the web, a swipe is a wheel gesture, as a person scrolls: the viewport swipe wheels by a share of the
+  viewport, and a node swipe moves the pointer over the node and wheels by a share of its box. A node that
+  nothing scrollable holds scrolls nothing. `Expect.Soft(screen)` keeps a screenshot failure like `Expect.Soft(locator)`.
 - A locator reports an engine failure in the test's own codes, with the engine's
   error as `InnerException`: `NOT_ACTIONABLE`, `ACTION_MAY_HAVE_COMMITTED`, and
   `OPERATION_TIMEOUT` are `ACTION_FAILED` (the timeout reads `operation timed

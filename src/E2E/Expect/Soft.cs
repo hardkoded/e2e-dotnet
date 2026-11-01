@@ -71,6 +71,29 @@ public sealed class SoftLocatorExpect
 }
 
 /// <summary>
+/// The screen matchers of <see cref="ScreenExpect"/>, but an
+/// <c>ASSERTION_FAILED</c> is kept on the session instead of thrown, as <see cref="SoftLocatorExpect"/> does.
+/// </summary>
+public sealed class SoftScreenExpect
+{
+    private readonly ScreenExpect _expect;
+    private readonly SoftFailures _failures;
+
+    internal SoftScreenExpect(ScreenExpect expect, SoftFailures failures)
+    {
+        _expect = expect;
+        _failures = failures;
+    }
+
+    /// <summary>Inverts the matcher, as <see cref="ScreenExpect.Not"/>. A failure is still kept, not thrown.</summary>
+    public SoftScreenExpect Not => new(_expect.Not, _failures);
+
+    public Task ToHaveScreenshotAsync(string? name = null, ScreenshotOptions? options = null, [CallerFilePath] string? callerFile = null) => _failures.KeepAsync(_expect.ToHaveScreenshotAsync(name, options, callerFile));
+
+    public Task ToHaveScreenshotAsync(ScreenshotOptions options, [CallerFilePath] string? callerFile = null) => _failures.KeepAsync(_expect.ToHaveScreenshotAsync(options, callerFile));
+}
+
+/// <summary>
 /// The browser matchers of <see cref="BrowserExpect"/>, but an
 /// <c>ASSERTION_FAILED</c> is kept on the session instead of thrown, as <see cref="SoftLocatorExpect"/> does.
 /// </summary>
