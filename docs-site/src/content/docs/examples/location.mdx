@@ -5,6 +5,10 @@ description: Test the permission prompt, a moving device, and going offline in a
 
 The app is [`tester-army/e2e-location`](https://github.com/tester-army/e2e-location): an Expo app whose Find me button shows the city you are in. It asks for location only when tapped, follows the device, and looks the city up again after every move over 1 km. No account or key is needed.
 
+:::caution[Not run against the app]
+The snippets compile against the packages, but they have not been run against this app. No iOS simulator or Android emulator run was made. Check the ids and texts against the app you build.
+:::
+
 ## Run the app
 
 You need Node, and Xcode with an iOS simulator or the Android SDK with an emulator. Pick an Android image with Google Play or Google APIs, since the city lookup uses Google Play services.
