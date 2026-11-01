@@ -1074,7 +1074,7 @@ public Locator Or(Locator other)
 
 
 Matches either locator, preserving document order without duplicate nodes. `a.Or(b)` stays strict: when both match
-different nodes, an action fails with `STRICT_MODE`, so add [First()](#E2E_Locator_First) if either will do. Both locators must come
+different nodes, an action fails with `LOCATOR_AMBIGUOUS`, so add [First()](#E2E_Locator_First) if either will do. Both locators must come
 from the same screen and attempt. Upstream's `locator.or`.
 
 **Parameters**

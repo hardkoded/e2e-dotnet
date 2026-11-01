@@ -122,7 +122,7 @@ public sealed class ExpectSoftTests
         await Expect.Soft(screen.GetByRole("heading", "Billing")).Not.ToBeVisibleAsync();
         await Expect.Soft(screen.GetByRole("heading", "Billing")).ToHaveCountAsync(1);
         var other = await Assert.ThrowsAsync<TestException>(() => Expect.Soft(screen.GetByRole("button", "Save")).ToBeVisibleAsync());
-        Assert.Equal("STRICT_MODE", other.Code);
+        Assert.Equal("LOCATOR_AMBIGUOUS", other.Code);
 
         var error = Assert.IsType<TestException>(session.CloseSoftFailures());
         Assert.StartsWith("1 soft assertion failed\n1. ", error.Message, StringComparison.Ordinal);

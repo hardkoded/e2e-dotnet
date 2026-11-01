@@ -9,8 +9,7 @@ namespace E2E.Tests.LocatorEngine;
 
 /// <summary>
 /// The port resolves a locator over one observation per try and has no engine <c>locate</c> to retry, so the count of
-/// resolves is the count of observations, and the codes are the port's STRICT_MODE and NOT_FOUND (COMPATIBILITY, Web
-/// engine). The other upstream its of this file are not ported: the retry on a stale or frame miss, the deadline cut of a
+/// resolves is the count of observations. The other upstream its of this file are not ported: the retry on a stale or frame miss, the deadline cut of a
 /// resolve, the stale read contract, and <c>readAll</c> and <c>readNow</c> by reference, all of which need the engine reference API the
 /// port does not have. The reads that take time run through a screen whose engine resolves locators itself, which is how the budget of
 /// a read reaches the engine; the port polls every 50 ms where upstream polls every 100 ms, so the budgets differ by that. The perform contract is in <see cref="LocatorEnginePerformContractTests"/>, and <c>translateLocatorError</c> in
@@ -44,7 +43,7 @@ public sealed class LocatorEngineResolveRetryContractTests
 
         var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button").TapAsync());
 
-        Assert.Equal("STRICT_MODE", error.Code);
+        Assert.Equal("LOCATOR_AMBIGUOUS", error.Code);
         Assert.Equal(1, observations);
     }
 
@@ -56,7 +55,7 @@ public sealed class LocatorEngineResolveRetryContractTests
 
         var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button").TapAsync());
 
-        Assert.Equal("NOT_FOUND", error.Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
         Assert.True(observations > 1);
     }
 
@@ -134,7 +133,7 @@ public sealed class LocatorEngineResolveRetryContractTests
 
         var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button").ResolveExactlyOneAsync(deadline, CancellationToken.None));
 
-        Assert.Equal("NOT_FOUND", error.Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
         Assert.Null(error.InnerException);
         Assert.Equal(2, budgets.Count);
     }

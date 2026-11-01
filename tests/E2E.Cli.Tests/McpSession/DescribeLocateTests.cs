@@ -21,10 +21,10 @@ public sealed class DescribeLocateTests
         Assert.Equal(
             "1 node matches getByRole(\"button\", \"Save\").\nUse: Screen.GetByRole(\"button\", \"Save\")\n- button \"Save\"",
             SessionCatalog.DescribeLocate(query, 1, [Node("button", "Save")], Redactor.None));
-        Assert.Contains("NOT_FOUND", SessionCatalog.DescribeLocate(query, 0, [], Redactor.None), StringComparison.Ordinal);
+        Assert.Contains("LOCATOR_NOT_FOUND", SessionCatalog.DescribeLocate(query, 0, [], Redactor.None), StringComparison.Ordinal);
         var ambiguous = SessionCatalog.DescribeLocate(query, 12, [Node("button", "Save", states: new NodeStates { Disabled = true })], Redactor.None);
         Assert.Contains("12 nodes match", ambiguous, StringComparison.Ordinal);
-        Assert.Contains("STRICT_MODE", ambiguous, StringComparison.Ordinal);
+        Assert.Contains("LOCATOR_AMBIGUOUS", ambiguous, StringComparison.Ordinal);
         Assert.Contains("- button \"Save\" [disabled]", ambiguous, StringComparison.Ordinal);
         Assert.Contains("- and 11 more", ambiguous, StringComparison.Ordinal);
     }
@@ -33,7 +33,7 @@ public sealed class DescribeLocateTests
     public void On_no_match_for_a_role_name_points_at_the_text_a_status_shows_in_observe_instead_of_retrying_it_as_a_name()
     {
         var exact = SessionCatalog.DescribeLocate(SessionCatalog.LocateQuery(new LocateArgs { Role = "status", Name = "Saved." }), 0, [], Redactor.None);
-        Assert.Contains("NOT_FOUND", exact, StringComparison.Ordinal);
+        Assert.Contains("LOCATOR_NOT_FOUND", exact, StringComparison.Ordinal);
         Assert.Contains("Screen.GetByRole(\"status\").Filter(\"Saved.\")", exact, StringComparison.Ordinal);
         Assert.Contains("Screen.GetByText(\"Saved.\")", exact, StringComparison.Ordinal);
         Assert.Contains("observe shows a status by its text", exact, StringComparison.Ordinal);

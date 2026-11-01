@@ -7,10 +7,8 @@ using E2E.Engine;
 namespace E2E.Tests.LocatorEngine;
 
 /// <summary>
-/// Upstream's <c>translateLocatorError mapping table</c>. The codes of a stale node, a missing frame, and an ambiguous frame are the
-/// port's (COMPATIBILITY, Error codes that differ): <c>NOT_FOUND</c> and <c>STRICT_MODE</c>. The rows of the table are split in two
-/// tests: the seven rows with the port's codes are <c>Partial_</c>, the three others are ported as written. The port keeps an
-/// <c>OperationCanceledException</c> as it is, so a caller's cancel stays a cancel (.NET-only).
+/// Upstream's <c>translateLocatorError mapping table</c>. The port keeps an <c>OperationCanceledException</c> as it is, so a caller's cancel
+/// stays a cancel (.NET-only).
 /// </summary>
 public sealed class TranslateLocatorErrorMappingTableTests
 {
@@ -23,28 +21,15 @@ public sealed class TranslateLocatorErrorMappingTableTests
         TimeSpan.FromMilliseconds(300)).GetByRole("button").Query;
 
     [Theory]
-    [InlineData(EngineErrorCodes.NodeStale, "test", "NOT_FOUND")]
-    [InlineData(EngineErrorCodes.FrameNotFound, "test", "NOT_FOUND")]
-    [InlineData(EngineErrorCodes.FrameAmbiguous, "test", "STRICT_MODE")]
+    [InlineData(EngineErrorCodes.NodeStale, "test", "LOCATOR_NOT_FOUND")]
+    [InlineData(EngineErrorCodes.FrameNotFound, "test", "LOCATOR_NOT_FOUND")]
+    [InlineData(EngineErrorCodes.FrameAmbiguous, "test", "LOCATOR_AMBIGUOUS")]
     [InlineData(EngineErrorCodes.NotActionable, "test", "ACTION_FAILED")]
     [InlineData(EngineErrorCodes.ActionMayHaveCommitted, "test", "ACTION_FAILED")]
     [InlineData(EngineErrorCodes.OperationTimeout, "test", "ACTION_FAILED")]
-    [InlineData(EngineErrorCodes.InvalidState, "test", "APP_NOT_OPEN")]
-    public void Partial_Engine_code_maps_to_category_and_code(string engineCode, string category, string code)
-    {
-        var engineError = new EngineException(engineCode, "boom", retryable: false);
-
-        var translated = LocatorResolver.TranslateLocatorError(engineError);
-
-        var classified = ErrorSerializer.Classify(translated);
-        Assert.Equal(category, classified.Category);
-        Assert.Equal(code, classified.Code);
-        Assert.IsType<EngineException>(translated.InnerException);
-    }
-
-    [Theory]
     [InlineData(EngineErrorCodes.Cancelled, "infrastructure", "CANCELLED")]
     [InlineData(EngineErrorCodes.UnsupportedCapability, "configuration", "UNSUPPORTED_CAPABILITY")]
+    [InlineData(EngineErrorCodes.InvalidState, "test", "APP_NOT_OPEN")]
     [InlineData(EngineErrorCodes.EngineFailure, "infrastructure", "ENGINE_FAILURE")]
     public void Engine_code_maps_to_category_and_code(string engineCode, string category, string code)
     {
