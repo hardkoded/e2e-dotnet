@@ -264,8 +264,9 @@ The loop is:
 - A session ends when you close it, after 30 minutes without a call, or after
   4 hours. A secret value never leaves the server: every output shows it as
   `<secret:name>`.
-- Nothing a session does is recorded as a test or into the replay cache, and
-  it writes no trace page, and `e2e mcp` takes no `--trace`, `--video`, `--debug`,
+- Nothing a session does is recorded as a test result, and only a test it runs
+  with `open_session {test}` reads or writes the replay cache. A session
+  writes no trace page, and `e2e mcp` takes no `--trace`, `--video`, `--debug`,
   or `--ai-trace`, as upstream. A session is for looking and trying; the test is
   the file you write as you walk.
 - On the web, a session can stay open while `dotnet test` runs, as long as

@@ -68,8 +68,8 @@ internal sealed class SessionHostOptions
 /// <c>close_session</c> ends the attempt and disposes the engine. Several sessions may be open at once, up to the
 /// server's limit, so parallel agents each drive their own browser. A call names its session by id, and may leave
 /// it out only while one is open. The catalog is data, not registrations, so it follows the config and the
-/// target without a restart and the client's tool list never changes. A session never reads or writes the replay
-/// cache: nobody asked it to record a test.
+/// target without a restart and the client's tool list never changes. Only a test a session runs first
+/// (<c>open_session {test}</c>) reads or writes the replay cache: nobody else asked it to record a test.
 /// </summary>
 internal sealed class SessionHost : IDisposable
 {
