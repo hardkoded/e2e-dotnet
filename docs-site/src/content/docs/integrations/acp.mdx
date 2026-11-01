@@ -1,0 +1,58 @@
+---
+title: Your coding agent
+description: Run agent steps on Claude Code, Codex, or any agent that speaks the Agent Client Protocol.
+---
+
+`E2E.Acp` ports upstream's `@e2e-dev/acp` (`docs/acp.mdx`). It runs `Agent.ActAsync` and `Agent.AssertAsync` on a coding agent you already use, such as Claude Code, Codex, or Cursor. It talks to the agent over the [Agent Client Protocol](https://agentclientprotocol.com) (ACP). The agent signs in with its own login or API key, so e2e needs no model provider.
+
+The agent gets `done` and the built-in agent's action tools for the verbs the target's engine supports. The runner records every action, so steps replay from the cache without the agent. Your tests don't change.
+
+## Set up your agent
+
+```bash
+dotnet add package E2E.Acp
+npm install -D @agentclientprotocol/claude-agent-acp   # Claude Code: sign in with `claude`, or set ANTHROPIC_API_KEY
+npm install -D @agentclientprotocol/codex-acp          # Codex: sign in with `codex login`
+```
+
+The adapters are npm packages installed in your project, so `node` must be on the path.
+
+```csharp
+using E2E.Acp;
+
+public sealed class CheckoutTests : E2ETest
+{
+    protected override IStepExecutor? AgentExecutor => AcpExecutors.ClaudeCode(new AcpAgentOptions { Model = "sonnet" });
+}
+```
+
+`AcpExecutors.ClaudeCode()` and `AcpExecutors.Codex()` take these options:
+
+| Option | What it does |
+| --- | --- |
+| `Model` | A model the agent offers, such as `sonnet`. When the agent doesn't offer it, the session fails to start and the error lists the models it does offer. Omitted, the agent's default runs. |
+| `Env` | Variables added to the agent's environment. |
+| `System` | Text appended to the rules the agent gets with the first step. |
+| `Name` | The executor name in reports. |
+
+## Use another ACP agent
+
+`AcpExecutors.Acp(new AcpOptions { Command = "agent", Args = ["acp"] })` starts any agent that speaks ACP on stdio. It takes the options above, plus `Command` and `Args`, and two that pass through to the agent: `Mode`, a session mode to select, and `SessionMeta`, the `_meta` of `session/new` that the agent's adapter documents. On Windows, `Command` runs without a shell, so it must be an executable, not an npm `.cmd` shim.
+
+## How a test runs
+
+One agent session serves one test attempt. The first agent step that the cache can't replay starts it, each later step is one more message in the same conversation, and the session closes when the attempt ends. An assertion can't change the screen. The agent ends every step with `done`.
+
+## What the agent can use
+
+e2e keeps the agent to the step tools. Its session opens in an empty temporary directory with no file system or terminal access, permission requests for other tools are rejected, and a tool of the agent's own that runs without asking fails the step with `POLICY_DENIED`. The next step then starts a fresh agent. Each preset also turns off the agent's own tools.
+
+## Secrets
+
+A secret param reaches the agent by name only. The agent calls `fill_secret` and the runner types the value. The agent's process gets your environment without the `E2E_SECRET_*` and `E2E_USER_*` variables, so keep secrets in those two families.
+
+## Limits
+
+ACP doesn't report model requests. Each prompt turn counts as one model call against `MaxModelCalls`. `WaitForAsync` and `ExtractAsync` use the built-in judgments, so they need the agents entry's `Model`. An agents entry with an `Executor` takes no `Tools`.
+
+How the port differs from upstream is in [Compatibility](/compatibility/).

@@ -157,8 +157,12 @@ internal static class StepTools
             ReadOnly = true,
             RunAsync = (args, _) => Guarded(VerdictName, active =>
             {
-                var text = active.Conclusion.Execute(args);
-                return Task.FromResult(new ToolResult(active.Conclusion.Concluded ? text + " Wait for the next instruction." : text));
+                // Two parallel verdicts must not both pass the check: the first one stands.
+                lock (active.Conclusion)
+                {
+                    var text = active.Conclusion.Concluded ? "Step concluded." : active.Conclusion.Execute(args);
+                    return Task.FromResult(new ToolResult(active.Conclusion.Concluded ? text + " Wait for the next instruction." : text));
+                }
             }),
         });
         return tools;

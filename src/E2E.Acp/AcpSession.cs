@@ -122,7 +122,17 @@ internal sealed class AcpSession : IAcpSession
         cancellationToken.ThrowIfCancellationRequested();
         var cwd = Directory.CreateTempSubdirectory("e2e-acp-").FullName;
         // Started before anything can fail, so teardown can close it even when the startup race is lost while it binds.
-        var serving = ToolServer.StartAsync(tools);
+        Task<ToolServer> serving;
+        try
+        {
+            serving = ToolServer.StartAsync(tools);
+        }
+        catch
+        {
+            Cleanup(Task.FromCanceled<ToolServer>(new CancellationToken(true)), cwd);
+            throw;
+        }
+
         var ours = new HashSet<string>(tools.Select(tool => tool.Name), StringComparer.Ordinal);
         var calls = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
         var turn = new TurnState();
@@ -169,7 +179,7 @@ internal sealed class AcpSession : IAcpSession
 
             if (first == aborted.Task)
             {
-                throw new InvalidOperationException("the step ended while the agent was starting");
+                throw new OperationCanceledException("the step ended while the agent was starting", cancellationToken);
             }
 
             throw await connection.Exited.ConfigureAwait(false);
@@ -550,8 +560,8 @@ internal sealed class AcpSession : IAcpSession
         int number => JsonValue.Create(number),
         long number => JsonValue.Create(number),
         double number => JsonValue.Create(number),
-        System.Collections.IEnumerable items => new JsonArray([.. items.Cast<object?>().Select(ToNode)]),
         JsonNode node => node.DeepClone(),
+        System.Collections.IEnumerable items => new JsonArray([.. items.Cast<object?>().Select(ToNode)]),
         _ => JsonValue.Create(Convert.ToString(value, CultureInfo.InvariantCulture)),
     };
 

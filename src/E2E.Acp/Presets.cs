@@ -93,16 +93,15 @@ internal static class Presets
         {
             lock (gate)
             {
-                launch ??= CodexServersAsync(package, options.Env).ContinueWith(
-                    servers =>
+                launch ??= Task.Run(async () =>
+                {
+                    var servers = await CodexServersAsync(package, options.Env).ConfigureAwait(false);
+                    var env = new Dictionary<string, string>(options.Env ?? new Dictionary<string, string>(), StringComparer.Ordinal)
                     {
-                        var env = new Dictionary<string, string>(options.Env ?? new Dictionary<string, string>(), StringComparer.Ordinal)
-                        {
-                            ["CODEX_CONFIG"] = CodexConfig(servers.Result).ToJsonString(),
-                        };
-                        return new AgentLaunch { Command = NodeCommand, Args = [bin], Env = env, Model = options.Model, Mode = "read-only", SignIn = "run `codex login`" };
-                    },
-                    TaskScheduler.Default);
+                        ["CODEX_CONFIG"] = CodexConfig(servers).ToJsonString(),
+                    };
+                    return new AgentLaunch { Command = NodeCommand, Args = [bin], Env = env, Model = options.Model, Mode = "read-only", SignIn = "run `codex login`" };
+                });
                 var current = launch;
                 _ = current.ContinueWith(
                     failed =>

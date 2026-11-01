@@ -163,8 +163,9 @@ internal sealed class AcpStepExecutor : IStepExecutor
             }
             catch (Exception error) when (error is not OutOfMemoryException)
             {
-                // The next step starts a fresh agent rather than wait on this one.
+                // The next step starts a fresh agent rather than wait on this one; a session still starting closes when it is up.
                 Forget(context, held);
+                _ = held.Session.ContinueWith(static task => task.Result.Close(), CancellationToken.None, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
                 cancellationToken.ThrowIfCancellationRequested();
                 if (error is ConfigurationException)
                 {

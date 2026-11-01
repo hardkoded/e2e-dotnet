@@ -144,18 +144,7 @@ internal sealed partial class AcpConnection : IDisposable
     /// <summary>Ends the agent: closes its input and kills it with its children.</summary>
     public void Terminate()
     {
-        try
-        {
-            lock (_write)
-            {
-                _child.StandardInput.Close();
-            }
-        }
-        catch (Exception ex) when (ex is IOException or ObjectDisposedException or InvalidOperationException)
-        {
-            // The agent is already gone.
-        }
-
+        // Killed first, outside the write lock: a write blocked on a pipe the agent does not read must not keep the agent alive.
         try
         {
             if (!_child.HasExited)
@@ -166,6 +155,15 @@ internal sealed partial class AcpConnection : IDisposable
         catch (Exception ex) when (ex is InvalidOperationException or Win32Exception)
         {
             // It exited between the check and the kill.
+        }
+
+        try
+        {
+            _child.StandardInput.Close();
+        }
+        catch (Exception ex) when (ex is IOException or ObjectDisposedException or InvalidOperationException)
+        {
+            // The agent is already gone.
         }
     }
 
@@ -225,7 +223,7 @@ internal sealed partial class AcpConnection : IDisposable
             {
                 if (line.Length > 0)
                 {
-                    Handle(line);
+                    HandleSafely(line);
                 }
             }
         }
@@ -272,6 +270,34 @@ internal sealed partial class AcpConnection : IDisposable
         catch (InvalidOperationException)
         {
             return "unknown";
+        }
+    }
+
+    // One malformed message from the agent must not end the read loop: a request gets an error reply, anything else is dropped.
+    private void HandleSafely(string line)
+    {
+        try
+        {
+            Handle(line);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            try
+            {
+                if (JsonNode.Parse(line) is JsonObject { } message && message["method"] is not null && message["id"] is { } id)
+                {
+                    Send(new JsonObject
+                    {
+                        ["jsonrpc"] = "2.0",
+                        ["id"] = id.DeepClone(),
+                        ["error"] = new JsonObject { ["code"] = -32602, ["message"] = "Invalid params: " + ex.Message },
+                    });
+                }
+            }
+            catch (JsonException)
+            {
+                // Not JSON: nothing to answer.
+            }
         }
     }
 

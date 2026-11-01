@@ -67,7 +67,7 @@ export default defineConfig({
                     ],
                 },
                 { label: "Coding agents", slug: "coding-agents" },
-                { label: "Integrations", items: [{ label: "Limrun", slug: "integrations/limrun" }] },
+                { label: "Integrations", items: [{ label: "Your coding agent", slug: "integrations/acp" }, { label: "Limrun", slug: "integrations/limrun" }] },
                 { label: "Guide", slug: "guide" },
                 {
                     label: "API",
