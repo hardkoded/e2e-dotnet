@@ -24,10 +24,10 @@ internal sealed record ListReporterOptions
 /// Renders the run's event stream as the CLI's human-readable output (upstream's <c>report/list.ts</c>). The reporter is one sink on
 /// the run's single event spine, so it can only show what every other sink receives.
 /// <para>
-/// Ported: the run header, a file block per file with its test lines, the <c>Failed Tests</c> section with its evidence rows, the run
+/// Ported: the run header, the setup steps (a process prints once it is ready, with its wait), a file block per file with its test lines, the <c>Failed Tests</c> section with its evidence rows, the run
 /// errors, and the summary rows (<c>Test Files</c>, <c>Tests</c>, <c>AI</c>, <c>Cache</c>, <c>Errors</c>,
 /// <c>Start at</c>, <c>Duration</c>, <c>Report</c>, <c>Traces</c>, <c>Screenshots</c>, <c>AI trace</c>). Not ported: the live window, a
-/// test's console output, setup steps, serial groups, step streaming, the exploration view, the <c>Repeats</c> row, the
+/// test's console output, serial groups, step streaming, the exploration view, the <c>Repeats</c> row, the
 /// <c>Skipped After Failure</c> section and its <c>Warnings</c> row, the video rows, and the code frame
 /// under a failure.
 /// </para>
@@ -72,6 +72,12 @@ internal sealed class ListReporter
     private readonly List<ReportError> _errors = [];
 
     private bool _interrupted;
+
+    /// <summary>The setup step in flight (upstream's <c>inFlight</c>, without its live-window tick).</summary>
+    private InFlightStep? _inFlight;
+
+    /// <summary>The summed waits of the service and app processes, split out of the summary's <c>Duration</c> (upstream's <c>startupMs</c>).</summary>
+    private long _startupMs;
     private readonly Format.AiUsage _runUsage = Format.EmptyUsage();
     private readonly Dictionary<string, int> _runModels = new(StringComparer.Ordinal);
     private readonly Format.CacheTally _runCache = Format.EmptyCacheTally();
@@ -103,7 +109,11 @@ internal sealed class ListReporter
                 Plan(plan);
                 break;
             case NoticeEvent notice:
+                _inFlight?.Narrated = true;
                 Print(_pc.Dim("ℹ") + " " + Format.Bounded(notice.Message));
+                break;
+            case SetupEvent setup:
+                Setup(setup);
                 break;
             case TestFinishedEvent finished:
                 TestFinished(finished.Result);
@@ -245,10 +255,65 @@ internal sealed class ListReporter
     private void RunInterrupted(RunInterruptedEvent interrupted)
     {
         _interrupted = true;
+        var during = _inFlight is null ? null : $"{_inFlight.Verb} {_inFlight.Subject}";
         Print(_pc.Yellow(
             interrupted.Mode == InterruptMode.Forced
                 ? "interrupted again: tearing every worker down now"
-                : "interrupted: stopping the running test and tearing down (interrupt again to force)"));
+                : during is null
+                    ? "interrupted: stopping the running test and tearing down (interrupt again to force)"
+                    : $"interrupted while {during}: tearing down (interrupt again to force)"));
+    }
+
+    /// <summary>
+    /// The setup stretch before any test: a finished process prints once with its wait, a finished collection, provisioning, or filter only when
+    /// it narrated, and a filter that failed or timed out in yellow and never checked off. The process waits sum into the summary's startup split.
+    /// </summary>
+    private void Setup(SetupEvent setup)
+    {
+        var (verb, subject, done) = SetupWording(setup.Step);
+        if (setup.State == SetupState.Started)
+        {
+            _inFlight = new InFlightStep(verb, subject);
+            return;
+        }
+
+        var narrated = _inFlight?.Narrated ?? false;
+        _inFlight = null;
+        var process = setup.Step is ServiceSetupStep or AppSetupStep;
+        if (process)
+        {
+            _startupMs += setup.DurationMs;
+        }
+
+        if (!process && !narrated)
+        {
+            return;
+        }
+
+        var time = Format.FormatTime(TimeSpan.FromMilliseconds(setup.DurationMs));
+        if (setup.Outcome is { } outcome and not SetupOutcome.Reused)
+        {
+            Print($" {_pc.Yellow(Format.Cross)} {subject} {_pc.Yellow($"{(outcome == SetupOutcome.TimedOut ? "timed out" : "failed")} {time}")}");
+            return;
+        }
+
+        Print($" {_pc.Green(Format.Check)} {subject} {_pc.Dim($"{(setup.Outcome is null ? done : "reused")} {time}")}");
+    }
+
+    /// <summary>How one setup step is phrased (upstream's <c>setupWording</c>): the verb and subject while it runs, and the word for its completion.</summary>
+    private static (string Verb, string Subject, string Done) SetupWording(SetupStep step) => step switch
+    {
+        CollectSetupStep => ("collecting", "tests", "collected"),
+        FilterSetupStep filter => ("running", $"filter \"{Format.Bounded(filter.Name)}\"", "done"),
+        PrepareSetupStep prepare => ("preparing", $"{Format.Bounded(prepare.Engine)} engine for target \"{Format.Bounded(prepare.Target)}\"", "prepared"),
+        ServiceSetupStep service => ("starting", Format.Bounded(service.Label), "ready"),
+        AppSetupStep app => ("starting", app.Url is null ? Format.Bounded(app.Label) : $"{Format.Bounded(app.Label)} at {Format.Bounded(app.Url)}", "ready"),
+        _ => throw new ArgumentOutOfRangeException(nameof(step)),
+    };
+
+    private sealed record InFlightStep(string Verb, string Subject)
+    {
+        public bool Narrated { get; set; }
     }
 
     /// <summary>The details of an ordinary result: summed over its attempts, the error from the told one.</summary>
@@ -510,7 +575,7 @@ internal sealed class ListReporter
 
         var startedAt = _startedAt ?? _launchedAt;
         rows.Add(Format.PadTitle(_pc, "Start at") + Format.FormatClock(startedAt));
-        rows.Add(Format.PadTitle(_pc, "Duration") + Format.DurationText(_pc, _time.GetLocalNow() - startedAt, TimeSpan.Zero));
+        rows.Add(Format.PadTitle(_pc, "Duration") + Format.DurationText(_pc, _time.GetLocalNow() - startedAt, TimeSpan.FromMilliseconds(_startupMs)));
         return rows;
     }
 
