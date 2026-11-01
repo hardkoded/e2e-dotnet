@@ -72,7 +72,11 @@ public static partial class Program
     }
 
     /// <summary>Runs one command. The writers and reader are test seams.</summary>
-    public static async Task<int> RunAsync(string[] args, TextWriter stdout, TextWriter stderr, TextReader stdin, bool interactive, CancellationToken cancellationToken)
+    public static Task<int> RunAsync(string[] args, TextWriter stdout, TextWriter stderr, TextReader stdin, bool interactive, CancellationToken cancellationToken) =>
+        RunAsync(args, stdout, stderr, stdin, interactive, cancellationToken, cwd: null);
+
+    /// <summary>Runs one command. <paramref name="cwd"/> is the working directory <c>explore</c> searches for its config from; the process's by default.</summary>
+    internal static async Task<int> RunAsync(string[] args, TextWriter stdout, TextWriter stderr, TextReader stdin, bool interactive, CancellationToken cancellationToken, string? cwd)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(stdout);
@@ -90,7 +94,7 @@ public static partial class Program
 
         if (args[0] == "explore")
         {
-            return await ExploreCommand.RunAsync(args.Skip(1), stdout, stderr, interactive, Explore.ExploreAsync, cancellationToken).ConfigureAwait(false);
+            return await ExploreCommand.RunAsync(args.Skip(1), stdout, stderr, interactive, Explore.ExploreAsync, cancellationToken, cwd).ConfigureAwait(false);
         }
 
         if (args[0] == "init")

@@ -242,26 +242,37 @@ public sealed class ExploreFlagsTests
         Assert.Equal("", stderr.ToString());
     }
 
-    /// <summary>
-    /// Partial: upstream's <c>keeps CONFIG_NOT_FOUND without a terminal, and with --config</c> also runs <c>explore</c> with no config and no
-    /// <c>--config</c>. The port has no working-directory flag, so that case would search up from the test process's directory.
-    /// </summary>
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Partial_Keeps_CONFIG_NOT_FOUND_without_a_terminal_and_with_config_and_exit_code_2(bool interactive)
+    [Fact]
+    public async Task Keeps_CONFIG_NOT_FOUND_without_a_terminal_and_with_config()
     {
-        var missing = Guid.NewGuid().ToString("N") + ".config.json";
-        using var stdout = new StringWriter();
-        using var stderr = new StringWriter();
+        // The .git directory stops config discovery here, whatever the temp directory's parents hold.
+        var dir = Directory.CreateTempSubdirectory("e2e-explore-881-").FullName;
+        Directory.CreateDirectory(Path.Combine(dir, ".git"));
+        try
+        {
+            using var stdout = new StringWriter();
+            using var stderr = new StringWriter();
 
-        var code = await Program.RunAsync(["explore", "--config", missing], stdout, stderr, TextReader.Null, interactive, CancellationToken.None);
+            var code = await Program.RunAsync(["explore"], stdout, stderr, TextReader.Null, interactive: false, CancellationToken.None, dir);
 
-        Assert.Equal(2, code);
-        Assert.Contains(
-            "CONFIG_NOT_FOUND: config file not found: " + Path.GetFullPath(missing) + " (" + missing + " resolved against the working directory " + Directory.GetCurrentDirectory() + ")",
-            stderr.ToString(),
-            StringComparison.Ordinal);
+            Assert.Equal(2, code);
+            Assert.Contains("CONFIG_NOT_FOUND", stderr.ToString(), StringComparison.Ordinal);
+            Assert.Contains("found from " + dir + " upward", stderr.ToString(), StringComparison.Ordinal);
+
+            var missing = "missing.config.json";
+            using var stderrWithConfig = new StringWriter();
+            code = await Program.RunAsync(["explore", "--config", missing], stdout, stderrWithConfig, TextReader.Null, interactive: true, CancellationToken.None, dir);
+
+            Assert.Equal(2, code);
+            Assert.Contains(
+                "CONFIG_NOT_FOUND: config file not found: " + Path.GetFullPath(missing, dir) + " (" + missing + " resolved against the working directory " + dir + ")",
+                stderrWithConfig.ToString(),
+                StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 
     [Fact]
