@@ -258,9 +258,16 @@ public sealed class E2ESession : IAsyncDisposable
                     throw new ConfigurationException("UNSUPPORTED_CAPABILITY", $"target \"{(string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName)}\" has no engine state capability for session restore");
                 }
 
-                var saved = await options.Sessions.Store.LoadAsync(restoring, options.Sessions.Identity, timeout.Token).ConfigureAwait(false);
+                // Bounded by the launch timeout, as upstream's launch step 'restoring the session' is.
+                using var restoreBudget = CancellationTokenSource.CreateLinkedTokenSource(timeout.Token);
+                if (Bounded(options.LaunchTimeout))
+                {
+                    restoreBudget.CancelAfter(options.LaunchTimeout);
+                }
+
+                var saved = await options.Sessions.Store.LoadAsync(restoring, options.Sessions.Identity, restoreBudget.Token).ConfigureAwait(false);
                 ledger.AddRange(saved.Secrets.Where(secret => !ledger.Contains(secret)));
-                await engine.RestoreStateAsync(saved.State, timeout.Token).ConfigureAwait(false);
+                await engine.RestoreStateAsync(saved.State, restoreBudget.Token).ConfigureAwait(false);
             }
 
             var recordings = Recordings.SessionRecordings(engine, string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName, (options.Engine.Capabilities & EngineCapabilities.Video) != 0);
@@ -404,6 +411,11 @@ public sealed class E2ESession : IAsyncDisposable
         }
 
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _scope.Token());
+        if (Bounded(_scope.ActionTimeout))
+        {
+            linked.CancelAfter(_scope.ActionTimeout);
+        }
+
         var state = await _engine.CaptureStateAsync(linked.Token).ConfigureAwait(false);
         staging.Stage(name, state, _scope.Learned());
     }
