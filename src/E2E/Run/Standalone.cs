@@ -344,8 +344,8 @@ internal sealed class StandaloneHost
                 }
             }
 
-            // A hosted session's list also holds test outcomes (a soft failure, a step nobody awaited), which leave the worker clean.
-            if (hosted ? session.CleanupFailed : errors.Count > 0)
+            // Only a hosted session reports its failures as a list, and it also holds test outcomes (a soft failure, a step nobody awaited), which leave the worker clean.
+            if (hosted && session.CleanupFailed)
             {
                 lock (_gate)
                 {

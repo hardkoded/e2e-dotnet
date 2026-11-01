@@ -442,8 +442,20 @@ public sealed class E2ESession : IAsyncDisposable
     private async Task<IReadOnlyList<Exception>> EndOnceAsync()
     {
         var errors = new List<Exception>();
-        var soft = CloseSoftFailures();
-        var abandoned = _scope.Steps.AbandonRunning();
+        TestException? soft = null;
+        TestException? abandoned = null;
+        try
+        {
+            soft = CloseSoftFailures();
+            abandoned = _scope.Steps.AbandonRunning();
+        }
+#pragma warning disable CA1031 // The close result is cached, so a failure here is one of the failures it returns, never a faulted task.
+        catch (Exception cause)
+#pragma warning restore CA1031
+        {
+            errors.Add(cause);
+        }
+
         foreach (var failure in new Exception?[] { soft, abandoned })
         {
             if (failure is not null)

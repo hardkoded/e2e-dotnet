@@ -199,11 +199,23 @@ public sealed class E2EHost : IAsyncDisposable
         {
             errors.AddRange(await _host.CloseAsync().ConfigureAwait(false));
         }
+#pragma warning disable CA1031 // The close result is cached, so a failure is one of the failures it returns, never a faulted task.
+        catch (Exception cause)
+#pragma warning restore CA1031
+        {
+            errors.Add(cause);
+        }
         finally
         {
             try
             {
                 await _apps.StopAsync(errors.Add).ConfigureAwait(false);
+            }
+#pragma warning disable CA1031 // As above.
+            catch (Exception cause)
+#pragma warning restore CA1031
+            {
+                errors.Add(cause);
             }
             finally
             {
@@ -309,7 +321,9 @@ internal static class OpenSession
     {
         if (config is not null)
         {
-            return config;
+            return configPath is null
+                ? config
+                : throw new ConfigurationException("INVALID_CONFIG", "pass Config or ConfigPath, not both");
         }
 
         var path = configPath is null ? E2EConfig.Find(cwd) : Path.GetFullPath(configPath, cwd);
