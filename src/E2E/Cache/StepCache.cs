@@ -432,7 +432,7 @@ internal static partial class CacheKeys
     /// Version of the rules that decide whether a recording replays. Bump it when those
     /// rules change, so old entries become misses instead of wrong replays.
     /// </summary>
-    public const string ReplayPolicyVersion = "5";
+    public const string ReplayPolicyVersion = "6";
 
     /// <summary>
     /// Upstream's <c>MAIN_LIST_SHARE</c> (<c>cache/relocate.ts</c>): the share of the viewport a scrolled node must have covered when
@@ -454,57 +454,45 @@ internal static partial class CacheKeys
         return Identity.ParamsDigest(Project(parameters));
     }
 
-    /// <summary>Upstream's projected (secret-free) call parameters: the params as JSON, a unique value as its placeholder (<see cref="TemplateParams"/>) and a secret as its name.</summary>
-    public static JsonObject? Project(IReadOnlyDictionary<string, object?>? parameters)
+    /// <summary>
+    /// Upstream's projected (secret-free) call parameters, as the key digests them: the params as <c>validateParams</c> reads them
+    /// (a secret as its kind, name and purpose) with a placeholder for each unique value (<see cref="TemplateParams"/>). No params is
+    /// the empty object.
+    /// </summary>
+    public static JsonObject Project(IReadOnlyDictionary<string, object?>? parameters)
     {
-        if (parameters is null)
-        {
-            return null;
-        }
-
-        try
-        {
-            return TemplateParams(JsonSerializer.SerializeToNode(parameters, KeyJson)!.AsObject(), TemplatesOf(parameters));
-        }
-        catch (Exception ex) when (ex is JsonException or NotSupportedException)
-        {
-            throw new TestException("INVALID_ARGUMENT", "Act params must serialize as JSON: " + ex.Message, ex);
-        }
+        var (projected, templates) = ActParams.ValidateParams(parameters, "agent.act");
+        return TemplateParams(projected, templates);
     }
 
     /// <summary>
     /// Upstream's <c>templateParams</c>: the params as the key digests them, each template's leaf replaced by its placeholder, at any depth.
-    /// Two calls whose params differ only in <c>unique()</c> values share a key, and therefore a recording. Upstream walks the
-    /// params; the port replaces the leaves of their serialized form, which has the same pointers.
+    /// Two calls whose params differ only in <c>unique()</c> values share a key, and therefore a recording. A missing params object is the
+    /// empty object, so <c>act(x)</c> and <c>act(x, {})</c> share one entry. Returns a copy; <paramref name="parameters"/> is not changed.
     /// </summary>
-    public static JsonObject TemplateParams(JsonObject serialized, IReadOnlyList<ParamTemplate> templates)
+    public static JsonObject TemplateParams(JsonObject? parameters, IReadOnlyList<ParamTemplate> templates)
     {
-        foreach (var template in templates)
-        {
-            var segments = template.Pointer[1..].Split('/').Select(segment => segment.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal)).ToArray();
-            JsonNode? parent = serialized;
-            foreach (var segment in segments[..^1])
+        var pointers = templates.Select(template => template.Pointer).ToHashSet(StringComparer.Ordinal);
+        JsonNode? Walk(JsonNode? value, string pointer) => pointers.Contains(pointer)
+            ? Placeholder(pointer, null)
+            : value switch
             {
-                parent = parent switch
-                {
-                    JsonObject map => map[segment],
-                    JsonArray list when int.TryParse(segment, NumberStyles.None, CultureInfo.InvariantCulture, out var index) && index < list.Count => list[index],
-                    _ => null,
-                };
+                JsonObject map => WalkObject(map, pointer),
+                JsonArray list => new JsonArray([.. list.Select((item, index) => Walk(item, ParamPointer(pointer, index)))]),
+                _ => value?.DeepClone(),
+            };
+        JsonObject WalkObject(JsonObject map, string pointer)
+        {
+            var copy = new JsonObject();
+            foreach (var (key, item) in map)
+            {
+                copy[key] = Walk(item, ParamPointer(pointer, key));
             }
 
-            var last = segments[^1];
-            if (parent is JsonObject leafMap && leafMap.ContainsKey(last))
-            {
-                leafMap[last] = Placeholder(template.Pointer, null);
-            }
-            else if (parent is JsonArray leafList && int.TryParse(last, NumberStyles.None, CultureInfo.InvariantCulture, out var at) && at < leafList.Count)
-            {
-                leafList[at] = Placeholder(template.Pointer, null);
-            }
+            return copy;
         }
 
-        return serialized;
+        return WalkObject(parameters ?? [], "");
     }
 
     public static string Canonical(object? value)
@@ -785,35 +773,66 @@ internal static partial class CacheKeys
         return builder.ToString();
     }
 
-    public static bool Collides(IReadOnlyDictionary<string, object?>? parameters)
+    /// <summary>The scalar leaves of the params that no template marked, as the text a recording would spell them in (upstream's <c>literalLeaves</c>).</summary>
+    private static List<ParamTemplate> LiteralLeaves(JsonObject? parameters, IReadOnlyList<ParamTemplate> templates)
     {
-        if (parameters is null)
+        var pointers = templates.Select(template => template.Pointer).ToHashSet(StringComparer.Ordinal);
+        List<ParamTemplate> leaves = [];
+        void Walk(JsonNode? value, string pointer)
+        {
+            if (pointers.Contains(pointer))
+            {
+                return;
+            }
+
+            switch (value)
+            {
+                case JsonObject map:
+                    foreach (var (key, item) in map)
+                    {
+                        Walk(item, ParamPointer(pointer, key));
+                    }
+
+                    break;
+                case JsonArray list:
+                    for (var index = 0; index < list.Count; index++)
+                    {
+                        Walk(list[index], ParamPointer(pointer, index));
+                    }
+
+                    break;
+                case JsonValue scalar:
+                    leaves.Add(new ParamTemplate(pointer, scalar.GetValueKind() == JsonValueKind.String ? scalar.GetValue<string>() : scalar.ToJsonString()));
+                    break;
+            }
+        }
+
+        Walk(parameters ?? [], "");
+        return leaves;
+    }
+
+    /// <summary>
+    /// Upstream's <c>templatesCollide</c>: whether a <c>unique()</c> value cannot be told apart from the rest of the params: two marked
+    /// params share a spelling, or a marked value is spelled inside an unmarked one. The recording is text with no provenance, so a
+    /// <c>select</c> of the unmarked choice <c>Daily</c> that ran while the marked title happened to be <c>Daily</c> would be stored as
+    /// the title's slot and replay the next run's title as the choice. Such a step is not recorded. Unmarked values are compared in
+    /// every spelling a recording can give them too: a URL spells the choice <c>a b</c> as <c>a%20b</c>, which a marked <c>a%20b</c>
+    /// would claim.
+    /// </summary>
+    public static bool TemplatesCollide(JsonObject? parameters, IReadOnlyList<ParamTemplate> templates)
+    {
+        if (templates.Count == 0)
         {
             return false;
         }
 
-        // Upstream's templatesCollide asks it of every spelling a recording can give a marked value, not only the raw one.
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var value in parameters.Values)
+        if (!SpellingsDistinct(templates))
         {
-            string[] spellings = value switch
-            {
-                UniqueValue unique => [unique.Value, .. Encodings.Select(encoding => encoding.Encode(unique.Value) ?? "")],
-                string textValue => [textValue],
-                _ => [],
-            };
-
-            // One value's own spellings may repeat each other; they collide only with another param's.
-            foreach (var text in spellings.Where(text => !string.IsNullOrEmpty(text)).Distinct(StringComparer.Ordinal))
-            {
-                if (!seen.Add(text))
-                {
-                    return true;
-                }
-            }
+            return true;
         }
 
-        return false;
+        var marked = Spellings(templates);
+        return Spellings(LiteralLeaves(parameters, templates)).Any(plain => marked.Any(slot => plain.Text.Contains(slot.Text, StringComparison.Ordinal)));
     }
 
     private static string Json(object value)

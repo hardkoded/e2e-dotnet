@@ -106,10 +106,11 @@ internal sealed class StepTraceSession
         _host = host;
         _options = options;
         _recorder = options.Recorder;
+        var (projected, templates) = ActParams.ValidateParams(options.Params, "agent.act");
         Pending = new PendingAct
         {
             Key = options.Claim.Key,
-            ParamCollision = CacheKeys.Collides(options.Params),
+            ParamCollision = CacheKeys.TemplatesCollide(projected, templates),
             Step = options.Claim.Step,
             StepIndex = options.StepIndex,
         };
