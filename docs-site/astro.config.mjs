@@ -66,6 +66,17 @@ export default defineConfig({
                         { label: "WinApp benchmark", slug: "samples/winapp-benchmark" },
                     ],
                 },
+                {
+                    label: "Examples",
+                    items: [
+                        { label: "Overview", slug: "examples" },
+                        { label: "Three languages", slug: "examples/i18n" },
+                        { label: "File uploads", slug: "examples/file-upload" },
+                        { label: "Location", slug: "examples/location" },
+                        { label: "Face ID and fingerprint", slug: "examples/biometrics" },
+                        { label: "Deep links", slug: "examples/deep-links" },
+                    ],
+                },
                 { label: "Coding agents", slug: "coding-agents" },
                 { label: "Integrations", items: [{ label: "Limrun", slug: "integrations/limrun" }] },
                 { label: "Guide", slug: "guide" },

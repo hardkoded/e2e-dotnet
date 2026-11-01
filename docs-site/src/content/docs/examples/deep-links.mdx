@@ -1,0 +1,120 @@
+---
+title: Deep links
+description: Open order links from a cold start and while the app runs, and check where Back goes.
+---
+
+The app is [`tester-army/e2e-deep-links`](https://github.com/tester-army/e2e-deep-links): an Expo app where `e2edeeplinks://order/42` opens order #42, as a notification tap or an email link does. The order screen shows whether the link opened the app ("At launch") or arrived while it ran ("While running").
+
+## Run the app
+
+```bash
+git clone https://github.com/tester-army/e2e-deep-links
+cd e2e-deep-links
+npm install
+npm run ios        # or: npm run android
+```
+
+The app needs a native build for its link scheme, so it does not run in Expo Go. Keep Metro on port 8081: on iOS, a link that launches the app cannot pass the Debug build another port.
+
+## Point a test project at it
+
+```json
+{
+  "targets": [{ "name": "ios", "platform": "ios", "app": { "bundleId": "dev.e2e.deeplinks" } }],
+  "agents": { "default": { "provider": "copilot", "model": "claude-sonnet-5.5" } }
+}
+```
+
+Run Android with `E2E_MOBILE_PLATFORM=android`.
+
+## Open a link from a cold start
+
+`Device.CloseAppAsync()` ends the app. `Device.OpenLinkAsync(url, app)` hands the link to the app, as the OS does. iOS needs the app argument, so pass `AppId`:
+
+```csharp
+using E2E.Mobile.NUnit;
+
+[Retry(2)]
+public sealed class LinkTests : MobileAppTest
+{
+    private const string Scheme = "e2edeeplinks://";
+
+    [Test]
+    public async Task A_link_opens_the_order_from_a_cold_start()
+    {
+        await Device.CloseAppAsync();
+        await Device.OpenLinkAsync(Scheme + "order/42", AppId);
+
+        var order = Screen.GetByTestId("order-42");
+        await Expect.That(order.GetByTestId("order-title")).ToHaveTextAsync("Order #42");
+        await Expect.That(order.GetByTestId("order-status")).ToHaveTextAsync("Out for delivery");
+        await Expect.That(order.GetByTestId("opened")).ToHaveTextAsync("At launch");
+
+        await order.GetByTestId("back").TapAsync();
+        await Expect.That(Screen.GetByTestId("orders")).ToBeVisibleAsync();
+        await Expect.That(order).ToBeHiddenAsync();
+    }
+}
+```
+
+## Open a link while the app runs
+
+`MobileAppTest` opens the app before each test. Go to order #41, then send the link for #42:
+
+```csharp
+[Test]
+public async Task A_link_opens_the_order_while_the_app_runs()
+{
+    await Screen.GetByTestId("row-41").TapAsync();
+    var previous = Screen.GetByTestId("order-41");
+    await Expect.That(previous.GetByTestId("opened")).ToHaveTextAsync("From your orders");
+
+    await Device.OpenLinkAsync(Scheme + "order/42", AppId);
+
+    var order = Screen.GetByTestId("order-42");
+    await Expect.That(order.GetByTestId("opened")).ToHaveTextAsync("While running");
+
+    await order.GetByTestId("back").TapAsync();
+    await Expect.That(previous.GetByTestId("order-title")).ToHaveTextAsync("Order #41");
+}
+```
+
+## An unknown order and a link to no screen
+
+```csharp
+[Test]
+public async Task An_unknown_order_shows_the_fallback()
+{
+    await Device.OpenLinkAsync(Scheme + "order/999", AppId);
+
+    var order = Screen.GetByTestId("order-999");
+    await Expect.That(order.GetByTestId("order-missing")).ToHaveTextAsync("No order #999");
+    await order.GetByTestId("see-orders").TapAsync();
+    await Expect.That(Screen.GetByTestId("orders")).ToBeVisibleAsync();
+}
+
+[Test]
+public async Task A_link_to_no_screen_shows_that_it_goes_nowhere()
+{
+    await Device.CloseAppAsync();
+    await Device.OpenLinkAsync(Scheme + "track/42", AppId);
+
+    var notFound = Screen.GetByTestId("not-found-screen");
+    await Expect.That(notFound.GetByTestId("not-found")).ToHaveTextAsync("This link goes nowhere");
+    await Expect.That(notFound.GetByTestId("not-found-path")).ToHaveTextAsync("/track/42");
+}
+```
+
+`file:`, `data:`, `javascript:`, and similar links are `POLICY_DENIED`, so use an `https:` or custom scheme link.
+
+## First link on an iOS simulator
+
+The first time a simulator opens the scheme, iOS asks "Open in e2e Deep Links?". `Device.OpenLinkAsync` does not answer it. Open one link by hand once, or answer it before the test with `Device.AlertAsync(AlertAction.Accept)`. The upstream repository saves the answer on the simulator before each iOS test.
+
+## Run
+
+```bash
+dotnet test --project .
+```
+
+The tests make no model calls.

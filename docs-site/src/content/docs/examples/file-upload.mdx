@@ -1,0 +1,123 @@
+---
+title: File uploads
+description: Pick a file, refuse the wrong one, fail an upload, and check a download byte for byte.
+---
+
+The app is [`tester-army/e2e-file-upload`](https://github.com/tester-army/e2e-file-upload): a Next.js page that uploads PNG, JPEG, and WebP images up to 4 MB to a private Vercel Blob store. The first three tests below need no Blob store and no model.
+
+## Run the app
+
+```bash
+git clone https://github.com/tester-army/e2e-file-upload
+cd e2e-file-upload
+npm install
+npm run dev        # http://localhost:3000
+```
+
+Uploads go to your own Blob store. Create a private store in the Vercel dashboard, copy `.env.example` to `.env.local`, and set `BLOB_READ_WRITE_TOKEN`. Only the download test needs it. The test files are in the repository's `tests/files/` folder; copy `photo.png` to a `Files/` folder in your test project.
+
+## Pick a file
+
+`Locator.SetInputFilesAsync(path)` sets the files of a file input. A relative path resolves from the project root. Wrap the page's upload panel in one helper, since Next.js adds a second `alert` of its own:
+
+```csharp
+using E2E.Engine;
+using E2E.NUnit;
+
+public sealed class UploadTests : E2ETest
+{
+    private Locator Panel => Screen.GetByRole("region", "Upload an image");
+
+    [Test]
+    public async Task The_panel_is_ready_for_an_image()
+    {
+        await App.OpenAsync("/");
+
+        await Expect.That(Screen.GetByTestId("dropzone")).ToContainTextAsync("Drop an image here");
+        await Expect.That(Panel.GetByRole("button", "Upload")).ToBeDisabledAsync();
+    }
+}
+```
+
+## Refuse the wrong file
+
+Keep a 5 MB file out of git: write it in a temporary folder and pass its absolute path.
+
+```csharp
+[Test]
+public async Task An_image_over_4_MB_is_refused()
+{
+    var folder = Directory.CreateTempSubdirectory("e2e-file-upload-");
+    try
+    {
+        var big = Path.Combine(folder.FullName, "big.png");
+        await File.WriteAllBytesAsync(big, new byte[5_000_000]);
+        await App.OpenAsync("/");
+
+        await Screen.GetByLabel("Choose an image").SetInputFilesAsync(big);
+
+        await Expect.That(Panel.GetByRole("alert")).ToHaveTextAsync("big.png is 5 MB. Images can be up to 4 MB.");
+        await Expect.That(Panel.GetByRole("button", "Upload")).ToBeDisabledAsync();
+    }
+    finally
+    {
+        folder.Delete(recursive: true);
+    }
+}
+```
+
+## Fail an upload
+
+`Browser.RouteAsync` answers the page's token request with an error, so nothing reaches Blob:
+
+```csharp
+[Test]
+public async Task A_failed_upload_says_so()
+{
+    await Browser.RouteAsync("**/api/upload", route => route.FulfillAsync(new RouteFulfillResponse
+    {
+        Status = 500,
+        Json = new { error = "Down for the test" },
+    }));
+    await App.OpenAsync("/");
+    await Screen.GetByLabel("Choose an image").SetInputFilesAsync("Files/photo.png");
+    await Panel.GetByRole("button", "Upload").TapAsync();
+
+    await Expect.That(Panel.GetByRole("alert")).ToHaveTextAsync("Couldn't upload photo.png. Try again.");
+    await Expect.That(Panel.GetByRole("button", "Upload")).ToBeEnabledAsync();
+}
+```
+
+## Check a download
+
+This test uploads to the real store, so it needs `BLOB_READ_WRITE_TOKEN` in the app's environment. `Browser.WaitForDownloadAsync` runs the click and returns the file:
+
+```csharp
+[Test]
+[Category("Blob")]
+public async Task The_download_returns_the_same_bytes()
+{
+    await App.OpenAsync("/");
+    await Screen.GetByLabel("Choose an image").SetInputFilesAsync("Files/photo.png");
+    await Panel.GetByRole("button", "Upload").TapAsync();
+    await Expect.That(Screen.GetByTestId("file-name")).ToHaveTextAsync("photo.png");
+
+    var download = await Browser.WaitForDownloadAsync(() => Screen.GetByRole("link", "Download").TapAsync());
+
+    Assert.That(download.SuggestedFilename, Is.EqualTo("photo.png"));
+    Assert.That(
+        await File.ReadAllBytesAsync(download.AbsolutePath),
+        Is.EqualTo(await File.ReadAllBytesAsync("Files/photo.png")));
+}
+```
+
+## Run
+
+```bash
+dotnet test --project . --filter "TestCategory!=Blob"    # no store needed
+dotnet test --project .                                  # all tests
+```
+
+## Not covered here
+
+The upstream repository also drops a file with synthetic drag events, checks the blob through Blob's API, and asks an agent to upload the image. Drag from the desktop is not possible; build the drop in the page with `Browser.EvaluateAsync` as upstream does.

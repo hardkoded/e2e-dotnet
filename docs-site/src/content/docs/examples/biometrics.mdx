@@ -1,0 +1,131 @@
+---
+title: Face ID and fingerprint
+description: Match and miss a face or finger, fall back to a PIN, and check that the app locks again.
+---
+
+The app is [`tester-army/e2e-biometrics`](https://github.com/tester-army/e2e-biometrics): an Expo lock screen that unlocks with Face ID or a fingerprint, falls back to a PIN, and locks again when it goes to the background.
+
+## Run the app
+
+You need Node, and Xcode with an iOS simulator that has Face ID, or the Android SDK with an emulator.
+
+```bash
+git clone https://github.com/tester-army/e2e-biometrics
+cd e2e-biometrics
+npm install
+cp .env.example .env.local     # set EXPO_PUBLIC_PIN to six digits, not 000000
+npm run ios                    # or: npm run android
+```
+
+On an Android emulator, set a screen lock and enroll finger 1 once, as the repository's README shows (`adb shell locksettings set-pin 1111`, then the fingerprint setup and `adb emu finger touch 1`). Keep the screen on with `adb shell svc power stayon true`.
+
+## Point a test project at it
+
+```json
+{
+  "targets": [{ "name": "ios", "platform": "ios", "app": { "bundleId": "dev.e2e.biometrics" } }],
+  "agents": { "default": { "provider": "copilot", "model": "claude-sonnet-5.5" } }
+}
+```
+
+Run Android with `E2E_MOBILE_PLATFORM=android`. Put the PIN in the environment of the test run as `EXPO_PUBLIC_PIN`.
+
+## Play a match
+
+A test cannot show a face or touch a sensor, so `Device.SetBiometricsAsync` plays the attempt. The sensor is `BiometricSensor.FaceId` on iOS and `Fingerprint` on Android:
+
+```csharp
+using E2E.Mobile;
+using E2E.Mobile.NUnit;
+
+[Retry(2)]
+public sealed class BiometricsTests : MobileAppTest
+{
+    private BiometricSensor Sensor => Platform == MobilePlatform.Ios ? BiometricSensor.FaceId : BiometricSensor.Fingerprint;
+
+    [Test]
+    public async Task A_matching_face_or_finger_unlocks_the_app()
+    {
+        await Screen.GetByTestId("unlock").TapAsync();
+        await Device.SetBiometricsAsync(Sensor, BiometricResult.Match);
+
+        await Expect.That(Screen.GetByTestId("unlock-method")).ToHaveTextAsync(
+            Platform == MobilePlatform.Ios ? "Unlocked with Face ID" : "Unlocked with your fingerprint");
+    }
+}
+```
+
+`SetBiometricsAsync` simulates one attempt on the open prompt. Tap Unlock first, so the prompt is showing.
+
+## Nothing enrolled (iOS)
+
+`EnrollBiometricsAsync` takes Face ID off the simulator, so Unlock goes straight to the PIN. It takes `FaceId` or `TouchId` only, and Android has no way to unenroll a fingerprint. Fill the PIN as a `Secret`, so it stays out of reports and logs:
+
+```csharp
+[Test]
+public async Task With_nothing_enrolled_Unlock_goes_straight_to_the_PIN()
+{
+    Assume.That(Platform == MobilePlatform.Ios, "Android cannot unenroll a fingerprint from a test.");
+    var pin = Secret.Create("pin", Environment.GetEnvironmentVariable("EXPO_PUBLIC_PIN")!);
+    await Device.EnrollBiometricsAsync(BiometricSensor.FaceId, false);
+
+    await Screen.GetByTestId("unlock").TapAsync();
+    await Screen.GetByTestId("pin").FillAsync(pin);
+    await Screen.GetByTestId("submit-pin").TapAsync();
+
+    await Expect.That(Screen.GetByTestId("unlock-method")).ToHaveTextAsync("Unlocked with PIN");
+}
+```
+
+## A miss, then the PIN (agent)
+
+After a failed match the system's prompt offers its own Use PIN button, worded and built differently on each platform, so one agent step taps it. This test needs a model:
+
+```csharp
+[Test]
+[Category("RealModel")]
+public async Task A_failed_match_offers_the_PIN()
+{
+    await Screen.GetByTestId("unlock").TapAsync();
+    await Device.SetBiometricsAsync(Sensor, BiometricResult.NonMatch);
+
+    await Agent.WaitForAsync(
+        "the system says the face or fingerprint was not recognized",
+        new WaitForOptions { Interval = TimeSpan.FromMilliseconds(500) });
+    await Agent.ActAsync("choose to use the PIN instead");
+
+    await Expect.That(Screen.GetByTestId("pin-notice")).ToHaveTextAsync(new Regex(@"Enter your PIN\.\z"));
+}
+```
+
+Add `using System.Text.RegularExpressions;` for `Regex`.
+
+## Lock again in the background
+
+```csharp
+[Test]
+public async Task The_app_locks_again_after_going_to_the_background()
+{
+    await Screen.GetByTestId("unlock").TapAsync();
+    await Device.SetBiometricsAsync(Sensor, BiometricResult.Match);
+    await Expect.That(Screen.GetByTestId("unlock-method")).ToBeVisibleAsync();
+
+    await Device.HomeAsync();
+    await Device.OpenAppAsync(AppId);
+
+    await Expect.That(Screen.GetByTestId("lock-notice")).ToHaveTextAsync("Locked when the app went to the background.");
+    Assert.That((await Device.ForegroundAppAsync()).BundleId, Is.EqualTo(AppId));
+}
+```
+
+`AppId` is the bundle id from `e2e.config.json`.
+
+## Run
+
+```bash
+EXPO_PUBLIC_PIN=123456 dotnet test --project . --filter "TestCategory!=RealModel"
+```
+
+## Not covered here
+
+The upstream repository also enters a wrong PIN first and checks that it fails. It shares a helper that waits for the system prompt before each attempt.

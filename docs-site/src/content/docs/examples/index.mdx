@@ -1,0 +1,28 @@
+---
+title: Examples
+description: Five guides for features that need a closer look, with C# tests for apps in the tester-army example repositories.
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+Each guide tests a small public app from the [tester-army](https://github.com/tester-army) example repositories (MIT licensed). The apps are not part of this repository. Clone one, run it, and write the tests in your own test project. Every snippet is C# for E2E for .NET, and its test ids and texts come from the app's README and tests.
+
+These guides are .NET-only pages. Upstream lists the five apps in its examples registry and renders each app's README as the page, so there was no guide text to port. The snippets compile against the packages, and the guides say which steps need a model, a simulator, or a store.
+
+| Guide | App | Platform | Needs a model |
+| --- | --- | --- | --- |
+| [Three languages](/examples/i18n/) | A Nuxt contact form in English, German, and Spanish | Web | One of three tests |
+| [File uploads](/examples/file-upload/) | A Next.js image upload to Vercel Blob | Web | No |
+| [Location](/examples/location/) | An Expo app that shows the city you are in | iOS, Android | No |
+| [Face ID and fingerprint](/examples/biometrics/) | An Expo lock screen with a PIN fallback | iOS, Android | One test |
+| [Deep links](/examples/deep-links/) | An Expo app that opens orders from links | iOS, Android | No |
+
+<CardGrid>
+  <LinkCard title="Three languages" href={`${import.meta.env.BASE_URL}examples/i18n/`} description="One test class run in each browser language." />
+  <LinkCard title="File uploads" href={`${import.meta.env.BASE_URL}examples/file-upload/`} description="SetInputFilesAsync, a refused file, and a download." />
+  <LinkCard title="Location" href={`${import.meta.env.BASE_URL}examples/location/`} description="The permission prompt, a moving device, and airplane mode." />
+  <LinkCard title="Face ID and fingerprint" href={`${import.meta.env.BASE_URL}examples/biometrics/`} description="Matches, misses, the PIN fallback, and relocking." />
+  <LinkCard title="Deep links" href={`${import.meta.env.BASE_URL}examples/deep-links/`} description="Links from a cold start, while running, and to no screen." />
+</CardGrid>
+
+The web guides follow [Get started: Web](/get-started/web/). The mobile guides follow [Get started: Mobile](/get-started/mobile/).
