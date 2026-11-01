@@ -74,14 +74,13 @@ internal static class Anchors
     /// <summary>
     /// Every node of an observation that can serve as an anchor, in document order: a visible node with a
     /// name, a text, a test id, or a placeholder. The text is kept only when it differs from the name: for an
-    /// anchor the text is the effect, a status reading "saved" rather than "empty". <paramref name="skip"/>
-    /// drops a node whose name or text the next run reads differently, and <paramref name="record"/> is the
+    /// anchor the text is the effect, a status reading "saved" rather than "empty". <paramref name="record"/> is the
     /// form a name, text, or value is stored in, such as with secrets redacted, and <paramref name="redact"/> the
     /// form a test id or placeholder is. <paramref name="cut"/>, when given, redacts a name, text, or value as the
     /// engine observed it, before it is read as one line, with the limit it is cut at: a secret the cut stopped
     /// partway through leaves a part no whole-value match sees. A secure field's value is never read.
     /// </summary>
-    public static List<AnchorNode> Project(Observation observation, Func<string, bool> skip, Func<string, string> record, Func<string, string> redact, Func<string, int, string>? cut = null)
+    public static List<AnchorNode> Project(Observation observation, Func<string, string> record, Func<string, string> redact, Func<string, int, string>? cut = null)
     {
         static string? Field(string? value) => value is null || TextRules.Normalize(value) is not { Length: > 0 } text ? null : text;
         string Read(string raw, int limit, string field) => cut is null ? field : Field(cut(raw, limit)) ?? field;
@@ -92,8 +91,7 @@ internal static class Anchors
             var text = Field(node.Text) is { } read && read != name ? read : null;
             var testId = Field(node.TestId);
             var placeholder = Field(node.Placeholder);
-            if (node.States.Hidden || node.States.AriaHidden || (name is null && text is null && testId is null && placeholder is null)
-                || (name is not null && skip(name)) || (text is not null && skip(text)))
+            if (node.States.Hidden || node.States.AriaHidden || (name is null && text is null && testId is null && placeholder is null))
             {
                 continue;
             }
