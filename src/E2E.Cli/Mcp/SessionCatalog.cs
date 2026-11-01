@@ -200,11 +200,11 @@ internal sealed class SessionCatalog
         }
         else if (count == 0)
         {
-            lines.Add("A test using this locator would fail with NOT_FOUND. " + redactor.Redact(query.NotFound));
+            lines.Add("A test using this locator would fail with LOCATOR_NOT_FOUND. " + redactor.Redact(query.NotFound));
         }
         else
         {
-            lines.Add("A test action on " + redactor.Redact(query.Code) + " would fail with STRICT_MODE. Narrow it with a name, GetByRole(role, name), .Filter(...), .First(), or .Nth(i), or scope it under a container.");
+            lines.Add("A test action on " + redactor.Redact(query.Code) + " would fail with LOCATOR_AMBIGUOUS. Narrow it with a name, GetByRole(role, name), .Filter(...), .First(), or .Nth(i), or scope it under a container.");
         }
 
         lines.AddRange(nodes.Select(node => "- " + DescribeNode(node, redactor)));
@@ -348,7 +348,7 @@ internal sealed class SessionCatalog
 
     private static string Failure(string label, string? code, string message, string? target)
     {
-        if (code == "NOT_FOUND" && target is not null && message.StartsWith("No control matched", StringComparison.Ordinal))
+        if (code == "LOCATOR_NOT_FOUND" && target is not null && message.StartsWith("No control matched", StringComparison.Ordinal))
         {
             message = "node " + target + " is not on the current screen; re-observe for the newest refs";
         }

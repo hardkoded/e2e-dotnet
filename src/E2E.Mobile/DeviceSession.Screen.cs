@@ -566,43 +566,44 @@ public sealed partial class DeviceSession
     /// </summary>
     private Task<T> CaptureScreenshotAsync<T>(Func<RawScreenshotResult, string, Task<T>> read, bool normalizeStatusBar, InputBudget budget, CancellationToken cancellationToken) =>
         budget.ReadAsync(
-            () => CommandAsync("screenshot", (client, token) => TakeScreenshotAsync(client, read, normalizeStatusBar, token), cancellationToken),
-            cancellationToken);
-
-    private static async Task<T> TakeScreenshotAsync<T>(IDeviceClient client, Func<RawScreenshotResult, string, Task<T>> read, bool normalizeStatusBar, CancellationToken token)
-    {
-        var directory = Directory.CreateTempSubdirectory("e2e-agent-device-");
-        try
-        {
-            var file = Path.Combine(directory.FullName, "screenshot.png");
-            var shot = await client.CallAsync(
-                DeviceMethods.CaptureScreenshot,
-                DeviceArgs.Of(("path", JsonValue.Create(file)), ("normalizeStatusBar", normalizeStatusBar ? JsonValue.Create(true) : null)),
-                token).ConfigureAwait(false);
-            return await read(
-                new RawScreenshotResult
+            () => CommandAsync(
+                "screenshot",
+                async (client, token) =>
                 {
-                    Path = Text(shot?["path"]),
-                    Width = Number(shot?["width"]),
-                    Height = Number(shot?["height"]),
-                    LogicalWidth = Number(shot?["logicalWidth"]),
-                    LogicalHeight = Number(shot?["logicalHeight"]),
-                    PixelDensity = Number(shot?["pixelDensity"]),
+                    var directory = Directory.CreateTempSubdirectory("e2e-agent-device-");
+                    try
+                    {
+                        var file = Path.Combine(directory.FullName, "screenshot.png");
+                        var shot = await client.CallAsync(
+                            DeviceMethods.CaptureScreenshot,
+                            DeviceArgs.Of(("path", JsonValue.Create(file)), ("normalizeStatusBar", normalizeStatusBar ? JsonValue.Create(true) : null)),
+                            token).ConfigureAwait(false);
+                        return await read(
+                            new RawScreenshotResult
+                            {
+                                Path = Text(shot?["path"]),
+                                Width = Number(shot?["width"]),
+                                Height = Number(shot?["height"]),
+                                LogicalWidth = Number(shot?["logicalWidth"]),
+                                LogicalHeight = Number(shot?["logicalHeight"]),
+                                PixelDensity = Number(shot?["pixelDensity"]),
+                            },
+                            file).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            directory.Delete(recursive: true);
+                        }
+                        catch (IOException)
+                        {
+                            // The capture is best effort and so is its cleanup.
+                        }
+                    }
                 },
-                file).ConfigureAwait(false);
-        }
-        finally
-        {
-            try
-            {
-                directory.Delete(recursive: true);
-            }
-            catch (IOException)
-            {
-                // The capture is best effort and so is its cleanup.
-            }
-        }
-    }
+                cancellationToken),
+            cancellationToken);
 
     /// <summary>
     /// The viewport as a screenshot for comparison: the status bar in a fixed state, and every secure node on the screen

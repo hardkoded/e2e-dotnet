@@ -38,4 +38,4 @@ Tests that differ from their upstream `it`:
 - `Async_states_load_refresh_claim_through_the_toast` presses the Refresh button, since a mouse cannot pull to refresh.
 - `Gestures_long_press_then_swipe_left` swipes by dragging the card to the Back button on its left.
 - `SetOrientation_rotates_the_window_the_app_measures` resizes the window.
-- `An_ambiguous_locator_fails_at_once` expects `STRICT_MODE`, the code this port gives an ambiguous locator.
+- `An_ambiguous_locator_fails_at_once` expects `LOCATOR_AMBIGUOUS`, upstream's code for an ambiguous locator.

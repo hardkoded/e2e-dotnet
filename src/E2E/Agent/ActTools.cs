@@ -409,12 +409,12 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
 
         if (matches.Count == 0)
         {
-            throw new TestException("NOT_FOUND", "No control matched role=" + Args.String(arguments, "role") + " name=" + Args.String(arguments, "name") + ".");
+            throw new TestException("LOCATOR_NOT_FOUND", "No control matched role=" + Args.String(arguments, "role") + " name=" + Args.String(arguments, "name") + ".");
         }
 
         if (matches.Count > 1)
         {
-            throw new TestException("STRICT_MODE", "Matched " + matches.Count.ToString(CultureInfo.InvariantCulture) + " controls. Name the control more specifically.");
+            throw new TestException("LOCATOR_AMBIGUOUS", "Matched " + matches.Count.ToString(CultureInfo.InvariantCulture) + " controls. Name the control more specifically.");
         }
 
         _feed.MarkActing();

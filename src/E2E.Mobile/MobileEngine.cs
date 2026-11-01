@@ -19,7 +19,14 @@ public interface IDeviceActions
 
     Task SwipeAsync(DeviceSession session, ScrollDirection direction, CancellationToken cancellationToken);
 
-    Task<EngineScreenshot> ScreenshotAsync(DeviceSession session, TimeSpan timeout, CancellationToken cancellationToken);
+    Task<EngineScreenshot> ScreenshotAsync(DeviceSession session, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// <see cref="ScreenshotAsync(DeviceSession, CancellationToken)"/> within <paramref name="timeout"/>, the operation budget its snapshot
+    /// and capture share (upstream's <c>operation.timeoutMs</c>). The default drops the budget (.NET-only), so an implementation that
+    /// defines only the member without a timeout keeps compiling.
+    /// </summary>
+    Task<EngineScreenshot> ScreenshotAsync(DeviceSession session, TimeSpan timeout, CancellationToken cancellationToken) => ScreenshotAsync(session, cancellationToken);
 }
 
 /// <summary>What a worker's start is given: which target and worker slot it serves, and the environment <c>prepare</c> left.</summary>

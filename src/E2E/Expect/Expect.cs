@@ -453,7 +453,7 @@ public sealed class LocatorExpect
     private TestException Failure(string matcher, string describeExpected, Verdict verdict, IReadOnlyList<SemanticNode> matches, Exception? cause = null)
     {
         var name = (_negated ? "not." : "") + matcher;
-        var code = verdict.StrictCount > 1 ? "STRICT_MODE" : "ASSERTION_FAILED";
+        var code = verdict.StrictCount > 1 ? "LOCATOR_AMBIGUOUS" : "ASSERTION_FAILED";
         var message = "expect(" + _locator.Query.Describe() + ")." + name + " failed: expected " + (_negated ? "not " : "") + describeExpected
             + "; observed " + verdict.Observed + " (match count " + Number(matches.Count) + ")";
         // The same facts, one per field, for a reporter that lays them out.

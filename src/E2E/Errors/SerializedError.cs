@@ -52,8 +52,8 @@ internal static class ErrorSerializer
 
     /// <summary>
     /// Upstream's <c>translateEngineError</c> (<c>internal/errors.ts</c>): an engine failure as the test sees it, the engine error kept as the
-    /// cause. A stale node is <c>NOT_FOUND</c> (upstream <c>LOCATOR_NOT_FOUND</c>), a missing frame the same, an ambiguous frame is
-    /// <c>STRICT_MODE</c> (<c>LOCATOR_AMBIGUOUS</c>), a node that cannot take the action, an action that may have committed, and an operation
+    /// cause. A stale node is <c>LOCATOR_NOT_FOUND</c>, a missing frame the same, an ambiguous frame is
+    /// <c>LOCATOR_AMBIGUOUS</c>, a node that cannot take the action, an action that may have committed, and an operation
     /// that timed out are <c>ACTION_FAILED</c>, and no open app is <c>APP_NOT_OPEN</c>. <c>CANCELLED</c> is an infrastructure failure,
     /// <c>UNSUPPORTED_CAPABILITY</c> a configuration failure, and <c>ENGINE_FAILURE</c>, any other engine code, and any error that is no
     /// e2e error are an infrastructure <c>ENGINE_FAILURE</c>. An e2e error that is no engine error is returned as it is.
@@ -75,9 +75,9 @@ internal static class ErrorSerializer
 
         return engine.Code switch
         {
-            EngineErrorCodes.NodeStale => new TestException("NOT_FOUND", "node became stale" + suffix, engine),
-            EngineErrorCodes.FrameNotFound => new TestException("NOT_FOUND", engine.Message + suffix, engine),
-            EngineErrorCodes.FrameAmbiguous => new TestException("STRICT_MODE", engine.Message + suffix, engine),
+            EngineErrorCodes.NodeStale => new TestException("LOCATOR_NOT_FOUND", "node became stale" + suffix, engine),
+            EngineErrorCodes.FrameNotFound => new TestException("LOCATOR_NOT_FOUND", engine.Message + suffix, engine),
+            EngineErrorCodes.FrameAmbiguous => new TestException("LOCATOR_AMBIGUOUS", engine.Message + suffix, engine),
             EngineErrorCodes.NotActionable or EngineErrorCodes.ActionMayHaveCommitted => new TestException("ACTION_FAILED", engine.Message + suffix, engine),
             EngineErrorCodes.OperationTimeout => new TestException("ACTION_FAILED", "operation timed out" + suffix, engine),
             EngineErrorCodes.Cancelled => new EngineException(EngineErrorCodes.Cancelled, "operation cancelled", engine),

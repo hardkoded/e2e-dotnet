@@ -299,7 +299,7 @@ public sealed class ControlInventoryTests : BenchmarkTest
     {
         await ShowSectionAsync("Gestures");
         var ambiguous = await Assert.ThrowsAsync<TestException>(async () => await Screen.GetByTestId("fruit-row").TapAsync());
-        Assert.That(ambiguous!.Code, Is.EqualTo("STRICT_MODE"));
+        Assert.That(ambiguous!.Code, Is.EqualTo("LOCATOR_AMBIGUOUS"));
     }
 
     [Test]

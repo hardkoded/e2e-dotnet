@@ -68,7 +68,7 @@ public sealed class LocatorFilterHasTests
         var error = await Assert.ThrowsAsync<TestException>(
             () => screen.GetByRole("listitem").Filter(has: screen.GetByRole("link"), hasNot: screen.GetByRole("button")).TextContentAsync());
 
-        Assert.Equal("NOT_FOUND", error.Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
         Assert.Contains("getByRole(\"listitem\").filter(has: getByRole(\"link\"), hasNot: getByRole(\"button\"))", error.Message, StringComparison.Ordinal);
     }
 
@@ -79,7 +79,7 @@ public sealed class LocatorFilterHasTests
 
         var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("listitem").Filter(screen.GetByRole("link")).TextContentAsync());
 
-        Assert.Equal("NOT_FOUND", error.Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
         Assert.Contains("getByRole(\"listitem\").filter(has: getByRole(\"link\"))", error.Message, StringComparison.Ordinal);
     }
 }

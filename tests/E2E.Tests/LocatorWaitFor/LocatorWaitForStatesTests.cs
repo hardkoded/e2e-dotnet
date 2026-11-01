@@ -76,7 +76,7 @@ public sealed class LocatorWaitForStatesTests
         foreach (var state in new[] { WaitForState.Attached, WaitForState.Detached, WaitForState.Visible, WaitForState.Hidden })
         {
             var error = await Assert.ThrowsAsync<TestException>(() => locator.WaitForAsync(new LocatorWaitForOptions { State = state, Timeout = TimeSpan.FromSeconds(1) }));
-            Assert.Equal("STRICT_MODE", error.Code);
+            Assert.Equal("LOCATOR_AMBIGUOUS", error.Code);
         }
     }
 

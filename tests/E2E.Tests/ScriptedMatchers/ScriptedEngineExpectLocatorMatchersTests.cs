@@ -158,7 +158,7 @@ public sealed class ScriptedEngineExpectLocatorMatchersTests
         watch.Restart();
         var ambiguous = await Assert.ThrowsAsync<TestException>(() => Expect.That(screen.GetByText("Duplicated")).ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(250)));
         Assert.True(watch.Elapsed >= TimeSpan.FromMilliseconds(250), watch.Elapsed.ToString());
-        Assert.Equal("STRICT_MODE", ambiguous.Code);
+        Assert.Equal("LOCATOR_AMBIGUOUS", ambiguous.Code);
         Assert.Contains("getByText(\"Duplicated\")", ambiguous.Message, StringComparison.Ordinal);
         Assert.Contains("(match count 2)", ambiguous.Message, StringComparison.Ordinal);
         Assert.Equal(2, ambiguous.Details?.Matches);

@@ -57,7 +57,7 @@ public sealed class LocatorEnginePerformContractTests
 
         var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button").TapAsync());
 
-        Assert.Equal("NOT_FOUND", error.Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
         Assert.Equal(1, performs);
     }
 

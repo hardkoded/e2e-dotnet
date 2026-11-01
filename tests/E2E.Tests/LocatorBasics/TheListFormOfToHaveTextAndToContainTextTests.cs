@@ -90,6 +90,6 @@ public sealed class TheListFormOfToHaveTextAndToContainTextTests
     [Fact]
     public async Task Keeps_the_single_value_path_strict_on_several_matches()
     {
-        await FailsWith("STRICT_MODE", () => Expect.That(ListItems()).ToHaveTextAsync("Item Alpha"));
+        await FailsWith("LOCATOR_AMBIGUOUS", () => Expect.That(ListItems()).ToHaveTextAsync("Item Alpha"));
     }
 }
