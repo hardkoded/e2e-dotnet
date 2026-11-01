@@ -93,7 +93,7 @@ internal static class HostTestFilters
         foreach (var test in discovered)
         {
             var file = FileOf(test, sourceFiles);
-            var id = AttemptReport.TestId(file, test.TypeName + " > " + test.Title);
+            var id = AttemptReport.TestId(file, test.Key);
             keys[id] = test.Key;
             tests.Add(new CollectedTest
             {
@@ -160,7 +160,7 @@ internal static class HostTestFilters
                 found.Add(Path.GetRelativePath(root, file).Replace(Path.DirectorySeparatorChar, '/'));
             }
 
-            foreach (var child in Directory.EnumerateDirectories(directory).Where(child => !IgnoredDirectories.Contains(Path.GetFileName(child))))
+            foreach (var child in Directory.EnumerateDirectories(directory).Where(child => !IgnoredDirectories.Contains(Path.GetFileName(child)) && !new DirectoryInfo(child).Attributes.HasFlag(FileAttributes.ReparsePoint)))
             {
                 pending.Push(child);
             }

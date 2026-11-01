@@ -28,7 +28,7 @@ internal static class RunSelection
     public static IReadOnlyList<DiscoveredTest> Discover(Assembly assembly)
     {
         var found = new List<DiscoveredTest>();
-        foreach (var type in assembly.GetTypes().Where(type => type is { IsAbstract: false, IsClass: true } && typeof(E2ETest).IsAssignableFrom(type) && !IsExplicit(type)).OrderBy(type => type.FullName, StringComparer.Ordinal))
+        foreach (var type in LoadableTypes(assembly).Where(type => type is { IsAbstract: false, IsClass: true } && typeof(E2ETest).IsAssignableFrom(type) && !IsExplicit(type)).OrderBy(type => type.FullName, StringComparer.Ordinal))
         {
             var typeTags = TagsOf(type, assembly);
             foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance).Where(IsTest).Where(method => !IsExplicit(method)).OrderBy(method => method.MetadataToken))
@@ -39,11 +39,24 @@ internal static class RunSelection
                     TypeNameOf(type),
                     method.Name,
                     [.. typeTags, .. method.GetCustomAttributes<CategoryAttribute>(true).Select(category => category.Name)],
-                    method.GetCustomAttribute<IgnoreAttribute>(true)?.Reason));
+                    (method.GetCustomAttribute<IgnoreAttribute>(true) ?? type.GetCustomAttribute<IgnoreAttribute>(true))?.Reason));
             }
         }
 
         return found;
+    }
+
+    // A type that fails to load (a missing optional dependency) is not a test the run could start.
+    private static IEnumerable<Type> LoadableTypes(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            return ex.Types.OfType<Type>();
+        }
     }
 
     private static bool IsTest(MethodInfo method) =>
