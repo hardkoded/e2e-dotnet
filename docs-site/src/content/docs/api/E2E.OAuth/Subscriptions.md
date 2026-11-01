@@ -1,6 +1,6 @@
 ---
 title: "Subscriptions"
-description: "Subscription logins as agent models, upstream's chatgpt(), copilot(), grok(), and opencodeConsole(). Each reads the login e2e login stored (or E2EOAUTHCREDEN..."
+description: "Subscription logins as agent models, upstream's chatgpt(), copilot(), grok(), and opencodeConsole(). Each reads the login e2e login stored (or E2E_OAUTH_CRED..."
 editUrl: false
 prev: false
 next: false

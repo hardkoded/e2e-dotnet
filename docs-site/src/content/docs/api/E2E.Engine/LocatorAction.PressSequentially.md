@@ -1,6 +1,6 @@
 ---
 title: "LocatorAction.PressSequentially"
-description: "Focuses the node and types <code class=\"paramref\">Text</code> one character at a time."
+description: "Focuses the node and types Text one character at a time."
 editUrl: false
 prev: false
 next: false

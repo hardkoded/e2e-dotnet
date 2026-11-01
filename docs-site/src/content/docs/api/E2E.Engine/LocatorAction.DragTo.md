@@ -1,6 +1,6 @@
 ---
 title: "LocatorAction.DragTo"
-description: "Drags the node onto <code class=\"paramref\">Target</code>, a node of the same observation."
+description: "Drags the node onto Target, a node of the same observation."
 editUrl: false
 prev: false
 next: false

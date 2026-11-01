@@ -1,6 +1,6 @@
 ---
 title: "ExploreProgress.Planning"
-description: "The planner is deciding the next charter, or (<code class=\"paramref\">Closing</code>) the assessment that ends the run."
+description: "The planner is deciding the next charter, or (Closing) the assessment that ends the run."
 editUrl: false
 prev: false
 next: false

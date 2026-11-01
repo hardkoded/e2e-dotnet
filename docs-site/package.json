@@ -9,6 +9,7 @@
   "scripts": {
     "sync": "node scripts/sync-guides.mjs",
     "api": "node scripts/generate-api.mjs",
+    "test": "node --test scripts/text.test.mjs",
     "predev": "node scripts/sync-guides.mjs",
     "prebuild": "node scripts/sync-guides.mjs",
     "dev": "astro dev",

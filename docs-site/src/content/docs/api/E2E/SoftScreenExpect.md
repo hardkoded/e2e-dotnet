@@ -1,6 +1,6 @@
 ---
 title: "SoftScreenExpect"
-description: "The screen matchers of ScreenExpect, but an ASSERTIONFAILED is kept on the session instead of thrown, as SoftLocatorExpect does."
+description: "The screen matchers of ScreenExpect, but an ASSERTION_FAILED is kept on the session instead of thrown, as SoftLocatorExpect does."
 editUrl: false
 prev: false
 next: false

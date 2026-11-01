@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using E2E.Engine;
 using static E2E.Tests.StepCache.StepCachePipelineTests;
 
@@ -126,33 +127,40 @@ public sealed class TemplateTraceAndExpandTraceTests
         Assert.Null(CacheKeys.TemplateTrace(Recording("Acme Corp"), aliased));
     }
 
-    /// <summary>
-    /// Partial port of "reports a unique() value that another param spells, in any of its spellings, as a collision": the
-    /// port compares the top-level values as text (<see cref="CacheKeys.Collides"/>), so a value nested in another param, a number, a
-    /// flag, or an encoded form is not reported.
-    /// </summary>
+    private static bool Collide(string json, params (string Pointer, string Value)[] templates) =>
+        CacheKeys.TemplatesCollide(JsonNode.Parse(json)!.AsObject(), [.. templates.Select(template => new ParamTemplate(template.Pointer, template.Value))]);
+
     [Fact]
-    public void Partial_Reports_a_unique_value_that_another_param_spells_in_any_of_its_spellings_as_a_collision()
+    public void Reports_a_unique_value_that_another_param_spells_in_any_of_its_spellings_as_a_collision()
     {
+        (string, string)[] title = [("/title", "Daily")];
+
         // The repro: a run-unique title that happened to equal the plain choice.
-        Assert.True(CacheKeys.Collides(new Dictionary<string, object?> { ["title"] = Values.Unique("Daily"), ["frequency"] = "Daily" }));
+        Assert.True(Collide("""{"title":"Daily","frequency":"Daily"}""", title));
+
+        // Spelled inside a plain value, at any depth, and as a number.
+        Assert.True(Collide("""{"title":"Daily","plan":{"label":"Daily digest"}}""", title));
+        Assert.True(Collide("""{"id":"42","tags":[7,42]}""", ("/id", "42")));
+
+        // A plain value that is the encoded form of the marked one, and the other way round: a URL
+        // spells the plain choice `a b` as `a%20b`, which a marked `a%20b` would claim.
+        Assert.True(Collide("""{"q":"a b","path":"/x/a%20b"}""", ("/q", "a b")));
+        Assert.True(Collide("""{"title":"a%20b","choice":"a b"}""", ("/title", "a%20b")));
+        Assert.True(Collide("""{"title":"a+b","choice":"a b"}""", ("/title", "a+b")));
+        Assert.True(Collide("""{"title":"acme-co","name":"Acme Co"}""", ("/title", "acme-co")));
+
+        // A boolean flag spelled in a URL as `true`.
+        Assert.True(Collide("""{"title":"true","enabled":true}""", ("/title", "true")));
+        Assert.False(Collide("""{"title":"true","enabled":false,"note":null}""", ("/title", "true")));
 
         // Two marked params with one spelling collide as before.
-        Assert.True(CacheKeys.Collides(new Dictionary<string, object?> { ["name"] = Values.Unique("Acme"), ["slug"] = Values.Unique("Acme") }));
+        Assert.True(Collide("""{"name":"Acme","slug":"Acme"}""", ("/name", "Acme"), ("/slug", "Acme")));
 
         // Distinct values do not, nor does a plain value spelled inside the marked one.
-        Assert.False(CacheKeys.Collides(new Dictionary<string, object?> { ["title"] = Values.Unique("Cabin xyz"), ["frequency"] = "Daily" }));
-        Assert.False(CacheKeys.Collides(new Dictionary<string, object?> { ["label"] = Values.Unique("Pine Way"), ["street"] = "Way" }));
-        Assert.False(CacheKeys.Collides(new Dictionary<string, object?> { ["title"] = Values.Unique("Daily") }));
-
-        // A multi-line value is also spelled on one line, so a plain param with that spelling collides.
-        Assert.True(CacheKeys.Collides(new Dictionary<string, object?> { ["address"] = Values.Unique("Ada\nLovelace"), ["name"] = "Ada Lovelace" }));
-        Assert.False(CacheKeys.Collides(new Dictionary<string, object?> { ["address"] = Values.Unique("Ada\nLovelace") }));
-
-        // The form spelling, and a second marked value that spells the first in any spelling.
-        Assert.True(CacheKeys.Collides(new Dictionary<string, object?> { ["q"] = Values.Unique("a b"), ["plus"] = "a+b" }));
-        Assert.True(CacheKeys.Collides(new Dictionary<string, object?> { ["one"] = Values.Unique("a b"), ["two"] = Values.Unique("a+b") }));
-        Assert.False(CacheKeys.Collides(null));
+        Assert.False(Collide("""{"title":"Cabin xyz","frequency":"Daily"}""", ("/title", "Cabin xyz")));
+        Assert.False(Collide("""{"label":"Pine Way","street":"Way"}""", ("/label", "Pine Way")));
+        Assert.False(Collide("""{"title":"Daily"}""", title));
+        Assert.False(CacheKeys.TemplatesCollide(null, []));
     }
 
     [Fact]

@@ -1,6 +1,6 @@
 ---
 title: "RecordingMode"
-description: "Which attempts of a test record a trace or a video. Upstream RecordingMode. In e2e.config.json and in E2ETRACE and E2EVIDEO a mode is written off, on, retain..."
+description: "Which attempts of a test record a trace or a video. Upstream RecordingMode. In e2e.config.json and in E2E_TRACE and E2E_VIDEO a mode is written off, on, reta..."
 editUrl: false
 prev: false
 next: false

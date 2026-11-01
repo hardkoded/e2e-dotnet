@@ -293,8 +293,8 @@ public string TracePath { get; }
 ```
 
 
-The absolute path of the session's trace page. It is written when the session closes, if the trace mode keeps this attempt (upstream
-always writes one). Upstream's `tracePath`.
+The absolute path of the session's trace page. It is written when the session closes. A session of a test framework writes it if the
+trace mode keeps the attempt; a hosted one ([E2EHost.OpenSessionAsync](E2EHost.md)) always does, as upstream's. Upstream's `tracePath`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

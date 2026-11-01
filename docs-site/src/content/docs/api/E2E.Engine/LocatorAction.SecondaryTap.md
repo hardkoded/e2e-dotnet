@@ -1,6 +1,6 @@
 ---
 title: "LocatorAction.SecondaryTap"
-description: "A right click, or the platform's equivalent. <code class=\"paramref\">Modifiers</code> are held for the click, as for LocatorAction.Tap."
+description: "A right click, or the platform's equivalent. Modifiers are held for the click, as for LocatorAction.Tap."
 editUrl: false
 prev: false
 next: false
