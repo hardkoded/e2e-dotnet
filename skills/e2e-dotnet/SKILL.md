@@ -255,6 +255,10 @@ lines you changed:
   params, or change the agent's `context` once a goal passes. Each is part of
   a recording's key, so every goal it touches records again live. Fixing a
   locator or an expectation keeps the recordings.
+- `AssertAsync` and `WaitForAsync` take `Params` like `ActAsync`, so
+  `AssertAsync("the table shows company {name}", new AssertOptions { Params = ... })`
+  checks the value the act typed. The judge sees a `Secret` by name only: check
+  a secret's value on screen with a locator assertion (topic `agent`).
 - A run-unique value in `Params` (a timestamped name, a fresh email) goes in as
   `Values.Unique(...)`, so the recording does not change with the value. The
   substitution also covers the value as a URL spells it (`Ada%20Lovelace` in

@@ -541,7 +541,7 @@ internal static partial class CacheKeys
     public static string Template(string value, IReadOnlyDictionary<string, object?>? parameters) => TemplateText(value, TemplatesOf(parameters));
 
     /// <summary>The <c>unique()</c> values of the params as templates (upstream's <c>validateParams</c> list); none for no params.</summary>
-    public static List<ParamTemplate> TemplatesOf(IReadOnlyDictionary<string, object?>? parameters) => ActParams.ValidateParams(parameters).Templates;
+    public static List<ParamTemplate> TemplatesOf(IReadOnlyDictionary<string, object?>? parameters) => ActParams.ValidateParams(parameters, "agent.act").Templates;
 
     /// <summary>
     /// Upstream's <c>templateText</c>: replaces every occurrence of each template's value in <paramref name="value"/>, in any of its

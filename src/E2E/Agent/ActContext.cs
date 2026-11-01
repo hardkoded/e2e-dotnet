@@ -65,7 +65,7 @@ internal sealed partial class ActContext : StepExecutorContext
             Kind = spec.Kind,
             Index = stepIndex,
             Instruction = scope.Redactor.Redact(spec.Instruction),
-            Params = ProjectParams(spec.Params, scope.Redactor),
+            Params = ProjectParams(spec.Params, scope.Redactor, spec.Kind == ExecutorStepKind.Act ? "agent.act" : "agent.assert"),
             Secrets = declared.Select(secret => new ExecutorSecret(secret.Name, secret.Purpose)).ToList(),
         };
         Attempt = new ExecutorAttempt
@@ -204,50 +204,16 @@ internal sealed partial class ActContext : StepExecutorContext
     }
 
     // The call params as JSON the executor may read: a Secret is its name and purpose, never its value, and every string the
-    // test spelled that holds a secret value the attempt knows is redacted, keys included.
-    private static Dictionary<string, JsonElement>? ProjectParams(IReadOnlyDictionary<string, object?>? parameters, Redactor redactor)
+    // test spelled that holds a secret value the attempt knows is redacted, keys included. `api` names the call in error messages.
+    internal static Dictionary<string, JsonElement>? ProjectParams(IReadOnlyDictionary<string, object?>? parameters, Redactor redactor, string api)
     {
         if (parameters is null)
         {
             return null;
         }
 
-        var projected = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
-        foreach (var (key, node) in ActParams.Projected(parameters) ?? new JsonObject())
-        {
-            AddKey(projected, redactor.Redact(key), RedactJson(node, redactor));
-        }
-
-        return projected;
-    }
-
-    private static JsonElement RedactJson(JsonNode? node, Redactor redactor)
-    {
-        switch (node)
-        {
-            case JsonValue value when value.TryGetValue<string>(out var text):
-                return JsonSerializer.SerializeToElement(redactor.Redact(text));
-            case JsonObject map:
-                var cleaned = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
-                foreach (var (key, entry) in map)
-                {
-                    AddKey(cleaned, redactor.Redact(key), RedactJson(entry, redactor));
-                }
-
-                return JsonSerializer.SerializeToElement(cleaned);
-            case JsonArray list:
-                return JsonSerializer.SerializeToElement(list.Select(entry => RedactJson(entry, redactor)).ToList());
-            default:
-                return JsonSerializer.SerializeToElement(node);
-        }
-    }
-
-    private static void AddKey(Dictionary<string, JsonElement> map, string key, JsonElement value)
-    {
-        if (!map.TryAdd(key, value))
-        {
-            throw new TestException("INVALID_ARGUMENT", "agent.act params has two keys that read \"" + key + "\" once secret values are redacted; a key cannot be told apart by a secret");
-        }
+        var (redacted, _) = ActParams.RedactParams(ActParams.Projected(parameters, api) ?? new JsonObject(), [], redactor.Redact, api);
+        return redacted.ToDictionary(pair => pair.Key, pair => JsonSerializer.SerializeToElement(pair.Value), StringComparer.Ordinal);
     }
 
     [GeneratedRegex("[^A-Za-z0-9_-]+")]
