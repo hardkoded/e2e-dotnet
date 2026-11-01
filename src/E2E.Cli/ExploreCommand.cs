@@ -101,6 +101,7 @@ internal static partial class ExploreCommand
         ArgumentNullException.ThrowIfNull(stdout);
         ArgumentNullException.ThrowIfNull(stderr);
         ArgumentNullException.ThrowIfNull(explore);
+        cwd = cwd is null ? null : Path.GetFullPath(cwd);
 
         var parsed = Parse(args);
         if (parsed.Help)
