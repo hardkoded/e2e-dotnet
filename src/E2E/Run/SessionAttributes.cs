@@ -11,7 +11,7 @@ namespace E2E;
 /// <c>describe</c>. The session restores before the test body runs; a restore leaves no page open, so the test opens one first. The
 /// setup test must run before the test (in NUnit, give it an earlier <c>[Order]</c>); a session no setup produced fails the test with
 /// <c>SESSION_UNAVAILABLE</c>, and an engine that cannot restore state with <c>UNSUPPORTED_CAPABILITY</c>. The closest attribute wins:
-/// the method, then the class, then a base class. .NET-only name, as the port has no <c>test()</c> options object.
+/// the method, then the class, then a base class. A setup test takes only its own method's session. .NET-only name, as the port has no <c>test()</c> options object.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
 public sealed class E2ESessionAttribute(string name) : Attribute
@@ -40,6 +40,12 @@ internal static class SessionAttributes
         if (method?.GetCustomAttribute<E2ESessionAttribute>(false) is { } own)
         {
             return own.Name;
+        }
+
+        // A setup test starts clean unless it names a session of its own: the class-level session is for the tests that use what setup saved.
+        if (method?.GetCustomAttributes(true).OfType<ISessionSetup>().Any() == true)
+        {
+            return null;
         }
 
         // The class, its base classes, then the enclosing class with its own bases.

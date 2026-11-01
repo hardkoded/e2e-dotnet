@@ -98,11 +98,13 @@ public sealed class Dashboard : E2ETest
   outside a setup test fails the same way. Nothing is saved when the setup
   test fails.
 - NUnit picks the order, not the dependents. A setup test gets an early
-  `[Order]`, so it runs before the tests of its fixture and before the other
-  fixtures of its namespace. Give a fixture that depends on a session a later
-  `[Order]` when it sits in another namespace. A test that restores a session
-  nobody saved fails with `SESSION_UNAVAILABLE`. Unlike upstream's runner,
-  NUnit runs a setup test even when no selected test needs its session.
+  `[Order]`, so it runs before the other tests of its own fixture; that is all
+  it does. Put the setup test and the tests that restore its sessions in one
+  fixture, or give the fixtures an `[Order]` that runs the setup fixture
+  first. A class-level `[E2ESession]` does not apply to the setup tests of that
+  class. A test that restores a session nobody saved yet fails with
+  `SESSION_UNAVAILABLE`. Unlike upstream's runner, NUnit runs a setup test even
+  when no selected test needs its session.
 - A restore leaves no page open: call `App.OpenAsync` first. A session holds
   what the browser keeps (cookies, local storage, IndexedDB), not server state.
 - An engine without a state capability (`stateCapability` false in

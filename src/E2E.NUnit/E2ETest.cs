@@ -81,12 +81,6 @@ public abstract class E2ETest : E2EFixture
             late = ex;
         }
 
-        // A host that asked for this test (e2e mcp's open_session {test}) keeps the session open: it completes and disposes it at close.
-        if (EngineInUse is { } engine && SessionHandover.TryOffer(current.Test.FullName, session, engine, ErrorForCache(current.Result) ?? late))
-        {
-            return;
-        }
-
         // A setup test that passed saves its sessions; a contract it broke fails it, and its result stands as the verdict.
         if (current.Result.Outcome.Status == global::NUnit.Framework.Interfaces.TestStatus.Passed)
         {
@@ -104,6 +98,12 @@ public abstract class E2ETest : E2EFixture
             {
                 late ??= ex;
             }
+        }
+
+        // A host that asked for this test (e2e mcp's open_session {test}) keeps the session open: it completes and disposes it at close.
+        if (EngineInUse is { } engine && SessionHandover.TryOffer(current.Test.FullName, session, engine, ErrorForCache(current.Result) ?? late))
+        {
+            return;
         }
 
         try

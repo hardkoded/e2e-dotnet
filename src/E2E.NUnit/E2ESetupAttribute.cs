@@ -15,9 +15,9 @@ namespace E2E.NUnit;
 /// unsaved fails the test with <c>SESSION_CONTRACT</c>. The sessions are saved when the test passes. A test that restores one is marked
 /// <see cref="E2ESessionAttribute"/>.
 /// <para>
-/// NUnit decides the order, not the attribute's dependents: a setup test runs before the tests of its class that are not setup tests, and
-/// before the other fixtures of its namespace unless they set an <c>[Order]</c> of their own. Put setup tests in the first fixture,
-/// or order the fixtures. A test that restores a session nobody has saved yet fails with <c>SESSION_UNAVAILABLE</c>. Unlike upstream's
+/// NUnit decides the order, not the attribute's dependents: a setup test runs before the other tests of its own fixture, and
+/// no earlier than that. Put the setup tests and the tests that use their sessions in one fixture, or give the fixtures an <c>[Order]</c>
+/// that runs the setup fixture first. A test that restores a session nobody has saved yet fails with <c>SESSION_UNAVAILABLE</c>. Unlike upstream's
 /// runner, NUnit runs a setup test even when no selected test needs its session.
 /// </para>
 /// </summary>
@@ -41,12 +41,11 @@ public sealed class E2ESetupAttribute : TestAttribute, ISimpleTestBuilder, IAppl
 
     IReadOnlyList<string> ISessionSetup.Saves => Saves;
 
-    /// <summary>Names the test and builds it.</summary>
+    /// <summary>Names the test and builds it. Only the name is the title: the full name stays the method's, so it is unique and filters keep working.</summary>
     public new TestMethod BuildFrom(IMethodInfo method, Test? suite)
     {
         var built = base.BuildFrom(method, suite);
         built.Name = Title;
-        built.FullName = (suite?.FullName is { Length: > 0 } prefix ? prefix + "." : string.Empty) + Title;
         return built;
     }
 

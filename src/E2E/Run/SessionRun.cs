@@ -18,14 +18,20 @@ internal sealed record SessionPlan(SessionStore Store, SessionIdentity Identity,
 internal static class SessionRun
 {
     private static readonly Lock Gate = new();
-    private static SessionStore? _store;
+    private static readonly Dictionary<string, SessionStore> Stores = new(StringComparer.Ordinal);
 
-    /// <summary>The store of this run. The first call fixes where its directory is.</summary>
+    /// <summary>The store of this run for a project root, whose <c>.e2e/sessions</c> directory holds it.</summary>
     public static SessionStore Store(string projectRoot)
     {
+        var root = Path.GetFullPath(projectRoot);
         lock (Gate)
         {
-            return _store ??= SessionStore.Create(AttemptReport.RunId, Path.Combine(Path.GetFullPath(projectRoot), ".e2e", "sessions"));
+            if (!Stores.TryGetValue(root, out var store))
+            {
+                Stores[root] = store = SessionStore.Create(AttemptReport.RunId, Path.Combine(root, ".e2e", "sessions"));
+            }
+
+            return store;
         }
     }
 
@@ -34,8 +40,12 @@ internal static class SessionRun
     {
         lock (Gate)
         {
-            _store?.Cleanup();
-            _store = null;
+            foreach (var store in Stores.Values)
+            {
+                store.Cleanup();
+            }
+
+            Stores.Clear();
         }
     }
 }

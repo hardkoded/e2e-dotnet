@@ -32,6 +32,21 @@ public sealed class SessionAttributesTests
         }
     }
 
+    [AttributeUsage(AttributeTargets.Method)]
+    private sealed class SetupMark : Attribute, ISessionSetup
+    {
+        public IReadOnlyList<string> Saves => ["acct"];
+    }
+
+    [E2ESession("class-session")]
+    private sealed class SetupInASessionClass
+    {
+        [SetupMark]
+        public void SignIn()
+        {
+        }
+    }
+
     private sealed class SetupTest
     {
         public void Body()
@@ -68,5 +83,14 @@ public sealed class SessionAttributesTests
     public void A_test_that_is_not_a_setup_test_saves_none()
     {
         Assert.Null(global::E2E.SessionAttributes.Saves(typeof(SetupTest).GetMethod(nameof(SetupTest.Body))));
+    }
+
+    [Fact]
+    public void A_setup_test_does_not_restore_the_session_of_its_class_and_saves_its_declared_names()
+    {
+        var signIn = typeof(SetupInASessionClass).GetMethod(nameof(SetupInASessionClass.SignIn));
+
+        Assert.Null(global::E2E.SessionAttributes.Restore(typeof(SetupInASessionClass), signIn));
+        Assert.Equal(["acct"], global::E2E.SessionAttributes.Saves(signIn));
     }
 }

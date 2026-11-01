@@ -265,9 +265,16 @@ public sealed class E2ESession : IAsyncDisposable
                     restoreBudget.CancelAfter(options.LaunchTimeout);
                 }
 
-                var saved = await options.Sessions.Store.LoadAsync(restoring, options.Sessions.Identity, restoreBudget.Token).ConfigureAwait(false);
-                ledger.AddRange(saved.Secrets.Where(secret => !ledger.Contains(secret)));
-                await engine.RestoreStateAsync(saved.State, restoreBudget.Token).ConfigureAwait(false);
+                try
+                {
+                    var saved = await options.Sessions.Store.LoadAsync(restoring, options.Sessions.Identity, restoreBudget.Token).ConfigureAwait(false);
+                    ledger.AddRange(saved.Secrets.Where(secret => !ledger.Contains(secret)));
+                    await engine.RestoreStateAsync(saved.State, restoreBudget.Token).ConfigureAwait(false);
+                }
+                catch (Exception ex) when ((ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled }) && restoreBudget.IsCancellationRequested && !timeout.IsCancellationRequested)
+                {
+                    throw new EngineException("ENVIRONMENT_UNAVAILABLE", "Restoring the session did not finish within the launch timeout (" + options.LaunchTimeout.TotalMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture) + " ms).", ex);
+                }
             }
 
             var recordings = Recordings.SessionRecordings(engine, string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName, (options.Engine.Capabilities & EngineCapabilities.Video) != 0);
