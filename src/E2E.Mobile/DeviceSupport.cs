@@ -234,7 +234,8 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
                 throw _sent ? MaybeCommitted() : new EngineException(EngineErrorCodes.OperationTimeout, $"{label} timed out before the device answered", retryable: false);
             }
 
-            throw;
+            // A read the caller cancelled is a cancel, as the command itself reports it.
+            throw new EngineException(EngineErrorCodes.Cancelled, $"{label} cancelled", retryable: false, ex);
         }
     }
 

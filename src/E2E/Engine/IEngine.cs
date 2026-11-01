@@ -20,7 +20,7 @@ public enum EngineCapabilities
     /// <summary><see cref="IEngineSession.BackAsync"/>.</summary>
     History = 32,
 
-    /// <summary><see cref="IEngineSession.ScreenshotAsync"/>, which <c>toHaveScreenshot</c> compares.</summary>
+    /// <summary><see cref="IEngineSession.ScreenshotAsync(CancellationToken)"/>, which <c>toHaveScreenshot</c> compares.</summary>
     Screenshot = 64,
 
     /// <summary>The <c>Modifiers</c> of <see cref="LocatorAction.Tap"/> and <see cref="LocatorAction.DoubleTap"/>: keys held for the click.</summary>
@@ -191,6 +191,14 @@ public interface IEngineSession : IAsyncDisposable
 
     Task<Observation> ObserveAsync(CancellationToken cancellationToken);
 
+    /// <summary>
+    /// <see cref="ObserveAsync(CancellationToken)"/> within <paramref name="timeout"/>, the operation budget left for the read: upstream's
+    /// <c>observe(operation)</c>, whose <c>operation.timeoutMs</c> bounds every device command of the observation. An engine that bounds
+    /// its reads overrides it and ends the read at the budget with <c>OPERATION_TIMEOUT</c>; the default drops the budget and observes
+    /// as <see cref="ObserveAsync(CancellationToken)"/> does (.NET-only: it keeps the engines that bound nothing compiling).
+    /// </summary>
+    Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken cancellationToken) => ObserveAsync(cancellationToken);
+
     Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken);
 
     /// <summary>Sends a key to whatever holds focus. The harness has already validated the key.</summary>
@@ -198,7 +206,7 @@ public interface IEngineSession : IAsyncDisposable
 
     /// <summary>
     /// Whether <see cref="LocateAsync"/> is implemented. A session that says false has its locators resolved in core over
-    /// <see cref="ObserveAsync"/>. .NET-only and transitional: upstream's engines all locate, and this goes once the web and document
+    /// <see cref="ObserveAsync(CancellationToken)"/>. .NET-only and transitional: upstream's engines all locate, and this goes once the web and document
     /// engines do.
     /// </summary>
     bool CanLocate => false;
@@ -246,6 +254,13 @@ public interface IEngineSession : IAsyncDisposable
     /// </summary>
     Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) =>
         Task.FromException<EngineScreenshot>(new EngineException("UNSUPPORTED_CAPABILITY", "toHaveScreenshot is not supported by this engine."));
+
+    /// <summary>
+    /// <see cref="ScreenshotAsync(CancellationToken)"/> within <paramref name="timeout"/>, the operation budget left for the capture
+    /// (upstream's <c>operation.timeoutMs</c>). An engine that bounds its reads overrides it and ends the capture at the budget with
+    /// <c>OPERATION_TIMEOUT</c>; the default drops the budget (.NET-only, as <see cref="ObserveAsync(TimeSpan, CancellationToken)"/>).
+    /// </summary>
+    Task<EngineScreenshot> ScreenshotAsync(TimeSpan timeout, CancellationToken cancellationToken) => ScreenshotAsync(cancellationToken);
 
     /// <summary>
     /// Captures a redacted screenshot into the attempt's artifact directory and returns its artifact-relative path, <c>screenshots/NNN-label.png</c>.

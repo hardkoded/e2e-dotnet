@@ -314,10 +314,10 @@ public sealed class DeviceActions : IDeviceActions
         return ScrollScreenAsync(session, direction, session.InputBudget("swipe"), cancellationToken);
     }
 
-    public Task<EngineScreenshot> ScreenshotAsync(DeviceSession session, CancellationToken cancellationToken)
+    public Task<EngineScreenshot> ScreenshotAsync(DeviceSession session, TimeSpan timeout, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
-        return session.MaskedScreenshotAsync(cancellationToken);
+        return session.MaskedScreenshotAsync(session.InputBudget("screenshot", timeout), cancellationToken);
     }
 
     // --- what the contract has no verb for ---

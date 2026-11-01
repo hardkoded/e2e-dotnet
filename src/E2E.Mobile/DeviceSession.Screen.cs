@@ -503,7 +503,7 @@ public sealed partial class DeviceSession
         foreach (var horizontal in new[] { true, false })
         {
             var projected = SnapshotProjection.ProjectSnapshot(raw.Nodes, () => "keyboard", raw.Viewport);
-            var viewport = await ViewportForAsync(projected, cancellationToken).ConfigureAwait(false);
+            var viewport = await ViewportForAsync(projected, input, cancellationToken).ConfigureAwait(false);
             var from = Keyboard.KeyboardDragStart(projected, viewport, KeyboardTop(raw, viewport))
                 ?? throw new EngineException(
                     EngineErrorCodes.UnsupportedCapability,
@@ -564,60 +564,61 @@ public sealed partial class DeviceSession
     /// One screenshot into a temp directory that is removed once <paramref name="read"/> has taken what it needs from
     /// the response or the file, even when the caller abandons the capture.
     /// </summary>
-    private Task<T> CaptureScreenshotAsync<T>(Func<RawScreenshotResult, string, Task<T>> read, bool normalizeStatusBar, CancellationToken cancellationToken) =>
-        CommandAsync(
-            "screenshot",
-            async (client, token) =>
-            {
-                var directory = Directory.CreateTempSubdirectory("e2e-agent-device-");
-                try
-                {
-                    var file = Path.Combine(directory.FullName, "screenshot.png");
-                    var shot = await client.CallAsync(
-                        DeviceMethods.CaptureScreenshot,
-                        DeviceArgs.Of(("path", JsonValue.Create(file)), ("normalizeStatusBar", normalizeStatusBar ? JsonValue.Create(true) : null)),
-                        token).ConfigureAwait(false);
-                    return await read(
-                        new RawScreenshotResult
-                        {
-                            Path = Text(shot?["path"]),
-                            Width = Number(shot?["width"]),
-                            Height = Number(shot?["height"]),
-                            LogicalWidth = Number(shot?["logicalWidth"]),
-                            LogicalHeight = Number(shot?["logicalHeight"]),
-                            PixelDensity = Number(shot?["pixelDensity"]),
-                        },
-                        file).ConfigureAwait(false);
-                }
-                finally
-                {
-                    try
-                    {
-                        directory.Delete(recursive: true);
-                    }
-                    catch (IOException)
-                    {
-                        // The capture is best effort and so is its cleanup.
-                    }
-                }
-            },
+    private Task<T> CaptureScreenshotAsync<T>(Func<RawScreenshotResult, string, Task<T>> read, bool normalizeStatusBar, InputBudget budget, CancellationToken cancellationToken) =>
+        budget.ReadAsync(
+            () => CommandAsync("screenshot", (client, token) => TakeScreenshotAsync(client, read, normalizeStatusBar, token), cancellationToken),
             cancellationToken);
+
+    private static async Task<T> TakeScreenshotAsync<T>(IDeviceClient client, Func<RawScreenshotResult, string, Task<T>> read, bool normalizeStatusBar, CancellationToken token)
+    {
+        var directory = Directory.CreateTempSubdirectory("e2e-agent-device-");
+        try
+        {
+            var file = Path.Combine(directory.FullName, "screenshot.png");
+            var shot = await client.CallAsync(
+                DeviceMethods.CaptureScreenshot,
+                DeviceArgs.Of(("path", JsonValue.Create(file)), ("normalizeStatusBar", normalizeStatusBar ? JsonValue.Create(true) : null)),
+                token).ConfigureAwait(false);
+            return await read(
+                new RawScreenshotResult
+                {
+                    Path = Text(shot?["path"]),
+                    Width = Number(shot?["width"]),
+                    Height = Number(shot?["height"]),
+                    LogicalWidth = Number(shot?["logicalWidth"]),
+                    LogicalHeight = Number(shot?["logicalHeight"]),
+                    PixelDensity = Number(shot?["pixelDensity"]),
+                },
+                file).ConfigureAwait(false);
+        }
+        finally
+        {
+            try
+            {
+                directory.Delete(recursive: true);
+            }
+            catch (IOException)
+            {
+                // The capture is best effort and so is its cleanup.
+            }
+        }
+    }
 
     /// <summary>
     /// The viewport as a screenshot for comparison: the status bar in a fixed state, and every secure node on the screen
     /// painted over. Observes first so the regions describe the screen the pixels show. Throws when a secure field
     /// cannot be covered, because an image that may hold a credential must not leave the engine.
     /// </summary>
-    internal Task<EngineScreenshot> MaskedScreenshotAsync(CancellationToken cancellationToken) => MaskedScreenshotAsync(normalizeStatusBar: true, cancellationToken);
+    internal Task<EngineScreenshot> MaskedScreenshotAsync(InputBudget budget, CancellationToken cancellationToken) => MaskedScreenshotAsync(normalizeStatusBar: true, budget, cancellationToken);
 
     /// <summary>
-    /// <see cref="MaskedScreenshotAsync(CancellationToken)"/> with the status bar left as the device shows it when
+    /// <see cref="MaskedScreenshotAsync(InputBudget, CancellationToken)"/> with the status bar left as the device shows it when
     /// <paramref name="normalizeStatusBar"/> is false, as an evidence screenshot is kept (upstream's <c>maskedScreenshot</c>).
     /// </summary>
-    internal async Task<EngineScreenshot> MaskedScreenshotAsync(bool normalizeStatusBar, CancellationToken cancellationToken)
+    internal async Task<EngineScreenshot> MaskedScreenshotAsync(bool normalizeStatusBar, InputBudget budget, CancellationToken cancellationToken)
     {
-        var projected = Project(await SnapshotOrEmptyAsync(false, budget: null, cancellationToken).ConfigureAwait(false));
-        var data = await CaptureScreenshotAsync(async (shot, file) => await File.ReadAllBytesAsync(shot.Path ?? file, cancellationToken).ConfigureAwait(false), normalizeStatusBar, cancellationToken).ConfigureAwait(false);
+        var projected = Project(await SnapshotOrEmptyAsync(false, budget, cancellationToken).ConfigureAwait(false));
+        var data = await CaptureScreenshotAsync(async (shot, file) => await File.ReadAllBytesAsync(shot.Path ?? file, cancellationToken).ConfigureAwait(false), normalizeStatusBar, budget, cancellationToken).ConfigureAwait(false);
         var viewport = _knownViewport;
         var (masked, regions) = RedactSecure(data, projected, viewport)
             ?? throw new EngineException(EngineErrorCodes.EngineFailure, "a secure field on screen could not be masked; screenshot withheld", retryable: false);

@@ -294,7 +294,8 @@ public sealed class E2ESession : IAsyncDisposable
                 options.AssertionTimeout,
                 softFailures,
                 locate: engine.CanLocate ? engine.LocateAsync : null,
-                swipe: engine.SwipeAsync);
+                swipe: engine.SwipeAsync,
+                observeWithin: scope.ObserveAsync);
             var fixtureContext = new EngineFixtureContext(screen);
             browser.Context = fixtureContext;
             (engine as IEngineFixtureHost)?.CreateFixtures(fixtureContext);
@@ -316,7 +317,7 @@ public sealed class E2ESession : IAsyncDisposable
                 Ci = options.Ci ?? E2EConfig.IsCi(),
                 ScrollsIntoView = (options.Engine.Capabilities & EngineCapabilities.Scroll) != 0,
                 DirectoryOf = options.SnapshotDirectoryOf ?? (static file => file is null ? null : file + "-snapshots"),
-                Capture = token => engine.ScreenshotAsync(token),
+                Capture = (budget, token) => engine.ScreenshotAsync(budget, token),
             };
             var context = new TestContext
             {

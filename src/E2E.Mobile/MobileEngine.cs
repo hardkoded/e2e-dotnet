@@ -19,7 +19,7 @@ public interface IDeviceActions
 
     Task SwipeAsync(DeviceSession session, ScrollDirection direction, CancellationToken cancellationToken);
 
-    Task<EngineScreenshot> ScreenshotAsync(DeviceSession session, CancellationToken cancellationToken);
+    Task<EngineScreenshot> ScreenshotAsync(DeviceSession session, TimeSpan timeout, CancellationToken cancellationToken);
 }
 
 /// <summary>What a worker's start is given: which target and worker slot it serves, and the environment <c>prepare</c> left.</summary>
