@@ -1,0 +1,65 @@
+---
+title: Test filters
+description: Run only the tests a change can affect, with --changed-since style filters in an NUnit run.
+---
+
+A test filter leaves tests out of a run before anything starts. It sees the tests and the files that changed since a base ref, and it names the tests to leave out. This ports upstream's `filters` and `--changed-since` (`run/test-filters.ts`) to `dotnet test` with NUnit.
+
+## Turn it on
+
+Derive the run fixture, as in [setup](/docs/), and override `Filters`:
+
+```csharp
+// Outside any namespace, so it covers the whole assembly.
+[SetUpFixture]
+public sealed class AppCommands : E2ERunFixture
+{
+    protected override IReadOnlyList<ITestFilter> Filters => [new ChangedFilesFilter()];
+}
+```
+
+The filters run once, before the first test, and only when a base ref is set:
+
+- `ChangedSince` on the fixture, or
+- the `E2E_CHANGED_SINCE` environment variable (for example `E2E_CHANGED_SINCE=origin/main dotnet test`).
+
+With no base ref, every test runs. With a base ref and no filter, every test runs and a warning says so.
+
+## What happens
+
+1. The fixture finds the tests of the assembly by reflection: every public method of a non-abstract `E2ETest` that has `[Test]`, `[TestCase]`, `[TestCaseSource]`, or `[Theory]`. `[Explicit]` classes and methods are not judged. A parameterized method is one test.
+2. It asks git for the files changed since the base ref (the merge base, uncommitted and untracked files included).
+3. Each filter gets the tests the earlier filters kept, in order, and returns the ones to leave out with a reason.
+4. A left-out test skips itself at its start with `Assert.Ignore(reason)`.
+
+A filter that throws, answers with something invalid, or runs past 5 minutes leaves nothing out, with a warning. Notes go to the NUnit progress output.
+
+## Writing a filter
+
+```csharp
+public sealed class ChangedFilesFilter : ITestFilter
+{
+    public string Name => "changed-files";
+
+    public Task<TestFilterResult> FilterAsync(IReadOnlyList<TestFilterCandidate> tests, TestFilterContext context) =>
+        Task.FromResult(new TestFilterResult
+        {
+            Exclude = tests
+                .Where(test => !context.Changes.Files.Contains(test.File))
+                .ToDictionary(test => test.Id, test => $"{test.File} did not change"),
+        });
+}
+```
+
+Each `TestFilterCandidate` has `Id`, `File`, `TitlePath`, and `Tags`. `Tags` are the `[Category]` values of the method, its class, its enclosing classes, and the assembly.
+
+## Where a test's file comes from
+
+Reflection does not name a source file. The fixture guesses it from the layout: the file is `<TypeName>.cs` (the outermost class for a nested one) in a folder that follows the namespace. Of the files with that name under the project root (the folder of `e2e.config.json`), the one whose folders match the most trailing namespace parts wins. With none, the namespace folders themselves are the guess.
+
+This is a convention. It is wrong when a class lives in a file with another name, or when several classes share one file. Name files after their class, or check `test.File` in your filter.
+
+## Not included yet
+
+- xUnit and the mobile and Windows adapters.
+- Report records and the left-out section of the reporters. A left-out test shows as ignored in NUnit, not in `report.json`.

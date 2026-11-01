@@ -46,6 +46,7 @@ export default defineConfig({
             },
             sidebar: [
                 { label: "Docs", slug: "docs" },
+                { label: "Test filters", slug: "docs/test-filters" },
                 {
                     label: "Get started",
                     items: [
