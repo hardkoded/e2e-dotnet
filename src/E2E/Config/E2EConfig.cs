@@ -49,7 +49,7 @@ public sealed class E2EConfig
     private static readonly string[] TopLevelKeys =
     [
         "targets", "timeout", "launchTimeout", "actionTimeout", "assertionTimeout", "cleanupTimeout",
-        "retries", "agents", "cache", "secrets", "trace", "video",
+        "retries", "agents", "cache", "secrets", "trace", "video", "testAssembly",
     ];
 
     // Upstream keys the .NET port does not implement. They fail loudly rather than being ignored.
@@ -124,6 +124,12 @@ public sealed class E2EConfig
 
     /// <summary>The <c>default</c> agent. It always exists; its model may be null.</summary>
     public AgentConfig Agent => Agents["default"];
+
+    /// <summary>
+    /// The absolute path of the test assembly <c>e2e mcp</c> runs a test from (<c>open_session {test}</c>), or null. .NET-only: upstream
+    /// collects tests from its <c>tests</c> globs. The config's <c>testAssembly</c> is relative to the config's directory.
+    /// </summary>
+    public string? TestAssembly { get; private init; }
 
     public CacheConfig Cache { get; private init; } = new();
 
@@ -269,6 +275,7 @@ public sealed class E2EConfig
                 CleanupTimeout = Milliseconds(root, "cleanupTimeout", E2EDefaults.CleanupTimeout),
                 Retries = Property(root, "retries") is { } retries ? Integer(retries, "retries", 0, 10) : ci ? 1 : 0,
                 Agents = ReadAgents(Property(root, "agents")),
+                TestAssembly = OptionalString(root, "testAssembly", "testAssembly") is { } testAssembly ? Path.GetFullPath(testAssembly, projectRoot) : null,
                 Cache = ReadCache(Property(root, "cache"), projectRoot, ci, environment),
                 Secrets = ReadSecrets(Property(root, "secrets"), environment),
             };

@@ -324,6 +324,21 @@ public sealed class ConfigTests
         Assert.Equal("INVALID_APP_URL", error.Code);
     }
 
+    [Fact]
+    public void Resolves_testAssembly_from_the_config_directory()
+    {
+        Assert.Equal(Path.GetFullPath("bin/Tests.dll", Root), Parse("""{ "testAssembly": "bin/Tests.dll" }""").TestAssembly);
+        Assert.Null(Parse("{}").TestAssembly);
+    }
+
+    [Fact]
+    public void Rejects_an_empty_testAssembly()
+    {
+        var error = Assert.Throws<ConfigurationException>(() => Parse("""{ "testAssembly": "" }"""));
+
+        Assert.Contains("testAssembly must be a non-empty string", error.Message, StringComparison.Ordinal);
+    }
+
     private static E2EConfig Parse(string json, Func<string, string?>? environment = null)
     {
         return E2EConfig.Parse(json, Root, environment ?? Env());
