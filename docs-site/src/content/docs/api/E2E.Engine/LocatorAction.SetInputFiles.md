@@ -1,6 +1,6 @@
 ---
 title: "LocatorAction.SetInputFiles"
-description: "Sets the files of a file input, or of a control that opens a file chooser when clicked, such as a button over a hidden input. <code class=\"paramref\">Paths</c..."
+description: "Sets the files of a file input, or of a control that opens a file chooser when clicked, such as a button over a hidden input. Paths are absolute: the locator..."
 editUrl: false
 prev: false
 next: false

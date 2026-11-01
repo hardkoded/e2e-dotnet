@@ -1,6 +1,6 @@
 ---
 title: "LocatorAction.LongPress"
-description: "A press held on the node for <code class=\"paramref\">Duration</code>, or for the engine's own default hold when it is null."
+description: "A press held on the node for Duration, or for the engine's own default hold when it is null."
 editUrl: false
 prev: false
 next: false

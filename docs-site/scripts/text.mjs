@@ -15,6 +15,7 @@ export function plainText(markdown) {
     return markdown
         .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
         .replace(/<a\s+id="[^"]+"><\/a>/g, "")
+        .replace(/&lt;(code|a)\b[^&]*?&gt;([\s\S]*?)&lt;\/\1&gt;/g, "$2")
         .replace(/[`*]/g, "")
         .replace(/\s+/g, " ")
         .trim();

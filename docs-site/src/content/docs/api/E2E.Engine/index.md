@@ -42,20 +42,20 @@ Public types in the `E2E.Engine` namespace.
 | [LocatorAction](/api/E2E.Engine/LocatorAction/) | A deterministic action PerformAsync carries out on one node. |
 | [LocatorAction.Check](/api/E2E.Engine/LocatorAction.Check/) |  |
 | [LocatorAction.Clear](/api/E2E.Engine/LocatorAction.Clear/) |  |
-| [LocatorAction.DoubleTap](/api/E2E.Engine/LocatorAction.DoubleTap/) | A double tap. &lt;code class="paramref"&gt;Modifiers&lt;/code&gt; are held for both clicks, as for LocatorAction.Tap. |
-| [LocatorAction.DragTo](/api/E2E.Engine/LocatorAction.DragTo/) | Drags the node onto &lt;code class="paramref"&gt;Target&lt;/code&gt;, a node of the same observation. |
+| [LocatorAction.DoubleTap](/api/E2E.Engine/LocatorAction.DoubleTap/) | A double tap. Modifiers are held for both clicks, as for LocatorAction.Tap. |
+| [LocatorAction.DragTo](/api/E2E.Engine/LocatorAction.DragTo/) | Drags the node onto Target, a node of the same observation. |
 | [LocatorAction.Fill](/api/E2E.Engine/LocatorAction.Fill/) |  |
 | [LocatorAction.Focus](/api/E2E.Engine/LocatorAction.Focus/) |  |
 | [LocatorAction.Hover](/api/E2E.Engine/LocatorAction.Hover/) | Moves the pointer over the node. |
-| [LocatorAction.LongPress](/api/E2E.Engine/LocatorAction.LongPress/) | A press held on the node for &lt;code class="paramref"&gt;Duration&lt;/code&gt;, or for the engine's own default hold when it is null. |
+| [LocatorAction.LongPress](/api/E2E.Engine/LocatorAction.LongPress/) | A press held on the node for Duration, or for the engine's own default hold when it is null. |
 | [LocatorAction.Press](/api/E2E.Engine/LocatorAction.Press/) |  |
-| [LocatorAction.PressSequentially](/api/E2E.Engine/LocatorAction.PressSequentially/) | Focuses the node and types &lt;code class="paramref"&gt;Text&lt;/code&gt; one character at a time. |
+| [LocatorAction.PressSequentially](/api/E2E.Engine/LocatorAction.PressSequentially/) | Focuses the node and types Text one character at a time. |
 | [LocatorAction.ScrollIntoView](/api/E2E.Engine/LocatorAction.ScrollIntoView/) | Scrolls the node's nearest scrollable container until the node is in the viewport. |
-| [LocatorAction.SecondaryTap](/api/E2E.Engine/LocatorAction.SecondaryTap/) | A right click, or the platform's equivalent. &lt;code class="paramref"&gt;Modifiers&lt;/code&gt; are held for the click, as for LocatorAction.Tap. |
+| [LocatorAction.SecondaryTap](/api/E2E.Engine/LocatorAction.SecondaryTap/) | A right click, or the platform's equivalent. Modifiers are held for the click, as for LocatorAction.Tap. |
 | [LocatorAction.Select](/api/E2E.Engine/LocatorAction.Select/) |  |
-| [LocatorAction.SetInputFiles](/api/E2E.Engine/LocatorAction.SetInputFiles/) | Sets the files of a file input, or of a control that opens a file chooser when clicked, such as a button over a hidden input. &lt;code class="paramref"&gt;Paths&lt;/code&gt; are absolute: the locator resolves them from the project root. |
+| [LocatorAction.SetInputFiles](/api/E2E.Engine/LocatorAction.SetInputFiles/) | Sets the files of a file input, or of a control that opens a file chooser when clicked, such as a button over a hidden input. Paths are absolute: the locator resolves them from the project root. |
 | [LocatorAction.Swipe](/api/E2E.Engine/LocatorAction.Swipe/) | Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is SwipeAsync. |
-| [LocatorAction.Tap](/api/E2E.Engine/LocatorAction.Tap/) | A tap. &lt;code class="paramref"&gt;Modifiers&lt;/code&gt; are held for the click, and only an engine that declares TapModifiers receives them. |
+| [LocatorAction.Tap](/api/E2E.Engine/LocatorAction.Tap/) | A tap. Modifiers are held for the click, and only an engine that declares TapModifiers receives them. |
 | [LocatorAction.Uncheck](/api/E2E.Engine/LocatorAction.Uncheck/) |  |
 | [NodeStates](/api/E2E.Engine/NodeStates/) | Boolean states a platform can report for one node. |
 | [Observation](/api/E2E.Engine/Observation/) | A redacted semantic snapshot of the current screen. |
@@ -79,7 +79,7 @@ Public types in the `E2E.Engine` namespace.
 | [WebEngine](/api/E2E.Engine/WebEngine/) | Browser engine for the web target. It drives Chromium, Firefox, or WebKit through Playwright, reads a semantic tree (role, name, text, test id, state), and performs the same node actions the document engine does. Install browsers once with playwright.ps1 install chromium (or firefox, webkit) from this project's build output. |
 | [WebEngineOptions](/api/E2E.Engine/WebEngineOptions/) | Options of the browser engine: how it drives the app. |
 | [WebInitScript](/api/E2E.Engine/WebInitScript/) | A script every document runs before the page's own, in every tab and frame: JavaScript source, a file of it, or a function source the page calls. A string converts to source. |
-| [WebMedia](/api/E2E.Engine/WebMedia/) | User preferences a page reads through @media rules and matchMedia, as Playwright's emulateMedia sets them. A feature left &lt;a href="https://learn.microsoft.com/dotnet/csharp/language-reference/keywords/null"&gt;null&lt;/a&gt; keeps the browser's own value, or the one an earlier call set. |
+| [WebMedia](/api/E2E.Engine/WebMedia/) | User preferences a page reads through @media rules and matchMedia, as Playwright's emulateMedia sets them. A feature left null keeps the browser's own value, or the one an earlier call set. |
 | [WebRouteRequest](/api/E2E.Engine/WebRouteRequest/) | The request a route intercepted. |
 | [WebScreencastOptions](/api/E2E.Engine/WebScreencastOptions/) | How the engine's own screencast of the page records an attempt that records video: the frame size and the JPEG quality of the frames it encodes. Which attempts record is the config's video, not an engine option. Upstream's WebScreencastOptions. |
 | [WebViewport](/api/E2E.Engine/WebViewport/) | A page size in CSS pixels. |

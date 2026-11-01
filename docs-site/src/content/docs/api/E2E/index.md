@@ -57,7 +57,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [E2ESessionOptions](/api/E2E/E2ESessionOptions/) | How to open one E2ESession. Retries set Attempt above 1 so the cache records but does not replay, except under CacheStrict, where every attempt replays. |
 | [EngineErrorCodes](/api/E2E/EngineErrorCodes/) | Stable engine error codes, as in the upstream engine contract. |
 | [EngineException](/api/E2E/EngineException/) | The engine refused an operation or could not drive the app. |
-| [EngineState](/api/E2E/EngineState/) | One captured engine state (upstream's EngineState, engine/surface.ts): an opaque, versioned payload an engine can save from a session and restore into another. &lt;code class="paramref"&gt;ExpiresAt&lt;/code&gt; is an RFC 3339 timestamp after which the state must not be restored. |
+| [EngineState](/api/E2E/EngineState/) | One captured engine state (upstream's EngineState, engine/surface.ts): an opaque, versioned payload an engine can save from a session and restore into another. ExpiresAt is an RFC 3339 timestamp after which the state must not be restored. |
 | [ErrorDetails](/api/E2E/ErrorDetails/) | Structured facts of one failure, beside its prose message (upstream's ErrorDetails, internal/errors.ts). An assertion carries what it expected and observed and how many nodes matched. A locator failure carries the locator as written, what it asked for, and how long it waited. A report bounds the text fields. |
 | [ExecutorAttempt](/api/E2E/ExecutorAttempt/) | The attempt a step belongs to: identity and lifecycle. It lets an executor keep state across the ActAsync calls of one test, a running conversation or a plan or notes, without mixing it with the next test's or a retry's. |
 | [ExecutorModelCall](/api/E2E/ExecutorModelCall/) | Usage detail of one model call an executor made. Every field is optional. |
@@ -79,7 +79,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ExploreProgress](/api/E2E/ExploreProgress/) | The exploration's progress, one moment at a time: the step in progress, each finding the moment it is reported, and the end. ReportExplore is the record; these are its moments. Upstream carries them as explore run events, which its list reporter renders; the port has no run events, so OnProgress receives them. |
 | [ExploreProgress.FindingReported](/api/E2E/ExploreProgress.FindingReported/) | One finding, as recorded; its evidence screenshot, when kept, is the one ArtifactId names. Upstream's finding phase. |
 | [ExploreProgress.Finished](/api/E2E/ExploreProgress.Finished/) |  |
-| [ExploreProgress.Planning](/api/E2E/ExploreProgress.Planning/) | The planner is deciding the next charter, or (&lt;code class="paramref"&gt;Closing&lt;/code&gt;) the assessment that ends the run. |
+| [ExploreProgress.Planning](/api/E2E/ExploreProgress.Planning/) | The planner is deciding the next charter, or (Closing) the assessment that ends the run. |
 | [ExploreProgress.Started](/api/E2E/ExploreProgress.Started/) | The exploration begins: its test has started and the app is about to open. |
 | [ExploreProgress.StepFinished](/api/E2E/ExploreProgress.StepFinished/) |  |
 | [ExploreProgress.StepStarted](/api/E2E/ExploreProgress.StepStarted/) |  |
