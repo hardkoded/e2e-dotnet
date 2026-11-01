@@ -21,6 +21,7 @@
     <InternalsVisibleTo Include="E2E.Tests" />
     <InternalsVisibleTo Include="E2E.Cli" />
     <InternalsVisibleTo Include="E2E.NUnit" />
+    <InternalsVisibleTo Include="E2E.NUnit.Tests" />
     <InternalsVisibleTo Include="E2E.XUnit.V3" />
     <InternalsVisibleTo Include="E2E.Cli.Tests" />
     <InternalsVisibleTo Include="E2E.Mobile" />

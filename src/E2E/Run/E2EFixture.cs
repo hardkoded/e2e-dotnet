@@ -21,6 +21,7 @@ public abstract class E2EFixture
     private static readonly Lazy<E2EConfig> DiscoveredConfig = new(() => E2EConfig.Discover(), LazyThreadSafetyMode.ExecutionAndPublication);
 
     private E2ESession? _session;
+    private IEngine? _engine;
 
     protected App App => Session.App;
 
@@ -207,6 +208,7 @@ public abstract class E2EFixture
         // The replay cache keys on the declared app: its identity keeps a free port at :0, so entries survive the port changing every run.
         // A fixture that points BaseUrl somewhere else is keyed by that URL, in the declared app's identity and environment.
         var engine = CreateEngine();
+        _engine = engine;
         var declaredApp = string.Equals(configuredUrl, declared.App.Url, StringComparison.Ordinal)
             ? declared.App
             : new AppConfig { Url = configuredUrl, BundleId = declared.App.BundleId, AppPath = declared.App.AppPath, Identity = declared.App.Identity, Environment = declared.App.Environment };
@@ -276,6 +278,9 @@ public abstract class E2EFixture
     /// never started a session.
     /// </summary>
     protected Task SettleAttemptAsync(CancellationToken cancellationToken = default) => _session?.SettleAttemptAsync(cancellationToken) ?? Task.CompletedTask;
+
+    /// <summary>The engine of the running session, for an adapter that offers the session to <see cref="SessionHandover"/>.</summary>
+    internal IEngine? EngineInUse => _engine;
 
     /// <summary>Hands the running session to the adapter to complete and dispose, or null when setup never started one.</summary>
     protected E2ESession? TakeSession()

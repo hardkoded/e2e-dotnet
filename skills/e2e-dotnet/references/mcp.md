@@ -79,7 +79,7 @@ tool with the same name, use the `e2e` server's.
 
 | Tool | Does |
 | --- | --- |
-| `open_session` | Loads the config (`config` names another file; default the nearest `e2e.config.json`), boots the browser or device, opens the app (its URL, or launches a device's pinned app; it installs no build, so a local device needs `app.bundleId`), and returns the session id, the catalog, and the first observation. Its summary names the app URL, a port assigned for `:0`, and the app command's readiness URL and `env` names; e2e starts nothing else, so a database the app uses runs outside it. The config reads the MCP server's environment, not your shell's. `target` must name the config's target when given. `headed: true` shows the browser when the user wants to watch. |
+| `open_session` | Loads the config (`config` names another file; default the nearest `e2e.config.json`), boots the browser or device, opens the app (its URL, or launches a device's pinned app; it installs no build, so a local device needs `app.bundleId`), and returns the session id, the catalog, and the first observation. Its summary names the app URL, a port assigned for `:0`, and the app command's readiness URL and `env` names; e2e starts nothing else, so a database the app uses runs outside it. The config reads the MCP server's environment, not your shell's. `target` must name the config's target when given. `headed: true` shows the browser when the user wants to watch. `test` (`Namespace.Class.Method`) runs that one NUnit test of the config's `testAssembly` first, as `dotnet test` would (set-up, body, tear-down of the test's own hooks, replay cache as configured), and hands the session over on the screen where it passed or failed: the opening text leads with the outcome, the error code and message. To fix a failing test, open it this way, look at the screen, and put the lines you ran in the test; close the session, rebuild the test project (restart the server for the new build), and open it again. Build the test project first. The test's own steps print no test line. |
 | `tools` | The catalog: one line per tool with its argument names (`?` marks optional), the first sentence of its description, and `[read-only]` where it changes nothing. `tools {tool}` shows the full description and the JSON Schema of its arguments. |
 | `call` | Runs one catalog tool: `call {tool: "tap", args: {target: "e12"}}`, where `e12` is the `ref=` of a node in the newest observation. Arguments are checked against the tool's schema first; a wrong one fails with `INVALID_ARGUMENT` naming the field. |
 | `close_session` | Ends the session, disposes the browser or device engine, and releases a hosted device the session leased, each within the config's `cleanupTimeout`. A cleanup that fails or times out is a `Cleanup:` line in the result, with the error's code when it has one (`CLEANUP_TIMEOUT` for a release that outlived the budget). With no session open and no `session` argument, it says `No session is open.` |
@@ -264,8 +264,9 @@ The loop is:
 - A session ends when you close it, after 30 minutes without a call, or after
   4 hours. A secret value never leaves the server: every output shows it as
   `<secret:name>`.
-- Nothing a session does is recorded as a test or into the replay cache, and
-  it writes no trace page, and `e2e mcp` takes no `--trace`, `--video`, `--debug`,
+- Nothing a session does is recorded as a test result, and only a test it runs
+  with `open_session {test}` reads or writes the replay cache. A session
+  writes no trace page, and `e2e mcp` takes no `--trace`, `--video`, `--debug`,
   or `--ai-trace`, as upstream. A session is for looking and trying; the test is
   the file you write as you walk.
 - On the web, a session can stay open while `dotnet test` runs, as long as

@@ -22,6 +22,9 @@ internal sealed class OpenSessionOptions
 
     /// <summary>Whether this session shows its UI; otherwise the server's <c>--headed</c>.</summary>
     public bool? Headed { get; init; }
+
+    /// <summary>The full name of one test of the config's <c>testAssembly</c> to run before the session is handed over, e.g. <c>Shop.CheckoutTests.MemberChecksOut</c>.</summary>
+    public string? Test { get; init; }
 }
 
 /// <summary>How a <see cref="SessionHost"/> finds the config, boots the engine, and reports.</summary>
@@ -65,8 +68,8 @@ internal sealed class SessionHostOptions
 /// <c>close_session</c> ends the attempt and disposes the engine. Several sessions may be open at once, up to the
 /// server's limit, so parallel agents each drive their own browser. A call names its session by id, and may leave
 /// it out only while one is open. The catalog is data, not registrations, so it follows the config and the
-/// target without a restart and the client's tool list never changes. A session never reads or writes the replay
-/// cache: nobody asked it to record a test.
+/// target without a restart and the client's tool list never changes. Only a test a session runs first
+/// (<c>open_session {test}</c>) reads or writes the replay cache: nobody else asked it to record a test.
 /// </summary>
 internal sealed class SessionHost : IDisposable
 {
@@ -89,7 +92,8 @@ internal sealed class SessionHost : IDisposable
           "properties": {
             "target": { "type": "string", "minLength": 1, "description": "Target name from the config; required when the config declares several" },
             "config": { "type": "string", "minLength": 1, "description": "Path to an e2e config file, absolute or relative to the server's working directory; default: the nearest e2e.config.json" },
-            "headed": { "type": "boolean", "description": "Show the browser or simulator, when the engine supports it; pass true when the user wants to watch. Default: headless, unless the server was started with --headed" }
+            "headed": { "type": "boolean", "description": "Show the browser or simulator, when the engine supports it; pass true when the user wants to watch. Default: headless, unless the server was started with --headed" },
+            "test": { "type": "string", "minLength": 1, "description": "The full name of one test (Namespace.Class.Method) of the config's testAssembly to run first; the session stops on the screen where it passed or failed" }
           },
           "additionalProperties": false
         }
@@ -284,6 +288,11 @@ internal sealed class SessionHost : IDisposable
     private async Task<string> OpenSessionAsync(string id, OpenSessionOptions options, bool headed, CancellationToken request)
     {
         // The config is claimed before it is read: a session on another config is refused while one is open.
+        if (options.Test is not null && (options.Target is not null || options.Headed is not null))
+        {
+            throw new ConfigurationException("INVALID_ARGUMENT", "target and headed do not apply with test: the test's own fixture picks its target and whether it shows its UI");
+        }
+
         var configPath = _options.LocateConfig(options.Config);
         _sessions.ClaimConfig(id, configPath);
         var config = await _options.LoadConfig(configPath).ConfigureAwait(false);
@@ -299,37 +308,60 @@ internal sealed class SessionHost : IDisposable
         try
         {
             abort.Token.ThrowIfCancellationRequested();
-            var engine = _options.CreateEngine(target, headed);
-            if (engine.Capabilities.HasFlag(EngineCapabilities.PinnedApp))
+            IEngine engine;
+            SessionTestOutcome? ran = null;
+            var declared = target;
+            if (options.Test is { } testName)
             {
-                _sessions.ClaimEngine(id, target.Name);
+                // The test runs in this process, on the engine and session its own fixture builds; its session is handed over instead of disposed.
+                var assembly = config.TestAssembly
+                    ?? throw new ConfigurationException("INVALID_CONFIG", "open_session {test} needs \"testAssembly\" (the built test assembly) in " + configPath);
+                var (tests, runner) = SessionTests.Load(assembly);
+                ran = await runner.RunAsync(tests, testName, abort.Token).ConfigureAwait(false)
+                    ?? throw new ConfigurationException("NO_TESTS", "no test named \"" + testName + "\" in " + assembly + " ran with an E2E session (a test whose set-up failed before the session started has none); use the full name, Namespace.Class.Method");
+                engine = ran.Engine;
+                apps = HeldApps.Instance;
+                var ranSession = ran.Session;
+                attempt = new StandaloneAttempt(ranSession, async () => await CloseRanAsync(ranSession).ConfigureAwait(false));
+                if (engine.Capabilities.HasFlag(EngineCapabilities.PinnedApp))
+                {
+                    _sessions.ClaimEngine(id, target.Name);
+                }
+            }
+            else
+            {
+                engine = _options.CreateEngine(target, headed);
+                if (engine.Capabilities.HasFlag(EngineCapabilities.PinnedApp))
+                {
+                    _sessions.ClaimEngine(id, target.Name);
+                }
+
+                // The target's app command starts before the session opens, and the URL is on the port it was started on.
+                (target, apps) = await RunApps.AcquireAsync(config, target, null, abort.Token).ConfigureAwait(false);
+                attempt = await Standalone.OpenAttemptAsync(
+                    new E2ESessionOptions
+                    {
+                        Engine = engine,
+                        BaseUrl = target.App.Url,
+                        Permissions = target.App.Permissions,
+                        ProjectRoot = config.ProjectRoot,
+                        TargetName = target.Name,
+                        Cache = null,
+                        CacheEnabled = false,
+                        CacheMode = CacheMode.Off,
+                        TestTitle = "e2e mcp session " + id,
+                        TestTimeout = _options.Ttl + CloseGrace,
+                        LaunchTimeout = config.LaunchTimeout,
+                        CleanupTimeout = config.CleanupTimeout,
+                        ActionTimeout = config.ActionTimeout,
+                        AssertionTimeout = config.AssertionTimeout,
+
+                        // An MCP session writes no trace page: the agent that drives it reads each answer as it comes.
+                        Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
+                    },
+                    abort.Token).ConfigureAwait(false);
             }
 
-            // The target's app command starts before the session opens, and the URL is on the port it was started on.
-            var declared = target;
-            (target, apps) = await RunApps.AcquireAsync(config, target, null, abort.Token).ConfigureAwait(false);
-            attempt = await Standalone.OpenAttemptAsync(
-                new E2ESessionOptions
-                {
-                    Engine = engine,
-                    BaseUrl = target.App.Url,
-                    Permissions = target.App.Permissions,
-                    ProjectRoot = config.ProjectRoot,
-                    TargetName = target.Name,
-                    Cache = null,
-                    CacheEnabled = false,
-                    CacheMode = CacheMode.Off,
-                    TestTitle = "e2e mcp session " + id,
-                    TestTimeout = _options.Ttl + CloseGrace,
-                    LaunchTimeout = config.LaunchTimeout,
-                    CleanupTimeout = config.CleanupTimeout,
-                    ActionTimeout = config.ActionTimeout,
-                    AssertionTimeout = config.AssertionTimeout,
-
-                    // An MCP session writes no trace page: the agent that drives it reads each answer as it comes.
-                    Trace = new ResolvedRecording(RecordingMode.Off, RecordingSource.Default),
-                },
-                abort.Token).ConfigureAwait(false);
             var session = attempt.Session;
 
             // Every configured secret is a step secret: type_secret can fill it, and every output shows its name.
@@ -338,12 +370,12 @@ internal sealed class SessionHost : IDisposable
             // A device has no URL for the first screen to navigate to, so its pinned app launches here, as a test's app.open() launches it,
             // or the first observation finds no app open. The launch is bounded by the session's time limit (App links it) and by abort,
             // as upstream bounds it by the attempt's timeout and signal.
-            if (TargetEngines.LaunchesPinnedApp(target, engine))
+            if (ran is null && TargetEngines.LaunchesPinnedApp(target, engine))
             {
                 await session.App.OpenAsync(null, abort.Token).ConfigureAwait(false);
             }
 
-            var live = new LiveSession(id, target.Name, configPath, headed, engine, attempt, abort, apps);
+            var live = new LiveSession(id, target.Name, configPath, headed, engine, attempt, abort, apps) { TestFailure = ran?.Failure };
             live.Catalog = SessionCatalog.Create(
                 live,
                 engine.Capabilities,
@@ -354,7 +386,11 @@ internal sealed class SessionHost : IDisposable
 
             // The app as the session resolved it: the declared URL on the port its command was started on.
             var app = TargetApps.ResolveTargetApp(target.Name, declared.App, config.ProjectRoot, Uri.TryCreate(target.App.Url, UriKind.Absolute, out var served) ? served.Port : null);
-            var text = OpeningText(live, target, app, config, await FirstScreenAsync(live, target, abort.Token).ConfigureAwait(false));
+            var text = OpeningText(live, target, app, config, await FirstScreenAsync(live, target, ran is not null, abort.Token).ConfigureAwait(false));
+            if (ran is not null)
+            {
+                text = DescribeTestOutcome(ran) + "\n" + text;
+            }
 
             // A first screen that came back despite the cancel must not become a live session nobody asked for.
             abort.Token.ThrowIfCancellationRequested();
@@ -386,6 +422,28 @@ internal sealed class SessionHost : IDisposable
         }
     }
 
+    /// <summary>The line that leads the opening text of a session that ran a test: the outcome, with the error code and message of a failure.</summary>
+    private static string DescribeTestOutcome(SessionTestOutcome ran) =>
+        ran.Failure is null
+            ? "Test \"" + ran.TestName + "\" ended without failing. The session is on the screen where it ended."
+            : "Test \"" + ran.TestName + "\" failed. The session is on the screen where it stopped.\n" + Tools.CodedMessage(ran.Failure);
+
+    /// <summary>Disposes the session a test left open; the failures come back as a list, as a standalone attempt's close does.</summary>
+    private static async Task<IReadOnlyList<Exception>> CloseRanAsync(E2ESession session)
+    {
+        try
+        {
+            await session.DisposeAsync().ConfigureAwait(false);
+            return [];
+        }
+#pragma warning disable CA1031 // The close reports it.
+        catch (Exception cause)
+#pragma warning restore CA1031
+        {
+            return [cause];
+        }
+    }
+
     private async Task<string> TeardownAsync(LiveSession live, string reason)
     {
         // Cancels the call in flight, if any, so it does not hold the engine the dispose is about to close.
@@ -394,7 +452,7 @@ internal sealed class SessionHost : IDisposable
         var lines = new List<string> { "Session " + live.Id + " closed (" + reason + "); " + live.Calls.ToString(CultureInfo.InvariantCulture) + " tool calls ran." };
         try
         {
-            live.Session.Complete();
+            live.Session.Complete(live.TestFailure);
             await live.Attempt.DisposeAsync().ConfigureAwait(false);
         }
 #pragma warning disable CA1031 // A failed cleanup is reported to the agent, never thrown past the close.
@@ -459,11 +517,13 @@ internal sealed class SessionHost : IDisposable
     /// Opens the app URL when the target declares one, then observes; a device's pinned app was launched before. Either opening
     /// is the test's <c>App.OpenAsync()</c>, the session's first test line.
     /// </summary>
-    private static async Task<string> FirstScreenAsync(LiveSession live, TargetConfig target, CancellationToken token)
+    private static async Task<string> FirstScreenAsync(LiveSession live, TargetConfig target, bool testRan, CancellationToken token)
     {
         var agent = live.Session.Agent;
         var opening = "";
-        if (!string.IsNullOrEmpty(target.App.Url))
+
+        // A test that ran opened the app itself, and the session's test lines continue it.
+        if (!testRan && !string.IsNullOrEmpty(target.App.Url))
         {
             try
             {
@@ -483,7 +543,7 @@ internal sealed class SessionHost : IDisposable
             }
         }
 
-        else if (TargetEngines.LaunchesPinnedApp(target, live.Engine))
+        else if (!testRan && TargetEngines.LaunchesPinnedApp(target, live.Engine))
         {
             live.Catalog.Lines.Opened();
         }
@@ -573,6 +633,7 @@ internal sealed class SessionHost : IDisposable
                     Target = String(args, "target"),
                     Config = String(args, "config"),
                     Headed = args.TryGetProperty("headed", out var headed) ? headed.GetBoolean() : null,
+                    Test = String(args, "test"),
                 },
                 token).ConfigureAwait(false)),
         };
@@ -614,6 +675,16 @@ internal sealed class SessionHost : IDisposable
         };
     }
 
+    /// <summary>The app command of a session that ran a test is held by the test's fixture for the whole process, so closing the session stops nothing.</summary>
+    private sealed class HeldApps : IAppProcesses
+    {
+        public static readonly HeldApps Instance = new();
+
+        public bool Running => true;
+
+        public Task StopAsync(Action<Exception> onFailure) => Task.CompletedTask;
+    }
+
     /// <summary>One open session: its attempt, its catalog, and the timers that end it.</summary>
     private sealed class LiveSession(string id, string targetName, string configPath, bool headed, IEngine engine, StandaloneAttempt attempt, CancellationTokenSource abort, IAppProcesses apps)
         : INamedSession, ISessionContext
@@ -641,6 +712,9 @@ internal sealed class SessionHost : IDisposable
         public SemaphoreSlim Gate { get; } = new(1, 1);
 
         public SessionCatalog Catalog { get; set; } = null!;
+
+        /// <summary>The failure of the test the session ran first, null when it passed or none ran; the cache settles with it at close.</summary>
+        public Exception? TestFailure { get; init; }
 
         public int Calls { get; set; }
 
