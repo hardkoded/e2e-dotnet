@@ -199,6 +199,14 @@ public interface IEngineSession : IAsyncDisposable
     /// </summary>
     Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken cancellationToken) => ObserveAsync(cancellationToken);
 
+    /// <summary>
+    /// <see cref="ObserveAsync(TimeSpan, CancellationToken)"/> with <paramref name="options"/>: upstream's
+    /// <c>observe(operation, { pixels, comparable })</c>. With <see cref="ObserveOptions.Pixels"/> the observation carries the screen's
+    /// <see cref="Observation.Pixels"/>, taken under the same budget as the tree. An engine that takes none returns the tree alone, and the
+    /// default does (.NET-only: it keeps the engines that capture no pixels compiling).
+    /// </summary>
+    Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, CancellationToken cancellationToken) => ObserveAsync(timeout, cancellationToken);
+
     Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken);
 
     /// <summary>Sends a key to whatever holds focus. The harness has already validated the key.</summary>
@@ -269,6 +277,13 @@ public interface IEngineSession : IAsyncDisposable
     /// </summary>
     Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken) =>
         Task.FromException<string>(new EngineException("UNSUPPORTED_CAPABILITY", "screenshots is not supported by this engine."));
+
+    /// <summary>
+    /// <see cref="ScreenshotArtifactAsync(string?, CancellationToken)"/> within <paramref name="timeout"/>, the operation budget its snapshot
+    /// and capture share (upstream's <c>artifacts.screenshot(label, operation)</c>). The default drops the budget (.NET-only, as
+    /// <see cref="ObserveAsync(TimeSpan, CancellationToken)"/>).
+    /// </summary>
+    Task<string> ScreenshotArtifactAsync(string? label, TimeSpan timeout, CancellationToken cancellationToken) => ScreenshotArtifactAsync(label, cancellationToken);
 
     /// <summary>
     /// Starts recording the surface, once its page can be recorded. Engines that declare

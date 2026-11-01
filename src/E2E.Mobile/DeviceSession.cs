@@ -302,7 +302,13 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// Observes the screen within <paramref name="timeout"/>, the operation budget that bounds every device command of the observation:
     /// the snapshot and the viewport probe share it (upstream's <c>observe</c> under <c>inputBudget('observe', operation.timeoutMs)</c>).
     /// </summary>
-    public async Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    public Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken cancellationToken) => ObserveAsync(null, timeout, cancellationToken);
+
+    /// <summary>
+    /// <see cref="ObserveAsync(TimeSpan, CancellationToken)"/> with <paramref name="options"/>: with <see cref="ObserveOptions.Pixels"/> the
+    /// screenshot is taken under the same budget as the snapshot and the viewport probe (upstream's <c>observe(operation, options)</c>).
+    /// </summary>
+    public async Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, CancellationToken cancellationToken)
     {
         var budget = InputBudget("observe", timeout);
         var raw = await SnapshotOrEmptyAsync(Options.Snapshot == SnapshotMode.Interactive, budget, cancellationToken).ConfigureAwait(false);
@@ -310,9 +316,11 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         _generation = projected.Index.ToDictionary(entry => entry.Id, entry => Bind(entry, projected.Index, projected.RefsGeneration));
         var viewport = await ViewportForAsync(projected, budget, cancellationToken).ConfigureAwait(false);
         Route = DeviceSupport.ScreenLocation(raw.AppBundleId ?? raw.AppName ?? _appIdentity, SnapshotProjection.ScreenTitle(projected)) ?? "";
+        var pixels = options?.Pixels == true ? await CapturePixelsAsync(projected, viewport, options.Comparable, budget, cancellationToken).ConfigureAwait(false) : null;
         return new Observation
         {
             Route = Route,
+            Pixels = pixels,
             Roots = [SnapshotProjection.ScreenRoot(projected.Roots, viewport)],
             Viewport = new TraceViewport((int)Math.Round(viewport.Width), (int)Math.Round(viewport.Height)),
             Truncated = raw.Truncated || raw.Sparse,
@@ -340,10 +348,13 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// secure node's bounds are painted over before the file is kept. An image that cannot be redacted is not written at all (upstream's
     /// <c>screenshot</c> in <c>mobile/src/surface.ts</c>).
     /// </summary>
-    public async Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken)
+    public Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken) => ScreenshotArtifactAsync(label, ActionTimeout, cancellationToken);
+
+    /// <summary><see cref="ScreenshotArtifactAsync(string?, CancellationToken)"/> within <paramref name="timeout"/>, the operation budget its snapshot and capture share.</summary>
+    public async Task<string> ScreenshotArtifactAsync(string? label, TimeSpan timeout, CancellationToken cancellationToken)
     {
         var artifactsDir = _artifactsDir ?? throw DeviceSupport.InvalidState("screenshot outside an attempt");
-        var masked = await MaskedScreenshotAsync(normalizeStatusBar: false, InputBudget("screenshot"), cancellationToken).ConfigureAwait(false);
+        var masked = await MaskedScreenshotAsync(normalizeStatusBar: false, InputBudget("screenshot", timeout), cancellationToken).ConfigureAwait(false);
         var name = Interlocked.Increment(ref _screenshots).ToString("D3", System.Globalization.CultureInfo.InvariantCulture)
             + "-" + DeviceSupport.SanitizeFilename(label ?? "screenshot") + ".png";
         var directory = Path.Combine(artifactsDir, "screenshots");
