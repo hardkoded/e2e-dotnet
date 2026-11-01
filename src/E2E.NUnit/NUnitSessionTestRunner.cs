@@ -22,9 +22,23 @@ internal sealed class NUnitSessionTestRunner : ISessionTestRunner
 
         // NUnitLite's console is stdout, which carries the MCP protocol: its report goes nowhere.
         using var output = new StringWriter();
-        await Task.Run(
-            () => new AutoRun(tests).Execute(["--test=" + name, "--noresult", "--noheader", "--labels=Off", "--trace=Off"], new ExtendedTextWrapper(output), TextReader.Null),
-            cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await Task.Run(
+                () => new AutoRun(tests).Execute(["--test=" + name, "--noresult", "--noheader", "--labels=Off", "--trace=Off"], new ExtendedTextWrapper(output), TextReader.Null),
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // A cancel after the fixture handed its session over leaves nobody to dispose it.
+            if (request.Outcome is { } handed)
+            {
+                await handed.Session.DisposeAsync().ConfigureAwait(false);
+            }
+
+            throw;
+        }
+
         return request.Outcome;
     }
 }

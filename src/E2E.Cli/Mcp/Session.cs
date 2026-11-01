@@ -288,6 +288,11 @@ internal sealed class SessionHost : IDisposable
     private async Task<string> OpenSessionAsync(string id, OpenSessionOptions options, bool headed, CancellationToken request)
     {
         // The config is claimed before it is read: a session on another config is refused while one is open.
+        if (options.Test is not null && (options.Target is not null || options.Headed is not null))
+        {
+            throw new ConfigurationException("INVALID_ARGUMENT", "target and headed do not apply with test: the test's own fixture picks its target and whether it shows its UI");
+        }
+
         var configPath = _options.LocateConfig(options.Config);
         _sessions.ClaimConfig(id, configPath);
         var config = await _options.LoadConfig(configPath).ConfigureAwait(false);
@@ -420,7 +425,7 @@ internal sealed class SessionHost : IDisposable
     /// <summary>The line that leads the opening text of a session that ran a test: the outcome, with the error code and message of a failure.</summary>
     private static string DescribeTestOutcome(SessionTestOutcome ran) =>
         ran.Failure is null
-            ? "Test \"" + ran.TestName + "\" passed. The session is on the screen where it ended."
+            ? "Test \"" + ran.TestName + "\" ended without failing. The session is on the screen where it ended."
             : "Test \"" + ran.TestName + "\" failed. The session is on the screen where it stopped.\n" + Tools.CodedMessage(ran.Failure);
 
     /// <summary>Disposes the session a test left open; the failures come back as a list, as a standalone attempt's close does.</summary>
