@@ -9,8 +9,7 @@ namespace E2E.Tests.Controls;
 
 /// <summary>
 /// Ported from upstream <c>apps/testbed/tests/controls.e2e.ts</c>, against its
-/// testbed <c>/controls</c> page. Upstream's <c>LOCATOR_AMBIGUOUS</c> and
-/// <c>LOCATOR_NOT_FOUND</c> are the port's <c>STRICT_MODE</c> and <c>NOT_FOUND</c>.
+/// testbed <c>/controls</c> page.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class ControlsTests
@@ -311,7 +310,7 @@ public sealed class ControlsTests
         var banner = screen.GetByTestId("banner");
         await Expect.That(banner).ToHaveCountAsync(2);
         var error = await Assert.ThrowsAsync<TestException>(() => banner.TapAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(500) }));
-        Assert.Equal("STRICT_MODE", error.Code);
+        Assert.Equal("LOCATOR_AMBIGUOUS", error.Code);
 
         await Expect.That(screen.GetByTestId("banner", new TextMatchOptions { Visible = true })).ToHaveCountAsync(1);
         await Expect.That(screen.GetByTestId("banner", new TextMatchOptions { Visible = true })).ToBeVisibleAsync();
@@ -394,7 +393,7 @@ public sealed class ControlsTests
     public Task A_missing_locator_fails_as_LOCATOR_NOT_FOUND_after_its_timeout() => RunAsync(async screen =>
     {
         var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button", "Nope").TapAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(500) }));
-        Assert.Equal("NOT_FOUND", error.Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
         await Expect.That(screen.GetByRole("button", "Nope")).ToHaveCountAsync(0);
         Assert.Equal(0, await screen.GetByRole("button", "Nope").CountAsync());
     });

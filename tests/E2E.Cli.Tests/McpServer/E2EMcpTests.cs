@@ -117,10 +117,10 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.Contains("Use: Screen.GetByRole(\"button\", \"Increment\")", unique.Text, StringComparison.Ordinal);
         var ambiguous = await _served.CallAsync("locate", new() { ["text"] = "Duplicated" });
         Assert.Contains("2 nodes match", ambiguous.Text, StringComparison.Ordinal);
-        Assert.Contains("STRICT_MODE", ambiguous.Text, StringComparison.Ordinal);
+        Assert.Contains("LOCATOR_AMBIGUOUS", ambiguous.Text, StringComparison.Ordinal);
         var missing = await _served.CallAsync("locate", new() { ["label"] = "Nowhere" });
         Assert.Contains("0 nodes match", missing.Text, StringComparison.Ordinal);
-        Assert.Contains("NOT_FOUND", missing.Text, StringComparison.Ordinal);
+        Assert.Contains("LOCATOR_NOT_FOUND", missing.Text, StringComparison.Ordinal);
 
         var observed = await _served.CallAsync("observe");
         var tapped = await _served.CallAsync("tap", new() { ["target"] = ServedCli.RefOf(observed.Text, "button \"Increment\"") });
@@ -152,7 +152,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         // A stale ref is refused with its code first and the node named, and no other node is acted on.
         var stale = await _served.CallAsync("tap", new() { ["target"] = "n9999" });
         Assert.True(stale.IsError);
-        Assert.StartsWith("tap n9999 failed: NOT_FOUND: node n9999 is not on the current screen", stale.Text, StringComparison.Ordinal);
+        Assert.StartsWith("tap n9999 failed: LOCATOR_NOT_FOUND: node n9999 is not on the current screen", stale.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("tapped", stale.Text, StringComparison.Ordinal);
 
         var before = await _served.CallAsync("screenshot");

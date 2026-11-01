@@ -62,7 +62,7 @@ public sealed class EngineLocateTests
     {
         var screen = ScreenOver(_ => throw new EngineException("NODE_STALE", "the screen moved", retryable: true), out var calls, out _, TimeSpan.FromSeconds(1));
         var failure = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("alert").CountAsync());
-        Assert.Equal("NOT_FOUND", failure.Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", failure.Code);
         Assert.Equal("NODE_STALE", Assert.IsType<EngineException>(failure.InnerException).Code);
         Assert.True(calls() > 1);
     }

@@ -75,9 +75,9 @@ public sealed class SecretsCutShortByObservationLimitsTests
         using var report = new ReportDirectory();
         var (_, error) = await RunAsync(report, tapMissingButton: true);
 
-        Assert.Equal("NOT_FOUND", Assert.IsType<TestException>(error).Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", Assert.IsType<TestException>(error).Code);
         var attempt = report.LastAttempt();
-        Assert.Equal("NOT_FOUND", (string)attempt["error"]!["code"]!);
+        Assert.Equal("LOCATOR_NOT_FOUND", (string)attempt["error"]!["code"]!);
         var screenId = (string)attempt["failure"]!["screen"]!;
         var screenArtifact = attempt["artifacts"]!.AsArray().Single(artifact => (string)artifact!["id"]! == screenId)!;
         var screenText = await File.ReadAllTextAsync(Path.Combine(report.Results, (string)screenArtifact["path"]!));

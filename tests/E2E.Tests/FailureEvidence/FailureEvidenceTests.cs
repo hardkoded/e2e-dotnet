@@ -56,7 +56,7 @@ public sealed class FailureEvidenceTests : IDisposable
 
         var attempt = await FailAsync(engine, "taps a button that is not there", async screen => await screen.GetByRole("button", "Submit now").TapAsync());
 
-        Assert.Equal("NOT_FOUND", attempt.Error.Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", attempt.Error.Code);
         Assert.Equal("getByRole(\"button\", \"Submit now\")", attempt.Error.Details?.Locator);
         Assert.Equal("button", attempt.Error.Details?.Role);
         Assert.Equal("Submit now", attempt.Error.Details?.Name);
@@ -104,7 +104,7 @@ public sealed class FailureEvidenceTests : IDisposable
             async screen => await screen.GetByRole("button", "Submit now").TapAsync(),
             () => engine.OnObserve = _ => throw new InvalidOperationException("the page stopped answering"));
 
-        Assert.Equal("NOT_FOUND", attempt.Error.Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", attempt.Error.Code);
         Assert.Null(attempt.Session.Evidence);
         Assert.Equal(1, engine.Operations.Skip(attempt.ObservedBefore).Count(operation => operation == "observe"));
     }
@@ -144,7 +144,7 @@ public sealed class FailureEvidenceTests : IDisposable
                 ? token => Task.Delay(Timeout.Infinite, token)
                 : _ => new TaskCompletionSource().Task);
 
-        Assert.Equal("NOT_FOUND", attempt.Error.Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", attempt.Error.Code);
         Assert.Null(attempt.Session.Evidence);
         Assert.Equal(1, engine.Operations.Skip(attempt.ObservedBefore).Count(operation => operation == "observe"));
 

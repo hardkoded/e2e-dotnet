@@ -64,7 +64,7 @@ internal static partial class ScreenshotAssertion
                     {
                         await screen.PerformAsync(node, new LocatorAction.ScrollIntoView(), cancellationToken).ConfigureAwait(false);
                     }
-                    catch (Exception ex) when (ex is EngineException { Code: EngineErrorCodes.NodeStale } or TestException { Code: "NOT_FOUND" })
+                    catch (Exception ex) when (ex is EngineException { Code: EngineErrorCodes.NodeStale } or TestException { Code: "LOCATOR_NOT_FOUND" })
                     {
                     }
 
@@ -124,7 +124,7 @@ internal static partial class ScreenshotAssertion
             {
                 0 => null,
                 1 => matches[0],
-                _ => throw new TestException("STRICT_MODE", subject.Query.Describe() + " matched " + Number(matches.Count) + " nodes."),
+                _ => throw new TestException("LOCATOR_AMBIGUOUS", subject.Query.Describe() + " matched " + Number(matches.Count) + " nodes."),
             };
         }
     }

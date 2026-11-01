@@ -34,6 +34,6 @@ public sealed class ToBeAttachedTests
     [Fact]
     public async Task Is_LOCATOR_AMBIGUOUS_on_several_matches_like_every_positive_matcher()
     {
-        await FailsWith("STRICT_MODE", () => Expect.That(ScreenFixture.Create(List).GetByRole("listitem")).ToBeAttachedAsync());
+        await FailsWith("LOCATOR_AMBIGUOUS", () => Expect.That(ScreenFixture.Create(List).GetByRole("listitem")).ToBeAttachedAsync());
     }
 }
