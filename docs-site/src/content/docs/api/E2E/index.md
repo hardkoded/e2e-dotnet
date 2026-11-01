@@ -24,6 +24,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [AgentContextAttribute](/api/E2E/AgentContextAttribute/) | Appends facts only this test knows to the context of every agent, after the agent's own context. Upstream's agentContext option of test and describe. Layers join outer to inner, one per line. Keep instructions out of it: it reaches the judges too. |
 | [AgentException](/api/E2E/AgentException/) | An agent step failed, was blocked, or could not talk to its model. |
 | [AgentOptions](/api/E2E/AgentOptions/) | One named agent, as upstream agents.<name>. Each entry starts from the built-in defaults; no agent inherits another's values. A call picks one with its Agent option. |
+| [AgentPrimitives](/api/E2E/AgentPrimitives/) | The exports of upstream's e2e/agent entrypoint (agent/public.ts, from agent/primitives.ts) that an executor keeping the built-in actions and verdicts builds on: CreateGrammarTools and CreateVerdictTool, with VerdictRules. DefaultAgent.BaseRules is upstream's BASERULES and StepExecutors.IsRuntimeHardStop its isRuntimeHardStop. .NET-only: the holder class, which in upstream is a module. |
 | [AgentTool](/api/E2E/AgentTool/) | A project tool the agent offers to the model beside its own: upstream's defineTool. It declares whether it changes the application and which platforms it is offered on; the agent owns dispatch and accounting. The tool's name is its key in Tools. |
 | [AgentToolContext](/api/E2E/AgentToolContext/) | What a project tool reaches of the step it runs in (upstream's ToolContext): a look at the screen, and a screenshot kept as evidence of the step. A tool that changes the app may not look: it observes in a separate call. |
 | [AnthropicModel](/api/E2E/AnthropicModel/) | Anthropic Messages API client. The system prompt and the newest message carry cache breakpoints, as upstream marks them, so each turn of a tool loop reads the previous turn's prefix from the cache. |
@@ -87,6 +88,8 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [GoogleModel](/api/E2E/GoogleModel/) | Google Gemini API (Generative Language) client. Tool schemas go as parametersJsonSchema, so the agent's JSON Schemas need no conversion. Thought signatures Gemini attaches to a function call are sent back with it. |
 | [GoogleModelOptions](/api/E2E/GoogleModelOptions/) |  |
 | [GotoOptions](/api/E2E/GotoOptions/) | Options of CancellationToken). |
+| [GrammarTool](/api/E2E/GrammarTool/) | One action tool of the built-in agent's grammar: what a model is told about it, and what runs when it calls it. |
+| [GrammarToolOptions](/api/E2E/GrammarToolOptions/) | Upstream's GrammarToolOptions. |
 | [Locator](/api/E2E/Locator/) | A query that resolves against a fresh observation every time it is used. |
 | [LocatorExpect](/api/E2E/LocatorExpect/) | Matchers that retry until they pass or the assertion timeout elapses. Each takes an optional timeout that replaces the assertion timeout for that call. |
 | [LocatorExpression](/api/E2E/LocatorExpression/) | A locator expression. Query kinds (role, text, label, testid, placeholder, displayValue) search the descendants of Parent when it is set. filter and index narrow Source. union matches either Left or Right, each node once, in document order. selector is a CSS or XPath selector in the engine's own language, and frame scopes Source into the iframe Selector names. |
@@ -150,6 +153,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [UniqueValue](/api/E2E/UniqueValue/) | A value that changes every run, such as a timestamp or a fresh email. The replay cache treats every UniqueValue as the same param and substitutes the current value when it types. |
 | [UserCredential](/api/E2E/UserCredential/) | Username plus a Secret password loaded from the environment. |
 | [Values](/api/E2E/Values/) | Wraps a fresh value so the replay cache can still match the step. |
+| [VerdictTool](/api/E2E/VerdictTool/) | Upstream's VerdictTool: the done tool and the verdict it collected. |
 | [WaitForOptions](/api/E2E/WaitForOptions/) | agent.waitFor: a judgment at most once per Interval, and only on a changed screen, until Timeout. |
 | [WebResponse](/api/E2E/WebResponse/) | A response CancellationToken) matched. |
 | [WebRoute](/api/E2E/WebRoute/) | One request a CancellationToken) handler intercepted. Take exactly one decision. Each validates its options before it decides, so a rejected option leaves the request undecided, and the request is aborted. |

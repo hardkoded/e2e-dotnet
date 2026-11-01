@@ -24,7 +24,7 @@ public sealed class BuiltInAgentOptions
 public static class DefaultAgent
 {
     // Upstream's BASE_RULES.
-    private const string BaseRules =
+    public const string BaseRules =
         "You are an e2e test agent. Act only by calling tools. Finish with done. " +
         "Target a control by its role and name from the screen snapshot. " +
         "done status is passed, failed, or blocked. " +

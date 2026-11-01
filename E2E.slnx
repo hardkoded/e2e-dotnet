@@ -9,6 +9,7 @@
     <Project Path="samples/TodoMvc/TodoMvc.csproj" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/E2E.Acp/E2E.Acp.csproj" />
     <Project Path="src/E2E.Cli/E2E.Cli.csproj" />
     <Project Path="src/E2E.Eas/E2E.Eas.csproj" />
     <Project Path="src/E2E.Kernel/E2E.Kernel.csproj" />
@@ -27,6 +28,7 @@
     <Project Path="src/E2E/E2E.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/E2E.Acp.Tests/E2E.Acp.Tests.csproj" />
     <Project Path="tests/E2E.Agent.Tests/E2E.Agent.Tests.csproj" />
     <Project Path="tests/E2E.Cli.Tests/E2E.Cli.Tests.csproj" />
     <Project Path="tests/E2E.Eas.Tests/E2E.Eas.Tests.csproj" />

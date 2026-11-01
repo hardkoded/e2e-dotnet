@@ -155,7 +155,7 @@ public sealed record PreparedMessages(IReadOnlyList<ModelMessage> Messages, stri
 
 internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepExecutor
 {
-    private static readonly VerdictTool Verdict = AgentTools.CreateVerdictTool();
+    private static readonly VerdictPolicy Verdict = AgentTools.CreateVerdictTool();
 
     private const string StopActingNotice = "Stop acting. Call done with a verdict.";
 

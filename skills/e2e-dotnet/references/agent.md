@@ -16,6 +16,7 @@ step makes no model calls and needs no model in the config.
 - The replay cache
 - Make the agent yours
 - Project tools
+- Your coding agent (ACP)
 - Custom executors
 - In CI
 
@@ -508,6 +509,10 @@ starts in the same app. `samples/MobileApp.E2ETests` shows it in use.
 Not ported: decision models and the `--debug` agent step table. To see every model call, use
 `E2E_AI_TRACE=1` (topic `debugging`).
 
+## Your coding agent
+
+A coding agent the user already signs in to runs agent steps over ACP: add the `E2E.Acp` package and the adapter (`npm install -D @agentclientprotocol/claude-agent-acp` or `@agentclientprotocol/codex-acp`), and set `AcpExecutors.ClaudeCode(new AcpAgentOptions { Model = "sonnet" })` or `AcpExecutors.Codex()` as the executor. No model provider is needed, and `node` must be on the path. `AcpExecutors.Acp(new AcpOptions { Command = "agent", Args = ["acp"] })` starts any ACP agent on stdio. The agent gets `done` and the built-in action tools, every action is recorded, and steps replay from the cache without the agent. e2e rejects the agent's own tools and fails a step that runs one without asking with `POLICY_DENIED`. Secret params reach the agent by name only; keep secrets in `E2E_SECRET_*` and `E2E_USER_*` variables, which the agent's process does not get. See the [guide](../../../README.md#your-coding-agent) and `COMPATIBILITY.md` (ACP executor).
+
 ## Custom executors
 
 An executor runs the `ActAsync` and `AssertAsync` steps of an agent. Write one
@@ -578,6 +583,23 @@ mutating body: the call waits behind itself.
 
 The observation's `KeyboardVisible` says whether an on-screen keyboard is
 showing, and is `null` when the engine can't tell.
+
+To keep the built-in actions beside your own tools, take them from
+`AgentPrimitives.CreateGrammarTools(context, new GrammarToolOptions { Guard = ... })`.
+It returns the built-in agent's action tools for the verbs the target's engine
+supports as `GrammarTool`s (`Name`, `Description`, `InputSchema`, `ReadOnly`,
+and `ExecuteAsync`), each of which runs through `context.Actions` and answers
+what the screen shows after it. A `Guard` wraps the body of each call when its
+turn in the call order comes, so a call queued behind a verdict can answer
+instead of running. `DefaultAgent.BaseRules` is the built-in agent's guidance
+for those tools; start your system text with it. When a tool throws an error
+that `StepExecutors.IsRuntimeHardStop(error)` accepts, end the step and
+rethrow it. For a model your executor drives itself,
+`AgentPrimitives.CreateVerdictTool()` is the built-in agent's `done`: give the
+model its `Name`, `Description`, and `InputSchema` with
+`AgentPrimitives.VerdictRules`, call `Execute` for each call, and return
+`Verdict` once `Concluded`. The tools drive the context the runtime builds for
+a step, not one built by hand.
 
 Replace the executor. This one uses no model and supports one assertion:
 

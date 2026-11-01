@@ -272,7 +272,7 @@ e2e models openai           # the model ids the plan serves
 
 Then set `"provider": "chatgpt"` (or `copilot`, `opencode-console`, `grok`) with one of those ids, or use `Subscriptions.ChatGpt("gpt-6-luna")` in code. `e2e login openai --device` works without a browser, and `e2e login github-copilot` reuses `gh auth token` (or takes `--client-id` of your own OAuth App, and `--enterprise-url` for GitHub Enterprise). The login is stored in `~/.config/e2e/oauth.json`, the file upstream's `npx e2e login` writes, so a login made with either tool serves both. `E2E_OAUTH_CREDENTIALS` holding that JSON stands in for the file, and `OPENCODE_API_KEY` (a Console service account API key or an OpenCode Go subscription API key) replaces an OpenCode Console login, for the model and for `e2e models opencode-console`. Use API keys in CI.
 
-A Claude Pro or Max plan cannot serve the agent. Anthropic allows that login only in its own apps. To run Claude on a subscription, use GitHub Copilot. Copilot writes model ids with a dot (`claude-sonnet-5.5`), where the Anthropic API uses a dash (`claude-sonnet-5-5`), so take the id from `e2e models github-copilot`:
+A Claude Pro or Max plan cannot serve the agent. Anthropic allows that login only in its own apps. To run Claude on a subscription, use GitHub Copilot. To run agent steps on Claude Code itself, with its own login, see [Your coding agent](#your-coding-agent). Copilot writes model ids with a dot (`claude-sonnet-5.5`), where the Anthropic API uses a dash (`claude-sonnet-5-5`), so take the id from `e2e models github-copilot`:
 
 ```json
 "agents": { "default": { "provider": "copilot", "model": "claude-sonnet-5.5" } }
@@ -285,6 +285,54 @@ An agent entry also takes `judge` (the model id for `assert`, `waitFor`, and `ex
 `cache.mode` is `off`, `read-only`, or `read-write`. Unset, it is `read-write` locally and `read-only` when `CI` is set. `cache.strict` fails a recording that no longer matches with `REPLAY_STALE` instead of running the step live. Under `cache.strict`, retries replay too, and the run never writes the cache. `cache.dir` resolves against the config file's directory. `E2E_CACHE_DIR` replaces it, so checkouts and worktrees of one project can share a replay cache without editing the config; the mode stays as configured. Parallel runs can share the directory: each write replaces its entry file atomically, and two writers on one key leave the last write. On Windows, a write the file system refuses while another write replaces the same entry, or while a reader holds it open, is retried for a moment before the step reports it as not written.
 
 A cache entry belongs to one test, instruction, set of params, and agent. Each of these changes causes a miss: renaming the test or its class, changing the instruction or an ordinary param, running with another configured agent, changing the agent's `context` or a test's `[AgentContext]` (a secret in it enters the key as its name only), or switching to another engine. Changing the model doesn't cause a miss.
+
+### Your coding agent
+
+`E2E.Acp` runs `Agent.ActAsync` and `Agent.AssertAsync` on a coding agent you already use, such as Claude Code, Codex, or Cursor. It talks to the agent over the [Agent Client Protocol](https://agentclientprotocol.com) (ACP). The agent signs in with its own login or API key, so e2e needs no model provider.
+
+The agent gets `done` and the built-in agent's action tools for the verbs the target's engine supports. The runner records every action, so steps replay from the cache without the agent. Your tests don't change.
+
+```bash
+dotnet add package E2E.Acp
+npm install -D @agentclientprotocol/claude-agent-acp   # Claude Code; sign in with `claude`, or set ANTHROPIC_API_KEY
+npm install -D @agentclientprotocol/codex-acp          # Codex; sign in with `codex login`
+```
+
+The adapters are npm packages, so the agent needs `node` on the path, and the adapter must be installed in the project directory or above it. An executor is code, so set it as `AgentExecutor` on the fixture (or `AgentOptions.Executor` for a named agent):
+
+```csharp
+using E2E.Acp;
+
+public sealed class CheckoutTests : E2ETest
+{
+    protected override IStepExecutor? AgentExecutor => AcpExecutors.ClaudeCode(new AcpAgentOptions { Model = "sonnet" });
+}
+```
+
+`AcpExecutors.ClaudeCode()` and `AcpExecutors.Codex()` take these options:
+
+| Option | What it does |
+| --- | --- |
+| `Model` | A model the agent offers, such as `sonnet`. When the agent doesn't offer it, the session fails to start and the error lists the models it does offer. Omitted, the agent's default runs. |
+| `Env` | Variables added to the agent's environment. |
+| `System` | Text appended to the rules the agent gets with the first step. |
+| `Name` | The executor name in reports. |
+
+`AcpExecutors.Acp(new AcpOptions { Command = "agent", Args = ["acp"] })` starts any agent that speaks ACP on stdio, such as Cursor's CLI. It takes the options above, plus `Command` and `Args`, and two that pass through to the agent: `Mode`, a session mode to select, and `SessionMeta`, the `_meta` of `session/new` that the agent's adapter documents. The agent keeps its own tools. Turn them off the way the agent allows. e2e allows a step tool call only when the adapter names the MCP server and tool in the call's raw input, or marks the call as the Claude Code and Codex adapters do. Otherwise it rejects the call. On Windows, `Command` runs without a shell, so it must be an executable, not an npm `.cmd` shim.
+
+One agent session serves one test attempt. The first agent step that the cache can't replay starts it, each later step is one more message in the same conversation, and the session closes when the attempt ends. Each message carries the step, its non-secret params, the steps done so far, and the current screen. An assertion can't change the screen: `observe` and the scroll tools still work. The agent ends every step with `done`: `passed`, `failed`, or `blocked` with a code, as the built-in agent does.
+
+An action the agent takes with its own tools isn't recorded, can't replay, and can reach files or the web. So e2e keeps the agent to the step tools:
+
+- The agent process starts in your project. Its session opens in an empty temporary directory, and e2e offers it no file system or terminal access.
+- e2e allows permission requests for step tools and rejects all others.
+- When a tool of the agent's own runs without asking, e2e stops the turn and fails the step with `POLICY_DENIED`. The session closes, so the next step starts a fresh agent that never saw what the tool read.
+
+Each preset also turns off the agent's own tools that run without asking. Claude Code runs with no built-in tools, no user, project, or local settings, no MCP servers but the step tools, no saved session, and no bypass of permission prompts. Codex runs read-only, with no shell, web search, apps, plugins, browser, or computer use, and every MCP server from your Codex config off for these sessions only. Codex can still start a subagent, which fails the step like any tool of its own.
+
+A secret param reaches the agent by name only. The agent calls `fill_secret` and the runner types the value, as for the built-in agent. The agent's process gets your environment without the `E2E_SECRET_*` and `E2E_USER_*` variables. A secret in any other variable reaches the agent: keep secrets in those two families only.
+
+Limits: ACP doesn't report model requests, so each prompt turn counts as one model call against `MaxModelCalls`, with its tokens and cost when the agent reports them. `MaxSteps` and the step timeout bound the turn. `WaitForAsync` and `ExtractAsync` use the built-in judgments, so they need the agents entry's `Model`. An agents entry with an `Executor` takes no `Tools`, so the agent gets no project tools.
 
 ### Self-healing tests
 
@@ -459,6 +507,7 @@ Most unit tests use `DocumentEngine` and a scripted model. No test needs an API 
 | none (.NET only) | `E2E.WinApp` (`WinAppEngine`), Windows desktop apps through Windows UI Automation |
 | none (.NET only) | `E2E.WinApp.NUnit` and `E2E.WinApp.XUnit.V3` (`WinAppTest`), a ready base class for a Windows app test |
 | `apps/mobile-benchmark` | `apps/WinAppBenchmark`, the benchmark scenarios as a WinUI 3 app (Microsoft.UI.Reactor), and `apps/WinAppBenchmark.E2ETests`, its ported suites, for the Windows engine |
+| `@e2e-dev/acp` | `E2E.Acp` (`AcpExecutors`), agent steps on your own coding agent |
 | `@e2e-dev/eas` | `E2E.Eas` (`EasSimulators`) |
 | `@e2e-dev/kernel` | `E2E.Kernel` (`KernelProvider`), hosted browsers for `WebEngineOptions.Browser` |
 | `@e2e-dev/limrun` | `E2E.Limrun` (`LimrunSimulators`) |

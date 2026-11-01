@@ -27,5 +27,7 @@
     <InternalsVisibleTo Include="E2E.Mobile.Tests" />
     <InternalsVisibleTo Include="E2E.WinApp" />
     <InternalsVisibleTo Include="E2E.WinApp.Tests" />
+    <InternalsVisibleTo Include="E2E.Acp" />
+    <InternalsVisibleTo Include="E2E.Acp.Tests" />
   </ItemGroup>
 </Project>

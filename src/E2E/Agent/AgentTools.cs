@@ -144,8 +144,8 @@ internal static class AgentTools
     private static readonly ModelTool Navigate = Tool("navigate", "Open a path or URL.", Parse("""{ "type": "object", "properties": { "url": { "type": "string" } }, "required": ["url"] }"""));
 
     /// <summary>The verdict tool every loop offers, whatever its vocabulary, with the policy that accepts or refuses a verdict.</summary>
-    internal static VerdictTool CreateVerdictTool() =>
-        new(Tool(VerdictTool.Name, "End the step with a verdict. blocked requires a code naming what blocked you.", Done));
+    internal static VerdictPolicy CreateVerdictTool() =>
+        new(Tool(VerdictPolicy.Name, "End the step with a verdict. blocked requires a code naming what blocked you.", Done));
 
     /// <summary>The act tools an engine with these capabilities can honor, without the verdict tool. Scroll and back tools need their capability.</summary>
     public static IReadOnlyList<ModelTool> CreateGrammarTools(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null)
@@ -184,7 +184,7 @@ internal static class AgentTools
 
     /// <summary>True when <paramref name="name"/> is a tool the agent offers itself, whatever the engine.</summary>
     public static bool IsReserved(string name) =>
-        string.Equals(name, VerdictTool.Name, StringComparison.Ordinal) ||
+        string.Equals(name, VerdictPolicy.Name, StringComparison.Ordinal) ||
         CreateGrammarTools(EngineCapabilities.Scroll | EngineCapabilities.History).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
 
     /// <summary>The model's view of a project tool: its name, description, and input schema.</summary>
@@ -276,7 +276,7 @@ internal static class AgentTools
 }
 
 /// <summary>The conclusion tool: its definition, and the policy that accepts or refuses the verdict a call carries.</summary>
-internal sealed class VerdictTool(ModelTool tool)
+internal sealed class VerdictPolicy(ModelTool tool)
 {
     /// <summary>The name the model calls to end a step.</summary>
     public const string Name = "done";
