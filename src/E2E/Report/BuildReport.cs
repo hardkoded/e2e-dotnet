@@ -79,8 +79,9 @@ internal static class BuildReport
     /// </summary>
     /// <remarks>
     /// .NET-only mapping: the engine's name is <see cref="IEngine.Name"/>, which defaults to its <see cref="IEngine.Platform"/>; its
-    /// capabilities are flags, so each is spelled in camel case as upstream spells its capability names; and it has no state hooks, so
-    /// <c>stateCapability</c> is false.
+    /// capabilities are flags, so each is spelled in camel case as upstream spells its capability names; and
+    /// <c>stateCapability</c> is whether it declares <see cref="EngineCapabilities.State"/> (upstream's <c>engine?.state !== undefined</c>),
+    /// which the <c>capabilities</c> list leaves out.
     /// </remarks>
     public static TargetProvenance DescribeTarget(IEngine? engine) =>
         engine is null
@@ -103,9 +104,9 @@ internal static class BuildReport
 
         return new TargetProvenance(
             new ReportEngine(name, string.IsNullOrWhiteSpace(version) ? "unversioned" : version, EngineSpiVersion),
-            [.. Enum.GetValues<EngineCapabilities>().Where(each => each != EngineCapabilities.None && capabilities.HasFlag(each)).Select(each => char.ToLowerInvariant(each.ToString()[0]) + each.ToString()[1..]).Order(StringComparer.Ordinal)],
+            [.. Enum.GetValues<EngineCapabilities>().Where(each => each is not (EngineCapabilities.None or EngineCapabilities.State) && capabilities.HasFlag(each)).Select(each => char.ToLowerInvariant(each.ToString()[0]) + each.ToString()[1..]).Order(StringComparer.Ordinal)],
             artifacts,
-            false);
+            capabilities.HasFlag(EngineCapabilities.State));
     }
 
     /// <summary>

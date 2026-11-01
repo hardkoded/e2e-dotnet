@@ -212,13 +212,22 @@ public abstract class E2EFixture
         var declaredApp = string.Equals(configuredUrl, declared.App.Url, StringComparison.Ordinal)
             ? declared.App
             : new AppConfig { Url = configuredUrl, BundleId = declared.App.BundleId, AppPath = declared.App.AppPath, Identity = declared.App.Identity, Environment = declared.App.Environment };
-        var identity = Sessions.TargetIdentity(
-            TargetName, declared.Platform, engine, TargetApps.ResolveTargetApp(TargetName, declaredApp, ProjectRoot)).AppIdentity;
+        var sessionIdentity = Sessions.TargetIdentity(
+            TargetName, declared.Platform, engine, TargetApps.ResolveTargetApp(TargetName, declaredApp, ProjectRoot));
+        var identity = sessionIdentity.AppIdentity;
+
+        // A test that restores a session, or a setup test that saves some, works with the run's store.
+        var restore = SessionAttributes.Restore(GetType(), testMethod);
+        var saves = SessionAttributes.Saves(testMethod);
+        var sessions = restore is null && saves is null
+            ? null
+            : new SessionPlan(SessionRun.Store(ProjectRoot), sessionIdentity, restore, saves is null ? null : new SessionStaging(saves));
         _session = await E2ESession.StartAsync(
             new E2ESessionOptions
             {
                 Engine = engine,
                 AppIdentity = identity,
+                Sessions = sessions,
                 Model = CreateModel(),
                 Judge = CreateJudge(),
                 AgentExecutor = AgentExecutor,
@@ -264,6 +273,14 @@ public abstract class E2EFixture
             },
             cancellationToken).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Saves the app's state under <paramref name="name"/> for tests that restore it with <see cref="E2ESessionAttribute"/>. Upstream's
+    /// <c>session.save(name)</c> (.NET-only shape: a method of the test base class, as the port has no fixtures object). Only a setup test
+    /// can call it, once for each name it declares. The session lasts one run. It holds what the app keeps in the browser (cookies, local
+    /// storage, IndexedDB), not what the server keeps, and it checks nothing: assert that sign-in worked before you save.
+    /// </summary>
+    protected Task SaveSessionAsync(string name, CancellationToken cancellationToken = default) => Session.SaveSessionAsync(name, cancellationToken);
 
     /// <summary>
     /// Looks at the app now, for an adapter to call when the test body has failed and before the test's own teardown runs,

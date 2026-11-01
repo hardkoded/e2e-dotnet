@@ -54,7 +54,7 @@ public abstract class E2ERunFixture
 
     /// <summary>
     /// Runs the reporters that the assembly registers with <c>[assembly: E2EReporter(typeof(...))]</c> once <c>report.json</c> is final, then stops
-    /// the app commands that the tests of this process started.
+    /// the app commands that the tests of this process started, and deletes the sessions that setup tests saved (see <c>E2ESetupAttribute</c>).
     /// </summary>
     [OneTimeTearDown]
     public async Task StopAppCommandsAsync()
@@ -65,7 +65,15 @@ public abstract class E2ERunFixture
         }
         finally
         {
-            await RunApps.StopAllAsync().ConfigureAwait(false);
+            try
+            {
+                await RunApps.StopAllAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                // The run's saved sessions go with the run.
+                SessionRun.Cleanup();
+            }
         }
     }
 }

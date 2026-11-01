@@ -345,7 +345,8 @@ public sealed partial class WebEngine : IEngine
         | EngineCapabilities.Screenshot
         | EngineCapabilities.TapModifiers
         | EngineCapabilities.Video
-        | EngineCapabilities.Upload;
+        | EngineCapabilities.Upload
+        | EngineCapabilities.State;
 
     /// <summary>
     /// A web target opens the app at <c>app.url</c>, so the URL is required, and the fields that describe an installed device app

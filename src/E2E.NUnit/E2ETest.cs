@@ -86,6 +86,25 @@ public abstract class E2ETest : E2EFixture
             late = ex;
         }
 
+        // A setup test that passed saves its sessions; a contract it broke fails it, and its result stands as the verdict.
+        if (current.Result.Outcome.Status == global::NUnit.Framework.Interfaces.TestStatus.Passed)
+        {
+            try
+            {
+                await session.FinishSetupAsync(true, current.CancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // The run was cancelled: the test's own result stands.
+            }
+#pragma warning disable CA1031 // Reported below, after the session is released.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                late ??= ex;
+            }
+        }
+
         // A host that asked for this test (e2e mcp's open_session {test}) keeps the session open: it completes and disposes it at close.
         if (EngineInUse is { } engine && SessionHandover.TryOffer(current.Test.FullName, session, engine, ErrorForCache(current.Result) ?? late))
         {
