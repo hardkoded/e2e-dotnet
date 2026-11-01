@@ -66,6 +66,10 @@ internal sealed record BuildReportOptions
 /// </summary>
 internal static class BuildReport
 {
+    /// <summary>Report order of two tests: by file, then by declaration within it (upstream's <c>compareTests</c>).</summary>
+    public static int CompareTests(CollectedTest a, CollectedTest b) =>
+        a.File != b.File ? string.CompareOrdinal(a.File, b.File) : a.DeclarationIndex.CompareTo(b.DeclarationIndex);
+
     /// <summary>Upstream's <c>ENGINE_SPI_VERSION</c>.</summary>
     internal const int EngineSpiVersion = 1;
 

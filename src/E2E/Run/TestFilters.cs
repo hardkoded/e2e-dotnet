@@ -61,6 +61,35 @@ internal sealed class TestFilterScope
     public Func<string, Func<Task<FilterCall>>, Task<FilterCall>> Step { get; init; } = (_, work) => work();
 }
 
+/// <summary>What <see cref="TestFilters.FilterSelection"/> judges a selection with, and where each line about what the gate and the filters decided goes (upstream's <c>FilterSelectionOptions</c>).</summary>
+internal sealed class FilterSelectionOptions
+{
+    public required ResolvedConfig Config { get; init; }
+
+    /// <summary>The base ref <c>--changed-since</c> named.</summary>
+    public required string ChangedSince { get; init; }
+
+    /// <summary>The run's interrupt (upstream's <c>signal</c>).</summary>
+    public CancellationToken CancellationToken { get; init; }
+
+    /// <summary>One line about what the filters judge and what each decided.</summary>
+    public required Action<string> Notice { get; init; }
+
+    public required Collection Collection { get; init; }
+
+    /// <summary>The flags the selection was made with, <c>--last-failed</c> among them.</summary>
+    public SelectionFilters SelectionFilters { get; init; } = new();
+
+    /// <summary>How each filter call is wrapped; called bare unless set.</summary>
+    public Func<string, Func<Task<FilterCall>>, Task<FilterCall>>? Step { get; init; }
+
+    /// <summary>How long each filter call may take; <see cref="TestFilters.FilterTimeout"/> unless set.</summary>
+    public TimeSpan? Timeout { get; init; }
+}
+
+/// <summary>A selection once the test filters had their say, the report's record of them, and the change they judged; no change when the config has no filter (upstream's <c>FilteredSelection</c>).</summary>
+internal sealed record FilteredSelection(Selection Selection, IReadOnlyList<ReportFilter> Records, ReportChanges? Changes);
+
 /// <summary>Test filters: what they are given, calling them, and what they decided (upstream's <c>run/test-filters.ts</c>).</summary>
 internal static class TestFilters
 {
@@ -72,6 +101,119 @@ internal static class TestFilters
 
     /// <summary>The most code points an error quotes of a key or test id a filter chose.</summary>
     private const int MaxQuoted = 200;
+
+    /// <summary>What <c>--changed-since</c> says when the config has no test filter for it to run.</summary>
+    private const string NoFilters = "warning: --changed-since: the config has no filters, so every test runs";
+
+    /// <summary>
+    /// The second selection pass. <paramref name="first"/> is the selection every flag made, <c>--shard</c> included, so each shard machine
+    /// hands the filters its own slice and the cut never depends on what they answer. Without a filter in the config, <paramref name="first"/>
+    /// stands, and so it does, with <c>Changes.Skipped</c> saying why, on a <c>--last-failed</c> rerun, whose tests are owed, with no test to
+    /// judge (git is asked for neither), and when no file changed since the merge base. Otherwise the exclusions go into a selection with the
+    /// same flags, which serial groups and sessions settle like any other filter; an empty result is the filters' doing, or pass 1's under
+    /// <c>passWithNoTests</c>, and passes. Each decision's line goes to <c>options.Notice</c> (upstream's <c>filterSelection</c>).
+    /// </summary>
+    public static async Task<FilteredSelection> FilterSelection(Selection first, FilterSelectionOptions options)
+    {
+        var (config, collection, selectionFilters, notice) = (options.Config, options.Collection, options.SelectionFilters, options.Notice);
+        if (config.Filters.Count == 0)
+        {
+            if (!options.CancellationToken.IsCancellationRequested)
+            {
+                notice(NoFilters);
+            }
+
+            return new FilteredSelection(first, [], null);
+        }
+
+        // `first` stands, for `record.Skipped`, said as `message` or `<why>, so no filter ran`.
+        FilteredSelection Skip(ReportChanges record, string? message = null)
+        {
+            notice(message ?? $"{record.Skipped}, so no filter ran");
+            return new FilteredSelection(first, [], record);
+        }
+
+        if (selectionFilters.LastFailed is not null)
+        {
+            return Skip(new ReportChanges(Skipped: "--last-failed"), "--last-failed: the tests the last run owes run without filters");
+        }
+
+        var candidates = FilterCandidates(first);
+        if (candidates.Count == 0)
+        {
+            return Skip(new ReportChanges(Skipped: "no tests to judge"));
+        }
+
+        // Spelled as on disk, as `Changes.Root` is, so a filter can join the two.
+        var projectRoot = Paths.OnDiskPath(config.ProjectRoot);
+        var changes = await Changes.FindChangesAsync(new ChangeOptions { Cwd = projectRoot, ChangedSince = options.ChangedSince, CancellationToken = options.CancellationToken }).ConfigureAwait(false);
+        if (changes.Files.Count == 0)
+        {
+            return Skip(new ReportChanges(changes.Base, 0, $"no files changed since {ReportFormat.ShortCommit(changes.Base)}"));
+        }
+
+        notice($"judging {MarkdownText.Plural(changes.Files.Count, "file")} changed since {ReportFormat.ShortCommit(changes.Base)}");
+        var applied = await ApplyTestFilters(config.Filters, candidates, new TestFilterScope
+        {
+            ProjectRoot = projectRoot,
+            Changes = changes,
+            ConfigFile = config.ConfigPath is null ? null : RepoConfigFile(config.ConfigPath, changes.Root),
+            Secrets = config.AllSecrets,
+            CollectedIds = new HashSet<string>(collection.Tests.Select(test => test.Id), StringComparer.Ordinal),
+            Timeout = options.Timeout ?? FilterTimeout,
+            CancellationToken = options.CancellationToken,
+            Notice = notice,
+            Step = options.Step ?? ((_, work) => work()),
+        }).ConfigureAwait(false);
+        var selection = Selector.Select(collection, config, selectionFilters with { Excluded = applied.Excluded }, passWithNoTests: true);
+        var records = FilterRecords(
+            applied.Decisions,
+            selection.Pairs.Select(pair => (pair.Test.Id, pair.Skip is null ? null : new ReportSkip(pair.Skip.Cause, pair.Skip.Reason, pair.Skip.Filter))));
+        foreach (var record in records)
+        {
+            if (FilterSummary(record) is { } summary)
+            {
+                notice(summary);
+            }
+        }
+
+        return new FilteredSelection(selection, records, new ReportChanges(changes.Base, changes.Files.Count));
+    }
+
+    /// <summary>
+    /// The tests a filter may leave out: one candidate per ordinary test with at least one pair the selection runs, in report order, with the
+    /// file of the setup test that saves its session when it uses one. Setup tests, explicit and capability skips, and tests filtered on every
+    /// target are never candidates (upstream's <c>filterCandidates</c>).
+    /// </summary>
+    public static IReadOnlyList<TestFilterCandidate> FilterCandidates(Selection selection)
+    {
+        var producers = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var test in selection.Pairs.Select(pair => pair.Test).Where(test => test.Kind == TestKind.Setup))
+        {
+            foreach (var session in test.Sessions)
+            {
+                producers[session] = test.File;
+            }
+        }
+
+        var tests = new Dictionary<string, (CollectedTest Test, string? SetupFile)>(StringComparer.Ordinal);
+        foreach (var (test, options, disposition) in selection.Pairs.Select(pair => (pair.Test, pair.Options, pair.Disposition)))
+        {
+            if (test.Kind != TestKind.Test || disposition != Disposition.Run || tests.ContainsKey(test.Id))
+            {
+                continue;
+            }
+
+            tests[test.Id] = (test, options.Session is { } session ? producers.GetValueOrDefault(session) : null);
+        }
+
+        return
+        [
+            .. tests.Values
+                .OrderBy(entry => entry.Test, Comparer<CollectedTest>.Create(BuildReport.CompareTests))
+                .Select(entry => new TestFilterCandidate(entry.Test.Id, entry.Test.File, [.. entry.Test.TitlePath], [.. entry.Test.Tags], entry.SetupFile)),
+        ];
+    }
 
     /// <summary>
     /// The loaded config as <c>Changes.Files</c> spells it, relative to the repository root: its directory resolved on disk, its own name
