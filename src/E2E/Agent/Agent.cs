@@ -1247,9 +1247,14 @@ internal sealed class AttemptScope
     public ScreenshotContext? Screenshots { get; set; }
 
     /// <summary>One look at the screen, shown to the trace. Upstream's <c>session.observe</c> shows each observation it takes.</summary>
-    public async Task<Observation> ObserveAsync(CancellationToken token)
+    public Task<Observation> ObserveAsync(CancellationToken token) => ShowAsync(Session.ObserveAsync(token));
+
+    /// <summary><see cref="ObserveAsync(CancellationToken)"/> within <paramref name="timeout"/>, the operation budget the engine bounds its reads by.</summary>
+    public Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken token) => ShowAsync(Session.ObserveAsync(timeout, token));
+
+    private async Task<Observation> ShowAsync(Task<Observation> look)
     {
-        var observation = await Session.ObserveAsync(token).ConfigureAwait(false);
+        var observation = await look.ConfigureAwait(false);
 
         // The adapter mints the revision, as upstream's session does: one per capture the attempt took, in order.
         observation.Revision = "b" + Interlocked.Increment(ref _observed).ToString(CultureInfo.InvariantCulture);
@@ -1400,7 +1405,10 @@ internal sealed class AttemptScope
     /// <summary>The attempt's step timeline: every public call that touches the app is a step, and the ledger later steps read is derived from it.</summary>
     public StepRecorder Steps => LazyInitializer.EnsureInitialized(
         ref _recorder,
-        () => new StepRecorder(AttemptId, new StepRecorderOptions { Attempt = (AttemptId, Attempt - 1), ProjectRoot = ProjectRoot, Redact = text => Redactor.Redact(text), AiTrace = AiTraceScope }));
+        () => new StepRecorder(AttemptId, new StepRecorderOptions { Attempt = (AttemptId, Attempt - 1), OnProgress = OnProgress, ProjectRoot = ProjectRoot, Redact = text => Redactor.Redact(text), AiTrace = AiTraceScope }));
+
+    /// <summary>Live progress of the attempt's steps; null feeds none.</summary>
+    public Action<StepProgress>? OnProgress { get; init; }
 
     public List<PendingAct> Acts { get; } = [];
 

@@ -241,7 +241,7 @@ public sealed class AgentActOnActionTests
 
         Assert.Equal("ACTION_FAILED", error.Code);
         Assert.Contains("agent.act onAction failed: hook broke", error.Message, StringComparison.Ordinal);
-        var step = session.Steps.Single(candidate => candidate.Api == "agent.act");
+        var step = session.StepRecords.Single(candidate => candidate.Api == "agent.act");
         Assert.Equal(StepStatus.Failed, step.Status);
         Assert.Equal(1, step.Metrics?.ActionSteps);
     }

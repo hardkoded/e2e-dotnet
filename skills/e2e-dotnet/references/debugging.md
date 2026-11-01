@@ -217,7 +217,8 @@ in C# casing (`report.Run.Results[0].Attempts[0].Error`). It is a record the ses
 is the session's, not your runner's test-body verdict, and artifact paths are relative
 to the results directory, not the attempt's directory. It returns `null` before the
 session is disposed and when the trace page cannot be written. Use it, with
-`CloseSoftFailures()`, in a runner that owns its reporting.
+`CloseSoftFailures()`, in a runner that owns its reporting. A session from
+`E2EHost.OpenSessionAsync` also has `Steps()` and `CloseAsync()` (see [host.md](host.md)).
 
 Not in the port's report: serial groups (`run.serialGroups` is always empty),
 `carried`, a step's `visionInput`, `visionDegraded`, and `visionOnly`, and the
@@ -240,8 +241,8 @@ failed before it read a screen has `observationRevision` `unrecorded`. See
 | `INVALID_ARGUMENT` | A step argument failed validation (an unknown agent, a budget above the agent's) | Fix the call |
 | `SECRET_UNAVAILABLE` | `Secrets.Get` named a secret the config does not declare | Add it under `secrets` |
 | `AUTH_CREDENTIAL_UNAVAILABLE` | `Credentials.User(name)` found no `E2E_USER_<NAME>_USERNAME` or `_PASSWORD` | Set both variables |
-| `LOCATOR_NOT_FOUND`, `NOT_FOUND` | Wrong role or name, inexact text, element off screen, page not open | Read the markup for the accessible name; `exact: false` or a `Regex`; `App.OpenAsync` first |
-| `STRICT_MODE` | Two matches (hidden duplicate, repeated label) | A name, a container scope, `Filter(...)`, or `First()`, `Nth(i)` |
+| `LOCATOR_NOT_FOUND` | Wrong role or name, inexact text, element off screen, page not open | Read the markup for the accessible name; `exact: false` or a `Regex`; `App.OpenAsync` first |
+| `LOCATOR_AMBIGUOUS` | Two matches (hidden duplicate, repeated label) | A name, a container scope, `Filter(...)`, or `First()`, `Nth(i)` |
 | `APP_NOT_OPEN` | A `Screen` call before `App.OpenAsync()` | Open the app first |
 | `ASSERTION_FAILED` | Wrong expectation, or the state settles later than 5 s; for `AssertAsync`, a false judgment | Compare with the actual text in the message; `timeout` on the matcher; rewrite the statement. Do not loosen it to pass |
 | `ASSERTION_INCONCLUSIVE` | The judge could not decide from what the screen shows | Reach the right screen first; make the statement concrete and visible. When the answer is in pixels (a chart, a canvas), pass `Vision = VisionMode.On` |

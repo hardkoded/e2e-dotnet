@@ -30,6 +30,6 @@ public sealed class ToolLoopConclusionTests
 
         Assert.Equal("ASSERTION_FAILED", error.Code);
         Assert.Equal(1, model.CallCount);
-        Assert.Equal(StepStatus.Failed, session.Steps.Last(step => step.Api == "agent.act").Status);
+        Assert.Equal(StepStatus.Failed, session.StepRecords.Last(step => step.Api == "agent.act").Status);
     }
 }

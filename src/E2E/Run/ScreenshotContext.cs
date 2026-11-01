@@ -45,7 +45,7 @@ internal sealed class ScreenshotContext
     /// <summary>Directory of the stored screenshots of the test file a call was made from.</summary>
     public Func<string?, string?> DirectoryOf { get; init; } = static file => file is null ? null : file + "-snapshots";
 
-    public required Func<CancellationToken, Task<EngineScreenshot>> Capture { get; init; }
+    public required Func<TimeSpan, CancellationToken, Task<EngineScreenshot>> Capture { get; init; }
 
     public bool HasWritten(string file) => WrittenFiles.ContainsKey(file);
 

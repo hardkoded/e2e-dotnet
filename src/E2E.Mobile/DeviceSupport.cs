@@ -187,7 +187,7 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
         _sent = true;
         try
         {
-            return await pending.WaitAsync(remaining > MinAnswer ? remaining : MinAnswer, _time, cancellationToken).ConfigureAwait(false);
+            return await pending.WaitAsync(Bound(remaining > MinAnswer ? remaining : MinAnswer), _time, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (!pending.IsCompleted && ex is TimeoutException or OperationCanceledException)
         {
@@ -203,7 +203,10 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
     }
 
     /// <summary>The budget left, zero or less once it is spent. Upstream's <c>remainingMs</c>.</summary>
-    public TimeSpan Remaining => timeout - _time.GetElapsedTime(_startedAt);
+    public TimeSpan Remaining => timeout == Timeout.InfiniteTimeSpan ? TimeSpan.MaxValue : timeout - _time.GetElapsedTime(_startedAt);
+
+    /// <summary>What a wait is bounded by: the budget left, or nothing for an infinite timeout (.NET-only: upstream's budgets are numbers of milliseconds).</summary>
+    private TimeSpan Bound(TimeSpan remaining) => timeout == Timeout.InfiniteTimeSpan ? Timeout.InfiniteTimeSpan : remaining;
 
     /// <summary>
     /// Runs one device read with what is left of the budget. With none left it reads nothing. A read that does not answer in time is
@@ -223,7 +226,7 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
         track(pending);
         try
         {
-            return await pending.WaitAsync(remaining, _time, cancellationToken).ConfigureAwait(false);
+            return await pending.WaitAsync(Bound(remaining), _time, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (!pending.IsCompleted && ex is TimeoutException or OperationCanceledException)
         {
@@ -234,7 +237,8 @@ internal sealed class InputBudget(string label, TimeSpan timeout, Action<Task> t
                 throw _sent ? MaybeCommitted() : new EngineException(EngineErrorCodes.OperationTimeout, $"{label} timed out before the device answered", retryable: false);
             }
 
-            throw;
+            // A read the caller cancelled is a cancel, as the command itself reports it.
+            throw new EngineException(EngineErrorCodes.Cancelled, $"{label} cancelled", retryable: false, ex);
         }
     }
 

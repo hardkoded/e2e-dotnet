@@ -4,6 +4,7 @@
 
 using System.Text.Json.Nodes;
 using E2E.Engine;
+using static E2E.Mobile.Tests.RawNodes;
 
 namespace E2E.Mobile.Tests.Engine;
 
@@ -209,14 +210,11 @@ public sealed class ObservationTests
         {
             asked.Add(options?["normalizeStatusBar"]?.GetValue<bool>());
             File.WriteAllBytes(options!["path"]!.GetValue<string>(), png);
-            return new JsonObject { ["path"] = options["path"]!.GetValue<string>(), ["logicalWidth"] = 390, ["logicalHeight"] = 844 };
+            return new JsonObject { ["path"] = options["path"]!.GetValue<string>() };
         });
-
-        // No geometry in the tree: the viewport probe is the one capture that is not a comparison.
-        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.NodesOnly(RawNodes.SettingsNodes.Where(node => node.Password != true && node.Type != "secure-text-field").Select(node => node with { Rect = null })));
         var session = await OpenAttempt(h);
-        await session.ObserveAsync(CancellationToken.None);
-        await session.ScreenshotAsync(CancellationToken.None);
+        await session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromSeconds(30), CancellationToken.None);
+        await session.ObserveAsync(new ObserveOptions { Pixels = true, Comparable = true }, TimeSpan.FromSeconds(30), CancellationToken.None);
         Assert.Equal([null, true], asked);
     }
 
@@ -241,24 +239,92 @@ public sealed class ObservationTests
     public async Task Withholds_the_pixels_of_a_screen_with_a_secure_field_when_the_image_cannot_be_read_or_decoded()
     {
         var h = Harness.Create();
+        var artifactsDir = Directory.CreateTempSubdirectory("e2e-mobile-artifacts-");
+        try
+        {
+            // A PNG signature and header naming the size, with no image data behind them: the size reads, the decode fails.
+            var headerOnly = PngCodec.Encode(PngCodec.Solid(195, 422, 4, 0))[..33];
+            byte[] shot = [1, 2, 3];
+            h.Fake.Respond(DeviceMethods.CaptureScreenshot, options =>
+            {
+                File.WriteAllBytes(options!["path"]!.GetValue<string>(), shot);
+                return new JsonObject { ["path"] = options["path"]!.GetValue<string>() };
+            });
+            var session = await Screens.OpenAttempt(h, artifactsDir.FullName);
+            foreach (var bytes in new[] { new byte[] { 1, 2, 3 }, headerOnly })
+            {
+                shot = bytes;
+                var observation = await session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromSeconds(30), CancellationToken.None);
+                Assert.Null(observation.Pixels);
+                Assert.Single(observation.Roots[0].Children);
+                var withheld = await Assert.ThrowsAsync<EngineException>(() => session.ScreenshotArtifactAsync("password", TimeSpan.FromSeconds(30), CancellationToken.None));
+                Assert.Equal("ENGINE_FAILURE", withheld.Code);
+            }
 
-        // A PNG signature and header naming the size, with no image data behind them: the size reads, the decode fails.
-        var headerOnly = PngCodec.Encode(PngCodec.Solid(195, 422, 4, 0))[..33];
-        byte[] shot = [1, 2, 3];
+            Assert.False(Directory.Exists(Path.Combine(artifactsDir.FullName, "screenshots")));
+        }
+        finally
+        {
+            artifactsDir.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Captures_pixels_on_request_masks_every_secure_node_and_degrades_to_tree_only_when_it_cannot()
+    {
+        var h = Harness.Create();
+        // 390x844 viewport at half scale: a small white RGBA image keeps the encode cheap and still proves the bounds are scaled.
+        var png = PngCodec.Encode(PngCodec.Solid(195, 422, 4, 255));
         h.Fake.Respond(DeviceMethods.CaptureScreenshot, options =>
         {
-            File.WriteAllBytes(options!["path"]!.GetValue<string>(), shot);
+            File.WriteAllBytes(options!["path"]!.GetValue<string>(), png);
             return new JsonObject { ["path"] = options["path"]!.GetValue<string>() };
         });
         var session = await OpenAttempt(h);
-        foreach (var bytes in new[] { new byte[] { 1, 2, 3 }, headerOnly })
-        {
-            shot = bytes;
-            var observation = await session.ObserveAsync(CancellationToken.None);
-            Assert.Single(observation.Roots[0].Children);
-            var withheld = await Assert.ThrowsAsync<EngineException>(() => session.ScreenshotAsync(CancellationToken.None));
-            Assert.Equal("ENGINE_FAILURE", withheld.Code);
-        }
+        var timeout = TimeSpan.FromSeconds(30);
+        var observation = await session.ObserveAsync(new ObserveOptions { Pixels = true }, timeout, CancellationToken.None);
+        var pixels = observation.Pixels!;
+        Assert.Equal(0.5, pixels.Scale);
+        // One secure node on the Settings fixture: the Password field at y=270, 44 tall.
+        Assert.Equal(1, pixels.MaskedRegionCount);
+        var decoded = PngCodec.Decode(pixels.Png);
+        Assert.Equal((195, 422), (decoded.Width, decoded.Height));
+        int[] At(DecodedPng image, int x, int y) => [image.Pixels[(((y * 195) + x) * 4)], image.Pixels[(((y * 195) + x) * 4) + 1], image.Pixels[(((y * 195) + x) * 4) + 2]];
+        Assert.Equal([0, 0, 0], At(decoded, 100, 290 / 2));
+        Assert.Equal([255, 255, 255], At(decoded, 100, 240 / 2));
+
+        // Without the option the observation is the tree alone.
+        Assert.Null((await session.ObserveAsync(timeout, CancellationToken.None)).Pixels);
+
+        // Android flags a password EditText by attribute, not by class; it is painted over the same way.
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.NodesOnly(
+        [
+            N("e1", index: 0, depth: 0, type: "android.widget.FrameLayout", rect: new Rect(0, 0, 390, 844)),
+            N("e2", index: 1, parentIndex: 0, depth: 1, type: "android.widget.EditText", label: "Password", value: "hunter2", password: true, rect: new Rect(0, 270, 390, 44)),
+        ]));
+        var android = await session.ObserveAsync(new ObserveOptions { Pixels = true }, timeout, CancellationToken.None);
+        Assert.Equal(1, android.Pixels!.MaskedRegionCount);
+        var password = Named(android.Roots[0], "Password");
+        Assert.Equal("textbox", password.Role);
+        Assert.True(password.States.Secure);
+        Assert.Null(password.Value);
+        var androidPixels = PngCodec.Decode(android.Pixels.Png);
+        Assert.Equal([0, 0, 0], At(androidPixels, 100, 290 / 2));
+        Assert.Equal([255, 255, 255], At(androidPixels, 100, 240 / 2));
+
+        // A secure node without bounds cannot be masked: the tree ships, the image does not.
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.NodesOnly([N("e1", type: "SecureTextField", label: "PIN", value: "1234")]));
+        var unmaskable = await session.ObserveAsync(new ObserveOptions { Pixels = true }, timeout, CancellationToken.None);
+        Assert.Null(unmaskable.Pixels);
+        Assert.Single(unmaskable.Roots[0].Children);
+        // A snapshot without geometry keeps the viewport the session last learned.
+        Assert.Equal(new TraceViewport(390, 844), unmaskable.Viewport);
+
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
+        h.Fake.Respond(DeviceMethods.CaptureScreenshot, _ => throw new AgentDeviceError("COMMAND_FAILED", "screenshot failed"));
+        var treeOnly = await session.ObserveAsync(new ObserveOptions { Pixels = true }, timeout, CancellationToken.None);
+        Assert.Null(treeOnly.Pixels);
+        Assert.NotEmpty(treeOnly.Roots[0].Children);
     }
 
     [Fact]
@@ -496,5 +562,57 @@ public sealed class ObservationTests
         Assert.Equal("OPERATION_TIMEOUT", failure.Code);
         await Task.Delay(600);
         Assert.Equal(1, snapshots);
+    }
+
+    [Fact]
+    public async Task Bounds_screenshot_by_operation_budget()
+    {
+        var h = Harness.Create();
+        var artifactsDir = Directory.CreateTempSubdirectory("e2e-mobile-artifacts-");
+        try
+        {
+            var session = await Screens.OpenAttempt(h, artifactsDir.FullName);
+            h.Fake.RespondAsync(DeviceMethods.CaptureScreenshot, (_, _) => Never());
+            var failure = await Assert.ThrowsAsync<EngineException>(() => session.ScreenshotArtifactAsync("hung shot", TimeSpan.FromMilliseconds(300), CancellationToken.None));
+            Assert.Equal("OPERATION_TIMEOUT", failure.Code);
+        }
+        finally
+        {
+            artifactsDir.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Rethrows_OPERATION_TIMEOUT_from_capturePixels_during_observe()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        h.Fake.RespondAsync(DeviceMethods.CaptureScreenshot, (_, _) => Never());
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromMilliseconds(300), CancellationToken.None));
+        Assert.Equal("OPERATION_TIMEOUT", failure.Code);
+    }
+
+    [Fact]
+    public async Task Shares_one_budget_across_observe_steps_so_screenshot_cannot_take_a_fresh_budget()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        // The snapshot carries its geometry, so the only screenshot is the observation's pixels.
+        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, async (_, _) =>
+        {
+            await Task.Delay(150);
+            return WithViewport(402, 874);
+        });
+        var screenshots = 0;
+        h.Fake.RespondAsync(DeviceMethods.CaptureScreenshot, (_, _) =>
+        {
+            Interlocked.Increment(ref screenshots);
+            return Never();
+        });
+        var started = DateTimeOffset.UtcNow;
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(new ObserveOptions { Pixels = true }, TimeSpan.FromMilliseconds(500), CancellationToken.None));
+        Assert.Equal("OPERATION_TIMEOUT", failure.Code);
+        Assert.Equal(1, screenshots);
+        Assert.True(DateTimeOffset.UtcNow - started < TimeSpan.FromSeconds(3));
     }
 }

@@ -60,7 +60,7 @@ public sealed class AppSteeringHooksTests
         await using var session = await StartAsync(calls, baseUrl: null, device: true);
         await session.App.OpenAsync();
         Assert.Equal(["restart"], calls);
-        Assert.Equal([("app.open", StepStatus.Passed)], session.Steps.Select(step => (step.Api, step.Status)));
+        Assert.Equal([("app.open", StepStatus.Passed)], session.StepRecords.Select(step => (step.Api, step.Status)));
         session.Complete();
     }
 

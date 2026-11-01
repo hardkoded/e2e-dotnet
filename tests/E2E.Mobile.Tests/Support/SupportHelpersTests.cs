@@ -87,6 +87,18 @@ public sealed class SupportHelpersTests
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", again.Code);
     }
 
+    // .NET-only: upstream's budgets are numbers of milliseconds, and an infinite timeout (screen.tree with no timeout) has none.
+    [Fact]
+    public async Task Never_spends_an_infinite_budget_on_a_read_or_an_input()
+    {
+        var time = new FakeTimeProvider();
+        var budget = new InputBudget("tree", Timeout.InfiniteTimeSpan, static _ => { }, time);
+        time.Advance(TimeSpan.FromDays(1));
+        Assert.Equal("tree", await budget.ReadAsync(() => Task.FromResult("tree"), CancellationToken.None));
+        Assert.Equal(1, await budget.SendAsync(() => Task.FromResult(1), CancellationToken.None, TimeSpan.FromHours(1)));
+        Assert.True(budget.Remaining > TimeSpan.FromDays(1000));
+    }
+
     [Fact]
     public void Reports_the_app_and_the_screen_title_as_a_location_that_is_not_a_URL()
     {

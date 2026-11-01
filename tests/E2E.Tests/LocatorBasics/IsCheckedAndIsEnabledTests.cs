@@ -39,8 +39,8 @@ public sealed class IsCheckedAndIsEnabledTests
         var watch = Stopwatch.StartNew();
         Assert.False(await none.IsVisibleAsync());
         Assert.True(watch.Elapsed < ScreenFixture.Timeout, "answered after " + watch.Elapsed);
-        await FailsWith("NOT_FOUND", () => none.IsCheckedAsync());
-        await FailsWith("NOT_FOUND", () => none.IsEnabledAsync());
+        await FailsWith("LOCATOR_NOT_FOUND", () => none.IsCheckedAsync());
+        await FailsWith("LOCATOR_NOT_FOUND", () => none.IsEnabledAsync());
         Assert.True(watch.Elapsed >= ScreenFixture.Timeout * 2 - TimeSpan.FromMilliseconds(50), "answered after " + watch.Elapsed);
     }
 
@@ -49,9 +49,9 @@ public sealed class IsCheckedAndIsEnabledTests
     {
         var several = ScreenFixture.Create(List).GetByRole("listitem");
         var watch = Stopwatch.StartNew();
-        await FailsWith("STRICT_MODE", () => several.IsCheckedAsync());
-        await FailsWith("STRICT_MODE", () => several.IsEnabledAsync());
-        await FailsWith("STRICT_MODE", () => several.IsVisibleAsync());
+        await FailsWith("LOCATOR_AMBIGUOUS", () => several.IsCheckedAsync());
+        await FailsWith("LOCATOR_AMBIGUOUS", () => several.IsEnabledAsync());
+        await FailsWith("LOCATOR_AMBIGUOUS", () => several.IsVisibleAsync());
         Assert.True(watch.Elapsed < ScreenFixture.Timeout, "answered after " + watch.Elapsed);
     }
 }

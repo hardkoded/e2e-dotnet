@@ -1,6 +1,6 @@
 ---
 title: "E2ESession"
-description: "One test attempt: an engine session, the fixtures, and the replay cache. Call CancellationToken) after the test body. Disposing without CancellationToken) re..."
+description: "One test attempt: an engine session, the fixtures, and the replay cache. Call Complete after the test body. Disposing without Complete records the attempt as..."
 editUrl: false
 prev: false
 next: false
@@ -20,8 +20,8 @@ public sealed class E2ESession : IAsyncDisposable
 
 
 One test attempt: an engine session, the fixtures, and the replay cache.
-Call `CancellationToken)` after the test body. Disposing without
-`CancellationToken)` records the attempt as failed.
+Call `Complete` after the test body. Disposing without
+`Complete` records the attempt as failed.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
@@ -44,7 +44,7 @@ public Agent Agent { get; }
 
 **Value:** [Agent](/api/E2E/Agent/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L55)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L62)
 
 <a id="E2E_E2ESession_App_"></a>
 <a id="E2E_E2ESession_App"></a>
@@ -59,7 +59,41 @@ public App App { get; }
 
 **Value:** [App](/api/E2E/App/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L51)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L58)
+
+<a id="E2E_E2ESession_ArtifactsDir_"></a>
+<a id="E2E_E2ESession_ArtifactsDir"></a>
+
+### ArtifactsDir
+
+
+```csharp
+public string ArtifactsDir { get; }
+```
+
+
+The absolute directory of the attempt's artifacts. Upstream's `artifactsDir`.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L87)
+
+<a id="E2E_E2ESession_AttemptId_"></a>
+<a id="E2E_E2ESession_AttemptId"></a>
+
+### AttemptId
+
+
+```csharp
+public string AttemptId { get; }
+```
+
+
+The unique id of this attempt, the one its report names. Upstream's `attemptId`.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L72)
 
 <a id="E2E_E2ESession_Browser_"></a>
 <a id="E2E_E2ESession_Browser"></a>
@@ -74,7 +108,7 @@ public Browser Browser { get; }
 
 **Value:** [Browser](/api/E2E/Browser/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L53)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L60)
 
 <a id="E2E_E2ESession_Context_"></a>
 <a id="E2E_E2ESession_Context"></a>
@@ -89,7 +123,25 @@ public TestContext Context { get; }
 
 **Value:** [TestContext](/api/E2E/TestContext/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L59)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L66)
+
+<a id="E2E_E2ESession_Fixtures_"></a>
+<a id="E2E_E2ESession_Fixtures"></a>
+
+### Fixtures
+
+
+```csharp
+public TestContext Fixtures { get; }
+```
+
+
+The session's fixtures, the same [TestContext](/api/E2E/TestContext/) as [Context](#E2E_E2ESession_Context). Upstream's `fixtures`, a `TestFixtures` that
+`test.extend` can add to; the port has no `extend`, so there is no fixtures type argument.
+
+**Value:** [TestContext](/api/E2E/TestContext/)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L84)
 
 <a id="E2E_E2ESession_HandedOff_"></a>
 <a id="E2E_E2ESession_HandedOff"></a>
@@ -104,7 +156,7 @@ public int HandedOff { get; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L117)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L148)
 
 <a id="E2E_E2ESession_InputTokens_"></a>
 <a id="E2E_E2ESession_InputTokens"></a>
@@ -119,7 +171,7 @@ public int InputTokens { get; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L123)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L154)
 
 <a id="E2E_E2ESession_Missed_"></a>
 <a id="E2E_E2ESession_Missed"></a>
@@ -134,7 +186,7 @@ public int Missed { get; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L119)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L150)
 
 <a id="E2E_E2ESession_ModelCalls_"></a>
 <a id="E2E_E2ESession_ModelCalls"></a>
@@ -149,7 +201,7 @@ public int ModelCalls { get; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L121)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L152)
 
 <a id="E2E_E2ESession_OutputTokens_"></a>
 <a id="E2E_E2ESession_OutputTokens"></a>
@@ -164,7 +216,7 @@ public int OutputTokens { get; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L125)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L156)
 
 <a id="E2E_E2ESession_Replayed_"></a>
 <a id="E2E_E2ESession_Replayed"></a>
@@ -179,7 +231,24 @@ public int Replayed { get; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L115)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L146)
+
+<a id="E2E_E2ESession_RunId_"></a>
+<a id="E2E_E2ESession_RunId"></a>
+
+### RunId
+
+
+```csharp
+public string RunId { get; }
+```
+
+
+The id of the run the session belongs to: the one its report names. Upstream's `runId`.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L75)
 
 <a id="E2E_E2ESession_Screen_"></a>
 <a id="E2E_E2ESession_Screen"></a>
@@ -194,7 +263,42 @@ public Screen Screen { get; }
 
 **Value:** [Screen](/api/E2E/Screen/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L57)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L64)
+
+<a id="E2E_E2ESession_Target_"></a>
+<a id="E2E_E2ESession_Target"></a>
+
+### Target
+
+
+```csharp
+public string Target { get; }
+```
+
+
+The name of the target the session runs on. Upstream's `target`.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L78)
+
+<a id="E2E_E2ESession_TracePath_"></a>
+<a id="E2E_E2ESession_TracePath"></a>
+
+### TracePath
+
+
+```csharp
+public string TracePath { get; }
+```
+
+
+The absolute path of the session's trace page. It is written when the session closes, if the trace mode keeps this attempt (upstream
+always writes one). Upstream's `tracePath`.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L93)
 
 ## Methods
 
@@ -222,7 +326,27 @@ looked at when the session is released. Only an attempt whose trace page is kept
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L611)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L771)
+
+<a id="E2E_E2ESession_CloseAsync_"></a>
+<a id="E2E_E2ESession_CloseAsync"></a>
+
+### CloseAsync()
+
+
+```csharp
+public Task<IReadOnlyList<Exception>> CloseAsync()
+```
+
+
+Ends the session, once, and returns what went wrong: the soft assertion failures (as one `ASSERTION_FAILED`), the steps the test
+left running (`STEP_NOT_AWAITED`, whose work is cancelled), and the cleanup failures. A second call returns the same list.
+Disposing a session its owner hosts throws them as an [AggregateException](https://learn.microsoft.com/dotnet/api/system.aggregateexception). Upstream's `close()`, which returns
+`SerializedError[]`: the port keeps the exceptions, and [Code](/api/E2E/E2EException/#E2E_E2EException_Code) carries the code.
+
+**Returns:** [Task&lt;IReadOnlyList&lt;Exception&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L438)
 
 <a id="E2E_E2ESession_CloseSoftFailures_"></a>
 <a id="E2E_E2ESession_CloseSoftFailures"></a>
@@ -242,7 +366,7 @@ matchers throw as hard ones would.
 
 **Returns:** [TestException](/api/E2E/TestException/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L338)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L378)
 
 <a id="E2E_E2ESession_Complete_"></a>
 <a id="E2E_E2ESession_Complete_System_Exception_System_Threading_CancellationToken_"></a>
@@ -269,7 +393,7 @@ rewritten. A model outage leaves existing entries in place, unless a failure on 
 | `error` | [Exception](https://learn.microsoft.com/dotnet/api/system.exception) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L366)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L407)
 
 <a id="E2E_E2ESession_DisposeAsync_"></a>
 <a id="E2E_E2ESession_DisposeAsync"></a>
@@ -287,7 +411,7 @@ resetting unmanaged resources asynchronously.
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask) — A task that represents the asynchronous dispose operation.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L385)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L483)
 
 <a id="E2E_E2ESession_Report_"></a>
 <a id="E2E_E2ESession_Report"></a>
@@ -306,7 +430,7 @@ test around it. Artifact paths are relative to the results directory. Upstream's
 
 **Returns:** [Report](/api/E2E.Reports/Report/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L113)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L144)
 
 <a id="E2E_E2ESession_SettleAttemptAsync_"></a>
 <a id="E2E_E2ESession_SettleAttemptAsync_System_Threading_CancellationToken_"></a>
@@ -331,7 +455,7 @@ the verdict. Upstream's `settleAttempt`.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L345)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L385)
 
 <a id="E2E_E2ESession_StartAsync_"></a>
 <a id="E2E_E2ESession_StartAsync_E2E_E2ESessionOptions_System_Threading_CancellationToken_"></a>
@@ -353,4 +477,21 @@ public static Task<E2ESession> StartAsync(E2ESessionOptions options, Cancellatio
 
 **Returns:** [Task&lt;E2ESession&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L127)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L158)
+
+<a id="E2E_E2ESession_Steps_"></a>
+<a id="E2E_E2ESession_Steps"></a>
+
+### Steps()
+
+
+```csharp
+public IReadOnlyList<ReportStep> Steps()
+```
+
+
+The attempt's step timeline as the report tells it. Upstream's `steps()`, which returns `StepRecord[]`.
+
+**Returns:** [IReadOnlyList&lt;ReportStep&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L96)

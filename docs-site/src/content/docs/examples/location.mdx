@@ -1,0 +1,131 @@
+---
+title: Location
+description: Test the permission prompt, a moving device, and going offline in an Expo app on iOS and Android.
+---
+
+The app is [`tester-army/e2e-location`](https://github.com/tester-army/e2e-location): an Expo app whose Find me button shows the city you are in. It asks for location only when tapped, follows the device, and looks the city up again after every move over 1 km. No account or key is needed.
+
+:::caution[Not run against the app]
+The snippets compile against the packages, but they have not been run against this app. No iOS simulator or Android emulator run was made. Check the ids and texts against the app you build.
+:::
+
+## Run the app
+
+You need Node, and Xcode with an iOS simulator or the Android SDK with an emulator. Pick an Android image with Google Play or Google APIs, since the city lookup uses Google Play services.
+
+```bash
+git clone https://github.com/tester-army/e2e-location
+cd e2e-location
+npm install
+npm run ios        # or: npm run android
+```
+
+This builds the Debug app, installs it, and starts Metro. Keep Metro running during the tests. Boot exactly one simulator or emulator (see [Mobile](/get-started/mobile/)).
+
+## Point a test project at it
+
+```bash
+dotnet new nunit -n Location.E2ETests
+cd Location.E2ETests
+dotnet add package E2E.Mobile.NUnit
+```
+
+```json
+{
+  "targets": [{ "name": "ios", "platform": "ios", "app": { "bundleId": "dev.e2e.location" } }],
+  "agents": { "default": { "provider": "copilot", "model": "claude-sonnet-5.5" } }
+}
+```
+
+The app is already installed, so the target has a bundle id and no `appPath`. Run Android with `E2E_MOBILE_PLATFORM=android`. The Android package is the same `dev.e2e.location`.
+
+## Set the scene, then ask
+
+`Device` plays the system. `SetPermissionAsync` resets the permission so the prompt shows again, and `SetLocationAsync` puts the device in Paris. `MobileAppTest` has already opened the app, and a permission change ends a running app, so both go before `App.OpenAsync()`, which starts it again. Each test sets its own permission and position first, and leaves the device where it ended; `Device.ClearLocationAsync()` turns it off.
+
+```csharp
+using System.Text.RegularExpressions;
+using E2E.Mobile;
+using E2E.Mobile.NUnit;
+
+[Retry(2)]   // the permission prompt is the system's, not the app's
+public sealed class LocationTests : MobileAppTest
+{
+    private static readonly Coordinates Paris = new(48.8584, 2.2945);
+    private static readonly Coordinates Berlin = new(52.5163, 13.3777);
+    private static readonly Regex Allow = new(@"^(Allow While Using App|While using the app)\z");
+
+    [Test]
+    public async Task Allowing_shows_the_city_the_device_is_in()
+    {
+        await Device.SetPermissionAsync(DevicePermission.Location, PermissionState.Reset);
+        await Device.SetLocationAsync(Paris);
+        await App.OpenAsync();
+
+        await Screen.GetByTestId("find-me").TapAsync();
+        await Screen.GetByRole("button", Allow).TapAsync();
+
+        await Expect.That(Screen.GetByTestId("city")).ToHaveTextAsync("Paris", timeout: TimeSpan.FromSeconds(15));
+        await Expect.That(Screen.GetByTestId("permission")).ToHaveTextAsync("Allowed");
+    }
+}
+```
+
+The button text differs between iOS and Android, so the test matches both with a regular expression.
+
+## Move the device
+
+A granted permission needs no prompt. Set another place and the app follows with no tap:
+
+```csharp
+[Test]
+public async Task Moving_updates_the_city_without_another_tap()
+{
+    await Device.SetPermissionAsync(DevicePermission.Location, PermissionState.Grant);
+    await Device.SetLocationAsync(Paris);
+    await App.OpenAsync();
+    await Screen.GetByTestId("find-me").TapAsync();
+    await Expect.That(Screen.GetByTestId("city")).ToHaveTextAsync("Paris", timeout: TimeSpan.FromSeconds(15));
+
+    await Device.SetLocationAsync(Berlin);
+
+    await Expect.That(Screen.GetByTestId("city")).ToHaveTextAsync("Berlin", timeout: TimeSpan.FromSeconds(15));
+}
+```
+
+`Device.ClearLocationAsync()` turns simulated location off. On Android that is location services off, until the next `SetLocationAsync`.
+
+## Go offline (Android)
+
+An iOS simulator shares the Mac's network, so `SetAirplaneModeAsync(true)` is `UNSUPPORTED_CAPABILITY` there. Skip the test on iOS and always switch airplane mode off again:
+
+```csharp
+[Test]
+public async Task Offline_the_city_lookup_fails_with_an_error()
+{
+    Assume.That(Platform == MobilePlatform.Android, "An iOS simulator shares the Mac's network.");
+    await Device.SetPermissionAsync(DevicePermission.Location, PermissionState.Grant);
+    await Device.SetLocationAsync(Paris);
+    await App.OpenAsync();
+    try
+    {
+        await Device.SetAirplaneModeAsync(true);
+        await Screen.GetByTestId("find-me").TapAsync();
+        await Expect.That(Screen.GetByTestId("location-error")).ToBeVisibleAsync(timeout: TimeSpan.FromSeconds(20));
+    }
+    finally
+    {
+        await Device.SetAirplaneModeAsync(false);
+    }
+}
+```
+
+## Run
+
+```bash
+dotnet test --project .
+```
+
+## Not covered here
+
+The upstream repository also denies the prompt, then turns location back on in the Settings app with one `Agent.ActAsync` step, which needs a model. It opens Settings with `Device.OpenAppAsync` and `Relaunch` (`com.apple.Preferences` on iOS, `com.android.settings` on Android).

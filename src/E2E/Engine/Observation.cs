@@ -145,4 +145,21 @@ public sealed class Observation
     /// screen it last read.
     /// </summary>
     public string Revision { get; internal set; } = "";
+
+    /// <summary>
+    /// The screen's pixels, with every secure field covered, when <see cref="ObserveOptions.Pixels"/> asked for them and the engine could
+    /// take them (upstream's <c>EngineSnapshot.pixels</c> and <c>maskedRegionCount</c>, as <see cref="EngineScreenshot"/>). Null when it did
+    /// not ask, or when the image could not be taken or proven redacted: the observation is then the tree alone.
+    /// </summary>
+    public EngineScreenshot? Pixels { get; init; }
+}
+
+/// <summary>What an observation takes besides the tree. Upstream's <c>EngineObserveOptions</c>.</summary>
+public sealed record ObserveOptions
+{
+    /// <summary>Take the screen's pixels with the tree (<see cref="Observation.Pixels"/>).</summary>
+    public bool Pixels { get; init; }
+
+    /// <summary>Take the pixels in a state fit for comparing against a stored one: the status bar normalized.</summary>
+    public bool Comparable { get; init; }
 }

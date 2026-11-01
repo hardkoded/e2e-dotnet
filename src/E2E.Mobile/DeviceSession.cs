@@ -296,16 +296,31 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 
     public bool CanLocate => true;
 
-    public async Task<Observation> ObserveAsync(CancellationToken cancellationToken)
+    public Task<Observation> ObserveAsync(CancellationToken cancellationToken) => ObserveAsync(ActionTimeout, cancellationToken);
+
+    /// <summary>
+    /// Observes the screen within <paramref name="timeout"/>, the operation budget that bounds every device command of the observation:
+    /// the snapshot and the viewport probe share it (upstream's <c>observe</c> under <c>inputBudget('observe', operation.timeoutMs)</c>).
+    /// </summary>
+    public Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken cancellationToken) => ObserveAsync(null, timeout, cancellationToken);
+
+    /// <summary>
+    /// <see cref="ObserveAsync(TimeSpan, CancellationToken)"/> with <paramref name="options"/>: with <see cref="ObserveOptions.Pixels"/> the
+    /// screenshot is taken under the same budget as the snapshot and the viewport probe (upstream's <c>observe(operation, options)</c>).
+    /// </summary>
+    public async Task<Observation> ObserveAsync(ObserveOptions? options, TimeSpan timeout, CancellationToken cancellationToken)
     {
-        var raw = await SnapshotOrEmptyAsync(Options.Snapshot == SnapshotMode.Interactive, budget: null, cancellationToken).ConfigureAwait(false);
+        var budget = InputBudget("observe", timeout);
+        var raw = await SnapshotOrEmptyAsync(Options.Snapshot == SnapshotMode.Interactive, budget, cancellationToken).ConfigureAwait(false);
         var projected = Project(raw);
         _generation = projected.Index.ToDictionary(entry => entry.Id, entry => Bind(entry, projected.Index, projected.RefsGeneration));
-        var viewport = await ViewportForAsync(projected, cancellationToken).ConfigureAwait(false);
+        var viewport = await ViewportForAsync(projected, budget, cancellationToken).ConfigureAwait(false);
         Route = DeviceSupport.ScreenLocation(raw.AppBundleId ?? raw.AppName ?? _appIdentity, SnapshotProjection.ScreenTitle(projected)) ?? "";
+        var pixels = options?.Pixels == true ? await CapturePixelsAsync(projected, viewport, options.Comparable, budget, cancellationToken).ConfigureAwait(false) : null;
         return new Observation
         {
             Route = Route,
+            Pixels = pixels,
             Roots = [SnapshotProjection.ScreenRoot(projected.Roots, viewport)],
             Viewport = new TraceViewport((int)Math.Round(viewport.Width), (int)Math.Round(viewport.Height)),
             Truncated = raw.Truncated || raw.Sparse,
@@ -322,18 +337,24 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) =>
         _engine.Actions.SwipeAsync(this, direction, cancellationToken);
 
-    public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) =>
-        _engine.Actions.ScreenshotAsync(this, cancellationToken);
+    public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) => ScreenshotAsync(ActionTimeout, cancellationToken);
+
+    /// <summary>The masked screenshot within <paramref name="timeout"/>, the operation budget its snapshot and capture share.</summary>
+    public Task<EngineScreenshot> ScreenshotAsync(TimeSpan timeout, CancellationToken cancellationToken) =>
+        _engine.Actions.ScreenshotAsync(this, timeout, cancellationToken);
 
     /// <summary>
     /// A redacted screenshot artifact. The device paints secure fields as dots, but the last typed character shows in clear, so every
     /// secure node's bounds are painted over before the file is kept. An image that cannot be redacted is not written at all (upstream's
     /// <c>screenshot</c> in <c>mobile/src/surface.ts</c>).
     /// </summary>
-    public async Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken)
+    public Task<string> ScreenshotArtifactAsync(string? label, CancellationToken cancellationToken) => ScreenshotArtifactAsync(label, ActionTimeout, cancellationToken);
+
+    /// <summary><see cref="ScreenshotArtifactAsync(string?, CancellationToken)"/> within <paramref name="timeout"/>, the operation budget its snapshot and capture share.</summary>
+    public async Task<string> ScreenshotArtifactAsync(string? label, TimeSpan timeout, CancellationToken cancellationToken)
     {
         var artifactsDir = _artifactsDir ?? throw DeviceSupport.InvalidState("screenshot outside an attempt");
-        var masked = await MaskedScreenshotAsync(normalizeStatusBar: false, cancellationToken).ConfigureAwait(false);
+        var masked = await MaskedScreenshotAsync(normalizeStatusBar: false, InputBudget("screenshot", timeout), cancellationToken).ConfigureAwait(false);
         var name = Interlocked.Increment(ref _screenshots).ToString("D3", System.Globalization.CultureInfo.InvariantCulture)
             + "-" + DeviceSupport.SanitizeFilename(label ?? "screenshot") + ".png";
         var directory = Path.Combine(artifactsDir, "screenshots");
@@ -515,7 +536,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     /// size; on a real device the tree's size is taken as it comes. A device whose size cannot be learned at all fails the
     /// observation: the harness measures every rect and point against the viewport, so an invented one would misplace every tap.
     /// </summary>
-    private async Task<ViewportSize> ViewportForAsync(ProjectedSnapshot projected, CancellationToken cancellationToken)
+    private async Task<ViewportSize> ViewportForAsync(ProjectedSnapshot projected, InputBudget budget, CancellationToken cancellationToken)
     {
         if (_knownViewport is { } known)
         {
@@ -525,7 +546,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
             }
 
             if (!SameScreen(read, known)
-                && await ProbeViewportAsync(cancellationToken).ConfigureAwait(false) is { } device
+                && await ProbeViewportAsync(budget, cancellationToken).ConfigureAwait(false) is { } device
                 && !SameScreen(read, device))
             {
                 return known;
@@ -535,7 +556,7 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
             return read;
         }
 
-        var probed = await ProbeViewportAsync(cancellationToken).ConfigureAwait(false)
+        var probed = await ProbeViewportAsync(budget, cancellationToken).ConfigureAwait(false)
             ?? throw new EngineException(
                 EngineErrorCodes.EngineFailure,
                 "the device reported no screen geometry: the snapshot has no bounds and the screenshot no logical size, so the viewport is unknown",
@@ -545,8 +566,8 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     }
 
     /// <summary>The device's logical screen size as its screenshot reports it. Null when it reports none.</summary>
-    private Task<ViewportSize?> ProbeViewportAsync(CancellationToken cancellationToken) =>
-        CaptureScreenshotAsync((shot, _) => Task.FromResult(DeviceSupport.LogicalScreenSize(shot)), normalizeStatusBar: false, cancellationToken);
+    private Task<ViewportSize?> ProbeViewportAsync(InputBudget budget, CancellationToken cancellationToken) =>
+        CaptureScreenshotAsync((shot, _) => Task.FromResult(DeviceSupport.LogicalScreenSize(shot)), normalizeStatusBar: false, budget, cancellationToken);
 
     private const string UninstalledBuild = "the build the target's `app.appPath` names installed first with `device.installApp()`";
 

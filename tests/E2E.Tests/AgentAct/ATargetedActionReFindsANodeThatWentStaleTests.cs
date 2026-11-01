@@ -152,6 +152,6 @@ public sealed class ATargetedActionReFindsANodeThatWentStaleTests
 
         session.Complete(error);
         Assert.Null(error);
-        return (result!, session.Steps);
+        return (result!, session.StepRecords);
     }
 }

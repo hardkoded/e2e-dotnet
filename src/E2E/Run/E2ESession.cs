@@ -37,9 +37,12 @@ public sealed class E2ESession : IAsyncDisposable
     private long _bodyMs;
     private AttemptStatus _status = AttemptStatus.Failed;
     private Lazy<Report>? _report;
+    private readonly Lazy<Task<IReadOnlyList<Exception>>> _ending;
+    private Func<Task<IReadOnlyList<Exception>>>? _hostedClose;
 
     private E2ESession(AttemptScope scope, CancellationTokenSource timeout, IEngineSession engine, App app, Browser browser, Agent agent, Screen screen, TestContext context, IDisposable errorRedaction, TextWriter? debugOutput)
     {
+        _ending = new Lazy<Task<IReadOnlyList<Exception>>>(EndOnceAsync);
         _debugOutput = debugOutput;
         _errorRedaction = errorRedaction;
         _scope = scope;
@@ -65,11 +68,35 @@ public sealed class E2ESession : IAsyncDisposable
     /// <summary>The engine session, for a host that drives the app without a test body.</summary>
     internal IEngineSession Engine => _engine;
 
-    /// <summary>The unique id of this attempt, the one its report names.</summary>
-    internal string AttemptId => _scope.AttemptId;
+    /// <summary>The unique id of this attempt, the one its report names. Upstream's <c>attemptId</c>.</summary>
+    public string AttemptId => _scope.AttemptId;
+
+    /// <summary>The id of the run the session belongs to: the one its report names. Upstream's <c>runId</c>.</summary>
+    public string RunId => AttemptReport.RunId;
+
+    /// <summary>The name of the target the session runs on. Upstream's <c>target</c>.</summary>
+    public string Target => _scope.TargetName;
+
+    /// <summary>
+    /// The session's fixtures, the same <see cref="TestContext"/> as <see cref="Context"/>. Upstream's <c>fixtures</c>, a <c>TestFixtures</c> that
+    /// <c>test.extend</c> can add to; the port has no <c>extend</c>, so there is no fixtures type argument.
+    /// </summary>
+    public TestContext Fixtures => Context;
+
+    /// <summary>The absolute directory of the attempt's artifacts. Upstream's <c>artifactsDir</c>.</summary>
+    public string ArtifactsDir => _scope.ArtifactsDir!;
+
+    /// <summary>
+    /// The absolute path of the session's trace page. It is written when the session closes, if the trace mode keeps this attempt (upstream
+    /// always writes one). Upstream's <c>tracePath</c>.
+    /// </summary>
+    public string TracePath => Path.Combine(_trace!.TestDir, TracePages.TracePage);
+
+    /// <summary>The attempt's step timeline as the report tells it. Upstream's <c>steps()</c>, which returns <c>StepRecord[]</c>.</summary>
+    public IReadOnlyList<E2E.Reports.ReportStep> Steps() => [.. StepRecords.Select(StepProgressWire.Public)];
 
     /// <summary>The attempt's step timeline, with the screen each step left when the attempt keeps a trace.</summary>
-    internal IReadOnlyList<StepRecord> Steps => _scope.Steps.All();
+    internal IReadOnlyList<StepRecord> StepRecords => _scope.Steps.All();
 
     /// <summary>The hook steps run in from now on; null for the test body (upstream's <c>enter</c>). A test framework's hook methods name theirs themselves.</summary>
     internal StepPhase? Phase
@@ -233,6 +260,7 @@ public sealed class E2ESession : IAsyncDisposable
             var scope = new AttemptScope
             {
                 ArtifactsDir = attemptDir,
+                OnProgress = options.OnProgress,
                 ArtifactStore = options.ArtifactStore,
                 Session = engine,
                 Screens = screens,
@@ -294,7 +322,8 @@ public sealed class E2ESession : IAsyncDisposable
                 options.AssertionTimeout,
                 softFailures,
                 locate: engine.CanLocate ? engine.LocateAsync : null,
-                swipe: engine.SwipeAsync);
+                swipe: engine.SwipeAsync,
+                observeWithin: scope.ObserveAsync);
             var fixtureContext = new EngineFixtureContext(screen);
             browser.Context = fixtureContext;
             (engine as IEngineFixtureHost)?.CreateFixtures(fixtureContext);
@@ -316,7 +345,7 @@ public sealed class E2ESession : IAsyncDisposable
                 Ci = options.Ci ?? E2EConfig.IsCi(),
                 ScrollsIntoView = (options.Engine.Capabilities & EngineCapabilities.Scroll) != 0,
                 DirectoryOf = options.SnapshotDirectoryOf ?? (static file => file is null ? null : file + "-snapshots"),
-                Capture = token => engine.ScreenshotAsync(token),
+                Capture = (budget, token) => engine.ScreenshotAsync(budget, token),
             };
             var context = new TestContext
             {
@@ -395,7 +424,96 @@ public sealed class E2ESession : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Makes this session an upstream hosted one: <paramref name="close"/> is the owner's close, which ends it once through <see cref="EndAsync"/>
+    /// and gives its slot back, and <see cref="DisposeAsync"/> throws what <see cref="CloseAsync"/> returns.
+    /// </summary>
+    internal void Host(Func<Task<IReadOnlyList<Exception>>> close) => _hostedClose = close;
+
+    /// <summary>
+    /// Ends the session, once, and returns what went wrong: the soft assertion failures (as one <c>ASSERTION_FAILED</c>), the steps the test
+    /// left running (<c>STEP_NOT_AWAITED</c>, whose work is cancelled), and the cleanup failures. A second call returns the same list.
+    /// Disposing a session its owner hosts throws them as an <see cref="AggregateException"/>. Upstream's <c>close()</c>, which returns
+    /// <c>SerializedError[]</c>: the port keeps the exceptions, and <see cref="E2EException.Code"/> carries the code.
+    /// </summary>
+    public Task<IReadOnlyList<Exception>> CloseAsync() => _hostedClose is { } close ? close() : EndAsync();
+
+    internal Task<IReadOnlyList<Exception>> EndAsync() => _ending.Value;
+
+    private async Task<IReadOnlyList<Exception>> EndOnceAsync()
+    {
+        var errors = new List<Exception>();
+        TestException? soft = null;
+        TestException? abandoned = null;
+        try
+        {
+            soft = CloseSoftFailures();
+            abandoned = _scope.Steps.AbandonRunning();
+        }
+#pragma warning disable CA1031 // The close result is cached, so a failure here is one of the failures it returns, never a faulted task.
+        catch (Exception cause)
+#pragma warning restore CA1031
+        {
+            errors.Add(cause);
+        }
+
+        foreach (var failure in new Exception?[] { soft, abandoned })
+        {
+            if (failure is not null)
+            {
+                errors.Add(failure);
+            }
+        }
+
+        if (abandoned is not null)
+        {
+            // The work the test left running stops with the session, as upstream's close cancels the operations it still holds.
+            try
+            {
+                await _timeout.CancelAsync().ConfigureAwait(false);
+            }
+            catch (ObjectDisposedException)
+            {
+                // The session was released already.
+            }
+        }
+
+        Complete(soft ?? abandoned);
+        try
+        {
+            await DisposeCoreAsync().ConfigureAwait(false);
+        }
+#pragma warning disable CA1031 // The session's failures are reported together, whichever step they came from.
+        catch (Exception cause)
+#pragma warning restore CA1031
+        {
+            errors.Add(cause);
+            CleanupFailed = true;
+        }
+
+        return errors;
+    }
+
+    /// <summary>Whether releasing the session failed: what it left may be unclean, unlike a test outcome in <see cref="CloseAsync"/>'s list.</summary>
+    internal bool CleanupFailed { get; private set; }
+
     public async ValueTask DisposeAsync()
+    {
+        if (_hostedClose is null)
+        {
+            await DisposeCoreAsync().ConfigureAwait(false);
+            return;
+        }
+
+        // Disposal has no result to return, so it throws the failures rather than dropping them, always as an aggregate.
+        var failures = await CloseAsync().ConfigureAwait(false);
+        if (failures.Count > 0)
+        {
+            throw new AggregateException("closing the e2e session failed: " + string.Join("; ", failures.Select(failure => failure.Message)), failures);
+        }
+    }
+
+    private async ValueTask DisposeCoreAsync()
     {
         Exception? commitFailure = null;
         try
@@ -1059,6 +1177,9 @@ public sealed class E2ESessionOptions
     /// on the session until <see cref="E2ESession.CloseSoftFailures"/>.
     /// </summary>
     public Action<TestException>? OnSoftFailure { get; init; }
+
+    /// <summary>Live progress of the attempt's steps; null feeds none. Upstream's <c>onProgress</c> of the step recorder.</summary>
+    internal Action<StepProgress>? OnProgress { get; init; }
 
     /// <summary>
     /// Reports whether the test has already failed. Once it returns true, a passing check no longer

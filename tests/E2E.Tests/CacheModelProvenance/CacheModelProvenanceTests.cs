@@ -46,7 +46,7 @@ public sealed class CacheModelProvenanceTests
         await session.Agent.ActAsync(TwoTapCounter.Instruction);
         await Expect.That(session.Screen.GetByRole("status", "Counter")).ToHaveTextAsync("2");
         session.Complete();
-        return Assert.Single(session.Steps, step => step.Api == "agent.act");
+        return Assert.Single(session.StepRecords, step => step.Api == "agent.act");
     }
 
     /// <summary>Partial: the port has no list reporter, so the "recorded with" line of the list is not checked; the trace page's line is checked in <c>TheStepsOnATracePageTests</c>.</summary>

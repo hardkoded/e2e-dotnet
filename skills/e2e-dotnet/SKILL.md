@@ -35,6 +35,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | Running tests: `dotnet test` filters, the `e2e` tool, `report.json` for scripts, exit codes, CI, test filters (not wired into `dotnet test`: the `ITestFilter` seam and the `run.changes` and `run.filters` report fields) | `running` | [references/running.md](references/running.md) |
 | Handling a failed run: the trace page, `report.json` for scripts, `E2ESession.Report()` for a session you run yourself, error codes and their fixes, a visible browser, replay misses, phase timings, the agent step table, every model call | `debugging` | [references/debugging.md](references/debugging.md) |
 | Exploring an app toward a goal without a test file, with `e2e explore` or `Explore.ExploreAsync` | `explore` | [references/explore.md](references/explore.md) |
+| Running isolated per-test sessions from your own runner: `E2EHost.OpenAsync`, `OpenHostOptions` (config value or file, target, `EngineFactory`), `host.OpenSessionAsync`, `E2ESession.CloseAsync` and the failures it returns, `Steps()` | `host` | [references/host.md](references/host.md) |
 | Testing an iOS or Android app: `MobileEngine`, the `Device` fixture, picking a simulator (without `MobileOptions.Device`, `MobileEngine` skips booted devices another agent-device session holds, and `prepare` fails with `ENGINE_FAILURE` when every booted one is held), video of the device screen, `Device.UnstableRaw` (the test's agent-device session: name, device id and name, selection, and a raw `IDeviceClient` whose calls are not steps, replayed, or redacted; unstable; `INVALID_STATE` after the session is disposed), Limrun hosted devices, a MAUI app through the DevFlow agent, known limits, `Locator.PressAsync("Enter")` tapping an unfocused field first, and the agent's `open_app` returning to the app under test when it names no app, a Compose Multiplatform field on iOS (for an empty (no value), editable, non-secure iOS field that reports no placeholder of its own, whose only child is a `StaticText` with no children, and whose label is a non-empty name, then `, `, then that child's text, that text is the field's `Placeholder`, the child is left out, and the name is the label before `, `; a non-empty `ContentDescription` stays the name, and that label is then the `Text`; any other field keeps its label and children), and `FillAsync` and `ClearAsync` refusing a node that is not an editable field with `UNSUPPORTED_CAPABILITY` (an iOS `other` that holds a value or only text is typed into) | `mobile` | [references/mobile.md](references/mobile.md) |
 | Testing a Windows desktop app: `WinAppEngine`, `WinAppTest`, the `Window` fixture, the `windows` target in `e2e explore` and `e2e mcp`, the interactive-desktop requirement, known limits | `windows` | [references/windows.md](references/windows.md) |
 | Asked to bug bash or hunt for bugs: proving each bug with a repro test | `bug-bash` | [references/bug-bash.md](references/bug-bash.md) |
@@ -276,7 +277,7 @@ lines you changed:
 ## Rules
 
 - Text matches are exact by default. A locator that matches two nodes
-  fails with `STRICT_MODE`; narrow it, or add `First()` to an `a.Or(b)`
+  fails with `LOCATOR_AMBIGUOUS`; narrow it, or add `First()` to an `a.Or(b)`
   whose branches both match (topic `writing-tests`).
 - Narrow a locator with `Filter(hasText:, hasNotText:, has:, hasNot:)`; any
   of the four, at least one. `hasText` and `hasNotText` are case-insensitive
@@ -318,8 +319,8 @@ lines you changed:
 - A locator reports an engine failure in the test's own codes, with the engine's
   error as `InnerException`: `NOT_ACTIONABLE`, `ACTION_MAY_HAVE_COMMITTED`, and
   `OPERATION_TIMEOUT` are `ACTION_FAILED` (the timeout reads `operation timed
-  out: <locator>`), a stale node or a missing frame is `NOT_FOUND`, an ambiguous
-  frame is `STRICT_MODE`, and `INVALID_STATE` is `APP_NOT_OPEN`. Match on
+  out: <locator>`), a stale node or a missing frame is `LOCATOR_NOT_FOUND`, an ambiguous
+  frame is `LOCATOR_AMBIGUOUS`, and `INVALID_STATE` is `APP_NOT_OPEN`. Match on
   `ACTION_FAILED`, and read `InnerException` for the engine code. `CANCELLED`
   and `ENGINE_FAILURE` keep their codes, and `UNSUPPORTED_CAPABILITY` is a
   `ConfigurationException`. A stale node found by an action is looked up again
@@ -330,12 +331,21 @@ lines you changed:
   answer within `actionTimeout` fails with `ACTION_MAY_HAVE_COMMITTED` and is
   never repeated; one the timeout ran out before is not sent and fails with
   `OPERATION_TIMEOUT`; a long press that holds at least as long as the time left
-  is refused with `NOT_ACTIONABLE`. A locate on a device (a locator, `Expect`)
-  runs within the timeout of the call that takes it, so a device that stops
-  answering fails the step with `ACTION_FAILED` instead of holding it until the
-  test timeout. `WaitForAsync`, `Expect`, and `ToHaveScreenshotAsync` give their
+  is refused with `NOT_ACTIONABLE`. A locate, an observation, or a screenshot
+  on a device (a locator, `Expect`, `ToHaveScreenshotAsync`, `Screen.TreeAsync`)
+  runs within the timeout of the call that takes it, and its snapshot and its
+  capture or viewport probe share that one operation budget (a call with no
+  timeout gets `actionTimeout`). A device that stops answering fails the step
+  with `ACTION_FAILED` (`InnerException` `OPERATION_TIMEOUT`) instead of holding
+  it until the test timeout. `WaitForAsync`, `Expect`, and `ToHaveScreenshotAsync` give their
   last read extra time, up to their slowest read so far and within the test
-  timeout, so a screen that shows up during it still passes.
+  timeout, so a screen that shows up during it still passes. An engine session
+  takes the screen's pixels with the tree through
+  `ObserveAsync(new ObserveOptions { Pixels = true, Comparable = ... }, timeout, ct)`
+  (`Observation.Pixels`, secure fields covered); the screenshot shares the
+  observation's budget, and a device that stops answering fails the call with
+  `OPERATION_TIMEOUT`. Any other failure of the screenshot leaves the
+  observation with the tree alone.
 - Secrets never appear in test code. Declare them under `secrets` in the
   config and read them with `Secrets.Get(name)`; accounts come from
   `Credentials.User(name)`. Hand the `Secret` only to `FillAsync` or

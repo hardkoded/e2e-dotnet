@@ -1,0 +1,125 @@
+---
+title: Three languages
+description: Run one test class in English, German, and Spanish, with an agent persona that reads each language.
+---
+
+The app is [`tester-army/e2e-i18n`](https://github.com/tester-army/e2e-i18n): a Nuxt contact form in English, German, and Spanish. It reads the browser's `Accept-Language`, so there is one URL and no cookie. This guide runs one test class once per language.
+
+:::caution[Not run against the app]
+The snippets compile against the packages, but they have not been run against this app. No browser run was made against the Nuxt app, and the agent steps were never run with a model. Check the ids and texts against the app you build.
+:::
+
+## Run the app
+
+```bash
+git clone https://github.com/tester-army/e2e-i18n
+cd e2e-i18n
+npm install
+npm run dev        # http://localhost:3000
+```
+
+## Set the browser's language
+
+`WebEngineOptions.Locale` sets `navigator.language` and `Accept-Language` for every attempt. Override `CreateEngine()` and give the fixture one language per run:
+
+```csharp
+using E2E.Engine;
+using E2E.NUnit;
+
+[TestFixture("en-US", "en", "English")]
+[TestFixture("de-DE", "de", "German")]
+[TestFixture("es-ES", "es", "Spanish")]
+public sealed class ContactFormTests(string locale, string code, string language) : E2ETest
+{
+    protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions { Locale = locale });
+}
+```
+
+`TimezoneId` (for example `Europe/Berlin`) works the same way when the app formats dates.
+
+## Tests that read no text
+
+A test id and an attribute are the same in every language, so these tests need no model:
+
+```csharp
+[Test]
+public async Task The_page_is_in_the_browsers_language()
+{
+    await App.OpenAsync("/");
+
+    Assert.That(await Browser.EvaluateAsync<string>("() => document.documentElement.lang"), Is.EqualTo(code));
+    await Expect.That(Screen.GetByTestId($"language-{code}")).ToHaveAttributeAsync("aria-current", "true");
+}
+
+[Test]
+public async Task Sending_an_empty_form_marks_every_required_field()
+{
+    await App.OpenAsync("/");
+    await Expect.That(Screen.GetByTestId("send")).ToBeEnabledAsync();   // on once the page hydrates
+
+    await Screen.GetByTestId("send").ClickAsync();
+
+    await Expect.Poll(() => Browser.EvaluateAsync<int>("() => document.querySelectorAll('[aria-invalid=\"true\"]').length"))
+        .ToBeAsync(3);
+}
+```
+
+## One agent test, written once in English
+
+Give each language a persona in `e2e.config.json`, named by its code. A step that names a persona with `ActOptions.Agent` or `AssertOptions.Agent` goes to that agent, which reads the page in its language:
+
+```json
+{
+  "targets": [{ "name": "web", "platform": "web", "app": { "url": "http://localhost:3000" } }],
+  "agents": {
+    "default": { "provider": "copilot", "model": "claude-sonnet-5.5" },
+    "de": {
+      "provider": "copilot",
+      "model": "claude-sonnet-5.5",
+      "system": "You are a native German speaker using this page. Find your way by its German labels.",
+      "context": "The page is a contact form: name, email, topic, message, and a send button. The browser is set to German."
+    }
+  }
+}
+```
+
+Add an `en` and an `es` entry the same way. Then the test is the same in every language:
+
+```csharp
+[Test]
+[Category("RealModel")]
+public async Task Sends_the_contact_form()
+{
+    await App.OpenAsync("/");
+    await Expect.That(Screen.GetByTestId("send")).ToBeEnabledAsync();
+    var ada = new Dictionary<string, object?>
+    {
+        ["name"] = "Ada Lovelace",
+        ["email"] = "ada@example.com",
+        ["message"] = "Hello from the e2e tests.",
+    };
+
+    await Agent.ActAsync(
+        "fill in the contact form as {name} ({email}) with a bug report that says {message}, without sending it",
+        new ActOptions { Agent = code, Params = ada });
+    await Agent.ActAsync("send the message", new ActOptions { Agent = code });
+
+    await Expect.That(Screen.GetByTestId("sent")).ToContainTextAsync("Ada Lovelace");
+    await Agent.AssertAsync(
+        $"The page says in {language} that the message was sent, thanks Ada Lovelace, and replies to ada@example.com",
+        new AssertOptions { Agent = code });
+}
+```
+
+Each persona records its own replay entries, so a second run replays every language with no model call.
+
+## Run
+
+```bash
+dotnet test --project .                                          # all three languages
+dotnet test --project . --filter "TestCategory!=RealModel"       # no model needed
+```
+
+## Not covered here
+
+The upstream repository also stores a screenshot per language and measures text that is wider than its box. Both are possible with `ToHaveScreenshotAsync` and `Browser.EvaluateAsync`, and are left out to keep this guide short.

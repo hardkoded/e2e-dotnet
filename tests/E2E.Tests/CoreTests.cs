@@ -36,7 +36,7 @@ public sealed class CoreTests
         }, world);
 
         var error = Assert.IsType<TestException>(result.Error);
-        Assert.Equal("STRICT_MODE", error.Code);
+        Assert.Equal("LOCATOR_AMBIGUOUS", error.Code);
     }
 
     [Fact]
@@ -159,7 +159,7 @@ public sealed class CoreTests
         });
 
         var error = Assert.IsType<TestException>(result.Error);
-        Assert.Equal("NOT_FOUND", error.Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
         Assert.True(waited >= TimeSpan.FromMilliseconds(300));
     }
 

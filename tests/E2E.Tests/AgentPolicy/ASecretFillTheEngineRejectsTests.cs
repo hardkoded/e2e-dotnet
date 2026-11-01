@@ -51,9 +51,9 @@ public sealed class ASecretFillTheEngineRejectsTests
             new ActOptions { Params = new Dictionary<string, object?> { ["token"] = Secret.Create("token", Token) } }));
         session.Complete(error);
 
-        var act = session.Steps.Single(step => step.Api == "agent.act");
+        var act = session.StepRecords.Single(step => step.Api == "agent.act");
         Assert.Equal(StepStatus.Failed, act.Status);
         Assert.Contains("the field detached after <secret:token> was typed", act.Error!.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain(Token, JsonSerializer.Serialize(session.Steps), StringComparison.Ordinal);
+        Assert.DoesNotContain(Token, JsonSerializer.Serialize(session.StepRecords), StringComparison.Ordinal);
     }
 }

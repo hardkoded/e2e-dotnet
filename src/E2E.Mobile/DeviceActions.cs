@@ -317,7 +317,13 @@ public sealed class DeviceActions : IDeviceActions
     public Task<EngineScreenshot> ScreenshotAsync(DeviceSession session, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
-        return session.MaskedScreenshotAsync(cancellationToken);
+        return session.MaskedScreenshotAsync(session.InputBudget("screenshot"), cancellationToken);
+    }
+
+    public Task<EngineScreenshot> ScreenshotAsync(DeviceSession session, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        return session.MaskedScreenshotAsync(session.InputBudget("screenshot", timeout), cancellationToken);
     }
 
     // --- what the contract has no verb for ---

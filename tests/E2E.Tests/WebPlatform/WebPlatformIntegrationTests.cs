@@ -120,7 +120,7 @@ public sealed class WebPlatformIntegrationTests
             await session.App.OpenAsync("/classes");
             await session.Screen.GetByText("Never card").TextContentAsync();
         }));
-        Assert.Equal("NOT_FOUND", error.Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
         Assert.Contains("Never card", error.Message, StringComparison.Ordinal);
         Assert.True(watch.Elapsed >= TimeSpan.FromSeconds(5), "failed after " + watch.Elapsed);
     }
@@ -146,7 +146,7 @@ public sealed class WebPlatformIntegrationTests
             await session.App.OpenAsync("/frame");
             await session.Browser.FrameLocator("#absent").GetByRole("button").TapAsync(new ActionOptions { Timeout = TimeSpan.FromMilliseconds(800) });
         });
-        Assert.Equal("NOT_FOUND", Assert.IsType<TestException>(error).Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", Assert.IsType<TestException>(error).Code);
         var tap = steps.First(step => step.Api == "locator.tap");
         Assert.Equal(StepStatus.Failed, tap.Status);
         Assert.True(tap.DurationMs >= 800, "the tap failed after " + tap.DurationMs + "ms");
@@ -168,7 +168,7 @@ public sealed class WebPlatformIntegrationTests
             await session.App.OpenAsync("/classes");
             await Expect.That(session.Browser).ToHaveClassAsync(session.Browser.Locator(".dup"), "dup", TimeSpan.FromMilliseconds(1800));
         });
-        Assert.Equal("STRICT_MODE", Assert.IsType<TestException>(error).Code);
+        Assert.Equal("LOCATOR_AMBIGUOUS", Assert.IsType<TestException>(error).Code);
         Assert.True(steps.First(step => step.Api == "expect.toHaveClass").DurationMs < 1800);
     }
 
@@ -644,6 +644,6 @@ public sealed class WebPlatformIntegrationTests
         }
 
         session.Complete(error);
-        return (error, session.Steps.ToList());
+        return (error, session.StepRecords.ToList());
     }
 }

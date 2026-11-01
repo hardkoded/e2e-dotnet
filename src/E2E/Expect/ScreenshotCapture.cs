@@ -27,17 +27,17 @@ internal static partial class ScreenshotAssertion
         private bool _scrolled = !store.ScrollsIntoView;
 
         /// <summary>
-        /// One engine read on the window's budget. The port's observe and capture take no budget, so the read ends with it: the token
-        /// cancels at the budget, and a read that ends on that is the engine's <c>OPERATION_TIMEOUT</c>, reported as <c>ACTION_FAILED</c>.
+        /// One engine read on the window's budget, which the read is given and the token also ends: a read that ends on that is the
+        /// engine's <c>OPERATION_TIMEOUT</c>, reported as <c>ACTION_FAILED</c>.
         /// </summary>
-        private Task<T> ReadAsync<T>(Func<CancellationToken, Task<T>> read, CancellationToken cancellationToken) =>
+        private Task<T> ReadAsync<T>(Func<TimeSpan, CancellationToken, Task<T>> read, CancellationToken cancellationToken) =>
             reads.ReadAsync(async budget =>
             {
                 using var bounded = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 bounded.CancelAfter(budget);
                 try
                 {
-                    return await read(bounded.Token).ConfigureAwait(false);
+                    return await read(budget, bounded.Token).ConfigureAwait(false);
                 }
                 catch (Exception ex) when (bounded.IsCancellationRequested && !cancellationToken.IsCancellationRequested
                     && (ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.OperationTimeout or EngineErrorCodes.Cancelled } || ex.InnerException is OperationCanceledException))
@@ -64,7 +64,7 @@ internal static partial class ScreenshotAssertion
                     {
                         await screen.PerformAsync(node, new LocatorAction.ScrollIntoView(), cancellationToken).ConfigureAwait(false);
                     }
-                    catch (Exception ex) when (ex is EngineException { Code: EngineErrorCodes.NodeStale } or TestException { Code: "NOT_FOUND" })
+                    catch (Exception ex) when (ex is EngineException { Code: EngineErrorCodes.NodeStale } or TestException { Code: "LOCATOR_NOT_FOUND" })
                     {
                     }
 
@@ -124,7 +124,7 @@ internal static partial class ScreenshotAssertion
             {
                 0 => null,
                 1 => matches[0],
-                _ => throw new TestException("STRICT_MODE", subject.Query.Describe() + " matched " + Number(matches.Count) + " nodes."),
+                _ => throw new TestException("LOCATOR_AMBIGUOUS", subject.Query.Describe() + " matched " + Number(matches.Count) + " nodes."),
             };
         }
     }

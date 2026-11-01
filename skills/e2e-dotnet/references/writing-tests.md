@@ -124,7 +124,7 @@ Members of `E2ETest` in both frameworks:
 - `a.Or(b)` matches either, still strict: add `First()` when both may
   match. Both locators must come from the same screen and attempt.
 - A locator resolves when it is used. A match on two nodes fails with
-  `STRICT_MODE`; no match fails with `NOT_FOUND`.
+  `LOCATOR_AMBIGUOUS`; no match fails with `LOCATOR_NOT_FOUND`.
 - `Browser.Locator(css)` and `Browser.FrameLocator(css)` (see the browser
   fixture) reach a control a role, label, or text query cannot name, and an
   iframe. Use a selector only when those can't find the element.
@@ -202,7 +202,7 @@ its `InnerException` is the engine's `NOT_ACTIONABLE`. Only the web engine has i
 `TextContentAsync`, `InputValueAsync`, `GetAttributeAsync`,
 `IsEnabledAsync`, `IsDisabledAsync`, `IsCheckedAsync`, and `BoundingBoxAsync`
 wait for one match until the action timeout, then read once with no retry for
-a value. A node that never arrives fails with `NOT_FOUND` after the action
+a value. A node that never arrives fails with `LOCATOR_NOT_FOUND` after the action
 timeout. `IsVisibleAsync`, `IsHiddenAsync`, `CountAsync`, `AllAsync`, and
 `AllTextContentsAsync` answer from the current screen at once. Use a matcher
 when a value has to settle.
@@ -275,7 +275,7 @@ matcher.
   against it. A node that is not there yet keeps it polling and a node that
   never arrives fails it as an assertion (`observed: no node`); `class=""` is
   an empty list and no `class` attribute is not (`observed: no class
-  attribute`); several matches fail at once with `STRICT_MODE`.
+  attribute`); several matches fail at once with `LOCATOR_AMBIGUOUS`.
 - `Expect.Soft(locator)` and `Expect.Soft(screen)` record a failure and let the test go on; the
   test fails at its end with every failure listed.
 - `Expect.Poll(read)` retries any value: `ToBeAsync`, `ToSatisfyAsync`, and,
@@ -440,7 +440,7 @@ misses.
   names: a read that does not wait (`CountAsync`, `AllAsync`, `IsVisibleAsync`,
   `ToBeHiddenAsync`, `ToHaveCountAsync`, `WaitForAsync` for `Detached` or
   `Hidden`) answers no match while it is missing, and an action polls for it
-  until its timeout, then fails with `NOT_FOUND`. Two frames match: `STRICT_MODE`.
+  until its timeout, then fails with `LOCATOR_NOT_FOUND`. Two frames match: `LOCATOR_AMBIGUOUS`.
   `Expect.That(frame).ToHaveScreenshotAsync` and `TreeAsync` refuse a frame
   with `INVALID_ARGUMENT`: call them on `Screen`, or on a locator inside it.
 - Shadow DOM: `Screen` queries reach open shadow roots and closed roots attached with `attachShadow`, not declarative closed roots (`<template shadowrootmode="closed">`). The engine

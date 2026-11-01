@@ -16,6 +16,7 @@ namespace E2E;
 public class Screen
 {
     private readonly Func<CancellationToken, Task<Observation>> _observe;
+    private readonly Func<TimeSpan, CancellationToken, Task<Observation>>? _observeWithin;
     private readonly Func<SemanticNode, LocatorAction, CancellationToken, Task> _perform;
     private readonly Func<LocatorExpression, TimeSpan, CancellationToken, Task<IReadOnlyList<SemanticNode>>>? _locate;
     private readonly Func<CancellationToken> _cancellation;
@@ -43,9 +44,11 @@ public class Screen
         SoftFailures? softFailures = null,
         TimeProvider? clock = null,
         Func<LocatorExpression, TimeSpan, CancellationToken, Task<IReadOnlyList<SemanticNode>>>? locate = null,
-        Func<ScrollDirection, Momentum?, CancellationToken, Task>? swipe = null)
+        Func<ScrollDirection, Momentum?, CancellationToken, Task>? swipe = null,
+        Func<TimeSpan, CancellationToken, Task<Observation>>? observeWithin = null)
     {
         _swipe = swipe;
+        _observeWithin = observeWithin;
         SoftFailures = softFailures ?? new SoftFailures();
         _observe = observe;
         _perform = perform;
@@ -67,6 +70,7 @@ public class Screen
         _scopeOf = root;
         _wrap = wrap;
         _observe = root._observe;
+        _observeWithin = root._observeWithin;
         _perform = root._perform;
         _locate = root._locate;
         _cancellation = root._cancellation;
@@ -323,13 +327,15 @@ public class Screen
             try
             {
                 // The wait ends with the timeout even when the engine ignores cancellation; the abandoned read's fault is observed.
-                var read = ObserveAsync(bounded.Token);
+                var read = ObserveAsync(timeout, bounded.Token);
                 _ = read.ContinueWith(static finished => _ = finished.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
                 var observation = await read.WaitAsync(bounded.Token).ConfigureAwait(false);
                 return RenderTree?.Invoke(observation) ?? Redact(TreeText(observation, Redactor.None, null, E2EDefaults.MaxObservationBytes));
             }
-            catch (OperationCanceledException) when (bounded.IsCancellationRequested && !token.IsCancellationRequested)
+            catch (Exception ex) when (bounded.IsCancellationRequested && !token.IsCancellationRequested
+                && (ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled }))
             {
+                // The engine's own budget ends with the token, so it may report the cancel first.
                 throw new EngineException(EngineErrorCodes.OperationTimeout, api + " timed out", retryable: false);
             }
         }
@@ -342,9 +348,16 @@ public class Screen
         return await AppNotOpen.GuardAsync(() => _observe(cancellationToken == default ? _cancellation() : cancellationToken)).ConfigureAwait(false);
     }
 
+    /// <summary><see cref="ObserveAsync(CancellationToken)"/> within <paramref name="timeout"/>, the budget the engine bounds its reads by (upstream's <c>operation.timeoutMs</c>).</summary>
+    internal async Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        var token = cancellationToken == default ? _cancellation() : cancellationToken;
+        return await AppNotOpen.GuardAsync(() => _observeWithin is { } within ? within(timeout, token) : _observe(token)).ConfigureAwait(false);
+    }
+
     /// <summary>
     /// Whether the engine resolves a locator itself. Upstream's engines all do; a port engine that does not has its locator resolved
-    /// here over <see cref="ObserveAsync"/>, until it implements <see cref="IEngineSession.LocateAsync"/> (.NET-only).
+    /// here over <see cref="ObserveAsync(CancellationToken)"/>, until it implements <see cref="IEngineSession.LocateAsync"/> (.NET-only).
     /// </summary>
     internal bool LocatesInEngine => _locate is not null;
 
@@ -457,7 +470,7 @@ public sealed class Locator
 
     /// <summary>
     /// Matches either locator, preserving document order without duplicate nodes. <c>a.Or(b)</c> stays strict: when both match
-    /// different nodes, an action fails with <c>STRICT_MODE</c>, so add <see cref="First"/> if either will do. Both locators must come
+    /// different nodes, an action fails with <c>LOCATOR_AMBIGUOUS</c>, so add <see cref="First"/> if either will do. Both locators must come
     /// from the same screen and attempt. Upstream's <c>locator.or</c>.
     /// </summary>
     /// <exception cref="TestException"><c>INVALID_LOCATOR</c>: <paramref name="other"/> belongs to another screen or attempt.</exception>
@@ -871,8 +884,7 @@ public sealed class Locator
         Observation observation;
         try
         {
-            // The observation takes no budget, so the window only times it.
-            observation = await reads.ReadAsync(_ => _screen.ObserveAsync(cancellationToken)).ConfigureAwait(false);
+            observation = await reads.ReadAsync(budget => _screen.ObserveAsync(budget, cancellationToken)).ConfigureAwait(false);
         }
         catch (EngineException ex) when (!cancellationToken.IsCancellationRequested)
         {
@@ -1282,7 +1294,7 @@ public sealed class Locator
         }
         catch (Exception ex) when (sampled && !token.IsCancellationRequested && reads.CutOff(ex))
         {
-            throw new TestException("NOT_FOUND", Query.Describe() + " matched 0 nodes.", ex) { Details = LocatorResolver.LocatorDetails(Query, elapsed()) };
+            throw new TestException("LOCATOR_NOT_FOUND", Query.Describe() + " matched 0 nodes.", ex) { Details = LocatorResolver.LocatorDetails(Query, elapsed()) };
         }
     }
 
@@ -1313,9 +1325,9 @@ public sealed class Locator
     };
 
     private TestException Ambiguous(int count) =>
-        new("STRICT_MODE", Query.Describe() + " matched " + count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " nodes.") { Details = LocatorResolver.LocatorDetails(Query) with { Matches = count } };
+        new("LOCATOR_AMBIGUOUS", Query.Describe() + " matched " + count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " nodes.") { Details = LocatorResolver.LocatorDetails(Query) with { Matches = count } };
 
-    private TestException NotFound(TimeSpan waited) => new("NOT_FOUND", Query.Describe() + " matched 0 nodes.") { Details = LocatorResolver.LocatorDetails(Query, waited) };
+    private TestException NotFound(TimeSpan waited) => new("LOCATOR_NOT_FOUND", Query.Describe() + " matched 0 nodes.") { Details = LocatorResolver.LocatorDetails(Query, waited) };
 }
 
 /// <summary>What a frame the engine reports missing means to a resolve (upstream's <c>MissingFrame</c>).</summary>
@@ -1662,7 +1674,7 @@ internal static class LocatorResolver
     public static Exception TranslateLocatorError(Exception cause, LocatorExpression? query = null)
     {
         var translated = ErrorSerializer.TranslateEngineError(cause, query is null ? "" : ": " + query.Describe());
-        return query is not null && translated is TestException { Code: "NOT_FOUND" or "STRICT_MODE" } frame && cause is EngineException { Code: EngineErrorCodes.FrameNotFound or EngineErrorCodes.FrameAmbiguous }
+        return query is not null && translated is TestException { Code: "LOCATOR_NOT_FOUND" or "LOCATOR_AMBIGUOUS" } frame && cause is EngineException { Code: EngineErrorCodes.FrameNotFound or EngineErrorCodes.FrameAmbiguous }
             ? new TestException(frame.Code, frame.Message, frame.InnerException!) { Details = LocatorDetails(query) }
             : translated;
     }
