@@ -1,6 +1,6 @@
 ---
 title: "ReportExploreFinding"
-description: "One finding Explore recorded through its reportfinding tool."
+description: "One finding Explore recorded through its report_finding tool."
 editUrl: false
 prev: false
 next: false

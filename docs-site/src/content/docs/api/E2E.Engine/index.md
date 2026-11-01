@@ -38,24 +38,24 @@ Public types in the `E2E.Engine` namespace.
 | [EnginePrepareResult](/api/E2E.Engine/EnginePrepareResult/) | What prepare learned that the run must honour. Upstream's EnginePrepareResult. |
 | [EngineScreenshot](/api/E2E.Engine/EngineScreenshot/) | A captured viewport: PNG bytes, and how many image pixels one viewport (CSS) pixel takes. |
 | [EngineStartOptions](/api/E2E.Engine/EngineStartOptions/) | Passed to StartAsync once per test attempt. |
-| [KeyModifiers](/api/E2E.Engine/KeyModifiers/) | The names of KeyModifier, which a recorded action and an MCP argument spell. Upstream's KEYMODIFIERS and isKeyModifier. |
+| [KeyModifiers](/api/E2E.Engine/KeyModifiers/) | The names of KeyModifier, which a recorded action and an MCP argument spell. Upstream's KEY_MODIFIERS and isKeyModifier. |
 | [LocatorAction](/api/E2E.Engine/LocatorAction/) | A deterministic action PerformAsync carries out on one node. |
 | [LocatorAction.Check](/api/E2E.Engine/LocatorAction.Check/) |  |
 | [LocatorAction.Clear](/api/E2E.Engine/LocatorAction.Clear/) |  |
-| [LocatorAction.DoubleTap](/api/E2E.Engine/LocatorAction.DoubleTap/) | A double tap. <code class="paramref">Modifiers</code> are held for both clicks, as for LocatorAction.Tap. |
-| [LocatorAction.DragTo](/api/E2E.Engine/LocatorAction.DragTo/) | Drags the node onto <code class="paramref">Target</code>, a node of the same observation. |
+| [LocatorAction.DoubleTap](/api/E2E.Engine/LocatorAction.DoubleTap/) | A double tap. Modifiers are held for both clicks, as for LocatorAction.Tap. |
+| [LocatorAction.DragTo](/api/E2E.Engine/LocatorAction.DragTo/) | Drags the node onto Target, a node of the same observation. |
 | [LocatorAction.Fill](/api/E2E.Engine/LocatorAction.Fill/) |  |
 | [LocatorAction.Focus](/api/E2E.Engine/LocatorAction.Focus/) |  |
 | [LocatorAction.Hover](/api/E2E.Engine/LocatorAction.Hover/) | Moves the pointer over the node. |
-| [LocatorAction.LongPress](/api/E2E.Engine/LocatorAction.LongPress/) | A press held on the node for <code class="paramref">Duration</code>, or for the engine's own default hold when it is null. |
+| [LocatorAction.LongPress](/api/E2E.Engine/LocatorAction.LongPress/) | A press held on the node for Duration, or for the engine's own default hold when it is null. |
 | [LocatorAction.Press](/api/E2E.Engine/LocatorAction.Press/) |  |
-| [LocatorAction.PressSequentially](/api/E2E.Engine/LocatorAction.PressSequentially/) | Focuses the node and types <code class="paramref">Text</code> one character at a time. |
+| [LocatorAction.PressSequentially](/api/E2E.Engine/LocatorAction.PressSequentially/) | Focuses the node and types Text one character at a time. |
 | [LocatorAction.ScrollIntoView](/api/E2E.Engine/LocatorAction.ScrollIntoView/) | Scrolls the node's nearest scrollable container until the node is in the viewport. |
-| [LocatorAction.SecondaryTap](/api/E2E.Engine/LocatorAction.SecondaryTap/) | A right click, or the platform's equivalent. <code class="paramref">Modifiers</code> are held for the click, as for LocatorAction.Tap. |
+| [LocatorAction.SecondaryTap](/api/E2E.Engine/LocatorAction.SecondaryTap/) | A right click, or the platform's equivalent. Modifiers are held for the click, as for LocatorAction.Tap. |
 | [LocatorAction.Select](/api/E2E.Engine/LocatorAction.Select/) |  |
-| [LocatorAction.SetInputFiles](/api/E2E.Engine/LocatorAction.SetInputFiles/) | Sets the files of a file input, or of a control that opens a file chooser when clicked, such as a button over a hidden input. <code class="paramref">Paths</code> are absolute: the locator resolves them from the project root. |
+| [LocatorAction.SetInputFiles](/api/E2E.Engine/LocatorAction.SetInputFiles/) | Sets the files of a file input, or of a control that opens a file chooser when clicked, such as a button over a hidden input. Paths are absolute: the locator resolves them from the project root. |
 | [LocatorAction.Swipe](/api/E2E.Engine/LocatorAction.Swipe/) | Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is SwipeAsync. |
-| [LocatorAction.Tap](/api/E2E.Engine/LocatorAction.Tap/) | A tap. <code class="paramref">Modifiers</code> are held for the click, and only an engine that declares TapModifiers receives them. |
+| [LocatorAction.Tap](/api/E2E.Engine/LocatorAction.Tap/) | A tap. Modifiers are held for the click, and only an engine that declares TapModifiers receives them. |
 | [LocatorAction.Uncheck](/api/E2E.Engine/LocatorAction.Uncheck/) |  |
 | [NodeStates](/api/E2E.Engine/NodeStates/) | Boolean states a platform can report for one node. |
 | [Observation](/api/E2E.Engine/Observation/) | A redacted semantic snapshot of the current screen. |
@@ -79,7 +79,7 @@ Public types in the `E2E.Engine` namespace.
 | [WebEngine](/api/E2E.Engine/WebEngine/) | Browser engine for the web target. It drives Chromium, Firefox, or WebKit through Playwright, reads a semantic tree (role, name, text, test id, state), and performs the same node actions the document engine does. Install browsers once with playwright.ps1 install chromium (or firefox, webkit) from this project's build output. |
 | [WebEngineOptions](/api/E2E.Engine/WebEngineOptions/) | Options of the browser engine: how it drives the app. |
 | [WebInitScript](/api/E2E.Engine/WebInitScript/) | A script every document runs before the page's own, in every tab and frame: JavaScript source, a file of it, or a function source the page calls. A string converts to source. |
-| [WebMedia](/api/E2E.Engine/WebMedia/) | User preferences a page reads through @media rules and matchMedia, as Playwright's emulateMedia sets them. A feature left <a href="https://learn.microsoft.com/dotnet/csharp/language-reference/keywords/null">null</a> keeps the browser's own value, or the one an earlier call set. |
+| [WebMedia](/api/E2E.Engine/WebMedia/) | User preferences a page reads through @media rules and matchMedia, as Playwright's emulateMedia sets them. A feature left null keeps the browser's own value, or the one an earlier call set. |
 | [WebRouteRequest](/api/E2E.Engine/WebRouteRequest/) | The request a route intercepted. |
 | [WebScreencastOptions](/api/E2E.Engine/WebScreencastOptions/) | How the engine's own screencast of the page records an attempt that records video: the frame size and the JPEG quality of the frames it encodes. Which attempts record is the config's video, not an engine option. Upstream's WebScreencastOptions. |
 | [WebViewport](/api/E2E.Engine/WebViewport/) | A page size in CSS pixels. |
@@ -90,7 +90,7 @@ Public types in the `E2E.Engine` namespace.
 | --- | --- |
 | [IBrowserProvider](/api/E2E.Engine/IBrowserProvider/) | A source of hosted browsers: the seam a hosted browser service plugs into (upstream BrowserProvider). In Worker scope AcquireAsync is called once per worker slot, for every slot at once, in the runner; a worker whose browser drops calls it again, from its own process, for a replacement. In Attempt scope every attempt start calls it from the worker. ReleaseAsync is called exactly once per lease, by the process that acquired it, also after an acquire of another slot failed; a worker that dies first never calls it, and SweepAsync releases what it left. A provider must not rely on runner-process state to serve a request from a worker. Nothing here knows any vendor. |
 | [IBrowserRoute](/api/E2E.Engine/IBrowserRoute/) | One intercepted request, as an engine hands it to a route handler. The harness has already validated each decision and takes at most one. |
-| [IBrowserSession](/api/E2E.Engine/IBrowserSession/) | The browser-shaped surface an engine session can add on top of IEngineSession. The Browser fixture uses it, and fails with UNSUPPORTEDCAPABILITY when the session does not implement it. The harness has already validated every argument. |
+| [IBrowserSession](/api/E2E.Engine/IBrowserSession/) | The browser-shaped surface an engine session can add on top of IEngineSession. The Browser fixture uses it, and fails with UNSUPPORTED_CAPABILITY when the session does not implement it. The harness has already validated every argument. |
 | [IEngine](/api/E2E.Engine/IEngine/) | The body of one target. Core knows this contract and never an engine's internals. Version is the engine version. It is not part of the replay cache key: a recording re-finds its nodes at replay. |
 | [IEngineFixtureHost](/api/E2E.Engine/IEngineFixtureHost/) | An engine session that contributes a fixture, which the harness tells about the attempt when it starts. .NET-only: upstream's engine declares fixtures, factories the harness calls with an EngineFixtureContext; the port's session builds its own fixture (Device), so this hands it the context. |
 | [IEngineSession](/api/E2E.Engine/IEngineSession/) | One attempt's session with the app. Disposed at the end of the attempt, after afterEach. |

@@ -1,6 +1,6 @@
 ---
 title: "LocatorAction.Tap"
-description: "A tap. <code class=\"paramref\">Modifiers</code> are held for the click, and only an engine that declares TapModifiers receives them."
+description: "A tap. Modifiers are held for the click, and only an engine that declares TapModifiers receives them."
 editUrl: false
 prev: false
 next: false

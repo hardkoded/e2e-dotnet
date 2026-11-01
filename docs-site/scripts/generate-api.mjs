@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseAllDocuments } from "yaml";
 import { redirectHtml } from "./redirect.mjs";
+import { decode, plainText } from "./text.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const yamlDir = path.join(root, ".api-yaml");
@@ -196,7 +197,7 @@ function renderType(type) {
     const lines = [
         frontmatter({
             title: displayName(type),
-            description: truncate(summary || `${displayName(type)} in ${type.namespace}.`, 160),
+            description: truncate(decode(summary) || `${displayName(type)} in ${type.namespace}.`, 160),
             editUrl: false,
             prev: false,
             next: false,
@@ -499,17 +500,6 @@ function escapeAnglesOutsideCode(markdown) {
     return parts.map((part, index) => (index % 2 === 1 ? part : part.replace(/</g, "&lt;").replace(/>/g, "&gt;"))).join("");
 }
 
-function decode(value) {
-    return String(value)
-        .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
-        .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number(dec)))
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'")
-        .replace(/&amp;/g, "&");
-}
-
 function asText(value) {
     if (value == null) return "";
     if (Array.isArray(value)) return value.map(asText).filter(Boolean).join("\n\n");
@@ -518,15 +508,7 @@ function asText(value) {
 }
 
 function plain(value) {
-    return renderComment(value, "api")
-        .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-        .replace(/<a\s+id="[^"]+"><\/a>/g, "")
-        .replace(/[`*_]/g, "")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&amp;/g, "&")
-        .replace(/\s+/g, " ")
-        .trim();
+    return plainText(renderComment(value, "api"));
 }
 
 function tableCell(value) {

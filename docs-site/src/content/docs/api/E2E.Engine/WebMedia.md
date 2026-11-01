@@ -1,6 +1,6 @@
 ---
 title: "WebMedia"
-description: "User preferences a page reads through @media rules and matchMedia, as Playwright's emulateMedia sets them. A feature left <a href=\"https://learn.microsoft.co..."
+description: "User preferences a page reads through @media rules and matchMedia, as Playwright's emulateMedia sets them. A feature left null keeps the browser's own value,..."
 editUrl: false
 prev: false
 next: false

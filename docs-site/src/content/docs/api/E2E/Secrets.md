@@ -1,6 +1,6 @@
 ---
 title: "Secrets"
-description: "The secrets declared in e2e.config.json. Each value comes from E2ESECRET{NAME} when it is set, else from the config. The name is uppercased and every charact..."
+description: "The secrets declared in e2e.config.json. Each value comes from E2E_SECRET_{NAME} when it is set, else from the config. The name is uppercased and every chara..."
 editUrl: false
 prev: false
 next: false

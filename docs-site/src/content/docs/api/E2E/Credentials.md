@@ -1,6 +1,6 @@
 ---
 title: "Credentials"
-description: "Reads E2EUSER{NAME}USERNAME and E2EUSER{NAME}PASSWORD. The name is uppercased and dashes become underscores."
+description: "Reads E2E_USER_{NAME}_USERNAME and E2E_USER_{NAME}_PASSWORD. The name is uppercased and dashes become underscores."
 editUrl: false
 prev: false
 next: false

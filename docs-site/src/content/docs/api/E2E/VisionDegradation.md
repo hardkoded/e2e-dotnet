@@ -1,6 +1,6 @@
 ---
 title: "VisionDegradation"
-description: "Why a vision call fell back to tree-only input. Pixel evidence degrades rather than fails, except under Only, which fails with POLICYDENIED naming the reason."
+description: "Why a vision call fell back to tree-only input. Pixel evidence degrades rather than fails, except under Only, which fails with POLICY_DENIED naming the reason."
 editUrl: false
 prev: false
 next: false

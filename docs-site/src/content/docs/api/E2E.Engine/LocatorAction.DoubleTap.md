@@ -1,6 +1,6 @@
 ---
 title: "LocatorAction.DoubleTap"
-description: "A double tap. <code class=\"paramref\">Modifiers</code> are held for both clicks, as for LocatorAction.Tap."
+description: "A double tap. Modifiers are held for both clicks, as for LocatorAction.Tap."
 editUrl: false
 prev: false
 next: false

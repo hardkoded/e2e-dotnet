@@ -1,6 +1,6 @@
 ---
 title: "StepExecutors"
-description: "Upstream's RUNTIMECODES, BLOCKABLECODES and isRuntimeHardStop (agent/executor.ts)."
+description: "Upstream's RUNTIME_CODES, BLOCKABLE_CODES and isRuntimeHardStop (agent/executor.ts)."
 editUrl: false
 prev: false
 next: false
