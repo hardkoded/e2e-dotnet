@@ -1,6 +1,6 @@
 ---
 title: "BrowserKeyboard"
-description: "Keyboard input for whatever holds focus in the active tab. A call the page does not answer within the action timeout fails with ACTIONMAYHAVECOMMITTED: the i..."
+description: "Keyboard input for whatever holds focus in the active tab. A call the page does not answer within the action timeout fails with ACTION_MAY_HAVE_COMMITTED: th..."
 editUrl: false
 prev: false
 next: false

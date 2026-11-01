@@ -36,6 +36,10 @@ jobs:
         working-directory: docs-site
         run: npm ci
 
+      - name: Test docs scripts
+        working-directory: docs-site
+        run: npm test
+
       - name: Generate API reference
         working-directory: docs-site
         env:

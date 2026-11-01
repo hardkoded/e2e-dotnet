@@ -1,6 +1,6 @@
 ---
 title: "KeyModifiers"
-description: "The names of KeyModifier, which a recorded action and an MCP argument spell. Upstream's KEYMODIFIERS and isKeyModifier."
+description: "The names of KeyModifier, which a recorded action and an MCP argument spell. Upstream's KEY_MODIFIERS and isKeyModifier."
 editUrl: false
 prev: false
 next: false

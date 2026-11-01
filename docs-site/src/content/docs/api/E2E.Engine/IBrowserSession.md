@@ -1,6 +1,6 @@
 ---
 title: "IBrowserSession"
-description: "The browser-shaped surface an engine session can add on top of IEngineSession. The Browser fixture uses it, and fails with UNSUPPORTEDCAPABILITY when the ses..."
+description: "The browser-shaped surface an engine session can add on top of IEngineSession. The Browser fixture uses it, and fails with UNSUPPORTED_CAPABILITY when the se..."
 editUrl: false
 prev: false
 next: false

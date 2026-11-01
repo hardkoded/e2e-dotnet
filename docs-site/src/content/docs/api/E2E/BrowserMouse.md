@@ -1,6 +1,6 @@
 ---
 title: "BrowserMouse"
-description: "Pointer input for the active tab, in CSS pixels. A call the page does not answer within the action timeout fails with ACTIONMAYHAVECOMMITTED: the input may h..."
+description: "Pointer input for the active tab, in CSS pixels. A call the page does not answer within the action timeout fails with ACTION_MAY_HAVE_COMMITTED: the input ma..."
 editUrl: false
 prev: false
 next: false

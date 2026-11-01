@@ -1,6 +1,6 @@
 ---
 title: "SoftBrowserExpect"
-description: "The browser matchers of BrowserExpect, but an ASSERTIONFAILED is kept on the session instead of thrown, as SoftLocatorExpect does."
+description: "The browser matchers of BrowserExpect, but an ASSERTION_FAILED is kept on the session instead of thrown, as SoftLocatorExpect does."
 editUrl: false
 prev: false
 next: false

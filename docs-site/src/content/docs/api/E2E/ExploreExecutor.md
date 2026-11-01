@@ -1,6 +1,6 @@
 ---
 title: "ExploreExecutor"
-description: "The explorer: the built-in agent with exploration guidance appended to the project's and one tool added to the project's vocabulary, reportfinding. Nothing e..."
+description: "The explorer: the built-in agent with exploration guidance appended to the project's and one tool added to the project's vocabulary, report_finding. Nothing..."
 editUrl: false
 prev: false
 next: false

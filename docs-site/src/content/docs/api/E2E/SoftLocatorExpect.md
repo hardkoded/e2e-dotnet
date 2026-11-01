@@ -1,6 +1,6 @@
 ---
 title: "SoftLocatorExpect"
-description: "The locator matchers of LocatorExpect, but an ASSERTIONFAILED is kept on the session instead of thrown, and the test body runs on. Any other error, such as S..."
+description: "The locator matchers of LocatorExpect, but an ASSERTION_FAILED is kept on the session instead of thrown, and the test body runs on. Any other error, such as..."
 editUrl: false
 prev: false
 next: false

@@ -1,6 +1,6 @@
 ---
 title: "ConfigurationException"
-description: "e2e.config.json is invalid. The code is INVALIDCONFIG."
+description: "e2e.config.json is invalid. The code is INVALID_CONFIG."
 editUrl: false
 prev: false
 next: false
