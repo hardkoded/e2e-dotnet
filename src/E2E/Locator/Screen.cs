@@ -989,9 +989,6 @@ public sealed class Locator
         return hold;
     }
 
-    // The action kind the engine contract names, which is the method's name but for selectOption.
-    private static string ActionKind(LocatorAction action) => action is LocatorAction.Select ? "select" : ApiName(action);
-
     // The method the test called, as upstream names it: tap, doubleTap, fill, selectOption.
     private static string ApiName(LocatorAction action) => action switch
     {
@@ -1018,7 +1015,7 @@ public sealed class Locator
     private async Task PerformAsync(Func<Deadline, CancellationToken, Task<LocatorAction>> build, ActionOptions? options, CancellationToken cancellationToken)
     {
         var token = _screen.Token(cancellationToken);
-        var started = DateTime.UtcNow;
+        var started = _screen.Clock.GetUtcNow();
         var deadline = started + TimeoutOf(options?.Timeout);
         var startedAt = DateTimeOffset.UtcNow;
         var stamp = Stopwatch.GetTimestamp();
@@ -1060,10 +1057,10 @@ public sealed class Locator
                 return;
             }
 
-            if (DateTime.UtcNow >= deadline)
+            if (_screen.Clock.GetUtcNow() >= deadline)
             {
                 throw node is null
-                    ? NotFound(DateTime.UtcNow - started)
+                    ? NotFound(_screen.Clock.GetUtcNow() - started)
                     : new TestException("NOT_ACTIONABLE", Query.Describe() + (node.States.Hidden ? " is hidden." : " is disabled."));
             }
 
@@ -1151,7 +1148,7 @@ public sealed class Locator
             TestId = Field(node.TestId),
         });
         // The action kind the engine contract names, which is the method's name but for selectOption.
-        var kind = ActionKind(action);
+        var kind = action is LocatorAction.Select ? "select" : ApiName(action);
         _screen.RecordEvent(new StepEvent
         {
             Kind = StepEventKind.Engine,
@@ -1185,7 +1182,7 @@ public sealed class Locator
     private async Task<SemanticNode> ResolveStrictAsync(CancellationToken cancellationToken)
     {
         var token = _screen.Token(cancellationToken);
-        var started = DateTime.UtcNow;
+        var started = _screen.Clock.GetUtcNow();
         var deadline = started + _screen.ActionTimeout;
         var reads = _screen.Reads(new Deadline(deadline));
         var stamp = Stopwatch.GetTimestamp();
@@ -1199,9 +1196,9 @@ public sealed class Locator
                 return node;
             }
 
-            if (DateTime.UtcNow >= deadline)
+            if (_screen.Clock.GetUtcNow() >= deadline)
             {
-                throw NotFound(DateTime.UtcNow - started);
+                throw NotFound(_screen.Clock.GetUtcNow() - started);
             }
 
             await Task.Delay(_screen.PollInterval, token).ConfigureAwait(false);
@@ -1268,7 +1265,7 @@ public sealed class Locator
     /// right; an action never starts past it (upstream's <c>lateAction</c>).
     /// </summary>
     private TestException LateAction(LocatorAction action) =>
-        new("ACTION_FAILED", "operation timed out before the " + ActionKind(action) + " was sent: " + Query.Describe());
+        new("ACTION_FAILED", "operation timed out before the " + (action is LocatorAction.Select ? "select" : ApiName(action)) + " was sent: " + Query.Describe());
 
     private TimeSpan TimeoutOf(TimeSpan? timeout)
     {

@@ -50,7 +50,8 @@ internal sealed class ReadWindow
         var left = Deadline.EndsAt + _slowest - now;
         var capped = _cap.Remaining(now);
         var budget = capped < left ? capped : left;
-        return budget > Time.MinRead ? budget : Time.MinRead;
+        var least = TimeSpan.FromMilliseconds(1);
+        return budget > least ? budget : least;
     }
 
     /// <summary>Marks a read starting now: the one <see cref="CutOff"/> judges until the next starts.</summary>
@@ -168,9 +169,6 @@ internal static class Time
 
     /// <summary>How long a negated assertion must hold before it passes.</summary>
     public static readonly TimeSpan NegationGrace = TimeSpan.FromMilliseconds(1000);
-
-    /// <summary>The least budget an engine read gets, as upstream's <c>Math.max(1, ...)</c>.</summary>
-    internal static readonly TimeSpan MinRead = TimeSpan.FromMilliseconds(1);
 
     /// <summary>Whether <paramref name="cause"/> is the engine's <c>OPERATION_TIMEOUT</c>, bare or wrapped by the locator failure it was translated into (upstream's <c>isOperationTimeout</c>).</summary>
     public static bool IsOperationTimeout(Exception cause) =>
