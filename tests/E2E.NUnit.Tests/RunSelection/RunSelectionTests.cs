@@ -25,6 +25,12 @@ public sealed class LeftOutFixture : E2ETest
 {
     [Test]
     public void Is_left_out() => Assert.Fail("A test the filters left out must not run.");
+
+    public static bool DerivedSetUpRan;
+
+    // NUnit runs a base [SetUp] first, so a left-out test ends before this.
+    [SetUp]
+    public void RecordDerivedSetUp() => DerivedSetUpRan = true;
 }
 
 /// <summary>
@@ -53,6 +59,23 @@ public sealed class RunSelectionTests
     }
 
     [Test]
+    public void Keeps_what_one_run_fixture_left_out_when_another_adds_its_own()
+    {
+        E2E.NUnit.RunSelection.Set(new Dictionary<string, string> { [$"{typeof(LeftOutFixture).FullName}.A"] = "one" });
+        try
+        {
+            E2E.NUnit.RunSelection.Add(new Dictionary<string, string> { [$"{typeof(LeftOutFixture).FullName}.B"] = "two" });
+
+            Assert.That(E2E.NUnit.RunSelection.ReasonFor(typeof(LeftOutFixture), "A"), Is.EqualTo("one"));
+            Assert.That(E2E.NUnit.RunSelection.ReasonFor(typeof(LeftOutFixture), "B"), Is.EqualTo("two"));
+        }
+        finally
+        {
+            E2E.NUnit.RunSelection.Set(new Dictionary<string, string>());
+        }
+    }
+
+    [Test]
     public void Ignores_a_test_the_filters_left_out_with_their_reason_and_never_starts_it()
     {
         E2E.NUnit.RunSelection.Set(new Dictionary<string, string> { [$"{typeof(LeftOutFixture).FullName}.{nameof(LeftOutFixture.Is_left_out)}"] = "login.cs did not change" });
@@ -62,6 +85,7 @@ public sealed class RunSelectionTests
 
             Assert.That(result.ResultState.Status, Is.EqualTo(TestStatus.Skipped));
             Assert.That(result.Message, Does.EndWith("login.cs did not change"));
+            Assert.That(LeftOutFixture.DerivedSetUpRan, Is.False);
         }
         finally
         {

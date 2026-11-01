@@ -16,7 +16,18 @@ internal static class RunSelection
 {
     private static IReadOnlyDictionary<string, string> _excluded = new Dictionary<string, string>(StringComparer.Ordinal);
 
+    private static readonly Lock Gate = new();
+
     public static void Set(IReadOnlyDictionary<string, string> excluded) => Volatile.Write(ref _excluded, excluded);
+
+    /// <summary>Adds what one run fixture left out to what the others did, so a second <c>[SetUpFixture]</c> in the assembly never lifts an exclusion.</summary>
+    public static void Add(IReadOnlyDictionary<string, string> excluded)
+    {
+        lock (Gate)
+        {
+            _excluded = new Dictionary<string, string>(_excluded, StringComparer.Ordinal).Concat(excluded).GroupBy(pair => pair.Key, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First().Value, StringComparer.Ordinal);
+        }
+    }
 
     /// <summary>Why the filters left the test out; null when it runs.</summary>
     public static string? ReasonFor(Type fixture, string? method) =>
@@ -25,10 +36,14 @@ internal static class RunSelection
     private static string KeyOf(Type fixture, string method) => fixture.FullName + "." + method;
 
     /// <summary>The tests of <paramref name="assembly"/>: every method of a concrete <see cref="E2ETest"/> that NUnit runs, a parameterized one once.</summary>
-    public static IReadOnlyList<DiscoveredTest> Discover(Assembly assembly)
+    public static IReadOnlyList<DiscoveredTest> Discover(Assembly assembly) =>
+        Discover(LoadableTypes(assembly).Where(type => !IsExplicit(type)), assembly);
+
+    /// <summary>The tests of <paramref name="types"/>, whose assembly's categories they carry.</summary>
+    internal static IReadOnlyList<DiscoveredTest> Discover(IEnumerable<Type> types, Assembly assembly)
     {
         var found = new List<DiscoveredTest>();
-        foreach (var type in LoadableTypes(assembly).Where(type => type is { IsAbstract: false, IsClass: true } && typeof(E2ETest).IsAssignableFrom(type) && !IsExplicit(type)).OrderBy(type => type.FullName, StringComparer.Ordinal))
+        foreach (var type in types.Where(type => type is { IsAbstract: false, IsClass: true } && typeof(E2ETest).IsAssignableFrom(type)).OrderBy(type => type.FullName, StringComparer.Ordinal))
         {
             var typeTags = TagsOf(type, assembly);
             foreach (var method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance).Where(IsTest).Where(method => !IsExplicit(method)).OrderBy(method => method.MetadataToken))

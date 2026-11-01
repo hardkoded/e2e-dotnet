@@ -36,7 +36,6 @@ public abstract class E2ERunFixture
     [OneTimeSetUp]
     public async Task SelectTestsAsync()
     {
-        RunSelection.Set(new Dictionary<string, string>(StringComparer.Ordinal));
         if (HostTestFilters.ResolveChangedSince(ChangedSince) is not { } changedSince)
         {
             return;
@@ -49,7 +48,7 @@ public abstract class E2ERunFixture
             RunSelection.Discover(GetType().Assembly),
             line => global::NUnit.Framework.TestContext.Progress.WriteLine(line),
             global::NUnit.Framework.TestContext.CurrentContext.CancellationToken).ConfigureAwait(false);
-        RunSelection.Set(excluded);
+        RunSelection.Add(excluded);
     }
 
     /// <summary>
