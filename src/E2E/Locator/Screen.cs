@@ -1019,21 +1019,24 @@ public sealed class Locator
         var deadline = started + TimeoutOf(options?.Timeout);
         var startedAt = DateTimeOffset.UtcNow;
         var stamp = Stopwatch.GetTimestamp();
+        // Each resolve counts its own rounds and wait, as upstream's resolveCounted does: a stale retry starts them over.
+        var resolveStamp = stamp;
         var rounds = 0;
+        var stale = 0;
         var window = new Deadline(deadline);
         var reads = _screen.Reads(window);
         while (true)
         {
-            var node = await ResolveCountedAsync(token, reads, sampled: rounds > 0, () => Stopwatch.GetElapsedTime(stamp)).ConfigureAwait(false);
+            var node = await ResolveCountedAsync(token, reads, sampled: rounds > 0, () => Stopwatch.GetElapsedTime(resolveStamp)).ConfigureAwait(false);
             rounds++;
             if (node is { States.Disabled: false, States.Hidden: false })
             {
-                var waitedMs = rounds > 1 ? (long)Stopwatch.GetElapsedTime(stamp).TotalMilliseconds : 0;
+                var waitedMs = rounds > 1 ? (long)Stopwatch.GetElapsedTime(resolveStamp).TotalMilliseconds : 0;
                 var action = await build(window, token).ConfigureAwait(false);
                 if (window.Expired(_screen.Clock.GetUtcNow()))
                 {
                     var late = LateAction(action);
-                    RecordAction(node, action, startedAt, stamp, waitedMs, StepEventStatus.Failed, late.Code);
+                    RecordAction(node, action, startedAt, stamp, waitedMs, stale, StepEventStatus.Failed, late.Code);
                     throw late;
                 }
 
@@ -1041,10 +1044,18 @@ public sealed class Locator
                 {
                     await _screen.PerformAsync(node, action, token).ConfigureAwait(false);
                 }
+                catch (EngineException ex) when (ex is { Code: EngineErrorCodes.NodeStale, Retryable: true } && !token.IsCancellationRequested && !window.Expired(_screen.Clock.GetUtcNow()))
+                {
+                    // The node went stale under the action: look again, within the deadline.
+                    stale++;
+                    rounds = 0;
+                    resolveStamp = Stopwatch.GetTimestamp();
+                    continue;
+                }
                 catch (Exception ex)
                 {
                     var failure = token.IsCancellationRequested ? ex : LocatorResolver.TranslateLocatorError(ex, Query);
-                    RecordAction(node, action, startedAt, stamp, waitedMs, token.IsCancellationRequested ? StepEventStatus.Cancelled : StepEventStatus.Failed, ErrorSerializer.Classify(failure).Code);
+                    RecordAction(node, action, startedAt, stamp, waitedMs, stale, token.IsCancellationRequested ? StepEventStatus.Cancelled : StepEventStatus.Failed, ErrorSerializer.Classify(failure).Code);
                     if (ReferenceEquals(failure, ex))
                     {
                         throw;
@@ -1053,7 +1064,7 @@ public sealed class Locator
                     throw failure;
                 }
 
-                RecordAction(node, action, startedAt, stamp, waitedMs, StepEventStatus.Passed, null);
+                RecordAction(node, action, startedAt, stamp, waitedMs, stale, StepEventStatus.Passed, null);
                 return;
             }
 
@@ -1096,7 +1107,12 @@ public sealed class Locator
                 {
                     await _screen.PerformAsync(node, action, token).ConfigureAwait(false);
                 }
-                catch (EngineException ex) when (!token.IsCancellationRequested)
+                catch (EngineException ex) when (ex is { Code: EngineErrorCodes.NodeStale, Retryable: true } && !token.IsCancellationRequested && !deadline.Expired(_screen.Clock.GetUtcNow()))
+                {
+                    // The node went stale under the action: look again, within the deadline.
+                    continue;
+                }
+                catch (Exception ex) when (!token.IsCancellationRequested)
                 {
                     var translated = LocatorResolver.TranslateLocatorError(ex, Query);
                     if (ReferenceEquals(translated, ex))
@@ -1123,10 +1139,9 @@ public sealed class Locator
 
     /// <summary>
     /// Records one performed action as an <c>engine</c> event of the running step (upstream's <c>recordAction</c>, <c>locator/engine.ts</c>):
-    /// the node it landed on as the resolve read it, and how long the node took to appear. The port retries no stale node, so the
-    /// event never says one went stale.
+    /// the node it landed on as the resolve read it, how long the node took to appear, and how many times it went stale under the action.
     /// </summary>
-    private void RecordAction(SemanticNode node, LocatorAction action, DateTimeOffset startedAt, long started, long waitedMs, StepEventStatus status, string? code)
+    private void RecordAction(SemanticNode node, LocatorAction action, DateTimeOffset startedAt, long started, long waitedMs, int stale, StepEventStatus status, string? code)
     {
         if (_screen.Steps is null)
         {
@@ -1149,6 +1164,17 @@ public sealed class Locator
         });
         // The action kind the engine contract names, which is the method's name but for selectOption.
         var kind = action is LocatorAction.Select ? "select" : ApiName(action);
+        List<string> notes = [];
+        if (waitedMs > 0)
+        {
+            notes.Add("appeared after " + waitedMs.ToString(System.Globalization.CultureInfo.InvariantCulture) + "ms");
+        }
+
+        if (stale > 0)
+        {
+            notes.Add("went stale " + stale.ToString(System.Globalization.CultureInfo.InvariantCulture) + "x");
+        }
+
         _screen.RecordEvent(new StepEvent
         {
             Kind = StepEventKind.Engine,
@@ -1157,7 +1183,7 @@ public sealed class Locator
             DurationMs = (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds,
             Status = status,
             Code = code,
-            Detail = kind + " " + target + (waitedMs > 0 ? " (appeared after " + waitedMs.ToString(System.Globalization.CultureInfo.InvariantCulture) + "ms)" : ""),
+            Detail = kind + " " + target + (notes.Count == 0 ? "" : " (" + string.Join(", ", notes) + ")"),
         });
     }
 

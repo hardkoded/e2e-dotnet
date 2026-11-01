@@ -7,11 +7,10 @@ using E2E.Engine;
 namespace E2E.Tests.LocatorEngine;
 
 /// <summary>
-/// Upstream's <c>translateLocatorError mapping table</c>. The codes are the port's (COMPATIBILITY, Error codes that differ): a
-/// stale node or a missing frame is <c>NOT_FOUND</c> and an ambiguous frame is <c>STRICT_MODE</c>. The table is partial: the rows for
-/// <c>CANCELLED</c>, <c>UNSUPPORTED_CAPABILITY</c> (upstream: category <c>configuration</c>), and <c>ENGINE_FAILURE</c> are not ported, since the
-/// port returns an engine error of those codes as it is. <c>.NET-only</c> covers them below. The <c>wraps unknown errors</c> it is not
-/// ported: the port translates only what an engine threw, and any other error passes through.
+/// Upstream's <c>translateLocatorError mapping table</c>. The codes of a stale node, a missing frame, and an ambiguous frame are the
+/// port's (COMPATIBILITY, Error codes that differ): <c>NOT_FOUND</c> and <c>STRICT_MODE</c>. The rows of the table are split in two
+/// tests: the seven rows with the port's codes are <c>Partial_</c>, the three others are ported as written. The port keeps an
+/// <c>OperationCanceledException</c> as it is, so a caller's cancel stays a cancel (.NET-only).
 /// </summary>
 public sealed class TranslateLocatorErrorMappingTableTests
 {
@@ -43,12 +42,39 @@ public sealed class TranslateLocatorErrorMappingTableTests
         Assert.IsType<EngineException>(translated.InnerException);
     }
 
+    [Theory]
+    [InlineData(EngineErrorCodes.Cancelled, "infrastructure", "CANCELLED")]
+    [InlineData(EngineErrorCodes.UnsupportedCapability, "configuration", "UNSUPPORTED_CAPABILITY")]
+    [InlineData(EngineErrorCodes.EngineFailure, "infrastructure", "ENGINE_FAILURE")]
+    public void Engine_code_maps_to_category_and_code(string engineCode, string category, string code)
+    {
+        var engineError = new EngineException(engineCode, "boom", retryable: false);
+
+        var translated = LocatorResolver.TranslateLocatorError(engineError);
+
+        var classified = ErrorSerializer.Classify(translated);
+        Assert.Equal(category, classified.Category);
+        Assert.Equal(code, classified.Code);
+        Assert.IsType<EngineException>(translated.InnerException);
+    }
+
     [Fact]
     public void Passes_existing_E2EErrors_through_unchanged()
     {
         var original = new ConfigurationException("INVALID_CONFIG", "bad config");
 
         Assert.Same(original, LocatorResolver.TranslateLocatorError(original));
+    }
+
+    [Fact]
+    public void Wraps_unknown_errors_as_infrastructure_ENGINE_FAILURE()
+    {
+        var translated = LocatorResolver.TranslateLocatorError(new InvalidOperationException("socket hangup"));
+
+        var classified = ErrorSerializer.Classify(translated);
+        Assert.Equal("infrastructure", classified.Category);
+        Assert.Equal("ENGINE_FAILURE", classified.Code);
+        Assert.Contains("socket hangup", translated.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -60,15 +86,12 @@ public sealed class TranslateLocatorErrorMappingTableTests
         Assert.EndsWith(": getByRole(\"button\")", translated.Message, StringComparison.Ordinal);
     }
 
-    [Theory]
-    [InlineData(EngineErrorCodes.Cancelled)]
-    [InlineData(EngineErrorCodes.UnsupportedCapability)]
-    [InlineData(EngineErrorCodes.EngineFailure)]
-    public void NET_only_an_engine_error_with_no_test_code_passes_through(string engineCode)
+    [Fact]
+    public void NET_only_a_cancel_passes_through_as_a_cancel()
     {
-        var engineError = new EngineException(engineCode, "boom", retryable: false);
+        var cancel = new OperationCanceledException();
 
-        Assert.Same(engineError, LocatorResolver.TranslateLocatorError(engineError, Button));
+        Assert.Same(cancel, LocatorResolver.TranslateLocatorError(cancel, Button));
     }
 
     [Fact]
