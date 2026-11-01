@@ -16,6 +16,7 @@ namespace E2E;
 public class Screen
 {
     private readonly Func<CancellationToken, Task<Observation>> _observe;
+    private readonly Func<TimeSpan, CancellationToken, Task<Observation>>? _observeWithin;
     private readonly Func<SemanticNode, LocatorAction, CancellationToken, Task> _perform;
     private readonly Func<LocatorExpression, TimeSpan, CancellationToken, Task<IReadOnlyList<SemanticNode>>>? _locate;
     private readonly Func<CancellationToken> _cancellation;
@@ -43,9 +44,11 @@ public class Screen
         SoftFailures? softFailures = null,
         TimeProvider? clock = null,
         Func<LocatorExpression, TimeSpan, CancellationToken, Task<IReadOnlyList<SemanticNode>>>? locate = null,
-        Func<ScrollDirection, Momentum?, CancellationToken, Task>? swipe = null)
+        Func<ScrollDirection, Momentum?, CancellationToken, Task>? swipe = null,
+        Func<TimeSpan, CancellationToken, Task<Observation>>? observeWithin = null)
     {
         _swipe = swipe;
+        _observeWithin = observeWithin;
         SoftFailures = softFailures ?? new SoftFailures();
         _observe = observe;
         _perform = perform;
@@ -67,6 +70,7 @@ public class Screen
         _scopeOf = root;
         _wrap = wrap;
         _observe = root._observe;
+        _observeWithin = root._observeWithin;
         _perform = root._perform;
         _locate = root._locate;
         _cancellation = root._cancellation;
@@ -323,13 +327,15 @@ public class Screen
             try
             {
                 // The wait ends with the timeout even when the engine ignores cancellation; the abandoned read's fault is observed.
-                var read = ObserveAsync(bounded.Token);
+                var read = ObserveAsync(timeout, bounded.Token);
                 _ = read.ContinueWith(static finished => _ = finished.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
                 var observation = await read.WaitAsync(bounded.Token).ConfigureAwait(false);
                 return RenderTree?.Invoke(observation) ?? Redact(TreeText(observation, Redactor.None, null, E2EDefaults.MaxObservationBytes));
             }
-            catch (OperationCanceledException) when (bounded.IsCancellationRequested && !token.IsCancellationRequested)
+            catch (Exception ex) when (bounded.IsCancellationRequested && !token.IsCancellationRequested
+                && (ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.Cancelled }))
             {
+                // The engine's own budget ends with the token, so it may report the cancel first.
                 throw new EngineException(EngineErrorCodes.OperationTimeout, api + " timed out", retryable: false);
             }
         }
@@ -342,9 +348,16 @@ public class Screen
         return await AppNotOpen.GuardAsync(() => _observe(cancellationToken == default ? _cancellation() : cancellationToken)).ConfigureAwait(false);
     }
 
+    /// <summary><see cref="ObserveAsync(CancellationToken)"/> within <paramref name="timeout"/>, the budget the engine bounds its reads by (upstream's <c>operation.timeoutMs</c>).</summary>
+    internal async Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        var token = cancellationToken == default ? _cancellation() : cancellationToken;
+        return await AppNotOpen.GuardAsync(() => _observeWithin is { } within ? within(timeout, token) : _observe(token)).ConfigureAwait(false);
+    }
+
     /// <summary>
     /// Whether the engine resolves a locator itself. Upstream's engines all do; a port engine that does not has its locator resolved
-    /// here over <see cref="ObserveAsync"/>, until it implements <see cref="IEngineSession.LocateAsync"/> (.NET-only).
+    /// here over <see cref="ObserveAsync(CancellationToken)"/>, until it implements <see cref="IEngineSession.LocateAsync"/> (.NET-only).
     /// </summary>
     internal bool LocatesInEngine => _locate is not null;
 
@@ -871,8 +884,7 @@ public sealed class Locator
         Observation observation;
         try
         {
-            // The observation takes no budget, so the window only times it.
-            observation = await reads.ReadAsync(_ => _screen.ObserveAsync(cancellationToken)).ConfigureAwait(false);
+            observation = await reads.ReadAsync(budget => _screen.ObserveAsync(budget, cancellationToken)).ConfigureAwait(false);
         }
         catch (EngineException ex) when (!cancellationToken.IsCancellationRequested)
         {

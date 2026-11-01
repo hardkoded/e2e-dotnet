@@ -497,4 +497,55 @@ public sealed class ObservationTests
         await Task.Delay(600);
         Assert.Equal(1, snapshots);
     }
+
+    // Upstream's 'bounds screenshot by operation budget' runs artifacts.screenshot(label, operation). The port's ScreenshotArtifactAsync
+    // takes no timeout; the masked screenshot it shares with ScreenshotAsync does, and that is what this runs.
+    [Fact]
+    public async Task Partial_Bounds_screenshot_by_operation_budget()
+    {
+        var h = Harness.Create();
+        var session = await Screens.OpenAttempt(h);
+        h.Fake.RespondAsync(DeviceMethods.CaptureScreenshot, (_, _) => Never());
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.ScreenshotAsync(TimeSpan.FromMilliseconds(300), CancellationToken.None));
+        Assert.Equal("OPERATION_TIMEOUT", failure.Code);
+    }
+
+    // Upstream's observe takes `pixels` and its capturePixels rethrows the timeout. The port's observe takes no pixels; the screenshot it
+    // takes is the viewport probe of a snapshot whose size is not the known one, and that is what this runs.
+    [Fact]
+    public async Task Partial_Rethrows_OPERATION_TIMEOUT_from_capturePixels_during_observe()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        await session.ObserveAsync(CancellationToken.None);
+        h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => WithViewport(130, 281.33));
+        h.Fake.RespondAsync(DeviceMethods.CaptureScreenshot, (_, _) => Never());
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(TimeSpan.FromMilliseconds(300), CancellationToken.None));
+        Assert.Equal("OPERATION_TIMEOUT", failure.Code);
+    }
+
+    // As above: the screenshot that must not take a fresh budget is the viewport probe, not the observation's pixels.
+    [Fact]
+    public async Task Partial_Shares_one_budget_across_observe_steps_so_screenshot_cannot_take_a_fresh_budget()
+    {
+        var h = Harness.Create();
+        var session = await OpenAttempt(h);
+        await session.ObserveAsync(CancellationToken.None);
+        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, async (_, _) =>
+        {
+            await Task.Delay(150);
+            return WithViewport(130, 281.33);
+        });
+        var screenshots = 0;
+        h.Fake.RespondAsync(DeviceMethods.CaptureScreenshot, (_, _) =>
+        {
+            Interlocked.Increment(ref screenshots);
+            return Never();
+        });
+        var started = DateTimeOffset.UtcNow;
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.ObserveAsync(TimeSpan.FromMilliseconds(500), CancellationToken.None));
+        Assert.Equal("OPERATION_TIMEOUT", failure.Code);
+        Assert.Equal(1, screenshots);
+        Assert.True(DateTimeOffset.UtcNow - started < TimeSpan.FromSeconds(3));
+    }
 }

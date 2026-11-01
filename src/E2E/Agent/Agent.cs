@@ -1247,9 +1247,14 @@ internal sealed class AttemptScope
     public ScreenshotContext? Screenshots { get; set; }
 
     /// <summary>One look at the screen, shown to the trace. Upstream's <c>session.observe</c> shows each observation it takes.</summary>
-    public async Task<Observation> ObserveAsync(CancellationToken token)
+    public Task<Observation> ObserveAsync(CancellationToken token) => ShowAsync(Session.ObserveAsync(token));
+
+    /// <summary><see cref="ObserveAsync(CancellationToken)"/> within <paramref name="timeout"/>, the operation budget the engine bounds its reads by.</summary>
+    public Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken token) => ShowAsync(Session.ObserveAsync(timeout, token));
+
+    private async Task<Observation> ShowAsync(Task<Observation> look)
     {
-        var observation = await Session.ObserveAsync(token).ConfigureAwait(false);
+        var observation = await look.ConfigureAwait(false);
 
         // The adapter mints the revision, as upstream's session does: one per capture the attempt took, in order.
         observation.Revision = "b" + Interlocked.Increment(ref _observed).ToString(CultureInfo.InvariantCulture);
