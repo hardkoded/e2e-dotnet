@@ -26,6 +26,9 @@ jobs:
       - name: Restore
         run: dotnet restore E2E.slnx
 
+      - name: Format
+        run: dotnet format E2E.slnx --verify-no-changes --no-restore
+
       - name: Build
         run: dotnet build E2E.slnx --no-restore -c Release
 
