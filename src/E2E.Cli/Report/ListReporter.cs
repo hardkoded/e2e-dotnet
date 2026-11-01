@@ -516,27 +516,27 @@ internal sealed class ListReporter
             case ResultStatus.Flaky:
                 return [$"   {_pc.Yellow(Format.Check)} {line.Title} {_pc.Yellow("(flaky)")} {duration}{ai}"];
             case ResultStatus.Skipped:
-            {
-                // `test.skip` without a message records the bare word; repeating it adds nothing.
-                var reason = line.SkipReason is null or "skipped" ? string.Empty : _pc.Dim(_pc.Gray($" [{line.SkipReason}]"));
-                return [$"   {_pc.Dim(_pc.Gray(FDown))} {line.Title}{reason}"];
-            }
+                {
+                    // `test.skip` without a message records the bare word; repeating it adds nothing.
+                    var reason = line.SkipReason is null or "skipped" ? string.Empty : _pc.Dim(_pc.Gray($" [{line.SkipReason}]"));
+                    return [$"   {_pc.Dim(_pc.Gray(FDown))} {line.Title}{reason}"];
+                }
 
             case ResultStatus.Interrupted:
                 return [$"   {_pc.Yellow(Format.Cross)} {line.Title} {_pc.Yellow("(interrupted)")} {duration}{ai}"];
             default:
-            {
-                var status = line.Status == ResultStatus.Failed ? string.Empty : _pc.Red($" ({StatusName(line.Status)})");
-                List<string> rows = [$"   {_pc.Red($"{Format.Cross} {line.Title}")}{status} {duration}{ai}"];
-                if (line.FirstErrorLine is { } first)
                 {
-                    // A glance line; the `Failed Tests` section carries the whole message.
-                    var glance = Format.FitColumns(first, Format.TerminalColumns() - ErrorGlanceIndent);
-                    rows.Add($"     {_pc.Red($"{FRight} {glance}")}");
-                }
+                    var status = line.Status == ResultStatus.Failed ? string.Empty : _pc.Red($" ({StatusName(line.Status)})");
+                    List<string> rows = [$"   {_pc.Red($"{Format.Cross} {line.Title}")}{status} {duration}{ai}"];
+                    if (line.FirstErrorLine is { } first)
+                    {
+                        // A glance line; the `Failed Tests` section carries the whole message.
+                        var glance = Format.FitColumns(first, Format.TerminalColumns() - ErrorGlanceIndent);
+                        rows.Add($"     {_pc.Red($"{FRight} {glance}")}");
+                    }
 
-                return rows;
-            }
+                    return rows;
+                }
         }
     }
 
