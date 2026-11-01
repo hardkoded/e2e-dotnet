@@ -70,14 +70,20 @@ public sealed class BiometricsTests : MobileAppTest
 public async Task With_nothing_enrolled_Unlock_goes_straight_to_the_PIN()
 {
     Assume.That(Platform == MobilePlatform.Ios, "Android cannot unenroll a fingerprint from a test.");
-    var pin = Secret.Create("pin", Environment.GetEnvironmentVariable("EXPO_PUBLIC_PIN")!);
+    var pin = Secret.Create("pin", Environment.GetEnvironmentVariable("EXPO_PUBLIC_PIN") ?? throw new InvalidOperationException("Set EXPO_PUBLIC_PIN."));
     await Device.EnrollBiometricsAsync(BiometricSensor.FaceId, false);
+    try
+    {
+        await Screen.GetByTestId("unlock").TapAsync();
+        await Screen.GetByTestId("pin").FillAsync(pin);
+        await Screen.GetByTestId("submit-pin").TapAsync();
 
-    await Screen.GetByTestId("unlock").TapAsync();
-    await Screen.GetByTestId("pin").FillAsync(pin);
-    await Screen.GetByTestId("submit-pin").TapAsync();
-
-    await Expect.That(Screen.GetByTestId("unlock-method")).ToHaveTextAsync("Unlocked with PIN");
+        await Expect.That(Screen.GetByTestId("unlock-method")).ToHaveTextAsync("Unlocked with PIN");
+    }
+    finally
+    {
+        await Device.EnrollBiometricsAsync(BiometricSensor.FaceId, true);   // the simulator is shared with the other tests
+    }
 }
 ```
 

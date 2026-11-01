@@ -41,7 +41,7 @@ The app is already installed, so the target has a bundle id and no `appPath`. Ru
 
 ## Set the scene, then ask
 
-`Device` plays the system. `SetPermissionAsync` resets the permission so the prompt shows again, and `SetLocationAsync` puts the device in Paris. Both go before `App.OpenAsync()`, because a permission change ends a running app.
+`Device` plays the system. `SetPermissionAsync` resets the permission so the prompt shows again, and `SetLocationAsync` puts the device in Paris. `MobileAppTest` has already opened the app, and a permission change ends a running app, so both go before `App.OpenAsync()`, which starts it again. Each test sets its own permission and position first, and leaves the device where it ended; `Device.ClearLocationAsync()` turns it off.
 
 ```csharp
 using System.Text.RegularExpressions;

@@ -45,7 +45,7 @@ public sealed class UploadTests : E2ETest
 
 ## Refuse the wrong file
 
-Keep a 5 MB file out of git: write it in a temporary folder and pass its absolute path.
+Keep a 5 MB file out of git (the app counts 1 MB as 1,000,000 bytes, as the upstream test does): write it in a temporary folder and pass its absolute path.
 
 ```csharp
 [Test]

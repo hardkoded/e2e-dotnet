@@ -113,7 +113,7 @@ public async Task A_link_to_no_screen_shows_that_it_goes_nowhere()
 
 ## First link on an iOS simulator
 
-The first time a simulator opens the scheme, iOS asks "Open in e2e Deep Links?". `Device.OpenLinkAsync` does not answer it. Open one link by hand once, or answer it before the test with `Device.AlertAsync(AlertAction.Accept)`. The upstream repository saves the answer on the simulator before each iOS test.
+The first time a simulator opens the scheme, iOS asks "Open in e2e Deep Links?". `Device.OpenLinkAsync` does not answer it. Open one link by hand once and tap Open, so later runs see no prompt. The upstream repository saves the answer on the simulator before each iOS test; this guide has no such step.
 
 ## Run
 
