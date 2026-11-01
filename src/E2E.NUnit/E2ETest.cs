@@ -94,7 +94,13 @@ public abstract class E2ETest : E2EFixture
             {
                 await session.FinishSetupAsync(true, current.CancellationToken).ConfigureAwait(false);
             }
-            catch (TestException ex)
+            catch (OperationCanceledException)
+            {
+                // The run was cancelled: the test's own result stands.
+            }
+#pragma warning disable CA1031 // Reported below, after the session is released.
+            catch (Exception ex)
+#pragma warning restore CA1031
             {
                 late ??= ex;
             }
