@@ -48,6 +48,15 @@ public sealed class ReportPartsTests
     }
 
     [Fact]
+    public void Reports_the_state_capability_of_an_engine_that_declares_it_and_does_not_list_it_as_a_capability()
+    {
+        var described = BuildReport.DescribeTarget(new FakeEngine(EngineCapabilities.Observation | EngineCapabilities.State));
+
+        Assert.True(described.StateCapability);
+        Assert.Equal(["observation"], described.Capabilities);
+    }
+
+    [Fact]
     public void Describes_an_engine_by_its_sorted_capabilities_and_what_it_can_capture()
     {
         var described = BuildReport.DescribeTarget(new FakeEngine(EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Screenshot | EngineCapabilities.Video | EngineCapabilities.TapModifiers));

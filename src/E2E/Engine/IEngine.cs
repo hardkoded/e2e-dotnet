@@ -40,6 +40,13 @@ public enum EngineCapabilities
     /// name for the <c>upload</c> verb an upstream engine lists in its <c>verbs</c>.
     /// </summary>
     Upload = 1024,
+
+    /// <summary>
+    /// <see cref="IEngineSession.CaptureStateAsync"/> and <see cref="IEngineSession.RestoreStateAsync"/>: the engine saves and restores the
+    /// app's state, which a saved session needs. .NET-only name for upstream's optional <c>engine.state</c>, which the report records as
+    /// <c>stateCapability</c>; the report's <c>capabilities</c> does not list it.
+    /// </summary>
+    State = 2048,
 }
 
 /// <summary>

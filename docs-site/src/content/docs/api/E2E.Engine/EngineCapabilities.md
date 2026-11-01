@@ -122,7 +122,7 @@ PinnedApp = 512
 ```
 
 
-The engine opens no URL: `CancellationToken)` relaunches the app the target pins. .NET-only name for upstream's
+The engine opens no URL: `OpenAsync` relaunches the app the target pins. .NET-only name for upstream's
 `launchesPinnedApp`, which tests for a session with a `restart` and no `open`; the port's `OpenAsync` is not optional.
 
 **Value:** [EngineCapabilities](./)
@@ -160,6 +160,24 @@ The viewport swipe, [LocatorAction.Swipe](/api/E2E.Engine/LocatorAction.Swipe/),
 **Value:** [EngineCapabilities](./)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L18)
+
+<a id="E2E_Engine_EngineCapabilities_State"></a>
+
+### State
+
+
+```csharp
+State = 2048
+```
+
+
+[CaptureStateAsync(CancellationToken)](/api/E2E.Engine/IEngineSession/#E2E_Engine_IEngineSession_CaptureStateAsync_System_Threading_CancellationToken_) and `RestoreStateAsync`: the engine saves and restores the
+app's state, which a saved session needs. .NET-only name for upstream's optional `engine.state`, which the report records as
+`stateCapability`; the report's `capabilities` does not list it.
+
+**Value:** [EngineCapabilities](./)
+
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L49)
 
 <a id="E2E_Engine_EngineCapabilities_TapModifiers"></a>
 

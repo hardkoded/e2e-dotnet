@@ -87,6 +87,19 @@ public abstract class E2ETest : E2EFixture
             return;
         }
 
+        // A setup test that passed saves its sessions; a contract it broke fails it, and its result stands as the verdict.
+        if (current.Result.Outcome.Status == global::NUnit.Framework.Interfaces.TestStatus.Passed)
+        {
+            try
+            {
+                await session.FinishSetupAsync(true, current.CancellationToken).ConfigureAwait(false);
+            }
+            catch (TestException ex)
+            {
+                late ??= ex;
+            }
+        }
+
         try
         {
             session.Complete(ErrorForCache(current.Result) ?? late, current.CancellationToken);

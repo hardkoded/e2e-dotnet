@@ -28,6 +28,7 @@ public sealed class E2ESession : IAsyncDisposable
     private ExecuteVideo? _video;
     private SessionRecordings? _recordings;
     private TraceOutput? _trace;
+    private SessionPlan? _sessions;
     private int _evidenceTried;
     private FailureEvidence? _evidence;
     private Exception? _error;
@@ -249,6 +250,19 @@ public sealed class E2ESession : IAsyncDisposable
 
         try
         {
+            // The saved session restores before the video starts, and the values its saving session learned join the ledger the attempt starts with.
+            if (options.Sessions?.Restore is { } restoring)
+            {
+                if ((options.Engine.Capabilities & EngineCapabilities.State) == 0)
+                {
+                    throw new ConfigurationException("UNSUPPORTED_CAPABILITY", $"target \"{(string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName)}\" has no engine state capability for session restore");
+                }
+
+                var saved = await options.Sessions.Store.LoadAsync(restoring, options.Sessions.Identity, timeout.Token).ConfigureAwait(false);
+                ledger.AddRange(saved.Secrets.Where(secret => !ledger.Contains(secret)));
+                await engine.RestoreStateAsync(saved.State, timeout.Token).ConfigureAwait(false);
+            }
+
             var recordings = Recordings.SessionRecordings(engine, string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName, (options.Engine.Capabilities & EngineCapabilities.Video) != 0);
             var video = await ExecuteVideo.StartAsync(recording, recordings, attemptDir, options.LaunchTimeout, timeout.Token).ConfigureAwait(false);
 
@@ -358,7 +372,7 @@ public sealed class E2ESession : IAsyncDisposable
             };
             var keep = RecordingModes.AttemptKeep(options.Trace.Mode, options.Attempt - 1);
             var trace = new TraceOutput(keep, attemptDir, (options.Cache as FileStepCache)?.CacheDirectory);
-            return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _recordings = recordings, _trace = trace };
+            return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _recordings = recordings, _trace = trace, _sessions = options.Sessions };
         }
         catch
         {
@@ -367,6 +381,53 @@ public sealed class E2ESession : IAsyncDisposable
             await (Bounded(options.CleanupTimeout) ? cleanup.WaitAsync(options.CleanupTimeout) : cleanup).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
             timeout.Dispose();
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Captures the engine's state and stages it under <paramref name="name"/> with the secret values this session learned, to be saved
+    /// when the setup test passes. Upstream's <c>session.save(name)</c> fixture. Fails with <c>SESSION_CONTRACT</c> outside a setup test,
+    /// for a name the setup did not declare, or for a name saved twice, and with <c>UNSUPPORTED_CAPABILITY</c> on an engine with no
+    /// state capability. Assert that the sign-in worked before you save: the state is saved as it is.
+    /// </summary>
+    internal async Task SaveSessionAsync(string name, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (_sessions?.Staging is not { } staging)
+        {
+            throw new TestException("SESSION_CONTRACT", "session.save() is only available in a setup test");
+        }
+
+        if ((_scope.EngineCapabilities & EngineCapabilities.State) == 0)
+        {
+            throw new ConfigurationException("UNSUPPORTED_CAPABILITY", $"target \"{_scope.TargetName}\" has no engine state capability for session.save()");
+        }
+
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _scope.Token());
+        var state = await _engine.CaptureStateAsync(linked.Token).ConfigureAwait(false);
+        staging.Stage(name, state, _scope.Learned());
+    }
+
+    /// <summary>
+    /// Ends a setup test's attempt: when it passed, fails with <c>SESSION_CONTRACT</c> if it left a declared session unsaved, and otherwise
+    /// writes each staged session to the run's store. A failed attempt saves nothing. Does nothing for a test that is not a setup test.
+    /// </summary>
+    internal async Task FinishSetupAsync(bool passed, CancellationToken cancellationToken = default)
+    {
+        if (_sessions is not { Staging: { } staging } plan || !passed)
+        {
+            return;
+        }
+
+        var missing = staging.Missing();
+        if (missing.Count > 0)
+        {
+            throw new TestException("SESSION_CONTRACT", $"setup must save each declared session exactly once; missing: [{string.Join(", ", missing)}]");
+        }
+
+        foreach (var (name, saved) in staging.Entries())
+        {
+            await plan.Store.SaveAsync(name, plan.Identity, saved, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -1145,6 +1206,9 @@ public sealed class E2ESessionOptions
     /// <c>SessionIdentity.appIdentity</c>). Unset, entries key on the <c>test</c> environment alone.
     /// </summary>
     public string? AppIdentity { get; init; }
+
+    /// <summary>The saved session this test restores and the sessions it saves; see <see cref="SessionPlan"/>. Null for a test that uses none.</summary>
+    internal SessionPlan? Sessions { get; init; }
 
     public bool CacheEnabled { get; init; } = true;
 

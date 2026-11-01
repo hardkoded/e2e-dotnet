@@ -1609,6 +1609,14 @@ internal sealed class AttemptScope
         }
     }
 
+    /// <summary>
+    /// Every value this attempt knows to redact, for a setup test to save beside its state so the session that restores it redacts them too.
+    /// Upstream's <c>carriedSecrets</c>, which leaves out the static config values because every upstream session registers those itself; the
+    /// port's session registers a config secret only when the test reads it, so it keeps them.
+    /// </summary>
+    public IReadOnlyList<(string Name, string Value)> Learned() =>
+        [.. _secrets.Select(secret => (secret.Name, secret.Value)).Concat(_registered).Distinct()];
+
     public void MarkVerified()
     {
         if (TestFailed())

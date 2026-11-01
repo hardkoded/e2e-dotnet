@@ -338,8 +338,10 @@ every rerun while you fix it. A wrong locator at the end of a long flow
 reruns the whole flow, then waits out the action timeout. Begin each test as
 close to its screen as the app allows:
 
-- Sign in outside the flow, not through the sign-in form of every test. The
-  port has no saved `session`, so do it in the framework's per-test setup
+- Sign in outside the flow, not through the sign-in form of every test. With
+  NUnit, save the sign-in once as a session (`[E2ESetup]` and `[E2ESession]`,
+  topic `writing-tests-nunit`). Otherwise, or to seed data, do it in the
+  framework's per-test setup
   (NUnit `[SetUp]`, which runs after the base class's own, so `Browser` is ready; xUnit v3 `InitializeAsync`, which calls
   `await base.InitializeAsync()` first, since the base starts the session):
   request the app's sign-in
