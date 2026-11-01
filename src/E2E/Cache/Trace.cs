@@ -139,7 +139,9 @@ internal static class Trace
 
                 mapped.Url = url;
                 break;
-            case "fill" or "select" when !IsSecretMarker(action):
+            case "fill" when IsSecretMarker(action):
+                break;
+            case "fill" or "select":
                 if (!TryMap(action.Value, map, out var value))
                 {
                     return null;
