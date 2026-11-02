@@ -30,7 +30,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | Looking at the running app, checking a UI change, taking a screenshot, trying a locator, or walking a flow while you write its test, over `e2e mcp` (actions take the node ids `observe` lists and report what changed on screen) | `mcp` | [references/mcp.md](references/mcp.md) |
 | Writing or fixing a test: fixture members, locators, actions, matchers, sign-in, the `Browser` member (navigation, routes (`route.FetchAsync()` reads upstream before the handler decides), cookies with `SetCookiesAsync` and `ClearCookiesAsync(new CookieFilter { ... })`, native dialogs, downloads with `WaitForDownloadAsync` and `WaitForDownloadsAsync(trigger, count)` for several files from one trigger, CSS locators, iframes), `Locator.SetInputFilesAsync` for a file input or an upload button that opens a file chooser, and the pointer actions `SecondaryTapAsync`, `LongPressAsync`, `HoverAsync`, `DragToAsync`, `SwipeAsync` and tap `Modifiers`, and that `ClickAsync` and `DblClickAsync` record `locator.click` and `locator.dblclick` steps | `writing-tests` | [references/writing-tests.md](references/writing-tests.md) |
 | Writing a test with NUnit: the `E2E.NUnit` base class, `[Test]`, `[Category("RealModel")]`, saved sessions (`[E2ESetup]`, `[E2ESession]`, `SaveSessionAsync`), `dotnet test --filter`, a complete test | `writing-tests-nunit` | [references/writing-tests-nunit.md](references/writing-tests-nunit.md) |
-| Writing a test with xUnit v3: the `E2E.XUnit.V3` base class, `[Fact]`, `[Trait("TestCategory", "RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-xunit` | [references/writing-tests-xunit.md](references/writing-tests-xunit.md) |
+| Writing a test with xUnit v3: the `E2E.XUnit.V3` base class, `[Fact]`, `[Trait("TestCategory", "RealModel")]`, saved sessions (`[E2ESetup]`, `[E2ESession]`, `SaveSessionAsync`), `dotnet test --filter`, a complete test | `writing-tests-xunit` | [references/writing-tests-xunit.md](references/writing-tests-xunit.md) |
 | Adding `Agent` steps, picking a model, budgets, the replay cache, custom executors, the agent's `upload` tool (project-relative paths, never hidden files or files outside the project) | `agent` | [references/agent.md](references/agent.md) |
 | Running tests: `dotnet test` filters, the `e2e` tool, `report.json` for scripts, exit codes, CI, test filters (NUnit: `E2ERunFixture.Filters` and `ChangedSince`, or `E2E_CHANGED_SINCE`; not wired for xUnit or into the report) | `running` | [references/running.md](references/running.md) |
 | Handling a failed run: the trace page, `report.json` for scripts, `E2ESession.Report()` for a session you run yourself, error codes and their fixes, a visible browser, replay misses, phase timings, the agent step table, every model call | `debugging` | [references/debugging.md](references/debugging.md) |
@@ -304,8 +304,8 @@ lines you changed:
   `UNSUPPORTED_CAPABILITY`. Each call is bounded by the action timeout
   (`OPERATION_TIMEOUT`). `WebEngine` implements both (cookies, local
   storage, IndexedDB) and declares `EngineCapabilities.State`, which the report
-  records as `stateCapability`. With NUnit, `[E2ESetup]` and `[E2ESession]` call
-  them (topic `writing-tests-nunit`).
+  records as `stateCapability`. With NUnit or xUnit v3, `[E2ESetup]` and
+  `[E2ESession]` call them (topics `writing-tests-nunit` and `writing-tests-xunit`).
 - To reach a node below the fold, `Screen.ScrollUntilVisibleAsync(locator,
   new ScrollUntilVisibleOptions { Direction, Momentum, Timeout })` scrolls the viewport
   (`ScrollDirection.Down`, `Momentum.Slow` by default) until the locator resolves

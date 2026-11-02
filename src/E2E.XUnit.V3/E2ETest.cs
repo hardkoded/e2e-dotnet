@@ -20,6 +20,7 @@ namespace E2E.XUnit.V3;
 /// Settings come from <see cref="E2EFixture"/>.
 /// </summary>
 [LooksBeforeTeardown]
+[TestMethodOrderer(typeof(SetupTestMethodOrderer))]
 public abstract class E2ETest : E2EFixture, IAsyncLifetime
 {
     // The attribute that looks before the teardown gets the test, not the instance.
@@ -161,6 +162,25 @@ public abstract class E2ETest : E2EFixture, IAsyncLifetime
 #pragma warning restore CA1031
         {
             late = ex;
+        }
+
+        // A setup test that passed saves its sessions; a contract it broke fails it, and its result stands as the verdict.
+        if (current.TestState?.Result is TestResult.Passed && soft is null && late is null)
+        {
+            try
+            {
+                await session.FinishSetupAsync(true, current.CancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // The run was cancelled: the test's own result stands.
+            }
+#pragma warning disable CA1031 // Reported below, after the session is released.
+            catch (Exception ex)
+#pragma warning restore CA1031
+            {
+                late = ex;
+            }
         }
 
         try

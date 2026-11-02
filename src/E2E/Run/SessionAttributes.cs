@@ -9,7 +9,7 @@ namespace E2E;
 /// <summary>
 /// Starts a test, or every test of a class, from a session a setup test saved. Upstream's <c>session</c> option of <c>test</c> and
 /// <c>describe</c>. The session restores before the test body runs; a restore leaves no page open, so the test opens one first. The
-/// setup test must run before the test (in NUnit, give it an earlier <c>[Order]</c>); a session no setup produced fails the test with
+/// setup test must run before the test (NUnit and xUnit v3 run a setup test first inside its fixture or class; the adapter's setup attribute says how); a session no setup produced fails the test with
 /// <c>SESSION_UNAVAILABLE</c>, and an engine that cannot restore state with <c>UNSUPPORTED_CAPABILITY</c>. The closest attribute wins:
 /// the method, then the class, then a base class. A setup test takes only its own method's session. .NET-only name, as the port has no <c>test()</c> options object.
 /// </summary>
@@ -23,7 +23,7 @@ public sealed class E2ESessionAttribute(string name) : Attribute
 /// <summary>
 /// What a framework adapter's setup attribute says about a test: it is a setup test, and it saves these sessions (upstream's
 /// <c>test.setup(title, { sessions }, fn)</c>). .NET-only: the adapter declares the attribute, because the test framework owns what a
-/// test is; <c>E2E.NUnit.E2ESetupAttribute</c> is the NUnit one.
+/// test is; <c>E2E.NUnit.E2ESetupAttribute</c> is the NUnit one and <c>E2E.XUnit.V3.E2ESetupAttribute</c> the xUnit v3 one.
 /// </summary>
 public interface ISessionSetup
 {
