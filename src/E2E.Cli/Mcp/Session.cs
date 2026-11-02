@@ -342,6 +342,7 @@ internal sealed class SessionHost : IDisposable
                     new E2ESessionOptions
                     {
                         Engine = engine,
+                        Credentials = config.Credentials,
                         BaseUrl = target.App.Url,
                         Permissions = target.App.Permissions,
                         ProjectRoot = config.ProjectRoot,

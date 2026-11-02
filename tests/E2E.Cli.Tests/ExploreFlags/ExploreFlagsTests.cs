@@ -346,6 +346,21 @@ public sealed class ExploreFlagsTests
         Assert.True(stdout.Split('\n').Max(line => line.Length) <= 8_192 + 40);
     }
 
+    // .NET-only: the environment scan skips a name whose variables belong to a configured credential, which the config already carries.
+    [Fact]
+    public void Leaves_a_configured_credential_to_the_config_when_scanning_the_environment()
+    {
+        using var _ = Env("E2E_USER_EXPLORE_COVERED_USERNAME", "dana@example.com");
+        using var __ = Env("E2E_USER_EXPLORE_COVERED_PASSWORD", "covered-secret-pw");
+        using var ___ = Env("E2E_USER_EXPLORE_OTHER_USERNAME", "erin@example.com");
+        using var ____ = Env("E2E_USER_EXPLORE_OTHER_PASSWORD", "other-secret-pw");
+
+        Assert.Contains("explore_covered", ExploreCommand.ScanCredentials().Select(account => account.Name));
+        Assert.Equal(
+            ["explore_other"],
+            ExploreCommand.ScanCredentials(["explore-covered"]).Select(account => account.Name).Where(name => name.StartsWith("explore_", StringComparison.Ordinal) && name != "explore_test").ToArray());
+    }
+
     [Fact]
     public async Task Refuses_an_account_without_a_password_with_exit_code_2()
     {

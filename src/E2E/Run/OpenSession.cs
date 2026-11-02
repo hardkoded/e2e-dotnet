@@ -235,6 +235,7 @@ public sealed class E2EHost : IAsyncDisposable
         return new E2ESessionOptions
         {
             Engine = _engine,
+            Credentials = _config.Credentials,
             AppIdentity = identity,
             Model = agent.CreateModel(),
             Judge = agent.CreateJudge(),

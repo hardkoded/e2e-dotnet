@@ -46,7 +46,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ClickOptions](/api/E2E/ClickOptions/) | Options for TapAsync, DoubleTapAsync, and SecondaryTapAsync. Upstream's ClickOptions. |
 | [CommandConfig](/api/E2E/CommandConfig/) | The command a target's app.command starts the app with (upstream's CommandConfig). It is a program and its arguments, never a shell line: the executable is started directly and each argument is passed as it is. |
 | [ConfigurationException](/api/E2E/ConfigurationException/) | e2e.config.json is invalid. The code is INVALID_CONFIG. |
-| [Credentials](/api/E2E/Credentials/) | Reads E2E_USER_{NAME}_USERNAME and E2E_USER_{NAME}_PASSWORD. The name is uppercased and dashes become underscores. |
+| [Credentials](/api/E2E/Credentials/) | The accounts of the config's credentials (upstream's credentials, secrets.ts): E2E_USER_{NAME}_USERNAME and E2E_USER_{NAME}_PASSWORD replace the config's values. While a session runs, only a configured name resolves. |
 | [DefaultAgent](/api/E2E/DefaultAgent/) | Upstream's createBuiltInAgent (agent/default-agent.ts): the tool loop with the built-in rules, tools, and opening prompt. |
 | [E2EConfig](/api/E2E/E2EConfig/) | The resolved e2e.config.json. The JSON shape follows upstream e2e.config.ts: targets[].app.url, named agents, top-level timeouts in milliseconds, retries, cache, and secrets. Unknown keys fail with INVALID_CONFIG. E2ETest finds and applies this file; a fixture can still override each value. There is no default model. |
 | [E2EDefaults](/api/E2E/E2EDefaults/) | The upstream defaults, in one place. E2EConfig, E2ESessionOptions, and the NUnit fixture all start from these values. |
