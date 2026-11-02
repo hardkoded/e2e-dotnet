@@ -49,13 +49,13 @@ public sealed class E2EConfig
     private static readonly string[] TopLevelKeys =
     [
         "targets", "timeout", "launchTimeout", "actionTimeout", "assertionTimeout", "cleanupTimeout",
-        "retries", "agents", "cache", "secrets", "credentials", "trace", "video", "testAssembly",
+        "retries", "agents", "cache", "secrets", "credentials", "artifacts", "trace", "video", "testAssembly",
     ];
 
     // Upstream keys the .NET port does not implement. They fail loudly rather than being ignored.
     private static readonly string[] UnsupportedTopLevelKeys =
     [
-        "projectId", "tests", "failOnSkippedFailure", "workers", "artifacts", "output", "reporters",
+        "projectId", "tests", "failOnSkippedFailure", "workers", "output", "reporters",
     ];
 
     private static readonly string[] TargetKeys = ["name", "platform", "app", "trace", "video"];
@@ -86,7 +86,21 @@ public sealed class E2EConfig
 
     private static readonly string[] CacheKeys = ["mode", "dir", "strict"];
 
+    // A store is code: a JSON file cannot name one. Upstream's `cache.store` and `artifacts.store` are `E2EConfig.WithCacheStore` and `E2EConfig.WithArtifactStore`.
     private static readonly string[] UnsupportedCacheKeys = ["store"];
+
+    private static readonly string[] ArtifactsKeys = [];
+
+    private static readonly string[] UnsupportedArtifactsKeys = ["store"];
+
+    // Upstream's VIDEO_MOVED: where a video fact lives now, for a config that still says it the old way.
+    private const string VideoMoved =
+        "video is its own option: video: 'on' in the config or on a target, video: 'retain-on-failure' to keep only failed attempts' recordings, or E2E_VIDEO=<mode> for one run";
+
+    // What `WithCacheStore` re-reads the cache from: the `cache` value as written and the environment it was read against.
+    private JsonElement? _rawCache;
+
+    private Func<string, string?> _environment = Environment.GetEnvironmentVariable;
 
     private E2EConfig()
     {
@@ -136,7 +150,13 @@ public sealed class E2EConfig
     /// </summary>
     public string? TestAssembly { get; private init; }
 
-    public CacheConfig Cache { get; private init; } = new();
+    public CacheConfig Cache { get; private set; } = new();
+
+    /// <summary>
+    /// Where artifacts go, over the files under the results directory (upstream's <c>artifacts.store</c>, <c>ResolvedConfig.artifactStore</c>).
+    /// None by default. A store is code, so the config file cannot name one: <see cref="WithArtifactStore"/> sets it.
+    /// </summary>
+    public IArtifactStore? ArtifactStore { get; private set; }
 
     public Secrets Secrets { get; private init; } = Secrets.Empty;
 
@@ -149,6 +169,32 @@ public sealed class E2EConfig
         .. Credentials.Values.Select(credential => credential.Password),
         .. Secrets.Names.Select(Secrets.Get),
     ];
+
+    /// <summary>
+    /// A copy of the config whose replay cache is <paramref name="store"/> (upstream's <c>cache.store</c>), over the file store at
+    /// <c>Cache.Directory</c>. .NET-only: the config file cannot name a store, so code sets it. Like upstream, a store ends the
+    /// <c>E2E_CACHE_DIR</c> override (a store has no directory), and CI does not turn an unset mode into <see cref="CacheMode.ReadOnly"/>:
+    /// the store states its own trust.
+    /// </summary>
+    public E2EConfig WithCacheStore(IStepCache store)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        var copy = (E2EConfig)MemberwiseClone();
+        copy.Cache = ReadCache(_rawCache, ProjectRoot, Ci, _environment, store);
+        return copy;
+    }
+
+    /// <summary>
+    /// A copy of the config whose artifacts go to <paramref name="store"/> as well (upstream's <c>artifacts.store</c>). .NET-only: the config
+    /// file cannot name a store, so code sets it.
+    /// </summary>
+    public E2EConfig WithArtifactStore(IArtifactStore store)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        var copy = (E2EConfig)MemberwiseClone();
+        copy.ArtifactStore = store;
+        return copy;
+    }
 
     /// <summary>Reads and validates a config file. Throws <see cref="ConfigurationException"/> with <c>INVALID_CONFIG</c>.</summary>
     public static E2EConfig Load(string path, Func<string, string?>? environment = null)
@@ -278,6 +324,7 @@ public sealed class E2EConfig
             var trace = ReadRun(root, RecordingKind.Trace, environment);
             var video = ReadRun(root, RecordingKind.Video, environment);
             var credentials = ReadCredentials(Property(root, "credentials"), environment);
+            ReadArtifacts(Property(root, "artifacts"));
             return new E2EConfig
             {
                 ConfigPath = configPath,
@@ -292,9 +339,11 @@ public sealed class E2EConfig
                 Retries = Property(root, "retries") is { } retries ? Integer(retries, "retries", 0, 10) : ci ? 1 : 0,
                 Agents = ReadAgents(Property(root, "agents")),
                 TestAssembly = OptionalString(root, "testAssembly", "testAssembly") is { } testAssembly ? Path.GetFullPath(testAssembly, projectRoot) : null,
-                Cache = ReadCache(Property(root, "cache"), projectRoot, ci, environment),
+                Cache = ReadCache(Property(root, "cache"), projectRoot, ci, environment, null),
                 Secrets = ReadSecrets(Property(root, "secrets"), environment, credentials),
                 Credentials = credentials,
+                _rawCache = Property(root, "cache")?.Clone(),
+                _environment = environment,
             };
         }
     }
@@ -536,15 +585,90 @@ public sealed class E2EConfig
         return new ReadOnlyDictionary<string, JsonElement>(options);
     }
 
-    private static CacheConfig ReadCache(JsonElement? raw, string projectRoot, bool ci, Func<string, string?> environment)
+    // Upstream's removedRecordingReplacement: what replaces the removed recording facts of `artifacts`, read together. The kinds list (bare or as
+    // `kinds`, null when the config had none) and the `trace` block. A list holding `trace` beside `trace: { record: 'retries' }` meant retries
+    // only, and a list without `trace` recorded none whatever the block said. Then the video option for a `video` kind, and the failure
+    // screenshot a list without `screenshot` used to turn off.
+    private static string RemovedRecordingReplacement(IReadOnlyList<string?>? kinds, JsonElement? trace)
     {
-        // A non-blank E2E_CACHE_DIR replaces cache.dir and the default; the mode stays as configured.
-        var shared = environment("E2E_CACHE_DIR") is { } variable && !string.IsNullOrWhiteSpace(variable) ? variable : null;
+        var traced = kinds is null || kinds.Contains("trace");
+        var mode = RecordingMode.On;
+        if (traced && trace is { } value)
+        {
+            var block = value.ValueKind == JsonValueKind.Object;
+            var record = block ? (value.TryGetProperty("record", out var inner) && inner.ValueKind == JsonValueKind.String ? inner.GetString() : null) : value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+            if (RecordingModes.TryLegacyTraceSpelling(record, block, out _, out var meant))
+            {
+                mode = meant;
+            }
+        }
+
+        var parts = new List<string> { "write trace: '" + (traced ? RecordingModes.Name(mode) : "off") + "' at the config root instead (the modes are " + RecordingModes.List + ")" };
+        if (kinds?.Contains("video") == true)
+        {
+            parts.Add(VideoMoved);
+        }
+
+        if (kinds is not null && !kinds.Contains("screenshot"))
+        {
+            parts.Add("failure screenshots are always captured now");
+        }
+
+        return string.Join("; ", parts);
+    }
+
+    // Upstream's resolveArtifactStore, which reads the `artifacts` key, `{ store }`. The port's key holds no store (it is code: see
+    // `WithArtifactStore`), so what is left is the refusal of what is recorded: the old kinds list (bare or as `kinds`) and the `trace` block
+    // are refused with the `trace` mode they meant, and `video` with the option that replaced it.
+    private static void ReadArtifacts(JsonElement? raw)
+    {
+        if (raw is not { } value)
+        {
+            return;
+        }
+
+        if (value.ValueKind == JsonValueKind.Array)
+        {
+            throw Invalid("artifacts no longer lists kinds: " + RemovedRecordingReplacement(KindsOf(value), null));
+        }
+
+        if (value.ValueKind != JsonValueKind.Object)
+        {
+            throw Invalid("artifacts must be an object");
+        }
+
+        var removed = new[] { "kinds", "trace" }.Where(key => value.TryGetProperty(key, out _)).ToList();
+        if (removed.Count > 0)
+        {
+            var kinds = value.TryGetProperty("kinds", out var list) ? KindsOf(list) : null;
+            var keys = string.Join(" and ", removed.Select(key => "artifacts." + key));
+            throw Invalid(keys + (removed.Count == 1 ? " was" : " were") + " removed: " + RemovedRecordingReplacement(kinds, Property(value, "trace")));
+        }
+
+        foreach (var property in value.EnumerateObject())
+        {
+            if (property.Name == "video")
+            {
+                throw Invalid("artifacts.video was removed: " + VideoMoved);
+            }
+        }
+
+        CheckKeys(value, "artifacts config", ArtifactsKeys, UnsupportedArtifactsKeys, null);
+    }
+
+    // The kinds a removed `artifacts` list names; a `kinds` value that is no list names none (upstream's `'kinds' in block ? []`).
+    private static List<string?> KindsOf(JsonElement list) =>
+        list.ValueKind == JsonValueKind.Array ? [.. list.EnumerateArray().Select(kind => kind.ValueKind == JsonValueKind.String ? kind.GetString() : null)] : [];
+
+    private static CacheConfig ReadCache(JsonElement? raw, string projectRoot, bool ci, Func<string, string?> environment, IStepCache? store)
+    {
+        // A non-blank E2E_CACHE_DIR replaces cache.dir and the default; the mode stays as configured. A store has no directory, so it ignores the variable.
+        var shared = store is null && environment("E2E_CACHE_DIR") is { } variable && !string.IsNullOrWhiteSpace(variable) ? variable : null;
         var sharedDirectory = shared is null ? null : Path.GetFullPath(Path.Combine(projectRoot, ExpandHome(shared)));
         var defaultDirectory = sharedDirectory ?? Path.Combine(projectRoot, ".e2e", "cache");
         if (raw is null)
         {
-            return new CacheConfig { Mode = ci ? CacheMode.ReadOnly : CacheMode.ReadWrite, Directory = defaultDirectory };
+            return new CacheConfig { Mode = ci && store is null ? CacheMode.ReadOnly : CacheMode.ReadWrite, Directory = defaultDirectory, Store = store };
         }
 
         if (raw.Value.ValueKind != JsonValueKind.Object)
@@ -568,7 +692,7 @@ public sealed class E2EConfig
         else
         {
             // An unset mode is read-write locally. CI treats recordings as untrusted input and only reads them.
-            mode = ci ? CacheMode.ReadOnly : CacheMode.ReadWrite;
+            mode = ci && store is null ? CacheMode.ReadOnly : CacheMode.ReadWrite;
         }
 
         var directory = defaultDirectory;
@@ -594,7 +718,7 @@ public sealed class E2EConfig
             };
         }
 
-        return new CacheConfig { Mode = mode, Directory = directory, Strict = strict };
+        return new CacheConfig { Mode = mode, Directory = directory, Strict = strict, Store = store };
     }
 
     /// <summary>The value with a leading <c>~</c> or <c>~/</c> read as the home directory, which no shell expands in an env file.</summary>
@@ -793,7 +917,13 @@ public sealed class E2EConfig
             var where = label == "config" ? "config key" : label + " key";
             if (unsupported.Contains(key, StringComparer.Ordinal))
             {
-                throw Invalid(where + " \"" + key + "\" is not supported by the .NET port" + (key == "executor" ? ": an executor is code, so set AgentOptions.Executor" : ""));
+                throw Invalid(where + " \"" + key + "\" is not supported by the .NET port" + (key switch
+                {
+                    "executor" => ": an executor is code, so set AgentOptions.Executor",
+                    "store" when label == "cache config" => ": a store is code, so call E2EConfig.WithCacheStore",
+                    "store" => ": a store is code, so call E2EConfig.WithArtifactStore",
+                    _ => "",
+                }));
             }
 
             string hint;
@@ -1216,6 +1346,12 @@ public sealed class CacheConfig
 
     /// <summary>When true, a recording that no longer matches fails with <c>REPLAY_STALE</c> instead of running live.</summary>
     public bool Strict { get; init; }
+
+    /// <summary>
+    /// The store that replaces the file store at <see cref="Directory"/> (upstream's <c>cache.store</c>), or null. Set it with
+    /// <see cref="E2EConfig.WithCacheStore"/>: the config file cannot name one.
+    /// </summary>
+    public IStepCache? Store { get; init; }
 }
 
 /// <summary>How the replay cache is used.</summary>

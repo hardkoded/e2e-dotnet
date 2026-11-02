@@ -55,6 +55,22 @@ Unset, it is [ReadWrite](/api/E2E/CacheMode/#E2E_CacheMode_ReadWrite), or [ReadO
 
 **Value:** [CacheMode](/api/E2E/CacheMode/)
 
+<a id="E2E_CacheConfig_Store_"></a>
+<a id="E2E_CacheConfig_Store"></a>
+
+### Store
+
+
+```csharp
+public IStepCache? Store { get; init; }
+```
+
+
+The store that replaces the file store at [Directory](#E2E_CacheConfig_Directory) (upstream's `cache.store`), or null. Set it with
+[WithCacheStore(IStepCache)](/api/E2E/E2EConfig/#E2E_E2EConfig_WithCacheStore_E2E_IStepCache_): the config file cannot name one.
+
+**Value:** [IStepCache](/api/E2E/IStepCache/)
+
 <a id="E2E_CacheConfig_Strict_"></a>
 <a id="E2E_CacheConfig_Strict"></a>
 
