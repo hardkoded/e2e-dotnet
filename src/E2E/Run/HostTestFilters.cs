@@ -84,7 +84,7 @@ internal static class HostTestFilters
         Ci = config.Ci,
         Targets = [new ResolvedTarget(config.Target.Name, config.Target.Platform, config.Target.App)],
         Filters = filters,
-        AllSecrets = [.. config.Secrets.Names.Select(name => (name, config.Secrets.Get(name).Value))],
+        AllSecrets = [.. config.AllSecrets.Select(secret => (secret.Name, secret.Value))],
     };
 
     internal static Collection Collect(IReadOnlyList<DiscoveredTest> discovered, IReadOnlyList<string> sourceFiles, out Dictionary<string, string> keys)

@@ -68,6 +68,8 @@ xUnit v2 is not supported. It cannot read a test's result during cleanup, and th
 
 There is no default model and no shared API key. `baseUrl` can point at any OpenAI-compatible server, including a local one. Tests without agent steps ignore it.
 
+`credentials` declares accounts: `"credentials": { "admin": { "username": "admin@example.com", "password": "..." } }`. `E2E_USER_ADMIN_USERNAME` and `E2E_USER_ADMIN_PASSWORD` win over the config and may replace either field. The password is the secret `admin.password` (at least 6 characters) and is redacted like any secret; a `secrets` entry cannot take that name. `E2EConfig.Credentials` gives the resolved accounts, and `Credentials.User(name)` still reads the `E2E_USER_*` variables only.
+
 A device test declares its app on the target, `"targets": [{ "platform": "ios", "app": { "bundleId": "com.example.app", "appPath": "build/App.app" } }]`, and derives from `MobileAppTest` of `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3`.
 
 `targets` may list several entries. Each has a unique `name`, which defaults to its platform. A fixture, `E2EHost.OpenAsync`, `e2e mcp`, and `e2e explore` that need one target of several name it: override `E2EFixture.TargetName`, pass `OpenHostOptions.Target`, or pass `--target`. Without a name, a host or an MCP session fails with `TARGET_REQUIRED`, and `e2e explore` takes the first target.

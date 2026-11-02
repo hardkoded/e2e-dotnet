@@ -132,7 +132,7 @@ internal static partial class ExploreCommand
         // every field is redacted for the config's secrets and the accounts' passwords before the view sees it.
         var config = TryLoadConfig(parsed, cwd);
         var redactor = Redactor.For(
-            (config?.Secrets.Names.Select(config.Secrets.Get) ?? []).Concat(accounts.Select(account => account.Credential.Password)).Concat(DeviceTargets.Credentials()));
+            (config?.AllSecrets ?? []).Concat(accounts.Select(account => account.Credential.Password)).Concat(DeviceTargets.Credentials()));
         var pc = new Colors(interactive && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")));
         var target = parsed.Target ?? config?.Targets[0].Name;
         var badge = target is null ? "" : pc.Badge("|" + Format.Bounded(target) + "|");

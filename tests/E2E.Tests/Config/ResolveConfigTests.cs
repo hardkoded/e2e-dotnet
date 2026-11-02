@@ -162,36 +162,140 @@ public sealed class ResolveConfigTests
         Assert.Equal("fresh-from-env", config.Secrets.Get("rotated").Value);
     }
 
-    /// <summary>Partial: the port has no password handles or credentials to share a name with.</summary>
-    [Theory]
-    [InlineData("""{ "secrets": { "key": "" } }""", null, "secret \"key\" must be a non-empty string")]
-    [InlineData("""{ "secrets": { "key": 42 } }""", null, "secret \"key\" must be a non-empty string, or null to read only E2E_SECRET_KEY")]
-    [InlineData("""{ "secrets": { "key": { "value": "v" } } }""", null, "secret \"key\" must be a non-empty string, or null to read only E2E_SECRET_KEY")]
-    [InlineData("""{ "secrets": { "key": "valid-value" } }""", "E2E_SECRET_KEY", "secret \"key\" must be a non-empty string")]
-    public void Rejects_an_empty_or_non_string_secret_and_an_empty_override(string json, string? emptyOverride, string message)
+    /// <summary>Partial: the port reports a non-string secret with its own message, which also names the override variable.</summary>
+    [Fact]
+    public void Partial_Rejects_an_empty_or_non_string_secret_and_a_secret_named_like_a_password_handle_but_lets_a_secret_share_a_credential_name()
     {
-        var environment = emptyOverride is null ? Env() : Env((emptyOverride, ""));
-        var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(json, Root, environment));
-        Assert.Equal(message, error.Message);
+        (string Json, string? EmptyOverride, string Message)[] refused =
+        [
+            ("""{ "secrets": { "key": "" } }""", null, "secret \"key\" must be a non-empty string"),
+            ("""{ "secrets": { "key": 42 } }""", null, "secret \"key\" must be a non-empty string, or null to read only E2E_SECRET_KEY"),
+            ("""{ "secrets": { "key": { "value": "v" } } }""", null, "secret \"key\" must be a non-empty string, or null to read only E2E_SECRET_KEY"),
+            ("""{ "secrets": { "key": "valid-value" } }""", "E2E_SECRET_KEY", "secret \"key\" must be a non-empty string"),
+        ];
+        foreach (var (json, emptyOverride, message) in refused)
+        {
+            var environment = emptyOverride is null ? Env() : Env((emptyOverride, ""));
+            Assert.Equal(message, Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(json, Root, environment)).Message);
+        }
+
+        var shared = E2EConfig.Parse("""{ "credentials": { "admin": { "username": "u", "password": "password-1" } }, "secrets": { "admin": "value-1" } }""", Root, Env());
+        Assert.Equal("value-1", shared.Secrets.Get("admin").Value);
+        var password = shared.Credentials["admin"].Password;
+        Assert.Equal("admin.password", password.Name);
+        Assert.Equal("password", password.Purpose);
+        Assert.Equal("password-1", password.Value);
+        Assert.Equal(["admin.password", "admin"], shared.AllSecrets.Select(secret => secret.Name));
+        Assert.Equal(["admin"], shared.Secrets.Names);
+
+        var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(
+            """{ "credentials": { "admin": { "username": "u", "password": "password-1" } }, "secrets": { "admin.password": "value-1" } }""", Root, Env()));
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Matches("secret \"admin.password\" has the name of credential \"admin\"'s password handle; rename the secret", error.Message);
+        Assert.DoesNotContain("value-1", error.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>Partial: the port has no credentials, so only the E2E_SECRET_* half is checked.</summary>
+    /// <summary>Partial: a JSON config has no provider function, so only a string password is checked, and its message leaves out "or a provider function".</summary>
     [Fact]
-    public void Accepts_secret_punctuation_that_maps_to_a_distinct_variable()
+    public void Partial_Accepts_a_provider_backed_credential_password_env_override_wins_over_it()
+    {
+        const string json = """{ "credentials": { "admin": { "username": "admin", "password": "configured-pass" } } }""";
+        Assert.Equal("configured-pass", E2EConfig.Parse(json, Root, Env()).Credentials["admin"].Password.Value);
+        Assert.Equal("rotated-pass", E2EConfig.Parse(json, Root, Env(("E2E_USER_ADMIN_PASSWORD", "rotated-pass"))).Credentials["admin"].Password.Value);
+        var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "credentials": { "admin": { "username": "admin", "password": 42 } } }""", Root, Env()));
+        Assert.Contains("password must be a non-empty string", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Refuses_two_credentials_that_share_E2E_USER_variables_naming_the_entries_and_never_a_value()
+    {
+        var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(
+            """{ "credentials": { "svc-a": { "username": "user@example.test", "password": "password-one-1" }, "svc_a": { "username": "user@example.test", "password": "password-two-2" } } }""",
+            Root,
+            Env()));
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Equal(
+            "credentials \"svc-a\" and \"svc_a\" share the override variables E2E_USER_SVC_A_USERNAME and E2E_USER_SVC_A_PASSWORD, so one value set there would replace all of them; rename all but one",
+            error.Message);
+        Assert.DoesNotMatch("password-one-1|password-two-2|user@example\\.test", error.Message);
+    }
+
+    [Fact]
+    public void Keeps_E2E_USER_and_E2E_SECRET_apart_and_accepts_punctuation_that_maps_to_a_distinct_variable()
     {
         var config = E2EConfig.Parse(
-            """{ "secrets": { "svc-a": "secret-value-1", "stripe.key": "secret-value-2", "stripe-key-2": "secret-value-3" } }""",
+            """
+            {
+              "credentials": { "svc-a": { "username": "u", "password": "password-1" }, "svc-b": { "username": "u", "password": "password-2" } },
+              "secrets": { "svc-a": "secret-value-1", "stripe.key": "secret-value-2", "stripe-key-2": "secret-value-3" }
+            }
+            """,
             Root,
             Env(("E2E_SECRET_STRIPE_KEY", "rotated-stripe"), ("E2E_USER_SVC_A_PASSWORD", "rotated-password")));
 
         Assert.Equal("rotated-stripe", config.Secrets.Get("stripe.key").Value);
         Assert.Equal("secret-value-3", config.Secrets.Get("stripe-key-2").Value);
         Assert.Equal("secret-value-1", config.Secrets.Get("svc-a").Value);
+        Assert.Equal("rotated-password", config.AllSecrets.Single(secret => secret.Name == "svc-a.password").Value);
+        Assert.Equal("password-2", config.AllSecrets.Single(secret => secret.Name == "svc-b.password").Value);
     }
 
-    /// <summary>Partial: the port has no credentials, so only the secrets are checked.</summary>
     [Fact]
-    public void Refuses_a_static_secret_under_6_code_points_from_config_or_the_environment()
+    public void Resolves_E2E_USER_environment_credentials_over_config_values()
+    {
+        var config = E2EConfig.Parse(
+            """{ "credentials": { "member": { "username": "config-user", "password": "config-pass" } } }""",
+            Root,
+            Env(("E2E_USER_MEMBER_USERNAME", "env-user"), ("E2E_USER_MEMBER_PASSWORD", "env-pass")));
+
+        Assert.Equal("env-user", config.Credentials["member"].Username);
+        Assert.Equal("env-pass", config.AllSecrets.Single(secret => secret.Name == "member.password").Value);
+    }
+
+    [Fact]
+    public void Takes_a_username_missing_from_the_config_from_E2E_USER_NAME_USERNAME_and_rejects_one_missing_from_both()
+    {
+        const string json = """{ "credentials": { "admin": { "password": "admin-pass" } } }""";
+        Assert.Equal("from-env", E2EConfig.Parse(json, Root, Env(("E2E_USER_ADMIN_USERNAME", "from-env"))).Credentials["admin"].Username);
+        var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(json, Root, Env()));
+        Assert.Matches("credential \"admin\" has no username; set username or E2E_USER_ADMIN_USERNAME", error.Message);
+    }
+
+    /// <summary>Partial: a JSON config has no provider function, so a number stands for the function and the message leaves out "; only password may be a provider function". The message names the kind of the value (<c>a number</c>, <c>a string</c>), where upstream quotes it, because a bare string entry may be the password.</summary>
+    [Fact]
+    public void Partial_Rejects_a_credential_username_that_is_not_a_string_an_unknown_credential_key_and_a_non_object_credential()
+    {
+        var username = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(
+            """{ "credentials": { "admin": { "username": 42, "password": "admin-pass" } } }""", Root, Env()));
+        Assert.Equal("INVALID_CONFIG", username.Code);
+        Assert.Equal("credential \"admin\" username must be a string, got a number", username.Message);
+
+        var key = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(
+            """{ "credentials": { "admin": { "username": "admin", "password": "admin-pass", "usename": "admin" } } }""", Root, Env()));
+        Assert.Matches("unknown key \"usename\" in credential \"admin\"; a credential has username and password; did you mean \"username\"\\?", key.Message);
+
+        var nonObject = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "credentials": { "admin": null } }""", Root, Env()));
+        Assert.Matches("credential \"admin\" must be an object of \\{ username, password \\}, got null", nonObject.Message);
+
+        var bare = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "credentials": { "admin": "hunter2-pass" } }""", Root, Env()));
+        Assert.Equal("credential \"admin\" must be an object of { username, password }, got a string", bare.Message);
+    }
+
+    [Fact]
+    public void Rejects_an_empty_credential_password_at_config_time_including_an_empty_env_override()
+    {
+        var empty = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(
+            """{ "credentials": { "admin": { "username": "admin", "password": "" } } }""", Root, Env()));
+        Assert.Contains("password must be a non-empty string", empty.Message, StringComparison.Ordinal);
+
+        var overridden = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(
+            """{ "credentials": { "admin": { "username": "admin", "password": "configured" } } }""", Root, Env(("E2E_USER_ADMIN_PASSWORD", ""))));
+        Assert.Contains("password must be a non-empty string", overridden.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Partial: the port has no provider functions, so the <c>pin: () => '1'</c> case is not checked.</summary>
+    [Fact]
+    public void Partial_Refuses_a_static_secret_under_6_code_points_from_config_or_the_environment()
     {
         var short5 = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "secrets": { "pin": "12345" } }""", Root, Env()));
         Assert.Equal("INVALID_CONFIG", short5.Code);
@@ -202,15 +306,24 @@ public sealed class ResolveConfigTests
         E2EConfig.Parse("""{ "secrets": { "pin": "123456" } }""", Root, Env());
         var overridden = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "secrets": { "pin": "long-enough" } }""", Root, Env(("E2E_SECRET_PIN", "7"))));
         Assert.Contains("secret \"pin\" must be at least 6 characters (code points), not 1", overridden.Message, StringComparison.Ordinal);
+
+        var password5 = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(
+            """{ "credentials": { "admin": { "username": "u", "password": "short" } } }""", Root, Env()));
+        Assert.Matches("credential \"admin\" password must be at least 6 characters \\(code points\\), not 5", password5.Message);
+        var passwordOverridden = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(
+            """{ "credentials": { "admin": { "username": "u", "password": "long-enough" } } }""", Root, Env(("E2E_USER_ADMIN_PASSWORD", "pw"))));
+        Assert.Matches("credential \"admin\" password must be at least 6 characters \\(code points\\), not 2", passwordOverridden.Message);
     }
 
-    /// <summary>Partial: upstream "counts a secret in code points so three emoji are three characters and not six" also checks the credentials. The port has no credentials, so only the secrets are checked.</summary>
     [Fact]
-    public void Secret_length_is_counted_in_code_points_so_three_emoji_are_three_characters_and_not_six()
+    public void Counts_a_secret_in_code_points_so_three_emoji_are_three_characters_and_not_six()
     {
         Assert.Equal(6, "🔐🔐🔐".Length);
         var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "secrets": { "pin": "🔐🔐🔐" } }""", Root, Env()));
         Assert.Contains("secret \"pin\" must be at least 6 characters (code points), not 3", error.Message, StringComparison.Ordinal);
+        var credential = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(
+            """{ "credentials": { "admin": { "username": "u", "password": "🔐🔐🔐" } } }""", Root, Env()));
+        Assert.Matches("credential \"admin\" password must be at least 6 characters \\(code points\\), not 3", credential.Message);
         E2EConfig.Parse("""{ "secrets": { "pin": "🔐🔐🔐🔐🔐🔐" } }""", Root, Env());
     }
 

@@ -118,7 +118,7 @@ public sealed class E2EHost : IAsyncDisposable
         {
             var cwd = Path.GetFullPath(options.Cwd ?? Directory.GetCurrentDirectory());
             var config = OpenSession.LoadHostConfig(cwd, options.Config, options.ConfigPath, options.Env);
-            OpenSession.RegisterStaticSecrets(config.Secrets.Names.Select(config.Secrets.Get));
+            OpenSession.RegisterStaticSecrets(config.AllSecrets);
             var declared = SelectTarget.Select(config.Targets, options.Target, "pass `Target` to E2EHost.OpenAsync");
             var engine = options.EngineFactory?.Invoke(declared) ?? TargetEngines.Create(declared, options.Headed ? false : null, null);
             Action<string>? notice = options.OnNotice is { } onNotice ? line => OpenSession.Notify(onNotice, declared.Name, line) : null;

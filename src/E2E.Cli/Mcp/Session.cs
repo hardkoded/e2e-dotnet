@@ -296,7 +296,7 @@ internal sealed class SessionHost : IDisposable
         var configPath = _options.LocateConfig(options.Config);
         _sessions.ClaimConfig(id, configPath);
         var config = await _options.LoadConfig(configPath).ConfigureAwait(false);
-        var secrets = config.Secrets.Names.Select(config.Secrets.Get).ToList();
+        var secrets = config.AllSecrets;
 
         // Known to the process before anything can fail with one, so an open failure is redacted like any other text.
         _secrets.Add(secrets);

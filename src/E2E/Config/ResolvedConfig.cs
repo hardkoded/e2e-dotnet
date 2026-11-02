@@ -4,6 +4,12 @@
 
 namespace E2E;
 
+/// <summary>One <c>config.credentials</c> entry, resolved (upstream's <c>ResolvedCredential</c>, <c>config/resolve.ts</c>): an account whose password is the secret <c>{name}.password</c>.</summary>
+/// <param name="Name">The entry's name in <c>credentials</c>.</param>
+/// <param name="Username">The username from <c>E2E_USER_&lt;NAME&gt;_USERNAME</c> or the config.</param>
+/// <param name="Password">The password from <c>E2E_USER_&lt;NAME&gt;_PASSWORD</c> or the config, named <c>&lt;name&gt;.password</c>.</param>
+public sealed record ResolvedCredential(string Name, string Username, Secret Password);
+
 /// <summary>The engine of a resolved target as selection reads it: its name and the capabilities it declares (the slice of upstream's <c>Engine</c> that <c>select</c> uses). .NET-only name.</summary>
 internal sealed record ResolvedEngine(string Name, IReadOnlySet<string> Capabilities);
 

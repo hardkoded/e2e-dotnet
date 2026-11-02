@@ -154,6 +154,7 @@ unknown key fails with `INVALID_CONFIG`.
 | `agents` | none | `default` and any other named agent. Options: topic `agent`. |
 | `cache` | `read-write` | `{ mode, dir, strict }`. CI demotes the mode to `read-only`. |
 | `secrets` | `{}` | Named values the model never sees; `null` requires `E2E_SECRET_<NAME>`. |
+| `credentials` | `{}` | Accounts by name, each `{ username, password }`. `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD` win over the config, and `username` or `password` may be left out when its variable sets it, so the config file need not hold a password. The password is the secret `<name>.password` (at least 6 characters). The runner redacts it from the model's prompts, reports, errors, and cache entries; it does not redact the output of your own app process. A `secrets` entry cannot have that name. Two names that map to one variable (`svc-a` and `svc_a`) are `INVALID_CONFIG`. `E2EConfig.Credentials` gives the resolved accounts; `Credentials.User(name)` still reads the variables only. |
 | `trace`, `video` | `retain-on-failure`, `off` | Which attempts record: `off`, `on`, `retain-on-failure`, `on-first-retry`, or `on-all-retries`. Also allowed on the target. The web engine records `video` (topic `debugging`, "Watch it happen"); the port writes no trace page yet. The old `all` and `retries` spellings of `trace` are `INVALID_CONFIG`. |
 
 For `trace` and `video`, `E2E_TRACE` and `E2E_VIDEO` win over the target's
@@ -163,10 +164,11 @@ secrets included, so keep it `off` unless you need it. A `video` mode on a
 target is required of its engine (`UNSUPPORTED_ARTIFACT` when it cannot
 record); one at the config root or in `E2E_VIDEO` skips an engine that cannot.
 
-There are no `credentials`, `tests`, `workers`, `reporters`, `output`,
+There are no `tests`, `workers`, `reporters`, `output`,
 or `artifacts` keys; each is `INVALID_CONFIG`. A host store for artifacts is code (upstream's `artifacts.store`): override `ArtifactStore` on the fixture, or set `E2ESessionOptions.ArtifactStore`, to an `IArtifactStore`. Its `PutAsync(StoredArtifact)` receives each artifact an attempt registers (a download, a video file, a screenshot or log the test attaches) as it is produced, with `Bytes`, `Sha256`, `Path` (report-relative), `Redaction` (`Complete` or `Incomplete`; a store that exports only what the runner vouches for keeps back an `Incomplete` artifact, a video or a download the runner did not rewrite), and `RunId`, `TestId`, `AttemptId`, `StepId`, `StartedAt`, and returns the reference the report records as the artifact's `ref` beside the local path. `PutLinkAsync(StoredArtifactLink)` receives a video a provider keeps, a link with no bytes (a passed attempt's link under `retain-on-failure` is never handed over). A failed call never fails the run; the record just carries no `ref`. Accounts
 come from `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD`, read
-with `Credentials.User(name)`.
+with `Credentials.User(name)`. The `credentials` key declares accounts in the
+config too (see the table); a test does not read them yet.
 
 A fixture overrides most values with a virtual property of the same name,
 such as `BaseUrl`, `CacheMode`, or `ActionTimeout`; named agents come from
