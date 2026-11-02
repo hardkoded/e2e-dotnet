@@ -18,6 +18,11 @@ internal sealed class ToolFailedException(string message) : Exception(message);
 internal interface ISessionContext
 {
     E2ESession Session { get; }
+
+    /// <summary>Called once <c>type_secret</c> filled a secret, so the session's videos say they may show one (upstream's pixel taint, which the port has not).</summary>
+    void SecretFilled()
+    {
+    }
 }
 
 /// <summary>
@@ -324,6 +329,7 @@ internal sealed class SessionCatalog
             {
                 var mapped = new JsonObject { ["ref"] = args.GetProperty("target").GetString(), ["secret"] = args.GetProperty("secret").GetString() };
                 var outcome = await RunAsync(context, "type_secret", "fill_secret", args, token, mapped).ConfigureAwait(false);
+                context.SecretFilled();
                 return outcome.Content;
             },
         };

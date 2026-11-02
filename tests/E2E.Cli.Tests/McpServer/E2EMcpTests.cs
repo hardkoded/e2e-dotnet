@@ -229,6 +229,36 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
     }
 
     [Fact]
+    public async Task Records_the_app_between_start_recording_and_stop_recording_and_saves_a_recording_still_running_at_close()
+    {
+        var opened = await _served.InvokeAsync("open_session");
+        Assert.False(opened.IsError, opened.Text);
+        var sessionId = Regex.Match(opened.Text, @"^Session (\S+) open", RegexOptions.None, TimeSpan.FromSeconds(5)).Groups[1].Value;
+
+        var started = await _served.CallAsync("start_recording", new() { ["name"] = "counter" });
+        Assert.False(started.IsError, started.Text);
+        var observed = await _served.CallAsync("observe");
+        await _served.CallAsync("tap", new() { ["target"] = ServedCli.RefOf(observed.Text, "button \"Increment\"") });
+        var stopped = await _served.CallAsync("stop_recording");
+        Assert.False(stopped.IsError, stopped.Text);
+        Assert.Matches(new Regex(@"^Recording 1 ""counter"" stopped after \d+\.\d s\.\n- \S+\.webm$", RegexOptions.None, TimeSpan.FromSeconds(5)), stopped.Text);
+
+        // The server's working directory may be the real path of a symlinked temp directory (macOS /var), so the path is read from the answer.
+        var file = stopped.Text[(stopped.Text.LastIndexOf("- ", StringComparison.Ordinal) + 2)..];
+        var recordings = Path.GetDirectoryName(file)!;
+        Assert.Equal(Path.Combine(".e2e", "videos", sessionId, "1-counter.webm"), Path.GetRelativePath(Path.GetFullPath(Path.Combine(recordings, "..", "..", "..")), file));
+        Assert.True(new FileInfo(file).Length > 0);
+
+        await _served.CallAsync("start_recording");
+        var closed = await _served.InvokeAsync("close_session");
+        Assert.False(closed.IsError, closed.Text);
+        Assert.Matches(new Regex(@"\nRecording 2 stopped after \d+\.\d s\.\n- \S+$", RegexOptions.None, TimeSpan.FromSeconds(5)), closed.Text);
+        Assert.EndsWith("- " + Path.Combine(recordings, "2.webm"), closed.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Cleanup:", closed.Text, StringComparison.Ordinal);
+        Assert.Equal(["1-counter.webm", "2.webm"], Directory.GetFiles(recordings).Select(path => Path.GetFileName(path)).Order(StringComparer.Ordinal).ToArray());
+    }
+
+    [Fact]
     public async Task Opens_a_second_session_after_the_first_closed_on_an_explicit_config_path_and_names_an_unknown_target()
     {
         var unknown = await _served.InvokeAsync("open_session", new() { ["target"] = "nope" });

@@ -377,7 +377,7 @@ internal sealed class SessionHost : IDisposable
 
             var attemptDir = session.App.ArtifactsDir ?? config.ProjectRoot;
             var live = new LiveSession(id, target.Name, configPath, headed, engine, attempt, abort, apps) { TestFailure = ran?.Failure, CleanupTimeout = config.CleanupTimeout };
-            live.Recorder = new SessionRecorder(session.Engine, attemptDir, Path.Combine(config.ProjectRoot, ".e2e", "videos", id), config.CleanupTimeout);
+            live.Recorder = new SessionRecorder(session.Engine.StartVideoAsync, session.Engine.StopVideoAsync, attemptDir, Path.Combine(config.ProjectRoot, ".e2e", "videos", id), config.CleanupTimeout, () => live.SecretFilled);
             live.Catalog = SessionCatalog.Create(
                 live,
                 engine.Capabilities,
@@ -737,6 +737,11 @@ internal sealed class SessionHost : IDisposable
 
         /// <summary>The session's recordings; the catalog lists its tools when the engine records video.</summary>
         public SessionRecorder? Recorder { get; set; }
+
+        /// <summary>A <c>type_secret</c> filled a secret in this session, so a video may show one.</summary>
+        public bool SecretFilled { get; private set; }
+
+        void ISessionContext.SecretFilled() => SecretFilled = true;
 
         /// <summary>How long saving a recording at close may take.</summary>
         public TimeSpan CleanupTimeout { get; init; } = E2EDefaults.CleanupTimeout;

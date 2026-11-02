@@ -345,7 +345,7 @@ public sealed partial class E2eInitTests : CliInitTestBase
     }
 
     [Fact]
-    // Partial: the port ignores .e2e/results, cache, report.json, and ai-trace files, not upstream's list.
+    // Partial: the port ignores .e2e/results, cache, report.json, ai-trace files, and videos, not upstream's list.
     public async Task Partial_Reconciles_new_gitignore_entries_without_replacing_existing_source_files()
     {
         await File.WriteAllTextAsync(Path_("e2e.config.json"), "{ \"custom\": true }\n");
@@ -353,7 +353,7 @@ public sealed partial class E2eInitTests : CliInitTestBase
         await File.WriteAllTextAsync(Path_(".gitignore"), older);
         await RunInitAsync();
         Assert.Equal("{ \"custom\": true }\n", Read("e2e.config.json"));
-        Assert.Equal(older + ".e2e/results/\n.e2e/report.json\n.e2e/ai-trace-*.json\n", Read(".gitignore"));
+        Assert.Equal(older + ".e2e/results/\n.e2e/report.json\n.e2e/ai-trace-*.json\n.e2e/videos/\n", Read(".gitignore"));
     }
 
     [Fact]

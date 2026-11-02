@@ -11,7 +11,7 @@ using E2E.Engine;
 namespace E2E.Cli.Mcp;
 
 /// <summary>A recording that stopped: its files in order, and how long it ran (upstream's <c>FinishedRecording</c>).</summary>
-internal sealed record FinishedRecording(int Index, string? Name, IReadOnlyList<string> Files, DateTimeOffset StartedAt, TimeSpan Duration);
+internal sealed record FinishedRecording(int Index, string? Name, IReadOnlyList<string> Files, DateTimeOffset StartedAt, TimeSpan Duration, bool Tainted);
 
 /// <summary>
 /// Video recordings of a live session (upstream's <c>mcp/recording.ts</c>). A session does not record by itself: the coding agent starts
@@ -19,11 +19,20 @@ internal sealed record FinishedRecording(int Index, string? Name, IReadOnlyList<
 /// video of the attempt between the two calls, moved out of the attempt directory into <c>.e2e/videos/&lt;session&gt;/</c> as soon as it
 /// stops, so the next one never overwrites it and closing the session never takes it along. Recordings are not masked.
 /// </summary>
-internal sealed partial class SessionRecorder(IEngineSession engine, string attemptDir, string outDir, TimeSpan timeout) : IDisposable
+internal sealed partial class SessionRecorder(
+    Func<CancellationToken, Task> startVideo,
+    Func<CancellationToken, Task<IReadOnlyList<VideoSegment>>> stopVideo,
+    string attemptDir,
+    string outDir,
+    TimeSpan timeout,
+    Func<bool> tainted) : IDisposable
 {
     private readonly SemaphoreSlim _queue = new(1, 1);
     private ActiveRecording? _active;
     private int _count;
+
+    /// <summary>True while a recording runs, or stopped but not yet saved.</summary>
+    public bool IsRecording => _active is not null;
 
     /// <summary>Starts a recording; a recording already running is reported, not restarted.</summary>
     public Task<string> StartAsync(string? name, CancellationToken cancellationToken = default) =>
@@ -38,13 +47,13 @@ internal sealed partial class SessionRecorder(IEngineSession engine, string atte
                 try
                 {
                     using var bound = Bounded(cancellationToken);
-                    await engine.StartVideoAsync(bound.Token).ConfigureAwait(false);
+                    await startVideo(bound.Token).ConfigureAwait(false);
                 }
                 catch (Exception)
                 {
                     // An engine may count a start that failed as a recording; stopping it lets the next start_recording begin from nothing.
                     using var cleanup = new CancellationTokenSource(timeout);
-                    await ((Task)engine.StopVideoAsync(cleanup.Token)).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+                    await ((Task)stopVideo(cleanup.Token)).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
                     throw;
                 }
 
@@ -72,7 +81,7 @@ internal sealed partial class SessionRecorder(IEngineSession engine, string atte
                     // Before the engine call: finalizing the file can take seconds and records nothing.
                     var at = DateTimeOffset.UtcNow;
                     using var bound = Bounded(cancellationToken);
-                    active.Segments = await engine.StopVideoAsync(bound.Token).ConfigureAwait(false);
+                    active.Segments = await stopVideo(bound.Token).ConfigureAwait(false);
                     active.StoppedAt = at;
                 }
 
@@ -80,7 +89,7 @@ internal sealed partial class SessionRecorder(IEngineSession engine, string atte
                 _active = null;
                 var startedAt = active.Segments.Count > 0 && DateTimeOffset.TryParse(active.Segments[0].StartedAt, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var first) ? first : active.StartedAt;
                 var duration = active.StoppedAt - startedAt;
-                return new FinishedRecording(active.Index, active.Name, files, startedAt, duration < TimeSpan.Zero ? TimeSpan.Zero : duration);
+                return new FinishedRecording(active.Index, active.Name, files, startedAt, duration < TimeSpan.Zero ? TimeSpan.Zero : duration, tainted());
             },
             cancellationToken);
 
@@ -101,6 +110,11 @@ internal sealed partial class SessionRecorder(IEngineSession engine, string atte
         }
 
         lines.AddRange(recording.Files.Select(file => "- " + file));
+        if (recording.Tainted && recording.Files.Count > 0)
+        {
+            lines.Add("A secret was filled in this session and videos are not masked: check it is not on screen before sharing.");
+        }
+
         return string.Join('\n', lines);
     }
 
