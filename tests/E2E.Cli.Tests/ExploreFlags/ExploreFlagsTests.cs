@@ -355,10 +355,31 @@ public sealed class ExploreFlagsTests
         using var ___ = Env("E2E_USER_EXPLORE_OTHER_USERNAME", "erin@example.com");
         using var ____ = Env("E2E_USER_EXPLORE_OTHER_PASSWORD", "other-secret-pw");
 
-        Assert.Contains("explore_covered", ExploreCommand.ScanCredentials().Select(account => account.Name));
-        Assert.Equal(
-            ["explore_other"],
-            ExploreCommand.ScanCredentials(["explore-covered"]).Select(account => account.Name).Where(name => name.StartsWith("explore_", StringComparison.Ordinal) && name != "explore_test").ToArray());
+        string[] mine = ["explore_covered", "explore_other"];
+        Assert.Equal(mine, ExploreCommand.ScanCredentials().Select(account => account.Name).Where(mine.Contains).ToArray());
+        Assert.Equal(["explore_other"], ExploreCommand.ScanCredentials(["explore-covered"]).Select(account => account.Name).Where(mine.Contains).ToArray());
+    }
+
+    // .NET-only: a config that does not load is the run's error, not an account problem the environment scan finds first.
+    [Fact]
+    public async Task Leaves_a_config_that_does_not_load_to_the_run_instead_of_scanning_the_environment()
+    {
+        using var _ = Env("E2E_USER_EXPLORE_BADCONFIG_USERNAME", "frank@example.com");
+        var dir = Directory.CreateTempSubdirectory("e2e-explore-647-").FullName;
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "e2e.config.json"), """{ "credentials": { "ada": "not-an-object" } }""");
+            var fake = Fake();
+
+            await ExploreCommand.RunAsync([], new StringWriter(), new StringWriter(), interactive: false, fake.RunAsync, CancellationToken.None, dir);
+
+            Assert.NotNull(fake.Options);
+            Assert.Empty(fake.Options.Credentials!);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 
     [Fact]

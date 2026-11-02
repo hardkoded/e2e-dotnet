@@ -387,7 +387,16 @@ public sealed class E2ESession : IAsyncDisposable
             };
             var keep = RecordingModes.AttemptKeep(options.Trace.Mode, options.Attempt - 1);
             var trace = new TraceOutput(keep, attemptDir, (options.Cache as FileStepCache)?.CacheDirectory);
-            return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _recordings = recordings, _trace = trace, _sessions = options.Sessions, _credentials = options.Credentials is { } credentials ? SecretRegistry.Hold(credentials) : null };
+            var hold = options.Credentials is { } credentials ? SecretRegistry.Hold(credentials) : null;
+            try
+            {
+                return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _recordings = recordings, _trace = trace, _sessions = options.Sessions, _credentials = hold };
+            }
+            catch
+            {
+                hold?.Dispose();
+                throw;
+            }
         }
         catch
         {

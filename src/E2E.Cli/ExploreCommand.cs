@@ -116,11 +116,12 @@ internal static partial class ExploreCommand
             return 2;
         }
 
-        var config = TryLoadConfig(parsed, cwd);
+        var config = TryLoadConfig(parsed, cwd, out var configFailed);
         List<(string Name, UserCredential Credential)> accounts;
         try
         {
-            accounts = ScanCredentials(config?.Credentials.Keys);
+            // A config that does not load is the run's error to report, so the environment's accounts wait for it.
+            accounts = configFailed ? [] : ScanCredentials(config?.Credentials.Keys);
         }
         catch (E2EException ex)
         {
@@ -291,8 +292,9 @@ internal static partial class ExploreCommand
     }
 
     /// <summary>The config the exploration will load, for its target name and secrets. A config that does not load is the run's error to report.</summary>
-    private static E2EConfig? TryLoadConfig(ExploreArgs args, string? workingDirectory)
+    private static E2EConfig? TryLoadConfig(ExploreArgs args, string? workingDirectory, out bool failed)
     {
+        failed = false;
         try
         {
             var cwd = Path.GetFullPath(workingDirectory ?? Directory.GetCurrentDirectory());
@@ -301,6 +303,7 @@ internal static partial class ExploreCommand
         }
         catch (Exception ex) when (ex is E2EException or IOException or UnauthorizedAccessException or ArgumentException)
         {
+            failed = true;
             return null;
         }
     }

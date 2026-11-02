@@ -145,7 +145,7 @@ public static class Credentials
             throw new TestException("INVALID_CONFIG", "E2E_USER_" + key + "_PASSWORD " + problem + ".");
         }
 
-        return new UserCredential(username, Secret.Create("password", password, name + " password"));
+        return new UserCredential(username, Secret.Create(ConfigSecrets.CredentialSecretName(name), password, "password"));
     }
 }
 
