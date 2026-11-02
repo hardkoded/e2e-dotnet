@@ -298,8 +298,8 @@ public sealed class ToHaveScreenshotTests
             await Task.Delay(TimeSpan.FromMilliseconds(300), clock);
             throw new EngineException(EngineErrorCodes.OperationTimeout, "the screenshot outlived its budget");
         };
-        var screen = await project.OpenScreenAsync("home", "home", clock);
-        var matching = Expect.That(screen).Not.ToHaveScreenshotAsync("home.png", Quick);
+        await using var open = await project.OpenScreenAsync("home", "home", clock);
+        var matching = Expect.That(open.Screen).Not.ToHaveScreenshotAsync("home.png", Quick);
         await clock.RunAsync(matching.ContinueWith(_ => { }, TaskScheduler.Default));
         Assert.Null(await Record.ExceptionAsync(() => matching));
         Assert.Equal(3, captures);

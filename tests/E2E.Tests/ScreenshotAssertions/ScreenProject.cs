@@ -69,11 +69,11 @@ internal sealed class ScreenProject : IDisposable
     /// A screen over the engine on <paramref name="clock"/>, as a session builds it, for a test that moves the clock itself (upstream's fake
     /// timers): a session reads the system clock. A new run, as <see cref="RunAsync"/> starts one.
     /// </summary>
-    public async Task<Screen> OpenScreenAsync(string file, string title, TimeProvider clock)
+    public async Task<OpenScreen> OpenScreenAsync(string file, string title, TimeProvider clock)
     {
         ScreenshotContext.ForgetWrittenUnder(Directory);
         var session = await ((IEngine)Engine).StartAsync(new EngineStartOptions(), CancellationToken.None);
-        return new Screen(
+        return new OpenScreen(session, new Screen(
             _ => session.ObserveAsync(CancellationToken.None),
             (node, action, token) => session.PerformAsync(node, action, token),
             () => CancellationToken.None,
@@ -92,7 +92,15 @@ internal sealed class ScreenProject : IDisposable
                 DirectoryOf = _ => Snapshots(file),
                 Capture = (budget, token) => session.ScreenshotAsync(budget, token),
             },
-        };
+        });
+    }
+
+    /// <summary>A screen from <see cref="OpenScreenAsync"/> and the engine session behind it, which disposing ends.</summary>
+    internal sealed class OpenScreen(IEngineSession session, Screen screen) : IAsyncDisposable
+    {
+        public Screen Screen { get; } = screen;
+
+        public ValueTask DisposeAsync() => session.DisposeAsync();
     }
 
     public void Dispose()
