@@ -49,13 +49,13 @@ public sealed class E2EConfig
     private static readonly string[] TopLevelKeys =
     [
         "targets", "timeout", "launchTimeout", "actionTimeout", "assertionTimeout", "cleanupTimeout",
-        "retries", "agents", "cache", "secrets", "trace", "video", "testAssembly",
+        "retries", "agents", "cache", "secrets", "credentials", "trace", "video", "testAssembly",
     ];
 
     // Upstream keys the .NET port does not implement. They fail loudly rather than being ignored.
     private static readonly string[] UnsupportedTopLevelKeys =
     [
-        "projectId", "tests", "failOnSkippedFailure", "workers", "artifacts", "output", "reporters", "credentials",
+        "projectId", "tests", "failOnSkippedFailure", "workers", "artifacts", "output", "reporters",
     ];
 
     private static readonly string[] TargetKeys = ["name", "platform", "app", "trace", "video"];
@@ -137,6 +137,16 @@ public sealed class E2EConfig
     public CacheConfig Cache { get; private init; } = new();
 
     public Secrets Secrets { get; private init; } = Secrets.Empty;
+
+    /// <summary>The <c>credentials</c> entries by name, each with its password as the secret <c>&lt;name&gt;.password</c> (upstream's <c>ResolvedConfig.credentials</c>).</summary>
+    public IReadOnlyDictionary<string, ResolvedCredential> Credentials { get; private init; } = ReadOnlyDictionary<string, ResolvedCredential>.Empty;
+
+    /// <summary>Every secret the run holds: each credential's password, then the <c>secrets</c> entries (upstream's <c>allSecrets</c>). Redaction reads it.</summary>
+    internal IReadOnlyList<Secret> AllSecrets =>
+    [
+        .. Credentials.Values.Select(credential => credential.Password),
+        .. Secrets.Names.Select(Secrets.Get),
+    ];
 
     /// <summary>Reads and validates a config file. Throws <see cref="ConfigurationException"/> with <c>INVALID_CONFIG</c>.</summary>
     public static E2EConfig Load(string path, Func<string, string?>? environment = null)
@@ -265,6 +275,7 @@ public sealed class E2EConfig
             var ci = IsCi(environment);
             var trace = ReadRun(root, RecordingKind.Trace, environment);
             var video = ReadRun(root, RecordingKind.Video, environment);
+            var credentials = ReadCredentials(Property(root, "credentials"), environment);
             return new E2EConfig
             {
                 ConfigPath = configPath,
@@ -280,7 +291,8 @@ public sealed class E2EConfig
                 Agents = ReadAgents(Property(root, "agents")),
                 TestAssembly = OptionalString(root, "testAssembly", "testAssembly") is { } testAssembly ? Path.GetFullPath(testAssembly, projectRoot) : null,
                 Cache = ReadCache(Property(root, "cache"), projectRoot, ci, environment),
-                Secrets = ReadSecrets(Property(root, "secrets"), environment),
+                Secrets = ReadSecrets(Property(root, "secrets"), environment, credentials),
+                Credentials = credentials,
             };
         }
     }
@@ -597,7 +609,105 @@ public sealed class E2EConfig
             : value;
     }
 
-    private static Secrets ReadSecrets(JsonElement? raw, Func<string, string?> environment)
+    /// <summary>
+    /// The <c>credentials</c> entries, each with its password as the secret <c>&lt;name&gt;.password</c> (the credentials half of upstream's
+    /// <c>resolveSecrets</c>). <c>E2E_USER_&lt;NAME&gt;_USERNAME</c> and <c>E2E_USER_&lt;NAME&gt;_PASSWORD</c> win over the config. A
+    /// message never holds a username or a password.
+    /// </summary>
+    private static Dictionary<string, ResolvedCredential> ReadCredentials(JsonElement? raw, Func<string, string?> environment)
+    {
+        var credentials = new Dictionary<string, ResolvedCredential>(StringComparer.Ordinal);
+        if (raw is null)
+        {
+            return credentials;
+        }
+
+        if (raw.Value.ValueKind != JsonValueKind.Object)
+        {
+            throw Invalid("credentials must be an object of { username, password } by name");
+        }
+
+        CheckEnvNameCollisions("E2E_USER", "credentials", [.. raw.Value.EnumerateObject().Select(property => property.Name)]);
+        foreach (var property in raw.Value.EnumerateObject())
+        {
+            var name = property.Name;
+            CheckCredentialShape(name, property.Value);
+            var prefix = ConfigSecrets.EnvName("E2E_USER", name);
+            var username = environment(prefix + "_USERNAME") ?? Property(property.Value, "username")?.GetString();
+            if (username is null)
+            {
+                throw Invalid("credential \"" + name + "\" has no username; set username or " + prefix + "_USERNAME");
+            }
+
+            // An env override always wins: the operator rotating a credential must not need to know how it was configured.
+            var password = environment(prefix + "_PASSWORD") ?? (Property(property.Value, "password") is { ValueKind: JsonValueKind.String } text ? text.GetString() : null);
+            if (password is null)
+            {
+                throw Invalid("credential \"" + name + "\" password must be a non-empty string");
+            }
+
+            if (Secret.Problem(password) is { } problem)
+            {
+                throw Invalid("credential \"" + name + "\" password " + problem);
+            }
+
+            credentials[name] = new ResolvedCredential(name, username, Secret.Create(ConfigSecrets.CredentialSecretName(name), password, "password"));
+        }
+
+        return credentials;
+    }
+
+    private static readonly string[] CredentialKeys = ["username", "password"];
+
+    /// <summary>
+    /// A credential entry is <c>{ username, password }</c>, with <c>username</c> a string when set (<c>E2E_USER_&lt;NAME&gt;_USERNAME</c> may
+    /// supply it). Upstream's <c>checkCredentialShape</c>; a JSON config has no provider functions, so its messages leave that out.
+    /// </summary>
+    private static void CheckCredentialShape(string name, JsonElement credential)
+    {
+        if (credential.ValueKind != JsonValueKind.Object)
+        {
+            throw Invalid("credential \"" + name + "\" must be an object of { username, password }, got " + Command.DescribeValue(credential));
+        }
+
+        foreach (var property in credential.EnumerateObject())
+        {
+            if (!CredentialKeys.Contains(property.Name, StringComparer.Ordinal))
+            {
+                throw Invalid(
+                    "unknown key \"" + property.Name + "\" in credential \"" + name + "\"; a credential has username and password" + Suggestions.DidYouMean(property.Name, CredentialKeys));
+            }
+        }
+
+        if (Property(credential, "username") is { ValueKind: not JsonValueKind.String } username)
+        {
+            throw Invalid("credential \"" + name + "\" username must be a string, got " + Command.DescribeValue(username));
+        }
+    }
+
+    /// <summary>
+    /// Two entries of one namespace whose names map to the same override variable (<c>api-key</c> and <c>api_key</c> both read
+    /// <c>E2E_SECRET_API_KEY</c>) would both take one rotated value, so the config load refuses them, whether or not the variable is set.
+    /// The message names the entries and the variable, never a value. Upstream's <c>checkEnvNameCollisions</c>.
+    /// </summary>
+    private static void CheckEnvNameCollisions(string prefix, string namespaceName, IReadOnlyList<string> names)
+    {
+        var shared = names.GroupBy(name => ConfigSecrets.EnvName(prefix, name), StringComparer.Ordinal).FirstOrDefault(group => group.Count() > 1);
+        if (shared is null)
+        {
+            return;
+        }
+
+        var quoted = shared.Select(name => "\"" + name + "\"").ToArray();
+        var variables = prefix == "E2E_USER"
+            ? "the override variables " + shared.Key + "_USERNAME and " + shared.Key + "_PASSWORD"
+            : "the override variable " + shared.Key;
+        throw Invalid(
+            namespaceName + " " + string.Join(", ", quoted[..^1]) + " and " + quoted[^1] + " share " + variables
+            + ", so one value set there would replace all of them; rename all but one");
+    }
+
+    private static Secrets ReadSecrets(JsonElement? raw, Func<string, string?> environment, IReadOnlyDictionary<string, ResolvedCredential> credentials)
     {
         if (raw is null)
         {
@@ -618,21 +728,15 @@ public sealed class E2EConfig
             }
         }
 
-        // One E2E_SECRET_* value would replace every secret that maps to the variable, set or not.
-        var shared = raw.Value.EnumerateObject()
-            .GroupBy(property => Secrets.EnvironmentVariable(property.Name), StringComparer.Ordinal)
-            .FirstOrDefault(group => group.Count() > 1);
-        if (shared is not null)
-        {
-            var names = shared.Select(property => "\"" + property.Name + "\"").ToArray();
-            throw Invalid(
-                "secrets " + string.Join(", ", names[..^1]) + " and " + names[^1] + " share the override variable " + shared.Key
-                + ", so one value set there would replace all of them; rename all but one");
-        }
-
+        CheckEnvNameCollisions("E2E_SECRET", "secrets", [.. raw.Value.EnumerateObject().Select(property => property.Name)]);
         foreach (var property in raw.Value.EnumerateObject())
         {
             var name = property.Name;
+            if (credentials.Values.FirstOrDefault(credential => credential.Password.Name == name) is { } owner)
+            {
+                throw Invalid("secret \"" + name + "\" has the name of credential \"" + owner.Name + "\"'s password handle; rename the secret");
+            }
+
             var variable = Secrets.EnvironmentVariable(name);
             string? entry = property.Value.ValueKind switch
             {

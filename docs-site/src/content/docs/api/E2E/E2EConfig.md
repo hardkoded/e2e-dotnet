@@ -159,6 +159,21 @@ The file this config was read from, or null for the defaults.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_E2EConfig_Credentials_"></a>
+<a id="E2E_E2EConfig_Credentials"></a>
+
+### Credentials
+
+
+```csharp
+public IReadOnlyDictionary<string, ResolvedCredential> Credentials { get; }
+```
+
+
+The `credentials` entries by name, each with its password as the secret `<name>.password` (upstream's `ResolvedConfig.credentials`).
+
+**Value:** [IReadOnlyDictionary&lt;string, ResolvedCredential&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
+
 <a id="E2E_E2EConfig_LaunchTimeout_"></a>
 <a id="E2E_E2EConfig_LaunchTimeout"></a>
 
@@ -229,7 +244,7 @@ public TargetConfig Target { get; }
 
 
 The only target the config declares. .NET-only: a fixture, a host, or a command with no target of its own reads it. With several
-targets it throws `TARGET_REQUIRED` (upstream's `selectTarget`): name one from `Targets`.
+targets it throws `TARGET_REQUIRED` (upstream's `selectTarget`): name one from [Targets](#E2E_E2EConfig_Targets).
 
 **Value:** [TargetConfig](/api/E2E/TargetConfig/)
 

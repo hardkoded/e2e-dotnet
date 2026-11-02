@@ -149,6 +149,6 @@ public string? Target { get; init; }
 ```
 
 
-The target to open. It may be omitted only when the config declares one target (several without it is `TARGET_REQUIRED`). Upstream's `target`.
+The target to open. It may be omitted only when the config declares one target. Upstream's `target`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)

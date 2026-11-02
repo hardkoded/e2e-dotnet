@@ -193,7 +193,7 @@ public static class Explore
             notice("exploring with agent \"" + agentName + "\"");
         }
 
-        var secrets = config.Secrets.Names.Select(config.Secrets.Get).Concat(credentials.Values.Select(credential => credential.Password)).ToList();
+        var secrets = config.AllSecrets.Concat(credentials.Values.Select(credential => credential.Password)).ToList();
         var redactor = Redactor.For(secrets);
         var state = new ExploreState(RedactGoal(goal, redactor), budgets, redactor: redactor);
         if (options.OnProgress is { } listener)

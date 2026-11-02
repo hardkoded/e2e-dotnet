@@ -162,13 +162,7 @@ public sealed class Secrets
     public static string EnvironmentVariable(string name)
     {
         ArgumentNullException.ThrowIfNull(name);
-        var builder = new StringBuilder("E2E_SECRET_");
-        foreach (var ch in name.ToUpperInvariant())
-        {
-            builder.Append(ch is (>= 'A' and <= 'Z') or (>= '0' and <= '9') ? ch : '_');
-        }
-
-        return builder.ToString();
+        return ConfigSecrets.EnvName("E2E_SECRET", name);
     }
 
     /// <summary>The configured secret. A name the config does not declare throws <c>SECRET_UNAVAILABLE</c>.</summary>
