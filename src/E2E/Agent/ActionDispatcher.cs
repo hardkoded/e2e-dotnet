@@ -60,7 +60,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, ClickAction(kind, modifiers), token).ConfigureAwait(false);
-                var recorded = Target(node, kind);
+                var recorded = Target(node, kind, WithinOf(node));
                 recorded.Modifiers = modifiers?.Select(modifier => modifier.ToString()).ToList();
                 await CommitAsync(recorded).ConfigureAwait(false);
             },
@@ -219,7 +219,7 @@ internal sealed class ActionDispatcher : IExecutorActions
             {
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.SetInputFiles(authorized.Resolved), token).ConfigureAwait(false);
-                var recorded = Target(node, "upload");
+                var recorded = Target(node, "upload", WithinOf(node));
                 recorded.Paths = [.. authorized.Given];
                 await CommitAsync(recorded).ConfigureAwait(false);
             },
@@ -542,15 +542,20 @@ internal sealed class ActionDispatcher : IExecutorActions
     }
 
     // The node as the target an action names it by, not yet recorded.
-    private RecordedAction Target(SemanticNode node, string kind)
+    private RecordedAction Target(SemanticNode node, string kind, string? within = null)
     {
-        var target = TraceRecorder.DescribeTarget(node, _scope.Redactor);
-        return new RecordedAction { Kind = kind, Role = target.Role, Name = target.Name, TestId = target.TestId };
+        var target = TraceRecorder.DescribeTarget(node, _scope.Redactor, within);
+        return new RecordedAction { Kind = kind, Role = target.Role, Name = target.Name, TestId = target.TestId, Within = target.Within };
     }
+
+    // Upstream's placementOf (its container key): the container the node sat in on the screen it was acted on. That is what tells this
+    // row's "Delete" from the next row's when the flow replays. The screen is the newest one that listed the node.
+    private string? WithinOf(SemanticNode node) =>
+        _feed.LastSeen(node.Ref) is { } seen ? AgentActions.ContainerKey(node, AgentActions.ParentsOf(seen.Observation.Roots), _scope.Redactor) : null;
 
     // Upstream's commitTargeted: the action is the step's own once it ran, so it is recorded and arms the next look.
     private Task CommitAsync(string kind, SemanticNode node, string? value = null, string? key = null) =>
-        ArmAndNotifyAsync(_accounting.Recorder.Record(kind, node, value, key));
+        ArmAndNotifyAsync(_accounting.Recorder.Record(kind, node, value, key, WithinOf(node)));
 
     private Task CommitAsync(RecordedAction action) => ArmAndNotifyAsync(_accounting.Recorder.Record(action));
 

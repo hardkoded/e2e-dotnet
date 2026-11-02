@@ -15,7 +15,7 @@ namespace E2E.Tests.TraceRecorder;
 /// The port's recorder keeps a plain action list: no summaries, CSS selectors, positions, truncation
 /// flag, action cap, secret names, or entry validation, and no hover, long-press, secondary-tap, drag, upload, or point verbs. So
 /// these upstream its are not ported: "poisons a trace whose target is an unnamed twin no named row tells apart, and keeps one that a row does",
-/// "masks a secret resolved after capture in the container the node sat within", "poisons the trace instead of bending a replay
+/// "poisons the trace instead of bending a replay
 /// input", "truncates past the action cap
 /// instead of dropping the flag", "rejects a stored check, upload, or drag that lost a field", and every it of "TraceRecorder:
 /// bare-point taps". The recorded model is one string, the model's <see cref="IAgentModel.Name"/>, where upstream's is a provider
@@ -93,6 +93,19 @@ public sealed class TraceRecorderTests
         Assert.Equal("<secret:member-password>", entry.Actions[0].Value);
         Assert.Equal("Greeting <secret:member-password>", entry.Actions[1].Name);
         Assert.Equal("example/<secret:member-password>", entry.RecordedBy);
+    }
+
+    [Fact]
+    public void Masks_a_secret_resolved_after_capture_in_the_container_the_node_sat_within()
+    {
+        var recorder = MakeRecorder(Secret.Create("token", "token-2718-value", "generic-secret"));
+        recorder.Record("tap", UpgradeButton, within: "Row token-2718-value");
+
+        var entry = Finalize(recorder)!;
+
+        var serialized = JsonSerializer.Serialize(entry, Relaxed);
+        Assert.DoesNotContain("token-2718-value", serialized, StringComparison.Ordinal);
+        Assert.Contains("Row <secret:token>", serialized, StringComparison.Ordinal);
     }
 
     /// <summary>Partial port of "omits an oversized recorded provider" and "omits an oversized recorded model": the port records one model name.</summary>

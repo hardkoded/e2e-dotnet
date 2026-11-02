@@ -11,8 +11,8 @@ namespace E2E.Tests.TraceTemplate;
 
 /// <summary>
 /// Upstream's <c>templateTrace</c> and <c>expandTrace</c> are <see cref="CacheKeys.TemplateTrace"/> and <see cref="CacheKeys.ExpandTrace"/>,
-/// called on a <see cref="CacheEntry"/>. The port records no action summaries and no verdict summary, and its actions hold no
-/// <c>within</c>, so the checks of those fields are not ported; a test that needs one is partial.
+/// called on a <see cref="CacheEntry"/>. The port records no action summaries and no verdict summary, so the checks of those fields
+/// are not ported; a test that needs one is partial.
 /// </summary>
 public sealed class TemplateTraceAndExpandTraceTests
 {
@@ -35,7 +35,7 @@ public sealed class TemplateTraceAndExpandTraceTests
             new RecordedAction { Kind = "navigate", Url = "/companies/create" },
             new RecordedAction { Kind = "fill", Role = "textbox", Name = "Name", Value = name },
             new RecordedAction { Kind = "fill", Role = "textbox", Name = "Password", Value = "<secret:admin>" },
-            new RecordedAction { Kind = "tap", Role = "option", Name = name },
+            new RecordedAction { Kind = "tap", Role = "option", Name = name, Within = name },
             new RecordedAction { Kind = "press", Role = "textbox", Name = "Name", Key = "Enter" },
         ],
         Route = "/companies",
@@ -68,7 +68,7 @@ public sealed class TemplateTraceAndExpandTraceTests
     /// <summary>
     /// Partial port of "templates inputs, descriptors, anchors, and action summaries, and expands them with another run's value": the
     /// typed value, the target descriptor and the end anchors carry the slot and fill from the next run. The port records no action
-    /// summaries and no verdict summary, and its actions hold no <c>within</c>, so those checks are not ported.
+    /// summaries and no verdict summary, so those checks are not ported.
     /// </summary>
     [Fact]
     public void Partial_Templates_inputs_descriptors_anchors_and_action_summaries_and_expands_them_with_another_runs_value()
@@ -78,6 +78,7 @@ public sealed class TemplateTraceAndExpandTraceTests
         Assert.Equal("{{param:/name}}", recorded.Actions[1].Value);
         Assert.Equal("{{param:/name}}", recorded.Actions[3].Name);
         Assert.Equal("option", recorded.Actions[3].Role);
+        Assert.Equal("{{param:/name}}", recorded.Actions[3].Within);
         Assert.Equal("{{param:/name}}", Assert.Single(recorded.Appeared).Name);
         Assert.Equal("heading", recorded.Appeared[0].Role);
 

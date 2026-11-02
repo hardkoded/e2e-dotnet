@@ -447,7 +447,7 @@ internal static class Replay
         {
             var observation = first && look.InHand is { } inHand ? inHand : await host.ObserveAsync(first ? look.Settle : SettleMode.Raw).ConfigureAwait(false);
             first = false;
-            var matches = Find(observation, action.Role, name, testId, null, host.Redact);
+            var matches = Find(observation, action.Role, name, testId, null, host.Redact, action.Within);
             if (matches.Count == 1)
             {
                 host.MarkActing();

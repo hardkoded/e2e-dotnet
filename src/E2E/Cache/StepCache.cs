@@ -133,6 +133,12 @@ public sealed class RecordedAction
 
     public string? TestId { get; set; }
 
+    /// <summary>
+    /// Upstream's <c>within</c>: the key of the container the target sat in (a row's first cell), with secrets redacted. Relocation
+    /// requires the same key, so one row's "Delete" is never taken for another's. Null when the target sat in no named container.
+    /// </summary>
+    public string? Within { get; set; }
+
     public string? Value { get; set; }
 
     public string? Key { get; set; }
@@ -198,6 +204,9 @@ public sealed class RecordedTarget
     public string? Name { get; set; }
 
     public string? TestId { get; set; }
+
+    /// <summary>Upstream's <c>within</c>: the key of the container the target sat in. See <see cref="RecordedAction.Within"/>.</summary>
+    public string? Within { get; set; }
 
     /// <summary>An anchor's text when it differs from its name, with secrets redacted.</summary>
     public string? Text { get; set; }

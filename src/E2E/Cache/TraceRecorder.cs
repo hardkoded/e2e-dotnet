@@ -33,10 +33,10 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
     public IReadOnlyList<RecordedAction> Actions => _actions;
 
     /// <summary>Records one committed grammar action on <paramref name="node"/>, described now. Returns the action as recorded.</summary>
-    public RecordedAction Record(string kind, SemanticNode node, string? value = null, string? key = null)
+    public RecordedAction Record(string kind, SemanticNode node, string? value = null, string? key = null, string? within = null)
     {
-        var target = DescribeTarget(node, redactor());
-        return Record(new RecordedAction { Kind = kind, Role = target.Role, Name = target.Name, TestId = target.TestId, Value = value, Key = key });
+        var target = DescribeTarget(node, redactor(), within);
+        return Record(new RecordedAction { Kind = kind, Role = target.Role, Name = target.Name, TestId = target.TestId, Within = target.Within, Value = value, Key = key });
     }
 
     /// <summary>Records one committed grammar action as given, replayed ones included. Returns it.</summary>
@@ -118,11 +118,18 @@ internal sealed class TraceRecorder(Func<Redactor> redactor, TimeProvider? time 
 
     /// <summary>
     /// Upstream's <c>describeTarget</c> (<c>agent/actions.ts</c>): how a replay will find the node again, by its role, its label,
-    /// and its test id, redacted. Never the text the node holds or the value a field holds.
+    /// and its test id, redacted. Never the text the node holds or the value a field holds. <paramref name="within"/> is the key of the
+    /// container it sat in (upstream's <c>describePlaced</c>), redacted again and bounded.
     /// </summary>
-    public static RecordedTarget DescribeTarget(SemanticNode node, Redactor redactor)
+    public static RecordedTarget DescribeTarget(SemanticNode node, Redactor redactor, string? within = null)
     {
         ArgumentNullException.ThrowIfNull(node);
-        return new RecordedTarget { Role = node.Role, Name = RedactLabel(node, redactor), TestId = Redact(node.TestId, redactor) };
+        return new RecordedTarget
+        {
+            Role = node.Role,
+            Name = RedactLabel(node, redactor),
+            TestId = Redact(node.TestId, redactor),
+            Within = within is null ? null : TextRules.Bound(redactor.Redact(within), AgentActions.MaxWithinChars),
+        };
     }
 }
