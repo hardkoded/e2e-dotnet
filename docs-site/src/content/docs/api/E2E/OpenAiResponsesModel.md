@@ -1,6 +1,6 @@
 ---
 title: "OpenAiResponsesModel"
-description: "OpenAI Responses API client: OpenAI itself, Azure OpenAI (String)), and the subscription backends that only speak Responses. Nothing is stored server side, s..."
+description: "OpenAI Responses API client: OpenAI itself, Azure OpenAI (AzureOpenAi), and the subscription backends that only speak Responses. Nothing is stored server sid..."
 editUrl: false
 prev: false
 next: false
@@ -19,7 +19,7 @@ public sealed class OpenAiResponsesModel : IAgentModel, IDisposable
 ```
 
 
-OpenAI Responses API client: OpenAI itself, Azure OpenAI (`String)`), and the
+OpenAI Responses API client: OpenAI itself, Azure OpenAI (`AzureOpenAi`), and the
 subscription backends that only speak Responses. Nothing is stored server side, so each turn carries the
 whole conversation. A server-sent-event answer is folded back into the completed response.
 
@@ -27,7 +27,7 @@ whole conversation. A server-sent-event answer is folded back into the completed
 
 **Implements:** [IAgentModel](/api/E2E/IAgentModel/), [IDisposable](https://learn.microsoft.com/dotnet/api/system.idisposable)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/OpenAiResponsesModel.cs#L16)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/OpenAiResponsesModel.cs)
 
 ## Constructors
 
@@ -49,7 +49,7 @@ public OpenAiResponsesModel(OpenAiResponsesModelOptions options, HttpClient? htt
 | `options` | [OpenAiResponsesModelOptions](/api/E2E/OpenAiResponsesModelOptions/) |  |
 | `httpClient` | [HttpClient](https://learn.microsoft.com/dotnet/api/system.net.http.httpclient) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/OpenAiResponsesModel.cs#L22)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/OpenAiResponsesModel.cs)
 
 ## Properties
 
@@ -68,7 +68,7 @@ Provider and model id, printed in the run summary. Changing it does not miss the
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/OpenAiResponsesModel.cs#L31)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/OpenAiResponsesModel.cs)
 
 ## Methods
 
@@ -92,7 +92,7 @@ public Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken
 
 **Returns:** [Task&lt;ModelResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/OpenAiResponsesModel.cs#L33)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/OpenAiResponsesModel.cs)
 
 <a id="E2E_OpenAiResponsesModel_Dispose_"></a>
 <a id="E2E_OpenAiResponsesModel_Dispose"></a>
@@ -107,4 +107,4 @@ public void Dispose()
 
 Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/OpenAiResponsesModel.cs#L50)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/OpenAiResponsesModel.cs)

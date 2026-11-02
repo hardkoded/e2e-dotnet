@@ -21,7 +21,7 @@ public enum ResultKind
 
 Whether a result is a test or a setup.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L242)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Fields
 
@@ -37,7 +37,7 @@ Setup = 1
 
 **Value:** [ResultKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L245)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ResultKind_Test"></a>
 
@@ -51,4 +51,4 @@ Test = 0
 
 **Value:** [ResultKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L244)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

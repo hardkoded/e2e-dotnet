@@ -25,7 +25,7 @@ One model a subscription serves: the id a config passes, and how the vendor desc
 
 **Implements:** [IEquatable&lt;SubscriptionModel&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs#L70)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs)
 
 ## Constructors
 
@@ -50,7 +50,7 @@ One model a subscription serves: the id a config passes, and how the vendor desc
 | `Name` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `Detail` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs#L70)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs)
 
 ## Properties
 
@@ -67,7 +67,7 @@ public string? Detail { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs#L70)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs)
 
 <a id="E2E_OAuth_SubscriptionModel_Id_"></a>
 <a id="E2E_OAuth_SubscriptionModel_Id"></a>
@@ -82,7 +82,7 @@ public string Id { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs#L70)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs)
 
 <a id="E2E_OAuth_SubscriptionModel_Name_"></a>
 <a id="E2E_OAuth_SubscriptionModel_Name"></a>
@@ -97,4 +97,4 @@ public string? Name { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs#L70)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs)

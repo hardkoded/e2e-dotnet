@@ -1,6 +1,6 @@
 ---
 title: "E2ERunFixture"
-description: "A .NET-only run-level hook (upstream's runner stops the app commands and calls the reporters when the run ends; xUnit has no such owner). Register it as an assembly fixture, and the..."
+description: "A .NET-only run-level hook (upstream's runner stops the app commands and calls the reporters when the run ends; xUnit has no such owner). Register it as an a..."
 editUrl: false
 prev: false
 next: false
@@ -20,7 +20,7 @@ public sealed class E2ERunFixture : IAsyncDisposable
 
 
 A .NET-only run-level hook (upstream's runner stops the app commands and calls the reporters when the run ends; xUnit has no such owner). Register it as an assembly
-fixture, and the app commands that the targets declare stop when the last test of the assembly is done, not when the test process exits, and the reporters run (see Reporter):
+fixture, and the app commands that the targets declare stop when the last test of the assembly is done, not when the test process exits, and the reporters run (see `E2E.Reports.Reporter`):
 
 
 ```csharp
@@ -31,7 +31,7 @@ fixture, and the app commands that the targets declare stop when the last test o
 
 **Implements:** [IAsyncDisposable](https://learn.microsoft.com/dotnet/api/system.iasyncdisposable)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.XUnit.V3/E2ERunFixture.cs#L14)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.XUnit.V3/E2ERunFixture.cs)
 
 ## Methods
 
@@ -46,8 +46,9 @@ public ValueTask DisposeAsync()
 ```
 
 
-Runs the reporters that the test assembly registers with `[assembly: E2EReporter(typeof(...))]` once `report.json` is final, then stops the app commands that the tests of this process started.
+Runs the reporters that the test assembly registers with `[assembly: E2EReporter(typeof(...))]` once `report.json` is final, then
+stops the app commands that the tests of this process started. The test assembly is the one xUnit is running (its path from the test context), else the entry assembly, since an xUnit v3 test project is an executable.
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.XUnit.V3/E2ERunFixture.cs#L17)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.XUnit.V3/E2ERunFixture.cs)

@@ -23,7 +23,7 @@ What the built-in agent is built from: an agents entry's `system` and its `tools
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/DefaultAgent.cs#L12)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/DefaultAgent.cs)
 
 ## Properties
 
@@ -42,7 +42,7 @@ Appended to the built-in execution rules. Only the act loop reads it.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/DefaultAgent.cs#L15)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/DefaultAgent.cs)
 
 <a id="E2E_BuiltInAgentOptions_Tools_"></a>
 <a id="E2E_BuiltInAgentOptions_Tools"></a>
@@ -59,4 +59,4 @@ Project tools offered to the model beside the agent's own, by name. A tool is of
 
 **Value:** [IReadOnlyDictionary&lt;string, AgentTool&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/DefaultAgent.cs#L20)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/DefaultAgent.cs)

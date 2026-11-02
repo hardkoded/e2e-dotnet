@@ -23,7 +23,7 @@ Username plus a [Secret](/api/E2E/Secret/) password loaded from the environment.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs#L100)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)
 
 ## Constructors
 
@@ -45,7 +45,7 @@ public UserCredential(string username, Secret password)
 | `username` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `password` | [Secret](/api/E2E/Secret/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs#L102)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)
 
 ## Properties
 
@@ -62,7 +62,7 @@ public Secret Password { get; }
 
 **Value:** [Secret](/api/E2E/Secret/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs#L112)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)
 
 <a id="E2E_UserCredential_Username_"></a>
 <a id="E2E_UserCredential_Username"></a>
@@ -77,4 +77,4 @@ public string Username { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs#L110)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)

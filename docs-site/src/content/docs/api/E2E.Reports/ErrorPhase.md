@@ -21,7 +21,7 @@ public enum ErrorPhase
 
 The part of a run an error came from.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L853)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Fields
 
@@ -37,7 +37,7 @@ AfterAll = 8
 
 **Value:** [ErrorPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L863)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ErrorPhase_AfterEach"></a>
 
@@ -51,7 +51,7 @@ AfterEach = 7
 
 **Value:** [ErrorPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L862)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ErrorPhase_BeforeAll"></a>
 
@@ -65,7 +65,7 @@ BeforeAll = 4
 
 **Value:** [ErrorPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L859)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ErrorPhase_BeforeEach"></a>
 
@@ -79,7 +79,7 @@ BeforeEach = 5
 
 **Value:** [ErrorPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L860)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ErrorPhase_Body"></a>
 
@@ -93,7 +93,7 @@ Body = 6
 
 **Value:** [ErrorPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L861)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ErrorPhase_Cleanup"></a>
 
@@ -107,7 +107,7 @@ Cleanup = 9
 
 **Value:** [ErrorPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L864)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ErrorPhase_Collection"></a>
 
@@ -121,7 +121,7 @@ Collection = 1
 
 **Value:** [ErrorPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L856)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ErrorPhase_Config"></a>
 
@@ -135,7 +135,7 @@ Config = 0
 
 **Value:** [ErrorPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L855)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ErrorPhase_Filter"></a>
 
@@ -149,7 +149,7 @@ Filter = 2
 
 **Value:** [ErrorPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L857)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ErrorPhase_Launch"></a>
 
@@ -163,7 +163,7 @@ Launch = 3
 
 **Value:** [ErrorPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L858)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ErrorPhase_Report"></a>
 
@@ -177,4 +177,4 @@ Report = 10
 
 **Value:** [ErrorPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L865)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

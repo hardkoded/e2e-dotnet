@@ -21,7 +21,7 @@ public enum StepEventStatus
 
 How a step event ended.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L798)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Fields
 
@@ -37,7 +37,7 @@ Cancelled = 2
 
 **Value:** [StepEventStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L802)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepEventStatus_Failed"></a>
 
@@ -51,7 +51,7 @@ Failed = 1
 
 **Value:** [StepEventStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L801)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepEventStatus_Passed"></a>
 
@@ -65,4 +65,4 @@ Passed = 0
 
 **Value:** [StepEventStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L800)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

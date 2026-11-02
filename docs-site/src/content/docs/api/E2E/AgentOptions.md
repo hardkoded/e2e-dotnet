@@ -24,7 +24,7 @@ defaults; no agent inherits another's values. A call picks one with its `Agent` 
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L15)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs)
 
 ## Properties
 
@@ -44,7 +44,7 @@ alike. At most 16384 UTF-8 bytes.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L46)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs)
 
 <a id="E2E_AgentOptions_Executor_"></a>
 <a id="E2E_AgentOptions_Executor"></a>
@@ -63,7 +63,7 @@ acts. An executor replaces the built-in agent's prompt and tools, so it cannot b
 
 **Value:** [IStepExecutor](/api/E2E/IStepExecutor/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L34)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs)
 
 <a id="E2E_AgentOptions_Judge_"></a>
 <a id="E2E_AgentOptions_Judge"></a>
@@ -81,7 +81,7 @@ The model that judges `assert`, `waitFor`, and `extract`. Defaults to
 
 **Value:** [IAgentModel](/api/E2E/IAgentModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L27)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs)
 
 <a id="E2E_AgentOptions_JudgmentTimeout_"></a>
 <a id="E2E_AgentOptions_JudgmentTimeout"></a>
@@ -98,7 +98,7 @@ Deadline of one `assert`, `waitFor`, or `extract`.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L55)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs)
 
 <a id="E2E_AgentOptions_MaxInputTokens_"></a>
 <a id="E2E_AgentOptions_MaxInputTokens"></a>
@@ -117,7 +117,7 @@ with `STEP_BUDGET_EXHAUSTED` before it is sent.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L68)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs)
 
 <a id="E2E_AgentOptions_MaxModelCalls_"></a>
 <a id="E2E_AgentOptions_MaxModelCalls"></a>
@@ -134,7 +134,7 @@ Model requests per agent call, 1 through 100. Null leaves it unset: [MaxModelCal
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L52)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs)
 
 <a id="E2E_AgentOptions_MaxObservationBytes_"></a>
 <a id="E2E_AgentOptions_MaxObservationBytes"></a>
@@ -152,7 +152,7 @@ screen over it is cut and ends with a marker. The per-call [MaxInputTokens](#E2E
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L61)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs)
 
 <a id="E2E_AgentOptions_MaxSteps_"></a>
 <a id="E2E_AgentOptions_MaxSteps"></a>
@@ -169,7 +169,7 @@ Committed actions per `act`, 1 through 100. Null leaves it unset: [MaxSteps](/ap
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L49)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs)
 
 <a id="E2E_AgentOptions_Model_"></a>
 <a id="E2E_AgentOptions_Model"></a>
@@ -187,7 +187,7 @@ own supplies it; naming a different one here is `INVALID_CONFIG`.
 
 **Value:** [IAgentModel](/api/E2E/IAgentModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L21)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs)
 
 <a id="E2E_AgentOptions_ProviderOptions_"></a>
 <a id="E2E_AgentOptions_ProviderOptions"></a>
@@ -205,7 +205,7 @@ adds the fields under its [Provider](/api/E2E/OpenAiCompatibleModelOptions/#E2E_
 
 **Value:** [IReadOnlyDictionary&lt;string, JsonElement&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L74)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs)
 
 <a id="E2E_AgentOptions_System_"></a>
 <a id="E2E_AgentOptions_System"></a>
@@ -223,7 +223,7 @@ reads it; the judges never see it.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L40)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs)
 
 <a id="E2E_AgentOptions_Tools_"></a>
 <a id="E2E_AgentOptions_Tools"></a>
@@ -241,4 +241,4 @@ declares, and a name the agent already uses is refused.
 
 **Value:** [IReadOnlyDictionary&lt;string, AgentTool&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs#L80)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentOptions.cs)

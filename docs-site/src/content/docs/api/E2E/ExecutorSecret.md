@@ -25,7 +25,7 @@ A secret declared in a step's params: its stable name and what it is for. Never 
 
 **Implements:** [IEquatable&lt;ExecutorSecret&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L179)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 ## Constructors
 
@@ -49,7 +49,7 @@ A secret declared in a step's params: its stable name and what it is for. Never 
 | `Name` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `Purpose` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L179)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 ## Properties
 
@@ -66,7 +66,7 @@ public string Name { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L179)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorSecret_Purpose_"></a>
 <a id="E2E_ExecutorSecret_Purpose"></a>
@@ -81,4 +81,4 @@ public string? Purpose { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L179)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)

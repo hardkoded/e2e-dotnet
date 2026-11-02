@@ -30,7 +30,7 @@ has no browser, so the [Browser](/api/E2E/Browser/) fixture is unsupported.
 
 **Implements:** [IEngine](/api/E2E.Engine/IEngine/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L17)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs)
 
 ## Constructors
 
@@ -51,7 +51,7 @@ public DocumentEngine(DocumentWorld world)
 | --- | --- | --- |
 | `world` | [DocumentWorld](/api/E2E.Engine/DocumentWorld/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L23)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs)
 
 ## Fields
 
@@ -67,7 +67,7 @@ public const string EngineVersion = "1.0.0"
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L19)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs)
 
 ## Properties
 
@@ -84,7 +84,7 @@ public EngineCapabilities Capabilities { get; }
 
 **Value:** [EngineCapabilities](/api/E2E.Engine/EngineCapabilities/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L33)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs)
 
 <a id="E2E_Engine_DocumentEngine_Platform_"></a>
 <a id="E2E_Engine_DocumentEngine_Platform"></a>
@@ -99,7 +99,7 @@ public string Platform { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L29)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs)
 
 <a id="E2E_Engine_DocumentEngine_Version_"></a>
 <a id="E2E_Engine_DocumentEngine_Version"></a>
@@ -114,7 +114,7 @@ public string Version { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L31)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs)
 
 ## Methods
 
@@ -138,4 +138,4 @@ public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationT
 
 **Returns:** [Task&lt;IEngineSession&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs#L41)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs)

@@ -1,6 +1,6 @@
 ---
 title: "PressSequentiallyOptions"
-description: "Options for CancellationToken)."
+description: "Options for PressSequentiallyAsync."
 editUrl: false
 prev: false
 next: false
@@ -19,11 +19,11 @@ public sealed class PressSequentiallyOptions : ActionOptions
 ```
 
 
-Options for `CancellationToken)`.
+Options for `PressSequentiallyAsync`.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object) → [ActionOptions](/api/E2E/ActionOptions/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1026)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 ## Properties
 
@@ -42,4 +42,4 @@ How long to wait between characters.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1029)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)

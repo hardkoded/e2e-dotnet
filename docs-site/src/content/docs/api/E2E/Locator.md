@@ -23,7 +23,7 @@ A query that resolves against a fresh observation every time it is used.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L394)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 ## Methods
 
@@ -48,7 +48,7 @@ One [Nth(int)](#E2E_Locator_Nth_System_Int32_) locator per current match, withou
 
 **Returns:** [Task&lt;IReadOnlyList&lt;Locator&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L776)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_AllTextContentsAsync_"></a>
 <a id="E2E_Locator_AllTextContentsAsync_System_Threading_CancellationToken_"></a>
@@ -72,7 +72,7 @@ Fails with `POLICY_DENIED` when any match is a secure field.
 
 **Returns:** [Task&lt;IReadOnlyList&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L792)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_BoundingBoxAsync_"></a>
 <a id="E2E_Locator_BoundingBoxAsync_System_Threading_CancellationToken_"></a>
@@ -96,7 +96,7 @@ Waits up to the action timeout for one match, then reads its viewport-relative b
 
 **Returns:** [Task&lt;BoundingBox&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L762)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_CheckAsync_"></a>
 <a id="E2E_Locator_CheckAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -118,7 +118,7 @@ public Task CheckAsync(ActionOptions? options = null, CancellationToken cancella
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L639)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_ClearAsync_"></a>
 <a id="E2E_Locator_ClearAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -140,7 +140,7 @@ public Task ClearAsync(ActionOptions? options = null, CancellationToken cancella
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L649)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_ClickAsync_"></a>
 <a id="E2E_Locator_ClickAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -164,7 +164,7 @@ Alias of `TapAsync`.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L538)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_ClickAsync_E2E_ClickOptions_System_Threading_CancellationToken_"></a>
 
@@ -187,7 +187,7 @@ Alias of `TapAsync`.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L541)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_CountAsync_"></a>
 <a id="E2E_Locator_CountAsync_System_Threading_CancellationToken_"></a>
@@ -210,7 +210,7 @@ Counts current matches without waiting.
 
 **Returns:** [Task&lt;int&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L769)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_DblClickAsync_"></a>
 <a id="E2E_Locator_DblClickAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -234,7 +234,7 @@ Alias of `DoubleTapAsync`.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L552)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_DblClickAsync_E2E_ClickOptions_System_Threading_CancellationToken_"></a>
 
@@ -257,7 +257,7 @@ Alias of `DoubleTapAsync`.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L555)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_DoubleTapAsync_"></a>
 <a id="E2E_Locator_DoubleTapAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -281,7 +281,7 @@ Double taps the node, waiting for exactly one enabled match.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L545)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_DoubleTapAsync_E2E_ClickOptions_System_Threading_CancellationToken_"></a>
 
@@ -304,7 +304,7 @@ Double taps the node. [Modifiers](/api/E2E/ClickOptions/#E2E_ClickOptions_Modifi
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L548)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_DragToAsync_"></a>
 <a id="E2E_Locator_DragToAsync_E2E_Locator_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -336,7 +336,7 @@ drag is resolved again along with the source.
 | --- | --- |
 | [TestException](/api/E2E/TestException/) | &lt;code class="paramref"&gt;target&lt;/code&gt; is a locator of another screen (`INVALID_LOCATOR`). |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L587)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_FillAsync_"></a>
 <a id="E2E_Locator_FillAsync_E2E_Secret_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -361,7 +361,7 @@ Fills a secret. The engine marks the value sensitive and never reports it.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L611)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_FillAsync_System_String_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
 
@@ -383,7 +383,7 @@ public Task FillAsync(string value, ActionOptions? options = null, CancellationT
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L604)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_Filter_"></a>
 <a id="E2E_Locator_Filter_E2E_Locator_"></a>
@@ -406,7 +406,7 @@ Keeps the matches with a descendant that &lt;code class="paramref"&gt;has&lt;/co
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L415)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_Filter_E2E_TextMatch_"></a>
 
@@ -428,7 +428,7 @@ Keeps the matches whose own or descendants' name, text, or value contains &lt;co
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L407)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_Filter_E2E_TextMatch_E2E_TextMatch_E2E_Locator_E2E_Locator_"></a>
 
@@ -463,7 +463,7 @@ object, beside [Filter(TextMatch)](#E2E_Locator_Filter_E2E_TextMatch_) and [Filt
 | --- | --- |
 | [TestException](/api/E2E/TestException/) | `INVALID_LOCATOR`: no filter is given, or the `has` or `hasNot` locator belongs to another screen or attempt. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L430)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_First_"></a>
 <a id="E2E_Locator_First"></a>
@@ -478,7 +478,7 @@ public Locator First()
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L478)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_FocusAsync_"></a>
 <a id="E2E_Locator_FocusAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -500,7 +500,7 @@ public Task FocusAsync(ActionOptions? options = null, CancellationToken cancella
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L687)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_GetAttributeAsync_"></a>
 <a id="E2E_Locator_GetAttributeAsync_System_String_System_Threading_CancellationToken_"></a>
@@ -524,7 +524,7 @@ Waits up to the action timeout for one match, then reads one platform attribute 
 
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L719)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_GetByDisplayValue_"></a>
 <a id="E2E_Locator_GetByDisplayValue_E2E_TextMatch_E2E_TextMatchOptions_"></a>
@@ -548,7 +548,7 @@ Creates a displayed-value query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L525)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_GetByDisplayValue_E2E_TextMatch_System_Boolean_"></a>
 
@@ -571,7 +571,7 @@ Creates a displayed-value query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L522)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_GetByLabel_"></a>
 <a id="E2E_Locator_GetByLabel_E2E_TextMatch_E2E_TextMatchOptions_"></a>
@@ -595,7 +595,7 @@ Creates a label query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L507)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_GetByLabel_E2E_TextMatch_System_Boolean_"></a>
 
@@ -618,7 +618,7 @@ Creates a label query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L504)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_GetByPlaceholder_"></a>
 <a id="E2E_Locator_GetByPlaceholder_E2E_TextMatch_E2E_TextMatchOptions_"></a>
@@ -642,7 +642,7 @@ Creates a placeholder query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L519)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_GetByPlaceholder_E2E_TextMatch_System_Boolean_"></a>
 
@@ -665,7 +665,7 @@ Creates a placeholder query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L516)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_GetByRole_"></a>
 <a id="E2E_Locator_GetByRole_System_String_E2E_RoleOptions_"></a>
@@ -689,7 +689,7 @@ Creates a role query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L492)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_GetByRole_System_String_E2E_TextMatch_E2E_RoleOptions_"></a>
 
@@ -713,7 +713,7 @@ Creates a role query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L495)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_GetByRole_System_String_E2E_TextMatch_System_Boolean_"></a>
 
@@ -737,7 +737,7 @@ Creates a role query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L489)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_GetByTestId_"></a>
 <a id="E2E_Locator_GetByTestId_E2E_TextMatch_"></a>
@@ -760,7 +760,7 @@ Creates a test-id query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L510)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_GetByTestId_E2E_TextMatch_E2E_TextMatchOptions_"></a>
 
@@ -783,7 +783,7 @@ Creates a test-id query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L513)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_GetByText_"></a>
 <a id="E2E_Locator_GetByText_E2E_TextMatch_E2E_TextMatchOptions_"></a>
@@ -807,7 +807,7 @@ Creates a visible-text query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L501)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_GetByText_E2E_TextMatch_System_Boolean_"></a>
 
@@ -830,7 +830,7 @@ Creates a visible-text query among this locator's descendants.
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L498)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_HoverAsync_"></a>
 <a id="E2E_Locator_HoverAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -854,7 +854,7 @@ Moves the pointer over the node.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L579)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_InputValueAsync_"></a>
 <a id="E2E_Locator_InputValueAsync_System_Threading_CancellationToken_"></a>
@@ -879,7 +879,7 @@ radio reads its value attribute, `on` when it has none, whatever its checked sta
 
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L712)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_IsCheckedAsync_"></a>
 <a id="E2E_Locator_IsCheckedAsync_System_Threading_CancellationToken_"></a>
@@ -902,7 +902,7 @@ Waits up to the action timeout for one match, then reads its checked state once.
 
 **Returns:** [Task&lt;bool&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L752)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_IsDisabledAsync_"></a>
 <a id="E2E_Locator_IsDisabledAsync_System_Threading_CancellationToken_"></a>
@@ -925,7 +925,7 @@ Waits up to the action timeout for one match, then reads its disabled state once
 
 **Returns:** [Task&lt;bool&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L746)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_IsEnabledAsync_"></a>
 <a id="E2E_Locator_IsEnabledAsync_System_Threading_CancellationToken_"></a>
@@ -948,7 +948,7 @@ Waits up to the action timeout for one match, then reads its enabled state once.
 
 **Returns:** [Task&lt;bool&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L739)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_IsHiddenAsync_"></a>
 <a id="E2E_Locator_IsHiddenAsync_System_Threading_CancellationToken_"></a>
@@ -971,7 +971,7 @@ Reads current hidden or absent state, the negation of [IsVisibleAsync(Cancellati
 
 **Returns:** [Task&lt;bool&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L733)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_IsVisibleAsync_"></a>
 <a id="E2E_Locator_IsVisibleAsync_System_Threading_CancellationToken_"></a>
@@ -994,7 +994,7 @@ Reads current visibility: true when exactly one visible node matches. More than 
 
 **Returns:** [Task&lt;bool&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L727)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_Last_"></a>
 <a id="E2E_Locator_Last"></a>
@@ -1009,7 +1009,7 @@ public Locator Last()
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L480)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_LongPressAsync_"></a>
 <a id="E2E_Locator_LongPressAsync_E2E_LongPressOptions_System_Threading_CancellationToken_"></a>
@@ -1039,7 +1039,7 @@ Holds a press on the node for [Duration](/api/E2E/LongPressOptions/#E2E_LongPres
 | --- | --- |
 | [ArgumentOutOfRangeException](https://learn.microsoft.com/dotnet/api/system.argumentoutofrangeexception) | The duration is not a whole number of milliseconds from 100 through 10000 (upstream's `INVALID_ARGUMENT`). |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L572)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_Nth_"></a>
 <a id="E2E_Locator_Nth_System_Int32_"></a>
@@ -1060,7 +1060,7 @@ public Locator Nth(int index)
 
 **Returns:** [Locator](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L482)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_Or_"></a>
 <a id="E2E_Locator_Or_E2E_Locator_"></a>
@@ -1091,7 +1091,7 @@ from the same screen and attempt. Upstream's `locator.or`.
 | --- | --- |
 | [TestException](/api/E2E/TestException/) | `INVALID_LOCATOR`: &lt;code class="paramref"&gt;other&lt;/code&gt; belongs to another screen or attempt. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L465)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_PressAsync_"></a>
 <a id="E2E_Locator_PressAsync_System_String_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -1114,7 +1114,7 @@ public Task PressAsync(string key, ActionOptions? options = null, CancellationTo
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L633)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_PressSequentiallyAsync_"></a>
 <a id="E2E_Locator_PressSequentiallyAsync_System_String_E2E_PressSequentiallyOptions_System_Threading_CancellationToken_"></a>
@@ -1140,7 +1140,7 @@ so the app receives key events. [Delay](/api/E2E/PressSequentiallyOptions/#E2E_P
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L622)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_ScrollIntoViewAsync_"></a>
 <a id="E2E_Locator_ScrollIntoViewAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -1162,7 +1162,7 @@ public Task ScrollIntoViewAsync(ActionOptions? options = null, CancellationToken
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L692)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_ScrollUntilVisibleAsync_"></a>
 <a id="E2E_Locator_ScrollUntilVisibleAsync_E2E_Locator_E2E_ScrollUntilVisibleOptions_System_Threading_CancellationToken_"></a>
@@ -1188,7 +1188,7 @@ without the pointer having to hover it first. Both locators must come from the s
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1038)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_SecondaryTapAsync_"></a>
 <a id="E2E_Locator_SecondaryTapAsync_E2E_ClickOptions_System_Threading_CancellationToken_"></a>
@@ -1213,7 +1213,7 @@ An engine with no secondary tap (a device, the document engine) fails with `UNSU
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L565)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_SelectOptionAsync_"></a>
 <a id="E2E_Locator_SelectOptionAsync_System_String_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -1238,7 +1238,7 @@ Selects the option whose value or label is &lt;code class="paramref"&gt;value&lt
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L655)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_SetInputFilesAsync_"></a>
 <a id="E2E_Locator_SetInputFilesAsync_System_Collections_Generic_IEnumerable_System_String__E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -1270,7 +1270,7 @@ On the web it also takes a button that opens a file chooser. A button that opens
 | --- | --- |
 | [ArgumentException](https://learn.microsoft.com/dotnet/api/system.argumentexception) | &lt;code class="paramref"&gt;paths&lt;/code&gt; is empty or has a blank entry (upstream's `INVALID_ARGUMENT`). |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L673)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_SetInputFilesAsync_System_String_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
 
@@ -1295,7 +1295,7 @@ On the web it also takes a button that opens a file chooser. A button that opens
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L665)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_SwipeAsync_"></a>
 <a id="E2E_Locator_SwipeAsync_E2E_SwipeOptions_System_Threading_CancellationToken_"></a>
@@ -1320,7 +1320,7 @@ Scrolls the node about three quarters of its extent along [Direction](/api/E2E/S
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L598)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_TapAsync_"></a>
 <a id="E2E_Locator_TapAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -1344,7 +1344,7 @@ Taps the node, waiting for exactly one enabled match.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L528)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_TapAsync_E2E_ClickOptions_System_Threading_CancellationToken_"></a>
 
@@ -1368,7 +1368,7 @@ Taps the node. [Modifiers](/api/E2E/ClickOptions/#E2E_ClickOptions_Modifiers) ar
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L534)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_TextContentAsync_"></a>
 <a id="E2E_Locator_TextContentAsync_System_Threading_CancellationToken_"></a>
@@ -1392,7 +1392,7 @@ Does not retry for a value and does not verify an earlier `act`. Fails with `POL
 
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L701)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_UncheckAsync_"></a>
 <a id="E2E_Locator_UncheckAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
@@ -1414,7 +1414,7 @@ public Task UncheckAsync(ActionOptions? options = null, CancellationToken cancel
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L644)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_Locator_WaitForAsync_"></a>
 <a id="E2E_Locator_WaitForAsync_E2E_LocatorWaitForOptions_System_Threading_CancellationToken_"></a>
@@ -1442,4 +1442,4 @@ Does not verify an earlier `act`.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L806)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)

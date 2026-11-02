@@ -24,7 +24,7 @@ Matchers that retry until they pass or the assertion timeout elapses. Each takes
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L95)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 ## Properties
 
@@ -43,7 +43,7 @@ Inverts the matcher. A negated matcher passes after its condition has been false
 
 **Value:** [LocatorExpect](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L107)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 ## Methods
 
@@ -70,7 +70,7 @@ Waits for one match to exist, visible or not. &lt;code class="paramref"&gt;attac
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L132)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToBeCheckedAsync_"></a>
 <a id="E2E_LocatorExpect_ToBeCheckedAsync_System_Boolean_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -95,7 +95,7 @@ Waits for checked state. &lt;code class="paramref"&gt;isChecked&lt;/code&gt; fal
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L159)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToBeDisabledAsync_"></a>
 <a id="E2E_LocatorExpect_ToBeDisabledAsync_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -119,7 +119,7 @@ Waits for disabled state.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L153)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToBeEnabledAsync_"></a>
 <a id="E2E_LocatorExpect_ToBeEnabledAsync_System_Boolean_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -144,7 +144,7 @@ Waits for enabled state. &lt;code class="paramref"&gt;enabled&lt;/code&gt; false
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L147)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToBeExpandedAsync_"></a>
 <a id="E2E_LocatorExpect_ToBeExpandedAsync_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -168,7 +168,7 @@ Waits for expanded state.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L171)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToBeFocusedAsync_"></a>
 <a id="E2E_LocatorExpect_ToBeFocusedAsync_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -192,7 +192,7 @@ Waits for focused state.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L177)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToBeHiddenAsync_"></a>
 <a id="E2E_LocatorExpect_ToBeHiddenAsync_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -216,7 +216,7 @@ Waits for hidden or absent state.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L126)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToBeSelectedAsync_"></a>
 <a id="E2E_LocatorExpect_ToBeSelectedAsync_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -240,7 +240,7 @@ Waits for selected state.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L165)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToBeVisibleAsync_"></a>
 <a id="E2E_LocatorExpect_ToBeVisibleAsync_System_Boolean_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -265,7 +265,7 @@ Waits for one visible match. &lt;code class="paramref"&gt;visible&lt;/code&gt; f
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L120)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToContainTextAsync_"></a>
 <a id="E2E_LocatorExpect_ToContainTextAsync_E2E_TextMatch_System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -291,7 +291,7 @@ Waits for contained normalized text.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L198)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToContainTextAsync_System_Collections_Generic_IReadOnlyList_E2E_TextMatch__System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -316,7 +316,7 @@ Waits for each entry to be contained by a distinct match, in order. Extra matche
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L204)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToHaveAccessibleNameAsync_"></a>
 <a id="E2E_LocatorExpect_ToHaveAccessibleNameAsync_E2E_TextMatch_System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -342,7 +342,7 @@ Waits for an accessible name.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L216)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToHaveAttributeAsync_"></a>
 <a id="E2E_LocatorExpect_ToHaveAttributeAsync_System_String_E2E_TextMatch_System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -369,7 +369,7 @@ Waits for the attribute to be present and its normalized value to match.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L229)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToHaveAttributeAsync_System_String_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -393,7 +393,7 @@ Waits for the attribute to be present.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L222)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToHaveCountAsync_"></a>
 <a id="E2E_LocatorExpect_ToHaveCountAsync_System_Int32_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -418,7 +418,7 @@ Waits for an exact match count.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L237)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToHaveScreenshotAsync_"></a>
 <a id="E2E_LocatorExpect_ToHaveScreenshotAsync_E2E_ScreenshotOptions_System_String_"></a>
@@ -442,7 +442,7 @@ Waits for the one match to look like its stored screenshot, the box of the node 
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L116)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToHaveScreenshotAsync_System_String_E2E_ScreenshotOptions_System_String_"></a>
 
@@ -466,7 +466,7 @@ Waits for the one match to look like its stored screenshot, the box of the node 
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L112)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToHaveTextAsync_"></a>
 <a id="E2E_LocatorExpect_ToHaveTextAsync_E2E_TextMatch_System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -493,7 +493,7 @@ Waits for exact normalized text: the node's rendered text (`innerText` on the we
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L186)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToHaveTextAsync_System_Collections_Generic_IReadOnlyList_E2E_TextMatch__System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -518,7 +518,7 @@ Waits for exactly as many matches as entries, each with its entry's text, in ord
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L192)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_LocatorExpect_ToHaveValueAsync_"></a>
 <a id="E2E_LocatorExpect_ToHaveValueAsync_E2E_TextMatch_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -543,4 +543,4 @@ Waits for a form control's value, compared as it is. Fails on a node that is not
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L210)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)

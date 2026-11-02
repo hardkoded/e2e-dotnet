@@ -24,7 +24,7 @@ that must call [AcceptAsync(string)](/api/E2E.Engine/Dialog/#E2E_Engine_Dialog_A
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs#L56)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs)
 
 ## Properties
 
@@ -43,7 +43,7 @@ Accepts every dialog.
 
 **Value:** [DialogHandler](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs#L65)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs)
 
 <a id="E2E_Engine_DialogHandler_Dismiss_"></a>
 <a id="E2E_Engine_DialogHandler_Dismiss"></a>
@@ -60,7 +60,7 @@ Dismisses every dialog.
 
 **Value:** [DialogHandler](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs#L68)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs)
 
 ## Operators
 
@@ -85,4 +85,4 @@ A handler that runs &lt;code class="paramref"&gt;handler&lt;/code&gt; for each d
 
 **Returns:** [DialogHandler](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs#L75)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs)

@@ -21,7 +21,7 @@ public enum StepKind
 
 What kind of call a step is.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L514)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Fields
 
@@ -37,7 +37,7 @@ Agent = 0
 
 **Value:** [StepKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L516)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepKind_App"></a>
 
@@ -51,7 +51,7 @@ App = 4
 
 **Value:** [StepKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L520)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepKind_Assertion"></a>
 
@@ -65,7 +65,7 @@ Assertion = 2
 
 **Value:** [StepKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L518)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepKind_Locator"></a>
 
@@ -79,7 +79,7 @@ Locator = 1
 
 **Value:** [StepKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L517)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepKind_Resource"></a>
 
@@ -93,7 +93,7 @@ Resource = 6
 
 **Value:** [StepKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L522)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepKind_Screen"></a>
 
@@ -107,7 +107,7 @@ Screen = 3
 
 **Value:** [StepKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L519)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepKind_Session"></a>
 
@@ -121,4 +121,4 @@ Session = 5
 
 **Value:** [StepKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L521)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

@@ -25,7 +25,7 @@ The viewport a step ran in.
 
 **Implements:** [IEquatable&lt;StepViewport&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L613)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Properties
 
@@ -42,7 +42,7 @@ public int Height { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L617)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepViewport_Scale_"></a>
 <a id="E2E_Reports_StepViewport_Scale"></a>
@@ -57,7 +57,7 @@ public double Scale { get; init; }
 
 **Value:** [double](https://learn.microsoft.com/dotnet/api/system.double)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L619)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepViewport_Width_"></a>
 <a id="E2E_Reports_StepViewport_Width"></a>
@@ -72,4 +72,4 @@ public int Width { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L615)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

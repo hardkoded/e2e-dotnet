@@ -1,6 +1,6 @@
 ---
 title: "ExploreOptions"
-description: "What CancellationToken) explores, as, and with."
+description: "What ExploreAsync explores, as, and with."
 editUrl: false
 prev: false
 next: false
@@ -19,11 +19,11 @@ public sealed class ExploreOptions
 ```
 
 
-What `CancellationToken)` explores, as, and with.
+What `ExploreAsync` explores, as, and with.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L17)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 ## Properties
 
@@ -42,7 +42,7 @@ The agent (`agents.<name>`) the exploration runs as. Defaults to `default`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L32)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_Agents_"></a>
 <a id="E2E_ExploreOptions_Agents"></a>
@@ -60,7 +60,7 @@ models and tools; `e2e.config.json` names a provider and a model id only, so a m
 
 **Value:** [IReadOnlyDictionary&lt;string, AgentOptions&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L55)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_AiTrace_"></a>
 <a id="E2E_ExploreOptions_AiTrace"></a>
@@ -78,7 +78,7 @@ Upstream's `--ai-trace`: records every model call to `ai-trace-<process id>.json
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L105)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_ConfigPath_"></a>
 <a id="E2E_ExploreOptions_ConfigPath"></a>
@@ -95,7 +95,7 @@ The config file, instead of the nearest `e2e.config.json` above [Cwd](#E2E_Explo
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L26)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_Credentials_"></a>
 <a id="E2E_ExploreOptions_Credentials"></a>
@@ -114,7 +114,7 @@ Upstream reads them from the config's `credentials`, which the port rejects; [Us
 
 **Value:** [IReadOnlyDictionary&lt;string, UserCredential&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L77)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_Cwd_"></a>
 <a id="E2E_ExploreOptions_Cwd"></a>
@@ -131,7 +131,7 @@ Where the config is looked for, and the project root when [RawConfig](#E2E_Explo
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L23)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_Debug_"></a>
 <a id="E2E_ExploreOptions_Debug"></a>
@@ -148,7 +148,7 @@ Upstream's `--debug`: prints the phase timings and the agent step table to stder
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L99)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_Engine_"></a>
 <a id="E2E_ExploreOptions_Engine"></a>
@@ -165,7 +165,7 @@ The engine to drive. Defaults to the engine of the target's platform: a [WebEngi
 
 **Value:** [IEngine](/api/E2E.Engine/IEngine/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L58)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_Goal_"></a>
 <a id="E2E_ExploreOptions_Goal"></a>
@@ -182,7 +182,7 @@ What to explore for. Blank is [DefaultGoal](/api/E2E/Explore/#E2E_Explore_Defaul
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L20)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_Headed_"></a>
 <a id="E2E_ExploreOptions_Headed"></a>
@@ -199,7 +199,7 @@ Shows the browser window. Has no effect on an [Engine](#E2E_ExploreOptions_Engin
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L41)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_MaxSteps_"></a>
 <a id="E2E_ExploreOptions_MaxSteps"></a>
@@ -216,7 +216,7 @@ Exploration steps, [StepBounds](/api/E2E/Explore/#E2E_Explore_StepBounds).
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L35)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_Notice_"></a>
 <a id="E2E_ExploreOptions_Notice"></a>
@@ -233,7 +233,7 @@ Notices decided before the run starts: the agent chosen, a replaced executor.
 
 **Value:** [Action&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L80)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_OnProgress_"></a>
 <a id="E2E_ExploreOptions_OnProgress"></a>
@@ -250,7 +250,7 @@ Receives the exploration's progress as it happens. Upstream's `onEvent` sink for
 
 **Value:** [ExploreListener](/api/E2E/ExploreListener/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L83)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_Output_"></a>
 <a id="E2E_ExploreOptions_Output"></a>
@@ -267,7 +267,7 @@ The results directory, over the default `.e2e/results` under the project root. F
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L44)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_RawConfig_"></a>
 <a id="E2E_ExploreOptions_RawConfig"></a>
@@ -284,7 +284,7 @@ A config value instead of a discovered file, for a host that builds one in code.
 
 **Value:** [E2EConfig](/api/E2E/E2EConfig/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L49)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_Target_"></a>
 <a id="E2E_ExploreOptions_Target"></a>
@@ -301,7 +301,7 @@ The target to explore. The config declares one; a name that is not it is `UNKNOW
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L29)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_Timeout_"></a>
 <a id="E2E_ExploreOptions_Timeout"></a>
@@ -318,7 +318,7 @@ The run's wall clock, [TimeoutBounds](/api/E2E/Explore/#E2E_Explore_TimeoutBound
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L38)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_Trace_"></a>
 <a id="E2E_ExploreOptions_Trace"></a>
@@ -337,7 +337,7 @@ An exploration's own verdict, the issues its findings tell, gets no page.
 
 **Value:** `RecordingMode?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L90)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOptions_Video_"></a>
 <a id="E2E_ExploreOptions_Video"></a>
@@ -355,4 +355,4 @@ one attempt, so a retry mode records none. Defaults to the target's mode, `off` 
 
 **Value:** `RecordingMode?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L96)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)

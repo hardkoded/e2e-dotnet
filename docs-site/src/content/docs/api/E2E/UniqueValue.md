@@ -25,7 +25,7 @@ and substitutes the current value when it types.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs#L70)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)
 
 ## Constructors
 
@@ -46,7 +46,7 @@ public UniqueValue(string value)
 | --- | --- | --- |
 | `value` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs#L72)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)
 
 ## Properties
 
@@ -63,7 +63,7 @@ public string Value { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs#L88)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)
 
 ## Methods
 
@@ -82,4 +82,4 @@ Returns a string that represents the current object.
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string) — A string that represents the current object.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs#L90)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)

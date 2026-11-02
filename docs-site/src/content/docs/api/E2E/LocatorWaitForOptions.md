@@ -1,6 +1,6 @@
 ---
 title: "LocatorWaitForOptions"
-description: "Options for CancellationToken)."
+description: "Options for WaitForAsync."
 editUrl: false
 prev: false
 next: false
@@ -19,11 +19,11 @@ public sealed class LocatorWaitForOptions
 ```
 
 
-Options for `CancellationToken)`.
+Options for `WaitForAsync`.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1049)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 ## Properties
 
@@ -40,7 +40,7 @@ public WaitForState State { get; init; }
 
 **Value:** [WaitForState](/api/E2E/WaitForState/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1051)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_LocatorWaitForOptions_Timeout_"></a>
 <a id="E2E_LocatorWaitForOptions_Timeout"></a>
@@ -57,4 +57,4 @@ How long to wait. Defaults to the configured action timeout.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L1054)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)

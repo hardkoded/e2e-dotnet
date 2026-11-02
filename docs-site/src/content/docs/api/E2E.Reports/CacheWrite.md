@@ -21,7 +21,7 @@ public enum CacheWrite
 
 What happened to the cache entry after the step.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L693)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Fields
 
@@ -37,7 +37,7 @@ Evicted = 3
 
 **Value:** [CacheWrite](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L698)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheWrite_Kept"></a>
 
@@ -51,7 +51,7 @@ Kept = 1
 
 **Value:** [CacheWrite](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L696)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheWrite_NoChange"></a>
 
@@ -65,7 +65,7 @@ NoChange = 4
 
 **Value:** [CacheWrite](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L699)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheWrite_NotWritten"></a>
 
@@ -79,7 +79,7 @@ NotWritten = 5
 
 **Value:** [CacheWrite](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L700)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheWrite_Saved"></a>
 
@@ -93,7 +93,7 @@ Saved = 0
 
 **Value:** [CacheWrite](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L695)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheWrite_Unconfirmed"></a>
 
@@ -107,4 +107,4 @@ Unconfirmed = 2
 
 **Value:** [CacheWrite](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L697)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

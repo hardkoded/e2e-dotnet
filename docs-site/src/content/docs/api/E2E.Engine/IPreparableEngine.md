@@ -27,4 +27,4 @@ the session opens and finish when it closes, on every path; the mobile adapters'
 .NET-only name: upstream tests the engine handle for the members. [WebEngine](/api/E2E.Engine/WebEngine/) does not implement it, because it leases
 for the attempt it starts.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IPreparableEngine.cs#L16)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IPreparableEngine.cs)

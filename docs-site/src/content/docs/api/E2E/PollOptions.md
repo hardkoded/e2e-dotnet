@@ -1,6 +1,6 @@
 ---
 title: "PollOptions"
-description: "How PollOptions) re-reads a value."
+description: "How Poll<T> re-reads a value."
 editUrl: false
 prev: false
 next: false
@@ -19,11 +19,11 @@ public sealed class PollOptions
 ```
 
 
-How `PollOptions)` re-reads a value.
+How `Poll&lt;T&gt;` re-reads a value.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Poll.cs#L10)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Poll.cs)
 
 ## Properties
 
@@ -42,7 +42,7 @@ Pause between reads. The default is 100 milliseconds.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Poll.cs#L16)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Poll.cs)
 
 <a id="E2E_PollOptions_Message_"></a>
 <a id="E2E_PollOptions_Message"></a>
@@ -59,7 +59,7 @@ Extra line in the timeout error.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Poll.cs#L19)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Poll.cs)
 
 <a id="E2E_PollOptions_Timeout_"></a>
 <a id="E2E_PollOptions_Timeout"></a>
@@ -76,4 +76,4 @@ Deadline for the matcher to hold. The default is 5 seconds.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Poll.cs#L13)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Poll.cs)

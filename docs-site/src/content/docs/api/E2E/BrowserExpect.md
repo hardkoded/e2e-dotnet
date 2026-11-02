@@ -26,7 +26,7 @@ assertion at its timeout.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs#L17)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs)
 
 ## Properties
 
@@ -45,7 +45,7 @@ Inverts the matcher. A negated matcher passes after its condition has been false
 
 **Value:** [BrowserExpect](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs#L29)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs)
 
 ## Methods
 
@@ -77,7 +77,7 @@ assertion observing no node, where a read of the same locator would fail with `L
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs#L83)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs)
 
 <a id="E2E_BrowserExpect_ToHaveTitleAsync_"></a>
 <a id="E2E_BrowserExpect_ToHaveTitleAsync_E2E_TextMatch_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -102,7 +102,7 @@ Waits for the title to equal &lt;code class="paramref"&gt;expected&lt;/code&gt; 
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs#L61)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs)
 
 <a id="E2E_BrowserExpect_ToHaveURLAsync_"></a>
 <a id="E2E_BrowserExpect_ToHaveURLAsync_System_String_System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -130,7 +130,7 @@ Both sides are compared normalized (default port, trailing slash, dot segments, 
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs#L36)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs)
 
 <a id="E2E_BrowserExpect_ToHaveURLAsync_System_Text_RegularExpressions_Regex_System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -156,4 +156,4 @@ Waits for the URL to match &lt;code class="paramref"&gt;expected&lt;/code&gt;, t
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs#L48)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/BrowserExpect.cs)

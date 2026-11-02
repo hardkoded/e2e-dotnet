@@ -25,7 +25,7 @@ What the engine asks a provider for: one browser for one worker slot, or for one
 
 **Implements:** [IEquatable&lt;BrowserRequest&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L41)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 ## Properties
 
@@ -44,7 +44,7 @@ Present only for a per-attempt lease.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L56)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 <a id="E2E_Engine_BrowserRequest_Env_"></a>
 <a id="E2E_Engine_BrowserRequest_Env"></a>
@@ -61,7 +61,7 @@ The run's environment: where a provider reads its token from, never the process 
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L59)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 <a id="E2E_Engine_BrowserRequest_Log_"></a>
 <a id="E2E_Engine_BrowserRequest_Log"></a>
@@ -78,7 +78,7 @@ Reports one line of progress to the run's reporter (a session URL to watch), fro
 
 **Value:** [Action&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L62)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 <a id="E2E_Engine_BrowserRequest_RunId_"></a>
 <a id="E2E_Engine_BrowserRequest_RunId"></a>
@@ -95,7 +95,7 @@ The run id, for naming the session at the provider.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L44)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 <a id="E2E_Engine_BrowserRequest_Slot_"></a>
 <a id="E2E_Engine_BrowserRequest_Slot"></a>
@@ -112,7 +112,7 @@ Worker slot the browser serves, `0` to `Slots - 1`. In [Worker](/api/E2E.Engine/
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L50)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 <a id="E2E_Engine_BrowserRequest_Slots_"></a>
 <a id="E2E_Engine_BrowserRequest_Slots"></a>
@@ -129,7 +129,7 @@ Worker slots the run uses for this target, in all.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L53)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 <a id="E2E_Engine_BrowserRequest_TargetName_"></a>
 <a id="E2E_Engine_BrowserRequest_TargetName"></a>
@@ -146,4 +146,4 @@ The target the browser serves.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L47)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)

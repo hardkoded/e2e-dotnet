@@ -25,7 +25,7 @@ Whose progress a notification is: IDs join live progress to the report. Step ind
 
 **Implements:** [IEquatable&lt;StepProgressIdentity&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs#L30)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
 
 ## Constructors
 
@@ -51,7 +51,7 @@ Whose progress a notification is: IDs join live progress to the report. Step ind
 | `StepId` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `StepIndex` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs#L30)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
 
 ## Properties
 
@@ -68,7 +68,7 @@ public string AttemptId { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs#L30)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
 
 <a id="E2E_Reports_StepProgressIdentity_AttemptIndex_"></a>
 <a id="E2E_Reports_StepProgressIdentity_AttemptIndex"></a>
@@ -83,7 +83,7 @@ public int AttemptIndex { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs#L30)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
 
 <a id="E2E_Reports_StepProgressIdentity_StepId_"></a>
 <a id="E2E_Reports_StepProgressIdentity_StepId"></a>
@@ -98,7 +98,7 @@ public string StepId { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs#L30)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
 
 <a id="E2E_Reports_StepProgressIdentity_StepIndex_"></a>
 <a id="E2E_Reports_StepProgressIdentity_StepIndex"></a>
@@ -113,4 +113,4 @@ public int StepIndex { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs#L30)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)

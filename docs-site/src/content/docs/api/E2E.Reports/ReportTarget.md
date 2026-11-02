@@ -25,7 +25,7 @@ One target of the run (upstream's `ReportTarget`).
 
 **Implements:** [IEquatable&lt;ReportTarget&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L149)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Properties
 
@@ -42,7 +42,7 @@ public IReadOnlyList<ArtifactCapability> ArtifactCapabilities { get; init; }
 
 **Value:** [IReadOnlyList&lt;ArtifactCapability&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L168)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportTarget_BaseOrigin_"></a>
 <a id="E2E_Reports_ReportTarget_BaseOrigin"></a>
@@ -59,7 +59,7 @@ Origin of the target's declared app URL; null for a surface without one.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L159)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportTarget_Capabilities_"></a>
 <a id="E2E_Reports_ReportTarget_Capabilities"></a>
@@ -76,7 +76,7 @@ What the engine can do, sorted.
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L166)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportTarget_Engine_"></a>
 <a id="E2E_Reports_ReportTarget_Engine"></a>
@@ -91,7 +91,7 @@ public ReportEngine Engine { get; init; }
 
 **Value:** [ReportEngine](/api/E2E.Reports/ReportEngine/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L163)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportTarget_Environment_"></a>
 <a id="E2E_Reports_ReportTarget_Environment"></a>
@@ -106,7 +106,7 @@ public TargetEnvironment Environment { get; init; }
 
 **Value:** [TargetEnvironment](/api/E2E.Reports/TargetEnvironment/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L161)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportTarget_Id_"></a>
 <a id="E2E_Reports_ReportTarget_Id"></a>
@@ -121,7 +121,7 @@ public string Id { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L151)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportTarget_Index_"></a>
 <a id="E2E_Reports_ReportTarget_Index"></a>
@@ -138,7 +138,7 @@ Its place in the config's targets.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L154)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportTarget_Platform_"></a>
 <a id="E2E_Reports_ReportTarget_Platform"></a>
@@ -153,7 +153,7 @@ public string Platform { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L156)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportTarget_StateCapability_"></a>
 <a id="E2E_Reports_ReportTarget_StateCapability"></a>
@@ -170,4 +170,4 @@ Whether the engine can capture and restore state.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L171)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

@@ -25,7 +25,7 @@ A viewport-relative rectangle in CSS pixels.
 
 **Implements:** [IEquatable&lt;BoundingBox&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L42)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
 
 ## Constructors
 
@@ -51,7 +51,7 @@ A viewport-relative rectangle in CSS pixels.
 | `Width` | [double](https://learn.microsoft.com/dotnet/api/system.double) |  |
 | `Height` | [double](https://learn.microsoft.com/dotnet/api/system.double) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L42)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
 
 ## Properties
 
@@ -68,7 +68,7 @@ public double Height { get; init; }
 
 **Value:** [double](https://learn.microsoft.com/dotnet/api/system.double)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L42)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
 
 <a id="E2E_Engine_BoundingBox_Width_"></a>
 <a id="E2E_Engine_BoundingBox_Width"></a>
@@ -83,7 +83,7 @@ public double Width { get; init; }
 
 **Value:** [double](https://learn.microsoft.com/dotnet/api/system.double)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L42)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
 
 <a id="E2E_Engine_BoundingBox_X_"></a>
 <a id="E2E_Engine_BoundingBox_X"></a>
@@ -98,7 +98,7 @@ public double X { get; init; }
 
 **Value:** [double](https://learn.microsoft.com/dotnet/api/system.double)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L42)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
 
 <a id="E2E_Engine_BoundingBox_Y_"></a>
 <a id="E2E_Engine_BoundingBox_Y"></a>
@@ -113,4 +113,4 @@ public double Y { get; init; }
 
 **Value:** [double](https://learn.microsoft.com/dotnet/api/system.double)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L42)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)

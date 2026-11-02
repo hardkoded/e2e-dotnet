@@ -25,7 +25,7 @@ The model an agent step called and what it cost (upstream's `StepModelInfo`).
 
 **Implements:** [IEquatable&lt;StepModelInfo&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L744)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Properties
 
@@ -42,7 +42,7 @@ public string AdapterVersion { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L753)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepModelInfo_CacheReadTokens_"></a>
 <a id="E2E_Reports_StepModelInfo_CacheReadTokens"></a>
@@ -57,7 +57,7 @@ public long? CacheReadTokens { get; init; }
 
 **Value:** [long?](https://learn.microsoft.com/dotnet/api/system.int64)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L767)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepModelInfo_CacheWriteTokens_"></a>
 <a id="E2E_Reports_StepModelInfo_CacheWriteTokens"></a>
@@ -72,7 +72,7 @@ public long? CacheWriteTokens { get; init; }
 
 **Value:** [long?](https://learn.microsoft.com/dotnet/api/system.int64)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L769)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepModelInfo_Calls_"></a>
 <a id="E2E_Reports_StepModelInfo_Calls"></a>
@@ -87,7 +87,7 @@ public int Calls { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L757)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepModelInfo_Endpoint_"></a>
 <a id="E2E_Reports_StepModelInfo_Endpoint"></a>
@@ -104,7 +104,7 @@ public string Endpoint { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L751)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepModelInfo_EstimatedCostUsd_"></a>
 <a id="E2E_Reports_StepModelInfo_EstimatedCostUsd"></a>
@@ -119,7 +119,7 @@ public double? EstimatedCostUsd { get; init; }
 
 **Value:** [double?](https://learn.microsoft.com/dotnet/api/system.double)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L771)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepModelInfo_InputTokens_"></a>
 <a id="E2E_Reports_StepModelInfo_InputTokens"></a>
@@ -134,7 +134,7 @@ public long InputTokens { get; init; }
 
 **Value:** [long](https://learn.microsoft.com/dotnet/api/system.int64)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L763)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepModelInfo_Model_"></a>
 <a id="E2E_Reports_StepModelInfo_Model"></a>
@@ -149,7 +149,7 @@ public string Model { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L748)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepModelInfo_OutputTokens_"></a>
 <a id="E2E_Reports_StepModelInfo_OutputTokens"></a>
@@ -164,7 +164,7 @@ public long OutputTokens { get; init; }
 
 **Value:** [long](https://learn.microsoft.com/dotnet/api/system.int64)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L765)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepModelInfo_PeakTokensPerCall_"></a>
 <a id="E2E_Reports_StepModelInfo_PeakTokensPerCall"></a>
@@ -179,7 +179,7 @@ public long PeakTokensPerCall { get; init; }
 
 **Value:** [long](https://learn.microsoft.com/dotnet/api/system.int64)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L761)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepModelInfo_PolicyVersion_"></a>
 <a id="E2E_Reports_StepModelInfo_PolicyVersion"></a>
@@ -194,7 +194,7 @@ public string PolicyVersion { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L755)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepModelInfo_Provider_"></a>
 <a id="E2E_Reports_StepModelInfo_Provider"></a>
@@ -209,7 +209,7 @@ public string Provider { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L746)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepModelInfo_TokenAccounting_"></a>
 <a id="E2E_Reports_StepModelInfo_TokenAccounting"></a>
@@ -224,4 +224,4 @@ public TokenAccounting TokenAccounting { get; init; }
 
 **Value:** [TokenAccounting](/api/E2E.Reports/TokenAccounting/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L759)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

@@ -1,6 +1,6 @@
 ---
 title: "LocatorAction.Swipe"
-description: "Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is CancellationToken)."
+description: "Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is SwipeAsync."
 editUrl: false
 prev: false
 next: false
@@ -19,13 +19,13 @@ public sealed record LocatorAction.Swipe : LocatorAction, IEquatable<LocatorActi
 ```
 
 
-Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is `CancellationToken)`.
+Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is `SwipeAsync`.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object) → [LocatorAction](/api/E2E.Engine/LocatorAction/)
 
 **Implements:** [IEquatable&lt;LocatorAction&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1), [IEquatable&lt;LocatorAction.Swipe&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L41)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)
 
 ## Constructors
 
@@ -40,7 +40,7 @@ public Swipe(ScrollDirection Direction, Momentum? Momentum = null)
 ```
 
 
-Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is `CancellationToken)`.
+Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is `SwipeAsync`.
 
 **Parameters**
 
@@ -49,7 +49,7 @@ Scrolls a scrollable node about three quarters of its height or width. The viewp
 | `Direction` | [ScrollDirection](/api/E2E.Engine/ScrollDirection/) |  |
 | `Momentum` | `Momentum?` |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L41)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)
 
 ## Properties
 
@@ -66,7 +66,7 @@ public ScrollDirection Direction { get; init; }
 
 **Value:** [ScrollDirection](/api/E2E.Engine/ScrollDirection/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L41)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)
 
 <a id="E2E_Engine_LocatorAction_Swipe_Momentum_"></a>
 <a id="E2E_Engine_LocatorAction_Swipe_Momentum"></a>
@@ -81,4 +81,4 @@ public Momentum? Momentum { get; init; }
 
 **Value:** `Momentum?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L41)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)

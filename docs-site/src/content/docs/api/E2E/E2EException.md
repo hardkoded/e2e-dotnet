@@ -27,7 +27,7 @@ Base exception for the agent and engines. [Code](#E2E_E2EException_Code) is stab
 
 **Derived:** [AgentException](/api/E2E/AgentException/), [ConfigurationException](/api/E2E/ConfigurationException/), [EngineException](/api/E2E/EngineException/), [OAuthException](/api/E2E.OAuth/OAuthException/), [SkipException](/api/E2E/SkipException/), [TestException](/api/E2E/TestException/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L8)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 ## Constructors
 
@@ -49,7 +49,7 @@ public E2EException(string code, string message)
 | `code` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L10)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_E2EException__ctor_System_String_System_String_System_Exception_"></a>
 
@@ -69,7 +69,7 @@ public E2EException(string code, string message, Exception inner)
 | `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `inner` | [Exception](https://learn.microsoft.com/dotnet/api/system.exception) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L16)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 ## Properties
 
@@ -88,7 +88,7 @@ Stable machine-readable code, such as `ASSERTION_FAILED`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L23)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_E2EException_Details_"></a>
 <a id="E2E_E2EException_Details"></a>
@@ -105,4 +105,4 @@ Structured facts of the failure beside its message, when the thrower had them. S
 
 **Value:** [ErrorDetails](/api/E2E/ErrorDetails/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L26)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)

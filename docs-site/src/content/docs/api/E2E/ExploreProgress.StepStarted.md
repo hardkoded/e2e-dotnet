@@ -23,7 +23,7 @@ public sealed record ExploreProgress.StepStarted : ExploreProgress, IEquatable<E
 
 **Implements:** [IEquatable&lt;ExploreProgress&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1), [IEquatable&lt;ExploreProgress.StepStarted&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L35)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
 
 ## Constructors
 
@@ -44,7 +44,7 @@ public StepStarted(OpenedStep Step)
 | --- | --- | --- |
 | `Step` | [OpenedStep](/api/E2E/OpenedStep/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L35)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
 
 ## Properties
 
@@ -61,4 +61,4 @@ public OpenedStep Step { get; init; }
 
 **Value:** [OpenedStep](/api/E2E/OpenedStep/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L35)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)

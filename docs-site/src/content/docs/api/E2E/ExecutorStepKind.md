@@ -21,7 +21,7 @@ public enum ExecutorStepKind
 
 Upstream's `ExecutorStep.kind`.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L172)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 ## Fields
 
@@ -37,7 +37,7 @@ Act = 0
 
 **Value:** [ExecutorStepKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L174)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorStepKind_Assert"></a>
 
@@ -51,4 +51,4 @@ Assert = 1
 
 **Value:** [ExecutorStepKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L175)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)

@@ -24,7 +24,7 @@ The screen matchers of [ScreenExpect](/api/E2E/ScreenExpect/), but an
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs#L77)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
 
 ## Properties
 
@@ -43,7 +43,7 @@ Inverts the matcher, as [Not](/api/E2E/ScreenExpect/#E2E_ScreenExpect_Not). A fa
 
 **Value:** [SoftScreenExpect](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs#L89)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
 
 ## Methods
 
@@ -67,7 +67,7 @@ public Task ToHaveScreenshotAsync(ScreenshotOptions options, string? callerFile 
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs#L93)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
 
 <a id="E2E_SoftScreenExpect_ToHaveScreenshotAsync_System_String_E2E_ScreenshotOptions_System_String_"></a>
 
@@ -89,4 +89,4 @@ public Task ToHaveScreenshotAsync(string? name = null, ScreenshotOptions? option
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs#L91)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)

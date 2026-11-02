@@ -21,7 +21,7 @@ public enum BrowserName
 
 A browser the engine launches (upstream `BrowserName`).
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserConnection.cs#L10)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserConnection.cs)
 
 ## Fields
 
@@ -39,7 +39,7 @@ Chromium, the default.
 
 **Value:** [BrowserName](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserConnection.cs#L13)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserConnection.cs)
 
 <a id="E2E_Engine_BrowserName_Firefox"></a>
 
@@ -55,7 +55,7 @@ Firefox.
 
 **Value:** [BrowserName](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserConnection.cs#L16)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserConnection.cs)
 
 <a id="E2E_Engine_BrowserName_Webkit"></a>
 
@@ -71,4 +71,4 @@ WebKit.
 
 **Value:** [BrowserName](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserConnection.cs#L19)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserConnection.cs)

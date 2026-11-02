@@ -23,7 +23,7 @@ public sealed record ExploreProgress.StepFinished : ExploreProgress, IEquatable<
 
 **Implements:** [IEquatable&lt;ExploreProgress&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1), [IEquatable&lt;ExploreProgress.StepFinished&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L37)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
 
 ## Constructors
 
@@ -44,7 +44,7 @@ public StepFinished(ReportExploreStep Step)
 | --- | --- | --- |
 | `Step` | [ReportExploreStep](/api/E2E/ReportExploreStep/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L37)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
 
 ## Properties
 
@@ -61,4 +61,4 @@ public ReportExploreStep Step { get; init; }
 
 **Value:** [ReportExploreStep](/api/E2E/ReportExploreStep/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L37)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)

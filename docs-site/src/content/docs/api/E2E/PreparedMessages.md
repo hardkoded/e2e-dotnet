@@ -26,7 +26,7 @@ stop. The executor has evidence the loop guards cannot see that the step is not 
 
 **Implements:** [IEquatable&lt;PreparedMessages&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L150)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
 
 ## Constructors
 
@@ -51,7 +51,7 @@ stop. The executor has evidence the loop guards cannot see that the step is not 
 | `Messages` | [IReadOnlyList&lt;ModelMessage&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) |  |
 | `Stop` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L150)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
 
 ## Properties
 
@@ -68,7 +68,7 @@ public IReadOnlyList<ModelMessage> Messages { get; init; }
 
 **Value:** [IReadOnlyList&lt;ModelMessage&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L150)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
 
 <a id="E2E_PreparedMessages_Stop_"></a>
 <a id="E2E_PreparedMessages_Stop"></a>
@@ -83,7 +83,7 @@ public string? Stop { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L150)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
 
 ## Operators
 
@@ -106,4 +106,4 @@ public static implicit operator PreparedMessages(List<ModelMessage> messages)
 
 **Returns:** [PreparedMessages](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L153)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)

@@ -21,7 +21,7 @@ public enum ExecutorVerb
 
 One verb of [IExecutorActions](/api/E2E/IExecutorActions/). The port has the verbs its engines can perform.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L231)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 ## Fields
 
@@ -37,7 +37,7 @@ Back = 12
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L245)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorVerb_Check"></a>
 
@@ -51,7 +51,7 @@ Check = 7
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L240)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorVerb_Clear"></a>
 
@@ -65,7 +65,7 @@ Clear = 4
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L237)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorVerb_DoubleTap"></a>
 
@@ -79,7 +79,7 @@ DoubleTap = 1
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L234)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorVerb_Navigate"></a>
 
@@ -93,7 +93,7 @@ Navigate = 11
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L244)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorVerb_Press"></a>
 
@@ -107,7 +107,7 @@ Press = 5
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L238)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorVerb_Scroll"></a>
 
@@ -121,7 +121,7 @@ Scroll = 10
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L243)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorVerb_ScrollTo"></a>
 
@@ -135,7 +135,7 @@ ScrollTo = 8
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L241)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorVerb_ScrollUntil"></a>
 
@@ -149,7 +149,7 @@ ScrollUntil = 9
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L242)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorVerb_Select"></a>
 
@@ -163,7 +163,7 @@ Select = 6
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L239)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorVerb_Tap"></a>
 
@@ -177,7 +177,7 @@ Tap = 0
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L233)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorVerb_Type"></a>
 
@@ -191,7 +191,7 @@ Type = 2
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L235)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorVerb_TypeSecret"></a>
 
@@ -205,7 +205,7 @@ TypeSecret = 3
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L236)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorVerb_Upload"></a>
 
@@ -219,4 +219,4 @@ Upload = 13
 
 **Value:** [ExecutorVerb](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L246)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)

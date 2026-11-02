@@ -1,6 +1,6 @@
 ---
 title: "RecordingOptions"
-description: "How CancellationToken) names its file (upstream's RecordingOptions)."
+description: "How StartRecordingAsync names its file (upstream's RecordingOptions)."
 editUrl: false
 prev: false
 next: false
@@ -19,13 +19,13 @@ public sealed record RecordingOptions : IEquatable<RecordingOptions>
 ```
 
 
-How `CancellationToken)` names its file (upstream's `RecordingOptions`).
+How `StartRecordingAsync` names its file (upstream's `RecordingOptions`).
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
 **Implements:** [IEquatable&lt;RecordingOptions&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Recordings.cs#L15)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Recordings.cs)
 
 ## Properties
 
@@ -44,4 +44,4 @@ File name stem, `recordings/001-<name>.<ext>`; defaults to `recording`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Recordings.cs#L18)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Recordings.cs)

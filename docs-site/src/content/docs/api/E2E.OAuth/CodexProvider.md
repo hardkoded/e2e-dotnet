@@ -27,7 +27,7 @@ Codex backend, which speaks the Responses API, requires `store: false`, and answ
 
 **Implements:** [IOAuthProvider](/api/E2E.OAuth/IOAuthProvider/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs#L18)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs)
 
 ## Constructors
 
@@ -53,7 +53,7 @@ public CodexProvider(HttpClient? http = null, string originator = "e2e", string 
 | `callbackPort` | [int](https://learn.microsoft.com/dotnet/api/system.int32) | Test seam. |
 | `loginTimeout` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) | Test seam. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs#L47)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs)
 
 ## Fields
 
@@ -69,7 +69,7 @@ public const string DefaultApiUrl = "https://chatgpt.com/backend-api/codex/respo
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs#L32)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs)
 
 ## Properties
 
@@ -88,7 +88,7 @@ The id in the credentials file and on the command line: `openai`, `github-copilo
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs#L63)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs)
 
 <a id="E2E_OAuth_CodexProvider_Name_"></a>
 <a id="E2E_OAuth_CodexProvider_Name"></a>
@@ -105,7 +105,7 @@ The vendor's name for messages.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs#L65)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs)
 
 ## Methods
 
@@ -131,7 +131,7 @@ The models the Codex backend serves this subscription, `/models` next to `/respo
 
 **Returns:** [Task&lt;IReadOnlyList&lt;SubscriptionModel&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs#L147)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs)
 
 <a id="E2E_OAuth_CodexProvider_LoginAsync_"></a>
 <a id="E2E_OAuth_CodexProvider_LoginAsync_E2E_OAuth_OAuthLoginCallbacks_E2E_OAuth_OAuthLoginOptions_System_Threading_CancellationToken_"></a>
@@ -154,7 +154,7 @@ public Task<OAuthCredentials> LoginAsync(OAuthLoginCallbacks callbacks, OAuthLog
 
 **Returns:** [Task&lt;OAuthCredentials&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs#L67)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs)
 
 <a id="E2E_OAuth_CodexProvider_PrepareAsync_"></a>
 <a id="E2E_OAuth_CodexProvider_PrepareAsync_System_Net_Http_HttpRequestMessage_E2E_OAuth_OAuthCredentials_System_Threading_CancellationToken_"></a>
@@ -180,7 +180,7 @@ encrypted reasoning carried between turns, always streamed. The model folds the 
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs#L94)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs)
 
 <a id="E2E_OAuth_CodexProvider_RefreshAsync_"></a>
 <a id="E2E_OAuth_CodexProvider_RefreshAsync_E2E_OAuth_OAuthCredentials_System_Threading_CancellationToken_"></a>
@@ -204,4 +204,4 @@ Renews the credentials, or throws [LoginRequired](/api/E2E.OAuth/OAuthException/
 
 **Returns:** [Task&lt;OAuthCredentials&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs#L77)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CodexProvider.cs)

@@ -1,6 +1,6 @@
 ---
 title: "ActOptions"
-description: "Values passed into one CancellationToken) goal. Put fresh data in Unique(string)."
+description: "Values passed into one ActAsync goal. Put fresh data in Unique(string)."
 editUrl: false
 prev: false
 next: false
@@ -19,11 +19,11 @@ public sealed class ActOptions
 ```
 
 
-Values passed into one `CancellationToken)` goal. Put fresh data in [Unique(string)](/api/E2E/Values/#E2E_Values_Unique_System_String_).
+Values passed into one `ActAsync` goal. Put fresh data in [Unique(string)](/api/E2E/Values/#E2E_Values_Unique_System_String_).
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L949)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
 ## Properties
 
@@ -42,7 +42,7 @@ The named agent that runs the step. Defaults to `default`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L962)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
 <a id="E2E_ActOptions_MaxModelCalls_"></a>
 <a id="E2E_ActOptions_MaxModelCalls"></a>
@@ -59,7 +59,7 @@ Model-call budget. Defaults to the configured `MaxModelCalls` and can only lower
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L959)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
 <a id="E2E_ActOptions_MaxSteps_"></a>
 <a id="E2E_ActOptions_MaxSteps"></a>
@@ -76,7 +76,7 @@ Action budget. Defaults to the configured `MaxSteps` (25) and can only lower it.
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L956)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
 <a id="E2E_ActOptions_OnAction_"></a>
 <a id="E2E_ActOptions_OnAction"></a>
@@ -95,7 +95,7 @@ nothing from it. A throw fails the step.
 
 **Value:** [ActionHook](/api/E2E/ActionHook/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L969)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
 <a id="E2E_ActOptions_Params_"></a>
 <a id="E2E_ActOptions_Params"></a>
@@ -110,7 +110,7 @@ public IReadOnlyDictionary<string, object?>? Params { get; init; }
 
 **Value:** [IReadOnlyDictionary&lt;string, object&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L951)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
 <a id="E2E_ActOptions_Timeout_"></a>
 <a id="E2E_ActOptions_Timeout"></a>
@@ -125,4 +125,4 @@ public TimeSpan? Timeout { get; init; }
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L953)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)

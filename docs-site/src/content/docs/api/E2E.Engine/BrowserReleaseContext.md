@@ -25,7 +25,7 @@ Handed to release, once per lease.
 
 **Implements:** [IEquatable&lt;BrowserReleaseContext&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L92)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 ## Properties
 
@@ -44,7 +44,7 @@ The run's environment, the same acquire saw.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L99)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 <a id="E2E_Engine_BrowserReleaseContext_Log_"></a>
 <a id="E2E_Engine_BrowserReleaseContext_Log"></a>
@@ -59,7 +59,7 @@ public required Action<string> Log { get; init; }
 
 **Value:** [Action&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L101)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 <a id="E2E_Engine_BrowserReleaseContext_RunId_"></a>
 <a id="E2E_Engine_BrowserReleaseContext_RunId"></a>
@@ -74,7 +74,7 @@ public required string RunId { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L94)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 <a id="E2E_Engine_BrowserReleaseContext_TargetName_"></a>
 <a id="E2E_Engine_BrowserReleaseContext_TargetName"></a>
@@ -89,4 +89,4 @@ public required string TargetName { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L96)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)

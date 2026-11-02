@@ -26,7 +26,7 @@ The worker-scoped owner of preparation, app processes, and engine initialization
 
 **Implements:** [IAsyncDisposable](https://learn.microsoft.com/dotnet/api/system.iasyncdisposable)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L72)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 ## Properties
 
@@ -45,7 +45,7 @@ The id of the run the host belongs to; the same as its sessions'. Upstream's `ru
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L96)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 <a id="E2E_E2EHost_Target_"></a>
 <a id="E2E_E2EHost_Target"></a>
@@ -62,7 +62,7 @@ The name of the target the host opened. Upstream's `target`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L99)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 ## Methods
 
@@ -82,7 +82,7 @@ Upstream's `close`, which returns `SerializedError[]`: see [CloseAsync()](/api/E
 
 **Returns:** [Task&lt;IReadOnlyList&lt;Exception&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L178)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 <a id="E2E_E2EHost_DisposeAsync_"></a>
 <a id="E2E_E2EHost_DisposeAsync"></a>
@@ -99,7 +99,7 @@ Closes the host and throws what [CloseAsync()](#E2E_E2EHost_CloseAsync) returns 
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L181)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 <a id="E2E_E2EHost_OpenAsync_"></a>
 <a id="E2E_E2EHost_OpenAsync_E2E_OpenHostOptions_System_Threading_CancellationToken_"></a>
@@ -125,7 +125,7 @@ free function: C# has none, so the type it returns owns it.
 
 **Returns:** [Task&lt;E2EHost&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L106)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 <a id="E2E_E2EHost_OpenSessionAsync_"></a>
 <a id="E2E_E2EHost_OpenSessionAsync_E2E_OpenSessionOptions_System_Threading_CancellationToken_"></a>
@@ -150,4 +150,4 @@ The token cancels the opening and, as the session's own, every operation it runs
 
 **Returns:** [Task&lt;E2ESession&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L155)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)

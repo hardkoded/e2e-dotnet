@@ -21,7 +21,7 @@ public enum WebColorScheme
 
 The `prefers-color-scheme` a page reports.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs#L10)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs)
 
 ## Fields
 
@@ -39,7 +39,7 @@ Dark = 1
 
 **Value:** [WebColorScheme](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs#L16)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs)
 
 <a id="E2E_Engine_WebColorScheme_Light"></a>
 
@@ -55,7 +55,7 @@ Light = 0
 
 **Value:** [WebColorScheme](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs#L13)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs)
 
 <a id="E2E_Engine_WebColorScheme_NoPreference"></a>
 
@@ -71,4 +71,4 @@ NoPreference = 2
 
 **Value:** [WebColorScheme](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs#L19)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs)

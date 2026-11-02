@@ -25,7 +25,7 @@ The engine refused an operation or could not drive the app.
 
 **Implements:** [ISerializable](https://learn.microsoft.com/dotnet/api/system.runtime.serialization.iserializable)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L132)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 ## Constructors
 
@@ -47,7 +47,7 @@ public EngineException(string code, string message)
 | `code` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L134)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_EngineException__ctor_System_String_System_String_System_Boolean_System_Exception_"></a>
 
@@ -73,7 +73,7 @@ may have committed to run again.
 | `retryable` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 | `inner` | [Exception](https://learn.microsoft.com/dotnet/api/system.exception) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L150)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_EngineException__ctor_System_String_System_String_System_Exception_"></a>
 
@@ -93,7 +93,7 @@ public EngineException(string code, string message, Exception inner)
 | `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `inner` | [Exception](https://learn.microsoft.com/dotnet/api/system.exception) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L139)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 ## Properties
 
@@ -112,4 +112,4 @@ Whether the caller may observe again and repeat the operation.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L157)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)

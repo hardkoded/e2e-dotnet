@@ -25,7 +25,7 @@ An agent step failed, was blocked, or could not talk to its model.
 
 **Implements:** [ISerializable](https://learn.microsoft.com/dotnet/api/system.runtime.serialization.iserializable)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L76)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 ## Constructors
 
@@ -47,7 +47,7 @@ public AgentException(string code, string message)
 | `code` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L78)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_AgentException__ctor_System_String_System_String_System_Boolean_"></a>
 
@@ -67,7 +67,7 @@ public AgentException(string code, string message, bool blocked)
 | `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `blocked` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L88)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_AgentException__ctor_System_String_System_String_System_Boolean_System_Exception_"></a>
 
@@ -88,7 +88,7 @@ public AgentException(string code, string message, bool blocked, Exception inner
 | `blocked` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 | `inner` | [Exception](https://learn.microsoft.com/dotnet/api/system.exception) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L94)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_AgentException__ctor_System_String_System_String_System_Exception_"></a>
 
@@ -108,7 +108,7 @@ public AgentException(string code, string message, Exception inner)
 | `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `inner` | [Exception](https://learn.microsoft.com/dotnet/api/system.exception) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L83)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 ## Properties
 
@@ -128,7 +128,7 @@ rather than the app misbehaving.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L128)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_AgentException_Explanation_"></a>
 <a id="E2E_AgentException_Explanation"></a>
@@ -145,7 +145,7 @@ The step's account of what happened. The same text as [Message](https://learn.mi
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L101)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_AgentException_Screenshot_"></a>
 <a id="E2E_AgentException_Screenshot"></a>
@@ -163,4 +163,4 @@ Where a failed `AssertAsync` kept its redacted screenshot, relative to the proje
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L110)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)

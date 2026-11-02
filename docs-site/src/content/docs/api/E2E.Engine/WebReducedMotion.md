@@ -21,7 +21,7 @@ public enum WebReducedMotion
 
 The `prefers-reduced-motion` a page reports.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs#L23)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs)
 
 ## Fields
 
@@ -39,7 +39,7 @@ NoPreference = 1
 
 **Value:** [WebReducedMotion](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs#L29)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs)
 
 <a id="E2E_Engine_WebReducedMotion_Reduce"></a>
 
@@ -55,4 +55,4 @@ Reduce = 0
 
 **Value:** [WebReducedMotion](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs#L26)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs)

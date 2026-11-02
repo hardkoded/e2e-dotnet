@@ -22,7 +22,7 @@ public enum KeyModifier
 A key held for a click, as a Shift-click extends a selection. Upstream's `KeyModifier` (`engine/contract.ts`).
 [ControlOrMeta](#E2E_Engine_KeyModifier_ControlOrMeta) is Control, or Meta on macOS.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs#L11)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs)
 
 ## Fields
 
@@ -38,7 +38,7 @@ Alt = 2
 
 **Value:** [KeyModifier](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs#L15)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs)
 
 <a id="E2E_Engine_KeyModifier_Control"></a>
 
@@ -52,7 +52,7 @@ Control = 1
 
 **Value:** [KeyModifier](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs#L14)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs)
 
 <a id="E2E_Engine_KeyModifier_ControlOrMeta"></a>
 
@@ -66,7 +66,7 @@ ControlOrMeta = 4
 
 **Value:** [KeyModifier](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs#L17)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs)
 
 <a id="E2E_Engine_KeyModifier_Meta"></a>
 
@@ -80,7 +80,7 @@ Meta = 3
 
 **Value:** [KeyModifier](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs#L16)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs)
 
 <a id="E2E_Engine_KeyModifier_Shift"></a>
 
@@ -94,4 +94,4 @@ Shift = 0
 
 **Value:** [KeyModifier](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs#L13)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs)

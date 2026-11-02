@@ -25,7 +25,7 @@ What an exploration ended with. Upstream's `ExploreOutcome`, which extends the r
 
 **Implements:** [IEquatable&lt;ExploreOutcome&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L113)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 ## Constructors
 
@@ -51,7 +51,7 @@ What an exploration ended with. Upstream's `ExploreOutcome`, which extends the r
 | `Error` | [E2EException](/api/E2E/E2EException/) | The error that ended the run, or else the first cleanup failure, or null for a pass. |
 | `Explore` | [ReportExplore](/api/E2E/ReportExplore/) | What was asked, did, and found. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L113)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 ## Properties
 
@@ -70,7 +70,7 @@ The error that ended the run, or else the first cleanup failure, or null for a p
 
 **Value:** [E2EException](/api/E2E/E2EException/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L113)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOutcome_ExitCode_"></a>
 <a id="E2E_ExploreOutcome_ExitCode"></a>
@@ -87,7 +87,7 @@ public int ExitCode { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L113)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOutcome_Explore_"></a>
 <a id="E2E_ExploreOutcome_Explore"></a>
@@ -104,7 +104,7 @@ What was asked, did, and found.
 
 **Value:** [ReportExplore](/api/E2E/ReportExplore/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L113)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 <a id="E2E_ExploreOutcome_Status_"></a>
 <a id="E2E_ExploreOutcome_Status"></a>
@@ -121,4 +121,4 @@ How the run ended. An agent step the run could not finish for lack of credential
 
 **Value:** [RunStatus](/api/E2E/RunStatus/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs#L113)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)

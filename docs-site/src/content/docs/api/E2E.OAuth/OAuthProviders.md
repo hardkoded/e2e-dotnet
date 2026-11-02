@@ -23,7 +23,7 @@ The built-in subscription providers by id, and what `e2e login`, `logout`, and `
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs#L73)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs)
 
 ## Properties
 
@@ -42,7 +42,7 @@ Upstream's provider ids, in its order.
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs#L76)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs)
 
 ## Methods
 
@@ -67,7 +67,7 @@ The provider's API key from its [ApiKeyEnv](/api/E2E.OAuth/IOAuthProvider/#E2E_O
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs#L108)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs)
 
 <a id="E2E_OAuth_OAuthProviders_CredentialSource_"></a>
 <a id="E2E_OAuth_OAuthProviders_CredentialSource_E2E_OAuth_IOAuthProvider_E2E_OAuth_ICredentialStore_"></a>
@@ -94,7 +94,7 @@ credential actually read.
 
 **Returns:** `(ICredentialStore Store, string LoginHint)`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs#L120)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs)
 
 <a id="E2E_OAuth_OAuthProviders_Describe_"></a>
 <a id="E2E_OAuth_OAuthProviders_Describe_System_String_"></a>
@@ -117,7 +117,7 @@ A short description of each subscription, for pickers and help.
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs#L134)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs)
 
 <a id="E2E_OAuth_OAuthProviders_Get_"></a>
 <a id="E2E_OAuth_OAuthProviders_Get_System_String_"></a>
@@ -140,7 +140,7 @@ The provider for &lt;code class="paramref"&gt;id&lt;/code&gt;; [Misconfigured](/
 
 **Returns:** [IOAuthProvider](/api/E2E.OAuth/IOAuthProvider/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs#L82)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs)
 
 <a id="E2E_OAuth_OAuthProviders_ListModelsAsync_"></a>
 <a id="E2E_OAuth_OAuthProviders_ListModelsAsync_System_String_E2E_OAuth_ICredentialStore_System_Threading_CancellationToken_"></a>
@@ -166,7 +166,7 @@ else the stored login; [NotLoggedIn](/api/E2E.OAuth/OAuthException/#E2E_OAuth_OA
 
 **Returns:** [Task&lt;IReadOnlyList&lt;SubscriptionModel&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs#L193)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs)
 
 <a id="E2E_OAuth_OAuthProviders_LoginAsync_"></a>
 <a id="E2E_OAuth_OAuthProviders_LoginAsync_System_String_E2E_OAuth_OAuthLoginCallbacks_E2E_OAuth_OAuthLoginOptions_E2E_OAuth_ICredentialStore_System_Threading_CancellationToken_"></a>
@@ -193,7 +193,7 @@ Signs in to &lt;code class="paramref"&gt;providerId&lt;/code&gt; and stores the 
 
 **Returns:** [Task&lt;OAuthCredentials&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs#L147)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs)
 
 <a id="E2E_OAuth_OAuthProviders_LoginHint_"></a>
 <a id="E2E_OAuth_OAuthProviders_LoginHint_E2E_OAuth_IOAuthProvider_"></a>
@@ -216,7 +216,7 @@ How a missing login is described to the user: the CLI command that fixes it, and
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs#L100)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs)
 
 <a id="E2E_OAuth_OAuthProviders_LogoutAsync_"></a>
 <a id="E2E_OAuth_OAuthProviders_LogoutAsync_System_String_E2E_OAuth_ICredentialStore_System_Threading_CancellationToken_"></a>
@@ -241,4 +241,4 @@ Forgets the stored login. True when one was stored.
 
 **Returns:** [Task&lt;bool&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs#L176)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs)

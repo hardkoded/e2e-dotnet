@@ -461,9 +461,8 @@ function sourceHref(item) {
     const repo = String(source.remote?.repo || "https://github.com/hardkoded/e2e-dotnet.git").replace(/\.git$/, "");
     // Metadata records the branch DocFX ran on. Published links stay on main after that branch is gone.
     const branch = "main";
-    let href = `${repo}/blob/${branch}/${file.replace(/^\//, "")}`;
-    if (typeof source.startLine === "number") href += `#L${source.startLine + 1}`;
-    return href;
+    // No line anchor: a line number changes with every edit above it and churns unrelated pages.
+    return `${repo}/blob/${branch}/${file.replace(/^\//, "")}`;
 }
 
 function renderComment(value, fromId) {

@@ -23,7 +23,7 @@ The stores the subscription models and the CLI use.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs#L25)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs)
 
 ## Fields
 
@@ -41,7 +41,7 @@ Credentials JSON in the environment, standing in for the file on a machine the u
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs#L28)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs)
 
 ## Methods
 
@@ -60,7 +60,7 @@ public static ICredentialStore Default()
 
 **Returns:** [ICredentialStore](/api/E2E.OAuth/ICredentialStore/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs#L44)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs)
 
 <a id="E2E_OAuth_CredentialStores_DefaultPath_"></a>
 <a id="E2E_OAuth_CredentialStores_DefaultPath"></a>
@@ -78,4 +78,4 @@ public static string DefaultPath()
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs#L34)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs)

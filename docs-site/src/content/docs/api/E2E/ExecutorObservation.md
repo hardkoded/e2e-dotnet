@@ -25,7 +25,7 @@ A redacted, size-bounded observation an executor may show its model.
 
 **Implements:** [IEquatable&lt;ExecutorObservation&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L302)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 ## Constructors
 
@@ -48,7 +48,7 @@ A redacted, size-bounded observation an executor may show its model.
 | --- | --- | --- |
 | `Text` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The screen as the model reads it, already secret-redacted. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L302)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 ## Properties
 
@@ -68,7 +68,7 @@ Null when the engine did not measure it (the web engine never does): the tree's 
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L314)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorObservation_Path_"></a>
 <a id="E2E_ExecutorObservation_Path"></a>
@@ -85,7 +85,7 @@ The location of the screen, redacted, when the engine reports one. Null on an en
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L317)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorObservation_Pixels_"></a>
 <a id="E2E_ExecutorObservation_Pixels"></a>
@@ -102,7 +102,7 @@ The masked pixels. Present when the call asked for them with [Pixels](/api/E2E/E
 
 **Value:** [ExecutorPixels](/api/E2E/ExecutorPixels/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L326)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorObservation_PixelsWithheld_"></a>
 <a id="E2E_ExecutorObservation_PixelsWithheld"></a>
@@ -119,7 +119,7 @@ Why requested pixels were withheld.
 
 **Value:** `VisionDegradation?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L329)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorObservation_Revision_"></a>
 <a id="E2E_ExecutorObservation_Revision"></a>
@@ -136,7 +136,7 @@ The revision of the capture ([Revision](/api/E2E.Engine/Observation/#E2E_Engine_
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L320)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorObservation_Text_"></a>
 <a id="E2E_ExecutorObservation_Text"></a>
@@ -153,7 +153,7 @@ The screen as the model reads it, already secret-redacted.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L302)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorObservation_Tree_"></a>
 <a id="E2E_ExecutorObservation_Tree"></a>
@@ -170,7 +170,7 @@ The redacted node tree. Present when the call asked for it with [Tree](/api/E2E/
 
 **Value:** [IReadOnlyList&lt;ExecutorNode&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L323)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorObservation_TreeUnavailable_"></a>
 <a id="E2E_ExecutorObservation_TreeUnavailable"></a>
@@ -187,7 +187,7 @@ Semantic capture failed: use the accompanying pixels, and never read the listing
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L305)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorObservation_Truncated_"></a>
 <a id="E2E_ExecutorObservation_Truncated"></a>
@@ -204,4 +204,4 @@ True when the engine left nodes out to stay within its budget. Scrolling brings 
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L308)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)

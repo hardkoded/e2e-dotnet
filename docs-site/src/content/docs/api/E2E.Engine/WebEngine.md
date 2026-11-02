@@ -28,7 +28,7 @@ same node actions the document engine does. Install browsers once with
 
 **Implements:** [IEngine](/api/E2E.Engine/IEngine/), [IAsyncDisposable](https://learn.microsoft.com/dotnet/api/system.iasyncdisposable)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/obj/Release/net10.0/System.Text.RegularExpressions.Generator/System.Text.RegularExpressions.Generator.RegexGenerator/RegexGenerator.g.cs#L392)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/obj/Release/net10.0/System.Text.RegularExpressions.Generator/System.Text.RegularExpressions.Generator.RegexGenerator/RegexGenerator.g.cs)
 
 ## Constructors
 
@@ -49,7 +49,7 @@ public WebEngine(WebEngineOptions options)
 | --- | --- | --- |
 | `options` | [WebEngineOptions](/api/E2E.Engine/WebEngineOptions/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L292)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
 
 <a id="E2E_Engine_WebEngine__ctor_System_Nullable_System_Boolean__"></a>
 
@@ -67,7 +67,7 @@ public WebEngine(bool? headless = null)
 | --- | --- | --- |
 | `headless` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L287)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
 
 ## Fields
 
@@ -83,7 +83,7 @@ public const string EngineVersion = "1.1.0"
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L267)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
 
 ## Properties
 
@@ -100,7 +100,7 @@ public EngineCapabilities Capabilities { get; }
 
 **Value:** [EngineCapabilities](/api/E2E.Engine/EngineCapabilities/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L328)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
 
 <a id="E2E_Engine_WebEngine_Platform_"></a>
 <a id="E2E_Engine_WebEngine_Platform"></a>
@@ -115,7 +115,7 @@ public string Platform { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L312)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
 
 <a id="E2E_Engine_WebEngine_Version_"></a>
 <a id="E2E_Engine_WebEngine_Version"></a>
@@ -130,7 +130,7 @@ public string Version { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L326)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
 
 ## Methods
 
@@ -149,7 +149,7 @@ Worker shutdown: releases the replacement lease the worker acquired for itself, 
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.Leases.cs#L53)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.Leases.cs)
 
 <a id="E2E_Engine_WebEngine_FinishAsync_"></a>
 <a id="E2E_Engine_WebEngine_FinishAsync_E2E_Engine_EngineFinishInfo_System_Threading_CancellationToken_"></a>
@@ -162,7 +162,7 @@ public Task FinishAsync(EngineFinishInfo info, CancellationToken cancellationTok
 ```
 
 
-Releases the browsers `CancellationToken)` leased, once per run and target, then has the provider sweep up the
+Releases the browsers `PrepareAsync` leased, once per run and target, then has the provider sweep up the
 leases a worker that died left open. Call it after every worker ended, on every exit path, with a cleanup budget in
 &lt;code class="paramref"&gt;cancellationToken&lt;/code&gt;.
 
@@ -175,7 +175,7 @@ leases a worker that died left open. Call it after every worker ended, on every 
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.Leases.cs#L35)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.Leases.cs)
 
 <a id="E2E_Engine_WebEngine_Init_"></a>
 <a id="E2E_Engine_WebEngine_Init_E2E_Engine_EngineInitInfo_"></a>
@@ -189,7 +189,7 @@ public void Init(EngineInitInfo info)
 
 
 Starts the worker of one slot: records the run it serves and, in [Worker](/api/E2E.Engine/BrowserProviderScope/#E2E_Engine_BrowserProviderScope_Worker) scope, the
-lease its slot was handed. Every `CancellationToken)` after it rides that lease, or a replacement once its browser
+lease its slot was handed. Every `StartAsync` after it rides that lease, or a replacement once its browser
 dropped. It can be called again on a disposed engine.
 
 **Parameters**
@@ -198,7 +198,7 @@ dropped. It can be called again on a disposed engine.
 | --- | --- | --- |
 | `info` | [EngineInitInfo](/api/E2E.Engine/EngineInitInfo/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.Leases.cs#L46)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.Leases.cs)
 
 <a id="E2E_Engine_WebEngine_PrepareAsync_"></a>
 <a id="E2E_Engine_WebEngine_PrepareAsync_E2E_Engine_EnginePrepareInfo_System_Threading_CancellationToken_"></a>
@@ -224,7 +224,7 @@ nothing to prepare.
 
 **Returns:** [Task&lt;EnginePrepareResult&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.Leases.cs#L24)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.Leases.cs)
 
 <a id="E2E_Engine_WebEngine_StartAsync_"></a>
 <a id="E2E_Engine_WebEngine_StartAsync_E2E_Engine_EngineStartOptions_System_Threading_CancellationToken_"></a>
@@ -246,7 +246,7 @@ public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationT
 
 **Returns:** [Task&lt;IEngineSession&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L381)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
 
 <a id="E2E_Engine_WebEngine_ValidateApp_"></a>
 <a id="E2E_Engine_WebEngine_ValidateApp_E2E_AppConfig_System_String_"></a>
@@ -271,4 +271,4 @@ grants, and only grants. A provider or a CDP attach speaks CDP, so it takes Chro
 | `app` | [AppConfig](/api/E2E/AppConfig/) |  |
 | `targetName` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs#L345)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)

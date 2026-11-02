@@ -25,7 +25,7 @@ it as needed, and touches nothing until the first call. Use API keys in CI.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs#L15)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs)
 
 ## Methods
 
@@ -51,7 +51,7 @@ A ChatGPT Plus/Pro subscription over the Codex backend. `e2e models openai` list
 
 **Returns:** [OpenAiResponsesModel](/api/E2E/OpenAiResponsesModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs#L18)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs)
 
 <a id="E2E_OAuth_Subscriptions_Client_"></a>
 <a id="E2E_OAuth_Subscriptions_Client_E2E_OAuth_IOAuthProvider_E2E_OAuth_ICredentialStore_System_String_System_Net_Http_HttpMessageHandler_"></a>
@@ -77,7 +77,7 @@ An [HttpClient](https://learn.microsoft.com/dotnet/api/system.net.http.httpclien
 
 **Returns:** [HttpClient](https://learn.microsoft.com/dotnet/api/system.net.http.httpclient)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs#L66)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs)
 
 <a id="E2E_OAuth_Subscriptions_Copilot_"></a>
 <a id="E2E_OAuth_Subscriptions_Copilot_System_String_E2E_OAuth_ICredentialStore_"></a>
@@ -102,7 +102,7 @@ Responses API; the first call reads the plan's model listing to pick. An enterpr
 
 **Returns:** [CopilotModel](/api/E2E.OAuth/CopilotModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs#L36)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs)
 
 <a id="E2E_OAuth_Subscriptions_Grok_"></a>
 <a id="E2E_OAuth_Subscriptions_Grok_System_String_E2E_OAuth_ICredentialStore_"></a>
@@ -126,7 +126,7 @@ A SuperGrok or X Premium+ subscription over the ordinary SpaceXAI API.
 
 **Returns:** [OpenAiCompatibleModel](/api/E2E/OpenAiCompatibleModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs#L42)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs)
 
 <a id="E2E_OAuth_Subscriptions_OpenCodeConsole_"></a>
 <a id="E2E_OAuth_Subscriptions_OpenCodeConsole_System_String_E2E_OAuth_ICredentialStore_"></a>
@@ -152,4 +152,4 @@ or an OpenCode Go subscription API key) replaces the stored login when set.
 
 **Returns:** [OpenCodeConsoleModel](/api/E2E.OAuth/OpenCodeConsoleModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs#L54)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Subscriptions.cs)

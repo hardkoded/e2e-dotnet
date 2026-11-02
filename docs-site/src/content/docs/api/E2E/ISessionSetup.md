@@ -25,4 +25,4 @@ test is; `E2E.NUnit.E2ESetupAttribute` is the NUnit one.
 
 **Derived:** [E2ESetupAttribute](/api/E2E.NUnit/E2ESetupAttribute/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/SessionAttributes.cs#L28)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/SessionAttributes.cs)

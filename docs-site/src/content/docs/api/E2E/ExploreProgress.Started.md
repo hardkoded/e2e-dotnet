@@ -25,7 +25,7 @@ The exploration begins: its test has started and the app is about to open.
 
 **Implements:** [IEquatable&lt;ExploreProgress&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1), [IEquatable&lt;ExploreProgress.Started&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L30)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
 
 ## Constructors
 
@@ -49,7 +49,7 @@ The exploration begins: its test has started and the app is about to open.
 | `Goal` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `Budgets` | [ExploreBudgets](/api/E2E/ExploreBudgets/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L30)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
 
 ## Properties
 
@@ -66,7 +66,7 @@ public ExploreBudgets Budgets { get; init; }
 
 **Value:** [ExploreBudgets](/api/E2E/ExploreBudgets/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L30)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
 
 <a id="E2E_ExploreProgress_Started_Goal_"></a>
 <a id="E2E_ExploreProgress_Started_Goal"></a>
@@ -81,4 +81,4 @@ public string Goal { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L30)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)

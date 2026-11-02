@@ -31,7 +31,7 @@ public sealed class AppCommands : E2ERunFixture;
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ERunFixture.cs#L18)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ERunFixture.cs)
 
 ## Properties
 
@@ -50,7 +50,7 @@ The base ref to measure the change from (upstream's `--changed-since`). Unset, t
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ERunFixture.cs#L27)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ERunFixture.cs)
 
 <a id="E2E_NUnit_E2ERunFixture_Config_"></a>
 <a id="E2E_NUnit_E2ERunFixture_Config"></a>
@@ -67,7 +67,7 @@ The config the filters read: the discovered `e2e.config.json`, or the defaults w
 
 **Value:** [E2EConfig](/api/E2E/E2EConfig/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ERunFixture.cs#L30)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ERunFixture.cs)
 
 <a id="E2E_NUnit_E2ERunFixture_Filters_"></a>
 <a id="E2E_NUnit_E2ERunFixture_Filters"></a>
@@ -85,7 +85,7 @@ the tests and the files changed since that ref, and a test it leaves out is igno
 
 **Value:** [IReadOnlyList&lt;ITestFilter&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ERunFixture.cs#L24)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ERunFixture.cs)
 
 ## Methods
 
@@ -106,7 +106,7 @@ out skip themselves at their start. A run with no base ref runs every test.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ERunFixture.cs#L36)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ERunFixture.cs)
 
 <a id="E2E_NUnit_E2ERunFixture_StopAppCommandsAsync_"></a>
 <a id="E2E_NUnit_E2ERunFixture_StopAppCommandsAsync"></a>
@@ -121,8 +121,8 @@ public Task StopAppCommandsAsync()
 
 
 Runs the reporters that the assembly registers with `[assembly: E2EReporter(typeof(...))]` once `report.json` is final, then stops
-the app commands that the tests of this process started.
+the app commands that the tests of this process started, and deletes the sessions that setup tests saved (see `E2ESetupAttribute`).
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ERunFixture.cs#L59)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ERunFixture.cs)

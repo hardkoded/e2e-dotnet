@@ -1,6 +1,6 @@
 ---
 title: "ExtractOptions"
-description: "agent.extract: one extraction and one repair round. The type argument of CancellationToken) is the schema."
+description: "agent.extract: one extraction and one repair round. The type argument of ExtractAsync<T> is the schema."
 editUrl: false
 prev: false
 next: false
@@ -20,11 +20,11 @@ public sealed class ExtractOptions
 
 
 `agent.extract`: one extraction and one repair round. The type argument of
-`CancellationToken)` is the schema.
+`ExtractAsync&lt;T&gt;` is the schema.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1034)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
 ## Properties
 
@@ -43,7 +43,7 @@ The named agent whose judge reads the screen. Defaults to `default`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1043)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
 <a id="E2E_ExtractOptions_Timeout_"></a>
 <a id="E2E_ExtractOptions_Timeout"></a>
@@ -60,7 +60,7 @@ Defaults to the agent's `JudgmentTimeout` (30 s).
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1037)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
 <a id="E2E_ExtractOptions_Vision_"></a>
 <a id="E2E_ExtractOptions_Vision"></a>
@@ -77,4 +77,4 @@ What the judge reads the data from. [Off](/api/E2E/VisionMode/#E2E_VisionMode_Of
 
 **Value:** [VisionMode](/api/E2E/VisionMode/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1040)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)

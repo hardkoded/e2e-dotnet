@@ -25,7 +25,7 @@ What an observation takes besides the tree. Upstream's `EngineObserveOptions`.
 
 **Implements:** [IEquatable&lt;ObserveOptions&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L158)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
 
 ## Properties
 
@@ -44,7 +44,7 @@ Take the pixels in a state fit for comparing against a stored one: the status ba
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L164)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
 
 <a id="E2E_Engine_ObserveOptions_Pixels_"></a>
 <a id="E2E_Engine_ObserveOptions_Pixels"></a>
@@ -61,4 +61,4 @@ Take the screen's pixels with the tree ([Pixels](/api/E2E.Engine/Observation/#E2
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L161)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)

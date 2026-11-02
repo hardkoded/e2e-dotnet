@@ -27,7 +27,7 @@ is read by the model as a failed call, except a hard stop of the step, which end
 
 **Implements:** [IEquatable&lt;ToolLoopTool&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L86)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
 
 ## Constructors
 
@@ -53,7 +53,7 @@ is read by the model as a failed call, except a hard stop of the step, which end
 | `Definition` | [ModelTool](/api/E2E/ModelTool/) | The name, the description, and the input schema the model sees. |
 | `ExecuteAsync` | [Func&lt;ModelToolCall, CancellationToken, Task&lt;ToolLoopResult&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-3) | Runs the call and answers what the model reads. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L86)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
 
 ## Properties
 
@@ -72,7 +72,7 @@ The name, the description, and the input schema the model sees.
 
 **Value:** [ModelTool](/api/E2E/ModelTool/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L86)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
 
 <a id="E2E_ToolLoopTool_ExecuteAsync_"></a>
 <a id="E2E_ToolLoopTool_ExecuteAsync"></a>
@@ -89,4 +89,4 @@ Runs the call and answers what the model reads.
 
 **Value:** [Func&lt;ModelToolCall, CancellationToken, Task&lt;ToolLoopResult&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-3)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L86)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)

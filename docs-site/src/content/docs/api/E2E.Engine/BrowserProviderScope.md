@@ -24,7 +24,7 @@ released in finish. [Attempt](#E2E_Engine_BrowserProviderScope_Attempt) is a fre
 released when it ends, reconnected through the lease's [ReconnectEndpoint](/api/E2E.Engine/BrowserLease/#E2E_Engine_BrowserLease_ReconnectEndpoint) after a
 transport drop.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L19)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 ## Fields
 
@@ -40,7 +40,7 @@ Attempt = 1
 
 **Value:** [BrowserProviderScope](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L22)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 <a id="E2E_Engine_BrowserProviderScope_Worker"></a>
 
@@ -54,4 +54,4 @@ Worker = 0
 
 **Value:** [BrowserProviderScope](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L21)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)

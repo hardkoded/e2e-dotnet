@@ -22,7 +22,7 @@ public enum VisionDegradation
 Why a vision call fell back to tree-only input. Pixel evidence degrades rather than fails, except under
 [Only](/api/E2E/VisionMode/#E2E_VisionMode_Only), which fails with `POLICY_DENIED` naming the reason.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L14)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs)
 
 ## Fields
 
@@ -40,7 +40,7 @@ The engine masked fewer regions than the tree has secure nodes, so the image can
 
 **Value:** [VisionDegradation](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L17)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs)
 
 <a id="E2E_VisionDegradation_UnsupportedCapability"></a>
 
@@ -56,4 +56,4 @@ The engine captures no pixels.
 
 **Value:** [VisionDegradation](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs#L20)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs)

@@ -25,7 +25,7 @@ What `OpenSessionAsync` is given. Upstream's `OpenSessionOptions` (`run/open-ses
 
 **Implements:** [IEquatable&lt;OpenSessionOptions&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L49)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 ## Properties
 
@@ -44,7 +44,7 @@ The configured agent calls use when they name none. Upstream's `agent`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L62)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 <a id="E2E_OpenSessionOptions_Name_"></a>
 <a id="E2E_OpenSessionOptions_Name"></a>
@@ -61,7 +61,7 @@ The test's title, treated as untrusted text and never a raw path component. Upst
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L52)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 <a id="E2E_OpenSessionOptions_OnStep_"></a>
 <a id="E2E_OpenSessionOptions_OnStep"></a>
@@ -78,7 +78,7 @@ The step progress feed reporters receive. Must not block or throw. Upstream's `o
 
 **Value:** [Action&lt;StepProgress&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L65)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 <a id="E2E_OpenSessionOptions_Timeout_"></a>
 <a id="E2E_OpenSessionOptions_Timeout"></a>
@@ -97,4 +97,4 @@ close the session. Upstream's `timeout`.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L59)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)

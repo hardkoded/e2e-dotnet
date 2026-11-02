@@ -25,7 +25,7 @@ One test a filter may leave out: what names it, never its body (upstream's `Test
 
 **Implements:** [IEquatable&lt;TestFilterCandidate&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs#L27)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs)
 
 ## Constructors
 
@@ -52,7 +52,7 @@ One test a filter may leave out: what names it, never its body (upstream's `Test
 | `Tags` | [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) | The describe chain's tags, outermost first, then the test's own. |
 | `SetupFile` | [string](https://learn.microsoft.com/dotnet/api/system.string) | Project-relative POSIX path of the setup test file that saves the test's session; null when the test uses none. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs#L27)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs)
 
 ## Properties
 
@@ -71,7 +71,7 @@ Project-relative POSIX path of the test file.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs#L27)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs)
 
 <a id="E2E_TestFilterCandidate_Id_"></a>
 <a id="E2E_TestFilterCandidate_Id"></a>
@@ -88,7 +88,7 @@ Stable test id (`<file>::<titles>`), the report's `testId`, and the key `Exclude
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs#L27)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs)
 
 <a id="E2E_TestFilterCandidate_SetupFile_"></a>
 <a id="E2E_TestFilterCandidate_SetupFile"></a>
@@ -105,7 +105,7 @@ Project-relative POSIX path of the setup test file that saves the test's session
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs#L27)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs)
 
 <a id="E2E_TestFilterCandidate_Tags_"></a>
 <a id="E2E_TestFilterCandidate_Tags"></a>
@@ -122,7 +122,7 @@ The describe chain's tags, outermost first, then the test's own.
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs#L27)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs)
 
 <a id="E2E_TestFilterCandidate_TitlePath_"></a>
 <a id="E2E_TestFilterCandidate_TitlePath"></a>
@@ -139,4 +139,4 @@ The describe titles, then the test title.
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs#L27)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs)

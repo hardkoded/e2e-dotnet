@@ -26,7 +26,7 @@ One line of what the app did on its own, as an engine reports it to [AppLog](/ap
 
 **Implements:** [IEquatable&lt;AppLogEntry&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/AppLogEntry.cs#L14)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/AppLogEntry.cs)
 
 ## Constructors
 
@@ -52,7 +52,7 @@ One line of what the app did on its own, as an engine reports it to [AppLog](/ap
 | `Level` | [AppLogLevel](/api/E2E/AppLogLevel/) | How bad it was. |
 | `Text` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The line. A blank one is dropped. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/AppLogEntry.cs#L14)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/AppLogEntry.cs)
 
 ## Properties
 
@@ -71,7 +71,7 @@ How bad it was.
 
 **Value:** [AppLogLevel](/api/E2E/AppLogLevel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/AppLogEntry.cs#L14)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/AppLogEntry.cs)
 
 <a id="E2E_Engine_AppLogEntry_Source_"></a>
 <a id="E2E_Engine_AppLogEntry_Source"></a>
@@ -88,7 +88,7 @@ Where the line came from.
 
 **Value:** [AppLogSource](/api/E2E/AppLogSource/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/AppLogEntry.cs#L14)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/AppLogEntry.cs)
 
 <a id="E2E_Engine_AppLogEntry_Text_"></a>
 <a id="E2E_Engine_AppLogEntry_Text"></a>
@@ -105,4 +105,4 @@ The line. A blank one is dropped.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/AppLogEntry.cs#L14)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/AppLogEntry.cs)

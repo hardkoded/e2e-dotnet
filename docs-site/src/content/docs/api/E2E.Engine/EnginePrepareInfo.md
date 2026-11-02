@@ -1,6 +1,6 @@
 ---
 title: "EnginePrepareInfo"
-description: "The facts handed to an engine's prepare (CancellationToken)), once per run and target in the runner process, before any worker exists. Upstream's EnginePrepa..."
+description: "The facts handed to an engine's prepare (PrepareAsync), once per run and target in the runner process, before any worker exists. Upstream's EnginePrepareInfo."
 editUrl: false
 prev: false
 next: false
@@ -19,14 +19,14 @@ public sealed record EnginePrepareInfo : IEquatable<EnginePrepareInfo>
 ```
 
 
-The facts handed to an engine's prepare (`CancellationToken)`), once per run and target in the runner
+The facts handed to an engine's prepare (`PrepareAsync`), once per run and target in the runner
 process, before any worker exists. Upstream's `EnginePrepareInfo`.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
 **Implements:** [IEquatable&lt;EnginePrepareInfo&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L248)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 ## Properties
 
@@ -47,7 +47,7 @@ environment.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L268)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EnginePrepareInfo_Log_"></a>
 <a id="E2E_Engine_EnginePrepareInfo_Log"></a>
@@ -65,7 +65,7 @@ Reports one line of progress. A run streams it as a notice to the reporter; the 
 
 **Value:** [Action&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L280)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EnginePrepareInfo_ProjectRoot_"></a>
 <a id="E2E_Engine_EnginePrepareInfo_ProjectRoot"></a>
@@ -83,7 +83,7 @@ Null leaves it to the working directory. Upstream's `projectRoot`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L274)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EnginePrepareInfo_RunId_"></a>
 <a id="E2E_Engine_EnginePrepareInfo_RunId"></a>
@@ -100,7 +100,7 @@ The run id.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L251)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EnginePrepareInfo_Slots_"></a>
 <a id="E2E_Engine_EnginePrepareInfo_Slots"></a>
@@ -119,7 +119,7 @@ The worker slots the run will start for this target, `0` to [Slots](#E2E_Engine_
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L261)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EnginePrepareInfo_TargetName_"></a>
 <a id="E2E_Engine_EnginePrepareInfo_TargetName"></a>
@@ -136,4 +136,4 @@ The target being prepared.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L254)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)

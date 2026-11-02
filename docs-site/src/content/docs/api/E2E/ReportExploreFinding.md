@@ -25,7 +25,7 @@ One finding [Explore](/api/E2E/Explore/) recorded through its `report_finding` t
 
 **Implements:** [IEquatable&lt;ReportExploreFinding&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L59)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 ## Constructors
 
@@ -60,7 +60,7 @@ One finding [Explore](/api/E2E/Explore/) recorded through its `report_finding` t
 | `ArtifactId` | [string](https://learn.microsoft.com/dotnet/api/system.string) | Where the evidence screenshot was kept, as a path relative to the project root, when pixels were granted. Upstream names an artifact of the report; the port has no report, so it names the file. |
 | `ObservationRevision` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The revision of the screen the finding was reported on ([Revision](/api/E2E/ExecutorObservation/#E2E_ExecutorObservation_Revision)), when the finding tool observed one. The tool takes its own capture, as upstream does, so the revision is that capture's and is not one an agent step recorded. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L59)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 ## Properties
 
@@ -79,7 +79,7 @@ What the screen shows instead, at most 2000 characters.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L67)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 <a id="E2E_ReportExploreFinding_ArtifactId_"></a>
 <a id="E2E_ReportExploreFinding_ArtifactId"></a>
@@ -96,7 +96,7 @@ Where the evidence screenshot was kept, as a path relative to the project root, 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L71)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 <a id="E2E_ReportExploreFinding_Expected_"></a>
 <a id="E2E_ReportExploreFinding_Expected"></a>
@@ -113,7 +113,7 @@ What a user would expect, at most 2000 characters.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L66)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 <a id="E2E_ReportExploreFinding_Id_"></a>
 <a id="E2E_ReportExploreFinding_Id"></a>
@@ -130,7 +130,7 @@ A time-ordered unique id.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L60)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 <a id="E2E_ReportExploreFinding_Index_"></a>
 <a id="E2E_ReportExploreFinding_Index"></a>
@@ -147,7 +147,7 @@ Zero-based position among the findings.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L61)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 <a id="E2E_ReportExploreFinding_Kind_"></a>
 <a id="E2E_ReportExploreFinding_Kind"></a>
@@ -164,7 +164,7 @@ An issue fails the run; a warning is recorded and does not.
 
 **Value:** [ReportExploreFindingKind](/api/E2E/ReportExploreFindingKind/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L63)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 <a id="E2E_ReportExploreFinding_ObservationRevision_"></a>
 <a id="E2E_ReportExploreFinding_ObservationRevision"></a>
@@ -181,7 +181,7 @@ The revision of the screen the finding was reported on ([Revision](/api/E2E/Exec
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L72)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 <a id="E2E_ReportExploreFinding_Path_"></a>
 <a id="E2E_ReportExploreFinding_Path"></a>
@@ -198,7 +198,7 @@ The redacted location of the screen, when the engine reports one.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L70)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 <a id="E2E_ReportExploreFinding_ReportedAt_"></a>
 <a id="E2E_ReportExploreFinding_ReportedAt"></a>
@@ -215,7 +215,7 @@ When the finding was recorded.
 
 **Value:** [DateTimeOffset](https://learn.microsoft.com/dotnet/api/system.datetimeoffset)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L69)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 <a id="E2E_ReportExploreFinding_Reproduction_"></a>
 <a id="E2E_ReportExploreFinding_Reproduction"></a>
@@ -232,7 +232,7 @@ The actions that reach the defect, at most 20, each at most 500 characters.
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L68)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 <a id="E2E_ReportExploreFinding_Severity_"></a>
 <a id="E2E_ReportExploreFinding_Severity"></a>
@@ -249,7 +249,7 @@ public int Severity { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L64)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 <a id="E2E_ReportExploreFinding_Step_"></a>
 <a id="E2E_ReportExploreFinding_Step"></a>
@@ -266,7 +266,7 @@ One-based exploration step the finding was reported in. Null when reported betwe
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L62)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 <a id="E2E_ReportExploreFinding_Title_"></a>
 <a id="E2E_ReportExploreFinding_Title"></a>
@@ -283,4 +283,4 @@ A specific headline, at most 200 characters.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs#L65)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)

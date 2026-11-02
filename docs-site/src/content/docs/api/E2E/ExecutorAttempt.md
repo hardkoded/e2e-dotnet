@@ -24,7 +24,7 @@ one test, a running conversation or a plan or notes, without mixing it with the 
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L185)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 ## Properties
 
@@ -41,7 +41,7 @@ public required string AttemptId { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L189)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorAttempt_CancellationToken_"></a>
 <a id="E2E_ExecutorAttempt_CancellationToken"></a>
@@ -59,7 +59,7 @@ on this token. Upstream's `signal`.
 
 **Value:** [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L204)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorAttempt_Index_"></a>
 <a id="E2E_ExecutorAttempt_Index"></a>
@@ -76,7 +76,7 @@ The zero-based retry index of this attempt.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L198)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorAttempt_Memory_"></a>
 <a id="E2E_ExecutorAttempt_Memory"></a>
@@ -95,7 +95,7 @@ executor and its tools, can share it.
 
 **Value:** [IDictionary&lt;string, object&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.idictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L211)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorAttempt_TestId_"></a>
 <a id="E2E_ExecutorAttempt_TestId"></a>
@@ -110,7 +110,7 @@ public required string TestId { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L187)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorAttempt_TitlePath_"></a>
 <a id="E2E_ExecutorAttempt_TitlePath"></a>
@@ -128,4 +128,4 @@ The test's title path, outermost `describe` first, redacted; empty outside a tes
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L195)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)

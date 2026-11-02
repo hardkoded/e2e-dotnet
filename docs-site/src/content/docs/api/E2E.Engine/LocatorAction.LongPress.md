@@ -25,7 +25,7 @@ A press held on the node for &lt;code class="paramref"&gt;Duration&lt;/code&gt;,
 
 **Implements:** [IEquatable&lt;LocatorAction&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1), [IEquatable&lt;LocatorAction.LongPress&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L24)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)
 
 ## Constructors
 
@@ -48,7 +48,7 @@ A press held on the node for &lt;code class="paramref"&gt;Duration&lt;/code&gt;,
 | --- | --- | --- |
 | `Duration` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L24)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)
 
 ## Properties
 
@@ -65,4 +65,4 @@ public TimeSpan? Duration { get; init; }
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L24)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)

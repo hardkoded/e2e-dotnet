@@ -27,7 +27,7 @@ expire; a 401 means signing in again.
 
 **Implements:** [IOAuthProvider](/api/E2E.OAuth/IOAuthProvider/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/obj/Release/net10.0/System.Text.RegularExpressions.Generator/System.Text.RegularExpressions.Generator.RegexGenerator/RegexGenerator.g.cs#L1500)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/obj/Release/net10.0/System.Text.RegularExpressions.Generator/System.Text.RegularExpressions.Generator.RegexGenerator/RegexGenerator.g.cs)
 
 ## Constructors
 
@@ -50,7 +50,7 @@ public CopilotProvider(HttpClient? http = null, string? githubUrl = null, Func<s
 | `githubUrl` | [string](https://learn.microsoft.com/dotnet/api/system.string) | Test seam: the GitHub host the device flow talks to. |
 | `githubCliToken` | [Func&lt;string, CancellationToken, Task&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-3) | Test seam: how the GitHub CLI's token is read for a host. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs#L28)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs)
 
 ## Fields
 
@@ -66,7 +66,7 @@ public const string ApiUrl = "https://api.githubcopilot.com"
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs#L19)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs)
 
 ## Properties
 
@@ -85,7 +85,7 @@ The id in the credentials file and on the command line: `openai`, `github-copilo
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs#L35)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs)
 
 <a id="E2E_OAuth_CopilotProvider_Name_"></a>
 <a id="E2E_OAuth_CopilotProvider_Name"></a>
@@ -102,7 +102,7 @@ The vendor's name for messages.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs#L37)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs)
 
 ## Methods
 
@@ -127,7 +127,7 @@ The Copilot API base for github.com or an enterprise host.
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs#L172)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs)
 
 <a id="E2E_OAuth_CopilotProvider_EnterpriseHost_"></a>
 <a id="E2E_OAuth_CopilotProvider_EnterpriseHost_System_String_"></a>
@@ -151,7 +151,7 @@ plain hostname is refused rather than guessed at.
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs#L181)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs)
 
 <a id="E2E_OAuth_CopilotProvider_ListModelsAsync_"></a>
 <a id="E2E_OAuth_CopilotProvider_ListModelsAsync_System_Net_Http_HttpClient_System_Threading_CancellationToken_"></a>
@@ -176,7 +176,7 @@ or one Copilot serves only over APIs these clients do not speak.
 
 **Returns:** [Task&lt;IReadOnlyList&lt;SubscriptionModel&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs#L103)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs)
 
 <a id="E2E_OAuth_CopilotProvider_LoginAsync_"></a>
 <a id="E2E_OAuth_CopilotProvider_LoginAsync_E2E_OAuth_OAuthLoginCallbacks_E2E_OAuth_OAuthLoginOptions_System_Threading_CancellationToken_"></a>
@@ -199,7 +199,7 @@ public Task<OAuthCredentials> LoginAsync(OAuthLoginCallbacks callbacks, OAuthLog
 
 **Returns:** [Task&lt;OAuthCredentials&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs#L39)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs)
 
 <a id="E2E_OAuth_CopilotProvider_PrepareAsync_"></a>
 <a id="E2E_OAuth_CopilotProvider_PrepareAsync_System_Net_Http_HttpRequestMessage_E2E_OAuth_OAuthCredentials_System_Threading_CancellationToken_"></a>
@@ -224,7 +224,7 @@ Routes an enterprise login at its host and adds Copilot's headers: who initiated
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs#L79)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs)
 
 <a id="E2E_OAuth_CopilotProvider_RefreshAsync_"></a>
 <a id="E2E_OAuth_CopilotProvider_RefreshAsync_E2E_OAuth_OAuthCredentials_System_Threading_CancellationToken_"></a>
@@ -248,4 +248,4 @@ Renews the credentials, or throws [LoginRequired](/api/E2E.OAuth/OAuthException/
 
 **Returns:** [Task&lt;OAuthCredentials&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs#L73)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/Providers/CopilotProvider.cs)

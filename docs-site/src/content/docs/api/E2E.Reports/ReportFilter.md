@@ -25,7 +25,7 @@ One test filter the run applied, in order (upstream's `ReportFilter`).
 
 **Implements:** [IEquatable&lt;ReportFilter&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L931)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Properties
 
@@ -44,7 +44,7 @@ How many tests it was given.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L937)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportFilter_Excluded_"></a>
 <a id="E2E_Reports_ReportFilter_Excluded"></a>
@@ -61,7 +61,7 @@ How many tests the run left out on its word.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L940)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportFilter_Name_"></a>
 <a id="E2E_Reports_ReportFilter_Name"></a>
@@ -78,7 +78,7 @@ The filter's name.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L934)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportFilter_Note_"></a>
 <a id="E2E_Reports_ReportFilter_Note"></a>
@@ -95,7 +95,7 @@ The filter's note, redacted; for a filter that failed or timed out, the warning 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L943)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportFilter_Outcome_"></a>
 <a id="E2E_Reports_ReportFilter_Outcome"></a>
@@ -112,4 +112,4 @@ Set when the filter left nothing out because the call did not answer; null when 
 
 **Value:** `FilterOutcome?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L946)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

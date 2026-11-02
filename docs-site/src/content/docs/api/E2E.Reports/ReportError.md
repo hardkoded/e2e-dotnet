@@ -25,7 +25,7 @@ An error as a report tells it: the serialized error without its stack (upstream'
 
 **Implements:** [IEquatable&lt;ReportError&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L879)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Properties
 
@@ -42,7 +42,7 @@ public ErrorCategory Category { get; init; }
 
 **Value:** [ErrorCategory](/api/E2E.Reports/ErrorCategory/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L881)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportError_Code_"></a>
 <a id="E2E_Reports_ReportError_Code"></a>
@@ -59,7 +59,7 @@ The error code, such as `ASSERTION_FAILED`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L884)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportError_Details_"></a>
 <a id="E2E_Reports_ReportError_Details"></a>
@@ -76,7 +76,7 @@ The structured facts beside the message: an assertion's expected and observed, a
 
 **Value:** [ErrorDetails](/api/E2E/ErrorDetails/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L898)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportError_Message_"></a>
 <a id="E2E_Reports_ReportError_Message"></a>
@@ -91,7 +91,7 @@ public string Message { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L886)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportError_Phase_"></a>
 <a id="E2E_Reports_ReportError_Phase"></a>
@@ -106,7 +106,7 @@ public ErrorPhase? Phase { get; init; }
 
 **Value:** `ErrorPhase?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L891)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportError_Retryable_"></a>
 <a id="E2E_Reports_ReportError_Retryable"></a>
@@ -123,7 +123,7 @@ Whether the caller may observe again and repeat the operation.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L889)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportError_Scope_"></a>
 <a id="E2E_Reports_ReportError_Scope"></a>
@@ -138,7 +138,7 @@ public HookScope? Scope { get; init; }
 
 **Value:** [HookScope](/api/E2E.Reports/HookScope/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L895)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportError_ScopeId_"></a>
 <a id="E2E_Reports_ReportError_ScopeId"></a>
@@ -153,7 +153,7 @@ public string? ScopeId { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L893)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportError_Source_"></a>
 <a id="E2E_Reports_ReportError_Source"></a>
@@ -170,4 +170,4 @@ The line in the test file the failure unwound through.
 
 **Value:** [ReportSource](/api/E2E.Reports/ReportSource/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L901)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

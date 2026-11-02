@@ -27,7 +27,7 @@ so its calls stay on one upstream and its cache.
 
 **Implements:** [IAgentModel](/api/E2E/IAgentModel/), [IDisposable](https://learn.microsoft.com/dotnet/api/system.idisposable)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs#L139)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs)
 
 ## Properties
 
@@ -46,7 +46,7 @@ The model to use until a lookup succeeds.
 
 **Value:** [IAgentModel](/api/E2E/IAgentModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs#L158)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs)
 
 ## Methods
 
@@ -71,4 +71,4 @@ The model for the looked-up protocol, or null when the lookup could not be read.
 
 **Returns:** [Task&lt;IAgentModel&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs#L160)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs)

@@ -25,7 +25,7 @@ transcript are the harness's, and each exploration step runs as one ordinary `Ac
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Executor.cs#L23)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Executor.cs)
 
 ## Fields
 
@@ -43,4 +43,4 @@ The name of the tool the explorer reports a defect with.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Executor.cs#L26)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Executor.cs)

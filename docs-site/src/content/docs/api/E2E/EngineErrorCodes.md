@@ -23,7 +23,7 @@ Stable engine error codes, as in the upstream engine contract.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L166)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 ## Fields
 
@@ -41,7 +41,7 @@ The input was dispatched before the failure, so the action may have taken effect
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L179)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_EngineErrorCodes_Cancelled"></a>
 
@@ -55,7 +55,7 @@ public const string Cancelled = "CANCELLED"
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L184)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_EngineErrorCodes_EngineFailure"></a>
 
@@ -71,7 +71,7 @@ Any other engine failure.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L191)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_EngineErrorCodes_FrameAmbiguous"></a>
 
@@ -85,7 +85,7 @@ public const string FrameAmbiguous = "FRAME_AMBIGUOUS"
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L173)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_EngineErrorCodes_FrameNotFound"></a>
 
@@ -99,7 +99,7 @@ public const string FrameNotFound = "FRAME_NOT_FOUND"
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L171)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_EngineErrorCodes_InvalidState"></a>
 
@@ -113,7 +113,7 @@ public const string InvalidState = "INVALID_STATE"
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L188)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_EngineErrorCodes_NodeStale"></a>
 
@@ -129,7 +129,7 @@ The node or document a ref named is gone. Observe again and retry.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L169)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_EngineErrorCodes_NotActionable"></a>
 
@@ -145,7 +145,7 @@ The target never became visible, enabled, stable, or editable. Nothing was dispa
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L176)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_EngineErrorCodes_OperationTimeout"></a>
 
@@ -161,7 +161,7 @@ A navigation, read, or keyboard operation ran out of time. A timeout stays this 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L182)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_EngineErrorCodes_UnsupportedCapability"></a>
 
@@ -175,7 +175,7 @@ public const string UnsupportedCapability = "UNSUPPORTED_CAPABILITY"
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L186)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 ## Methods
 
@@ -200,4 +200,4 @@ Whether &lt;code class="paramref"&gt;code&lt;/code&gt; describes a repeatable re
 
 **Returns:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs#L194)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)

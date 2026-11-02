@@ -26,7 +26,7 @@ Polling assertions for a [Locator](/api/E2E/Locator/), `expect.soft`, and
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L20)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 ## Methods
 
@@ -58,7 +58,7 @@ Re-reads &lt;code class="paramref"&gt;read&lt;/code&gt; until the chosen matcher
 
 **Returns:** `PollExpectation&lt;T&gt;`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L68)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_Expect_Poll__1_System_Func_System_Threading_Tasks_Task___0___E2E_PollOptions_"></a>
 
@@ -87,7 +87,7 @@ Re-reads &lt;code class="paramref"&gt;read&lt;/code&gt; until the chosen matcher
 
 **Returns:** `PollExpectation&lt;T&gt;`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L77)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_Expect_Poll__1_System_Func___0__E2E_PollOptions_"></a>
 
@@ -116,7 +116,7 @@ Re-reads &lt;code class="paramref"&gt;read&lt;/code&gt; until the chosen matcher
 
 **Returns:** `PollExpectation&lt;T&gt;`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L84)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_Expect_Soft_"></a>
 <a id="E2E_Expect_Soft_E2E_Browser_"></a>
@@ -139,7 +139,7 @@ The browser matchers, but a failure is kept as [Soft(Locator)](#E2E_Expect_Soft_
 
 **Returns:** [SoftBrowserExpect](/api/E2E/SoftBrowserExpect/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L61)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_Expect_Soft_E2E_Locator_"></a>
 
@@ -163,7 +163,7 @@ failure. `E2ETest` records each one as an NUnit assertion failure.
 
 **Returns:** [SoftLocatorExpect](/api/E2E/SoftLocatorExpect/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L47)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_Expect_Soft_E2E_Screen_"></a>
 
@@ -185,7 +185,7 @@ The screen matcher, but a failure is kept as [Soft(Locator)](#E2E_Expect_Soft_E2
 
 **Returns:** [SoftScreenExpect](/api/E2E/SoftScreenExpect/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L54)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_Expect_That_"></a>
 <a id="E2E_Expect_That_E2E_Browser_"></a>
@@ -208,7 +208,7 @@ Waits for the browser's URL or title with [BrowserExpect](/api/E2E/BrowserExpect
 
 **Returns:** [BrowserExpect](/api/E2E/BrowserExpect/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L29)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_Expect_That_E2E_Locator_"></a>
 
@@ -228,7 +228,7 @@ public static LocatorExpect That(Locator locator)
 
 **Returns:** [LocatorExpect](/api/E2E/LocatorExpect/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L22)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)
 
 <a id="E2E_Expect_That_E2E_Screen_"></a>
 
@@ -250,4 +250,4 @@ Compares the whole screen against a stored screenshot with `ToHaveScreenshotAsyn
 
 **Returns:** [ScreenExpect](/api/E2E/ScreenExpect/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs#L36)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Expect.cs)

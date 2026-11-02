@@ -24,7 +24,7 @@ environment variable the AI SDK reads. Subscription logins are in [Subscriptions
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs#L13)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs)
 
 ## Methods
 
@@ -50,7 +50,7 @@ Anthropic's Messages API, reading `ANTHROPIC_API_KEY`.
 
 **Returns:** [AnthropicModel](/api/E2E/AnthropicModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs#L54)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs)
 
 <a id="E2E_ModelProviders_AzureOpenAi_"></a>
 <a id="E2E_ModelProviders_AzureOpenAi_System_String_System_String_System_String_"></a>
@@ -76,7 +76,7 @@ An Azure OpenAI deployment over the Responses API (`/openai/v1`), reading `AZURE
 
 **Returns:** [OpenAiResponsesModel](/api/E2E/OpenAiResponsesModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs#L31)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs)
 
 <a id="E2E_ModelProviders_AzureOpenAiAt_"></a>
 <a id="E2E_ModelProviders_AzureOpenAiAt_System_String_System_String_System_String_"></a>
@@ -101,7 +101,7 @@ An Azure OpenAI deployment at an explicit `/openai/v1` base URL, reading `AZURE_
 
 **Returns:** [OpenAiResponsesModel](/api/E2E/OpenAiResponsesModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs#L39)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs)
 
 <a id="E2E_ModelProviders_Bedrock_"></a>
 <a id="E2E_ModelProviders_Bedrock_System_String_System_String_"></a>
@@ -125,7 +125,7 @@ Amazon Bedrock's Converse API, signed from the AWS environment or with `AWS_BEAR
 
 **Returns:** [BedrockModel](/api/E2E/BedrockModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs#L66)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs)
 
 <a id="E2E_ModelProviders_Gateway_"></a>
 <a id="E2E_ModelProviders_Gateway_System_String_System_String_"></a>
@@ -150,7 +150,7 @@ The Vercel AI Gateway over its OpenAI-compatible API, reading `AI_GATEWAY_API_KE
 
 **Returns:** [OpenAiCompatibleModel](/api/E2E/OpenAiCompatibleModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs#L101)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs)
 
 <a id="E2E_ModelProviders_Google_"></a>
 <a id="E2E_ModelProviders_Google_System_String_System_String_"></a>
@@ -174,7 +174,7 @@ Google's Gemini API, reading `GOOGLE_GENERATIVE_AI_API_KEY`.
 
 **Returns:** [GoogleModel](/api/E2E/GoogleModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs#L60)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs)
 
 <a id="E2E_ModelProviders_Ollama_"></a>
 <a id="E2E_ModelProviders_Ollama_System_String_System_String_"></a>
@@ -198,7 +198,7 @@ A local Ollama server's OpenAI-compatible API, no key.
 
 **Returns:** [OpenAiCompatibleModel](/api/E2E/OpenAiCompatibleModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs#L115)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs)
 
 <a id="E2E_ModelProviders_OpenAi_"></a>
 <a id="E2E_ModelProviders_OpenAi_System_String_System_String_"></a>
@@ -222,7 +222,7 @@ OpenAI over chat completions, reading `OPENAI_API_KEY`.
 
 **Returns:** [OpenAiCompatibleModel](/api/E2E/OpenAiCompatibleModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs#L16)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs)
 
 <a id="E2E_ModelProviders_OpenAiResponses_"></a>
 <a id="E2E_ModelProviders_OpenAiResponses_System_String_System_String_"></a>
@@ -246,7 +246,7 @@ OpenAI over the Responses API, reading `OPENAI_API_KEY`. The AI SDK's `openai(id
 
 **Returns:** [OpenAiResponsesModel](/api/E2E/OpenAiResponsesModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs#L22)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs)
 
 <a id="E2E_ModelProviders_OpenRouter_"></a>
 <a id="E2E_ModelProviders_OpenRouter_System_String_System_String_"></a>
@@ -270,7 +270,7 @@ OpenRouter, reading `OPENROUTER_API_KEY`. Model ids name the upstream, such as `
 
 **Returns:** [OpenAiCompatibleModel](/api/E2E/OpenAiCompatibleModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs#L85)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs)
 
 <a id="E2E_ModelProviders_Xai_"></a>
 <a id="E2E_ModelProviders_Xai_System_String_System_String_"></a>
@@ -294,4 +294,4 @@ The SpaceXAI API, reading `XAI_API_KEY`.
 
 **Returns:** [OpenAiCompatibleModel](/api/E2E/OpenAiCompatibleModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs#L72)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/ModelProviders.cs)

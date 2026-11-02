@@ -25,7 +25,7 @@ name is its key in [Tools](/api/E2E/AgentOptions/#E2E_AgentOptions_Tools).
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs#L14)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs)
 
 ## Constructors
 
@@ -53,7 +53,7 @@ the screen (a read-only tool only) and keep what it saw as a screenshot of the s
 | `executeAsync` | [Func&lt;JsonObject, AgentToolContext, CancellationToken, Task&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-4) | Runs the tool with its input as the model wrote it and the context of the step, and answers what the model reads. |
 | `platforms` | [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) | The engine platforms the tool is offered on. Null means every platform. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs#L42)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs)
 
 <a id="E2E_AgentTool__ctor_System_String_System_Text_Json_Nodes_JsonObject_System_Boolean_System_Func_System_Text_Json_Nodes_JsonObject_System_Threading_CancellationToken_System_Threading_Tasks_Task_System_String___System_Collections_Generic_IReadOnlyList_System_String__"></a>
 
@@ -75,7 +75,7 @@ public AgentTool(string description, JsonObject inputSchema, bool mutates, Func<
 | `executeAsync` | [Func&lt;JsonObject, CancellationToken, Task&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-3) | Runs the tool with its input as the model wrote it, and answers what the model reads. |
 | `platforms` | [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) | The engine platforms the tool is offered on. Null means every platform. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs#L23)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs)
 
 ## Properties
 
@@ -92,7 +92,7 @@ public string Description { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs#L64)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs)
 
 <a id="E2E_AgentTool_ExecuteAsync_"></a>
 <a id="E2E_AgentTool_ExecuteAsync"></a>
@@ -109,7 +109,7 @@ Runs the tool with no step around it. A tool that reads its [AgentToolContext](/
 
 **Value:** [Func&lt;JsonObject, CancellationToken, Task&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-3)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs#L77)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs)
 
 <a id="E2E_AgentTool_InputSchema_"></a>
 <a id="E2E_AgentTool_InputSchema"></a>
@@ -124,7 +124,7 @@ public JsonObject InputSchema { get; }
 
 **Value:** [JsonObject](https://learn.microsoft.com/dotnet/api/system.text.json.nodes.jsonobject)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs#L66)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs)
 
 <a id="E2E_AgentTool_Mutates_"></a>
 <a id="E2E_AgentTool_Mutates"></a>
@@ -139,7 +139,7 @@ public bool Mutates { get; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs#L68)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs)
 
 <a id="E2E_AgentTool_Platforms_"></a>
 <a id="E2E_AgentTool_Platforms"></a>
@@ -156,7 +156,7 @@ The platforms the tool is offered on. Null means every platform.
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs#L74)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs)
 
 ## Methods
 
@@ -181,4 +181,4 @@ True when the tool is offered on &lt;code class="paramref"&gt;platform&lt;/code&
 
 **Returns:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs#L80)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs)

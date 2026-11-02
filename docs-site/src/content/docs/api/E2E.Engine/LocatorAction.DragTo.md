@@ -25,7 +25,7 @@ Drags the node onto &lt;code class="paramref"&gt;Target&lt;/code&gt;, a node of 
 
 **Implements:** [IEquatable&lt;LocatorAction&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1), [IEquatable&lt;LocatorAction.DragTo&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L30)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)
 
 ## Constructors
 
@@ -48,7 +48,7 @@ Drags the node onto &lt;code class="paramref"&gt;Target&lt;/code&gt;, a node of 
 | --- | --- | --- |
 | `Target` | [SemanticNode](/api/E2E.Engine/SemanticNode/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L30)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)
 
 ## Properties
 
@@ -65,4 +65,4 @@ public SemanticNode Target { get; init; }
 
 **Value:** [SemanticNode](/api/E2E.Engine/SemanticNode/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L30)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)

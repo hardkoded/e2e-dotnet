@@ -1,6 +1,6 @@
 ---
 title: "BrowserLease"
-description: "One leased browser, as CancellationToken) returns it and CancellationToken) gets it back. A provider may derive from it and keep further fields: release gets..."
+description: "One leased browser, as AcquireAsync returns it and ReleaseAsync gets it back. A provider may derive from it and keep further fields: release gets that same o..."
 editUrl: false
 prev: false
 next: false
@@ -19,13 +19,13 @@ public class BrowserLease
 ```
 
 
-One leased browser, as `CancellationToken)` returns it and
-`CancellationToken)` gets it back. A provider may derive from it and keep further fields:
+One leased browser, as `AcquireAsync` returns it and
+`ReleaseAsync` gets it back. A provider may derive from it and keep further fields:
 release gets that same object, while only the declared fields travel from the runner to the worker that attaches to it.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L70)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 ## Properties
 
@@ -44,7 +44,7 @@ public string CdpEndpoint { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L76)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 <a id="E2E_Engine_BrowserLease_Id_"></a>
 <a id="E2E_Engine_BrowserLease_Id"></a>
@@ -61,7 +61,7 @@ The provider's handle on the lease (a session id), named in progress lines and h
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L73)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 <a id="E2E_Engine_BrowserLease_Protocol_"></a>
 <a id="E2E_Engine_BrowserLease_Protocol"></a>
@@ -79,7 +79,7 @@ scope and no [ReconnectEndpoint](#E2E_Engine_BrowserLease_ReconnectEndpoint): it
 
 **Value:** [BrowserProtocol](/api/E2E.Engine/BrowserProtocol/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L82)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 <a id="E2E_Engine_BrowserLease_ReconnectEndpoint_"></a>
 <a id="E2E_Engine_BrowserLease_ReconnectEndpoint"></a>
@@ -97,4 +97,4 @@ only meaningful for a per-attempt lease.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L88)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)

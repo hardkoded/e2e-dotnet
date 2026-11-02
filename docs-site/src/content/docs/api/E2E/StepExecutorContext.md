@@ -24,7 +24,7 @@ executor can build its own and override the members it reads: each one that does
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L69)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 ## Properties
 
@@ -41,7 +41,7 @@ public required IExecutorActions Actions { get; init; }
 
 **Value:** [IExecutorActions](/api/E2E/IExecutorActions/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L99)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_StepExecutorContext_AgentContext_"></a>
 <a id="E2E_StepExecutorContext_AgentContext"></a>
@@ -59,7 +59,7 @@ both are blank.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L95)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_StepExecutorContext_Attempt_"></a>
 <a id="E2E_StepExecutorContext_Attempt"></a>
@@ -76,7 +76,7 @@ The attempt this step runs in: its identity, the signal that ends it, and the sc
 
 **Value:** [ExecutorAttempt](/api/E2E/ExecutorAttempt/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L74)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_StepExecutorContext_Budgets_"></a>
 <a id="E2E_StepExecutorContext_Budgets"></a>
@@ -91,7 +91,7 @@ public required IExecutorBudgets Budgets { get; init; }
 
 **Value:** [IExecutorBudgets](/api/E2E/IExecutorBudgets/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L97)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_StepExecutorContext_Ledger_"></a>
 <a id="E2E_StepExecutorContext_Ledger"></a>
@@ -108,7 +108,7 @@ The completed earlier steps of this attempt, serialized for prompt context, one 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L89)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_StepExecutorContext_Model_"></a>
 <a id="E2E_StepExecutorContext_Model"></a>
@@ -125,7 +125,7 @@ The model the agent's entry is configured with, or the one the executor brought.
 
 **Value:** [IAgentModel](/api/E2E/IAgentModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L83)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_StepExecutorContext_ProviderOptions_"></a>
 <a id="E2E_StepExecutorContext_ProviderOptions"></a>
@@ -142,7 +142,7 @@ The agent's provider options, keyed by provider. The built-in executor sends the
 
 **Value:** [IReadOnlyDictionary&lt;string, JsonElement&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L86)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_StepExecutorContext_ReplayedPrefix_"></a>
 <a id="E2E_StepExecutorContext_ReplayedPrefix"></a>
@@ -159,7 +159,7 @@ Present when a cached replay ran part of this step before it handed the step ove
 
 **Value:** [ReplayedPrefix](/api/E2E/ReplayedPrefix/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L80)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_StepExecutorContext_Step_"></a>
 <a id="E2E_StepExecutorContext_Step"></a>
@@ -174,7 +174,7 @@ public required ExecutorStep Step { get; init; }
 
 **Value:** [ExecutorStep](/api/E2E/ExecutorStep/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L71)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_StepExecutorContext_Target_"></a>
 <a id="E2E_StepExecutorContext_Target"></a>
@@ -191,7 +191,7 @@ The target this step runs on.
 
 **Value:** [ExecutorTargetInfo](/api/E2E/ExecutorTargetInfo/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L77)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 ## Methods
 
@@ -220,7 +220,7 @@ attempt's results directory. For a tool with evidence worth keeping.
 
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L143)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_StepExecutorContext_AttachTranscript_"></a>
 <a id="E2E_StepExecutorContext_AttachTranscript_System_String_"></a>
@@ -242,7 +242,7 @@ when the attempt keeps results, and dropped otherwise. Call it once, at the end.
 | --- | --- | --- |
 | `text` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L125)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_StepExecutorContext_AttachTurns_"></a>
 <a id="E2E_StepExecutorContext_AttachTurns_System_Collections_Generic_IReadOnlyList_E2E_StepTurn__"></a>
@@ -265,7 +265,7 @@ transcript. Call it as each turn ends; the last call wins.
 | --- | --- | --- |
 | `turns` | [IReadOnlyList&lt;StepTurn&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L134)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_StepExecutorContext_ObserveAsync_"></a>
 <a id="E2E_StepExecutorContext_ObserveAsync_E2E_ExecutorObserveOptions_System_Threading_CancellationToken_"></a>
@@ -290,4 +290,4 @@ executor that renders its own view of the screen asks for exactly what it uses.
 
 **Returns:** [Task&lt;ExecutorObservation&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L118)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)

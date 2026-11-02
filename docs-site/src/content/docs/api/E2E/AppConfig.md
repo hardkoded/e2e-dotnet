@@ -21,7 +21,7 @@ public sealed class AppConfig
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L806)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)
 
 ## Properties
 
@@ -40,7 +40,7 @@ The build a device target installs, relative to the folder of `e2e.config.json`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L818)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)
 
 <a id="E2E_AppConfig_BundleId_"></a>
 <a id="E2E_AppConfig_BundleId"></a>
@@ -57,7 +57,7 @@ The bundle id (iOS) or package (Android) of an installed app a device target lau
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L815)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)
 
 <a id="E2E_AppConfig_Command_"></a>
 <a id="E2E_AppConfig_Command"></a>
@@ -76,7 +76,7 @@ The command that starts the app (upstream's `app.command`), started before the f
 
 **Value:** [CommandConfig](/api/E2E/CommandConfig/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L825)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)
 
 <a id="E2E_AppConfig_Environment_"></a>
 <a id="E2E_AppConfig_Environment"></a>
@@ -95,7 +95,7 @@ cache key, so an identity never bleeds entries across environments.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L842)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)
 
 <a id="E2E_AppConfig_Identity_"></a>
 <a id="E2E_AppConfig_Identity"></a>
@@ -114,7 +114,7 @@ declare the identity of the app it is a deployment of, and so share its entries.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L835)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)
 
 <a id="E2E_AppConfig_LaunchArguments_"></a>
 <a id="E2E_AppConfig_LaunchArguments"></a>
@@ -131,7 +131,7 @@ Arguments every fresh launch of the app takes: process arguments on iOS, `am sta
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L845)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)
 
 <a id="E2E_AppConfig_Permissions_"></a>
 <a id="E2E_AppConfig_Permissions"></a>
@@ -150,7 +150,7 @@ browser grants (Playwright's), and every page of the attempt holds the grant; he
 
 **Value:** [IReadOnlyDictionary&lt;string, AppPermissionState&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L852)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)
 
 <a id="E2E_AppConfig_ReadyUrl_"></a>
 <a id="E2E_AppConfig_ReadyUrl"></a>
@@ -167,7 +167,7 @@ The URL that answers once [Command](#E2E_AppConfig_Command) has started the app 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L828)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)
 
 <a id="E2E_AppConfig_Url_"></a>
 <a id="E2E_AppConfig_Url"></a>
@@ -185,4 +185,4 @@ Relative URLs resolve against it.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L812)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)

@@ -21,7 +21,7 @@ public enum DialogType
 
 The kind of a native dialog, independent of its message (upstream's `Dialog['type']`).
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs#L10)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs)
 
 ## Fields
 
@@ -39,7 +39,7 @@ Alert = 0
 
 **Value:** [DialogType](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs#L13)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs)
 
 <a id="E2E_Engine_DialogType_BeforeUnload"></a>
 
@@ -55,7 +55,7 @@ BeforeUnload = 3
 
 **Value:** [DialogType](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs#L22)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs)
 
 <a id="E2E_Engine_DialogType_Confirm"></a>
 
@@ -71,7 +71,7 @@ Confirm = 1
 
 **Value:** [DialogType](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs#L16)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs)
 
 <a id="E2E_Engine_DialogType_Prompt"></a>
 
@@ -87,4 +87,4 @@ Prompt = 2
 
 **Value:** [DialogType](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs#L19)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs)

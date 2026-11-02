@@ -1,6 +1,6 @@
 ---
 title: "VisionMode"
-description: "What evidence a judgment (CancellationToken), CancellationToken), CancellationToken)) is given: the semantic tree, a masked screenshot of the current screen,..."
+description: "What evidence a judgment (AssertAsync, WaitForAsync, ExtractAsync<T>) is given: the semantic tree, a masked screenshot of the current screen, or both. <p> On..."
 editUrl: false
 prev: false
 next: false
@@ -19,8 +19,8 @@ public enum VisionMode
 ```
 
 
-What evidence a judgment (`CancellationToken)`, `CancellationToken)`,
-`CancellationToken)`) is given: the semantic tree, a masked screenshot of the current screen, or both.
+What evidence a judgment (`AssertAsync`, `WaitForAsync`,
+`ExtractAsync&lt;T&gt;`) is given: the semantic tree, a masked screenshot of the current screen, or both.
 
 &lt;p&gt;
 [Only](#E2E_VisionMode_Only) exists because a tree sent beside pixels is a cheaper path to an answer, and a model takes it:
@@ -34,10 +34,10 @@ cannot be proven redacted. [Only](#E2E_VisionMode_Only) has nothing to degrade t
 instead of answering the wrong question from the tree.
 &lt;/p&gt;
 &lt;p&gt;
-`CancellationToken)` takes no vision mode: the act model works from the tree.
+`ActAsync` takes no vision mode: the act model works from the tree.
 &lt;/p&gt;
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/VisionMode.cs#L25)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/VisionMode.cs)
 
 ## Fields
 
@@ -55,7 +55,7 @@ The tree. The default.
 
 **Value:** [VisionMode](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/VisionMode.cs#L28)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/VisionMode.cs)
 
 <a id="E2E_VisionMode_On"></a>
 
@@ -71,7 +71,7 @@ The tree and a masked screenshot, on every call.
 
 **Value:** [VisionMode](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/VisionMode.cs#L31)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/VisionMode.cs)
 
 <a id="E2E_VisionMode_Only"></a>
 
@@ -87,4 +87,4 @@ The masked screenshot, and not the tree.
 
 **Value:** [VisionMode](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/VisionMode.cs#L34)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/VisionMode.cs)

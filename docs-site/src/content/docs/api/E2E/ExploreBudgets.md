@@ -25,7 +25,7 @@ What an exploration was given to spend: its step cap and its wall clock.
 
 **Implements:** [IEquatable&lt;ExploreBudgets&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L10)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
 
 ## Constructors
 
@@ -49,7 +49,7 @@ What an exploration was given to spend: its step cap and its wall clock.
 | `MaxSteps` | [int](https://learn.microsoft.com/dotnet/api/system.int32) | Exploration steps, upstream's `maxSteps`. |
 | `Timeout` | [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan) | The run's wall clock, upstream's `timeoutMs`. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L10)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
 
 ## Properties
 
@@ -68,7 +68,7 @@ Exploration steps, upstream's `maxSteps`.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L10)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
 
 <a id="E2E_ExploreBudgets_Timeout_"></a>
 <a id="E2E_ExploreBudgets_Timeout"></a>
@@ -85,4 +85,4 @@ The run's wall clock, upstream's `timeoutMs`.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L10)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)

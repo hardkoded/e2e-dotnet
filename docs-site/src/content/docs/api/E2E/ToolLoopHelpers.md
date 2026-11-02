@@ -23,7 +23,7 @@ Loop services for the tool bodies that run work of their own (upstream's `ToolLo
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L92)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
 
 ## Properties
 
@@ -42,7 +42,7 @@ True once a verdict or a hard stop landed. A late tool call has nothing left to 
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L104)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
 
 ## Methods
 
@@ -69,7 +69,7 @@ loop, and any other failure goes back to the model as text it can react to, name
 
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L113)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
 
 <a id="E2E_ToolLoopHelpers_ReportHardStop_"></a>
 <a id="E2E_ToolLoopHelpers_ReportHardStop_E2E_AgentException_"></a>
@@ -90,4 +90,4 @@ Records a hard stop of the step that ends the loop.
 | --- | --- | --- |
 | `error` | [AgentException](/api/E2E/AgentException/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L107)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)

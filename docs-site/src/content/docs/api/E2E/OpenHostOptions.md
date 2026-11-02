@@ -25,7 +25,7 @@ What `OpenAsync` is given. Upstream's `OpenHostOptions` (`run/open-session.ts`).
 
 **Implements:** [IEquatable&lt;OpenHostOptions&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L11)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 ## Properties
 
@@ -45,7 +45,7 @@ The config as a value, which the host uses instead of a file; its [ProjectRoot](
 
 **Value:** [E2EConfig](/api/E2E/E2EConfig/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L20)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 <a id="E2E_OpenHostOptions_ConfigPath_"></a>
 <a id="E2E_OpenHostOptions_ConfigPath"></a>
@@ -63,7 +63,7 @@ The config file, as a path relative to [Cwd](#E2E_OpenHostOptions_Cwd); default 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L26)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 <a id="E2E_OpenHostOptions_Cwd_"></a>
 <a id="E2E_OpenHostOptions_Cwd"></a>
@@ -80,7 +80,7 @@ Where the config file is searched for upward; default the current directory. Ups
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L14)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 <a id="E2E_OpenHostOptions_EngineFactory_"></a>
 <a id="E2E_OpenHostOptions_EngineFactory"></a>
@@ -99,7 +99,7 @@ test engine, comes from here, and a factory builds a fresh engine for each host.
 
 **Value:** [Func&lt;TargetConfig, IEngine&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L45)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 <a id="E2E_OpenHostOptions_Env_"></a>
 <a id="E2E_OpenHostOptions_Env"></a>
@@ -116,7 +116,7 @@ The variables the config and the engine's prepare and worker read; null is the p
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L32)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 <a id="E2E_OpenHostOptions_Headed_"></a>
 <a id="E2E_OpenHostOptions_Headed"></a>
@@ -133,7 +133,7 @@ Whether a web target opens a visible window. Upstream's `headed`.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L35)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 <a id="E2E_OpenHostOptions_OnNotice_"></a>
 <a id="E2E_OpenHostOptions_OnNotice"></a>
@@ -150,7 +150,7 @@ Progress outside steps: provisioning, leases, and app processes, as the target's
 
 **Value:** [Action&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.action-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L38)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 <a id="E2E_OpenHostOptions_Target_"></a>
 <a id="E2E_OpenHostOptions_Target"></a>
@@ -167,4 +167,4 @@ The target to open. It may be omitted only when the config declares one target. 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L29)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)

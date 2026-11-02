@@ -22,7 +22,7 @@ public enum EngineCapabilities
 
 Capabilities the harness reads off an engine. An engine never calls a model.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L8)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 ## Fields
 
@@ -38,7 +38,7 @@ Actions = 2
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L13)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EngineCapabilities_History"></a>
 
@@ -54,7 +54,7 @@ History = 32
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L21)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EngineCapabilities_Keyboard"></a>
 
@@ -68,7 +68,7 @@ Keyboard = 8
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L15)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EngineCapabilities_Location"></a>
 
@@ -82,7 +82,7 @@ Location = 4
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L14)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EngineCapabilities_None"></a>
 
@@ -96,7 +96,7 @@ None = 0
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L11)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EngineCapabilities_Observation"></a>
 
@@ -110,7 +110,7 @@ Observation = 1
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L12)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EngineCapabilities_PinnedApp"></a>
 
@@ -127,7 +127,7 @@ The engine opens no URL: `OpenAsync` relaunches the app the target pins. .NET-on
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L36)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EngineCapabilities_Screenshot"></a>
 
@@ -143,7 +143,7 @@ Screenshot = 64
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L24)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EngineCapabilities_Scroll"></a>
 
@@ -159,7 +159,7 @@ The viewport swipe, [LocatorAction.Swipe](/api/E2E.Engine/LocatorAction.Swipe/),
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L18)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EngineCapabilities_State"></a>
 
@@ -177,7 +177,7 @@ app's state, which a saved session needs. .NET-only name for upstream's optional
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L49)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EngineCapabilities_TapModifiers"></a>
 
@@ -193,7 +193,7 @@ The `Modifiers` of [LocatorAction.Tap](/api/E2E.Engine/LocatorAction.Tap/) and [
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L27)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EngineCapabilities_Upload"></a>
 
@@ -210,7 +210,7 @@ name for the `upload` verb an upstream engine lists in its `verbs`.
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L42)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EngineCapabilities_Video"></a>
 
@@ -226,4 +226,4 @@ Video = 256
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L30)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)

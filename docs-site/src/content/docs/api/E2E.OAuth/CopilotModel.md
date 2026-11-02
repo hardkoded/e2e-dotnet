@@ -25,7 +25,7 @@ A GitHub Copilot subscription model: chat completions, or the Responses API when
 
 **Implements:** [IAgentModel](/api/E2E/IAgentModel/), [IDisposable](https://learn.microsoft.com/dotnet/api/system.idisposable)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs#L102)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs)
 
 ## Constructors
 
@@ -47,7 +47,7 @@ public CopilotModel(string model, HttpClient http)
 | `model` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `http` | [HttpClient](https://learn.microsoft.com/dotnet/api/system.net.http.httpclient) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs#L107)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs)
 
 ## Properties
 
@@ -66,7 +66,7 @@ The model to use until a lookup succeeds.
 
 **Value:** [IAgentModel](/api/E2E/IAgentModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs#L117)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs)
 
 ## Methods
 
@@ -91,7 +91,7 @@ Why the account cannot use the model, when &lt;code class="paramref"&gt;failure&
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs#L119)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs)
 
 <a id="E2E_OAuth_CopilotModel_ResolveAsync_"></a>
 <a id="E2E_OAuth_CopilotModel_ResolveAsync_System_Threading_CancellationToken_"></a>
@@ -114,4 +114,4 @@ The model for the looked-up protocol, or null when the lookup could not be read.
 
 **Returns:** [Task&lt;IAgentModel&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs#L121)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs)

@@ -27,7 +27,7 @@ each finished file back through [ReadAsync](#E2E_Engine_BrowserProviderDownloads
 
 **Implements:** [IEquatable&lt;BrowserProviderDownloads&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L120)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 ## Properties
 
@@ -46,7 +46,7 @@ Absolute directory on the browser's machine the browser saves downloads to; crea
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L123)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 <a id="E2E_Engine_BrowserProviderDownloads_ReadAsync_"></a>
 <a id="E2E_Engine_BrowserProviderDownloads_ReadAsync"></a>
@@ -63,4 +63,4 @@ The bytes of one finished download, `file` an absolute path under [Dir](#E2E_Eng
 
 **Value:** [Func&lt;BrowserLease, string, BrowserDownloadContext, CancellationToken, Task&lt;byte\[\]&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-5)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L126)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)

@@ -25,7 +25,7 @@ A step as opened: title and charter bounded to the report's ceilings, which is w
 
 **Implements:** [IEquatable&lt;OpenedStep&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L16)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
 
 ## Constructors
 
@@ -50,7 +50,7 @@ A step as opened: title and charter bounded to the report's ceilings, which is w
 | `Title` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The area or flow, at most 200 characters. |
 | `Instruction` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The charter the agent runs, at most 2000 characters. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L16)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
 
 ## Properties
 
@@ -69,7 +69,7 @@ One-based position of the step.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L16)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
 
 <a id="E2E_OpenedStep_Instruction_"></a>
 <a id="E2E_OpenedStep_Instruction"></a>
@@ -86,7 +86,7 @@ The charter the agent runs, at most 2000 characters.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L16)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
 
 <a id="E2E_OpenedStep_Title_"></a>
 <a id="E2E_OpenedStep_Title"></a>
@@ -103,4 +103,4 @@ The area or flow, at most 200 characters.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L16)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)

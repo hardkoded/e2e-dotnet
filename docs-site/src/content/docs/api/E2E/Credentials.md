@@ -24,7 +24,7 @@ The name is uppercased and dashes become underscores.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs#L119)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)
 
 ## Methods
 
@@ -47,4 +47,4 @@ public static UserCredential User(string name)
 
 **Returns:** [UserCredential](/api/E2E/UserCredential/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs#L121)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)

@@ -25,7 +25,7 @@ Why a subscription login or a request made with it failed. [Code](/api/E2E/E2EEx
 
 **Implements:** [ISerializable](https://learn.microsoft.com/dotnet/api/system.runtime.serialization.iserializable)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs#L11)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
 
 ## Constructors
 
@@ -47,7 +47,7 @@ public OAuthException(string code, string message)
 | `code` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs#L31)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
 
 <a id="E2E_OAuth_OAuthException__ctor_System_String_System_String_System_Exception_"></a>
 
@@ -67,7 +67,7 @@ public OAuthException(string code, string message, Exception inner)
 | `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `inner` | [Exception](https://learn.microsoft.com/dotnet/api/system.exception) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs#L36)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
 
 ## Fields
 
@@ -85,7 +85,7 @@ The user or the caller cancelled the flow.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs#L23)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
 
 <a id="E2E_OAuth_OAuthException_FlowFailed"></a>
 
@@ -101,7 +101,7 @@ The authorization server or the vendor API answered with an error during a flow.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs#L20)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
 
 <a id="E2E_OAuth_OAuthException_LoginRequired"></a>
 
@@ -117,7 +117,7 @@ The token or refresh token was rejected; the user signs in again.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs#L17)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
 
 <a id="E2E_OAuth_OAuthException_Misconfigured"></a>
 
@@ -133,7 +133,7 @@ The flow needs an option the caller did not give (a client id, a CLI).
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs#L29)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
 
 <a id="E2E_OAuth_OAuthException_NotLoggedIn"></a>
 
@@ -149,7 +149,7 @@ No stored credentials for the provider.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs#L14)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
 
 <a id="E2E_OAuth_OAuthException_Timeout"></a>
 
@@ -165,4 +165,4 @@ The flow ran out of time waiting for the user.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs#L26)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)

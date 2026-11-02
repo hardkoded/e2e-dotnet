@@ -26,7 +26,7 @@ JSON Schemas need no conversion. Thought signatures Gemini attaches to a functio
 
 **Implements:** [IAgentModel](/api/E2E/IAgentModel/), [IDisposable](https://learn.microsoft.com/dotnet/api/system.idisposable)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs#L17)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs)
 
 ## Constructors
 
@@ -48,7 +48,7 @@ public GoogleModel(GoogleModelOptions options, HttpClient? httpClient = null)
 | `options` | [GoogleModelOptions](/api/E2E/GoogleModelOptions/) |  |
 | `httpClient` | [HttpClient](https://learn.microsoft.com/dotnet/api/system.net.http.httpclient) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs#L28)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs)
 
 ## Properties
 
@@ -67,7 +67,7 @@ Provider and model id, printed in the run summary. Changing it does not miss the
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs#L37)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs)
 
 ## Methods
 
@@ -91,7 +91,7 @@ public Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken
 
 **Returns:** [Task&lt;ModelResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs#L39)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs)
 
 <a id="E2E_GoogleModel_Dispose_"></a>
 <a id="E2E_GoogleModel_Dispose"></a>
@@ -106,4 +106,4 @@ public void Dispose()
 
 Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs#L56)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/GoogleModel.cs)

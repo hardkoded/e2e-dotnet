@@ -21,12 +21,12 @@ public static class ProviderRecordings
 
 The recording seam every engine's provider shares (upstream `recording.ts`): a hosted browser or device service
 recording the attempt itself, in place of the engine's own capture. A provider's `RecordAsync` starts a
-[ProviderRecording](/api/E2E.Engine/ProviderRecording/) for the lease the attempt rides; `CancellationToken)` ends it and
+[ProviderRecording](/api/E2E.Engine/ProviderRecording/) for the lease the attempt rides; `StopProviderRecordingAsync` ends it and
 checks what the provider handed back, so every engine turns a recording into a [VideoSegment](/api/E2E.Engine/VideoSegment/) the same way.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs#L102)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs)
 
 ## Methods
 
@@ -57,4 +57,4 @@ failure names the provider and the lease.
 
 **Returns:** [Task&lt;VideoSegment&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs#L114)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs)

@@ -28,7 +28,7 @@ Set [BaseUrl](/api/E2E/OpenAiCompatibleModelOptions/#E2E_OpenAiCompatibleModelOp
 
 **Implements:** [IAgentModel](/api/E2E/IAgentModel/), [IDisposable](https://learn.microsoft.com/dotnet/api/system.idisposable)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs#L18)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
 
 ## Constructors
 
@@ -50,7 +50,7 @@ public OpenAiCompatibleModel(OpenAiCompatibleModelOptions options, HttpClient? h
 | `options` | [OpenAiCompatibleModelOptions](/api/E2E/OpenAiCompatibleModelOptions/) |  |
 | `httpClient` | [HttpClient](https://learn.microsoft.com/dotnet/api/system.net.http.httpclient) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs#L24)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
 
 ## Properties
 
@@ -69,7 +69,7 @@ Provider and model id, printed in the run summary. Changing it does not miss the
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs#L41)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
 
 ## Methods
 
@@ -93,7 +93,7 @@ public Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken
 
 **Returns:** [Task&lt;ModelResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs#L43)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
 
 <a id="E2E_OpenAiCompatibleModel_Dispose_"></a>
 <a id="E2E_OpenAiCompatibleModel_Dispose"></a>
@@ -108,4 +108,4 @@ public void Dispose()
 
 Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs#L54)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)

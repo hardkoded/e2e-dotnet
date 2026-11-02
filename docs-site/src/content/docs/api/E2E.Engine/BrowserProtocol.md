@@ -21,7 +21,7 @@ public enum BrowserProtocol
 
 The protocol a leased browser's endpoint speaks. .NET-only: upstream's lease always carries a CDP endpoint.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L28)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 ## Fields
 
@@ -39,7 +39,7 @@ The Chrome DevTools Protocol, dialed with Playwright's `connectOverCDP`. A brows
 
 **Value:** [BrowserProtocol](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L31)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 <a id="E2E_Engine_BrowserProtocol_Playwright"></a>
 
@@ -56,4 +56,4 @@ The browser has no context yet, so the engine opens its own, and a dropped conne
 
 **Value:** [BrowserProtocol](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs#L37)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)

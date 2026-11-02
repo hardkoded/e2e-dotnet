@@ -27,7 +27,7 @@ finds the entry, comparing it with the run's says what changed.
 
 **Implements:** [IEquatable&lt;TraceKeyContext&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs#L15)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs)
 
 ## Constructors
 
@@ -59,7 +59,7 @@ finds the entry, comparing it with the run's says what changed.
 | `AppIdentity` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `AgentContextDigest` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs#L15)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs)
 
 ## Properties
 
@@ -76,7 +76,7 @@ public string AgentContextDigest { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs#L23)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs)
 
 <a id="E2E_TraceKeyContext_AppIdentity_"></a>
 <a id="E2E_TraceKeyContext_AppIdentity"></a>
@@ -91,7 +91,7 @@ public string AppIdentity { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs#L22)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs)
 
 <a id="E2E_TraceKeyContext_CacheSchema_"></a>
 <a id="E2E_TraceKeyContext_CacheSchema"></a>
@@ -106,7 +106,7 @@ public string CacheSchema { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs#L16)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs)
 
 <a id="E2E_TraceKeyContext_EngineName_"></a>
 <a id="E2E_TraceKeyContext_EngineName"></a>
@@ -121,7 +121,7 @@ public string EngineName { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs#L20)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs)
 
 <a id="E2E_TraceKeyContext_EngineSpiVersion_"></a>
 <a id="E2E_TraceKeyContext_EngineSpiVersion"></a>
@@ -136,7 +136,7 @@ public int EngineSpiVersion { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs#L21)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs)
 
 <a id="E2E_TraceKeyContext_Platform_"></a>
 <a id="E2E_TraceKeyContext_Platform"></a>
@@ -151,7 +151,7 @@ public string Platform { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs#L19)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs)
 
 <a id="E2E_TraceKeyContext_PolicyVersion_"></a>
 <a id="E2E_TraceKeyContext_PolicyVersion"></a>
@@ -166,7 +166,7 @@ public string PolicyVersion { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs#L17)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs)
 
 <a id="E2E_TraceKeyContext_Project_"></a>
 <a id="E2E_TraceKeyContext_Project"></a>
@@ -181,4 +181,4 @@ public string Project { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs#L18)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/Trace.cs)

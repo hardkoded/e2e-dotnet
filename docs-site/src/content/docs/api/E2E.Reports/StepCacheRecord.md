@@ -25,7 +25,7 @@ How an agent step used the cache (upstream's `StepCacheRecord`).
 
 **Implements:** [IEquatable&lt;StepCacheRecord&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L712)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Properties
 
@@ -42,7 +42,7 @@ public CacheDerived? Derived { get; init; }
 
 **Value:** `CacheDerived?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L720)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepCacheRecord_Detail_"></a>
 <a id="E2E_Reports_StepCacheRecord_Detail"></a>
@@ -57,7 +57,7 @@ public string? Detail { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L731)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepCacheRecord_Entry_"></a>
 <a id="E2E_Reports_StepCacheRecord_Entry"></a>
@@ -74,7 +74,7 @@ The digest of the entry: 64 hexadecimal characters.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L729)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepCacheRecord_Mode_"></a>
 <a id="E2E_Reports_StepCacheRecord_Mode"></a>
@@ -89,7 +89,7 @@ public CacheMode Mode { get; init; }
 
 **Value:** [CacheMode](/api/E2E.Reports/CacheMode/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L714)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepCacheRecord_NotRecorded_"></a>
 <a id="E2E_Reports_StepCacheRecord_NotRecorded"></a>
@@ -104,7 +104,7 @@ public CacheNotRecorded? NotRecorded { get; init; }
 
 **Value:** `CacheNotRecorded?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L722)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepCacheRecord_Reason_"></a>
 <a id="E2E_Reports_StepCacheRecord_Reason"></a>
@@ -119,7 +119,7 @@ public CacheMissReason? Reason { get; init; }
 
 **Value:** `CacheMissReason?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L718)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepCacheRecord_RecordedBy_"></a>
 <a id="E2E_Reports_StepCacheRecord_RecordedBy"></a>
@@ -134,7 +134,7 @@ public CacheRecordedBy? RecordedBy { get; init; }
 
 **Value:** [CacheRecordedBy](/api/E2E.Reports/CacheRecordedBy/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L716)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepCacheRecord_ReplayedActions_"></a>
 <a id="E2E_Reports_StepCacheRecord_ReplayedActions"></a>
@@ -149,7 +149,7 @@ public int ReplayedActions { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L724)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepCacheRecord_TotalActions_"></a>
 <a id="E2E_Reports_StepCacheRecord_TotalActions"></a>
@@ -164,7 +164,7 @@ public int TotalActions { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L726)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepCacheRecord_Write_"></a>
 <a id="E2E_Reports_StepCacheRecord_Write"></a>
@@ -179,4 +179,4 @@ public CacheWrite? Write { get; init; }
 
 **Value:** `CacheWrite?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L733)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

@@ -25,7 +25,7 @@ Upstream's `TraceViewport`: the size of the viewport a capture was taken in, in 
 
 **Implements:** [IEquatable&lt;TraceViewport&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L45)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
 
 ## Constructors
 
@@ -49,7 +49,7 @@ Upstream's `TraceViewport`: the size of the viewport a capture was taken in, in 
 | `Width` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
 | `Height` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L45)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
 
 ## Properties
 
@@ -66,7 +66,7 @@ public int Height { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L45)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
 
 <a id="E2E_Engine_TraceViewport_Width_"></a>
 <a id="E2E_Engine_TraceViewport_Width"></a>
@@ -81,4 +81,4 @@ public int Width { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs#L45)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)

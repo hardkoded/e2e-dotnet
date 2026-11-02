@@ -21,7 +21,7 @@ public enum SkipCause
 
 The cause of a skip.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L333)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Fields
 
@@ -37,7 +37,7 @@ CapabilityUnavailable = 3
 
 **Value:** [SkipCause](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L339)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_SkipCause_Explicit"></a>
 
@@ -53,7 +53,7 @@ The test called `Skip`.
 
 **Value:** [SkipCause](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L336)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_SkipCause_FailureLimit"></a>
 
@@ -67,7 +67,7 @@ FailureLimit = 8
 
 **Value:** [SkipCause](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L344)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_SkipCause_Filtered"></a>
 
@@ -81,7 +81,7 @@ Filtered = 1
 
 **Value:** [SkipCause](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L337)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_SkipCause_HookFailed"></a>
 
@@ -95,7 +95,7 @@ HookFailed = 6
 
 **Value:** [SkipCause](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L342)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_SkipCause_InfrastructureUnavailable"></a>
 
@@ -109,7 +109,7 @@ InfrastructureUnavailable = 7
 
 **Value:** [SkipCause](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L343)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_SkipCause_PlatformUnavailable"></a>
 
@@ -123,7 +123,7 @@ PlatformUnavailable = 2
 
 **Value:** [SkipCause](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L338)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_SkipCause_SerialPredecessorFailed"></a>
 
@@ -137,7 +137,7 @@ SerialPredecessorFailed = 5
 
 **Value:** [SkipCause](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L341)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_SkipCause_SetupFailed"></a>
 
@@ -151,7 +151,7 @@ SetupFailed = 4
 
 **Value:** [SkipCause](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L340)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_SkipCause_TimeLimit"></a>
 
@@ -165,4 +165,4 @@ TimeLimit = 9
 
 **Value:** [SkipCause](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L345)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

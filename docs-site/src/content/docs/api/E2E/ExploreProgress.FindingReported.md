@@ -25,7 +25,7 @@ One finding, as recorded; its evidence screenshot, when kept, is the one [Artifa
 
 **Implements:** [IEquatable&lt;ExploreProgress&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1), [IEquatable&lt;ExploreProgress.FindingReported&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L40)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
 
 ## Constructors
 
@@ -48,7 +48,7 @@ One finding, as recorded; its evidence screenshot, when kept, is the one [Artifa
 | --- | --- | --- |
 | `Finding` | [ReportExploreFinding](/api/E2E/ReportExploreFinding/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L40)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
 
 ## Properties
 
@@ -65,4 +65,4 @@ public ReportExploreFinding Finding { get; init; }
 
 **Value:** [ReportExploreFinding](/api/E2E/ReportExploreFinding/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs#L40)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)

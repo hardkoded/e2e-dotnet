@@ -25,7 +25,7 @@ Masked viewport pixels cleared for model input: the engine's capture, sized for 
 
 **Implements:** [IEquatable&lt;ExecutorPixels&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L298)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 ## Constructors
 
@@ -53,7 +53,7 @@ Masked viewport pixels cleared for model input: the engine's capture, sized for 
 | `Scale` | [double](https://learn.microsoft.com/dotnet/api/system.double) | Image pixels per viewport (CSS) pixel. |
 | `MaskedRegionCount` | [int](https://learn.microsoft.com/dotnet/api/system.int32) | How many regions the engine covered. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L298)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 ## Properties
 
@@ -72,7 +72,7 @@ The encoded image.
 
 **Value:** [byte\[\]](https://learn.microsoft.com/dotnet/api/system.byte)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L298)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorPixels_Height_"></a>
 <a id="E2E_ExecutorPixels_Height"></a>
@@ -89,7 +89,7 @@ Height in image pixels.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L298)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorPixels_MaskedRegionCount_"></a>
 <a id="E2E_ExecutorPixels_MaskedRegionCount"></a>
@@ -106,7 +106,7 @@ How many regions the engine covered.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L298)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorPixels_MediaType_"></a>
 <a id="E2E_ExecutorPixels_MediaType"></a>
@@ -123,7 +123,7 @@ The media type of &lt;code class="paramref"&gt;Data&lt;/code&gt;.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L298)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorPixels_Scale_"></a>
 <a id="E2E_ExecutorPixels_Scale"></a>
@@ -140,7 +140,7 @@ Image pixels per viewport (CSS) pixel.
 
 **Value:** [double](https://learn.microsoft.com/dotnet/api/system.double)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L298)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorPixels_Width_"></a>
 <a id="E2E_ExecutorPixels_Width"></a>
@@ -157,4 +157,4 @@ Width in image pixels.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L298)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)

@@ -21,7 +21,7 @@ public enum CacheMissReason
 
 Why a cached step did not replay.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L661)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Fields
 
@@ -37,7 +37,7 @@ ActionFailed = 9
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L672)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheMissReason_ActionUncertain"></a>
 
@@ -51,7 +51,7 @@ ActionUncertain = 10
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L673)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheMissReason_EndMismatch"></a>
 
@@ -65,7 +65,7 @@ EndMismatch = 11
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L674)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheMissReason_Gap"></a>
 
@@ -79,7 +79,7 @@ Gap = 5
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L668)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheMissReason_InvalidEntry"></a>
 
@@ -93,7 +93,7 @@ InvalidEntry = 2
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L665)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheMissReason_NoEntry"></a>
 
@@ -107,7 +107,7 @@ NoEntry = 1
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L664)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheMissReason_Retry"></a>
 
@@ -121,7 +121,7 @@ Retry = 0
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L663)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheMissReason_TargetAmbiguous"></a>
 
@@ -135,7 +135,7 @@ TargetAmbiguous = 7
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L670)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheMissReason_TargetNotFound"></a>
 
@@ -149,7 +149,7 @@ TargetNotFound = 6
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L669)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheMissReason_Truncated"></a>
 
@@ -163,7 +163,7 @@ Truncated = 3
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L666)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheMissReason_ViewportChanged"></a>
 
@@ -177,7 +177,7 @@ ViewportChanged = 8
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L671)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheMissReason_WrongContext"></a>
 
@@ -191,4 +191,4 @@ WrongContext = 4
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L667)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

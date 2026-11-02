@@ -24,7 +24,7 @@ and the NUnit fixture all start from these values.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L11)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs)
 
 ## Fields
 
@@ -42,7 +42,7 @@ Upstream `actionTimeout`.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L20)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs)
 
 <a id="E2E_E2EDefaults_AssertionTimeout"></a>
 
@@ -58,7 +58,7 @@ Upstream `assertionTimeout`.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L23)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs)
 
 <a id="E2E_E2EDefaults_CleanupTimeout"></a>
 
@@ -74,7 +74,7 @@ Upstream `cleanupTimeout`.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L26)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs)
 
 <a id="E2E_E2EDefaults_JudgmentTimeout"></a>
 
@@ -90,7 +90,7 @@ Upstream `judgmentTimeout`: the deadline of one `assert`, `waitFor`, or `extract
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L32)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs)
 
 <a id="E2E_E2EDefaults_LaunchTimeout"></a>
 
@@ -106,7 +106,7 @@ Upstream `launchTimeout`.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L17)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs)
 
 <a id="E2E_E2EDefaults_MaxInputTokens"></a>
 
@@ -122,7 +122,7 @@ Upstream's `DEFAULT_INPUT_TOKENS`, the default of `maxInputTokens`: the input on
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L53)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs)
 
 <a id="E2E_E2EDefaults_MaxModelCalls"></a>
 
@@ -138,7 +138,7 @@ Upstream `maxModelCalls` for one agent call.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L41)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs)
 
 <a id="E2E_E2EDefaults_MaxObservationBytes"></a>
 
@@ -155,7 +155,7 @@ thousands of tokens on every act turn; the per-call token ceiling clamps a dense
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L50)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs)
 
 <a id="E2E_E2EDefaults_MaxSteps"></a>
 
@@ -171,7 +171,7 @@ Upstream `maxSteps`: actions one `act` may take.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L44)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs)
 
 <a id="E2E_E2EDefaults_ReplayTimeout"></a>
 
@@ -187,7 +187,7 @@ How long a replay waits for each recorded target and for the recorded end state.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L35)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs)
 
 <a id="E2E_E2EDefaults_StepTimeout"></a>
 
@@ -203,7 +203,7 @@ How long one `act` may run. A .NET-only setting; upstream bounds `act` by the te
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L29)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs)
 
 <a id="E2E_E2EDefaults_TestTimeout"></a>
 
@@ -219,7 +219,7 @@ Upstream `timeout`: the whole test.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L14)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs)
 
 <a id="E2E_E2EDefaults_WaitForInterval"></a>
 
@@ -235,4 +235,4 @@ How often `agent.waitFor` looks again.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs#L38)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EDefaults.cs)
