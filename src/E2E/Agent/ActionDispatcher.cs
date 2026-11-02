@@ -549,9 +549,10 @@ internal sealed class ActionDispatcher : IExecutorActions
     }
 
     // Upstream's placementOf (its container key): the container the node sat in on the screen it was acted on. That is what tells this
-    // row's "Delete" from the next row's when the flow replays. The screen is the newest one that listed the node.
+    // row's "Delete" from the next row's when the flow replays. The screen is the newest one that listed the node, and the node is the
+    // one that screen lists under its ref: a look taken since the node was resolved holds new node objects.
     private string? WithinOf(SemanticNode node) =>
-        _feed.LastSeen(node.Ref) is { } seen ? AgentActions.ContainerKey(node, AgentActions.ParentsOf(seen.Observation.Roots), _scope.Redactor) : null;
+        _feed.LastSeen(node.Ref) is { } seen ? AgentActions.ContainerKey(seen.Node, AgentActions.ParentsOf(seen.Observation.Roots), _scope.Redactor) : null;
 
     // Upstream's commitTargeted: the action is the step's own once it ran, so it is recorded and arms the next look.
     private Task CommitAsync(string kind, SemanticNode node, string? value = null, string? key = null) =>
