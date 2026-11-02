@@ -48,8 +48,6 @@ A right click, or the platform's equivalent. &lt;code class="paramref"&gt;Modifi
 | --- | --- | --- |
 | `Modifiers` | [IReadOnlyList&lt;KeyModifier&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)
-
 ## Properties
 
 <a id="E2E_Engine_LocatorAction_SecondaryTap_Modifiers_"></a>
@@ -64,5 +62,3 @@ public IReadOnlyList<KeyModifier>? Modifiers { get; init; }
 
 
 **Value:** [IReadOnlyList&lt;KeyModifier&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)

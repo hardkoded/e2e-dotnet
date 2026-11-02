@@ -44,8 +44,6 @@ captures pixels and its masking is proven. Otherwise
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
-
 <a id="E2E_ExecutorObserveOptions_Tree_"></a>
 <a id="E2E_ExecutorObserveOptions_Tree"></a>
 
@@ -60,5 +58,3 @@ public bool Tree { get; init; }
 Includes the redacted node tree as [Tree](/api/E2E/ExecutorObservation/#E2E_ExecutorObservation_Tree).
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)

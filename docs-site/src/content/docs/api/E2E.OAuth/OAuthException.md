@@ -47,8 +47,6 @@ public OAuthException(string code, string message)
 | `code` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
-
 <a id="E2E_OAuth_OAuthException__ctor_System_String_System_String_System_Exception_"></a>
 
 ### OAuthException(string, string, Exception)
@@ -67,8 +65,6 @@ public OAuthException(string code, string message, Exception inner)
 | `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `inner` | [Exception](https://learn.microsoft.com/dotnet/api/system.exception) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
-
 ## Fields
 
 <a id="E2E_OAuth_OAuthException_Cancelled"></a>
@@ -85,8 +81,6 @@ The user or the caller cancelled the flow.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
-
 <a id="E2E_OAuth_OAuthException_FlowFailed"></a>
 
 ### FlowFailed
@@ -100,8 +94,6 @@ public const string FlowFailed = "FLOW_FAILED"
 The authorization server or the vendor API answered with an error during a flow.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
 
 <a id="E2E_OAuth_OAuthException_LoginRequired"></a>
 
@@ -117,8 +109,6 @@ The token or refresh token was rejected; the user signs in again.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
-
 <a id="E2E_OAuth_OAuthException_Misconfigured"></a>
 
 ### Misconfigured
@@ -132,8 +122,6 @@ public const string Misconfigured = "MISCONFIGURED"
 The flow needs an option the caller did not give (a client id, a CLI).
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
 
 <a id="E2E_OAuth_OAuthException_NotLoggedIn"></a>
 
@@ -149,8 +137,6 @@ No stored credentials for the provider.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
-
 <a id="E2E_OAuth_OAuthException_Timeout"></a>
 
 ### Timeout
@@ -164,5 +150,3 @@ public const string Timeout = "TIMEOUT"
 The flow ran out of time waiting for the user.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)

@@ -43,5 +43,3 @@ public required string Path { get; init; }
 Path relative to the attempt artifact directory.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs)

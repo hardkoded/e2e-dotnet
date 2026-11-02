@@ -44,8 +44,6 @@ Inverts the matcher, as [Not](/api/E2E/LocatorExpect/#E2E_LocatorExpect_Not). A 
 
 **Value:** [SoftLocatorExpect](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
-
 ## Methods
 
 <a id="E2E_SoftLocatorExpect_ToBeAttachedAsync_"></a>
@@ -69,8 +67,6 @@ public Task ToBeAttachedAsync(bool attached = true, TimeSpan? timeout = null, Ca
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
-
 <a id="E2E_SoftLocatorExpect_ToBeCheckedAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToBeCheckedAsync_System_Boolean_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -92,8 +88,6 @@ public Task ToBeCheckedAsync(bool isChecked = true, TimeSpan? timeout = null, Ca
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
-
 <a id="E2E_SoftLocatorExpect_ToBeDisabledAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToBeDisabledAsync_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -113,8 +107,6 @@ public Task ToBeDisabledAsync(TimeSpan? timeout = null, CancellationToken cancel
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
 
 <a id="E2E_SoftLocatorExpect_ToBeEnabledAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToBeEnabledAsync_System_Boolean_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -137,8 +129,6 @@ public Task ToBeEnabledAsync(bool enabled = true, TimeSpan? timeout = null, Canc
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
-
 <a id="E2E_SoftLocatorExpect_ToBeExpandedAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToBeExpandedAsync_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -158,8 +148,6 @@ public Task ToBeExpandedAsync(TimeSpan? timeout = null, CancellationToken cancel
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
 
 <a id="E2E_SoftLocatorExpect_ToBeFocusedAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToBeFocusedAsync_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -181,8 +169,6 @@ public Task ToBeFocusedAsync(TimeSpan? timeout = null, CancellationToken cancell
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
-
 <a id="E2E_SoftLocatorExpect_ToBeHiddenAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToBeHiddenAsync_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -202,8 +188,6 @@ public Task ToBeHiddenAsync(TimeSpan? timeout = null, CancellationToken cancella
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
 
 <a id="E2E_SoftLocatorExpect_ToBeSelectedAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToBeSelectedAsync_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -225,8 +209,6 @@ public Task ToBeSelectedAsync(TimeSpan? timeout = null, CancellationToken cancel
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
-
 <a id="E2E_SoftLocatorExpect_ToBeVisibleAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToBeVisibleAsync_System_Boolean_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -247,8 +229,6 @@ public Task ToBeVisibleAsync(bool visible = true, TimeSpan? timeout = null, Canc
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
 
 <a id="E2E_SoftLocatorExpect_ToContainTextAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToContainTextAsync_E2E_TextMatch_System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -272,8 +252,6 @@ public Task ToContainTextAsync(TextMatch expected, bool? ignoreCase = null, Time
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
-
 <a id="E2E_SoftLocatorExpect_ToContainTextAsync_System_Collections_Generic_IReadOnlyList_E2E_TextMatch__System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
 ### `ToContainTextAsync(IReadOnlyList<TextMatch>, bool?, TimeSpan?, CancellationToken)`
@@ -294,8 +272,6 @@ public Task ToContainTextAsync(IReadOnlyList<TextMatch> expected, bool? ignoreCa
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
 
 <a id="E2E_SoftLocatorExpect_ToHaveAccessibleNameAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToHaveAccessibleNameAsync_E2E_TextMatch_System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -318,8 +294,6 @@ public Task ToHaveAccessibleNameAsync(TextMatch expected, bool? ignoreCase = nul
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
 
 <a id="E2E_SoftLocatorExpect_ToHaveAttributeAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToHaveAttributeAsync_System_String_E2E_TextMatch_System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -344,8 +318,6 @@ public Task ToHaveAttributeAsync(string name, TextMatch value, bool? ignoreCase 
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
-
 <a id="E2E_SoftLocatorExpect_ToHaveAttributeAsync_System_String_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
 ### ToHaveAttributeAsync(string, TimeSpan?, CancellationToken)
@@ -365,8 +337,6 @@ public Task ToHaveAttributeAsync(string name, TimeSpan? timeout = null, Cancella
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
 
 <a id="E2E_SoftLocatorExpect_ToHaveCountAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToHaveCountAsync_System_Int32_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -389,8 +359,6 @@ public Task ToHaveCountAsync(int count, TimeSpan? timeout = null, CancellationTo
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
-
 <a id="E2E_SoftLocatorExpect_ToHaveScreenshotAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToHaveScreenshotAsync_E2E_ScreenshotOptions_System_String_"></a>
 
@@ -411,8 +379,6 @@ public Task ToHaveScreenshotAsync(ScreenshotOptions options, string? callerFile 
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
-
 <a id="E2E_SoftLocatorExpect_ToHaveScreenshotAsync_System_String_E2E_ScreenshotOptions_System_String_"></a>
 
 ### ToHaveScreenshotAsync(string?, ScreenshotOptions?, string?)
@@ -432,8 +398,6 @@ public Task ToHaveScreenshotAsync(string? name = null, ScreenshotOptions? option
 | `callerFile` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
 
 <a id="E2E_SoftLocatorExpect_ToHaveTextAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToHaveTextAsync_E2E_TextMatch_System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -457,8 +421,6 @@ public Task ToHaveTextAsync(TextMatch expected, bool? ignoreCase = null, TimeSpa
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
-
 <a id="E2E_SoftLocatorExpect_ToHaveTextAsync_System_Collections_Generic_IReadOnlyList_E2E_TextMatch__System_Nullable_System_Boolean__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
 ### `ToHaveTextAsync(IReadOnlyList<TextMatch>, bool?, TimeSpan?, CancellationToken)`
@@ -480,8 +442,6 @@ public Task ToHaveTextAsync(IReadOnlyList<TextMatch> expected, bool? ignoreCase 
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)
-
 <a id="E2E_SoftLocatorExpect_ToHaveValueAsync_"></a>
 <a id="E2E_SoftLocatorExpect_ToHaveValueAsync_E2E_TextMatch_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -502,5 +462,3 @@ public Task ToHaveValueAsync(TextMatch expected, TimeSpan? timeout = null, Cance
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Soft.cs)

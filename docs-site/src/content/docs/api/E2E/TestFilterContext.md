@@ -42,8 +42,6 @@ The change the filter judges; the same for every filter of the run.
 
 **Value:** [TestFilterChanges](/api/E2E/TestFilterChanges/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs)
-
 <a id="E2E_TestFilterContext_ConfigFile_"></a>
 <a id="E2E_TestFilterContext_ConfigFile"></a>
 
@@ -61,8 +59,6 @@ repository.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs)
-
 <a id="E2E_TestFilterContext_Log_"></a>
 <a id="E2E_TestFilterContext_Log"></a>
 
@@ -77,8 +73,6 @@ public required Action<string> Log { get; init; }
 Prints one progress line as a run notice.
 
 **Value:** [Action&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs)
 
 <a id="E2E_TestFilterContext_ProjectRoot_"></a>
 <a id="E2E_TestFilterContext_ProjectRoot"></a>
@@ -95,8 +89,6 @@ Absolute project root, spelled as on disk like [Changes](#E2E_TestFilterContext_
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs)
-
 <a id="E2E_TestFilterContext_Redact_"></a>
 <a id="E2E_TestFilterContext_Redact"></a>
 
@@ -112,8 +104,6 @@ Replaces every fixed-value secret and credential password in the text, and any r
 
 **Value:** [Func&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs)
-
 <a id="E2E_TestFilterContext_Signal_"></a>
 <a id="E2E_TestFilterContext_Signal"></a>
 
@@ -128,5 +118,3 @@ public required CancellationToken Signal { get; init; }
 Cancelled when the run is interrupted, or after 5 minutes; hand it to every model and network call.
 
 **Value:** [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/TestFilter.cs)

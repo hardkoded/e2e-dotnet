@@ -40,8 +40,6 @@ public required Agent Agent { get; init; }
 
 **Value:** [Agent](/api/E2E/Agent/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs)
-
 <a id="E2E_TestContext_App_"></a>
 <a id="E2E_TestContext_App"></a>
 
@@ -54,8 +52,6 @@ public required App App { get; init; }
 
 
 **Value:** [App](/api/E2E/App/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs)
 
 <a id="E2E_TestContext_Browser_"></a>
 <a id="E2E_TestContext_Browser"></a>
@@ -72,8 +68,6 @@ The browser fixture. Its members fail with `UNSUPPORTED_CAPABILITY` on an engine
 
 **Value:** [Browser](/api/E2E/Browser/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs)
-
 <a id="E2E_TestContext_CancellationToken_"></a>
 <a id="E2E_TestContext_CancellationToken"></a>
 
@@ -86,8 +80,6 @@ public CancellationToken CancellationToken { get; init; }
 
 
 **Value:** [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs)
 
 <a id="E2E_TestContext_Platform_"></a>
 <a id="E2E_TestContext_Platform"></a>
@@ -104,8 +96,6 @@ The engine platform, such as `web` or `document`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs)
-
 <a id="E2E_TestContext_Screen_"></a>
 <a id="E2E_TestContext_Screen"></a>
 
@@ -118,8 +108,6 @@ public required Screen Screen { get; init; }
 
 
 **Value:** [Screen](/api/E2E/Screen/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs)
 
 ## Methods
 
@@ -140,5 +128,3 @@ public void Skip(bool condition, string reason)
 | --- | --- | --- |
 | `condition` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 | `reason` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Fixtures.cs)

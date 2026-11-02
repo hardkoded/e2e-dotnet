@@ -37,8 +37,6 @@ Action = 2
 
 **Value:** [StepActivity](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
-
 <a id="E2E_Reports_StepActivity_Model"></a>
 
 ### Model
@@ -51,8 +49,6 @@ Model = 1
 
 **Value:** [StepActivity](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
-
 <a id="E2E_Reports_StepActivity_Observe"></a>
 
 ### Observe
@@ -64,5 +60,3 @@ Observe = 0
 
 
 **Value:** [StepActivity](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)

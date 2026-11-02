@@ -43,5 +43,3 @@ public required string Dir { get; init; }
 Absolute directory, already created, a recording written as a file goes into.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs)

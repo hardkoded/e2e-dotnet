@@ -44,8 +44,6 @@ The configured agent calls use when they name none. Upstream's `agent`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
-
 <a id="E2E_OpenSessionOptions_Name_"></a>
 <a id="E2E_OpenSessionOptions_Name"></a>
 
@@ -61,8 +59,6 @@ The test's title, treated as untrusted text and never a raw path component. Upst
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
-
 <a id="E2E_OpenSessionOptions_OnStep_"></a>
 <a id="E2E_OpenSessionOptions_OnStep"></a>
 
@@ -77,8 +73,6 @@ public Action<StepProgress>? OnStep { get; init; }
 The step progress feed reporters receive. Must not block or throw. Upstream's `onStep`.
 
 **Value:** [Action&lt;StepProgress&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 <a id="E2E_OpenSessionOptions_Timeout_"></a>
 <a id="E2E_OpenSessionOptions_Timeout"></a>
@@ -96,5 +90,3 @@ Expiry cuts running operations and fails the session as timed out; it does not b
 close the session. Upstream's `timeout`.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)

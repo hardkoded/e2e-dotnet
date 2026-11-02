@@ -39,8 +39,6 @@ The Chrome DevTools Protocol, dialed with Playwright's `connectOverCDP`. A brows
 
 **Value:** [BrowserProtocol](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
-
 <a id="E2E_Engine_BrowserProtocol_Playwright"></a>
 
 ### Playwright
@@ -55,5 +53,3 @@ Playwright's own protocol, dialed with Playwright's `connect`: a Playwright serv
 The browser has no context yet, so the engine opens its own, and a dropped connection cannot be reattached.
 
 **Value:** [BrowserProtocol](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)

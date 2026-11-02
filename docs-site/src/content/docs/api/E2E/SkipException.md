@@ -45,5 +45,3 @@ public SkipException(string reason)
 | Name | Type | Description |
 | --- | --- | --- |
 | `reason` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)

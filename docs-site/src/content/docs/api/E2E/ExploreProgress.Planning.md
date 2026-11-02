@@ -48,8 +48,6 @@ The planner is deciding the next charter, or (&lt;code class="paramref"&gt;Closi
 | --- | --- | --- |
 | `Closing` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
-
 ## Properties
 
 <a id="E2E_ExploreProgress_Planning_Closing_"></a>
@@ -64,5 +62,3 @@ public bool Closing { get; init; }
 
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)

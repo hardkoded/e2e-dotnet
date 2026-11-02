@@ -37,8 +37,6 @@ Date = 3
 
 **Value:** [CacheDerived](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_CacheDerived_MintedToken"></a>
 
 ### MintedToken
@@ -50,8 +48,6 @@ MintedToken = 2
 
 
 **Value:** [CacheDerived](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheDerived_Pixels"></a>
 
@@ -65,8 +61,6 @@ Pixels = 0
 
 **Value:** [CacheDerived](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_CacheDerived_WholeNode"></a>
 
 ### WholeNode
@@ -78,5 +72,3 @@ WholeNode = 1
 
 
 **Value:** [CacheDerived](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

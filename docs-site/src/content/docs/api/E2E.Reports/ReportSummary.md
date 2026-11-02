@@ -43,8 +43,6 @@ public int Discovered { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportSummary_Executed_"></a>
 <a id="E2E_Reports_ReportSummary_Executed"></a>
 
@@ -57,8 +55,6 @@ public int Executed { get; init; }
 
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportSummary_Failed_"></a>
 <a id="E2E_Reports_ReportSummary_Failed"></a>
@@ -73,8 +69,6 @@ public int Failed { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportSummary_Flaky_"></a>
 <a id="E2E_Reports_ReportSummary_Flaky"></a>
 
@@ -87,8 +81,6 @@ public int Flaky { get; init; }
 
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportSummary_Interrupted_"></a>
 <a id="E2E_Reports_ReportSummary_Interrupted"></a>
@@ -105,8 +97,6 @@ Stopped by the run before reaching a verdict; never counted as failed.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportSummary_Passed_"></a>
 <a id="E2E_Reports_ReportSummary_Passed"></a>
 
@@ -119,8 +109,6 @@ public int Passed { get; init; }
 
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportSummary_Selected_"></a>
 <a id="E2E_Reports_ReportSummary_Selected"></a>
@@ -135,8 +123,6 @@ public int Selected { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportSummary_Skipped_"></a>
 <a id="E2E_Reports_ReportSummary_Skipped"></a>
 
@@ -149,5 +135,3 @@ public int Skipped { get; init; }
 
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

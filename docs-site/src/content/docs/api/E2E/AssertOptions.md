@@ -42,8 +42,6 @@ The named agent whose judge decides. Defaults to `default`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
-
 <a id="E2E_AssertOptions_Params_"></a>
 <a id="E2E_AssertOptions_Params"></a>
 
@@ -59,8 +57,6 @@ Values the assertion refers to as `{name}`, with the same rules as [Params](/api
 [Unique(string)](/api/E2E/Values/#E2E_Values_Unique_System_String_) value as its string and a [Secret](/api/E2E/Secret/) by name only, never its value.
 
 **Value:** [IReadOnlyDictionary&lt;string, object&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
 <a id="E2E_AssertOptions_Screenshot_"></a>
 <a id="E2E_AssertOptions_Screenshot"></a>
@@ -78,8 +74,6 @@ Keep a redacted screenshot of the judged screen under the attempt's results, and
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
-
 <a id="E2E_AssertOptions_Timeout_"></a>
 <a id="E2E_AssertOptions_Timeout"></a>
 
@@ -95,8 +89,6 @@ Defaults to the agent's `JudgmentTimeout` (30 s).
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
-
 <a id="E2E_AssertOptions_Vision_"></a>
 <a id="E2E_AssertOptions_Vision"></a>
 
@@ -111,5 +103,3 @@ public VisionMode Vision { get; init; }
 What the judge is shown. [Off](/api/E2E/VisionMode/#E2E_VisionMode_Off) by default: the tree. See [VisionMode](/api/E2E/VisionMode/).
 
 **Value:** [VisionMode](/api/E2E/VisionMode/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)

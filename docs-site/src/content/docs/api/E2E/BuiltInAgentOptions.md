@@ -42,8 +42,6 @@ Appended to the built-in execution rules. Only the act loop reads it.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/DefaultAgent.cs)
-
 <a id="E2E_BuiltInAgentOptions_Tools_"></a>
 <a id="E2E_BuiltInAgentOptions_Tools"></a>
 
@@ -58,5 +56,3 @@ public IReadOnlyDictionary<string, AgentTool>? Tools { get; init; }
 Project tools offered to the model beside the agent's own, by name. A tool is offered only on the platforms it declares.
 
 **Value:** [IReadOnlyDictionary&lt;string, AgentTool&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/DefaultAgent.cs)

@@ -49,8 +49,6 @@ public WebEngine(WebEngineOptions options)
 | --- | --- | --- |
 | `options` | [WebEngineOptions](/api/E2E.Engine/WebEngineOptions/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
-
 <a id="E2E_Engine_WebEngine__ctor_System_Nullable_System_Boolean__"></a>
 
 ### WebEngine(bool?)
@@ -67,8 +65,6 @@ public WebEngine(bool? headless = null)
 | --- | --- | --- |
 | `headless` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
-
 ## Fields
 
 <a id="E2E_Engine_WebEngine_EngineVersion"></a>
@@ -82,8 +78,6 @@ public const string EngineVersion = "1.1.0"
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
 
 ## Properties
 
@@ -100,8 +94,6 @@ public EngineCapabilities Capabilities { get; }
 
 **Value:** [EngineCapabilities](/api/E2E.Engine/EngineCapabilities/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
-
 <a id="E2E_Engine_WebEngine_Platform_"></a>
 <a id="E2E_Engine_WebEngine_Platform"></a>
 
@@ -115,8 +107,6 @@ public string Platform { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
-
 <a id="E2E_Engine_WebEngine_Version_"></a>
 <a id="E2E_Engine_WebEngine_Version"></a>
 
@@ -129,8 +119,6 @@ public string Version { get; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
 
 ## Methods
 
@@ -148,8 +136,6 @@ public ValueTask DisposeAsync()
 Worker shutdown: releases the replacement lease the worker acquired for itself, within the cleanup timeout. What prepare leased is the runner's to release.
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.Leases.cs)
 
 <a id="E2E_Engine_WebEngine_FinishAsync_"></a>
 <a id="E2E_Engine_WebEngine_FinishAsync_E2E_Engine_EngineFinishInfo_System_Threading_CancellationToken_"></a>
@@ -175,8 +161,6 @@ leases a worker that died left open. Call it after every worker ended, on every 
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.Leases.cs)
-
 <a id="E2E_Engine_WebEngine_Init_"></a>
 <a id="E2E_Engine_WebEngine_Init_E2E_Engine_EngineInitInfo_"></a>
 
@@ -197,8 +181,6 @@ dropped. It can be called again on a disposed engine.
 | Name | Type | Description |
 | --- | --- | --- |
 | `info` | [EngineInitInfo](/api/E2E.Engine/EngineInitInfo/) |  |
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.Leases.cs)
 
 <a id="E2E_Engine_WebEngine_PrepareAsync_"></a>
 <a id="E2E_Engine_WebEngine_PrepareAsync_E2E_Engine_EnginePrepareInfo_System_Threading_CancellationToken_"></a>
@@ -224,8 +206,6 @@ nothing to prepare.
 
 **Returns:** [Task&lt;EnginePrepareResult&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.Leases.cs)
-
 <a id="E2E_Engine_WebEngine_StartAsync_"></a>
 <a id="E2E_Engine_WebEngine_StartAsync_E2E_Engine_EngineStartOptions_System_Threading_CancellationToken_"></a>
 
@@ -245,8 +225,6 @@ public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationT
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;IEngineSession&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
 
 <a id="E2E_Engine_WebEngine_ValidateApp_"></a>
 <a id="E2E_Engine_WebEngine_ValidateApp_E2E_AppConfig_System_String_"></a>
@@ -270,5 +248,3 @@ grants, and only grants. A provider or a CDP attach speaks CDP, so it takes Chro
 | --- | --- | --- |
 | `app` | [AppConfig](/api/E2E/AppConfig/) |  |
 | `targetName` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)

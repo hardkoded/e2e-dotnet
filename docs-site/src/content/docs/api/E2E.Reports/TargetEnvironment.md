@@ -37,8 +37,6 @@ Production = 2
 
 **Value:** [TargetEnvironment](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_TargetEnvironment_Staging"></a>
 
 ### Staging
@@ -51,8 +49,6 @@ Staging = 1
 
 **Value:** [TargetEnvironment](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_TargetEnvironment_Test"></a>
 
 ### Test
@@ -64,5 +60,3 @@ Test = 0
 
 
 **Value:** [TargetEnvironment](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

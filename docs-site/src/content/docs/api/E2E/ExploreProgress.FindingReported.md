@@ -48,8 +48,6 @@ One finding, as recorded; its evidence screenshot, when kept, is the one [Artifa
 | --- | --- | --- |
 | `Finding` | [ReportExploreFinding](/api/E2E/ReportExploreFinding/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
-
 ## Properties
 
 <a id="E2E_ExploreProgress_FindingReported_Finding_"></a>
@@ -64,5 +62,3 @@ public ReportExploreFinding Finding { get; init; }
 
 
 **Value:** [ReportExploreFinding](/api/E2E/ReportExploreFinding/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)

@@ -45,8 +45,6 @@ With [ReconnectEndpoint](#E2E_Engine_WebConnectOptions_ReconnectEndpoint), each 
 
 **Value:** [Func&lt;CancellationToken, Task&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
-
 <a id="E2E_Engine_WebConnectOptions_ReconnectEndpoint_"></a>
 <a id="E2E_Engine_WebConnectOptions_ReconnectEndpoint"></a>
 
@@ -66,5 +64,3 @@ Dispatched operations are never retried. The host owns browser cleanup.
 Context replacement, headers, basicAuth, userAgent, locale, and timezoneId are unavailable in this mode.
 
 **Value:** [Func&lt;CancellationToken, Task&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)

@@ -37,8 +37,6 @@ AfterEach = 1
 
 **Value:** [StepPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_StepPhase_BeforeEach"></a>
 
 ### BeforeEach
@@ -50,5 +48,3 @@ BeforeEach = 0
 
 
 **Value:** [StepPhase](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

@@ -40,8 +40,6 @@ The engine masked fewer regions than the tree has secure nodes, so the image can
 
 **Value:** [VisionDegradation](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs)
-
 <a id="E2E_VisionDegradation_UnsupportedCapability"></a>
 
 ### UnsupportedCapability
@@ -55,5 +53,3 @@ UnsupportedCapability = 1
 The engine captures no pixels.
 
 **Value:** [VisionDegradation](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Steps.cs)

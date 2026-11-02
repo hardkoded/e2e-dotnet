@@ -39,8 +39,6 @@ NoPreference = 1
 
 **Value:** [WebReducedMotion](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs)
-
 <a id="E2E_Engine_WebReducedMotion_Reduce"></a>
 
 ### Reduce
@@ -54,5 +52,3 @@ Reduce = 0
 `reduce`.
 
 **Value:** [WebReducedMotion](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs)

@@ -44,8 +44,6 @@ public StepStarted(OpenedStep Step)
 | --- | --- | --- |
 | `Step` | [OpenedStep](/api/E2E/OpenedStep/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
-
 ## Properties
 
 <a id="E2E_ExploreProgress_StepStarted_Step_"></a>
@@ -60,5 +58,3 @@ public OpenedStep Step { get; init; }
 
 
 **Value:** [OpenedStep](/api/E2E/OpenedStep/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)

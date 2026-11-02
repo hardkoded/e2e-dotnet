@@ -43,8 +43,6 @@ The zero-based position of this step among the agent steps of the attempt.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
-
 <a id="E2E_ExecutorStep_Instruction_"></a>
 <a id="E2E_ExecutorStep_Instruction"></a>
 
@@ -60,8 +58,6 @@ The instruction or assertion the test passed.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
-
 <a id="E2E_ExecutorStep_Kind_"></a>
 <a id="E2E_ExecutorStep_Kind"></a>
 
@@ -74,8 +70,6 @@ public required ExecutorStepKind Kind { get; init; }
 
 
 **Value:** [ExecutorStepKind](/api/E2E/ExecutorStepKind/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorStep_Params_"></a>
 <a id="E2E_ExecutorStep_Params"></a>
@@ -93,8 +87,6 @@ plaintext never reaches the executor, which fills fields through `TypeSecretAsyn
 
 **Value:** [IReadOnlyDictionary&lt;string, JsonElement&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
-
 <a id="E2E_ExecutorStep_Secrets_"></a>
 <a id="E2E_ExecutorStep_Secrets"></a>
 
@@ -109,5 +101,3 @@ public IReadOnlyList<ExecutorSecret> Secrets { get; init; }
 The secrets declared in the params, which `TypeSecretAsync` may fill.
 
 **Value:** [IReadOnlyList&lt;ExecutorSecret&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)

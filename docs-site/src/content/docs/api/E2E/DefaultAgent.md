@@ -49,5 +49,3 @@ custom executor that hands its context on.
 | `options` | [BuiltInAgentOptions](/api/E2E/BuiltInAgentOptions/) |  |
 
 **Returns:** [IStepExecutor](/api/E2E/IStepExecutor/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/DefaultAgent.cs)

@@ -37,8 +37,6 @@ Attempt = 1
 
 **Value:** [ArtifactProducerKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ArtifactProducerKind_Step"></a>
 
 ### Step
@@ -50,5 +48,3 @@ Step = 0
 
 
 **Value:** [ArtifactProducerKind](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

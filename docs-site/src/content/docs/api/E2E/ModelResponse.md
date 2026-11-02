@@ -39,8 +39,6 @@ The finish reason of a turn the provider refused (upstream's `content-filter`).
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs)
-
 ## Properties
 
 <a id="E2E_ModelResponse_Content_"></a>
@@ -55,8 +53,6 @@ public string? Content { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs)
 
 <a id="E2E_ModelResponse_FinishReason_"></a>
 <a id="E2E_ModelResponse_FinishReason"></a>
@@ -73,8 +69,6 @@ The AI SDK finish reason that matters to the agent: [ContentFilter](#E2E_ModelRe
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs)
-
 <a id="E2E_ModelResponse_RawFinishReason_"></a>
 <a id="E2E_ModelResponse_RawFinishReason"></a>
 
@@ -89,8 +83,6 @@ public string? RawFinishReason { get; init; }
 The provider's own word for the stop, such as `refusal`, when it sent one. Provider text: redact it before it reaches a message.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs)
 
 <a id="E2E_ModelResponse_ReasoningItems_"></a>
 <a id="E2E_ModelResponse_ReasoningItems"></a>
@@ -107,8 +99,6 @@ The reasoning of the turn that the model can take back, to replay on the next tu
 
 **Value:** [IReadOnlyList&lt;JsonElement&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs)
-
 <a id="E2E_ModelResponse_ToolCalls_"></a>
 <a id="E2E_ModelResponse_ToolCalls"></a>
 
@@ -122,8 +112,6 @@ public IReadOnlyList<ModelToolCall> ToolCalls { get; init; }
 
 **Value:** [IReadOnlyList&lt;ModelToolCall&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs)
-
 <a id="E2E_ModelResponse_Usage_"></a>
 <a id="E2E_ModelResponse_Usage"></a>
 
@@ -136,5 +124,3 @@ public ModelCallUsage? Usage { get; init; }
 
 
 **Value:** [ModelCallUsage](/api/E2E/ModelCallUsage/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs)

@@ -45,8 +45,6 @@ public Fill(string Value, bool Sensitive = false)
 | `Value` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `Sensitive` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)
-
 ## Properties
 
 <a id="E2E_Engine_LocatorAction_Fill_Sensitive_"></a>
@@ -62,8 +60,6 @@ public bool Sensitive { get; init; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)
-
 <a id="E2E_Engine_LocatorAction_Fill_Value_"></a>
 <a id="E2E_Engine_LocatorAction_Fill_Value"></a>
 
@@ -76,5 +72,3 @@ public string Value { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)

@@ -42,8 +42,6 @@ public string File { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_HookScope_TargetId_"></a>
 <a id="E2E_Reports_HookScope_TargetId"></a>
 
@@ -57,8 +55,6 @@ public string TargetId { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_HookScope_TitlePath_"></a>
 <a id="E2E_Reports_HookScope_TitlePath"></a>
 
@@ -71,5 +67,3 @@ public IReadOnlyList<string> TitlePath { get; init; }
 
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

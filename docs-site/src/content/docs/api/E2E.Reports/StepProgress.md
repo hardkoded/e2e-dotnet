@@ -46,8 +46,6 @@ Replay: whether the trace cache has the step.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
-
 <a id="E2E_Reports_StepProgress_Activity_"></a>
 <a id="E2E_Reports_StepProgress_Activity"></a>
 
@@ -63,8 +61,6 @@ Activity.
 
 **Value:** `StepActivity?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
-
 <a id="E2E_Reports_StepProgress_Api_"></a>
 <a id="E2E_Reports_StepProgress_Api"></a>
 
@@ -77,8 +73,6 @@ public string Api { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
 
 <a id="E2E_Reports_StepProgress_DurationMs_"></a>
 <a id="E2E_Reports_StepProgress_DurationMs"></a>
@@ -95,8 +89,6 @@ End.
 
 **Value:** [long](https://learn.microsoft.com/dotnet/api/system.int64)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
-
 <a id="E2E_Reports_StepProgress_Error_"></a>
 <a id="E2E_Reports_StepProgress_Error"></a>
 
@@ -111,8 +103,6 @@ public ReportError? Error { get; init; }
 End: the same redacted error the finished step records.
 
 **Value:** [ReportError](/api/E2E.Reports/ReportError/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
 
 <a id="E2E_Reports_StepProgress_Event_"></a>
 <a id="E2E_Reports_StepProgress_Event"></a>
@@ -129,8 +119,6 @@ Event.
 
 **Value:** [StepEvent](/api/E2E.Reports/StepEvent/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
-
 <a id="E2E_Reports_StepProgress_Explanation_"></a>
 <a id="E2E_Reports_StepProgress_Explanation"></a>
 
@@ -146,8 +134,6 @@ End.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
-
 <a id="E2E_Reports_StepProgress_Identity_"></a>
 <a id="E2E_Reports_StepProgress_Identity"></a>
 
@@ -160,8 +146,6 @@ public StepProgressIdentity? Identity { get; init; }
 
 
 **Value:** [StepProgressIdentity](/api/E2E.Reports/StepProgressIdentity/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
 
 <a id="E2E_Reports_StepProgress_Kind_"></a>
 <a id="E2E_Reports_StepProgress_Kind"></a>
@@ -178,8 +162,6 @@ Start and end.
 
 **Value:** `StepKind?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
-
 <a id="E2E_Reports_StepProgress_Label_"></a>
 <a id="E2E_Reports_StepProgress_Label"></a>
 
@@ -194,8 +176,6 @@ public string? Label { get; init; }
 Start and end.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
 
 <a id="E2E_Reports_StepProgress_ModelCalls_"></a>
 <a id="E2E_Reports_StepProgress_ModelCalls"></a>
@@ -212,8 +192,6 @@ End.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
-
 <a id="E2E_Reports_StepProgress_Phase_"></a>
 <a id="E2E_Reports_StepProgress_Phase"></a>
 
@@ -226,8 +204,6 @@ public StepProgressPhase Phase { get; init; }
 
 
 **Value:** [StepProgressPhase](/api/E2E.Reports/StepProgressPhase/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
 
 <a id="E2E_Reports_StepProgress_Status_"></a>
 <a id="E2E_Reports_StepProgress_Status"></a>
@@ -243,5 +219,3 @@ public StepStatus? Status { get; init; }
 End.
 
 **Value:** `StepStatus?`
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)

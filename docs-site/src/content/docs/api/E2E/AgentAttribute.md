@@ -55,8 +55,6 @@ An unknown name fails the test with `INVALID_ARGUMENT`.
 | --- | --- | --- |
 | `name` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/AgentAttribute.cs)
-
 ## Properties
 
 <a id="E2E_AgentAttribute_Name_"></a>
@@ -73,5 +71,3 @@ public string Name { get; }
 The name of an `agents.<name>` entry.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/AgentAttribute.cs)

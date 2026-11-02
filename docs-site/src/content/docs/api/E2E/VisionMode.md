@@ -55,8 +55,6 @@ The tree. The default.
 
 **Value:** [VisionMode](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/VisionMode.cs)
-
 <a id="E2E_VisionMode_On"></a>
 
 ### On
@@ -71,8 +69,6 @@ The tree and a masked screenshot, on every call.
 
 **Value:** [VisionMode](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/VisionMode.cs)
-
 <a id="E2E_VisionMode_Only"></a>
 
 ### Only
@@ -86,5 +82,3 @@ Only = 2
 The masked screenshot, and not the tree.
 
 **Value:** [VisionMode](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/VisionMode.cs)

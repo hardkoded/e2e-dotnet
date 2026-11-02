@@ -53,8 +53,6 @@ What a reporter receives once the run is over and its report is on disk (upstrea
 | `ReportPath` | [string](https://learn.microsoft.com/dotnet/api/system.string) | Where `report.json` was written. |
 | `ArtifactsRoot` | [string](https://learn.microsoft.com/dotnet/api/system.string) | Absolute directory the report's artifact paths are relative to: `<output>/results`. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Reporter.cs)
-
 ## Properties
 
 <a id="E2E_Reports_FinishedRun_ArtifactsRoot_"></a>
@@ -72,8 +70,6 @@ Absolute directory the report's artifact paths are relative to: `<output>/result
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Reporter.cs)
-
 <a id="E2E_Reports_FinishedRun_ExitCode_"></a>
 <a id="E2E_Reports_FinishedRun_ExitCode"></a>
 
@@ -88,8 +84,6 @@ public int ExitCode { get; init; }
 The exit code the run ended with (upstream's `exitCode`). The test process's own exit code is the test framework's.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Reporter.cs)
 
 <a id="E2E_Reports_FinishedRun_ProjectRoot_"></a>
 <a id="E2E_Reports_FinishedRun_ProjectRoot"></a>
@@ -106,8 +100,6 @@ Absolute project root, what the terminal shows paths relative to.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Reporter.cs)
-
 <a id="E2E_Reports_FinishedRun_Report_"></a>
 <a id="E2E_Reports_FinishedRun_Report"></a>
 
@@ -122,8 +114,6 @@ public Report Report { get; init; }
 The report-1 document, as written to &lt;code class="paramref"&gt;ReportPath&lt;/code&gt;.
 
 **Value:** [Report](/api/E2E.Reports/Report/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Reporter.cs)
 
 <a id="E2E_Reports_FinishedRun_ReportPath_"></a>
 <a id="E2E_Reports_FinishedRun_ReportPath"></a>
@@ -140,8 +130,6 @@ Where `report.json` was written.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Reporter.cs)
-
 <a id="E2E_Reports_FinishedRun_Status_"></a>
 <a id="E2E_Reports_FinishedRun_Status"></a>
 
@@ -156,5 +144,3 @@ public ReportRunStatus Status { get; init; }
 The same status `Report.Run.Status` carries.
 
 **Value:** [ReportRunStatus](/api/E2E/ReportRunStatus/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Reporter.cs)

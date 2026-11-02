@@ -53,8 +53,6 @@ public OAuthHandler(IOAuthProvider provider, ICredentialStore store, string? log
 | `loginHint` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `inner` | [HttpMessageHandler](https://learn.microsoft.com/dotnet/api/system.net.http.httpmessagehandler) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthHandler.cs)
-
 ## Methods
 
 <a id="E2E_OAuth_OAuthHandler_SendAsync_"></a>
@@ -85,5 +83,3 @@ Sends an HTTP request to the inner handler to send to the server as an asynchron
 | --- | --- |
 | [ArgumentNullException](https://learn.microsoft.com/dotnet/api/system.argumentnullexception) | The &lt;code class="paramref"&gt;request&lt;/code&gt; was &lt;a href="https://learn.microsoft.com/dotnet/csharp/language-reference/keywords/null"&gt;null&lt;/a&gt;. |
 | [OperationCanceledException](https://learn.microsoft.com/dotnet/api/system.operationcanceledexception) | The cancellation token was canceled. This exception is stored into the returned task. |
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthHandler.cs)

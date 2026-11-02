@@ -44,8 +44,6 @@ The navigation budget. Defaults to the action timeout.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/GotoOptions.cs)
-
 <a id="E2E_GotoOptions_WaitUntil_"></a>
 <a id="E2E_GotoOptions_WaitUntil"></a>
 
@@ -60,5 +58,3 @@ public GotoWaitUntil WaitUntil { get; init; }
 When the navigation counts as done. Defaults to [Load](/api/E2E/GotoWaitUntil/#E2E_GotoWaitUntil_Load).
 
 **Value:** [GotoWaitUntil](/api/E2E/GotoWaitUntil/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/GotoOptions.cs)

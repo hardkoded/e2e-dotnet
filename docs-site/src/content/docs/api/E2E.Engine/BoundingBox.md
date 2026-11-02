@@ -51,8 +51,6 @@ A viewport-relative rectangle in CSS pixels.
 | `Width` | [double](https://learn.microsoft.com/dotnet/api/system.double) |  |
 | `Height` | [double](https://learn.microsoft.com/dotnet/api/system.double) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
-
 ## Properties
 
 <a id="E2E_Engine_BoundingBox_Height_"></a>
@@ -68,8 +66,6 @@ public double Height { get; init; }
 
 **Value:** [double](https://learn.microsoft.com/dotnet/api/system.double)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
-
 <a id="E2E_Engine_BoundingBox_Width_"></a>
 <a id="E2E_Engine_BoundingBox_Width"></a>
 
@@ -82,8 +78,6 @@ public double Width { get; init; }
 
 
 **Value:** [double](https://learn.microsoft.com/dotnet/api/system.double)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
 
 <a id="E2E_Engine_BoundingBox_X_"></a>
 <a id="E2E_Engine_BoundingBox_X"></a>
@@ -98,8 +92,6 @@ public double X { get; init; }
 
 **Value:** [double](https://learn.microsoft.com/dotnet/api/system.double)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
-
 <a id="E2E_Engine_BoundingBox_Y_"></a>
 <a id="E2E_Engine_BoundingBox_Y"></a>
 
@@ -112,5 +104,3 @@ public double Y { get; init; }
 
 
 **Value:** [double](https://learn.microsoft.com/dotnet/api/system.double)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)

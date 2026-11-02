@@ -50,8 +50,6 @@ Sets the files of a file input, or of a control that opens a file chooser when c
 | --- | --- | --- |
 | `Paths` | [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)
-
 ## Properties
 
 <a id="E2E_Engine_LocatorAction_SetInputFiles_Paths_"></a>
@@ -66,5 +64,3 @@ public IReadOnlyList<string> Paths { get; init; }
 
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)

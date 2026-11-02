@@ -43,8 +43,6 @@ null only when it did not measure it.
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
-
 <a id="E2E_Engine_Observation_Pixels_"></a>
 <a id="E2E_Engine_Observation_Pixels"></a>
 
@@ -61,8 +59,6 @@ take them (upstream's `EngineSnapshot.pixels` and `maskedRegionCount`, as [Engin
 not ask, or when the image could not be taken or proven redacted: the observation is then the tree alone.
 
 **Value:** [EngineScreenshot](/api/E2E.Engine/EngineScreenshot/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
 
 <a id="E2E_Engine_Observation_Revision_"></a>
 <a id="E2E_Engine_Observation_Revision"></a>
@@ -81,8 +77,6 @@ screen it last read.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
-
 <a id="E2E_Engine_Observation_Roots_"></a>
 <a id="E2E_Engine_Observation_Roots"></a>
 
@@ -96,8 +90,6 @@ public required IReadOnlyList<SemanticNode> Roots { get; init; }
 
 **Value:** [IReadOnlyList&lt;SemanticNode&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
-
 <a id="E2E_Engine_Observation_Route_"></a>
 <a id="E2E_Engine_Observation_Route"></a>
 
@@ -110,8 +102,6 @@ public required string Route { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
 
 <a id="E2E_Engine_Observation_Truncated_"></a>
 <a id="E2E_Engine_Observation_Truncated"></a>
@@ -128,8 +118,6 @@ True when the engine left nodes out to stay within its node budget. Scrolling br
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)
-
 <a id="E2E_Engine_Observation_Viewport_"></a>
 <a id="E2E_Engine_Observation_Viewport"></a>
 
@@ -145,5 +133,3 @@ Upstream's `ObservedScreen.viewport`: the viewport the capture was taken in. Nul
 web engine does, and a scroll on a list then records the share of it the list covered.
 
 **Value:** [TraceViewport](/api/E2E.Engine/TraceViewport/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Observation.cs)

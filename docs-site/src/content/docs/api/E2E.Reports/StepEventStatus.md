@@ -37,8 +37,6 @@ Cancelled = 2
 
 **Value:** [StepEventStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_StepEventStatus_Failed"></a>
 
 ### Failed
@@ -51,8 +49,6 @@ Failed = 1
 
 **Value:** [StepEventStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_StepEventStatus_Passed"></a>
 
 ### Passed
@@ -64,5 +60,3 @@ Passed = 0
 
 
 **Value:** [StepEventStatus](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

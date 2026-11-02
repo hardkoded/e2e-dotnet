@@ -44,8 +44,6 @@ Replaces every request header; the configured headers for the app's host are add
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
-
 <a id="E2E_Engine_RouteContinueOverrides_Method_"></a>
 <a id="E2E_Engine_RouteContinueOverrides_Method"></a>
 
@@ -59,8 +57,6 @@ public string? Method { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
-
 <a id="E2E_Engine_RouteContinueOverrides_PostData_"></a>
 <a id="E2E_Engine_RouteContinueOverrides_PostData"></a>
 
@@ -73,8 +69,6 @@ public string? PostData { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
 
 <a id="E2E_Engine_RouteContinueOverrides_Url_"></a>
 <a id="E2E_Engine_RouteContinueOverrides_Url"></a>
@@ -90,5 +84,3 @@ public string? Url { get; init; }
 Resolved against the base URL like `app.open`; must keep the request's scheme.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)

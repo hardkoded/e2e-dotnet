@@ -49,8 +49,6 @@ What an exploration was given to spend: its step cap and its wall clock.
 | `MaxSteps` | [int](https://learn.microsoft.com/dotnet/api/system.int32) | Exploration steps, upstream's `maxSteps`. |
 | `Timeout` | [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan) | The run's wall clock, upstream's `timeoutMs`. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
-
 ## Properties
 
 <a id="E2E_ExploreBudgets_MaxSteps_"></a>
@@ -68,8 +66,6 @@ Exploration steps, upstream's `maxSteps`.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
-
 <a id="E2E_ExploreBudgets_Timeout_"></a>
 <a id="E2E_ExploreBudgets_Timeout"></a>
 
@@ -84,5 +80,3 @@ public TimeSpan Timeout { get; init; }
 The run's wall clock, upstream's `timeoutMs`.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)

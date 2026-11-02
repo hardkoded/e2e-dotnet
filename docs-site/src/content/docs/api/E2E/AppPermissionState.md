@@ -39,8 +39,6 @@ The permission is refused.
 
 **Value:** [AppPermissionState](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)
-
 <a id="E2E_AppPermissionState_Grant"></a>
 
 ### Grant
@@ -55,8 +53,6 @@ The app holds the permission.
 
 **Value:** [AppPermissionState](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)
-
 <a id="E2E_AppPermissionState_Reset"></a>
 
 ### Reset
@@ -70,5 +66,3 @@ Reset = 2
 The permission is not asked for yet.
 
 **Value:** [AppPermissionState](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)

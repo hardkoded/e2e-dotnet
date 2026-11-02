@@ -37,8 +37,6 @@ Complete = 0
 
 **Value:** [AttemptCleanup](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_AttemptCleanup_Failed"></a>
 
 ### Failed
@@ -51,8 +49,6 @@ Failed = 1
 
 **Value:** [AttemptCleanup](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_AttemptCleanup_Forced"></a>
 
 ### Forced
@@ -64,5 +60,3 @@ Forced = 2
 
 
 **Value:** [AttemptCleanup](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

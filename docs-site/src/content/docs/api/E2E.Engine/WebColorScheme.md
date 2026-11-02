@@ -39,8 +39,6 @@ Dark = 1
 
 **Value:** [WebColorScheme](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs)
-
 <a id="E2E_Engine_WebColorScheme_Light"></a>
 
 ### Light
@@ -55,8 +53,6 @@ Light = 0
 
 **Value:** [WebColorScheme](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs)
-
 <a id="E2E_Engine_WebColorScheme_NoPreference"></a>
 
 ### NoPreference
@@ -70,5 +66,3 @@ NoPreference = 2
 `no-preference`.
 
 **Value:** [WebColorScheme](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs)

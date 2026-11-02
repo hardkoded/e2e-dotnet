@@ -42,8 +42,6 @@ public int Height { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ViewportSize_Width_"></a>
 <a id="E2E_Reports_ViewportSize_Width"></a>
 
@@ -56,5 +54,3 @@ public int Width { get; init; }
 
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

@@ -37,8 +37,6 @@ Blocked = 2
 
 **Value:** [StepStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_StepStatus_Cancelled"></a>
 
 ### Cancelled
@@ -50,8 +48,6 @@ Cancelled = 4
 
 
 **Value:** [StepStatus](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepStatus_Failed"></a>
 
@@ -65,8 +61,6 @@ Failed = 1
 
 **Value:** [StepStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_StepStatus_Passed"></a>
 
 ### Passed
@@ -79,8 +73,6 @@ Passed = 0
 
 **Value:** [StepStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_StepStatus_TimedOut"></a>
 
 ### TimedOut
@@ -92,5 +84,3 @@ TimedOut = 3
 
 
 **Value:** [StepStatus](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

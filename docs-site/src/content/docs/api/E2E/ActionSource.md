@@ -39,8 +39,6 @@ The executor chose the action.
 
 **Value:** [ActionSource](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
-
 <a id="E2E_ActionSource_Replay"></a>
 
 ### Replay
@@ -54,5 +52,3 @@ Replay = 1
 The replay cache replayed the action.
 
 **Value:** [ActionSource](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)

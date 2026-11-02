@@ -51,8 +51,6 @@ public DocumentEngine(DocumentWorld world)
 | --- | --- | --- |
 | `world` | [DocumentWorld](/api/E2E.Engine/DocumentWorld/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs)
-
 ## Fields
 
 <a id="E2E_Engine_DocumentEngine_EngineVersion"></a>
@@ -66,8 +64,6 @@ public const string EngineVersion = "1.0.0"
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs)
 
 ## Properties
 
@@ -84,8 +80,6 @@ public EngineCapabilities Capabilities { get; }
 
 **Value:** [EngineCapabilities](/api/E2E.Engine/EngineCapabilities/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs)
-
 <a id="E2E_Engine_DocumentEngine_Platform_"></a>
 <a id="E2E_Engine_DocumentEngine_Platform"></a>
 
@@ -99,8 +93,6 @@ public string Platform { get; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs)
-
 <a id="E2E_Engine_DocumentEngine_Version_"></a>
 <a id="E2E_Engine_DocumentEngine_Version"></a>
 
@@ -113,8 +105,6 @@ public string Version { get; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs)
 
 ## Methods
 
@@ -137,5 +127,3 @@ public Task<IEngineSession> StartAsync(EngineStartOptions options, CancellationT
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;IEngineSession&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/DocumentEngine.cs)

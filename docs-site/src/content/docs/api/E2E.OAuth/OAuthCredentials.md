@@ -41,8 +41,6 @@ public required string Access { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
-
 <a id="E2E_OAuth_OAuthCredentials_Expires_"></a>
 <a id="E2E_OAuth_OAuthCredentials_Expires"></a>
 
@@ -57,8 +55,6 @@ public long Expires { get; init; }
 Epoch milliseconds; 0 when the token does not expire.
 
 **Value:** [long](https://learn.microsoft.com/dotnet/api/system.int64)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
 
 <a id="E2E_OAuth_OAuthCredentials_Extra_"></a>
 <a id="E2E_OAuth_OAuthCredentials_Extra"></a>
@@ -75,8 +71,6 @@ Provider fields: `accountId`, `residency`, `enterpriseUrl`, `orgId`.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
-
 <a id="E2E_OAuth_OAuthCredentials_Refresh_"></a>
 <a id="E2E_OAuth_OAuthCredentials_Refresh"></a>
 
@@ -91,8 +85,6 @@ public string Refresh { get; init; }
 Empty when the vendor issues non-expiring tokens.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
 
 ## Methods
 
@@ -115,8 +107,6 @@ public string? Get(string name)
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)
-
 <a id="E2E_OAuth_OAuthCredentials_With_"></a>
 <a id="E2E_OAuth_OAuthCredentials_With_System_String_System_String_"></a>
 
@@ -138,5 +128,3 @@ A copy with &lt;code class="paramref"&gt;name&lt;/code&gt; set, or removed when 
 | `value` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 **Returns:** [OAuthCredentials](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthCredentials.cs)

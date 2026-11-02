@@ -44,8 +44,6 @@ public string CdpEndpoint { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
-
 <a id="E2E_Engine_BrowserLease_Id_"></a>
 <a id="E2E_Engine_BrowserLease_Id"></a>
 
@@ -60,8 +58,6 @@ public string Id { get; init; }
 The provider's handle on the lease (a session id), named in progress lines and handed back to release.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
 
 <a id="E2E_Engine_BrowserLease_Protocol_"></a>
 <a id="E2E_Engine_BrowserLease_Protocol"></a>
@@ -79,8 +75,6 @@ scope and no [ReconnectEndpoint](#E2E_Engine_BrowserLease_ReconnectEndpoint): it
 
 **Value:** [BrowserProtocol](/api/E2E.Engine/BrowserProtocol/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
-
 <a id="E2E_Engine_BrowserLease_ReconnectEndpoint_"></a>
 <a id="E2E_Engine_BrowserLease_ReconnectEndpoint"></a>
 
@@ -96,5 +90,3 @@ Endpoint to reattach to the same browser after a transport drop, when it differs
 only meaningful for a per-attempt lease.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)

@@ -41,8 +41,6 @@ public IReadOnlyDictionary<string, string>? Attributes { get; init; }
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
-
 <a id="E2E_ExecutorNode_Children_"></a>
 <a id="E2E_ExecutorNode_Children"></a>
 
@@ -55,8 +53,6 @@ public IReadOnlyList<ExecutorNode> Children { get; init; }
 
 
 **Value:** [IReadOnlyList&lt;ExecutorNode&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorNode_Id_"></a>
 <a id="E2E_ExecutorNode_Id"></a>
@@ -71,8 +67,6 @@ public required string Id { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
-
 <a id="E2E_ExecutorNode_InputPurpose_"></a>
 <a id="E2E_ExecutorNode_InputPurpose"></a>
 
@@ -85,8 +79,6 @@ public string? InputPurpose { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorNode_Name_"></a>
 <a id="E2E_ExecutorNode_Name"></a>
@@ -101,8 +93,6 @@ public string? Name { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
-
 <a id="E2E_ExecutorNode_Rect_"></a>
 <a id="E2E_ExecutorNode_Rect"></a>
 
@@ -115,8 +105,6 @@ public BoundingBox? Rect { get; init; }
 
 
 **Value:** [BoundingBox](/api/E2E.Engine/BoundingBox/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorNode_Role_"></a>
 <a id="E2E_ExecutorNode_Role"></a>
@@ -131,8 +119,6 @@ public string? Role { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
-
 <a id="E2E_ExecutorNode_Selection_"></a>
 <a id="E2E_ExecutorNode_Selection"></a>
 
@@ -145,8 +131,6 @@ public string? Selection { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorNode_States_"></a>
 <a id="E2E_ExecutorNode_States"></a>
@@ -161,8 +145,6 @@ public NodeStates States { get; init; }
 
 **Value:** [NodeStates](/api/E2E.Engine/NodeStates/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
-
 <a id="E2E_ExecutorNode_Text_"></a>
 <a id="E2E_ExecutorNode_Text"></a>
 
@@ -176,8 +158,6 @@ public string? Text { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
-
 <a id="E2E_ExecutorNode_Value_"></a>
 <a id="E2E_ExecutorNode_Value"></a>
 
@@ -190,5 +170,3 @@ public string? Value { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)

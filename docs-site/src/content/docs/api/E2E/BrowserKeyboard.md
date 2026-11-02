@@ -50,8 +50,6 @@ Holds one key until `UpAsync`; a repeated down sends a repeat event.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs)
-
 <a id="E2E_BrowserKeyboard_PressAsync_"></a>
 <a id="E2E_BrowserKeyboard_PressAsync_System_String_System_Threading_CancellationToken_"></a>
 
@@ -73,8 +71,6 @@ Sends one key, such as `Enter` or `Control+A`.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs)
 
 <a id="E2E_BrowserKeyboard_TypeAsync_"></a>
 <a id="E2E_BrowserKeyboard_TypeAsync_System_String_System_Threading_CancellationToken_"></a>
@@ -98,8 +94,6 @@ Types plain text.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs)
-
 <a id="E2E_BrowserKeyboard_UpAsync_"></a>
 <a id="E2E_BrowserKeyboard_UpAsync_System_String_System_Threading_CancellationToken_"></a>
 
@@ -121,5 +115,3 @@ Releases a held key.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs)

@@ -44,8 +44,6 @@ Matches the cookie domain; a string exactly, a regular expression its text.
 
 **Value:** [TextMatch](/api/E2E/TextMatch/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
-
 <a id="E2E_Engine_CookieFilter_Name_"></a>
 <a id="E2E_Engine_CookieFilter_Name"></a>
 
@@ -61,8 +59,6 @@ Matches the cookie name; a string exactly, a regular expression its text.
 
 **Value:** [TextMatch](/api/E2E/TextMatch/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
-
 <a id="E2E_Engine_CookieFilter_Path_"></a>
 <a id="E2E_Engine_CookieFilter_Path"></a>
 
@@ -77,5 +73,3 @@ public TextMatch? Path { get; init; }
 Matches the cookie path; a string exactly, a regular expression its text.
 
 **Value:** [TextMatch](/api/E2E/TextMatch/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)

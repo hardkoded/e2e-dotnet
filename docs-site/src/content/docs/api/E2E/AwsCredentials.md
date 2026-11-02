@@ -50,8 +50,6 @@ AWS access key credentials for Signature Version 4.
 | `SecretAccessKey` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `SessionToken` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs)
-
 ## Properties
 
 <a id="E2E_AwsCredentials_AccessKeyId_"></a>
@@ -67,8 +65,6 @@ public string AccessKeyId { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs)
-
 <a id="E2E_AwsCredentials_SecretAccessKey_"></a>
 <a id="E2E_AwsCredentials_SecretAccessKey"></a>
 
@@ -82,8 +78,6 @@ public string SecretAccessKey { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs)
-
 <a id="E2E_AwsCredentials_SessionToken_"></a>
 <a id="E2E_AwsCredentials_SessionToken"></a>
 
@@ -96,5 +90,3 @@ public string? SessionToken { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs)

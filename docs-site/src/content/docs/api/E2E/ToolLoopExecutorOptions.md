@@ -42,8 +42,6 @@ Builds the step's opening prompt: the first user message.
 
 **Value:** [Func&lt;StepExecutorContext, Task&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
-
 <a id="E2E_ToolLoopExecutorOptions_Model_"></a>
 <a id="E2E_ToolLoopExecutorOptions_Model"></a>
 
@@ -60,8 +58,6 @@ model brought here is also the agent's model for `assert`, `waitFor`, and `extra
 
 **Value:** [IAgentModel](/api/E2E/IAgentModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
-
 <a id="E2E_ToolLoopExecutorOptions_Name_"></a>
 <a id="E2E_ToolLoopExecutorOptions_Name"></a>
 
@@ -74,8 +70,6 @@ public required string Name { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
 
 <a id="E2E_ToolLoopExecutorOptions_PrepareMessages_"></a>
 <a id="E2E_ToolLoopExecutorOptions_PrepareMessages"></a>
@@ -93,8 +87,6 @@ carries forward to later turns.
 
 **Value:** [Func&lt;IReadOnlyList&lt;ModelMessage&gt;, PreparedTurn, PreparedMessages&gt;](https://learn.microsoft.com/dotnet/api/system.func-3)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
-
 <a id="E2E_ToolLoopExecutorOptions_ProviderOptions_"></a>
 <a id="E2E_ToolLoopExecutorOptions_ProviderOptions"></a>
 
@@ -109,8 +101,6 @@ public IReadOnlyDictionary<string, JsonElement>? ProviderOptions { get; init; }
 The provider options every model call carries. Defaults to the agents entry's.
 
 **Value:** [IReadOnlyDictionary&lt;string, JsonElement&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
 
 <a id="E2E_ToolLoopExecutorOptions_System_"></a>
 <a id="E2E_ToolLoopExecutorOptions_System"></a>
@@ -128,8 +118,6 @@ project context to it.
 
 **Value:** [Func&lt;StepExecutorContext, string&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
-
 <a id="E2E_ToolLoopExecutorOptions_Tools_"></a>
 <a id="E2E_ToolLoopExecutorOptions_Tools"></a>
 
@@ -145,8 +133,6 @@ Builds the step's tool vocabulary. The chassis adds `done`.
 
 **Value:** [Func&lt;StepExecutorContext, ToolLoopHelpers, IReadOnlyList&lt;ToolLoopTool&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-3)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
-
 <a id="E2E_ToolLoopExecutorOptions_Version_"></a>
 <a id="E2E_ToolLoopExecutorOptions_Version"></a>
 
@@ -159,5 +145,3 @@ public string? Version { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)

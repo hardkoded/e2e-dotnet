@@ -52,8 +52,6 @@ executor's own budget prevented a verdict about the app, and it always carries a
 | `Summary` | [string](https://learn.microsoft.com/dotnet/api/system.string) | What happened, in a sentence or two. Never empty. |
 | `ErrorCode` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The agent error code, such as `ASSERTION_FAILED`. A passed verdict carries none. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
-
 ## Properties
 
 <a id="E2E_StepVerdict_ErrorCode_"></a>
@@ -71,8 +69,6 @@ The agent error code, such as `ASSERTION_FAILED`. A passed verdict carries none.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
-
 <a id="E2E_StepVerdict_Status_"></a>
 <a id="E2E_StepVerdict_Status"></a>
 
@@ -88,8 +84,6 @@ How the step ended.
 
 **Value:** [StepVerdictStatus](/api/E2E/StepVerdictStatus/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
-
 <a id="E2E_StepVerdict_Summary_"></a>
 <a id="E2E_StepVerdict_Summary"></a>
 
@@ -104,5 +98,3 @@ public string Summary { get; init; }
 What happened, in a sentence or two. Never empty.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)

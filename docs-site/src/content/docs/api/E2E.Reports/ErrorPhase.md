@@ -37,8 +37,6 @@ AfterAll = 8
 
 **Value:** [ErrorPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ErrorPhase_AfterEach"></a>
 
 ### AfterEach
@@ -50,8 +48,6 @@ AfterEach = 7
 
 
 **Value:** [ErrorPhase](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ErrorPhase_BeforeAll"></a>
 
@@ -65,8 +61,6 @@ BeforeAll = 4
 
 **Value:** [ErrorPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ErrorPhase_BeforeEach"></a>
 
 ### BeforeEach
@@ -78,8 +72,6 @@ BeforeEach = 5
 
 
 **Value:** [ErrorPhase](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ErrorPhase_Body"></a>
 
@@ -93,8 +85,6 @@ Body = 6
 
 **Value:** [ErrorPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ErrorPhase_Cleanup"></a>
 
 ### Cleanup
@@ -106,8 +96,6 @@ Cleanup = 9
 
 
 **Value:** [ErrorPhase](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ErrorPhase_Collection"></a>
 
@@ -121,8 +109,6 @@ Collection = 1
 
 **Value:** [ErrorPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ErrorPhase_Config"></a>
 
 ### Config
@@ -134,8 +120,6 @@ Config = 0
 
 
 **Value:** [ErrorPhase](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ErrorPhase_Filter"></a>
 
@@ -149,8 +133,6 @@ Filter = 2
 
 **Value:** [ErrorPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ErrorPhase_Launch"></a>
 
 ### Launch
@@ -163,8 +145,6 @@ Launch = 3
 
 **Value:** [ErrorPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ErrorPhase_Report"></a>
 
 ### Report
@@ -176,5 +156,3 @@ Report = 10
 
 
 **Value:** [ErrorPhase](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

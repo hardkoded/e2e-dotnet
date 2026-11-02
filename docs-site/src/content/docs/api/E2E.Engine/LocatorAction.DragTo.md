@@ -48,8 +48,6 @@ Drags the node onto &lt;code class="paramref"&gt;Target&lt;/code&gt;, a node of 
 | --- | --- | --- |
 | `Target` | [SemanticNode](/api/E2E.Engine/SemanticNode/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)
-
 ## Properties
 
 <a id="E2E_Engine_LocatorAction_DragTo_Target_"></a>
@@ -64,5 +62,3 @@ public SemanticNode Target { get; init; }
 
 
 **Value:** [SemanticNode](/api/E2E.Engine/SemanticNode/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)

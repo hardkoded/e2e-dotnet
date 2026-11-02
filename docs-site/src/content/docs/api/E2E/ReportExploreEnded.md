@@ -39,8 +39,6 @@ The run was cut short: a cancelled step, a failing provider, or a planner that f
 
 **Value:** [ReportExploreEnded](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
-
 <a id="E2E_ReportExploreEnded_Finished"></a>
 
 ### Finished
@@ -52,8 +50,6 @@ Finished = 0
 
 
 **Value:** [ReportExploreEnded](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 <a id="E2E_ReportExploreEnded_StepLimit"></a>
 
@@ -67,8 +63,6 @@ StepLimit = 1
 
 **Value:** [ReportExploreEnded](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
-
 <a id="E2E_ReportExploreEnded_Stuck"></a>
 
 ### Stuck
@@ -81,8 +75,6 @@ Stuck = 3
 
 **Value:** [ReportExploreEnded](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
-
 <a id="E2E_ReportExploreEnded_Time"></a>
 
 ### Time
@@ -94,5 +86,3 @@ Time = 2
 
 
 **Value:** [ReportExploreEnded](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)

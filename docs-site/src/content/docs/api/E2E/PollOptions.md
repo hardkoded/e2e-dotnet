@@ -42,8 +42,6 @@ Pause between reads. The default is 100 milliseconds.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Poll.cs)
-
 <a id="E2E_PollOptions_Message_"></a>
 <a id="E2E_PollOptions_Message"></a>
 
@@ -59,8 +57,6 @@ Extra line in the timeout error.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Poll.cs)
-
 <a id="E2E_PollOptions_Timeout_"></a>
 <a id="E2E_PollOptions_Timeout"></a>
 
@@ -75,5 +71,3 @@ public TimeSpan? Timeout { get; init; }
 Deadline for the matcher to hold. The default is 5 seconds.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Poll.cs)

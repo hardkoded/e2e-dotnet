@@ -46,8 +46,6 @@ The regular expression to test, or null for a string.
 
 **Value:** [Regex](https://learn.microsoft.com/dotnet/api/system.text.regularexpressions.regex)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/TextMatch.cs)
-
 <a id="E2E_TextMatch_Text_"></a>
 <a id="E2E_TextMatch_Text"></a>
 
@@ -62,8 +60,6 @@ public string? Text { get; }
 The string to match, or null for a regular expression.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/TextMatch.cs)
 
 ## Methods
 
@@ -86,8 +82,6 @@ public static TextMatch FromRegex(Regex pattern)
 
 **Returns:** [TextMatch](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/TextMatch.cs)
-
 <a id="E2E_TextMatch_FromString_"></a>
 <a id="E2E_TextMatch_FromString_System_String_"></a>
 
@@ -107,8 +101,6 @@ public static TextMatch FromString(string text)
 
 **Returns:** [TextMatch](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/TextMatch.cs)
-
 <a id="E2E_TextMatch_ToString_"></a>
 <a id="E2E_TextMatch_ToString"></a>
 
@@ -123,8 +115,6 @@ public override string ToString()
 Returns a string that represents the current object.
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string) — A string that represents the current object.
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/TextMatch.cs)
 
 ## Operators
 
@@ -147,8 +137,6 @@ public static implicit operator TextMatch?(string? text)
 
 **Returns:** [TextMatch](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/TextMatch.cs)
-
 <a id="E2E_TextMatch_op_Implicit_System_Text_RegularExpressions_Regex__E2E_TextMatch"></a>
 
 ### implicit operator TextMatch?(Regex?)
@@ -166,5 +154,3 @@ public static implicit operator TextMatch?(Regex? pattern)
 | `pattern` | [Regex](https://learn.microsoft.com/dotnet/api/system.text.regularexpressions.regex) |  |
 
 **Returns:** [TextMatch](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/TextMatch.cs)

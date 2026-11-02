@@ -53,8 +53,6 @@ from a session and restore into another. &lt;code class="paramref"&gt;ExpiresAt&
 | `Data` | [JsonNode](https://learn.microsoft.com/dotnet/api/system.text.json.nodes.jsonnode) |  |
 | `ExpiresAt` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/EngineState.cs)
-
 ## Properties
 
 <a id="E2E_EngineState_Data_"></a>
@@ -70,8 +68,6 @@ public JsonNode? Data { get; init; }
 
 **Value:** [JsonNode](https://learn.microsoft.com/dotnet/api/system.text.json.nodes.jsonnode)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/EngineState.cs)
-
 <a id="E2E_EngineState_ExpiresAt_"></a>
 <a id="E2E_EngineState_ExpiresAt"></a>
 
@@ -84,8 +80,6 @@ public string? ExpiresAt { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/EngineState.cs)
 
 <a id="E2E_EngineState_Format_"></a>
 <a id="E2E_EngineState_Format"></a>
@@ -100,8 +94,6 @@ public string Format { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/EngineState.cs)
-
 <a id="E2E_EngineState_Version_"></a>
 <a id="E2E_EngineState_Version"></a>
 
@@ -114,5 +106,3 @@ public int Version { get; init; }
 
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/EngineState.cs)

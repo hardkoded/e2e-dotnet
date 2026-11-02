@@ -49,8 +49,6 @@ A page size in CSS pixels.
 | `Width` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
 | `Height` | [int](https://learn.microsoft.com/dotnet/api/system.int32) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
-
 ## Properties
 
 <a id="E2E_Engine_WebViewport_Default_"></a>
@@ -68,8 +66,6 @@ The size every attempt's page starts with unless the options say otherwise: 1280
 
 **Value:** [WebViewport](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
-
 <a id="E2E_Engine_WebViewport_Height_"></a>
 <a id="E2E_Engine_WebViewport_Height"></a>
 
@@ -83,8 +79,6 @@ public int Height { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
-
 <a id="E2E_Engine_WebViewport_Width_"></a>
 <a id="E2E_Engine_WebViewport_Width"></a>
 
@@ -97,5 +91,3 @@ public int Width { get; init; }
 
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)

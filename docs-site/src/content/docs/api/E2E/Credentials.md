@@ -46,5 +46,3 @@ public static UserCredential User(string name)
 | `name` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 **Returns:** [UserCredential](/api/E2E/UserCredential/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)

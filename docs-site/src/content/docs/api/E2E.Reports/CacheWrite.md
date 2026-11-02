@@ -37,8 +37,6 @@ Evicted = 3
 
 **Value:** [CacheWrite](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_CacheWrite_Kept"></a>
 
 ### Kept
@@ -50,8 +48,6 @@ Kept = 1
 
 
 **Value:** [CacheWrite](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheWrite_NoChange"></a>
 
@@ -65,8 +61,6 @@ NoChange = 4
 
 **Value:** [CacheWrite](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_CacheWrite_NotWritten"></a>
 
 ### NotWritten
@@ -78,8 +72,6 @@ NotWritten = 5
 
 
 **Value:** [CacheWrite](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheWrite_Saved"></a>
 
@@ -93,8 +85,6 @@ Saved = 0
 
 **Value:** [CacheWrite](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_CacheWrite_Unconfirmed"></a>
 
 ### Unconfirmed
@@ -106,5 +96,3 @@ Unconfirmed = 2
 
 
 **Value:** [CacheWrite](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

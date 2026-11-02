@@ -48,8 +48,6 @@ public AnthropicModel(AnthropicModelOptions options, HttpClient? httpClient = nu
 | `options` | [AnthropicModelOptions](/api/E2E/AnthropicModelOptions/) |  |
 | `httpClient` | [HttpClient](https://learn.microsoft.com/dotnet/api/system.net.http.httpclient) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs)
-
 ## Properties
 
 <a id="E2E_AnthropicModel_Name_"></a>
@@ -66,8 +64,6 @@ public string Name { get; }
 Provider and model id, printed in the run summary. Changing it does not miss the replay cache.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs)
 
 ## Methods
 
@@ -91,8 +87,6 @@ public Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken
 
 **Returns:** [Task&lt;ModelResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs)
-
 <a id="E2E_AnthropicModel_Dispose_"></a>
 <a id="E2E_AnthropicModel_Dispose"></a>
 
@@ -105,5 +99,3 @@ public void Dispose()
 
 
 Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs)

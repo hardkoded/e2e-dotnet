@@ -37,8 +37,6 @@ ActionFailed = 9
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_CacheMissReason_ActionUncertain"></a>
 
 ### ActionUncertain
@@ -50,8 +48,6 @@ ActionUncertain = 10
 
 
 **Value:** [CacheMissReason](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheMissReason_EndMismatch"></a>
 
@@ -65,8 +61,6 @@ EndMismatch = 11
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_CacheMissReason_Gap"></a>
 
 ### Gap
@@ -78,8 +72,6 @@ Gap = 5
 
 
 **Value:** [CacheMissReason](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheMissReason_InvalidEntry"></a>
 
@@ -93,8 +85,6 @@ InvalidEntry = 2
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_CacheMissReason_NoEntry"></a>
 
 ### NoEntry
@@ -106,8 +96,6 @@ NoEntry = 1
 
 
 **Value:** [CacheMissReason](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheMissReason_Retry"></a>
 
@@ -121,8 +109,6 @@ Retry = 0
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_CacheMissReason_TargetAmbiguous"></a>
 
 ### TargetAmbiguous
@@ -134,8 +120,6 @@ TargetAmbiguous = 7
 
 
 **Value:** [CacheMissReason](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheMissReason_TargetNotFound"></a>
 
@@ -149,8 +133,6 @@ TargetNotFound = 6
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_CacheMissReason_Truncated"></a>
 
 ### Truncated
@@ -162,8 +144,6 @@ Truncated = 3
 
 
 **Value:** [CacheMissReason](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_CacheMissReason_ViewportChanged"></a>
 
@@ -177,8 +157,6 @@ ViewportChanged = 8
 
 **Value:** [CacheMissReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_CacheMissReason_WrongContext"></a>
 
 ### WrongContext
@@ -190,5 +168,3 @@ WrongContext = 4
 
 
 **Value:** [CacheMissReason](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

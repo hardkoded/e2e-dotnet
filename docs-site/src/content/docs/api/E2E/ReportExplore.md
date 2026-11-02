@@ -53,8 +53,6 @@ What an exploration was asked, did, and found: upstream's `run.explore` block of
 | `Findings` | [IReadOnlyList&lt;ReportExploreFinding&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) | The findings the agent reported, in order. |
 | `Summary` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The agent's closing assessment, when it gave one, at most 4000 characters. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
-
 ## Properties
 
 <a id="E2E_ReportExplore_Budgets_"></a>
@@ -72,8 +70,6 @@ The step cap and the clock the exploration ran under.
 
 **Value:** [ExploreBudgets](/api/E2E/ExploreBudgets/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
-
 <a id="E2E_ReportExplore_Ended_"></a>
 <a id="E2E_ReportExplore_Ended"></a>
 
@@ -88,8 +84,6 @@ public ReportExploreEnded Ended { get; init; }
 Why exploration stopped.
 
 **Value:** [ReportExploreEnded](/api/E2E/ReportExploreEnded/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 <a id="E2E_ReportExplore_Findings_"></a>
 <a id="E2E_ReportExplore_Findings"></a>
@@ -106,8 +100,6 @@ The findings the agent reported, in order.
 
 **Value:** [IReadOnlyList&lt;ReportExploreFinding&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
-
 <a id="E2E_ReportExplore_Goal_"></a>
 <a id="E2E_ReportExplore_Goal"></a>
 
@@ -122,8 +114,6 @@ public string Goal { get; init; }
 The goal, with the secret values it spelled out redacted.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
 
 <a id="E2E_ReportExplore_Steps_"></a>
 <a id="E2E_ReportExplore_Steps"></a>
@@ -140,8 +130,6 @@ The steps the agent planned and ran, in order.
 
 **Value:** [IReadOnlyList&lt;ReportExploreStep&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)
-
 <a id="E2E_ReportExplore_Summary_"></a>
 <a id="E2E_ReportExplore_Summary"></a>
 
@@ -156,5 +144,3 @@ public string? Summary { get; init; }
 The agent's closing assessment, when it gave one, at most 4000 characters.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/ReportExplore.cs)

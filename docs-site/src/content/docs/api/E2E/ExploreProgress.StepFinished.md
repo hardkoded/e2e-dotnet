@@ -44,8 +44,6 @@ public StepFinished(ReportExploreStep Step)
 | --- | --- | --- |
 | `Step` | [ReportExploreStep](/api/E2E/ReportExploreStep/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
-
 ## Properties
 
 <a id="E2E_ExploreProgress_StepFinished_Step_"></a>
@@ -60,5 +58,3 @@ public ReportExploreStep Step { get; init; }
 
 
 **Value:** [ReportExploreStep](/api/E2E/ReportExploreStep/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)

@@ -40,8 +40,6 @@ Absolute cache directory. `cache.dir` resolves against the config directory; the
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)
-
 <a id="E2E_CacheConfig_Mode_"></a>
 <a id="E2E_CacheConfig_Mode"></a>
 
@@ -57,8 +55,6 @@ Unset, it is [ReadWrite](/api/E2E/CacheMode/#E2E_CacheMode_ReadWrite), or [ReadO
 
 **Value:** [CacheMode](/api/E2E/CacheMode/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)
-
 <a id="E2E_CacheConfig_Strict_"></a>
 <a id="E2E_CacheConfig_Strict"></a>
 
@@ -73,5 +69,3 @@ public bool Strict { get; init; }
 When true, a recording that no longer matches fails with `REPLAY_STALE` instead of running live.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)

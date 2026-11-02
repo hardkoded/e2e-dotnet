@@ -41,8 +41,6 @@ Credentials JSON in the environment, standing in for the file on a machine the u
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs)
-
 ## Methods
 
 <a id="E2E_OAuth_CredentialStores_Default_"></a>
@@ -60,8 +58,6 @@ public static ICredentialStore Default()
 
 **Returns:** [ICredentialStore](/api/E2E.OAuth/ICredentialStore/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs)
-
 <a id="E2E_OAuth_CredentialStores_DefaultPath_"></a>
 <a id="E2E_OAuth_CredentialStores_DefaultPath"></a>
 
@@ -77,5 +73,3 @@ public static string DefaultPath()
 `e2e login` writes, so a login made with either CLI serves both.
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/CredentialStore.cs)

@@ -37,8 +37,6 @@ Failed = 2
 
 **Value:** [ResultStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ResultStatus_Flaky"></a>
 
 ### Flaky
@@ -50,8 +48,6 @@ Flaky = 1
 
 
 **Value:** [ResultStatus](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ResultStatus_Interrupted"></a>
 
@@ -65,8 +61,6 @@ Interrupted = 4
 
 **Value:** [ResultStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ResultStatus_Passed"></a>
 
 ### Passed
@@ -78,8 +72,6 @@ Passed = 0
 
 
 **Value:** [ResultStatus](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ResultStatus_Skipped"></a>
 
@@ -93,8 +85,6 @@ Skipped = 5
 
 **Value:** [ResultStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ResultStatus_TimedOut"></a>
 
 ### TimedOut
@@ -106,5 +96,3 @@ TimedOut = 3
 
 
 **Value:** [ResultStatus](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

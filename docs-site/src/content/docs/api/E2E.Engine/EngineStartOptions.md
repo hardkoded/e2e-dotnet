@@ -40,8 +40,6 @@ public TimeSpan ActionTimeout { get; init; }
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
-
 <a id="E2E_Engine_EngineStartOptions_AppLog_"></a>
 <a id="E2E_Engine_EngineStartOptions_AppLog"></a>
 
@@ -59,8 +57,6 @@ step records; the harness redacts and bounds each line, and a sink that throws n
 
 **Value:** [Action&lt;AppLogEntry&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
-
 <a id="E2E_Engine_EngineStartOptions_ArtifactsDir_"></a>
 <a id="E2E_Engine_EngineStartOptions_ArtifactsDir"></a>
 
@@ -76,8 +72,6 @@ The attempt's artifact directory: where a recording of the attempt is written, u
 `EngineAttemptContext.artifactsDir`. An engine that records video needs it.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EngineStartOptions_AttemptId_"></a>
 <a id="E2E_Engine_EngineStartOptions_AttemptId"></a>
@@ -95,8 +89,6 @@ Upstream's `EngineAttemptContext.attemptId`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
-
 <a id="E2E_Engine_EngineStartOptions_BaseUrl_"></a>
 <a id="E2E_Engine_EngineStartOptions_BaseUrl"></a>
 
@@ -109,8 +101,6 @@ public string? BaseUrl { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EngineStartOptions_Env_"></a>
 <a id="E2E_Engine_EngineStartOptions_Env"></a>
@@ -129,8 +119,6 @@ to the process environment.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
-
 <a id="E2E_Engine_EngineStartOptions_Environment_"></a>
 <a id="E2E_Engine_EngineStartOptions_Environment"></a>
 
@@ -148,8 +136,6 @@ fails the attempt for it.
 
 **Value:** [Action&lt;IReadOnlyDictionary&lt;string, string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
-
 <a id="E2E_Engine_EngineStartOptions_Navigation_"></a>
 <a id="E2E_Engine_EngineStartOptions_Navigation"></a>
 
@@ -165,8 +151,6 @@ Takes one line saying where the app went on its own, such as `navigated to /chec
 Upstream's `EngineAttemptContext.navigation`. A navigation the engine started itself is not told: its step says it.
 
 **Value:** [Action&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EngineStartOptions_Permissions_"></a>
 <a id="E2E_Engine_EngineStartOptions_Permissions"></a>
@@ -184,8 +168,6 @@ state means is the engine's. A browser grants each name to every page of the att
 
 **Value:** [IReadOnlyDictionary&lt;string, AppPermissionState&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
-
 <a id="E2E_Engine_EngineStartOptions_ProjectRoot_"></a>
 <a id="E2E_Engine_EngineStartOptions_ProjectRoot"></a>
 
@@ -200,8 +182,6 @@ public string? ProjectRoot { get; init; }
 Anchors the files the engine options name, such as an init script's `Path`. Defaults to the working directory.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EngineStartOptions_Screen_"></a>
 <a id="E2E_Engine_EngineStartOptions_Screen"></a>
@@ -220,8 +200,6 @@ fails the action for it, and a sink that throws never fails the attempt.
 
 **Value:** [Action&lt;Observation&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
-
 <a id="E2E_Engine_EngineStartOptions_TargetName_"></a>
 <a id="E2E_Engine_EngineStartOptions_TargetName"></a>
 
@@ -236,5 +214,3 @@ public string? TargetName { get; init; }
 The target's name, for the errors an engine raises about its `app`. Upstream's `EngineInitContext.targetName`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)

@@ -39,8 +39,6 @@ Exactly one match, visible or not.
 
 **Value:** [WaitForState](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
-
 <a id="E2E_WaitForState_Detached"></a>
 
 ### Detached
@@ -54,8 +52,6 @@ Detached = 2
 No match, visible or not.
 
 **Value:** [WaitForState](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 <a id="E2E_WaitForState_Hidden"></a>
 
@@ -71,8 +67,6 @@ No visible match.
 
 **Value:** [WaitForState](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
-
 <a id="E2E_WaitForState_Visible"></a>
 
 ### Visible
@@ -86,5 +80,3 @@ Visible = 0
 Exactly one visible match.
 
 **Value:** [WaitForState](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)

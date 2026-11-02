@@ -47,8 +47,6 @@ public AgentException(string code, string message)
 | `code` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
-
 <a id="E2E_AgentException__ctor_System_String_System_String_System_Boolean_"></a>
 
 ### AgentException(string, string, bool)
@@ -66,8 +64,6 @@ public AgentException(string code, string message, bool blocked)
 | `code` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `blocked` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_AgentException__ctor_System_String_System_String_System_Boolean_System_Exception_"></a>
 
@@ -88,8 +84,6 @@ public AgentException(string code, string message, bool blocked, Exception inner
 | `blocked` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 | `inner` | [Exception](https://learn.microsoft.com/dotnet/api/system.exception) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
-
 <a id="E2E_AgentException__ctor_System_String_System_String_System_Exception_"></a>
 
 ### AgentException(string, string, Exception)
@@ -107,8 +101,6 @@ public AgentException(string code, string message, Exception inner)
 | `code` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `message` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `inner` | [Exception](https://learn.microsoft.com/dotnet/api/system.exception) |  |
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 ## Properties
 
@@ -128,8 +120,6 @@ rather than the app misbehaving.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
-
 <a id="E2E_AgentException_Explanation_"></a>
 <a id="E2E_AgentException_Explanation"></a>
 
@@ -144,8 +134,6 @@ public string Explanation { get; }
 The step's account of what happened. The same text as [Message](https://learn.microsoft.com/dotnet/api/system.exception.message).
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)
 
 <a id="E2E_AgentException_Screenshot_"></a>
 <a id="E2E_AgentException_Screenshot"></a>
@@ -162,5 +150,3 @@ Where a failed `AssertAsync` kept its redacted screenshot, relative to the proje
 `Screenshot = false` or the engine captures no pixels.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Errors/E2EException.cs)

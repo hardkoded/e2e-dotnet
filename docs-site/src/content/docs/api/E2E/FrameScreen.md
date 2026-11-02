@@ -56,8 +56,6 @@ Creates a screen query scope inside an iframe nested in this frame.
 | --- | --- |
 | [TestException](/api/E2E/TestException/) | `INVALID_LOCATOR`: &lt;code class="paramref"&gt;selector&lt;/code&gt; is empty. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs)
-
 <a id="E2E_FrameScreen_Locator_"></a>
 <a id="E2E_FrameScreen_Locator_System_String_"></a>
 
@@ -84,5 +82,3 @@ Creates a web-only CSS or XPath locator inside this frame.
 | Type | Condition |
 | --- | --- |
 | [TestException](/api/E2E/TestException/) | `INVALID_LOCATOR`: &lt;code class="paramref"&gt;selector&lt;/code&gt; is empty. |
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs)

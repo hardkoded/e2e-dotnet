@@ -44,8 +44,6 @@ The digest of the resolved config: 64 hexadecimal characters.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportProject_Id_"></a>
 <a id="E2E_Reports_ReportProject_Id"></a>
 
@@ -58,5 +56,3 @@ public string Id { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

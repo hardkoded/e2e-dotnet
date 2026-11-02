@@ -47,8 +47,6 @@ What a tool call answered: the text the model reads, and whether the call failed
 | `Content` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `Failed` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
-
 ## Properties
 
 <a id="E2E_ToolLoopResult_Content_"></a>
@@ -64,8 +62,6 @@ public string Content { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
-
 <a id="E2E_ToolLoopResult_Failed_"></a>
 <a id="E2E_ToolLoopResult_Failed"></a>
 
@@ -78,5 +74,3 @@ public bool Failed { get; init; }
 
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)

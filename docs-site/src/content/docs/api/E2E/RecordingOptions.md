@@ -43,5 +43,3 @@ public string? Name { get; init; }
 File name stem, `recordings/001-<name>.<ext>`; defaults to `recording`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Recordings.cs)

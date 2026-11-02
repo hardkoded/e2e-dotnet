@@ -42,8 +42,6 @@ When the recording started. Its first frame is at or just after it.
 
 **Value:** [DateTimeOffset](https://learn.microsoft.com/dotnet/api/system.datetimeoffset)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs)
-
 ## Methods
 
 <a id="E2E_Engine_ProviderRecording_StopAsync_"></a>
@@ -65,5 +63,3 @@ public abstract Task<ProviderRecordingResult> StopAsync(ProviderRecordingStopCon
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;ProviderRecordingResult&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs)

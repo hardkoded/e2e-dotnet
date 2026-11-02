@@ -43,8 +43,6 @@ Its arguments, passed one by one. `{port}` is replaced by the port the app is se
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/Command.cs)
-
 <a id="E2E_CommandConfig_Cwd_"></a>
 <a id="E2E_CommandConfig_Cwd"></a>
 
@@ -59,8 +57,6 @@ public string? Cwd { get; init; }
 The working directory, relative to the config's directory. Unset, that directory.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/Command.cs)
 
 <a id="E2E_CommandConfig_Env_"></a>
 <a id="E2E_CommandConfig_Env"></a>
@@ -77,8 +73,6 @@ Variables the process gets, on top of [InheritEnv](#E2E_CommandConfig_InheritEnv
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/Command.cs)
-
 <a id="E2E_CommandConfig_Executable_"></a>
 <a id="E2E_CommandConfig_Executable"></a>
 
@@ -93,8 +87,6 @@ public required string Executable { get; init; }
 The program to start. Required.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/Command.cs)
 
 <a id="E2E_CommandConfig_InheritEnv_"></a>
 <a id="E2E_CommandConfig_InheritEnv"></a>
@@ -112,8 +104,6 @@ Variable names, or prefixes ending in `*`, copied from the environment of the ru
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/Command.cs)
-
 <a id="E2E_CommandConfig_Log_"></a>
 <a id="E2E_CommandConfig_Log"></a>
 
@@ -128,8 +118,6 @@ public string? Log { get; init; }
 A file inside the config's directory that takes the output of the process, appended to across runs.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/Command.cs)
 
 <a id="E2E_CommandConfig_ReuseExisting_"></a>
 <a id="E2E_CommandConfig_ReuseExisting"></a>
@@ -146,8 +134,6 @@ Attach to an app that already answers at the readiness URL instead of failing. I
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/Command.cs)
-
 <a id="E2E_CommandConfig_ShutdownTimeout_"></a>
 <a id="E2E_CommandConfig_ShutdownTimeout"></a>
 
@@ -163,8 +149,6 @@ How long the app has to stop before it is killed. 10 seconds when unset.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/Command.cs)
-
 <a id="E2E_CommandConfig_StartupTimeout_"></a>
 <a id="E2E_CommandConfig_StartupTimeout"></a>
 
@@ -179,5 +163,3 @@ public TimeSpan? StartupTimeout { get; init; }
 How long the app has to become ready. 60 seconds when unset.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/Command.cs)

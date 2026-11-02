@@ -44,8 +44,6 @@ and belongs to a failed verdict.
 
 **Value:** [IReadOnlySet&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlyset-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
-
 <a id="E2E_StepExecutors_RuntimeCodes_"></a>
 <a id="E2E_StepExecutors_RuntimeCodes"></a>
 
@@ -61,8 +59,6 @@ The codes only the runtime may assign. An executor can carry one it was given, i
 but cannot invent one: the runtime rejects a runtime code it did not record.
 
 **Value:** [IReadOnlySet&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlyset-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 ## Methods
 
@@ -87,5 +83,3 @@ tool call or a replayed action, and is surfaced untouched rather than absorbed a
 | `error` | [E2EException](/api/E2E/E2EException/) |  |
 
 **Returns:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)

@@ -49,8 +49,6 @@ One row a reporter hands back for the terminal summary: a label and its text, a 
 | `Label` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `Text` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Reporter.cs)
-
 ## Properties
 
 <a id="E2E_Reports_ReporterSummaryRow_Label_"></a>
@@ -66,8 +64,6 @@ public string Label { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Reporter.cs)
-
 <a id="E2E_Reports_ReporterSummaryRow_Text_"></a>
 <a id="E2E_Reports_ReporterSummaryRow_Text"></a>
 
@@ -80,5 +76,3 @@ public string Text { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Reporter.cs)

@@ -38,8 +38,6 @@ Alt = 2
 
 **Value:** [KeyModifier](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs)
-
 <a id="E2E_Engine_KeyModifier_Control"></a>
 
 ### Control
@@ -51,8 +49,6 @@ Control = 1
 
 
 **Value:** [KeyModifier](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs)
 
 <a id="E2E_Engine_KeyModifier_ControlOrMeta"></a>
 
@@ -66,8 +62,6 @@ ControlOrMeta = 4
 
 **Value:** [KeyModifier](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs)
-
 <a id="E2E_Engine_KeyModifier_Meta"></a>
 
 ### Meta
@@ -80,8 +74,6 @@ Meta = 3
 
 **Value:** [KeyModifier](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs)
-
 <a id="E2E_Engine_KeyModifier_Shift"></a>
 
 ### Shift
@@ -93,5 +85,3 @@ Shift = 0
 
 
 **Value:** [KeyModifier](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs)

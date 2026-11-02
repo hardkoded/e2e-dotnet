@@ -50,8 +50,6 @@ Where the user is sent and, for device flows, the code to enter there.
 | `Instructions` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `UserCode` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs)
-
 ## Properties
 
 <a id="E2E_OAuth_OAuthAuthInfo_Instructions_"></a>
@@ -67,8 +65,6 @@ public string Instructions { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs)
-
 <a id="E2E_OAuth_OAuthAuthInfo_Url_"></a>
 <a id="E2E_OAuth_OAuthAuthInfo_Url"></a>
 
@@ -82,8 +78,6 @@ public string Url { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs)
-
 <a id="E2E_OAuth_OAuthAuthInfo_UserCode_"></a>
 <a id="E2E_OAuth_OAuthAuthInfo_UserCode"></a>
 
@@ -96,5 +90,3 @@ public string? UserCode { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs)

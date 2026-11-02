@@ -39,8 +39,6 @@ Credentials, the environment, test setup, or the agent's own budget stopped the 
 
 **Value:** [RunStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Runner.cs)
-
 <a id="E2E_RunStatus_Failed"></a>
 
 ### Failed
@@ -55,8 +53,6 @@ A test or an agent step failed.
 
 **Value:** [RunStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Runner.cs)
-
 <a id="E2E_RunStatus_Passed"></a>
 
 ### Passed
@@ -68,5 +64,3 @@ Passed = 0
 
 
 **Value:** [RunStatus](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Runner.cs)

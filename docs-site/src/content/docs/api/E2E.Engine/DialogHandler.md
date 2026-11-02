@@ -43,8 +43,6 @@ Accepts every dialog.
 
 **Value:** [DialogHandler](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs)
-
 <a id="E2E_Engine_DialogHandler_Dismiss_"></a>
 <a id="E2E_Engine_DialogHandler_Dismiss"></a>
 
@@ -59,8 +57,6 @@ public static DialogHandler Dismiss { get; }
 Dismisses every dialog.
 
 **Value:** [DialogHandler](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs)
 
 ## Operators
 
@@ -84,5 +80,3 @@ A handler that runs &lt;code class="paramref"&gt;handler&lt;/code&gt; for each d
 | `handler` | [Func&lt;Dialog, Task&gt;](https://learn.microsoft.com/dotnet/api/system.func-2) |  |
 
 **Returns:** [DialogHandler](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs)

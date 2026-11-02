@@ -49,8 +49,6 @@ reporter objects in the `reporters` field of its config module, and the port's J
 | --- | --- | --- |
 | `reporterType` | [Type](https://learn.microsoft.com/dotnet/api/system.type) | A [Reporter](/api/E2E.Reports/Reporter/) with a public constructor with no parameters. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Reporter.cs)
-
 ## Properties
 
 <a id="E2E_Reports_E2EReporterAttribute_ReporterType_"></a>
@@ -67,5 +65,3 @@ public Type ReporterType { get; }
 The reporter's type.
 
 **Value:** [Type](https://learn.microsoft.com/dotnet/api/system.type)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Reporter.cs)

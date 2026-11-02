@@ -38,8 +38,6 @@ public string? ApiKey { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs)
-
 <a id="E2E_AnthropicModelOptions_ApiKeyEnv_"></a>
 <a id="E2E_AnthropicModelOptions_ApiKeyEnv"></a>
 
@@ -54,8 +52,6 @@ public string ApiKeyEnv { get; init; }
 Environment variable read when [ApiKey](#E2E_AnthropicModelOptions_ApiKey) is empty. Defaults to `ANTHROPIC_API_KEY`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs)
 
 <a id="E2E_AnthropicModelOptions_BaseUrl_"></a>
 <a id="E2E_AnthropicModelOptions_BaseUrl"></a>
@@ -72,8 +68,6 @@ The API root; requests go to `{BaseUrl}/messages`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs)
-
 <a id="E2E_AnthropicModelOptions_CacheBreakpoints_"></a>
 <a id="E2E_AnthropicModelOptions_CacheBreakpoints"></a>
 
@@ -89,8 +83,6 @@ Marks the system prompt and the newest message as cache breakpoints. On by defau
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs)
-
 <a id="E2E_AnthropicModelOptions_Headers_"></a>
 <a id="E2E_AnthropicModelOptions_Headers"></a>
 
@@ -103,8 +95,6 @@ public IReadOnlyDictionary<string, string>? Headers { get; init; }
 
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs)
 
 <a id="E2E_AnthropicModelOptions_MaxTokens_"></a>
 <a id="E2E_AnthropicModelOptions_MaxTokens"></a>
@@ -121,8 +111,6 @@ The output cap each call sends. The Messages API requires one.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs)
-
 <a id="E2E_AnthropicModelOptions_Model_"></a>
 <a id="E2E_AnthropicModelOptions_Model"></a>
 
@@ -135,8 +123,6 @@ public required string Model { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs)
 
 <a id="E2E_AnthropicModelOptions_Provider_"></a>
 <a id="E2E_AnthropicModelOptions_Provider"></a>
@@ -153,8 +139,6 @@ The key this client reads in [ProviderOptions](/api/E2E/ModelRequest/#E2E_ModelR
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs)
-
 <a id="E2E_AnthropicModelOptions_Version_"></a>
 <a id="E2E_AnthropicModelOptions_Version"></a>
 
@@ -170,8 +154,6 @@ The `anthropic-version` header.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs)
-
 ## Methods
 
 <a id="E2E_AnthropicModelOptions_ResolveApiKey_"></a>
@@ -186,5 +168,3 @@ public string? ResolveApiKey()
 
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/AnthropicModel.cs)

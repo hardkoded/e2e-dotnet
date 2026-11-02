@@ -45,8 +45,6 @@ public Finished(ReportExploreEnded Ended, string? Summary = null)
 | `Ended` | [ReportExploreEnded](/api/E2E/ReportExploreEnded/) |  |
 | `Summary` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
-
 ## Properties
 
 <a id="E2E_ExploreProgress_Finished_Ended_"></a>
@@ -62,8 +60,6 @@ public ReportExploreEnded Ended { get; init; }
 
 **Value:** [ReportExploreEnded](/api/E2E/ReportExploreEnded/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)
-
 <a id="E2E_ExploreProgress_Finished_Summary_"></a>
 <a id="E2E_ExploreProgress_Finished_Summary"></a>
 
@@ -76,5 +72,3 @@ public string? Summary { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Progress.cs)

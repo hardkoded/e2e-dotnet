@@ -40,8 +40,6 @@ Where the replay stopped and why, after a hand-off. After an `end-mismatch` it n
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
-
 <a id="E2E_CacheInfo_Entry_"></a>
 <a id="E2E_CacheInfo_Entry"></a>
 
@@ -57,8 +55,6 @@ The step's cache key, which names its entry file (`<directory>/<entry>.json` in 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
-
 <a id="E2E_CacheInfo_Mode_"></a>
 <a id="E2E_CacheInfo_Mode"></a>
 
@@ -71,8 +67,6 @@ public required string Mode { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
 <a id="E2E_CacheInfo_NotRecorded_"></a>
 <a id="E2E_CacheInfo_NotRecorded"></a>
@@ -89,8 +83,6 @@ public string? NotRecorded { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
-
 <a id="E2E_CacheInfo_Reason_"></a>
 <a id="E2E_CacheInfo_Reason"></a>
 
@@ -103,8 +95,6 @@ public string? Reason { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
 <a id="E2E_CacheInfo_RecordedBy_"></a>
 <a id="E2E_CacheInfo_RecordedBy"></a>
@@ -121,8 +111,6 @@ The configured model that recorded the entry a step replayed, as [Name](/api/E2E
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
-
 <a id="E2E_CacheInfo_ReplayedActions_"></a>
 <a id="E2E_CacheInfo_ReplayedActions"></a>
 
@@ -138,8 +126,6 @@ The recorded actions the replay ran. 0 for a miss.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
-
 <a id="E2E_CacheInfo_TotalActions_"></a>
 <a id="E2E_CacheInfo_TotalActions"></a>
 
@@ -154,5 +140,3 @@ public int TotalActions { get; init; }
 The actions the recording holds. 0 when there was no recording to read.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)

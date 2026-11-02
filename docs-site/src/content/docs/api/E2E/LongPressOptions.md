@@ -41,5 +41,3 @@ public TimeSpan? Duration { get; init; }
 How long the press is held: whole milliseconds from 100 through 10000. Without one the engine holds its default.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)

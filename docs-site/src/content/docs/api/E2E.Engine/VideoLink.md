@@ -44,8 +44,6 @@ Media type of what the URL serves: `video/mp4`, or `text/html` for a player page
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs)
-
 <a id="E2E_Engine_VideoLink_Url_"></a>
 <a id="E2E_Engine_VideoLink_Url"></a>
 
@@ -60,5 +58,3 @@ public required string Url { get; init; }
 `http(s)` URL of the recording.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs)

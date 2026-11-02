@@ -41,8 +41,6 @@ public required string Name { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
-
 <a id="E2E_ExecutorTargetInfo_Platform_"></a>
 <a id="E2E_ExecutorTargetInfo_Platform"></a>
 
@@ -55,8 +53,6 @@ public required string Platform { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 <a id="E2E_ExecutorTargetInfo_TapModifiers_"></a>
 <a id="E2E_ExecutorTargetInfo_TapModifiers"></a>
@@ -73,8 +69,6 @@ True when `TapAsync` and `DoubleTapAsync` take [Modifiers](/api/E2E/ClickOptions
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
-
 <a id="E2E_ExecutorTargetInfo_Verbs_"></a>
 <a id="E2E_ExecutorTargetInfo_Verbs"></a>
 
@@ -87,5 +81,3 @@ public IReadOnlySet<ExecutorVerb> Verbs { get; init; }
 
 
 **Value:** [IReadOnlySet&lt;ExecutorVerb&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlyset-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)

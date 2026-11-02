@@ -49,8 +49,6 @@ Presses the primary button.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs)
-
 <a id="E2E_BrowserMouse_MoveAsync_"></a>
 <a id="E2E_BrowserMouse_MoveAsync_System_Single_System_Single_System_Threading_CancellationToken_"></a>
 
@@ -71,8 +69,6 @@ public Task MoveAsync(float x, float y, CancellationToken cancellationToken = de
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs)
 
 <a id="E2E_BrowserMouse_UpAsync_"></a>
 <a id="E2E_BrowserMouse_UpAsync_System_Threading_CancellationToken_"></a>
@@ -95,8 +91,6 @@ Releases the primary button.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs)
-
 <a id="E2E_BrowserMouse_WheelAsync_"></a>
 <a id="E2E_BrowserMouse_WheelAsync_System_Single_System_Single_System_Threading_CancellationToken_"></a>
 
@@ -117,5 +111,3 @@ public Task WheelAsync(float deltaX, float deltaY, CancellationToken cancellatio
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs)

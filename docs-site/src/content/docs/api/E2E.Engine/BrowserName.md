@@ -39,8 +39,6 @@ Chromium, the default.
 
 **Value:** [BrowserName](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserConnection.cs)
-
 <a id="E2E_Engine_BrowserName_Firefox"></a>
 
 ### Firefox
@@ -55,8 +53,6 @@ Firefox.
 
 **Value:** [BrowserName](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserConnection.cs)
-
 <a id="E2E_Engine_BrowserName_Webkit"></a>
 
 ### Webkit
@@ -70,5 +66,3 @@ Webkit = 2
 WebKit.
 
 **Value:** [BrowserName](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserConnection.cs)

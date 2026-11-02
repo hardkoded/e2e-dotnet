@@ -50,5 +50,3 @@ Runs the reporters that the test assembly registers with `[assembly: E2EReporter
 stops the app commands that the tests of this process started. The test assembly is the one xUnit is running (its path from the test context), else the entry assembly, since an xUnit v3 test project is an executable.
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.XUnit.V3/E2ERunFixture.cs)

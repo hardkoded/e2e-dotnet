@@ -42,8 +42,6 @@ public string Arch { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportEnvironment_Ci_"></a>
 <a id="E2E_Reports_ReportEnvironment_Ci"></a>
 
@@ -56,8 +54,6 @@ public bool Ci { get; init; }
 
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportEnvironment_Os_"></a>
 <a id="E2E_Reports_ReportEnvironment_Os"></a>
@@ -74,8 +70,6 @@ The platform and its release, such as `darwin 24.1.0`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportEnvironment_Runtime_"></a>
 <a id="E2E_Reports_ReportEnvironment_Runtime"></a>
 
@@ -91,8 +85,6 @@ The runtime, such as `.NET 10.0.0`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportEnvironment_TrustNoticeShown_"></a>
 <a id="E2E_Reports_ReportEnvironment_TrustNoticeShown"></a>
 
@@ -105,5 +97,3 @@ public bool TrustNoticeShown { get; init; }
 
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

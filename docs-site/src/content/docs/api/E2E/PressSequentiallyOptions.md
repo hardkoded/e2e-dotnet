@@ -41,5 +41,3 @@ public TimeSpan? Delay { get; init; }
 How long to wait between characters.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)

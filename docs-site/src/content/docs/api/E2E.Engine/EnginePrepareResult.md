@@ -45,8 +45,6 @@ Variables every worker of this target is started with, on top of the run's envir
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
-
 <a id="E2E_Engine_EnginePrepareResult_Workers_"></a>
 <a id="E2E_Engine_EnginePrepareResult_Workers"></a>
 
@@ -64,5 +62,3 @@ provisioned, one per leased resource. Null when prepare bound nothing, so the de
 this repository reads it.
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)

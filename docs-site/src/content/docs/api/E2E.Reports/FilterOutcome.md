@@ -39,8 +39,6 @@ It threw or answered with something invalid.
 
 **Value:** [FilterOutcome](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_FilterOutcome_TimedOut"></a>
 
 ### TimedOut
@@ -54,5 +52,3 @@ TimedOut = 1
 It ran past 5 minutes and the run stopped waiting.
 
 **Value:** [FilterOutcome](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

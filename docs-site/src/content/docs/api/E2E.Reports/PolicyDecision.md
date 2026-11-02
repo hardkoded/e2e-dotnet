@@ -37,8 +37,6 @@ Allowed = 0
 
 **Value:** [PolicyDecision](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_PolicyDecision_Denied"></a>
 
 ### Denied
@@ -50,5 +48,3 @@ Denied = 1
 
 
 **Value:** [PolicyDecision](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

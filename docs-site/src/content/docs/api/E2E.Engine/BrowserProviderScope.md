@@ -40,8 +40,6 @@ Attempt = 1
 
 **Value:** [BrowserProviderScope](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)
-
 <a id="E2E_Engine_BrowserProviderScope_Worker"></a>
 
 ### Worker
@@ -53,5 +51,3 @@ Worker = 0
 
 
 **Value:** [BrowserProviderScope](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/BrowserProvider.cs)

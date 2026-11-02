@@ -43,8 +43,6 @@ The goal when none is given.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
-
 <a id="E2E_Explore_MaxGoalChars"></a>
 
 ### MaxGoalChars
@@ -58,8 +56,6 @@ public const int MaxGoalChars = 2000
 The most characters a goal may have once its secret values are redacted.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 ## Properties
 
@@ -78,8 +74,6 @@ Exploration steps per run: breadth first, and diminishing returns come fast.
 
 **Value:** `ExploreBounds&lt;int&gt;`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
-
 <a id="E2E_Explore_TimeoutBounds_"></a>
 <a id="E2E_Explore_TimeoutBounds"></a>
 
@@ -94,8 +88,6 @@ public static ExploreBounds<TimeSpan> TimeoutBounds { get; }
 The run's wall clock: three to fifteen minutes.
 
 **Value:** `ExploreBounds&lt;TimeSpan&gt;`
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)
 
 ## Methods
 
@@ -124,5 +116,3 @@ A cancelled &lt;code class="paramref"&gt;cancellationToken&lt;/code&gt; throws [
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;ExploreOutcome&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Explore.cs)

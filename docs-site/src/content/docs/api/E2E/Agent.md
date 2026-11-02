@@ -48,8 +48,6 @@ public Task<ActResult> ActAsync(string instruction, ActOptions? options = null, 
 
 **Returns:** [Task&lt;ActResult&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
-
 <a id="E2E_Agent_AssertAsync_"></a>
 <a id="E2E_Agent_AssertAsync_System_String_E2E_AssertOptions_System_Threading_CancellationToken_"></a>
 
@@ -70,8 +68,6 @@ public Task AssertAsync(string statement, AssertOptions? options = null, Cancell
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
 <a id="E2E_Agent_ExtractAsync_"></a>
 <a id="E2E_Agent_ExtractAsync__1_System_String_E2E_ExtractOptions_System_Threading_CancellationToken_"></a>
@@ -105,8 +101,6 @@ members and nullable annotations respected. An answer that does not gets one rep
 
 **Returns:** [Task&lt;T&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
-
 <a id="E2E_Agent_WaitForAsync_"></a>
 <a id="E2E_Agent_WaitForAsync_System_String_E2E_WaitForOptions_System_Threading_CancellationToken_"></a>
 
@@ -132,5 +126,3 @@ screen has changed. A capture that outlives [Timeout](/api/E2E/WaitForOptions/#E
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)

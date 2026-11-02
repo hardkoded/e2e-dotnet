@@ -45,8 +45,6 @@ public WebBasicAuth(string username, Secret password)
 | `username` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `password` | [Secret](/api/E2E/Secret/) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
-
 <a id="E2E_Engine_WebBasicAuth__ctor_System_String_System_String_"></a>
 
 ### WebBasicAuth(string, string)
@@ -64,8 +62,6 @@ public WebBasicAuth(string username, string password)
 | `username` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `password` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)
-
 ## Properties
 
 <a id="E2E_Engine_WebBasicAuth_Username_"></a>
@@ -82,5 +78,3 @@ public string Username { get; }
 The user name. RFC 7617 does not allow `:` in one.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebEngine.cs)

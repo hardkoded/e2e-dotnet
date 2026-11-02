@@ -46,8 +46,6 @@ public UniqueValue(string value)
 | --- | --- | --- |
 | `value` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)
-
 ## Properties
 
 <a id="E2E_UniqueValue_Value_"></a>
@@ -62,8 +60,6 @@ public string Value { get; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)
 
 ## Methods
 
@@ -81,5 +77,3 @@ public override string ToString()
 Returns a string that represents the current object.
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string) — A string that represents the current object.
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)

@@ -42,8 +42,6 @@ public string Model { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_CacheRecordedBy_Provider_"></a>
 <a id="E2E_Reports_CacheRecordedBy_Provider"></a>
 
@@ -56,5 +54,3 @@ public string Provider { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

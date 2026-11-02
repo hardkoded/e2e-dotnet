@@ -41,8 +41,6 @@ Record nothing.
 
 **Value:** [RecordingMode](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/RecordingMode.cs)
-
 <a id="E2E_RecordingMode_On"></a>
 
 ### On
@@ -56,8 +54,6 @@ On = 1
 Record every attempt and keep it.
 
 **Value:** [RecordingMode](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/RecordingMode.cs)
 
 <a id="E2E_RecordingMode_OnAllRetries"></a>
 
@@ -73,8 +69,6 @@ Record every retry.
 
 **Value:** [RecordingMode](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/RecordingMode.cs)
-
 <a id="E2E_RecordingMode_OnFirstRetry"></a>
 
 ### OnFirstRetry
@@ -89,8 +83,6 @@ Record the first retry only.
 
 **Value:** [RecordingMode](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/RecordingMode.cs)
-
 <a id="E2E_RecordingMode_RetainOnFailure"></a>
 
 ### RetainOnFailure
@@ -104,5 +96,3 @@ RetainOnFailure = 2
 Record every attempt and keep one that did not pass.
 
 **Value:** [RecordingMode](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/RecordingMode.cs)

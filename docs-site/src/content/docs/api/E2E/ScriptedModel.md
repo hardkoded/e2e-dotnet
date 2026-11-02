@@ -49,8 +49,6 @@ public ScriptedModel(Func<ModelRequest, ModelResponse> next)
 | --- | --- | --- |
 | `next` | [Func&lt;ModelRequest, ModelResponse&gt;](https://learn.microsoft.com/dotnet/api/system.func-2) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs)
-
 ## Properties
 
 <a id="E2E_ScriptedModel_CallCount_"></a>
@@ -65,8 +63,6 @@ public int CallCount { get; }
 
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs)
 
 <a id="E2E_ScriptedModel_Name_"></a>
 <a id="E2E_ScriptedModel_Name"></a>
@@ -83,8 +79,6 @@ Provider and model id, printed in the run summary. Changing it does not miss the
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs)
-
 <a id="E2E_ScriptedModel_Requests_"></a>
 <a id="E2E_ScriptedModel_Requests"></a>
 
@@ -97,8 +91,6 @@ public List<ModelRequest> Requests { get; }
 
 
 **Value:** [List&lt;ModelRequest&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs)
 
 ## Methods
 
@@ -121,5 +113,3 @@ public Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;ModelResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Model.cs)

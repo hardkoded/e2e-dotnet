@@ -270,8 +270,6 @@ function renderMember(member, pageId) {
     pushBlock(parts, renderReturns(member, pageId, valueLabel));
     pushBlock(parts, renderExceptions(member, pageId));
     pushBlock(parts, renderExtra(member, pageId));
-    const source = sourceHref(member);
-    if (source) parts.push(`[View source](${source})`, "");
     return parts.join("\n");
 }
 

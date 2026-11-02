@@ -37,8 +37,6 @@ AdapterUpperBound = 1
 
 **Value:** [TokenAccounting](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_TokenAccounting_Provider"></a>
 
 ### Provider
@@ -50,5 +48,3 @@ Provider = 0
 
 
 **Value:** [TokenAccounting](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

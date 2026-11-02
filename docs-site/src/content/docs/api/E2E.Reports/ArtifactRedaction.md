@@ -37,8 +37,6 @@ Complete = 0
 
 **Value:** [ArtifactRedaction](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ArtifactRedaction_Incomplete"></a>
 
 ### Incomplete
@@ -50,5 +48,3 @@ Incomplete = 1
 
 
 **Value:** [ArtifactRedaction](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

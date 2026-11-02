@@ -43,8 +43,6 @@ public string? Domain { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
-
 <a id="E2E_Engine_BrowserCookie_Expires_"></a>
 <a id="E2E_Engine_BrowserCookie_Expires"></a>
 
@@ -60,8 +58,6 @@ Unix timestamp in whole seconds. Null is a session cookie.
 
 **Value:** [long?](https://learn.microsoft.com/dotnet/api/system.int64)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
-
 <a id="E2E_Engine_BrowserCookie_HttpOnly_"></a>
 <a id="E2E_Engine_BrowserCookie_HttpOnly"></a>
 
@@ -74,8 +70,6 @@ public bool? HttpOnly { get; init; }
 
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
 
 <a id="E2E_Engine_BrowserCookie_Name_"></a>
 <a id="E2E_Engine_BrowserCookie_Name"></a>
@@ -90,8 +84,6 @@ public required string Name { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
-
 <a id="E2E_Engine_BrowserCookie_Path_"></a>
 <a id="E2E_Engine_BrowserCookie_Path"></a>
 
@@ -104,8 +96,6 @@ public string? Path { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
 
 <a id="E2E_Engine_BrowserCookie_SameSite_"></a>
 <a id="E2E_Engine_BrowserCookie_SameSite"></a>
@@ -122,8 +112,6 @@ public string? SameSite { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
-
 <a id="E2E_Engine_BrowserCookie_Secure_"></a>
 <a id="E2E_Engine_BrowserCookie_Secure"></a>
 
@@ -136,8 +124,6 @@ public bool? Secure { get; init; }
 
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
 
 <a id="E2E_Engine_BrowserCookie_Url_"></a>
 <a id="E2E_Engine_BrowserCookie_Url"></a>
@@ -152,8 +138,6 @@ public string? Url { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
-
 <a id="E2E_Engine_BrowserCookie_Value_"></a>
 <a id="E2E_Engine_BrowserCookie_Value"></a>
 
@@ -166,5 +150,3 @@ public required string Value { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)

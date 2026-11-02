@@ -40,8 +40,6 @@ An anchor's input purpose, such as `password`. Null for `none`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
-
 <a id="E2E_RecordedTarget_Name_"></a>
 <a id="E2E_RecordedTarget_Name"></a>
 
@@ -54,8 +52,6 @@ public string? Name { get; set; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
 
 <a id="E2E_RecordedTarget_Placeholder_"></a>
 <a id="E2E_RecordedTarget_Placeholder"></a>
@@ -72,8 +68,6 @@ An anchor's placeholder.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
-
 <a id="E2E_RecordedTarget_Role_"></a>
 <a id="E2E_RecordedTarget_Role"></a>
 
@@ -86,8 +80,6 @@ public string? Role { get; set; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
 
 <a id="E2E_RecordedTarget_States_"></a>
 <a id="E2E_RecordedTarget_States"></a>
@@ -104,8 +96,6 @@ An anchor's `checked`, `expanded`, `pressed`, and `selected` states that are on.
 
 **Value:** [List&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
-
 <a id="E2E_RecordedTarget_TestId_"></a>
 <a id="E2E_RecordedTarget_TestId"></a>
 
@@ -118,8 +108,6 @@ public string? TestId { get; set; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
 
 <a id="E2E_RecordedTarget_Text_"></a>
 <a id="E2E_RecordedTarget_Text"></a>
@@ -136,8 +124,6 @@ An anchor's text when it differs from its name, with secrets redacted.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
-
 <a id="E2E_RecordedTarget_Value_"></a>
 <a id="E2E_RecordedTarget_Value"></a>
 
@@ -152,5 +138,3 @@ public string? Value { get; set; }
 An anchor's value, with secrets redacted. Null for an empty or secure field.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)

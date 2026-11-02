@@ -42,8 +42,6 @@ The named agent whose judge decides. Defaults to `default`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
-
 <a id="E2E_WaitForOptions_Interval_"></a>
 <a id="E2E_WaitForOptions_Interval"></a>
 
@@ -59,8 +57,6 @@ Least time between two judgments, 100 ms through 60 s. Defaults to 3 s.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
-
 <a id="E2E_WaitForOptions_MaxModelCalls_"></a>
 <a id="E2E_WaitForOptions_MaxModelCalls"></a>
 
@@ -75,8 +71,6 @@ public int? MaxModelCalls { get; init; }
 Model-call budget. Defaults to the configured `MaxModelCalls` and can only lower it.
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
 <a id="E2E_WaitForOptions_Params_"></a>
 <a id="E2E_WaitForOptions_Params"></a>
@@ -94,8 +88,6 @@ Values the condition refers to as `{name}`, with the same rules as [Params](/api
 
 **Value:** [IReadOnlyDictionary&lt;string, object&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
-
 <a id="E2E_WaitForOptions_Timeout_"></a>
 <a id="E2E_WaitForOptions_Timeout"></a>
 
@@ -111,8 +103,6 @@ Defaults to the agent's `JudgmentTimeout` (30 s).
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
-
 <a id="E2E_WaitForOptions_Vision_"></a>
 <a id="E2E_WaitForOptions_Vision"></a>
 
@@ -127,5 +117,3 @@ public VisionMode Vision { get; init; }
 What the judge is shown. [Off](/api/E2E/VisionMode/#E2E_VisionMode_Off) by default: the tree. See [VisionMode](/api/E2E/VisionMode/).
 
 **Value:** [VisionMode](/api/E2E/VisionMode/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)

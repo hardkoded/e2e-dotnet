@@ -50,8 +50,6 @@ public OpenAiCompatibleModel(OpenAiCompatibleModelOptions options, HttpClient? h
 | `options` | [OpenAiCompatibleModelOptions](/api/E2E/OpenAiCompatibleModelOptions/) |  |
 | `httpClient` | [HttpClient](https://learn.microsoft.com/dotnet/api/system.net.http.httpclient) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
-
 ## Properties
 
 <a id="E2E_OpenAiCompatibleModel_Name_"></a>
@@ -68,8 +66,6 @@ public string Name { get; }
 Provider and model id, printed in the run summary. Changing it does not miss the replay cache.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
 
 ## Methods
 
@@ -93,8 +89,6 @@ public Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken
 
 **Returns:** [Task&lt;ModelResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
-
 <a id="E2E_OpenAiCompatibleModel_Dispose_"></a>
 <a id="E2E_OpenAiCompatibleModel_Dispose"></a>
 
@@ -107,5 +101,3 @@ public void Dispose()
 
 
 Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)

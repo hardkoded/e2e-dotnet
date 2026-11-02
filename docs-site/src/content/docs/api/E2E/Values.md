@@ -45,5 +45,3 @@ public static UniqueValue Unique(string value)
 | `value` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 **Returns:** [UniqueValue](/api/E2E/UniqueValue/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)

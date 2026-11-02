@@ -51,8 +51,6 @@ The same matchers, negated.
 
 **Value:** [PollExpectation&lt;T&gt;](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Poll.cs)
-
 ## Methods
 
 <a id="E2E_PollExpectation_1_ToBeAsync_"></a>
@@ -77,8 +75,6 @@ Passes when the read value equals &lt;code class="paramref"&gt;expected&lt;/code
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Poll.cs)
-
 <a id="E2E_PollExpectation_1_ToSatisfyAsync_"></a>
 <a id="E2E_PollExpectation_1_ToSatisfyAsync_System_Func__0_System_Boolean__System_String_System_Threading_CancellationToken_"></a>
 
@@ -101,5 +97,3 @@ Passes when &lt;code class="paramref"&gt;predicate&lt;/code&gt; returns true for
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Expect/Poll.cs)

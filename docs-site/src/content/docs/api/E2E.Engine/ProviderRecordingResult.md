@@ -46,8 +46,6 @@ The plain name of a file written into [Dir](/api/E2E.Engine/ProviderRecordingSto
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs)
-
 <a id="E2E_Engine_ProviderRecordingResult_MediaType_"></a>
 <a id="E2E_Engine_ProviderRecordingResult_MediaType"></a>
 
@@ -63,8 +61,6 @@ The media type [Url](#E2E_Engine_ProviderRecordingResult_Url) serves: `video/mp4
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs)
-
 <a id="E2E_Engine_ProviderRecordingResult_Url_"></a>
 <a id="E2E_Engine_ProviderRecordingResult_Url"></a>
 
@@ -79,5 +75,3 @@ public string? Url { get; init; }
 The `http(s)` URL of a recording the service keeps.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs)

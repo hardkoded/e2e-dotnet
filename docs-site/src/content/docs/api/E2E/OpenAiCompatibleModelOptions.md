@@ -38,8 +38,6 @@ public string? ApiKey { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
-
 <a id="E2E_OpenAiCompatibleModelOptions_ApiKeyEnv_"></a>
 <a id="E2E_OpenAiCompatibleModelOptions_ApiKeyEnv"></a>
 
@@ -55,8 +53,6 @@ Environment variable read when [ApiKey](#E2E_OpenAiCompatibleModelOptions_ApiKey
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
-
 <a id="E2E_OpenAiCompatibleModelOptions_ApiKeyFallbackEnv_"></a>
 <a id="E2E_OpenAiCompatibleModelOptions_ApiKeyFallbackEnv"></a>
 
@@ -71,8 +67,6 @@ public string? ApiKeyFallbackEnv { get; init; }
 A second environment variable read when the first is unset, such as the Vercel OIDC token.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
 
 <a id="E2E_OpenAiCompatibleModelOptions_ApiKeyHeader_"></a>
 <a id="E2E_OpenAiCompatibleModelOptions_ApiKeyHeader"></a>
@@ -90,8 +84,6 @@ takes `api-key`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
-
 <a id="E2E_OpenAiCompatibleModelOptions_BaseUrl_"></a>
 <a id="E2E_OpenAiCompatibleModelOptions_BaseUrl"></a>
 
@@ -104,8 +96,6 @@ public string BaseUrl { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
 
 <a id="E2E_OpenAiCompatibleModelOptions_Headers_"></a>
 <a id="E2E_OpenAiCompatibleModelOptions_Headers"></a>
@@ -121,8 +111,6 @@ public IReadOnlyDictionary<string, string>? Headers { get; init; }
 Headers added to every request. The identity headers (`User-Agent`, `HTTP-Referer`, `X-Title`) replace the same names set here.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
 
 <a id="E2E_OpenAiCompatibleModelOptions_JsonSchemaResponseFormat_"></a>
 <a id="E2E_OpenAiCompatibleModelOptions_JsonSchemaResponseFormat"></a>
@@ -141,8 +129,6 @@ one JSON object, is the only thing that asks for the grammar; the agent validate
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
-
 <a id="E2E_OpenAiCompatibleModelOptions_Model_"></a>
 <a id="E2E_OpenAiCompatibleModelOptions_Model"></a>
 
@@ -155,8 +141,6 @@ public required string Model { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
 
 <a id="E2E_OpenAiCompatibleModelOptions_PromptCacheHints_"></a>
 <a id="E2E_OpenAiCompatibleModelOptions_PromptCacheHints"></a>
@@ -174,8 +158,6 @@ Whether requests carry a prompt-cache key and `store: false`. Null (the default)
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
-
 <a id="E2E_OpenAiCompatibleModelOptions_Provider_"></a>
 <a id="E2E_OpenAiCompatibleModelOptions_Provider"></a>
 
@@ -192,8 +174,6 @@ to the chat-completions body as given. Defaults to `openai`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
-
 <a id="E2E_OpenAiCompatibleModelOptions_QueryParameters_"></a>
 <a id="E2E_OpenAiCompatibleModelOptions_QueryParameters"></a>
 
@@ -209,8 +189,6 @@ Query parameters added to every request URL, such as Azure's `api-version`.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)
-
 ## Methods
 
 <a id="E2E_OpenAiCompatibleModelOptions_ResolveApiKey_"></a>
@@ -225,5 +203,3 @@ public string? ResolveApiKey()
 
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/OpenAiCompatibleModel.cs)

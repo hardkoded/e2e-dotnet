@@ -60,8 +60,6 @@ Creates a setup test named &lt;code class="paramref"&gt;title&lt;/code&gt;.
 | --- | --- | --- |
 | `title` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ESetupAttribute.cs)
-
 ## Properties
 
 <a id="E2E_NUnit_E2ESetupAttribute_Saves_"></a>
@@ -79,8 +77,6 @@ The names of the sessions this test saves. At least one.
 
 **Value:** [string\[\]](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ESetupAttribute.cs)
-
 <a id="E2E_NUnit_E2ESetupAttribute_Title_"></a>
 <a id="E2E_NUnit_E2ESetupAttribute_Title"></a>
 
@@ -95,8 +91,6 @@ public string Title { get; }
 The test's name.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ESetupAttribute.cs)
 
 ## Methods
 
@@ -119,8 +113,6 @@ Gives the test an early order unless it has one, and refuses a setup test that s
 | --- | --- | --- |
 | `test` | `Test` |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ESetupAttribute.cs)
-
 <a id="E2E_NUnit_E2ESetupAttribute_BuildFrom_"></a>
 <a id="E2E_NUnit_E2ESetupAttribute_BuildFrom_NUnit_Framework_Interfaces_IMethodInfo_NUnit_Framework_Internal_Test_"></a>
 
@@ -142,5 +134,3 @@ Names the test and builds it. Only the name is the title: the full name stays th
 | `suite` | `Test` |  |
 
 **Returns:** `TestMethod`
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ESetupAttribute.cs)

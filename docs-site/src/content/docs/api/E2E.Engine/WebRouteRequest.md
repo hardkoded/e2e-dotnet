@@ -44,8 +44,6 @@ Request headers, with lower-cased names.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
-
 <a id="E2E_Engine_WebRouteRequest_Method_"></a>
 <a id="E2E_Engine_WebRouteRequest_Method"></a>
 
@@ -58,8 +56,6 @@ public required string Method { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
 
 <a id="E2E_Engine_WebRouteRequest_PostData_"></a>
 <a id="E2E_Engine_WebRouteRequest_PostData"></a>
@@ -74,8 +70,6 @@ public string? PostData { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
-
 <a id="E2E_Engine_WebRouteRequest_Url_"></a>
 <a id="E2E_Engine_WebRouteRequest_Url"></a>
 
@@ -88,5 +82,3 @@ public required string Url { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)

@@ -39,8 +39,6 @@ Alert = 0
 
 **Value:** [DialogType](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs)
-
 <a id="E2E_Engine_DialogType_BeforeUnload"></a>
 
 ### BeforeUnload
@@ -54,8 +52,6 @@ BeforeUnload = 3
 `beforeunload`.
 
 **Value:** [DialogType](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs)
 
 <a id="E2E_Engine_DialogType_Confirm"></a>
 
@@ -71,8 +67,6 @@ Confirm = 1
 
 **Value:** [DialogType](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs)
-
 <a id="E2E_Engine_DialogType_Prompt"></a>
 
 ### Prompt
@@ -86,5 +80,3 @@ Prompt = 2
 `prompt`.
 
 **Value:** [DialogType](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/Dialogs.cs)

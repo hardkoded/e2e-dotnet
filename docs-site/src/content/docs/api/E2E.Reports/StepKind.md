@@ -37,8 +37,6 @@ Agent = 0
 
 **Value:** [StepKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_StepKind_App"></a>
 
 ### App
@@ -50,8 +48,6 @@ App = 4
 
 
 **Value:** [StepKind](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepKind_Assertion"></a>
 
@@ -65,8 +61,6 @@ Assertion = 2
 
 **Value:** [StepKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_StepKind_Locator"></a>
 
 ### Locator
@@ -78,8 +72,6 @@ Locator = 1
 
 
 **Value:** [StepKind](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_StepKind_Resource"></a>
 
@@ -93,8 +85,6 @@ Resource = 6
 
 **Value:** [StepKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_StepKind_Screen"></a>
 
 ### Screen
@@ -107,8 +97,6 @@ Screen = 3
 
 **Value:** [StepKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_StepKind_Session"></a>
 
 ### Session
@@ -120,5 +108,3 @@ Session = 5
 
 
 **Value:** [StepKind](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

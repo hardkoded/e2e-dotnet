@@ -55,8 +55,6 @@ the method, then the class, then a base class. A setup test takes only its own m
 | --- | --- | --- |
 | `name` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/SessionAttributes.cs)
-
 ## Properties
 
 <a id="E2E_E2ESessionAttribute_Name_"></a>
@@ -73,5 +71,3 @@ public string Name { get; }
 The name a setup test saved the session under.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/SessionAttributes.cs)

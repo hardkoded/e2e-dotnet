@@ -48,8 +48,6 @@ A press held on the node for &lt;code class="paramref"&gt;Duration&lt;/code&gt;,
 | --- | --- | --- |
 | `Duration` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)
-
 ## Properties
 
 <a id="E2E_Engine_LocatorAction_LongPress_Duration_"></a>
@@ -64,5 +62,3 @@ public TimeSpan? Duration { get; init; }
 
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)

@@ -42,8 +42,6 @@ public static Secrets Empty { get; }
 
 **Value:** [Secrets](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)
-
 <a id="E2E_Secrets_Names_"></a>
 <a id="E2E_Secrets_Names"></a>
 
@@ -56,8 +54,6 @@ public IEnumerable<string> Names { get; }
 
 
 **Value:** [IEnumerable&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ienumerable-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)
 
 ## Methods
 
@@ -82,8 +78,6 @@ The override variable for a secret name, such as `E2E_SECRET_STRIPE_KEY` for `st
 
 **Returns:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)
-
 <a id="E2E_Secrets_Get_"></a>
 <a id="E2E_Secrets_Get_System_String_"></a>
 
@@ -104,5 +98,3 @@ The configured secret. A name the config does not declare throws `SECRET_UNAVAIL
 | `name` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 **Returns:** [Secret](/api/E2E/Secret/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)

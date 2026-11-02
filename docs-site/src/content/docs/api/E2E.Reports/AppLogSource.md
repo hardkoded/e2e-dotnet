@@ -37,8 +37,6 @@ Console = 0
 
 **Value:** [AppLogSource](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_AppLogSource_Error"></a>
 
 ### Error
@@ -50,8 +48,6 @@ Error = 1
 
 
 **Value:** [AppLogSource](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_AppLogSource_Network"></a>
 
@@ -65,8 +61,6 @@ Network = 2
 
 **Value:** [AppLogSource](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_AppLogSource_System"></a>
 
 ### System
@@ -78,5 +72,3 @@ System = 3
 
 
 **Value:** [AppLogSource](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

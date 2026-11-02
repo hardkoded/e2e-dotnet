@@ -48,8 +48,6 @@ Upstream's `timeoutMs`.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
-
 <a id="E2E_Engine_EngineFinishInfo_Env_"></a>
 <a id="E2E_Engine_EngineFinishInfo_Env"></a>
 
@@ -64,8 +62,6 @@ public required IReadOnlyDictionary<string, string?> Env { get; init; }
 The run's environment, the same prepare saw.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 <a id="E2E_Engine_EngineFinishInfo_Log_"></a>
 <a id="E2E_Engine_EngineFinishInfo_Log"></a>
@@ -82,8 +78,6 @@ Reports one line of progress, as [Log](/api/E2E.Engine/EnginePrepareInfo/#E2E_En
 
 **Value:** [Action&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
-
 <a id="E2E_Engine_EngineFinishInfo_RunId_"></a>
 <a id="E2E_Engine_EngineFinishInfo_RunId"></a>
 
@@ -99,8 +93,6 @@ The run id.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
-
 <a id="E2E_Engine_EngineFinishInfo_TargetName_"></a>
 <a id="E2E_Engine_EngineFinishInfo_TargetName"></a>
 
@@ -115,5 +107,3 @@ public required string TargetName { get; init; }
 The target being finished.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)

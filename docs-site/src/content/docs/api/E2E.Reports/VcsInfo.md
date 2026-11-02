@@ -50,8 +50,6 @@ Where the code under test came from (upstream's `VcsInfo`, `internal/vcs.ts`).
 | `Branch` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The branch name; null on a detached HEAD or when only the commit is known. |
 | `Dirty` | [bool?](https://learn.microsoft.com/dotnet/api/system.boolean) | True when tracked files differ from the commit; null when git could not say. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 ## Properties
 
 <a id="E2E_Reports_VcsInfo_Branch_"></a>
@@ -69,8 +67,6 @@ The branch name; null on a detached HEAD or when only the commit is known.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_VcsInfo_Commit_"></a>
 <a id="E2E_Reports_VcsInfo_Commit"></a>
 
@@ -86,8 +82,6 @@ The commit the working tree is checked out at.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_VcsInfo_Dirty_"></a>
 <a id="E2E_Reports_VcsInfo_Dirty"></a>
 
@@ -102,5 +96,3 @@ public bool? Dirty { get; init; }
 True when tracked files differ from the commit; null when git could not say.
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

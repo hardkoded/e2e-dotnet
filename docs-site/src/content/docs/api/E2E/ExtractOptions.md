@@ -43,8 +43,6 @@ The named agent whose judge reads the screen. Defaults to `default`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
-
 <a id="E2E_ExtractOptions_Timeout_"></a>
 <a id="E2E_ExtractOptions_Timeout"></a>
 
@@ -60,8 +58,6 @@ Defaults to the agent's `JudgmentTimeout` (30 s).
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
-
 <a id="E2E_ExtractOptions_Vision_"></a>
 <a id="E2E_ExtractOptions_Vision"></a>
 
@@ -76,5 +72,3 @@ public VisionMode Vision { get; init; }
 What the judge reads the data from. [Off](/api/E2E/VisionMode/#E2E_VisionMode_Off) by default: the tree. See [VisionMode](/api/E2E/VisionMode/).
 
 **Value:** [VisionMode](/api/E2E/VisionMode/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)

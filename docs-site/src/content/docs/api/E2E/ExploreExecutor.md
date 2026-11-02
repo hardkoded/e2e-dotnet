@@ -42,5 +42,3 @@ public const string FindingToolName = "report_finding"
 The name of the tool the explorer reports a defect with.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Explore/Executor.cs)

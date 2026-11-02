@@ -43,8 +43,6 @@ public List<RecordedAction> Actions { get; set; }
 
 **Value:** [List&lt;RecordedAction&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
-
 <a id="E2E_CacheEntry_Agent_"></a>
 <a id="E2E_CacheEntry_Agent"></a>
 
@@ -59,8 +57,6 @@ public string? Agent { get; set; }
 Name of the configured agent the step ran with. A secret value in it is masked.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
 
 <a id="E2E_CacheEntry_Appeared_"></a>
 <a id="E2E_CacheEntry_Appeared"></a>
@@ -77,8 +73,6 @@ Nodes on screen when the step passed and not when it began (`Anchors`).
 
 **Value:** [List&lt;RecordedTarget&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
-
 <a id="E2E_CacheEntry_CallIndex_"></a>
 <a id="E2E_CacheEntry_CallIndex"></a>
 
@@ -94,8 +88,6 @@ Zero-based repeat of the step among identical acts in the attempt.
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
-
 <a id="E2E_CacheEntry_EndRoute_"></a>
 <a id="E2E_CacheEntry_EndRoute"></a>
 
@@ -108,8 +100,6 @@ public string? EndRoute { get; set; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
 
 <a id="E2E_CacheEntry_EndWaitMs_"></a>
 <a id="E2E_CacheEntry_EndWaitMs"></a>
@@ -128,8 +118,6 @@ minute), and the click alone proves nothing. Null on an entry recorded before it
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
-
 <a id="E2E_CacheEntry_Engine_"></a>
 <a id="E2E_CacheEntry_Engine"></a>
 
@@ -144,8 +132,6 @@ public string? Engine { get; set; }
 The engine platform the step ran on. Null on an entry recorded before it was stored.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
 
 <a id="E2E_CacheEntry_Gone_"></a>
 <a id="E2E_CacheEntry_Gone"></a>
@@ -162,8 +148,6 @@ Nodes on screen when the step began and gone when it passed.
 
 **Value:** [List&lt;RecordedTarget&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
-
 <a id="E2E_CacheEntry_Instruction_"></a>
 <a id="E2E_CacheEntry_Instruction"></a>
 
@@ -176,8 +160,6 @@ public string? Instruction { get; set; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
 
 <a id="E2E_CacheEntry_KeyedBy_"></a>
 <a id="E2E_CacheEntry_KeyedBy"></a>
@@ -196,8 +178,6 @@ by a replay: when a step's key no longer finds this entry, comparing it with the
 
 **Value:** [TraceKeyContext](/api/E2E/TraceKeyContext/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
-
 <a id="E2E_CacheEntry_ParamsDigest_"></a>
 <a id="E2E_CacheEntry_ParamsDigest"></a>
 
@@ -212,8 +192,6 @@ public string? ParamsDigest { get; set; }
 SHA-256 of the params as the key holds them, a placeholder for each unique value.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
 
 <a id="E2E_CacheEntry_RecordedBy_"></a>
 <a id="E2E_CacheEntry_RecordedBy"></a>
@@ -232,8 +210,6 @@ Null on an entry recorded before it was stored, or by an agent with no configure
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
-
 <a id="E2E_CacheEntry_Route_"></a>
 <a id="E2E_CacheEntry_Route"></a>
 
@@ -247,8 +223,6 @@ public string? Route { get; set; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
-
 <a id="E2E_CacheEntry_Schema_"></a>
 <a id="E2E_CacheEntry_Schema"></a>
 
@@ -261,8 +235,6 @@ public int Schema { get; set; }
 
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
 
 <a id="E2E_CacheEntry_Test_"></a>
 <a id="E2E_CacheEntry_Test"></a>
@@ -278,5 +250,3 @@ public string? Test { get; set; }
 The test title. A secret value in it is masked.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)

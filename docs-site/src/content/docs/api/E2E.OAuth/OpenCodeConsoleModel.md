@@ -46,8 +46,6 @@ The model to use until a lookup succeeds.
 
 **Value:** [IAgentModel](/api/E2E/IAgentModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs)
-
 ## Methods
 
 <a id="E2E_OAuth_OpenCodeConsoleModel_ResolveAsync_"></a>
@@ -70,5 +68,3 @@ The model for the looked-up protocol, or null when the lookup could not be read.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;IAgentModel&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/SubscriptionModels.cs)

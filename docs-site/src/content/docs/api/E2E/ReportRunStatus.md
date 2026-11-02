@@ -39,8 +39,6 @@ Not passed, and every failing result carries a blockable code: nothing contradic
 
 **Value:** [ReportRunStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/ReportRecords.cs)
-
 <a id="E2E_ReportRunStatus_Error"></a>
 
 ### Error
@@ -52,8 +50,6 @@ Error = 2
 
 
 **Value:** [ReportRunStatus](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/ReportRecords.cs)
 
 <a id="E2E_ReportRunStatus_Failed"></a>
 
@@ -67,8 +63,6 @@ Failed = 1
 
 **Value:** [ReportRunStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/ReportRecords.cs)
-
 <a id="E2E_ReportRunStatus_Interrupted"></a>
 
 ### Interrupted
@@ -81,8 +75,6 @@ Interrupted = 3
 
 **Value:** [ReportRunStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/ReportRecords.cs)
-
 <a id="E2E_ReportRunStatus_Passed"></a>
 
 ### Passed
@@ -94,5 +86,3 @@ Passed = 0
 
 
 **Value:** [ReportRunStatus](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/ReportRecords.cs)

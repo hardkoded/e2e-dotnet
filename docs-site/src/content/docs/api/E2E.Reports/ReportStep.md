@@ -44,8 +44,6 @@ The configured agent an agent step ran with, by name.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportStep_Api_"></a>
 <a id="E2E_Reports_ReportStep_Api"></a>
 
@@ -60,8 +58,6 @@ public string Api { get; init; }
 The call, such as `locator.click`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportStep_Artifacts_"></a>
 <a id="E2E_Reports_ReportStep_Artifacts"></a>
@@ -78,8 +74,6 @@ The ids of the artifacts the step made.
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportStep_Cache_"></a>
 <a id="E2E_Reports_ReportStep_Cache"></a>
 
@@ -92,8 +86,6 @@ public StepCacheRecord? Cache { get; init; }
 
 
 **Value:** [StepCacheRecord](/api/E2E.Reports/StepCacheRecord/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportStep_DurationMs_"></a>
 <a id="E2E_Reports_ReportStep_DurationMs"></a>
@@ -108,8 +100,6 @@ public long DurationMs { get; init; }
 
 **Value:** [long](https://learn.microsoft.com/dotnet/api/system.int64)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportStep_Error_"></a>
 <a id="E2E_Reports_ReportStep_Error"></a>
 
@@ -122,8 +112,6 @@ public ReportError? Error { get; init; }
 
 
 **Value:** [ReportError](/api/E2E.Reports/ReportError/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportStep_Events_"></a>
 <a id="E2E_Reports_ReportStep_Events"></a>
@@ -138,8 +126,6 @@ public IReadOnlyList<StepEvent> Events { get; init; }
 
 **Value:** [IReadOnlyList&lt;StepEvent&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportStep_Explanation_"></a>
 <a id="E2E_Reports_ReportStep_Explanation"></a>
 
@@ -152,8 +138,6 @@ public string? Explanation { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportStep_Id_"></a>
 <a id="E2E_Reports_ReportStep_Id"></a>
@@ -168,8 +152,6 @@ public string Id { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportStep_Index_"></a>
 <a id="E2E_Reports_ReportStep_Index"></a>
 
@@ -182,8 +164,6 @@ public int Index { get; init; }
 
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportStep_Kind_"></a>
 <a id="E2E_Reports_ReportStep_Kind"></a>
@@ -198,8 +178,6 @@ public StepKind Kind { get; init; }
 
 **Value:** [StepKind](/api/E2E.Reports/StepKind/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportStep_Label_"></a>
 <a id="E2E_Reports_ReportStep_Label"></a>
 
@@ -212,8 +190,6 @@ public string Label { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportStep_Metrics_"></a>
 <a id="E2E_Reports_ReportStep_Metrics"></a>
@@ -228,8 +204,6 @@ public StepMetrics? Metrics { get; init; }
 
 **Value:** [StepMetrics](/api/E2E.Reports/StepMetrics/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportStep_Model_"></a>
 <a id="E2E_Reports_ReportStep_Model"></a>
 
@@ -243,8 +217,6 @@ public StepModelInfo? Model { get; init; }
 
 **Value:** [StepModelInfo](/api/E2E.Reports/StepModelInfo/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportStep_ObservationRevision_"></a>
 <a id="E2E_Reports_ReportStep_ObservationRevision"></a>
 
@@ -257,8 +229,6 @@ public string? ObservationRevision { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportStep_ObservationTruncated_"></a>
 <a id="E2E_Reports_ReportStep_ObservationTruncated"></a>
@@ -275,8 +245,6 @@ True when at least one semantic observation in the step was truncated (serialize
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportStep_Phase_"></a>
 <a id="E2E_Reports_ReportStep_Phase"></a>
 
@@ -289,8 +257,6 @@ public StepPhase? Phase { get; init; }
 
 
 **Value:** `StepPhase?`
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportStep_Screen_"></a>
 <a id="E2E_Reports_ReportStep_Screen"></a>
@@ -307,8 +273,6 @@ How the last screen the step saw differs from the step before's. Null when it sa
 
 **Value:** [StepScreen](/api/E2E.Reports/StepScreen/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportStep_Source_"></a>
 <a id="E2E_Reports_ReportStep_Source"></a>
 
@@ -321,8 +285,6 @@ public ReportSource Source { get; init; }
 
 
 **Value:** [ReportSource](/api/E2E.Reports/ReportSource/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportStep_StartedAt_"></a>
 <a id="E2E_Reports_ReportStep_StartedAt"></a>
@@ -337,8 +299,6 @@ public DateTimeOffset StartedAt { get; init; }
 
 **Value:** [DateTimeOffset](https://learn.microsoft.com/dotnet/api/system.datetimeoffset)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportStep_Status_"></a>
 <a id="E2E_Reports_ReportStep_Status"></a>
 
@@ -351,8 +311,6 @@ public StepStatus Status { get; init; }
 
 
 **Value:** [StepStatus](/api/E2E.Reports/StepStatus/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportStep_Turns_"></a>
 <a id="E2E_Reports_ReportStep_Turns"></a>
@@ -369,8 +327,6 @@ The last model turns of an agent step, oldest first.
 
 **Value:** [IReadOnlyList&lt;StepTurn&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportStep_Viewport_"></a>
 <a id="E2E_Reports_ReportStep_Viewport"></a>
 
@@ -383,8 +339,6 @@ public StepViewport? Viewport { get; init; }
 
 
 **Value:** [StepViewport](/api/E2E.Reports/StepViewport/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 <a id="E2E_Reports_ReportStep_VisionDegraded_"></a>
 <a id="E2E_Reports_ReportStep_VisionDegraded"></a>
@@ -399,8 +353,6 @@ public VisionDegradation? VisionDegraded { get; init; }
 
 **Value:** `VisionDegradation?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportStep_VisionInput_"></a>
 <a id="E2E_Reports_ReportStep_VisionInput"></a>
 
@@ -414,8 +366,6 @@ public bool? VisionInput { get; init; }
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
-
 <a id="E2E_Reports_ReportStep_VisionOnly_"></a>
 <a id="E2E_Reports_ReportStep_VisionOnly"></a>
 
@@ -428,5 +378,3 @@ public bool? VisionOnly { get; init; }
 
 
 **Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)

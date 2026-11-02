@@ -40,8 +40,6 @@ public WaitForState State { get; init; }
 
 **Value:** [WaitForState](/api/E2E/WaitForState/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
-
 <a id="E2E_LocatorWaitForOptions_Timeout_"></a>
 <a id="E2E_LocatorWaitForOptions_Timeout"></a>
 
@@ -56,5 +54,3 @@ public TimeSpan? Timeout { get; init; }
 How long to wait. Defaults to the configured action timeout.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)

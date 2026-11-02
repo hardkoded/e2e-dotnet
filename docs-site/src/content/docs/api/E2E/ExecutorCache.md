@@ -39,8 +39,6 @@ Follows the configured cache mode.
 
 **Value:** [ExecutorCache](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
-
 <a id="E2E_ExecutorCache_Off"></a>
 
 ### Off
@@ -55,5 +53,3 @@ Never replays a cached trace for the executor's steps and records none, so every
 `RunStepAsync`. For an executor whose own history or memory is the source of truth.
 
 **Value:** [ExecutorCache](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
