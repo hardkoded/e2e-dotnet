@@ -375,11 +375,20 @@ public sealed class ObservationTests
     public async Task Ends_an_input_hung_on_its_device_command_at_its_budget_as_possibly_committed(string entry, string method)
     {
         var h = Harness.Create();
+
+        // A budget runs out when the test spends it, like upstream's fake timers. A real 200 ms wait also cuts off the setup's own
+        // observation when a loaded runner stretches it.
+        h.Clock.ManualTimers = true;
         var session = await Screens.OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(200));
         session.Origin = ActionOrigin.Test;
         var root = await Screens.RootOf(session);
         var about = Named(root, "About");
-        h.Fake.RespondAsync(method, (_, _) => new TaskCompletionSource<JsonNode?>().Task);
+        var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        h.Fake.RespondAsync(method, (_, _) =>
+        {
+            sent.TrySetResult();
+            return new TaskCompletionSource<JsonNode?>().Task;
+        });
         Task hung = entry switch
         {
             "tap" => session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None),
@@ -391,6 +400,8 @@ public sealed class ObservationTests
             "back" => session.BackAsync(CancellationToken.None),
             _ => throw new ArgumentOutOfRangeException(nameof(entry), entry, null),
         };
+        await sent.Task;
+        await h.Clock.SpendUntil(hung, TimeSpan.FromMilliseconds(250));
         var failure = await Assert.ThrowsAsync<EngineException>(() => hung);
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", failure.Code);
     }
@@ -547,20 +558,42 @@ public sealed class ObservationTests
     public async Task Takes_no_second_snapshot_for_a_capture_the_budget_abandoned()
     {
         var h = Harness.Create();
+        h.Clock.ManualTimers = true;
         var session = await Screens.OpenAttempt(h);
         var snapshots = 0;
+
+        // The budget runs out when the test spends it, and the capture fails only once the test lets it, after the budget has abandoned
+        // it: with real waits a loaded runner can let the failure land first.
+        var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var failsNow = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var failed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, async (_, _) =>
         {
             snapshots++;
-            await Task.Delay(500);
-            throw new AgentDeviceError(
-                "COMMAND_FAILED",
-                "regular iOS snapshot presentation requires a valid viewport",
-                new Dictionary<string, object?> { ["reason"] = "invalid-viewport" });
+            sent.TrySetResult();
+            try
+            {
+                await failsNow.Task;
+                throw new AgentDeviceError(
+                    "COMMAND_FAILED",
+                    "regular iOS snapshot presentation requires a valid viewport",
+                    new Dictionary<string, object?> { ["reason"] = "invalid-viewport" });
+            }
+            finally
+            {
+                failed.SetResult();
+            }
         });
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.LocateAsync(About, TimeSpan.FromMilliseconds(300), CancellationToken.None));
+        var locating = Assert.ThrowsAsync<EngineException>(() => session.LocateAsync(About, TimeSpan.FromMilliseconds(300), CancellationToken.None));
+        await sent.Task;
+        await h.Clock.SpendUntil(locating, TimeSpan.FromMilliseconds(300));
+        var failure = await locating;
         Assert.Equal("OPERATION_TIMEOUT", failure.Code);
-        await Task.Delay(600);
+        failsNow.SetResult();
+        await failed.Task;
+
+        // Nothing is awaiting the abandoned capture, so a second snapshot would have to come from a retry started on its late failure.
+        await Task.Delay(100);
         Assert.Equal(1, snapshots);
     }
 

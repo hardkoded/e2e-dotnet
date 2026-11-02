@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Engine;
 using E2E.Internal;
 
 namespace E2E.Tests.ScreenshotAssertions;
@@ -62,6 +63,36 @@ internal sealed class ScreenProject : IDisposable
         {
             return ex;
         }
+    }
+
+    /// <summary>
+    /// A screen over the engine on <paramref name="clock"/>, as a session builds it, for a test that moves the clock itself (upstream's fake
+    /// timers): a session reads the system clock. A new run, as <see cref="RunAsync"/> starts one.
+    /// </summary>
+    public async Task<Screen> OpenScreenAsync(string file, string title, TimeProvider clock)
+    {
+        ScreenshotContext.ForgetWrittenUnder(Directory);
+        var session = await ((IEngine)Engine).StartAsync(new EngineStartOptions(), CancellationToken.None);
+        return new Screen(
+            _ => session.ObserveAsync(CancellationToken.None),
+            (node, action, token) => session.PerformAsync(node, action, token),
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromSeconds(5),
+            clock: clock)
+        {
+            ProjectRoot = Directory,
+            Screenshots = new ScreenshotContext
+            {
+                ProjectRoot = Directory,
+                Suffix = Suffix,
+                Title = title,
+                ResultsDirectory = ResultsOf(title),
+                DirectoryOf = _ => Snapshots(file),
+                Capture = (budget, token) => session.ScreenshotAsync(budget, token),
+            },
+        };
     }
 
     public void Dispose()

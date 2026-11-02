@@ -10,10 +10,10 @@ namespace E2E.Tests.TestFilters;
 /// <summary>Upstream's <c>describe('a filter past the deadline')</c> (<c>tests/unit/test-filters.test.ts</c>).</summary>
 public sealed class AFilterPastTheDeadlineTests
 {
-    /// <summary>The deadline of the tests below, in real time. It must outlast the start of every later filter on a loaded runner: the later filter runs under the same deadline, so a late start reads as a timeout.</summary>
-    private const int Deadline = 300;
+    /// <summary>The deadline of the tests below, in real time. It must outlast the start of every later filter on a loaded runner: the later filter runs under the same deadline, so a late start reads as a timeout. The tests check order, not the length of the deadline, so it is wide.</summary>
+    private const int Deadline = 1500;
 
-    /// <summary>Partial: the deadline is real time (300 ms), where upstream drives fake timers to the millisecond, and the signal carries no <c>TimeoutError</c> reason to inspect.</summary>
+    /// <summary>Partial: the deadline is real time, where upstream drives fake timers to the millisecond, and the signal carries no <c>TimeoutError</c> reason to inspect.</summary>
     [Fact]
     public async Task Partial_is_abandoned_at_its_deadline_leaves_nothing_out_and_the_next_filter_judges_every_test()
     {
@@ -40,8 +40,8 @@ public sealed class AFilterPastTheDeadlineTests
         Assert.Equal(candidates, laterGot);
         Assert.Equal(["slow", "later"], steps);
         Assert.Equal(["slow: timed-out", "later: answered"], ended);
-        Assert.Equal(["warning: slow did not finish within 300ms, so it leaves nothing out"], notices);
-        Assert.Equal(new FilterDecision("slow", 2, "did not finish within 300ms, so it leaves nothing out", FilterOutcome.TimedOut), applied.Decisions[0]);
+        Assert.Equal([$"warning: slow did not finish within {Deadline}ms, so it leaves nothing out"], notices);
+        Assert.Equal(new FilterDecision("slow", 2, $"did not finish within {Deadline}ms, so it leaves nothing out", FilterOutcome.TimedOut), applied.Decisions[0]);
         Assert.Equal([IdOf(candidates, "a")], applied.Excluded.Keys);
     }
 
@@ -74,7 +74,7 @@ public sealed class AFilterPastTheDeadlineTests
             return Excluding();
         });
         await Filters.ApplyTestFilters([slow, next], candidates, scope);
-        const string Warning = "warning: slow did not finish within 300ms, so it leaves nothing out";
+        const string Warning = "warning: slow did not finish within 1500ms, so it leaves nothing out";
         Assert.Equal([Warning], seenByNext);
         Assert.Equal([Warning], notices);
     }
