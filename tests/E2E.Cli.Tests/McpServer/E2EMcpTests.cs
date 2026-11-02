@@ -90,7 +90,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.Contains("Tools (run one with call {tool, args}; tools {tool} shows a tool's arguments):", opened.Text, StringComparison.Ordinal);
         string[] names =
         [
-            "observe", "tap", "double_tap", "type", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "screenshot", "type_secret", "locate", "test_lines",
+            "observe", "tap", "double_tap", "type", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "screenshot", "type_secret", "locate", "start_recording", "stop_recording", "test_lines",
         ];
         Assert.Equal(names, ServedCli.CatalogNames(opened.Text));
         Assert.Contains("- tap {target, modifiers?}: Tap or click one node: the gesture for a button, link, menu item, tab, checkbox, row, or field.\n", opened.Text, StringComparison.Ordinal);
@@ -101,7 +101,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
 
         var listed = await _served.InvokeAsync("tools");
         Assert.False(listed.IsError, listed.Text);
-        Assert.Contains($"Session {sessionId} on target \"web\": 17 tools.", listed.Text, StringComparison.Ordinal);
+        Assert.Contains($"Session {sessionId} on target \"web\": 19 tools.", listed.Text, StringComparison.Ordinal);
         Assert.Equal(ServedCli.CatalogLines(opened.Text), ServedCli.CatalogLines(listed.Text));
         var detail = await _served.InvokeAsync("tools", new() { ["tool"] = "type_secret" });
         Assert.Contains("Arguments (JSON Schema):", detail.Text, StringComparison.Ordinal);
@@ -226,6 +226,36 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         var gone = await _served.CallAsync("observe");
         Assert.True(gone.IsError);
         Assert.Contains("the previous session ended: closed by the agent", gone.Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Records_the_app_between_start_recording_and_stop_recording_and_saves_a_recording_still_running_at_close()
+    {
+        var opened = await _served.InvokeAsync("open_session");
+        Assert.False(opened.IsError, opened.Text);
+        var sessionId = Regex.Match(opened.Text, @"^Session (\S+) open", RegexOptions.None, TimeSpan.FromSeconds(5)).Groups[1].Value;
+
+        var started = await _served.CallAsync("start_recording", new() { ["name"] = "counter" });
+        Assert.False(started.IsError, started.Text);
+        var observed = await _served.CallAsync("observe");
+        await _served.CallAsync("tap", new() { ["target"] = ServedCli.RefOf(observed.Text, "button \"Increment\"") });
+        var stopped = await _served.CallAsync("stop_recording");
+        Assert.False(stopped.IsError, stopped.Text);
+        Assert.Matches(new Regex(@"^Recording 1 ""counter"" stopped after \d+\.\d s\.\n- \S+\.webm$", RegexOptions.None, TimeSpan.FromSeconds(5)), stopped.Text);
+
+        // The server's working directory may be the real path of a symlinked temp directory (macOS /var), so the path is read from the answer.
+        var file = stopped.Text[(stopped.Text.LastIndexOf("- ", StringComparison.Ordinal) + 2)..];
+        var recordings = Path.GetDirectoryName(file)!;
+        Assert.Equal(Path.Combine(".e2e", "videos", sessionId, "1-counter.webm"), Path.GetRelativePath(Path.GetFullPath(Path.Combine(recordings, "..", "..", "..")), file));
+        Assert.True(new FileInfo(file).Length > 0);
+
+        await _served.CallAsync("start_recording");
+        var closed = await _served.InvokeAsync("close_session");
+        Assert.False(closed.IsError, closed.Text);
+        Assert.Matches(new Regex(@"\nRecording 2 stopped after \d+\.\d s\.\n- \S+$", RegexOptions.None, TimeSpan.FromSeconds(5)), closed.Text);
+        Assert.EndsWith("- " + Path.Combine(recordings, "2.webm"), closed.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Cleanup:", closed.Text, StringComparison.Ordinal);
+        Assert.Equal(["1-counter.webm", "2.webm"], Directory.GetFiles(recordings).Select(path => Path.GetFileName(path)).Order(StringComparer.Ordinal).ToArray());
     }
 
     [Fact]
