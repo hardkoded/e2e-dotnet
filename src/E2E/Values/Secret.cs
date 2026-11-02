@@ -112,14 +112,24 @@ public sealed class UserCredential
 }
 
 /// <summary>
-/// Reads <c>E2E_USER_{NAME}_USERNAME</c> and <c>E2E_USER_{NAME}_PASSWORD</c>.
-/// The name is uppercased and dashes become underscores.
+/// The accounts of the config's <c>credentials</c> (upstream's <c>credentials</c>, <c>secrets.ts</c>): <c>E2E_USER_{NAME}_USERNAME</c> and
+/// <c>E2E_USER_{NAME}_PASSWORD</c> replace the config's values. While a session runs, only a configured name resolves.
 /// </summary>
 public static class Credentials
 {
+    /// <summary>
+    /// The named account. A name the session's config declares in <c>credentials</c> resolves with its password as the secret
+    /// <c>&lt;name&gt;.password</c>. .NET-only: a name the config does not declare, or a call outside a session, reads the
+    /// <c>E2E_USER_*</c> variables alone, as the port did before it read the config.
+    /// </summary>
     public static UserCredential User(string name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (SecretRegistry.Credential(name) is { } configured)
+        {
+            return new UserCredential(configured.Username, configured.Password);
+        }
+
         var key = name.ToUpperInvariant().Replace('-', '_');
         var username = Environment.GetEnvironmentVariable("E2E_USER_" + key + "_USERNAME");
         var password = Environment.GetEnvironmentVariable("E2E_USER_" + key + "_PASSWORD");
@@ -135,7 +145,7 @@ public static class Credentials
             throw new TestException("INVALID_CONFIG", "E2E_USER_" + key + "_PASSWORD " + problem + ".");
         }
 
-        return new UserCredential(username, Secret.Create("password", password, name + " password"));
+        return new UserCredential(username, Secret.Create(ConfigSecrets.CredentialSecretName(name), password, "password"));
     }
 }
 

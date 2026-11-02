@@ -233,6 +233,7 @@ public abstract class E2EFixture
             new E2ESessionOptions
             {
                 Engine = engine,
+                Credentials = Config.Credentials,
                 AppIdentity = identity,
                 Sessions = sessions,
                 Model = CreateModel(),

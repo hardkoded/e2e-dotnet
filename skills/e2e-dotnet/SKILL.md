@@ -359,8 +359,10 @@ lines you changed:
   (`{ "admin": { "username": "...", "password": "..." } }`): the password is
   the secret `admin.password`, `E2E_USER_ADMIN_USERNAME` and
   `E2E_USER_ADMIN_PASSWORD` win over the config and may replace either field,
-  and the runner redacts it. `E2EConfig.Credentials` gives the resolved
-  accounts; `Credentials.User` does not read them yet.
+  and the runner redacts it. While a test runs, `Credentials.User(name)`
+  returns the account the config declares (a name the config does not
+  declare reads the `E2E_USER_*` variables alone), and `e2e explore` carries
+  every configured account into its steps.
 - Agent instructions: one goal per act, the wording on screen, real values
   in `Params`. A goal is atomic: one outcome that one check confirms. Two
   outcomes worth checking are two goals, so split them into two `ActAsync`
