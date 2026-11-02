@@ -5,7 +5,7 @@ coding agent will drive the app the way the testing agent does, write a test
 as it walks the flow, and check its locators before writing them.
 Running tests and reading a failed run stay with `dotnet test`.
 
-**In the .NET port** a session drives the one target of `e2e.config.json`. A
+**In the .NET port** a session drives one target of `e2e.config.json`: the one `open_session` names with `target`, or the one `e2e mcp --target` names, or the only one the config declares (several without a name is `TARGET_REQUIRED`). A
 `web` target runs in a Chromium browser. An `ios` or `android` target with
 `app.bundleId` or `app.appPath` runs on a local simulator or emulator through
 `MobileEngine`: it needs Node 22.12 or newer and a booted device, and

@@ -101,8 +101,11 @@ public sealed class E2EConfig
 
     public IReadOnlyList<TargetConfig> Targets { get; private init; } = [];
 
-    /// <summary>The target a test runs on. The port runs one target.</summary>
-    public TargetConfig Target => Targets[0];
+    /// <summary>
+    /// The only target the config declares. .NET-only: a fixture, a host, or a command with no target of its own reads it. With several
+    /// targets it throws <c>TARGET_REQUIRED</c> (upstream's <c>selectTarget</c>): name one from <see cref="Targets"/>.
+    /// </summary>
+    public TargetConfig Target => SelectTarget.Select(Targets, null, "name one of them from E2EConfig.Targets");
 
     /// <summary>Whole-test timeout. Upstream <c>timeout</c>, 120 s by default.</summary>
     public TimeSpan Timeout { get; private init; } = E2EDefaults.TestTimeout;
@@ -294,52 +297,76 @@ public sealed class E2EConfig
             throw Invalid("targets must be a non-empty array");
         }
 
-        if (raw.Value.GetArrayLength() > 1)
+        var targets = new List<TargetConfig>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var defaulted = new HashSet<string>(StringComparer.Ordinal);
+        var index = 0;
+        foreach (var target in raw.Value.EnumerateArray())
         {
-            throw Invalid("targets has " + raw.Value.GetArrayLength().ToString(CultureInfo.InvariantCulture) + " entries; the .NET port runs one target");
+            targets.Add(ReadTarget(target, index++, projectRoot, trace, video, seen, defaulted));
         }
 
-        var target = raw.Value[0];
+        return targets;
+    }
+
+    private static TargetConfig ReadTarget(
+        JsonElement target, int index, string projectRoot, RunRecording trace, RunRecording video, HashSet<string> seen, HashSet<string> defaulted)
+    {
+        var at = "targets[" + index.ToString(CultureInfo.InvariantCulture) + "]";
         if (target.ValueKind != JsonValueKind.Object)
         {
-            throw Invalid("targets[0] must be an object");
+            throw Invalid(at + " must be an object");
         }
 
-        CheckKeys(target, "targets[0]", TargetKeys, UnsupportedTargetKeys, null);
-        var platform = OptionalString(target, "platform", "targets[0].platform") ?? "web";
+        CheckKeys(target, at, TargetKeys, UnsupportedTargetKeys, null);
+        var platform = OptionalString(target, "platform", at + ".platform") ?? "web";
         if (!Platforms.Contains(platform, StringComparer.Ordinal))
         {
-            throw Invalid("targets[0].platform \"" + platform + "\" is not supported; the .NET port drives \"web\", \"ios\", \"android\", and \"windows\"");
+            throw Invalid(at + ".platform \"" + platform + "\" is not supported; the .NET port drives \"web\", \"ios\", \"android\", and \"windows\"");
         }
 
-        var name = OptionalString(target, "name", "targets[0].name") ?? platform;
+        var declaredName = OptionalString(target, "name", at + ".name");
+        var name = declaredName ?? platform;
         if (!ValidName(name))
         {
-            throw Invalid("targets[0].name must use ASCII letters, numbers, \"_\", \"-\", and \".\", and cannot be only dots");
+            throw Invalid(at + ".name must use ASCII letters, numbers, \"_\", \"-\", and \".\", and cannot be only dots");
         }
 
-        var ownTrace = ReadMode(Property(target, "trace"), "targets[0].trace", RecordingKind.Trace);
-        var ownVideo = ReadMode(Property(target, "video"), "targets[0].video", RecordingKind.Video);
+        if (!seen.Add(name))
+        {
+            var hint = declaredName is null || defaulted.Contains(name)
+                ? "; a target without a name is named after its platform, so name one of them"
+                : "";
+            throw Invalid("duplicate target name \"" + name + "\"" + hint);
+        }
+
+        if (declaredName is null)
+        {
+            defaulted.Add(name);
+        }
+
+        var ownTrace = ReadMode(Property(target, "trace"), at + ".trace", RecordingKind.Trace);
+        var ownVideo = ReadMode(Property(target, "video"), at + ".video", RecordingKind.Video);
         var app = new AppConfig();
         if (Property(target, "app") is { } rawApp)
         {
             if (rawApp.ValueKind != JsonValueKind.Object)
             {
-                throw Invalid("targets[0].app must be an object");
+                throw Invalid(at + ".app must be an object");
             }
 
             // A pinned-app target (a device or a Windows app) names its app by bundle id and build path, a web target by URL.
             var pinned = platform != "web";
-            CheckKeys(rawApp, "targets[0].app", !pinned ? AppKeys : platform == "windows" ? WindowsAppKeys : MobileAppKeys, UnsupportedAppKeys, null);
+            CheckKeys(rawApp, at + ".app", !pinned ? AppKeys : platform == "windows" ? WindowsAppKeys : MobileAppKeys, UnsupportedAppKeys, null);
             var where = "target \"" + name + "\" app";
             app = new AppConfig
             {
-                Url = OptionalString(rawApp, "url", "targets[0].app.url") is { } url ? Urls.NormalizeBaseUrl(url).Href : null,
-                BundleId = OptionalString(rawApp, "bundleId", "targets[0].app.bundleId"),
-                AppPath = OptionalString(rawApp, "appPath", "targets[0].app.appPath"),
+                Url = OptionalString(rawApp, "url", at + ".app.url") is { } url ? Urls.NormalizeBaseUrl(url).Href : null,
+                BundleId = OptionalString(rawApp, "bundleId", at + ".app.bundleId"),
+                AppPath = OptionalString(rawApp, "appPath", at + ".app.appPath"),
                 Command = Property(rawApp, "command") is { } command ? Command.Normalize(command, "target \"" + name + "\" app.command") : null,
-                ReadyUrl = OptionalString(rawApp, "readyUrl", "targets[0].app.readyUrl"),
-                Identity = OptionalString(rawApp, "identity", "targets[0].app.identity"),
+                ReadyUrl = OptionalString(rawApp, "readyUrl", at + ".app.readyUrl"),
+                Identity = OptionalString(rawApp, "identity", at + ".app.identity"),
                 Environment = ReadEnvironment(Property(rawApp, "environment"), where + ".environment"),
                 LaunchArguments = ReadLaunchArguments(Property(rawApp, "launchArguments"), where + ".launchArguments"),
                 Permissions = ReadPermissions(Property(rawApp, "permissions"), where + ".permissions"),
@@ -349,7 +376,7 @@ public sealed class E2EConfig
             TargetApps.ResolveTargetApp(name, app, projectRoot);
         }
 
-        return [new TargetConfig { Name = name, Platform = platform, App = app, Trace = trace.For(ownTrace), Video = video.For(ownVideo) }];
+        return new TargetConfig { Name = name, Platform = platform, App = app, Trace = trace.For(ownTrace), Video = video.For(ownVideo) };
     }
 
     // The run's trace or video mode before any target speaks: the environment variable, the config root, and the default under both.

@@ -228,7 +228,8 @@ public TargetConfig Target { get; }
 ```
 
 
-The target a test runs on. The port runs one target.
+The only target the config declares. .NET-only: a fixture, a host, or a command with no target of its own reads it. With several
+targets it throws `TARGET_REQUIRED` (upstream's `selectTarget`): name one from `Targets`.
 
 **Value:** [TargetConfig](/api/E2E/TargetConfig/)
 

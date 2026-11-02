@@ -38,7 +38,7 @@ A session is `E2ESession`, with `RunId`, `AttemptId`, `Target`, `ArtifactsDir`,
 | `Cwd` | Where the config file is searched for upward. Default: the current directory |
 | `Config` | An `E2EConfig` value (`E2EConfig.Parse(json, projectRoot)`), used instead of a file. Its `ProjectRoot` is the project root |
 | `ConfigPath` | A config file, relative to `Cwd`. It is loaded fresh for each host |
-| `Target` | The target to open. It may be left out only when the config declares one (`TARGET_REQUIRED`; an unknown name is `UNKNOWN_TARGET`) |
+| `Target` | The target to open. It may be left out only when the config declares one target (several without it is `TARGET_REQUIRED`; an unknown name is `UNKNOWN_TARGET`) |
 | `Env` | The variables the config and the engine read. Default: the process environment |
 | `Headed` | A visible window for a `web` target |
 | `OnNotice` | `(target, line)` for provisioning, leases, and app processes. It must not throw |
@@ -77,5 +77,4 @@ trace mode. The page stands alone: it has no `report.json` to point at.
 ## Limits
 
 - The engine starts and is disposed once for each session, not once for the host.
-- `TARGET_REQUIRED` is not reachable through a config yet: the config declares one target.
 - There is no `extend`, so `Fixtures` has no extra members.

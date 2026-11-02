@@ -603,15 +603,7 @@ internal sealed class SessionHost : IDisposable
 
     private TargetConfig ResolveTarget(E2EConfig config, string? requested)
     {
-        var name = requested ?? _options.DefaultTarget;
-        if (name is not null && config.Targets.All(target => target.Name != name))
-        {
-            throw new ConfigurationException(
-                "UNKNOWN_TARGET",
-                "unknown target \"" + name + "\"; the config declares " + string.Join(", ", config.Targets.Select(target => "\"" + target.Name + "\"")));
-        }
-
-        return config.Target;
+        return SelectTarget.Select(config.Targets, requested ?? _options.DefaultTarget, "pass target to open_session, or start e2e mcp --target <name>");
     }
 
     private McpToolSpec Redacting(McpToolSpec spec)
