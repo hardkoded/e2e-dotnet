@@ -27,7 +27,7 @@ wants the document as JSON reads `report.json`. The port has no serial groups an
 
 **Implements:** [IEquatable&lt;Report&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L12)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Properties
 
@@ -46,8 +46,6 @@ The run the document tells.
 
 **Value:** [ReportRun](/api/E2E.Reports/ReportRun/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L18)
-
 <a id="E2E_Reports_Report_SchemaVersion_"></a>
 <a id="E2E_Reports_Report_SchemaVersion"></a>
 
@@ -62,5 +60,3 @@ public string SchemaVersion { get; init; }
 Always `report-1`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L15)

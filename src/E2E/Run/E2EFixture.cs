@@ -97,11 +97,14 @@ public abstract class E2EFixture
     /// <summary><c>agents.default.providerOptions</c>.</summary>
     protected virtual IReadOnlyDictionary<string, System.Text.Json.JsonElement>? ProviderOptions => Config.Agent.ProviderOptions;
 
-    /// <summary><c>targets[0].app.url</c>.</summary>
-    protected virtual string? BaseUrl => Config.Target.App.Url;
+    /// <summary>The target this fixture runs on: <see cref="TargetName"/>, which needs overriding when the config declares several.</summary>
+    private TargetConfig DeclaredTarget => SelectTarget.Select(Config.Targets, TargetName, "override E2EFixture.TargetName");
 
-    /// <summary><c>targets[0].app.permissions</c>: the browser permissions every page of a web attempt holds.</summary>
-    protected virtual IReadOnlyDictionary<string, AppPermissionState>? Permissions => Config.Target.App.Permissions;
+    /// <summary>The <c>app.url</c> of the target.</summary>
+    protected virtual string? BaseUrl => DeclaredTarget.App.Url;
+
+    /// <summary>The <c>app.permissions</c> of the target: the browser permissions every page of a web attempt holds.</summary>
+    protected virtual IReadOnlyDictionary<string, AppPermissionState>? Permissions => DeclaredTarget.App.Permissions;
 
     /// <summary>Anchors the files a test names, such as a route's fulfill path. Defaults to the config's directory.</summary>
     protected virtual string ProjectRoot => Config.ProjectRoot;
@@ -124,20 +127,20 @@ public abstract class E2EFixture
     /// <summary>Where a failed screenshot comparison puts its diff, actual, and expected images. Defaults to <c>.e2e/results</c> under <see cref="ProjectRoot"/>.</summary>
     protected virtual string? ResultsDirectory => null;
 
-    /// <summary><c>targets[0].name</c>: the target part of a stored screenshot's file name.</summary>
+    /// <summary>The name of the target: the only one the config declares, and the target part of a stored screenshot's file name. Override it when the config declares several.</summary>
     protected virtual string TargetName => Config.Target.Name;
 
     /// <summary>
-    /// <c>trace</c> for the target: <c>E2E_TRACE</c>, else <c>targets[0].trace</c>, else the config's <c>trace</c>, else
+    /// <c>trace</c> for the target: <c>E2E_TRACE</c>, else the target's <c>trace</c>, else the config's <c>trace</c>, else
     /// <c>retain-on-failure</c>. Override to set it for one fixture.
     /// </summary>
-    protected virtual ResolvedRecording Trace => Config.Target.Trace;
+    protected virtual ResolvedRecording Trace => DeclaredTarget.Trace;
 
     /// <summary>
-    /// <c>video</c> for the target: <c>E2E_VIDEO</c>, else <c>targets[0].video</c>, else the config's <c>video</c>, else
+    /// <c>video</c> for the target: <c>E2E_VIDEO</c>, else the target's <c>video</c>, else the config's <c>video</c>, else
     /// <c>off</c>. Override to set it for one fixture.
     /// </summary>
-    protected virtual ResolvedRecording Video => Config.Target.Video;
+    protected virtual ResolvedRecording Video => DeclaredTarget.Video;
 
     /// <summary>
     /// <c>E2E_DEBUG</c>: when set to <c>1</c> or <c>true</c>, the port's counterpart of <c>--debug</c>. Each test prints its phase
@@ -198,7 +201,7 @@ public abstract class E2EFixture
         // The app command of the target starts before the first test and serves every later one; its URL is on the port the app was started on.
         var baseUrl = BaseUrl;
         var configuredUrl = baseUrl;
-        var declared = Config.Target;
+        var declared = DeclaredTarget;
         if (declared.App.Command is not null && string.Equals(baseUrl, declared.App.Url, StringComparison.Ordinal))
         {
             // A fixture that points BaseUrl somewhere else does not use the declared app, so the command does not start for it.

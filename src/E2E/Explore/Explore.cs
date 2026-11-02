@@ -171,7 +171,7 @@ public static class Explore
 
         var config = LoadConfig(options);
         var projectRoot = options.RawConfig is null ? config.ProjectRoot : Path.GetFullPath(options.Cwd ?? config.ProjectRoot);
-        var target = PickTarget(config.Targets, options.Target);
+        var target = PickTarget(config.Targets, options.Target, notice);
         var credentials = NormalizeCredentials(options.Credentials);
         CheckCredentialInventory(credentials);
 
@@ -439,17 +439,23 @@ public static class Explore
     }
 
     /// <summary>The target to explore: the one <see cref="ExploreOptions.Target"/> names (an unknown one is <c>UNKNOWN_TARGET</c>), else the first configured.</summary>
-    private static TargetConfig PickTarget(IReadOnlyList<TargetConfig> targets, string? requested)
+    private static TargetConfig PickTarget(IReadOnlyList<TargetConfig> targets, string? requested, Action<string> notice)
     {
         if (requested is null)
         {
+            if (targets.Count > 1)
+            {
+                notice("exploring target \"" + targets[0].Name + "\"; pass --target to explore another");
+            }
+
             return targets[0];
         }
 
+        var names = targets.Select(target => target.Name).ToList();
         return targets.FirstOrDefault(target => string.Equals(target.Name, requested, StringComparison.Ordinal))
             ?? throw new ConfigurationException(
                 "UNKNOWN_TARGET",
-                "unknown target ID \"" + requested + "\"; the config declares " + string.Join(", ", targets.Select(target => "\"" + target.Name + "\"")));
+                "unknown target ID \"" + requested + "\"; the config declares " + string.Join(", ", names.Select(name => "\"" + name + "\"")) + Suggestions.DidYouMean(requested, names));
     }
 
     /// <summary>

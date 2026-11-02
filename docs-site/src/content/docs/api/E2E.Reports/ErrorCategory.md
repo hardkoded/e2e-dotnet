@@ -21,7 +21,7 @@ public enum ErrorCategory
 
 Whose fault an error is.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L843)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Fields
 
@@ -37,8 +37,6 @@ Configuration = 1
 
 **Value:** [ErrorCategory](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L846)
-
 <a id="E2E_Reports_ErrorCategory_Infrastructure"></a>
 
 ### Infrastructure
@@ -50,8 +48,6 @@ Infrastructure = 2
 
 
 **Value:** [ErrorCategory](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L847)
 
 <a id="E2E_Reports_ErrorCategory_Internal"></a>
 
@@ -65,8 +61,6 @@ Internal = 3
 
 **Value:** [ErrorCategory](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L848)
-
 <a id="E2E_Reports_ErrorCategory_Interrupted"></a>
 
 ### Interrupted
@@ -79,8 +73,6 @@ Interrupted = 4
 
 **Value:** [ErrorCategory](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L849)
-
 <a id="E2E_Reports_ErrorCategory_Test"></a>
 
 ### Test
@@ -92,5 +84,3 @@ Test = 0
 
 
 **Value:** [ErrorCategory](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L845)

@@ -27,7 +27,7 @@ assertion fails when the query matches more than one node. Narrow it with
 
 **Derived:** [FrameScreen](/api/E2E/FrameScreen/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L16)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 ## Methods
 
@@ -42,7 +42,7 @@ public Task DebugAsync(ActionOptions? options = null, CancellationToken cancella
 ```
 
 
-Prints `CancellationToken)` to [Out](https://learn.microsoft.com/dotnet/api/system.console.out), which NUnit and xUnit v2 capture into the test's output.
+Prints `TreeAsync` to [Out](https://learn.microsoft.com/dotnet/api/system.console.out), which NUnit and xUnit v2 capture into the test's output.
 xUnit v3 shows it only when the test assembly has `[assembly: CaptureConsole]`.
 
 **Parameters**
@@ -53,8 +53,6 @@ xUnit v3 shows it only when the test assembly has `[assembly: CaptureConsole]`.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L192)
 
 <a id="E2E_Screen_GetByDisplayValue_"></a>
 <a id="E2E_Screen_GetByDisplayValue_E2E_TextMatch_E2E_TextMatchOptions_"></a>
@@ -78,8 +76,6 @@ Creates a lazy displayed-value query: the current value of an input, text area, 
 
 **Returns:** [Locator](/api/E2E/Locator/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L179)
-
 <a id="E2E_Screen_GetByDisplayValue_E2E_TextMatch_System_Boolean_"></a>
 
 ### GetByDisplayValue(TextMatch, bool)
@@ -100,8 +96,6 @@ Creates a lazy displayed-value query: the current value of an input, text area, 
 | `exact` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
 **Returns:** [Locator](/api/E2E/Locator/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L176)
 
 <a id="E2E_Screen_GetByLabel_"></a>
 <a id="E2E_Screen_GetByLabel_E2E_TextMatch_E2E_TextMatchOptions_"></a>
@@ -125,8 +119,6 @@ Creates a lazy accessible-label query: any node whose accessible name matches.
 
 **Returns:** [Locator](/api/E2E/Locator/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L157)
-
 <a id="E2E_Screen_GetByLabel_E2E_TextMatch_System_Boolean_"></a>
 
 ### GetByLabel(TextMatch, bool)
@@ -147,8 +139,6 @@ Creates a lazy accessible-label query: any node whose accessible name matches.
 | `exact` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
 **Returns:** [Locator](/api/E2E/Locator/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L154)
 
 <a id="E2E_Screen_GetByPlaceholder_"></a>
 <a id="E2E_Screen_GetByPlaceholder_E2E_TextMatch_E2E_TextMatchOptions_"></a>
@@ -172,8 +162,6 @@ Creates a lazy placeholder query.
 
 **Returns:** [Locator](/api/E2E/Locator/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L173)
-
 <a id="E2E_Screen_GetByPlaceholder_E2E_TextMatch_System_Boolean_"></a>
 
 ### GetByPlaceholder(TextMatch, bool)
@@ -194,8 +182,6 @@ Creates a lazy placeholder query.
 | `exact` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
 **Returns:** [Locator](/api/E2E/Locator/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L170)
 
 <a id="E2E_Screen_GetByRole_"></a>
 <a id="E2E_Screen_GetByRole_System_String_E2E_RoleOptions_"></a>
@@ -219,8 +205,6 @@ Creates a lazy role query narrowed by name, states, or heading level.
 
 **Returns:** [Locator](/api/E2E/Locator/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L122)
-
 <a id="E2E_Screen_GetByRole_System_String_E2E_TextMatch_E2E_RoleOptions_"></a>
 
 ### GetByRole(string, TextMatch, RoleOptions)
@@ -242,8 +226,6 @@ Creates a lazy role query narrowed to an accessible name and the given options.
 | `options` | [RoleOptions](/api/E2E/RoleOptions/) |  |
 
 **Returns:** [Locator](/api/E2E/Locator/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L129)
 
 <a id="E2E_Screen_GetByRole_System_String_E2E_TextMatch_System_Boolean_"></a>
 
@@ -267,8 +249,6 @@ Creates a lazy role query. `img` is read as `image`. A role query never matches 
 
 **Returns:** [Locator](/api/E2E/Locator/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L116)
-
 <a id="E2E_Screen_GetByTestId_"></a>
 <a id="E2E_Screen_GetByTestId_E2E_TextMatch_"></a>
 
@@ -290,8 +270,6 @@ Creates a lazy test-id query. A string matches the whole id, case-sensitive.
 
 **Returns:** [Locator](/api/E2E/Locator/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L160)
-
 <a id="E2E_Screen_GetByTestId_E2E_TextMatch_E2E_TextMatchOptions_"></a>
 
 ### GetByTestId(TextMatch, TextMatchOptions)
@@ -312,8 +290,6 @@ Creates a lazy test-id query. A string matches the whole id, case-sensitive; [Ex
 | `options` | [TextMatchOptions](/api/E2E/TextMatchOptions/) |  |
 
 **Returns:** [Locator](/api/E2E/Locator/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L163)
 
 <a id="E2E_Screen_GetByText_"></a>
 <a id="E2E_Screen_GetByText_E2E_TextMatch_E2E_TextMatchOptions_"></a>
@@ -338,8 +314,6 @@ Creates a lazy visible-text query. It answers with the innermost match, such as 
 
 **Returns:** [Locator](/api/E2E/Locator/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L151)
-
 <a id="E2E_Screen_GetByText_E2E_TextMatch_System_Boolean_"></a>
 
 ### GetByText(TextMatch, bool)
@@ -361,8 +335,6 @@ Creates a lazy visible-text query. It answers with the innermost match, such as 
 | `exact` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) |  |
 
 **Returns:** [Locator](/api/E2E/Locator/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L145)
 
 <a id="E2E_Screen_ScrollUntilVisibleAsync_"></a>
 <a id="E2E_Screen_ScrollUntilVisibleAsync_E2E_Locator_E2E_ScrollUntilVisibleOptions_System_Threading_CancellationToken_"></a>
@@ -395,8 +367,6 @@ action timeout. Upstream's `screen.scrollUntilVisible`.
 | --- | --- |
 | [TestException](/api/E2E/TestException/) | `LOCATOR_NOT_FOUND` when the target did not become visible in time; `INVALID_LOCATOR` when it belongs to another screen or attempt. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L201)
-
 <a id="E2E_Screen_TreeAsync_"></a>
 <a id="E2E_Screen_TreeAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
 
@@ -420,5 +390,3 @@ not show is left out. Use it to write a locator. Takes [Timeout](/api/E2E/Action
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs#L186)

@@ -25,7 +25,7 @@ What the run used, against [ReportLimits](/api/E2E.Reports/ReportLimits/) (upstr
 
 **Implements:** [IEquatable&lt;ReportUsage&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L189)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Properties
 
@@ -42,8 +42,6 @@ public long ArtifactBytes { get; init; }
 
 **Value:** [long](https://learn.microsoft.com/dotnet/api/system.int64)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L199)
-
 <a id="E2E_Reports_ReportUsage_DiscoveredResults_"></a>
 <a id="E2E_Reports_ReportUsage_DiscoveredResults"></a>
 
@@ -56,8 +54,6 @@ public int DiscoveredResults { get; init; }
 
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L191)
 
 <a id="E2E_Reports_ReportUsage_Downloads_"></a>
 <a id="E2E_Reports_ReportUsage_Downloads"></a>
@@ -72,8 +68,6 @@ public int Downloads { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L201)
-
 <a id="E2E_Reports_ReportUsage_EstimatedCostUsd_"></a>
 <a id="E2E_Reports_ReportUsage_EstimatedCostUsd"></a>
 
@@ -86,8 +80,6 @@ public double? EstimatedCostUsd { get; init; }
 
 
 **Value:** [double?](https://learn.microsoft.com/dotnet/api/system.double)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L214)
 
 <a id="E2E_Reports_ReportUsage_Events_"></a>
 <a id="E2E_Reports_ReportUsage_Events"></a>
@@ -102,8 +94,6 @@ public long Events { get; init; }
 
 **Value:** [long](https://learn.microsoft.com/dotnet/api/system.int64)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L203)
-
 <a id="E2E_Reports_ReportUsage_MaxActionStepsInStep_"></a>
 <a id="E2E_Reports_ReportUsage_MaxActionStepsInStep"></a>
 
@@ -116,8 +106,6 @@ public int MaxActionStepsInStep { get; init; }
 
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L212)
 
 <a id="E2E_Reports_ReportUsage_MaxAgentContextBytes_"></a>
 <a id="E2E_Reports_ReportUsage_MaxAgentContextBytes"></a>
@@ -132,8 +120,6 @@ public int MaxAgentContextBytes { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L193)
-
 <a id="E2E_Reports_ReportUsage_MaxLedgerBytes_"></a>
 <a id="E2E_Reports_ReportUsage_MaxLedgerBytes"></a>
 
@@ -146,8 +132,6 @@ public int MaxLedgerBytes { get; init; }
 
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L195)
 
 <a id="E2E_Reports_ReportUsage_MaxModelCallsInStep_"></a>
 <a id="E2E_Reports_ReportUsage_MaxModelCallsInStep"></a>
@@ -162,8 +146,6 @@ public int MaxModelCallsInStep { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L210)
-
 <a id="E2E_Reports_ReportUsage_MaxObservationBytes_"></a>
 <a id="E2E_Reports_ReportUsage_MaxObservationBytes"></a>
 
@@ -176,8 +158,6 @@ public int MaxObservationBytes { get; init; }
 
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L197)
 
 <a id="E2E_Reports_ReportUsage_ModelCachedTokens_"></a>
 <a id="E2E_Reports_ReportUsage_ModelCachedTokens"></a>
@@ -194,8 +174,6 @@ Input tokens served from provider prompt caches; null until a step reports the s
 
 **Value:** [long?](https://learn.microsoft.com/dotnet/api/system.int64)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L208)
-
 <a id="E2E_Reports_ReportUsage_ModelTokens_"></a>
 <a id="E2E_Reports_ReportUsage_ModelTokens"></a>
 
@@ -208,5 +186,3 @@ public long ModelTokens { get; init; }
 
 
 **Value:** [long](https://learn.microsoft.com/dotnet/api/system.int64)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L205)

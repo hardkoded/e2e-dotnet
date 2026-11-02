@@ -27,7 +27,7 @@ that overflowed the model, and the count of model calls. The built-in agent is t
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L18)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
 
 ## Methods
 
@@ -52,5 +52,3 @@ Builds a step executor from a tool vocabulary and the chassis. The loop runs at 
 | `options` | [ToolLoopExecutorOptions](/api/E2E/ToolLoopExecutorOptions/) |  |
 
 **Returns:** [IStepExecutor](/api/E2E/IStepExecutor/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L24)

@@ -26,7 +26,7 @@ A download the browser saved as an artifact of the attempt (upstream's `waitForD
 
 **Implements:** [IEquatable&lt;BrowserDownload&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L151)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)
 
 ## Properties
 
@@ -45,8 +45,6 @@ Where the file is on this machine.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L157)
-
 <a id="E2E_Engine_BrowserDownload_Path_"></a>
 <a id="E2E_Engine_BrowserDownload_Path"></a>
 
@@ -62,8 +60,6 @@ Relative to the attempt's artifact directory, with `/` separators: `downloads/00
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L154)
-
 <a id="E2E_Engine_BrowserDownload_SuggestedFilename_"></a>
 <a id="E2E_Engine_BrowserDownload_SuggestedFilename"></a>
 
@@ -78,5 +74,3 @@ public required string SuggestedFilename { get; init; }
 The filename the page or the server suggested, as the browser saw it.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L160)

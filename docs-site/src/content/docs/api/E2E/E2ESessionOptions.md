@@ -23,7 +23,7 @@ How to open one [E2ESession](/api/E2E/E2ESession/). Retries set [Attempt](#E2E_E
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L866)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs)
 
 ## Properties
 
@@ -40,8 +40,6 @@ public TimeSpan ActionTimeout { get; init; }
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L966)
-
 <a id="E2E_E2ESessionOptions_Agent_"></a>
 <a id="E2E_E2ESessionOptions_Agent"></a>
 
@@ -56,8 +54,6 @@ public string? Agent { get; init; }
 The agent a call that names none uses, upstream's `agent` option of a test or run. Unset, it is `default`. An unknown name is `INVALID_ARGUMENT`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L907)
 
 <a id="E2E_E2ESessionOptions_AgentContext_"></a>
 <a id="E2E_E2ESessionOptions_AgentContext"></a>
@@ -74,8 +70,6 @@ The default agent's upstream `context`: told to every model call, at most 16384 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L886)
-
 <a id="E2E_E2ESessionOptions_AgentExecutor_"></a>
 <a id="E2E_E2ESessionOptions_AgentExecutor"></a>
 
@@ -90,8 +84,6 @@ public IStepExecutor? AgentExecutor { get; init; }
 The default agent's custom brain, upstream's `executor`. See [Executor](/api/E2E/AgentOptions/#E2E_AgentOptions_Executor).
 
 **Value:** [IStepExecutor](/api/E2E/IStepExecutor/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L883)
 
 <a id="E2E_E2ESessionOptions_AgentSystem_"></a>
 <a id="E2E_E2ESessionOptions_AgentSystem"></a>
@@ -108,8 +100,6 @@ The default agent's upstream `system`: text appended to the act rules. Judges ne
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L877)
-
 <a id="E2E_E2ESessionOptions_AgentTools_"></a>
 <a id="E2E_E2ESessionOptions_AgentTools"></a>
 
@@ -124,8 +114,6 @@ public IReadOnlyDictionary<string, AgentTool>? AgentTools { get; init; }
 The default agent's project tools, offered to the model beside the agent's own. See [Tools](/api/E2E/AgentOptions/#E2E_AgentOptions_Tools).
 
 **Value:** [IReadOnlyDictionary&lt;string, AgentTool&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L880)
 
 <a id="E2E_E2ESessionOptions_Agents_"></a>
 <a id="E2E_E2ESessionOptions_Agents"></a>
@@ -143,8 +131,6 @@ Each starts from the built-in defaults, not from the default agent.
 
 **Value:** [IReadOnlyDictionary&lt;string, AgentOptions&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L904)
-
 <a id="E2E_E2ESessionOptions_AiTrace_"></a>
 <a id="E2E_E2ESessionOptions_AiTrace"></a>
 
@@ -161,8 +147,6 @@ shape and added to `ai-trace-<process id>.json` next to the results directory (`
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L1028)
-
 <a id="E2E_E2ESessionOptions_AppIdentity_"></a>
 <a id="E2E_E2ESessionOptions_AppIdentity"></a>
 
@@ -178,8 +162,6 @@ The digest of the target app's resolved `identity` and `environment` that the re
 `SessionIdentity.appIdentity`). Unset, entries key on the `test` environment alone.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L933)
 
 <a id="E2E_E2ESessionOptions_ArtifactStore_"></a>
 <a id="E2E_E2ESessionOptions_ArtifactStore"></a>
@@ -198,8 +180,6 @@ Null keeps files local only. The automatic failure screen text and screenshot ar
 
 **Value:** [IArtifactStore](/api/E2E/IArtifactStore/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L927)
-
 <a id="E2E_E2ESessionOptions_AssertionTimeout_"></a>
 <a id="E2E_E2ESessionOptions_AssertionTimeout"></a>
 
@@ -212,8 +192,6 @@ public TimeSpan AssertionTimeout { get; init; }
 
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L968)
 
 <a id="E2E_E2ESessionOptions_Attempt_"></a>
 <a id="E2E_E2ESessionOptions_Attempt"></a>
@@ -230,8 +208,6 @@ public int Attempt { get; init; }
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L1034)
-
 <a id="E2E_E2ESessionOptions_BaseUrl_"></a>
 <a id="E2E_E2ESessionOptions_BaseUrl"></a>
 
@@ -244,8 +220,6 @@ public string? BaseUrl { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L912)
 
 <a id="E2E_E2ESessionOptions_Cache_"></a>
 <a id="E2E_E2ESessionOptions_Cache"></a>
@@ -260,8 +234,6 @@ public IStepCache? Cache { get; init; }
 
 **Value:** [IStepCache](/api/E2E/IStepCache/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L920)
-
 <a id="E2E_E2ESessionOptions_CacheEnabled_"></a>
 <a id="E2E_E2ESessionOptions_CacheEnabled"></a>
 
@@ -274,8 +246,6 @@ public bool CacheEnabled { get; init; }
 
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L935)
 
 <a id="E2E_E2ESessionOptions_CacheMode_"></a>
 <a id="E2E_E2ESessionOptions_CacheMode"></a>
@@ -291,8 +261,6 @@ public CacheMode CacheMode { get; init; }
 [ReadOnly](/api/E2E/CacheMode/#E2E_CacheMode_ReadOnly) replays but never writes or deletes recordings.
 
 **Value:** [CacheMode](/api/E2E/CacheMode/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L938)
 
 <a id="E2E_E2ESessionOptions_CacheStrict_"></a>
 <a id="E2E_E2ESessionOptions_CacheStrict"></a>
@@ -311,8 +279,6 @@ Retries replay too, and the session never writes or deletes a recording, whateve
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L945)
-
 <a id="E2E_E2ESessionOptions_CleanupTimeout_"></a>
 <a id="E2E_E2ESessionOptions_CleanupTimeout"></a>
 
@@ -327,8 +293,6 @@ public TimeSpan CleanupTimeout { get; init; }
 How long the engine may take to shut down on dispose. Upstream `cleanupTimeout`.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L951)
 
 <a id="E2E_E2ESessionOptions_Debug_"></a>
 <a id="E2E_E2ESessionOptions_Debug"></a>
@@ -346,8 +310,6 @@ and action phases, writes the table to stderr when it is released, and keeps eac
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L1022)
-
 <a id="E2E_E2ESessionOptions_Engine_"></a>
 <a id="E2E_E2ESessionOptions_Engine"></a>
 
@@ -360,8 +322,6 @@ public required IEngine Engine { get; init; }
 
 
 **Value:** [IEngine](/api/E2E.Engine/IEngine/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L868)
 
 <a id="E2E_E2ESessionOptions_Judge_"></a>
 <a id="E2E_E2ESessionOptions_Judge"></a>
@@ -378,8 +338,6 @@ The default agent's judge for `assert`, `waitFor`, and `extract`. Defaults to [M
 
 **Value:** [IAgentModel](/api/E2E/IAgentModel/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L874)
-
 <a id="E2E_E2ESessionOptions_JudgmentTimeout_"></a>
 <a id="E2E_E2ESessionOptions_JudgmentTimeout"></a>
 
@@ -394,8 +352,6 @@ public TimeSpan JudgmentTimeout { get; init; }
 The default agent's `judgmentTimeout`: the deadline of one `assert`, `waitFor`, or `extract`.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L889)
 
 <a id="E2E_E2ESessionOptions_LaunchTimeout_"></a>
 <a id="E2E_E2ESessionOptions_LaunchTimeout"></a>
@@ -412,8 +368,6 @@ How long the engine may take to start. Upstream `launchTimeout`.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L948)
-
 <a id="E2E_E2ESessionOptions_MaxInputTokens_"></a>
 <a id="E2E_E2ESessionOptions_MaxInputTokens"></a>
 
@@ -428,8 +382,6 @@ public int MaxInputTokens { get; init; }
 The default agent's `maxInputTokens`. See [MaxInputTokens](/api/E2E/AgentOptions/#E2E_AgentOptions_MaxInputTokens).
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L895)
 
 <a id="E2E_E2ESessionOptions_MaxModelCalls_"></a>
 <a id="E2E_E2ESessionOptions_MaxModelCalls"></a>
@@ -446,8 +398,6 @@ The default agent's model calls per agent call, 1 through 100.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L977)
-
 <a id="E2E_E2ESessionOptions_MaxObservationBytes_"></a>
 <a id="E2E_E2ESessionOptions_MaxObservationBytes"></a>
 
@@ -462,8 +412,6 @@ public int MaxObservationBytes { get; init; }
 The default agent's `maxObservationBytes`. See [MaxObservationBytes](/api/E2E/AgentOptions/#E2E_AgentOptions_MaxObservationBytes).
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L892)
 
 <a id="E2E_E2ESessionOptions_MaxSteps_"></a>
 <a id="E2E_E2ESessionOptions_MaxSteps"></a>
@@ -480,8 +428,6 @@ Actions one `ActAsync` may take, 1 through 100. [MaxSteps](/api/E2E/ActOptions/#
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L980)
-
 <a id="E2E_E2ESessionOptions_Model_"></a>
 <a id="E2E_E2ESessionOptions_Model"></a>
 
@@ -496,8 +442,6 @@ public IAgentModel? Model { get; init; }
 The default agent's model.
 
 **Value:** [IAgentModel](/api/E2E/IAgentModel/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L871)
 
 <a id="E2E_E2ESessionOptions_OnSoftFailure_"></a>
 <a id="E2E_E2ESessionOptions_OnSoftFailure"></a>
@@ -515,8 +459,6 @@ on the session until [CloseSoftFailures()](/api/E2E/E2ESession/#E2E_E2ESession_C
 
 **Value:** [Action&lt;TestException&gt;](https://learn.microsoft.com/dotnet/api/system.action-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L986)
-
 <a id="E2E_E2ESessionOptions_Permissions_"></a>
 <a id="E2E_E2ESessionOptions_Permissions"></a>
 
@@ -531,8 +473,6 @@ public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init;
 The target's `app.permissions`: what the engine grants the app. Upstream's `EngineAppInfo.permissions`.
 
 **Value:** [IReadOnlyDictionary&lt;string, AppPermissionState&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L915)
 
 <a id="E2E_E2ESessionOptions_ProjectRoot_"></a>
 <a id="E2E_E2ESessionOptions_ProjectRoot"></a>
@@ -549,8 +489,6 @@ Anchors the files a test names, such as a route's fulfill `Path`. Defaults to th
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L918)
-
 <a id="E2E_E2ESessionOptions_ProviderOptions_"></a>
 <a id="E2E_E2ESessionOptions_ProviderOptions"></a>
 
@@ -565,8 +503,6 @@ public IReadOnlyDictionary<string, JsonElement>? ProviderOptions { get; init; }
 The default agent's provider options, keyed by provider. See [ProviderOptions](/api/E2E/ModelRequest/#E2E_ModelRequest_ProviderOptions).
 
 **Value:** [IReadOnlyDictionary&lt;string, JsonElement&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L898)
 
 <a id="E2E_E2ESessionOptions_ReplayTimeout_"></a>
 <a id="E2E_E2ESessionOptions_ReplayTimeout"></a>
@@ -583,8 +519,6 @@ How long a replay waits for each recorded target and for the recorded end state.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L974)
-
 <a id="E2E_E2ESessionOptions_ResultsDirectory_"></a>
 <a id="E2E_E2ESessionOptions_ResultsDirectory"></a>
 
@@ -599,8 +533,6 @@ public string? ResultsDirectory { get; init; }
 Where a failed screenshot comparison puts its diff, actual, and expected images. Defaults to `.e2e/results` under the project root.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L1004)
 
 <a id="E2E_E2ESessionOptions_StepTimeout_"></a>
 <a id="E2E_E2ESessionOptions_StepTimeout"></a>
@@ -617,8 +549,6 @@ How long one `ActAsync` may run unless [Timeout](/api/E2E/ActOptions/#E2E_ActOpt
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L971)
-
 <a id="E2E_E2ESessionOptions_TargetName_"></a>
 <a id="E2E_E2ESessionOptions_TargetName"></a>
 
@@ -633,8 +563,6 @@ public string? TargetName { get; init; }
 The target's name in a stored screenshot's file name. Defaults to the engine's platform.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L995)
 
 <a id="E2E_E2ESessionOptions_TestAgentContext_"></a>
 <a id="E2E_E2ESessionOptions_TestAgentContext"></a>
@@ -651,8 +579,6 @@ Upstream's `agentContext` of a test or group: appended to the context of every a
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L910)
-
 <a id="E2E_E2ESessionOptions_TestFailed_"></a>
 <a id="E2E_E2ESessionOptions_TestFailed"></a>
 
@@ -668,8 +594,6 @@ Reports whether the test has already failed. Once it returns true, a passing che
 verifies acts, so a teardown assertion after a failure does not record them.
 
 **Value:** [Func&lt;bool&gt;](https://learn.microsoft.com/dotnet/api/system.func-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L992)
 
 <a id="E2E_E2ESessionOptions_TestFile_"></a>
 <a id="E2E_E2ESessionOptions_TestFile"></a>
@@ -690,8 +614,6 @@ alone as the identity and adds no title line, as for an `e2e mcp` session, which
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L962)
-
 <a id="E2E_E2ESessionOptions_TestTimeout_"></a>
 <a id="E2E_E2ESessionOptions_TestTimeout"></a>
 
@@ -705,8 +627,6 @@ public TimeSpan TestTimeout { get; init; }
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L964)
-
 <a id="E2E_E2ESessionOptions_TestTitle_"></a>
 <a id="E2E_E2ESessionOptions_TestTitle"></a>
 
@@ -719,8 +639,6 @@ public required string TestTitle { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L953)
 
 <a id="E2E_E2ESessionOptions_Trace_"></a>
 <a id="E2E_E2ESessionOptions_Trace"></a>
@@ -736,8 +654,6 @@ public ResolvedRecording Trace { get; init; }
 Which attempts record a trace. The session only carries the setting; [Attempt](#E2E_E2ESessionOptions_Attempt) says which attempt this is.
 
 **Value:** [ResolvedRecording](/api/E2E/ResolvedRecording/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L1013)
 
 <a id="E2E_E2ESessionOptions_UpdateSnapshots_"></a>
 <a id="E2E_E2ESessionOptions_UpdateSnapshots"></a>
@@ -755,8 +671,6 @@ different, and passes.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L1001)
-
 <a id="E2E_E2ESessionOptions_Video_"></a>
 <a id="E2E_E2ESessionOptions_Video"></a>
 
@@ -771,5 +685,3 @@ public ResolvedRecording Video { get; init; }
 Which attempts record a video. The session only carries the setting; [Attempt](#E2E_E2ESessionOptions_Attempt) says which attempt this is.
 
 **Value:** [ResolvedRecording](/api/E2E/ResolvedRecording/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/E2ESession.cs#L1016)

@@ -21,7 +21,7 @@ public sealed class RecordedTarget
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L200)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
 
 ## Properties
 
@@ -40,8 +40,6 @@ An anchor's input purpose, such as `password`. Null for `none`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L218)
-
 <a id="E2E_RecordedTarget_Name_"></a>
 <a id="E2E_RecordedTarget_Name"></a>
 
@@ -54,8 +52,6 @@ public string? Name { get; set; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L204)
 
 <a id="E2E_RecordedTarget_Placeholder_"></a>
 <a id="E2E_RecordedTarget_Placeholder"></a>
@@ -72,8 +68,6 @@ An anchor's placeholder.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L215)
-
 <a id="E2E_RecordedTarget_Role_"></a>
 <a id="E2E_RecordedTarget_Role"></a>
 
@@ -86,8 +80,6 @@ public string? Role { get; set; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L202)
 
 <a id="E2E_RecordedTarget_States_"></a>
 <a id="E2E_RecordedTarget_States"></a>
@@ -104,8 +96,6 @@ An anchor's `checked`, `expanded`, `pressed`, and `selected` states that are on.
 
 **Value:** [List&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L224)
-
 <a id="E2E_RecordedTarget_TestId_"></a>
 <a id="E2E_RecordedTarget_TestId"></a>
 
@@ -118,8 +108,6 @@ public string? TestId { get; set; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L206)
 
 <a id="E2E_RecordedTarget_Text_"></a>
 <a id="E2E_RecordedTarget_Text"></a>
@@ -136,8 +124,6 @@ An anchor's text when it differs from its name, with secrets redacted.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L212)
-
 <a id="E2E_RecordedTarget_Value_"></a>
 <a id="E2E_RecordedTarget_Value"></a>
 
@@ -153,8 +139,6 @@ An anchor's value, with secrets redacted. Null for an empty or secure field.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L221)
-
 <a id="E2E_RecordedTarget_Within_"></a>
 <a id="E2E_RecordedTarget_Within"></a>
 
@@ -169,5 +153,3 @@ public string? Within { get; set; }
 Upstream's `within`: the key of the container the target sat in. See [Within](/api/E2E/RecordedAction/#E2E_RecordedAction_Within).
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L209)

@@ -275,10 +275,10 @@ public sealed class E2eExploreTests
         }
     }
 
-    // Upstream also explores the first of several configured targets, with a notice that names it. The port's config declares
-    // one target. It also checks that a config that does not resolve is rejected, which it does through the run's own config load.
+    // Partial: the outcome carries no run report, so the test does not check the report's target id or its first step's api; the app being open
+    // when the explorer looked stands for the second. The config that does not resolve is rejected through the run's own config load.
     [Fact]
-    public async Task Explores_the_target_opening_its_app_first_and_rejects_a_config_that_does_not_resolve_before_anything_starts()
+    public async Task Partial_Explores_the_first_of_several_targets_the_target_opening_its_app_first_and_rejects_a_config_that_does_not_resolve_before_anything_starts()
     {
         var plans = 0;
         var model = Model(
@@ -286,9 +286,14 @@ public sealed class E2eExploreTests
             _ => ExploreModel.Done("passed", "unused"));
         var root = TempRoot();
         var notices = new List<string>();
-        var outcome = await Explorer.ExploreAsync(Options(root, model.Model, notices, goal: "Look around", maxSteps: 1));
+
+        // The first target leaves its name to the platform; the run must still explore exactly that one.
+        var several = E2EConfig.Parse(
+            "{ \"targets\": [{ \"platform\": \"web\", \"app\": { \"url\": \"" + ExploreHarness.Url + "\" } }, { \"name\": \"second\", \"platform\": \"web\", \"app\": { \"url\": \"" + ExploreHarness.Url + "\" } }], \"actionTimeout\": 10000 }",
+            root);
+        var outcome = await Explorer.ExploreAsync(Options(root, model.Model, notices, goal: "Look around", maxSteps: 1, config: several));
         Assert.Equal(RunStatus.Passed, outcome.Status);
-        Assert.Empty(notices);
+        Assert.Equal(["exploring target \"web\"; pass --target to explore another"], notices);
 
         // The app was open when the explorer looked.
         Assert.Contains("button \"Increment\"", model.LoopCalls.First().Messages[0].Content, StringComparison.Ordinal);

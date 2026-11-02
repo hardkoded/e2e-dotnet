@@ -27,9 +27,9 @@ unsaved fails the test with `SESSION_CONTRACT`. The sessions are saved when the 
 [E2ESessionAttribute](/api/E2E/E2ESessionAttribute/).
 
 &lt;p&gt;
-NUnit decides the order, not the attribute's dependents: a setup test runs before the tests of its class that are not setup tests, and
-before the other fixtures of its namespace unless they set an `[Order]` of their own. Put setup tests in the first fixture,
-or order the fixtures. A test that restores a session nobody has saved yet fails with `SESSION_UNAVAILABLE`. Unlike upstream's
+NUnit decides the order, not the attribute's dependents: a setup test runs before the other tests of its own fixture, and
+no earlier than that. Put the setup tests and the tests that use their sessions in one fixture, or give the fixtures an `[Order]`
+that runs the setup fixture first. A test that restores a session nobody has saved yet fails with `SESSION_UNAVAILABLE`. Unlike upstream's
 runner, NUnit runs a setup test even when no selected test needs its session.
 &lt;/p&gt;
 
@@ -37,7 +37,7 @@ runner, NUnit runs a setup test even when no selected test needs its session.
 
 **Implements:** `IImplyFixture`, `ISimpleTestBuilder`, `IApplyToTest`, [ISessionSetup](/api/E2E/ISessionSetup/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ESetupAttribute.cs#L24)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ESetupAttribute.cs)
 
 ## Constructors
 
@@ -60,8 +60,6 @@ Creates a setup test named &lt;code class="paramref"&gt;title&lt;/code&gt;.
 | --- | --- | --- |
 | `title` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ESetupAttribute.cs#L31)
-
 ## Properties
 
 <a id="E2E_NUnit_E2ESetupAttribute_Saves_"></a>
@@ -79,8 +77,6 @@ The names of the sessions this test saves. At least one.
 
 **Value:** [string\[\]](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ESetupAttribute.cs#L40)
-
 <a id="E2E_NUnit_E2ESetupAttribute_Title_"></a>
 <a id="E2E_NUnit_E2ESetupAttribute_Title"></a>
 
@@ -95,8 +91,6 @@ public string Title { get; }
 The test's name.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ESetupAttribute.cs#L37)
 
 ## Methods
 
@@ -119,8 +113,6 @@ Gives the test an early order unless it has one, and refuses a setup test that s
 | --- | --- | --- |
 | `test` | `Test` |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ESetupAttribute.cs#L54)
-
 <a id="E2E_NUnit_E2ESetupAttribute_BuildFrom_"></a>
 <a id="E2E_NUnit_E2ESetupAttribute_BuildFrom_NUnit_Framework_Interfaces_IMethodInfo_NUnit_Framework_Internal_Test_"></a>
 
@@ -132,7 +124,7 @@ public TestMethod BuildFrom(IMethodInfo method, Test? suite)
 ```
 
 
-Names the test and builds it.
+Names the test and builds it. Only the name is the title: the full name stays the method's, so it is unique and filters keep working.
 
 **Parameters**
 
@@ -142,5 +134,3 @@ Names the test and builds it.
 | `suite` | `Test` |  |
 
 **Returns:** `TestMethod`
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E.NUnit/E2ESetupAttribute.cs#L45)

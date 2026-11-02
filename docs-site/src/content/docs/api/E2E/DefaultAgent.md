@@ -23,7 +23,7 @@ Upstream's `createBuiltInAgent` (`agent/default-agent.ts`): the tool loop with t
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/DefaultAgent.cs#L24)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/DefaultAgent.cs)
 
 ## Methods
 
@@ -49,5 +49,3 @@ custom executor that hands its context on.
 | `options` | [BuiltInAgentOptions](/api/E2E/BuiltInAgentOptions/) |  |
 
 **Returns:** [IStepExecutor](/api/E2E/IStepExecutor/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/DefaultAgent.cs#L41)

@@ -84,6 +84,7 @@ internal static partial class Init
         ".e2e/cache/",
         ".e2e/report.json",
         ".e2e/ai-trace-*.json",
+        ".e2e/videos/",
     ];
 
     private static readonly UTF8Encoding Utf8 = new(false);

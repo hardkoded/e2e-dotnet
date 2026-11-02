@@ -23,7 +23,7 @@ The names of [KeyModifier](/api/E2E.Engine/KeyModifier/), which a recorded actio
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs#L21)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs)
 
 ## Properties
 
@@ -41,8 +41,6 @@ public static IReadOnlyList<string> Names { get; }
 The names in declaration order: `Shift`, `Control`, `Alt`, `Meta`, `ControlOrMeta`.
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs#L24)
 
 ## Methods
 
@@ -67,5 +65,3 @@ Reads a name exactly as spelled: no other case, no number.
 | `modifier` | [KeyModifier](/api/E2E.Engine/KeyModifier/) |  |
 
 **Returns:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/KeyModifier.cs#L29)

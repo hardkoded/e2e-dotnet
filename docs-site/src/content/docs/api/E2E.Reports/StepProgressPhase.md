@@ -21,7 +21,7 @@ public enum StepProgressPhase
 
 What a progress notification says (upstream's `StepProgress['phase']`).
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs#L8)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
 
 ## Fields
 
@@ -39,8 +39,6 @@ What the running step waits on right now. Emitted as each begins; the matching e
 
 **Value:** [StepProgressPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs#L15)
-
 <a id="E2E_Reports_StepProgressPhase_End"></a>
 
 ### End
@@ -53,8 +51,6 @@ End = 1
 
 **Value:** [StepProgressPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs#L11)
-
 <a id="E2E_Reports_StepProgressPhase_Event"></a>
 
 ### Event
@@ -66,8 +62,6 @@ Event = 2
 
 
 **Value:** [StepProgressPhase](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs#L12)
 
 <a id="E2E_Reports_StepProgressPhase_Replay"></a>
 
@@ -83,8 +77,6 @@ The trace cache took the step ([Active](/api/E2E.Reports/StepProgress/#E2E_Repor
 
 **Value:** [StepProgressPhase](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs#L18)
-
 <a id="E2E_Reports_StepProgressPhase_Start"></a>
 
 ### Start
@@ -96,5 +88,3 @@ Start = 0
 
 
 **Value:** [StepProgressPhase](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs#L10)
