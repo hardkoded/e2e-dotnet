@@ -62,6 +62,8 @@ public sealed class E2EConfig
 
     private static readonly string[] UnsupportedTargetKeys = ["engine"];
 
+    private static readonly string[] CredentialKeys = ["username", "password"];
+
     private static readonly string[] AppKeys = ["url", "command", "readyUrl", "identity", "environment", "permissions"];
 
     private static readonly string[] MobileAppKeys =
@@ -656,8 +658,6 @@ public sealed class E2EConfig
 
         return credentials;
     }
-
-    private static readonly string[] CredentialKeys = ["username", "password"];
 
     /// <summary>
     /// A credential entry is <c>{ username, password }</c>, with <c>username</c> a string when set (<c>E2E_USER_&lt;NAME&gt;_USERNAME</c> may
