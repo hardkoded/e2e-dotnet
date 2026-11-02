@@ -74,7 +74,7 @@ public sealed class AFilterPastTheDeadlineTests
             return Excluding();
         });
         await Filters.ApplyTestFilters([slow, next], candidates, scope);
-        const string Warning = "warning: slow did not finish within 1500ms, so it leaves nothing out";
+        var Warning = $"warning: slow did not finish within {Deadline}ms, so it leaves nothing out";
         Assert.Equal([Warning], seenByNext);
         Assert.Equal([Warning], notices);
     }

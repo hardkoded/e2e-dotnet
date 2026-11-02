@@ -212,12 +212,21 @@ internal sealed class FakeClock : TimeProvider
     {
         public long DueAt { get; } = dueAt;
 
-        public void Fire() => callback(state);
+        private volatile bool _disposed;
 
-        public bool Change(TimeSpan dueTime, TimeSpan period) => false;
+        public void Fire()
+        {
+            if (!_disposed)
+            {
+                callback(state);
+            }
+        }
+
+        public bool Change(TimeSpan dueTime, TimeSpan period) => throw new NotSupportedException("A manual timer is not retimed.");
 
         public void Dispose()
         {
+            _disposed = true;
             lock (clock._timers)
             {
                 clock._timers.Remove(this);
