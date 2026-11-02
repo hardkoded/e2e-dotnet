@@ -5,6 +5,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using E2E.Cache;
 using E2E.Engine;
 using E2E.Internal;
@@ -15,16 +16,18 @@ namespace E2E;
 /// <summary>
 /// The act tools as the model calls them: each call is checked, aimed at a control, and run through the step's
 /// <see cref="IExecutorActions"/>, and the answer is the screen after it. A coding agent that drives a live session over
-/// MCP runs the same tools through <see cref="Agent.RunToolAsync"/>. No upstream equivalent: upstream's tool loop holds
+/// MCP runs the same tools through <see cref="Agent.RunToolAsync"/>, and passes its <see cref="ScreenPresenter"/>: the answer is then the
+/// changes since the screen the coding agent holds, as upstream's session answers. No upstream equivalent: upstream's tool loop holds
 /// these as closures over its <c>ToolLoopHelpers</c>.
 /// </summary>
-internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
+internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed, ScreenPresenter? screen = null)
 {
     private static readonly HashSet<string> ActionTools =
         new(["navigate", "tap", "double_tap", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "upload", "back", "scroll", "scroll_to"], StringComparer.Ordinal);
 
     private readonly AttemptScope _scope = scope;
     private readonly ObservationFeed _feed = feed;
+    private readonly ScreenPresenter? _screen = screen;
 
     // context: the step the tools run in, which a project tool reaches through AgentToolContext. Null outside a step.
     public async Task<ToolOutcome> ExecuteAsync(
@@ -38,7 +41,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         // observe looks and records nothing, so it takes no action slot.
         if (string.Equals(call.Name, "observe", StringComparison.Ordinal))
         {
-            return ToolOutcome.Ok(await DescribeAsync("Observed.", token).ConfigureAwait(false));
+            return ToolOutcome.Ok(_screen is null ? await DescribeAsync("Observed.", token).ConfigureAwait(false) : await WholeScreenAsync(token).ConfigureAwait(false));
         }
 
         if (projectTools is not null && projectTools.TryGetValue(call.Name, out var projectTool))
@@ -136,7 +139,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
             return await FailedAsync(label, ex, token).ConfigureAwait(false);
         }
 
-        return await DescribeOutcomeAsync(label.Done, token).ConfigureAwait(false);
+        return await DescribeOutcomeAsync(label.Done, token, label.ExpectChange).ConfigureAwait(false);
     }
 
     // Upstream's `failureLead` on a screen: a failed action still returns the screen, so the model can act on a stale-id or not-found failure at once.
@@ -160,8 +163,9 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
             "fill" => new("Typed into " + reference + ".", "fill " + reference),
             "fill_secret" => new(
                 "Filled secret \"" + secret + "\" into " + reference + "; its value is masked in every observation.",
-                "fill_secret \"" + secret + "\" into " + reference),
-            "press" => new("Pressed " + key + " on " + reference + ".", "press " + key + " on " + reference),
+                "fill_secret \"" + secret + "\" into " + reference,
+                false),
+            "press" => new("Pressed " + key + " on " + reference + ".", "press " + key + " on " + reference, !MovesFocusOnly(key)),
             "select" => new("Selected \"" + value + "\" in " + reference + ".", "select \"" + value + "\" in " + reference),
             "check" => new("Checked " + reference + ".", "check " + reference),
             "uncheck" => new("Unchecked " + reference + ".", "check " + reference),
@@ -237,7 +241,8 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
         var way = DirectionName(direction);
         var label = new ActionLabel(
             times == 1 ? "Scrolled " + way + "." : "Scrolled " + way + " " + times.ToString(CultureInfo.InvariantCulture) + " screens.",
-            "scroll " + way + (HasTarget(arguments) ? " " + ReferenceOf(arguments) : ""));
+            "scroll " + way + (HasTarget(arguments) ? " " + ReferenceOf(arguments) : ""),
+            false);
         return await ActingAsync(
             label,
             async () =>
@@ -267,7 +272,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
 
             var quoted = UploadPaths.Quote(text);
             return await ActingAsync(
-                new ActionLabel("Scrolled " + DirectionName(direction) + " until " + quoted + " was in view.", "scroll_to " + quoted),
+                new ActionLabel("Scrolled " + DirectionName(direction) + " until " + quoted + " was in view.", "scroll_to " + quoted, false),
                 async () =>
                 {
                     var list = HasTarget(arguments) ? new ExecutorTarget(await ResolveAsync(arguments, token).ConfigureAwait(false)) : null;
@@ -293,7 +298,7 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
             return await FailedAsync(new ActionLabel("", "scroll_to " + reference), ex, token).ConfigureAwait(false);
         }
 
-        return await DescribeOutcomeAsync("Scrolled into view " + reference + ".", token).ConfigureAwait(false);
+        return await DescribeOutcomeAsync("Scrolled into view " + reference + ".", token, false).ConfigureAwait(false);
     }
 
     // Upstream's upload tool: the paths are authorized before the node is looked for, so a refused path is the policy's decision whatever the
@@ -422,11 +427,11 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
     }
 
     // An action that ran but whose look failed is a failed tool for the model, as in the targeted paths, not the end of the act.
-    private async Task<ToolOutcome> DescribeOutcomeAsync(string action, CancellationToken token)
+    private async Task<ToolOutcome> DescribeOutcomeAsync(string action, CancellationToken token, bool expectChange = false)
     {
         try
         {
-            return ToolOutcome.Ok(await DescribeAsync(action, token).ConfigureAwait(false));
+            return ToolOutcome.Ok(await DescribeAsync(action, token, expectChange).ConfigureAwait(false));
         }
         catch (E2EException ex) when (!token.IsCancellationRequested && !StepExecutors.IsRuntimeHardStop(ex))
         {
@@ -436,13 +441,29 @@ internal sealed class ActTools(AttemptScope scope, ObservationFeed feed)
 
     // The screen after an action, as the model reads it: a held-still look. An action the dispatcher ran armed its own change wait already,
     // and so did a project tool's gap.
-    private async Task<string> DescribeAsync(string action, CancellationToken token)
+    // With a presenter (a session over MCP) the screen is the changes since the one the coding agent holds, the action's lead first;
+    // `expectChange` says an unchanged screen after this action is worth pointing out.
+    private async Task<string> DescribeAsync(string action, CancellationToken token, bool expectChange = false)
     {
         var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
-        return action + "\n" + _feed.Text(observation);
+        return _screen is null
+            ? action + "\n" + _feed.Text(observation)
+            : _screen.Update(_feed.ListedView(observation, _scope), new ScreenUpdateOptions { Lead = action, ExpectChange = expectChange });
     }
+
+    // A session's `observe`: the whole screen, every time. The presenter takes it as the baseline for the changes that follow.
+    private async Task<string> WholeScreenAsync(CancellationToken token) =>
+        _screen!.Initial(_feed.ListedView(await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false), _scope));
+
+    // Keys whose whole effect is where the focus or the caret sits, which the tree does not record: an unchanged screen after one
+    // of these is the normal outcome, not a control that did nothing (upstream's `movesFocusOnly`).
+    private static bool MovesFocusOnly(string key) => FocusOnlyKey().IsMatch(key.Trim());
+
+    [GeneratedRegex(@"^(?:(?:Shift|Control|Alt|Meta)\+)*(?:Tab|Arrow(?:Left|Right|Up|Down)|Home|End|PageUp|PageDown)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex FocusOnlyKey();
 
     // Upstream's ActionLabel: what an action's result opens with, `Done` when it ran, and `Attempt`, the tool and what it was aimed at,
     // for the lead of a failure, so a failed action never reads as done.
-    private readonly record struct ActionLabel(string Done, string Attempt);
+    // `ExpectChange` is whether an unchanged screen after the action is worth pointing out (a session's `expectChange`).
+    private readonly record struct ActionLabel(string Done, string Attempt, bool ExpectChange = true);
 }

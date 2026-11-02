@@ -12,7 +12,7 @@ namespace E2E.Cli.Mcp;
 /// <summary>What a session's test lines need of the session around them. Upstream's <c>TestLineOptions</c>.</summary>
 internal sealed class TestLineOptions
 {
-    /// <summary>The newest observation's tree: the screen the agent's node refs name. Null when nothing was observed yet.</summary>
+    /// <summary>The newest observation's tree: the screen the agent's node ids name. Null when nothing was observed yet.</summary>
     public required Func<IReadOnlyList<SemanticNode>?> Newest { get; init; }
 
     /// <summary>

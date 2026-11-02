@@ -81,7 +81,7 @@ tool with the same name, use the `e2e` server's.
 | --- | --- |
 | `open_session` | Loads the config (`config` names another file; default the nearest `e2e.config.json`), boots the browser or device, opens the app (its URL, or launches a device's pinned app; it installs no build, so a local device needs `app.bundleId`), and returns the session id, the catalog, and the first observation. Its summary names the app URL, a port assigned for `:0`, and the app command's readiness URL and `env` names; e2e starts nothing else, so a database the app uses runs outside it. The config reads the MCP server's environment, not your shell's. `target` must name the config's target when given. `headed: true` shows the browser when the user wants to watch. `test` (`Namespace.Class.Method`) runs that one NUnit test of the config's `testAssembly` first, as `dotnet test` would (set-up, body, tear-down of the test's own hooks, replay cache as configured), and hands the session over on the screen where it passed or failed: the opening text leads with the outcome, the error code and message. To fix a failing test, open it this way, look at the screen, and put the lines you ran in the test; close the session, rebuild the test project (restart the server for the new build), and open it again. Build the test project first. The test's own steps print no test line. |
 | `tools` | The catalog: one line per tool with its argument names (`?` marks optional), the first sentence of its description, and `[read-only]` where it changes nothing. `tools {tool}` shows the full description and the JSON Schema of its arguments. |
-| `call` | Runs one catalog tool: `call {tool: "tap", args: {target: "e12"}}`, where `e12` is the `ref=` of a node in the newest observation. Arguments are checked against the tool's schema first; a wrong one fails with `INVALID_ARGUMENT` naming the field. |
+| `call` | Runs one catalog tool: `call {tool: "tap", args: {target: "n42"}}`, where `n42` is the node id that starts a line of the newest observation (`#n42 button "Save"`). Arguments are checked against the tool's schema first; a wrong one fails with `INVALID_ARGUMENT` naming the field. |
 | `close_session` | Ends the session, disposes the browser or device engine, and releases a hosted device the session leased, each within the config's `cleanupTimeout`. A cleanup that fails or times out is a `Cleanup:` line in the result, with the error's code when it has one (`CLEANUP_TIMEOUT` for a release that outlived the budget). With no session open and no `session` argument, it says `No session is open.` |
 
 Every fixed tool takes only the arguments it declares. An unknown one fails
@@ -96,8 +96,19 @@ holds one topic (`e2e guide <topic>` prints the same text). An unknown topic fai
 
 ## The catalog
 
-`observe` shows the whole screen, one node per line with its `[ref=...]`. Every
-action returns the screen after it. What an engine lacks is missing from its
+`observe` shows the whole screen, one node per line as `#id role "name" ...`,
+under a header with the revision, the path, and the node count (`Current screen
+(revision b3, path /, 12 nodes):`). Every action reports what changed since the
+screen you last received: `Screen changes since revision b3 (now revision b4,
+12 nodes): 1 added, 1 changed.`, then one line per node, `added`, `changed`
+(with `was:` and the line it read before), or `removed`, in document order. A
+node id stays the same for as long as its element exists, so a node that is not
+listed as removed is still on screen under the id you have. An action that
+changes nothing says so (`Screen unchanged since revision b3`, or `No listed
+node changed within the wait after this action` when it should have changed
+something), focus moving is not a change, and a screen that changed mostly is
+sent whole again. `observe` always shows the whole screen and makes it the
+screen later changes are measured from. What an engine lacks is missing from its
 catalog: `scroll` and `scroll_to` need scrolling, `back` needs history,
 `screenshot` needs the web engine, and `type_secret` appears only when the
 config declares a `secrets` entry.
@@ -119,7 +130,8 @@ config declares a `secrets` entry.
 | `test_lines` | Every test line the session's actions printed, in order, as a draft test body; see below |
 
 A failed action is an error result that starts with the tool, the node, and
-the code: `tap n9999 failed: LOCATOR_NOT_FOUND: ...`.
+the code: `tap n9999 failed: LOCATOR_NOT_FOUND: ...`. It reports the changes
+on screen the same way.
 
 ### Test lines
 
@@ -179,8 +191,9 @@ The loop is:
    which opens the app, and go to that screen. Actions that only got you
    there, such as a sign-in the test's setup replaces, stay out of the test
    when its opening reaches that screen directly; otherwise they are its
-   first steps. Node refs are valid only for the newest observation, so
-   `observe` again before using new ones. By target:
+   first steps. Node ids are valid only for the newest observation; an
+   action reports what changed, so `observe` again before using new ids.
+   By target:
    - Web: an `E2ETest` class (topic `writing-tests`) whose test opens the
      screen with `App.OpenAsync("/settings/members")`. After `open_session`,
      `call {tool: "navigate", args: {url: "<the path App.OpenAsync names>"}}`.
@@ -206,7 +219,7 @@ The loop is:
    - A `Screen` line, for an exact value or interaction: a sign-in form in a
      setup test, a field that must receive one specific string, an
      interaction that is the point of the test. Act on the control by node
-     ref, then copy the `Test line:` the action printed into the file. Its
+     id, then copy the `Test line:` the action printed into the file. Its
      locator matched that control alone on the live screen. When the action
      prints `No test line:` instead, the reason says why; for a control no
      locator found alone, try one with `locate`.
