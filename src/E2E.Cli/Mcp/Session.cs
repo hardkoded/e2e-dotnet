@@ -548,7 +548,7 @@ internal sealed class SessionHost : IDisposable
             live.Catalog.Lines.Opened();
         }
 
-        var observed = await agent.RunToolAsync("observe", Parse("{}"), token).ConfigureAwait(false);
+        var observed = await agent.RunToolAsync("observe", Parse("{}"), token, live.Catalog.Screen).ConfigureAwait(false);
         return opening + (observed.Content.StartsWith("Observed.\n", StringComparison.Ordinal) ? observed.Content["Observed.\n".Length..] : observed.Content);
     }
 
@@ -570,7 +570,7 @@ internal sealed class SessionHost : IDisposable
         lines.Add("Pass session \"" + live.Id + "\" to every tools, call, and close_session; with several sessions open, a call without it fails.");
         lines.Add("Tools (run one with call {tool, args}; tools {tool} shows a tool's arguments):");
         lines.AddRange(CatalogLines(live));
-        lines.Add("Node refs (ref=...) are valid only for the newest observation; every action shows the screen after it and the test line that repeats it (test_lines returns them all), and observe shows the whole screen. Call close_session when you are done.");
+        lines.Add("Node ids (#id in observe) are valid only for the newest observation; every action reports what changed on screen and the test line that repeats it (test_lines returns them all), and observe shows the whole screen. Call close_session when you are done.");
         return string.Join('\n', lines) + "\n\n" + screen;
     }
 
@@ -656,7 +656,7 @@ internal sealed class SessionHost : IDisposable
         return new McpToolSpec
         {
             Name = "call",
-            Description = "Run one tool of a session by name, with its arguments as an object: call {tool: \"tap\", args: {target: \"n42\"}, session: \"<id>\"}. The session's catalog (from open_session or tools) names the tools and their arguments. Actions report the screen after them and the test line that repeats them; node ids are valid only for the newest observation.",
+            Description = "Run one tool of a session by name, with its arguments as an object: call {tool: \"tap\", args: {target: \"n42\"}, session: \"<id>\"}. The session's catalog (from open_session or tools) names the tools and their arguments. Actions report what changed on screen and the test line that repeats them; node ids are valid only for the newest observation.",
             InputSchema = CallSchema,
             ReadOnly = false,
             Call = (args, token) => CallAsync(String(args, "session"), String(args, "tool")!, args.TryGetProperty("args", out var given) ? given : null, token),

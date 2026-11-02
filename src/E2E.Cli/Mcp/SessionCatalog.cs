@@ -34,12 +34,19 @@ internal sealed class SessionCatalog
     /// <summary>The time an engine that locates has to resolve one locator of a test line.</summary>
     private static readonly TimeSpan LineLocateBudget = TimeSpan.FromSeconds(2);
 
-    private SessionCatalog(IReadOnlyList<KeyValuePair<string, CatalogTool>> entries, IReadOnlySet<string> readOnly, SessionTestLines lines)
+    private SessionCatalog(IReadOnlyList<KeyValuePair<string, CatalogTool>> entries, IReadOnlySet<string> readOnly, SessionTestLines lines, ScreenPresenter screen)
     {
         Entries = entries;
         ReadOnly = readOnly;
         Lines = lines;
+        Screen = screen;
     }
+
+    /// <summary>
+    /// What the session has told the coding agent about the screen: <c>observe</c> sends the whole screen and sets it as the baseline, and every
+    /// action answers with the changes since (upstream's session shares one <c>ScreenPresenter</c> the same way).
+    /// </summary>
+    public ScreenPresenter Screen { get; }
 
     /// <summary>Every tool <c>call</c> can run, in the order <c>tools</c> lists them.</summary>
     public IReadOnlyList<KeyValuePair<string, CatalogTool>> Entries { get; }
@@ -76,34 +83,35 @@ internal sealed class SessionCatalog
             AppBase = appBase,
             Secrets = secrets,
         });
+        var screen = new ScreenPresenter();
         var tools = new List<KeyValuePair<string, CatalogTool>>();
         void Add(string name, CatalogTool tool) => tools.Add(new(name, lines.Wrap(name, tool)));
 
-        Add("observe", Observe(context));
+        Add("observe", Observe(context, screen));
         var holdable = capabilities.HasFlag(EngineCapabilities.TapModifiers) ? new (string Name, JsonNode Schema, bool Required)[] { ("modifiers", AgentTools.ModifiersSchema(), false) } : [];
-        Add("tap", Verb(context, "tap", "tap", "Tap or click one node: the gesture for a button, link, menu item, tab, checkbox, row, or field.", Schema(Target, holdable)));
-        Add("double_tap", Verb(context, "double_tap", "double_tap", "Double-click one node. Use it only when a tap does nothing, such as a label that opens an editor on a double-click.", Schema(Target, holdable)));
-        Add("type", Verb(context, "type", "fill", "Replace the text in a field with text.", Schema(Target, ("text", Property("string", "The text the field should hold"), true)), ("text", "value")));
-        Add("press", Verb(context, "press", "press", "Press a key such as Enter, Escape, or Tab. With a target, the key goes to that node; without one, to whatever has focus.", Schema(OptionalTarget, ("key", Property("string", "The key, such as Enter"), true))));
-        Add("select", Verb(context, "select", "select", "Choose an option of a combobox or select, by its value or label.", Schema(Target, ("value", Property("string", "The option's value or label"), true))));
-        Add("check", Verb(context, "check", "check", "Check a checkbox or radio.", Schema(Target)));
-        Add("uncheck", Verb(context, "uncheck", "uncheck", "Uncheck a checkbox.", Schema(Target)));
-        Add("clear", Verb(context, "clear", "clear", "Clear a field.", Schema(Target)));
+        Add("tap", Verb(context, screen, "tap", "tap", "Tap or click one node: the gesture for a button, link, menu item, tab, checkbox, row, or field.", Schema(Target, holdable)));
+        Add("double_tap", Verb(context, screen, "double_tap", "double_tap", "Double-click one node. Use it only when a tap does nothing, such as a label that opens an editor on a double-click.", Schema(Target, holdable)));
+        Add("type", Verb(context, screen, "type", "fill", "Replace the text in a field with text.", Schema(Target, ("text", Property("string", "The text the field should hold"), true)), ("text", "value")));
+        Add("press", Verb(context, screen, "press", "press", "Press a key such as Enter, Escape, or Tab. With a target, the key goes to that node; without one, to whatever has focus.", Schema(OptionalTarget, ("key", Property("string", "The key, such as Enter"), true))));
+        Add("select", Verb(context, screen, "select", "select", "Choose an option of a combobox or select, by its value or label.", Schema(Target, ("value", Property("string", "The option's value or label"), true))));
+        Add("check", Verb(context, screen, "check", "check", "Check a checkbox or radio.", Schema(Target)));
+        Add("uncheck", Verb(context, screen, "uncheck", "uncheck", "Uncheck a checkbox.", Schema(Target)));
+        Add("clear", Verb(context, screen, "clear", "clear", "Clear a field.", Schema(Target)));
         if (capabilities.HasFlag(EngineCapabilities.Scroll))
         {
-            Add("scroll_to", Verb(context, "scroll_to", "scroll_to", "Scroll until a node is inside the viewport. With a target, one listed node above or below the fold. With text, a node the screen does not list yet: the list named by the target (or the viewport) is paged screen by screen until a node reading that text shows.", Schema(OptionalTarget, ("text", Property("string", "The visible text of the node to reach, or a distinctive part of it"), false), ("direction", Direction, false))));
-            Add("scroll", Verb(context, "scroll", "scroll", "Scroll the viewport, or one scrollable node when a target is given, by a screen or a few.", Schema(OptionalTarget, ("direction", Direction, true), ("times", TimesProperty, false))));
+            Add("scroll_to", Verb(context, screen, "scroll_to", "scroll_to", "Scroll until a node is inside the viewport. With a target, one listed node above or below the fold. With text, a node the screen does not list yet: the list named by the target (or the viewport) is paged screen by screen until a node reading that text shows.", Schema(OptionalTarget, ("text", Property("string", "The visible text of the node to reach, or a distinctive part of it"), false), ("direction", Direction, false))));
+            Add("scroll", Verb(context, screen, "scroll", "scroll", "Scroll the viewport, or one scrollable node when a target is given, by a screen or a few.", Schema(OptionalTarget, ("direction", Direction, true), ("times", TimesProperty, false))));
         }
 
         // An engine that pins an app has no URL to open: the app is what the session drives.
         if (!capabilities.HasFlag(EngineCapabilities.PinnedApp))
         {
-            Add("navigate", Verb(context, "navigate", "navigate", "Open a path or URL. A path resolves against the app URL; only http and https URLs are allowed.", Schema([], ("url", Property("string", "A path or URL"), true))));
+            Add("navigate", Verb(context, screen, "navigate", "navigate", "Open a path or URL. A path resolves against the app URL; only http and https URLs are allowed.", Schema([], ("url", Property("string", "A path or URL"), true))));
         }
 
         if (capabilities.HasFlag(EngineCapabilities.History))
         {
-            Add("back", Verb(context, "back", "back", "Go back one entry in the browser history.", Schema([])));
+            Add("back", Verb(context, screen, "back", "back", "Go back one entry in the browser history.", Schema([])));
         }
 
         if (capabilities.HasFlag(EngineCapabilities.Screenshot))
@@ -113,12 +121,12 @@ internal sealed class SessionCatalog
 
         if (secrets.Count > 0)
         {
-            Add("type_secret", TypeSecret(context));
+            Add("type_secret", TypeSecret(context, screen));
         }
 
         Add("locate", Locate(context));
         Add("test_lines", lines.Tool());
-        return new SessionCatalog(tools, new HashSet<string>(["observe", "locate", "test_lines", "screenshot"], StringComparer.Ordinal), lines);
+        return new SessionCatalog(tools, new HashSet<string>(["observe", "locate", "test_lines", "screenshot"], StringComparer.Ordinal), lines, screen);
     }
 
     /// <summary>
@@ -221,10 +229,10 @@ internal sealed class SessionCatalog
         StringComparer.Ordinal);
 
     private static readonly (string Name, JsonNode Schema, bool Required)[] Target =
-        [("target", Property("string", "Node ref from the newest observation, such as the value after ref= in observe"), true)];
+        [("target", Property("string", "Node id from the newest observation: the #id that starts its line in observe"), true)];
 
     private static readonly (string Name, JsonNode Schema, bool Required)[] OptionalTarget =
-        [("target", Property("string", "Node ref from the newest observation, such as the value after ref= in observe"), false)];
+        [("target", Property("string", "Node id from the newest observation: the #id that starts its line in observe"), false)];
 
     private static JsonNode Direction => new JsonObject { ["type"] = "string", ["enum"] = new JsonArray("up", "down", "left", "right") };
 
@@ -271,22 +279,22 @@ internal sealed class SessionCatalog
         return JsonSerializer.SerializeToElement(root);
     }
 
-    private static CatalogTool Observe(ISessionContext context)
+    private static CatalogTool Observe(ISessionContext context, ScreenPresenter screen)
     {
         return new CatalogTool
         {
-            Description = "Look at the whole current screen: every node with its ref, role, name, and state. Action results show the screen after the action; call this to look again after waiting for something in progress.",
+            Description = "Look at the whole current screen: every node with its id, role, name, and state. Action results report only what changed since the screen you last received; call this to see everything again or after waiting for something in progress.",
             InputSchema = Schema([]),
             Execute = async (_, token) =>
             {
-                var outcome = await RunAsync(context, "observe", "observe", default, token).ConfigureAwait(false);
+                var outcome = await RunAsync(context, screen, "observe", "observe", default, token).ConfigureAwait(false);
                 return outcome.Content.StartsWith("Observed.\n", StringComparison.Ordinal) ? outcome.Content["Observed.\n".Length..] : outcome.Content;
             },
         };
     }
 
     /// <summary>A grammar verb: the arguments are renamed to the agent tool's (<c>target</c> is its <c>ref</c>), and the tool runs as in an act.</summary>
-    private static CatalogTool Verb(ISessionContext context, string name, string agentTool, string description, JsonElement schema, (string From, string To)? rename = null)
+    private static CatalogTool Verb(ISessionContext context, ScreenPresenter screen, string name, string agentTool, string description, JsonElement schema, (string From, string To)? rename = null)
     {
         return new CatalogTool
         {
@@ -301,13 +309,13 @@ internal sealed class SessionCatalog
                     mapped[key] = JsonNode.Parse(property.Value.GetRawText());
                 }
 
-                var outcome = await RunAsync(context, name, agentTool, args, token, mapped).ConfigureAwait(false);
+                var outcome = await RunAsync(context, screen, name, agentTool, args, token, mapped).ConfigureAwait(false);
                 return outcome.Content;
             },
         };
     }
 
-    private static CatalogTool TypeSecret(ISessionContext context)
+    private static CatalogTool TypeSecret(ISessionContext context, ScreenPresenter screen)
     {
         return new CatalogTool
         {
@@ -316,13 +324,13 @@ internal sealed class SessionCatalog
             Execute = async (args, token) =>
             {
                 var mapped = new JsonObject { ["ref"] = args.GetProperty("target").GetString(), ["secret"] = args.GetProperty("secret").GetString() };
-                var outcome = await RunAsync(context, "type_secret", "fill_secret", args, token, mapped).ConfigureAwait(false);
+                var outcome = await RunAsync(context, screen, "type_secret", "fill_secret", args, token, mapped).ConfigureAwait(false);
                 return outcome.Content;
             },
         };
     }
 
-    private static async Task<ToolOutcome> RunAsync(ISessionContext context, string name, string agentTool, JsonElement args, CancellationToken token, JsonObject? mapped = null)
+    private static async Task<ToolOutcome> RunAsync(ISessionContext context, ScreenPresenter screen, string name, string agentTool, JsonElement args, CancellationToken token, JsonObject? mapped = null)
     {
         ToolOutcome outcome;
         var target = args.ValueKind == JsonValueKind.Object && args.TryGetProperty("target", out var node) ? node.GetString() : null;
@@ -330,7 +338,7 @@ internal sealed class SessionCatalog
         var label = subject is null ? name : name + " " + subject;
         try
         {
-            outcome = await context.Session.Agent.RunToolAsync(agentTool, JsonSerializer.SerializeToElement(mapped ?? new JsonObject()), token).ConfigureAwait(false);
+            outcome = await context.Session.Agent.RunToolAsync(agentTool, JsonSerializer.SerializeToElement(mapped ?? new JsonObject()), token, screen).ConfigureAwait(false);
         }
         catch (E2EException ex)
         {
@@ -350,7 +358,7 @@ internal sealed class SessionCatalog
     {
         if (code == "LOCATOR_NOT_FOUND" && target is not null && message.StartsWith("No control matched", StringComparison.Ordinal))
         {
-            message = "node " + target + " is not on the current screen; re-observe for the newest refs";
+            message = "node " + target + " is not on the current screen; re-observe for the newest ids";
         }
 
         return label + " failed: " + (code is null ? "" : code + ": ") + message;

@@ -660,12 +660,13 @@ public sealed partial class Agent
 
     /// <summary>
     /// Runs one act tool for a coding agent that drives a live session over MCP: the tool as the testing agent runs
-    /// it, with no model, no replay cache, and no action budget. A refusal comes back as a failed outcome.
+    /// it, with no model, no replay cache, and no action budget. A refusal comes back as a failed outcome. With a <paramref name="screen"/>,
+    /// the answer is the changes since the screen the coding agent holds, and <c>observe</c> answers the whole screen.
     /// </summary>
-    internal Task<ToolOutcome> RunToolAsync(string name, JsonElement arguments, CancellationToken token)
+    internal Task<ToolOutcome> RunToolAsync(string name, JsonElement arguments, CancellationToken token, ScreenPresenter? screen = null)
     {
         var budget = new StepAccounting(int.MaxValue, int.MaxValue);
-        return _scope.Track(new ActTools(_scope, _feed).ExecuteAsync(new ModelToolCall { Id = name, Name = name, Arguments = arguments }, new ActionDispatcher(_scope, _feed, budget, () => _scope.Secrets), budget, null, token));
+        return _scope.Track(new ActTools(_scope, _feed, screen).ExecuteAsync(new ModelToolCall { Id = name, Name = name, Arguments = arguments }, new ActionDispatcher(_scope, _feed, budget, () => _scope.Secrets), budget, null, token));
     }
 
     internal static bool HasTarget(JsonElement arguments)

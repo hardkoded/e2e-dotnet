@@ -95,7 +95,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.Equal(names, ServedCli.CatalogNames(opened.Text));
         Assert.Contains("- tap {target, modifiers?}: Tap or click one node: the gesture for a button, link, menu item, tab, checkbox, row, or field.\n", opened.Text, StringComparison.Ordinal);
         Assert.Matches(new Regex(@"^- locate \{role\?, name\?, text\?, label\?, placeholder\?, testId\?, exact\?\}: .* \[read-only\]$", RegexOptions.Multiline, TimeSpan.FromSeconds(5)), opened.Text);
-        Assert.Contains("Screen (/):", opened.Text, StringComparison.Ordinal);
+        Assert.Matches(new Regex(@"Current screen \(revision b\d+, path /, \d+ nodes\):", RegexOptions.None, TimeSpan.FromSeconds(5)), opened.Text);
         Assert.Contains("button \"Increment\"", opened.Text, StringComparison.Ordinal);
         var sessionId = Regex.Match(opened.Text, @"^Session (\S+) open", RegexOptions.None, TimeSpan.FromSeconds(5)).Groups[1].Value;
 
@@ -125,10 +125,11 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         var observed = await _served.CallAsync("observe");
         var tapped = await _served.CallAsync("tap", new() { ["target"] = ServedCli.RefOf(observed.Text, "button \"Increment\"") });
         Assert.False(tapped.IsError, tapped.Text);
-        Assert.StartsWith("Tapped #", tapped.Text, StringComparison.Ordinal);
 
-        // An action reports the screen after it, and after its lead the test line that repeats it.
-        Assert.Equal("Test line: await Screen.GetByRole(\"button\", \"Increment\").TapAsync();", tapped.Text.Split('\n')[1]);
+        // An action reports what changed on screen, and after its lead the test line that repeats it.
+        Assert.Matches(
+            new Regex(@"^Tapped #\S+\.\nTest line: await Screen\.GetByRole\(""button"", ""Increment""\)\.TapAsync\(\);\n\nScreen changes since revision", RegexOptions.None, TimeSpan.FromSeconds(5)),
+            tapped.Text);
         var after = await _served.CallAsync("observe");
         Assert.Contains("status \"Counter\" text=\"1\"", after.Text, StringComparison.Ordinal);
 
@@ -149,7 +150,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.True(elsewhere.IsError);
         Assert.Contains($"NO_SESSION: session \"not-this-one\" is not open; open: {sessionId} on \"web\"", elsewhere.Text, StringComparison.Ordinal);
 
-        // A stale ref is refused with its code first and the node named, and no other node is acted on.
+        // A stale node id is refused with its code first and the node named, and no other node is acted on.
         var stale = await _served.CallAsync("tap", new() { ["target"] = "n9999" });
         Assert.True(stale.IsError);
         Assert.StartsWith("tap n9999 failed: LOCATOR_NOT_FOUND: node n9999 is not on the current screen", stale.Text, StringComparison.Ordinal);
@@ -265,8 +266,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.Contains("1 node matches", located.Text, StringComparison.Ordinal);
         Assert.True(located.Text.Contains("- textbox \"Focus target\" value \"<secret:apiKey>\"", StringComparison.Ordinal), located.Text);
         var after = await _served.CallAsync("observe");
-        Assert.Contains("textbox \"Focus target\" [ref=", after.Text, StringComparison.Ordinal);
-        Assert.Contains("value=\"<secret:apiKey>\"", after.Text, StringComparison.Ordinal);
+        Assert.Matches(new Regex(@"#\S+ textbox ""Focus target"" value=""<secret:apiKey>""", RegexOptions.None, TimeSpan.FromSeconds(5)), after.Text);
         foreach (var output in new[] { filled, located, after })
         {
             Assert.DoesNotContain(Served.ApiKey, output.Text, StringComparison.Ordinal);

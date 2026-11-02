@@ -201,6 +201,23 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     }
 
     /// <summary>
+    /// One capture as a session shows a coding agent: the nodes as <c>#id role "name"</c> lines (<see cref="FailureEvidence.Listing"/>), cut at the
+    /// step's byte budget, or at the default observation limit when the feed has none. .NET-only name: upstream's <c>view</c> renders these
+    /// lines for every executor, where the port's agent still reads <c>[ref=…]</c> lines, so the session's presenter takes this view instead.
+    /// </summary>
+    internal ExecutorObservation ListedView(Observation observation, AttemptScope scope)
+    {
+        var (lines, nodes) = FailureEvidence.Listing(observation, scope.Redactor, scope.AppOrigin, Options is null ? E2EDefaults.MaxObservationBytes : ByteBudget(false));
+        return new ExecutorObservation(string.Join('\n', lines))
+        {
+            Truncated = lines.Count > nodes,
+            KeyboardVisible = observation.KeyboardVisible,
+            Path = scope.Redactor.Redact(observation.Route),
+            Revision = observation.Revision.Length > 0 ? observation.Revision : null,
+        };
+    }
+
+    /// <summary>
     /// The screen as the model reads it, cut at <see cref="ByteBudget"/> (upstream's <c>prepareObservation</c> under <c>capture</c>'s
     /// <c>maxBytes</c>). A step with a cut screen reports its observation as truncated.
     /// </summary>
