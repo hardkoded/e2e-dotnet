@@ -45,8 +45,18 @@ export default defineConfig({
                 baseUrl: "https://github.com/hardkoded/e2e-dotnet/edit/main/docs-site/",
             },
             sidebar: [
-                { label: "Docs", slug: "docs" },
-                { label: "Test filters", slug: "docs/test-filters" },
+                {
+                    label: "Docs",
+                    items: [
+                        { label: "Overview", slug: "docs" },
+                        {
+                            label: "Features",
+                            items: [
+                                { label: "Test filters", slug: "docs/test-filters" },
+                            ],
+                        },
+                    ],
+                },
                 {
                     label: "Get started",
                     items: [
@@ -55,16 +65,6 @@ export default defineConfig({
                         { label: "Mobile", slug: "get-started/mobile" },
                         { label: ".NET MAUI", slug: "get-started/maui" },
                         { label: "Windows", slug: "get-started/windows" },
-                    ],
-                },
-                {
-                    label: "Samples",
-                    items: [
-                        { label: "Overview", slug: "samples" },
-                        { label: "Dariten (web)", slug: "samples/dariten" },
-                        { label: "TodoMVC (web)", slug: "samples/todomvc" },
-                        { label: "Mobile app (MAUI)", slug: "samples/mobile-app" },
-                        { label: "WinApp benchmark", slug: "samples/winapp-benchmark" },
                     ],
                 },
                 {

@@ -20,9 +20,9 @@ npm run build
 npm run preview
 ```
 
-`npm run dev` and `npm run build` copy `README.md`, `COMPATIBILITY.md`, and `CONTRIBUTING.md` into the site before Astro starts. Get started and Samples live in `src/content/docs/`.
+`npm run dev` and `npm run build` copy `README.md`, `COMPATIBILITY.md`, and `CONTRIBUTING.md` into the site before Astro starts. Get started, Examples, and Releases live in `src/content/docs/`.
 
-The site root is a marketing page (`src/pages/index.astro`), not the Starlight home. Documentation starts at `/docs/`. Get started, the guide, samples, and the API stay on their existing paths.
+The site root is a marketing page (`src/pages/index.astro`), not the Starlight home. Documentation starts at `/docs/`. Get started, the guide, and the API stay on their existing paths.
 
 ## Regenerate the API reference
 

@@ -52,7 +52,7 @@ Do not commit API keys.
 
 ## Documentation
 
-The site in `docs-site/` is [Astro Starlight](https://starlight.astro.build/). Guides for Get started and Samples are Markdown in `docs-site/src/content/docs/`. The Guide, Compatibility, and Contributing pages are this repository's `README.md`, `COMPATIBILITY.md`, and `CONTRIBUTING.md`, copied when the site starts or builds.
+The site in `docs-site/` is [Astro Starlight](https://starlight.astro.build/). Guides for Get started and Examples are Markdown in `docs-site/src/content/docs/`. The Guide, Compatibility, and Contributing pages are this repository's `README.md`, `COMPATIBILITY.md`, and `CONTRIBUTING.md`, copied when the site starts or builds.
 
 Preview:
 
