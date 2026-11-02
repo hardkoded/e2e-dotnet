@@ -103,7 +103,7 @@ no viewer. It tells, in this order:
    a step too, named for the call (`browser.goto` with the URL, `browser.route`
    with the pattern, `device.openLink` with the link before its query,
    `device.setNetwork` with `offline`), so a failure there points at the call,
-   and `browser.waitForURL` counts as a verification. `ClickAsync` and
+   and `browser.waitForURL` and `locator.waitFor` count as a verification. `ClickAsync` and
    `DblClickAsync` are `locator.click` and `locator.dblclick` steps, not
    `locator.tap` and `locator.doubleTap`. Under a step:
    - for a locator action, the node it landed on (`tap button "Save" (12ms)`,
@@ -241,7 +241,7 @@ failed before it read a screen has `observationRevision` `unrecorded`. See
 | `INVALID_ARGUMENT` | A step argument failed validation (an unknown agent, a budget above the agent's) | Fix the call |
 | `SECRET_UNAVAILABLE` | `Secrets.Get` named a secret the config does not declare | Add it under `secrets` |
 | `AUTH_CREDENTIAL_UNAVAILABLE` | `Credentials.User(name)` found no `E2E_USER_<NAME>_USERNAME` or `_PASSWORD` | Set both variables |
-| `LOCATOR_NOT_FOUND` | Wrong role or name, inexact text, element off screen, page not open | Read the markup for the accessible name; `exact: false` or a `Regex`; `App.OpenAsync` first |
+| `LOCATOR_NOT_FOUND` | Wrong role or name, or a `locator.WaitForAsync` state that never held (`locator did not become <state>`), inexact text, element off screen, page not open | Read the markup for the accessible name; `exact: false` or a `Regex`; `App.OpenAsync` first |
 | `LOCATOR_AMBIGUOUS` | Two matches (hidden duplicate, repeated label) | A name, a container scope, `Filter(...)`, or `First()`, `Nth(i)` |
 | `APP_NOT_OPEN` | A `Screen` call before `App.OpenAsync()` | Open the app first |
 | `ASSERTION_FAILED` | Wrong expectation, or the state settles later than 5 s; for `AssertAsync`, a false judgment | Compare with the actual text in the message; `timeout` on the matcher; rewrite the statement. Do not loosen it to pass |
@@ -253,7 +253,6 @@ failed before it read a screen has `observationRevision` `unrecorded`. See
 | `NODE_STALE` | The element left the page, or a locator that matched one element now matches a second (a strict mode violation) before any input was sent. The step looks again | Usually nothing. If it repeats, make the locator match one element |
 | `OPERATION_TIMEOUT` | A navigation or a page read (observe, `Browser.EvaluateAsync`, `Browser.TitleAsync`) did not finish within `actionTimeout`. A page stuck in a script fails here, not at the test timeout. On a device, an input the `actionTimeout` ran out before was never sent | Look for a script that never ends or a request that never answers. Raise `actionTimeout` only for a slow UI. A timeout stays `OPERATION_TIMEOUT` and is not retried, even when the call log mentions a detached element or a navigation |
 | `ACTION_MAY_HAVE_COMMITTED` | An action, scroll, key press, typing, or mouse call timed out, or hit a strict mode violation, after its input may have reached the page. On a device, a tap, key, swipe, or `Back` the device did not answer within `actionTimeout`. It is never repeated | Check the page state before you retry by hand |
-| `TIMEOUT` | `locator.WaitForAsync` timed out | Check the state you wait for |
 | `STEP_TIMEOUT`, `STEP_BUDGET_EXHAUSTED` | Goal too big or ambiguous, or a slow provider | Split the goal, use on-screen wording, add vocabulary in `context`; raise `maxSteps` or `maxModelCalls`, `StepTimeout`, or `judgmentTimeout` |
 | `CONTEXT_OVERFLOW` | The provider refused the model request as too large for its context window (`ActAsync` after one shrink-and-retry; a judgment on the first refusal) | Lower `agents.<name>.maxObservationBytes`, split the goal into smaller steps, or use a model with a larger context window |
 | `REPLAY_STALE` | `cache.strict` is on and a committed recording no longer replays, or the cache directory holds the step's recording under another key (the message names the file and what changed since it was recorded: the engine contract, the replay policy, the agent's context) | Re-run once in `read-write` mode without `cache.strict` to re-record, then commit the changed entry. Delete the old file once nothing replays it |

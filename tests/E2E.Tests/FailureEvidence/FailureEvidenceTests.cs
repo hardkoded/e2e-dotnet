@@ -40,7 +40,7 @@ public sealed class FailureEvidenceTests : IDisposable
         var attempt = await FailAsync(engine, "waits for a button named a little differently", async screen =>
             await screen.GetByRole("button", "Submits the order").WaitForAsync(new LocatorWaitForOptions { Timeout = Short }));
 
-        Assert.Equal("TIMEOUT", attempt.Error.Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", attempt.Error.Code);
         Assert.Equal("getByRole(\"button\", \"Submits the order\")", attempt.Error.Details?.Locator);
         Assert.Equal("button", attempt.Error.Details?.Role);
         Assert.Equal("Submits the order", attempt.Error.Details?.Name);

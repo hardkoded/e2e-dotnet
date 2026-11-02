@@ -56,17 +56,19 @@ public sealed class LocatorWaitForStatesTests
         var locator = Changing([HiddenBanner], [HiddenBanner]);
         await locator.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Attached });
         var error = await Assert.ThrowsAsync<TestException>(() => locator.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Visible, Timeout = TimeSpan.FromMilliseconds(100) }));
-        Assert.Equal("TIMEOUT", error.Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
+        Assert.Contains("did not become visible", error.Message);
     }
 
     [Theory]
     [InlineData(WaitForState.Attached, "")]
     [InlineData(WaitForState.Detached, "hidden")]
-    public async Task Times_out_a_state_when_the_state_never_holds(WaitForState state, string nodes)
+    public async Task Times_out_a_state_with_LOCATOR_NOT_FOUND_when_the_state_never_holds(WaitForState state, string nodes)
     {
         var locator = Changing(Nodes(nodes), Nodes(nodes));
         var error = await Assert.ThrowsAsync<TestException>(() => locator.WaitForAsync(new LocatorWaitForOptions { State = state, Timeout = TimeSpan.FromMilliseconds(100) }));
-        Assert.Equal("TIMEOUT", error.Code);
+        Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
+        Assert.Equal($"locator did not become {state.ToString().ToLowerInvariant()}: getByTestId(\"banner\")", error.Message);
     }
 
     [Fact]
@@ -80,6 +82,18 @@ public sealed class LocatorWaitForStatesTests
         }
     }
 
+    // .NET-only: upstream confirms an act by the step's `verifies` flag, which the step-level test already covers; the port confirms through the screen.
+    [Fact]
+    public async Task A_passing_wait_verifies_the_earlier_act_and_a_timed_out_one_does_not()
+    {
+        var verified = 0;
+        var locator = Changing([HiddenBanner], [HiddenBanner], () => verified++);
+        await locator.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Attached });
+        Assert.Equal(1, verified);
+        await Assert.ThrowsAsync<TestException>(() => locator.WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Visible, Timeout = TimeSpan.FromMilliseconds(100) }));
+        Assert.Equal(1, verified);
+    }
+
     private static SemanticNode[] Nodes(string kind) => kind switch
     {
         "shown" => [Banner],
@@ -88,14 +102,14 @@ public sealed class LocatorWaitForStatesTests
     };
 
     /// <summary>A banner locator over a screen whose nodes are <paramref name="initial"/>, then <paramref name="later"/> after 1200 ms.</summary>
-    private static Locator Changing(SemanticNode[] initial, SemanticNode[] later)
+    private static Locator Changing(SemanticNode[] initial, SemanticNode[] later, Action? verified = null)
     {
         var clock = Stopwatch.StartNew();
         var screen = new Screen(
             _ => Task.FromResult(new Observation { Route = "/", Roots = clock.Elapsed < ChangeAfter ? initial : later }),
             (_, _, _) => Task.CompletedTask,
             () => CancellationToken.None,
-            () => { },
+            verified ?? (() => { }),
             TimeSpan.FromSeconds(4),
             TimeSpan.FromSeconds(4));
         return screen.GetByTestId("banner");

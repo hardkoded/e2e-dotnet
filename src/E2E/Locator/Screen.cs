@@ -812,8 +812,8 @@ public sealed class Locator
     /// Waits for <see cref="LocatorWaitForOptions.State"/>, <see cref="WaitForState.Visible"/> by default:
     /// <see cref="WaitForState.Attached"/> for one match, visible or not;
     /// <see cref="WaitForState.Detached"/> for none; <see cref="WaitForState.Hidden"/> for none
-    /// or a hidden one. The timeout defaults to the action timeout. More than one match fails at once.
-    /// Does not verify an earlier <c>act</c>.
+    /// or a hidden one. The timeout defaults to the action timeout and fails with <c>LOCATOR_NOT_FOUND</c>.
+    /// More than one match fails at once. A pass verifies an earlier <c>act</c>.
     /// </summary>
     public Task WaitForAsync(LocatorWaitForOptions? options = null, CancellationToken cancellationToken = default) =>
         _screen.RunStepAsync(
@@ -831,7 +831,6 @@ public sealed class Locator
         var startedAt = clock.GetTimestamp();
         var deadline = new Deadline(TimeoutOf(options?.Timeout), clock);
         var samples = new SampleHistory("waitFor", _screen.Redact);
-        var matched = 0;
         await samples.RecordAsync(_screen.Steps, token, () => Time.PollReadsAsync(new PollReadsOptions
         {
             Deadline = deadline,
@@ -849,7 +848,6 @@ public sealed class Locator
                     throw Ambiguous(matches.Count);
                 }
 
-                matched = matches.Count;
                 samples.Add(matches.Count == 0 ? "absent" : matches[0].States.Hidden ? "hidden" : "visible");
                 return state switch
                 {
@@ -860,12 +858,13 @@ public sealed class Locator
                 };
             },
             OnTimeout = cause => ErrorRedaction.Failure(
-                "TIMEOUT",
-                Query.Describe() + ".waitFor(" + StateName(state) + ") timed out: matched " + matched.ToString(System.Globalization.CultureInfo.InvariantCulture) + " nodes.",
+                "LOCATOR_NOT_FOUND",
+                "locator did not become " + StateName(state) + ": " + Query.Describe(),
                 cause,
                 _screen.Redact,
                 LocatorResolver.LocatorDetails(Query, clock.GetElapsedTime(startedAt))),
         })).ConfigureAwait(false);
+        _screen.NotifyVerified();
     }
 
     /// <summary>

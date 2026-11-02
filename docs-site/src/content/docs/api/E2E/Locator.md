@@ -1430,8 +1430,8 @@ public Task WaitForAsync(LocatorWaitForOptions? options = null, CancellationToke
 Waits for [State](/api/E2E/LocatorWaitForOptions/#E2E_LocatorWaitForOptions_State), [Visible](/api/E2E/WaitForState/#E2E_WaitForState_Visible) by default:
 [Attached](/api/E2E/WaitForState/#E2E_WaitForState_Attached) for one match, visible or not;
 [Detached](/api/E2E/WaitForState/#E2E_WaitForState_Detached) for none; [Hidden](/api/E2E/WaitForState/#E2E_WaitForState_Hidden) for none
-or a hidden one. The timeout defaults to the action timeout. More than one match fails at once.
-Does not verify an earlier `act`.
+or a hidden one. The timeout defaults to the action timeout and fails with `LOCATOR_NOT_FOUND`.
+More than one match fails at once. A pass verifies an earlier `act`.
 
 **Parameters**
 

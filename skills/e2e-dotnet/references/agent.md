@@ -379,8 +379,8 @@ continues when the app no longer matches. `AssertAsync`, `WaitForAsync`, and
   `"cache": { "mode": "off" }`. Entries live in `.e2e/cache/`; deleting the
   directory only slows the next run.
 - An entry is written only after a later locator expectation,
-  `AssertAsync`, or `WaitForAsync` passes, so an unchecked act never
-  replays. Locator reads, `locator.WaitForAsync`, and `ExtractAsync` verify
+  `AssertAsync`, `WaitForAsync`, or `locator.WaitForAsync` passes, so an
+  unchecked act never replays. Locator reads and `ExtractAsync` verify
   nothing.
 - A replay re-finds each control by role, name, test id, and path, and
   needs the recorded start route unless the recording opens with a
