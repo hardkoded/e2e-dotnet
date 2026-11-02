@@ -134,7 +134,7 @@ internal static partial class ExploreCommand
         var redactor = Redactor.For(
             (config?.Secrets.Names.Select(config.Secrets.Get) ?? []).Concat(accounts.Select(account => account.Credential.Password)).Concat(DeviceTargets.Credentials()));
         var pc = new Colors(interactive && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")));
-        var target = parsed.Target ?? config?.Target.Name;
+        var target = parsed.Target ?? config?.Targets[0].Name;
         var badge = target is null ? "" : pc.Badge("|" + Format.Bounded(target) + "|");
         var columns = interactive ? WindowWidth() : DefaultColumns;
         var gate = new object();

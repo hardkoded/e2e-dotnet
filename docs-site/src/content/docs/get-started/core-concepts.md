@@ -70,6 +70,8 @@ There is no default model and no shared API key. `baseUrl` can point at any Open
 
 A device test declares its app on the target, `"targets": [{ "platform": "ios", "app": { "bundleId": "com.example.app", "appPath": "build/App.app" } }]`, and derives from `MobileAppTest` of `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3`.
 
+`targets` may list several entries. Each has a unique `name`, which defaults to its platform. A fixture, `E2EHost.OpenAsync`, `e2e mcp`, and `e2e explore` that need one target of several name it: override `E2EFixture.TargetName`, pass `OpenHostOptions.Target`, or pass `--target`. Without a name, a host or an MCP session fails with `TARGET_REQUIRED`, and `e2e explore` takes the first target.
+
 `trace` and `video` choose which attempts record: `off`, `on`, `retain-on-failure`, `on-first-retry`, or `on-all-retries`. They go at the config root or on the target, and `E2E_TRACE` and `E2E_VIDEO` replace them for one run. The defaults are `retain-on-failure` and `off`. The port records `video` on the web engine and writes a trace page, `trace.md`, for each attempt that keeps one (see [Trace page](/features/caching/#trace-page) and [Video](/features/video/#video)).
 
 `E2E_DEBUG=1` (or `true`) is the port's `--debug`. Each test then writes a table of its phase timings (`session.launch`, `test.body`, `session.close`, `agent.observe`, `agent.model`, `agent.action`) to stderr when it ends, then a table with one row per agent step (time, model calls, tokens in and out, cache share, cost), and keeps the transcript of each agent step. See [COMPATIBILITY.md](/compatibility/#debug).

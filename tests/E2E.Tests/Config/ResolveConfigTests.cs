@@ -40,15 +40,16 @@ public sealed class ResolveConfigTests
         Assert.Contains("E2E_SECRET_PK_LIVE", pk.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>Partial: the port runs one web target, so the target name defaults to the platform and there is no second platform to name.</summary>
+    /// <summary>Partial: the port has no engine to inherit a platform from, so only the platform names a target.</summary>
     [Fact]
     public void Defaults_a_web_target_name_to_its_platform()
     {
+        Assert.Equal(["ios", "android"], E2EConfig.Parse("""{ "targets": [{ "platform": "ios" }, { "platform": "android" }] }""", Root, Env()).Targets.Select(target => target.Name));
         Assert.Equal("web", E2EConfig.Parse("""{ "targets": [{ "platform": "web" }] }""", Root, Env()).Target.Name);
         Assert.Equal("web", E2EConfig.Parse("{}", Root, Env()).Target.Name);
     }
 
-    /// <summary>Partial: the port reports an invalid name with its own message, and has no duplicate names to refuse with one target.</summary>
+    /// <summary>Partial: the port reports an invalid name with its own message, and a platform it does not drive fails before its name is checked.</summary>
     [Theory]
     [InlineData("bad name")]
     [InlineData(".")]
@@ -61,13 +62,41 @@ public sealed class ResolveConfigTests
         Assert.Contains("targets[0].name must use ASCII letters, numbers, \"_\", \"-\", and \".\", and cannot be only dots", error.Message, StringComparison.Ordinal);
     }
 
-    /// <summary>Partial: the port accepts these names on its one target.</summary>
-    [Theory]
-    [InlineData(".hidden")]
-    [InlineData("v1.2")]
-    public void Accepts_a_target_name_that_starts_with_or_holds_a_dot(string name)
+    [Fact]
+    public void Accepts_target_names_that_start_with_or_hold_a_dot()
     {
-        Assert.Equal(name, E2EConfig.Parse($$"""{ "targets": [{ "name": "{{name}}", "platform": "web" }] }""", Root, Env()).Target.Name);
+        Assert.Equal(
+            [".hidden", "v1.2"],
+            E2EConfig.Parse("""{ "targets": [{ "name": ".hidden", "platform": "web" }, { "name": "v1.2", "platform": "web" }] }""", Root, Env()).Targets.Select(target => target.Name));
+    }
+
+    [Theory]
+    [InlineData("""[{ "name": "web", "platform": "web" }, { "name": "web", "platform": "web" }]""", "duplicate target name \"web\"")]
+    [InlineData("""[{ "platform": "ios" }, { "platform": "ios" }]""", "duplicate target name \"ios\"; a target without a name is named after its platform, so name one of them")]
+    [InlineData("""[{ "name": "web", "platform": "ios" }, { "platform": "web" }]""", "duplicate target name \"web\"; a target without a name is named after its platform, so name one of them")]
+    [InlineData("""[{ "platform": "web" }, { "name": "web", "platform": "ios" }]""", "duplicate target name \"web\"; a target without a name is named after its platform, so name one of them")]
+    public void Refuses_a_duplicate_target_name_defaulted_names_included(string targets, string message)
+    {
+        var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("{ \"targets\": " + targets + " }", Root, Env()));
+        Assert.Equal("INVALID_CONFIG", error.Code);
+        Assert.Equal(message, error.Message);
+    }
+
+    [Fact]
+    public void Points_at_the_declared_entry_of_a_later_target()
+    {
+        var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "targets": [{ "platform": "web" }, { "platform": "web", "name": "b", "app": { "url": 5 } }] }""", Root, Env()));
+        Assert.Contains("targets[1].app.url must be a non-empty string", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Needs_a_target_when_the_config_declares_several()
+    {
+        var config = E2EConfig.Parse("""{ "targets": [{ "name": "a", "platform": "web" }, { "name": "b", "platform": "web" }] }""", Root, Env());
+        Assert.Equal(["a", "b"], config.Targets.Select(target => target.Name));
+        var error = Assert.Throws<ConfigurationException>(() => config.Target);
+        Assert.Equal("TARGET_REQUIRED", error.Code);
+        Assert.Contains("the config declares several targets (\"a\", \"b\")", error.Message, StringComparison.Ordinal);
     }
 
     /// <summary>Partial: the port has no engine to inherit a platform from, so only the unknown key is reported.</summary>

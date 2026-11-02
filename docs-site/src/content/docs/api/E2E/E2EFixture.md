@@ -213,7 +213,7 @@ protected virtual string? BaseUrl { get; }
 ```
 
 
-`targets[0].app.url`.
+The `app.url` of the target.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -461,7 +461,7 @@ protected virtual IReadOnlyDictionary<string, AppPermissionState>? Permissions {
 ```
 
 
-`targets[0].app.permissions`: the browser permissions every page of a web attempt holds.
+The `app.permissions` of the target: the browser permissions every page of a web attempt holds.
 
 **Value:** [IReadOnlyDictionary&lt;string, AppPermissionState&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
@@ -613,7 +613,7 @@ protected virtual string TargetName { get; }
 ```
 
 
-`targets[0].name`: the target part of a stored screenshot's file name.
+The name of the target: the only one the config declares, and the target part of a stored screenshot's file name. Override it when the config declares several.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -645,7 +645,7 @@ protected virtual ResolvedRecording Trace { get; }
 ```
 
 
-`trace` for the target: `E2E_TRACE`, else `targets[0].trace`, else the config's `trace`, else
+`trace` for the target: `E2E_TRACE`, else the target's `trace`, else the config's `trace`, else
 `retain-on-failure`. Override to set it for one fixture.
 
 **Value:** [ResolvedRecording](/api/E2E/ResolvedRecording/)
@@ -681,7 +681,7 @@ protected virtual ResolvedRecording Video { get; }
 ```
 
 
-`video` for the target: `E2E_VIDEO`, else `targets[0].video`, else the config's `video`, else
+`video` for the target: `E2E_VIDEO`, else the target's `video`, else the config's `video`, else
 `off`. Override to set it for one fixture.
 
 **Value:** [ResolvedRecording](/api/E2E/ResolvedRecording/)
