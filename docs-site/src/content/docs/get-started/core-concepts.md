@@ -1,0 +1,107 @@
+---
+title: Core concepts
+description: What a test is, how config names the app and the model, and how xUnit v3 differs.
+sidebar:
+  label: Core concepts
+---
+
+## A test
+
+```csharp
+using E2E;
+using E2E.NUnit;
+using NUnit.Framework;
+
+public sealed class BillingTests : E2ETest
+{
+    protected override IAgentModel? CreateModel() =>
+        new OpenAiCompatibleModel(new OpenAiCompatibleModelOptions { Model = "gpt-4.1-mini" });
+
+    [Test]
+    public async Task Member_upgrades_to_Pro()
+    {
+        await App.OpenAsync("/settings/billing");
+        await Agent.ActAsync("upgrade the workspace to the Pro plan");
+        await Agent.AssertAsync("the invoice preview shows a prorated amount");
+        await Expect.That(Screen.GetByRole("status")).ToContainTextAsync("Pro");
+    }
+}
+```
+
+`E2ETest` starts a `WebEngine` session for each `[Test]`. Override `CreateEngine` with a `DocumentEngine` when the test should not open a browser, or with a `WebEngine` whose `Connect` attaches to a remote Chromium over CDP (see [Recovering a CDP transport](/features/browser/#recovering-a-cdp-transport)), or whose `Browser` leases hosted browsers (see [Hosted browsers](/features/browser/#hosted-browsers)). An `act` that a later `assert`, `waitFor`, or locator `Expect` verifies is recorded. The next run replays those actions with no model calls until the screen no longer matches. See [Self-healing tests](/features/caching/#self-healing-tests). In `read-write` mode, when the test ends, verified acts are written and unverified acts that recorded or replayed are evicted, whether it passed, failed, or was skipped. A model outage leaves existing entries in place, unless a failure on the app implicated them too, and an `E2ETest` run whose cancellation token was cancelled writes and evicts nothing. A `Standalone` attempt that is disposed without completion still writes and evicts, even when its token was cancelled. `read-only` and `cache.strict` never write or evict. `[Retry]` runs the later attempts live, and they still record. Tests that never call the agent need no model. A judgment (`AssertAsync`, `WaitForAsync`, `ExtractAsync`) reads the text snapshot of the screen. Pass `Vision = VisionMode.On` to show it a masked screenshot too, or `VisionMode.Only` for the screenshot alone, when the answer is in pixels. After a test fills a `Secret`, no pixels reach a model. Screenshots kept as artifacts stay on and mask secure fields only.
+
+### xUnit v3
+
+`E2E.XUnit.V3.E2ETest` has the same members and reads the same config. Write `[Fact]` or `[Theory]` tests. It differs from the NUnit fixture in a few ways:
+
+- `Expect.Soft` failures fail the test when it is disposed, in one `ASSERTION_FAILED`.
+- xUnit has no retry, so every test is a first attempt and can replay.
+- The session already stops on `Xunit.TestContext.Current.CancellationToken`, so a call does not need it. You can turn off the analyzer rule `xUnit1051` for E2E calls.
+- `Expect.Poll` takes a predicate through `ToSatisfyAsync`. There is no `ToMatchAsync`.
+- `E2E` and `Xunit` both have a `TestContext`. With both `using` lines, write `Xunit.TestContext.Current` for the xUnit one.
+
+xUnit v2 is not supported. It cannot read a test's result during cleanup, and the replay cache needs that result.
+
+## Config
+
+`E2ETest` reads the nearest `e2e.config.json` above the test assembly directory, then above the working directory. The shape follows upstream `e2e.config.ts`. Every key is optional, and an unknown key fails with `INVALID_CONFIG`.
+
+```json
+{
+  "targets": [{ "platform": "web", "app": { "url": "http://127.0.0.1:4173" } }],
+  "timeout": 120000,
+  "launchTimeout": 60000,
+  "actionTimeout": 30000,
+  "assertionTimeout": 5000,
+  "cleanupTimeout": 30000,
+  "agents": {
+    "default": {
+      "model": "gpt-4.1-mini",
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKeyEnv": "OPENAI_API_KEY"
+    }
+  },
+  "cache": { "mode": "read-write", "dir": ".e2e/cache", "strict": false },
+  "secrets": { "stripe-key": null }
+}
+```
+
+There is no default model and no shared API key. `baseUrl` can point at any OpenAI-compatible server, including a local one. Tests without agent steps ignore it.
+
+A device test declares its app on the target, `"targets": [{ "platform": "ios", "app": { "bundleId": "com.example.app", "appPath": "build/App.app" } }]`, and derives from `MobileAppTest` of `E2E.Mobile.NUnit` or `E2E.Mobile.XUnit.V3`.
+
+`trace` and `video` choose which attempts record: `off`, `on`, `retain-on-failure`, `on-first-retry`, or `on-all-retries`. They go at the config root or on the target, and `E2E_TRACE` and `E2E_VIDEO` replace them for one run. The defaults are `retain-on-failure` and `off`. The port records `video` on the web engine and writes a trace page, `trace.md`, for each attempt that keeps one (see [Trace page](/features/caching/#trace-page) and [Video](/features/video/#video)).
+
+`E2E_DEBUG=1` (or `true`) is the port's `--debug`. Each test then writes a table of its phase timings (`session.launch`, `test.body`, `session.close`, `agent.observe`, `agent.model`, `agent.action`) to stderr when it ends, then a table with one row per agent step (time, model calls, tokens in and out, cache share, cost), and keeps the transcript of each agent step. See [COMPATIBILITY.md](/compatibility/#debug).
+
+`E2E_AGENT=<name>` is the port's `--agent`: the agent that calls use when neither the call nor the test (`[Agent("name")]` on a class or method) names one. See [COMPATIBILITY.md](/compatibility/#agents).
+
+`E2E_AI_TRACE=1` (or `true`) is the port's `--ai-trace`. Each test then records every model call, and the test process writes them to `.e2e/ai-trace-<process id>.json` in the shape `npx unbox-ai` reads. See [COMPATIBILITY.md](/compatibility/#ai-trace).
+
+`provider` picks who serves `model` and `judge`. Unset, it is `openai` (chat completions). `baseUrl` and `apiKeyEnv` default to the provider's own:
+
+| `provider` | Key | Notes |
+| --- | --- | --- |
+| `openai` | `OPENAI_API_KEY` | Chat completions |
+| `openai-responses` | `OPENAI_API_KEY` | The Responses API, as the AI SDK's `openai(id)` |
+| `azure` | `AZURE_API_KEY` | Responses API at `https://$AZURE_RESOURCE_NAME.openai.azure.com/openai/v1`, or `baseUrl`. `model` is the deployment |
+| `anthropic` | `ANTHROPIC_API_KEY` | Messages API, with prompt-cache breakpoints |
+| `google` | `GOOGLE_GENERATIVE_AI_API_KEY` | Gemini API |
+| `bedrock` | `AWS_BEARER_TOKEN_BEDROCK`, or AWS credentials: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, else the AWS credential chain (`AWS_PROFILE` or the default profile, SSO, container and instance roles) | Converse API in `AWS_REGION` |
+| `xai` | `XAI_API_KEY` | SpaceXAI API |
+| `openrouter` | `OPENROUTER_API_KEY` | Model ids such as `openai/gpt-6-luna-fast` |
+| `gateway` | `AI_GATEWAY_API_KEY`, else `VERCEL_OIDC_TOKEN` | Vercel AI Gateway |
+| `openai-compatible` | `LLM_API_KEY`, optional | Any `/v1/chat/completions` server; `baseUrl` is required |
+| `chatgpt`, `copilot`, `grok`, `opencode-console` | The stored login | [Subscriptions](/features/signing-in/#subscriptions) |
+
+An `apiKeyEnv` you set wins over the provider's default, so remove it when you switch providers. Otherwise the client reads the old variable, sends no key, and the provider answers 401.
+
+`anthropic` needs a key scoped to a workspace (`sk-ant-api03-...`). A user key (`sk-ant-usr-...`) fails with a 400 that asks for an `anthropic-workspace-id` header, and the config cannot send one.
+
+Claude Opus 5.5, Sonnet 5.5, and Fable 5.1 bind each thinking block to the system prompt and the messages before it, and reject a request that replays the block after either changed. An agent step keeps its prompt fixed, and once it rewrites an earlier message (an executor's `PrepareMessages` changed it, or the history was shrunk after a context overflow) it stops sending the thinking from that message on. The step's turns note it.
+
+In code, `ModelProviders` builds the same clients (`ModelProviders.Anthropic("claude-sonnet-5")`), and `AnthropicModel`, `GoogleModel`, `BedrockModel`, `OpenAiResponsesModel`, and `OpenAiCompatibleModel` take full options.
+
+An agent entry also takes `judge` (the model id for `assert`, `waitFor`, and `extract`), `system`, `context`, `maxSteps`, `maxModelCalls`, `judgmentTimeout`, `maxObservationBytes` (the most bytes of the screen one model request carries, 1024 through 16777216, 262144 by default), `maxInputTokens` (the input one model request may carry, 1 through 1000000, 64000 by default; a dense screen is cut to fit under it), and `providerOptions`. `agents` can name more agents than `default`; a call picks one with its `Agent` option, such as `new ActOptions { Agent = "careful" }`. Project tools (`AgentTools` on the fixture) are code, so they are not config keys; see topic `agent`. So is a custom executor (`AgentExecutor` on the fixture, `AgentOptions.Executor`), which replaces the built-in agent for `act` and `assert` with a `ToolLoop` of your own tools or your own `IStepExecutor`; see topic `agent`. So is the artifact store (`ArtifactStore` on the fixture, `E2ESessionOptions.ArtifactStore`): an `IArtifactStore` receives every artifact an attempt registers, a download or a video, as it is produced, with its bytes, digest, redaction label, and the run, test, attempt, and step it belongs to, and the reference it returns is recorded as the artifact's `ref`. A store that throws leaves the record with its local path and no `ref`; the run does not fail. See topic `setup`.
+
+Exploring an app, the package map, and the repository sample stay on [the guide](/guide/).
