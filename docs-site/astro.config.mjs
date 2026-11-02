@@ -45,12 +45,18 @@ export default defineConfig({
                 baseUrl: "https://github.com/hardkoded/e2e-dotnet/edit/main/docs-site/",
             },
             sidebar: [
-                { label: "Docs", slug: "docs" },
-                { label: "Test filters", slug: "docs/test-filters" },
                 {
                     label: "Get started",
                     items: [
-                        { label: "Overview", slug: "get-started" },
+                        { label: "Introduction", slug: "docs" },
+                        { label: "Quickstart", slug: "get-started" },
+                        { label: "Core concepts", slug: "get-started/core-concepts" },
+                        { label: "Coding agents", slug: "coding-agents" },
+                    ],
+                },
+                {
+                    label: "Platforms",
+                    items: [
                         { label: "Web", slug: "get-started/web" },
                         { label: "Mobile", slug: "get-started/mobile" },
                         { label: ".NET MAUI", slug: "get-started/maui" },
@@ -58,13 +64,14 @@ export default defineConfig({
                     ],
                 },
                 {
-                    label: "Samples",
+                    label: "Features",
                     items: [
-                        { label: "Overview", slug: "samples" },
-                        { label: "Dariten (web)", slug: "samples/dariten" },
-                        { label: "TodoMVC (web)", slug: "samples/todomvc" },
-                        { label: "Mobile app (MAUI)", slug: "samples/mobile-app" },
-                        { label: "WinApp benchmark", slug: "samples/winapp-benchmark" },
+                        { label: "Signing in / sessions", slug: "features/signing-in" },
+                        { label: "Caching & self-healing", slug: "features/caching" },
+                        { label: "Test filters", slug: "docs/test-filters" },
+                        { label: "Soft assertions & evidence", slug: "features/assertions" },
+                        { label: "Video & screenshots", slug: "features/video" },
+                        { label: "Working with the browser", slug: "features/browser" },
                     ],
                 },
                 {
@@ -78,23 +85,31 @@ export default defineConfig({
                         { label: "Deep links", slug: "examples/deep-links" },
                     ],
                 },
+                { label: "Integrations", items: [{ label: "Limrun", slug: "integrations/limrun" }] },
                 {
-                    label: "Releases",
+                    label: "Reference",
                     items: [
-                        { label: "Overview", slug: "releases" },
-                        { label: "v0.8.0", slug: "releases/v0-8-0" },
+                        {
+                            label: "API",
+                            collapsed: true,
+                            items: apiSidebar,
+                        },
                     ],
                 },
-                { label: "Coding agents", slug: "coding-agents" },
-                { label: "Integrations", items: [{ label: "Limrun", slug: "integrations/limrun" }] },
-                { label: "Guide", slug: "guide" },
                 {
-                    label: "API",
-                    collapsed: true,
-                    items: apiSidebar,
+                    label: "Project",
+                    items: [
+                        { label: "Compatibility", slug: "compatibility" },
+                        {
+                            label: "Releases",
+                            items: [
+                                { label: "Overview", slug: "releases" },
+                                { label: "v0.8.0", slug: "releases/v0-8-0" },
+                            ],
+                        },
+                        { label: "Contributing", slug: "contributing" },
+                    ],
                 },
-                { label: "Compatibility", slug: "compatibility" },
-                { label: "Contributing", slug: "contributing" },
             ],
         }),
     ],

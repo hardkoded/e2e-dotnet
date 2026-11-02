@@ -3,8 +3,6 @@ title: Windows
 description: Drive a WinUI, WPF, WinForms, or Win32 app with WinAppEngine.
 ---
 
-import { CardGrid, LinkCard } from '@astrojs/starlight/components';
-
 `WinAppEngine` drives a Windows app through Windows UI Automation. WinUI 3, WPF, WinForms, and Win32 apps all expose it. The engine runs on Windows only and needs no other tool installed.
 
 ## Prerequisites
@@ -103,9 +101,3 @@ dotnet test --project . --filter "TestCategory!=RealModel"   # no model
 ## Known limits
 
 No video, `App.BackAsync` is `UNSUPPORTED_CAPABILITY` (tap the app's own Back button), and a screenshot is the main window only. A screenshot masks secure fields only, after a secret fill too, so a value shown anywhere else reaches your model provider: use test credentials.
-
-## Next
-
-<CardGrid>
-  <LinkCard title="WinApp benchmark" href={`${import.meta.env.BASE_URL}samples/winapp-benchmark/`} description="A WinUI 3 app of hard scenarios and its tests." />
-</CardGrid>

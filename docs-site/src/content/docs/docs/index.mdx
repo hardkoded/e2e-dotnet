@@ -1,9 +1,8 @@
 ---
-title: Documentation
+title: Introduction
 description: Agentic end-to-end tests for .NET. Describe a goal, drive the app, then check the result with locators.
 sidebar:
-  label: Docs
-  order: 0
+  label: Introduction
 ---
 
 import { CardGrid, LinkCard } from '@astrojs/starlight/components';
@@ -18,15 +17,14 @@ dotnet add package E2E.NUnit   # or E2E.XUnit.V3 for xUnit v3
 ## Start here
 
 <CardGrid>
-  <LinkCard title="Get started" href={`${import.meta.env.BASE_URL}get-started/`} description="Web, mobile, .NET MAUI, and Windows, each with a first test." />
-  <LinkCard title="Samples" href={`${import.meta.env.BASE_URL}samples/`} description="Finished projects to copy from." />
-  <LinkCard title="Guide" href={`${import.meta.env.BASE_URL}guide/`} description="Install, write a test, config, model providers, and subscriptions." />
+  <LinkCard title="Quickstart" href={`${import.meta.env.BASE_URL}get-started/`} description="Pick a platform and run a first test." />
+  <LinkCard title="Core concepts" href={`${import.meta.env.BASE_URL}get-started/core-concepts/`} description="A test, the config file, and xUnit v3." />
+  <LinkCard title="Caching and self-healing" href={`${import.meta.env.BASE_URL}features/caching/`} description="Replay a verified act, and heal it when the screen changes." />
   <LinkCard title="API reference" href={`${import.meta.env.BASE_URL}api/`} description="Every public type in E2E, E2E.NUnit, and E2E.XUnit.V3." />
-  <LinkCard title="Rerun while you fix" href={`${import.meta.env.BASE_URL}guide/#rerun-a-test-while-you-fix-it`} description="Run one test with the replay cache on, so goals that passed replay without model calls." />
   <LinkCard title="Compatibility" href={`${import.meta.env.BASE_URL}compatibility/`} description="How this port differs from the TypeScript e2e framework." />
 </CardGrid>
 
-[Test filters](/compatibility/#test-filters) (`ITestFilter`, `TestFilterContext`, and `TestFilterResult`) leave out the tests a change cannot affect. The seam, the change detection (`INVALID_CHANGED_SINCE`), and the `run.changes` and `run.filters` report fields are ported; no `dotnet test` host calls a filter yet.
+[Test filters](/docs/test-filters/) leave out the tests a change cannot affect before the run starts.
 
 ## Exit code of an interrupted run
 

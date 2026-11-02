@@ -55,7 +55,7 @@ Start your app at that address before the run. `App.OpenAsync("/path")` opens a 
 
 ## 3. Write a test
 
-The steps below are placeholders for a signup flow. Replace the headings, goals, and checks with your own app's. To run a finished web test right away, use the [Dariten sample](/samples/dariten/).
+The steps below are placeholders for a signup flow. Replace the headings, goals, and checks with your own app's. To run a finished web test right away, use the [Dariten sample](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/E2E.Sample).
 
 Derive from `E2ETest`. It starts a `WebEngine` session for each test.
 
@@ -185,7 +185,5 @@ await Browser.RouteAsync("**/api/quote", async route =>
 ## Next
 
 <CardGrid>
-  <LinkCard title="Dariten sample" href={`${import.meta.env.BASE_URL}samples/dariten/`} description="A locator test and an agent test against a live public app." />
-  <LinkCard title="TodoMVC sample" href={`${import.meta.env.BASE_URL}samples/todomvc/`} description="Playwright's TodoMVC suite rewritten as agent steps." />
   <LinkCard title="Hosted browsers" href={`${import.meta.env.BASE_URL}guide/#hosted-browsers`} description="CDP recovery, hosted browsers, video, and trace in the guide." />
 </CardGrid>
