@@ -1199,6 +1199,11 @@ public sealed class Locator
     /// </summary>
     private Task ClickWithAsync(string api, Func<IReadOnlyList<KeyModifier>?, LocatorAction> make, ClickOptions? options, CancellationToken cancellationToken)
     {
+        if (options is TapOptions { Position: not null })
+        {
+            throw new TestException("INVALID_ARGUMENT", api + "() has no position; only tap() takes one");
+        }
+
         // Validation only: every capability is passed, so the engine's own check waits for the step (RequireClickModifiers below).
         var modifiers = ActionDispatcher.RequireClickModifiers(options, api, EngineCapabilities.TapModifiers);
         var label = modifiers is null ? null : Query.Describe() + " with " + string.Join('+', modifiers);

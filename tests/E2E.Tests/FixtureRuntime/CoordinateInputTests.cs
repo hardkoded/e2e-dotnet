@@ -102,6 +102,18 @@ public sealed class CoordinateInputTests
     }
 
     [Fact]
+    public void NET_only_a_position_on_a_tap_family_verb_other_than_tap_is_refused_not_dropped()
+    {
+        var (screen, _, performedAt, _) = PointerScreen();
+        var options = new TapOptions { Position = new Point(1, 1) };
+
+        var error = Assert.IsType<TestException>(Record.Exception((Action)(() => screen.GetByLabel("Pad").DoubleTapAsync(options))));
+
+        Assert.Equal("INVALID_ARGUMENT", error.Code);
+        Assert.Empty(performedAt);
+    }
+
+    [Fact]
     public async Task Fails_UNSUPPORTED_CAPABILITY_without_a_pointer_tap_before_the_locator_is_resolved()
     {
         var (screen, _, _, locates) = PointerScreen(pointer: false);
