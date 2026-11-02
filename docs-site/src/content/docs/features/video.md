@@ -11,7 +11,7 @@ With `video` on, an attempt on the web engine writes `video/video.webm` under `.
 
 ## Visual comparison
 
-`ToHaveScreenshotAsync` compares what the app shows against a PNG stored next to the test file. It works on the web engine only; `DocumentEngine` fails with `UNSUPPORTED_CAPABILITY`.
+`ToHaveScreenshotAsync` compares what the app shows against a PNG stored next to the test file. It works on the web engine and on `MobileEngine` over agent-device. `DocumentEngine` fails with `UNSUPPORTED_CAPABILITY`.
 
 ```csharp
 await Expect.That(Screen).ToHaveScreenshotAsync("checkout.png");
