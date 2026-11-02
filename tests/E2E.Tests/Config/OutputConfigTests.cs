@@ -76,7 +76,7 @@ public sealed class OutputConfigTests
             var spelled = Json("cache", new { dir = Path.Combine(link, ".e2e", "results", "cache") });
             Assert.Equal(
                 "output \".e2e\" (the default) would hold cache.dir .e2e/results/cache under results/, which the run owns; move cache.dir or the output",
-                Assert.Throws<ConfigurationException>(() => Parse(spelled, real)).Message.Replace('\\', '/'));
+                Assert.Throws<ConfigurationException>(() => Parse(spelled, real).Output).Message.Replace('\\', '/'));
             Assert.Equal(
                 $"--output {JsonSerializer.Serialize(link)} is the project root; the run clears <output>/results, so name a directory of its own, such as '.e2e'",
                 Assert.Throws<ConfigurationException>(() => Parse("{}", real).ResolveOutput(link)).Message);
@@ -135,6 +135,14 @@ public sealed class OutputConfigTests
         Assert.Equal(Path.Combine(Root, "out", "replays"), Resolve("""{ "output": "out", "cache": { "dir": "out/replays" } }""").Cache.Directory);
     }
 
+    [Fact]
+    public void Lets_output_replace_a_configured_output_that_is_refused()
+    {
+        var config = Resolve("""{ "output": "." }""");
+        Assert.Throws<ConfigurationException>(() => config.Output);
+        Assert.Equal(Path.Combine(Root, "out"), config.ResolveOutput("out"));
+    }
+
     private static string Json(string key, object value) => JsonSerializer.Serialize(new Dictionary<string, object> { [key] = value });
 
     private static E2EConfig Parse(string json, string root) => E2EConfig.Parse(json, root, Env());
@@ -144,7 +152,7 @@ public sealed class OutputConfigTests
     // The message of the failure for a config and an --output flag.
     private static string Refusal(string json, string? flag = null, Func<string, string?>? environment = null)
     {
-        var error = Assert.Throws<ConfigurationException>(() => (flag is null ? E2EConfig.Parse(json, Root, environment ?? Env()) : E2EConfig.Parse(json, Root, environment ?? Env()).ResolveOutput(flag)));
+        var error = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(json, Root, environment ?? Env()).ResolveOutput(flag));
         Assert.Equal("INVALID_CONFIG", error.Code);
         return error.Message;
     }

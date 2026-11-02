@@ -141,9 +141,10 @@ public sealed class E2EConfig
     /// <summary>
     /// The absolute directory the runs write their results to: <c>output</c>, else <c>&lt;ProjectRoot&gt;/.e2e</c>. Results go to
     /// <c>results/</c> under it, the session stores to <c>sessions/</c>, and an <c>e2e mcp</c> recording to <c>videos/</c>. Upstream's
-    /// <c>ResolvedConfig.output</c>.
+    /// <c>ResolvedConfig.output</c>. It is checked when read, not when the config loads, so <c>--output</c> can replace a configured value
+    /// that is refused (upstream checks only the one that is used). Throws <c>INVALID_CONFIG</c> for a directory the run cannot own.
     /// </summary>
-    public string Output { get; private init; } = "";
+    public string Output => ResolveOutput(null);
 
     private JsonElement? _rawOutput;
 
@@ -303,7 +304,6 @@ public sealed class E2EConfig
                 Agents = ReadAgents(Property(root, "agents")),
                 TestAssembly = OptionalString(root, "testAssembly", "testAssembly") is { } testAssembly ? Path.GetFullPath(testAssembly, projectRoot) : null,
                 Cache = cache,
-                Output = ResolveOutput(Property(root, "output"), null, projectRoot, cache),
                 _rawOutput = Property(root, "output")?.Clone(),
                 Secrets = ReadSecrets(Property(root, "secrets"), environment, credentials),
                 Credentials = credentials,
