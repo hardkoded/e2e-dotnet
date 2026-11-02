@@ -38,7 +38,7 @@ internal static partial class ExploreCommand
           --headed          show the UI while the agent explores
 
         Output:
-          --output <dir>    results directory: finding screenshots, trace pages, videos (default: .e2e/results)
+          --output <dir>    output directory: results/ holds finding screenshots and trace pages (default: output in the config, else .e2e)
           --debug           print phase timings and the agent step table to stderr (also E2E_DEBUG=1)
           --ai-trace        record every model call to ai-trace-<process id>.json next to the results directory (unbox-ai) (also E2E_AI_TRACE=1)
           --trace [mode]    keep a trace page of the exploration (bare: on); one attempt, so retry modes keep none. Modes: {MODES} (also E2E_TRACE)

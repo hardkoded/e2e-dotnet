@@ -40,7 +40,7 @@ public sealed class ExploreOptions
     /// <summary>Shows the browser window. Has no effect on an <see cref="Engine"/> of your own.</summary>
     public bool Headed { get; init; }
 
-    /// <summary>The results directory, over the default <c>.e2e/results</c> under the project root. Finding screenshots are kept under it.</summary>
+    /// <summary>The output directory (<c>--output</c>), over the config's <c>output</c>. Finding screenshots and trace pages are kept in <c>results/</c> under it (upstream's <c>output</c>).</summary>
     public string? Output { get; init; }
 
     /// <summary>
@@ -250,7 +250,7 @@ public static class Explore
                 Permissions = target.App.Permissions,
                 ProjectRoot = projectRoot,
                 TargetName = target.Name,
-                ResultsDirectory = options.Output is null ? null : Path.GetFullPath(options.Output, projectRoot),
+                ResultsDirectory = OutputLayout.Of(config.ResolveOutput(options.Output)).Results,
                 CacheEnabled = false,
                 CacheMode = CacheMode.Off,
                 TestTitle = state.Goal,

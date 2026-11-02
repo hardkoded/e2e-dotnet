@@ -7,6 +7,8 @@ namespace E2E.Internal;
 /// <summary>Upstream's <c>internal/paths.ts</c>: the part the test filters read.</summary>
 internal static class Paths
 {
+    private const int MaxLinkHops = 40;
+
     /// <summary>
     /// <paramref name="target"/> as the filesystem spells it, the way git and the current directory report a directory (upstream's
     /// <c>onDiskPath</c>): symlinks resolved and, on a case-insensitive filesystem, each name in its on-disk case, with a short
@@ -29,8 +31,51 @@ internal static class Paths
         return inside ? relative : null;
     }
 
+    /// <summary>
+    /// <paramref name="target"/> with the symlinks of its deepest existing ancestor resolved and the missing tail appended as written
+    /// (upstream's <c>realpathOfExisting</c>). A symlink whose target does not exist yet is followed too, since a write through it lands
+    /// where it points.
+    /// </summary>
+    public static string RealPathOfExisting(string target) => RealPathOfExisting(target, 0);
+
     /// <summary>Whether <paramref name="target"/> is a path strictly below the project root; see <see cref="RelativeToProjectRoot"/>.</summary>
     public static bool InsideProjectRoot(string projectRoot, string target) => RelativeToProjectRoot(projectRoot, target) is not null;
+
+    private static string RealPathOfExisting(string target, int hops)
+    {
+        var full = Path.GetFullPath(target);
+        var root = Path.GetPathRoot(full) ?? "";
+        var parts = full[root.Length..].Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries);
+        var current = root;
+        for (var index = 0; index < parts.Length; index++)
+        {
+            var next = Path.Combine(current, parts[index]);
+            FileSystemInfo entry = Directory.Exists(next) ? new DirectoryInfo(next) : new FileInfo(next);
+            string? link;
+            try
+            {
+                link = entry.LinkTarget;
+            }
+            catch (IOException)
+            {
+                link = null;
+            }
+
+            if (link is not null && hops < MaxLinkHops)
+            {
+                return RealPathOfExisting(Path.Combine([Path.GetFullPath(link, current), .. parts[(index + 1)..]]), hops + 1);
+            }
+
+            if (!entry.Exists && link is null)
+            {
+                return Path.Combine([next, .. parts[(index + 1)..]]);
+            }
+
+            current = next;
+        }
+
+        return current;
+    }
 
     private static string OnDiskPath(string target, int hops)
     {

@@ -251,6 +251,7 @@ public sealed class E2EHost : IAsyncDisposable
             BaseUrl = _target.App.Url,
             Permissions = _target.App.Permissions,
             ProjectRoot = _config.ProjectRoot,
+            ResultsDirectory = OutputLayout.Of(_config.Output).Results,
             TargetName = _target.Name,
             Cache = cacheMode == CacheMode.Off ? null : new FileStepCache(_config.Cache.Directory),
             CacheEnabled = cacheMode != CacheMode.Off,

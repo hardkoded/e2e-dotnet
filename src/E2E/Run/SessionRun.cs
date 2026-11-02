@@ -20,15 +20,16 @@ internal static class SessionRun
     private static readonly Lock Gate = new();
     private static readonly Dictionary<string, SessionStore> Stores = new(StringComparer.Ordinal);
 
-    /// <summary>The store of this run for a project root, whose <c>.e2e/sessions</c> directory holds it.</summary>
-    public static SessionStore Store(string projectRoot)
+    /// <summary>The store of this run for a project root and output, whose output directory (<c>.e2e</c> by default) holds it in <c>sessions/</c>.</summary>
+    public static SessionStore Store(string projectRoot, string? output = null)
     {
         var root = Path.GetFullPath(projectRoot);
+        var directory = OutputLayout.Of(output ?? Path.Combine(root, ".e2e")).Sessions;
         lock (Gate)
         {
-            if (!Stores.TryGetValue(root, out var store))
+            if (!Stores.TryGetValue(directory, out var store))
             {
-                Stores[root] = store = SessionStore.Create(AttemptReport.RunId, Path.Combine(root, ".e2e", "sessions"));
+                Stores[directory] = store = SessionStore.Create(AttemptReport.RunId, directory);
             }
 
             return store;

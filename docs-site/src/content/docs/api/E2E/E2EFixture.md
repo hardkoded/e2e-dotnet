@@ -471,7 +471,7 @@ protected virtual string? ResultsDirectory { get; }
 ```
 
 
-Where a failed screenshot comparison puts its diff, actual, and expected images. Defaults to `.e2e/results` under [ProjectRoot](#E2E_E2EFixture_ProjectRoot).
+Where a failed screenshot comparison puts its diff, actual, and expected images. Defaults to `results` under the config's `output` (`.e2e` by default).
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

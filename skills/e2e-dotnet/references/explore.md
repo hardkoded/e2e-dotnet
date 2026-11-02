@@ -101,7 +101,7 @@ there, since `e2e.config.json` names only a provider and a model id.
 | `--max-steps <n>` | 8 (1 to 12) | Exploration steps at most. |
 | `--timeout <ms>` | 600000 (180000 to 900000) | Wall clock; the last minute is for the assessment. |
 | `--headed` | off | Show the browser while the agent explores. |
-| `--output <dir>` | `.e2e/results` | Where finding screenshots, trace pages, and videos are kept. |
+| `--output <dir>` | `output` in the config, else `.e2e` | The output directory: finding screenshots and trace pages are kept in `results/` under it. It follows the config's `output` rules (inside the project, not the root, apart from the cache). |
 | `--debug` | off | Print the phase timings and the agent step table to stderr. `E2E_DEBUG=1` does the same. |
 | `--ai-trace` | off | Record every model call to `ai-trace-<process id>.json` next to the results directory (`.e2e/`), for `npx unbox-ai`. `E2E_AI_TRACE=1` does the same. |
 | `--trace [mode]` | the config's `trace`, else `retain-on-failure` | Which attempts keep a trace page, `<output>/<result>/trace.md`. A bare flag is `on`. `E2E_TRACE` sets it too. |
@@ -132,8 +132,8 @@ with `Findings` and `Steps`. Severity words: critical 5, high 4, medium 3,
 low 2, trivial 1. The exit code is the verdict's: 0 when no issue was reported
 (warnings do not count), 1 for an issue or nothing explored, 2 for a
 configuration or policy error, 3 for an engine, app, or model provider
-failure, and 130 when interrupted. `.e2e/report.json` (beside the results
-directory, so `--output out/results` gives `out/report.json`) has the record under `run.explore`: the goal, the budgets, why the
+failure, and 130 when interrupted. `.e2e/report.json` (in the output
+directory, so `--output out` gives `out/report.json`) has the record under `run.explore`: the goal, the budgets, why the
 run ended, the steps, and the findings. A finding's `artifactId` is left out:
 the port names the screenshot by its path, in the terminal and in `ExploreOutcome`.
 
@@ -178,8 +178,8 @@ when it did not pass. A finding carries `Step`, `Path`, `ObservationRevision`, a
 the capture the finding tool took when it reported the finding (its own capture,
 as upstream, so no agent step records the same value). `ArtifactId` is the path, relative to the project root, of
 the evidence screenshot, which lands under
-`.e2e/results/<result>/attempt-1/screenshots/` (`Output` changes the results
-directory). The exploration is a test of the virtual file `explore`, so
+`.e2e/results/<result>/attempt-1/screenshots/` (`Output` changes the output
+directory they are under). The exploration is a test of the virtual file `explore`, so
 `<result>` starts with `explore-` and the goal's words, as
 `explore-the-checkout-flow-1a2b3c4d5e6f7a8b`. A finding keeps its screenshot after a secret fill too; the screenshot masks secure fields only.
 

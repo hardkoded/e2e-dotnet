@@ -377,7 +377,7 @@ internal sealed class SessionHost : IDisposable
 
             var attemptDir = session.App.ArtifactsDir ?? config.ProjectRoot;
             var live = new LiveSession(id, target.Name, configPath, headed, engine, attempt, abort, apps) { TestFailure = ran?.Failure, CleanupTimeout = config.CleanupTimeout };
-            live.Recorder = !engine.Capabilities.HasFlag(EngineCapabilities.Video) ? null : new SessionRecorder(session.Engine.StartVideoAsync, session.Engine.StopVideoAsync, attemptDir, Path.Combine(config.ProjectRoot, ".e2e", "videos", id), config.CleanupTimeout, () => live.SecretFilled);
+            live.Recorder = !engine.Capabilities.HasFlag(EngineCapabilities.Video) ? null : new SessionRecorder(session.Engine.StartVideoAsync, session.Engine.StopVideoAsync, attemptDir, OutputLayout.Of(config.Output).Videos(id), config.CleanupTimeout, () => live.SecretFilled);
             live.Catalog = SessionCatalog.Create(
                 live,
                 engine.Capabilities,
