@@ -14,9 +14,18 @@ namespace E2E;
 /// </summary>
 internal interface ISessionTestRunner
 {
+    /// <summary>
+    /// The tests that <paramref name="name"/> selects in <paramref name="tests"/>, without running any: none for a name that selects nothing,
+    /// several for a class or a parameterized method. Upstream's <c>selectStandaloneTest</c> collects the same way.
+    /// </summary>
+    IReadOnlyList<SessionTestInfo> Select(Assembly tests, string name);
+
     /// <summary>Runs the test named <paramref name="name"/> in <paramref name="tests"/>; null when no test has that name.</summary>
     Task<SessionTestOutcome?> RunAsync(Assembly tests, string name, CancellationToken cancellationToken);
 }
+
+/// <summary>A test <see cref="ISessionTestRunner.Select"/> found: its full name, and why a session cannot run it alone (null when it can).</summary>
+internal sealed record SessionTestInfo(string FullName, string? Unsupported);
 
 /// <summary>A test run for a session: its live session and engine, the test's name, and its failure, null when it passed.</summary>
 internal sealed record SessionTestOutcome(string TestName, E2ESession Session, IEngine Engine, Exception? Failure);

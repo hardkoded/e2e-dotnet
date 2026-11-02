@@ -32,6 +32,39 @@ internal static class SessionTests
         }
     }
 
+    /// <summary>Tests a <c>TEST_AMBIGUOUS</c> message names before it counts the rest (upstream's <c>MAX_LISTED_TESTS</c>).</summary>
+    private const int MaxListedTests = 10;
+
+    /// <summary>
+    /// Checks that <paramref name="name"/> selects exactly one test a session can run alone, before anything boots: <c>NO_TESTS</c> for none,
+    /// <c>TEST_AMBIGUOUS</c> for several, and <c>SESSION_TEST_UNSUPPORTED</c> for one that starts from a saved session. Upstream's
+    /// <c>selectStandaloneTest</c> (it names tests as <c>file:line</c>; the port names them by full name, and a test's target is its fixture's).
+    /// </summary>
+    public static void SelectOne(ISessionTestRunner runner, Assembly tests, string name, string assembly)
+    {
+        ArgumentNullException.ThrowIfNull(runner);
+        var selected = runner.Select(tests, name);
+        if (selected.Count == 0)
+        {
+            throw new ConfigurationException("NO_TESTS", "no test named \"" + name + "\" in " + assembly + "; use the full name, Namespace.Class.Method");
+        }
+
+        if (selected.Count > 1)
+        {
+            var listed = selected.Take(MaxListedTests).Select(test => "\"" + test.FullName + "\"").ToList();
+            var rest = selected.Count - listed.Count;
+            throw new ConfigurationException(
+                "TEST_AMBIGUOUS",
+                "\"" + name + "\" selects " + selected.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + " tests, and a session runs one; name it by its full name: "
+                    + string.Join(", ", listed) + (rest > 0 ? ", and " + rest.ToString(System.Globalization.CultureInfo.InvariantCulture) + " more" : string.Empty));
+        }
+
+        if (selected[0].Unsupported is { } reason)
+        {
+            throw new ConfigurationException("SESSION_TEST_UNSUPPORTED", reason);
+        }
+    }
+
     private static IEnumerable<Type> TypesOf(Assembly assembly)
     {
         try
