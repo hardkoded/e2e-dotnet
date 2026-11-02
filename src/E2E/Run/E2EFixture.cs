@@ -72,9 +72,10 @@ public abstract class E2EFixture
     protected virtual IStepExecutor? AgentExecutor => null;
 
     /// <summary>
-    /// <c>artifacts.store</c>: the host store every produced artifact is handed to. None by default: a store is code, so the config file cannot name one.
+    /// <c>artifacts.store</c>: the host store every produced artifact is handed to. None by default: a store is code, so the config file cannot name one
+    /// (<see cref="E2EConfig.WithArtifactStore"/> sets it on the config, or override this).
     /// </summary>
-    protected virtual IArtifactStore? ArtifactStore => null;
+    protected virtual IArtifactStore? ArtifactStore => Config.ArtifactStore;
 
     /// <summary><c>agents.default.context</c>: project context told to every model call.</summary>
     protected virtual string? AgentContext => Config.Agent.Context;
@@ -111,6 +112,9 @@ public abstract class E2EFixture
 
     /// <summary><c>cache.dir</c>, resolved against the config directory.</summary>
     protected virtual string CacheDirectory => Config.Cache.Directory;
+
+    /// <summary><c>cache.store</c>: the store that replaces the file store at <see cref="CacheDirectory"/>. None by default; <see cref="E2EConfig.WithCacheStore"/> sets it on the config.</summary>
+    protected virtual IStepCache? CacheStore => Config.Cache.Store;
 
     /// <summary><c>cache.mode</c>. Unset, it is read-write locally and read-only in CI.</summary>
     protected virtual CacheMode CacheMode => Config.Cache.Mode;
@@ -252,7 +256,7 @@ public abstract class E2EFixture
                 TargetName = TargetName,
                 UpdateSnapshots = UpdateSnapshots,
                 ResultsDirectory = ResultsDirectory,
-                Cache = cacheMode == CacheMode.Off ? null : new FileStepCache(CacheDirectory),
+                Cache = cacheMode == CacheMode.Off ? null : CacheStore ?? new FileStepCache(CacheDirectory),
                 CacheEnabled = cacheMode != CacheMode.Off,
                 CacheMode = cacheMode,
                 CacheStrict = CacheStrict,

@@ -165,7 +165,8 @@ protected virtual IArtifactStore? ArtifactStore { get; }
 ```
 
 
-`artifacts.store`: the host store every produced artifact is handed to. None by default: a store is code, so the config file cannot name one.
+`artifacts.store`: the host store every produced artifact is handed to. None by default: a store is code, so the config file cannot name one
+([WithArtifactStore(IArtifactStore)](/api/E2E/E2EConfig/#E2E_E2EConfig_WithArtifactStore_E2E_IArtifactStore_) sets it on the config, or override this).
 
 **Value:** [IArtifactStore](/api/E2E/IArtifactStore/)
 
@@ -239,6 +240,21 @@ protected virtual CacheMode CacheMode { get; }
 `cache.mode`. Unset, it is read-write locally and read-only in CI.
 
 **Value:** [CacheMode](/api/E2E/CacheMode/)
+
+<a id="E2E_E2EFixture_CacheStore_"></a>
+<a id="E2E_E2EFixture_CacheStore"></a>
+
+### CacheStore
+
+
+```csharp
+protected virtual IStepCache? CacheStore { get; }
+```
+
+
+`cache.store`: the store that replaces the file store at [CacheDirectory](#E2E_E2EFixture_CacheDirectory). None by default; [WithCacheStore(IStepCache)](/api/E2E/E2EConfig/#E2E_E2EConfig_WithCacheStore_E2E_IStepCache_) sets it on the config.
+
+**Value:** [IStepCache](/api/E2E/IStepCache/)
 
 <a id="E2E_E2EFixture_CacheStrict_"></a>
 <a id="E2E_E2EFixture_CacheStrict"></a>
