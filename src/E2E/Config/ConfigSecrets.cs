@@ -28,7 +28,7 @@ internal static class ConfigSecrets
     }
 }
 
-/// <summary>One <c>config.credentials</c> entry, resolved (upstream's <c>ResolvedCredential</c>): an account whose password is the secret <c>&lt;name&gt;.password</c>.</summary>
+/// <summary>One <c>config.credentials</c> entry, resolved (upstream's <c>ResolvedCredential</c>): an account whose password is the secret <c>{name}.password</c>.</summary>
 /// <param name="Name">The entry's name in <c>credentials</c>.</param>
 /// <param name="Username">The username from <c>E2E_USER_&lt;NAME&gt;_USERNAME</c> or the config.</param>
 /// <param name="Password">The password from <c>E2E_USER_&lt;NAME&gt;_PASSWORD</c> or the config, named <c>&lt;name&gt;.password</c>.</param>

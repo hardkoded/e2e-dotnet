@@ -1,6 +1,6 @@
 ---
 title: "ResolvedCredential"
-description: "One config.credentials entry, resolved (upstream's ResolvedCredential): an account whose password is the secret <name>.password."
+description: "One config.credentials entry, resolved (upstream's ResolvedCredential): an account whose password is the secret {name}.password."
 editUrl: false
 prev: false
 next: false
@@ -19,7 +19,7 @@ public sealed record ResolvedCredential : IEquatable<ResolvedCredential>
 ```
 
 
-One `config.credentials` entry, resolved (upstream's `ResolvedCredential`): an account whose password is the secret `<name>.password`.
+One `config.credentials` entry, resolved (upstream's `ResolvedCredential`): an account whose password is the secret `{name}.password`.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
@@ -40,7 +40,7 @@ public ResolvedCredential(string Name, string Username, Secret Password)
 ```
 
 
-One `config.credentials` entry, resolved (upstream's `ResolvedCredential`): an account whose password is the secret `<name>.password`.
+One `config.credentials` entry, resolved (upstream's `ResolvedCredential`): an account whose password is the secret `{name}.password`.
 
 **Parameters**
 

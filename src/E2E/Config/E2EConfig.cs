@@ -667,7 +667,7 @@ public sealed class E2EConfig
     {
         if (credential.ValueKind != JsonValueKind.Object)
         {
-            throw Invalid("credential \"" + name + "\" must be an object of { username, password }, got " + Command.DescribeValue(credential));
+            throw Invalid("credential \"" + name + "\" must be an object of { username, password }, got " + KindOf(credential));
         }
 
         foreach (var property in credential.EnumerateObject())
@@ -681,9 +681,23 @@ public sealed class E2EConfig
 
         if (Property(credential, "username") is { ValueKind: not JsonValueKind.String } username)
         {
-            throw Invalid("credential \"" + name + "\" username must be a string, got " + Command.DescribeValue(username));
+            throw Invalid("credential \"" + name + "\" username must be a string, got " + KindOf(username));
         }
     }
+
+    /// <summary>
+    /// The kind of a JSON value, never its content: a credential entry written as a bare string may be the password. Upstream's
+    /// <c>describeValue</c> quotes the value here; a message that holds a secret is worse than one that names the kind.
+    /// </summary>
+    private static string KindOf(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.String => "a string",
+        JsonValueKind.Number => "a number",
+        JsonValueKind.True or JsonValueKind.False => "a boolean",
+        JsonValueKind.Null => "null",
+        JsonValueKind.Array => "an array",
+        _ => "an object",
+    };
 
     /// <summary>
     /// Two entries of one namespace whose names map to the same override variable (<c>api-key</c> and <c>api_key</c> both read

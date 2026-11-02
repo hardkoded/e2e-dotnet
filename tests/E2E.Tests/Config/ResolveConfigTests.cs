@@ -261,14 +261,14 @@ public sealed class ResolveConfigTests
         Assert.Matches("credential \"admin\" has no username; set username or E2E_USER_ADMIN_USERNAME", error.Message);
     }
 
-    /// <summary>Partial: a JSON config has no provider function, so a number stands for the function and the message leaves out "; only password may be a provider function".</summary>
+    /// <summary>Partial: a JSON config has no provider function, so a number stands for the function and the message leaves out "; only password may be a provider function". The message names the kind of the value (<c>a number</c>, <c>a string</c>), where upstream quotes it, because a bare string entry may be the password.</summary>
     [Fact]
     public void Partial_Rejects_a_credential_username_that_is_not_a_string_an_unknown_credential_key_and_a_non_object_credential()
     {
         var username = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(
             """{ "credentials": { "admin": { "username": 42, "password": "admin-pass" } } }""", Root, Env()));
         Assert.Equal("INVALID_CONFIG", username.Code);
-        Assert.Equal("credential \"admin\" username must be a string, got 42", username.Message);
+        Assert.Equal("credential \"admin\" username must be a string, got a number", username.Message);
 
         var key = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse(
             """{ "credentials": { "admin": { "username": "admin", "password": "admin-pass", "usename": "admin" } } }""", Root, Env()));
@@ -276,6 +276,9 @@ public sealed class ResolveConfigTests
 
         var nonObject = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "credentials": { "admin": null } }""", Root, Env()));
         Assert.Matches("credential \"admin\" must be an object of \\{ username, password \\}, got null", nonObject.Message);
+
+        var bare = Assert.Throws<ConfigurationException>(() => E2EConfig.Parse("""{ "credentials": { "admin": "hunter2-pass" } }""", Root, Env()));
+        Assert.Equal("credential \"admin\" must be an object of { username, password }, got a string", bare.Message);
     }
 
     [Fact]
