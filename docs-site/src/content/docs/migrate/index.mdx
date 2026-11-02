@@ -1,0 +1,63 @@
+---
+title: Migrating to e2e
+description: Move a Playwright .NET, Selenium .NET, Cypress, Detox, Maestro, or TesterArmy suite to e2e one test at a time.
+---
+
+This page ports upstream's migration overview (`docs/migrate/index.mdx` in tester-army/e2e at `7b1b8b27`, from tester-army/e2e#1441). A migration guide maps one test runner's config, API, and commands to e2e. It also marks what e2e does not have yet, with a workaround where there is one. A test with no workaround stays in the old runner. Keep the old suite installed while you move one test at a time, so both suites stay green.
+
+## Pick your runner
+
+- [Playwright .NET](/migrate/playwright/): web. Every context option, `Page` call, and test attribute, mapped to NUnit and xUnit tests.
+- [Cypress](/migrate/cypress/): web. Command chains become async C# tests. Your `data-cy` attributes stay.
+- [Selenium .NET](/migrate/selenium/): web. WebDriver calls and page objects, rewritten in C#.
+- [Detox](/migrate/detox/): mobile. Your app build and testIDs, with no Detox framework.
+- [Maestro](/migrate/maestro/): mobile. YAML flows become C# tests.
+- [TesterArmy](/migrate/testerarmy/): web and mobile. Saved tests become agent steps in your repository.
+
+## Move one test at a time
+
+Install e2e with the [web guide](/get-started/web/) or the [mobile guide](/get-started/mobile/) first. Only agent steps need a model.
+
+e2e tests are NUnit or xUnit v3 tests that derive from `E2ETest` (or `MobileAppTest` for a device) and run with `dotnet test`. Upstream's tests run in Node, so the port needs a .NET test project for every source runner. For a Cypress, Detox, Maestro, or TesterArmy suite, create a new test project beside the old suite.
+
+Each guide follows the same steps:
+
+1. Port the config. The old runner's base URL, app command, and devices become a target in `e2e.config.json`.
+2. Rewrite one test as a test method in the e2e test project. The two runners must not collect each other's tests, so keep the old suite and the e2e project apart: `dotnet test` on the solution runs both.
+3. Run the new test with `dotnet test --filter "FullyQualifiedName~<name>"` until it passes.
+4. Delete the old test when you trust the new one.
+
+Choose the test framework to match the source project. A Playwright .NET suite that uses NUnit moves to `E2E.NUnit`. One that uses xUnit moves to `E2E.XUnit.V3`. The test bodies read the same in both. The framework owns the attributes, the setup, and the filter syntax: see [NUnit and xUnit](#nunit-and-xunit).
+
+## NUnit and xUnit
+
+Upstream's runner owns `test`, `describe`, hooks, tags, retries, and workers. The port has no runner of its own for tests: the framework owns them. Each guide shows the NUnit and the xUnit form where they differ.
+
+| Upstream | NUnit (`E2E.NUnit`) | xUnit v3 (`E2E.XUnit.V3`) |
+| --- | --- | --- |
+| `test(title, fn)` | `[Test]` | `[Fact]` |
+| `describe(title, fn)` | a test class | a test class |
+| `beforeEach`, `afterEach` | `[SetUp]`, `[TearDown]` | the constructor and `InitializeAsync`, `DisposeAsync` |
+| `{ tags: ['smoke'] }` | `[Category("smoke")]` | `[Trait("TestCategory", "smoke")]` |
+| `--tag smoke` | `dotnet test --filter "TestCategory=smoke"` | `dotnet test --filter "TestCategory=smoke"` |
+| `{ retries: 2 }` | `[Retry(2)]` | none: xUnit v3 has no retry attribute |
+| `test.setup` and `{ session }` | `[E2ESetup]` and `[E2ESession]` | `[E2ESetup]` and `[E2ESession]` |
+
+See [Web](/get-started/web/) and the skill topics `writing-tests-nunit` and `writing-tests-xunit` for the full forms.
+
+## Let an agent migrate the suite
+
+To move one test with a coding agent, copy the agent prompt at the top of your runner's guide. For a migration over many sessions, use the `migrate-to-e2e` skill. It records progress in a `MIGRATION.md` file and keeps the old suite running. See [Coding agents](/coding-agents/#migrate-an-existing-suite).
+
+## Migrate from a runner with no guide
+
+WebdriverIO and Appium have no guide. Map WebDriver calls with the [Selenium .NET](/migrate/selenium/) guide. Map Appium device commands with the [Detox](/migrate/detox/) and [Maestro](/migrate/maestro/) guides, on the [mobile engine](/get-started/mobile/). These mappings are partial: no guide covers the WebdriverIO or Appium APIs themselves.
+
+## What the port does not have
+
+Upstream's guides name `e2e run`, `e2e list`, `e2e feedback`, `e2e.config.ts`, and a TypeScript project. The port has none of them. The guides here use `dotnet test`, `e2e.config.json`, and C#. Each guide lists the rest as `missing` or `by design`. [COMPATIBILITY.md](/compatibility/#verification-skill) names every difference.
+
+## Next
+
+- [Core concepts](/get-started/core-concepts/): goals, assertions, and locators instead of scripted selectors.
+- [Coding agents](/coding-agents/): the e2e skill, the MCP server, and how an agent writes a test.

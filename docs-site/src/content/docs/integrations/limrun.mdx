@@ -38,6 +38,32 @@ var options = new MobileOptions
 
 For Android, use `MobilePlatform.Android`, the app's package name as `BundleId`, and an APK as `AppPath`. The provider installs the build before tests start. With `MobileAppTest`, set `E2E_MOBILE_PROVIDER=limrun` instead; see [Mobile](/get-started/mobile/).
 
+## Test an app flow
+
+Use stable test IDs and visible text to fill forms and check their results. This test corrects an empty submission and saves a screenshot of the greeting. It ports `docs/examples/limrun/greeting.e2e.ts` from upstream, for the greeting form of [`samples/MobileApp`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp):
+
+```csharp title="GreetingTests.cs"
+using E2E.Mobile.NUnit;
+
+public sealed class GreetingTests : MobileAppTest
+{
+    [Test]
+    public async Task Corrects_an_empty_submission()
+    {
+        await Screen.GetByTestId("greet").TapAsync();
+        await Expect.That(Screen.GetByTestId("error")).ToHaveTextAsync("Enter a name first.");
+
+        await Screen.GetByTestId("name").FillAsync("Ada");
+        await Screen.GetByTestId("greet").TapAsync();
+        await Expect.That(Screen.GetByTestId("greeting")).ToHaveTextAsync("Hello, Ada!");
+        await Expect.That(Screen.GetByTestId("error")).ToBeHiddenAsync();
+        await App.ScreenshotAsync("greeting");
+    }
+}
+```
+
+`MobileAppTest` launches the app before each test, so the test needs no `App.OpenAsync()`. Run it on Limrun with `E2E_MOBILE_PROVIDER=limrun dotnet test`.
+
 ## Choose device options
 
 `LimrunSimulatorsOptions` sets:
@@ -62,4 +88,4 @@ Test the locators and libraries your app uses on its target runtime. [`samples/M
 
 ## Differences from upstream
 
-Upstream's page links to its `examples/with-limrun` app-flow example, a SwiftUI and a Compose app with five shared tests. The port does not have it; `samples/MobileApp` is its mobile example. See [COMPATIBILITY.md](/compatibility/#mobileapptest-not-in-upstream).
+Upstream's page links to Limrun's runnable app-flow example, a repository with a SwiftUI and a Compose app and five shared tests. The port does not have it; `samples/MobileApp` is its mobile example, with the same greeting flow. See [COMPATIBILITY.md](/compatibility/#limrun).

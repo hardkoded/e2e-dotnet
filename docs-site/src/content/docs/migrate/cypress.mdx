@@ -1,0 +1,148 @@
+---
+title: From Cypress
+description: Replace Cypress command chains with async C# tests and keep your data-cy attributes.
+---
+
+This guide ports upstream's `docs/migrate/cypress.mdx` (tester-army/e2e at `7b1b8b27`, tester-army/e2e#1441). Cypress runs in Node and the port runs in .NET, so a Cypress project gets a new .NET test project beside it. Cypress component testing has no e2e equivalent: leave those specs in Cypress.
+
+e2e replaces Cypress command chains with async C# tests that run with `dotnet test`. Both suites can stay in the repository while you move one spec at a time.
+
+## Agent prompt
+
+```text
+Migrate this project's Cypress tests to e2e, one spec at a time. Docs: the "From Cypress" page of the e2e-dotnet docs site (docs-site/src/content/docs/migrate/cypress.mdx).
+
+1. Read the migration guide. It maps Cypress config, commands, and assertions to e2e.
+2. Ask me where the .NET test project should live and whether to use NUnit or xUnit v3. If the repository has none, create it (dotnet new nunit, or xunit3) and run `e2e init --yes` there. It writes e2e.config.json and installs the skill. It creates no test project and edits no .csproj.
+3. Read the e2e skill (`e2e guide` prints it, `e2e guide <topic>` prints a topic) and follow it for every step below.
+4. If you ran init, ask me which model to use for agent steps. If it needs a sign-in, give me the `e2e login <provider>` command and wait until I confirm.
+5. Port cypress.config.* into e2e.config.json: baseUrl and the dev server command become the target's app, and if the specs select by data-cy, set WebEngineOptions.TestIdAttribute = "data-cy" so Screen.GetByTestId reads it. Keep Cypress installed while both suites run.
+6. List the Cypress end-to-end specs and ask me which one to move first. Suggest one that breaks often or waits with cy.wait(ms). Component tests have no e2e equivalent; leave them in Cypress.
+7. Rewrite that spec as a test class that derives from E2ETest with the guide's tables, one awaited call per line. Where cy.contains matched a fragment, pass exact: false. Replace each cy.wait(ms) with an assertion on the state the test waits for.
+8. Keep navigation and the final assertions deterministic, with App.OpenAsync and Expect.That. Where a run of scripted interactions breaks often, propose an Agent.ActAsync goal for it instead.
+9. Run the new class with `dotnet test --filter` and fix it until it passes. Keep the Cypress spec until I confirm it can go.
+10. Summarize which tests moved, which stayed in Cypress, and why.
+```
+
+For a migration that spans several sessions, the `migrate-to-e2e` skill records what moved in a progress file and keeps the old suite running until you retire each test. See [Coding agents](/coding-agents/#migrate-an-existing-suite).
+
+## Port the config
+
+Install e2e and configure a model with the [web guide](/get-started/web/). The example below uses an agent call.
+
+Keep your `data-cy` attributes. The engine option below reads them as test ids.
+
+| Cypress | e2e |
+| --- | --- |
+| `baseUrl` | `app.url` on the target |
+| `start-server-and-test` | `app.url` with `app.command`, see [Web](/get-started/web/) |
+| `viewportWidth`, `viewportHeight` | `WebEngineOptions.Viewport` |
+| `data-cy` selectors | `WebEngineOptions.TestIdAttribute = "data-cy"`, then `Screen.GetByTestId` |
+| `retries` | NUnit `[Retry]`; xUnit v3 has no retry attribute |
+| `env`, `Cypress.env()` | `Environment.GetEnvironmentVariable` |
+| `cypress.env.json` secrets | `credentials` and `secrets`, see [Signing in](/features/signing-in/) |
+| `cypress run --browser firefox` | A second target with `WebEngineOptions.BrowserName = BrowserName.Firefox` |
+| Component testing | No equivalent |
+
+```json title="e2e.config.json"
+{
+  "targets": [{ "name": "web", "platform": "web", "app": { "url": "http://localhost:3000" } }]
+}
+```
+
+```csharp title="TodoTests.cs"
+using E2E.NUnit;
+
+public sealed class TodoTests : E2ETest
+{
+    protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
+    {
+        TestIdAttribute = "data-cy",
+    });
+}
+```
+
+## Rewrite one spec
+
+Start with a spec that often breaks.
+
+```js title="Cypress"
+describe('todos', () => {
+  it('completes one', () => {
+    cy.visit('/todos');
+    cy.get('[data-cy=new-todo]').type('Buy milk{enter}');
+    cy.get('[data-cy=new-todo]').type('Walk the dog{enter}');
+    cy.contains('li', 'Buy milk').find('[data-cy=toggle]').click();
+    cy.get('[data-cy=todo]').should('have.length', 2);
+    cy.contains('1 item left').should('be.visible');
+  });
+});
+```
+
+```csharp title="e2e (NUnit)"
+using E2E.NUnit;
+
+public sealed class TodoTests : E2ETest
+{
+    protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions { TestIdAttribute = "data-cy" });
+
+    [Test]
+    [Category("RealModel")]
+    public async Task Completes_one()
+    {
+        await App.OpenAsync("/todos");
+        await Agent.ActAsync("add todos \"Buy milk\" and \"Walk the dog\"");
+        await Expect.That(Screen.GetByTestId("todo")).ToHaveCountAsync(2);
+        await Agent.ActAsync("complete \"Buy milk\"");
+        await Expect.That(Screen.GetByText("1 item left")).ToBeVisibleAsync();
+    }
+}
+```
+
+For xUnit v3, use `E2E.XUnit.V3`, `[Fact]`, and `[Trait("TestCategory", "RealModel")]`.
+
+## Map each command
+
+| Cypress | e2e |
+| --- | --- |
+| `cy.visit(path)` | `App.OpenAsync(path)` |
+| `cy.get('[data-cy=x]')` | `Screen.GetByTestId("x")` |
+| `cy.get('css')` | `Browser.Locator("css")`, not portable; prefer a role or label |
+| `cy.contains('text')` | `Screen.GetByText("text", exact: false)` |
+| `cy.contains('li', 'text')` | `Screen.GetByRole("listitem").Filter("text")` |
+| `.find()`, `.within()` | Chain a query off the locator: `row.GetByRole(...)` |
+| `.first()`, `.eq(n)` | `.First()`, `.Nth(n)` |
+| `.click()`, `.dblclick()`, `.rightclick()` | `.TapAsync()`, `.DoubleTapAsync()` (or `.DblClickAsync()`), `.SecondaryTapAsync()` |
+| `.type('text')` | `.FillAsync("text")` replaces the content |
+| `.type('{enter}')` | `.PressAsync("Enter")` |
+| `.clear()`, `.check()`, `.select()` | `.ClearAsync()`, `.CheckAsync()`, `.SelectOptionAsync()` |
+| `.selectFile()` | `.SetInputFilesAsync()` |
+| `.should('be.visible')` | `await Expect.That(locator).ToBeVisibleAsync()` |
+| `.should('have.text', t)`, `.should('contain', t)` | `.ToHaveTextAsync(t)`, `.ToContainTextAsync(t)` |
+| `.should('have.length', n)` | `.ToHaveCountAsync(n)` |
+| `.should('have.value', v)` | `.ToHaveValueAsync(v)` |
+| `.should('not.exist')` | `.ToHaveCountAsync(0)`; `ToBeHiddenAsync()` also accepts a node that is still in the DOM |
+| `cy.url().should('include', p)` | `Expect.That(Browser).ToHaveURLAsync(new Regex("p"))` |
+| `cy.title()` | `Expect.That(Browser).ToHaveTitleAsync(...)` |
+| `cy.intercept(url, body)` | `Browser.RouteAsync(url, route => route.FulfillAsync(new RouteFulfillResponse { Json = body }))` |
+| `cy.wait('@alias')` | `Browser.WaitForResponseAsync(url)` |
+| `cy.on('window:confirm')` | `Browser.OnDialogAsync(DialogHandler.Accept)` |
+| `cy.window()`, `cy.document()` | `Browser.EvaluateAsync<T>(...)` |
+| `cy.setCookie` | `Browser.SetCookiesAsync` |
+| `cy.viewport` | `Browser.SetViewportAsync` |
+| `cy.session` | `[E2ESetup]` and `[E2ESession]` |
+| `cy.task`, `cy.exec`, `cy.request` | .NET code: `HttpClient`, `File`, your database client |
+| `cy.fixture` | a file read in the test, such as `File.ReadAllTextAsync` |
+| `Cypress.Commands.add` | A method on the test class or a base class |
+| `cy.wait(ms)` | Use a locator assertion for the condition you need |
+| `cypress open` | `E2E_HEADLESS=0 dotnet test`, plus `E2E_DEBUG=1` for the step table |
+
+Two things differ from Cypress:
+
+- There is no chain. Await each call on its own line. It returns a value: `var text = await locator.TextContentAsync();`.
+- Actions and single-node reads and assertions need one match. Several fail with `LOCATOR_AMBIGUOUS`. Narrow with `Filter(...)`, `First()`, or `Nth(n)`.
+
+## Next
+
+- [Core concepts](/get-started/core-concepts/): goals, assertions, and locators instead of scripted selectors.
+- [Working with the browser](/features/browser/): hosted browsers and CDP recovery.

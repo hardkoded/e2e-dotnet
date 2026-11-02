@@ -15,7 +15,7 @@ agent's, starts from it instead of from scratch. The user decides when an old te
 This is the .NET port's version of upstream's `migrate-to-e2e`. The e2e
 tests are NUnit or xUnit v3 tests that derive from `E2ETest`, run with
 `dotnet test`. The port has no `e2e run`, `e2e list`, or
-`e2e feedback`, and its `e2e init` does not create a test project, and no per-runner migration guides.
+`e2e feedback`, and its `e2e init` does not create a test project.
 
 One reference does most of the work. Read it; do not restate it.
 
@@ -25,25 +25,29 @@ One reference does most of the work. Read it; do not restate it.
   `writing-tests-nunit`, `writing-tests-xunit`, `agent`, `mcp`, `running`,
   `debugging`, `mobile`, `windows`) are its reference files.
 
-Detect the source runner, then read the topics in its row in full, before
-the inventory and before writing any code.
+Detect the source runner, then read the guide and the topics in its row in
+full, before the inventory and before writing any code. A guide maps the
+runner's config, API, and commands to e2e and marks what has no port. It is a
+page of the docs site at `https://www.hardkoded.com/e2e-dotnet/migrate/<guide>/`
+(`docs-site/src/content/docs/migrate/<guide>.mdx` in a clone of the repo).
 
-| Source | Detect it by | Engine topic |
-| --- | --- | --- |
-| Playwright .NET | `Microsoft.Playwright.NUnit`, `Microsoft.Playwright.Xunit`, or `Microsoft.Playwright` in a `.csproj` | `setup` (web) |
-| Selenium .NET | `Selenium.WebDriver` in a `.csproj` | `setup` (web) |
-| Playwright or Cypress (Node) | `playwright.config.*`, `cypress.config.*`, a `cypress/` folder | `setup` (web) |
-| Appium, Detox, Maestro | `Appium.WebDriver` in a `.csproj`, `.detoxrc*`, YAML flows opening with `appId:` and `---` | `mobile` |
-| TesterArmy | `testerarmy` MCP tools, a `testerarmy` entry in an MCP config, `testerarmy` or `tester.army` in a script or workflow, or the user says so | `setup` (web) or `mobile`, by the project's type |
+| Source | Detect it by | Guide | Engine topic |
+| --- | --- | --- | --- |
+| Playwright .NET | `Microsoft.Playwright.NUnit`, `Microsoft.Playwright.Xunit`, or `Microsoft.Playwright` in a `.csproj` | `playwright` | `setup` (web) |
+| Selenium .NET | `Selenium.WebDriver` in a `.csproj` | `selenium` | `setup` (web) |
+| Playwright or Cypress (Node) | `playwright.config.*`, `cypress.config.*`, a `cypress/` folder | `cypress` for Cypress; `playwright` for Playwright, with Node names for .NET ones | `setup` (web) |
+| Detox, Maestro | `.detoxrc*`, YAML flows opening with `appId:` and `---` | `detox`, `maestro` | `mobile` |
+| Appium | `Appium.WebDriver` in a `.csproj` | none: map the device commands with `detox` and `maestro` | `mobile` |
+| TesterArmy | `testerarmy` MCP tools, a `testerarmy` entry in an MCP config, `testerarmy` or `tester.army` in a script or workflow, or the user says so | `testerarmy` | `setup` (web) or `mobile`, by the project's type |
 
 Also read `writing-tests-nunit` when the e2e project uses NUnit, or
 `writing-tests-xunit` when it uses xUnit v3. Follow the source project's
 framework when it is a .NET one; otherwise ask the user.
 
-No guide maps a runner's API to e2e. Use the e2e skill's `writing-tests`
-topics and the locator table in `setup`, and tell the user the mapping is
-by hand. A project with two source runners migrates one at a time, one
-section of the progress file each.
+A guide marks each feature `missing`, `by design`, or `web only`. Where it
+gives a workaround, use it. Where it gives none, the test stays in the old
+runner and the progress file says why. A project with two source runners
+migrates one at a time, one section of the progress file each.
 
 ### TesterArmy
 
@@ -70,6 +74,9 @@ restart the session, and wait.
   `Agent.AssertAsync`), so the project needs a model (step 3.2). A step that
   needs no judgment ports to a locator call instead. Learn the exact name
   first (step 5), and note each swap in the row's Notes.
+- The `testerarmy` guide's "Port the project" table maps the project
+  settings, and its "Map each step" table maps each step type and group
+  setting. Use them for steps 3 and 5.
 
 ## 1. Resume or start
 
