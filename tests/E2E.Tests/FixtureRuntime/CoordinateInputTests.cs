@@ -110,6 +110,7 @@ public sealed class CoordinateInputTests
         var error = Assert.IsType<TestException>(Record.Exception((Action)(() => screen.GetByLabel("Pad").DoubleTapAsync(options))));
 
         Assert.Equal("INVALID_ARGUMENT", error.Code);
+        Assert.Equal("doubleTap options has no key \"position\"; it takes timeout, modifiers", error.Message);
         Assert.Empty(performedAt);
     }
 

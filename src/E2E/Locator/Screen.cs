@@ -1201,7 +1201,7 @@ public sealed class Locator
     {
         if (options is TapOptions { Position: not null })
         {
-            throw new TestException("INVALID_ARGUMENT", api + "() has no position; only tap() takes one");
+            throw new TestException("INVALID_ARGUMENT", api + " options has no key \"position\"; it takes timeout, modifiers");
         }
 
         // Validation only: every capability is passed, so the engine's own check waits for the step (RequireClickModifiers below).
