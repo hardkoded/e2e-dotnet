@@ -37,7 +37,7 @@ page of the docs site at `https://www.hardkoded.com/e2e-dotnet/migrate/<guide>/`
 | Selenium .NET | `Selenium.WebDriver` in a `.csproj` | `selenium` | `setup` (web) |
 | Playwright or Cypress (Node) | `playwright.config.*`, `cypress.config.*`, a `cypress/` folder | `cypress` for Cypress; `playwright` for Playwright, with Node names for .NET ones | `setup` (web) |
 | Detox, Maestro | `.detoxrc*`, YAML flows opening with `appId:` and `---` | `detox`, `maestro` | `mobile` |
-| Appium | `Appium.WebDriver` in a `.csproj` | none: map the device commands with `detox` and `maestro` | `mobile` |
+| Appium | `Appium.WebDriver` in a `.csproj` | none: map the device commands with `detox` and `maestro`; no table covers Appium C# calls, so tell the user the mapping is by hand | `mobile` |
 | TesterArmy | `testerarmy` MCP tools, a `testerarmy` entry in an MCP config, `testerarmy` or `tester.army` in a script or workflow, or the user says so | `testerarmy` | `setup` (web) or `mobile`, by the project's type |
 
 Also read `writing-tests-nunit` when the e2e project uses NUnit, or

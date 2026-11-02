@@ -43,7 +43,7 @@ Playwright .NET has no config file: a test class overrides `ContextOptions()`, a
 | `ExpectTimeout` in `.runsettings`, `Expect.SetDefaultExpectTimeout` | `assertionTimeout` in the config, or the `AssertionTimeout` override | renamed |
 | `Page.SetDefaultTimeout` | `actionTimeout` in the config, or the `ActionTimeout` override | renamed |
 | `Page.SetDefaultNavigationTimeout` | `timeout`, the test budget; `Browser.GotoAsync(url, new GotoOptions { Timeout })` overrides one call | renamed |
-| NUnit's `[Timeout]`, `Retry`, `NumberOfTestWorkers` | the same attributes and settings: the framework owns them, the `retries` key is checked and not used. See [defaults that differ](#defaults-that-differ) | same |
+| NUnit's `[Timeout]`, `Retry`, `NumberOfTestWorkers` | the same attributes and settings: the framework owns them, and the config `retries` key is checked and not used. See [defaults that differ](#defaults-that-differ) | by design |
 | the HTML report, `playwright.ps1 show-report` | `report.json` and `.e2e/results/<result>/trace.md` | missing |
 | the `OutputDir` of a `PageTest` | `.e2e`, holding `results/` and the replay cache `cache/` | renamed |
 

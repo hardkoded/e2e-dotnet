@@ -43,7 +43,9 @@ For Android, use `MobilePlatform.Android`, the app's package name as `BundleId`,
 Use stable test IDs and visible text to fill forms and check their results. This test corrects an empty submission and saves a screenshot of the greeting. It ports `docs/examples/limrun/greeting.e2e.ts` from upstream, for the greeting form of [`samples/MobileApp`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp):
 
 ```csharp title="GreetingTests.cs"
+using E2E;
 using E2E.Mobile.NUnit;
+using NUnit.Framework;
 
 public sealed class GreetingTests : MobileAppTest
 {
