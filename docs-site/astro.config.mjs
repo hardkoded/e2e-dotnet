@@ -78,6 +78,13 @@ export default defineConfig({
                         { label: "Deep links", slug: "examples/deep-links" },
                     ],
                 },
+                {
+                    label: "Releases",
+                    items: [
+                        { label: "Overview", slug: "releases" },
+                        { label: "v0.8.0", slug: "releases/v0-8-0" },
+                    ],
+                },
                 { label: "Coding agents", slug: "coding-agents" },
                 { label: "Integrations", items: [{ label: "Limrun", slug: "integrations/limrun" }] },
                 { label: "Guide", slug: "guide" },
