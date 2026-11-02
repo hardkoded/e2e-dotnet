@@ -31,8 +31,9 @@ public sealed class DispatchPointerActionTests
         </script>
         """;
 
+    /// <summary>The log of the page. A browser on some hosts also reports a move to the origin before the first pointer action; it is not an action's, so it is left out.</summary>
     private static async Task<string[]> LogAsync(IEngineSession session) =>
-        await EvaluateAsync<string[]>(session, "() => window.log");
+        [.. (await EvaluateAsync<string[]>(session, "() => window.log")).Where(entry => entry != "move 0,0")];
 
     /// <summary>The log of a drag. The page also clicks when a drag ends over the element it began on, which upstream's stub does not.</summary>
     private static async Task<string[]> DragLogAsync(IEngineSession session) =>
