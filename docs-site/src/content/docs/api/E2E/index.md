@@ -126,7 +126,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ReportExplore](/api/E2E/ReportExplore/) | What an exploration was asked, did, and found: upstream's run.explore block of the report. |
 | [ReportExploreFinding](/api/E2E/ReportExploreFinding/) | One finding Explore recorded through its report_finding tool. |
 | [ReportExploreStep](/api/E2E/ReportExploreStep/) | One exploration step: a charter the agent planned and then executed as an ActAsync step. |
-| [ResolvedCredential](/api/E2E/ResolvedCredential/) | One config.credentials entry, resolved (upstream's ResolvedCredential): an account whose password is the secret {name}.password. |
+| [ResolvedCredential](/api/E2E/ResolvedCredential/) | One config.credentials entry, resolved (upstream's ResolvedCredential, config/resolve.ts): an account whose password is the secret {name}.password. |
 | [ResolvedRecording](/api/E2E/ResolvedRecording/) | One effective mode and where it came from. Upstream ResolvedRecording. |
 | [RoleOptions](/api/E2E/RoleOptions/) | Role query options. A null state is not checked. |
 | [Screen](/api/E2E/Screen/) | Semantic queries against the current screen. An action or a single-node assertion fails when the query matches more than one node. Narrow it with Filter(TextMatch), First(), Last(), or Nth(int). |

@@ -1,6 +1,6 @@
 ---
 title: "ResolvedCredential"
-description: "One config.credentials entry, resolved (upstream's ResolvedCredential): an account whose password is the secret {name}.password."
+description: "One config.credentials entry, resolved (upstream's ResolvedCredential, config/resolve.ts): an account whose password is the secret {name}.password."
 editUrl: false
 prev: false
 next: false
@@ -19,13 +19,13 @@ public sealed record ResolvedCredential : IEquatable<ResolvedCredential>
 ```
 
 
-One `config.credentials` entry, resolved (upstream's `ResolvedCredential`): an account whose password is the secret `{name}.password`.
+One `config.credentials` entry, resolved (upstream's `ResolvedCredential`, `config/resolve.ts`): an account whose password is the secret `{name}.password`.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
 **Implements:** [IEquatable&lt;ResolvedCredential&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/ConfigSecrets.cs)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/ResolvedConfig.cs)
 
 ## Constructors
 
@@ -40,7 +40,7 @@ public ResolvedCredential(string Name, string Username, Secret Password)
 ```
 
 
-One `config.credentials` entry, resolved (upstream's `ResolvedCredential`): an account whose password is the secret `{name}.password`.
+One `config.credentials` entry, resolved (upstream's `ResolvedCredential`, `config/resolve.ts`): an account whose password is the secret `{name}.password`.
 
 **Parameters**
 
