@@ -24,4 +24,4 @@ The browser-shaped surface an engine session can add on top of
 fails with `UNSUPPORTED_CAPABILITY` when the session does not implement it.
 The harness has already validated every argument.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs#L15)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IBrowserSession.cs)

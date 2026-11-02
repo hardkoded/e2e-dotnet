@@ -21,7 +21,7 @@ public sealed class AppConfig
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L806)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)
 
 ## Properties
 
@@ -40,8 +40,6 @@ The build a device target installs, relative to the folder of `e2e.config.json`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L818)
-
 <a id="E2E_AppConfig_BundleId_"></a>
 <a id="E2E_AppConfig_BundleId"></a>
 
@@ -56,8 +54,6 @@ public string? BundleId { get; init; }
 The bundle id (iOS) or package (Android) of an installed app a device target launches.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L815)
 
 <a id="E2E_AppConfig_Command_"></a>
 <a id="E2E_AppConfig_Command"></a>
@@ -76,8 +72,6 @@ The command that starts the app (upstream's `app.command`), started before the f
 
 **Value:** [CommandConfig](/api/E2E/CommandConfig/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L825)
-
 <a id="E2E_AppConfig_Environment_"></a>
 <a id="E2E_AppConfig_Environment"></a>
 
@@ -94,8 +88,6 @@ loopback, `.localhost`, or `.test` host, and `production` for any other host. Th
 cache key, so an identity never bleeds entries across environments.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L842)
 
 <a id="E2E_AppConfig_Identity_"></a>
 <a id="E2E_AppConfig_Identity"></a>
@@ -114,8 +106,6 @@ declare the identity of the app it is a deployment of, and so share its entries.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L835)
-
 <a id="E2E_AppConfig_LaunchArguments_"></a>
 <a id="E2E_AppConfig_LaunchArguments"></a>
 
@@ -130,8 +120,6 @@ public IReadOnlyList<string>? LaunchArguments { get; init; }
 Arguments every fresh launch of the app takes: process arguments on iOS, `am start` arguments on Android, the command line on Windows.
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L845)
 
 <a id="E2E_AppConfig_Permissions_"></a>
 <a id="E2E_AppConfig_Permissions"></a>
@@ -150,8 +138,6 @@ browser grants (Playwright's), and every page of the attempt holds the grant; he
 
 **Value:** [IReadOnlyDictionary&lt;string, AppPermissionState&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L852)
-
 <a id="E2E_AppConfig_ReadyUrl_"></a>
 <a id="E2E_AppConfig_ReadyUrl"></a>
 
@@ -166,8 +152,6 @@ public string? ReadyUrl { get; init; }
 The URL that answers once [Command](#E2E_AppConfig_Command) has started the app (upstream's `app.readyUrl`). Unset, [Url](#E2E_AppConfig_Url).
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L828)
 
 <a id="E2E_AppConfig_Url_"></a>
 <a id="E2E_AppConfig_Url"></a>
@@ -184,5 +168,3 @@ Base URL for `App.OpenAsync`, normalized: a missing scheme becomes `https://`, o
 Relative URLs resolve against it.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L812)

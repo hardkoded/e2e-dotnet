@@ -29,4 +29,4 @@ own model and credentials. What the runtime enforces against it is accounting, n
 deadline, the recording, and the verdict grammar hold whoever thinks.
 &lt;/p&gt;
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L20)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)

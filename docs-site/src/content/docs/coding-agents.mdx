@@ -55,6 +55,8 @@ Each node in `observe` starts its line with a node id (`#n42 button "Save"`), an
 
 `open_session {test: "Shop.CheckoutTests.MemberChecksOut"}` runs one NUnit test of the config's `testAssembly` in the session and stops on the screen where it passed or failed. The agent reads the failure, checks the screen, and fixes the test, instead of clicking through the flow again. Build the test project first. Restart the server after a rebuild, since a loaded assembly cannot be replaced.
 
+When the engine records video, the catalog also has `start_recording {name?}` and `stop_recording`. The session records only between them. `stop_recording` saves the video to `.e2e/videos/<session>/<n>[-<name>].<ext>` in the project and returns each file's absolute path, or the URL where a hosted provider keeps it. `close_session` saves a recording still running. Recordings are not masked, so a secret typed into a plain input shows in the video.
+
 See the [README](/guide/#coding-agents-mcp) and [COMPATIBILITY.md](/compatibility/#mcp-server).
 
 ## Generate a verification skill for your app

@@ -1,6 +1,6 @@
 ---
 title: "StoredArtifact"
-description: "One artifact handed to CancellationToken) (upstream's StoredArtifact): the file's bytes, its digest, and the identity the report files it under. Path is the..."
+description: "One artifact handed to PutAsync (upstream's StoredArtifact): the file's bytes, its digest, and the identity the report files it under. Path is the report-rel..."
 editUrl: false
 prev: false
 next: false
@@ -19,7 +19,7 @@ public sealed record StoredArtifact : IEquatable<StoredArtifact>
 ```
 
 
-One artifact handed to `CancellationToken)` (upstream's `StoredArtifact`): the file's bytes, its digest, and the
+One artifact handed to `PutAsync` (upstream's `StoredArtifact`): the file's bytes, its digest, and the
 identity the report files it under. [Path](#E2E_StoredArtifact_Path) is the report-relative path the record carries, stable across runs of the same
 test, so a host may use it as its own key.
 
@@ -27,7 +27,7 @@ test, so a host may use it as its own key.
 
 **Implements:** [IEquatable&lt;StoredArtifact&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1069)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs)
 
 ## Properties
 
@@ -44,8 +44,6 @@ public required string AttemptId { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1096)
-
 <a id="E2E_StoredArtifact_Bytes_"></a>
 <a id="E2E_StoredArtifact_Bytes"></a>
 
@@ -58,8 +56,6 @@ public required ReadOnlyMemory<byte> Bytes { get; init; }
 
 
 **Value:** [ReadOnlyMemory&lt;byte&gt;](https://learn.microsoft.com/dotnet/api/system.readonlymemory-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1076)
 
 <a id="E2E_StoredArtifact_Kind_"></a>
 <a id="E2E_StoredArtifact_Kind"></a>
@@ -76,8 +72,6 @@ public required ArtifactKind Kind { get; init; }
 
 **Value:** [ArtifactKind](/api/E2E.Reports/ArtifactKind/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1072)
-
 <a id="E2E_StoredArtifact_MediaType_"></a>
 <a id="E2E_StoredArtifact_MediaType"></a>
 
@@ -90,8 +84,6 @@ public required string MediaType { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1074)
 
 <a id="E2E_StoredArtifact_Path_"></a>
 <a id="E2E_StoredArtifact_Path"></a>
@@ -107,8 +99,6 @@ public required string Path { get; init; }
 Report-relative path with `/` separators.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1083)
 
 <a id="E2E_StoredArtifact_Redaction_"></a>
 <a id="E2E_StoredArtifact_Redaction"></a>
@@ -127,8 +117,6 @@ only what the runner vouches for reads this rather than the kind.
 
 **Value:** [ArtifactRedaction](/api/E2E.Reports/ArtifactRedaction/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1090)
-
 <a id="E2E_StoredArtifact_RunId_"></a>
 <a id="E2E_StoredArtifact_RunId"></a>
 
@@ -141,8 +129,6 @@ public required string RunId { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1092)
 
 <a id="E2E_StoredArtifact_Sha256_"></a>
 <a id="E2E_StoredArtifact_Sha256"></a>
@@ -157,8 +143,6 @@ public required string Sha256 { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1080)
-
 <a id="E2E_StoredArtifact_Size_"></a>
 <a id="E2E_StoredArtifact_Size"></a>
 
@@ -171,8 +155,6 @@ public required long Size { get; init; }
 
 
 **Value:** [long](https://learn.microsoft.com/dotnet/api/system.int64)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1078)
 
 <a id="E2E_StoredArtifact_StartedAt_"></a>
 <a id="E2E_StoredArtifact_StartedAt"></a>
@@ -189,8 +171,6 @@ When a time-based artifact began recording (a video segment), so a host can alig
 
 **Value:** [DateTimeOffset?](https://learn.microsoft.com/dotnet/api/system.datetimeoffset)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1102)
-
 <a id="E2E_StoredArtifact_StepId_"></a>
 <a id="E2E_StoredArtifact_StepId"></a>
 
@@ -206,8 +186,6 @@ The step that produced it, when one was running.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1099)
-
 <a id="E2E_StoredArtifact_TestId_"></a>
 <a id="E2E_StoredArtifact_TestId"></a>
 
@@ -220,5 +198,3 @@ public required string TestId { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/E2EConfig.cs#L1094)

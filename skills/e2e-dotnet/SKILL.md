@@ -95,6 +95,8 @@ process gets only `PATH`, `HOME`, the temp variables, `SystemRoot` and
 device target also takes `app.launchArguments` and `app.permissions`; a web target takes `app.permissions` too (`grant` only, held by every page). `WebEngine.ValidateApp` checks a web `app` explicitly (`app.url` required, device-app fields refused, permissions the browser grants); config loading does not run it. Topic
 `setup` has the full rules.
 
+`targets` may list several entries, each with a unique `name` (default: its platform). A fixture names its target by overriding `E2EFixture.TargetName`; `E2EHost.OpenAsync` takes `Target`, `e2e mcp` takes `--target`, and `e2e explore` takes `--target` or the first target. A host or an MCP session with several targets and no name fails with `TARGET_REQUIRED`.
+
 `App.BaseUrl` is `app.url` with the run's port and no trailing slash, so
 `$"{App.BaseUrl}/api/users"` joins with one slash; it is `null` when the target
 declares no `app.url`. `App.OpenAsync("settings")` still resolves against the
@@ -380,7 +382,7 @@ lines you changed:
 - The `e2e mcp` `screenshot` tool takes an optional `path`: a `.png` inside the
   project, relative to its root. It saves the same masked capture there and
   returns the absolute path. A path outside the project, a hidden file, or one
-  under a hidden directory is `POLICY_DENIED` (topic `mcp`).
+  under a hidden directory is `POLICY_DENIED` (topic `mcp`). When the engine records video, `start_recording {name?}` and `stop_recording` record the app for a person to watch and save the files under `.e2e/videos/<session>/` (topic `mcp`).
 - `App.StartRecordingAsync(new RecordingOptions { Name })` and
   `App.StopRecordingAsync()` record one span, such as a transition, and return
   the videos (`RecordedVideoFile.Path` or `RecordedVideoLink.Url`). They fail

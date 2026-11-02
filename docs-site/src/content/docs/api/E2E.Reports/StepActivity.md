@@ -21,7 +21,7 @@ public enum StepActivity
 
 The work a running agent step can be waiting on (upstream's `StepActivity`).
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs#L22)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs)
 
 ## Fields
 
@@ -37,8 +37,6 @@ Action = 2
 
 **Value:** [StepActivity](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs#L26)
-
 <a id="E2E_Reports_StepActivity_Model"></a>
 
 ### Model
@@ -51,8 +49,6 @@ Model = 1
 
 **Value:** [StepActivity](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs#L25)
-
 <a id="E2E_Reports_StepActivity_Observe"></a>
 
 ### Observe
@@ -64,5 +60,3 @@ Observe = 0
 
 
 **Value:** [StepActivity](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/StepProgress.cs#L24)

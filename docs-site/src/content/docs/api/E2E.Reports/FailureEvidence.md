@@ -25,7 +25,7 @@ What the runner saw when a failure landed (upstream's `FailureEvidence`).
 
 **Implements:** [IEquatable&lt;FailureEvidence&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L389)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Properties
 
@@ -44,8 +44,6 @@ The nodes closest to what a failed locator asked for.
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L406)
-
 <a id="E2E_Reports_FailureEvidence_Nodes_"></a>
 <a id="E2E_Reports_FailureEvidence_Nodes"></a>
 
@@ -60,8 +58,6 @@ public int? Nodes { get; init; }
 Nodes the screen listed.
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L397)
 
 <a id="E2E_Reports_FailureEvidence_Screen_"></a>
 <a id="E2E_Reports_FailureEvidence_Screen"></a>
@@ -78,8 +74,6 @@ The id of the artifact that holds the screen as the agent reads it, one node per
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L400)
-
 <a id="E2E_Reports_FailureEvidence_Screenshot_"></a>
 <a id="E2E_Reports_FailureEvidence_Screenshot"></a>
 
@@ -94,8 +88,6 @@ public string? Screenshot { get; init; }
 The id of the artifact that holds a screenshot of the screen.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L403)
 
 <a id="E2E_Reports_FailureEvidence_Url_"></a>
 <a id="E2E_Reports_FailureEvidence_Url"></a>
@@ -112,8 +104,6 @@ The page or screen the app was on.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L392)
-
 <a id="E2E_Reports_FailureEvidence_Viewport_"></a>
 <a id="E2E_Reports_FailureEvidence_Viewport"></a>
 
@@ -126,5 +116,3 @@ public ViewportSize? Viewport { get; init; }
 
 
 **Value:** [ViewportSize](/api/E2E.Reports/ViewportSize/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L394)

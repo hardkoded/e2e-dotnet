@@ -375,14 +375,17 @@ internal sealed class SessionHost : IDisposable
                 await session.App.OpenAsync(null, abort.Token).ConfigureAwait(false);
             }
 
-            var live = new LiveSession(id, target.Name, configPath, headed, engine, attempt, abort, apps) { TestFailure = ran?.Failure };
+            var attemptDir = session.App.ArtifactsDir ?? config.ProjectRoot;
+            var live = new LiveSession(id, target.Name, configPath, headed, engine, attempt, abort, apps) { TestFailure = ran?.Failure, CleanupTimeout = config.CleanupTimeout };
+            live.Recorder = !engine.Capabilities.HasFlag(EngineCapabilities.Video) ? null : new SessionRecorder(session.Engine.StartVideoAsync, session.Engine.StopVideoAsync, attemptDir, Path.Combine(config.ProjectRoot, ".e2e", "videos", id), config.CleanupTimeout, () => live.SecretFilled);
             live.Catalog = SessionCatalog.Create(
                 live,
                 engine.Capabilities,
                 config.Secrets.Names.ToList(),
                 config.ProjectRoot,
-                session.App.ArtifactsDir ?? config.ProjectRoot,
-                Uri.TryCreate(target.App.Url, UriKind.Absolute, out var appBase) ? appBase : null);
+                attemptDir,
+                Uri.TryCreate(target.App.Url, UriKind.Absolute, out var appBase) ? appBase : null,
+                live.Recorder);
 
             // The app as the session resolved it: the declared URL on the port its command was started on.
             var app = TargetApps.ResolveTargetApp(target.Name, declared.App, config.ProjectRoot, Uri.TryCreate(target.App.Url, UriKind.Absolute, out var served) ? served.Port : null);
@@ -450,6 +453,26 @@ internal sealed class SessionHost : IDisposable
         await live.Abort.CancelAsync().ConfigureAwait(false);
         live.StopTimers();
         var lines = new List<string> { "Session " + live.Id + " closed (" + reason + "); " + live.Calls.ToString(CultureInfo.InvariantCulture) + " tool calls ran." };
+
+        // A recording still running is saved before the engine goes, and the close says where it went or why it was lost.
+        if (live.Recorder is { } recorder)
+        {
+            try
+            {
+                using var settle = new CancellationTokenSource(live.CleanupTimeout);
+                if (await recorder.StopAsync(settle.Token).ConfigureAwait(false) is { } recording)
+                {
+                    lines.Add(SessionRecorder.Describe(recording));
+                }
+            }
+#pragma warning disable CA1031 // A recording that cannot be saved is reported to the agent, never thrown past the close.
+            catch (Exception cause)
+#pragma warning restore CA1031
+            {
+                lines.Add("The running recording could not be saved: " + Tools.CodedMessage(cause));
+            }
+        }
+
         try
         {
             live.Session.Complete(live.TestFailure);
@@ -465,6 +488,7 @@ internal sealed class SessionHost : IDisposable
         // The app command stops with the last session that holds it, after the engine is done with it.
         await live.Apps.StopAsync(failure => lines.Add("Cleanup: " + Tools.CodedMessage(failure))).ConfigureAwait(false);
         live.Abort.Dispose();
+        live.Recorder?.Dispose();
 
         // Redacted here, not only at the tool boundary: CloseAllAsync writes it to stderr.
         return live.Session.Redactor.Redact(_secrets.Redact(string.Join('\n', lines)));
@@ -579,15 +603,7 @@ internal sealed class SessionHost : IDisposable
 
     private TargetConfig ResolveTarget(E2EConfig config, string? requested)
     {
-        var name = requested ?? _options.DefaultTarget;
-        if (name is not null && config.Targets.All(target => target.Name != name))
-        {
-            throw new ConfigurationException(
-                "UNKNOWN_TARGET",
-                "unknown target \"" + name + "\"; the config declares " + string.Join(", ", config.Targets.Select(target => "\"" + target.Name + "\"")));
-        }
-
-        return config.Target;
+        return SelectTarget.Select(config.Targets, requested ?? _options.DefaultTarget, "pass target to open_session, or start e2e mcp --target <name>");
     }
 
     private McpToolSpec Redacting(McpToolSpec spec)
@@ -710,6 +726,17 @@ internal sealed class SessionHost : IDisposable
         public CancellationTokenSource Abort { get; } = abort;
 
         public SemaphoreSlim Gate { get; } = new(1, 1);
+
+        /// <summary>The session's recordings; the catalog lists its tools when the engine records video.</summary>
+        public SessionRecorder? Recorder { get; set; }
+
+        /// <summary>A <c>type_secret</c> filled a secret in this session, so a video may show one.</summary>
+        public bool SecretFilled { get; private set; }
+
+        void ISessionContext.SecretFilled() => SecretFilled = true;
+
+        /// <summary>How long saving a recording at close may take.</summary>
+        public TimeSpan CleanupTimeout { get; init; } = E2EDefaults.CleanupTimeout;
 
         public SessionCatalog Catalog { get; set; } = null!;
 

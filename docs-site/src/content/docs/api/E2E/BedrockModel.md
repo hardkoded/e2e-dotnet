@@ -27,7 +27,7 @@ variables or, with none set, from the AWS credential chain (shared profile, SSO,
 
 **Implements:** [IAgentModel](/api/E2E/IAgentModel/), [IDisposable](https://learn.microsoft.com/dotnet/api/system.idisposable)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L20)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs)
 
 ## Constructors
 
@@ -49,8 +49,6 @@ public BedrockModel(BedrockModelOptions options, HttpClient? httpClient = null)
 | `options` | [BedrockModelOptions](/api/E2E/BedrockModelOptions/) |  |
 | `httpClient` | [HttpClient](https://learn.microsoft.com/dotnet/api/system.net.http.httpclient) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L29)
-
 ## Properties
 
 <a id="E2E_BedrockModel_Name_"></a>
@@ -67,8 +65,6 @@ public string Name { get; }
 Provider and model id, printed in the run summary. Changing it does not miss the replay cache.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L38)
 
 ## Methods
 
@@ -92,8 +88,6 @@ public Task<ModelResponse> CompleteAsync(ModelRequest request, CancellationToken
 
 **Returns:** [Task&lt;ModelResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L40)
-
 <a id="E2E_BedrockModel_Dispose_"></a>
 <a id="E2E_BedrockModel_Dispose"></a>
 
@@ -106,5 +100,3 @@ public void Dispose()
 
 
 Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Models/BedrockModel.cs#L104)

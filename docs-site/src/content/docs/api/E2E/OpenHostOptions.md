@@ -25,7 +25,7 @@ What `OpenAsync` is given. Upstream's `OpenHostOptions` (`run/open-session.ts`).
 
 **Implements:** [IEquatable&lt;OpenHostOptions&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L11)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs)
 
 ## Properties
 
@@ -45,8 +45,6 @@ The config as a value, which the host uses instead of a file; its [ProjectRoot](
 
 **Value:** [E2EConfig](/api/E2E/E2EConfig/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L20)
-
 <a id="E2E_OpenHostOptions_ConfigPath_"></a>
 <a id="E2E_OpenHostOptions_ConfigPath"></a>
 
@@ -63,8 +61,6 @@ The config file, as a path relative to [Cwd](#E2E_OpenHostOptions_Cwd); default 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L26)
-
 <a id="E2E_OpenHostOptions_Cwd_"></a>
 <a id="E2E_OpenHostOptions_Cwd"></a>
 
@@ -79,8 +75,6 @@ public string? Cwd { get; init; }
 Where the config file is searched for upward; default the current directory. Upstream's `cwd`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L14)
 
 <a id="E2E_OpenHostOptions_EngineFactory_"></a>
 <a id="E2E_OpenHostOptions_EngineFactory"></a>
@@ -99,8 +93,6 @@ test engine, comes from here, and a factory builds a fresh engine for each host.
 
 **Value:** [Func&lt;TargetConfig, IEngine&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L45)
-
 <a id="E2E_OpenHostOptions_Env_"></a>
 <a id="E2E_OpenHostOptions_Env"></a>
 
@@ -115,8 +107,6 @@ public IReadOnlyDictionary<string, string?>? Env { get; init; }
 The variables the config and the engine's prepare and worker read; null is the process environment. Upstream's `env`.
 
 **Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L32)
 
 <a id="E2E_OpenHostOptions_Headed_"></a>
 <a id="E2E_OpenHostOptions_Headed"></a>
@@ -133,8 +123,6 @@ Whether a web target opens a visible window. Upstream's `headed`.
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L35)
-
 <a id="E2E_OpenHostOptions_OnNotice_"></a>
 <a id="E2E_OpenHostOptions_OnNotice"></a>
 
@@ -150,8 +138,6 @@ Progress outside steps: provisioning, leases, and app processes, as the target's
 
 **Value:** [Action&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.action-2)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L38)
-
 <a id="E2E_OpenHostOptions_Target_"></a>
 <a id="E2E_OpenHostOptions_Target"></a>
 
@@ -163,8 +149,6 @@ public string? Target { get; init; }
 ```
 
 
-The target to open. It may be omitted only when the config declares one target. Upstream's `target`.
+The target to open. It may be omitted only when the config declares one target (several without it is `TARGET_REQUIRED`). Upstream's `target`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/OpenSession.cs#L29)

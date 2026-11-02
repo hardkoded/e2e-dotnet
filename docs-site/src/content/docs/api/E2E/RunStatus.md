@@ -21,7 +21,7 @@ public enum RunStatus
 
 How a run ended. Upstream's `RunStatus`, with the values a single run in the port can have.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Runner.cs#L8)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Runner.cs)
 
 ## Fields
 
@@ -39,8 +39,6 @@ Credentials, the environment, test setup, or the agent's own budget stopped the 
 
 **Value:** [RunStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Runner.cs#L16)
-
 <a id="E2E_RunStatus_Failed"></a>
 
 ### Failed
@@ -55,8 +53,6 @@ A test or an agent step failed.
 
 **Value:** [RunStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Runner.cs#L13)
-
 <a id="E2E_RunStatus_Passed"></a>
 
 ### Passed
@@ -68,5 +64,3 @@ Passed = 0
 
 
 **Value:** [RunStatus](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Runner.cs#L10)

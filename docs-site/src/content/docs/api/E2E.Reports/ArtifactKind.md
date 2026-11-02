@@ -21,7 +21,7 @@ public enum ArtifactKind
 
 What kind of file an artifact is.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L418)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Fields
 
@@ -37,8 +37,6 @@ Download = 2
 
 **Value:** [ArtifactKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L422)
-
 <a id="E2E_Reports_ArtifactKind_Log"></a>
 
 ### Log
@@ -50,8 +48,6 @@ Log = 3
 
 
 **Value:** [ArtifactKind](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L423)
 
 <a id="E2E_Reports_ArtifactKind_Other"></a>
 
@@ -65,8 +61,6 @@ Other = 4
 
 **Value:** [ArtifactKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L424)
-
 <a id="E2E_Reports_ArtifactKind_Screenshot"></a>
 
 ### Screenshot
@@ -79,8 +73,6 @@ Screenshot = 0
 
 **Value:** [ArtifactKind](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L420)
-
 <a id="E2E_Reports_ArtifactKind_Video"></a>
 
 ### Video
@@ -92,5 +84,3 @@ Video = 1
 
 
 **Value:** [ArtifactKind](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L421)

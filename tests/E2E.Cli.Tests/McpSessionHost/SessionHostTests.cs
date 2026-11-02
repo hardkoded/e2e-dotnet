@@ -439,6 +439,46 @@ public sealed class SessionHostTests : IAsyncLifetime
     private static string Text(ModelContextProtocol.Protocol.CallToolResult result) =>
         string.Join('\n', result.Content.OfType<ModelContextProtocol.Protocol.TextContentBlock>().Select(part => part.Text));
 
+    [Fact]
+    public async Task Records_only_between_start_recording_and_stop_recording_and_saves_a_recording_still_running_at_close()
+    {
+        var fake = new FakeEngine { Also = EngineCapabilities.Video };
+        var recording = Host(fake);
+        var opened = await recording.OpenAsync(new Mcp.OpenSessionOptions());
+        Assert.Matches(new Regex(@"^- start_recording \{name\?\}: Start recording a video of the app, for a person to watch: .*\.$", RegexOptions.Multiline, TimeSpan.FromSeconds(5)), opened);
+        Assert.Matches(new Regex(@"^- stop_recording: Stop the running recording and save it: .*\.$", RegexOptions.Multiline, TimeSpan.FromSeconds(5)), opened);
+        Assert.DoesNotContain("startVideo", fake.Operations);
+        var id = SessionId(opened);
+        var recordings = Path.Combine(_dir, ".e2e", "videos", id);
+
+        var started = Text(await recording.CallAsync(id, "start_recording", Json("""{"name":"demo"}"""), CancellationToken.None));
+        Assert.Contains("Recording 1 \"demo\" started.", started, StringComparison.Ordinal);
+        var stopped = Text(await recording.CallAsync(id, "stop_recording", Json("{}"), CancellationToken.None));
+        Assert.Matches(new Regex(@"^Recording 1 ""demo"" stopped after \d+\.\d s\.\n- (\S+)$", RegexOptions.None, TimeSpan.FromSeconds(5)), stopped);
+        Assert.EndsWith("- " + Path.Combine(recordings, "1-demo.webm"), stopped, StringComparison.Ordinal);
+        var nothing = Text(await recording.CallAsync(id, "stop_recording", Json("{}"), CancellationToken.None));
+        Assert.Equal("Nothing is recording; start_recording starts a recording.", nothing);
+        var badName = await recording.CallAsync(id, "start_recording", Json("""{"name":"../escape"}"""), CancellationToken.None);
+        Assert.True(badName.IsError);
+        Assert.Matches(new Regex(@"^INVALID_ARGUMENT: call start_recording: name: ", RegexOptions.None, TimeSpan.FromSeconds(5)), Text(badName));
+
+        await recording.CallAsync(id, "start_recording", Json("{}"), CancellationToken.None);
+        var closed = await recording.CloseAsync("done");
+        Assert.Matches(new Regex(@"^Session \S+ closed \(done\); \d+ tool calls ran\.\nRecording 2 stopped after \d+\.\d s\.\n- \S+$", RegexOptions.None, TimeSpan.FromSeconds(5)), closed);
+        Assert.EndsWith("- " + Path.Combine(recordings, "2.webm"), closed, StringComparison.Ordinal);
+        Assert.Equal(["1-demo.webm", "2.webm"], Directory.GetFiles(recordings).Select(file => Path.GetFileName(file)).Order(StringComparer.Ordinal).ToArray());
+    }
+
+    [Fact]
+    public async Task Lists_no_recording_tools_when_the_engine_records_no_video()
+    {
+        var plain = Host(new FakeEngine());
+        var opened = await plain.OpenAsync(new Mcp.OpenSessionOptions());
+        Assert.DoesNotContain("start_recording", opened, StringComparison.Ordinal);
+        var closed = await plain.CloseAsync("done");
+        Assert.DoesNotContain("Recording", closed, StringComparison.Ordinal);
+    }
+
     private static string SessionId(string text) => Regex.Match(text, @"^Session (\S+) open", RegexOptions.None, TimeSpan.FromSeconds(5)).Groups[1].Value;
 
     private static async Task UntilAsync(Func<bool> condition)

@@ -25,7 +25,7 @@ A recording a hosted browser or device service keeps, by URL (upstream's `Record
 
 **Implements:** [IEquatable&lt;RecordedVideo&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1), [IEquatable&lt;RecordedVideoLink&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Recordings.cs#L36)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Recordings.cs)
 
 ## Properties
 
@@ -44,8 +44,6 @@ Media type of what the URL serves: `video/mp4`, or `text/html` for a player page
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Recordings.cs#L42)
-
 <a id="E2E_RecordedVideoLink_Url_"></a>
 <a id="E2E_RecordedVideoLink_Url"></a>
 
@@ -60,5 +58,3 @@ public required string Url { get; init; }
 `http(s)` URL of the recording.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Recordings.cs#L39)

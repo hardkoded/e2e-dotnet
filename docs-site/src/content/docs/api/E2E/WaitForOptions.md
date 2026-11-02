@@ -23,7 +23,7 @@ public sealed class WaitForOptions
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1012)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
 ## Properties
 
@@ -42,8 +42,6 @@ The named agent whose judge decides. Defaults to `default`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1027)
-
 <a id="E2E_WaitForOptions_Interval_"></a>
 <a id="E2E_WaitForOptions_Interval"></a>
 
@@ -58,8 +56,6 @@ public TimeSpan? Interval { get; init; }
 Least time between two judgments, 100 ms through 60 s. Defaults to 3 s.
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1018)
 
 <a id="E2E_WaitForOptions_MaxModelCalls_"></a>
 <a id="E2E_WaitForOptions_MaxModelCalls"></a>
@@ -76,8 +72,6 @@ Model-call budget. Defaults to the configured `MaxModelCalls` and can only lower
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1021)
-
 <a id="E2E_WaitForOptions_Params_"></a>
 <a id="E2E_WaitForOptions_Params"></a>
 
@@ -90,11 +84,9 @@ public IReadOnlyDictionary<string, object?>? Params { get; init; }
 
 
 Values the condition refers to as `{name}`, with the same rules as [Params](/api/E2E/ActOptions/#E2E_ActOptions_Params). The judge reads a
-[Unique](/api/E2E/Values/#E2E_Values_Unique_System_String_) value as its string and a [Secret](/api/E2E/Secret/) by name only, never its value.
+[Unique(string)](/api/E2E/Values/#E2E_Values_Unique_System_String_) value as its string and a [Secret](/api/E2E/Secret/) by name only, never its value.
 
 **Value:** [IReadOnlyDictionary&lt;string, object&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1070)
 
 <a id="E2E_WaitForOptions_Timeout_"></a>
 <a id="E2E_WaitForOptions_Timeout"></a>
@@ -111,8 +103,6 @@ Defaults to the agent's `JudgmentTimeout` (30 s).
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1015)
-
 <a id="E2E_WaitForOptions_Vision_"></a>
 <a id="E2E_WaitForOptions_Vision"></a>
 
@@ -127,5 +117,3 @@ public VisionMode Vision { get; init; }
 What the judge is shown. [Off](/api/E2E/VisionMode/#E2E_VisionMode_Off) by default: the tree. See [VisionMode](/api/E2E/VisionMode/).
 
 **Value:** [VisionMode](/api/E2E/VisionMode/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs#L1024)

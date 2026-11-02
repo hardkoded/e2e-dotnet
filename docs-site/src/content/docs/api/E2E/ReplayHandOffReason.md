@@ -23,7 +23,7 @@ Upstream's `ReplayHandOffReason`, why a cached replay stopped before it finished
 and [InvalidEntry](#E2E_ReplayHandOffReason_InvalidEntry) are the port's: its replay draws on the step's action budget, and reads a recording back
 from a store that can hold any shape.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L508)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 ## Fields
 
@@ -39,8 +39,6 @@ ActionBudget = 6
 
 **Value:** [ReplayHandOffReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L516)
-
 <a id="E2E_ReplayHandOffReason_ActionFailed"></a>
 
 ### ActionFailed
@@ -52,8 +50,6 @@ ActionFailed = 3
 
 
 **Value:** [ReplayHandOffReason](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L513)
 
 <a id="E2E_ReplayHandOffReason_ActionUncertain"></a>
 
@@ -67,8 +63,6 @@ ActionUncertain = 4
 
 **Value:** [ReplayHandOffReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L514)
-
 <a id="E2E_ReplayHandOffReason_EndMismatch"></a>
 
 ### EndMismatch
@@ -80,8 +74,6 @@ EndMismatch = 5
 
 
 **Value:** [ReplayHandOffReason](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L515)
 
 <a id="E2E_ReplayHandOffReason_Gap"></a>
 
@@ -95,8 +87,6 @@ Gap = 0
 
 **Value:** [ReplayHandOffReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L510)
-
 <a id="E2E_ReplayHandOffReason_InvalidEntry"></a>
 
 ### InvalidEntry
@@ -108,8 +98,6 @@ InvalidEntry = 7
 
 
 **Value:** [ReplayHandOffReason](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L517)
 
 <a id="E2E_ReplayHandOffReason_TargetAmbiguous"></a>
 
@@ -123,8 +111,6 @@ TargetAmbiguous = 2
 
 **Value:** [ReplayHandOffReason](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L512)
-
 <a id="E2E_ReplayHandOffReason_TargetNotFound"></a>
 
 ### TargetNotFound
@@ -136,5 +122,3 @@ TargetNotFound = 1
 
 
 **Value:** [ReplayHandOffReason](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L511)

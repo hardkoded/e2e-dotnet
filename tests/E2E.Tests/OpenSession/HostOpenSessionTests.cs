@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Engine;
+
 namespace E2E.Tests.OpenSession;
 
 /// <summary>
@@ -153,30 +155,33 @@ public sealed class HostOpenSessionTests : IDisposable
         }
     }
 
-    /// <summary>
-    /// Partial: the config declares one target (several are #647), so <c>TARGET_REQUIRED</c> is not reachable through a config and is checked on
-    /// <see cref="SelectTarget"/> in <see cref="SelectTargetTests"/>. <c>UNKNOWN_TARGET</c> and opening the named target are checked, and that the
-    /// engine of a target that was not opened is never built.
-    /// </summary>
     [Fact]
-    public async Task Partial_Needs_a_target_when_the_config_declares_several_and_opens_the_one_named()
+    public async Task Needs_a_target_when_the_config_declares_several_and_opens_the_one_named()
     {
-        WriteConfig();
+        File.WriteAllText(
+            Path.Combine(_dir, E2EConfig.FileName),
+            """{ "targets": [{ "name": "one", "platform": "web", "app": { "url": "http://127.0.0.1:4173/" } }, { "name": "two", "platform": "web", "app": { "url": "http://127.0.0.1:4173/" } }] }""");
         var built = new List<string>();
-        var fake = new HostFakeEngine();
-        var unknown = await Assert.ThrowsAsync<ConfigurationException>(() => E2EHost.OpenAsync(new OpenHostOptions
+        var one = new HostFakeEngine();
+        var two = new HostFakeEngine();
+        IEngine Build(TargetConfig target)
         {
-            Cwd = _dir,
-            Env = NoEnv,
-            Target = "three",
-            EngineFactory = target => { built.Add(target.Name); return fake; },
-        }));
+            built.Add(target.Name);
+            return target.Name == "one" ? one : two;
+        }
+
+        var required = await Assert.ThrowsAsync<ConfigurationException>(() => E2EHost.OpenAsync(new OpenHostOptions { Cwd = _dir, Env = NoEnv, EngineFactory = Build }));
+        Assert.Equal("TARGET_REQUIRED", required.Code);
+        var unknown = await Assert.ThrowsAsync<ConfigurationException>(() => E2EHost.OpenAsync(new OpenHostOptions { Cwd = _dir, Env = NoEnv, Target = "three", EngineFactory = Build }));
         Assert.Equal("UNKNOWN_TARGET", unknown.Code);
         Assert.Empty(built);
 
-        await using var host = await OpenAsync(fake, new OpenHostOptions { Target = "kiosk" });
-        await using var session = await host.OpenSessionAsync(new OpenSessionOptions { Name = "named target" });
-        Assert.Equal("kiosk", session.Target);
-        Assert.Equal(1, fake.Starts);
+        var host = await E2EHost.OpenAsync(new OpenHostOptions { Cwd = _dir, Env = NoEnv, Target = "two", EngineFactory = Build });
+        _hosts.Add(host);
+        await using var session = await host.OpenSessionAsync(new OpenSessionOptions { Name = "second target" });
+        Assert.Equal("two", session.Target);
+        Assert.Equal(0, one.Starts);
+        Assert.Equal(1, two.Starts);
+        Assert.Equal(["two"], built);
     }
 }

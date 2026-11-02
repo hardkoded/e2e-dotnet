@@ -24,7 +24,7 @@ as evidence of the step. A tool that changes the app may not look: it observes i
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs#L95)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs)
 
 ## Constructors
 
@@ -45,8 +45,6 @@ public AgentToolContext(StepExecutorContext context, bool mutates)
 | --- | --- | --- |
 | `context` | [StepExecutorContext](/api/E2E/StepExecutorContext/) | The context of the step the tool runs in. |
 | `mutates` | [bool](https://learn.microsoft.com/dotnet/api/system.boolean) | Whether the tool changes the app. Such a tool cannot look at the screen. |
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs#L102)
 
 ## Methods
 
@@ -73,8 +71,6 @@ Upstream's `attachScreenshot`: keeps pixels the tool saw as a screenshot of the 
 
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs#L128)
-
 <a id="E2E_AgentToolContext_ObserveAsync_"></a>
 <a id="E2E_AgentToolContext_ObserveAsync_E2E_ExecutorObserveOptions_System_Threading_CancellationToken_"></a>
 
@@ -96,5 +92,3 @@ Upstream's `observe`. A mutating tool is refused with `POLICY_DENIED`.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;ExecutorObservation&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/AgentTool.cs#L117)

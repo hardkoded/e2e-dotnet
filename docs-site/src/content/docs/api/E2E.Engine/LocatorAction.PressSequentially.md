@@ -25,7 +25,7 @@ Focuses the node and types &lt;code class="paramref"&gt;Text&lt;/code&gt; one ch
 
 **Implements:** [IEquatable&lt;LocatorAction&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1), [IEquatable&lt;LocatorAction.PressSequentially&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L25)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)
 
 ## Constructors
 
@@ -49,8 +49,6 @@ Focuses the node and types &lt;code class="paramref"&gt;Text&lt;/code&gt; one ch
 | `Text` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `Delay` | [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L25)
-
 ## Properties
 
 <a id="E2E_Engine_LocatorAction_PressSequentially_Delay_"></a>
@@ -66,8 +64,6 @@ public TimeSpan? Delay { get; init; }
 
 **Value:** [TimeSpan?](https://learn.microsoft.com/dotnet/api/system.timespan)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L25)
-
 <a id="E2E_Engine_LocatorAction_PressSequentially_Text_"></a>
 <a id="E2E_Engine_LocatorAction_PressSequentially_Text"></a>
 
@@ -80,5 +76,3 @@ public string Text { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L25)

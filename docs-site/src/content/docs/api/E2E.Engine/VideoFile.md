@@ -25,7 +25,7 @@ A video file in the attempt artifact directory.
 
 **Implements:** [IEquatable&lt;VideoSegment&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1), [IEquatable&lt;VideoFile&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs#L80)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs)
 
 ## Properties
 
@@ -43,5 +43,3 @@ public required string Path { get; init; }
 Path relative to the attempt artifact directory.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/ProviderRecording.cs#L83)

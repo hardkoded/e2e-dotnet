@@ -24,7 +24,7 @@ What an engine's fixture gets from the attempt, once per attempt. Upstream's `En
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L43)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 ## Methods
 
@@ -48,5 +48,3 @@ Mints a public locator from a raw expression (a platform selector, say). Upstrea
 | `expression` | [LocatorExpression](/api/E2E/LocatorExpression/) |  |
 
 **Returns:** [Locator](/api/E2E/Locator/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L60)

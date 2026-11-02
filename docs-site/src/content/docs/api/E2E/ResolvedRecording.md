@@ -25,7 +25,7 @@ One effective mode and where it came from. Upstream `ResolvedRecording`.
 
 **Implements:** [IEquatable&lt;ResolvedRecording&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/RecordingMode.cs#L53)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/RecordingMode.cs)
 
 ## Constructors
 
@@ -49,8 +49,6 @@ One effective mode and where it came from. Upstream `ResolvedRecording`.
 | `Mode` | [RecordingMode](/api/E2E/RecordingMode/) | Which attempts record. |
 | `Source` | [RecordingSource](/api/E2E/RecordingSource/) | Where &lt;code class="paramref"&gt;Mode&lt;/code&gt; was set. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/RecordingMode.cs#L53)
-
 ## Properties
 
 <a id="E2E_ResolvedRecording_Mode_"></a>
@@ -68,8 +66,6 @@ Which attempts record.
 
 **Value:** [RecordingMode](/api/E2E/RecordingMode/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/RecordingMode.cs#L53)
-
 <a id="E2E_ResolvedRecording_Source_"></a>
 <a id="E2E_ResolvedRecording_Source"></a>
 
@@ -84,5 +80,3 @@ public RecordingSource Source { get; init; }
 Where &lt;code class="paramref"&gt;Mode&lt;/code&gt; was set.
 
 **Value:** [RecordingSource](/api/E2E/RecordingSource/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Config/RecordingMode.cs#L53)

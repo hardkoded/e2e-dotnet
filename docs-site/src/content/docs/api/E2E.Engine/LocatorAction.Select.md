@@ -23,7 +23,7 @@ public sealed record LocatorAction.Select : LocatorAction, IEquatable<LocatorAct
 
 **Implements:** [IEquatable&lt;LocatorAction&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1), [IEquatable&lt;LocatorAction.Select&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L27)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs)
 
 ## Constructors
 
@@ -44,8 +44,6 @@ public Select(string Value)
 | --- | --- | --- |
 | `Value` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L27)
-
 ## Properties
 
 <a id="E2E_Engine_LocatorAction_Select_Value_"></a>
@@ -60,5 +58,3 @@ public string Value { get; init; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/LocatorAction.cs#L27)
