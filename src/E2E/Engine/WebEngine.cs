@@ -1417,6 +1417,101 @@ public sealed partial class WebEngine : IEngine
             }
         }
 
+        /// <summary>A page takes every pointer action of the contract at a bare point too.</summary>
+        public IReadOnlyCollection<string> PointerActionKinds => EngineActionKinds.Pointer;
+
+        /// <summary>
+        /// One pointer action at a viewport point in CSS pixels, with nothing resolved behind it: no actionability wait, because there is no
+        /// element to wait on, and the page decides what the gesture lands on, as it does for a person. Upstream's <c>performAt</c> and
+        /// <c>dispatchPointerAction</c>.
+        /// </summary>
+        public Task PerformAtAsync(Point point, PointerAction action, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("perform", cancellationToken, () =>
+        {
+            ArgumentNullException.ThrowIfNull(action);
+            RequireObservation();
+            return InputAsync(() => DispatchPointerActionAsync(point, action, cancellationToken), EngineActionKinds.Of(action) + " at point", cancellationToken);
+        }));
+
+        private async Task DispatchPointerActionAsync(Point at, PointerAction action, CancellationToken cancellationToken)
+        {
+            var mouse = Page.Mouse;
+            var x = (float)Math.Round(at.X, MidpointRounding.AwayFromZero);
+            var y = (float)Math.Round(at.Y, MidpointRounding.AwayFromZero);
+            switch (action)
+            {
+                case PointerAction.Tap:
+                    await mouse.ClickAsync(x, y).ConfigureAwait(false);
+                    break;
+                case PointerAction.DoubleTap:
+                    await mouse.DblClickAsync(x, y).ConfigureAwait(false);
+                    break;
+                case PointerAction.SecondaryTap:
+                    await mouse.ClickAsync(x, y, new MouseClickOptions { Button = MouseButton.Right }).ConfigureAwait(false);
+                    break;
+                case PointerAction.LongPress press:
+                    await mouse.ClickAsync(x, y, new MouseClickOptions { Delay = (float)(press.Duration ?? DefaultLongPress).TotalMilliseconds }).ConfigureAwait(false);
+                    break;
+                case PointerAction.Hover:
+                    await mouse.MoveAsync(x, y).ConfigureAwait(false);
+                    break;
+                case PointerAction.DragTo drag:
+                    await PerformPointDragAsync(x, y, drag.Target, null, cancellationToken).ConfigureAwait(false);
+                    break;
+                case PointerAction.SwipeTo swipe:
+                    // A swipe along a path is a pointer drag on a document platform.
+                    await PerformPointDragAsync(x, y, swipe.Target, swipe.Duration, cancellationToken).ConfigureAwait(false);
+                    break;
+                case PointerAction.Swipe swipe:
+                    // The pointer moves to the point first so the scrollable under it receives the wheel.
+                    await mouse.MoveAsync(x, y).ConfigureAwait(false);
+                    await PerformViewportSwipeAsync(swipe.Direction, swipe.Momentum ?? Momentum.None).ConfigureAwait(false);
+                    break;
+                default:
+                    throw new EngineException(EngineErrorCodes.UnsupportedCapability, "Web engine cannot perform " + action.GetType().Name + ".");
+            }
+        }
+
+        /// <summary>
+        /// Upstream's <c>performPointDrag</c>: a pointer drag from one viewport point to another, on whole pixels, with an intermediate move
+        /// so drag handlers see motion; paced over <paramref name="duration"/> when given.
+        /// </summary>
+        private async Task PerformPointDragAsync(float fromX, float fromY, Point end, TimeSpan? duration, CancellationToken cancellationToken)
+        {
+            var mouse = Page.Mouse;
+            var toX = (float)Math.Round(end.X, MidpointRounding.AwayFromZero);
+            var toY = (float)Math.Round(end.Y, MidpointRounding.AwayFromZero);
+            await mouse.MoveAsync(fromX, fromY).ConfigureAwait(false);
+            await mouse.DownAsync().ConfigureAwait(false);
+            try
+            {
+                if (duration is { } length)
+                {
+                    var steps = Math.Max(2, (int)Math.Round(length.TotalMilliseconds / 16, MidpointRounding.AwayFromZero));
+                    var started = Stopwatch.GetTimestamp();
+                    for (var step = 1; step <= steps; step++)
+                    {
+                        var due = TimeSpan.FromTicks(length.Ticks * step / steps);
+                        var wait = due - Stopwatch.GetElapsedTime(started);
+                        if (wait > TimeSpan.Zero)
+                        {
+                            await Task.Delay(wait, cancellationToken).ConfigureAwait(false);
+                        }
+
+                        await mouse.MoveAsync(step == steps ? toX : fromX + ((toX - fromX) * step / steps), step == steps ? toY : fromY + ((toY - fromY) * step / steps)).ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    await mouse.MoveAsync((float)Math.Round((fromX + toX) / 2.0, MidpointRounding.AwayFromZero), (float)Math.Round((fromY + toY) / 2.0, MidpointRounding.AwayFromZero)).ConfigureAwait(false);
+                    await mouse.MoveAsync(toX, toY).ConfigureAwait(false);
+                }
+            }
+            finally
+            {
+                await mouse.UpAsync().ConfigureAwait(false);
+            }
+        }
+
         public Task PressAsync(string key, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("keyboard.press", cancellationToken, () =>
         {
             RequireObservation();
@@ -2499,7 +2594,16 @@ public sealed partial class WebEngine : IEngine
                     }).ConfigureAwait(false);
                     break;
                 case LocatorAction.Select select:
-                    await element.SelectOptionAsync(select.Value, new ElementHandleSelectOptionOptions { Timeout = budget.PlaywrightTimeout }).ConfigureAwait(false);
+                    var chosen = new ElementHandleSelectOptionOptions { Timeout = budget.PlaywrightTimeout };
+                    if (select.Option is { } form)
+                    {
+                        await element.SelectOptionAsync([new SelectOptionValue { Label = form.Label, Value = form.Value, Index = form.Index }], chosen).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await element.SelectOptionAsync(select.Text!, chosen).ConfigureAwait(false);
+                    }
+
                     break;
                 case LocatorAction.SetInputFiles files:
                     await UploadFilesAsync(element, files.Paths, budget).ConfigureAwait(false);

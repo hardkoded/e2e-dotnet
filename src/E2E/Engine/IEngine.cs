@@ -216,6 +216,25 @@ public interface IEngineSession : IAsyncDisposable
 
     Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The locator action kinds the engine declared for <see cref="PerformAsync"/>, by upstream's names (<see cref="EngineActionKinds.Locator"/>).
+    /// The harness refuses any other kind with <c>UNSUPPORTED_CAPABILITY</c> before it resolves the node. Upstream's <c>actions</c>. The
+    /// default declares every kind, so an engine that does not narrow it keeps compiling.
+    /// </summary>
+    IReadOnlyCollection<string> ActionKinds => EngineActionKinds.Locator;
+
+    /// <summary>
+    /// The pointer action kinds the engine declared for <see cref="PerformAtAsync"/> (<see cref="EngineActionKinds.Pointer"/>), empty for an
+    /// engine with no pointer. Upstream's <c>pointerActions</c>.
+    /// </summary>
+    IReadOnlyCollection<string> PointerActionKinds => [];
+
+    /// <summary>
+    /// Carries out one pointer action at a viewport point, with no node behind it. Engines that declare pointer actions implement it.
+    /// Upstream's <c>performAt</c>.
+    /// </summary>
+    Task PerformAtAsync(Point point, PointerAction action, CancellationToken cancellationToken) => Unsupported("the pointer actions");
+
     /// <summary>Sends a key to whatever holds focus. The harness has already validated the key.</summary>
     Task PressAsync(string key, CancellationToken cancellationToken);
 

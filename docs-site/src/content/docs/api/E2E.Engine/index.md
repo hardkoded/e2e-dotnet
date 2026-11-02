@@ -31,6 +31,7 @@ Public types in the `E2E.Engine` namespace.
 | [DocumentEngine](/api/E2E.Engine/DocumentEngine/) | In-memory page engine for samples and tests that do not need a browser. Each open builds a fresh page from the route mapped on DocumentWorld. Actions mutate that page until the next open. app.back rebuilds the previous route, and app.restart and app.clearState drop the history and reopen the base URL. The document engine has no browser, so the Browser fixture is unsupported. |
 | [DocumentPage](/api/E2E.Engine/DocumentPage/) | One in-memory screen. Builder methods append controls in reading order. |
 | [DocumentWorld](/api/E2E.Engine/DocumentWorld/) | Routes a DocumentEngine can open. Each open builds a new page from the mapped factory. |
+| [EngineActionKinds](/api/E2E.Engine/EngineActionKinds/) | The action kinds of the engine contract, by upstream's names, in contract order: what an engine declares in ActionKinds and PointerActionKinds. Upstream's LOCATOR_ACTION_KINDS and POINTER_ACTION_KINDS. |
 | [EngineFinishInfo](/api/E2E.Engine/EngineFinishInfo/) | The facts handed to an engine's finish (FinishAsync), once per run and target after the last worker is gone, with the cleanup budget of one hook. Upstream's EngineFinishInfo. |
 | [EngineFixtureContext](/api/E2E.Engine/EngineFixtureContext/) | What an engine's fixture gets from the attempt, once per attempt. Upstream's EngineFixtureContext, of which the port has locator only: its fixtures take their own cancellation tokens, and record their steps through RunOperationAsync. |
 | [EngineInitInfo](/api/E2E.Engine/EngineInitInfo/) | What a worker's init is given, once per worker, before its first attempt. Upstream's EngineInitInfo. |
@@ -52,7 +53,7 @@ Public types in the `E2E.Engine` namespace.
 | [LocatorAction.PressSequentially](/api/E2E.Engine/LocatorAction.PressSequentially/) | Focuses the node and types Text one character at a time. |
 | [LocatorAction.ScrollIntoView](/api/E2E.Engine/LocatorAction.ScrollIntoView/) | Scrolls the node's nearest scrollable container until the node is in the viewport. |
 | [LocatorAction.SecondaryTap](/api/E2E.Engine/LocatorAction.SecondaryTap/) | A right click, or the platform's equivalent. Modifiers are held for the click, as for LocatorAction.Tap. |
-| [LocatorAction.Select](/api/E2E.Engine/LocatorAction.Select/) |  |
+| [LocatorAction.Select](/api/E2E.Engine/LocatorAction.Select/) | Selects one option: the one whose value or label is Text, or the one Option names by its label, its value, or its index. Exactly one of the two is set. |
 | [LocatorAction.SetInputFiles](/api/E2E.Engine/LocatorAction.SetInputFiles/) | Sets the files of a file input, or of a control that opens a file chooser when clicked, such as a button over a hidden input. Paths are absolute: the locator resolves them from the project root. |
 | [LocatorAction.Swipe](/api/E2E.Engine/LocatorAction.Swipe/) | Scrolls a scrollable node about three quarters of its height or width. The viewport swipe is SwipeAsync. |
 | [LocatorAction.Tap](/api/E2E.Engine/LocatorAction.Tap/) | A tap. Modifiers are held for the click, and only an engine that declares TapModifiers receives them. |
@@ -61,6 +62,15 @@ Public types in the `E2E.Engine` namespace.
 | [Observation](/api/E2E.Engine/Observation/) | A redacted semantic snapshot of the current screen. |
 | [ObservationLimits](/api/E2E.Engine/ObservationLimits/) | Limits from the engine contract. Engines cut names and text before they reach the model. |
 | [ObserveOptions](/api/E2E.Engine/ObserveOptions/) | What an observation takes besides the tree. Upstream's EngineObserveOptions. |
+| [PointerAction](/api/E2E.Engine/PointerAction/) | One action PerformAtAsync carries out at a viewport point, with no node behind it: the pointer half of the action vocabulary, for a surface that has pixels and coordinates where the tree lists nothing (a canvas, a map, a desktop shell, a game), and for a test that names a point outright (Screen.TapAtAsync, Screen.SwipeAsync from one point to another, a tap's Position). The kinds are the pointer subset of LocatorAction with the same meanings; PointerAction.DragTo ends at a second point, and PointerAction.Swipe is a scroll gesture started at the point. PointerAction.SwipeTo is the one kind with no node form: the finger's path from the point to its target, a touch swipe on a device and a pointer drag on a document platform, which is distinct from PointerAction.DragTo where a platform holds before it drags. Upstream's PointerAction. |
+| [PointerAction.DoubleTap](/api/E2E.Engine/PointerAction.DoubleTap/) |  |
+| [PointerAction.DragTo](/api/E2E.Engine/PointerAction.DragTo/) |  |
+| [PointerAction.Hover](/api/E2E.Engine/PointerAction.Hover/) |  |
+| [PointerAction.LongPress](/api/E2E.Engine/PointerAction.LongPress/) | A hold. Without a duration the engine holds its own default. |
+| [PointerAction.SecondaryTap](/api/E2E.Engine/PointerAction.SecondaryTap/) |  |
+| [PointerAction.Swipe](/api/E2E.Engine/PointerAction.Swipe/) | A scroll gesture started at the point, as far as Momentum says. |
+| [PointerAction.SwipeTo](/api/E2E.Engine/PointerAction.SwipeTo/) | A drag to another point. With a duration the finger takes that long to get there. |
+| [PointerAction.Tap](/api/E2E.Engine/PointerAction.Tap/) |  |
 | [ProviderRecordContext](/api/E2E.Engine/ProviderRecordContext/) | Handed to a provider's RecordAsync, once per attempt that records video. |
 | [ProviderRecording](/api/E2E.Engine/ProviderRecording/) | A recording a provider's service makes of the browser or device it leased, as RecordAsync started it. |
 | [ProviderRecordingResult](/api/E2E.Engine/ProviderRecordingResult/) | What a stopped recording became: a file the provider wrote into the directory it was given, by name (File), or a recording its service keeps, by http(s) URL and media type (Url and MediaType). |
@@ -83,6 +93,12 @@ Public types in the `E2E.Engine` namespace.
 | [WebRouteRequest](/api/E2E.Engine/WebRouteRequest/) | The request a route intercepted. |
 | [WebScreencastOptions](/api/E2E.Engine/WebScreencastOptions/) | How the engine's own screencast of the page records an attempt that records video: the frame size and the JPEG quality of the frames it encodes. Which attempts record is the config's video, not an engine option. Upstream's WebScreencastOptions. |
 | [WebViewport](/api/E2E.Engine/WebViewport/) | A page size in CSS pixels. |
+
+## Structs
+
+| Type | Summary |
+| --- | --- |
+| [Point](/api/E2E.Engine/Point/) | A point of the viewport, in the space Rect is in and PerformAtAsync dispatches in. Upstream's ViewportPoint. |
 
 ## Interfaces
 

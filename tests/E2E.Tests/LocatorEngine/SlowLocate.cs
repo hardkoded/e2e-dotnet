@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using Microsoft.Extensions.Time.Testing;
 
 namespace E2E.Tests.LocatorEngine;
 
@@ -25,6 +26,22 @@ internal static class SlowLocate
         }
 
         return nodes;
+    }
+
+    /// <summary>
+    /// <see cref="AnswerAsync(TimeSpan, IReadOnlyList{SemanticNode}, TimeSpan)"/> on a fake clock: the call takes <paramref name="after"/> by moving
+    /// <paramref name="clock"/> that far, or the budget's worth when it cannot finish, so the test waits for nothing.
+    /// </summary>
+    public static Task<IReadOnlyList<SemanticNode>> AnswerAsync(FakeTimeProvider clock, TimeSpan after, IReadOnlyList<SemanticNode> nodes, TimeSpan budget)
+    {
+        if (after > budget)
+        {
+            clock.Advance(budget);
+            return Task.FromException<IReadOnlyList<SemanticNode>>(new EngineException(EngineErrorCodes.OperationTimeout, "operation timed out", retryable: false));
+        }
+
+        clock.Advance(after);
+        return Task.FromResult(nodes);
     }
 
     /// <summary>A locate that never answers on its own, ended at <paramref name="budget"/>.</summary>

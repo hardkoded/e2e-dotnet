@@ -26,6 +26,12 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
 
     private static readonly JsonSerializerOptions NodeJson = new() { PropertyNameCaseInsensitive = true };
 
+    /// <inheritdoc />
+    public IReadOnlyCollection<string> ActionKinds => DeviceActions.NodeActionKinds;
+
+    /// <inheritdoc />
+    public IReadOnlyCollection<string> PointerActionKinds => DeviceActions.PointerActionKinds;
+
     private readonly MobileEngine _engine;
     private readonly string _name;
     private readonly string _where;

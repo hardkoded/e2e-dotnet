@@ -63,6 +63,33 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
             Assert.Empty(await Names(Pressed(true)));
             await Pressed(false).TapAsync();
             Assert.Equal(["Mute"], await Names(Pressed(true)));
+
+            await screen.GetByTestId("menu-target").SecondaryTapAsync();
+            Assert.Equal("context menu", await screen.GetByTestId("menu-target").TextContentAsync());
+
+            // Every pointer kind at a bare point, read back from the page's event log.
+            Assert.Equal(["tap", "doubleTap", "secondaryTap", "longPress", "hover", "dragTo", "swipe", "swipeTo"], session.Screen.PointerActionKinds);
+            await session.Screen.PerformAtAsync(new Point(150, 350), new PointerAction.Tap(), CancellationToken.None);
+            await session.Screen.PerformAtAsync(new Point(160, 360), new PointerAction.DoubleTap(), CancellationToken.None);
+            await session.Screen.PerformAtAsync(new Point(170, 370), new PointerAction.SecondaryTap(), CancellationToken.None);
+            await session.Screen.PerformAtAsync(new Point(180, 380), new PointerAction.LongPress(TimeSpan.FromMilliseconds(120)), CancellationToken.None);
+            await session.Screen.PerformAtAsync(new Point(190, 390), new PointerAction.Hover(), CancellationToken.None);
+            await session.Screen.PerformAtAsync(new Point(200, 400), new PointerAction.DragTo(new Point(300, 450)), CancellationToken.None);
+            await session.Screen.PerformAtAsync(new Point(210, 410), new PointerAction.Swipe(ScrollDirection.Down), CancellationToken.None);
+            // A fractional path lands on whole pixels: the browser would truncate it a pixel early.
+            await session.Screen.PerformAtAsync(new Point(220.6, 420.4), new PointerAction.SwipeTo(new Point(320.5, 460.5)), CancellationToken.None);
+            // The port's text read folds the log's line breaks into spaces; no entry holds one.
+            var lines = ((await screen.GetByTestId("log").TextContentAsync()) ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+            Assert.Contains("click:150,350", lines);
+            Assert.Equal(["dblclick:160,360"], lines.Where(line => line.StartsWith("dblclick:", StringComparison.Ordinal)));
+            Assert.Contains("contextmenu:170,370", lines);
+            Assert.Contains("mousedown:180,380", lines);
+            Assert.Contains("mouseup:180,380", lines);
+            Assert.Contains("mousedown:200,400", lines);
+            Assert.Contains("mouseup:300,450", lines);
+            Assert.Contains(lines, line => line.StartsWith("wheel:210,410:", StringComparison.Ordinal) && double.Parse(line.Split(':')[2], System.Globalization.CultureInfo.InvariantCulture) > 0);
+            Assert.Contains("mousedown:221,420", lines);
+            Assert.Contains("mouseup:321,461", lines);
         });
     }
 

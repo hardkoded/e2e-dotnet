@@ -159,7 +159,8 @@ Members of `E2ETest` in both frameworks:
 `SecondaryTapAsync` (a right click), `LongPressAsync`, `HoverAsync`,
 `DragToAsync(target)`, `SwipeAsync`, `FillAsync` (a string or a
 `Secret`), `PressSequentiallyAsync`, `PressAsync`, `CheckAsync`,
-`UncheckAsync`, `ClearAsync`, `SelectOptionAsync` (a value or label),
+`UncheckAsync`, `ClearAsync`, `SelectOptionAsync` (a value or label, or a `SelectOption` with one of
+`Label`, `Value`, or `Index`),
 `FocusAsync`, `SetInputFilesAsync`, and `ScrollIntoViewAsync`. Each waits up to
 the action timeout for exactly one enabled, visible match.
 
@@ -180,10 +181,19 @@ from the same screen. `SwipeAsync(new SwipeOptions { Direction = ..., Momentum =
 scrolls that node. Where each runs: the web engine has all of them; a device
 engine has long press, hover, drag, and swipe (no secondary tap); the Windows
 engine has them all; the document engine has swipe only and fails the rest with
-`UNSUPPORTED_CAPABILITY`. The screen-level `TapAt` and `Swipe`, the tap
-`position`, and the `{ label, value, index }` forms of `SelectOptionAsync` are not
-ported yet, and the agent has no `long_press`, `right_click`, `hover`, or `drag`
-tool yet.
+`UNSUPPORTED_CAPABILITY`. An engine declares the action kinds it takes, and the
+screen refuses another before it resolves the node.
+
+`TapAsync(new TapOptions { Position = new Point(x, y) })` taps that point of the
+node's box (from its top left corner), once the node is in view with a box;
+modifiers with a position are `INVALID_ARGUMENT`. `Screen.TapAtAsync(new Point(x, y))`
+taps a viewport point with no locator, and `Screen.SwipeAsync(new SwipePathOptions
+{ From = ..., To = ..., Duration = ... })` drags between two viewport points
+(`Duration` is a whole number of milliseconds from 16 through 10000). A point must
+be finite and not negative. Only an engine that declares pointer actions takes a
+point: the web engine does, and so does a device; the others fail with
+`UNSUPPORTED_CAPABILITY`. The agent has no `long_press`, `right_click`, `hover`, or
+`drag` tool yet.
 
 `SetInputFilesAsync(path)` (or a list of paths) sets the files of exactly one
 file input, or of a control that opens a file chooser, such as a button over a

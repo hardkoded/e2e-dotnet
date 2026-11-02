@@ -9,10 +9,9 @@ using static E2E.Tests.CheckActions.CheckPage;
 namespace E2E.Tests.Actions;
 
 /// <summary>
-/// Partial ports of upstream "dispatches %j to locator.%s" (clear, selectOption label) and the node swipe: the upstream tests check call arguments and a wheel on stubs. The port checks the
-/// effect on a live page, since the page calls are made inside the engine. <c>longPress</c>, the <c>index</c> form of
-/// <c>selectOption</c>, <c>dragTo</c>, and the node swipe's missing-box case are not ported: the port has no long press,
-/// no index select, no <c>dragTo</c>, and scrolls a node with <c>scrollBy</c>, which needs no box (COMPATIBILITY.md).
+/// Partial ports of upstream "dispatches %j to locator.%s" (clear, selectOption by label, value and index) and the node swipe: the upstream tests check call arguments and a wheel on stubs. The port checks the
+/// effect on a live page, since the page calls are made inside the engine. <c>longPress</c>, <c>dragTo</c>, and the node swipe's missing-box case are not ported: the port has no long press,
+/// no <c>dragTo</c>, and scrolls a node with <c>scrollBy</c>, which needs no box (COMPATIBILITY.md).
 /// The five upload <c>it</c>s (upstream #958) run on a live page as well: the first two are <c>Partial_</c>, since they check the
 /// order and the arguments of stubbed page calls, and the others check the same outcome the stubs do.
 /// </summary>
@@ -22,6 +21,8 @@ public sealed class DispatchLocatorActionTests
     [Theory]
     [InlineData("clear")]
     [InlineData("selectOption label")]
+    [InlineData("selectOption value")]
+    [InlineData("selectOption index")]
     public async Task Changes_the_field_or_the_selected_option_as_the_action_says(string action)
     {
         await RunAsync(
@@ -38,7 +39,13 @@ public sealed class DispatchLocatorActionTests
                 }
                 else
                 {
-                    await session.PerformAsync(await FindByNameAsync(session, "Color"), new LocatorAction.Select("Blue"), CancellationToken.None);
+                    var option = action switch
+                    {
+                        "selectOption value" => new LocatorAction.Select(new SelectOption { Value = "Blue" }),
+                        "selectOption index" => new LocatorAction.Select(new SelectOption { Index = 1 }),
+                        _ => new LocatorAction.Select("Blue"),
+                    };
+                    await session.PerformAsync(await FindByNameAsync(session, "Color"), option, CancellationToken.None);
                     Assert.Equal("Blue", await EvaluateAsync<string>(session, "() => document.querySelector('select').value"));
                 }
             });

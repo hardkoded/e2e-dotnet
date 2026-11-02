@@ -123,7 +123,7 @@ internal static class FixtureApp
         </html>
         """;
 
-    // A heading with a level and a toggle button that reports aria-pressed.
+    // A heading with a level, a toggle button that reports aria-pressed, a context menu target, and a pad that logs the pointer events it gets.
     public const string Pointer = """
         <!doctype html>
         <html>
@@ -131,6 +131,19 @@ internal static class FixtureApp
         <body style="margin:0">
         <h2>Pointer</h2>
         <button id="toggle" aria-pressed="false" onclick="this.setAttribute('aria-pressed', this.getAttribute('aria-pressed') === 'true' ? 'false' : 'true')">Mute</button>
+        <div id="menu-target" data-testid="menu-target" oncontextmenu="event.preventDefault(); this.textContent = 'context menu'">Right click me</div>
+        <div id="pad" style="position:absolute;left:100px;top:300px;width:400px;height:300px;background:#eee"></div>
+        <pre id="log" data-testid="log"></pre>
+        <script>
+          const log = document.getElementById('log');
+          const pad = document.getElementById('pad');
+          for (const type of ['click', 'dblclick', 'contextmenu', 'mousedown', 'mouseup', 'wheel']) {
+            pad.addEventListener(type, (event) => {
+              if (type === 'contextmenu') event.preventDefault();
+              log.textContent += type + ':' + event.clientX + ',' + event.clientY + (type === 'wheel' ? ':' + event.deltaY : '') + String.fromCharCode(10);
+            });
+          }
+        </script>
         </body>
         </html>
         """;

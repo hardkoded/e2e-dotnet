@@ -8,9 +8,8 @@ namespace E2E.Tests.LocatorActionOptions;
 
 /// <summary>
 /// The "modifiers" describe of <c>locator-action-options.test.ts</c>, over a screen whose engine declares
-/// <see cref="EngineCapabilities.TapModifiers"/> or not. Not ported: "refuses modifiers with a position", because the port has no tap
-/// position yet; and the cases "quotes a modifier JSON cannot serialize" and the non-array value of "rejects modifiers %j before any
-/// lookup", because a typed list cannot be either.
+/// <see cref="EngineCapabilities.TapModifiers"/> or not. Not ported: the cases "quotes a modifier JSON cannot serialize" and the
+/// non-array value of "rejects modifiers %j before any lookup", because a typed list cannot be either.
 /// </summary>
 public sealed class LocatorActionOptionsModifiersTests
 {
@@ -91,5 +90,17 @@ public sealed class LocatorActionOptionsModifiersTests
         Assert.Equal("INVALID_ARGUMENT", error.Code);
         Assert.Contains(message, error.Message);
         Assert.Empty(received);
+    }
+
+    [Fact]
+    public async Task Modifiers_are_refused_with_a_position_which_the_pointer_path_cannot_hold_yet()
+    {
+        var (screen, _) = LocatorActionOptionsTests.BoxScreen(tapModifiers: true);
+
+        var error = await Assert.ThrowsAsync<TestException>(() =>
+            screen.GetByLabel("Agree").TapAsync(new TapOptions { Modifiers = [KeyModifier.Shift], Position = new Point(1, 1) }));
+
+        Assert.Equal("INVALID_ARGUMENT", error.Code);
+        Assert.Contains("modifiers with a position", error.Message, StringComparison.Ordinal);
     }
 }
