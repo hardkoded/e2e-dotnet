@@ -148,9 +148,97 @@ internal sealed class FakeClock : TimeProvider
     {
         Interlocked.Add(ref _spent, span.Ticks);
         Advance(span);
+        Fire();
     }
 
     public void Advance(TimeSpan span) => _now += span;
+
+    /// <summary>
+    /// When set, a timer made from now on fires only when <see cref="Spend"/> moves the clock to its due time, as the fake timers of
+    /// upstream's tests do. Unset, a timer is a real one, and a wait that no device command answers ends in real time.
+    /// </summary>
+    public bool ManualTimers { get; set; }
+
+    public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
+    {
+        if (!ManualTimers || dueTime == Timeout.InfiniteTimeSpan)
+        {
+            return base.CreateTimer(callback, state, dueTime, period);
+        }
+
+        var timer = new ManualTimer(this, callback, state, Interlocked.Read(ref _spent) + dueTime.Ticks);
+        lock (_timers)
+        {
+            _timers.Add(timer);
+        }
+
+        return timer;
+    }
+
+    /// <summary>
+    /// Spends <paramref name="step"/> again and again until <paramref name="pending"/> ends: the wait on a command that has been sent
+    /// and not answered makes its manual timer when the code under test gets to it, which the test cannot tell, and a step spent before
+    /// that does no harm.
+    /// </summary>
+    public async Task SpendUntil(Task pending, TimeSpan step)
+    {
+        using var give = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        while (!pending.IsCompleted)
+        {
+            Spend(step);
+            await Task.Delay(1, give.Token);
+        }
+    }
+
+    private readonly List<ManualTimer> _timers = [];
+
+    private void Fire()
+    {
+        List<ManualTimer> due;
+        lock (_timers)
+        {
+            var now = Interlocked.Read(ref _spent);
+            due = [.. _timers.Where(timer => timer.DueAt <= now)];
+            _timers.RemoveAll(due.Contains);
+        }
+
+        foreach (var timer in due)
+        {
+            timer.Fire();
+        }
+    }
+
+    private sealed class ManualTimer(FakeClock clock, TimerCallback callback, object? state, long dueAt) : ITimer
+    {
+        public long DueAt { get; } = dueAt;
+
+        private volatile bool _disposed;
+
+        public void Fire()
+        {
+            if (!_disposed)
+            {
+                callback(state);
+            }
+        }
+
+        public bool Change(TimeSpan dueTime, TimeSpan period) => throw new NotSupportedException("A manual timer is not retimed.");
+
+        public void Dispose()
+        {
+            _disposed = true;
+            lock (clock._timers)
+            {
+                clock._timers.Remove(this);
+            }
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            Dispose();
+            return ValueTask.CompletedTask;
+        }
+    }
 }
 
 /// <summary>What a delay does besides moving the clock. Unset, it ends at once.</summary>

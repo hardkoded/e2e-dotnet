@@ -282,20 +282,26 @@ public sealed class ToHaveScreenshotTests
         await project.RunAsync("home", "home", Home);
         var captures = 0;
         engine.Current = () => ScreenEngine.Shot(ScreenEngine.White, ScreenEngine.Red);
+
+        // The captures and the polls wait on a clock the test moves, as upstream's fake timers do. The 1 s budget is also the negation
+        // grace, and the third capture must start in the last 300 ms of it, a window a loaded runner misses when the waits are real.
+        var clock = new SteppingTime();
         engine.BeforeCapture = async () =>
         {
             captures++;
-            await Task.Delay(300);
+            await Task.Delay(TimeSpan.FromMilliseconds(300), clock);
             if (captures < 3)
             {
                 return;
             }
 
-            await Task.Delay(300);
+            await Task.Delay(TimeSpan.FromMilliseconds(300), clock);
             throw new EngineException(EngineErrorCodes.OperationTimeout, "the screenshot outlived its budget");
         };
-        var error = await project.RunAsync("home", "home", screen => Expect.That(screen).Not.ToHaveScreenshotAsync("home.png", Quick));
-        Assert.Null(error);
+        await using var open = await project.OpenScreenAsync("home", "home", clock);
+        var matching = Expect.That(open.Screen).Not.ToHaveScreenshotAsync("home.png", Quick);
+        await clock.RunAsync(matching.ContinueWith(_ => { }, TaskScheduler.Default));
+        Assert.Null(await Record.ExceptionAsync(() => matching));
         Assert.Equal(3, captures);
     }
 
