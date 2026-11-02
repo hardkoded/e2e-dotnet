@@ -37,15 +37,18 @@ public interface IBrowserProvider
     BrowserProviderScope Scope => BrowserProviderScope.Worker; // Worker: a browser per worker slot. Attempt: a fresh browser per attempt.
     Task<BrowserLease> AcquireAsync(BrowserRequest request, CancellationToken cancellationToken);
     Task ReleaseAsync(BrowserLease lease, BrowserReleaseContext context, CancellationToken cancellationToken);
-    Task<IReadOnlyList<string>> SweepAsync(BrowserReleaseContext context, CancellationToken cancellationToken); // optional
-    BrowserProviderDownloads? Downloads => null;               // optional: serves downloads of a browser on another machine
-    Task<ProviderRecording?> RecordAsync(BrowserLease lease, ProviderRecordContext context, CancellationToken cancellationToken); // optional
+    Task<IReadOnlyList<string>> SweepAsync(BrowserReleaseContext context, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<string>>([]); // optional: a worker that dies never releases what it acquired
+    BrowserProviderDownloads? Downloads => null;    // optional: serves downloads of a browser on another machine
+    Task<ProviderRecording?> RecordAsync(BrowserLease lease, ProviderRecordContext context, CancellationToken cancellationToken) =>
+        Task.FromResult<ProviderRecording?>(null);  // optional: null lets the engine record the page
 }
 
 public class BrowserLease
 {
     public string Id { get; init; }                 // the provider's handle (a session id), handed back to ReleaseAsync
     public string CdpEndpoint { get; init; }        // ws://, wss://, or http:// DevTools endpoint to attach to
+    public BrowserProtocol Protocol { get; init; }  // what CdpEndpoint speaks; Playwright needs Worker scope and no reconnect
     public string? ReconnectEndpoint { get; init; } // to reattach to the same browser after a transport drop; per-attempt leases only
 }
 ```
@@ -128,6 +131,7 @@ public sealed class HostedBrowsers(string serviceUrl) : IBrowserProvider
     private async Task StopAsync(string id, string token, CancellationToken cancellationToken = default)
     {
         using var response = await Http.SendAsync(Authorized(HttpMethod.Post, $"{serviceUrl}/sessions/{id}/stop", token), cancellationToken);
+        response.EnsureSuccessStatusCode();
     }
 
     private static HttpRequestMessage Authorized(HttpMethod method, string url, string token, HttpContent? content = null) =>
