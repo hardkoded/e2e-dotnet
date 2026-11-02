@@ -722,9 +722,11 @@ public sealed partial class Agent
     }
 
     // A name or test id is matched in its redacted form, the form the model reads and the cache records.
-    internal static List<SemanticNode> Find(Observation observation, string? role, string? name, string? testId, string? reference, Redactor redactor)
+    internal static List<SemanticNode> Find(Observation observation, string? role, string? name, string? testId, string? reference, Redactor redactor, string? within = null)
     {
         var matches = new List<SemanticNode>();
+        // A recorded container key must hold: the same "Delete" in another row is a different control (upstream's matchingIds).
+        var parents = within is null ? null : AgentActions.ParentsOf(observation.Roots);
         foreach (var node in LocatorResolver.Walk(observation.Roots))
         {
             if (node.States.Hidden || node.States.AriaHidden)
@@ -758,6 +760,11 @@ public sealed partial class Agent
             }
 
             if (role is null && name is null && testId is null)
+            {
+                continue;
+            }
+
+            if (parents is not null && AgentActions.ContainerKey(node, parents, redactor) != within)
             {
                 continue;
             }

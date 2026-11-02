@@ -208,3 +208,19 @@ public string? Value { get; set; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+<a id="E2E_RecordedAction_Within_"></a>
+<a id="E2E_RecordedAction_Within"></a>
+
+### Within
+
+
+```csharp
+public string? Within { get; set; }
+```
+
+
+Upstream's `within`: the key of the container the target sat in (a row's first cell), with secrets redacted. Relocation
+requires the same key, so one row's "Delete" is never taken for another's. Null when the target sat in no named container.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)

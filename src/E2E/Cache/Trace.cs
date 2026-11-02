@@ -100,6 +100,7 @@ internal static class Trace
             || !TryMap(descriptor.Text, map, out var text)
             || !TryMap(descriptor.TestId, map, out var testId)
             || !TryMap(descriptor.Placeholder, map, out var placeholder)
+            || !TryMap(descriptor.Within, map, out var within)
             || !TryMap(descriptor.Value, map, out var value))
         {
             return null;
@@ -110,25 +111,27 @@ internal static class Trace
         mapped.Text = text;
         mapped.TestId = testId;
         mapped.Placeholder = placeholder;
+        mapped.Within = within;
         mapped.Value = value;
         return mapped;
     }
 
     /// <summary>
-    /// Upstream's <c>mapActionText</c>. An action holds its target as <c>Name</c> and <c>TestId</c>. A typed or selected value, a
+    /// Upstream's <c>mapActionText</c>. An action holds its target as <c>Name</c>, <c>TestId</c>, and <c>Within</c>. A typed or selected value, a
     /// navigated URL, a scroll text and upload paths are replay inputs like a typed value. A <c>fill</c> of a secret holds its marker,
     /// which is a name, not text a param produced (upstream's <c>typeSecret</c> maps its target only).
     /// </summary>
     private static RecordedAction? MapActionText(RecordedAction action, Func<string, string?> map)
     {
         var mapped = action.Copy();
-        if (!TryMap(action.Name, map, out var name) || !TryMap(action.TestId, map, out var testId))
+        if (!TryMap(action.Name, map, out var name) || !TryMap(action.TestId, map, out var testId) || !TryMap(action.Within, map, out var within))
         {
             return null;
         }
 
         mapped.Name = name;
         mapped.TestId = testId;
+        mapped.Within = within;
         switch (action.Kind)
         {
             case "navigate":

@@ -138,3 +138,18 @@ public string? Value { get; set; }
 An anchor's value, with secrets redacted. Null for an empty or secure field.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+<a id="E2E_RecordedTarget_Within_"></a>
+<a id="E2E_RecordedTarget_Within"></a>
+
+### Within
+
+
+```csharp
+public string? Within { get; set; }
+```
+
+
+Upstream's `within`: the key of the container the target sat in. See [Within](/api/E2E/RecordedAction/#E2E_RecordedAction_Within).
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)

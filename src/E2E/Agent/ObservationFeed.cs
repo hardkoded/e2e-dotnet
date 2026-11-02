@@ -320,8 +320,9 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// <summary>
     /// Upstream's <c>relocate</c>: finds a node that went stale in one fresh look, exactly one match or null. The look is
     /// taken directly, as upstream's is, because this runs inside an action. Upstream matches with the trace recorder's
-    /// descriptor rules (<c>cache/relocate.ts</c>), which also read placeholder, input purpose, and container, and
-    /// forgive a changed test id. The port matches the role, name, and test id it records.
+    /// descriptor rules (<c>cache/relocate.ts</c>), which also read placeholder and input purpose, and forgive a
+    /// changed test id. The port matches the role, name, and test id it records. Neither looks at the container: upstream describes
+    /// the stale node with <c>describeTarget</c>, which carries no container key.
     /// </summary>
     public async Task<SemanticNode?> Relocate(SemanticNode stale, Redactor redactor, CancellationToken token)
     {
