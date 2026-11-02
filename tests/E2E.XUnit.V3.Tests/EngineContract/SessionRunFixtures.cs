@@ -42,19 +42,24 @@ internal static class NestedSessionRun
         {
             await process.WaitForExitAsync(timeout.Token);
             var text = await output + await error;
+            if (!File.Exists(xml))
+            {
+                throw new InvalidOperationException($"The nested run of {fixture.Name} wrote no result (exit code {process.ExitCode}): {text}");
+            }
+
             var results = XDocument.Load(xml).Descendants("test").ToDictionary(
                 test => (string)test.Attribute("method")!,
                 test => new NestedResult((string)test.Attribute("result")!, ((string?)test.Element("failure")?.Element("message") ?? string.Empty).Replace("\\\"", "\"", StringComparison.Ordinal)),
                 StringComparer.Ordinal);
             return (results, text);
         }
-        catch (OperationCanceledException)
-        {
-            process.Kill(entireProcessTree: true);
-            throw;
-        }
         finally
         {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
+
             File.Delete(xml);
         }
     }

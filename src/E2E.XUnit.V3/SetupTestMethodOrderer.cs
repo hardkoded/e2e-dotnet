@@ -19,7 +19,7 @@ public sealed class SetupTestMethodOrderer : ITestMethodOrderer
         where TTestMethod : ITestMethod
     {
         ArgumentNullException.ThrowIfNull(testMethods);
-        var setup = testMethods.Where(method => IsSetup(method)).ToList();
+        var setup = DefaultTestMethodOrderer.Instance.OrderTestMethods(testMethods.Where(method => IsSetup(method)).ToList()).ToList();
         setup.AddRange(DefaultTestMethodOrderer.Instance.OrderTestMethods(testMethods.Where(method => !IsSetup(method)).ToList()));
         return setup;
     }
