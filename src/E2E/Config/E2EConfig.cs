@@ -920,7 +920,7 @@ public sealed class E2EConfig
                 throw Invalid(where + " \"" + key + "\" is not supported by the .NET port" + (key switch
                 {
                     "executor" => ": an executor is code, so set AgentOptions.Executor",
-                    "store" when label.StartsWith("cache", StringComparison.Ordinal) => ": a store is code, so call E2EConfig.WithCacheStore",
+                    "store" when label == "cache config" => ": a store is code, so call E2EConfig.WithCacheStore",
                     "store" => ": a store is code, so call E2EConfig.WithArtifactStore",
                     _ => "",
                 }));
