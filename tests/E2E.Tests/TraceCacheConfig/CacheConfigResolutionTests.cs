@@ -10,12 +10,13 @@ public sealed class CacheConfigResolutionTests
     private static readonly string Root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "e2e-cache-config-tests"));
     private static readonly string Home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
-    // Partial: the port has no cache.store, and its cache is an object, never a mode string.
+    // Partial: the port's cache is an object, never a mode string.
     [Fact]
     public void Is_opt_out_unset_defaults_to_read_write_under_dot_e2e_cache_or_the_configured_dir()
     {
         var resolved = Parse("{}").Cache;
         Assert.Equal(CacheMode.ReadWrite, resolved.Mode);
+        Assert.Null(resolved.Store);
         Assert.Equal(Path.Combine(Root, ".e2e", "cache"), resolved.Directory);
         Assert.Equal(Path.Combine(Root, "shared"), Parse("""{ "cache": { "dir": "shared" } }""").Cache.Directory);
         Assert.Equal(CacheMode.ReadOnly, Parse("""{ "cache": { "mode": "read-only" } }""").Cache.Mode);
@@ -44,6 +45,17 @@ public sealed class CacheConfigResolutionTests
         Assert.Equal(CacheMode.ReadOnly, Parse("{}", Env(("E2E_CACHE_DIR", "/abs/shared"), ("CI", "1"))).Cache.Mode);
     }
 
+    // Partial: without --cache-dir, which the port has no command line for, and without the output the variable's directory would overlap.
+    [Fact]
+    public void Partial_Refuses_cache_dir_beside_a_cache_store_and_ignores_E2E_CACHE_DIR_there_even_one_the_output_would_overlap()
+    {
+        var store = new EmptyStore();
+        var resolved = Parse("{}", Env(("E2E_CACHE_DIR", ".e2e"))).WithCacheStore(store).Cache;
+        Assert.Same(store, resolved.Store);
+        Assert.Equal(Path.Combine(Root, ".e2e", "cache"), resolved.Directory);
+        Assert.Equal(Path.Combine(Root, "configured"), Parse("""{ "cache": { "dir": "configured" } }""", Env(("E2E_CACHE_DIR", ".e2e"))).WithCacheStore(store).Cache.Directory);
+    }
+
     // Partial: without --cache-dir, which the port has no command line for.
     [Fact]
     public void Reads_a_leading_tilde_in_E2E_CACHE_DIR_as_the_home_directory()
@@ -65,6 +77,20 @@ public sealed class CacheConfigResolutionTests
         Assert.Equal(CacheMode.ReadOnly, Parse("""{ "cache": { "mode": "read-only" } }""", ci).Cache.Mode);
     }
 
+    [Fact]
+    public void Exempts_a_host_supplied_store_from_the_CI_clamp()
+    {
+        var store = new EmptyStore();
+        var resolved = Parse("""{ "cache": { "mode": "read-write" } }""", Env(("CI", "1"))).WithCacheStore(store).Cache;
+        Assert.Equal(CacheMode.ReadWrite, resolved.Mode);
+        Assert.Same(store, resolved.Store);
+
+        // The store states its own trust, so an unset mode is not demoted either.
+        Assert.Equal(CacheMode.ReadWrite, Parse("{}", Env(("CI", "1"))).WithCacheStore(store).Cache.Mode);
+        Assert.Equal(CacheMode.ReadWrite, Parse("""{ "cache": { "dir": "shared" } }""", Env(("CI", "1"))).WithCacheStore(store).Cache.Mode);
+        Assert.Equal(CacheMode.ReadOnly, Parse("""{ "cache": { "mode": "read-only" } }""", Env(("CI", "1"))).WithCacheStore(store).Cache.Mode);
+    }
+
     // Partial: without --strict-cache, which the port has no command line for.
     [Fact]
     public void Is_lenient_unless_the_config_asks_and_rejects_a_strict_that_is_not_a_boolean()
@@ -76,12 +102,30 @@ public sealed class CacheConfigResolutionTests
         Assert.Contains("cache.strict must be a boolean", Assert.Throws<ConfigurationException>(() => Parse("""{ "cache": { "strict": "yes" } }""")).Message, StringComparison.Ordinal);
     }
 
-    // Partial: the port has no cache.store to reject.
+    // Partial: a store is code, so a JSON file cannot hold a non-store value; the port refuses the key itself, and a store of another type does not compile.
     [Fact]
-    public void Rejects_unknown_modes_and_unknown_keys()
+    public void Partial_Rejects_unknown_modes_unknown_keys_and_non_store_store_values()
     {
+        Assert.Contains(
+            "cache config key \"store\" is not supported by the .NET port: a store is code, so call E2EConfig.WithCacheStore",
+            Assert.Throws<ConfigurationException>(() => Parse("""{ "cache": { "store": { "read": true } } }""")).Message,
+            StringComparison.Ordinal);
         Assert.Contains("cache.mode", Assert.Throws<ConfigurationException>(() => Parse("""{ "cache": { "mode": "aggressive" } }""")).Message, StringComparison.Ordinal);
         Assert.Contains("ttl", Assert.Throws<ConfigurationException>(() => Parse("""{ "cache": { "mode": "off", "ttl": 5 } }""")).Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A store that holds nothing: a stand-in for a remote cache.</summary>
+    private sealed class EmptyStore : IStepCache
+    {
+        public CacheLookup Read(string key) => new() { Reason = "no-entry" };
+
+        public void Write(string key, CacheEntry entry)
+        {
+        }
+
+        public void Delete(string key)
+        {
+        }
     }
 
     private static E2EConfig Parse(string json, Func<string, string?>? environment = null) => E2EConfig.Parse(json, Root, environment ?? Env());

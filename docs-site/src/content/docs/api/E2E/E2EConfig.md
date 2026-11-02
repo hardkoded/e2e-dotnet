@@ -88,6 +88,22 @@ public IReadOnlyDictionary<string, AgentConfig> Agents { get; }
 
 **Value:** [IReadOnlyDictionary&lt;string, AgentConfig&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 
+<a id="E2E_E2EConfig_ArtifactStore_"></a>
+<a id="E2E_E2EConfig_ArtifactStore"></a>
+
+### ArtifactStore
+
+
+```csharp
+public IArtifactStore? ArtifactStore { get; }
+```
+
+
+Where artifacts go, over the files under the results directory (upstream's `artifacts.store`, `ResolvedConfig.artifactStore`).
+None by default. A store is code, so the config file cannot name one: [WithArtifactStore(IArtifactStore)](#E2E_E2EConfig_WithArtifactStore_E2E_IArtifactStore_) sets it.
+
+**Value:** [IArtifactStore](/api/E2E/IArtifactStore/)
+
 <a id="E2E_E2EConfig_AssertionTimeout_"></a>
 <a id="E2E_E2EConfig_AssertionTimeout"></a>
 
@@ -202,7 +218,8 @@ public string Output { get; }
 
 The absolute directory the runs write their results to: `output`, else `<ProjectRoot>/.e2e`. Results go to
 `results/` under it, the session stores to `sessions/`, and an `e2e mcp` recording to `videos/`. Upstream's
-`ResolvedConfig.output`.
+`ResolvedConfig.output`. It is checked when read, not when the config loads, so `--output` can replace a configured value
+that is refused (upstream checks only the one that is used). Throws `INVALID_CONFIG` for a directory the run cannot own.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
@@ -441,5 +458,51 @@ Validates config JSON. &lt;code class="paramref"&gt;projectRoot&lt;/code&gt; anc
 | `json` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `projectRoot` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 | `environment` | [Func&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.func-2) |  |
+
+**Returns:** [E2EConfig](./)
+
+<a id="E2E_E2EConfig_WithArtifactStore_"></a>
+<a id="E2E_E2EConfig_WithArtifactStore_E2E_IArtifactStore_"></a>
+
+### WithArtifactStore(IArtifactStore)
+
+
+```csharp
+public E2EConfig WithArtifactStore(IArtifactStore store)
+```
+
+
+A copy of the config whose artifacts go to &lt;code class="paramref"&gt;store&lt;/code&gt; as well (upstream's `artifacts.store`). .NET-only: the config
+file cannot name a store, so code sets it.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `store` | [IArtifactStore](/api/E2E/IArtifactStore/) |  |
+
+**Returns:** [E2EConfig](./)
+
+<a id="E2E_E2EConfig_WithCacheStore_"></a>
+<a id="E2E_E2EConfig_WithCacheStore_E2E_IStepCache_"></a>
+
+### WithCacheStore(IStepCache)
+
+
+```csharp
+public E2EConfig WithCacheStore(IStepCache store)
+```
+
+
+A copy of the config whose replay cache is &lt;code class="paramref"&gt;store&lt;/code&gt; (upstream's `cache.store`), over the file store at
+`Cache.Directory`. .NET-only: the config file cannot name a store, so code sets it. Like upstream, a store ends the
+`E2E_CACHE_DIR` override (a store has no directory), and CI does not turn an unset mode into [ReadOnly](/api/E2E/CacheMode/#E2E_CacheMode_ReadOnly):
+the store states its own trust.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `store` | [IStepCache](/api/E2E/IStepCache/) |  |
 
 **Returns:** [E2EConfig](./)
