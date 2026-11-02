@@ -73,7 +73,7 @@ internal sealed partial record FailureEvidence
     private const string EngineTruncationMarker = "[observation truncated: the engine stopped listing nodes at its limit]";
 
     // The codes of a locator that matched nothing or too much.
-    private static readonly HashSet<string> LocatorCodes = new(["LOCATOR_NOT_FOUND", "LOCATOR_AMBIGUOUS", "TIMEOUT"], StringComparer.Ordinal);
+    private static readonly HashSet<string> LocatorCodes = new(["LOCATOR_NOT_FOUND", "LOCATOR_AMBIGUOUS"], StringComparer.Ordinal);
 
     private static readonly Regex NonWord = new(@"[^\p{L}\p{N}]+", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(2));
 
