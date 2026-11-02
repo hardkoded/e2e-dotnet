@@ -22,7 +22,7 @@ internal static partial class OverflowShrink
 
     /// <summary>Every screen the port prints begins a line with this phrase, as upstream's full screens do.</summary>
     [GeneratedRegex(@"^Screen \(", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
-    private static partial Regex FullScreenPattern();
+    internal static partial Regex FullScreenPattern();
 
     public static List<ModelMessage> ShrinkForOverflow(IReadOnlyList<ModelMessage> messages)
     {
@@ -52,7 +52,7 @@ internal static partial class OverflowShrink
     public static int TextChars(IEnumerable<ModelMessage> messages) => messages.Sum(message => message.Content?.Length ?? 0);
 
     /// <summary>Everything before the screen, then the notice in place of the tree.</summary>
-    private static string ElideScreen(string text)
+    internal static string ElideScreen(string text)
     {
         var at = FullScreenPattern().Match(text).Index;
         var head = at <= 0 ? text.Split('\n', 2)[0] : text[..at].TrimEnd();
@@ -80,5 +80,6 @@ internal static partial class OverflowShrink
         ToolCallId = message.ToolCallId,
         Name = message.Name,
         ReasoningItems = message.ReasoningItems,
+        Images = message.Images,
     };
 }

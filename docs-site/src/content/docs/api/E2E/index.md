@@ -172,7 +172,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | Type | Summary |
 | --- | --- |
 | [StepVerdict](/api/E2E/StepVerdict/) | Upstream's StepVerdict: how an executor ended the step. Failed means the app did not behave as the step required. Blocked means the environment, the credentials, or the executor's own budget prevented a verdict about the app, and it always carries a blockable code. |
-| [ToolLoopResult](/api/E2E/ToolLoopResult/) | What a tool call answered: the text the model reads, and whether the call failed, which the loop counts toward its failure streak. |
+| [ToolLoopResult](/api/E2E/ToolLoopResult/) | What a tool call answered: the text the model reads, whether the call failed, which the loop counts toward its failure streak, and the screenshot that goes with the text, when there is one (upstream's tool result with a file part). The loop hands the image to the model in a user turn right after the turn's tool results, since a tool message carries text only on every provider the port sends to. |
 
 ## Interfaces
 

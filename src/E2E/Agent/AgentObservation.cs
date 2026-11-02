@@ -64,7 +64,39 @@ internal static class AgentObservation
     /// placeholder, which tick without the page changing. The scroll position counts too: upstream's screenshot shows a
     /// scroll the tree does not, and the port's observations carry no screenshot.
     /// </summary>
-    public static string Shape(Observation observation) => Shape(SnapshotText.Render(observation, Redactor.None)) + "\n" + observation.ScrollPosition;
+    public static string Shape(Observation observation) =>
+        Shape(observation.TreeUnavailable ? "" : SnapshotText.Render(observation, Redactor.None)) + "\n" + observation.ScrollPosition
+        + (observation.Pixels is { } pixels ? "\n<pixels " + PixelDigest(pixels.Png) + ">" : "");
+
+    /// <summary>Roles the model can act on by name: the lines that mark a screen as one the tree can drive at all (upstream's <c>INTERACTIVE_ROLES</c>).</summary>
+    private static readonly HashSet<string> InteractiveRoles = new(
+        ["button", "link", "textbox", "searchbox", "combobox", "listbox", "checkbox", "radio", "switch", "tab", "menuitem", "menuitemcheckbox", "menuitemradio", "option", "slider", "spinbutton", "treeitem"],
+        StringComparer.Ordinal);
+
+    /// <summary>
+    /// How many listed nodes the model could act on, read off the rendered lines (upstream's <c>interactiveNodeCount</c>). A screen with none
+    /// is one the tree cannot describe (a canvas, a game, a native surface with no semantics), and the model needs pixels from the first turn.
+    /// </summary>
+    public static int InteractiveNodeCount(string text)
+    {
+        var count = 0;
+        foreach (var line in text.Split('\n'))
+        {
+            var trimmed = line.TrimStart();
+            if (!trimmed.StartsWith("- ", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var end = trimmed.IndexOf(' ', 2);
+            if (InteractiveRoles.Contains(end < 0 ? trimmed[2..] : trimmed[2..end]))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
 
     /// <summary>The shape of a screen already rendered as text.</summary>
     public static string Shape(string text) => Clock.Replace(Focus.Replace(Reference.Replace(text, ""), ""), "<time>");
@@ -173,9 +205,18 @@ internal static class AgentObservation
         return hash.ToString("x", System.Globalization.CultureInfo.InvariantCulture);
     }
 
-    /// <summary>Whether an observation shows a screen in transition: no node, or only an empty document root.</summary>
+    /// <summary>
+    /// Whether an observation shows a screen in transition: no node, or only an empty document root, with no screenshot to describe content
+    /// absent from the tree. A canvas can have an empty tree while its pixels show an action's effect, and a screen with no tree at all is
+    /// pixels alone.
+    /// </summary>
     public static bool IsTransitional(Observation observation)
     {
+        if (observation.TreeUnavailable || observation.Pixels is not null)
+        {
+            return false;
+        }
+
         var visible = observation.Roots.Where(root => !(root.States.Hidden || root.States.AriaHidden)).ToList();
         return visible.Count == 0
             || (visible.Count == 1 && visible[0].Role is { } role && EmptyRoots.Contains(role) && visible[0].Children.All(child => child.States.Hidden || child.States.AriaHidden));

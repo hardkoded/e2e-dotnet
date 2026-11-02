@@ -31,7 +31,9 @@ public static class DefaultAgent
         "blocked means credentials, the environment, or test setup prevented a verdict, and requires a code. " +
         "Never type a secret value. Call fill_secret with the secret name. " +
         "A secret looks like <secret:name>. " +
-        "If what you need is not on the screen, scroll to it.";
+        "If what you need is not on the screen, scroll to it. " +
+        "screenshot attaches the viewport's pixels when the tree lacks what you need (a shape on a canvas, a pin on a map, a region of an image, a control inside a system sheet) or contradicts what you expect; " +
+        "once you have one, every action result carries a fresh screenshot so you can see what the action did.";
 
     /// <summary>
     /// Builds the built-in step executor: the model loop with the grammar tools of the target's engine and the project
@@ -46,8 +48,9 @@ public static class DefaultAgent
             Name = BuiltInAgent.Name,
             Version = BuiltInAgent.Version,
             System = _ => SystemFor(options.System),
+            PrepareMessages = (messages, _) => new PreparedMessages(TranscriptCompaction.CompactScreenshotHistory(TranscriptCompaction.CompactScreenHistory(messages))),
             Tools = (context, _) => GrammarTools(context, options.Tools),
-            BuildPrompt = Opening,
+            BuildMessages = Opening,
         });
     }
 
@@ -64,14 +67,14 @@ public static class DefaultAgent
             ? new Dictionary<string, AgentTool>()
             : tools.Where(pair => pair.Value.AppliesTo(context.Target.Platform)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         var offered = project.Select(pair => AgentTools.Project(pair.Key, pair.Value)).ToList();
-        var act = new ActTools(host.Scope, host.Feed);
+        var act = new ActTools(host.Scope, host.Feed, null, PixelMode.For(context));
         return AgentTools.CreateGrammarTools(host.Scope.EngineCapabilities, offered)
             .Select(definition => new ToolLoopTool(
                 definition,
                 async (call, token) =>
                 {
                     var outcome = await act.ExecuteAsync(call, context.Actions, host.Accounting, project, token, context).ConfigureAwait(false);
-                    return new ToolLoopResult(outcome.Content, !outcome.Succeeded);
+                    return new ToolLoopResult(outcome.Content, !outcome.Succeeded, outcome.Pixels);
                 }))
             .ToList();
     }
@@ -101,7 +104,7 @@ public static class DefaultAgent
         return string.Join('\n', lines);
     }
 
-    private static async Task<string> Opening(StepExecutorContext context)
+    private static async Task<IReadOnlyList<ModelMessage>> Opening(StepExecutorContext context)
     {
         var host = context.Host
             ?? throw new InvalidOperationException("The built-in agent drives the context of a step the runtime opened; it cannot run on a context built by hand.");
@@ -132,9 +135,35 @@ public static class DefaultAgent
             builder.Append("\nCompleted steps:\n").Append(context.Ledger).Append('\n');
         }
 
+        // The opening look is tree-only, unless no listed interactive node exists at all: then the opening prompt carries a screenshot,
+        // because the tree describes a canvas, a game, or a semantics-free native screen too poorly to act on, and the model would only
+        // spend a turn asking for one. One listed control is enough to leave the decision to the model; a small page is not a blind one.
         var screen = context.Start ?? await context.ObserveAsync().ConfigureAwait(false);
+        if (screen.Pixels is null && AgentObservation.InteractiveNodeCount(screen.Text) == 0)
+        {
+            screen = await context.ObserveAsync(new ExecutorObserveOptions { Pixels = true }).ConfigureAwait(false);
+        }
+
         builder.Append('\n').Append(screen.Text);
-        return host.Scope.Redactor.Redact(builder.ToString());
+        if (screen.Pixels is { } pixels)
+        {
+            PixelMode.For(context).Showing = true;
+            builder.Append("\n\n").Append(PixelMode.Note(pixels));
+        }
+        else if (screen.PixelsWithheld is { } withheld)
+        {
+            builder.Append("\n\nNo screenshot: ").Append(PixelMode.WithheldAdvice(withheld));
+        }
+
+        return
+        [
+            new ModelMessage
+            {
+                Role = "user",
+                Content = host.Scope.Redactor.Redact(builder.ToString()),
+                Images = screen.Pixels is { } shot ? [new ModelImage(shot.Data, shot.MediaType, shot.Width, shot.Height)] : null,
+            },
+        ];
     }
 
     private static string Interpolate(string instruction, IReadOnlyDictionary<string, object?>? parameters)

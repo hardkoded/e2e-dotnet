@@ -4,14 +4,13 @@
 
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using E2E.Engine;
 using Microsoft.Extensions.Time.Testing;
 
 namespace E2E.Tests.AgentObservation;
 
 /// <summary>
 /// <c>settleObservation</c>: the loop that waits for the screen to leave the pre-action shape, then to hold still.
-/// Upstream's "settles a changed canvas from matching permitted screenshots instead of waiting out both windows" is not
-/// ported: the port's observations carry no pixels.
 /// </summary>
 public sealed class SettleObservationTests
 {
@@ -155,6 +154,41 @@ public sealed class SettleObservationTests
         };
         Assert.Equal("", await RunAllTimersAsync(time, SettleAsync(source, time, options)));
         Assert.Equal(TimeSpan.FromSeconds(1), time.GetUtcNow() - started);
+    }
+
+    [Fact]
+    public async Task Settles_a_changed_canvas_from_matching_permitted_screenshots_instead_of_waiting_out_both_windows()
+    {
+        var time = new SteppingTime();
+        var started = time.GetUtcNow();
+        Observation Canvas(byte data) => new()
+        {
+            Route = "/",
+            Roots = [new SemanticNode { Ref = "e1", Role = "screen", States = new NodeStates(), Children = [] }],
+            Pixels = new EngineScreenshot([data], 1, 0),
+        };
+        var before = Canvas(1);
+        var after = Canvas(2);
+        var calls = 0;
+        var pending = global::E2E.AgentObservation.SettleAsync(
+            _ =>
+            {
+                calls++;
+                return Task.FromResult(after);
+            },
+            global::E2E.AgentObservation.Shape,
+            new SettleOptions<Observation>
+            {
+                ChangedFrom = new PendingChange(global::E2E.AgentObservation.Shape(before), started + TimeSpan.FromSeconds(2)),
+                Transitional = global::E2E.AgentObservation.IsTransitional,
+                StableWait = TimeSpan.FromSeconds(1),
+                Poll = TimeSpan.FromMilliseconds(100),
+            },
+            time,
+            CancellationToken.None);
+        Assert.Same(after, await RunAllTimersAsync(time, pending));
+        Assert.Equal(2, calls);
+        Assert.Equal(TimeSpan.FromMilliseconds(100), time.GetUtcNow() - started);
     }
 
     private static SettleOptions<string> Fast(TimeProvider time, bool changedFrom) => new()

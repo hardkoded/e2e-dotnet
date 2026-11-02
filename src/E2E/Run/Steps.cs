@@ -134,6 +134,9 @@ internal sealed record StepMetrics
 
     /// <summary>The largest observation the step read, in bytes of the text a model reads: 0 for a step that read none.</summary>
     public int ObservationBytes { get; init; }
+
+    /// <summary>The size in bytes of the largest screenshot the step handed to its model; null when it handed none (upstream's <c>pixelBytes</c>).</summary>
+    public int? PixelBytes { get; init; }
 }
 
 /// <summary>
@@ -227,6 +230,12 @@ internal sealed record StepAgentDetails
 
     /// <summary>Absent when the step failed before a judgment could be requested.</summary>
     public string? Explanation { get; init; }
+
+    /// <summary>True when a screenshot went to the step's model as input (upstream's <c>visionInput</c>).</summary>
+    public bool? VisionInput { get; init; }
+
+    /// <summary>Why pixels the step asked for did not become model input, when they did not (upstream's <c>visionDegraded</c>).</summary>
+    public VisionDegradation? VisionDegraded { get; init; }
 }
 
 /// <summary>The viewport a step established.</summary>
@@ -258,6 +267,12 @@ internal sealed class StepRecord
     public bool? ObservationTruncated { get; set; }
 
     public string? Explanation { get; set; }
+
+    /// <summary>True when a screenshot went to the step's model as input.</summary>
+    public bool? VisionInput { get; set; }
+
+    /// <summary>Why pixels the step asked for did not become model input, when they did not.</summary>
+    public VisionDegradation? VisionDegraded { get; set; }
 
     /// <summary>The revision of the screen the step read last; null for a step that read none.</summary>
     public string? ObservationRevision { get; set; }
