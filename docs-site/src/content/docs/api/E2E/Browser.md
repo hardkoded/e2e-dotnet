@@ -26,7 +26,7 @@ session that implements [IBrowserSession](/api/E2E.Engine/IBrowserSession/), suc
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L18)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs)
 
 ## Properties
 
@@ -45,8 +45,6 @@ Viewport-level keyboard, for whatever has focus.
 
 **Value:** [BrowserKeyboard](/api/E2E/BrowserKeyboard/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L53)
-
 <a id="E2E_Browser_Mouse_"></a>
 <a id="E2E_Browser_Mouse"></a>
 
@@ -61,8 +59,6 @@ public BrowserMouse Mouse { get; }
 Direct pointer input from test code, independent of agent observations.
 
 **Value:** [BrowserMouse](/api/E2E/BrowserMouse/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L56)
 
 ## Methods
 
@@ -90,8 +86,6 @@ page calls with one JSON-safe argument. Only a function takes an argument.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L282)
-
 <a id="E2E_Browser_AddInitScriptAsync_E2E_Engine_WebInitScript_System_Threading_CancellationToken_"></a>
 
 ### AddInitScriptAsync(WebInitScript, CancellationToken)
@@ -113,8 +107,6 @@ or a function the page calls with no argument ([FromFunction(string)](/api/E2E.E
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L275)
 
 <a id="E2E_Browser_AddInitScriptAsync_System_String_System_Threading_CancellationToken_"></a>
 
@@ -138,8 +130,6 @@ every tab and frame, from the next navigation on, for the rest of the attempt.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L268)
-
 <a id="E2E_Browser_BackAsync_"></a>
 <a id="E2E_Browser_BackAsync_System_Threading_CancellationToken_"></a>
 
@@ -160,8 +150,6 @@ Navigates the history back once.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L112)
 
 <a id="E2E_Browser_ClearCookiesAsync_"></a>
 <a id="E2E_Browser_ClearCookiesAsync_E2E_Engine_CookieFilter_System_Threading_CancellationToken_"></a>
@@ -186,8 +174,6 @@ matches its text (Playwright hands the source to the browser, which runs it as J
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L304)
-
 <a id="E2E_Browser_CookiesAsync_"></a>
 <a id="E2E_Browser_CookiesAsync_System_Threading_CancellationToken_"></a>
 
@@ -208,8 +194,6 @@ Returns the cookies visible to the browser context.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;IReadOnlyList&lt;BrowserCookie&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L286)
 
 <a id="E2E_Browser_EmulateMediaAsync_"></a>
 <a id="E2E_Browser_EmulateMediaAsync_E2E_Engine_WebMedia_System_Threading_CancellationToken_"></a>
@@ -235,8 +219,6 @@ before the first navigation, so the page loads with them.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L349)
 
 <a id="E2E_Browser_EvaluateAsync_"></a>
 <a id="E2E_Browser_EvaluateAsync__1_System_String_System_Object_System_Threading_CancellationToken_"></a>
@@ -266,8 +248,6 @@ Evaluates a function source in the page with one JSON-safe argument.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;T&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L203)
 
 <a id="E2E_Browser_EvaluateAsync__1_System_String_System_Threading_CancellationToken_"></a>
 
@@ -299,8 +279,6 @@ script that does not finish within the action timeout with `OPERATION_TIMEOUT`.
 
 **Returns:** [Task&lt;T&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L199)
-
 <a id="E2E_Browser_ForwardAsync_"></a>
 <a id="E2E_Browser_ForwardAsync_System_Threading_CancellationToken_"></a>
 
@@ -321,8 +299,6 @@ Navigates the history forward once.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L116)
 
 <a id="E2E_Browser_FrameLocator_"></a>
 <a id="E2E_Browser_FrameLocator_System_String_"></a>
@@ -353,8 +329,6 @@ one element &lt;code class="paramref"&gt;selector&lt;/code&gt; names; none yet i
 | --- | --- |
 | [TestException](/api/E2E/TestException/) | `INVALID_LOCATOR`: &lt;code class="paramref"&gt;selector&lt;/code&gt; is empty. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L180)
-
 <a id="E2E_Browser_GotoAsync_"></a>
 <a id="E2E_Browser_GotoAsync_System_String_E2E_GotoOptions_System_Threading_CancellationToken_"></a>
 
@@ -378,8 +352,6 @@ and waits for [WaitUntil](/api/E2E/GotoOptions/#E2E_GotoOptions_WaitUntil) withi
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L92)
 
 <a id="E2E_Browser_Locator_"></a>
 <a id="E2E_Browser_Locator_System_String_"></a>
@@ -410,8 +382,6 @@ locator. A selector that captures with `*` before its last part (`*css=article >
 | --- | --- |
 | [TestException](/api/E2E/TestException/) | `INVALID_LOCATOR`: &lt;code class="paramref"&gt;selector&lt;/code&gt; is empty. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L167)
-
 <a id="E2E_Browser_OnDialogAsync_"></a>
 <a id="E2E_Browser_OnDialogAsync_E2E_Engine_DialogHandler_System_Threading_CancellationToken_"></a>
 
@@ -437,8 +407,6 @@ dialog is dismissed. Pass [Accept](/api/E2E.Engine/DialogHandler/#E2E_Engine_Dia
 
 **Returns:** [Task&lt;Func&lt;Task&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L369)
-
 <a id="E2E_Browser_OnDialogAsync_System_Func_E2E_Engine_Dialog_System_Threading_Tasks_Task__System_Threading_CancellationToken_"></a>
 
 ### `OnDialogAsync(Func<Dialog, Task>, CancellationToken)`
@@ -449,7 +417,7 @@ public Task<Func<Task>> OnDialogAsync(Func<Dialog, Task> handler, CancellationTo
 ```
 
 
-Registers a handler that runs &lt;code class="paramref"&gt;handler&lt;/code&gt; for each dialog. See `CancellationToken)`.
+Registers a handler that runs &lt;code class="paramref"&gt;handler&lt;/code&gt; for each dialog. See `OnDialogAsync`.
 
 **Parameters**
 
@@ -459,8 +427,6 @@ Registers a handler that runs &lt;code class="paramref"&gt;handler&lt;/code&gt; 
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;Func&lt;Task&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L383)
 
 <a id="E2E_Browser_ReloadAsync_"></a>
 <a id="E2E_Browser_ReloadAsync_System_Threading_CancellationToken_"></a>
@@ -483,8 +449,6 @@ Reloads the current document.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L108)
-
 <a id="E2E_Browser_RouteAsync_"></a>
 <a id="E2E_Browser_RouteAsync_System_String_System_Func_E2E_WebRoute_System_Threading_Tasks_Task__System_Threading_CancellationToken_"></a>
 
@@ -497,7 +461,7 @@ public Task RouteAsync(string pattern, Func<WebRoute, Task> handler, Cancellatio
 
 
 Adds a network route for the rest of the attempt, matching a complete URL with
-the glob &lt;code class="paramref"&gt;pattern&lt;/code&gt; that `CancellationToken)`
+the glob &lt;code class="paramref"&gt;pattern&lt;/code&gt; that `WaitForResponseAsync`
 takes. The route registered last runs first. &lt;code class="paramref"&gt;handler&lt;/code&gt; must take
 exactly one decision on the [WebRoute](/api/E2E/WebRoute/). A handler that takes none,
 takes two, or throws fails the next step with that error, and an undecided
@@ -513,8 +477,6 @@ request is aborted.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L233)
-
 <a id="E2E_Browser_RouteAsync_System_Text_RegularExpressions_Regex_System_Func_E2E_WebRoute_System_Threading_Tasks_Task__System_Threading_CancellationToken_"></a>
 
 ### `RouteAsync(Regex, Func<WebRoute, Task>, CancellationToken)`
@@ -525,7 +487,7 @@ public Task RouteAsync(Regex pattern, Func<WebRoute, Task> handler, Cancellation
 ```
 
 
-Adds a network route for the URLs &lt;code class="paramref"&gt;pattern&lt;/code&gt; matches. See `CancellationToken)`.
+Adds a network route for the URLs &lt;code class="paramref"&gt;pattern&lt;/code&gt; matches. See `RouteAsync`.
 
 **Parameters**
 
@@ -536,8 +498,6 @@ Adds a network route for the URLs &lt;code class="paramref"&gt;pattern&lt;/code&
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L240)
 
 <a id="E2E_Browser_SetCookiesAsync_"></a>
 <a id="E2E_Browser_SetCookiesAsync_System_Collections_Generic_IReadOnlyList_E2E_Engine_BrowserCookie__System_Threading_CancellationToken_"></a>
@@ -563,8 +523,6 @@ is `POLICY_DENIED`.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L294)
-
 <a id="E2E_Browser_SetViewportAsync_"></a>
 <a id="E2E_Browser_SetViewportAsync_System_Int32_System_Int32_System_Threading_CancellationToken_"></a>
 
@@ -588,8 +546,6 @@ Sets the viewport size for the rest of the attempt.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L336)
-
 <a id="E2E_Browser_TitleAsync_"></a>
 <a id="E2E_Browser_TitleAsync_System_Threading_CancellationToken_"></a>
 
@@ -611,8 +567,6 @@ Returns the current title. A page that does not answer within the action timeout
 
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L132)
-
 <a id="E2E_Browser_UnrouteAllAsync_"></a>
 <a id="E2E_Browser_UnrouteAllAsync_System_Threading_CancellationToken_"></a>
 
@@ -633,8 +587,6 @@ Removes every route added through this browser. The configured site headers stay
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L261)
 
 <a id="E2E_Browser_UnrouteAsync_"></a>
 <a id="E2E_Browser_UnrouteAsync_System_String_System_Threading_CancellationToken_"></a>
@@ -658,8 +610,6 @@ Removes every route added with the same glob.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L247)
-
 <a id="E2E_Browser_UnrouteAsync_System_Text_RegularExpressions_Regex_System_Threading_CancellationToken_"></a>
 
 ### UnrouteAsync(Regex, CancellationToken)
@@ -681,8 +631,6 @@ Removes every route added with a regex of the same source and options.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L254)
-
 <a id="E2E_Browser_UrlAsync_"></a>
 <a id="E2E_Browser_UrlAsync_System_Threading_CancellationToken_"></a>
 
@@ -703,8 +651,6 @@ Returns the current URL.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L120)
 
 <a id="E2E_Browser_WaitForDownloadAsync_"></a>
 <a id="E2E_Browser_WaitForDownloadAsync_System_Func_System_Threading_Tasks_Task__System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -733,8 +679,6 @@ how long the trigger took.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task&lt;BrowserDownload&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L397)
 
 <a id="E2E_Browser_WaitForDownloadsAsync_"></a>
 <a id="E2E_Browser_WaitForDownloadsAsync_System_Func_System_Threading_Tasks_Task__System_Int32_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
@@ -766,8 +710,6 @@ fails the call with its own error.
 
 **Returns:** [Task&lt;IReadOnlyList&lt;BrowserDownload&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L424)
-
 <a id="E2E_Browser_WaitForResponseAsync_"></a>
 <a id="E2E_Browser_WaitForResponseAsync_System_String_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -794,8 +736,6 @@ the match only, and defaults to the action timeout.
 
 **Returns:** [Task&lt;WebResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L212)
-
 <a id="E2E_Browser_WaitForResponseAsync_System_Text_RegularExpressions_Regex_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
 ### WaitForResponseAsync(Regex, TimeSpan?, CancellationToken)
@@ -818,8 +758,6 @@ Waits for a response whose URL matches &lt;code class="paramref"&gt;pattern&lt;/
 
 **Returns:** [Task&lt;WebResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L219)
-
 <a id="E2E_Browser_WaitForURLAsync_"></a>
 <a id="E2E_Browser_WaitForURLAsync_System_String_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -832,7 +770,7 @@ public Task WaitForURLAsync(string url, TimeSpan? timeout = null, CancellationTo
 
 
 Waits until the current URL equals &lt;code class="paramref"&gt;url&lt;/code&gt;, resolved
-against the base URL, as `CancellationToken)`.
+against the base URL, as `ToHaveURLAsync`.
 The default timeout is the assertion timeout.
 
 **Parameters**
@@ -844,8 +782,6 @@ The default timeout is the assertion timeout.
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L140)
 
 <a id="E2E_Browser_WaitForURLAsync_System_Text_RegularExpressions_Regex_System_Nullable_System_TimeSpan__System_Threading_CancellationToken_"></a>
 
@@ -868,5 +804,3 @@ Waits until the current URL matches &lt;code class="paramref"&gt;pattern&lt;/cod
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L151)

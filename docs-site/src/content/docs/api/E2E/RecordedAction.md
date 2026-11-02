@@ -21,7 +21,7 @@ public sealed class RecordedAction
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L122)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs)
 
 ## Properties
 
@@ -40,8 +40,6 @@ public string? Direction { get; set; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L139)
-
 <a id="E2E_RecordedAction_Key_"></a>
 <a id="E2E_RecordedAction_Key"></a>
 
@@ -55,8 +53,6 @@ public string? Key { get; set; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L134)
-
 <a id="E2E_RecordedAction_Kind_"></a>
 <a id="E2E_RecordedAction_Kind"></a>
 
@@ -69,8 +65,6 @@ public string Kind { get; set; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L124)
 
 <a id="E2E_RecordedAction_Modifiers_"></a>
 <a id="E2E_RecordedAction_Modifiers"></a>
@@ -87,8 +81,6 @@ Keys a `tap` or `doubleTap` held for the click, replayed with it. Null holds non
 
 **Value:** [List&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L173)
-
 <a id="E2E_RecordedAction_Name_"></a>
 <a id="E2E_RecordedAction_Name"></a>
 
@@ -101,8 +93,6 @@ public string? Name { get; set; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L128)
 
 <a id="E2E_RecordedAction_Paths_"></a>
 <a id="E2E_RecordedAction_Paths"></a>
@@ -120,8 +110,6 @@ typed value, expanded with the call's params and authorized against the project 
 
 **Value:** [List&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L161)
-
 <a id="E2E_RecordedAction_Role_"></a>
 <a id="E2E_RecordedAction_Role"></a>
 
@@ -134,8 +122,6 @@ public string? Role { get; set; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L126)
 
 <a id="E2E_RecordedAction_Spans_"></a>
 <a id="E2E_RecordedAction_Spans"></a>
@@ -154,8 +140,6 @@ Null for a scroll with no list, and for a list on an engine that does not measur
 
 **Value:** [double?](https://learn.microsoft.com/dotnet/api/system.double)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L152)
-
 <a id="E2E_RecordedAction_TestId_"></a>
 <a id="E2E_RecordedAction_TestId"></a>
 
@@ -168,8 +152,6 @@ public string? TestId { get; set; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L130)
 
 <a id="E2E_RecordedAction_Text_"></a>
 <a id="E2E_RecordedAction_Text"></a>
@@ -186,8 +168,6 @@ The text a `scrollUntil` paged toward.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L145)
-
 <a id="E2E_RecordedAction_Times_"></a>
 <a id="E2E_RecordedAction_Times"></a>
 
@@ -203,8 +183,6 @@ Consecutive identical scrolls folded into one action. Null means one.
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L142)
-
 <a id="E2E_RecordedAction_Url_"></a>
 <a id="E2E_RecordedAction_Url"></a>
 
@@ -218,8 +196,6 @@ public string? Url { get; set; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L136)
-
 <a id="E2E_RecordedAction_Value_"></a>
 <a id="E2E_RecordedAction_Value"></a>
 
@@ -232,5 +208,3 @@ public string? Value { get; set; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Cache/StepCache.cs#L132)

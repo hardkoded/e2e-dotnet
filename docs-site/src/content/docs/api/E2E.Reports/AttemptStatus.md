@@ -21,7 +21,7 @@ public enum AttemptStatus
 
 How an attempt ended.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L302)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs)
 
 ## Fields
 
@@ -37,8 +37,6 @@ Failed = 1
 
 **Value:** [AttemptStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L305)
-
 <a id="E2E_Reports_AttemptStatus_Interrupted"></a>
 
 ### Interrupted
@@ -50,8 +48,6 @@ Interrupted = 3
 
 
 **Value:** [AttemptStatus](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L307)
 
 <a id="E2E_Reports_AttemptStatus_Passed"></a>
 
@@ -65,8 +61,6 @@ Passed = 0
 
 **Value:** [AttemptStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L304)
-
 <a id="E2E_Reports_AttemptStatus_Skipped"></a>
 
 ### Skipped
@@ -79,8 +73,6 @@ Skipped = 4
 
 **Value:** [AttemptStatus](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L308)
-
 <a id="E2E_Reports_AttemptStatus_TimedOut"></a>
 
 ### TimedOut
@@ -92,5 +84,3 @@ TimedOut = 2
 
 
 **Value:** [AttemptStatus](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Report/Report.cs#L306)

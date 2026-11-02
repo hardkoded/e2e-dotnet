@@ -25,7 +25,7 @@ A video file under the attempt's `recordings/` directory (upstream's `RecordedVi
 
 **Implements:** [IEquatable&lt;RecordedVideo&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1), [IEquatable&lt;RecordedVideoFile&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Recordings.cs#L29)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Recordings.cs)
 
 ## Properties
 
@@ -43,5 +43,3 @@ public required string Path { get; init; }
 Absolute path of the file.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Recordings.cs#L32)

@@ -22,7 +22,7 @@ public enum EngineCapabilities
 
 Capabilities the harness reads off an engine. An engine never calls a model.
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L8)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs)
 
 ## Fields
 
@@ -38,8 +38,6 @@ Actions = 2
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L13)
-
 <a id="E2E_Engine_EngineCapabilities_History"></a>
 
 ### History
@@ -54,8 +52,6 @@ History = 32
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L21)
-
 <a id="E2E_Engine_EngineCapabilities_Keyboard"></a>
 
 ### Keyboard
@@ -67,8 +63,6 @@ Keyboard = 8
 
 
 **Value:** [EngineCapabilities](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L15)
 
 <a id="E2E_Engine_EngineCapabilities_Location"></a>
 
@@ -82,8 +76,6 @@ Location = 4
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L14)
-
 <a id="E2E_Engine_EngineCapabilities_None"></a>
 
 ### None
@@ -96,8 +88,6 @@ None = 0
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L11)
-
 <a id="E2E_Engine_EngineCapabilities_Observation"></a>
 
 ### Observation
@@ -109,8 +99,6 @@ Observation = 1
 
 
 **Value:** [EngineCapabilities](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L12)
 
 <a id="E2E_Engine_EngineCapabilities_PinnedApp"></a>
 
@@ -127,8 +115,6 @@ The engine opens no URL: `OpenAsync` relaunches the app the target pins. .NET-on
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L36)
-
 <a id="E2E_Engine_EngineCapabilities_Screenshot"></a>
 
 ### Screenshot
@@ -143,8 +129,6 @@ Screenshot = 64
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L24)
-
 <a id="E2E_Engine_EngineCapabilities_Scroll"></a>
 
 ### Scroll
@@ -158,8 +142,6 @@ Scroll = 16
 The viewport swipe, [LocatorAction.Swipe](/api/E2E.Engine/LocatorAction.Swipe/), and [LocatorAction.ScrollIntoView](/api/E2E.Engine/LocatorAction.ScrollIntoView/).
 
 **Value:** [EngineCapabilities](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L18)
 
 <a id="E2E_Engine_EngineCapabilities_State"></a>
 
@@ -177,8 +159,6 @@ app's state, which a saved session needs. .NET-only name for upstream's optional
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L49)
-
 <a id="E2E_Engine_EngineCapabilities_TapModifiers"></a>
 
 ### TapModifiers
@@ -192,8 +172,6 @@ TapModifiers = 128
 The `Modifiers` of [LocatorAction.Tap](/api/E2E.Engine/LocatorAction.Tap/) and [LocatorAction.DoubleTap](/api/E2E.Engine/LocatorAction.DoubleTap/): keys held for the click.
 
 **Value:** [EngineCapabilities](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L27)
 
 <a id="E2E_Engine_EngineCapabilities_Upload"></a>
 
@@ -210,8 +188,6 @@ name for the `upload` verb an upstream engine lists in its `verbs`.
 
 **Value:** [EngineCapabilities](./)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L42)
-
 <a id="E2E_Engine_EngineCapabilities_Video"></a>
 
 ### Video
@@ -225,5 +201,3 @@ Video = 256
 [StartVideoAsync(CancellationToken)](/api/E2E.Engine/IEngineSession/#E2E_Engine_IEngineSession_StartVideoAsync_System_Threading_CancellationToken_) and [StopVideoAsync(CancellationToken)](/api/E2E.Engine/IEngineSession/#E2E_Engine_IEngineSession_StopVideoAsync_System_Threading_CancellationToken_): the engine can record the attempt as video.
 
 **Value:** [EngineCapabilities](./)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/IEngine.cs#L30)

@@ -27,7 +27,7 @@ or the one an earlier call set.
 
 **Implements:** [IEquatable&lt;WebMedia&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs#L37)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs)
 
 ## Properties
 
@@ -46,8 +46,6 @@ public WebColorScheme? ColorScheme { get; init; }
 
 **Value:** `WebColorScheme?`
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs#L40)
-
 <a id="E2E_Engine_WebMedia_ReducedMotion_"></a>
 <a id="E2E_Engine_WebMedia_ReducedMotion"></a>
 
@@ -62,5 +60,3 @@ public WebReducedMotion? ReducedMotion { get; init; }
 `prefers-reduced-motion`.
 
 **Value:** `WebReducedMotion?`
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Engine/WebMedia.cs#L43)

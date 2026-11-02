@@ -1,6 +1,6 @@
 ---
 title: "WebRoute"
-description: "One request a CancellationToken) handler intercepted. Take exactly one decision. Each validates its options before it decides, so a rejected option leaves th..."
+description: "One request a RouteAsync handler intercepted. Take exactly one decision. Each validates its options before it decides, so a rejected option leaves the reques..."
 editUrl: false
 prev: false
 next: false
@@ -19,13 +19,13 @@ public sealed class WebRoute
 ```
 
 
-One request a `CancellationToken)`
+One request a `RouteAsync`
 handler intercepted. Take exactly one decision. Each validates its options before
 it decides, so a rejected option leaves the request undecided, and the request is aborted.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L579)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs)
 
 ## Properties
 
@@ -44,8 +44,6 @@ The intercepted request.
 
 **Value:** [WebRouteRequest](/api/E2E.Engine/WebRouteRequest/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L597)
-
 ## Methods
 
 <a id="E2E_WebRoute_AbortAsync_"></a>
@@ -62,8 +60,6 @@ public Task AbortAsync()
 Aborts the request.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L637)
 
 <a id="E2E_WebRoute_ContinueAsync_"></a>
 <a id="E2E_WebRoute_ContinueAsync_E2E_Engine_RouteContinueOverrides_"></a>
@@ -86,8 +82,6 @@ Sends the request to the network once, skipping every other route.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L622)
-
 <a id="E2E_WebRoute_FallbackAsync_"></a>
 <a id="E2E_WebRoute_FallbackAsync"></a>
 
@@ -102,8 +96,6 @@ public Task FallbackAsync()
 Hands the request to the route registered before this one, or the network when none matches.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L630)
 
 <a id="E2E_WebRoute_FetchAsync_"></a>
 <a id="E2E_WebRoute_FetchAsync"></a>
@@ -122,8 +114,6 @@ following it could take the request past the navigation rule. Decide the route a
 with [FulfillAsync(RouteFulfillResponse)](#E2E_WebRoute_FulfillAsync_E2E_Engine_RouteFulfillResponse_), [ContinueAsync(RouteContinueOverrides)](#E2E_WebRoute_ContinueAsync_E2E_Engine_RouteContinueOverrides_), [FallbackAsync()](#E2E_WebRoute_FallbackAsync), or [AbortAsync()](#E2E_WebRoute_AbortAsync).
 
 **Returns:** [Task&lt;WebResponse&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L607)
 
 <a id="E2E_WebRoute_FulfillAsync_"></a>
 <a id="E2E_WebRoute_FulfillAsync_E2E_Engine_RouteFulfillResponse_"></a>
@@ -145,5 +135,3 @@ Answers the request.
 | `response` | [RouteFulfillResponse](/api/E2E.Engine/RouteFulfillResponse/) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Browser.cs#L614)

@@ -23,7 +23,7 @@ Wraps a fresh value so the replay cache can still match the step.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs#L94)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs)
 
 ## Methods
 
@@ -45,5 +45,3 @@ public static UniqueValue Unique(string value)
 | `value` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
 **Returns:** [UniqueValue](/api/E2E/UniqueValue/)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Values/Secret.cs#L96)

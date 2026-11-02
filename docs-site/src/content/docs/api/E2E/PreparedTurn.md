@@ -25,7 +25,7 @@ What [PrepareMessages](/api/E2E/ToolLoopExecutorOptions/#E2E_ToolLoopExecutorOpt
 
 **Implements:** [IEquatable&lt;PreparedTurn&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L144)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs)
 
 ## Constructors
 
@@ -49,8 +49,6 @@ What [PrepareMessages](/api/E2E/ToolLoopExecutorOptions/#E2E_ToolLoopExecutorOpt
 | `StepNumber` | [int](https://learn.microsoft.com/dotnet/api/system.int32) | The zero-based index of the turn about to run. |
 | `PreviousToolCalls` | [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) | The names of the tools the previous turn called, in order. Empty on the first turn. |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L144)
-
 ## Properties
 
 <a id="E2E_PreparedTurn_PreviousToolCalls_"></a>
@@ -68,8 +66,6 @@ The names of the tools the previous turn called, in order. Empty on the first tu
 
 **Value:** [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L144)
-
 <a id="E2E_PreparedTurn_StepNumber_"></a>
 <a id="E2E_PreparedTurn_StepNumber"></a>
 
@@ -84,5 +80,3 @@ public int StepNumber { get; init; }
 The zero-based index of the turn about to run.
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/ToolLoop.cs#L144)

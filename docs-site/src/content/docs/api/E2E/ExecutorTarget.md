@@ -24,7 +24,7 @@ A node named by its id from the newest observation (upstream's `{ id }`). The id
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L340)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs)
 
 ## Constructors
 
@@ -45,8 +45,6 @@ public ExecutorTarget(string id)
 | --- | --- | --- |
 | `id` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L342)
-
 ## Properties
 
 <a id="E2E_ExecutorTarget_Id_"></a>
@@ -61,5 +59,3 @@ public string Id { get; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Executor.cs#L354)

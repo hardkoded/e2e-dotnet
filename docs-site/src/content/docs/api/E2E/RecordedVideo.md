@@ -27,7 +27,7 @@ One video [StopRecordingAsync(CancellationToken)](/api/E2E/App/#E2E_App_StopReco
 
 **Derived:** [RecordedVideoFile](/api/E2E/RecordedVideoFile/), [RecordedVideoLink](/api/E2E/RecordedVideoLink/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Recordings.cs#L22)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Recordings.cs)
 
 ## Properties
 
@@ -45,5 +45,3 @@ public required string StartedAt { get; init; }
 When it started recording, as an ISO timestamp.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/Recordings.cs#L25)

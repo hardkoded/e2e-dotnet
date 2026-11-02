@@ -25,4 +25,4 @@ swaps the token in, and the models are shared.
 
 **Derived:** [CodexProvider](/api/E2E.OAuth/CodexProvider/), [CopilotProvider](/api/E2E.OAuth/CopilotProvider/), [OpenCodeConsoleProvider](/api/E2E.OAuth/OpenCodeConsoleProvider/), [XaiProvider](/api/E2E.OAuth/XaiProvider/)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs#L12)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/OAuth/OAuthProvider.cs)

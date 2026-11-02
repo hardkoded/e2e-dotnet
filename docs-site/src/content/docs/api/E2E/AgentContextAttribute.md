@@ -26,7 +26,7 @@ out of it: it reaches the judges too.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object) → [Attribute](https://learn.microsoft.com/dotnet/api/system.attribute)
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/AgentAttribute.cs#L26)
+[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/AgentAttribute.cs)
 
 ## Constructors
 
@@ -51,8 +51,6 @@ out of it: it reaches the judges too.
 | --- | --- | --- |
 | `text` | [string](https://learn.microsoft.com/dotnet/api/system.string) |  |
 
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/AgentAttribute.cs#L26)
-
 ## Properties
 
 <a id="E2E_AgentContextAttribute_Text_"></a>
@@ -69,5 +67,3 @@ public string Text { get; }
 The text to append.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
-
-[View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/AgentAttribute.cs#L30)
