@@ -474,8 +474,12 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
         if (!pixels && _pixels?.Showing != true)
         {
+            // A screen the engine cannot read as a tree is shown by its pixels alone, whether or not the step asked for one.
             var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
-            return new ScreenText(action + "\n" + _feed.Text(observation), null);
+            if (!observation.TreeUnavailable)
+            {
+                return new ScreenText(action + "\n" + _feed.Text(observation), null);
+            }
         }
 
         var view = await _feed.ObserveAsync(new ExecutorObserveOptions { Pixels = true }, token).ConfigureAwait(false);

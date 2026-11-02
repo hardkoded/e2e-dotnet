@@ -143,4 +143,28 @@ public sealed class AgentActPixelVerbsTests
         Assert.Equal("POLICY_DENIED", failure.Code);
         Assert.Contains("semantic capture is unavailable", failure.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Partial_shows_a_screenshot_when_an_action_leaves_a_screen_the_engine_cannot_read_as_a_tree()
+    {
+        PixelsEngine? held = null;
+        var (requests, _, record, error) = await ActAsync(
+            Page(),
+            turn =>
+            {
+                if (turn == 0)
+                {
+                    held!.TreeUnavailable = true;
+                    return ModelResponses.Tap("button", "Save");
+                }
+
+                return ModelResponses.Done("passed", "Done.");
+            },
+            engine => held = engine);
+        Assert.Null(error);
+        var result = Tools(requests[1]).Single().Content;
+        Assert.Contains("Screenshot attached:", result, StringComparison.Ordinal);
+        Assert.Equal(1, requests[1].Messages[^1].Images?.Count);
+        Assert.True(record.VisionInput);
+    }
 }
