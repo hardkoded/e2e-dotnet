@@ -22,7 +22,7 @@ public sealed class E2ESessionAttribute : Attribute
 
 Starts a test, or every test of a class, from a session a setup test saved. Upstream's `session` option of `test` and
 `describe`. The session restores before the test body runs; a restore leaves no page open, so the test opens one first. The
-setup test must run before the test (in NUnit, give it an earlier `[Order]`); a session no setup produced fails the test with
+setup test must run before the test (NUnit and xUnit v3 run a setup test first inside its fixture or class; the adapter's setup attribute says how); a session no setup produced fails the test with
 `SESSION_UNAVAILABLE`, and an engine that cannot restore state with `UNSUPPORTED_CAPABILITY`. The closest attribute wins:
 the method, then the class, then a base class. A setup test takes only its own method's session. .NET-only name, as the port has no `test()` options object.
 
@@ -45,7 +45,7 @@ public E2ESessionAttribute(string name)
 
 Starts a test, or every test of a class, from a session a setup test saved. Upstream's `session` option of `test` and
 `describe`. The session restores before the test body runs; a restore leaves no page open, so the test opens one first. The
-setup test must run before the test (in NUnit, give it an earlier `[Order]`); a session no setup produced fails the test with
+setup test must run before the test (NUnit and xUnit v3 run a setup test first inside its fixture or class; the adapter's setup attribute says how); a session no setup produced fails the test with
 `SESSION_UNAVAILABLE`, and an engine that cannot restore state with `UNSUPPORTED_CAPABILITY`. The closest attribute wins:
 the method, then the class, then a base class. A setup test takes only its own method's session. .NET-only name, as the port has no `test()` options object.
 

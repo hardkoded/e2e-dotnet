@@ -10,6 +10,7 @@ frameworks share: locators, reads, expectations, agent steps, and the
 - Project
 - The base class
 - Attributes
+- Saved sessions
 - Soft checks and polls
 - A complete example
 - Run
@@ -78,6 +79,63 @@ public sealed class BillingTests : E2ETest
   model, so CI can skip it.
 - `Assert.Skip(reason)` or `Assert.SkipWhen(condition, reason)` skips a test
   from inside its body.
+
+## Saved sessions
+
+Sign in once, then start other tests signed in (upstream's `test.setup` and
+`session`). Mark the sign-in test `[E2ESetup("title", Saves = ["admin"])]`
+instead of `[Fact]`; its body signs in, checks that it worked, and calls
+`await SaveSessionAsync("admin")` once for each name in `Saves`. Mark a test or
+a class `[E2ESession("admin")]` to restore it before the body runs.
+
+```csharp
+public sealed class Dashboard : E2ETest
+{
+    [E2ESetup("authenticate as admin", Saves = ["admin"])]
+    public async Task Authenticate()
+    {
+        var admin = Credentials.User("admin");
+        await App.OpenAsync("/login");
+        await Screen.GetByLabel("Username").FillAsync(admin.Username);
+        await Screen.GetByLabel("Password").FillAsync(admin.Password);
+        await Screen.GetByRole("button", "Sign in").TapAsync();
+        await Expect.That(Browser).ToHaveUrlAsync("/dashboard");
+        await SaveSessionAsync("admin");
+    }
+
+    [Fact]
+    [E2ESession("admin")]
+    public async Task Opens_the_dashboard_directly()
+    {
+        await App.OpenAsync("/dashboard");
+    }
+}
+```
+
+- A name saved twice, a name not in `Saves`, or a name in `Saves` the body
+  never saved fails the setup test with `SESSION_CONTRACT`. `SaveSessionAsync`
+  outside a setup test fails the same way. Nothing is saved when the setup
+  test fails.
+- xUnit picks the order, not the dependents. `E2ETest` orders the setup tests
+  of a class before its other tests (a test method orderer,
+  `SetupTestMethodOrderer`); that is all it does. A class with its own
+  `[TestMethodOrderer]` loses it. Put the setup test and the tests that restore
+  its sessions in one class: xUnit runs classes in parallel, so a test in
+  another class can restore a session before it is saved. A class-level
+  `[E2ESession]` does not apply to the setup tests of that class. A test that
+  restores a session nobody saved yet fails with `SESSION_UNAVAILABLE`. Unlike
+  upstream's runner, xUnit runs a setup test even when no selected test needs
+  its session.
+- A restore leaves no page open: call `App.OpenAsync` first. A session holds
+  what the browser keeps (cookies, local storage, IndexedDB), not server state.
+- An engine without a state capability (`stateCapability` false in
+  `report.json`) fails `SaveSessionAsync` and a restore with
+  `UNSUPPORTED_CAPABILITY`. `WebEngine` has it.
+- A session lasts one run. It is encrypted with a key held in memory and kept
+  under `.e2e/sessions/<run id>`. Register `E2ERunFixture` as an assembly
+  fixture to delete it when the run ends.
+- The package needs `xunit.v3.extensibility.core` 4.0.1 or later (the test
+  method orderer).
 
 ## Soft checks and polls
 

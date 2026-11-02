@@ -21,8 +21,8 @@ public interface ISessionSetup
 
 What a framework adapter's setup attribute says about a test: it is a setup test, and it saves these sessions (upstream's
 `test.setup(title, { sessions }, fn)`). .NET-only: the adapter declares the attribute, because the test framework owns what a
-test is; `E2E.NUnit.E2ESetupAttribute` is the NUnit one.
+test is; `E2E.NUnit.E2ESetupAttribute` is the NUnit one and `E2E.XUnit.V3.E2ESetupAttribute` the xUnit v3 one.
 
-**Derived:** [E2ESetupAttribute](/api/E2E.NUnit/E2ESetupAttribute/)
+**Derived:** [E2ESetupAttribute](/api/E2E.NUnit/E2ESetupAttribute/), [E2ESetupAttribute](/api/E2E.XUnit.V3/E2ESetupAttribute/)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Run/SessionAttributes.cs)
