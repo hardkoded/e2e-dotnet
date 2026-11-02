@@ -328,8 +328,9 @@ internal sealed class SessionCatalog
             Execute = async (args, token) =>
             {
                 var mapped = new JsonObject { ["ref"] = args.GetProperty("target").GetString(), ["secret"] = args.GetProperty("secret").GetString() };
-                var outcome = await RunAsync(context, "type_secret", "fill_secret", args, token, mapped).ConfigureAwait(false);
+                // Marked before the fill runs: a fill that fails after typing still leaves the secret on screen.
                 context.SecretFilled();
+                var outcome = await RunAsync(context, "type_secret", "fill_secret", args, token, mapped).ConfigureAwait(false);
                 return outcome.Content;
             },
         };

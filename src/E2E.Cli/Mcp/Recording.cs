@@ -135,7 +135,7 @@ internal sealed partial class SessionRecorder(
             }),
             Execute = async (args, token) =>
             {
-                var name = args.ValueKind == JsonValueKind.Object && args.TryGetProperty("name", out var given) ? given.GetString() : null;
+                var name = args.ValueKind == JsonValueKind.Object && args.TryGetProperty("name", out var given) && given.ValueKind == JsonValueKind.String ? given.GetString() : null;
                 if (name is not null && (name.Length > 64 || !ValidName().IsMatch(name)))
                 {
                     // The argument check ignores a schema's pattern, so the name is checked here, worded as the call's own argument errors are.
