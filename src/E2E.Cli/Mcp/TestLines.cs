@@ -29,6 +29,9 @@ internal sealed class TestLineOptions
 
     /// <summary>The <c>secrets</c> names <c>Secrets.Get</c> takes.</summary>
     public IReadOnlyCollection<string> Secrets { get; init; } = [];
+
+    /// <summary>The full name of the test the session ran before it went live: the lines carry on from where it stopped. Upstream's <c>testRan</c> (<c>file:line</c> there).</summary>
+    public string? TestRan { get; init; }
 }
 
 /// <summary>
@@ -136,14 +139,20 @@ internal sealed class SessionTestLines(TestLineOptions options)
         }
 
         var body = _entries.Select(entry => entry.Line ?? "// " + entry.Tool + ": no test line: " + entry.Reason);
+        var count = "in order (" + _entries.Count(entry => entry.Line is not null).ToString(CultureInfo.InvariantCulture) + " lines):";
+
+        // A session that ran a test holds only what came after it: the test's own lines are in its file.
+        var (lead, place) = _options.TestRan is { } ran
+            ? ("Test lines from this session's actions after test " + ran + " stopped, " + count, "Put them in that test where it stopped, in place of the line that failed or after its last line,")
+            : ("Draft test body from this session's actions, " + count, "Paste it into a test method,");
         return string.Join(
             '\n',
             [
-                "Draft test body from this session's actions, in order (" + _entries.Count(entry => entry.Line is not null).ToString(CultureInfo.InvariantCulture) + " lines):",
+                lead,
                 "",
                 .. body,
                 "",
-                "Paste it into a test method, and add an Expect after each step that should change the screen.",
+                place + " and add an Expect after each step that should change the screen.",
             ]);
     }
 
