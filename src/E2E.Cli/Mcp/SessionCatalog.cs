@@ -60,9 +60,9 @@ internal sealed class SessionCatalog
     /// Builds the catalog from what the session's engine declares and the secrets the config holds. <paramref name="appBase"/> is the
     /// target's app URL, which a navigation's test line is made relative to. <paramref name="projectRoot"/> is where a relative <c>screenshot</c> path
     /// resolves, and <paramref name="attemptDir"/> the attempt's artifact directory, where the engine writes a screenshot before <c>screenshot</c>
-    /// copies it out.
+    /// copies it out. <paramref name="recorder"/> is the session's video recorder, which adds <c>start_recording</c> and <c>stop_recording</c>.
     /// </summary>
-    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null)
+    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null, SessionRecorder? recorder = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(secrets);
@@ -117,6 +117,13 @@ internal sealed class SessionCatalog
         }
 
         Add("locate", Locate(context));
+
+        // When the engine records video, start_recording and stop_recording follow locate, as upstream's catalog lists them.
+        if (recorder is not null && capabilities.HasFlag(EngineCapabilities.Video))
+        {
+            tools.AddRange(recorder.Tools());
+        }
+
         Add("test_lines", lines.Tool());
         return new SessionCatalog(tools, new HashSet<string>(["observe", "locate", "test_lines", "screenshot"], StringComparer.Ordinal), lines);
     }

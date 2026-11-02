@@ -23,7 +23,7 @@ launch) or `app.bundleId` (the process name of a running app) runs on
 `WinAppEngine` through Windows UI Automation, on Windows only, and needs an
 unlocked desktop for keys and clicks (see [windows.md](windows.md)); it launches
 the app before the first observation and has no `navigate` tool either. The catalog is the testing agent's own actions plus `locate`,
-`test_lines`, and `screenshot`. Not ported: recording a video, the project's own tools,
+`test_lines`, and `screenshot`. `start_recording` and `stop_recording` join them when the engine records video. Not ported: the project's own tools,
 and the tap, hover, and type at a point. `e2e init --yes` registers the
 server in `.mcp.json` and `.cursor/mcp.json`; to do it yourself, see below.
 
@@ -115,6 +115,7 @@ config declares a `secrets` entry.
 | `back` | One step back in the history |
 | `screenshot {path?}` | The viewport as an image. It masks secure fields only, after a secret fill too. With `path` (a `.png` inside the project, relative to its root, not hidden or under a hidden directory), also saves a full-resolution masked capture there and returns its absolute path; any other path is `POLICY_DENIED` |
 | `locate {role? name? text? label? placeholder? testId? exact?}` | Try a locator; see the loop below |
+| `start_recording {name?}`, `stop_recording` | Record a video of the app for a person to watch (listed when the engine records video). `name` is up to 64 letters, digits, `-`, and `_`, starting with a letter or digit. One recording at a time; a second start reports the one running. `stop_recording` saves it to `.e2e/videos/<session>/<n>[-<name>].<ext>` under the project root (`-part2`, `-part3` for later pages) and returns each file's absolute path, or the URL a hosted provider keeps it at. `close_session` saves a recording still running. Recordings are not masked, so a secret typed into a plain input shows in the video |
 | `test_lines` | Every test line the session's actions printed, in order, as a draft test body; see below |
 
 A failed action is an error result that starts with the tool, the node, and

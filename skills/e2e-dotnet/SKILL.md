@@ -380,7 +380,7 @@ lines you changed:
 - The `e2e mcp` `screenshot` tool takes an optional `path`: a `.png` inside the
   project, relative to its root. It saves the same masked capture there and
   returns the absolute path. A path outside the project, a hidden file, or one
-  under a hidden directory is `POLICY_DENIED` (topic `mcp`).
+  under a hidden directory is `POLICY_DENIED` (topic `mcp`). When the engine records video, `start_recording {name?}` and `stop_recording` record the app for a person to watch and save the files under `.e2e/videos/<session>/` (topic `mcp`).
 - `App.StartRecordingAsync(new RecordingOptions { Name })` and
   `App.StopRecordingAsync()` record one span, such as a transition, and return
   the videos (`RecordedVideoFile.Path` or `RecordedVideoLink.Url`). They fail
