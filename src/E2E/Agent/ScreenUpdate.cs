@@ -59,7 +59,7 @@ internal sealed partial class ScreenPresenter
     {
         ArgumentNullException.ThrowIfNull(observation);
         _shown = observation.TreeUnavailable ? null : Index(observation);
-        return RenderFull(observation);
+        return RenderFull(observation, _shown);
     }
 
     /// <summary>A later screen, as the difference from the one the agent holds: nothing, the changed lines, or the whole screen when most of it changed.</summary>
@@ -78,7 +78,7 @@ internal sealed partial class ScreenPresenter
         _shown = next;
         if (previous is null)
         {
-            return lead + RenderFull(observation);
+            return lead + RenderFull(observation, next);
         }
 
         var closed = !options.KeyboardNote || options.Lead is null ? "" : KeyboardNoteFor(previous, next);
@@ -93,7 +93,7 @@ internal sealed partial class ScreenPresenter
 
         if (changes >= MaxDiffLines || changes > MaxDiffShare * next.Order.Count)
         {
-            return lead + "The screen changed substantially since revision " + previous.Revision + ". " + RenderFull(observation) + closed;
+            return lead + "The screen changed substantially since revision " + previous.Revision + ". " + RenderFull(observation, next) + closed;
         }
 
         var assurance = observation.Truncated
@@ -116,14 +116,14 @@ internal sealed partial class ScreenPresenter
     }
 
     // One full screen, headed so a reader can find it later.
-    private static string RenderFull(ExecutorObservation observation)
+    private static string RenderFull(ExecutorObservation observation, ShownScreen? shown)
     {
         if (observation.TreeUnavailable)
         {
             return "Current screen (revision " + observation.Revision + DescribeLocation(observation) + ", semantic capture unavailable):\n" + observation.Text;
         }
 
-        return "Current screen (revision " + observation.Revision + DescribeLocation(observation) + ", " + Index(observation).ById.Count.ToString(CultureInfo.InvariantCulture)
+        return "Current screen (revision " + observation.Revision + DescribeLocation(observation) + ", " + shown!.ById.Count.ToString(CultureInfo.InvariantCulture)
             + " nodes):\n" + observation.Text;
     }
 
