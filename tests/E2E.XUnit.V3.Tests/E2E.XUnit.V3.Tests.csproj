@@ -5,7 +5,9 @@
     <IsTestProject>true</IsTestProject>
     <OutputType>Exe</OutputType>
     <!-- The session already stops on the xUnit cancellation token, so each call does not pass it. -->
-    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
+    <NoWarn>$(NoWarn);xUnit1051;NU1701</NoWarn>
+    <!-- E2E.WinApp restores the winapp UI Automation library, which ships Windows assets only. -->
+    <AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0</AssetTargetFallback>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
@@ -20,5 +22,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\E2E.XUnit.V3\E2E.XUnit.V3.csproj" />
+    <ProjectReference Include="..\..\src\E2E.Mobile.XUnit.V3\E2E.Mobile.XUnit.V3.csproj" />
+    <ProjectReference Include="..\..\src\E2E.WinApp.XUnit.V3\E2E.WinApp.XUnit.V3.csproj" />
   </ItemGroup>
 </Project>

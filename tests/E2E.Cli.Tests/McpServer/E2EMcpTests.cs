@@ -90,7 +90,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.Contains("Tools (run one with call {tool, args}; tools {tool} shows a tool's arguments):", opened.Text, StringComparison.Ordinal);
         string[] names =
         [
-            "observe", "tap", "double_tap", "long_press", "right_click", "hover", "type", "press", "select", "check", "uncheck", "clear", "drag", "scroll_to", "scroll", "navigate", "back", "screenshot", "type_secret", "locate", "start_recording", "stop_recording", "test_lines",
+            "observe", "tap", "double_tap", "long_press", "right_click", "hover", "type", "press", "select", "check", "uncheck", "clear", "drag", "scroll_to", "scroll", "navigate", "back", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at", "type_secret", "locate", "start_recording", "stop_recording", "test_lines",
         ];
         Assert.Equal(names, ServedCli.CatalogNames(opened.Text));
         Assert.Contains("- tap {target, modifiers?}: Tap or click one node: the gesture for a button, link, menu item, tab, checkbox, row, or field.\n", opened.Text, StringComparison.Ordinal);
@@ -101,7 +101,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
 
         var listed = await _served.InvokeAsync("tools");
         Assert.False(listed.IsError, listed.Text);
-        Assert.Contains($"Session {sessionId} on target \"web\": 23 tools.", listed.Text, StringComparison.Ordinal);
+        Assert.Contains($"Session {sessionId} on target \"web\": 29 tools.", listed.Text, StringComparison.Ordinal);
         Assert.Equal(ServedCli.CatalogLines(opened.Text), ServedCli.CatalogLines(listed.Text));
         var detail = await _served.InvokeAsync("tools", new() { ["tool"] = "type_secret" });
         Assert.Contains("Arguments (JSON Schema):", detail.Text, StringComparison.Ordinal);
@@ -156,10 +156,18 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.StartsWith("tap n9999 failed: LOCATOR_NOT_FOUND: node n9999 is not on the current screen", stale.Text, StringComparison.Ordinal);
         Assert.DoesNotContain("tapped", stale.Text, StringComparison.Ordinal);
 
+        // A point tool reads its point against the latest screenshot, and has none before the first.
+        var blind = await _served.CallAsync("tap_at", new() { ["x"] = 5, ["y"] = 5 });
+        Assert.Contains("No screenshot has been taken in this step: tap_at coordinates are pixels of the latest screenshot", blind.Text, StringComparison.Ordinal);
+
         var before = await _served.CallAsync("screenshot");
         Assert.False(before.IsError, before.Text);
         Assert.Equal(1, before.Images);
         Assert.Matches(new Regex(@"^Screenshot attached: \d+ by \d+ pixels \([\d.]+ per CSS pixel\)\.$", RegexOptions.None, TimeSpan.FromSeconds(5)), before.Text);
+        var pointed = await _served.CallAsync("tap_at", new() { ["x"] = 5, ["y"] = 5 });
+        Assert.False(pointed.IsError, pointed.Text);
+        Assert.Contains("Tapped the point", pointed.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("No screenshot has been taken", pointed.Text, StringComparison.Ordinal);
 
         var filled = await _served.CallAsync("type_secret", new() { ["target"] = ServedCli.RefOf(after.Text, "textbox \"Password\""), ["secret"] = "adminPassword" });
         Assert.False(filled.IsError, filled.Text);

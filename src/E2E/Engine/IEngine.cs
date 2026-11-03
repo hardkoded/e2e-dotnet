@@ -239,6 +239,16 @@ public interface IEngineSession : IAsyncDisposable
     Task PressAsync(string key, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Types <paramref name="text"/> into whatever holds focus, with no node resolved: how a field the tree does not list (drawn on a
+    /// canvas, flattened out of a platform's tree) gets its text after a tap gave it focus. With <paramref name="replace"/> the field's
+    /// value is cleared first, select all and delete. An engine that finds nothing that takes text focused refuses with
+    /// <c>NOT_ACTIONABLE</c>. Engines that declare <see cref="EngineCapabilities.Keyboard"/> implement it; the default refuses with
+    /// <c>UNSUPPORTED_CAPABILITY</c> (.NET-only: it keeps an engine written before the member compiling). Upstream's <c>keyboard.type</c>,
+    /// with <see cref="PressAsync"/> its <c>keyboard.press</c>.
+    /// </summary>
+    Task TypeTextAsync(string text, bool replace, CancellationToken cancellationToken) => Unsupported("keyboard input");
+
+    /// <summary>
     /// Whether <see cref="LocateAsync"/> is implemented. A session that says false has its locators resolved in core over
     /// <see cref="ObserveAsync(CancellationToken)"/>. .NET-only and transitional: upstream's engines all locate, and this goes once the web and document
     /// engines do.

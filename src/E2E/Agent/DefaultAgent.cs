@@ -205,6 +205,15 @@ public static class DefaultAgent
 
     internal static string Describe(RecordedAction action)
     {
+        // Upstream's summaries of the keyboard actions: no node, so the focused field stands for it. The caller redacts the text.
+        switch (action.Kind)
+        {
+            case "typeText":
+                return "type " + UploadPaths.Quote(action.Value ?? "") + " into the focused field" + (action.Replace == true ? ", replacing its value" : "");
+            case "pressKey":
+                return "press " + UploadPaths.Quote(action.Key ?? "") + " on the focused field";
+        }
+
         var builder = new StringBuilder(action.Kind switch { "tapAt" => "tap", "hoverAt" => "hover", "dragAt" => "drag", _ => Prose.GetValueOrDefault(action.Kind, action.Kind) });
 
         // Upstream's summary: the files, then the node they went to.

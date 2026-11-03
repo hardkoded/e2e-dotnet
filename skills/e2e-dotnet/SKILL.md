@@ -32,7 +32,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | Writing a test with NUnit: the `E2E.NUnit` base class, `[Test]`, `[Category("RealModel")]`, saved sessions (`[E2ESetup]`, `[E2ESession]`, `SaveSessionAsync`), `dotnet test --filter`, a complete test | `writing-tests-nunit` | [references/writing-tests-nunit.md](references/writing-tests-nunit.md) |
 | Writing a test with xUnit v3: the `E2E.XUnit.V3` base class, `[Fact]`, `[Trait("TestCategory", "RealModel")]`, saved sessions (`[E2ESetup]`, `[E2ESession]`, `SaveSessionAsync`), `dotnet test --filter`, a complete test | `writing-tests-xunit` | [references/writing-tests-xunit.md](references/writing-tests-xunit.md) |
 | Adding `Agent` steps, picking a model, budgets, the replay cache, custom executors, the agent's `upload` tool (project-relative paths, never hidden files or files outside the project) | `agent` | [references/agent.md](references/agent.md) |
-| Running tests: `dotnet test` filters, the `e2e` tool (`e2e doctor` checks that `e2e explore` and `e2e mcp` can start; `--json` prints the `doctor-1` report for a host), `report.json` for scripts, exit codes, CI, test filters (NUnit and xUnit v3: `E2ERunFixture.Filters` and `ChangedSince`, or `E2E_CHANGED_SINCE`; `run.changes`, `run.filters`, and `filtered` skips in `report.json`) | `running` | [references/running.md](references/running.md) |
+| Running tests: `dotnet test` filters, the `e2e` tool (`e2e doctor` checks that `e2e explore` and `e2e mcp` can start; `--json` prints the `doctor-1` report for a host), `report.json` for scripts, exit codes, CI, test filters (NUnit and xUnit v3, mobile and Windows adapters included: `E2ERunFixture.Filters` and `ChangedSince`, or `E2E_CHANGED_SINCE`; `run.changes`, `run.filters`, and `filtered` skips in `report.json`) | `running` | [references/running.md](references/running.md) |
 | Handling a failed run: the trace page, `report.json` for scripts, `E2ESession.Report()` for a session you run yourself, error codes and their fixes, a visible browser, replay misses, phase timings, the agent step table, every model call | `debugging` | [references/debugging.md](references/debugging.md) |
 | Exploring an app toward a goal without a test file, with `e2e explore` or `Explore.ExploreAsync` | `explore` | [references/explore.md](references/explore.md) |
 | Running isolated per-test sessions from your own runner: `E2EHost.OpenAsync`, `OpenHostOptions` (config value or file, target, `EngineFactory`), `host.OpenSessionAsync`, `E2ESession.CloseAsync` and the failures it returns, `Steps()` | `host` | [references/host.md](references/host.md) |
@@ -376,8 +376,11 @@ lines you changed:
   With a screenshot the model can aim at a point: `tap_at`, `hover_at`,
   `drag_at`, `type_at`, `press_at`, and `select_at` take pixels of the latest
   screenshot, for a target the tree does not list (a shape on a canvas, a pin on
-  a map). A listed control under the point is acted on by id; `type_at`,
-  `press_at`, and `select_at` need one. Tell the agent to prefer ids (topic
+  a map). A listed control under the point is acted on by id. On an engine
+  with a keyboard (the web engine), `type_at` and `press_at` on a point on
+  nothing listed tap it to focus it and go through the keyboard, and `fill`
+  with no target types into the focused field (`replace` clears it first);
+  `select_at` needs a listed control. Tell the agent to prefer ids (topic
   `agent`).
 - `ActOptions.OnAction` runs after each action of an act, once the screen
   settles, replayed actions included. Use it to observe (log, screenshot),

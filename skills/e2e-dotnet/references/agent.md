@@ -397,10 +397,22 @@ they cost nothing and answer with the line that says to take one.
   `UNSUPPORTED_CAPABILITY`. `hover_at` and `drag_at` need the bare point.
 - `type_at`, `press_at`, and `select_at` act by id on the enabled control the
   point lands on (`value` or `key` beside the point). A point on nothing listed
-  is an action failure the model can read, and costs no action.
+  is an action failure the model can read, and costs no action, except with a
+  keyboard (the web and document engines): `type_at` and `press_at` then tap
+  the point to focus it and go through the keyboard. `type_at` takes `replace`
+  to clear the field first. A listed node the engine cannot fill (a canvas, a
+  custom widget) takes `fill` through the keyboard too, after a tap that
+  focuses it, and the result says so. `fill` with no target types into the
+  focused field. `select_at` always needs a listed control.
+
+Over MCP, the session's `screenshot` is the one the point tools read their
+points from, and the point tools follow it in the catalog.
 
 A custom executor reaches the same verbs as `Actions.TapAtAsync`,
-`HoverAtAsync`, `DragAtAsync`, and `HitTestAsync`. The trace cache records a
+`HoverAtAsync`, `DragAtAsync`, and `HitTestAsync`, and, when the engine
+declares `Keyboard`, `TypeTextAsync` and `PressKeyAsync` for the focused field
+(`ExecutorVerb.TypeText` and `PressKey`). The trace records them as `typeText`
+and `pressKey`. The trace cache records a
 point with the viewport size and where the point sat inside the node under
 it. A replay re-finds that node and taps the same place in its live box; a
 viewport of another size hands the step over (`viewport-changed`).

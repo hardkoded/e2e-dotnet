@@ -2,6 +2,9 @@
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- E2E.WinApp restores the winapp UI Automation library, which ships Windows assets only. -->
+    <AssetTargetFallback>$(AssetTargetFallback);net10.0-windows7.0</AssetTargetFallback>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
@@ -17,5 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\E2E.NUnit\E2E.NUnit.csproj" />
+    <ProjectReference Include="..\..\src\E2E.Mobile.NUnit\E2E.Mobile.NUnit.csproj" />
+    <ProjectReference Include="..\..\src\E2E.WinApp.NUnit\E2E.WinApp.NUnit.csproj" />
   </ItemGroup>
 </Project>

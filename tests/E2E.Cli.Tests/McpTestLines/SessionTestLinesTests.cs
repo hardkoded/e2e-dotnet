@@ -25,10 +25,10 @@ public sealed class SessionTestLinesTests
         await using var context = await SessionContext.StartAsync(engine);
         const EngineCapabilities all = EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | EngineCapabilities.Keyboard
             | EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Screenshot | EngineCapabilities.TapModifiers;
-        var catalog = SessionCatalog.Create(context, all, secrets: ["apiKey"], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt", actionKinds: EngineActionKinds.Locator);
+        var catalog = SessionCatalog.Create(context, all, secrets: ["apiKey"], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt", actionKinds: EngineActionKinds.Locator, pointerKinds: ["tap", "hover", "dragTo"]);
 
-        // Only what looks at the screen or reads the draft prints no line.
-        Assert.Equal(["observe", "screenshot", "locate", "test_lines"], catalog.Entries.Select(pair => pair.Key).Where(name => !SessionTestLines.HasLine(name)));
+        // Only what looks at the screen, acts at a point, or reads the draft prints no line.
+        Assert.Equal(["observe", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at", "locate", "test_lines"], catalog.Entries.Select(pair => pair.Key).Where(name => !SessionTestLines.HasLine(name)));
         Assert.Equal(
             ["tap", "double_tap", "long_press", "right_click", "hover", "type", "press", "select", "check", "uncheck", "clear", "drag", "scroll_to", "scroll", "navigate", "back", "type_secret"],
             catalog.Entries.Select(pair => pair.Key).Where(SessionTestLines.HasLine));
@@ -225,6 +225,18 @@ public sealed class SessionTestLinesTests
         {
             Assert.Equal("Test line: " + line, NoteOf(await session.RunAsync(tool, args)));
         }
+    }
+
+    [Fact]
+    public async Task Says_why_a_keyboard_fallback_has_no_line()
+    {
+        var field = new Fake("n60", "textbox", "Notes", Y: 40);
+        var canvas = new Fake("n61", "image", "Pad", Y: 80);
+        var session = new TestLineHarness([field, canvas]);
+        Assert.Equal("No test line: the value went to the focused field; type into a listed node by id for a line.", NoteOf(await session.RunAsync("type", """{ "value": "x", "text": "x" }""")));
+        var fallback = await session.RunAsync("type", """{ "target": "n61", "text": "x" }""", () => Task.FromResult("#n61 is not an input; tapped it to focus it and typed through the keyboard.\n\nScreen changes"));
+        Assert.Matches("is not an input; tapped it to focus it and typed through the keyboard", fallback.Split('\n')[0]);
+        Assert.Matches("^No test line: the node is not an input and took the value through the keyboard", NoteOf(fallback));
     }
 
     [Fact]

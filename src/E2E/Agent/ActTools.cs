@@ -30,6 +30,9 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     private readonly ScreenPresenter? _screen = screen;
     private readonly PixelMode? _pixels = pixels;
 
+    // Whether the engine has a keyboard, which a fill with no node and a point on nothing listed reach focused fields through.
+    private bool Keyboard => _scope.EngineCapabilities.HasFlag(EngineCapabilities.Keyboard);
+
     // context: the step the tools run in, which a project tool reaches through AgentToolContext. Null outside a step.
     public async Task<ToolOutcome> ExecuteAsync(
         ModelToolCall call,
@@ -114,7 +117,15 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 return await PointToolAsync(call.Name, arguments, actions, budget, token).ConfigureAwait(false);
             case "press" when !HasTarget(arguments):
                 var focusedKey = Args.String(arguments, "key") ?? "Enter";
-                return await ActingAsync(NodeLabel(call.Name, arguments, "the focused field"), () => actions.PressAsync(null, focusedKey, token), token).ConfigureAwait(false);
+                return await ActingAsync(NodeLabel(call.Name, arguments, "the focused field"), () => actions.PressKeyAsync(focusedKey, token), token).ConfigureAwait(false);
+            case "fill" when !HasTarget(arguments) && Keyboard:
+                // Keyboard input to whatever holds focus: how a field the tree does not list gets its text after a tap_at gave it focus.
+                var typed = Args.String(arguments, "value") ?? "";
+                var replace = Args.Bool(arguments, "replace") == true;
+                return await ActingAsync(
+                    new ActionLabel("Typed into the focused field.", "fill into the focused field"),
+                    () => actions.TypeTextAsync(typed, new TypeTextOptions { Replace = replace }, token),
+                    token).ConfigureAwait(false);
         }
 
         SemanticNode node;
@@ -128,6 +139,12 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         }
 
         var target = new ExecutorTarget(node);
+        if (call.Name == "fill" && Keyboard)
+        {
+            var value = Args.String(arguments, "value") ?? "";
+            return await ActingAsync(NodeLabel(call.Name, arguments, "#" + node.Ref), () => TypeIntoNodeAsync(actions, target, value, "#" + node.Ref, token), token).ConfigureAwait(false);
+        }
+
         return await ActingAsync(
             NodeLabel(call.Name, arguments, "#" + node.Ref),
             () => call.Name switch
@@ -196,8 +213,8 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 "hover_at" => (await actions.HoverAtAsync(point, token).ConfigureAwait(false)).Summary,
                 "drag_at" => (await actions.DragAtAsync(point, PointTap.ImagePointToViewport(new Point(coordinates[2].Value!.Value, coordinates[3].Value!.Value), shot, viewport), token).ConfigureAwait(false)).Summary,
                 "select_at" => await SelectAtAsync(point, text, actions, token).ConfigureAwait(false),
-                "type_at" => await TypeAtAsync(point, text, actions, token).ConfigureAwait(false),
-                _ => await PressAtAsync(point, text, actions, token).ConfigureAwait(false),
+                "type_at" => await TypeAtAsync(point, At(px, py), text, Args.Bool(arguments, "replace") == true, actions, token).ConfigureAwait(false),
+                _ => await PressAtAsync(point, At(px, py), text, actions, token).ConfigureAwait(false),
             };
             return await DescribeOutcomeAsync(lead, token).ConfigureAwait(false);
         }
@@ -225,36 +242,135 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         return "Selected \"" + value + "\" in " + summary + ".";
     }
 
-    private static async Task<string> TypeAtAsync(Point point, string value, IExecutorActions actions, CancellationToken token)
+    // Upstream's focusAt: the control at a point for a verb that needs one, or, with a keyboard, focus given to the point by a tap so the
+    // keyboard can reach whatever the app put there: a field drawn on a canvas, an input flattened out of the tree.
+    private async Task<(ExecutorTarget? Control, string Summary)> FocusAtAsync(Point point, string at, string verb, IExecutorActions actions, CancellationToken token)
     {
-        var (control, summary) = await ControlAtAsync(point, "type_at", actions, token).ConfigureAwait(false);
-        await actions.TypeAsync(control, value, token).ConfigureAwait(false);
+        var hit = await actions.HitTestAsync(point, token).ConfigureAwait(false);
+        if (hit.Control is { } control)
+        {
+            return (control, hit.Summary);
+        }
+
+        if (!Keyboard)
+        {
+            throw new TestException("ACTION_FAILED", hit.Summary + "; " + verb + " needs a control the screen lists. Tap the target first, or aim at the control itself.");
+        }
+
+        await actions.TapAtAsync(point, token).ConfigureAwait(false);
+        return (null, "the field at " + at + " (tapped to focus it; " + hit.Summary + ")");
+    }
+
+    private async Task<string> TypeAtAsync(Point point, string at, string value, bool replace, IExecutorActions actions, CancellationToken token)
+    {
+        var (control, summary) = await FocusAtAsync(point, at, "type_at", actions, token).ConfigureAwait(false);
+        if (control is null)
+        {
+            await actions.TypeTextAsync(value, new TypeTextOptions { Replace = replace }, token).ConfigureAwait(false);
+        }
+        else if (await TypeIntoNodeAsync(actions, control, value, summary, token).ConfigureAwait(false) is { } note)
+        {
+            return note.Lead;
+        }
+
         return "Typed into " + summary + ".";
     }
 
-    private static async Task<string> PressAtAsync(Point point, string key, IExecutorActions actions, CancellationToken token)
+    private async Task<string> PressAtAsync(Point point, string at, string key, IExecutorActions actions, CancellationToken token)
     {
-        var (control, summary) = await ControlAtAsync(point, "press_at", actions, token).ConfigureAwait(false);
-        await actions.PressAsync(control, key, token).ConfigureAwait(false);
+        var (control, summary) = await FocusAtAsync(point, at, "press_at", actions, token).ConfigureAwait(false);
+        if (control is null)
+        {
+            await actions.PressKeyAsync(key, token).ConfigureAwait(false);
+        }
+        else
+        {
+            await actions.PressAsync(control, key, token).ConfigureAwait(false);
+        }
+
         return "Pressed " + key + " on " + summary + ".";
     }
+
+    /// <summary>How the lead of a <c>fill</c> that fell back to the keyboard says so (upstream's <c>TYPED_THROUGH_KEYBOARD</c>).</summary>
+    private const string TypedThroughKeyboardLead = "is not an input; tapped it to focus it and typed through the keyboard";
+
+    /// <summary>True for the result of a fill whose node took the value through the keyboard, not as a fill. Upstream's <c>typedThroughKeyboard</c>.</summary>
+    internal static bool TypedThroughKeyboard(string result) => result.Split('\n', 2)[0].Contains(TypedThroughKeyboardLead, StringComparison.Ordinal);
+
+    // Upstream's typeIntoNode. Types into one listed node. A node the engine cannot fill (a focusable canvas, a custom widget with its own
+    // key handling, or a container the model named after a tap_at) still takes keystrokes when the engine has a keyboard: the node is
+    // tapped so it holds focus, then the value goes to the focused field. The tap comes first because whatever had focus before may be an
+    // unrelated field an earlier action left focused, and typing into it would corrupt that field while reporting success on this node.
+    // Returns that path's outcome: its lead, and no change expected of the tree, which does not list what such a node holds, so an
+    // unchanged listing would otherwise read as the typing having failed. Null when the node took the value as a fill.
+    private async Task<ActionOutcome?> TypeIntoNodeAsync(IExecutorActions actions, ExecutorTarget target, string value, string label, CancellationToken token)
+    {
+        try
+        {
+            await actions.TypeAsync(target, value, token).ConfigureAwait(false);
+            return null;
+        }
+        catch (E2EException ex) when (Keyboard && !StepExecutors.IsRuntimeHardStop(ex) && IsNotFillable(ex))
+        {
+            // The node is no input: the keyboard takes over below.
+        }
+
+        await actions.TapAsync(target, token).ConfigureAwait(false);
+        await actions.TypeTextAsync(value, new TypeTextOptions { Replace = false }, token).ConfigureAwait(false);
+        return new ActionOutcome(
+            label + " " + TypedThroughKeyboardLead + ". The tree does not list this node's text, so an unchanged listing says nothing about the typing: verify it through the app's reaction or a screenshot.",
+            false);
+    }
+
+    // An engine's refusal to fill a node that is not a text input. The engine codes it NOT_ACTIONABLE; the harness may hand the executor an
+    // ACTION_FAILED wrapping it, so the chain is walked for the code and the message.
+    private static bool IsNotFillable(Exception cause)
+    {
+        for (var current = cause; current is not null; current = current.InnerException)
+        {
+            if (current is E2EException { Code: EngineErrorCodes.NotActionable } && NotFillable().IsMatch(current.Message))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    [GeneratedRegex(@"not an? <?(input|textarea)|not editable", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex NotFillable();
+
+    // What an action says about itself beyond its label: the lead its result opens with, and whether the tree is expected to show a change.
+    private readonly record struct ActionOutcome(string Lead, bool ExpectChange);
 
     // How a point reads in a lead: upstream's `(x, y)`.
     private static string At(double x, double y) => "(" + x.ToString("R", CultureInfo.InvariantCulture) + ", " + y.ToString("R", CultureInfo.InvariantCulture) + ")";
 
     // Upstream's `acting`: the action runs, then the screen follows under the label's done lead, or under the failure lead when it threw.
-    private async Task<ToolOutcome> ActingAsync(ActionLabel label, Func<Task> action, CancellationToken token)
+    private Task<ToolOutcome> ActingAsync(ActionLabel label, Func<Task> action, CancellationToken token) =>
+        ActingAsync(
+            label,
+            async () =>
+            {
+                await action().ConfigureAwait(false);
+                return null;
+            },
+            token);
+
+    // The same for an action that may report its own lead and whether a change is expected (upstream's ActionOutcome).
+    private async Task<ToolOutcome> ActingAsync(ActionLabel label, Func<Task<ActionOutcome?>> action, CancellationToken token)
     {
+        ActionOutcome? outcome;
         try
         {
-            await action().ConfigureAwait(false);
+            outcome = await action().ConfigureAwait(false);
         }
         catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
         {
             return await FailedAsync(label, ex, token).ConfigureAwait(false);
         }
 
-        return await DescribeOutcomeAsync(label.Done, token, label.ExpectChange).ConfigureAwait(false);
+        return await DescribeOutcomeAsync(outcome?.Lead ?? label.Done, token, outcome?.ExpectChange ?? label.ExpectChange).ConfigureAwait(false);
     }
 
     // Upstream's `failureLead` on a screen: a failed action still returns the screen, so the model can act on a stale-id or not-found failure at once.

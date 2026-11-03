@@ -1,6 +1,6 @@
 ---
 title: "ActionName"
-description: "The name ActionEvent reports a committed action under (upstream's ActionName). Upstream's typeText, pressKey, and dismissKeyboard are left out: the port has..."
+description: "The name ActionEvent reports a committed action under (upstream's ActionName). Upstream's dismissKeyboard is left out: the port has no such action. A clear r..."
 editUrl: false
 prev: false
 next: false
@@ -19,8 +19,8 @@ public enum ActionName
 ```
 
 
-The name [ActionEvent](/api/E2E/ActionEvent/) reports a committed action under (upstream's `ActionName`). Upstream's `typeText`,
-`pressKey`, and `dismissKeyboard` are left out: the port has no such actions. A `clear` reads [Type](#E2E_ActionName_Type).
+The name [ActionEvent](/api/E2E/ActionEvent/) reports a committed action under (upstream's `ActionName`). Upstream's `dismissKeyboard`
+is left out: the port has no such action. A `clear` reads [Type](#E2E_ActionName_Type).
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
@@ -146,6 +146,20 @@ Press = 8
 
 **Value:** [ActionName](./)
 
+<a id="E2E_ActionName_PressKey"></a>
+
+### PressKey
+
+
+```csharp
+PressKey = 21
+```
+
+
+One key sent to whatever held focus (`pressKey`).
+
+**Value:** [ActionName](./)
+
 <a id="E2E_ActionName_Scroll"></a>
 
 ### Scroll
@@ -236,7 +250,7 @@ TapAt = 17
 
 
 ```csharp
-Tool = 20
+Tool = 22
 ```
 
 
@@ -265,6 +279,20 @@ Type = 6
 TypeSecret = 7
 ```
 
+
+**Value:** [ActionName](./)
+
+<a id="E2E_ActionName_TypeText"></a>
+
+### TypeText
+
+
+```csharp
+TypeText = 20
+```
+
+
+Keyboard input to whatever held focus (`typeText`).
 
 **Value:** [ActionName](./)
 
