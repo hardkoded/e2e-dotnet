@@ -31,7 +31,7 @@ public sealed partial class WebEngine : IDoctorEngine
             return [.. scripts, new EngineDoctorCheck("browser", EngineDoctorStatus.Skip, "the browser is attached over CDP")];
         }
 
-        return [.. scripts, .. BrowserCheck(_options.BrowserName, info.Env, info.Headed)];
+        return [.. scripts, .. BrowserCheck(_options.BrowserName, info.Env, info.Headed || !_headless)];
     }
 
     /// <summary>The <c>init-scripts</c> check of <c>e2e doctor</c>: none without scripts, else whether every file reads (upstream's <c>ConfiguredInitScripts.doctor</c>).</summary>
