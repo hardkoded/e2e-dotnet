@@ -124,4 +124,53 @@ public sealed class LocatorExpressionsTests
         Assert.Equal("INVALID_LOCATOR", error.Code);
         Assert.Contains("hasText, hasNotText, has, and/or hasNot", error.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Lists_every_prefix_of_a_filtered_chain_innermost_first()
+    {
+        var baseQuery = _screen.GetByRole("listitem").Query;
+        var first = new Locator(_screen, baseQuery).Filter("Order").Query;
+        var second = new Locator(_screen, first).Filter(has: _screen.GetByRole("button")).Query;
+
+        Assert.Equal([baseQuery, first, second], second.FilterSpine());
+    }
+
+    [Fact]
+    public void Follows_an_index_step_between_filters()
+    {
+        var baseQuery = _screen.GetByRole("listitem").Query;
+        var filtered = new Locator(_screen, baseQuery).Filter("Order").Query;
+        var indexed = new Locator(_screen, filtered).First().Query;
+        var chained = new Locator(_screen, indexed).Filter("1042").Query;
+
+        Assert.Equal([baseQuery, filtered, indexed, chained], chained.FilterSpine());
+    }
+
+    [Fact]
+    public void Filter_spine_is_empty_without_a_filter_step()
+    {
+        var baseLocator = _screen.GetByRole("listitem");
+
+        Assert.Empty(baseLocator.Query.FilterSpine());
+        Assert.Empty(baseLocator.Nth(0).Query.FilterSpine());
+        Assert.Empty(_screen.GetByText("Pro").Query.FilterSpine());
+    }
+
+    [Fact]
+    public void Filter_spine_is_empty_for_a_union_of_chains()
+    {
+        var baseLocator = _screen.GetByRole("listitem");
+        var union = baseLocator.Filter("Order").Or(baseLocator);
+
+        Assert.Empty(union.Query.FilterSpine());
+    }
+
+    [Fact]
+    public void Treats_a_union_as_a_single_base_to_count_once_never_descending_into_its_sides()
+    {
+        var union = _screen.GetByRole("listitem").Or(_screen.GetByRole("button"));
+        var filtered = union.Filter("Order").Query;
+
+        Assert.Equal([union.Query, filtered], filtered.FilterSpine());
+    }
 }

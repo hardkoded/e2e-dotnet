@@ -934,7 +934,7 @@ public sealed class Locator
                 var matches = await ResolveAsync(token, includeHidden: true, reads, state is WaitForState.Detached or WaitForState.Hidden ? MissingFrame.Empty : MissingFrame.Wait).ConfigureAwait(false);
                 if (matches.Count > 1)
                 {
-                    throw LocatorEngine.Ambiguous(Query, matches.Count);
+                    throw await _screen.Engine.AmbiguousAsync(Query, matches.Count, token).ConfigureAwait(false);
                 }
 
                 samples.Add(matches.Count == 0 ? "absent" : matches[0].States.Hidden ? "hidden" : "visible");
@@ -1357,6 +1357,33 @@ public sealed record LocatorExpression
             default:
                 return new ErrorDetails { Name = PatternText(Value) };
         }
+    }
+
+    /// <summary>
+    /// The prefixes of a filtered locator's chain, innermost first: the base and every <c>filter</c> or <c>index</c> step applied over it
+    /// (upstream's <c>filterSpine</c>). Empty when the chain has no filter step, since a plain query, selector, or frame has no step a
+    /// candidate count can explain. A union at the base counts once like any other base; the walk stops there and never descends into its
+    /// two sides.
+    /// </summary>
+    internal IReadOnlyList<LocatorExpression> FilterSpine()
+    {
+        List<LocatorExpression> steps = [];
+        var current = this;
+        var filtered = false;
+        while (current.Kind is "filter" or "index")
+        {
+            filtered |= current.Kind == "filter";
+            steps.Add(current);
+            current = current.Source!;
+        }
+
+        if (!filtered)
+        {
+            return [];
+        }
+
+        steps.Reverse();
+        return [current, .. steps];
     }
 
     public string Describe()
