@@ -142,7 +142,14 @@ internal sealed class McpToolServer : IDisposable
         }
         catch (Exception error) when (error is not OperationCanceledException)
         {
-            response.StatusCode = 500;
+            try
+            {
+                response.StatusCode = 500;
+            }
+            catch (InvalidOperationException)
+            {
+                // The reply already started.
+            }
         }
         finally
         {
@@ -260,7 +267,7 @@ internal sealed class McpToolServer : IDisposable
         {
             result = await tool.RunAsync(arguments, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception error) when (error is not OperationCanceledException)
+        catch (Exception error) when (!cancellationToken.IsCancellationRequested)
         {
             result = new ToolResult($"{tool.Name} failed: {error.Message.Split('\n')[0]}", IsError: true);
         }

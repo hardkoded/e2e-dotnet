@@ -500,9 +500,9 @@ internal sealed class AcpSession
             {
                 process.Kill(entireProcessTree: true);
             }
-            catch (Exception error) when (error is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException)
+            catch (Exception error) when (error is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException or AggregateException)
             {
-                // Not started, or already exited.
+                // Not started, already exited, or part of the tree could not be killed.
             }
         }
 
