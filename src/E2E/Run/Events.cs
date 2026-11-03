@@ -7,8 +7,8 @@ namespace E2E;
 /// <summary>
 /// Structured run events: the run's single event spine (upstream's <c>run/events.ts</c>). The list reporter consumes exactly this
 /// stream (<c>ListReporter.Handle</c>), so no two consumers can drift. Only the events the port's list reporter reads are here: the
-/// run's start, plan, notices, setup steps, finished tests, errors, interrupts, and end. Not ported: <c>output</c>,
-/// <c>test-started</c>, <c>step</c>, <c>serial-group</c>, and <c>explore</c>, which feed the live window the port has no use for yet.
+/// run's start, plan, notices, setup steps, started tests, step progress, finished tests, errors, interrupts, and end. Not ported: <c>output</c>,
+/// <c>serial-group</c>, and <c>explore</c>, which feed the live window the port has no use for yet. Nothing emits <c>test-started</c> or <c>step</c> yet: the port has no runner.
 /// </summary>
 internal abstract record RunEventFact;
 
@@ -128,6 +128,18 @@ internal sealed record RunEventResult
     public IReadOnlyList<ReportAttempt> Attempts { get; init; } = [];
 }
 
+/// <summary>
+/// Upstream's <c>test-started</c> fact: a test began executing. A test that runs as several agents, on several targets, or under repeat-each
+/// starts once per pair. <c>SerialId</c> is the test's serial group; the port has no serial groups, so the list reporter does not read it.
+/// </summary>
+internal sealed record TestStartedEvent(string TestId, string Agent, int Repeat, string Title, string File, string? SerialId, string Target) : RunEventFact;
+
+/// <summary>
+/// Upstream's <c>step</c> fact: one moment of a running test's step, routed to its pair by test id, agent, target, and repeat. .NET-only name:
+/// <c>StepEvent</c> is the report's model-turn record.
+/// </summary>
+internal sealed record StepProgressEvent(string TestId, string Agent, int Repeat, string Target, StepProgress Progress) : RunEventFact;
+
 /// <summary>Upstream's <c>test-finished</c> fact.</summary>
 internal sealed record TestFinishedEvent(RunEventResult Result) : RunEventFact;
 
@@ -219,6 +231,11 @@ internal static partial class RunEvents
     // The fact as upstream's `type` names it: `SetupEvent` is `setup`, `RunStartedEvent` is `run-started`.
     private static string EventType(RunEventFact fact)
     {
+        if (fact is StepProgressEvent)
+        {
+            return "step";
+        }
+
         var name = fact.GetType().Name;
         return TypeWords().Replace(name.EndsWith("Event", StringComparison.Ordinal) ? name[..^"Event".Length] : name, "$1-$2").ToLowerInvariant();
     }

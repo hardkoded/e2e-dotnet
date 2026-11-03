@@ -28,7 +28,7 @@ internal sealed record ListReporterOptions
 /// <c>Skipped After Failure</c> sections with their evidence rows, the run
 /// errors, and the summary rows (<c>Test Files</c>, <c>Tests</c>, <c>AI</c>, <c>Cache</c>, <c>Repeats</c>, <c>Warnings</c>, <c>Errors</c>,
 /// <c>Start at</c>, <c>Duration</c>, <c>Report</c>, <c>Traces</c>, <c>Screenshots</c>, <c>AI trace</c>). Not ported: the live window, a
-/// test's console output, serial groups, step streaming, and the exploration view. A failure also prints its code frame and its video rows.
+/// test's console output, serial groups, the live half of step streaming, and the exploration view. Each finished agent step prints at once and a test prints as it finishes. A failure also prints its code frame and its video rows.
 /// </para>
 /// </summary>
 internal sealed partial class ListReporter
@@ -42,6 +42,12 @@ internal sealed partial class ListReporter
 
     /// <summary>Indentation of the <c>→ first error line</c> under a failed test in a file block.</summary>
     private const int ErrorGlanceIndent = 7;
+
+    /// <summary>Indentation of a test row and of a streamed step line (upstream's <c>TEST_INDENT</c>).</summary>
+    private const string TestIndent = "   ";
+
+    /// <summary>Indentation of a replay notice under its test (upstream's <c>STEP_INDENT</c>).</summary>
+    private const string StepIndent = "     ";
 
     /// <summary>How many <c>app.screenshot</c> files the summary names before it counts the rest.</summary>
     private const int ShownScreenshots = 10;
@@ -66,6 +72,12 @@ internal sealed partial class ListReporter
     private readonly Dictionary<(string Target, string File), FileGroup> _groups = [];
     private readonly List<FileGroup> _groupOrder = [];
     private readonly List<Failure> _failures = [];
+
+    /// <summary>Pairs that have started and whose result is still to come, by <see cref="PairKey"/> (upstream's <c>pairs</c>).</summary>
+    private readonly Dictionary<string, RunningTest> _pairs = new(StringComparer.Ordinal);
+
+    /// <summary>The model and agent the header names, which a recording's model is compared with (upstream's <c>configuredModel</c>).</summary>
+    private ConfiguredModel? _configuredModel;
 
     /// <summary>Skipped tests that followed a failure, for the <c>Skipped After Failure</c> section and the <c>Warnings</c> row.</summary>
     private readonly List<Failure> _skippedFailures = [];
@@ -120,6 +132,12 @@ internal sealed partial class ListReporter
             case SetupEvent setup:
                 Setup(setup);
                 break;
+            case TestStartedEvent started:
+                TestStarted(started);
+                break;
+            case StepProgressEvent step:
+                Step(step);
+                break;
             case TestFinishedEvent finished:
                 TestFinished(finished.Result);
                 break;
@@ -156,6 +174,12 @@ internal sealed partial class ListReporter
     }
 
     private void Print(string line) => _output.Write(line);
+
+    /// <summary>
+    /// The identity of one pair across <c>test-started</c>, <c>step</c>, and <c>test-finished</c>: a test runs once per agent it is pinned to, on
+    /// each target, and once per <c>--repeat-each</c> run (upstream's <c>pairKey</c>).
+    /// </summary>
+    private static string PairKey(string testId, string agent, string target, int repeat) => $"{testId}@{agent}@{target}@{repeat}";
 
     private string TitledAs(string title, string agent, int repeat)
     {
@@ -214,6 +238,7 @@ internal sealed partial class ListReporter
         _artifactsRoot = started.ArtifactsRoot;
         _targets = started.Targets;
         _launchedAt = _time.GetLocalNow();
+        _configuredModel = started.Model is { } configured ? new ConfiguredModel(configured, started.Agents?.FirstOrDefault() ?? "default") : null;
         var version = typeof(ListReporter).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "0.0.0";
         Print(string.Empty);
         Print($"{_pc.Bold(_pc.Black(_pc.Cyan(" RUN ")))} {_pc.Cyan($"e2e v{version}")} {_pc.Gray(started.ProjectRoot)}");
@@ -329,7 +354,7 @@ internal sealed partial class ListReporter
         passed ? runs.LastOrDefault(run => run.Status == E2E.Internal.AttemptStatus.Passed)?.Steps ?? [] : [];
 
     /// <summary>The details of an ordinary result: summed over its attempts, the error from the told one.</summary>
-    private static ResultDetails DetailsOf(IReadOnlyList<ReportAttempt> attempts, bool passed)
+    private static ResultDetails DetailsOf(IReadOnlyList<ReportAttempt> attempts, bool passed, ConfiguredModel? configured)
     {
         var steps = attempts.Select(attempt => (IEnumerable<StepRecord>)attempt.Steps).ToList();
 
@@ -348,6 +373,7 @@ internal sealed partial class ListReporter
             Videos = VideoPaths(attempts),
             AppLog = AppLogSummaryOf(told?.AppLog ?? []),
             SkipReason = told?.Status == E2E.Internal.AttemptStatus.Skipped ? null : told?.Skip?.Reason,
+            Replays = ListSteps.ReplayNotices(attempts.Select(attempt => attempt.Steps), configured),
         };
     }
 
@@ -392,6 +418,33 @@ internal sealed partial class ListReporter
         return parts.Count == 0 ? null : new AppLogSummary(string.Join(", ", parts), appErrors);
     }
 
+    /// <summary>A pair began executing. Its title is kept so its steps can name it; a later start of the same pair keeps what it had.</summary>
+    private void TestStarted(TestStartedEvent started)
+    {
+        _pairs[PairKey(started.TestId, started.Agent, started.Target, started.Repeat)] = new RunningTest(Group(started.File, started.Target), TitledAs(started.Title, started.Agent, started.Repeat));
+    }
+
+    /// <summary>
+    /// Streams the finished agent steps of a running pair. Nothing is transient without a live window (CI logs), so each finished agent step
+    /// prints at once, prefixed with its test. Deterministic steps are fast and many, so they never reach the permanent log.
+    /// </summary>
+    private void Step(StepProgressEvent step)
+    {
+        if (!_pairs.TryGetValue(PairKey(step.TestId, step.Agent, step.Target, step.Repeat), out var running))
+        {
+            return;
+        }
+
+        var progress = step.Progress;
+        if (progress.Phase != StepProgressPhase.End || progress.Kind != StepKind.Agent)
+        {
+            return;
+        }
+
+        var finished = new FinishedStep(progress.Api, progress.Label ?? string.Empty, progress.Status ?? StepStatus.Passed, progress.DurationMs, progress.ModelCalls);
+        Print(TestIndent + ListSteps.StepLine(_pc, finished, _pc.Dim(running.Title) + _separator));
+    }
+
     private void TestFinished(RunEventResult result)
     {
         // Unselected pairs are report-only: they never print and the plan never counted them.
@@ -400,15 +453,17 @@ internal sealed partial class ListReporter
             return;
         }
 
+        _pairs.Remove(PairKey(result.Test.Id, result.Agent, result.Target.Name, result.Repeat));
         var group = Group(result.Test.File, result.Target.Name);
         var skippedAfter = Records.FailureBeforeSkip(result);
-        var details = DetailsOf(result.Attempts, result.Status is ResultStatus.Passed or ResultStatus.Flaky);
+        var configured = _configuredModel?.Agent == result.Agent ? _configuredModel : null;
+        var details = DetailsOf(result.Attempts, result.Status is ResultStatus.Passed or ResultStatus.Flaky, configured);
         _screenshots.AddRange(details.Screenshots);
         Format.AddUsage(_runUsage, details.Usage);
         Format.AddModelTally(_runModels, details.Models);
         Format.AddCacheTally(_runCache, details.Cache);
         var title = TitledAs(string.Join(" > ", result.Test.TitlePath), result.Agent, result.Repeat);
-        group.Lines.Add(new TestLine
+        var line = new TestLine
         {
             Title = title,
             DeclarationIndex = result.Test.DeclarationIndex,
@@ -417,7 +472,12 @@ internal sealed partial class ListReporter
             Usage = details.Usage,
             FirstErrorLine = details.Error is null ? null : Format.Bounded(details.Error.Message).Split('\n')[0],
             SkipReason = result.Skip is null ? null : Format.Bounded(result.Skip.Reason),
-        });
+            Replays = details.Replays,
+        };
+        group.Lines.Add(line);
+
+        // Without a live window each test prints as it finishes, so the file's block is the file line alone.
+        PrintTestRows(line, $"{Badge(group.Target)} {Format.Bounded(group.File)}{_separator}");
         _runs.Add((
             $"{result.Test.Id}@{result.Agent}@{result.Target.Name}",
             $"{Badge(group.Target)} {Format.Bounded(group.File)}{_separator}{TitledAs(string.Join(" > ", result.Test.TitlePath), result.Agent, 0)}",
@@ -526,46 +586,48 @@ internal sealed partial class ListReporter
         }
 
         Print(string.Join(" ", parts));
-        var verbose = counts.Failed > 0 || counts.Interrupted > 0 || counts.Flaky > 0 || _groups.Count == 1;
-        if (!verbose)
+    }
+
+    /// <summary>Prints a test's row, prefixed with <paramref name="context"/>, then its replay notices (upstream's <c>printTestRows</c>, without the live window's finished steps).</summary>
+    private void PrintTestRows(TestLine line, string context)
+    {
+        foreach (var rendered in TestLineRows(line, context))
         {
-            return;
+            Print(rendered);
         }
 
-        foreach (var line in group.Lines.OrderBy(line => line.DeclarationIndex))
+        foreach (var replay in line.Replays)
         {
-            foreach (var rendered in TestLineRows(line))
-            {
-                Print(rendered);
-            }
+            Print(StepIndent + ListSteps.ReplayLine(_pc, replay));
         }
     }
 
-    /// <summary>One test row under its file line, plus the first error line for a failure.</summary>
-    private List<string> TestLineRows(TestLine line)
+    /// <summary>One test row, its title after <paramref name="context"/>, plus the first error line for a failure.</summary>
+    private List<string> TestLineRows(TestLine line, string context)
     {
+        var title = context + line.Title;
         var duration = _pc.Dim(Format.FormatTime(TimeSpan.FromMilliseconds(line.DurationMs)));
         var segment = Format.AiSegment(line.Usage);
         var ai = segment is null ? string.Empty : " " + _pc.Dim(segment);
         switch (line.Status)
         {
             case ResultStatus.Passed:
-                return [$"   {_pc.Green(Format.Check)} {line.Title} {duration}{ai}"];
+                return [$"   {_pc.Green(Format.Check)} {title} {duration}{ai}"];
             case ResultStatus.Flaky:
-                return [$"   {_pc.Yellow(Format.Check)} {line.Title} {_pc.Yellow("(flaky)")} {duration}{ai}"];
+                return [$"   {_pc.Yellow(Format.Check)} {title} {_pc.Yellow("(flaky)")} {duration}{ai}"];
             case ResultStatus.Skipped:
                 {
                     // `test.skip` without a message records the bare word; repeating it adds nothing.
                     var reason = line.SkipReason is null or "skipped" ? string.Empty : _pc.Dim(_pc.Gray($" [{line.SkipReason}]"));
-                    return [$"   {_pc.Dim(_pc.Gray(FDown))} {line.Title}{reason}"];
+                    return [$"   {_pc.Dim(_pc.Gray(FDown))} {title}{reason}"];
                 }
 
             case ResultStatus.Interrupted:
-                return [$"   {_pc.Yellow(Format.Cross)} {line.Title} {_pc.Yellow("(interrupted)")} {duration}{ai}"];
+                return [$"   {_pc.Yellow(Format.Cross)} {title} {_pc.Yellow("(interrupted)")} {duration}{ai}"];
             default:
                 {
                     var status = line.Status == ResultStatus.Failed ? string.Empty : _pc.Red($" ({StatusName(line.Status)})");
-                    List<string> rows = [$"   {_pc.Red($"{Format.Cross} {line.Title}")}{status} {duration}{ai}"];
+                    List<string> rows = [$"   {_pc.Red($"{Format.Cross} {title}")}{status} {duration}{ai}"];
                     if (line.FirstErrorLine is { } first)
                     {
                         // A glance line; the `Failed Tests` section carries the whole message.
@@ -905,6 +967,9 @@ internal sealed partial class ListReporter
 
         /// <summary>Where the recordings the attempts kept are: report-relative paths, or hosted URLs.</summary>
         public IReadOnlyList<string> Videos { get; init; } = [];
+
+        /// <summary>Recording mismatches under the test (upstream's <c>replays</c>).</summary>
+        public IReadOnlyList<ReplayNotice> Replays { get; init; } = [];
     }
 
     /// <summary>The app log lines that say something went wrong: the tally, and the errors a failure block quotes (upstream's <c>AppLogSummary</c>).</summary>

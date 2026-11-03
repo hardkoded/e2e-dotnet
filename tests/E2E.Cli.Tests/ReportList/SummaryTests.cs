@@ -31,7 +31,7 @@ public sealed class SummaryTests
         cut.Handle(Finished(Result(ResultStatus.Passed, id: "c", file: "tests/b.e2e.ts")));
         cut.Handle(RunFinished(ReportRunStatus.Interrupted, 130, ".e2e/report.json"));
         Assert.Contains(" ❯ |chromium| tests/a.e2e.ts (2 tests | 1 interrupted) 240ms", interrupted.Lines);
-        Assert.Contains("   × cut (interrupted) 120ms", interrupted.Lines);
+        Assert.Contains("   × |chromium| tests/a.e2e.ts > cut (interrupted) 120ms", interrupted.Lines);
         Assert.DoesNotContain("Failed Tests", string.Join('\n', interrupted.Lines));
         Assert.Contains(" Test Files  1 interrupted | 1 passed (2)", interrupted.Lines);
         Assert.Contains("      Tests  1 interrupted | 2 passed (3)", interrupted.Lines);
