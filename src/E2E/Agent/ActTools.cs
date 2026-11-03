@@ -161,6 +161,14 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             return ToolOutcome.Fail(tool + " takes a number for " + missing + ".");
         }
 
+        // Upstream's schemas: type_at needs a value (empty is allowed), select_at a non-empty value, press_at a key of 1 to 64 characters.
+        var text = tool switch { "type_at" or "select_at" => Args.String(arguments, "value"), "press_at" => Args.String(arguments, "key"), _ => "" };
+        if (text is null || (tool == "select_at" && text.Length == 0) || (tool == "press_at" && text.Length is 0 or > 64))
+        {
+            budget.RefundPrepaid();
+            return ToolOutcome.Fail(tool + " takes " + (tool == "press_at" ? "a key of 1 to 64 characters." : tool == "select_at" ? "a non-empty value." : "a value."));
+        }
+
         var px = coordinates[0].Value!.Value;
         var py = coordinates[1].Value!.Value;
         if (_pixels?.Latest is not var (shot, viewport))
@@ -179,9 +187,9 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 "tap_at" => (await actions.TapAtAsync(point, token).ConfigureAwait(false)).Summary,
                 "hover_at" => (await actions.HoverAtAsync(point, token).ConfigureAwait(false)).Summary,
                 "drag_at" => (await actions.DragAtAsync(point, PointTap.ImagePointToViewport(new Point(coordinates[2].Value!.Value, coordinates[3].Value!.Value), shot, viewport), token).ConfigureAwait(false)).Summary,
-                "select_at" => await SelectAtAsync(point, Args.String(arguments, "value") ?? "", actions, token).ConfigureAwait(false),
-                "type_at" => await TypeAtAsync(point, Args.String(arguments, "value") ?? "", actions, token).ConfigureAwait(false),
-                _ => await PressAtAsync(point, Args.String(arguments, "key") ?? "Enter", actions, token).ConfigureAwait(false),
+                "select_at" => await SelectAtAsync(point, text, actions, token).ConfigureAwait(false),
+                "type_at" => await TypeAtAsync(point, text, actions, token).ConfigureAwait(false),
+                _ => await PressAtAsync(point, text, actions, token).ConfigureAwait(false),
             };
             return await DescribeOutcomeAsync(lead, token).ConfigureAwait(false);
         }
