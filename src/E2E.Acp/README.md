@@ -9,6 +9,7 @@ dotnet add package E2E.Acp
 `AcpExecutor.Create` starts the agent you name, opens one session per test attempt, and gives it the built-in agent's action tools and its `done` verdict tool as an MCP server on `127.0.0.1`. Every action goes through the step's own actions, so the runner authorizes, counts, and records it, and cached steps replay as the built-in agent's do.
 
 ```csharp
+using E2E;
 using E2E.Acp;
 
 IStepExecutor claude = AcpExecutor.ClaudeCode(new AcpAgentOptions { Model = "sonnet" });

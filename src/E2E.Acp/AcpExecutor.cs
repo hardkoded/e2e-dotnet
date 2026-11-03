@@ -11,7 +11,7 @@ namespace E2E.Acp;
 /// <summary>
 /// Runs <c>agent.act</c> and <c>agent.assert</c> on any agent that speaks the Agent Client Protocol on stdio: one agent session per test
 /// attempt, started by its first agent step and closed when the attempt ends. Upstream's <c>acp</c> (<c>@e2e-dev/acp</c>,
-/// <c>executor.ts</c>); <see cref="ClaudeCode"/> and <see cref="Codex"/> start Claude Code and Codex with the step tools as their only tools.
+/// <c>executor.ts</c>); <see cref="ClaudeCode"/> and <see cref="Codex"/> start Claude Code and Codex with the step tools as their only tools (Codex can still start a subagent, which fails the step like any tool of its own).
 /// </summary>
 public static class AcpExecutor
 {
