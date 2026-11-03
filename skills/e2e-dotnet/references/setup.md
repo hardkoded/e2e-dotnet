@@ -254,7 +254,8 @@ and in CI.
   wrote, or null. It is awaited for one minute; the `ReporterSummaryRow`s it returns print to
   standard output. A throw, a timeout, or a row with no label or text is one
   line on stderr and never changes the outcome. Without the run fixture no
-  reporter runs. Not ported: `LastRun`.
+  reporter runs. `FinishedRun.LastRun` is the report of the run a `--last-failed` rerun
+  selected from (`E2E_LAST_FAILED=1`, or `LastFailed` on the run fixture), else null.
   `Reporter.OnEvent(RunEvent)` (a virtual no-op) sees each run event as it
   happens, from the start of the run: `RunStartedEvent`, `PlanEvent`,
   `NoticeEvent`, `SetupEvent`, `TestStartedEvent`, `StepProgressEvent`,
@@ -281,7 +282,7 @@ and in CI.
   `permissions: pull-requests: write`. Outside Actions, on a push, or without a
   token it posts nothing and says why in one row. Set `E2E_GITHUB_KEY` (.NET-only)
   or the entry's `"options": { "key": "chromium" }` (the only option; an unknown
-  option or a non-string `key` is `INVALID_CONFIG`) to tell matrix jobs apart. Not ported: the `--last-failed` fold.
+  option or a non-string `key` is `INVALID_CONFIG`) to tell matrix jobs apart. With `FinishedRun.LastRun` set it folds the rerun into the run it selected from, so the comment shows the whole suite.
   It returns text and does not write or post it. The text stays under what a
   GitHub comment accepts, and every title, label, and message in it is escaped.
 - A `command` is `executable`, `args`, `cwd` (from the config's directory),

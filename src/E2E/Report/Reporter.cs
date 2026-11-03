@@ -26,6 +26,12 @@ public sealed record FinishedRun(Report Report, ReportRunStatus Status, int Exit
     /// one file for the whole process); null when the process recorded none. Upstream's <c>aiTracePath</c>.
     /// </summary>
     public string? AiTracePath { get; init; }
+
+    /// <summary>
+    /// The report of the run this one reran, when it was a <c>--last-failed</c> rerun (<c>E2E_LAST_FAILED</c>): the <c>report.json</c> it selected from, read before this
+    /// run replaced it. A reporter can fold the two into one view of the suite. Null for any other run. Upstream's <c>lastRun</c>.
+    /// </summary>
+    public Report? LastRun { get; init; }
 }
 
 /// <summary>One row a reporter hands back for the terminal summary: a label and its text, a URL or a path (upstream's <c>ReporterSummary</c> element).</summary>

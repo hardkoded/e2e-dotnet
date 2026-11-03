@@ -234,8 +234,16 @@ internal sealed record ReportResult
 
     public IReadOnlyList<ReportAttempt> Attempts { get; init; } = [];
 
-    /// <summary>The id the test keeps over its targets, agents, and repeats (upstream's <c>testId</c>).</summary>
-    public string TestId => AttemptReport.TestId(File, TitlePath.Count == 0 ? "(untitled)" : string.Join(" ", TitlePath));
+    /// <summary>
+    /// The id the test keeps over its targets, agents, and repeats (upstream's <c>testId</c>). Unset, it names the file and the title path. A .NET
+    /// test is named by its class and method (<see cref="AttemptReport.TestId"/>), so every row of a parameterized test is one test, and the host
+    /// finds a test again by the class and method it discovered. That is what <c>--last-failed</c> reads back.
+    /// </summary>
+    public string TestId
+    {
+        get => field ?? AttemptReport.TestId(File, TitlePath.Count == 0 ? "(untitled)" : string.Join(" ", TitlePath));
+        init;
+    }
 
     /// <summary>
     /// The directory of the result under the results directory, when it is not the one <see cref="ArtifactPaths.ResultSegment"/> names. The

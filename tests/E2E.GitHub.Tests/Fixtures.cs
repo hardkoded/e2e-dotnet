@@ -41,19 +41,27 @@ internal static class Fixtures
         string file = "tests/example.e2e.ts",
         int line = 3,
         string target = "web",
-        IReadOnlyList<ReportAttempt>? attempts = null)
+        IReadOnlyList<ReportAttempt>? attempts = null,
+        bool selected = true,
+        SkipInfo? skip = null,
+        int repeat = 0)
     {
         var testId = $"{file}::{Uri.EscapeDataString(title)}";
         return new()
         {
-            Id = $"{testId}@{target}",
+            // One id per test, target, and repeat, the way the runner names a result, so a fold by id tells them apart.
+            Id = $"{testId}@{target}{(repeat == 0 ? "" : $"#{repeat}")}",
             TestId = testId,
             TitlePath = [title],
+            Repeat = repeat,
             File = file,
             Source = new ReportSource { File = file, Line = line, Column = 1 },
             TargetId = target,
             Platform = "web",
+            Agent = "default",
+            Selected = selected,
             Status = status,
+            Skip = skip,
             Attempts = attempts ?? [],
         };
     }
@@ -62,7 +70,11 @@ internal static class Fixtures
         ReportRunStatus status = ReportRunStatus.Passed,
         IReadOnlyList<ReportResult>? results = null,
         string projectId = "dev.example.shop",
-        ReportExplore? explore = null) =>
+        ReportExplore? explore = null,
+        IReadOnlyList<ReportError>? errors = null,
+        ReportCarried? carried = null,
+        IReadOnlyList<ReportFilter>? filters = null,
+        ReportChanges? changes = null) =>
         new()
         {
             Run = new ReportRun
@@ -76,10 +88,14 @@ internal static class Fixtures
                 Project = new ReportProject { Id = projectId },
                 Targets = [new ReportTarget { Id = "web", Index = 0, Platform = "web" }],
                 Results = results ?? [],
+                Errors = errors ?? [],
+                Carried = carried,
+                Filters = filters,
+                Changes = changes,
                 Explore = explore,
             },
         };
 
-    public static FinishedRun Finished(Report report) =>
-        new(report, report.Run.Status, report.Run.ExitCode, "/work/app", "/work/app/.e2e/report.json", "/work/app/.e2e/artifacts");
+    public static FinishedRun Finished(Report report, Report? lastRun = null) =>
+        new(report, report.Run.Status, report.Run.ExitCode, "/work/app", "/work/app/.e2e/report.json", "/work/app/.e2e/artifacts") { LastRun = lastRun };
 }

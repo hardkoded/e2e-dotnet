@@ -74,6 +74,31 @@ public sealed class ReportFileTests : IDisposable
     }
 
     [Fact]
+    public async Task Names_the_test_of_a_result_by_its_class_and_method_so_every_row_of_a_parameterized_test_is_one_test()
+    {
+        foreach (var title in new[] { "App.Tests.CartTests.Pays(1)", "App.Tests.CartTests.Pays(2)" })
+        {
+            await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+            {
+                Engine = new ReportEngine(),
+                TestTitle = title,
+                TestFile = "App.Tests.CartTests",
+                TestMethod = "Pays",
+                BaseUrl = "http://127.0.0.1:4100",
+                ProjectRoot = ProjectRoot(),
+                ResultsDirectory = Results,
+                CacheEnabled = false,
+                Trace = new ResolvedRecording(RecordingMode.RetainOnFailure, RecordingSource.Target),
+            });
+            session.Complete();
+        }
+
+        var results = Read()["run"]!["results"]!.AsArray();
+        Assert.Equal(2, results.Count);
+        Assert.All(results, result => Assert.Equal(AttemptReport.TestId("App.Tests.CartTests", "Pays"), (string)result!["testId"]!));
+    }
+
+    [Fact]
     public async Task Writes_the_document_when_the_mode_keeps_no_trace_and_the_test_passes()
     {
         await using (var session = await StartAsync("quiet > passes", 1, RecordingMode.Off))

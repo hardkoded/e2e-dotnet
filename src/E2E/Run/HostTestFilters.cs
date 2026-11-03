@@ -26,7 +26,15 @@ internal sealed record DiscoveredTest(string Key, string Namespace, string TypeN
 /// <param name="Results">One skipped, unselected result per test left out (upstream's skipped record of a filtered pair).</param>
 /// <param name="Filters">What each filter decided (<c>run.filters</c>); empty when no filter ran.</param>
 /// <param name="Changes">The change judged, or why no filter ran (<c>run.changes</c>); null when there was nothing to judge by.</param>
-internal sealed record HostSelection(IReadOnlyDictionary<string, string> Excluded, IReadOnlyList<ReportResult> Results, IReadOnlyList<ReportFilter> Filters, ReportChanges? Changes);
+/// <param name="Previous">The report a <c>--last-failed</c> rerun selected from; null for any other run.</param>
+/// <param name="Collected">The tests the host found, which decide what a rerun still carries; set with <paramref name="Previous"/>.</param>
+internal sealed record HostSelection(
+    IReadOnlyDictionary<string, string> Excluded,
+    IReadOnlyList<ReportResult> Results,
+    IReadOnlyList<ReportFilter> Filters,
+    ReportChanges? Changes,
+    PreviousRun? Previous = null,
+    RerunCollection? Collected = null);
 
 /// <summary>
 /// Wires the test filters into a framework adapter's run (upstream's host applies <c>filterSelection</c> after <c>select</c>; .NET-only
@@ -40,6 +48,13 @@ internal static class HostTestFilters
 
     private static readonly HashSet<string> IgnoredDirectories = new(StringComparer.OrdinalIgnoreCase) { "bin", "obj", "node_modules", ".git", ".vs", ".e2e" };
 
+    /// <summary>The environment variable that asks for a <c>--last-failed</c> rerun when the host does not (<c>1</c> or <c>true</c>).</summary>
+    public const string LastFailedVariable = "E2E_LAST_FAILED";
+
+    /// <summary>Whether the run is a <c>--last-failed</c> rerun: <paramref name="configured"/>, else <c>E2E_LAST_FAILED</c> set to <c>1</c> or <c>true</c>.</summary>
+    public static bool ResolveLastFailed(bool configured, Func<string, string?>? environment = null) =>
+        configured || (environment ?? Environment.GetEnvironmentVariable)(LastFailedVariable)?.Trim() is { } value && (value == "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase));
+
     /// <summary>The base ref to measure the change from: <paramref name="configured"/>, else <c>E2E_CHANGED_SINCE</c>; null when neither is set.</summary>
     public static string? ResolveChangedSince(string? configured, Func<string, string?>? environment = null)
     {
@@ -49,15 +64,18 @@ internal static class HostTestFilters
 
     /// <summary>
     /// The tests the filters left out, by <see cref="DiscoveredTest.Key"/>, with the reason each filter gave, and the part of the report that
-    /// says so. Nothing is left out when the filters left none out or none ran. The selection is made once for the whole run.
+    /// says so. Nothing is left out when the filters left none out or none ran. The selection is made once for the whole run. A
+    /// <paramref name="lastFailed"/> rerun reads the report the previous run left where this run will write its own, and leaves out the tests that
+    /// run did not fail; the filters then run only when <paramref name="changedSince"/> names a base ref, and without asking (upstream's <c>filterSelection</c>).
     /// </summary>
     public static async Task<HostSelection> ExcludeAsync(
         E2EConfig config,
         IReadOnlyList<ITestFilter> filters,
-        string changedSince,
+        string? changedSince,
         IReadOnlyList<DiscoveredTest> discovered,
         Action<string> notice,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool lastFailed = false)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(filters);
@@ -75,22 +93,27 @@ internal static class HostTestFilters
         // With no filter nothing judges a file, so the tree is not walked.
         var files = filters.Count == 0 ? [] : SourceFiles(config.ProjectRoot);
         var collection = Collect(discovered, files, out var keys);
-        var selectionFilters = new SelectionFilters();
+
+        // The previous run's report is read where this run will write its own, before anything replaces it; no report is NO_LAST_RUN.
+        var previous = lastFailed ? await LastRun.ReadPreviousRunAsync(ReportFile.PathFor(OutputLayout.Of(config.Output).Results), cancellationToken).ConfigureAwait(false) : null;
+        var selectionFilters = new SelectionFilters { LastFailed = previous is null ? null : LastRun.LastFailedIds(previous.Report) };
         var first = Selector.Select(collection, resolved, selectionFilters, passWithNoTests: true);
-        var filtered = await TestFilters.FilterSelection(first, new FilterSelectionOptions
-        {
-            Config = resolved,
-            ChangedSince = changedSince,
-            CancellationToken = cancellationToken,
-            Notice = Say,
-            Collection = collection,
-            SelectionFilters = selectionFilters,
-            Step = FilterStepAsync,
-        }).ConfigureAwait(false);
+        var filtered = changedSince is null
+            ? new FilteredSelection(first, [], null)
+            : await TestFilters.FilterSelection(first, new FilterSelectionOptions
+            {
+                Config = resolved,
+                ChangedSince = changedSince,
+                CancellationToken = cancellationToken,
+                Notice = Say,
+                Collection = collection,
+                SelectionFilters = selectionFilters,
+                Step = FilterStepAsync,
+            }).ConfigureAwait(false);
 
         var excluded = new Dictionary<string, string>(StringComparer.Ordinal);
         var results = new List<ReportResult>();
-        foreach (var pair in filtered.Selection.Pairs.Where(pair => pair.Skip is { Cause: "filtered", Filter: not null }))
+        foreach (var pair in filtered.Selection.Pairs.Where(pair => pair.Skip is { Cause: "filtered" }))
         {
             if (excluded.TryAdd(keys[pair.Test.Id], pair.Skip!.Reason))
             {
@@ -98,7 +121,13 @@ internal static class HostTestFilters
             }
         }
 
-        return new HostSelection(excluded, results, filtered.Records, filtered.Changes);
+        return new HostSelection(
+            excluded,
+            results,
+            filtered.Records,
+            filtered.Changes,
+            previous,
+            previous is null ? null : new RerunCollection(new HashSet<string>(collection.Tests.Select(test => test.Id), StringComparer.Ordinal), new HashSet<string>(StringComparer.Ordinal)));
     }
 
     // One filter's call as the `filter` setup step: started as it begins, finished with how long it took and, for a call that did not answer, how it ended.
@@ -119,7 +148,9 @@ internal static class HostTestFilters
     // A test left out ran no attempt, so the reason sits on the result, and the summary does not count the test as selected.
     private static ReportResult LeftOutResult(CollectedTest test, ResolvedTarget target, SkipInfo skip) => new()
     {
-        Id = AttemptReport.ResultId(null, test.Id),
+        // The id its executed row gets (class as the file, method as the title), so a fold finds both as one test.
+        Id = AttemptReport.ResultId(test.Id[..test.Id.LastIndexOf("::", StringComparison.Ordinal)], test.Title),
+        TestId = test.Id,
         File = test.File,
         TitlePath = test.TitlePath,
         DeclarationIndex = test.DeclarationIndex,
@@ -139,7 +170,7 @@ internal static class HostTestFilters
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(selection);
-        if (selection.Changes is null && selection.Results.Count == 0)
+        if (selection.Changes is null && selection.Results.Count == 0 && selection.Previous is null)
         {
             return;
         }
@@ -173,7 +204,9 @@ internal static class HostTestFilters
         foreach (var test in discovered)
         {
             var file = FileOf(test, sourceFiles);
-            var id = AttemptReport.TestId(file, test.Key);
+
+            // The id a session reports for the test: its class and method (.NET-only: the report names a test by what the framework runs).
+            var id = AttemptReport.TestId(test.Namespace.Length == 0 ? test.TypeName : test.Namespace + "." + test.TypeName, test.Title);
             keys[id] = test.Key;
             tests.Add(new CollectedTest
             {

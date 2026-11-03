@@ -39,8 +39,8 @@ internal sealed record ReportDeps(
 /// The GitHub reporter (upstream's <c>github()</c>, <c>reporter.ts</c>): list it in the <c>reporters</c> of <c>e2e.config.json</c>: <c>{ "type": "E2E.GitHub.GitHubReporter, E2E.GitHub", "options": { "key": "chromium" } }</c>.
 /// On GitHub Actions it writes the run to the job summary and, for a pull request, posts or updates one comment. Everything it reads (the token,
 /// the event, the repository) is read when the run finishes, never when it is created, so constructing it has no side effects. Derive from it and
-/// call <see cref="GitHubReporter(GitHubOptions)"/> to set the options in code, or set <c>options.key</c> in the config entry (<see cref="Configure"/>). Not ported: the fold of a <c>--last-failed</c> rerun into the run
-/// it selected from (upstream's <c>merge.ts</c>), since <see cref="FinishedRun"/> has no <c>LastRun</c> yet.
+/// call <see cref="GitHubReporter(GitHubOptions)"/> to set the options in code, or set <c>options.key</c> in the config entry (<see cref="Configure"/>). A <c>--last-failed</c> rerun is folded into the run it selected from
+/// (<see cref="FinishedRun.LastRun"/>; upstream's <c>merge.ts</c>), so the comment shows the whole suite.
 /// </summary>
 public class GitHubReporter : Reporter, IConfigurableReporter
 {
@@ -257,8 +257,10 @@ public class GitHubReporter : Reporter, IConfigurableReporter
 
         // One page for both places; the comment carries the marker a rerun finds it by. Evidence links land on the run page's Artifacts section,
         // where the job's upload-artifact step put the files; the page names each file's path inside it.
+        // A rerun over the failed tests is folded into the run it selected from, so the page keeps the whole suite.
+        var report = run.LastRun is null ? run.Report : Merge.FoldLastRun(run.Report, run.LastRun);
         var page = MarkdownReport.RenderMarkdownReport(
-            run.Report,
+            report,
             new MarkdownReportOptions
             {
                 ArtifactsUrl = $"{context.RunUrl}#artifacts",

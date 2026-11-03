@@ -145,6 +145,13 @@ internal static class AttemptReport
             Attempts = [attempt],
             Directory = directory,
         };
+
+        // A test run by a framework is named by its class and method, which the host discovers too.
+        if (scope.TestFile is { Length: > 0 } testFile && scope.TestMethod is { } method)
+        {
+            result = result with { TestId = TestId(testFile, method) };
+        }
+
         return (new Report1Document(new ReportRun(RunId, ModelHttp.PackageVersion(), [new ReportTarget(scope.TargetName, 0, scope.EnginePlatform, BuildReport.DescribeTarget(scope.EngineName, scope.EngineVersion, scope.EngineCapabilities), "test", BuildReport.BaseOrigin(scope.BaseUrl))], [result], explore) { Limits = ResolvedAgent.RunLimits(scope.Agents.Values) }), id);
     }
 

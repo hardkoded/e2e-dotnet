@@ -84,6 +84,24 @@ the tests and the files changed since that ref, and a test it leaves out is skip
 
 **Value:** [IReadOnlyList&lt;ITestFilter&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1)
 
+<a id="E2E_XUnit_V3_E2ERunFixture_LastFailed_"></a>
+<a id="E2E_XUnit_V3_E2ERunFixture_LastFailed"></a>
+
+### LastFailed
+
+
+```csharp
+protected virtual bool LastFailed { get; }
+```
+
+
+Whether to run only the tests the previous run did not pass (upstream's `--last-failed`). Unset, the `E2E_LAST_FAILED` environment variable
+(`1` or `true`). The previous run's `report.json` is read from the output directory before this run replaces it; none there is
+`NO_LAST_RUN`. The tests it passed skip themselves with the reason `did not fail in the last run`, the filters do not run, and
+[LastRun](/api/E2E.Reports/FinishedRun/#E2E_Reports_FinishedRun_LastRun) hands the previous report to the reporters.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 ## Methods
 
 <a id="E2E_XUnit_V3_E2ERunFixture_DisposeAsync_"></a>
