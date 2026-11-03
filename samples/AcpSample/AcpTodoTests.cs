@@ -15,11 +15,12 @@ namespace AcpSample;
 [Category("AcpAgent")]
 public sealed class AcpTodoTests : E2ETest
 {
-    private static readonly IStepExecutor Executor = Environment.GetEnvironmentVariable("ACP_AGENT") == "codex"
+    // Built on first use, so a missing adapter fails the test with its own message, not a type initializer error.
+    private static readonly Lazy<IStepExecutor> Executor = new(() => Environment.GetEnvironmentVariable("ACP_AGENT") == "codex"
         ? AcpExecutor.Codex()
-        : AcpExecutor.ClaudeCode(new AcpAgentOptions { Model = Environment.GetEnvironmentVariable("ACP_MODEL") ?? "sonnet" });
+        : AcpExecutor.ClaudeCode(new AcpAgentOptions { Model = Environment.GetEnvironmentVariable("ACP_MODEL") ?? "sonnet" }));
 
-    protected override IStepExecutor? AgentExecutor => Executor;
+    protected override IStepExecutor? AgentExecutor => Executor.Value;
 
     [SetUp]
     public Task OpenTodoMvcAsync() => App.OpenAsync();

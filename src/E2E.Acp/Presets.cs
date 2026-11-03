@@ -91,16 +91,20 @@ internal static class Presets
         var gate = new object();
         return token =>
         {
+            Task<AgentLaunch> shared;
             lock (gate)
             {
-                // A failed list is not kept: the next step lists again.
-                if (launch is { IsFaulted: false, IsCanceled: false })
+                // A failed list is not kept: the next step lists again. The list belongs to no caller, so one caller's cancel
+                // does not fail another; it is bounded by its own timeout.
+                if (launch is not { IsFaulted: false, IsCanceled: false })
                 {
-                    return launch;
+                    launch = StartAsync(CancellationToken.None);
                 }
 
-                return launch = StartAsync(token);
+                shared = launch;
             }
+
+            return shared.WaitAsync(token);
         };
 
         async Task<AgentLaunch> StartAsync(CancellationToken token)
@@ -175,10 +179,10 @@ internal static class Presets
         process.Start();
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(token);
         limit.CancelAfter(timeout);
+        var stdout = process.StandardOutput.ReadToEndAsync(limit.Token);
+        var stderr = process.StandardError.ReadToEndAsync(limit.Token);
         try
         {
-            var stdout = process.StandardOutput.ReadToEndAsync(limit.Token);
-            var stderr = process.StandardError.ReadToEndAsync(limit.Token);
             await process.WaitForExitAsync(limit.Token).ConfigureAwait(false);
             var output = await stdout.ConfigureAwait(false);
             var errors = (await stderr.ConfigureAwait(false)).Trim();
@@ -203,6 +207,9 @@ internal static class Presets
             {
                 // Already exited, or part of the tree could not be killed.
             }
+
+            // The reads end with the process or the limit; observe them so a failed one is not left unobserved.
+            await Task.WhenAll(stdout, stderr).ContinueWith(static _ => { }, TaskScheduler.Default).ConfigureAwait(false);
         }
     }
 
