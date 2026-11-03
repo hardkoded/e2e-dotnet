@@ -9,9 +9,8 @@ using Microsoft.Extensions.Time.Testing;
 namespace E2E.Tests.LocatorEngine;
 
 /// <summary>
-/// Upstream's <c>LocatorEngine perform contract</c>. The port has no <c>LocatorEngine</c> class: <c>Screen</c> and <c>Locator</c> hold its
-/// retries, so these run through them. 'marks every action it performs with the test origin' is partial for that reason: it reads the origin
-/// at the session the test's step reaches, not at the <c>LocatorEngine</c> that adds it.
+/// Upstream's <c>LocatorEngine perform contract</c>. The retry tests run through <c>Screen</c> and <c>Locator</c>, which hand the
+/// <see cref="E2E.LocatorEngine"/> their query; the origin test runs on the engine itself.
 /// </summary>
 public sealed class LocatorEnginePerformContractTests
 {
@@ -162,7 +161,17 @@ public sealed class LocatorEnginePerformContractTests
     }
 
     [Fact]
-    public async Task Partial_Marks_every_action_it_performs_with_the_test_origin_so_an_engine_can_act_without_settling()
+    public async Task Marks_every_action_it_performs_with_the_test_origin_so_an_engine_can_act_without_settling()
+    {
+        var scripted = ScriptedLocatorEngine.Make();
+
+        await scripted.Engine.PerformAsync(ScriptedLocatorEngine.Expression, (_, _) => Task.FromResult<LocatorAction>(new LocatorAction.Tap()), null, CancellationToken.None);
+
+        Assert.Equal([OperationOrigin.Test], scripted.Origins);
+    }
+
+    [Fact]
+    public async Task NET_only_a_session_wires_the_test_origin_to_the_engine_a_test_acts_on()
     {
         var engine = new OriginRecordingEngine(new DocumentEngine(BillingWorld.Create()));
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions
