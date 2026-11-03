@@ -85,6 +85,20 @@ Drag = 5
 
 **Value:** [ExecutorVerb](./)
 
+<a id="E2E_ExecutorVerb_DragAt"></a>
+
+### DragAt
+
+
+```csharp
+DragAt = 20
+```
+
+
+Upstream's `dragAt`: `DragAtAsync`, with the engine's `dragTo` pointer kind.
+
+**Value:** [ExecutorVerb](./)
+
 <a id="E2E_ExecutorVerb_Hover"></a>
 
 ### Hover
@@ -94,6 +108,20 @@ Drag = 5
 Hover = 4
 ```
 
+
+**Value:** [ExecutorVerb](./)
+
+<a id="E2E_ExecutorVerb_HoverAt"></a>
+
+### HoverAt
+
+
+```csharp
+HoverAt = 19
+```
+
+
+Upstream's `hoverAt`: `HoverAtAsync`, with the engine's `hover` pointer kind.
 
 **Value:** [ExecutorVerb](./)
 
@@ -202,6 +230,20 @@ Select = 10
 Tap = 0
 ```
 
+
+**Value:** [ExecutorVerb](./)
+
+<a id="E2E_ExecutorVerb_TapAt"></a>
+
+### TapAt
+
+
+```csharp
+TapAt = 18
+```
+
+
+Upstream's `tapAt`: `TapAtAsync`, with the engine's `tap` pointer kind.
 
 **Value:** [ExecutorVerb](./)
 

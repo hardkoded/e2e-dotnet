@@ -134,6 +134,24 @@ internal static class Trace
         mapped.Within = within;
         switch (action.Kind)
         {
+            case "tapAt" or "hoverAt":
+                // The node a point sat in is a target like any other, whose text a param can reappear in.
+                if (!TryMapPlace(action.Under, map, out var under))
+                {
+                    return null;
+                }
+
+                mapped.Under = under;
+                break;
+            case "dragAt":
+                if (!TryMapEnd(action.From, map, out var from) || !TryMapEnd(action.To, map, out var to))
+                {
+                    return null;
+                }
+
+                mapped.From = from;
+                mapped.To = to;
+                break;
             case "navigate":
                 if (!TryMap(action.Url, map, out var url))
                 {
@@ -184,6 +202,43 @@ internal static class Trace
         }
 
         return mapped;
+    }
+
+    // Upstream's mapPointEnd: a point end with its node's text mapped, unchanged without a node; false when that text maps to nothing.
+    private static bool TryMapPlace(RecordedPointPlace? place, Func<string, string?> map, out RecordedPointPlace? mapped)
+    {
+        mapped = place;
+        if (place?.Target is not { } target)
+        {
+            return true;
+        }
+
+        if (MapDescriptorText(target, map) is not { } descriptor)
+        {
+            return false;
+        }
+
+        mapped = place.Copy();
+        mapped.Target = descriptor;
+        return true;
+    }
+
+    private static bool TryMapEnd(RecordedPointEnd? end, Func<string, string?> map, out RecordedPointEnd? mapped)
+    {
+        mapped = end;
+        if (end is null)
+        {
+            return true;
+        }
+
+        if (!TryMapPlace(end.Under, map, out var under))
+        {
+            return false;
+        }
+
+        mapped = end.Copy();
+        mapped.Under = under;
+        return true;
     }
 
     private static bool IsSecretMarker(RecordedAction action) =>

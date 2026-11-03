@@ -371,6 +371,12 @@ lines you changed:
   phrasing. A judgment reads the text snapshot; when the answer is only in
   pixels (a chart, a canvas, an overlay), pass `Vision = VisionMode.On`, or
   `VisionMode.Only` for the screenshot alone (topic `agent`).
+  With a screenshot the model can aim at a point: `tap_at`, `hover_at`,
+  `drag_at`, `type_at`, `press_at`, and `select_at` take pixels of the latest
+  screenshot, for a target the tree does not list (a shape on a canvas, a pin on
+  a map). A listed control under the point is acted on by id; `type_at`,
+  `press_at`, and `select_at` need one. Tell the agent to prefer ids (topic
+  `agent`).
 - `ActOptions.OnAction` runs after each action of an act, once the screen
   settles, replayed actions included. Use it to observe (log, screenshot),
   never to drive the app. It is awaited and counts toward `Timeout`. A throw
