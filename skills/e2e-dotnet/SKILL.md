@@ -376,8 +376,11 @@ lines you changed:
   With a screenshot the model can aim at a point: `tap_at`, `hover_at`,
   `drag_at`, `type_at`, `press_at`, and `select_at` take pixels of the latest
   screenshot, for a target the tree does not list (a shape on a canvas, a pin on
-  a map). A listed control under the point is acted on by id; `type_at`,
-  `press_at`, and `select_at` need one. Tell the agent to prefer ids (topic
+  a map). A listed control under the point is acted on by id. On an engine
+  with a keyboard (the web engine), `type_at` and `press_at` on a point on
+  nothing listed tap it to focus it and go through the keyboard, and `fill`
+  with no target types into the focused field (`replace` clears it first);
+  `select_at` needs a listed control. Tell the agent to prefer ids (topic
   `agent`).
 - `ActOptions.OnAction` runs after each action of an act, once the screen
   settles, replayed actions included. Use it to observe (log, screenshot),

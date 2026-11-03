@@ -75,9 +75,10 @@ internal sealed class SessionCatalog
     /// copies it out. <paramref name="recorder"/> is the session's video recorder, which adds <c>start_recording</c> and <c>stop_recording</c>.
     /// <paramref name="testRan"/> is the full name of the test the session ran first, which the test lines continue.
     /// <paramref name="actionKinds"/> is what the engine declared (<see cref="IEngineSession.ActionKinds"/>): <c>long_press</c>, <c>right_click</c>,
-    /// <c>hover</c>, and <c>drag</c> are tools only where their kind is named.
+    /// <c>hover</c>, and <c>drag</c> are tools only where their kind is named. <paramref name="pointerKinds"/> is what the engine takes at a bare point
+    /// (<see cref="IEngineSession.PointerActionKinds"/>), which the point tools (<c>tap_at</c> and the other <c>_at</c> tools) follow.
     /// </summary>
-    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null, SessionRecorder? recorder = null, string? testRan = null, TestLineFills? fills = null, IReadOnlyCollection<string>? actionKinds = null)
+    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null, SessionRecorder? recorder = null, string? testRan = null, TestLineFills? fills = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(secrets);
@@ -94,6 +95,8 @@ internal sealed class SessionCatalog
             TestRan = testRan,
         });
         var screen = new ScreenPresenter();
+        // The latest screenshot the session showed its coding agent, which a point tool reads its coordinates against.
+        var pixels = new PixelMode();
         var tools = new List<KeyValuePair<string, CatalogTool>>();
         void Add(string name, CatalogTool tool) => tools.Add(new(name, lines.Wrap(name, tool)));
 
@@ -116,7 +119,16 @@ internal sealed class SessionCatalog
             Add("hover", Verb(context, screen, "hover", "hover", "Move the pointer over one node without clicking: opens what reacts to the pointer resting on it, such as a menu, a flyout, a tooltip, or a control revealed on mouse-over. The result reports what appeared. In a nested menu, hover each level in turn and then tap the item while it is open.", Schema(Target)));
         }
 
-        Add("type", Verb(context, screen, "type", "fill", "Replace the text in a field with text.", Schema(Target, ("text", Property("string", "The text the field should hold"), true)), ("text", "value")));
+        if (capabilities.HasFlag(EngineCapabilities.Keyboard))
+        {
+            // With a keyboard, a type with no target goes to whatever has focus, as upstream's type does with typeText.
+            Add("type", Verb(context, screen, "type", "fill", "Replace the text in a field with text. Without a target, the text is typed into whatever has focus (a field the screen does not list, after tap_at gave it focus): it is inserted at the caret, and replace clears the field first.", Schema(OptionalTarget, ("text", Property("string", "The text the field should hold"), true), ("replace", new JsonObject { ["type"] = "boolean", ["description"] = AgentTools.ReplaceDescription }, false)), ("text", "value")));
+        }
+        else
+        {
+            Add("type", Verb(context, screen, "type", "fill", "Replace the text in a field with text.", Schema(Target, ("text", Property("string", "The text the field should hold"), true)), ("text", "value")));
+        }
+
         Add("press", Verb(context, screen, "press", "press", "Press a key such as Enter, Escape, or Tab. With a target, the key goes to that node; without one, to whatever has focus.", Schema(OptionalTarget, ("key", Property("string", "The key, such as Enter"), true))));
         Add("select", Verb(context, screen, "select", "select", "Choose an option of a combobox or select, by its value or label.", Schema(Target, ("value", Property("string", "The option's value or label"), true))));
         Add("check", Verb(context, screen, "check", "check", "Check a checkbox or radio.", Schema(Target)));
@@ -147,7 +159,13 @@ internal sealed class SessionCatalog
 
         if (capabilities.HasFlag(EngineCapabilities.Screenshot))
         {
-            Add("screenshot", Screenshot(context, projectRoot, attemptDir));
+            Add("screenshot", Screenshot(context, projectRoot, attemptDir, pixels));
+
+            // The point tools come after the screenshot they read their points from, as upstream's grammar lists them.
+            foreach (var point in AgentTools.CreateGrammarTools(capabilities, null, kinds, pointerKinds ?? []).Where(tool => tool.Name.EndsWith("_at", StringComparison.Ordinal)))
+            {
+                Add(point.Name, Verb(context, screen, point.Name, point.Name, point.Description, point.Parameters, pixels: pixels));
+            }
         }
 
         if (secrets.Count > 0)
@@ -263,7 +281,7 @@ internal sealed class SessionCatalog
     }
 
     private static readonly HashSet<string> GrammarVerbs = new(
-        ["observe", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "screenshot"],
+        ["observe", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"],
         StringComparer.Ordinal);
 
     private static readonly (string Name, JsonNode Schema, bool Required)[] Target =
@@ -332,7 +350,7 @@ internal sealed class SessionCatalog
     }
 
     /// <summary>A grammar verb: the arguments are renamed to the agent tool's (<c>target</c> is its <c>ref</c>), and the tool runs as in an act.</summary>
-    private static CatalogTool Verb(ISessionContext context, ScreenPresenter screen, string name, string agentTool, string description, JsonElement schema, (string From, string To)? rename = null)
+    private static CatalogTool Verb(ISessionContext context, ScreenPresenter screen, string name, string agentTool, string description, JsonElement schema, (string From, string To)? rename = null, PixelMode? pixels = null)
     {
         return new CatalogTool
         {
@@ -354,7 +372,7 @@ internal sealed class SessionCatalog
                     mapped[key] = JsonNode.Parse(property.Value.GetRawText());
                 }
 
-                var outcome = await RunAsync(context, screen, name, agentTool, args, token, mapped).ConfigureAwait(false);
+                var outcome = await RunAsync(context, screen, name, agentTool, args, token, mapped, pixels).ConfigureAwait(false);
                 return outcome.Content;
             },
         };
@@ -377,7 +395,7 @@ internal sealed class SessionCatalog
         };
     }
 
-    private static async Task<ToolOutcome> RunAsync(ISessionContext context, ScreenPresenter screen, string name, string agentTool, JsonElement args, CancellationToken token, JsonObject? mapped = null)
+    private static async Task<ToolOutcome> RunAsync(ISessionContext context, ScreenPresenter screen, string name, string agentTool, JsonElement args, CancellationToken token, JsonObject? mapped = null, PixelMode? pixels = null)
     {
         ToolOutcome outcome;
         var target = args.ValueKind == JsonValueKind.Object && args.TryGetProperty("target", out var node) ? node.GetString() : null;
@@ -385,7 +403,7 @@ internal sealed class SessionCatalog
         var label = subject is null ? name : name + " " + subject;
         try
         {
-            outcome = await context.Session.Agent.RunToolAsync(agentTool, JsonSerializer.SerializeToElement(mapped ?? new JsonObject()), token, screen).ConfigureAwait(false);
+            outcome = await context.Session.Agent.RunToolAsync(agentTool, JsonSerializer.SerializeToElement(mapped ?? new JsonObject()), token, screen, pixels).ConfigureAwait(false);
         }
         catch (E2EException ex)
         {
@@ -411,7 +429,7 @@ internal sealed class SessionCatalog
         return label + " failed: " + (code is null ? "" : code + ": ") + message;
     }
 
-    private static CatalogTool Screenshot(ISessionContext context, string projectRoot, string attemptDir)
+    private static CatalogTool Screenshot(ISessionContext context, string projectRoot, string attemptDir, PixelMode pixels)
     {
         return new CatalogTool
         {
@@ -429,6 +447,7 @@ internal sealed class SessionCatalog
                 var (width, height) = PngSize(shot.Png);
                 var text = "Screenshot attached: " + width.ToString(CultureInfo.InvariantCulture) + " by " + height.ToString(CultureInfo.InvariantCulture)
                     + " pixels (" + shot.Scale.ToString("0.##", CultureInfo.InvariantCulture) + " per CSS pixel).";
+                await context.Session.Agent.NoteScreenshotAsync(pixels, new ExecutorPixels(shot.Png, "image/png", width, height, shot.Scale, shot.MaskedRegionCount ?? 0), token).ConfigureAwait(false);
                 if (file is not null)
                 {
                     text += "\nSaved to " + context.Session.Redactor.Redact(await SaveScreenshotAsync(context, projectRoot, attemptDir, file, token).ConfigureAwait(false));

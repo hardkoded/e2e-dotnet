@@ -47,6 +47,9 @@ internal sealed class FakeEngine : IEngine
     /// <summary>The locator action kinds the engine declares. Null declares every kind, as an engine that says nothing does.</summary>
     public IReadOnlyCollection<string>? Kinds { get; init; }
 
+    /// <summary>The pointer kinds the engine takes at a bare point.</summary>
+    public IReadOnlyCollection<string> Pointer { get; init; } = [];
+
     /// <summary>Capabilities the engine declares beyond the base four.</summary>
     public EngineCapabilities Also { get; init; }
 
@@ -124,6 +127,8 @@ internal sealed class FakeEngine : IEngine
 
 
         public IReadOnlyCollection<string> ActionKinds => engine.Kinds ?? EngineActionKinds.Locator;
+
+        public IReadOnlyCollection<string> PointerActionKinds => engine.Pointer;
 
         public string Route { get; private set; } = "/";
 

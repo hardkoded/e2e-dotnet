@@ -210,6 +210,12 @@ internal sealed partial class ActContext : StepExecutorContext
             verbs.Add(ExecutorVerb.Back);
         }
 
+        // Keyboard input to the focused field follows the engine's keyboard (upstream's declaredVerbs).
+        if (capabilities.HasFlag(EngineCapabilities.Keyboard))
+        {
+            verbs.UnionWith([ExecutorVerb.TypeText, ExecutorVerb.PressKey]);
+        }
+
         // The point verbs follow the pointer kinds the engine declared (upstream's declaredVerbs).
         if (pointerKinds.Contains("tap"))
         {

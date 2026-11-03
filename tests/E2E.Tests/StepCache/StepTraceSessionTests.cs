@@ -465,9 +465,8 @@ public sealed class StepTraceSessionTests
         Assert.Equal(("agent-concluded", "end-mismatch"), (already.CacheInfo?.Mode, already.CacheInfo?.Reason));
     }
 
-    /// <summary>Partial port of "looks at the page a navigate opened before free actions on it, so an outcome already there is no proof": the port's free action is a key press, not typing into the focused field.</summary>
     [Fact]
-    public async Task Looks_at_the_page_a_navigate_opened_before_a_free_press_so_an_outcome_already_there_is_no_proof()
+    public async Task Looks_at_the_page_a_navigate_opened_before_free_actions_on_it_so_an_outcome_already_there_is_no_proof()
     {
         var home = Node("h", "heading", "Home");
         var field = Node("f", "textbox", "Email");
@@ -478,7 +477,7 @@ public sealed class StepTraceSessionTests
                     endPath: "/newsletter",
                     endAnchors: [new RecordedTarget { Role = "status", Text = "You're subscribed" }],
                     goneAnchors: [new RecordedTarget { Role = "heading", Name = "Home" }],
-                    actions: [Navigate("/newsletter"), new RecordedAction { Kind = "press", Key = "Enter" }]),
+                    actions: [Navigate("/newsletter"), new RecordedAction { Kind = "typeText", Value = "a@b.c", Replace = false }, new RecordedAction { Kind = "pressKey", Key = "Enter" }]),
                 MakeHost(["/home", "/newsletter"], screens));
 
         Assert.Equal(StepVerdictStatus.Passed, (await Replay([home], [field], [field, subscribed]).BeginAsync())?.Status);

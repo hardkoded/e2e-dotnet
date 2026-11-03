@@ -119,12 +119,24 @@ public sealed partial class Agent
         {
             if (target is null)
             {
-                await scope.Session.PressAsync(key, cancellationToken).ConfigureAwait(false);
-                feed.ArmAfter(new RecordedAction { Kind = "press" });
+                await PressKeyAsync(key, cancellationToken).ConfigureAwait(false);
                 return;
             }
 
             await PerformAsync(target, new LocatorAction.Press(key), "press", cancellationToken).ConfigureAwait(false);
+        }
+
+        // A recorded keyboard input goes to whatever holds focus as given: the focus it relies on is the effect of the recorded actions before it.
+        public async Task TypeTextAsync(string value, TypeTextOptions? options = null, CancellationToken cancellationToken = default)
+        {
+            await scope.Session.TypeTextAsync(value, options?.Replace == true, cancellationToken).ConfigureAwait(false);
+            feed.ArmAfter(new RecordedAction { Kind = "typeText" });
+        }
+
+        public async Task PressKeyAsync(string key, CancellationToken cancellationToken = default)
+        {
+            await scope.Session.PressAsync(key, cancellationToken).ConfigureAwait(false);
+            feed.ArmAfter(new RecordedAction { Kind = "pressKey" });
         }
 
         public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) =>

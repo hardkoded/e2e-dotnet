@@ -8,8 +8,7 @@ using E2E.Engine;
 namespace E2E.Tests.AgentActPixelTools;
 
 // The point-tool its of upstream's describe('agent.act pixel verbs'), run on the web engine over the canvas fixture pages with a scripted
-// model that cannot see. Not ported here: the keyboard its (type_at and press_at on a drawn field, type and press without a target, a listed
-// node the engine cannot fill, focused typing into nothing), which wait for the engine keyboard (#632); "counts failing point verbs toward the
+// model that cannot see. Not ported here: "counts failing point verbs toward the
 // failure streak", because the port has no streak guard; and "reports a moved screenshot under an unchanged listing...", because the built-in
 // agent prints whole screens without upstream's diff presenter.
 public sealed partial class AgentActPixelVerbsTests
@@ -299,6 +298,89 @@ public sealed partial class AgentActPixelVerbsTests
             StringComparison.Ordinal);
         Assert.Empty(EngineEvents(run));
         Assert.Equal(0, run.Step.Metrics?.ActionSteps);
+    }
+
+    // The port's tool for typing is fill, where upstream's is type, and an engine event is worded `<verb> <node>`, so these differ from upstream's in names only.
+    [Fact]
+    public async Task Taps_a_drawn_field_to_focus_it_and_types_through_the_keyboard_then_presses_Enter_on_the_focused_field()
+    {
+        // The canvas at CSS (200, 100) is image (120, 60): no listed control there, so type_at taps to focus it and types.
+        var run = await ActOnAsync(
+            "/canvas",
+            "type hi into the drawn field and submit",
+            calls => calls switch
+            {
+                0 => ModelResponses.Call("screenshot", new { }),
+                1 => ModelResponses.Call("type_at", new { x = 120, y = 60, value = "hi" }),
+                2 => ModelResponses.Call("press", new { key = "Enter" }),
+                _ => Done(),
+            },
+            screen => HasStatus(screen, "drawn: hi"));
+        Assert.Null(run.Error);
+        var actions = EngineEvents(run);
+        Assert.Equal(["tapAt", "typeText", "pressKey"], actions.Select(item => item.Name));
+        Assert.Equal("type \"hi\" into the focused field", actions[1].Detail);
+        Assert.Equal("press \"Enter\" on the focused field", actions[2].Detail);
+        Assert.Contains("Typed into the field at (120, 60) (tapped to focus it; nothing the screen lists is at (200, 100)).", Result(run, 2), StringComparison.Ordinal);
+        Assert.Contains("Pressed Enter on the focused field.", Result(run, 3), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Offers_fill_and_press_without_a_target_typing_into_the_focused_drawn_field()
+    {
+        var run = await ActOnAsync(
+            "/canvas",
+            "focus the drawn field, type ok, submit",
+            calls => calls switch
+            {
+                0 => ModelResponses.Call("screenshot", new { }),
+                1 => ModelResponses.Call("tap_at", new { x = 120, y = 60 }),
+                2 => ModelResponses.Call("fill", new { value = "ok" }),
+                3 => ModelResponses.Call("press", new { key = "Enter" }),
+                _ => Done(),
+            },
+            screen => HasStatus(screen, "drawn: ok"));
+        Assert.Null(run.Error);
+        Assert.Equal(["tapAt", "typeText", "pressKey"], EngineEvents(run).Select(item => item.Name));
+        Assert.Contains(run.Requests[0].Tools, tool => tool.Name == "fill");
+        Assert.DoesNotContain(run.Requests[0].Tools, tool => tool.Name == "dismiss_keyboard");
+        Assert.Contains("Typed into the focused field.", Result(run, 3), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Falls_back_to_focusing_an_unfillable_listed_node_and_typing_through_the_keyboard()
+    {
+        var run = await ActOnAsync(
+            "/canvas",
+            "type yo into the pad",
+            calls => calls switch
+            {
+                0 => ModelResponses.Call("fill", new { role = "application", name = "Pad", value = "yo" }),
+                1 => ModelResponses.Call("press", new { role = "application", name = "Pad", key = "Enter" }),
+                _ => Done(),
+            },
+            screen => HasStatus(screen, "pad: yo"));
+        Assert.Null(run.Error);
+        var actions = EngineEvents(run);
+        // The fill was refused, so the node was tapped to hold focus and typed into through the keyboard.
+        Assert.Equal(["type:Failed", "tap:Passed", "typeText:Passed", "press:Passed"], actions.Select(item => item.Name + ":" + item.Status));
+        Assert.Matches("is not an input; tapped it to focus it and typed through the keyboard\\.", Result(run, 1));
+        // The pad's text is nowhere in the tree, so the unchanged listing is not read as the typing having failed.
+        Assert.Contains("The tree does not list this node's text, so an unchanged listing says nothing about the typing: verify it through the app's reaction or a screenshot.", Result(run, 1), StringComparison.Ordinal);
+        Assert.DoesNotContain("had no visible effect", Result(run, 1), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Refuses_focused_typing_into_nothing_editable_as_an_action_failure_the_model_reads()
+    {
+        var run = await ActOnAsync(
+            "/",
+            "type blind",
+            calls => calls == 0 ? ModelResponses.Call("fill", new { value = "nope" }) : Done(passed: false));
+        Assert.NotNull(run.Error);
+        // The engine refused before any keystroke: the action was reserved, not committed.
+        Assert.DoesNotContain(EngineEvents(run), item => item.Status == StepEventStatus.Passed);
+        Assert.Contains("nothing that takes keystrokes has focus: the typed text would reach no field", Result(run, 1), StringComparison.Ordinal);
     }
 
     [Fact]
