@@ -5,6 +5,8 @@
 using System.Text.RegularExpressions;
 using E2E.Cli.Report;
 using E2E.Internal;
+using E2E.Reports;
+using AttemptStatus = E2E.Internal.AttemptStatus;
 
 namespace E2E.Cli.Tests.ReportList;
 
@@ -47,7 +49,7 @@ internal static partial class ListReporterKit
         new(testId, agent, 0, title, file, serialId, target);
 
     /// <summary>The <c>step</c> event of the default agent's first run of <paramref name="testId"/>, on <c>chromium</c>.</summary>
-    public static StepProgressEvent Step(string testId, StepProgress progress, string agent = "default") => new(testId, agent, 0, "chromium", progress);
+    public static StepProgressEvent Step(string testId, StepProgress progress, string agent = "default") => new(testId, agent, 0, "chromium", StepProgressWire.Public(progress));
 
     /// <summary>Upstream's <c>agentStep()</c> of <c>describe('step streaming')</c>: an agent step's <c>start</c> or <c>end</c> progress.</summary>
     public static StepProgress AgentStep(StepProgressPhase phase, string label, StepStatus status = StepStatus.Passed) =>
@@ -90,10 +92,18 @@ internal static partial class ListReporterKit
             ResultId = id,
             Agent = agent,
             Repeat = repeat,
-            Status = status,
+            Status = Enum.Parse<Reports.ResultStatus>(status.ToString()),
             Selected = selected,
-            Skip = skipReason is null ? null : new ReportSkip("explicit", skipReason),
-            Attempts = attempts ?? [Attempt()],
+            Skip = skipReason is null ? null : new Reports.SkipInfo { Cause = Reports.SkipCause.Explicit, Reason = skipReason },
+            Recorded = new ReportResult
+            {
+                Id = id,
+                File = file,
+                TitlePath = title ?? ["suite", "case"],
+                Status = status,
+                Skip = skipReason is null ? null : new ReportSkip("explicit", skipReason),
+                Attempts = attempts ?? [Attempt()],
+            },
         };
 
     /// <summary>Upstream's <c>runStarted()</c>.</summary>

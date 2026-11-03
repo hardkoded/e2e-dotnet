@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Cli.Report;
+using E2E.Reports;
 using static E2E.Cli.Tests.ReportList.ListReporterKit;
 
 namespace E2E.Cli.Tests.ReportList;

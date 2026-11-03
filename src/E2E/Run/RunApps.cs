@@ -4,6 +4,7 @@
 
 using System.Collections.Concurrent;
 using E2E.Internal;
+using E2E.Reports;
 
 namespace E2E;
 
@@ -38,8 +39,7 @@ internal static class RunApps
         E2EConfig config,
         TargetConfig target,
         Action<string>? notice,
-        CancellationToken cancellationToken,
-        Action<RunEventFact>? onEvent = null)
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(target);
@@ -66,7 +66,7 @@ internal static class RunApps
                 await held.StopAsync(_ => { }).ConfigureAwait(false);
             }
 
-            var (resolved, processes) = await AcquireLockedAsync(key, config, target, notice, cancellationToken, onEvent).ConfigureAwait(false);
+            var (resolved, processes) = await AcquireLockedAsync(key, config, target, notice, cancellationToken).ConfigureAwait(false);
             RunHolds[key] = processes;
             return resolved;
         }
@@ -84,8 +84,7 @@ internal static class RunApps
         E2EConfig config,
         TargetConfig target,
         Action<string>? notice,
-        CancellationToken cancellationToken,
-        Action<RunEventFact>? onEvent = null)
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(target);
@@ -99,7 +98,7 @@ internal static class RunApps
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            return await AcquireLockedAsync(key, config, target, notice, cancellationToken, onEvent).ConfigureAwait(false);
+            return await AcquireLockedAsync(key, config, target, notice, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -133,8 +132,7 @@ internal static class RunApps
         E2EConfig config,
         TargetConfig target,
         Action<string>? notice,
-        CancellationToken cancellationToken,
-        Action<RunEventFact>? onEvent)
+        CancellationToken cancellationToken)
     {
         if (!Resolved.TryGetValue(key, out var resolved))
         {
@@ -142,14 +140,18 @@ internal static class RunApps
             resolved = (target.WithApp(target.App.WithUrl(app.Base?.Href)), app);
         }
 
-        // A sink that throws is quarantined, so it cannot fail the start of the app.
-        var emit = RunEvents.CreateRunEventEmitter([onEvent is null ? null : new RunEventSubscriber("onEvent", onEvent)]);
+        // The run's events (upstream's runner emits the same `notice` and `setup` facts); a sink that throws is quarantined, so it cannot fail the start of the app.
+        var say = notice ?? (message => Console.Error.WriteLine("e2e: " + message));
         var hooks = new ManagedProcessHooks
         {
             Ci = config.Ci,
-            Notice = notice ?? (message => Console.Error.WriteLine("e2e: " + message)),
-            Starting = (label, url) => emit(new SetupEvent(AppStep(label, url), SetupState.Started)),
-            Ready = (label, url, duration, reused) => emit(
+            Notice = message =>
+            {
+                say(message);
+                RunEvents.Emit(new NoticeEvent("app", message));
+            },
+            Starting = (label, url) => RunEvents.Emit(new SetupEvent(AppStep(label, url), SetupState.Started)),
+            Ready = (label, url, duration, reused) => RunEvents.Emit(
                 new SetupEvent(AppStep(label, url), SetupState.Finished, (long)duration.TotalMilliseconds, reused ? SetupOutcome.Reused : null)),
         };
         var processes = await Provision.StartDeclaredProcessesAsync([(target.Name, resolved.App)], config.ProjectRoot, () => hooks, DebugTrace.Off, cancellationToken, Pool).ConfigureAwait(false);

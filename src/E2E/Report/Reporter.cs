@@ -13,7 +13,20 @@ namespace E2E.Reports;
 /// <param name="ProjectRoot">Absolute project root, what the terminal shows paths relative to.</param>
 /// <param name="ReportPath">Where <c>report.json</c> was written.</param>
 /// <param name="ArtifactsRoot">Absolute directory the report's artifact paths are relative to: <c>&lt;output&gt;/results</c>.</param>
-public sealed record FinishedRun(Report Report, ReportRunStatus Status, int ExitCode, string ProjectRoot, string ReportPath, string ArtifactsRoot);
+public sealed record FinishedRun(Report Report, ReportRunStatus Status, int ExitCode, string ProjectRoot, string ReportPath, string ArtifactsRoot)
+{
+    /// <summary>
+    /// The trace page the process wrote for each test that kept a trace, by report result id, as a path from <see cref="ProjectRoot"/>
+    /// (<c>.e2e/results/checkout-applies-the-coupon-1a2b3c4d5e6f7a8b/trace.md</c>). Empty when no test kept one. Upstream's <c>traces</c>, a map.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Traces { get; init; } = new Dictionary<string, string>();
+
+    /// <summary>
+    /// Where <c>E2E_AI_TRACE=1</c> wrote the process's model calls, once the file exists (<c>ai-trace-&lt;process id&gt;.json</c> in the output directory,
+    /// one file for the whole process); null when the process recorded none. Upstream's <c>aiTracePath</c>.
+    /// </summary>
+    public string? AiTracePath { get; init; }
+}
 
 /// <summary>One row a reporter hands back for the terminal summary: a label and its text, a URL or a path (upstream's <c>ReporterSummary</c> element).</summary>
 public sealed record ReporterSummaryRow(string Label, string Text);
@@ -24,12 +37,23 @@ public sealed record ReporterSummaryRow(string Label, string Text);
 /// output. The token is cancelled when that budget runs out or the run is forced to stop, so a reporter hands it to its requests and leaves nothing
 /// running behind. A reporter can never change the run's outcome: a failure or a timeout is one line on stderr. The test run ends when the
 /// run fixture (<c>E2ERunFixture</c> of <c>E2E.NUnit</c> or <c>E2E.XUnit.V3</c>) is torn down, so a run without it calls no reporter. A reporter
-/// has a public constructor with no parameters and no side effects; one that takes options also implements <see cref="IConfigurableReporter"/>. Not ported: <c>onEvent</c>, since the port emits no run events.
+/// has a public constructor with no parameters and no side effects; one that takes options also implements <see cref="IConfigurableReporter"/>. The run fixture
+/// builds the reporters when the run starts, so <see cref="OnEvent"/> sees the run's events as they happen, and calls the same instances when it ends.
 /// </summary>
 public abstract class Reporter
 {
     /// <summary>Label in diagnostics.</summary>
     public abstract string Name { get; }
+
+    /// <summary>
+    /// Every run event as it happens, exactly what the list reporter renders (upstream's <c>onEvent</c>). Must not block or throw: a throw quarantines this
+    /// reporter's events for the rest of the run, with one line on stderr, and never changes the run's outcome. Event types are added over time; a
+    /// reporter handles the ones it knows and ignores the rest. Events arrive in <see cref="RunEvent.Seq"/> order, one at a time, from whichever thread
+    /// emitted them. A retried test emits <see cref="TestStartedEvent"/> and <see cref="TestFinishedEvent"/> once per attempt, the later result holding every attempt so far.
+    /// </summary>
+    public virtual void OnEvent(RunEvent runEvent)
+    {
+    }
 
     /// <summary>Runs once the report is written; the returned rows print under the run's output. Null prints nothing.</summary>
     public virtual Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(FinishedRun run, CancellationToken cancellationToken) =>

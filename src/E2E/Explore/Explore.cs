@@ -265,6 +265,7 @@ public static class Explore
                 CacheMode = CacheMode.Off,
                 TestTitle = state.Goal,
                 TestFile = ExploreFile,
+                EmitRunEvents = false,
                 TestTimeout = budgets.Timeout + TimeoutGrace,
                 LaunchTimeout = config.LaunchTimeout,
                 CleanupTimeout = config.CleanupTimeout,

@@ -50,7 +50,7 @@ internal static class Runner
     /// <summary>
     /// Awaits every reporter's <c>OnRunFinishedAsync</c> at once, each within <paramref name="timeout"/> and until <paramref name="force"/> (a forced
     /// stop of the run), and collects the rows they return. A reporter that throws, runs out of time, or returns a row without a label and text is one
-    /// line on stderr; it can never change the run's outcome.
+    /// line on stderr; it can never change the run's outcome. Giving up on a reporter that is still running sets <see cref="AbandonedWork.LeftWorkBehind"/>.
     /// </summary>
     internal static async Task<IReadOnlyList<ReporterSummaryRow>> RunReportersAsync(IReadOnlyList<Reporter> reporters, FinishedRun finished, TimeSpan timeout, CancellationToken force)
     {
@@ -77,6 +77,7 @@ internal static class Runner
                 if (await Task.WhenAny(running, gone.Task).ConfigureAwait(false) != running)
                 {
                     _ = running.ContinueWith(static task => _ = task.Exception, TaskContinuationOptions.OnlyOnFaulted);
+                    AbandonedWork.LeaveWorkBehind();
                     Warn(reporter, force.IsCancellationRequested ? forced : $"did not finish within {budget}");
                     return [];
                 }
@@ -98,6 +99,7 @@ internal static class Runner
             catch (OperationCanceledException) when (abandon.IsCancellationRequested)
             {
                 // A reporter that honors its token ends cancelled: that is the run giving up on it, not a failure of its own.
+                AbandonedWork.LeaveWorkBehind();
                 Warn(reporter, force.IsCancellationRequested ? forced : $"did not finish within {budget}");
                 return [];
             }

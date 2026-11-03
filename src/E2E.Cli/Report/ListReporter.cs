@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
+using System.Text.Json;
 using E2E.Reports;
 
 namespace E2E.Cli.Report;
@@ -142,7 +143,7 @@ internal sealed partial class ListReporter
                 TestFinished(finished.Result);
                 break;
             case RunErrorEvent error:
-                _errors.Add(error.Error);
+                _errors.Add(ErrorOf(error.Error));
                 break;
             case RunInterruptedEvent interrupted:
                 RunInterrupted(interrupted);
@@ -354,6 +355,15 @@ internal sealed partial class ListReporter
         passed ? runs.LastOrDefault(run => run.Status == E2E.Internal.AttemptStatus.Passed)?.Steps ?? [] : [];
 
     /// <summary>The details of an ordinary result: summed over its attempts, the error from the told one.</summary>
+    /// <summary>A finished test as the list reporter reads it: the event's identity and the port's own record of the result.</summary>
+    private sealed record Finished(TestIdentity Test, (string Name, string Platform) Target, string ResultId, string Agent, int Repeat, ResultStatus Status, ReportSkip? Skip, IReadOnlyList<ReportAttempt> Attempts, ReportResult Record);
+
+    private static Finished Recorded(RunEventResult published)
+    {
+        var record = published.Recorded ?? throw new ArgumentException("The list reporter renders the port's own record of a result, which only a producer in this process sets.", nameof(published));
+        return new Finished(published.Test, published.Target, published.ResultId, published.Agent, published.Repeat, record.Status, record.Skip, record.Attempts, record);
+    }
+
     private static ResultDetails DetailsOf(IReadOnlyList<ReportAttempt> attempts, bool passed, ConfiguredModel? configured)
     {
         var steps = attempts.Select(attempt => (IEnumerable<StepRecord>)attempt.Steps).ToList();
@@ -436,26 +446,33 @@ internal sealed partial class ListReporter
         }
 
         var progress = step.Progress;
-        if (progress.Phase != StepProgressPhase.End || progress.Kind != StepKind.Agent)
+        if (progress.Phase != Reports.StepProgressPhase.End || progress.Kind != Reports.StepKind.Agent)
         {
             return;
         }
 
-        var finished = new FinishedStep(progress.Api, progress.Label ?? string.Empty, progress.Status ?? StepStatus.Passed, progress.DurationMs, progress.ModelCalls);
+        var finished = new FinishedStep(progress.Api, progress.Label ?? string.Empty, progress.Status is { } status ? Enum.Parse<StepStatus>(status.ToString()) : StepStatus.Passed, progress.DurationMs, progress.ModelCalls);
         Print(TestIndent + ListSteps.StepLine(_pc, finished, _pc.Dim(running.Title) + _separator));
     }
 
-    private void TestFinished(RunEventResult result)
+    /// <summary>The error a <c>run-error</c> event carries, as the banner reads it: the code, the message, the phase, and the category, in the report's spelling.</summary>
+    private static ReportError ErrorOf(Reports.ReportError error) =>
+        new(error.Code, error.Message, error.Phase is { } phase ? JsonNamingPolicy.CamelCase.ConvertName(phase.ToString()) : null) { Category = error.Category.ToString().ToLowerInvariant() };
+
+    private void TestFinished(RunEventResult published)
     {
         // Unselected pairs are report-only: they never print and the plan never counted them.
-        if (!result.Selected)
+        if (!published.Selected)
         {
             return;
         }
 
+        // The list reporter renders from the port's own record, which the producer in this process sets beside the report's public tree.
+        var result = Recorded(published);
+
         _pairs.Remove(PairKey(result.Test.Id, result.Agent, result.Target.Name, result.Repeat));
         var group = Group(result.Test.File, result.Target.Name);
-        var skippedAfter = Records.FailureBeforeSkip(result);
+        var skippedAfter = Records.FailureBeforeSkip(result.Record);
         var configured = _configuredModel?.Agent == result.Agent ? _configuredModel : null;
         var details = DetailsOf(result.Attempts, result.Status is ResultStatus.Passed or ResultStatus.Flaky, configured);
         _screenshots.AddRange(details.Screenshots);

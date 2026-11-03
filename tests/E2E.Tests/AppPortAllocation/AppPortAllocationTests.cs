@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json;
+using E2E.Reports;
 using E2E.Tests.ManagedProcess;
 
 namespace E2E.Tests.AppPortAllocation;
@@ -25,25 +26,33 @@ public sealed class AppPortAllocationTests
             """,
             Directory.CreateTempSubdirectory("e2e-appports-").FullName,
             _ => null);
-        var steps = new List<SetupStep>();
-        void OnEvent(RunEventFact fact)
+        var steps = new List<AppSetupStep>();
+
+        // The process's events hear every app this process starts at once, so the steps are read by the URL they name below.
+        using var listening = E2E.RunEvents.Subscribe(new RunEventSubscriber("test", runEvent =>
         {
-            if (fact is SetupEvent { Step: AppSetupStep } setup)
+            if (runEvent.Fact is SetupEvent { Step: AppSetupStep step })
             {
-                steps.Add(setup.Step);
+                lock (steps)
+                {
+                    steps.Add(step);
+                }
             }
-        }
+        }));
 
         try
         {
-            var started = await E2E.RunApps.StartAsync(config, config.Target, null, CancellationToken.None, OnEvent);
+            var started = await E2E.RunApps.StartAsync(config, config.Target, null, CancellationToken.None);
             Assert.True(await AppProgram.IsReachable(started.App.Url!));
 
             // The app command's setup step names the URL on the assigned port, not the declared `:0`.
             var origin = new Uri(started.App.Url!).GetLeftPart(UriPartial.Authority);
             Assert.NotEqual("http://127.0.0.1:0", origin);
             var step = new AppSetupStep("target \"web\" command", origin + "/");
-            Assert.Equal([step, step], steps);
+            lock (steps)
+            {
+                Assert.Equal([step, step], steps.Where(each => each.Url == step.Url));
+            }
         }
         finally
         {

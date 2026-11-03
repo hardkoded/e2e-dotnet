@@ -2,21 +2,24 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Reports;
+using E2E.Tests.ScreenTree;
+
 namespace E2E.Tests.RunEvents;
 
-/// <summary>Upstream: packages/e2e/tests/unit/run-events.test.ts, describe('createRunEventEmitter').</summary>
+/// <summary>
+/// Upstream: packages/e2e/tests/unit/run-events.test.ts, describe('createRunEventEmitter'). Not ported: the two async-sink <c>it</c>
+/// (<c>quarantines an async sink whose promise rejects ...</c>, <c>names a sink once when several of its pending promises reject</c>),
+/// since the port's sinks are synchronous.
+/// </summary>
+[Collection(nameof(ConsoleCollection))]
 public sealed class CreateRunEventEmitterTests
 {
-    /// <summary>
-    /// Partial: the port's events carry no <c>seq</c>, so the healthy sink's events are compared by their facts. Not ported: the two async-sink
-    /// <c>it</c> (<c>quarantines an async sink whose promise rejects ...</c>, <c>names a sink once when several of its pending promises reject</c>),
-    /// since the port's sinks are synchronous.
-    /// </summary>
     [Fact]
-    public void Partial_Quarantines_a_throwing_sink_without_silencing_the_healthy_one_and_says_so_once_on_stderr()
+    public void Quarantines_a_throwing_sink_without_silencing_the_healthy_one_and_says_so_once_on_stderr()
     {
         var broken = 0;
-        var events = new List<RunEventFact>();
+        var events = new List<RunEvent>();
         var emit = E2E.RunEvents.CreateRunEventEmitter(
         [
             new RunEventSubscriber("broken", _ =>
@@ -31,12 +34,11 @@ public sealed class CreateRunEventEmitterTests
         Console.SetError(stderr);
         try
         {
-            var facts = new[] { new PlanEvent(1, []), new PlanEvent(2, []), new PlanEvent(3, []) };
-            emit(facts[0]);
-            emit(facts[1]);
-            emit(facts[2]);
+            emit(new PlanEvent(1, []));
+            emit(new PlanEvent(2, []));
+            emit(new PlanEvent(3, []));
             Assert.Equal(1, broken);
-            Assert.Equal<RunEventFact>(facts, events);
+            Assert.Equal([1L, 2L, 3L], events.Select(runEvent => runEvent.Seq));
         }
         finally
         {

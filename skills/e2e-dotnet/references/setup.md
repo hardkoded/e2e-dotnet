@@ -238,7 +238,7 @@ and in CI.
   does not know with an error that names the key, not the value. The config
   load checks only the shape (an array; each entry a string or an object with
   a string `type` and optional `options` object); a wrong shape is
-  `INVALID_CONFIG`. The type is resolved when the run ends: a name that is
+  `INVALID_CONFIG`. The type is resolved when the run begins (the fixture builds the reporters in its setup): a name that is
   not found, a type that is not a `Reporter`, is abstract, or has no such
   constructor, and `options` on a type that is not configurable, are one
   stderr line naming the type string. The other reporters still run and the
@@ -247,11 +247,21 @@ and in CI.
   twice runs twice; no config file means no reporters. The run
   fixture above calls `OnRunFinishedAsync(FinishedRun, CancellationToken)` once,
   after the last test, with the final `report.json` document (`Report`,
-  `Status`, `ExitCode`, `ProjectRoot`, `ReportPath`, `ArtifactsRoot`). It is
-  awaited for one minute; the `ReporterSummaryRow`s it returns print to
+  `Status`, `ExitCode`, `ProjectRoot`, `ReportPath`, `ArtifactsRoot`, `Traces`, `AiTracePath`). `Traces` maps
+  each result id to the trace page the test kept, as a path from the project
+  root (empty when none did); `AiTracePath` is the AI trace file this process
+  wrote, or null. It is awaited for one minute; the `ReporterSummaryRow`s it returns print to
   standard output. A throw, a timeout, or a row with no label or text is one
   line on stderr and never changes the outcome. Without the run fixture no
-  reporter runs. Not ported: `OnEvent`, `Traces`, `AiTracePath`, `LastRun`.
+  reporter runs. Not ported: `LastRun`.
+  `Reporter.OnEvent(RunEvent)` (a virtual no-op) sees each run event as it
+  happens, from the start of the run: `RunStartedEvent`, `PlanEvent`,
+  `NoticeEvent`, `SetupEvent`, `TestStartedEvent`, `StepProgressEvent`,
+  `TestFinishedEvent`, `RunErrorEvent`, and `RunFinishedEvent` (the
+  `RunEvent` holds `Seq`, `At`, and the `Fact`). Each event comes in `Seq`
+  order, on any thread; keep `OnEvent` quick. A throw is one stderr line, and
+  the reporter gets no more events. A test that retries emits one start and
+  one finish per attempt. Not emitted: `output`, serial groups, explore events.
   `MarkdownReport.RenderMarkdownReport(run.Report, options)` (`E2E.Reports`)
   renders that report as one markdown page for a pull request comment or a job
   summary: a headline with the counts, a block per failed test, the flaky tests

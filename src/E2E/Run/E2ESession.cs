@@ -41,6 +41,7 @@ public sealed class E2ESession : IAsyncDisposable
     private Lazy<Report>? _report;
     private readonly Lazy<Task<IReadOnlyList<Exception>>> _ending;
     private Func<Task<IReadOnlyList<Exception>>>? _hostedClose;
+    private SessionEvents? _events;
 
     private E2ESession(AttemptScope scope, CancellationTokenSource timeout, IEngineSession engine, App app, Browser browser, Agent agent, Screen screen, TestContext context, IDisposable errorRedaction, TextWriter? debugOutput)
     {
@@ -198,6 +199,7 @@ public sealed class E2ESession : IAsyncDisposable
         var screens = new SessionScreens(RecordingModes.AttemptKeep(options.Trace.Mode, options.Attempt - 1) is not null);
         var environment = new EnvironmentFacts();
         var appLog = new AppLogRoute();
+        var events = SessionEvents.For(options, string.IsNullOrWhiteSpace(options.TargetName) ? options.Engine.Platform : options.TargetName);
 
         // The values the engine registers while it starts, before the attempt's scope exists to take them.
         var ledger = new List<(string Name, string Value)>();
@@ -292,7 +294,7 @@ public sealed class E2ESession : IAsyncDisposable
             var scope = new AttemptScope
             {
                 ArtifactsDir = attemptDir,
-                OnProgress = options.OnProgress,
+                OnProgress = events is null ? options.OnProgress : events.Progress(options.OnProgress),
                 ArtifactStore = options.ArtifactStore,
                 Session = engine,
                 Screens = screens,
@@ -397,7 +399,9 @@ public sealed class E2ESession : IAsyncDisposable
             var hold = options.Credentials is { } credentials ? SecretRegistry.Hold(credentials) : null;
             try
             {
-                return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _recordings = recordings, _trace = trace, _sessions = options.Sessions, _credentials = hold };
+                var session = new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _recordings = recordings, _trace = trace, _sessions = options.Sessions, _credentials = hold, _events = events };
+                events?.Started();
+                return session;
             }
             catch
             {
@@ -934,6 +938,7 @@ public sealed class E2ESession : IAsyncDisposable
             var (single, id) = AttemptReport.Build(_scope, trace, _status, _error, _bodyMs, Exploration, _evidence, _cleanupErrors);
             if (_hostedClose is not null)
             {
+                _events?.Finished(single.Run.Results[0], trace.ResultsRoot, _scope.Redactor.Redact);
                 await WriteHostTracePageAsync(single, trace).ConfigureAwait(false);
                 return;
             }
@@ -951,13 +956,18 @@ public sealed class E2ESession : IAsyncDisposable
                 Console.Error.WriteLine("[e2e] could not write " + ReportFile.FileName + " for " + _scope.TestTitle + ": " + _scope.Redactor.Redact(ex.Message));
             }
 
+            _events?.Finished(report.Run.Results[0], trace.ResultsRoot, redact);
             if (traced)
             {
-                await TracePages.WriteTracePagesAsync(
+                var pages = await TracePages.WriteTracePagesAsync(
                     report,
                     new HashSet<string>(StringComparer.Ordinal) { id },
                     new WriteTracePagesOptions(_scope.ProjectRoot!, trace.ResultsRoot, trace.CacheDir),
                     redact).ConfigureAwait(false);
+                foreach (var (resultId, page) in pages)
+                {
+                    ReportFile.SetTrace(trace.ResultsRoot, resultId, page);
+                }
             }
 
             var document = await ReportFile.SingleAsync(single, _scope.ProjectRoot, trace.ResultsRoot, redact).ConfigureAwait(false);
@@ -969,6 +979,7 @@ public sealed class E2ESession : IAsyncDisposable
                 try
                 {
                     File.Delete(Path.Combine(trace.TestDir, TracePages.TracePage));
+                    ReportFile.SetTrace(trace.ResultsRoot, id, null);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
@@ -1302,6 +1313,11 @@ public sealed class E2ESessionOptions
     /// on the session until <see cref="E2ESession.CloseSoftFailures"/>.
     /// </summary>
     public Action<TestException>? OnSoftFailure { get; init; }
+
+    /// <summary>
+    /// Whether the session reports its start, steps, and end to the process's run events. Off for an exploration, whose run is not a test.
+    /// </summary>
+    internal bool EmitRunEvents { get; init; } = true;
 
     /// <summary>Live progress of the attempt's steps; null feeds none. Upstream's <c>onProgress</c> of the step recorder.</summary>
     internal Action<StepProgress>? OnProgress { get; init; }
