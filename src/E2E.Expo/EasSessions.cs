@@ -9,7 +9,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using E2E.Mobile;
 
-namespace E2E.Eas;
+namespace E2E.Expo;
 
 /// <summary>What the provider asks Expo for: one agent-device session on one platform.</summary>
 internal sealed record EasSessionParams

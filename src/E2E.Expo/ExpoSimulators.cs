@@ -5,7 +5,7 @@
 using System.Collections.Concurrent;
 using E2E.Mobile;
 
-namespace E2E.Eas;
+namespace E2E.Expo;
 
 /// <summary>The clock and sleep the provider polls with: a test swaps them so a run of minutes takes no time.</summary>
 internal sealed record EasClock(Func<long> NowMilliseconds, Func<TimeSpan, CancellationToken, Task> Delay)
