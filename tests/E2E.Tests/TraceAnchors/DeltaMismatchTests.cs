@@ -91,6 +91,25 @@ public sealed class DeltaMismatchTests
     }
 
     [Fact]
+    public void Reads_a_date_with_an_ordinal_suffix_in_an_alert_as_a_placeholder_in_either_order()
+    {
+        static SemanticNode Due(string text) => Node("alert", text: text);
+
+        Assert.True(Holds([Anchor("alert", text: "Due October 26th")], [Due("Due October 3rd")]));
+        Assert.True(Holds([Anchor("alert", text: "Due October 3rd, 2026")], [Due("Due October 4th, 2027")]));
+        Assert.True(Holds([Anchor("alert", text: "Due 3rd October")], [Due("Due 22nd October")]));
+        Assert.False(Holds([Anchor("alert", text: "Due October 26th")], [Due("Overdue")]));
+    }
+
+    [Fact]
+    public void Skips_a_date_with_an_ordinal_suffix_as_volatile_when_the_step_has_a_stable_result()
+    {
+        SemanticNode[] after = [Heading, Node("status", text: "Task created"), Node(text: "Due October 26th")];
+
+        Assert.Equal(["status|~Task created"], Shapes(Describe([Heading], after).Appeared));
+    }
+
+    [Fact]
     public void Forgives_a_churned_test_id_when_the_other_fields_still_identify_the_node()
     {
         var rerendered = Node("link", "PB-Twin-Alpha", testId: "row-9f8e");
