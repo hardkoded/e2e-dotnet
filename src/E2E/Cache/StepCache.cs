@@ -143,6 +143,24 @@ public sealed class RecordedAction
 
     public string? Key { get; set; }
 
+    /// <summary>
+    /// Upstream's <c>replace</c> of a <c>typeText</c>: whether the field's value was cleared before the text went in. Present on a
+    /// <c>typeText</c> and on no other action.
+    /// </summary>
+    public bool? Replace { get; set; }
+
+    /// <summary>
+    /// Whether the keyboard fields are well formed: a <c>typeText</c> holds a bounded <see cref="Value"/> and <see cref="Replace"/>, a
+    /// <c>pressKey</c> holds a <see cref="Key"/> of one to 64 characters, and no other action holds a <see cref="Replace"/>. Upstream's
+    /// <c>readAction</c>, which makes a malformed entry a miss.
+    /// </summary>
+    internal bool HasValidKeyboard() => Kind switch
+    {
+        "typeText" => Value is { Length: <= Trace.MaxTraceInputChars } && Replace is not null && Key is null,
+        "pressKey" => Key is { Length: > 0 and <= 64 } && Value is null && Replace is null,
+        _ => Replace is null,
+    };
+
     public string? Url { get; set; }
 
     /// <summary><c>up</c>, <c>down</c>, <c>left</c>, or <c>right</c> for <c>scroll</c> and <c>scrollUntil</c>.</summary>

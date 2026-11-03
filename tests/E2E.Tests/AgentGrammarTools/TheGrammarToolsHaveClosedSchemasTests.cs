@@ -48,6 +48,24 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.True(AgentTools.IsReserved("drag"));
     }
 
+    // Partial of upstream's "closes the keyboard-only shapes too: type and press without a target, scroll without one": the port's tool is
+    // fill, not type, its schemas are not closed, and it always offers the node and point verbs beside the keyboard ones, so this checks the
+    // shapes the keyboard changes: fill takes replace and needs no target, type_at takes replace, and without a keyboard neither does.
+    [Fact]
+    public void Partial_Offers_fill_without_a_target_and_a_replace_flag_only_when_the_engine_has_a_keyboard()
+    {
+        var keyboard = AgentTools.CreateGrammarTools(EngineCapabilities.Keyboard | EngineCapabilities.Scroll);
+        var fill = keyboard.Single(tool => tool.Name == "fill").Parameters;
+        Assert.True(fill.GetProperty("properties").TryGetProperty("replace", out _));
+        Assert.Equal(["value"], fill.GetProperty("required").EnumerateArray().Select(item => item.GetString()));
+        Assert.True(keyboard.Single(tool => tool.Name == "type_at").Parameters.GetProperty("properties").TryGetProperty("replace", out _));
+        Assert.Contains("keyboard", keyboard.Single(tool => tool.Name == "press_at").Description, StringComparison.Ordinal);
+
+        var bare = AgentTools.CreateGrammarTools(EngineCapabilities.Scroll);
+        Assert.False(bare.Single(tool => tool.Name == "fill").Parameters.GetProperty("properties").TryGetProperty("replace", out _));
+        Assert.False(bare.Single(tool => tool.Name == "type_at").Parameters.GetProperty("properties").TryGetProperty("replace", out _));
+    }
+
     // Partial of upstream's scroll_to "it": the port checks the text ceiling and the declared fields, not the closed shape.
     [Fact]
     public void Declares_the_text_of_scroll_to_with_a_ceiling_beside_a_target_and_a_direction()

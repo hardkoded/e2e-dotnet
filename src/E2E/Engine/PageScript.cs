@@ -1080,6 +1080,32 @@ internal static class PageScript
         }
         """;
 
+    // Whether the focused element of this document, followed into shadow roots, takes keystrokes (upstream's requireEditableFocus): a text
+    // field, a contenteditable host, or any other focusable element the app made focusable. The body, a button, a link, a select, a
+    // frame, and a non-text input discard them.
+    public const string HasEditableFocus = """
+        () => {
+          const roots = globalThis[Symbol.for("e2e.closedShadowRoots")];
+          let active = document.activeElement;
+          while (active !== null) {
+            const root = active.shadowRoot ?? roots?.get(active);
+            const leaf = root?.activeElement;
+            if (leaf === undefined || leaf === null) break;
+            active = leaf;
+          }
+          if (active === null || active === document.body || active === document.documentElement) return false;
+          if (active instanceof HTMLInputElement) {
+            return !active.disabled && !active.readOnly && !["button", "submit", "reset", "checkbox", "radio", "file", "image", "range", "color"].includes(active.type);
+          }
+          if (active instanceof HTMLTextAreaElement) return !active.disabled && !active.readOnly;
+          if (active instanceof HTMLSelectElement || active instanceof HTMLButtonElement || active instanceof HTMLAnchorElement ||
+              active instanceof HTMLIFrameElement || active instanceof HTMLFrameElement) {
+            return false;
+          }
+          return true;
+        }
+        """;
+
     // The ref an iframe element carries, so the host can hang that frame's
     // observation under the iframe node.
     public const string RefOf = """

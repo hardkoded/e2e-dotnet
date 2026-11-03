@@ -10,7 +10,7 @@ namespace E2E.Tests.TraceReplay;
 /// <summary>
 /// <c>describe('replayTrace')</c> of <c>trace-replay.test.ts</c>, against <c>Replay.ReplayTrace</c> and a <see cref="TestHost"/>.
 /// The port's recording has no drag, bare point (<c>tapAt</c>, <c>hoverAt</c>), <c>hover</c>, <c>longPress</c>,
-/// <c>secondaryTap</c>, <c>upload</c>, <c>typeText</c>, recorded position, or <c>derived</c> reason, and its relocation finds a
+/// <c>secondaryTap</c>, <c>upload</c>, recorded position, or <c>derived</c> reason, and its relocation finds a
 /// test id exactly, so these <c>it</c>s are not ported: "names the rule behind a run-time value gap, so the report can cite
 /// it", "re-finds both ends of a drag on one screen before dragging", "hands a drag off when either end cannot be re-found,
 /// never dragging half of it", "replays a bare-point hover through hoverAt, on the recorded viewport only", "keeps looking
@@ -36,23 +36,46 @@ public sealed class ReplayTraceTests
         Assert.Equal(0, host.Observations);
     }
 
-    /// <summary>Partial: the port has no <c>typeText</c>, so the look after it is not checked.</summary>
     [Fact]
-    public async Task Partial_settles_each_look_as_far_as_the_previous_actions_policy_asks_held_still_after_a_tap_after_the_change_after_a_fill()
+    public async Task Looks_at_the_screen_before_a_free_action_that_follows_another_one_only_while_the_caller_asks()
+    {
+        RecordedAction[] free =
+        [
+            new() { Kind = "navigate", Url = "/newsletter" },
+            new() { Kind = "typeText", Value = "a@b.c", Replace = false },
+            new() { Kind = "pressKey", Key = "Enter" },
+        ];
+        var asking = MakeHost();
+        var asked = 0;
+
+        // The caller has seen its route after the first look, and asks no more.
+        await Replay.ReplayTrace(asking, free, new ReplayOptions { LooksBeforeFree = () => ++asked == 1 });
+
+        Assert.Equal(["navigate", "typeText", "pressKey"], asking.Calls);
+        Assert.Single(asking.Looks);
+        Assert.Equal(2, asked);
+        var silent = MakeHost();
+        await Replay.ReplayTrace(silent, free);
+        Assert.Empty(silent.Looks);
+    }
+
+    [Fact]
+    public async Task Settles_each_look_as_far_as_the_previous_actions_policy_asks_held_still_after_a_tap_after_the_change_after_a_fill()
     {
         var host = MakeHost();
+        var typeText = new RecordedAction { Kind = "typeText", Value = "y", Replace = false };
         var secret = new RecordedAction { Kind = "fill", Role = "textbox", Name = "Email", Value = "<secret:password>" };
         var select = new RecordedAction { Kind = "select", Role = "textbox", Name = "Email", Value = "Pro" };
 
-        var outcome = await Replay.ReplayTrace(host, [TapUpgrade, TypeEmail, TapUpgrade, secret, TapUpgrade, select, TapUpgrade]);
+        var outcome = await Replay.ReplayTrace(host, [TapUpgrade, TypeEmail, TapUpgrade, typeText, TapUpgrade, secret, TapUpgrade, select, TapUpgrade]);
 
         Assert.True(outcome.Completed);
-        Assert.Equal(7, outcome.Executed);
-        Assert.Equal(["tap", "type", "tap", "typeSecret", "tap", "select", "tap"], host.Calls);
+        Assert.Equal(9, outcome.Executed);
         // The first look holds still; so does the look after each tap or select. The look after a typed fill waits for its
-        // value only. A secret fill is masked out of the tree, so the look after it holds still: there is no change to wait for.
+        // value only, and a typeText takes no look of its own, so the tap after it is the one that reads the first post-change
+        // capture. A secret fill is masked out of the tree, so the look after it holds still: there is no change to wait for.
         Assert.Equal(
-            [SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.AfterChange, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill],
+            [SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.AfterChange, SettleMode.AfterChange, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill, SettleMode.HeldStill],
             host.Looks);
     }
 

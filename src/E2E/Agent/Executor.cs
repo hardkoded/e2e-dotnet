@@ -250,6 +250,12 @@ public enum ExecutorVerb
 
     /// <summary>Upstream's <c>dragAt</c>: <see cref="IExecutorActions.DragAtAsync"/>, with the engine's <c>dragTo</c> pointer kind.</summary>
     DragAt,
+
+    /// <summary>Upstream's <c>typeText</c>: <see cref="IExecutorActions.TypeTextAsync"/>, with an engine that declares <see cref="EngineCapabilities.Keyboard"/>.</summary>
+    TypeText,
+
+    /// <summary>Upstream's <c>pressKey</c>: <see cref="IExecutorActions.PressKeyAsync"/>, with an engine that declares <see cref="EngineCapabilities.Keyboard"/>.</summary>
+    PressKey,
 }
 
 /// <summary>What an executor asks <see cref="StepExecutorContext.ObserveAsync"/> to include beyond the text.</summary>
@@ -425,8 +431,25 @@ public interface IExecutorActions
 
     Task ClearAsync(ExecutorTarget target, CancellationToken cancellationToken = default);
 
-    /// <summary>Presses <paramref name="key"/> on <paramref name="target"/>, or on the focused control when there is none.</summary>
+    /// <summary>
+    /// Presses <paramref name="key"/> on <paramref name="target"/>, or on the focused control when there is none, which is
+    /// <see cref="PressKeyAsync"/>.
+    /// </summary>
     Task PressAsync(ExecutorTarget? target, string key, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Keyboard input to whatever holds focus. No node is resolved, so none is recorded: the trace keeps the value and replays it as given
+    /// after the actions that gave the field focus. An engine that finds nothing that takes text focused refuses with
+    /// <c>NOT_ACTIONABLE</c>, which reaches the executor as an ordinary failed action to read and work around. Needs
+    /// <see cref="ExecutorVerb.TypeText"/> in <see cref="ExecutorTargetInfo.Verbs"/>. Upstream's <c>typeText</c>.
+    /// </summary>
+    Task TypeTextAsync(string value, TypeTextOptions? options = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sends one key to whatever holds focus, with no node resolved. Needs <see cref="ExecutorVerb.PressKey"/> in
+    /// <see cref="ExecutorTargetInfo.Verbs"/>. Upstream's <c>pressKey</c>.
+    /// </summary>
+    Task PressKeyAsync(string key, CancellationToken cancellationToken = default);
 
     Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default);
 
@@ -495,6 +518,16 @@ public interface IExecutorActions
     /// Upstream's <c>hitTest</c>.
     /// </summary>
     Task<PointHit> HitTestAsync(Point point, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// What <see cref="IExecutorActions.TypeTextAsync"/> is asked beside the value: upstream's <c>typing</c> argument of <c>typeText</c>, an
+/// inline object type there (.NET-only name).
+/// </summary>
+public sealed class TypeTextOptions
+{
+    /// <summary>Select all and delete before typing, for a field that visibly holds text to remove. Off, the value goes in at the caret.</summary>
+    public bool Replace { get; init; }
 }
 
 /// <summary>Upstream's <c>PointHit</c>: what one <see cref="IExecutorActions.HitTestAsync"/> found, for the executor to act on or relay.</summary>

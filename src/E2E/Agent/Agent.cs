@@ -663,10 +663,21 @@ public sealed partial class Agent
     /// it, with no model, no replay cache, and no action budget. A refusal comes back as a failed outcome. With a <paramref name="screen"/>,
     /// the answer is the changes since the screen the coding agent holds, and <c>observe</c> answers the whole screen.
     /// </summary>
-    internal Task<ToolOutcome> RunToolAsync(string name, JsonElement arguments, CancellationToken token, ScreenPresenter? screen = null)
+    internal Task<ToolOutcome> RunToolAsync(string name, JsonElement arguments, CancellationToken token, ScreenPresenter? screen = null, PixelMode? pixels = null)
     {
         var budget = new StepAccounting(int.MaxValue, int.MaxValue);
-        return _scope.Track(new ActTools(_scope, _feed, screen).ExecuteAsync(new ModelToolCall { Id = name, Name = name, Arguments = arguments }, new ActionDispatcher(_scope, _feed, budget, () => _scope.Secrets), budget, null, token));
+        return _scope.Track(new ActTools(_scope, _feed, screen, pixels).ExecuteAsync(new ModelToolCall { Id = name, Name = name, Arguments = arguments }, new ActionDispatcher(_scope, _feed, budget, () => _scope.Secrets), budget, null, token));
+    }
+
+    /// <summary>
+    /// Notes a screenshot a session showed its coding agent, with the viewport the screen has now: a point tool reads its
+    /// coordinates against it (upstream's <c>screen.latestScreenshot</c>).
+    /// </summary>
+    internal async Task NoteScreenshotAsync(PixelMode pixels, ExecutorPixels shot, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(pixels);
+        var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
+        pixels.Shown(shot, observation.Viewport);
     }
 
     internal static bool HasTarget(JsonElement arguments)
@@ -1070,8 +1081,8 @@ public sealed record HoverAtActionEvent(int Index, string Action, string Summary
 public sealed record DragAtActionEvent(int Index, string Action, string Summary, ActionSource Source, Point From, Point To) : ActionEvent(Index, Action, Summary, Source);
 
 /// <summary>
-/// The name <see cref="ActionEvent"/> reports a committed action under (upstream's <c>ActionName</c>). Upstream's <c>typeText</c>,
-/// <c>pressKey</c>, and <c>dismissKeyboard</c> are left out: the port has no such actions. A <c>clear</c> reads <see cref="Type"/>.
+/// The name <see cref="ActionEvent"/> reports a committed action under (upstream's <c>ActionName</c>). Upstream's <c>dismissKeyboard</c>
+/// is left out: the port has no such action. A <c>clear</c> reads <see cref="Type"/>.
 /// </summary>
 public enum ActionName
 {
@@ -1095,6 +1106,12 @@ public enum ActionName
     TapAt,
     HoverAt,
     DragAt,
+
+    /// <summary>Keyboard input to whatever held focus (<c>typeText</c>).</summary>
+    TypeText,
+
+    /// <summary>One key sent to whatever held focus (<c>pressKey</c>).</summary>
+    PressKey,
 
     /// <summary>A mutating project tool; <see cref="ActionEvent.ToolName"/> names it. Upstream reads <c>tool:name</c> in <c>action</c>; this value is .NET-only.</summary>
     Tool,

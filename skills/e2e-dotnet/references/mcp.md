@@ -111,7 +111,7 @@ sent whole again. `observe` always shows the whole screen and makes it the
 screen later changes are measured from. What an engine lacks is missing from its
 catalog: `scroll` and `scroll_to` need scrolling, `back` needs history,
 `long_press`, `right_click`, `hover`, and `drag` need the engine to declare the
-action (`longPress`, `secondaryTap`, `hover`, `dragTo`), `screenshot` needs the web engine, and `type_secret` appears only when the
+action (`longPress`, `secondaryTap`, `hover`, `dragTo`), `hover_at` and `drag_at` need the engine to take a bare point for a hover or a drag, `screenshot` needs the web engine, and `type_secret` appears only when the
 config declares `credentials` or a `secrets` entry.
 
 | Tool | Does |
@@ -119,7 +119,7 @@ config declares `credentials` or a `secrets` entry.
 | `observe` | The whole current screen |
 | `tap`, `double_tap`, `long_press`, `right_click`, `hover`, `check`, `uncheck`, `clear` `{target}` | Act on one node. `long_press` is for a control with a long-press menu, `right_click` opens a context menu, `hover` shows what the pointer resting on a node reveals. On an engine that declares `TapModifiers` (the web engine), `tap`, `double_tap`, and `right_click` also take an optional `modifiers` list (`Shift`, `Control`, `Alt`, `Meta`, `ControlOrMeta`) to hold keys for the click, as a Shift-click extends a selection |
 | `drag {target, to}` | Drag one node and drop it on another, both by node id |
-| `type {target, text}` | Replace the text in a field |
+| `type {target, text}` | Replace the text in a field. With a keyboard (the web engine), `target` is optional: without one the text is typed into whatever has focus, and `replace` clears the field first |
 | `type_secret {target, secret}` | Fill a configured secret by name: a credential's password (`<name>.password`) into a password field, a `secrets` entry into any editable field; you never see the value, and its test line names the credential or secret (`FillAsync(Credentials.User(name).Password)`, `FillAsync(Secrets.Get(name))`) |
 | `press {key, target?}` | Press a key on a node, or on whatever has focus |
 | `select {target, value}` | Choose an option |
@@ -127,6 +127,7 @@ config declares `credentials` or a `secrets` entry.
 | `navigate {url}` | Open a path or an http or https URL. Any other scheme fails with `POLICY_DENIED` |
 | `back` | One step back in the history |
 | `screenshot {path?}` | The viewport as an image. It masks secure fields only, after a secret fill too. With `path` (a `.png` inside the project, relative to its root, not hidden or under a hidden directory), also saves a full-resolution masked capture there and returns its absolute path; any other path is `POLICY_DENIED` |
+| `tap_at {x, y}`, `hover_at {x, y}`, `drag_at {x, y, to_x, to_y}`, `type_at {x, y, value, replace?}`, `press_at {x, y, key}`, `select_at {x, y, value}` | Act at a point of the latest `screenshot`, in that image's pixels, for a target `observe` does not list (a canvas, a map). Before a screenshot they answer with the line that says to take one. Last resort: act on a listed node by id. They print no test line |
 | `locate {role? name? text? label? placeholder? testId? exact?}` | Try a locator; see the loop below |
 | `start_recording {name?}`, `stop_recording` | Record a video of the app for a person to watch (listed when the engine records video). `name` is up to 64 letters, digits, `-`, and `_`, starting with a letter or digit. One recording at a time; a second start reports the one running. `stop_recording` saves it to `.e2e/videos/<session>/<n>[-<name>].<ext>` under the project root (`-part2`, `-part3` for later pages) and returns each file's absolute path, or the URL a hosted provider keeps it at. `close_session` saves a recording still running. Recordings are not masked, so a secret typed into a plain input shows in the video; a recording stopped after `type_secret` says so |
 | `test_lines` | Every test line the session's actions printed, in order, as a draft test body; see below |
@@ -184,7 +185,7 @@ into a test, then add the assertions.
 | `scroll_to` a node | `ScrollIntoViewAsync()` |
 | `navigate`, `back` | `App.OpenAsync(url)`, `App.BackAsync()` |
 
-No line: `type` or `press` with no target, `tap`, `double_tap`, or `right_click` with
+No line: `type` or `press` with no target, a `type` whose node is no input and took the value through the keyboard, the point tools, `tap`, `double_tap`, or `right_click` with
 `modifiers` (a locator tap takes none), a `drag` whose either end has no locator, `scroll`, and `scroll_to` a text.
 
 ## Workflow

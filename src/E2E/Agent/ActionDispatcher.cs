@@ -218,20 +218,58 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             throw new TestException("INVALID_ARGUMENT", "press requires a key");
         }
 
+        // A key with no node is upstream's pressKey.
+        if (target is null)
+        {
+            return PressKeyAsync(key, cancellationToken);
+        }
+
         return RunAsync(
             "press",
             async token =>
             {
-                if (target is null)
-                {
-                    await _scope.Session.PressAsync(key, token).ConfigureAwait(false);
-                    await CommitAsync(new RecordedAction { Kind = "press", Key = key }).ConfigureAwait(false);
-                    return;
-                }
-
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Press(key), token).ConfigureAwait(false);
                 await CommitAsync("press", node, key: key).ConfigureAwait(false);
+            },
+            cancellationToken);
+    }
+
+    // Upstream's typeText: keyboard input to whatever holds focus. No node is resolved, so no descriptor is recorded: the trace keeps the
+    // value and replays it as given after the actions that gave the field focus. An engine that finds nothing editable focused refuses
+    // (NOT_ACTIONABLE), which reaches the executor as an ordinary failed action to read and work around.
+    public Task TypeTextAsync(string value, TypeTextOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        if (value is null)
+        {
+            throw new TestException("INVALID_ARGUMENT", "typeText value must be a string");
+        }
+
+        var replace = options?.Replace == true;
+        return RunAsync(
+            "typeText",
+            async token =>
+            {
+                await _scope.Session.TypeTextAsync(value, replace, token).ConfigureAwait(false);
+                await CommitAsync(new RecordedAction { Kind = "typeText", Value = value, Replace = replace }).ConfigureAwait(false);
+            },
+            cancellationToken);
+    }
+
+    // Upstream's pressKey: one key to whatever holds focus.
+    public Task PressKeyAsync(string key, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            throw new TestException("INVALID_ARGUMENT", "pressKey requires a key");
+        }
+
+        return RunAsync(
+            "pressKey",
+            async token =>
+            {
+                await _scope.Session.PressAsync(key, token).ConfigureAwait(false);
+                await CommitAsync(new RecordedAction { Kind = "pressKey", Key = key }).ConfigureAwait(false);
             },
             cancellationToken);
     }

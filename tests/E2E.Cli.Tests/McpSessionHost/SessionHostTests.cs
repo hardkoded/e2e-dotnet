@@ -371,6 +371,25 @@ public sealed class SessionHostTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Catalogs_the_point_tools_after_the_screenshot_and_hover_at_and_drag_at_only_for_their_pointer_kinds()
+    {
+        var host = Host(new FakeEngine { Also = EngineCapabilities.Screenshot, Pointer = ["tap"] });
+        var names = ServedCli.CatalogNames(await host.OpenAsync(new Mcp.OpenSessionOptions()));
+        Assert.Equal(["screenshot", "tap_at", "type_at", "press_at", "select_at"], names.SkipWhile(name => name != "screenshot").TakeWhile(name => name != "locate"));
+        await host.CloseAsync("done");
+
+        var pointing = Host(new FakeEngine { Also = EngineCapabilities.Screenshot, Pointer = ["tap", "hover", "dragTo"] });
+        var all = ServedCli.CatalogNames(await pointing.OpenAsync(new Mcp.OpenSessionOptions()));
+        Assert.Equal(["tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"], all.Where(name => name.EndsWith("_at", StringComparison.Ordinal)));
+        await pointing.CloseAsync("done");
+
+        // Without a screenshot there is nothing to read a point from.
+        var blind = Host(new FakeEngine { Pointer = ["tap"] });
+        Assert.DoesNotContain(ServedCli.CatalogNames(await blind.OpenAsync(new Mcp.OpenSessionOptions())), name => name.EndsWith("_at", StringComparison.Ordinal));
+        await blind.CloseAsync("done");
+    }
+
+    [Fact]
     public async Task Catalogs_only_the_verbs_the_engine_declares()
     {
         var host = Host(new FakeEngine());
