@@ -42,7 +42,8 @@ public sealed class LimrunDriverTests
 
         Assert.Equal("com.example.app", binding.InstalledApp);
         Assert.Equal($"limrun:{platform.WireName()}:lease", binding.DeviceId);
-        Assert.All(sessions, named => Assert.Matches("^e2e-lease-[0-9a-f]{8}$", named));
+        Assert.NotEmpty(sessions);
+        Assert.All(sessions,named => Assert.Matches("^e2e-lease-[0-9a-f]{8}$", named));
         Assert.Single(sessions.Distinct());
         JsonAssert.Args(
             $$"""{"tenant":"e2e","runId":"run","clientId":"worker-0","leaseBackend":"{{platform.WireName()}}-instance","leaseProvider":"limrun","retainOnClose":true}""",
