@@ -4,6 +4,7 @@
 
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using E2E.Engine;
 
 namespace E2E;
 
@@ -20,13 +21,24 @@ internal sealed class PixelMode
     /// <summary>True once a screenshot went to the model in this step.</summary>
     public bool Showing { get; set; }
 
+    /// <summary>The latest screenshot the model holds, with the viewport it covered: what a point the model names is read against (upstream's <c>latestScreenshot</c>).</summary>
+    public (ExecutorPixels Pixels, TraceViewport Viewport)? Latest { get; private set; }
+
+    /// <summary>Notes that a screenshot went to the model. A point tool reads its coordinates against it.</summary>
+    public void Shown(ExecutorPixels pixels, TraceViewport? viewport)
+    {
+        Showing = true;
+        Latest = viewport is null ? null : (pixels, viewport);
+    }
+
     /// <summary>The step's pixel mode.</summary>
     public static PixelMode For(StepExecutorContext context) => Steps.GetValue(context, static _ => new PixelMode());
 
-    /// <summary>The line under a screenshot: its pixel size and its scale to the viewport's CSS pixels (upstream's <c>screenshotNote</c>).</summary>
+    /// <summary>The line under a screenshot: its pixel size, its scale to the viewport's CSS pixels, and the coordinate space the point tools read (upstream's <c>screenshotNote</c>).</summary>
     public static string Note(ExecutorPixels pixels) =>
         "Screenshot attached: " + pixels.Width.ToString(CultureInfo.InvariantCulture) + " by " + pixels.Height.ToString(CultureInfo.InvariantCulture) + " pixels"
-        + (pixels.Scale == 1 ? "" : " (" + pixels.Scale.ToString("R", CultureInfo.InvariantCulture) + " per CSS pixel)") + ".";
+        + (pixels.Scale == 1 ? "" : " (" + pixels.Scale.ToString("R", CultureInfo.InvariantCulture) + " per CSS pixel)")
+        + ". Point coordinates (tap_at and the other _at verbs) are pixels of this image: x from the left edge, y from the top edge.";
 
     /// <summary>Why pixels did not reach the model, and what to do instead (upstream's <c>withheldAdvice</c>).</summary>
     public static string WithheldAdvice(VisionDegradation code) => code switch

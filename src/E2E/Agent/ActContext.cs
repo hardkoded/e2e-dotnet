@@ -77,7 +77,7 @@ internal sealed partial class ActContext : StepExecutorContext
             CancellationToken = scope.Ended.Token,
             Memory = scope.ExecutorMemory,
         };
-        Target = new ExecutorTargetInfo { Name = scope.TargetName, Platform = scope.EnginePlatform, Verbs = VerbsOf(scope.EngineCapabilities), TapModifiers = scope.EngineCapabilities.HasFlag(EngineCapabilities.TapModifiers) };
+        Target = new ExecutorTargetInfo { Name = scope.TargetName, Platform = scope.EnginePlatform, Verbs = VerbsOf(scope.EngineCapabilities, scope.Session.PointerActionKinds), TapModifiers = scope.EngineCapabilities.HasFlag(EngineCapabilities.TapModifiers) };
         ReplayedPrefix = prefix;
         Model = agent.Model;
         ProviderOptions = agent.ProviderOptions;
@@ -164,7 +164,7 @@ internal sealed partial class ActContext : StepExecutorContext
     }
 
     // The verbs the engine can honor: the grammar the built-in tools offer for these capabilities.
-    private static HashSet<ExecutorVerb> VerbsOf(EngineCapabilities capabilities)
+    private static HashSet<ExecutorVerb> VerbsOf(EngineCapabilities capabilities, IReadOnlyCollection<string> pointerKinds)
     {
         var verbs = new HashSet<ExecutorVerb>
         {
@@ -191,6 +191,22 @@ internal sealed partial class ActContext : StepExecutorContext
         if (capabilities.HasFlag(EngineCapabilities.History))
         {
             verbs.Add(ExecutorVerb.Back);
+        }
+
+        // The point verbs follow the pointer kinds the engine declared (upstream's declaredVerbs).
+        if (pointerKinds.Contains("tap"))
+        {
+            verbs.Add(ExecutorVerb.TapAt);
+        }
+
+        if (pointerKinds.Contains("hover"))
+        {
+            verbs.Add(ExecutorVerb.HoverAt);
+        }
+
+        if (pointerKinds.Contains("dragTo"))
+        {
+            verbs.Add(ExecutorVerb.DragAt);
         }
 
         return verbs;

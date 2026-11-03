@@ -33,7 +33,13 @@ public static class DefaultAgent
         "A secret looks like <secret:name>. " +
         "If what you need is not on the screen, scroll to it. " +
         "screenshot attaches the viewport's pixels when the tree lacks what you need (a shape on a canvas, a pin on a map, a region of an image, a control inside a system sheet) or contradicts what you expect; " +
-        "once you have one, every action result carries a fresh screenshot so you can see what the action did.";
+        "once you have one, every action result carries a fresh screenshot so you can see what the action did. " +
+        "tap_at, hover_at, drag_at, type_at, press_at, and select_at act at a point in the latest screenshot's pixel coordinates. " +
+        "tap_at, hover_at, and drag_at act on the bare points where the engine can, and on the listed controls under them by id where it cannot; " +
+        "type_at, press_at, and select_at act on a listed control under the point by its id. " +
+        "Prefer ids: tap, fill, press, and select by id whenever the screen lists the target, " +
+        "use the point tools only for a target the screen does not list, " +
+        "and take a screenshot before guessing a point rather than aiming from memory or from what you expect to be drawn.";
 
     /// <summary>
     /// Builds the built-in step executor: the model loop with the grammar tools of the target's engine and the project
@@ -68,7 +74,7 @@ public static class DefaultAgent
             : tools.Where(pair => pair.Value.AppliesTo(context.Target.Platform)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         var offered = project.Select(pair => AgentTools.Project(pair.Key, pair.Value)).ToList();
         var act = new ActTools(host.Scope, host.Feed, null, PixelMode.For(context));
-        return AgentTools.CreateGrammarTools(host.Scope.EngineCapabilities, offered)
+        return AgentTools.CreateGrammarTools(host.Scope.EngineCapabilities, offered, host.Scope.Session.PointerActionKinds)
             .Select(definition => new ToolLoopTool(
                 definition,
                 async (call, token) =>
@@ -147,7 +153,7 @@ public static class DefaultAgent
         builder.Append('\n').Append(screen.Text);
         if (screen.Pixels is { } pixels)
         {
-            PixelMode.For(context).Showing = true;
+            PixelMode.For(context).Shown(pixels, context.Host?.Feed.Latest?.Viewport);
             builder.Append("\n\n").Append(PixelMode.Note(pixels));
         }
         else if (screen.PixelsWithheld is { } withheld)
@@ -182,9 +188,15 @@ public static class DefaultAgent
         return text;
     }
 
+    private static string Point(Engine.Point point) =>
+        "(" + point.X.ToString("R", CultureInfo.InvariantCulture) + ", " + point.Y.ToString("R", CultureInfo.InvariantCulture) + ")";
+
+    private static string PointSuffix(RecordedPointPlace? place) =>
+        place?.Target is { } target ? " on " + RecordedTarget.TargetLabel(target) : "";
+
     internal static string Describe(RecordedAction action)
     {
-        var builder = new StringBuilder(action.Kind);
+        var builder = new StringBuilder(action.Kind switch { "tapAt" => "tap", "hoverAt" => "hover", "dragAt" => "drag", _ => action.Kind });
 
         // Upstream's summary: the files, then the node they went to.
         if (action.Paths is { Count: > 0 } paths)
@@ -218,6 +230,17 @@ public static class DefaultAgent
         if (action.Text is not null)
         {
             builder.Append(" \"").Append(action.Text).Append('"');
+        }
+
+        // Upstream's summary of a point action: `tap the point (x, y) on <the node it sat in>`.
+        if (action.Point is { } point)
+        {
+            builder.Append(" the point ").Append(Point(point)).Append(PointSuffix(action.Under));
+        }
+
+        if (action.From is { } from && action.To is { } to)
+        {
+            builder.Append(" from the point ").Append(Point(from.Point)).Append(PointSuffix(from.Under)).Append(" to the point ").Append(Point(to.Point)).Append(PointSuffix(to.Under));
         }
 
         if (action.Direction is not null)

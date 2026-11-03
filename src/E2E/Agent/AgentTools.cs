@@ -128,6 +128,37 @@ internal static class AgentTools
         "From then on every action result carries a fresh screenshot too, so you can see what each action did.",
         Parse("""{ "type": "object", "properties": {} }"""));
 
+    private static readonly JsonElement PointXY = Parse(
+        """
+        {
+          "type": "object",
+          "properties": {
+            "x": { "type": "number", "description": "x in the latest screenshot, pixels from the left edge" },
+            "y": { "type": "number", "description": "y in the latest screenshot, pixels from the top edge" }
+          },
+          "required": ["x", "y"]
+        }
+        """);
+
+    /// <summary>
+    /// Upstream's <c>POINT_TOOLS</c> (<c>agent/primitives.ts</c>): the point verbs that take only a point, one tool each. <c>Kind</c> is the
+    /// engine pointer kind that takes the bare point, <c>Does</c> what the tool does up to the clause about a bare point, <c>ById</c> the
+    /// node verb the last-resort advice names. The node hover of #861 is not offered here, so <c>hover_at</c> needs its pointer kind.
+    /// </summary>
+    private static readonly (string Tool, string Kind, string Does, string ById)[] PointTools =
+    [
+        (
+            "tap_at",
+            "tap",
+            "Tap a point in the latest screenshot, given as pixel coordinates in that image (x from the left edge, y from the top edge). Aim for the center of the target. The bare point is tapped",
+            "tap it by id"),
+        (
+            "hover_at",
+            "hover",
+            "Move the pointer to a point in the latest screenshot without clicking, for a hover target the screen does not list (a drawn control, a region of an image). The bare point is hovered",
+            "hover it by id"),
+    ];
+
     private static readonly ModelTool[] Verbs =
     [
         Tool("tap", "Activate a control.", Target),
@@ -167,7 +198,7 @@ internal static class AgentTools
         new(Tool(VerdictTool.Name, "End the step with a verdict. blocked requires a code naming what blocked you.", Done));
 
     /// <summary>The act tools an engine with these capabilities can honor, without the verdict tool. Scroll and back tools need their capability.</summary>
-    public static IReadOnlyList<ModelTool> CreateGrammarTools(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null)
+    public static IReadOnlyList<ModelTool> CreateGrammarTools(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null, IReadOnlyCollection<string>? pointerKinds = null)
     {
         var tools = new List<ModelTool> { Observe };
         tools.AddRange(capabilities.HasFlag(EngineCapabilities.TapModifiers) ? Verbs.Select(HoldingModifiers) : Verbs);
@@ -189,11 +220,68 @@ internal static class AgentTools
         }
 
         tools.Add(Screenshot);
+        tools.AddRange(CreatePointTools(pointerKinds ?? []));
         if (project is not null)
         {
             tools.AddRange(project);
         }
 
+        return tools;
+    }
+
+    /// <summary>
+    /// Upstream's <c>createPointTools</c>: the point-addressed fallback verbs, each taking a point in the latest screenshot for a target the
+    /// tree does not list. <paramref name="pointerKinds"/> are the pointer kinds the engine takes at a bare point. A point tool whose node verb
+    /// exists is offered even without the kind, and says its bare point cannot be taken.
+    /// </summary>
+    private static List<ModelTool> CreatePointTools(IReadOnlyCollection<string> pointerKinds)
+    {
+        var tools = new List<ModelTool>();
+        foreach (var (tool, kind, does, byId) in PointTools)
+        {
+            var bare = pointerKinds.Contains(kind);
+            if (!bare && kind != "tap")
+            {
+                continue;
+            }
+
+            tools.Add(Tool(
+                tool,
+                does + (bare ? "." : ", which this engine cannot do: the point must land on a listed control.") + " Last resort: when the screen lists the target, " + byId + ".",
+                PointXY));
+        }
+
+        if (pointerKinds.Contains("dragTo"))
+        {
+            tools.Add(Tool(
+                "drag_at",
+                "Drag from one point in the latest screenshot to another, for a drag the screen does not list: a shape on a canvas, a pin on a map, a card dropped on an empty spot. Both points are pixel coordinates in that image (x from the left edge, y from the top edge). Start on the center of what you drag. The bare points are dragged. Last resort: when the screen lists what you drag and where it goes, use drag by id.",
+                Extend(
+                    PointXY,
+                    """
+                    {
+                      "to_x": { "type": "number", "description": "x of the drop point in the latest screenshot, pixels from the left edge" },
+                      "to_y": { "type": "number", "description": "y of the drop point in the latest screenshot, pixels from the top edge" }
+                    }
+                    """,
+                    "x",
+                    "y",
+                    "to_x",
+                    "to_y")));
+        }
+
+        tools.Add(Tool(
+            "type_at",
+            "Type a plain-text value into the input at a point in the latest screenshot, replacing its value. Aim at the field itself; a point on nothing listed fails. Last resort: when the screen lists the field, type by id.",
+            Extend(PointXY, """{ "value": { "type": "string" } }""", "x", "y", "value")));
+        tools.Add(Tool(
+            "press_at",
+            "Send one key (e.g. \"Enter\", \"Escape\", \"Tab\") to the control at a point in the latest screenshot, for a control the screen does not list. Last resort: when the screen lists the control, press by id.",
+            Extend(PointXY, """{ "key": { "type": "string", "minLength": 1, "maxLength": 64 } }""", "x", "y", "key")));
+        tools.Add(Tool(
+            "select_at",
+            "Pick one option, by its visible label, from the select-like control at a point in the latest screenshot. Last resort: when the screen lists the select, use select by id.",
+            Extend(PointXY, """{ "value": { "type": "string", "minLength": 1 } }""", "x", "y", "value")));
         return tools;
     }
 
@@ -210,7 +298,7 @@ internal static class AgentTools
     /// <summary>True when <paramref name="name"/> is a tool the agent offers itself, whatever the engine.</summary>
     public static bool IsReserved(string name) =>
         string.Equals(name, VerdictTool.Name, StringComparison.Ordinal) ||
-        CreateGrammarTools(EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Upload).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
+        CreateGrammarTools(EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Upload, null, ["tap", "hover", "dragTo"]).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
 
     /// <summary>The model's view of a project tool: its name, description, and input schema.</summary>
     public static ModelTool Project(string name, AgentTool tool) =>
@@ -358,6 +446,25 @@ internal static class Args
             if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == JsonValueKind.String)
             {
                 return property.Value.GetString();
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>A finite number argument, or null when it is absent or not a number.</summary>
+    public static double? Number(JsonElement element, string name)
+    {
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        foreach (var property in element.EnumerateObject())
+        {
+            if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == JsonValueKind.Number && property.Value.TryGetDouble(out var number) && double.IsFinite(number))
+            {
+                return number;
             }
         }
 

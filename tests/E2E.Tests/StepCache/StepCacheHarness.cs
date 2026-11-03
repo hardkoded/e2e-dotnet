@@ -253,6 +253,14 @@ internal sealed class StepHost : IStepCacheHost
 
         public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+        public Task<PointTapResult> TapAtAsync(Point point, CancellationToken cancellationToken = default) => Task.FromResult(new PointTapResult(point, null, ""));
+
+        public Task<PointTapResult> HoverAtAsync(Point point, CancellationToken cancellationToken = default) => Task.FromResult(new PointTapResult(point, null, ""));
+
+        public Task<PointDragResult> DragAtAsync(Point from, Point to, CancellationToken cancellationToken = default) => Task.FromResult(new PointDragResult(from, to, null, null, ""));
+
+        public Task<PointHit> HitTestAsync(Point point, CancellationToken cancellationToken = default) => Task.FromResult(new PointHit(point, null, null, ""));
+
         public Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task ScrollAsync(ExecutorTarget? list, ScrollDirection direction, int times = 1, CancellationToken cancellationToken = default) => Task.CompletedTask;

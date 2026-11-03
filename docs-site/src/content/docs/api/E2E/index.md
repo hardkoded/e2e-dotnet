@@ -111,12 +111,17 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [OpenedStep](/api/E2E/OpenedStep/) | A step as opened: title and charter bounded to the report's ceilings, which is what the step runs with. |
 | [OpenHostOptions](/api/E2E/OpenHostOptions/) | What OpenAsync is given. Upstream's OpenHostOptions (run/open-session.ts). |
 | [OpenSessionOptions](/api/E2E/OpenSessionOptions/) | What OpenSessionAsync is given. Upstream's OpenSessionOptions (run/open-session.ts). |
+| [PointDragResult](/api/E2E/PointDragResult/) | Upstream's PointDragResult: what one DragAtAsync did, for the executor to relay to its model. |
+| [PointHit](/api/E2E/PointHit/) | Upstream's PointHit: what one HitTestAsync found, for the executor to act on or relay. |
+| [PointTapResult](/api/E2E/PointTapResult/) | Upstream's PointTapResult: what one point action (TapAtAsync, HoverAtAsync) did, for the executor to relay to its model. |
 | [PollExpectation&lt;T&gt;](/api/E2E/PollExpectation-1/) | Re-reads a value until the chosen matcher holds or the timeout passes. A read that throws is retried, and its error is reported if the poll times out. A matcher that refuses the read value's type counts as not yet. With NUnit, ToMatchAsync from E2E.NUnit takes any NUnit constraint. |
 | [PollOptions](/api/E2E/PollOptions/) | How Poll&lt;T&gt; re-reads a value. |
 | [PreparedMessages](/api/E2E/PreparedMessages/) | What PrepareMessages hands back: the history for the next turn, and optionally a reason to stop. The executor has evidence the loop guards cannot see that the step is not progressing. A stop leaves the model only done, like a loop guard. |
 | [PreparedTurn](/api/E2E/PreparedTurn/) | What PrepareMessages learns about the turn that is about to run. |
 | [PressSequentiallyOptions](/api/E2E/PressSequentiallyOptions/) | Options for PressSequentiallyAsync. |
 | [RecordedAction](/api/E2E/RecordedAction/) |  |
+| [RecordedPointEnd](/api/E2E/RecordedPointEnd/) | Upstream's TracePointEnd: a recorded point and, when a listed node with a durable descriptor contained it, its place inside that node's box. |
+| [RecordedPointPlace](/api/E2E/RecordedPointPlace/) | Upstream's TracePointEnd.within: the node a bare point sat in, and the point's place inside its box. |
 | [RecordedTarget](/api/E2E/RecordedTarget/) |  |
 | [RecordedVideo](/api/E2E/RecordedVideo/) | One video StopRecordingAsync(CancellationToken) returns: a file, or a link to a recording a hosted service keeps (upstream's RecordedVideo). |
 | [RecordedVideoFile](/api/E2E/RecordedVideoFile/) | A video file under the attempt's recordings/ directory (upstream's RecordedVideoFile). |

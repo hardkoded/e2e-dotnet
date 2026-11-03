@@ -179,6 +179,39 @@ public sealed class RecordedAction
             ? Paths is { Count: > 0 and <= Trace.MaxTraceUploadPaths } && Paths.All(path => !string.IsNullOrEmpty(path) && path.Length <= Trace.MaxTraceInputChars)
             : Paths is null;
 
+    /// <summary>
+    /// The viewport point of a <c>tapAt</c> or <c>hoverAt</c>, in CSS pixels, where the model aimed (upstream's <c>PointAction.point</c>). Replayed as
+    /// given on a viewport of <see cref="Viewport"/>'s size, or at <see cref="Under"/>'s place in the live node.
+    /// </summary>
+    public Point? Point { get; set; }
+
+    /// <summary>The size of the viewport a point action was placed in, the precondition of its replay (upstream's <c>viewport</c> of a point action).</summary>
+    public TraceViewport? Viewport { get; set; }
+
+    /// <summary>
+    /// Upstream's <c>within</c> of a point action: the listed node that held the point and the point's place inside its box, when the node has
+    /// a durable descriptor. Replay re-finds the node and acts at the same place in its live box, so a layout shift moves the point with it.
+    /// </summary>
+    public RecordedPointPlace? Under { get; set; }
+
+    /// <summary>The start of a <c>dragAt</c>, placed the way a point action's one point is.</summary>
+    public RecordedPointEnd? From { get; set; }
+
+    /// <summary>The end of a <c>dragAt</c>.</summary>
+    public RecordedPointEnd? To { get; set; }
+
+    /// <summary>
+    /// Whether the point fields are well formed: a <c>tapAt</c> or <c>hoverAt</c> holds a finite <see cref="Point"/> and a positive
+    /// <see cref="Viewport"/>, a <c>dragAt</c> holds both ends and a viewport, and every other action holds none of them. Upstream's
+    /// <c>readAction</c>, which makes a malformed entry a miss.
+    /// </summary>
+    internal bool HasValidPoints() => Kind switch
+    {
+        "tapAt" or "hoverAt" => Point is { } point && RecordedPointPlace.IsFinite(point) && Viewport is { Width: > 0, Height: > 0 } && From is null && To is null && (Under?.IsValid() ?? true),
+        "dragAt" => Point is null && Under is null && Viewport is { Width: > 0, Height: > 0 } && From is { } from && from.IsValid() && To is { } to && to.IsValid(),
+        _ => Point is null && Viewport is null && Under is null && From is null && To is null,
+    };
+
     /// <summary>A shallow copy of this action, which <see cref="Trace.MapTraceText"/> rewrites the text of.</summary>
     internal RecordedAction Copy() => (RecordedAction)MemberwiseClone();
 
@@ -195,6 +228,37 @@ public sealed class RecordedAction
             && Modifiers.Count > 0
             && Modifiers.Distinct(StringComparer.Ordinal).Count() == Modifiers.Count
             && Modifiers.All(name => KeyModifiers.TryParse(name, out _)));
+}
+
+/// <summary>Upstream's <c>TracePointEnd.within</c>: the node a bare point sat in, and the point's place inside its box.</summary>
+public sealed class RecordedPointPlace
+{
+    /// <summary>How a replay re-finds the node: its role, label, test id and container key.</summary>
+    public RecordedTarget? Target { get; set; }
+
+    /// <summary>The point's place across the node's box, 0 at the left edge and 1 at the right.</summary>
+    public double Fx { get; set; }
+
+    /// <summary>The point's place down the node's box, 0 at the top edge and 1 at the bottom.</summary>
+    public double Fy { get; set; }
+
+    internal static bool IsFinite(Point point) => double.IsFinite(point.X) && double.IsFinite(point.Y);
+
+    internal bool IsValid() => Target is not null && double.IsFinite(Fx) && double.IsFinite(Fy);
+
+    internal RecordedPointPlace Copy() => (RecordedPointPlace)MemberwiseClone();
+}
+
+/// <summary>Upstream's <c>TracePointEnd</c>: a recorded point and, when a listed node with a durable descriptor contained it, its place inside that node's box.</summary>
+public sealed class RecordedPointEnd
+{
+    public Point Point { get; set; }
+
+    public RecordedPointPlace? Under { get; set; }
+
+    internal bool IsValid() => RecordedPointPlace.IsFinite(Point) && (Under?.IsValid() ?? true);
+
+    internal RecordedPointEnd Copy() => (RecordedPointEnd)MemberwiseClone();
 }
 
 public sealed class RecordedTarget

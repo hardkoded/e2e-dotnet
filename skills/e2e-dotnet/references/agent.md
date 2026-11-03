@@ -183,9 +183,12 @@ The tools the model can call: `observe`, `tap`, `double_tap`, `fill`,
 `check`, `uncheck`, `clear`, `upload`, `scroll`, `scroll_to`, `navigate`, `back`, and
 `done`. `scroll` and `scroll_to` come with an engine that can scroll, `back`
 with one that has history, and `upload` with one that declares
-`EngineCapabilities.Upload` (the web engine). There is no `hover`, `drag`,
-`long_press`, `right_click`, `screenshot`, or point tool: a step that needs
-one is `AUTOMATION_UNSUPPORTED`. Do that part with `Screen` actions instead.
+`EngineCapabilities.Upload` (the web engine). `screenshot` and the point tools
+`tap_at`, `type_at`, `press_at`, and `select_at` are always offered (see
+"Screenshots in `ActAsync`"), and `hover_at` and `drag_at` with an engine that
+takes a bare point for a hover or a drag (the web engine does). There is no
+`hover`, `drag`, `long_press`, or `right_click`: a step that needs one is
+`AUTOMATION_UNSUPPORTED`. Do that part with `Screen` actions instead.
 `upload` takes a target and `files`, project-relative paths such as
 `fixtures/photo.png`, and attaches them to a file input or to a control that
 opens a file chooser. The harness authorizes the paths before the engine sees
@@ -363,8 +366,29 @@ semantic tree (`Observation.TreeUnavailable`, answered to a look with
 `ObserveOptions.PixelFallback`), the step works from the screenshot alone:
 earlier node references are refused and the step is not cached. If no masked
 screenshot can replace the tree, the step ends `POLICY_DENIED`. `ActOptions`
-has no `Vision` option. The point tools (`tap_at` and the others) are not
-ported yet.
+has no `Vision` option.
+
+The point tools act at a point of the latest screenshot, given in that image's
+pixels (x from the left edge, y from the top). They are for a target the
+screen does not list; the model is told to prefer ids. Before a screenshot
+they cost nothing and answer with the line that says to take one.
+
+- `tap_at`, `hover_at`, and `drag_at` (`x`, `y`, and for a drag `to_x` and
+  `to_y`) send the bare point to the engine, scaled into CSS pixels and
+  clamped to the viewport, when it declares the pointer kind. The result names
+  the control the point landed inside, or says no listed control is there. An
+  engine without the bare-point tap taps the enabled control that contains the
+  point by its id instead, and a point on nothing listed fails with
+  `UNSUPPORTED_CAPABILITY`. `hover_at` and `drag_at` need the bare point.
+- `type_at`, `press_at`, and `select_at` act by id on the enabled control the
+  point lands on (`value` or `key` beside the point). A point on nothing listed
+  is an action failure the model can read, and costs no action.
+
+A custom executor reaches the same verbs as `Actions.TapAtAsync`,
+`HoverAtAsync`, `DragAtAsync`, and `HitTestAsync`. The trace cache records a
+point with the viewport size and where the point sat inside the node under
+it. A replay re-finds that node and taps the same place in its live box; a
+viewport of another size hands the step over (`viewport-changed`).
 
 ## Budgets and cost
 

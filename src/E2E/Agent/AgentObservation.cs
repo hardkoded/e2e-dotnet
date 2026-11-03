@@ -69,7 +69,7 @@ internal static class AgentObservation
         + (observation.Pixels is { } pixels ? "\n<pixels " + PixelDigest(pixels.Png) + ">" : "");
 
     /// <summary>Roles the model can act on by name: the lines that mark a screen as one the tree can drive at all (upstream's <c>INTERACTIVE_ROLES</c>).</summary>
-    private static readonly HashSet<string> InteractiveRoles = new(
+    internal static readonly HashSet<string> InteractiveRoles = new(
         ["button", "link", "textbox", "searchbox", "combobox", "listbox", "checkbox", "radio", "switch", "tab", "menuitem", "menuitemcheckbox", "menuitemradio", "option", "slider", "spinbutton", "treeitem"],
         StringComparer.Ordinal);
 

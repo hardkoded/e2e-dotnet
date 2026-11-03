@@ -73,6 +73,34 @@ DoubleTap = 1
 
 **Value:** [ExecutorVerb](./)
 
+<a id="E2E_ExecutorVerb_DragAt"></a>
+
+### DragAt
+
+
+```csharp
+DragAt = 16
+```
+
+
+Upstream's `dragAt`: `DragAtAsync`, with the engine's `dragTo` pointer kind.
+
+**Value:** [ExecutorVerb](./)
+
+<a id="E2E_ExecutorVerb_HoverAt"></a>
+
+### HoverAt
+
+
+```csharp
+HoverAt = 15
+```
+
+
+Upstream's `hoverAt`: `HoverAtAsync`, with the engine's `hover` pointer kind.
+
+**Value:** [ExecutorVerb](./)
+
 <a id="E2E_ExecutorVerb_Navigate"></a>
 
 ### Navigate
@@ -154,6 +182,20 @@ Select = 6
 Tap = 0
 ```
 
+
+**Value:** [ExecutorVerb](./)
+
+<a id="E2E_ExecutorVerb_TapAt"></a>
+
+### TapAt
+
+
+```csharp
+TapAt = 14
+```
+
+
+Upstream's `tapAt`: `TapAtAsync`, with the engine's `tap` pointer kind.
 
 **Value:** [ExecutorVerb](./)
 

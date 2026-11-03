@@ -23,7 +23,7 @@ namespace E2E;
 internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed, ScreenPresenter? screen = null, PixelMode? pixels = null)
 {
     private static readonly HashSet<string> ActionTools =
-        new(["navigate", "tap", "double_tap", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "upload", "back", "scroll", "scroll_to"], StringComparer.Ordinal);
+        new(["navigate", "tap", "double_tap", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "upload", "back", "scroll", "scroll_to", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"], StringComparer.Ordinal);
 
     private readonly AttemptScope _scope = scope;
     private readonly ObservationFeed _feed = feed;
@@ -107,6 +107,8 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             case "navigate":
                 var url = Args.String(arguments, "url") ?? "/";
                 return await ActingAsync(new ActionLabel("Navigated to " + url + ".", "navigate " + url), () => actions.NavigateAsync(url, token), token).ConfigureAwait(false);
+            case "tap_at" or "hover_at" or "drag_at" or "type_at" or "press_at" or "select_at":
+                return await PointToolAsync(call.Name, arguments, actions, budget, token).ConfigureAwait(false);
             case "press" when !HasTarget(arguments):
                 var focusedKey = Args.String(arguments, "key") ?? "Enter";
                 return await ActingAsync(NodeLabel(call.Name, arguments, "the focused field"), () => actions.PressAsync(null, focusedKey, token), token).ConfigureAwait(false);
@@ -140,6 +142,89 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             },
             token).ConfigureAwait(false);
     }
+
+    // Upstream's createPointTools: a point the model read off the latest screenshot, scaled into the viewport, then the verb the tool names.
+    // Before a screenshot the call costs nothing: it answers with the line that says to take one. The action's own summary leads the
+    // result, and a call the point verb turned away before it took a slot gives the slot back.
+    private async Task<ToolOutcome> PointToolAsync(string tool, JsonElement arguments, IExecutorActions actions, StepAccounting budget, CancellationToken token)
+    {
+        var coordinates = new (string Name, double? Value)[] { ("x", Args.Number(arguments, "x")), ("y", Args.Number(arguments, "y")) };
+        var drag = tool == "drag_at";
+        if (drag)
+        {
+            coordinates = [.. coordinates, ("to_x", Args.Number(arguments, "to_x")), ("to_y", Args.Number(arguments, "to_y"))];
+        }
+
+        if (coordinates.FirstOrDefault(pair => pair.Value is null).Name is { } missing)
+        {
+            budget.RefundPrepaid();
+            return ToolOutcome.Fail(tool + " takes a number for " + missing + ".");
+        }
+
+        var px = coordinates[0].Value!.Value;
+        var py = coordinates[1].Value!.Value;
+        if (_pixels?.Latest is not var (shot, viewport))
+        {
+            budget.RefundPrepaid();
+            return ToolOutcome.Ok("No screenshot has been taken in this step: " + tool + " coordinates are pixels of the latest screenshot. Call screenshot first, or act on a listed node by id.");
+        }
+
+        var point = PointTap.ImagePointToViewport(new Point(px, py), shot, viewport);
+        var attempt = tool + " " + At(px, py) + (drag ? " to " + At(coordinates[2].Value!.Value, coordinates[3].Value!.Value) : "");
+        var label = new ActionLabel(attempt, attempt);
+        try
+        {
+            var lead = tool switch
+            {
+                "tap_at" => (await actions.TapAtAsync(point, token).ConfigureAwait(false)).Summary,
+                "hover_at" => (await actions.HoverAtAsync(point, token).ConfigureAwait(false)).Summary,
+                "drag_at" => (await actions.DragAtAsync(point, PointTap.ImagePointToViewport(new Point(coordinates[2].Value!.Value, coordinates[3].Value!.Value), shot, viewport), token).ConfigureAwait(false)).Summary,
+                "select_at" => await SelectAtAsync(point, Args.String(arguments, "value") ?? "", actions, token).ConfigureAwait(false),
+                "type_at" => await TypeAtAsync(point, Args.String(arguments, "value") ?? "", actions, token).ConfigureAwait(false),
+                _ => await PressAtAsync(point, Args.String(arguments, "key") ?? "Enter", actions, token).ConfigureAwait(false),
+            };
+            return await DescribeOutcomeAsync(lead, token).ConfigureAwait(false);
+        }
+        catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
+        {
+            // A point verb turned away before it took its slot has spent nothing; one that ran has taken the prepaid slot already.
+            budget.RefundPrepaid();
+            return await FailedAsync(label, ex, token).ConfigureAwait(false);
+        }
+    }
+
+    // Upstream's controlAt: the listed control at a point, for a verb that needs one. Nothing listed there is an ordinary action failure the model reads and works around.
+    private static async Task<(ExecutorTarget Control, string Summary)> ControlAtAsync(Point point, string verb, IExecutorActions actions, CancellationToken token)
+    {
+        var hit = await actions.HitTestAsync(point, token).ConfigureAwait(false);
+        return hit.Control is { } control
+            ? (control, hit.Summary)
+            : throw new TestException("ACTION_FAILED", hit.Summary + "; " + verb + " needs a control the screen lists. Tap the target first, or aim at the control itself.");
+    }
+
+    private static async Task<string> SelectAtAsync(Point point, string value, IExecutorActions actions, CancellationToken token)
+    {
+        var (control, summary) = await ControlAtAsync(point, "select_at", actions, token).ConfigureAwait(false);
+        await actions.SelectAsync(control, value, token).ConfigureAwait(false);
+        return "Selected \"" + value + "\" in " + summary + ".";
+    }
+
+    private static async Task<string> TypeAtAsync(Point point, string value, IExecutorActions actions, CancellationToken token)
+    {
+        var (control, summary) = await ControlAtAsync(point, "type_at", actions, token).ConfigureAwait(false);
+        await actions.TypeAsync(control, value, token).ConfigureAwait(false);
+        return "Typed into " + summary + ".";
+    }
+
+    private static async Task<string> PressAtAsync(Point point, string key, IExecutorActions actions, CancellationToken token)
+    {
+        var (control, summary) = await ControlAtAsync(point, "press_at", actions, token).ConfigureAwait(false);
+        await actions.PressAsync(control, key, token).ConfigureAwait(false);
+        return "Pressed " + key + " on " + summary + ".";
+    }
+
+    // How a point reads in a lead: upstream's `(x, y)`.
+    private static string At(double x, double y) => "(" + x.ToString("R", CultureInfo.InvariantCulture) + ", " + y.ToString("R", CultureInfo.InvariantCulture) + ")";
 
     // Upstream's `acting`: the action runs, then the screen follows under the label's done lead, or under the failure lead when it threw.
     private async Task<ToolOutcome> ActingAsync(ActionLabel label, Func<Task> action, CancellationToken token)
@@ -485,10 +570,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         var view = await _feed.ObserveAsync(new ExecutorObserveOptions { Pixels = true }, token).ConfigureAwait(false);
         if (view.Pixels is { } shot)
         {
-            if (_pixels is not null)
-            {
-                _pixels.Showing = true;
-            }
+            _pixels?.Shown(shot, _feed.Latest?.Viewport);
 
             return new ScreenText(action + "\n" + view.Text + "\n\n" + PixelMode.Note(shot), shot);
         }
