@@ -1,0 +1,112 @@
+---
+title: Run steps on your coding agent
+description: Run agent.act and agent.assert on Claude Code, Codex, or any agent that speaks the Agent Client Protocol, with its own login.
+sidebar:
+  label: "Your coding agent"
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+`E2E.Acp` runs `ActAsync` and `AssertAsync` on Claude Code or Codex over the [Agent Client Protocol](https://agentclientprotocol.com). The agent signs in with its own login or API key, so e2e needs no model provider. This is upstream's `@e2e-dev/acp` (see [COMPATIBILITY.md](/compatibility/#acp)).
+
+The agent gets `done` and the built-in agent's action tools for the verbs the target's engine supports. The runner records every action, so steps replay from the [cache](/features/caching/) without the agent. Your tests do not change.
+
+## Set up
+
+`E2E.Acp` starts the agent's adapter, an npm package, with `node`. **Node must be on the `PATH`.** Install the adapter in your project, or in a folder above it. The preset finds it from the working directory up and never fetches it by name at run time.
+
+<Tabs>
+  <TabItem label="Claude Code">
+Install the package and Zed's Claude Code adapter. Sign in with `claude`, or set `ANTHROPIC_API_KEY`.
+
+```bash
+dotnet add package E2E.Acp
+npm install -D @agentclientprotocol/claude-agent-acp
+```
+
+```csharp
+using E2E;
+using E2E.Acp;
+using E2E.NUnit;
+
+public abstract class AppTest : E2ETest
+{
+    private static readonly IStepExecutor Claude = AcpExecutor.ClaudeCode(new AcpAgentOptions { Model = "sonnet" });
+
+    protected override IStepExecutor? AgentExecutor => Claude;
+}
+```
+  </TabItem>
+  <TabItem label="Codex">
+Install the package and the Codex adapter. Sign in with `codex login`.
+
+```bash
+dotnet add package E2E.Acp
+npm install -D @agentclientprotocol/codex-acp
+```
+
+```csharp
+private static readonly IStepExecutor Codex = AcpExecutor.Codex();
+
+protected override IStepExecutor? AgentExecutor => Codex;
+```
+  </TabItem>
+  <TabItem label="Another agent">
+`AcpExecutor.Create(command, args, options)` starts any agent that speaks ACP on stdio. There is no preset, so the agent's own tools stay on unless you turn them off through `AcpOptions.SessionMeta` or `Mode`. Cursor, for example:
+
+```csharp
+var cursor = AcpExecutor.Create("agent", ["acp"]);
+```
+
+Nothing goes through a shell. On Windows the command must be an executable, not a `.cmd` shim.
+  </TabItem>
+</Tabs>
+
+Set one executor as `E2ESessionOptions.AgentExecutor`, `AgentOptions.Executor`, or the fixture's `AgentExecutor`. See [custom executors](https://github.com/hardkoded/e2e-dotnet/blob/main/skills/e2e-dotnet/references/agent.md).
+
+`ClaudeCode` and `Codex` take `AcpAgentOptions`:
+
+| Option | What it does |
+| --- | --- |
+| `Model` | A model the agent offers, such as `sonnet`. When the agent does not offer it, the session fails to start and the error lists the models it does offer. Unset, the agent's default runs. |
+| `Env` | Variables added to the agent's environment. |
+| `System` | Text appended to the rules the agent gets with the first step. |
+| `Name` | The executor name in reports. |
+
+## What the agent can use
+
+An action the agent takes with its own tools is not recorded, cannot replay, and can reach files or the web. So e2e keeps the agent to the step tools:
+
+- The agent process starts in your project. Its session opens in an empty temporary directory, and e2e offers it no file system or terminal access.
+- e2e allows permission requests for step tools and rejects all others.
+- When a tool of the agent's own runs without asking, e2e stops the turn and fails the step with `POLICY_DENIED`. Later step tool calls take no action. The session closes, so the next step starts a fresh agent that never saw what the tool read.
+
+Each preset also turns off the agent's own tools that run without asking:
+
+- **Claude Code**: no built-in tools, no user, project, or local settings, no MCP servers but the step tools, no saved session, and no bypass of permission prompts.
+- **Codex**: read-only mode, no shell, web search, apps, plugins, browser, or computer use. Every MCP server from your Codex config is off for these sessions only (the preset reads the list with `codex mcp list --json`, which must finish in 30 seconds). Codex can still start a subagent, which fails the step like any tool of its own.
+
+## Secrets
+
+A secret param reaches the agent by name only. The agent calls `fill_secret` and the runner types the value, as for the built-in agent.
+
+The agent's process gets your environment without the `E2E_SECRET_*` and `E2E_USER_*` variables, in any casing. That holds for this process's environment and for `AcpAgentOptions.Env`.
+
+:::caution
+A secret in any other variable reaches the agent. An example is a password you read from `API_KEY` and pass as a secret, or the variable an `E2E_SECRET_*` value was copied from. Keep secrets in `E2E_SECRET_*` and `E2E_USER_*` only.
+:::
+
+## How a test runs
+
+One agent session serves one test attempt. The first agent step that the cache cannot replay starts it. Each later step is one more message in the same conversation, and the session closes when the attempt ends, or earlier on a `POLICY_DENIED` step.
+
+Each message carries the step, its non-secret params, the steps done so far, and the current screen. Action results say what changed on screen, and a `screenshot` reaches the agent as an image.
+
+An assertion cannot change the screen. `observe`, `screenshot`, scrolling, and hovering still work. The agent ends every step with `done`: `passed`, `failed`, or `blocked` with an error code, as the built-in agent does.
+
+## Limits
+
+- The Agent Client Protocol does not report model requests. Each prompt turn counts as one model call against `MaxModelCalls`, with its tokens and cost when the agent reports them. The step timeout bounds the turn.
+- `WaitForAsync` and `ExtractAsync` use the built-in judgments, so they need the agent's `Model`.
+- An executor takes no `Tools`, so the agent gets no project tools.
+- Upstream's `tests/cli.test.ts` is not ported: a config file cannot hold an executor, so the `e2e` CLI cannot run one.

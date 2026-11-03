@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "description": "The adapters AcpExecutor.ClaudeCode and AcpExecutor.Codex run with node.",
+  "devDependencies": {
+    "@agentclientprotocol/claude-agent-acp": "0.99.1",
+    "@agentclientprotocol/codex-acp": "2.5.0"
+  }
+}

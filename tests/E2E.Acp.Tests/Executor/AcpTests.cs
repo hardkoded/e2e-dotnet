@@ -13,6 +13,7 @@ namespace E2E.Acp.Tests.Executor;
 /// <c>E2E.Acp.Tests.Agent</c>, and the steps run through a real session over the in-memory document engine, since the grammar tools drive the
 /// context of a step the runtime opened. The port's verdict tool is <c>done</c> (upstream's <c>complete_step</c>) and takes <c>code</c>.
 /// </summary>
+[Collection(WorkingDirectoryCollection.Name)]
 public sealed class AcpTests : IDisposable
 {
     private static readonly object Pass = Call("done", new { status = "passed", summary = "added" });
@@ -402,6 +403,36 @@ public sealed class AcpTests : IDisposable
 
         Assert.Equal("added", result.Summary);
         Assert.Contains(agent.Log(), entry => entry["permission"]?.GetValue<string>() == "e2e_step.tap" && entry["outcome"]!["optionId"]!.GetValue<string>() == "yes");
+    }
+
+    [Fact]
+    public async Task Keeps_e2es_secret_and_credential_variables_from_the_agent()
+    {
+        var names = new[] { "E2E_SECRET_STRIPE_KEY", "E2E_USER_ADMIN_PASSWORD", "e2e_secret_lower" };
+        foreach (var name in names)
+        {
+            Environment.SetEnvironmentVariable(name, "value");
+        }
+
+        try
+        {
+            // Named in the executor's own env too, they still do not reach the agent.
+            var agent = Scripted(_directory, Turns([Pass]), env: new Dictionary<string, string> { ["E2E_SECRET_OTHER"] = "also-secret", ["E2E_ACP_TEST_KEPT"] = "1" });
+            await using var session = await StartAsync(agent.Executor, new TodoPage().World());
+
+            await session.Agent.ActAsync("add a todo");
+
+            var env = Assert.Single(agent.Log(), entry => entry.ContainsKey("env"))["env"]!.AsArray().Select(name => name!.GetValue<string>()).ToList();
+            Assert.Contains("E2E_ACP_TEST_KEPT", env);
+            Assert.DoesNotContain(env, name => name.StartsWith("E2E_SECRET_", StringComparison.OrdinalIgnoreCase) || name.StartsWith("E2E_USER_", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            foreach (var name in names)
+            {
+                Environment.SetEnvironmentVariable(name, null);
+            }
+        }
     }
 
     [Fact]

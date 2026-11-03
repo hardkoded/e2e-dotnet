@@ -74,6 +74,7 @@ export default defineConfig({
                         { label: "Soft assertions & evidence", slug: "features/assertions" },
                         { label: "Video & screenshots", slug: "features/video" },
                         { label: "Working with the browser", slug: "features/browser" },
+                        { label: "Your coding agent", slug: "features/acp" },
                     ],
                 },
                 {
