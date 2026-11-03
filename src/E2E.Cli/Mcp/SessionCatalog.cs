@@ -162,7 +162,7 @@ internal sealed class SessionCatalog
             Add("screenshot", Screenshot(context, projectRoot, attemptDir, pixels));
 
             // The point tools come after the screenshot they read their points from, as upstream's grammar lists them.
-            foreach (var point in AgentTools.CreateGrammarTools(capabilities, null, kinds, pointerKinds ?? []).Where(tool => tool.Name.EndsWith("_at", StringComparison.Ordinal)))
+            foreach (var point in AgentTools.GrammarToolDefinitions(capabilities, null, kinds, pointerKinds ?? []).Where(tool => tool.Name.EndsWith("_at", StringComparison.Ordinal)))
             {
                 Add(point.Name, Verb(context, screen, point.Name, point.Name, point.Description, point.Parameters, pixels: pixels));
             }
