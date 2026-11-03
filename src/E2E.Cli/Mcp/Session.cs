@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using E2E.Engine;
@@ -310,6 +311,7 @@ internal sealed class SessionHost : IDisposable
             abort.Token.ThrowIfCancellationRequested();
             IEngine engine;
             SessionTestOutcome? ran = null;
+            var elapsed = TimeSpan.Zero;
             var declared = target;
             if (options.Test is { } testName)
             {
@@ -317,8 +319,11 @@ internal sealed class SessionHost : IDisposable
                 var assembly = config.TestAssembly
                     ?? throw new ConfigurationException("INVALID_CONFIG", "open_session {test} needs \"testAssembly\" (the built test assembly) in " + configPath);
                 var (tests, runner) = SessionTests.Load(assembly);
+                SessionTests.SelectOne(runner, tests, testName, assembly);
+                var started = Stopwatch.StartNew();
                 ran = await runner.RunAsync(tests, testName, abort.Token).ConfigureAwait(false)
                     ?? throw new ConfigurationException("NO_TESTS", "no test named \"" + testName + "\" in " + assembly + " ran with an E2E session (a test whose set-up failed before the session started has none); use the full name, Namespace.Class.Method");
+                elapsed = started.Elapsed;
                 engine = ran.Engine;
                 apps = HeldApps.Instance;
                 var ranSession = ran.Session;
@@ -342,6 +347,7 @@ internal sealed class SessionHost : IDisposable
                     new E2ESessionOptions
                     {
                         Engine = engine,
+                        Credentials = config.Credentials,
                         BaseUrl = target.App.Url,
                         Permissions = target.App.Permissions,
                         ProjectRoot = config.ProjectRoot,
@@ -385,14 +391,15 @@ internal sealed class SessionHost : IDisposable
                 config.ProjectRoot,
                 attemptDir,
                 Uri.TryCreate(target.App.Url, UriKind.Absolute, out var appBase) ? appBase : null,
-                live.Recorder);
+                live.Recorder,
+                ran?.TestName);
 
             // The app as the session resolved it: the declared URL on the port its command was started on.
             var app = TargetApps.ResolveTargetApp(target.Name, declared.App, config.ProjectRoot, Uri.TryCreate(target.App.Url, UriKind.Absolute, out var served) ? served.Port : null);
             var text = OpeningText(live, target, app, config, await FirstScreenAsync(live, target, ran is not null, abort.Token).ConfigureAwait(false));
             if (ran is not null)
             {
-                text = DescribeTestOutcome(ran) + "\n" + text;
+                text = TestOutcome.Describe(ran.TestName, ran.Failure, elapsed, ran.Session.StepRecords, ran.Session.Evidence, ran.Session.Redactor.Redact, config.ProjectRoot) + "\n" + text;
             }
 
             // A first screen that came back despite the cancel must not become a live session nobody asked for.
@@ -424,12 +431,6 @@ internal sealed class SessionHost : IDisposable
             throw;
         }
     }
-
-    /// <summary>The line that leads the opening text of a session that ran a test: the outcome, with the error code and message of a failure.</summary>
-    private static string DescribeTestOutcome(SessionTestOutcome ran) =>
-        ran.Failure is null
-            ? "Test \"" + ran.TestName + "\" ended without failing. The session is on the screen where it ended."
-            : "Test \"" + ran.TestName + "\" failed. The session is on the screen where it stopped.\n" + Tools.CodedMessage(ran.Failure);
 
     /// <summary>Disposes the session a test left open; the failures come back as a list, as a standalone attempt's close does.</summary>
     private static async Task<IReadOnlyList<Exception>> CloseRanAsync(E2ESession session)

@@ -406,15 +406,15 @@ public sealed class E2eExploreTests
                 fillResult = call.LastToolResult;
                 return ExploreModel.Done("passed", "Filled the password");
             });
-        var credentials = new Dictionary<string, UserCredential> { ["ada"] = new("ada@example.test", Secret.Create("password", "bookworm")) };
+        var root = TempRoot();
         var outcome = await Explorer.ExploreAsync(Options(
-            TempRoot(),
+            root,
             model.Model,
             [],
             goal: "Sign in and look around",
             maxSteps: 1,
             engine: ExploreHarness.Engine(WorldWithAPassword(value => typed = value)),
-            credentials: credentials));
+            config: ExploreHarness.Config(root, "\"actionTimeout\": 10000, \"credentials\": { \"ada\": { \"username\": \"ada@example.test\", \"password\": \"bookworm\" } }")));
 
         Assert.Null(outcome.Error);
         Assert.Equal(RunStatus.Passed, outcome.Status);

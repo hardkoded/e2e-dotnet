@@ -21,6 +21,7 @@ public sealed class E2ESession : IAsyncDisposable
     private readonly CancellationTokenSource _timeout;
     private readonly IEngineSession _engine;
     private readonly IDisposable _errorRedaction;
+    private IDisposable? _credentials;
     private readonly TextWriter? _debugOutput;
     private readonly long _bodyStarted = System.Diagnostics.Stopwatch.GetTimestamp();
     private int _state;
@@ -386,7 +387,16 @@ public sealed class E2ESession : IAsyncDisposable
             };
             var keep = RecordingModes.AttemptKeep(options.Trace.Mode, options.Attempt - 1);
             var trace = new TraceOutput(keep, attemptDir, (options.Cache as FileStepCache)?.CacheDirectory);
-            return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _recordings = recordings, _trace = trace, _sessions = options.Sessions };
+            var hold = options.Credentials is { } credentials ? SecretRegistry.Hold(credentials) : null;
+            try
+            {
+                return new E2ESession(scope, timeout, engine, app, browser, agent, screen, context, ErrorRedaction.Install(screen.Redact), options.DebugOutput) { _video = video, _recordings = recordings, _trace = trace, _sessions = options.Sessions, _credentials = hold };
+            }
+            catch
+            {
+                hold?.Dispose();
+                throw;
+            }
         }
         catch
         {
@@ -706,6 +716,7 @@ public sealed class E2ESession : IAsyncDisposable
         finally
         {
             _errorRedaction.Dispose();
+            _credentials?.Dispose();
             _scope.Ended.Dispose();
             _timeout.Dispose();
             WriteDebug(_scope.Debug, _debugOutput, _scope.Steps.All());
@@ -1160,6 +1171,9 @@ public sealed class E2ESession : IAsyncDisposable
 public sealed class E2ESessionOptions
 {
     public required IEngine Engine { get; init; }
+
+    /// <summary>The config's accounts, which <see cref="E2E.Credentials.User"/> resolves while the session runs. A fixture passes <c>Config.Credentials</c>.</summary>
+    internal IReadOnlyDictionary<string, ResolvedCredential>? Credentials { get; init; }
 
     /// <summary>The default agent's model.</summary>
     public IAgentModel? Model { get; init; }

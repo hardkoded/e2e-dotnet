@@ -73,8 +73,9 @@ internal sealed class SessionCatalog
     /// target's app URL, which a navigation's test line is made relative to. <paramref name="projectRoot"/> is where a relative <c>screenshot</c> path
     /// resolves, and <paramref name="attemptDir"/> the attempt's artifact directory, where the engine writes a screenshot before <c>screenshot</c>
     /// copies it out. <paramref name="recorder"/> is the session's video recorder, which adds <c>start_recording</c> and <c>stop_recording</c>.
+    /// <paramref name="testRan"/> is the full name of the test the session ran first, which the test lines continue.
     /// </summary>
-    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null, SessionRecorder? recorder = null)
+    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null, SessionRecorder? recorder = null, string? testRan = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(secrets);
@@ -87,6 +88,7 @@ internal sealed class SessionCatalog
             Redact = context.Session.Redactor.Redact,
             AppBase = appBase,
             Secrets = secrets,
+            TestRan = testRan,
         });
         var screen = new ScreenPresenter();
         var tools = new List<KeyValuePair<string, CatalogTool>>();

@@ -264,4 +264,20 @@ public sealed class SessionTestLinesTests
                 "Paste it into a test method, and add an Expect after each step that should change the screen."),
             session.Lines.Draft());
     }
+
+    [Fact]
+    public async Task Drafts_the_lines_after_a_test_the_session_ran_as_the_ones_that_continue_it()
+    {
+        var session = new TestLineHarness([Save], testRan: "Shop.ProfileTests.SavesTheName");
+        await session.RunAsync("tap", """{ "target": "n2" }""");
+        Assert.Equal(
+            string.Join(
+                '\n',
+                "Test lines from this session's actions after test Shop.ProfileTests.SavesTheName stopped, in order (1 lines):",
+                "",
+                "await Screen.GetByRole(\"button\", \"Save\").TapAsync();",
+                "",
+                "Put them in that test where it stopped, in place of the line that failed or after its last line, and add an Expect after each step that should change the screen."),
+            session.Lines.Draft());
+    }
 }
