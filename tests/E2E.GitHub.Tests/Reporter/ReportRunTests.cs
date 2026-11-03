@@ -11,8 +11,7 @@ namespace E2E.GitHub.Tests.Reporter;
 
 /// <summary>
 /// Upstream's <c>describe('reportRun')</c> (<c>tests/unit/reporter.test.ts</c>): the reporter end to end against fakes, where it posts, where it
-/// writes, and what each row says. Not ported: <c>folds a --last-failed rerun into the run it selected from...</c>, which needs
-/// <c>FinishedRun.LastRun</c> and the fold of <c>merge.ts</c> (<see href="https://github.com/hardkoded/e2e-dotnet/issues/882">#882</see>).
+/// writes, and what each row says.
 /// </summary>
 public sealed class ReportRunTests
 {
@@ -150,6 +149,25 @@ public sealed class ReportRunTests
         var dotted = new Harness(Authorized(("GITHUB_WORKSPACE", "/work")));
         await dotted.Report(FailedRun with { ProjectRoot = "/work/..app" });
         Assert.Contains($"{Blob}..app/{Cart}", dotted.PostedBody, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Folds_a_last_failed_rerun_into_the_run_it_selected_from_so_the_comment_shows_the_whole_suite_with_the_recovered_test_flaky()
+    {
+        var d = new Harness(Authorized());
+        var failedAttempt = Attempt(AttemptStatus.Failed, error: Error("ASSERTION_FAILED", "no cart"));
+        var firstPass = ReportOf(
+            ReportRunStatus.Failed,
+            [Result("steady", ResultStatus.Passed, attempts: [Attempt()]), Result("recovers", ResultStatus.Failed, attempts: [failedAttempt])]);
+        var rerun = ReportOf(results:
+        [
+            Result("steady", ResultStatus.Skipped, selected: false, skip: new SkipInfo { Cause = SkipCause.Filtered, Reason = "did not fail in the last run" }),
+            Result("recovers", ResultStatus.Passed, attempts: [Attempt()]),
+        ]);
+
+        await d.Report(Finished(rerun, firstPass));
+
+        Assert.Contains("### 🟢 e2e: 1 flaky, 1 passed", d.PostedBody, StringComparison.Ordinal);
     }
 
     [Fact]

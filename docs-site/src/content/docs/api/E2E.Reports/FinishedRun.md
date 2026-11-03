@@ -101,6 +101,22 @@ The exit code the run ended with (upstream's `exitCode`). The test process's own
 
 **Value:** [int](https://learn.microsoft.com/dotnet/api/system.int32)
 
+<a id="E2E_Reports_FinishedRun_LastRun_"></a>
+<a id="E2E_Reports_FinishedRun_LastRun"></a>
+
+### LastRun
+
+
+```csharp
+public Report? LastRun { get; init; }
+```
+
+
+The report of the run this one reran, when it was a `--last-failed` rerun (`E2E_LAST_FAILED`): the `report.json` it selected from, read before this
+run replaced it. A reporter can fold the two into one view of the suite. Null for any other run. Upstream's `lastRun`.
+
+**Value:** [Report](/api/E2E.Reports/Report/)
+
 <a id="E2E_Reports_FinishedRun_ProjectRoot_"></a>
 <a id="E2E_Reports_FinishedRun_ProjectRoot"></a>
 

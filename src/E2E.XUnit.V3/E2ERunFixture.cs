@@ -26,6 +26,14 @@ public class E2ERunFixture : IAsyncLifetime
     /// <summary>The base ref to measure the change from (upstream's <c>--changed-since</c>). Unset, the <c>E2E_CHANGED_SINCE</c> environment variable; with neither, no filter runs.</summary>
     protected virtual string? ChangedSince => null;
 
+    /// <summary>
+    /// Whether to run only the tests the previous run did not pass (upstream's <c>--last-failed</c>). Unset, the <c>E2E_LAST_FAILED</c> environment variable
+    /// (<c>1</c> or <c>true</c>). The previous run's <c>report.json</c> is read from the output directory before this run replaces it; none there is
+    /// <c>NO_LAST_RUN</c>. The tests it passed skip themselves with the reason <c>did not fail in the last run</c>, the filters do not run, and
+    /// <see cref="E2E.Reports.FinishedRun.LastRun"/> hands the previous report to the reporters.
+    /// </summary>
+    protected virtual bool LastFailed => false;
+
     /// <summary>The config the filters read: the discovered <c>e2e.config.json</c>, or the defaults when there is none.</summary>
     protected virtual E2EConfig Config => E2EConfig.Discover();
 
@@ -50,9 +58,9 @@ public class E2ERunFixture : IAsyncLifetime
         {
             config = Config;
         }
-        catch (Exception) when (HostTestFilters.ResolveChangedSince(ChangedSince) is null)
+        catch (Exception) when (HostTestFilters.ResolveChangedSince(ChangedSince) is null && !HostTestFilters.ResolveLastFailed(LastFailed))
         {
-            // A config that does not load is said once, by the run's start; the tests report it themselves. Only a changed-since selection needs it here.
+            // A config that does not load is said once, by the run's start; the tests report it themselves. Only a changed-since or last-failed selection needs it here.
             return;
         }
 
@@ -62,9 +70,11 @@ public class E2ERunFixture : IAsyncLifetime
             HostRun.Started(config);
             var discovered = HostRun.Collect(() => RunSelection.Discover(testAssembly));
             IReadOnlyDictionary<string, string> excluded = new Dictionary<string, string>(StringComparer.Ordinal);
-            if (HostTestFilters.ResolveChangedSince(ChangedSince) is { } changedSince)
+            var changedSince = HostTestFilters.ResolveChangedSince(ChangedSince);
+            var lastFailed = HostTestFilters.ResolveLastFailed(LastFailed);
+            if (changedSince is not null || lastFailed)
             {
-                var selection = await HostTestFilters.ExcludeAsync(config, Filters, changedSince, discovered, Console.Error.WriteLine, token).ConfigureAwait(false);
+                var selection = await HostTestFilters.ExcludeAsync(config, Filters, changedSince, discovered, Console.Error.WriteLine, token, lastFailed).ConfigureAwait(false);
                 RunSelection.Add(selection.Excluded);
                 excluded = selection.Excluded;
                 await HostTestFilters.WriteReportAsync(config, selection, token).ConfigureAwait(false);

@@ -29,6 +29,21 @@ The run of a report: its id, the targets it ran on, the results, and the counts 
 
 ## Properties
 
+<a id="E2E_Reports_ReportRun_Carried_"></a>
+<a id="E2E_Reports_ReportRun_Carried"></a>
+
+### Carried
+
+
+```csharp
+public ReportCarried? Carried { get; init; }
+```
+
+
+What earlier runs left unresolved that a `--last-failed` rerun did not run again. Null when nothing is carried.
+
+**Value:** [ReportCarried](/api/E2E.Reports/ReportCarried/)
+
 <a id="E2E_Reports_ReportRun_Changes_"></a>
 <a id="E2E_Reports_ReportRun_Changes"></a>
 

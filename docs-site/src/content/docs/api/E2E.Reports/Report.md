@@ -21,7 +21,7 @@ public sealed record Report : IEquatable<Report>
 
 The report-1 document, the shape [Report()](/api/E2E/E2ESession/#E2E_E2ESession_Report) returns and `report.json` holds (upstream's `Report`, an alias of
 `Report1Document`, `report/build.ts`). A report is a record of what happened. Changing it changes nothing, and a caller that
-wants the document as JSON reads `report.json`. The port has no serial groups and no `carried` block, so the document has neither.
+wants the document as JSON reads `report.json`. The port has no serial groups, so the document has none (its `serialGroups` is always empty, and so is a carried block's).
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 

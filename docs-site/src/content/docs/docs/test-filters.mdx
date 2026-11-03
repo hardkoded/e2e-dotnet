@@ -36,6 +36,16 @@ The filters run once, before the first test, and only when a base ref is set:
 
 With no base ref, every test runs. A session that `e2e mcp` opens on a named test (`open_session {test}`) is never filtered. With a base ref and no filter, every test runs and a warning says so.
 
+## Rerun what failed
+
+Set `E2E_LAST_FAILED=1` (or `true`), or override `protected virtual bool LastFailed` on the run fixture, to run only the tests the last run did not pass. The fixture reads the previous `report.json` from the output folder. Without one, the run stops with `NO_LAST_RUN`: run once without the flag first.
+
+- A test that failed, timed out, was interrupted, or was skipped by a setup, a predecessor, the worker, or a limit runs again. Every other test skips itself with `did not fail in the last run`.
+- If a base ref is also set, the filters are not asked: a filter cannot turn a real failure green.
+- What the last run owed and this run did not run is kept in `run.carried` of the new `report.json`, until a session runs it.
+- Reporters get the previous report as `FinishedRun.LastRun`. The GitHub reporter folds the rerun into it.
+- When nothing is owed, every test skips itself. Upstream ends that run with `NO_TESTS`.
+
 ## What happens
 
 1. The fixture finds the tests of the assembly by reflection: every public method of a non-abstract `E2ETest` that has `[Test]`, `[TestCase]`, `[TestCaseSource]`, or `[Theory]` (NUnit), or `[Fact]` or `[Theory]` (xUnit v3). `[Explicit]` classes and methods are not judged. A parameterized method is one test.

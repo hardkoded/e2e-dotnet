@@ -7,6 +7,9 @@ using System.Collections.Concurrent;
 using System.Text.Json.Nodes;
 using E2E.Internal;
 using FinishedRun = E2E.Reports.FinishedRun;
+using LastRun = E2E.Reports.LastRun;
+using PreviousRun = E2E.Reports.PreviousRun;
+using RerunCollection = E2E.Reports.RerunCollection;
 using VcsInfo = E2E.Reports.VcsInfo;
 
 namespace E2E;
@@ -76,6 +79,12 @@ internal static class ReportFile
 
         /// <summary>What each test filter decided (<c>run.filters</c>), in order.</summary>
         public IReadOnlyList<ReportFilter> Filters { get; set; } = [];
+
+        /// <summary>The report a <c>--last-failed</c> rerun selected from; null for any other run. Reporters get it as <see cref="FinishedRun.LastRun"/>, and the document carries what it owed.</summary>
+        public PreviousRun? Previous { get; set; }
+
+        /// <summary>What the rerun's collection found, which decides what the document still carries; set with <see cref="Previous"/>.</summary>
+        public RerunCollection? Collected { get; set; }
     }
 
     /// <summary>Where the document of the run whose results go to <paramref name="resultsRoot"/> is written.</summary>
@@ -236,6 +245,8 @@ internal static class ReportFile
 
             state.Changes = selection.Changes;
             state.Filters = selection.Filters;
+            state.Previous = selection.Previous;
+            state.Collected = selection.Collected;
             await WriteStateAsync(state, resultsRoot, cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -345,8 +356,40 @@ internal static class ReportFile
             nodes[result.Id] = entry.Node;
         }
 
-        await WriteReport.WriteJsonReportAsync(PathFor(resultsRoot), ReportWire.Document(document, nodes), cancellationToken).ConfigureAwait(false);
+        var wire = ReportWire.Document(document, nodes);
+
+        // What the report this run reran owed and this run did not run again is carried, and stays owed until a run carries it out.
+        if (state.Previous is { } previous && state.Collected is { } collected && LastRun.CarryForward(previous.Report, CurrentOf(document), collected) is { } carried)
+        {
+            wire["run"]!["carried"] = previous.Carried(carried);
+        }
+
+        await WriteReport.WriteJsonReportAsync(PathFor(resultsRoot), wire, cancellationToken).ConfigureAwait(false);
     }
+
+    // The part of this run's document that deciding what to carry reads, in the public form (.NET-only: upstream's builder holds the typed document).
+    private static Reports.Report CurrentOf(Report1Document document) => new()
+    {
+        Run = new Reports.ReportRun
+        {
+            Targets = [.. document.Run.Targets.Select(target => new Reports.ReportTarget { Id = target.Id })],
+            Results =
+            [
+                .. document.Run.Results.Select(result => new Reports.ReportResult
+                {
+                    Id = result.Id,
+                    TestId = result.TestId,
+                    TargetId = result.TargetId,
+                    Agent = result.Agent,
+                    File = result.File,
+                    TitlePath = result.TitlePath,
+                    Selected = result.Selected,
+                    Status = Enum.Parse<Reports.ResultStatus>(result.Status.ToString()),
+                }),
+            ],
+            Errors = [],
+        },
+    };
 
     /// <summary>
     /// What each run this process wrote a report for looks like to a reporter (upstream's <c>FinishedRun</c>): the document read back from
@@ -380,6 +423,7 @@ internal static class ReportFile
                 {
                     Traces = traces,
                     AiTracePath = AiTrace.WrittenPath(Path.GetDirectoryName(resultsRoot)!),
+                    LastRun = state.Previous?.Report,
                 });
             }
             catch (Exception ex) when (ex is not OperationCanceledException)

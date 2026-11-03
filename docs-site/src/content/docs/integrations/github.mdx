@@ -98,6 +98,6 @@ GitHub  not posted: set GITHUB_TOKEN in the step's env (GITHUB_TOKEN: ${{ github
 
 The reporter reads the token when the run finishes, and the report doesn't include it. The token never appears in a message the reporter prints. On GitHub Enterprise Server, the reporter uses `GITHUB_SERVER_URL` and `GITHUB_API_URL`.
 
-## Not ported
+## After a `--last-failed` rerun
 
-Upstream folds a `--last-failed` rerun into the run it selected from, so the comment shows the whole suite. The port has no `--last-failed` and `FinishedRun` has no `LastRun`, so the comment shows the run as it is. See [COMPATIBILITY.md](https://github.com/hardkoded/e2e-dotnet/blob/main/COMPATIBILITY.md#github-reporter).
+A rerun (`E2E_LAST_FAILED=1`, see [Test filters](/docs/test-filters/)) runs only what the last run did not pass. The reporter folds it into that run (`FinishedRun.LastRun`), so the comment shows the whole suite and not only the rerun. See [COMPATIBILITY.md](https://github.com/hardkoded/e2e-dotnet/blob/main/COMPATIBILITY.md#github-reporter).

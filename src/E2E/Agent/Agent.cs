@@ -1427,6 +1427,9 @@ internal sealed class AttemptScope
     /// <summary>The full name of the test's class, upstream's test file; see <see cref="E2ESessionOptions.TestFile"/>.</summary>
     public string? TestFile { get; init; }
 
+    /// <summary>The name of the test's method; see <see cref="E2ESessionOptions.TestMethod"/>.</summary>
+    public string? TestMethod { get; init; }
+
     public required string EnginePlatform { get; init; }
 
     /// <summary>The engine's name (upstream's <c>engine.name</c>), which the report and the cache key record. Defaults to the platform.</summary>
