@@ -28,11 +28,9 @@ public sealed class ExpectPollTests
     public async Task Accepts_an_asynchronous_read()
     {
         var count = new Settling<int>(0, 2, 2);
-        await _time.RunAsync(Expect.Poll(async () =>
-        {
-            await Task.Yield();
-            return count.Read();
-        }, Every(5)).ToSatisfyAsync(value => value > 1, "greater than 1"));
+        // Upstream's async read has no await, so the task is complete when it returns. Do not add a hop (such as Task.Yield): its
+        // continuation can wait on a busy thread pool, and the stepping clock would fire the read's timeout first.
+        await _time.RunAsync(Expect.Poll(() => Task.FromResult(count.Read()), Every(5)).ToSatisfyAsync(value => value > 1, "greater than 1"));
         Assert.Equal(3, count.Reads);
     }
 

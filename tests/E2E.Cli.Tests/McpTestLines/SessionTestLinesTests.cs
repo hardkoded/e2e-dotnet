@@ -178,10 +178,18 @@ public sealed class SessionTestLinesTests
     }
 
     [Fact]
-    public async Task Partial_Writes_a_secret_by_its_name_never_by_its_value()
+    public async Task Partial_Writes_credentials_and_secrets_by_name_never_by_value()
     {
+        var user = new Fake("n40", "textbox", "Username", Y: 40);
+        var password = new Fake("n41", "textbox", "Password", Y: 80);
         var key = new Fake("n42", "textbox", "API key", Y: 120);
-        var session = new TestLineHarness([key]);
+        var session = new TestLineHarness([user, password, key]);
+        Assert.Equal(
+            "Test line: await Screen.GetByRole(\"textbox\", \"Username\").FillAsync(Credentials.User(\"admin\").Username);",
+            NoteOf(await session.RunAsync("type", """{ "target": "n40", "text": "ada@example.test" }""")));
+        Assert.Equal(
+            "Test line: await Screen.GetByRole(\"textbox\", \"Password\").FillAsync(Credentials.User(\"admin\").Password);",
+            NoteOf(await session.RunAsync("type_secret", """{ "target": "n41", "secret": "admin.password" }""")));
         Assert.Equal(
             "Test line: await Screen.GetByRole(\"textbox\", \"API key\").FillAsync(Secrets.Get(\"apiKey\"));",
             NoteOf(await session.RunAsync("type_secret", """{ "target": "n42", "secret": "apiKey" }""")));
@@ -227,7 +235,7 @@ public sealed class SessionTestLinesTests
         Assert.Matches(@"^No test line: the key went to whatever had focus", NoteOf(await session.RunAsync("press", """{ "key": "Enter" }""")));
         Assert.Matches(@"^No test line: a test action brings its node into view itself", NoteOf(await session.RunAsync("scroll", """{ "direction": "down" }""")));
         Assert.Matches(@"^No test line: scrolling to a text has none", NoteOf(await session.RunAsync("scroll_to", """{ "text": "Row 40" }""")));
-        Assert.Matches(@"^No test line: the secret is not a config secret", NoteOf(await session.RunAsync("type_secret", """{ "target": "n60", "secret": "unknown" }""")));
+        Assert.Matches(@"^No test line: the secret is neither", NoteOf(await session.RunAsync("type_secret", """{ "target": "n60", "secret": "unknown" }""")));
         Assert.Matches(@"^No test line: a locator tap takes no modifier keys", NoteOf(await session.RunAsync("tap", """{ "target": "n2", "modifiers": ["Shift"] }""")));
         Assert.Matches(@"^No test line: a locator right click takes no modifier keys", NoteOf(await session.RunAsync("right_click", """{ "target": "n2", "modifiers": ["Shift"] }""")));
         Assert.Equal("No test line: the drop target: node n404 is not on the newest screen.", NoteOf(await session.RunAsync("drag", """{ "target": "n2", "to": "n404" }""")));

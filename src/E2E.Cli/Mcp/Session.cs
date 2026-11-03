@@ -387,12 +387,13 @@ internal sealed class SessionHost : IDisposable
             live.Catalog = SessionCatalog.Create(
                 live,
                 engine.Capabilities,
-                config.Secrets.Names.ToList(),
+                [.. secrets.Select(secret => secret.Name)],
                 config.ProjectRoot,
                 attemptDir,
                 Uri.TryCreate(target.App.Url, UriKind.Absolute, out var appBase) ? appBase : null,
                 live.Recorder,
                 ran?.TestName,
+                new TestLineFills([.. config.Credentials.Values.Select(credential => new TestLineCredential(credential.Name, credential.Username, credential.Password.Name))], [.. config.Secrets.Names]),
                 session.Engine.ActionKinds);
 
             // The app as the session resolved it: the declared URL on the port its command was started on.
@@ -586,6 +587,12 @@ internal sealed class SessionHost : IDisposable
                 + (live.Headed ? "headed" : "headless") + "; config " + live.ConfigPath + ", read with the e2e mcp server's environment, not your shell's.",
         };
         lines.AddRange(AppLines.For(app, TargetEngines.LaunchesPinnedApp(target, live.Engine)));
+
+        if (config.Credentials.Count > 0)
+        {
+            var described = config.Credentials.Values.Select(credential => "\"" + credential.Name + "\" (username " + JsonSerializer.Serialize(credential.Username) + ", password secret \"" + credential.Password.Name + "\")");
+            lines.Add("Credentials: " + string.Join(", ", described) + ". Type the username with type; fill the password with type_secret and its password secret's name.");
+        }
 
         var names = config.Secrets.Names.ToList();
         if (names.Count > 0)

@@ -88,6 +88,8 @@ public sealed class LocatorEnginePerformContractTests
     [Fact]
     public async Task Never_sends_an_action_whose_target_resolved_past_the_deadline()
     {
+        // The slow resolves move a fake clock, so the deadline passes without any waiting.
+        var clock = new FakeTimeProvider();
         var resolves = 0;
         var performs = 0;
         var target = new SemanticNode { Ref = "node-1", Role = "button", Name = "Submit" };
@@ -102,7 +104,8 @@ public sealed class LocatorEnginePerformContractTests
             () => { },
             TimeSpan.FromMilliseconds(1000),
             TimeSpan.FromMilliseconds(1000),
-            locate: (_, budget, _) => SlowLocate.AnswerAsync(TimeSpan.FromMilliseconds(200), ++resolves == 1 ? [] : [target], budget));
+            clock: clock,
+            locate: (_, budget, _) => SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(200), ++resolves == 1 ? [] : [target], budget));
 
         var error = await Assert.ThrowsAsync<TestException>(
             () => screen.GetByRole("button").PerformUntilAsync(new LocatorAction.Tap(), new Deadline(TimeSpan.FromMilliseconds(350), screen.Clock), CancellationToken.None));

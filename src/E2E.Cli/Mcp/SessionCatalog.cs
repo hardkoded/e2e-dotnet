@@ -28,7 +28,7 @@ internal interface ISessionContext
 /// <summary>
 /// The catalog of a live session: every tool <c>call</c> can run. <c>observe</c> shows the whole screen, the
 /// grammar is what the target's engine honors, <c>screenshot</c> masks secure fields and also saves a file when given a path, <c>type_secret</c> exists when the config
-/// declares a secret, <c>locate</c> tries a semantic locator the way a test would, and <c>test_lines</c> returns the test line every action printed. The verbs run through the testing agent's own tool executor, so a coding agent
+/// declares a credential or a secret, <c>locate</c> tries a semantic locator the way a test would, and <c>test_lines</c> returns the test line every action printed. The verbs run through the testing agent's own tool executor, so a coding agent
 /// acts exactly as the model of an <c>act</c> does.
 /// </summary>
 internal sealed class SessionCatalog
@@ -77,7 +77,7 @@ internal sealed class SessionCatalog
     /// <paramref name="actionKinds"/> is what the engine declared (<see cref="IEngineSession.ActionKinds"/>): <c>long_press</c>, <c>right_click</c>,
     /// <c>hover</c>, and <c>drag</c> are tools only where their kind is named.
     /// </summary>
-    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null, SessionRecorder? recorder = null, string? testRan = null, IReadOnlyCollection<string>? actionKinds = null)
+    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null, SessionRecorder? recorder = null, string? testRan = null, TestLineFills? fills = null, IReadOnlyCollection<string>? actionKinds = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(secrets);
@@ -90,7 +90,7 @@ internal sealed class SessionCatalog
             Resolve = () => LineResolver(context.Session.Engine),
             Redact = context.Session.Redactor.Redact,
             AppBase = appBase,
-            Secrets = secrets,
+            Fills = fills ?? new TestLineFills([], secrets),
             TestRan = testRan,
         });
         var screen = new ScreenPresenter();

@@ -121,7 +121,10 @@ public sealed class DispatchLocatorActionTests
                 var error = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(pick, new LocatorAction.SetInputFiles([UploadPage.AvatarFile]), CancellationToken.None));
                 Assert.Equal("NOT_ACTIONABLE", error.Code);
                 Assert.Contains("opened no file chooser", error.Message, StringComparison.Ordinal);
-            });
+            },
+
+            // The click must finish inside the budget for the chooser wait to be what runs out; on a loaded runner a 2 s budget can end in the click.
+            actionTimeout: TimeSpan.FromSeconds(6));
     }
 
     [Fact]
