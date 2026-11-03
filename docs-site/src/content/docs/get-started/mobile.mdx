@@ -11,7 +11,7 @@ import { CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 - macOS with Xcode and an iOS simulator runtime, or the Android SDK with an emulator.
 - Node 22.12 or newer. `MobileEngine` starts agent-device through `npx`.
-- Check the setup once: `npx --yes agent-device@0.21.36 doctor`.
+- Check the setup once: `e2e doctor`. It runs agent-device's own checks for each configured device (toolchain, devices, the installed app) and checks that the `AppPath` build exists. Without `AppPath`, it checks that the `BundleId` is installed when one device is booted.
 - An app build: an `.app` bundle for the simulator, or an `.apk`.
 
 ## 1. Create the test project

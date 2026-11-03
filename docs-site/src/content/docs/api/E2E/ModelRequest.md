@@ -41,6 +41,21 @@ to the newest message, so [AnthropicModel](/api/E2E/AnthropicModel/) marks that 
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
+<a id="E2E_ModelRequest_MaxRetries_"></a>
+<a id="E2E_ModelRequest_MaxRetries"></a>
+
+### MaxRetries
+
+
+```csharp
+public int? MaxRetries { get; init; }
+```
+
+
+Upstream's `ModelCall.maxRetries`: provider transport retries for this call. Null keeps `TransportRetries`.
+
+**Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
+
 <a id="E2E_ModelRequest_Messages_"></a>
 <a id="E2E_ModelRequest_Messages"></a>
 

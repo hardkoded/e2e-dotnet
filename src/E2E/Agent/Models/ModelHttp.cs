@@ -79,6 +79,21 @@ internal static class ModelHttp
         return new AgentException("MODEL_REFUSED", "the model " + model + " refused the request (" + reason + ")");
     }
 
+    /// <summary>
+    /// Upstream's <c>errorFinish</c> (<c>agent/model/sdk.ts</c>): <c>MODEL_PROVIDER_FAILED</c> for a call the provider ended on an <c>error</c>
+    /// finish, whatever text came with it. The raw finish reason is provider text, so it is redacted and cut.
+    /// </summary>
+    internal static AgentException ErrorFinishError(string? rawFinishReason, Redactor redactor)
+    {
+        var reason = string.IsNullOrWhiteSpace(rawFinishReason) ? ModelResponse.ErrorFinish : redactor.Redact(rawFinishReason);
+        if (reason.Length > MaxFinishReasonChars)
+        {
+            reason = reason[..MaxFinishReasonChars];
+        }
+
+        return new AgentException("MODEL_PROVIDER_FAILED", "model provider failed: the call ended on an error finish (raw finish reason: " + reason + ")");
+    }
+
     /// <summary>The most response body bytes a failure message quotes.</summary>
     private const int MaxProviderBodyBytes = 1024;
 
@@ -92,8 +107,9 @@ internal static class ModelHttp
     /// the body, redacted with <paramref name="redactor"/> and cut at 1 KB. <paramref name="sign"/> runs on each attempt's copy just before
     /// it is sent, so a request that carries a timestamp (Bedrock's SigV4) is signed again for every retry, as the AI SDK signs inside each fetch.
     /// </summary>
-    public static async Task<string> SendAsync(HttpClient http, HttpRequestMessage message, Redactor redactor, CancellationToken cancellationToken, Action<HttpRequestMessage>? sign = null)
+    public static async Task<string> SendAsync(HttpClient http, HttpRequestMessage message, Redactor redactor, CancellationToken cancellationToken, Action<HttpRequestMessage>? sign = null, int? maxRetries = null)
     {
+        var retries = maxRetries ?? TransportRetries;
         ModelEndpoint.AddHeaders(message, RequestHeaders);
         // A request message can be sent once, so each attempt sends a copy of the same bytes.
         var payload = message.Content is null ? null : await message.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
@@ -114,7 +130,7 @@ internal static class ModelHttp
             catch (HttpRequestException ex)
             {
                 // The AI SDK retries a fetch that failed before an answer (a refused or reset connection).
-                if (retry < TransportRetries)
+                if (retry < retries)
                 {
                     await Task.Delay(backoff, cancellationToken).ConfigureAwait(false);
                     backoff *= RetryBackoffFactor;
@@ -137,7 +153,7 @@ internal static class ModelHttp
                     return body;
                 }
 
-                if (retry < TransportRetries && IsRetryableStatus((int)response.StatusCode))
+                if (retry < retries && IsRetryableStatus((int)response.StatusCode))
                 {
                     await Task.Delay(RetryDelay(response, backoff), cancellationToken).ConfigureAwait(false);
                     backoff *= RetryBackoffFactor;

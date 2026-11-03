@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Net;
 using System.Text.Json.Nodes;
 using E2E.Cli.Tests.CliLogin;
 using E2E.Cli.Tests.Helpers;
@@ -15,7 +16,7 @@ namespace E2E.Cli.Tests.CliDoctor;
 /// <c>describe('e2e doctor')</c> of upstream <c>tests/integration/cli-doctor.test.ts</c>: the doctor-1 report a host parses, the exit code
 /// it gates on, an engine's own checks, and what it says about each agent's model. Upstream spawns the built CLI with a config that holds
 /// engine handles; the port runs <see cref="DoctorCommand"/> in process over a config file that names a platform, and the target's engine
-/// comes from a factory. The <c>node</c> check is <c>runtime</c> here. The <c>--check-model</c> tests have no port yet: the flag is refused.
+/// comes from a factory. The <c>node</c> check is <c>runtime</c> here. A model is scripted by its id through <see cref="Models"/>, where upstream scripts an AI SDK instance in the config.
 /// </summary>
 [Collection(E2eLoginFlagsTests.Name)]
 public sealed class E2eDoctorTests : IDisposable
@@ -83,11 +84,37 @@ public sealed class E2eDoctorTests : IDisposable
                 }
             });
 
+    /// <summary>How many calls each scripted model got.</summary>
+    private readonly Dictionary<string, int> _calls = [];
+
+    /// <summary>The models a test names by id: <c>answers</c>, <c>counted</c>, <c>refuses</c>, <c>fails</c>, and <c>errors</c>. Upstream's scripted instances.</summary>
+    private IAgentModel? Models(AgentConfig agent, bool judge)
+    {
+        var id = judge ? agent.Judge : agent.Model;
+        return id is null
+            ? null
+            : new ScriptedModel(_ =>
+            {
+                lock (_calls)
+                {
+                    _calls[id] = _calls.GetValueOrDefault(id) + 1;
+                }
+
+                return id switch
+                {
+                    "refuses" => new ModelResponse { FinishReason = ModelResponse.ContentFilter },
+                    "errors" => new ModelResponse { FinishReason = ModelResponse.ErrorFinish, RawFinishReason = "error" },
+                    "fails" => throw new AgentException("MODEL_PROVIDER_FAILED", "The model provider failed: provider is down"),
+                    _ => new ModelResponse { Content = "OK" },
+                };
+            });
+    }
+
     private async Task<(int Code, string Stdout, string Stderr)> RunAsync(string[] args, string mode = "ok", CancellationToken cancellationToken = default, CancellationTokenSource? interrupt = null)
     {
         using var stdout = new StringWriter();
         using var stderr = new StringWriter();
-        var code = await DoctorCommand.RunAsync(args, stdout, stderr, interactive: false, cancellationToken, _dir, Engines(mode, interrupt), new Dictionary<string, string?>());
+        var code = await DoctorCommand.RunAsync(args, stdout, stderr, interactive: false, cancellationToken, _dir, Engines(mode, interrupt), new Dictionary<string, string?>(), Models);
         return (code, stdout.ToString(), stderr.ToString());
     }
 
@@ -166,22 +193,109 @@ public sealed class E2eDoctorTests : IDisposable
         Assert.Equal(("config", "fail", "UNKNOWN_TARGET"), ((string)unknown.Checks[^1]["id"]!, (string)unknown.Checks[^1]["status"]!, (string)unknown.Checks[^1]["code"]!));
     }
 
+    private const string Unchecked = "the model reads its own credential; --check-model calls it";
+
     [Fact]
     public async Task Partial_Names_each_agents_model_and_calls_it_only_with_check_model()
     {
-        // The agents of upstream's test that hold a custom executor have no port: the config names a model and a provider. The
-        // --check-model half has no port yet: the flag is refused, and no model is called.
-        WriteConfig("""{ "default": { "model": "answers" }, "split": { "model": "answers", "judge": "fails" } }""");
-        var (code, _, checks) = await JsonAsync([]);
-        Assert.Equal(0, code);
-        var models = checks.Where(check => (string)check["id"]! == "model").ToList();
+        // Partial: the agent of upstream's test that holds a custom executor has no port: the config names a model and a provider.
+        WriteConfig("""
+            { "default": { "model": "answers" }, "down": { "model": "fails" }, "split": { "model": "answers", "judge": "fails" },
+              "broken": { "model": "errors" }, "both": { "model": "fails", "judge": "errors" } }
+            """);
+        var named = await JsonAsync([]);
+        Assert.Equal(0, named.Code);
         Assert.Equal(
-            ["""{"id":"model","status":"unknown","agent":"default","message":"the model reads its own credential","model":{"provider":"openai","modelId":"answers"}}""",
-             """{"id":"model","status":"unknown","agent":"split","message":"the model reads its own credential","model":{"provider":"openai","modelId":"answers"},"judge":{"provider":"openai","modelId":"fails"}}"""],
-            models.Select(check => check.ToJsonString()));
-        var refused = await RunAsync(["--check-model"]);
-        Assert.Equal((2, ""), (refused.Code, refused.Stdout));
-        Assert.Contains("option '--check-model' is not supported by the .NET port yet", refused.Stderr, StringComparison.Ordinal);
+            [
+                $$$"""{"id":"model","status":"unknown","agent":"default","message":"{{{Unchecked}}}","model":{"provider":"openai","modelId":"answers"}}""",
+                $$$"""{"id":"model","status":"unknown","agent":"down","message":"{{{Unchecked}}}","model":{"provider":"openai","modelId":"fails"}}""",
+                $$$"""{"id":"model","status":"unknown","agent":"split","message":"{{{Unchecked}}}","model":{"provider":"openai","modelId":"answers"},"judge":{"provider":"openai","modelId":"fails"}}""",
+                $$$"""{"id":"model","status":"unknown","agent":"broken","message":"{{{Unchecked}}}","model":{"provider":"openai","modelId":"errors"}}""",
+                $$$"""{"id":"model","status":"unknown","agent":"both","message":"{{{Unchecked}}}","model":{"provider":"openai","modelId":"fails"},"judge":{"provider":"openai","modelId":"errors"}}""",
+            ],
+            named.Checks.Where(check => (string)check["id"]! == "model").Select(check => check.ToJsonString()));
+        Assert.Empty(_calls);
+
+        var checkedModels = await JsonAsync(["--check-model"]);
+        Assert.Equal(2, checkedModels.Code);
+        var rows = checkedModels.Checks.Where(check => (string)check["id"]! == "model").Select(check => ((string)check["agent"]!, (string)check["status"]!, (string?)check["code"], (string?)check["message"])).ToList();
+        Assert.Equal(("default", "pass", null, "answered"), rows[0]);
+        Assert.Equal(("down", "fail", "MODEL_PROVIDER_FAILED"), (rows[1].Item1, rows[1].Item2, rows[1].Item3));
+        Assert.Contains("provider is down", rows[1].Item4, StringComparison.Ordinal);
+        Assert.Equal(("split", "fail", "MODEL_PROVIDER_FAILED"), (rows[2].Item1, rows[2].Item2, rows[2].Item3));
+        Assert.Matches(@"\Ajudge: .*provider is down", rows[2].Item4);
+        Assert.Equal(("broken", "fail", "MODEL_PROVIDER_FAILED"), (rows[3].Item1, rows[3].Item2, rows[3].Item3));
+        Assert.Contains("error finish", rows[3].Item4, StringComparison.Ordinal);
+        Assert.Equal(("both", "fail", "MODEL_PROVIDER_FAILED"), (rows[4].Item1, rows[4].Item2, rows[4].Item3));
+        Assert.Matches(@"\Amodel: .*provider is down.*; judge: .*error finish", rows[4].Item4);
+    }
+
+    [Fact]
+    public async Task Makes_one_call_for_agents_with_equal_provider_options_and_counts_a_refusal_as_an_answer()
+    {
+        WriteConfig("""
+            { "default": { "model": "counted", "providerOptions": { "openai": { "effort": "low" } } },
+              "twin": { "model": "counted", "providerOptions": { "openai": { "effort": "low" } } },
+              "narrow": { "model": "counted", "providerOptions": { "openai": { "effort": "low" } }, "maxInputTokens": 50000 },
+              "shy": { "model": "refuses" } }
+            """);
+        var (code, _, checks) = await JsonAsync(["--check-model"]);
+        Assert.Equal(0, code);
+        Assert.Equal(
+            [("default", "pass"), ("twin", "pass"), ("narrow", "pass"), ("shy", "pass")],
+            checks.Where(check => (string)check["id"]! == "model").Select(check => ((string)check["agent"]!, (string)check["status"]!)));
+        Assert.Equal(2, _calls["counted"]);
+    }
+
+    [Fact]
+    public async Task Partial_Retries_a_refused_connection_once_and_reports_its_error_not_the_call_timeout()
+    {
+        // Partial: the port's models are not the AI SDK's, so the connection is a local server that answers 503, which the transport retries
+        // like a refused connection; the server counts the requests, where upstream's scripted instance counts its calls.
+        using var server = new HttpListener();
+        var port = Random.Shared.Next(20000, 40000);
+        server.Prefixes.Add($"http://127.0.0.1:{port}/");
+        server.Start();
+        var requests = 0;
+        _ = Task.Run(async () =>
+        {
+            while (server.IsListening)
+            {
+                try
+                {
+                    var context = await server.GetContextAsync();
+                    Interlocked.Increment(ref requests);
+                    context.Response.StatusCode = 503;
+                    context.Response.Close();
+                }
+                catch (HttpListenerException)
+                {
+                    return;
+                }
+                catch (ObjectDisposedException)
+                {
+                    return;
+                }
+            }
+        });
+        Environment.SetEnvironmentVariable("E2E_DOCTOR_TEST_KEY", "doctor-test-key-0123456789");
+        try
+        {
+            WriteConfig($$"""{ "default": { "model": "refused", "baseUrl": "http://127.0.0.1:{{port}}/v1", "apiKeyEnv": "E2E_DOCTOR_TEST_KEY" } }""");
+            using var stdout = new StringWriter();
+            using var stderr = new StringWriter();
+            var code = await DoctorCommand.RunAsync(["--json", "--check-model"], stdout, stderr, interactive: false, CancellationToken.None, _dir, Engines("ok"), new Dictionary<string, string?>());
+            var last = JsonNode.Parse(stdout.ToString())!["checks"]!.AsArray()[^1]!;
+            Assert.Equal(2, code);
+            Assert.Equal(("model", "fail", "MODEL_PROVIDER_FAILED"), ((string)last["id"]!, (string)last["status"]!, (string)last["code"]!));
+            Assert.Contains("503", (string)last["message"]!, StringComparison.Ordinal);
+            Assert.Equal(2, Volatile.Read(ref requests));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("E2E_DOCTOR_TEST_KEY", null);
+            server.Stop();
+        }
     }
 
     [Fact]

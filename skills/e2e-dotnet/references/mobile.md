@@ -2,6 +2,8 @@
 
 iOS and Android apps run on `MobileEngine` (project `E2E.Mobile`). The engine drives a simulator or emulator through [agent-device](https://github.com/callstack/agent-device). It needs Node 22.12 or newer. [`samples/MobileApp.E2ETests`](https://github.com/hardkoded/e2e-dotnet/tree/main/samples/MobileApp.E2ETests) is a complete, working example with a MAUI app to drive. Read its README for the full steps.
 
+Run `e2e doctor` to check the setup: agent-device, Xcode or the Android SDK, each device the target names, and the `AppPath` build (without `AppPath`, that the `BundleId` is installed when one device is booted). With a device provider it reports only `device`, as `skip`. A blank `Device` name is `INVALID_CONFIG`.
+
 ## Contents
 
 - The fixture
