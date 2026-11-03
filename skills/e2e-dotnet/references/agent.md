@@ -629,6 +629,7 @@ when `System` and project tools are not enough.
 | --- | --- | --- |
 | `ToolLoop.CreateToolLoopExecutor` | The tools and the prompt. The loop adds only `done`. | Budgets, loop guards, verdicts, and usage counts |
 | `IStepExecutor` | `RunStepAsync(context, token)`. A model is optional. | The step deadline, redacted observations, checked actions, and the verdict |
+| `AcpExecutor.Create(command, args, options)` (`E2E.Acp`) | The command of an agent that speaks the Agent Client Protocol on stdio. | The same as `IStepExecutor`. The agent gets the built-in action tools and `done` as an MCP server, and every action goes through `ctx.Actions`. A permission request fails closed, and a tool of the agent's own ends the step with `POLICY_DENIED`. |
 
 Set one as `AgentOptions.Executor` for a named agent, `E2ESessionOptions.AgentExecutor`
 for the default agent, or override `AgentExecutor` in the fixture. A config

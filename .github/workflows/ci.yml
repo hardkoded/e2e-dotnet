@@ -46,6 +46,7 @@ jobs:
           dotnet pack src/E2E.GitHub/E2E.GitHub.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.TestMu/E2E.TestMu.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.Kernel/E2E.Kernel.csproj -c Release --no-build -o artifacts --nologo
+          dotnet pack src/E2E.Acp/E2E.Acp.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.Limrun/E2E.Limrun.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.BrowserStack/E2E.BrowserStack.csproj -c Release --no-build -o artifacts --nologo
           dotnet pack src/E2E.TestMu.Mobile/E2E.TestMu.Mobile.csproj -c Release --no-build -o artifacts --nologo
