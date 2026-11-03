@@ -8,11 +8,11 @@ using E2E.Mobile;
 namespace E2E.Eas.Tests.Eas;
 
 /// <summary>
-/// <see cref="EasSimulators"/> against a fake Expo GraphQL API: the create input, polling to ready and the queue line, the
+/// <see cref="ExpoSimulators"/> against a fake Expo GraphQL API: the create input, polling to ready and the queue line, the
 /// lease and its log lines, stopping on release and after a failed or cancelled start, the token or eas-cli login, the
 /// project id from the app config, and the target's app path.
 /// </summary>
-public sealed class EasSimulatorsTests : IDisposable
+public sealed class ExpoSimulatorsTests : IDisposable
 {
     private static readonly string[] OneTag = ["nightly"];
 
@@ -23,7 +23,7 @@ public sealed class EasSimulatorsTests : IDisposable
     private readonly string _emptyHome;
     private readonly string _emptyProject;
 
-    public EasSimulatorsTests()
+    public ExpoSimulatorsTests()
     {
         _emptyHome = Temp("e2e-eas-home-");
         _emptyProject = Temp("e2e-eas-project-");
@@ -129,8 +129,8 @@ public sealed class EasSimulatorsTests : IDisposable
         return with?.Invoke(request) ?? request;
     }
 
-    private EasSimulators Provider(EasSimulatorsOptions? options = null, long step = 0) =>
-        new(options ?? new EasSimulatorsOptions { ProjectId = "p1" }, _eas.Client, new FakeClock { Step = step }.Clock);
+    private ExpoSimulators Provider(ExpoSimulatorsOptions? options = null, long step = 0) =>
+        new(options ?? new ExpoSimulatorsOptions { ProjectId = "p1" }, _eas.Client, new FakeClock { Step = step }.Clock);
 
     private static DeviceReleaseContext ReleaseContext(string runId, IReadOnlyDictionary<string, string?> env) =>
         new() { RunId = runId, TargetName = "ios", Env = env, Log = _ => { } };
@@ -146,7 +146,7 @@ public sealed class EasSimulatorsTests : IDisposable
     public async Task Starts_an_agent_device_session_named_after_the_slot_tagged_with_the_run_on_the_engines_agent_device_with_the_idle_backstop()
     {
         var request = Request(r => r with { Slot = 1, RunId = "run-1" });
-        await Provider(new EasSimulatorsOptions { ProjectId = "p1", BuildId = "b1", Device = "iPhone 17 Pro", Tags = OneTag }).AcquireAsync(request, default);
+        await Provider(new ExpoSimulatorsOptions { ProjectId = "p1", BuildId = "b1", Device = "iPhone 17 Pro", Tags = OneTag }).AcquireAsync(request, default);
         var call = _eas.Calls[0];
         Assert.Equal(EasOperation.Create, call.Operation);
         Assert.Equal("Bearer expo-test", call.Authorization);
@@ -170,7 +170,7 @@ public sealed class EasSimulatorsTests : IDisposable
     [Fact]
     public async Task Names_an_Android_emulator_under_android_and_passes_an_archive_URL_idle_time_and_duration_through()
     {
-        await Provider(new EasSimulatorsOptions
+        await Provider(new ExpoSimulatorsOptions
         {
             ProjectId = "p1",
             ApplicationArchiveUrl = "https://example.com/app.apk",
@@ -221,7 +221,7 @@ public sealed class EasSimulatorsTests : IDisposable
         Assert.Equal(
             [
                 $"simulator session s1, {FakeEas.SessionUrl}",
-                "still queued at EAS after two minutes; tests start once every worker has a simulator",
+                "still queued at Expo after two minutes; tests start once every worker has a simulator",
                 "watch at https://expo.dev/simulator-preview/s1",
             ],
             lines);
@@ -241,7 +241,7 @@ public sealed class EasSimulatorsTests : IDisposable
         await provider.ReleaseAsync(lease, ReleaseContext(request.RunId), default);
         _eas.Errors[EasOperation.Stop] = ("Internal error", "INTERNAL_SERVER_ERROR");
         var failure = await Assert.ThrowsAsync<EasException>(() => provider.ReleaseAsync(lease, ReleaseContext(request.RunId), default));
-        Assert.Equal("EAS: Internal error", failure.Message);
+        Assert.Equal("Expo: Internal error", failure.Message);
     }
 
     [Fact]
@@ -297,7 +297,7 @@ public sealed class EasSimulatorsTests : IDisposable
             new() { ["app.config.ts"] = "export default {};" },
             FakeExpo($"require('node:fs').writeFileSync({JsonValue.Create(marker)!.ToJsonString()}, ''); setTimeout(() => {{}}, 60000);")));
         using var cancel = new CancellationTokenSource();
-        var acquiring = Provider(new EasSimulatorsOptions()).AcquireAsync(Request(r => r with { ProjectRoot = projectRoot }), cancel.Token);
+        var acquiring = Provider(new ExpoSimulatorsOptions()).AcquireAsync(Request(r => r with { ProjectRoot = projectRoot }), cancel.Token);
         await WaitForAsync(marker);
         await cancel.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => acquiring);
@@ -313,7 +313,7 @@ public sealed class EasSimulatorsTests : IDisposable
         _eas.Errors[EasOperation.Stop] = ("Service unavailable", "INTERNAL_SERVER_ERROR");
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => Provider().AcquireAsync(Request(), cancel.Token));
         Assert.Contains(
-            $"simulator session s1 did not become ready: cancelled; stopping it failed, so EAS stops it at its idle or duration limit (EAS: Service unavailable), {FakeEas.SessionUrl}",
+            $"simulator session s1 did not become ready: cancelled; stopping it failed, so Expo stops it at its idle or duration limit (Expo: Service unavailable), {FakeEas.SessionUrl}",
             failure.Message,
             StringComparison.Ordinal);
         Assert.Equal(EasOperation.Stop, _eas.Calls[^1].Operation);
@@ -324,15 +324,15 @@ public sealed class EasSimulatorsTests : IDisposable
     {
         var clock = new FakeClock { Step = 60_000 }.Clock;
         var ios = Request(r => r with { RunId = "run-idle" });
-        var iosProvider = new EasSimulators(new EasSimulatorsOptions { ProjectId = "p1", MaxIdleTimeMinutes = 5 }, _eas.Client, clock);
+        var iosProvider = new ExpoSimulators(new ExpoSimulatorsOptions { ProjectId = "p1", MaxIdleTimeMinutes = 5 }, _eas.Client, clock);
         var lease = await iosProvider.AcquireAsync(ios, default);
         _eas.States = [FakeEas.Queued()];
-        var android = new EasSimulators(new EasSimulatorsOptions { ProjectId = "p1", MaxIdleTimeMinutes = 5 }, _eas.Client, clock);
+        var android = new ExpoSimulators(new ExpoSimulatorsOptions { ProjectId = "p1", MaxIdleTimeMinutes = 5 }, _eas.Client, clock);
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => android.AcquireAsync(
             Request(r => r with { RunId = "run-idle", Platform = MobilePlatform.Android, TargetName = "android", Slots = 1 }),
             default));
         Assert.Contains(
-            "simulator session s1 did not become ready: still queued while another session of this run idled to its `maxIdleTimeMinutes`, where EAS stops it; lower `workers` or raise `maxIdleTimeMinutes`; stopped it",
+            "simulator session s1 did not become ready: still queued while another session of this run idled to its `maxIdleTimeMinutes`, where Expo stops it; lower `workers` or raise `maxIdleTimeMinutes`; stopped it",
             failure.Message,
             StringComparison.Ordinal);
         Assert.Equal(EasOperation.Stop, _eas.Calls[^1].Operation);
@@ -343,10 +343,10 @@ public sealed class EasSimulatorsTests : IDisposable
     public async Task Measures_a_ready_session_by_its_own_idle_limit_not_the_queued_ones()
     {
         var clock = new FakeClock { Step = 60_000 }.Clock;
-        var patient = new EasSimulators(new EasSimulatorsOptions { ProjectId = "p1", MaxIdleTimeMinutes = 30 }, _eas.Client, clock);
+        var patient = new ExpoSimulators(new ExpoSimulatorsOptions { ProjectId = "p1", MaxIdleTimeMinutes = 30 }, _eas.Client, clock);
         var lease = await patient.AcquireAsync(Request(r => r with { RunId = "run-limits" }), default);
         _eas.States = [.. Enumerable.Range(0, 10).Select(_ => FakeEas.Queued()), (JsonObject)FakeEas.Ready.DeepClone()];
-        var impatient = new EasSimulators(new EasSimulatorsOptions { ProjectId = "p1", MaxIdleTimeMinutes = 2 }, _eas.Client, clock);
+        var impatient = new ExpoSimulators(new ExpoSimulatorsOptions { ProjectId = "p1", MaxIdleTimeMinutes = 2 }, _eas.Client, clock);
         Assert.Equal("s1", (await impatient.AcquireAsync(Request(r => r with { RunId = "run-limits" }), default)).Id);
         await patient.ReleaseAsync(lease, ReleaseContext("run-limits"), default);
     }
@@ -355,7 +355,7 @@ public sealed class EasSimulatorsTests : IDisposable
     public async Task Keeps_waiting_however_long_it_queues_while_no_session_of_the_run_is_ready_or_after_they_were_released()
     {
         var clock = new FakeClock { Step = 60_000 }.Clock;
-        EasSimulators Make() => new(new EasSimulatorsOptions { ProjectId = "p1", MaxIdleTimeMinutes = 5 }, _eas.Client, clock);
+        ExpoSimulators Make() => new(new ExpoSimulatorsOptions { ProjectId = "p1", MaxIdleTimeMinutes = 5 }, _eas.Client, clock);
         _eas.States = [.. Enumerable.Range(0, 20).Select(_ => FakeEas.Queued()), (JsonObject)FakeEas.Ready.DeepClone()];
         Assert.Equal("s1", (await Make().AcquireAsync(Request(), default)).Id);
 
@@ -372,7 +372,7 @@ public sealed class EasSimulatorsTests : IDisposable
     [InlineData("maxDurationMinutes")]
     public void Rejects_invalid_minute_limits_before_a_hosted_session_can_start(string option)
     {
-        var options = new EasSimulatorsOptions { ProjectId = "p1" };
+        var options = new ExpoSimulatorsOptions { ProjectId = "p1" };
         options = option == "maxIdleTimeMinutes" ? options with { MaxIdleTimeMinutes = -1 } : options with { MaxDurationMinutes = -1 };
         var invalid = Assert.Throws<ConfigurationException>(() => Provider(options));
         Assert.Equal("INVALID_CONFIG", invalid.Code);
@@ -383,10 +383,10 @@ public sealed class EasSimulatorsTests : IDisposable
     [Fact]
     public async Task Retains_zero_idle_and_duration_limits_accepted_by_eas_cli()
     {
-        await Provider(new EasSimulatorsOptions { ProjectId = "p1", MaxIdleTimeMinutes = 0 }).AcquireAsync(Request(), default);
+        await Provider(new ExpoSimulatorsOptions { ProjectId = "p1", MaxIdleTimeMinutes = 0 }).AcquireAsync(Request(), default);
         Assert.False(_eas.Create(0).ContainsKey("maxIdleTimeMinutes"));
         _eas.Calls = [];
-        await Provider(new EasSimulatorsOptions { ProjectId = "p1", MaxDurationMinutes = 0 }).AcquireAsync(Request(), default);
+        await Provider(new ExpoSimulatorsOptions { ProjectId = "p1", MaxDurationMinutes = 0 }).AcquireAsync(Request(), default);
         var input = _eas.Create(0);
         Assert.Equal(0, input["maxRunTimeMinutes"]!.GetValue<int>());
         Assert.False(input.ContainsKey("maxIdleTimeMinutes"));
@@ -395,13 +395,13 @@ public sealed class EasSimulatorsTests : IDisposable
     [Fact]
     public async Task Keeps_the_idle_limit_below_a_short_duration_as_EAS_requires_and_pins_the_agent_device_an_option_names()
     {
-        await Provider(new EasSimulatorsOptions { ProjectId = "p1", MaxDurationMinutes = 5, AgentDeviceVersion = "0.22.0" }).AcquireAsync(Request(), default);
+        await Provider(new ExpoSimulatorsOptions { ProjectId = "p1", MaxDurationMinutes = 5, AgentDeviceVersion = "0.22.0" }).AcquireAsync(Request(), default);
         var input = _eas.Create(0);
         Assert.Equal((5, 4, "0.22.0"), (input["maxRunTimeMinutes"]!.GetValue<int>(), input["maxIdleTimeMinutes"]!.GetValue<int>(), input["packageVersion"]!.GetValue<string>()));
         _eas.Calls = [];
-        await Provider(new EasSimulatorsOptions { ProjectId = "p1", MaxDurationMinutes = 1 }).AcquireAsync(Request(), default);
+        await Provider(new ExpoSimulatorsOptions { ProjectId = "p1", MaxDurationMinutes = 1 }).AcquireAsync(Request(), default);
         Assert.False(_eas.Create(0).ContainsKey("maxIdleTimeMinutes"));
-        var invalid = Assert.Throws<ConfigurationException>(() => Provider(new EasSimulatorsOptions { ProjectId = "p1", MaxIdleTimeMinutes = 10, MaxDurationMinutes = 10 }));
+        var invalid = Assert.Throws<ConfigurationException>(() => Provider(new ExpoSimulatorsOptions { ProjectId = "p1", MaxIdleTimeMinutes = 10, MaxDurationMinutes = 10 }));
         Assert.Equal("INVALID_CONFIG", invalid.Code);
         Assert.Contains("`maxIdleTimeMinutes` must be below `maxDurationMinutes`", invalid.Message, StringComparison.Ordinal);
     }
@@ -421,7 +421,7 @@ public sealed class EasSimulatorsTests : IDisposable
         Assert.Equal("s1", (await Provider().AcquireAsync(Request(), default)).Id);
         _eas.StateOutages = 4;
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => Provider().AcquireAsync(Request(), default));
-        Assert.Contains("did not become ready: EAS: HTTP 502, Bad gateway; stopped it", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("did not become ready: Expo: HTTP 502, Bad gateway; stopped it", failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -439,19 +439,19 @@ public sealed class EasSimulatorsTests : IDisposable
     {
         _eas.Errors[EasOperation.Create] = ("Device run sessions are not enabled for this account", "FORBIDDEN");
         var failure = await Assert.ThrowsAsync<EasException>(() => Provider().AcquireAsync(Request(), default));
-        Assert.Equal("EAS: Device run sessions are not enabled for this account", failure.Message);
+        Assert.Equal("Expo: Device run sessions are not enabled for this account", failure.Message);
     }
 
     [Fact]
     public async Task Names_a_response_that_is_not_GraphQL_by_its_status()
     {
         _eas.StateOutages = 0;
-        var provider = new EasSimulators(
-            new EasSimulatorsOptions { ProjectId = "p1" },
+        var provider = new ExpoSimulators(
+            new ExpoSimulatorsOptions { ProjectId = "p1" },
             new HttpClient(new Bad()),
             new FakeClock().Clock);
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.AcquireAsync(Request(), default));
-        Assert.Equal("EAS: HTTP 502, Bad gateway", failure.Message);
+        Assert.Equal("Expo: HTTP 502, Bad gateway", failure.Message);
     }
 
     [Fact]
@@ -541,10 +541,10 @@ public sealed class EasSimulatorsTests : IDisposable
     }
 
     [Fact]
-    public async Task Reads_the_project_id_from_app_json_when_EasSimulators_names_none_once_per_run()
+    public async Task Reads_the_project_id_from_app_json_when_ExpoSimulators_names_none_once_per_run()
     {
         var projectRoot = ProjectWith(new Dictionary<string, string> { ["app.json"] = Linked("from-app-json") });
-        var provider = Provider(new EasSimulatorsOptions());
+        var provider = Provider(new ExpoSimulatorsOptions());
         await provider.AcquireAsync(Request(r => r with { ProjectRoot = projectRoot, RunId = "run-once" }), default);
         File.WriteAllText(Path.Combine(projectRoot, "app.json"), Linked("relinked"));
         await provider.AcquireAsync(Request(r => r with { ProjectRoot = projectRoot, RunId = "run-once", Slot = 1 }), default);
@@ -556,7 +556,7 @@ public sealed class EasSimulatorsTests : IDisposable
     public async Task Reads_the_app_config_again_after_a_read_that_failed_in_the_same_run()
     {
         var projectRoot = ProjectWith(new Dictionary<string, string> { ["app.json"] = """{ "expo": { "name": "shop" } }""" });
-        var provider = Provider(new EasSimulatorsOptions());
+        var provider = Provider(new ExpoSimulatorsOptions());
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => provider.AcquireAsync(Request(r => r with { ProjectRoot = projectRoot, RunId = "run-config-retry" }), default));
         Assert.Contains("has no `extra.eas.projectId`", failure.Message, StringComparison.Ordinal);
         File.WriteAllText(Path.Combine(projectRoot, "app.json"), Linked("after-eas-init"));
@@ -572,7 +572,7 @@ public sealed class EasSimulatorsTests : IDisposable
             new() { ["app.config.js"] = "" },
             FakeExpo($"require('node:fs').writeFileSync({JsonValue.Create(marker)!.ToJsonString()}, ''); setTimeout(() => {{}}, 60000);")));
         using var cancel = new CancellationTokenSource();
-        var acquiring = Provider(new EasSimulatorsOptions()).AcquireAsync(Request(r => r with { ProjectRoot = projectRoot }), cancel.Token);
+        var acquiring = Provider(new ExpoSimulatorsOptions()).AcquireAsync(Request(r => r with { ProjectRoot = projectRoot }), cancel.Token);
         await WaitForAsync(marker);
         await cancel.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => acquiring);
@@ -587,7 +587,7 @@ public sealed class EasSimulatorsTests : IDisposable
             ["app.config.json"] = """{ "extra": { "eas": { "projectId": " flat " } } }""",
             ["app.json"] = Linked("from-app-json"),
         });
-        await Provider(new EasSimulatorsOptions()).AcquireAsync(Request(r => r with { ProjectRoot = projectRoot }), default);
+        await Provider(new ExpoSimulatorsOptions()).AcquireAsync(Request(r => r with { ProjectRoot = projectRoot }), default);
         Assert.Equal("flat", _eas.Create(0)["appId"]!.GetValue<string>());
     }
 
@@ -607,8 +607,8 @@ public sealed class EasSimulatorsTests : IDisposable
         runEnv["SHOP_PROJECT_ID"] = "from-expo-config";
 
         // Two targets of one run, each with its own provider, and two slots of the first.
-        var ios = Provider(new EasSimulatorsOptions());
-        var android = Provider(new EasSimulatorsOptions());
+        var ios = Provider(new ExpoSimulatorsOptions());
+        var android = Provider(new ExpoSimulatorsOptions());
         await Task.WhenAll(
             ios.AcquireAsync(Request(r => r with { ProjectRoot = projectRoot, Env = runEnv, RunId = "run-dynamic", Slot = 0 }), default),
             ios.AcquireAsync(Request(r => r with { ProjectRoot = projectRoot, Env = runEnv, RunId = "run-dynamic", Slot = 1 }), default),
@@ -620,12 +620,12 @@ public sealed class EasSimulatorsTests : IDisposable
     [Fact]
     public async Task Names_what_is_missing_when_the_app_config_links_no_project_and_starts_no_session()
     {
-        const string pass = "pass `projectId` to EasSimulators, or run `eas init` to link the app to an EAS project";
+        const string pass = "pass `projectId` to ExpoSimulators, or run `eas init` to link the app to an Expo project";
 
         async Task<string> Failure(Dictionary<string, string>? files)
         {
             var root = ProjectWith(files);
-            var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => Provider(new EasSimulatorsOptions()).AcquireAsync(Request(r => r with { ProjectRoot = root }), default));
+            var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => Provider(new ExpoSimulatorsOptions()).AcquireAsync(Request(r => r with { ProjectRoot = root }), default));
             return failure.Message.Replace(root, "<root>", StringComparison.Ordinal);
         }
 
@@ -647,12 +647,12 @@ public sealed class EasSimulatorsTests : IDisposable
     public async Task Refuses_the_targets_app_appPath_for_an_app_EAS_already_installs_and_two_app_sources()
     {
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Provider(new EasSimulatorsOptions { ProjectId = "p1", BuildId = "b1" }).AcquireAsync(Request(r => r with { AppPath = "/builds/App.app" }), default));
+            () => Provider(new ExpoSimulatorsOptions { ProjectId = "p1", BuildId = "b1" }).AcquireAsync(Request(r => r with { AppPath = "/builds/App.app" }), default));
         Assert.Contains("leave the target's `app.appPath` out", failure.Message, StringComparison.Ordinal);
         Assert.Empty(_eas.Calls);
         Assert.Equal("s1", (await Provider().AcquireAsync(Request(r => r with { AppPath = "/builds/App.app" }), default)).Id);
         var invalid = Assert.Throws<ConfigurationException>(
-            () => Provider(new EasSimulatorsOptions { ProjectId = "p1", BuildId = "b1", ApplicationArchiveUrl = "https://example.com/App.tar.gz" }));
+            () => Provider(new ExpoSimulatorsOptions { ProjectId = "p1", BuildId = "b1", ApplicationArchiveUrl = "https://example.com/App.tar.gz" }));
         Assert.Equal("INVALID_CONFIG", invalid.Code);
         Assert.Contains("not both", invalid.Message, StringComparison.Ordinal);
     }

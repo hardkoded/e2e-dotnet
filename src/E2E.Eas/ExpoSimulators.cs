@@ -14,16 +14,16 @@ internal sealed record EasClock(Func<long> NowMilliseconds, Func<TimeSpan, Cance
 }
 
 /// <summary>
-/// EAS Simulators for <see cref="MobileOptions.Provider"/>: one hosted simulator per worker slot, started when the run
-/// starts and stopped when it ends, each driven through the agent-device daemon EAS runs beside it. Every session is
-/// named after its target and slot and tagged with the run, in the project <see cref="EasSimulatorsOptions.ProjectId"/>
+/// Expo Simulators for <see cref="MobileOptions.Provider"/>: one hosted simulator per worker slot, started when the run
+/// starts and stopped when it ends, each driven through the agent-device daemon Expo runs beside it. Every session is
+/// named after its target and slot and tagged with the run, in the project <see cref="ExpoSimulatorsOptions.ProjectId"/>
 /// names or the app config links. It authenticates with <c>EXPO_TOKEN</c> from the run's environment, else with the
 /// session <c>eas login</c> stored, as eas-cli does.
 /// </summary>
-public sealed class EasSimulators : IDeviceProvider
+public sealed class ExpoSimulators : IDeviceProvider
 {
     /// <summary>
-    /// EAS stops a session no agent-device command reached for this long: the backstop for a run that died before the
+    /// Expo stops a session no agent-device command reached for this long: the backstop for a run that died before the
     /// engine could release its lease.
     /// </summary>
     private const int DefaultMaxIdleTimeMinutes = 10;
@@ -41,7 +41,7 @@ public sealed class EasSimulators : IDeviceProvider
     private const int PollFailuresTolerated = 3;
 
     /// <summary>
-    /// When EAS stops each ready session a run holds for idling, by run and session id, across every provider of the run:
+    /// When Expo stops each ready session a run holds for idling, by run and session id, across every provider of the run:
     /// targets prepare one after another in the runner process, so a target's ready sessions sit idle while the next
     /// target's queue.
     /// </summary>
@@ -55,50 +55,50 @@ public sealed class EasSimulators : IDeviceProvider
 
     private static readonly HttpClient SharedHttp = new() { Timeout = Timeout.InfiniteTimeSpan };
 
-    private readonly EasSimulatorsOptions _options;
+    private readonly ExpoSimulatorsOptions _options;
     private readonly int? _maxIdleTimeMinutes;
     private readonly HttpClient _http;
     private readonly EasClock _clock;
     private readonly ConcurrentDictionary<string, EasSessions> _clients = new(StringComparer.Ordinal);
 
-    public EasSimulators(EasSimulatorsOptions? options = null)
+    public ExpoSimulators(ExpoSimulatorsOptions? options = null)
         : this(options, SharedHttp, EasClock.Real)
     {
     }
 
-    internal EasSimulators(EasSimulatorsOptions? options, HttpClient http, EasClock clock)
+    internal ExpoSimulators(ExpoSimulatorsOptions? options, HttpClient http, EasClock clock)
     {
-        _options = options ?? new EasSimulatorsOptions();
+        _options = options ?? new ExpoSimulatorsOptions();
         _http = http;
         _clock = clock;
         if (_options.MaxIdleTimeMinutes < 0)
         {
-            throw new ConfigurationException("INVALID_CONFIG", "easSimulators: `maxIdleTimeMinutes` must be a non-negative integer");
+            throw new ConfigurationException("INVALID_CONFIG", "expoSimulators: `maxIdleTimeMinutes` must be a non-negative integer");
         }
 
         if (_options.MaxDurationMinutes < 0)
         {
-            throw new ConfigurationException("INVALID_CONFIG", "easSimulators: `maxDurationMinutes` must be a non-negative integer");
+            throw new ConfigurationException("INVALID_CONFIG", "expoSimulators: `maxDurationMinutes` must be a non-negative integer");
         }
 
         if (_options.BuildId is not null && _options.ApplicationArchiveUrl is not null)
         {
-            throw new ConfigurationException("INVALID_CONFIG", "easSimulators: pass `buildId` or `applicationArchiveUrl`, not both");
+            throw new ConfigurationException("INVALID_CONFIG", "expoSimulators: pass `buildId` or `applicationArchiveUrl`, not both");
         }
 
         if (_options.MaxIdleTimeMinutes is { } idle && _options.MaxDurationMinutes is { } duration && idle >= duration)
         {
-            throw new ConfigurationException("INVALID_CONFIG", "easSimulators: `maxIdleTimeMinutes` must be below `maxDurationMinutes`, as EAS requires");
+            throw new ConfigurationException("INVALID_CONFIG", "expoSimulators: `maxIdleTimeMinutes` must be below `maxDurationMinutes`, as Expo requires");
         }
 
         var idleMinutes = _options.MaxIdleTimeMinutes
             ?? (_options.MaxDurationMinutes is { } limit ? Math.Min(DefaultMaxIdleTimeMinutes, limit - 1) : DefaultMaxIdleTimeMinutes);
 
-        // EAS takes no idle limit of zero; a session that short runs to its duration.
+        // Expo takes no idle limit of zero; a session that short runs to its duration.
         _maxIdleTimeMinutes = idleMinutes >= 1 ? idleMinutes : null;
     }
 
-    public string Name => "eas-simulators";
+    public string Name => "expo-simulators";
 
     /// <summary>A lease that remembers the client it was created with, so release stops it as the same account even if the eas-cli login changed during the run.</summary>
     private sealed class EasLease : DeviceLease
@@ -111,16 +111,16 @@ public sealed class EasSimulators : IDeviceProvider
         cancellationToken.ThrowIfCancellationRequested();
         if (request.AppPath is not null && (_options.BuildId is not null || _options.ApplicationArchiveUrl is not null))
         {
-            throw new InvalidOperationException("EAS installs the app from `buildId` or `applicationArchiveUrl`; leave the target's `app.appPath` out");
+            throw new InvalidOperationException("Expo installs the app from `buildId` or `applicationArchiveUrl`; leave the target's `app.appPath` out");
         }
 
         var appId = await ProjectIdAsync(request, cancellationToken).ConfigureAwait(false);
         var client = await ClientForAsync(request.Env, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
 
-        // Not the request's token: an interrupt that lands after EAS created the session would leave it unknown, and billed.
-        // The 60 s bound can still fire after EAS created it. No id is known then and the client cannot list sessions, so
-        // that session is left to EAS's idle and duration limits.
+        // Not the request's token: an interrupt that lands after Expo created the session would leave it unknown, and billed.
+        // The 60 s bound can still fire after Expo created it. No id is known then and the client cannot list sessions, so
+        // that session is left to Expo's idle and duration limits.
         using var createTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         var created = await client.CreateAsync(
             new EasSessionParams
@@ -169,7 +169,7 @@ public sealed class EasSimulators : IDeviceProvider
         }
         catch (Exception cause)
         {
-            // EAS bills a session from the moment it starts, and the engine holds only leases `acquire` returned.
+            // Expo bills a session from the moment it starts, and the engine holds only leases `acquire` returned.
             string outcome;
             try
             {
@@ -179,7 +179,7 @@ public sealed class EasSimulators : IDeviceProvider
             }
             catch (Exception stopCause)
             {
-                outcome = $"stopping it failed, so EAS stops it at its idle or duration limit ({stopCause.Message})";
+                outcome = $"stopping it failed, so Expo stops it at its idle or duration limit ({stopCause.Message})";
             }
 
             var reason = cancellationToken.IsCancellationRequested ? "cancelled" : cause.Message;
@@ -242,7 +242,7 @@ public sealed class EasSimulators : IDeviceProvider
     /// Polls a session until its agent-device daemon is reachable. Says once when it has queued for two minutes, and gives
     /// up when it is still queued once another session of the run has idled to its limit, boots for longer than eas-cli
     /// waits, ends, or the API fails several polls in a row. The idle clock counts from ready: warm-up commands may reset
-    /// it at EAS, so the give up can come that much early, never late.
+    /// it at Expo, so the give up can come that much early, never late.
     /// </summary>
     private async Task<EasSessionState> ReadyAsync(EasSessions client, string id, DeviceRequest request, CancellationToken cancellationToken)
     {
@@ -284,13 +284,13 @@ public sealed class EasSimulators : IDeviceProvider
                 if (EarliestIdleDeadline(request.RunId) is { } deadline && now >= deadline)
                 {
                     throw new InvalidOperationException(
-                        "still queued while another session of this run idled to its `maxIdleTimeMinutes`, where EAS stops it; lower `workers` or raise `maxIdleTimeMinutes`");
+                        "still queued while another session of this run idled to its `maxIdleTimeMinutes`, where Expo stops it; lower `workers` or raise `maxIdleTimeMinutes`");
                 }
 
                 if (!noticed && now - queuedSince >= QueueNotice.TotalMilliseconds)
                 {
                     noticed = true;
-                    request.Log("still queued at EAS after two minutes; tests start once every worker has a simulator");
+                    request.Log("still queued at Expo after two minutes; tests start once every worker has a simulator");
                 }
             }
             else
