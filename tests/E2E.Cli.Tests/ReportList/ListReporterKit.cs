@@ -27,10 +27,10 @@ internal static partial class ListReporterKit
         new(output, new ListReporterOptions { Colors = false }, time);
 
     /// <summary>Upstream's <c>attempt()</c>.</summary>
-    public static ReportAttempt Attempt(IReadOnlyList<StepRecord>? steps = null, ReportError? error = null, AttemptStatus status = AttemptStatus.Passed) =>
+    public static ReportAttempt Attempt(IReadOnlyList<StepRecord>? steps = null, ReportError? error = null, AttemptStatus status = AttemptStatus.Passed, string id = "attempt-1") =>
         new()
         {
-            Id = "attempt-1",
+            Id = id,
             StartedAt = DateTimeOffset.UnixEpoch,
             DurationMs = 120,
             Status = status,

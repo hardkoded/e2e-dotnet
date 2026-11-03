@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Cli.Report;
+using E2E.Internal;
 using static E2E.Cli.Tests.ReportList.ListReporterKit;
 
 namespace E2E.Cli.Tests.ReportList;
@@ -121,6 +122,52 @@ public sealed class SummaryTests
         Assert.Equal("      Cache  2 replayed · 1 handed off", output.Lines[ai + 1]);
     }
 
+    /// <summary>An <c>act</c> step that missed the cache and settled its recording as <paramref name="write"/>.</summary>
+    private static StepRecord CacheStep(string id, CacheWrite write) =>
+        AgentStep("agent.act", new StepModelInfo { Provider = "openai", Model = "gpt-5.6-luna-fast", Calls = 1, InputTokens = 1_000, OutputTokens = 100 }, id,
+            new CacheInfo { Mode = "missed", Reason = "no-entry" }, write);
+
+    /// <summary>The <c>Cache</c> row of the run summary after <paramref name="facts"/>.</summary>
+    private static string? CacheRow(params RunEventFact[] facts)
+    {
+        var output = new Capture();
+        var reporter = PlainReporter(output);
+        reporter.Handle(RunStarted(model: "openai/gpt-5.6-luna-fast"));
+        foreach (var fact in facts)
+        {
+            reporter.Handle(fact);
+        }
+
+        reporter.Handle(RunFinished(reportPath: "r.json"));
+        return output.Lines.Find(line => line.TrimStart().StartsWith("Cache", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Counts_the_steps_whose_recording_was_not_saved()
+    {
+        List<StepRecord> steps = [CacheStep("saved", CacheWrite.Saved), CacheStep("unconfirmed", CacheWrite.Unconfirmed), CacheStep("no-change", CacheWrite.NoChange), CacheStep("not-written", CacheWrite.NotWritten)];
+
+        Assert.Equal("      Cache  4 missed · 3 not saved", CacheRow(
+            Plan(("tests/a.e2e.ts", 1)),
+            Finished(Result(ResultStatus.Passed, file: "tests/a.e2e.ts", attempts: [Attempt(steps)]))));
+    }
+
+    [Fact]
+    public void Counts_not_saved_from_the_attempt_that_decided_a_passing_result_only()
+    {
+        Assert.Equal("      Cache  3 missed", CacheRow(
+            Plan(("tests/a.e2e.ts", 2)),
+            Finished(Result(ResultStatus.Flaky, file: "tests/a.e2e.ts", attempts:
+            [
+                Attempt([CacheStep("first", CacheWrite.Unconfirmed)], status: AttemptStatus.Failed),
+                Attempt([CacheStep("retry", CacheWrite.Saved)], id: "attempt-2"),
+            ])),
+            Finished(Result(ResultStatus.Failed, id: "test-2", file: "tests/a.e2e.ts", declarationIndex: 1, attempts:
+            [
+                Attempt([CacheStep("failed", CacheWrite.Unconfirmed)], status: AttemptStatus.Failed),
+            ]))));
+    }
+
     [Fact]
     public void Names_the_interrupt_from_run_finished_alone_when_the_host_aborted_without_the_event()
     {
@@ -145,7 +192,7 @@ public sealed class SummaryTests
     }
 
     /// <summary>The agent step upstream's <c>step()</c> helpers build: a passed <c>agent.act</c> that reported its model.</summary>
-    private static StepRecord AgentStep(string api, StepModelInfo model, string? id = null, CacheInfo? cache = null) =>
+    private static StepRecord AgentStep(string api, StepModelInfo model, string? id = null, CacheInfo? cache = null, CacheWrite? cacheWrite = null) =>
         new()
         {
             Id = id ?? api,
@@ -156,6 +203,7 @@ public sealed class SummaryTests
             StartedAt = DateTimeOffset.UnixEpoch,
             DurationMs = 10,
             Cache = cache,
+            CacheWrite = cacheWrite,
             Model = model,
         };
 }

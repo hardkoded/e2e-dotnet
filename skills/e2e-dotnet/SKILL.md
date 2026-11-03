@@ -245,7 +245,9 @@ lines you changed:
   while a stable change exists, and reads it in an alert as one placeholder,
   so `Saved at 2026-10-24T15:41:27.955Z` and `Saved at 2026-10-24T15:30:00Z`
   are the same alert. A run summary would count the cache by step in a
-  `Cache  4 replayed · 1 handed off · 1 missed` row; the port's internal
+  `Cache  4 replayed · 1 handed off · 1 missed · 1 not saved` row (not saved: steps of
+  passing and flaky tests whose cache write is `Unconfirmed`, `NoChange`, or
+  `NotWritten` in the attempt that passed); the port's internal
   `ListReporter` renders it, but no command prints a run summary yet (#799), so
   a test run does not show it. Read `ActResult.Cache` for a step instead.
   The same renderer quotes the app's first 3 errors in a failed test's block,
