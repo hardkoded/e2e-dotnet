@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <RootNamespace>E2E.Eas</RootNamespace>
-    <AssemblyName>E2E.Eas</AssemblyName>
+    <RootNamespace>E2E.Expo</RootNamespace>
+    <AssemblyName>E2E.Expo</AssemblyName>
     <Description>Expo Simulators (hosted iOS and Android simulators) for the community .NET port of the e2e agentic testing framework. Not an official TesterArmy product.</Description>
-    <PackageId>E2E.Eas</PackageId>
+    <PackageId>E2E.Expo</PackageId>
     <PackageTags>e2e;testing;agent;mobile;ios;android;eas;expo;expo-simulators</PackageTags>
     <IsPackable>true</IsPackable>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -11,6 +11,6 @@
   <ItemGroup>
     <ProjectReference Include="..\E2E.Mobile\E2E.Mobile.csproj" />
     <None Include="README.md" Pack="true" PackagePath="\" />
-    <InternalsVisibleTo Include="E2E.Eas.Tests" />
+    <InternalsVisibleTo Include="E2E.Expo.Tests" />
   </ItemGroup>
 </Project>
