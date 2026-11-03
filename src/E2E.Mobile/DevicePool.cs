@@ -291,13 +291,19 @@ public sealed partial class DevicePool
                 ? throw new ConfigurationException(
                     "INVALID_CONFIG",
                     "mobile: `device` is an empty pool; name at least one simulator or emulator, or omit it to use every booted one")
-                : new ConfiguredDevices(devices);
+                : new ConfiguredDevices([.. devices.Select(NamedDevice)]);
         }
 
         return options.Device is { } device
-            ? new ConfiguredDevices([device])
+            ? new ConfiguredDevices([NamedDevice(device)])
             : new BootedDevices(options.Platform, createClient, (targetName, slot) => Session(targetName, slot));
     }
+
+    /// <summary>A device name from the options (upstream's <c>namedDevice</c>); a blank one would select no device, and the daemon would refuse several booted ones as ambiguous.</summary>
+    private static string NamedDevice(string? device) =>
+        string.IsNullOrWhiteSpace(device)
+            ? throw new ConfigurationException("INVALID_CONFIG", "mobile: `device` names a simulator, emulator, or phone by name, UDID, or serial, and must not be blank; omit it to use every booted one")
+            : device;
 
     /// <summary>
     /// Boots every bound device, starts the iOS automation runner on it, and opens the pinned app on it once, so a

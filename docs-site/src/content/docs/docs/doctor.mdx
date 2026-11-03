@@ -8,6 +8,7 @@ description: Check that e2e explore and e2e mcp can start here, without starting
 ```bash
 e2e doctor
 e2e doctor --json
+e2e doctor --check-model
 e2e doctor --target web --headed
 ```
 
@@ -16,9 +17,8 @@ e2e doctor --target web --headed
 | `--config <path>` | The config to load. As for `e2e explore`. |
 | `--target <names>` | Checks only these targets, comma-separated or repeated. As for `e2e explore`. |
 | `--headed` | Checks for what a headed run needs, such as the full Chromium build instead of the headless shell. |
+| `--check-model` | Calls each agent's model, and its judge when that is a different model, once with a short prompt and the agent's provider options, with one retry and a 1 minute limit. Agents that share a model, equal provider options, and `MaxInputTokens` share the call. A reply that is not the JSON asked for, or a refusal, still counts as an answer. |
 | `--json` | Prints the `doctor-1` report instead of one line per check. |
-
-`--check-model` (a call to each agent's model) is not supported by the .NET port yet.
 
 ## Checks
 
@@ -26,8 +26,8 @@ e2e doctor --target web --headed
 | --- | --- |
 | `runtime` | `pass`: the .NET version. Upstream's `node` check. |
 | `config` | `pass` with `path` and `targets` (`name`, `platform`, `engine`), or `fail` with the `INVALID_CONFIG`, `CONFIG_NOT_FOUND`, or `UNKNOWN_TARGET` code. A failed `config` is the last check. |
-| Engine checks, with `target` | What the target's engine reports. The web engine reports `browser`: `pass` when installed, `warn` when the first run will download it, `skip` with a browser provider or `Connect`; and `init-scripts`, when `InitScripts` are set. `engine` is `skip` when the engine has no doctor checks (the device and Windows engines, for now), and `fail` when its doctor threw, timed out, or returned a malformed check. |
-| `model`, with `agent` | `model` and `judge` as `provider` and `modelId`. `pass` or `fail` for a model on an [`e2e login`](/features/signing-in/), from the stored login or the provider's API key variable. `unknown` for any other model, because the model reads its own credential, and doctor never calls it. `skip` when the agent has no model. |
+| Engine checks, with `target` | What the target's engine reports. The web engine reports `browser`: `pass` when installed, `warn` when the first run will download it, `skip` with a browser provider or `Connect`; and `init-scripts`, when `InitScripts` are set. The device engine reports agent-device's own checks (`agent-device`, `toolchain`, `ios-runner-cache`, `device` for each configured device, `target-app` for an installed `BundleId`) and `app-path` (the build `AppPath` names exists); with a device provider (Limrun, BrowserStack, TestMu, Expo) it reports only `device`, as `skip`. `engine` is `skip` when the engine has no doctor checks (the Windows, MAUI DevFlow, and document engines), and `fail` when its doctor threw, timed out, or returned a malformed check. |
+| `model`, with `agent` | `model` and `judge` as `provider` and `modelId`. `pass` or `fail` for a model on an [`e2e login`](/features/signing-in/), from the stored login or the provider's API key variable. `unknown` for any other model, because the model reads its own credential. With `--check-model`, `pass` (`answered`) when every model answered, else `fail` with the error code, its message prefixed `model:` or `judge:` when the agent has both. `skip` when the agent has no model. |
 
 An engine gets 30 seconds. An engine's progress lines go to stderr as `[target] line`.
 

@@ -11,7 +11,7 @@ using E2E.Internal;
 namespace E2E.Cli;
 
 /// <summary>
-/// <c>e2e doctor [--config &lt;path&gt;] [--target &lt;names&gt;] [--headed] [--json]</c>: runs <see cref="Doctor.RunAsync"/> and prints one line per
+/// <c>e2e doctor [--config &lt;path&gt;] [--target &lt;names&gt;] [--headed] [--check-model] [--json]</c>: runs <see cref="Doctor.RunAsync"/> and prints one line per
 /// check, or the <c>doctor-1</c> report with <c>--json</c>. The exit code is 0 when no check failed, 2 when one did, and 130 when interrupted.
 /// </summary>
 internal static class DoctorCommand
@@ -19,19 +19,19 @@ internal static class DoctorCommand
     private const string Usage = """
         Usage: e2e doctor [options]
 
-        Check that e2e explore and e2e mcp can start here, without starting anything: check the runtime, load and resolve the config, ask each target's engine what it needs on this machine, and name the model each agent resolved to. Starts no app and no session, and calls no model. Ctrl-C stops the checks and reports what ran. A model on an e2e login passes when the login is stored; any other model reads its own credential, which doctor reports as unknown.
+        Check that e2e explore and e2e mcp can start here, without starting anything: check the runtime, load and resolve the config, ask each target's engine what it needs on this machine, and name the model each agent resolved to. Starts no app and no session, and calls no model unless --check-model is given. Ctrl-C stops the checks and reports what ran. A model on an e2e login passes when the login is stored; any other model reads its own credential, which doctor reports as unknown.
 
         Options:
           --config <path>   config file (default: the nearest e2e.config.json)
           --target <ids>    check only these targets, comma-separated or repeated (default: all targets)
           --headed          check for what a headed run needs, when the engine tells the two apart
+          --check-model     call each agent's model once to prove it answers; costs one small request per model
           --json            print the doctor-1 report as JSON instead of one line per check
-
-        Not supported by the .NET port yet: --check-model.
 
         Examples:
           e2e doctor
           e2e doctor --json
+          e2e doctor --check-model
           e2e doctor --target web --headed
 
         Exit codes:
@@ -39,9 +39,6 @@ internal static class DoctorCommand
           2    at least one check failed
           130  interrupted by Ctrl-C
         """;
-
-    /// <summary>Upstream flags the port has no feature for yet, and that change what the run means: they are refused.</summary>
-    private static readonly HashSet<string> RefusedFlags = new(["--check-model"], StringComparer.Ordinal);
 
     public static string UsageText() => Usage;
 
@@ -58,7 +55,8 @@ internal static class DoctorCommand
         CancellationToken cancellationToken,
         string? cwd = null,
         Func<TargetConfig, bool, IEngine>? createEngine = null,
-        IReadOnlyDictionary<string, string?>? env = null)
+        IReadOnlyDictionary<string, string?>? env = null,
+        Func<AgentConfig, bool, IAgentModel?>? createModel = null)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(stdout);
@@ -85,6 +83,8 @@ internal static class DoctorCommand
                 Config = parsed.Config,
                 Targets = parsed.Targets,
                 Headed = parsed.Headed,
+                CheckModel = parsed.CheckModel,
+                CreateModel = createModel,
                 Notice = (target, line) => stderr.WriteLine(Format.Bounded("[" + target + "] " + line)),
                 CreateEngine = createEngine,
             },
@@ -120,19 +120,23 @@ internal static class DoctorCommand
             {
                 case "-h" or "--help":
                     return new DoctorArgs { Help = true };
-                case "--headed" or "--json":
+                case "--headed" or "--json" or "--check-model":
                     if (eq >= 0)
                     {
                         return new DoctorArgs { Error = "option '" + name + "' takes no argument" };
                     }
 
-                    if (name == "--headed")
+                    switch (name)
                     {
-                        result.Headed = true;
-                    }
-                    else
-                    {
-                        result.Json = true;
+                        case "--headed":
+                            result.Headed = true;
+                            break;
+                        case "--check-model":
+                            result.CheckModel = true;
+                            break;
+                        default:
+                            result.Json = true;
+                            break;
                     }
 
                     break;
@@ -166,11 +170,6 @@ internal static class DoctorCommand
 
                     break;
                 default:
-                    if (RefusedFlags.Contains(name))
-                    {
-                        return new DoctorArgs { Error = "option '" + name + "' is not supported by the .NET port yet" };
-                    }
-
                     if (arg.StartsWith('-') && arg.Length > 1)
                     {
                         return new DoctorArgs { Error = "unknown option '" + arg + "'" };
@@ -204,6 +203,8 @@ internal static class DoctorCommand
         public IReadOnlyList<string>? Targets { get; set; }
 
         public bool Headed { get; set; }
+
+        public bool CheckModel { get; set; }
 
         public bool Json { get; set; }
     }

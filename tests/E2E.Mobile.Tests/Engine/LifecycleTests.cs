@@ -332,6 +332,13 @@ public sealed class LifecycleTests
     }
 
     [Fact]
+    public void Rejects_a_blank_device_name_at_config_time()
+    {
+        Assert.Contains("must not be blank", Assert.Throws<ConfigurationException>(() => Harness.Create(options => options with { Device = "" })).Message, StringComparison.Ordinal);
+        Assert.Contains("must not be blank", Assert.Throws<ConfigurationException>(() => Harness.Create(options => options with { Devices = ["iPhone 17", " "] })).Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Rejects_an_empty_pool_at_config_time()
     {
         Assert.Matches("empty pool", Assert.Throws<ConfigurationException>(() => Harness.Create(options => options with { Devices = [] })).Message);

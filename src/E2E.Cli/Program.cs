@@ -29,7 +29,7 @@ public static partial class Program
           e2e init [directory] [--yes] [--engine <ids>] [--gateway <id>] [--endpoint <url>] [--skills <dirs>] [--mcp <files>]
           e2e explore [goal] [--config <path>] [--target <id>] [--agent <name>] [--max-steps <n>] [--timeout <ms>] [--headed] [--output <dir>]
                        [--debug] [--ai-trace] [--trace [mode]] [--video [mode]]
-          e2e doctor [--config <path>] [--target <ids>] [--headed] [--json]
+          e2e doctor [--config <path>] [--target <ids>] [--headed] [--check-model] [--json]
 
         e2e install downloads browsers for the Playwright version E2E runs. It installs chromium when no browser is named.
 

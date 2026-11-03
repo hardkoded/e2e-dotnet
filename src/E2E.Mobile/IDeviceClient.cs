@@ -35,6 +35,7 @@ public static class DeviceMethods
     public const string DevicesBoot = "devices.boot";
     public const string RecordingRecord = "recording.record";
     public const string CommandPrepare = "command.prepare";
+    public const string CommandDoctor = "command.doctor";
     public const string CommandBack = "command.back";
     public const string AppsOpen = "apps.open";
     public const string AppsClose = "apps.close";

@@ -39,6 +39,20 @@ The finish reason of a turn the provider refused (upstream's `content-filter`).
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_ModelResponse_ErrorFinish"></a>
+
+### ErrorFinish
+
+
+```csharp
+public const string ErrorFinish = "error"
+```
+
+
+The finish reason of a turn the provider ended on an error (upstream's `error`), whatever text came with it. No built-in provider reports it; a custom [IAgentModel](/api/E2E/IAgentModel/) may.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 ## Properties
 
 <a id="E2E_ModelResponse_Content_"></a>
@@ -65,7 +79,7 @@ public string? FinishReason { get; init; }
 ```
 
 
-The AI SDK finish reason that matters to the agent: [ContentFilter](#E2E_ModelResponse_ContentFilter) when the provider stopped the turn because it refused the request. Null for any other turn.
+The AI SDK finish reason that matters to the agent: [ContentFilter](#E2E_ModelResponse_ContentFilter) when the provider stopped the turn because it refused the request, or [ErrorFinish](#E2E_ModelResponse_ErrorFinish) when it ended on an error. Null for any other turn.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
