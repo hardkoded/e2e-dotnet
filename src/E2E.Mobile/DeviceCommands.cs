@@ -115,10 +115,10 @@ public static class DeviceCommands
     /// The params of a lease request, as the client's lease writer sends them. Each field is the call's option, else the
     /// client configuration's: <c>tenant</c> is <c>tenantId</c> on the wire and <c>leaseBackend</c> is <c>backend</c>.
     /// Allocate carries the lease's life (<c>ttlMs</c>, <c>retainOnClose</c>) and its backend, heartbeat and release the
-    /// lease id, heartbeat also <c>ttlMs</c>. No session is named, so the daemon takes <c>default</c>, as it does for the
-    /// upstream client the engine hands no session to.
+    /// lease id, heartbeat also <c>ttlMs</c>. Each names the client's <paramref name="session"/>, which agent-device
+    /// requires of a provider lease.
     /// </summary>
-    public static JsonObject LeaseParameters(DeviceCommand command, JsonObject settings)
+    public static JsonObject LeaseParameters(DeviceCommand command, JsonObject settings, string session)
     {
         JsonNode? Field(string name) => command.Flags[name] ?? settings[name];
 
@@ -131,6 +131,7 @@ public static class DeviceCommands
             }
         }
 
+        parameters["session"] = session;
         Put("tenantId", Field("tenant"));
         Put("runId", Field("runId"));
         Put("leaseProvider", Field("leaseProvider"));

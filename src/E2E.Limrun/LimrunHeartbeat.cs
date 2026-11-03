@@ -31,7 +31,10 @@ internal static class LimrunHeartbeat
             : throw new InvalidOperationException("Limrun driver returned no agent-device lease id");
 
         // The lease's own stateDir selects the local daemon, whatever remote daemon the environment names.
-        var client = connect("default", new DeviceConnection { Client = binding.Client });
+        var stateDirectory = binding.Client["stateDir"] is JsonValue directory && directory.TryGetValue<string>(out var path) && path.Length > 0
+            ? path
+            : throw new InvalidOperationException("Limrun driver returned no state directory");
+        var client = connect(LimrunDriver.LeaseSession(stateDirectory), new DeviceConnection { Client = binding.Client });
         var stopping = new CancellationTokenSource();
 
         async Task BeatAsync(CancellationToken outer)

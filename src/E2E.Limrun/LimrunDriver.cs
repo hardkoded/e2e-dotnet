@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json.Nodes;
 using E2E.Mobile;
 
@@ -28,7 +30,8 @@ internal static class LimrunDriver
     public static async Task<LimrunBinding> AttachAsync(LimrunDriverRequest request, DeviceClientFactory connect, CancellationToken cancellationToken)
     {
         var platform = request.Platform.WireName();
-        var allocator = connect("default", new DeviceConnection { Client = new JsonObject { ["stateDir"] = request.StateDirectory } });
+        var session = LeaseSession(request.StateDirectory);
+        var allocator = connect(session, new DeviceConnection { Client = new JsonObject { ["stateDir"] = request.StateDirectory } });
         var lease = await allocator.CallAsync(
             DeviceMethods.LeasesAllocate,
             DeviceArgs.Of(
@@ -69,7 +72,7 @@ internal static class LimrunDriver
             return binding;
         }
 
-        var device = connect("default", new DeviceConnection { Client = client });
+        var device = connect(session, new DeviceConnection { Client = client });
         var installed = await device.CallAsync(
             DeviceMethods.AppsInstall,
             DeviceArgs.Of(
@@ -82,6 +85,14 @@ internal static class LimrunDriver
             ?? throw new InvalidOperationException("Limrun installed the build but agent-device returned no app identifier");
         return binding with { InstalledApp = id };
     }
+
+    /// <summary>
+    /// The session the driver allocates and renews the lease under: agent-device refuses a provider lease to a client that names no
+    /// session. Upstream carries it in the binding's <c>client</c>. The port cannot, because <c>session</c> is reserved there for
+    /// the engine (see <c>DeviceBindings</c>), so the heartbeat derives it from the same state directory.
+    /// </summary>
+    internal static string LeaseSession(string stateDirectory) =>
+        $"e2e-lease-{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(stateDirectory)))[..8]}";
 
     private static string Required(JsonObject lease, string name) =>
         Text(lease[name]) ?? throw new InvalidOperationException($"Invalid lease response from daemon: no {name}");
