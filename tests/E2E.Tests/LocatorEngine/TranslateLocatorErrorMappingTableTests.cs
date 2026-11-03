@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using Locators = global::E2E.LocatorEngine;
 
 namespace E2E.Tests.LocatorEngine;
 
@@ -35,7 +36,7 @@ public sealed class TranslateLocatorErrorMappingTableTests
     {
         var engineError = new EngineException(engineCode, "boom", retryable: false);
 
-        var translated = LocatorResolver.TranslateLocatorError(engineError);
+        var translated = Locators.TranslateLocatorError(engineError);
 
         var classified = ErrorSerializer.Classify(translated);
         Assert.Equal(category, classified.Category);
@@ -48,13 +49,13 @@ public sealed class TranslateLocatorErrorMappingTableTests
     {
         var original = new ConfigurationException("INVALID_CONFIG", "bad config");
 
-        Assert.Same(original, LocatorResolver.TranslateLocatorError(original));
+        Assert.Same(original, Locators.TranslateLocatorError(original));
     }
 
     [Fact]
     public void Wraps_unknown_errors_as_infrastructure_ENGINE_FAILURE()
     {
-        var translated = LocatorResolver.TranslateLocatorError(new InvalidOperationException("socket hangup"));
+        var translated = Locators.TranslateLocatorError(new InvalidOperationException("socket hangup"));
 
         var classified = ErrorSerializer.Classify(translated);
         Assert.Equal("infrastructure", classified.Category);
@@ -65,7 +66,7 @@ public sealed class TranslateLocatorErrorMappingTableTests
     [Fact]
     public void Appends_the_locator_description_when_an_expression_is_provided()
     {
-        var translated = LocatorResolver.TranslateLocatorError(new EngineException(EngineErrorCodes.NodeStale, "stale", retryable: false), Button);
+        var translated = Locators.TranslateLocatorError(new EngineException(EngineErrorCodes.NodeStale, "stale", retryable: false), Button);
 
         Assert.Contains("stale", translated.Message, StringComparison.Ordinal);
         Assert.EndsWith(": getByRole(\"button\")", translated.Message, StringComparison.Ordinal);
@@ -76,7 +77,7 @@ public sealed class TranslateLocatorErrorMappingTableTests
     {
         var cancel = new OperationCanceledException();
 
-        Assert.Same(cancel, LocatorResolver.TranslateLocatorError(cancel, Button));
+        Assert.Same(cancel, Locators.TranslateLocatorError(cancel, Button));
     }
 
     [Fact]

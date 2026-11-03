@@ -156,7 +156,7 @@ public sealed class WebAndDocumentEngineLocateTests
         await WebEngineTests.RunAsync(session, async () =>
         {
             await session.App.OpenAsync("/");
-            Assert.True(session.Screen.LocatesInEngine);
+            Assert.True(session.Screen.Engine.LocatesInEngine);
             Assert.Equal(0, await session.Screen.GetByRole("status").CountAsync());
             await Expect.That(session.Screen.GetByRole("status")).ToBeAttachedAsync();
             await session.Screen.GetByRole("status").WaitForAsync(new LocatorWaitForOptions { State = WaitForState.Hidden });

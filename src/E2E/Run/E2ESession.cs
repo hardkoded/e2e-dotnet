@@ -349,18 +349,22 @@ public sealed class E2ESession : IAsyncDisposable
             browser.Failed = scope.Implicate;
             browser.Attach = scope.AttachArtifact;
             var agent = new Agent(scope);
+            var locatorEngine = new LocatorEngine(new LocatorEngineOptions
+            {
+                Observe = scope.ObserveAsync,
+                ObserveWithin = scope.ObserveAsync,
+                Locate = engine.CanLocate ? engine.LocateAsync : null,
+                Perform = engine.PerformAsync,
+                PerformAt = engine.PerformAtAsync,
+                Cancellation = () => timeout.Token,
+                ActionTimeout = options.ActionTimeout,
+                AssertionTimeout = options.AssertionTimeout,
+            });
             var screen = new Screen(
-                scope.ObserveAsync,
-                (node, action, token) => engine.PerformAsync(node, action, OperationContext.Test, token),
-                () => timeout.Token,
+                locatorEngine,
                 scope.MarkVerified,
-                options.ActionTimeout,
-                options.AssertionTimeout,
                 softFailures,
-                locate: engine.CanLocate ? engine.LocateAsync : null,
-                swipe: (direction, momentum, token) => engine.SwipeAsync(direction, momentum, OperationContext.Test, token),
-                observeWithin: scope.ObserveAsync,
-                performAt: (point, action, token) => engine.PerformAtAsync(point, action, OperationContext.Test, token));
+                (direction, momentum, token) => engine.SwipeAsync(direction, momentum, OperationContext.Test, token));
             var fixtureContext = new EngineFixtureContext(screen);
             browser.Context = fixtureContext;
             (engine as IEngineFixtureHost)?.CreateFixtures(fixtureContext);

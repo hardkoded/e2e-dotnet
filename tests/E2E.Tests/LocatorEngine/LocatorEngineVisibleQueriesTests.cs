@@ -3,15 +3,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Engine;
+using E2E.Internal;
 
 namespace E2E.Tests.LocatorEngine;
 
 /// <summary>
-/// The port resolves a query over the observed tree, so a node that reports no visibility is shown and a visible query
-/// under an index is not handed to an engine. So the upstream its "keeps nodes whose engine reports no visibility at all"
-/// and "hands a visible query under an index to the engine unchanged: only it can filter before nth" are not ported. And
-/// a role query never matches a hidden node, so the getByRole row of "without visible keeps the hidden twin, so the pair
-/// is LOCATOR_AMBIGUOUS" is not ported (COMPATIBILITY, Locators).
+/// A role query never matches a hidden node, so the getByRole row of "without visible keeps the hidden twin, so the pair
+/// is LOCATOR_AMBIGUOUS" is not ported (COMPATIBILITY, Locators). The two tests that hand the query to an engine of its own run on a
+/// <see cref="E2E.LocatorEngine"/> over a locate, as upstream's <c>makeLocatorEngineOverEngine</c> does.
 /// </summary>
 public sealed class LocatorEngineVisibleQueriesTests
 {
@@ -94,5 +93,46 @@ public sealed class LocatorEngineVisibleQueriesTests
 
         Assert.Equal("LOCATOR_AMBIGUOUS", error.Code);
         Assert.Contains("getByText(\"Save\", visible: true)", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A locator engine over an engine that answers every locate with <paramref name="nodes"/>, and keeps the expressions it was asked.</summary>
+    private static E2E.LocatorEngine EngineAnswering(IReadOnlyList<SemanticNode> nodes, List<LocatorExpression> expressions) => new(new LocatorEngineOptions
+    {
+        Observe = _ => Task.FromResult(new Observation { Route = "/", Roots = [] }),
+        Locate = (expression, _, _) =>
+        {
+            expressions.Add(expression);
+            return Task.FromResult(nodes);
+        },
+        Perform = (_, _, _, _) => Task.CompletedTask,
+        Cancellation = () => CancellationToken.None,
+        ActionTimeout = TimeSpan.FromMilliseconds(1_000),
+        AssertionTimeout = TimeSpan.FromMilliseconds(1_000),
+    });
+
+    [Fact]
+    public async Task Keeps_nodes_whose_engine_reports_no_visibility_at_all()
+    {
+        var engine = EngineAnswering([new SemanticNode { Ref = "unknown", Role = "button", Name = "Save" }], []);
+        var query = ScreenOver([], []).GetByRole("button", new RoleOptions { Name = "Save", Visible = true }).Query;
+
+        var node = await engine.ResolveExactlyOneAsync(query, new Deadline(TimeSpan.FromMilliseconds(5_000), TimeProvider.System), CancellationToken.None);
+
+        Assert.Equal("unknown", node.Ref);
+    }
+
+    [Fact]
+    public async Task Hands_a_visible_query_under_an_index_to_the_engine_unchanged_only_it_can_filter_before_nth()
+    {
+        var expressions = new List<LocatorExpression>();
+        var engine = EngineAnswering(Twins, expressions);
+        var indexed = ScreenOver([], []).GetByText("Save", new TextMatchOptions { Visible = true }).First().Query;
+
+        // The adapter cannot know which of the engine's answers came first, so it must not second-guess them; the engine applied
+        // `visible` before `first`.
+        var matches = await engine.ResolveNowAsync(indexed, CancellationToken.None, engine.Reads(engine.DeadlineFor()));
+
+        Assert.Equal(2, matches.Count);
+        Assert.Equal(indexed, expressions[0]);
     }
 }

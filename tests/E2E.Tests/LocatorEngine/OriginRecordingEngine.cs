@@ -7,9 +7,9 @@ using E2E.Engine;
 namespace E2E.Tests.LocatorEngine;
 
 /// <summary>
-/// Wraps an engine and records the origin of every action it is asked to perform: the <c>origins</c> list of <c>makeEngine</c> in
-/// upstream's <c>locator-engine.test.ts</c>, whose <c>perform</c> pushes <c>operation.origin</c>. An action that reaches the session
-/// without a context is not recorded, so a caller that never says who acts fails the test.
+/// Wraps an engine and records the origin of every action it is asked to perform (.NET-only): what <c>makeEngine</c> in upstream's
+/// <c>locator-engine.test.ts</c> records at its fake session, here at the real session a test's step reaches. An action that reaches the
+/// session without a context is not recorded, so a caller that never says who acts fails the test.
 /// </summary>
 internal sealed class OriginRecordingEngine(IEngine inner) : IEngine
 {

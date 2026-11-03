@@ -69,15 +69,15 @@ public sealed class OnOneSharedBrowserAFreshAttemptPerTestTests
 
             // Every pointer kind at a bare point, read back from the page's event log.
             Assert.Equal(["tap", "doubleTap", "secondaryTap", "longPress", "hover", "dragTo", "swipe", "swipeTo"], session.Screen.PointerActionKinds);
-            await session.Screen.PerformAtAsync(new Point(150, 350), new PointerAction.Tap(), CancellationToken.None);
-            await session.Screen.PerformAtAsync(new Point(160, 360), new PointerAction.DoubleTap(), CancellationToken.None);
-            await session.Screen.PerformAtAsync(new Point(170, 370), new PointerAction.SecondaryTap(), CancellationToken.None);
-            await session.Screen.PerformAtAsync(new Point(180, 380), new PointerAction.LongPress(TimeSpan.FromMilliseconds(120)), CancellationToken.None);
-            await session.Screen.PerformAtAsync(new Point(190, 390), new PointerAction.Hover(), CancellationToken.None);
-            await session.Screen.PerformAtAsync(new Point(200, 400), new PointerAction.DragTo(new Point(300, 450)), CancellationToken.None);
-            await session.Screen.PerformAtAsync(new Point(210, 410), new PointerAction.Swipe(ScrollDirection.Down), CancellationToken.None);
+            await session.Screen.Engine.SessionPerformAtAsync(new Point(150, 350), new PointerAction.Tap(), CancellationToken.None);
+            await session.Screen.Engine.SessionPerformAtAsync(new Point(160, 360), new PointerAction.DoubleTap(), CancellationToken.None);
+            await session.Screen.Engine.SessionPerformAtAsync(new Point(170, 370), new PointerAction.SecondaryTap(), CancellationToken.None);
+            await session.Screen.Engine.SessionPerformAtAsync(new Point(180, 380), new PointerAction.LongPress(TimeSpan.FromMilliseconds(120)), CancellationToken.None);
+            await session.Screen.Engine.SessionPerformAtAsync(new Point(190, 390), new PointerAction.Hover(), CancellationToken.None);
+            await session.Screen.Engine.SessionPerformAtAsync(new Point(200, 400), new PointerAction.DragTo(new Point(300, 450)), CancellationToken.None);
+            await session.Screen.Engine.SessionPerformAtAsync(new Point(210, 410), new PointerAction.Swipe(ScrollDirection.Down), CancellationToken.None);
             // A fractional path lands on whole pixels: the browser would truncate it a pixel early.
-            await session.Screen.PerformAtAsync(new Point(220.6, 420.4), new PointerAction.SwipeTo(new Point(320.5, 460.5)), CancellationToken.None);
+            await session.Screen.Engine.SessionPerformAtAsync(new Point(220.6, 420.4), new PointerAction.SwipeTo(new Point(320.5, 460.5)), CancellationToken.None);
             // The port's text read folds the log's line breaks into spaces; no entry holds one.
             var lines = ((await screen.GetByTestId("log").TextContentAsync()) ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
             Assert.Contains("click:150,350", lines);

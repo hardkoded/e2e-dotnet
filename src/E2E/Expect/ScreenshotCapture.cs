@@ -42,11 +42,11 @@ internal static partial class ScreenshotAssertion
                 catch (Exception ex) when (bounded.IsCancellationRequested && !cancellationToken.IsCancellationRequested
                     && (ex is OperationCanceledException || ex is EngineException { Code: EngineErrorCodes.OperationTimeout or EngineErrorCodes.Cancelled } || ex.InnerException is OperationCanceledException))
                 {
-                    throw LocatorResolver.TranslateLocatorError(new EngineException(EngineErrorCodes.OperationTimeout, "the screenshot outlived its budget", retryable: false, ex));
+                    throw LocatorEngine.TranslateLocatorError(new EngineException(EngineErrorCodes.OperationTimeout, "the screenshot outlived its budget", retryable: false, ex));
                 }
                 catch (EngineException ex) when (ex.Code == EngineErrorCodes.OperationTimeout)
                 {
-                    throw LocatorResolver.TranslateLocatorError(ex);
+                    throw LocatorEngine.TranslateLocatorError(ex);
                 }
             });
 
@@ -62,7 +62,7 @@ internal static partial class ScreenshotAssertion
                 {
                     try
                     {
-                        await screen.PerformAsync(node, new LocatorAction.ScrollIntoView(), cancellationToken).ConfigureAwait(false);
+                        await screen.Engine.SessionPerformAsync(node, new LocatorAction.ScrollIntoView(), cancellationToken).ConfigureAwait(false);
                     }
                     catch (Exception ex) when (ex is EngineException { Code: EngineErrorCodes.NodeStale } or TestException { Code: "LOCATOR_NOT_FOUND" })
                     {
