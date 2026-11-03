@@ -2,7 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-namespace E2E.Eas;
+namespace E2E.Expo;
 
 /// <summary>What <see cref="ExpoSimulators"/> takes: the Expo project, the app each simulator starts with, and the simulator itself.</summary>
 public sealed record ExpoSimulatorsOptions

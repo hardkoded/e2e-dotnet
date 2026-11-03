@@ -1,15 +1,15 @@
-# E2E.Eas
+# E2E.Expo
 
 Expo Simulators, hosted iOS simulators and Android emulators for [`E2E.Mobile`](https://www.nuget.org/packages/E2E.Mobile), part of the community .NET port of the [e2e](https://github.com/tester-army/e2e) agentic testing framework. It ports `@e2e-dev/eas`. Not an official TesterArmy product.
 
 ```
-dotnet add package E2E.Eas
+dotnet add package E2E.Expo
 ```
 
 `ExpoSimulators` leases hosted simulators and emulators from Expo, one per worker, runs a build from Expo Build or an app archive on them, and stops the sessions when the run ends.
 
 ```csharp
-using E2E.Eas;
+using E2E.Expo;
 using E2E.Mobile;
 
 var options = new MobileOptions

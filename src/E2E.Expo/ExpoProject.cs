@@ -7,7 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace E2E.Eas;
+namespace E2E.Expo;
 
 /// <summary>
 /// The Expo project id a run's sessions belong to when <see cref="ExpoSimulatorsOptions.ProjectId"/> names none:

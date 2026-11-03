@@ -6,7 +6,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
 
-namespace E2E.Eas.Tests.Eas;
+namespace E2E.Expo.Tests.Eas;
 
 internal enum EasOperation
 {

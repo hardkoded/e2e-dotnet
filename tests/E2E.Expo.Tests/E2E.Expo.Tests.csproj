@@ -13,6 +13,6 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\E2E.Eas\E2E.Eas.csproj" />
+    <ProjectReference Include="..\..\src\E2E.Expo\E2E.Expo.csproj" />
   </ItemGroup>
 </Project>

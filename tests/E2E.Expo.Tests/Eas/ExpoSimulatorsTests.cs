@@ -5,7 +5,7 @@
 using System.Text.Json.Nodes;
 using E2E.Mobile;
 
-namespace E2E.Eas.Tests.Eas;
+namespace E2E.Expo.Tests.Eas;
 
 /// <summary>
 /// <see cref="ExpoSimulators"/> against a fake Expo GraphQL API: the create input, polling to ready and the queue line, the
