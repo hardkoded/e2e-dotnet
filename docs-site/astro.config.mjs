@@ -69,6 +69,7 @@ export default defineConfig({
                         { label: "Signing in / sessions", slug: "features/signing-in" },
                         { label: "Caching & self-healing", slug: "features/caching" },
                         { label: "Test filters", slug: "docs/test-filters" },
+                        { label: "Bug bashes", slug: "docs/bug-bash" },
                         { label: "Soft assertions & evidence", slug: "features/assertions" },
                         { label: "Video & screenshots", slug: "features/video" },
                         { label: "Working with the browser", slug: "features/browser" },

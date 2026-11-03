@@ -75,7 +75,7 @@ Every section says what the interview found, no placeholders.
 | Doctor | One read-only check that answers "is this instance worth driving?". The smoke test is a model-free test that opens the app and pins one landmark with `Expect.That`, kept out of the `RealModel` category; `dotnet test --filter "FullyQualifiedName~SmokeTests"` exits `0` when the app answers, the engine runs, and the landmark renders. No smoke test in the project: write one now. A signed-in app's auth doctor is its sign-in test. An agent runs Doctor first whenever anything looks off |
 | Drive | Two lanes and when to use each. Live over MCP: `open_session`, `observe`, the verbs, and `locate` before any locator is written (topic `mcp`); list the credentials the session offers through `type_secret`. Scripted: a test class in the test project, `Screen` where the name on screen is known, `Agent.ActAsync` where the flow varies (topic `writing-tests`, and `writing-tests-nunit` or `writing-tests-xunit` for the framework the project uses). Prefer stable handles, roles and accessible names, labels, test ids, routes. Name the credentials a signed-in drive starts from (`Credentials.User(name)`) and the environment variables that hold them, `E2E_USER_<NAME>_USERNAME` and `E2E_USER_<NAME>_PASSWORD`, never their values |
 | Evidence | What a proof keeps and where. The port writes no test report. A trace-enabled attempt writes `.e2e/results/<result>/trace.md` when its trace mode keeps it (`retain-on-failure` keeps failed attempts, `on` every attempt; topic `debugging`), and a video is written only when video recording is on. The proof is the `dotnet test` result (`--logger "trx;LogFileName=<name>.trx"`, topic `running`) and what the test pins: `Expect.That(...)` on the end state, and `ToHaveScreenshotAsync` for a stored screenshot (topic `writing-tests`). The next run reuses `.e2e/` for the replay cache; copy a result out before a run that overwrites it. State the proof standards (below) |
-| Bug bash | How this app is bashed (topic `bug-bash`). The bug bash fan-out is not ported, so the skill has no fan-out: the agent walks a mapped feature live over MCP or with a short `Agent.ActAsync` test, using the goals in the feature map. The verification bar: a finding is a bug only once a repro test fails with `ASSERTION_FAILED` on the assertion that encodes it, in a test project folder named for bug-bash repros |
+| Bug bash | How this app is bashed (topic `bug-bash`): the bug-bash config to write (`e2e.bugbash.config.json`: what the local app cannot do, the postures as agents, the isolation choice from the interview), the accounts to seed with their `E2E_USER_<NAME>_PASSWORD` variables, the `.e2e/bugbash/` line added to `.gitignore`, and the rule that the charters come from the feature map (section 3). The verification bar: a finding is a bug only once a repro test in the test project's `BugBash` folder fails with `ASSERTION_FAILED` on the assertion that encodes it |
 | Cleanup | What to tear down. `close_session` stops a session's browser; an app the user started stays theirs. Never kill by process name; stop what you started. Cleanup removes instances and scratch state (seeded accounts, scaffolding, repro tests whose findings were all rejected), never the evidence; name where the evidence is |
 | Helpers | Any script the skill ships is executable and its invocation is in the skill body. A helper the reader has to reverse-engineer is not a helper. Most projects need none; `dotnet test` and the `e2e` tool are the helpers |
 
@@ -104,7 +104,7 @@ view.
 | `How to get to it (user POV)` | Route, navigation, the account it needs |
 | `Driving it with e2e` | The test class that pins it, the locators that matter (checked with `locate`), the MCP steps for a live walk |
 | `Proof` | The observable end state that means it works, on screen and in the side-effect store |
-| `Charters` | One or two bug-bash goals for this feature, each one area, one posture, one sentence (topic `bug-bash`). Written as the line `slug\|target\|charter`, so a later agent can paste them. A goal that starts signed in names the credential it needs and runs alone |
+| `Charters` | One or two `e2e explore` goals for this feature, each one area, one posture, one sentence (topic `bug-bash`, step 2). Written as the fan-out line `slug\|target\|agent\|charter`, so the bug bash pastes them; a charter that starts signed in names its credential and runs alone, because the port has no `--session` |
 | `Gotchas` | What reads as broken but is not; what the local app cannot do |
 
 The map is the project's maintained verification source, and the bug bash
@@ -122,11 +122,18 @@ Run its own instructions end to end once, from a shell in the project.
 2. Drive one mapped feature through its test class. One is enough; the map
    exists so later runs cover the rest. A missing test: write it now from
    the feature file, with locators checked over MCP.
-3. Bug bash one charter from the map: walk it live over MCP, or in a short
-   `Agent.ActAsync` test, and triage what you find. Do not verify every
-   finding now. This proves the model and the walk, not the app. Without a
-   model, skip this step and say in the handover that the bug bash is
-   unproven.
+3. Bug bash one charter from the map: `e2e explore '<charter>' --config
+   e2e.bugbash.config.json --agent <persona> --max-steps 3 --output
+   .e2e/bugbash/<slug>/results`. Read its `Findings` and triage; do not
+   verify every finding now. Then read the run's `run.explore` in
+   `.e2e/bugbash/<slug>/report.json`: an ending of `aborted`, or steps that
+   ran a generic survey instead of the mapped charter, leaves the bug bash
+   unproven and the handover says so. The steps prove the charter ran, not
+   the exit code: `1` is also what a run that executed no step exits with.
+   A `--max-steps` ending states the coverage the run reached. This proves
+   the model, the config, the charter, and the output directory, not the
+   app. Without a model, skip this step and say in the handover that the
+   bug bash is unproven.
 4. Cleanup, then confirm the evidence still exists at the named location.
    A cleanup that eats the proof fails this step.
 
@@ -134,8 +141,8 @@ Fix what fails, and run Cleanup after every failed iteration too, so
 broken attempts do not strand ports and processes. A generated skill that
 was never executed is a draft, not a deliverable. Leave the project as the
 user had it. The generated skill, its feature map, and any test you added
-are the change; `.e2e/` output stays untracked unless the user asks
-otherwise.
+are the change; `.e2e/` output and the bug-bash config stay untracked
+unless the user asks otherwise.
 
 ## 5. Hand over
 

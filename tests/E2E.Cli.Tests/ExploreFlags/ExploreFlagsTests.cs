@@ -346,6 +346,42 @@ public sealed class ExploreFlagsTests
         Assert.True(stdout.Split('\n').Max(line => line.Length) <= 8_192 + 40);
     }
 
+    // .NET-only: the environment scan skips a name whose variables belong to a configured credential, which the config already carries.
+    [Fact]
+    public void Leaves_a_configured_credential_to_the_config_when_scanning_the_environment()
+    {
+        using var _ = Env("E2E_USER_EXPLORE_COVERED_USERNAME", "dana@example.com");
+        using var __ = Env("E2E_USER_EXPLORE_COVERED_PASSWORD", "covered-secret-pw");
+        using var ___ = Env("E2E_USER_EXPLORE_OTHER_USERNAME", "erin@example.com");
+        using var ____ = Env("E2E_USER_EXPLORE_OTHER_PASSWORD", "other-secret-pw");
+
+        string[] mine = ["explore_covered", "explore_other"];
+        Assert.Equal(mine, ExploreCommand.ScanCredentials().Select(account => account.Name).Where(mine.Contains).ToArray());
+        Assert.Equal(["explore_other"], ExploreCommand.ScanCredentials(["explore-covered"]).Select(account => account.Name).Where(mine.Contains).ToArray());
+    }
+
+    // .NET-only: a config that does not load is the run's error, not an account problem the environment scan finds first.
+    [Fact]
+    public async Task Leaves_a_config_that_does_not_load_to_the_run_instead_of_scanning_the_environment()
+    {
+        using var _ = Env("E2E_USER_EXPLORE_BADCONFIG_USERNAME", "frank@example.com");
+        var dir = Directory.CreateTempSubdirectory("e2e-explore-647-").FullName;
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "e2e.config.json"), """{ "credentials": { "ada": "not-an-object" } }""");
+            var fake = Fake();
+
+            await ExploreCommand.RunAsync([], new StringWriter(), new StringWriter(), interactive: false, fake.RunAsync, CancellationToken.None, dir);
+
+            Assert.NotNull(fake.Options);
+            Assert.Empty(fake.Options.Credentials!);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task Refuses_an_account_without_a_password_with_exit_code_2()
     {

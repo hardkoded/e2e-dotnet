@@ -220,4 +220,5 @@ read `Actual` against the screenshot before filing a bug. The port has no
 saved sessions (`--session`), so an
 exploration starts signed out. Its record is the outcome, what the command
 prints, and `run.explore` in `report.json`. A whole-app
-bug hunt (topic `bug-bash`) still has no fan-out.
+bug hunt is many of these runs at once, then a repro test for each finding
+(topic `bug-bash`).

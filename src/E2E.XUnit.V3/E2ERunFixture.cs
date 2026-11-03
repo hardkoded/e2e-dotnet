@@ -17,7 +17,7 @@ public sealed class E2ERunFixture : IAsyncDisposable
 {
     /// <summary>
     /// Runs the reporters that the test assembly registers with <c>[assembly: E2EReporter(typeof(...))]</c> once <c>report.json</c> is final, then
-    /// stops the app commands that the tests of this process started. The test assembly is the one xUnit is running (its path from the test context), else the entry assembly, since an xUnit v3 test project is an executable.
+    /// stops the app commands that the tests of this process started, and deletes the sessions that setup tests saved (see <c>E2ESetupAttribute</c>). The test assembly is the one xUnit is running (its path from the test context), else the entry assembly, since an xUnit v3 test project is an executable.
     /// </summary>
     public async ValueTask DisposeAsync()
     {
@@ -34,7 +34,15 @@ public sealed class E2ERunFixture : IAsyncDisposable
         }
         finally
         {
-            await RunApps.StopAllAsync().ConfigureAwait(false);
+            try
+            {
+                await RunApps.StopAllAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                // The run's saved sessions go with the run.
+                SessionRun.Cleanup();
+            }
         }
     }
 

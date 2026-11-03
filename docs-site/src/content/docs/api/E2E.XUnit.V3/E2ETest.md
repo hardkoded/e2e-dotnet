@@ -15,6 +15,7 @@ Namespace: [E2E.XUnit.V3](/api/E2E.XUnit.V3/)
 
 
 ```csharp
+[TestMethodOrderer(typeof(SetupTestMethodOrderer))]
 public abstract class E2ETest : E2EFixture, IAsyncLifetime, IAsyncDisposable
 ```
 

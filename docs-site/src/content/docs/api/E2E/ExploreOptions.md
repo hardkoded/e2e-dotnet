@@ -102,7 +102,8 @@ public IReadOnlyDictionary<string, UserCredential>? Credentials { get; init; }
 
 The accounts the explorer can sign in with, by name. Each travels into every step as the username and a password secret
 named `<name>.password`, which the explorer fills with `fill_secret`; the password never reaches a model.
-Upstream reads them from the config's `credentials`, which the port rejects; [User(string)](/api/E2E/Credentials/#E2E_Credentials_User_System_String_) reads one from the environment.
+The config's `credentials` are always accounts, as upstream carries them; this adds accounts the config does not declare
+(.NET-only: `e2e explore` passes the `E2E_USER_*` pairs of the environment).
 
 **Value:** [IReadOnlyDictionary&lt;string, UserCredential&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)
 

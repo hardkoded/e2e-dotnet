@@ -114,7 +114,7 @@ public sealed class Dashboard : E2ETest
   under `.e2e/sessions/<run id>`. Derive an `E2ERunFixture` to delete it when
   the run ends. The secrets the saving test used are redacted in the tests
   that restore it.
-- Only the NUnit adapter has the attributes so far.
+- The xUnit v3 adapter has the same attributes (topic `writing-tests-xunit`).
 
 ## Soft checks and polls
 

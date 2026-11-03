@@ -30,7 +30,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | Looking at the running app, checking a UI change, taking a screenshot, trying a locator, or walking a flow while you write its test, over `e2e mcp` (actions take the node ids `observe` lists and report what changed on screen) | `mcp` | [references/mcp.md](references/mcp.md) |
 | Writing or fixing a test: fixture members, locators, actions, matchers, sign-in, the `Browser` member (navigation, routes (`route.FetchAsync()` reads upstream before the handler decides), cookies with `SetCookiesAsync` and `ClearCookiesAsync(new CookieFilter { ... })`, native dialogs, downloads with `WaitForDownloadAsync` and `WaitForDownloadsAsync(trigger, count)` for several files from one trigger, CSS locators, iframes), `Locator.SetInputFilesAsync` for a file input or an upload button that opens a file chooser, and the pointer actions `SecondaryTapAsync`, `LongPressAsync`, `HoverAsync`, `DragToAsync`, `SwipeAsync` and tap `Modifiers`, and that `ClickAsync` and `DblClickAsync` record `locator.click` and `locator.dblclick` steps | `writing-tests` | [references/writing-tests.md](references/writing-tests.md) |
 | Writing a test with NUnit: the `E2E.NUnit` base class, `[Test]`, `[Category("RealModel")]`, saved sessions (`[E2ESetup]`, `[E2ESession]`, `SaveSessionAsync`), `dotnet test --filter`, a complete test | `writing-tests-nunit` | [references/writing-tests-nunit.md](references/writing-tests-nunit.md) |
-| Writing a test with xUnit v3: the `E2E.XUnit.V3` base class, `[Fact]`, `[Trait("TestCategory", "RealModel")]`, `dotnet test --filter`, a complete test | `writing-tests-xunit` | [references/writing-tests-xunit.md](references/writing-tests-xunit.md) |
+| Writing a test with xUnit v3: the `E2E.XUnit.V3` base class, `[Fact]`, `[Trait("TestCategory", "RealModel")]`, saved sessions (`[E2ESetup]`, `[E2ESession]`, `SaveSessionAsync`), `dotnet test --filter`, a complete test | `writing-tests-xunit` | [references/writing-tests-xunit.md](references/writing-tests-xunit.md) |
 | Adding `Agent` steps, picking a model, budgets, the replay cache, custom executors, the agent's `upload` tool (project-relative paths, never hidden files or files outside the project) | `agent` | [references/agent.md](references/agent.md) |
 | Running tests: `dotnet test` filters, the `e2e` tool, `report.json` for scripts, exit codes, CI, test filters (NUnit: `E2ERunFixture.Filters` and `ChangedSince`, or `E2E_CHANGED_SINCE`; not wired for xUnit or into the report) | `running` | [references/running.md](references/running.md) |
 | Handling a failed run: the trace page, `report.json` for scripts, `E2ESession.Report()` for a session you run yourself, error codes and their fixes, a visible browser, replay misses, phase timings, the agent step table, every model call | `debugging` | [references/debugging.md](references/debugging.md) |
@@ -38,7 +38,7 @@ trip. The installed tool prints the same text with `e2e guide <topic>`
 | Running isolated per-test sessions from your own runner: `E2EHost.OpenAsync`, `OpenHostOptions` (config value or file, target, `EngineFactory`), `host.OpenSessionAsync`, `E2ESession.CloseAsync` and the failures it returns, `Steps()` | `host` | [references/host.md](references/host.md) |
 | Testing an iOS or Android app: `MobileEngine`, the `Device` fixture, picking a simulator (without `MobileOptions.Device`, `MobileEngine` skips booted devices another agent-device session holds, and `prepare` fails with `ENGINE_FAILURE` when every booted one is held), video of the device screen, `Device.UnstableRaw` (the test's agent-device session: name, device id and name, selection, and a raw `IDeviceClient` whose calls are not steps, replayed, or redacted; unstable; `INVALID_STATE` after the session is disposed), Limrun hosted devices, a MAUI app through the DevFlow agent, known limits, `Locator.PressAsync("Enter")` tapping an unfocused field first, and the agent's `open_app` returning to the app under test when it names no app, a Compose Multiplatform field on iOS (for an empty (no value), editable, non-secure iOS field that reports no placeholder of its own, whose only child is a `StaticText` with no children, and whose label is a non-empty name, then `, `, then that child's text, that text is the field's `Placeholder`, the child is left out, and the name is the label before `, `; a non-empty `ContentDescription` stays the name, and that label is then the `Text`; any other field keeps its label and children), and `FillAsync` and `ClearAsync` refusing a node that is not an editable field with `UNSUPPORTED_CAPABILITY` (an iOS `other` that holds a value or only text is typed into), reading the field again before typing (a field the new capture no longer lists, an incomplete capture, or a changed input purpose or secure, disabled, or hidden state is a retryable `NODE_STALE` before anything is typed), looking at the screen again after the keyboard opens or closes (an unmoved control is acted on at once only when keyboard visibility is unchanged, else it waits out `TransitionMilliseconds`), and a `target_still_moving` refusal with `dispatched: no` being a retryable `NODE_STALE` | `mobile` | [references/mobile.md](references/mobile.md) |
 | Testing a Windows desktop app: `WinAppEngine`, `WinAppTest`, the `Window` fixture, the `windows` target in `e2e explore` and `e2e mcp`, the interactive-desktop requirement, known limits | `windows` | [references/windows.md](references/windows.md) |
-| Asked to bug bash or hunt for bugs: proving each bug with a repro test | `bug-bash` | [references/bug-bash.md](references/bug-bash.md) |
+| Asked to bug bash or hunt for bugs: the bug-bash config, many `e2e explore` runs at once, proving each bug with a repro test | `bug-bash` | [references/bug-bash.md](references/bug-bash.md) |
 
 Two sibling skills install with `npx skills add hardkoded/e2e-dotnet --skill <name>`. `create-verification-skill` writes a project-local `verify-<app>` skill. `migrate-to-e2e` moves an existing Playwright .NET, Selenium .NET, Appium, Cypress, Detox, Maestro, or TesterArmy suite to e2e one slice at a time, with the old suite running beside the new one and a `MIGRATION.md` progress file. Hosted Limrun devices are covered in topic `mobile`.
 
@@ -304,8 +304,8 @@ lines you changed:
   `UNSUPPORTED_CAPABILITY`. Each call is bounded by the action timeout
   (`OPERATION_TIMEOUT`). `WebEngine` implements both (cookies, local
   storage, IndexedDB) and declares `EngineCapabilities.State`, which the report
-  records as `stateCapability`. With NUnit, `[E2ESetup]` and `[E2ESession]` call
-  them (topic `writing-tests-nunit`).
+  records as `stateCapability`. With NUnit or xUnit v3, `[E2ESetup]` and
+  `[E2ESession]` call them (topics `writing-tests-nunit` and `writing-tests-xunit`).
 - To reach a node below the fold, `Screen.ScrollUntilVisibleAsync(locator,
   new ScrollUntilVisibleOptions { Direction, Momentum, Timeout })` scrolls the viewport
   (`ScrollDirection.Down`, `Momentum.Slow` by default) until the locator resolves
@@ -359,8 +359,10 @@ lines you changed:
   (`{ "admin": { "username": "...", "password": "..." } }`): the password is
   the secret `admin.password`, `E2E_USER_ADMIN_USERNAME` and
   `E2E_USER_ADMIN_PASSWORD` win over the config and may replace either field,
-  and the runner redacts it. `E2EConfig.Credentials` gives the resolved
-  accounts; `Credentials.User` does not read them yet.
+  and the runner redacts it. While a test runs, `Credentials.User(name)`
+  returns the account the config declares (a name the config does not
+  declare reads the `E2E_USER_*` variables alone), and `e2e explore` carries
+  every configured account into its steps.
 - Agent instructions: one goal per act, the wording on screen, real values
   in `Params`. A goal is atomic: one outcome that one check confirms. Two
   outcomes worth checking are two goals, so split them into two `ActAsync`

@@ -72,7 +72,8 @@ public sealed class ExploreOptions
     /// <summary>
     /// The accounts the explorer can sign in with, by name. Each travels into every step as the username and a password secret
     /// named <c>&lt;name&gt;.password</c>, which the explorer fills with <c>fill_secret</c>; the password never reaches a model.
-    /// Upstream reads them from the config's <c>credentials</c>, which the port rejects; <see cref="Credentials.User"/> reads one from the environment.
+    /// The config's <c>credentials</c> are always accounts, as upstream carries them; this adds accounts the config does not declare
+    /// (.NET-only: <c>e2e explore</c> passes the <c>E2E_USER_*</c> pairs of the environment).
     /// </summary>
     public IReadOnlyDictionary<string, UserCredential>? Credentials { get; init; }
 
@@ -172,7 +173,7 @@ public static class Explore
         var config = LoadConfig(options);
         var projectRoot = options.RawConfig is null ? config.ProjectRoot : Path.GetFullPath(options.Cwd ?? config.ProjectRoot);
         var target = PickTarget(config.Targets, options.Target, notice);
-        var credentials = NormalizeCredentials(options.Credentials);
+        var credentials = NormalizeCredentials(ConfiguredAccounts(config, options.Credentials));
         CheckCredentialInventory(credentials);
 
         // An exploration runs as exactly one agent: the one named, else `default`.
@@ -476,6 +477,21 @@ public static class Explore
         ProviderOptions = explorer.ProviderOptions,
         Tools = explorer.Tools,
     };
+
+    /// <summary>
+    /// The config's <c>credentials</c>, which are every account upstream's exploration carries (<c>credentialAccounts(resolved.credentials)</c>),
+    /// then the accounts <see cref="ExploreOptions.Credentials"/> adds. .NET-only: an added account replaces a configured one of its name.
+    /// </summary>
+    private static Dictionary<string, UserCredential> ConfiguredAccounts(E2EConfig config, IReadOnlyDictionary<string, UserCredential>? added)
+    {
+        var accounts = config.Credentials.ToDictionary(pair => pair.Key, pair => new UserCredential(pair.Value.Username, pair.Value.Password), StringComparer.Ordinal);
+        foreach (var (name, credential) in added ?? new Dictionary<string, UserCredential>())
+        {
+            accounts[name] = credential;
+        }
+
+        return accounts;
+    }
 
     /// <summary>Each account's password as the secret <c>&lt;name&gt;.password</c> for a password field, as upstream's registry names it.</summary>
     private static Dictionary<string, UserCredential> NormalizeCredentials(IReadOnlyDictionary<string, UserCredential>? credentials) =>

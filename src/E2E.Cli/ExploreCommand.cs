@@ -44,7 +44,7 @@ internal static partial class ExploreCommand
           --trace [mode]    keep a trace page of the exploration (bare: on); one attempt, so retry modes keep none. Modes: {MODES} (also E2E_TRACE)
           --video [mode]    record a video of the exploration (bare: on), when the engine supports it; one attempt, so retry modes record none. Modes: {MODES} (also E2E_VIDEO)
 
-        Accounts: every E2E_USER_<NAME>_USERNAME and E2E_USER_<NAME>_PASSWORD pair in the environment is an account the agent can sign in with. It fills the password by secret; the password never reaches a model.
+        Accounts: every entry of the config's credentials, and every E2E_USER_<NAME>_USERNAME and E2E_USER_<NAME>_PASSWORD pair in the environment, is an account the agent can sign in with. The environment replaces a configured username or password. It fills the password by secret; the password never reaches a model.
 
         Not supported by the .NET port: --session, --reporter (it refuses these).
 
@@ -116,10 +116,12 @@ internal static partial class ExploreCommand
             return 2;
         }
 
+        var config = TryLoadConfig(parsed, cwd, out var configFailed);
         List<(string Name, UserCredential Credential)> accounts;
         try
         {
-            accounts = ScanCredentials();
+            // A config that does not load is the run's error to report, so the environment's accounts wait for it.
+            accounts = configFailed ? [] : ScanCredentials(config?.Credentials.Keys);
         }
         catch (E2EException ex)
         {
@@ -130,7 +132,6 @@ internal static partial class ExploreCommand
 
         // The record is the model's and the app's text. Upstream redacts it at its report boundary, which here is this printer, so
         // every field is redacted for the config's secrets and the accounts' passwords before the view sees it.
-        var config = TryLoadConfig(parsed, cwd);
         var redactor = Redactor.For(
             (config?.AllSecrets ?? []).Concat(accounts.Select(account => account.Credential.Password)).Concat(DeviceTargets.Credentials()));
         var pc = new Colors(interactive && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NO_COLOR")));
@@ -253,16 +254,19 @@ internal static partial class ExploreCommand
     }
 
     /// <summary>
-    /// The accounts the environment gives the agent: one for each <c>E2E_USER_&lt;NAME&gt;_USERNAME</c>, named in lower case, read
-    /// with <see cref="Credentials.User"/> so a missing or short password is its error and not a silent skip.
+    /// The accounts the environment gives the agent besides the config's: one for each <c>E2E_USER_&lt;NAME&gt;_USERNAME</c>, named in
+    /// lower case, read with <see cref="Credentials.User"/> so a missing or short password is its error and not a silent skip. A name
+    /// that maps to the variables of a configured credential is that credential, which the config already carries.
     /// </summary>
-    internal static List<(string Name, UserCredential Credential)> ScanCredentials()
+    internal static List<(string Name, UserCredential Credential)> ScanCredentials(IEnumerable<string>? configured = null)
     {
+        var covered = (configured ?? []).Select(name => ConfigSecrets.EnvName("E2E_USER", name)).ToHashSet(StringComparer.Ordinal);
         var names = Environment.GetEnvironmentVariables().Keys
             .Cast<string>()
             .Select(key => UsernameVariable().Match(key))
             .Where(match => match.Success)
             .Select(match => match.Groups[1].Value.ToLowerInvariant())
+            .Where(name => !covered.Contains(ConfigSecrets.EnvName("E2E_USER", name)))
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal);
         return [.. names.Select(name => (name, Credentials.User(name)))];
@@ -288,8 +292,9 @@ internal static partial class ExploreCommand
     }
 
     /// <summary>The config the exploration will load, for its target name and secrets. A config that does not load is the run's error to report.</summary>
-    private static E2EConfig? TryLoadConfig(ExploreArgs args, string? workingDirectory)
+    private static E2EConfig? TryLoadConfig(ExploreArgs args, string? workingDirectory, out bool failed)
     {
+        failed = false;
         try
         {
             var cwd = Path.GetFullPath(workingDirectory ?? Directory.GetCurrentDirectory());
@@ -298,6 +303,7 @@ internal static partial class ExploreCommand
         }
         catch (Exception ex) when (ex is E2EException or IOException or UnauthorizedAccessException or ArgumentException)
         {
+            failed = true;
             return null;
         }
     }
