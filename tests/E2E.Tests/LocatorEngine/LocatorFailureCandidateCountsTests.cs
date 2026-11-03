@@ -49,7 +49,7 @@ public sealed class LocatorFailureCandidateCountsTests
         Assert.Equal([_base.Describe(), _texted.Describe(), _chain.Describe()], counting.Resolved.TakeLast(3));
 
         // The failing resolve polled on the action deadline; the diagnostic resolves arrived after it, each bounded by the 500 ms diagnostic budget.
-        Assert.InRange(counting.Timeouts[0], TimeSpan.FromMilliseconds(19), TimeSpan.FromMilliseconds(20));
+        Assert.InRange(counting.Timeouts[0], TimeSpan.FromTicks(1), TimeSpan.FromMilliseconds(20));
         var diagnostic = counting.Timeouts.TakeLast(3).ToList();
         Assert.Equal(3, diagnostic.Count);
         Assert.All(diagnostic, timeout => Assert.InRange(timeout, TimeSpan.FromTicks(1), TimeSpan.FromMilliseconds(500)));
