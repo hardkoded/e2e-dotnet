@@ -298,7 +298,6 @@ public sealed class CdpSessionRecoveryTests
     [Fact]
     public async Task Counts_reconnect_time_against_the_operation_budget()
     {
-        using var app = await FixtureApp.StartAsync();
         await using var remote = await RemoteChrome.LaunchAsync();
         // The operation budget reads a clock the test moves: the reconnect takes 300 ms of it, and the page script, which never ends on
         // its own, gets the 800 ms that pass once it has started. Real waits would let a loaded runner spend the whole 1 s before the script runs.
@@ -312,7 +311,8 @@ public sealed class CdpSessionRecoveryTests
                 return Task.FromResult(remote.Endpoint);
             },
         };
-        await using var session = await StartAsync(app, new WebEngine(new WebEngineOptions { Connect = connect }) { Clock = clock }, TimeSpan.FromSeconds(1));
+        // The page is about:blank: the test measures the budget, and a page served over the network is a navigation a loaded runner can abort.
+        await using var session = await StartAsync("about:blank", "about:blank", new WebEngine(new WebEngineOptions { Connect = connect }) { Clock = clock }, TimeSpan.FromSeconds(1));
         var live = WebEngine.SurfaceOf(session)!;
         await live.Context().Browser!.CloseAsync();
         var evaluating = Assert.ThrowsAsync<EngineException>(() => EvaluateAsync<string>(session, """
@@ -586,9 +586,12 @@ public sealed class CdpSessionRecoveryTests
         return StartAsync(app, new WebEngine(new WebEngineOptions { Connect = connect }), actionTimeout);
     }
 
-    private static async Task<IEngineSession> StartAsync(TinySite app, WebEngine engine, TimeSpan? actionTimeout = null)
+    private static Task<IEngineSession> StartAsync(TinySite app, WebEngine engine, TimeSpan? actionTimeout = null) =>
+        StartAsync(app.Url, app.Url + "login", engine, actionTimeout);
+
+    private static async Task<IEngineSession> StartAsync(string baseUrl, string loginUrl, WebEngine engine, TimeSpan? actionTimeout = null)
     {
-        var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = app.Url, ActionTimeout = actionTimeout ?? TimeSpan.FromSeconds(10) }, None);
+        var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = baseUrl, ActionTimeout = actionTimeout ?? TimeSpan.FromSeconds(10) }, None);
         try
         {
             // Upstream opens /login under its own 10 s operation and gives only the operation under test the short budget. The session here
@@ -598,7 +601,7 @@ public sealed class CdpSessionRecoveryTests
             {
                 try
                 {
-                    await session.OpenAsync(app.Url + "login", None);
+                    await session.OpenAsync(loginUrl, None);
                     break;
                 }
                 catch (EngineException failure) when (actionTimeout is not null && failure.Code == "OPERATION_TIMEOUT" && attempt < 3)
