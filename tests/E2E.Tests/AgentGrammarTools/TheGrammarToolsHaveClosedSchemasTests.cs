@@ -16,12 +16,12 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
     [Fact]
     public void Offers_the_node_verbs_and_the_scroll_and_history_tools_their_capabilities_unlock()
     {
-        var full = AgentTools.CreateGrammarTools(EngineCapabilities.Scroll | EngineCapabilities.History);
+        var full = AgentTools.GrammarToolDefinitions(EngineCapabilities.Scroll | EngineCapabilities.History);
         Assert.Equal(
             ["back", "check", "clear", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "press_at", "screenshot", "scroll", "scroll_to", "select", "select_at", "tap", "tap_at", "type_at", "uncheck"],
             full.Select(tool => tool.Name).Order(StringComparer.Ordinal));
 
-        var bare = AgentTools.CreateGrammarTools(EngineCapabilities.None);
+        var bare = AgentTools.GrammarToolDefinitions(EngineCapabilities.None);
         Assert.Equal(
             ["check", "clear", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "press_at", "screenshot", "select", "select_at", "tap", "tap_at", "type_at", "uncheck"],
             bare.Select(tool => tool.Name).Order(StringComparer.Ordinal));
@@ -34,7 +34,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
     {
         string[] pointer = ["drag", "hover", "long_press", "right_click"];
         static IEnumerable<string> Offered(IReadOnlyCollection<string>? kinds) =>
-            AgentTools.CreateGrammarTools(EngineCapabilities.None, null, kinds).Select(tool => tool.Name).Where(name => name is "drag" or "hover" or "long_press" or "right_click").Order(StringComparer.Ordinal);
+            AgentTools.GrammarToolDefinitions(EngineCapabilities.None, null, kinds).Select(tool => tool.Name).Where(name => name is "drag" or "hover" or "long_press" or "right_click").Order(StringComparer.Ordinal);
 
         Assert.Equal(pointer, Offered(EngineActionKinds.Locator));
         Assert.Equal(["drag", "hover", "long_press"], Offered(["tap", "doubleTap", "longPress", "hover", "dragTo"]));
@@ -42,7 +42,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.Empty(Offered([]));
         Assert.Empty(Offered(null));
 
-        var drag = AgentTools.CreateGrammarTools(EngineCapabilities.None, null, EngineActionKinds.Locator).Single(tool => tool.Name == "drag");
+        var drag = AgentTools.GrammarToolDefinitions(EngineCapabilities.None, null, EngineActionKinds.Locator).Single(tool => tool.Name == "drag");
         Assert.Equal(["to"], drag.Parameters.GetProperty("required").EnumerateArray().Select(item => item.GetString()));
         Assert.True(drag.Parameters.GetProperty("properties").GetProperty("to").GetProperty("properties").TryGetProperty("ref", out _));
         Assert.True(AgentTools.IsReserved("drag"));
@@ -52,7 +52,7 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
     [Fact]
     public void Declares_the_text_of_scroll_to_with_a_ceiling_beside_a_target_and_a_direction()
     {
-        var scrollTo = AgentTools.CreateGrammarTools(EngineCapabilities.Scroll).Single(tool => tool.Name == "scroll_to");
+        var scrollTo = AgentTools.GrammarToolDefinitions(EngineCapabilities.Scroll).Single(tool => tool.Name == "scroll_to");
         var properties = scrollTo.Parameters.GetProperty("properties");
         Assert.Equal(AgentTools.MaxScrollToText, properties.GetProperty("text").GetProperty("maxLength").GetInt32());
         Assert.True(properties.TryGetProperty("direction", out _));
@@ -65,17 +65,17 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
     {
         var verdict = AgentTools.CreateVerdictTool();
 
-        var passed = verdict.Execute(Done("passed", "ACTION_FAILED"));
+        var passed = verdict.Decide(Done("passed", "ACTION_FAILED"));
         Assert.True(passed.Done);
         Assert.Equal("passed", passed.Status);
         Assert.Equal("done", passed.Summary);
         Assert.Null(passed.Code);
 
-        var failed = verdict.Execute(Done("failed", "ACTION_FAILED"));
+        var failed = verdict.Decide(Done("failed", "ACTION_FAILED"));
         Assert.Equal("failed", failed.Status);
         Assert.Equal("ACTION_FAILED", failed.Code);
 
-        var blocked = verdict.Execute(Done("blocked", "ENVIRONMENT_UNAVAILABLE"));
+        var blocked = verdict.Decide(Done("blocked", "ENVIRONMENT_UNAVAILABLE"));
         Assert.Equal("blocked", blocked.Status);
         Assert.Equal("ENVIRONMENT_UNAVAILABLE", blocked.Code);
     }

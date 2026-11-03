@@ -26,6 +26,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [AgentOptions](/api/E2E/AgentOptions/) | One named agent, as upstream agents.<name>. Each entry starts from the built-in defaults; no agent inherits another's values. A call picks one with its Agent option. |
 | [AgentTool](/api/E2E/AgentTool/) | A project tool the agent offers to the model beside its own: upstream's defineTool. It declares whether it changes the application and which platforms it is offered on; the agent owns dispatch and accounting. The tool's name is its key in Tools. |
 | [AgentToolContext](/api/E2E/AgentToolContext/) | What a project tool reaches of the step it runs in (upstream's ToolContext): a look at the screen, and a screenshot kept as evidence of the step. A tool that changes the app may not look: it observes in a separate call. |
+| [AgentTools](/api/E2E/AgentTools/) | The built-in agent's tool vocabulary (upstream's agent/primitives.ts). CreateGrammarTools and CreateVerdictTool() are public, for a tool loop or an executor that keeps the built-in actions and verdicts. |
 | [AnthropicModel](/api/E2E/AnthropicModel/) | Anthropic Messages API client. The system prompt and the newest message carry cache breakpoints, as upstream marks them, so each turn of a tool loop reads the previous turn's prefix from the cache. |
 | [AnthropicModelOptions](/api/E2E/AnthropicModelOptions/) |  |
 | [App](/api/E2E/App/) | Opens and resets the app under test. A relative URL is resolved against BaseUrl; no URL opens the base URL. |
@@ -91,6 +92,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [GoogleModel](/api/E2E/GoogleModel/) | Google Gemini API (Generative Language) client. Tool schemas go as parametersJsonSchema, so the agent's JSON Schemas need no conversion. Thought signatures Gemini attaches to a function call are sent back with it. |
 | [GoogleModelOptions](/api/E2E/GoogleModelOptions/) |  |
 | [GotoOptions](/api/E2E/GotoOptions/) | Options of GotoAsync. |
+| [GrammarToolsOptions](/api/E2E/GrammarToolsOptions/) | What CreateGrammarTools runs a tool body under (upstream's GrammarToolOptions). |
 | [HoverAtActionEvent](/api/E2E/HoverAtActionEvent/) | A hoverAt the step dispatched. Mobile engines have no hoverAt. |
 | [Locator](/api/E2E/Locator/) | A query that resolves against a fresh observation every time it is used. |
 | [LocatorExpect](/api/E2E/LocatorExpect/) | Matchers that retry until they pass or the assertion timeout elapses. Each takes an optional timeout that replaces the assertion timeout for that call. |
@@ -174,6 +176,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [UniqueValue](/api/E2E/UniqueValue/) | A value that changes every run, such as a timestamp or a fresh email. The replay cache treats every UniqueValue as the same param and substitutes the current value when it types. |
 | [UserCredential](/api/E2E/UserCredential/) | Username plus a Secret password loaded from the environment. |
 | [Values](/api/E2E/Values/) | Wraps a fresh value so the replay cache can still match the step. |
+| [VerdictTool](/api/E2E/VerdictTool/) | Upstream's VerdictTool: the conclusion tool, the policy that accepts or refuses the verdict a call carries, and the verdict it collected. Made by CreateVerdictTool(); the tool loop adds one to every vocabulary, so an executor of its own that drives a model outside the loop is the only caller of Execute(ModelToolCall). |
 | [WaitForOptions](/api/E2E/WaitForOptions/) | agent.waitFor: a judgment at most once per Interval, and only on a changed screen, until Timeout. |
 | [WebResponse](/api/E2E/WebResponse/) | A response WaitForResponseAsync matched. |
 | [WebRoute](/api/E2E/WebRoute/) | One request a RouteAsync handler intercepted. Take exactly one decision. Each validates its options before it decides, so a rejected option leaves the request undecided, and the request is aborted. |

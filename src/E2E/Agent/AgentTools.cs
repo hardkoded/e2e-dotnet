@@ -8,7 +8,11 @@ using E2E.Engine;
 
 namespace E2E;
 
-internal static class AgentTools
+/// <summary>
+/// The built-in agent's tool vocabulary (upstream's <c>agent/primitives.ts</c>). <see cref="CreateGrammarTools"/> and
+/// <see cref="CreateVerdictTool"/> are public, for a tool loop or an executor that keeps the built-in actions and verdicts.
+/// </summary>
+public static class AgentTools
 {
     private static readonly JsonElement Target = Parse(
         """
@@ -24,18 +28,18 @@ internal static class AgentTools
         """);
 
     /// <summary>Screens one scroll call may move.</summary>
-    public const int MaxScrollTimes = 20;
+    internal const int MaxScrollTimes = 20;
 
     /// <summary>Longest text <c>scroll_to</c> pages toward: a row label, never a paragraph.</summary>
-    public const int MaxScrollToText = 200;
+    internal const int MaxScrollToText = 200;
 
     /// <summary>Ceiling on a verdict summary (upstream's <c>MAX_VERDICT_SUMMARY_CHARS</c>).</summary>
-    public const int MaxVerdictSummaryChars = 2_000;
+    internal const int MaxVerdictSummaryChars = 2_000;
 
     private const string Directions = """{ "type": "string", "enum": ["up", "down", "left", "right"] }""";
 
     /// <summary>Codes the model may pick when it ends an act. The runtime assigns every other code.</summary>
-    public static readonly string[] ModelErrorCodes =
+    internal static readonly string[] ModelErrorCodes =
     [
         "ACTION_FAILED",
         "AUTOMATION_UNSUPPORTED",
@@ -53,7 +57,7 @@ internal static class AgentTools
     ];
 
     /// <summary>The model codes a blocked verdict accepts: credentials, environment, test setup, or automation.</summary>
-    public static readonly string[] BlockableCodes =
+    internal static readonly string[] BlockableCodes =
     [
         "AUTOMATION_UNSUPPORTED",
         "AUTH_CREDENTIAL_UNAVAILABLE",
@@ -237,15 +241,70 @@ internal static class AgentTools
 
     private static readonly ModelTool Navigate = Tool("navigate", "Open a path or URL.", Parse("""{ "type": "object", "properties": { "url": { "type": "string" } }, "required": ["url"] }"""));
 
-    /// <summary>The verdict tool every loop offers, whatever its vocabulary, with the policy that accepts or refuses a verdict.</summary>
-    internal static VerdictTool CreateVerdictTool() =>
+    /// <summary>
+    /// Upstream's <c>VERDICT_RULES</c>: the guidance for <see cref="VerdictTool"/>. The tool loop appends it to the instructions of every
+    /// executor it builds, so an executor outside the loop gives it to its own model beside the tool. The port's tool is <c>done</c>
+    /// where upstream's is <c>complete_step</c>, and takes <c>code</c> where upstream's takes <c>errorCode</c>.
+    /// </summary>
+    public const string VerdictRules =
+        "Finish with done when the step's goal is achieved, or you are certain it cannot be. " +
+        "done status is passed, failed, or blocked. " +
+        "blocked means credentials, the environment, or test setup prevented a verdict, and requires a code.";
+
+    /// <summary>
+    /// Upstream's <c>createVerdictTool</c>: the <c>done</c> tool with the closed blocked-code policy, and the verdict it collected. Make a
+    /// fresh one for each step: the first accepted verdict is final.
+    /// </summary>
+    public static VerdictTool CreateVerdictTool() =>
         new(Tool(VerdictTool.Name, "End the step with a verdict. blocked requires a code naming what blocked you.", Done));
+
+    /// <summary>
+    /// Upstream's <c>createGrammarTools</c>: the built-in agent's action tools for the verbs the step's engine supports, each answering what
+    /// changed on screen. Offer them from <see cref="ToolLoopExecutorOptions.Tools"/> beside tools of your own, and begin the executor's
+    /// <see cref="ToolLoopExecutorOptions.System"/> with <see cref="DefaultAgent.BaseRules"/>. Every call runs through the step's own actions, so it is
+    /// authorized, counted, recorded, and replayed from the cache. The context must be one the runtime opened for a step, as the built-in
+    /// agent's is. The screen presenter and the failure causes stay internal, as upstream's do.
+    /// </summary>
+    public static IReadOnlyList<ToolLoopTool> CreateGrammarTools(StepExecutorContext context, GrammarToolsOptions? options = null) =>
+        GrammarTools(context, null, options);
+
+    // Upstream's grammarTools: createGrammarTools for the package's own callers, which also offer the project's tools.
+    internal static IReadOnlyList<ToolLoopTool> GrammarTools(StepExecutorContext context, IReadOnlyDictionary<string, AgentTool>? tools, GrammarToolsOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        var host = context.Host
+            ?? throw new InvalidOperationException("The grammar tools drive the context of a step the runtime opened; they cannot run on a context built by hand.");
+        var project = tools is null
+            ? new Dictionary<string, AgentTool>()
+            : tools.Where(pair => pair.Value.AppliesTo(context.Target.Platform)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        var offered = project.Select(pair => Project(pair.Key, pair.Value)).ToList();
+        var guard = options?.Guard;
+        var act = new ActTools(host.Scope, host.Feed, null, PixelMode.For(context));
+        return GrammarToolDefinitions(host.Scope.EngineCapabilities, offered, host.Scope.ActionKinds, host.Scope.Session.PointerActionKinds)
+            .Select(definition => new ToolLoopTool(
+                definition,
+                async (call, token) =>
+                {
+                    ToolOutcome? outcome = null;
+                    async Task<string> Body()
+                    {
+                        outcome = await act.ExecuteAsync(call, context.Actions, host.Accounting, project, token, context).ConfigureAwait(false);
+                        return outcome.Content;
+                    }
+
+                    var content = guard is null ? await Body().ConfigureAwait(false) : await guard(Body).ConfigureAwait(false);
+
+                    // A guard that answered in the body's place (the step is concluding, or the body failed) leaves no outcome: a failed call.
+                    return outcome is null ? new ToolLoopResult(content, Failed: true) : new ToolLoopResult(content, !outcome.Succeeded, outcome.Pixels);
+                }))
+            .ToList();
+    }
 
     /// <summary>
     /// The act tools an engine with these capabilities can honor, without the verdict tool. Scroll and back tools need their capability,
     /// and the pointer verbs (<c>long_press</c>, <c>right_click</c>, <c>hover</c>, <c>drag</c>) the locator action kind the engine declares for them.
     /// </summary>
-    public static IReadOnlyList<ModelTool> CreateGrammarTools(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null)
+    internal static IReadOnlyList<ModelTool> GrammarToolDefinitions(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null)
     {
         var tools = new List<ModelTool> { Observe };
         var pointer = new List<ModelTool>();
@@ -346,22 +405,22 @@ internal static class AgentTools
     /// project tool named like one would be replaced there, so the name is refused. Upstream's <c>HARNESS_TOOL_NAMES</c>; the
     /// port's other harness tool, <c>done</c>, is reserved with the grammar's names.
     /// </summary>
-    public static readonly IReadOnlyDictionary<string, string> HarnessToolNames = new Dictionary<string, string>(StringComparer.Ordinal)
+    internal static readonly IReadOnlyDictionary<string, string> HarnessToolNames = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         [ExploreExecutor.FindingToolName] = "e2e explore",
     };
 
     /// <summary>True when <paramref name="name"/> is a tool the agent offers itself, whatever the engine.</summary>
-    public static bool IsReserved(string name) =>
+    internal static bool IsReserved(string name) =>
         string.Equals(name, VerdictTool.Name, StringComparison.Ordinal) ||
-        CreateGrammarTools(EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Upload, null, EngineActionKinds.Locator, ["tap", "hover", "dragTo"]).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
+        GrammarToolDefinitions(EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Upload, null, EngineActionKinds.Locator, ["tap", "hover", "dragTo"]).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
 
     /// <summary>The model's view of a project tool: its name, description, and input schema.</summary>
-    public static ModelTool Project(string name, AgentTool tool) =>
+    internal static ModelTool Project(string name, AgentTool tool) =>
         Tool(name, tool.Description, JsonSerializer.SerializeToElement(tool.InputSchema));
 
     /// <summary>The extract tools, with <c>data</c> described by the JSON schema of the requested type.</summary>
-    public static IReadOnlyList<ModelTool> ExtractFor(JsonNode schema)
+    internal static IReadOnlyList<ModelTool> ExtractFor(JsonNode schema)
     {
         var parameters = new JsonObject
         {
@@ -444,17 +503,75 @@ internal static class AgentTools
     }
 }
 
-/// <summary>The conclusion tool: its definition, and the policy that accepts or refuses the verdict a call carries.</summary>
-internal sealed class VerdictTool(ModelTool tool)
+/// <summary>What <see cref="AgentTools.CreateGrammarTools"/> runs a tool body under (upstream's <c>GrammarToolOptions</c>).</summary>
+public sealed class GrammarToolsOptions
 {
+    /// <summary>
+    /// Wraps every tool body. By default the body runs as it is, so a hard stop of the step (budget, timeout, cancel) propagates out of the
+    /// tool, where the tool loop ends the step. Pass <c>body =&gt; helpers.GuardAsync(body)</c> to run each under the loop's policy instead,
+    /// or your own wrapper. Upstream's is generic over the body's result; the port's bodies answer the text the model reads.
+    /// </summary>
+    public Func<Func<Task<string>>, Task<string>>? Guard { get; init; }
+}
+
+/// <summary>
+/// Upstream's <c>VerdictTool</c>: the conclusion tool, the policy that accepts or refuses the verdict a call carries, and the verdict it
+/// collected. Made by <see cref="AgentTools.CreateVerdictTool"/>; the tool loop adds one to every vocabulary, so an executor of its own that
+/// drives a model outside the loop is the only caller of <see cref="Execute"/>.
+/// </summary>
+public sealed class VerdictTool
+{
+    private StepVerdict? _verdict;
+
+    internal VerdictTool(ModelTool tool) => Tool = tool;
+
     /// <summary>The name the model calls to end a step.</summary>
     public const string Name = "done";
 
     /// <summary>The <c>done</c> tool; offer it beside the grammar tools.</summary>
-    public ModelTool Tool { get; } = tool;
+    public ModelTool Tool { get; }
 
-    // The model picks only from a closed set of codes, and the runtime assigns the rest.
-    public ToolOutcome Execute(ModelToolCall call)
+    /// <summary>The verdict once the model called the tool with an accepted one. Upstream's <c>verdict()</c>.</summary>
+    public StepVerdict? Verdict => _verdict;
+
+    /// <summary>True once a verdict landed. Upstream's <c>concluded()</c>.</summary>
+    public bool Concluded => _verdict is not null;
+
+    /// <summary>
+    /// Runs one call of the tool and answers what the model reads. The first accepted verdict is final. A code sent beside <c>passed</c> is
+    /// dropped and the answer says so, never refused.
+    /// </summary>
+    public ToolLoopResult Execute(ModelToolCall call)
+    {
+        ArgumentNullException.ThrowIfNull(call);
+        if (_verdict is not null)
+        {
+            return new ToolLoopResult("The step already concluded.");
+        }
+
+        var outcome = Decide(call);
+        if (!outcome.Done)
+        {
+            return new ToolLoopResult(outcome.Content, Failed: true);
+        }
+
+        _verdict = new StepVerdict(
+            outcome.Status switch
+            {
+                "passed" => StepVerdictStatus.Passed,
+                "blocked" => StepVerdictStatus.Blocked,
+                _ => StepVerdictStatus.Failed,
+            },
+            outcome.Summary ?? "",
+            outcome.Code);
+        return new ToolLoopResult(
+            string.Equals(outcome.Status, "passed", StringComparison.Ordinal) && Args.String(call.Arguments, "code") is { } dropped
+                ? "Step concluded as passed; the code " + dropped + " you sent does not apply to a passed verdict and was ignored."
+                : "Step concluded.");
+    }
+
+    // The model picks only from a closed set of codes, and the runtime assigns the rest. Stateless: the loop reads the outcome itself.
+    internal ToolOutcome Decide(ModelToolCall call)
     {
         var status = Args.String(call.Arguments, "status");
         if (status is not ("passed" or "failed" or "blocked"))

@@ -56,7 +56,7 @@ public sealed class TapModifiersInTheGrammarToolsTests
     [Fact]
     public async Task Partial_offers_modifiers_on_the_tap_family_only_when_the_engine_declares_tapModifiers()
     {
-        var holding = AgentTools.CreateGrammarTools(EngineCapabilities.TapModifiers, null, EngineActionKinds.Locator);
+        var holding = AgentTools.GrammarToolDefinitions(EngineCapabilities.TapModifiers, null, EngineActionKinds.Locator);
         foreach (var name in TapFamily)
         {
             var modifiers = PropertiesOf(holding, name).GetProperty("modifiers");
@@ -87,7 +87,7 @@ public sealed class TapModifiersInTheGrammarToolsTests
     [Fact]
     public async Task Partial_keeps_modifiers_out_of_the_vocabulary_when_the_engine_does_not_declare_tapModifiers()
     {
-        var plain = AgentTools.CreateGrammarTools(EngineCapabilities.None, null, EngineActionKinds.Locator);
+        var plain = AgentTools.GrammarToolDefinitions(EngineCapabilities.None, null, EngineActionKinds.Locator);
         foreach (var name in TapFamily)
         {
             var properties = PropertiesOf(plain, name);
