@@ -98,7 +98,7 @@ export default defineConfig({
                         { label: "TesterArmy", slug: "migrate/testerarmy" },
                     ],
                 },
-                { label: "Integrations", items: [{ label: "Limrun", slug: "integrations/limrun" }] },
+                { label: "Integrations", items: [{ label: "Limrun", slug: "integrations/limrun" }, { label: "Pull request comments", slug: "integrations/github" }] },
                 {
                     label: "Reference",
                     items: [
