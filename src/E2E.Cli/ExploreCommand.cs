@@ -226,7 +226,10 @@ internal static partial class ExploreCommand
         {
             if (view is not null)
             {
-                foreach (var line in view.Record().Concat(view.FindingsSection()).Concat(view.Assessment()))
+                view.Result(outcome.Artifacts, outcome.ArtifactsRoot);
+                var root = cwd ?? Directory.GetCurrentDirectory();
+                string DisplayPath(string target) => target.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal) ? Path.GetRelativePath(root, target) : target;
+                foreach (var line in view.Record().Concat(view.FindingsSection(DisplayPath)).Concat(view.Assessment()))
                 {
                     Print(line);
                 }

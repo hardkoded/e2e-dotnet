@@ -40,9 +40,10 @@ public sealed class E2eExploreTests
         Assert.Equal(
             new[] { "Counter starts at 0 with no label of what it counts", "Increment button has no accessible description" }.Order(StringComparer.Ordinal),
             record.Findings.Select(finding => finding.Title).Order(StringComparer.Ordinal));
-        var paths = record.Findings.Select(finding => finding.ArtifactId).ToList();
-        Assert.All(paths, path => Assert.True(path is not null && File.Exists(Path.Combine(root, path))));
-        Assert.Equal(2, paths.Distinct().Count());
+        var ids = record.Findings.Select(finding => finding.ArtifactId).ToList();
+        Assert.Equal(2, ids.Distinct().Count());
+        var paths = ids.Select(id => outcome.Artifacts.Single(artifact => artifact.Id == id).Path).ToList();
+        Assert.All(paths, path => Assert.True(path is not null && File.Exists(Path.Combine(outcome.ArtifactsRoot!, path))));
         Assert.Equal(["finding-1.png", "finding-2.png"], paths.Select(path => Path.GetFileName(path)![4..]).Order(StringComparer.Ordinal));
     }
 
@@ -169,8 +170,11 @@ public sealed class E2eExploreTests
         Assert.NotNull(finding.ObservationRevision);
 
         // The evidence is a screenshot file under the attempt's results, named for the finding.
-        Assert.Equal(".e2e/results/" + AttemptReport.ResultSegmentOf(E2E.Explore.ExploreFile, "Explore the home page and find bugs") + "/attempt-1/screenshots/001-finding-1.png", finding.ArtifactId);
-        Assert.Equal(ScreenshotEngine.Png(), await File.ReadAllBytesAsync(Path.Combine(root, finding.ArtifactId!)));
+        // The finding names a report artifact by its id, not a file by its path.
+        var artifact = Assert.Single(outcome.Artifacts, record => record.Id == finding.ArtifactId);
+        Assert.Equal(E2E.Reports.ArtifactKind.Screenshot, artifact.Kind);
+        Assert.Equal(AttemptReport.ResultSegmentOf(E2E.Explore.ExploreFile, "Explore the home page and find bugs") + "/attempt-1/screenshots/001-finding-1.png", artifact.Path);
+        Assert.Equal(ScreenshotEngine.Png(), await File.ReadAllBytesAsync(Path.Combine(outcome.ArtifactsRoot!, artifact.Path!)));
 
         // The explorer's loop saw the finding tool beside the grammar.
         Assert.Contains(ExploreExecutor.FindingToolName, model.LoopCalls.First().Tools.Select(tool => tool.Name));

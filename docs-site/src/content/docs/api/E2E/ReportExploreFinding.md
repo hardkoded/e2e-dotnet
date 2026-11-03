@@ -57,7 +57,7 @@ One finding [Explore](/api/E2E/Explore/) recorded through its `report_finding` t
 | `Reproduction` | [IReadOnlyList&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlylist-1) | The actions that reach the defect, at most 20, each at most 500 characters. |
 | `ReportedAt` | [DateTimeOffset](https://learn.microsoft.com/dotnet/api/system.datetimeoffset) | When the finding was recorded. |
 | `Path` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The redacted location of the screen, when the engine reports one. |
-| `ArtifactId` | [string](https://learn.microsoft.com/dotnet/api/system.string) | Where the evidence screenshot was kept, as a path relative to the project root, when pixels were granted. Upstream names an artifact of the report; the port has no report, so it names the file. |
+| `ArtifactId` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The id of the report artifact that holds the evidence screenshot, when pixels were granted. |
 | `ObservationRevision` | [string](https://learn.microsoft.com/dotnet/api/system.string) | The revision of the screen the finding was reported on ([Revision](/api/E2E/ExecutorObservation/#E2E_ExecutorObservation_Revision)), when the finding tool observed one. The tool takes its own capture, as upstream does, so the revision is that capture's and is not one an agent step recorded. |
 
 ## Properties
@@ -88,7 +88,7 @@ public string? ArtifactId { get; init; }
 ```
 
 
-Where the evidence screenshot was kept, as a path relative to the project root, when pixels were granted. Upstream names an artifact of the report; the port has no report, so it names the file.
+The id of the report artifact that holds the evidence screenshot, when pixels were granted.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
