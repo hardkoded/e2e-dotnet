@@ -1429,7 +1429,10 @@ public sealed partial class WebEngine : IEngine
         {
             ArgumentNullException.ThrowIfNull(action);
             RequireObservation();
-            return InputAsync(() => DispatchPointerActionAsync(point, action, cancellationToken), EngineActionKinds.Of(action) + " at point", cancellationToken);
+            // A drag watches the cancellation itself and releases the mouse before it ends: the budget must not abandon it at a cancel,
+            // or the call would end while the button is still down.
+            var budgetToken = action is PointerAction.SwipeTo or PointerAction.DragTo ? CancellationToken.None : cancellationToken;
+            return InputAsync(() => DispatchPointerActionAsync(point, action, cancellationToken), EngineActionKinds.Of(action) + " at point", budgetToken);
         }));
 
         private async Task DispatchPointerActionAsync(Point at, PointerAction action, CancellationToken cancellationToken)
