@@ -172,6 +172,50 @@ internal static class AgentTools
         Tool("clear", "Clear a field.", Target),
     ];
 
+    private static readonly ModelTool LongPress = Tool(
+        "long_press",
+        "Press one node and hold: only for a control with a long-press menu or action. Anything else takes tap.",
+        Target);
+
+    private static readonly ModelTool RightClick = Tool(
+        "right_click",
+        "Right-click one node to open its context menu, and only for that. The menu items it opens, and every button, link, or field, take tap. " +
+        "When nothing opens, the app has no context menu there: look for a menu button or another path instead.",
+        Target);
+
+    private static readonly ModelTool Hover = Tool(
+        "hover",
+        "Move the pointer over one node without clicking: opens what reacts to the pointer resting on it, such as a menu, a flyout, a tooltip, or a control revealed on mouse-over. " +
+        "The result reports what appeared. In a nested menu, hover each level in turn and then tap the item while it is open.",
+        Target);
+
+    // The drop target is a second node, named like the first.
+    private static readonly ModelTool Drag = Tool(
+        "drag",
+        "Drag one node and drop it on another: reorder a list, move a card to a column, drop an item into a zone. The result reports what moved.",
+        Extend(Target, """{ "to": { "type": "object", "description": "The drop target, named like the node dragged.", "properties": { "role": { "type": "string" }, "name": { "type": "string" }, "testId": { "type": "string" }, "ref": { "type": "string" } } } }""", "to"));
+
+    /// <summary>
+    /// The pointer verbs the grammar adds when the engine declares their locator action kind (<see cref="IEngineSession.ActionKinds"/>), by
+    /// upstream's kind name. Upstream's <c>VERBS_BY_ACTION</c>.
+    /// </summary>
+    internal static readonly IReadOnlyList<(string Kind, ExecutorVerb Verb)> PointerVerbs =
+    [
+        ("longPress", ExecutorVerb.LongPress),
+        ("secondaryTap", ExecutorVerb.SecondaryTap),
+        ("hover", ExecutorVerb.Hover),
+        ("dragTo", ExecutorVerb.Drag),
+    ];
+
+    /// <summary>The tool of each pointer verb, with the locator action kind the engine declares for it.</summary>
+    internal static readonly IReadOnlyDictionary<string, string> PointerToolKinds = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["long_press"] = "longPress",
+        ["right_click"] = "secondaryTap",
+        ["hover"] = "hover",
+        ["drag"] = "dragTo",
+    };
+
     /// <summary>The <c>modifiers</c> property of a tap-family tool: the keys held while the pointer clicks.</summary>
     internal static JsonObject ModifiersSchema() => new()
     {
@@ -182,7 +226,7 @@ internal static class AgentTools
 
     // The tap family names the keys it holds for the click, on an engine that declares them.
     private static ModelTool HoldingModifiers(ModelTool verb) =>
-        verb.Name is "tap" or "double_tap"
+        verb.Name is "tap" or "double_tap" or "right_click"
             ? new ModelTool
             {
                 Name = verb.Name,
@@ -197,11 +241,23 @@ internal static class AgentTools
     internal static VerdictTool CreateVerdictTool() =>
         new(Tool(VerdictTool.Name, "End the step with a verdict. blocked requires a code naming what blocked you.", Done));
 
-    /// <summary>The act tools an engine with these capabilities can honor, without the verdict tool. Scroll and back tools need their capability.</summary>
-    public static IReadOnlyList<ModelTool> CreateGrammarTools(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null, IReadOnlyCollection<string>? pointerKinds = null)
+    /// <summary>
+    /// The act tools an engine with these capabilities can honor, without the verdict tool. Scroll and back tools need their capability,
+    /// and the pointer verbs (<c>long_press</c>, <c>right_click</c>, <c>hover</c>, <c>drag</c>) the locator action kind the engine declares for them.
+    /// </summary>
+    public static IReadOnlyList<ModelTool> CreateGrammarTools(EngineCapabilities capabilities, IReadOnlyList<ModelTool>? project = null, IReadOnlyCollection<string>? actionKinds = null, IReadOnlyCollection<string>? pointerKinds = null)
     {
         var tools = new List<ModelTool> { Observe };
-        tools.AddRange(capabilities.HasFlag(EngineCapabilities.TapModifiers) ? Verbs.Select(HoldingModifiers) : Verbs);
+        var pointer = new List<ModelTool>();
+        foreach (var (name, kind) in PointerToolKinds)
+        {
+            if (actionKinds?.Contains(kind) == true)
+            {
+                pointer.Add(name switch { "long_press" => LongPress, "right_click" => RightClick, "hover" => Hover, _ => Drag });
+            }
+        }
+
+        tools.AddRange(capabilities.HasFlag(EngineCapabilities.TapModifiers) ? Verbs.Concat(pointer).Select(HoldingModifiers) : [.. Verbs, .. pointer]);
         if (capabilities.HasFlag(EngineCapabilities.Upload))
         {
             tools.Add(Upload);
@@ -298,7 +354,7 @@ internal static class AgentTools
     /// <summary>True when <paramref name="name"/> is a tool the agent offers itself, whatever the engine.</summary>
     public static bool IsReserved(string name) =>
         string.Equals(name, VerdictTool.Name, StringComparison.Ordinal) ||
-        CreateGrammarTools(EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Upload, null, ["tap", "hover", "dragTo"]).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
+        CreateGrammarTools(EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Upload, null, EngineActionKinds.Locator, ["tap", "hover", "dragTo"]).Any(tool => string.Equals(tool.Name, name, StringComparison.Ordinal));
 
     /// <summary>The model's view of a project tool: its name, description, and input schema.</summary>
     public static ModelTool Project(string name, AgentTool tool) =>

@@ -143,12 +143,65 @@ internal static class GesturesSession
         (calls, prompt) => calls == 0 ? ModelResponses.Call("upload", new { @ref = RefFor(prompt, "button \"Attachment\""), files = new[] { "fixtures/attachment.txt" } }) : null,
         screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("attached: attachment.txt"));
 
+    // How the observation lists the gestures page's plain elements.
+    private const string AccountLine = "text \"Account\"";
+    private const string FileLine = "text \"report.pdf\"";
+    private const string CardLine = "listitem \"Design review\"";
+    private const string DoneLine = "region \"Done column\"";
+
+    /// <summary>Upstream's "hovers the menu trigger and taps what it reveals" flow: the hover shows the control, which the next turn taps.</summary>
+    public static readonly Flow HoverFlow = new(
+        "hovers the menu trigger and taps what it reveals",
+        "hover the account menu and redeem the voucher",
+        (calls, prompt) => calls switch
+        {
+            0 => ModelResponses.Call("hover", new { @ref = RefFor(prompt, AccountLine) }),
+            1 => ModelResponses.Call("tap", new { @ref = RefFor(prompt, "button \"Redeem\"") }),
+            _ => null,
+        },
+        screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("redeemed"));
+
+    /// <summary>Upstream's "right-clicks a file and renames it through the context menu" flow. It is not in <see cref="ReplayFlows"/>, as upstream's replay pass does not run it either.</summary>
+    public static readonly Flow RightClickFlow = new(
+        "right-clicks a file and renames it through the context menu",
+        "right-click report.pdf and rename it",
+        (calls, prompt) => calls switch
+        {
+            0 => ModelResponses.Call("right_click", new { @ref = RefFor(prompt, FileLine) }),
+            1 => ModelResponses.Call("tap", new { @ref = RefFor(prompt, "menuitem \"Rename\"") }),
+            _ => null,
+        },
+        screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("renamed"));
+
+    /// <summary>Upstream's "double-taps and long-presses" flow. It is not in <see cref="ReplayFlows"/>, as upstream's replay pass does not run it either.</summary>
+    public static readonly Flow DoubleTapAndLongPressFlow = new(
+        "double-taps and long-presses",
+        "double-tap the twice button, then long-press hold me",
+        (calls, prompt) => calls switch
+        {
+            0 => ModelResponses.Call("double_tap", new { @ref = RefFor(prompt, "button \"Tap me twice\"") }),
+            1 => ModelResponses.Call("long_press", new { @ref = RefFor(prompt, "button \"Hold me\"") }),
+            _ => null,
+        },
+        screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("long-pressed"));
+
+    /// <summary>Upstream's "drags the card onto the done column" flow.</summary>
+    public static readonly Flow DragFlow = new(
+        "drags the card onto the done column",
+        "drag the design review card to the done column",
+        (calls, prompt) => calls == 0
+            ? ModelResponses.Call("drag", new { @ref = RefFor(prompt, CardLine), to = new { @ref = RefFor(prompt, DoneLine) } })
+            : null,
+        screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("Design review is done"));
+
     /// <summary>
     /// The flows of upstream's record-then-replay pass this port can run: the instruction, the
     /// scripted model's tool call for each turn (null concludes the step), and the check after it.
     /// </summary>
     public static readonly IReadOnlyList<Flow> ReplayFlows =
     [
+        HoverFlow,
+        DragFlow,
         new(
             "checks the box and leaves a checked box alone",
             "agree to the terms, then make sure the box stays checked",
@@ -186,16 +239,6 @@ internal static class GesturesSession
             },
             screen => Expect.That(screen.GetByRole("heading", "Gestures")).ToBeVisibleAsync()),
     ];
-
-    /// <summary>
-    /// Upstream's "double-taps and long-presses" flow, without the long press: the port has no long_press tool.
-    /// It is not in <see cref="ReplayFlows"/>, as upstream's replay pass does not run it either.
-    /// </summary>
-    public static readonly Flow DoubleTapFlow = new(
-        "double-taps",
-        "double-tap the twice button",
-        (calls, prompt) => calls == 0 ? ModelResponses.Call("double_tap", new { @ref = RefFor(prompt, "button \"Tap me twice\"") }) : null,
-        screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("double-tapped"));
 
     /// <summary>Upstream's "refuses a hidden file" flow: the model names the project's <c>.env</c>, which the policy never lets through. It fails, so it has no check.</summary>
     public static readonly Flow HiddenFileFlow = new(
@@ -269,7 +312,8 @@ internal static class GesturesSession
     /// <summary>The ref of the last listed node whose line matches <paramref name="line"/>.</summary>
     public static string RefFor(string prompt, string line)
     {
-        return Regex.Matches(prompt, Regex.Escape(line) + @"(?: (?:text|testid|href|placeholder)=""[^""]*"")* \[ref=(e\d+)\]")[^1].Groups[1].Value;
+        var matches = Regex.Matches(prompt, Regex.Escape(line) + @"(?: (?:text|testid|href|placeholder)=""[^""]*"")* \[ref=(e\d+)\]");
+        return matches.Count > 0 ? matches[^1].Groups[1].Value : throw new InvalidOperationException("No line " + line + " in the screen:\n" + prompt);
     }
 
     public static async Task<E2ESession> StartAsync(TinySite site, ScriptedModel model, FileStepCache cache, string title)

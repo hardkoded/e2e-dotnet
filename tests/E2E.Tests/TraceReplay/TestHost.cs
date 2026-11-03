@@ -111,6 +111,14 @@ internal sealed class TestHost : IReplayHost
 
         public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => host.Click("doubleTap", target, options);
 
+        public Task SecondaryTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => host.Click("secondaryTap", target, options);
+
+        public Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => host.Act("longPress", target.Id);
+
+        public Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => host.Act("hover", target.Id);
+
+        public Task DragAsync(ExecutorTarget source, ExecutorTarget destination, CancellationToken cancellationToken = default) => host.Act("drag", (source.Id, destination.Id));
+
         public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) => host.Act("type", (target.Id, value));
 
         public Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken = default) => host.Act("typeSecret", (target.Id, secretName));

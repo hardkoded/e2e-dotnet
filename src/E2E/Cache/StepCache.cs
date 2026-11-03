@@ -212,19 +212,34 @@ public sealed class RecordedAction
         _ => Point is null && Viewport is null && Under is null && From is null && To is null,
     };
 
+    /// <summary>
+    /// Upstream's <c>destination</c> of a <c>drag</c>: the node the source was dropped on, described like the source with the container it
+    /// sat in. A replay re-finds both ends on one screen before it drags. Null on every other action.
+    /// </summary>
+    public RecordedTarget? Destination { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="Destination"/> is well formed: a <c>drag</c> holds one that names a node, and every other action none.
+    /// Upstream's <c>readAction</c>, which makes a drag that lost its destination a miss.
+    /// </summary>
+    internal bool HasValidDestination() =>
+        Kind == "drag"
+            ? Destination is { } destination && (destination.Role is not null || destination.Name is not null || destination.TestId is not null)
+            : Destination is null;
+
     /// <summary>A shallow copy of this action, which <see cref="Trace.MapTraceText"/> rewrites the text of.</summary>
     internal RecordedAction Copy() => (RecordedAction)MemberwiseClone();
 
-    /// <summary>Keys a <c>tap</c> or <c>doubleTap</c> held for the click, replayed with it. Null holds none.</summary>
+    /// <summary>Keys a <c>tap</c>, <c>doubleTap</c>, or <c>secondaryTap</c> held for the click, replayed with it. Null holds none.</summary>
     public List<string>? Modifiers { get; set; }
 
     /// <summary>
-    /// Whether <see cref="Modifiers"/> is well formed: absent, or on a <c>tap</c> or <c>doubleTap</c> as a non-empty list of
+    /// Whether <see cref="Modifiers"/> is well formed: absent, or on a <c>tap</c>, <c>doubleTap</c>, or <c>secondaryTap</c> as a non-empty list of
     /// distinct key modifier names. Upstream's <c>readModifiers</c>, which makes a malformed entry a miss.
     /// </summary>
     internal bool HasValidModifiers() =>
         Modifiers is null
-        || (Kind is "tap" or "doubleTap"
+        || (Kind is "tap" or "doubleTap" or "secondaryTap"
             && Modifiers.Count > 0
             && Modifiers.Distinct(StringComparer.Ordinal).Count() == Modifiers.Count
             && Modifiers.All(name => KeyModifiers.TryParse(name, out _)));

@@ -13,11 +13,11 @@ namespace E2E.Tests.TraceRecorder;
 
 /// <summary>
 /// The port's recorder keeps a plain action list: no summaries, CSS selectors, positions, truncation
-/// flag, action cap, secret names, or entry validation, and no hover, long-press, secondary-tap, drag, upload, or point verbs. So
+/// flag, action cap, secret names, or entry validation, and no point verbs. So
 /// these upstream its are not ported: "poisons a trace whose target is an unnamed twin no named row tells apart, and keeps one that a row does",
 /// "poisons the trace instead of bending a replay
 /// input", "truncates past the action cap
-/// instead of dropping the flag", "rejects a stored check, upload, or drag that lost a field", and every it of "TraceRecorder:
+/// instead of dropping the flag", "rejects a stored check or upload that lost a field", and every it of "TraceRecorder:
 /// bare-point taps". The recorded model is one string, the model's <see cref="IAgentModel.Name"/>, where upstream's is a provider
 /// and a model: its two oversized cases and its blank cases are one theory each. Parts of ported its that need one of those features are named on each test.
 /// </summary>
@@ -216,22 +216,42 @@ public sealed class TraceRecorderTests
         Assert.Null(Finalize(MakeRecorder()));
     }
 
-    /// <summary>Partial port of "records every node verb, a state, a drag with its destination, files, and a back step, and reads them back": the port has no hover, long-press, secondary-tap, drag, upload, or point verb, and no summary.</summary>
+    /// <summary>Partial port of "records every node verb, a state, a drag with its destination, files, and a back step, and reads them back": the port has no point verb, and no summary.</summary>
     [Fact]
-    public void Records_every_node_verb_a_state_and_a_back_step_and_reads_them_back()
+    public void Records_every_node_verb_a_state_a_drag_with_its_destination_and_a_back_step_and_reads_them_back()
     {
         var recorder = MakeRecorder();
-        foreach (var kind in new[] { "tap", "doubleTap", "scrollTo", "uncheck", "check", "clear" })
+        foreach (var kind in new[] { "hover", "doubleTap", "longPress", "secondaryTap", "scrollTo", "uncheck", "check", "clear" })
         {
             recorder.Record(kind, UpgradeButton);
         }
 
+        var drag = recorder.Record("drag", UpgradeButton);
+        drag.Destination = Recorder.DescribeTarget(new SemanticNode { Ref = "e9", Role = "region", Name = "Done column" }, Redactor.None, "Board");
         recorder.Record(new RecordedAction { Kind = "back" });
         var entry = Finalize(recorder)!;
 
         var read = RoundTrip(entry);
 
-        Assert.Equal(["tap", "doubleTap", "scrollTo", "uncheck", "check", "clear", "back"], entry.Actions.Select(action => action.Kind));
+        Assert.Equal(["hover", "doubleTap", "longPress", "secondaryTap", "scrollTo", "uncheck", "check", "clear", "drag", "back"], entry.Actions.Select(action => action.Kind));
+        Assert.Equal(("region", "Done column", "Board"), (read.Actions[8].Destination?.Role, read.Actions[8].Destination?.Name, read.Actions[8].Destination?.Within));
         Assert.Equal(JsonSerializer.Serialize(entry.Actions, Relaxed), JsonSerializer.Serialize(read.Actions, Relaxed));
+    }
+
+    /// <summary>Partial port of "rejects a stored check, upload, or drag that lost a field": only the drag's destination, which the port checks on the action itself.</summary>
+    [Fact]
+    public void Partial_rejects_a_stored_drag_that_lost_its_destination_or_an_action_that_gained_one()
+    {
+        var drag = new RecordedAction { Kind = "drag", Role = "button", Name = "Upgrade", Destination = new RecordedTarget { Role = "region", Name = "Done column" } };
+        Assert.True(drag.HasValidDestination());
+
+        drag.Destination = null;
+        Assert.False(drag.HasValidDestination());
+
+        drag.Destination = new RecordedTarget();
+        Assert.False(drag.HasValidDestination());
+
+        var tap = new RecordedAction { Kind = "tap", Role = "button", Name = "Upgrade", Destination = new RecordedTarget { Role = "region", Name = "Done column" } };
+        Assert.False(tap.HasValidDestination());
     }
 }

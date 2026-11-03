@@ -292,6 +292,21 @@ internal static class Replay
 
                         await (action.Kind == "tapAt" ? host.Actions.TapAtAsync(placed.Point, token) : host.Actions.HoverAtAsync(placed.Point, token)).ConfigureAwait(false);
                         break;
+                    case "drag":
+                        // Both ends are re-found on one screen, so the nodes the drag joins come from the same look at the app.
+                        var pair = await RelocatePair(host, action, look).ConfigureAwait(false);
+                        if (pair.Source is null || pair.Destination is null)
+                        {
+                            return Stop(pair.Failure);
+                        }
+
+                        if (!host.TryReserve())
+                        {
+                            return Stop(ReplayHandOffReason.ActionBudget);
+                        }
+
+                        await host.Actions.DragAsync(new ExecutorTarget(pair.Source), new ExecutorTarget(pair.Destination), token).ConfigureAwait(false);
+                        break;
                     case "dragAt":
                         // Points, not ids, reach the drag, so each end may take its own look: nothing acts between the two, and a renumbered
                         // tree moves no box.
@@ -442,6 +457,12 @@ internal static class Replay
                 return actions.TapAsync(target, ClickOptionsOf(action), token);
             case "doubleTap":
                 return actions.DoubleTapAsync(target, ClickOptionsOf(action), token);
+            case "secondaryTap":
+                return actions.SecondaryTapAsync(target, ClickOptionsOf(action), token);
+            case "longPress":
+                return actions.LongPressAsync(target, token);
+            case "hover":
+                return actions.HoverAsync(target, token);
             case "fill" when action.Value is { } value && value.StartsWith("<secret:", StringComparison.Ordinal) && value.EndsWith('>'):
                 return actions.TypeSecretAsync(target, value["<secret:".Length..^1], token);
             case "fill":
@@ -576,6 +597,46 @@ internal static class Replay
             if (host.Time.GetUtcNow() >= deadline)
             {
                 return new Relocated(null, ReplayHandOffReason.TargetNotFound, [], null);
+            }
+
+            await Task.Delay(RetryDelay, host.Time, host.Signal).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Upstream's <c>relocatePair</c>: re-finds a drag's two nodes on one screen, so the nodes the drag joins come from the same look
+    /// at the app. Waits like <see cref="Relocate"/> and gives up the same way: a missing end is worth another look, an end that matches
+    /// several nodes is not.
+    /// </summary>
+    private static async Task<(SemanticNode? Source, SemanticNode? Destination, ReplayHandOffReason Failure)> RelocatePair(IReplayHost host, RecordedAction action, Look look)
+    {
+        if (action.Destination is not { } destination)
+        {
+            return (null, null, ReplayHandOffReason.TargetNotFound);
+        }
+
+        var deadline = host.Time.GetUtcNow() + host.ReplayTimeout;
+        var first = true;
+        while (true)
+        {
+            var observation = first && look.InHand is { } inHand ? inHand : await host.ObserveAsync(first ? look.Settle : SettleMode.Raw).ConfigureAwait(false);
+            first = false;
+            var from = Find(observation, action.Role, action.Name, action.TestId, null, host.Redact, action.Within);
+            var to = Find(observation, destination.Role, destination.Name, destination.TestId, null, host.Redact, destination.Within);
+            if (from.Count > 1 || to.Count > 1)
+            {
+                return (null, null, ReplayHandOffReason.TargetAmbiguous);
+            }
+
+            if (from.Count == 1 && to.Count == 1)
+            {
+                host.MarkActing();
+                return (from[0], to[0], default);
+            }
+
+            if (host.Time.GetUtcNow() >= deadline)
+            {
+                return (null, null, ReplayHandOffReason.TargetNotFound);
             }
 
             await Task.Delay(RetryDelay, host.Time, host.Signal).ConfigureAwait(false);

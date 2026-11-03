@@ -4,7 +4,9 @@
 
 using System.Text.RegularExpressions;
 using E2E.Internal;
+using E2E.Tests.Traces;
 using static E2E.Tests.ReportMarkdown.MarkdownKit;
+using MarkdownReport = E2E.Reports.MarkdownReport;
 
 namespace E2E.Tests.ReportMarkdown;
 
@@ -13,7 +15,7 @@ public sealed class ARunTestFiltersNarrowedTests
 {
     private const string Base = "0123456789abcdef0123456789abcdef01234567";
 
-    private static string Render(Report1Document document) => MarkdownReport.RenderMarkdownReport(document);
+    private static string Render(Report1Document document) => MarkdownReport.RenderMarkdownReport(ReportBuilders.Public(document));
 
     [Fact]
     public void Counts_what_the_filters_left_out_in_the_headline_names_each_filter_and_folds_what_they_left_out_with_their_reasons()

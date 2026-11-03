@@ -40,9 +40,9 @@ internal static class HostTrace
         var single = options.Attempt;
         var document = await ReportFile.SingleAsync(single, options.ProjectRoot, options.ResultsDir, options.Redact).ConfigureAwait(false);
         var report = ReportSerializer.Read(document);
-        var result = single.Run.Results[0];
+        var result = report.Run.Results[0];
         var page = FailureText.RenderTracePage(
-            single,
+            report,
             result,
             Outcome.Of(result),
             new TracePageOptions

@@ -382,7 +382,7 @@ internal static class TestFilters
     /// </summary>
     public static IReadOnlyList<ReportFilter> FilterRecords(IReadOnlyList<FilterDecision> decisions, IEnumerable<(string TestId, ReportSkip? Skip)> results)
     {
-        var leftOut = LeftOut.LeftOutTests(results);
+        var leftOut = LeftOut.LeftOutTests(results.Select(result => (result.TestId, result.Skip?.Filter)));
         return [.. decisions.Select(decision => new ReportFilter(decision.Name, decision.Candidates, leftOut.GetValueOrDefault(decision.Name), decision.Note, decision.Outcome))];
     }
 

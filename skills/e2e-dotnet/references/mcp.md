@@ -110,13 +110,15 @@ something), focus moving is not a change, and a screen that changed mostly is
 sent whole again. `observe` always shows the whole screen and makes it the
 screen later changes are measured from. What an engine lacks is missing from its
 catalog: `scroll` and `scroll_to` need scrolling, `back` needs history,
-`screenshot` needs the web engine, and `type_secret` appears only when the
+`long_press`, `right_click`, `hover`, and `drag` need the engine to declare the
+action (`longPress`, `secondaryTap`, `hover`, `dragTo`), `screenshot` needs the web engine, and `type_secret` appears only when the
 config declares `credentials` or a `secrets` entry.
 
 | Tool | Does |
 | --- | --- |
 | `observe` | The whole current screen |
-| `tap`, `double_tap`, `check`, `uncheck`, `clear` `{target}` | Act on one node. On an engine that declares `TapModifiers` (the web engine), `tap` and `double_tap` also take an optional `modifiers` list (`Shift`, `Control`, `Alt`, `Meta`, `ControlOrMeta`) to hold keys for the click, as a Shift-click extends a selection |
+| `tap`, `double_tap`, `long_press`, `right_click`, `hover`, `check`, `uncheck`, `clear` `{target}` | Act on one node. `long_press` is for a control with a long-press menu, `right_click` opens a context menu, `hover` shows what the pointer resting on a node reveals. On an engine that declares `TapModifiers` (the web engine), `tap`, `double_tap`, and `right_click` also take an optional `modifiers` list (`Shift`, `Control`, `Alt`, `Meta`, `ControlOrMeta`) to hold keys for the click, as a Shift-click extends a selection |
+| `drag {target, to}` | Drag one node and drop it on another, both by node id |
 | `type {target, text}` | Replace the text in a field |
 | `type_secret {target, secret}` | Fill a configured secret by name: a credential's password (`<name>.password`) into a password field, a `secrets` entry into any editable field; you never see the value, and its test line names the credential or secret (`FillAsync(Credentials.User(name).Password)`, `FillAsync(Secrets.Get(name))`) |
 | `press {key, target?}` | Press a key on a node, or on whatever has focus |
@@ -173,6 +175,8 @@ into a test, then add the assertions.
 | --- | --- |
 | Opening the session | `App.OpenAsync()` |
 | `tap`, `double_tap` | `TapAsync()`, `DoubleTapAsync()` |
+| `long_press`, `right_click`, `hover` | `LongPressAsync()`, `SecondaryTapAsync()`, `HoverAsync()` |
+| `drag` | `DragToAsync(target)` |
 | `type` | `FillAsync(text)`; a credential's username as `FillAsync(Credentials.User(name).Username)` |
 | `type_secret` | `FillAsync(Credentials.User(name).Password)` or `FillAsync(Secrets.Get(name))` |
 | `press` on a node | `PressAsync(key)` |
@@ -180,8 +184,8 @@ into a test, then add the assertions.
 | `scroll_to` a node | `ScrollIntoViewAsync()` |
 | `navigate`, `back` | `App.OpenAsync(url)`, `App.BackAsync()` |
 
-No line: `type` or `press` with no target, `tap` or `double_tap` with
-`modifiers` (a locator tap takes none), `scroll`, and `scroll_to` a text.
+No line: `type` or `press` with no target, `tap`, `double_tap`, or `right_click` with
+`modifiers` (a locator tap takes none), a `drag` whose either end has no locator, `scroll`, and `scroll_to` a text.
 
 ## Workflow
 

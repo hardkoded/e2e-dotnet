@@ -230,6 +230,16 @@ and in CI.
   standard output. A throw, a timeout, or a row with no label or text is one
   line on stderr and never changes the outcome. Without the run fixture no
   reporter runs. Not ported: `OnEvent`, `Traces`, `AiTracePath`, `LastRun`.
+  `MarkdownReport.RenderMarkdownReport(run.Report, options)` (`E2E.Reports`)
+  renders that report as one markdown page for a pull request comment or a job
+  summary: a headline with the counts, a block per failed test, the flaky tests
+  and the test filters folded away, every test as a table, and the footer. The
+  `MarkdownReportOptions` are `ArtifactsUrl` (where the run's artifacts can be
+  fetched; evidence links there), `ArtifactsDir` (evidence listed as paths under
+  it when there is no URL), `SourceUrl` (a link to a source line),
+  `Traces` (the path of each traced result's page, by result id), and `Title`.
+  It returns text and does not write or post it. The text stays under what a
+  GitHub comment accepts, and every title, label, and message in it is escaped.
 - A `command` is `executable`, `args`, `cwd` (from the config's directory),
   `env`, `inheritEnv`, `startupTimeout`, `shutdownTimeout`, `log`, and
   `reuseExisting`; any other key is `INVALID_CONFIG`, naming the nearest.

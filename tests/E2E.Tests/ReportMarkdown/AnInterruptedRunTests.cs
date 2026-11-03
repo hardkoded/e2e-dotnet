@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Internal;
+using E2E.Tests.Traces;
 using static E2E.Tests.ReportMarkdown.MarkdownKit;
+using MarkdownReport = E2E.Reports.MarkdownReport;
 
 namespace E2E.Tests.ReportMarkdown;
 
@@ -15,7 +17,7 @@ public sealed class AnInterruptedRunTests
         ResultStatus.Interrupted,
         attempts: [Attempt(AttemptStatus.Interrupted, error: new ReportError("INTERRUPTED", "run interrupted in phase body"))]);
 
-    private static string Render(Report1Document document) => MarkdownReport.RenderMarkdownReport(document);
+    private static string Render(Report1Document document) => MarkdownReport.RenderMarkdownReport(ReportBuilders.Public(document));
 
     [Fact]
     public void Counts_an_interrupted_test_apart_from_failures_and_gives_it_no_failure_block()

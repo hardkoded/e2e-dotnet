@@ -79,7 +79,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
 
     /// <summary>The grammar tools that print a line or say why they print none.</summary>
     private static readonly HashSet<string> LineTools = new(
-        ["tap", "double_tap", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll", "scroll_to", "navigate", "back"],
+        ["tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll", "scroll_to", "navigate", "back"],
         StringComparer.Ordinal);
 
     /// <summary>The locator method each node verb's tool repeats as.</summary>
@@ -87,6 +87,9 @@ internal sealed class SessionTestLines(TestLineOptions options)
     {
         ["tap"] = "TapAsync",
         ["double_tap"] = "DoubleTapAsync",
+        ["long_press"] = "LongPressAsync",
+        ["right_click"] = "SecondaryTapAsync",
+        ["hover"] = "HoverAsync",
         ["check"] = "CheckAsync",
         ["uncheck"] = "UncheckAsync",
         ["clear"] = "ClearAsync",
@@ -252,9 +255,9 @@ internal sealed class SessionTestLines(TestLineOptions options)
         var target = Field(args, "target");
         if (NodeMethods.TryGetValue(name, out var method))
         {
-            if (name is "tap" or "double_tap" && args.TryGetProperty("modifiers", out var held) && held.ValueKind == JsonValueKind.Array && held.GetArrayLength() > 0)
+            if (name is "tap" or "double_tap" or "right_click" && args.TryGetProperty("modifiers", out var held) && held.ValueKind == JsonValueKind.Array && held.GetArrayLength() > 0)
             {
-                return LinePlan.None("a locator " + (name == "tap" ? "tap" : "double tap") + " takes no modifier keys");
+                return LinePlan.None("a locator " + name.Replace('_', ' ') + " takes no modifier keys");
             }
 
             return await OnTargetAsync(target, locator => locator + "." + method + "()", token).ConfigureAwait(false);
@@ -290,6 +293,8 @@ internal sealed class SessionTestLines(TestLineOptions options)
                     : LinePlan.None("scrolling to a text has none; a test action brings its node into view");
             case "scroll":
                 return LinePlan.None("a test action brings its node into view itself");
+            case "drag":
+                return await DragAsync(target, Field(args, "to"), token).ConfigureAwait(false);
             case "navigate":
                 return LinePlan.Of(NavigationLine(Field(args, "url") ?? "", _options.AppBase));
             case "back":
@@ -297,6 +302,25 @@ internal sealed class SessionTestLines(TestLineOptions options)
             default:
                 return LinePlan.None(name + " has no test line");
         }
+    }
+
+    /// <summary>A drag's line: both ends need a locator (upstream's <c>drag</c>).</summary>
+    private async Task<LinePlan> DragAsync(string? source, string? destination, CancellationToken token)
+    {
+        var from = await LocatorAsync(source, token).ConfigureAwait(false);
+        if (from.Reason is { } reason)
+        {
+            return LinePlan.None(reason);
+        }
+
+        var to = await LocatorAsync(destination, token).ConfigureAwait(false);
+        if (to.Reason is { } dropReason)
+        {
+            return LinePlan.None("the drop target: " + dropReason);
+        }
+
+        var comments = new[] { from.Comment, to.Comment }.Where(comment => comment is not null).ToList();
+        return LinePlan.Of("await " + from.Code + ".DragToAsync(" + to.Code + ");" + (comments.Count == 0 ? "" : " // " + string.Join("; ", comments)));
     }
 
     /// <summary>A typed value as the line spells it: a credential's username by its name, anything else as written (upstream's <c>typed</c>).</summary>

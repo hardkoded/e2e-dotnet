@@ -57,6 +57,15 @@ public sealed partial class Agent
 
         public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => ClickAsync("doubleTap", target, options, cancellationToken);
 
+        public Task SecondaryTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => ClickAsync("secondaryTap", target, options, cancellationToken);
+
+        public Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => PerformAsync(target, new LocatorAction.LongPress(), "longPress", cancellationToken);
+
+        public Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => PerformAsync(target, new LocatorAction.Hover(), "hover", cancellationToken);
+
+        public Task DragAsync(ExecutorTarget source, ExecutorTarget destination, CancellationToken cancellationToken = default) =>
+            PerformAsync(source, new LocatorAction.DragTo(Resolve(destination)), "drag", cancellationToken);
+
         private Task ClickAsync(string kind, ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken) =>
             PerformAsync(target, ActionDispatcher.ClickAction(kind, ActionDispatcher.RequireClickModifiers(options, kind, scope.EngineCapabilities)), kind, cancellationToken);
 

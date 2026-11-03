@@ -178,16 +178,23 @@ await Agent.ActAsync("open settings and turn on dark mode", new ActOptions
 });
 ```
 
-The tools the model can call: `observe`, `tap`, `double_tap`, `fill`,
+The tools the model can call: `observe`, `tap`, `double_tap`, `long_press`,
+`right_click`, `hover`, `drag`, `fill`,
 `fill_secret` (a `Secret` from `Params`, by name), `press`, `select`,
 `check`, `uncheck`, `clear`, `upload`, `scroll`, `scroll_to`, `navigate`, `back`, and
 `done`. `scroll` and `scroll_to` come with an engine that can scroll, `back`
 with one that has history, and `upload` with one that declares
-`EngineCapabilities.Upload` (the web engine). `screenshot` and the point tools
-`tap_at`, `type_at`, `press_at`, and `select_at` are always offered (see
-"Screenshots in `ActAsync`"), and `hover_at` and `drag_at` with an engine that
-takes a bare point for a hover or a drag (the web engine does). There is no
-`hover`, `drag`, `long_press`, or `right_click`: a step that needs one is
+`EngineCapabilities.Upload` (the web engine). `long_press`, `right_click`,
+`hover`, and `drag` come with an engine whose `IEngineSession.ActionKinds`
+names `longPress`, `secondaryTap`, `hover`, and `dragTo`: the web engine lists
+all four, the device engines all but `secondaryTap`, and the document engine
+none. `drag` takes a `target` and a `to`, the node to drop on, each named like
+any node (`ref`, or `role` and `name`); both are found on one look at the
+screen. A replay finds both ends again before it drags and hands the step to
+the model when either is gone. `screenshot` and the point tools `tap_at`,
+`type_at`, `press_at`, and `select_at` are always offered (see "Screenshots in
+`ActAsync`"), and `hover_at` and `drag_at` with an engine that takes a bare
+point for a hover or a drag (the web engine does). A step that needs a verb its engine lacks is
 `AUTOMATION_UNSUPPORTED`. Do that part with `Screen` actions instead.
 `upload` takes a target and `files`, project-relative paths such as
 `fixtures/photo.png`, and attaches them to a file input or to a control that
@@ -200,7 +207,7 @@ slot. The allow and each `POLICY_DENIED` refusal are `policy` events named
 `upload.path` on the step. The paths are recorded as given and authorized
 again on replay.
 On an engine that declares `EngineCapabilities.TapModifiers` (the web engine),
-`tap` and `double_tap` take an optional `modifiers` list (`Shift`, `Control`,
+`tap`, `double_tap`, and `right_click` take an optional `modifiers` list (`Shift`, `Control`,
 `Alt`, `Meta`, `ControlOrMeta`) to hold keys for the click, as a Shift-click
 extends a selection. The held keys are recorded and replayed from the cache.
 A project tool adds its own name to this list (see "Project tools").
@@ -694,7 +701,7 @@ What the context holds:
 | --- | --- |
 | `Step` | The `Kind`, `Instruction`, `Params`, `Index`, and `Secrets`. A secret value the attempt knows reads `<secret:name>`, and a `Secret` in the params is its name and purpose, never its value |
 | `ObserveAsync(options)` | Redacted screen text, and with `Tree` the node tree (`ExecutorNode`, whose `Id` is the ref) and with `Pixels` a masked screenshot, or `PixelsWithheld` with the reason |
-| `Actions` | Checked and recorded verbs: `TapAsync` and `DoubleTapAsync` (both take `new ClickOptions { Modifiers = [KeyModifier.Shift] }` when `Target.TapModifiers`), `TypeAsync`, `TypeSecretAsync`, `ClearAsync`, `PressAsync`, `SelectAsync`, `CheckAsync`, `UploadAsync(target, paths)` (when `Target.Verbs` holds `ExecutorVerb.Upload`), `ScrollToAsync`, `ScrollUntilAsync`, `ScrollAsync`, `NavigateAsync`, `BackAsync`. A node is `new ExecutorTarget(ref)` |
+| `Actions` | Checked and recorded verbs: `TapAsync`, `DoubleTapAsync`, and `SecondaryTapAsync` (all take `new ClickOptions { Modifiers = [KeyModifier.Shift] }` when `Target.TapModifiers`), `LongPressAsync`, `HoverAsync`, and `DragAsync(source, destination)` (when `Target.Verbs` holds `ExecutorVerb.LongPress`, `SecondaryTap`, `Hover`, or `Drag`), `TypeAsync`, `TypeSecretAsync`, `ClearAsync`, `PressAsync`, `SelectAsync`, `CheckAsync`, `UploadAsync(target, paths)` (when `Target.Verbs` holds `ExecutorVerb.Upload`), `ScrollToAsync`, `ScrollUntilAsync`, `ScrollAsync`, `NavigateAsync`, `BackAsync`. A node is `new ExecutorTarget(ref)` |
 | `Target` | The target's `Name`, `Platform`, and `Verbs`, the verbs its engine supports, and `TapModifiers`, true when `TapAsync` and `DoubleTapAsync` take `ClickOptions.Modifiers`. Offer a model only these |
 | `ReplayedPrefix` | Set when a cache replay ran some or all of the step's actions first (all of them after an `end-mismatch`). The actions and why it stopped (the agent's prompt reads `Replay stopped (<reason>) after N of M recorded actions.`, plus a warning for `end-mismatch`, and one when the next action failed with an unknown commit state). Continue from the current screen without repeating them |
 | `Model`, `ProviderOptions`, `AgentContext`, `Ledger` | The agent's model and provider options, its project context, and the steps completed before this one, as numbered lines (`1. app.open passed :: /`) in at most 8192 bytes |
@@ -729,8 +736,7 @@ the loop sends it on a user turn after the turn's tool results. Set
 `ToolLoopExecutorOptions.BuildMessages` instead of `BuildPrompt` to open the
 step with images (exactly one of the two).
 
-Not ported: the point verbs, long press, hover, and drag (the port's engines
-have none) and the observation's `Revision`.
+Not ported: the observation's `Revision`.
 
 ## In CI
 

@@ -9,24 +9,67 @@ using PolicyDecision = E2E.Reports.PolicyDecision;
 namespace E2E.Tests.AgentActVerbs;
 
 /// <summary>
-/// <c>agent.act</c> grammar verbs on the gestures page, driven by a scripted model. Upstream also runs hover,
-/// the right-click and long-press variants, drag, a repeated key press, and a hover at a bare point.
-/// This port has no such tool. Upstream also checks each step's engine events, their detail line, and the changes a
-/// tool result lists. The port has engine events only for the upload flows, and its tool result lists the whole screen
-/// and names the node by its role and name where upstream names it by id.
+/// <c>agent.act</c> grammar verbs on the gestures page, driven by a scripted model. Upstream also runs a repeated key
+/// press and a hover at a bare point. This port has no repeat count on press, and its point tools are a separate port. Upstream also
+/// checks the changes a tool result lists. The port's tool result lists the whole screen and names the node by its role and
+/// name where upstream names it by id.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class AgentActGrammarVerbsTests
 {
     [Fact]
-    public async Task Dispatches_the_double_tap_variant_as_its_own_action()
+    public async Task Hovers_by_id_reports_the_control_the_hover_revealed_and_records_the_hover()
     {
-        var (result, model) = await RunOneAsync(DoubleTapFlow);
+        using var site = await StartSiteAsync();
+        var model = ModelFor(HoverFlow);
+        var (_, steps) = await RunFlowWithStepsAsync(site, HoverFlow, model, NewCacheDirectory());
+
+        var actions = EngineEvents(steps);
+        Assert.Equal(["hover:Passed", "tap:Passed"], actions.Select(item => item.Name + ":" + item.Status));
+        Assert.Matches("^hover over \\S+ \"Account\"$", actions[0].Detail);
+        Assert.Equal("tap button \"Redeem\"", actions[1].Detail);
+        var second = CounterPage.ToolResults(model)[0];
+        Assert.Matches("^Hovered over #e\\d+\\.", second);
+        Assert.Contains("button \"Redeem\"", second, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Dispatches_the_tap_variants_as_their_own_engine_actions()
+    {
+        using var site = await StartSiteAsync();
+        var menuModel = ModelFor(RightClickFlow);
+        var (_, menuSteps) = await RunFlowWithStepsAsync(site, RightClickFlow, menuModel, NewCacheDirectory());
+
+        var menu = EngineEvents(menuSteps);
+        Assert.Equal(["secondaryTap", "tap"], menu.Select(item => item.Name));
+        Assert.Matches("^secondary-tap \\S+ \"report\\.pdf\"$", menu[0].Detail);
+        Assert.Matches("^Right-clicked #e\\d+\\.", CounterPage.ToolResults(menuModel)[0]);
+
+        var gesturesModel = ModelFor(DoubleTapAndLongPressFlow);
+        var (_, gestureSteps) = await RunFlowWithStepsAsync(site, DoubleTapAndLongPressFlow, gesturesModel, NewCacheDirectory());
+
+        var gestures = EngineEvents(gestureSteps);
+        Assert.Equal(["doubleTap", "longPress"], gestures.Select(item => item.Name));
+        Assert.Equal("double-tap button \"Tap me twice\"", gestures[0].Detail);
+        Assert.Equal("long-press button \"Hold me\"", gestures[1].Detail);
+        var toolResults = CounterPage.ToolResults(gesturesModel);
+        Assert.Matches("^Double-tapped #e\\d+\\.", toolResults[0]);
+        Assert.Contains("status \"Gesture state\" text=\"double-tapped\"", toolResults[0], StringComparison.Ordinal);
+        Assert.Matches("^Long-pressed #e\\d+\\.", toolResults[1]);
+    }
+
+    [Fact]
+    public async Task Drags_one_node_onto_another_and_records_both_ends()
+    {
+        using var site = await StartSiteAsync();
+        var model = ModelFor(DragFlow);
+        var (result, steps) = await RunFlowWithStepsAsync(site, DragFlow, model, NewCacheDirectory());
 
         Assert.Equal(1, result.Actions);
-        var toolResult = CounterPage.ToolResults(model)[0];
-        Assert.Matches("^Double-tapped #e\\d+\\.", toolResult);
-        Assert.Contains("status \"Gesture state\" text=\"double-tapped\"", toolResult, StringComparison.Ordinal);
+        var actions = EngineEvents(steps);
+        Assert.Equal(["dragTo"], actions.Select(item => item.Name));
+        Assert.Matches("^drag \\S+ \"Design review\" to \\S+ \"Done column\"$", actions[0].Detail);
+        Assert.Matches("^Dragged #e\\d+ to #e\\d+\\.", CounterPage.ToolResults(model)[0]);
     }
 
     [Fact]
@@ -127,6 +170,9 @@ public sealed class AgentActGrammarVerbsTests
         var result = await RunFlowAsync(site, flow, model, NewCacheDirectory());
         return (result, model);
     }
+
+    private static List<StepEvent> EngineEvents(IReadOnlyList<StepRecord> steps) =>
+        [.. steps.Single(candidate => candidate.Api == "agent.act").Events.Where(item => item.Kind == StepEventKind.Engine)];
 
     private static string NewCacheDirectory() => Path.Combine(Path.GetTempPath(), "e2e-verbs", Guid.NewGuid().ToString("n"));
 }

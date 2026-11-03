@@ -165,18 +165,18 @@ internal static class ReportFormat
     public static string ShortCommit(string commit) => commit.Length <= 7 ? commit : commit[..7];
 
     /// <summary>The counter a result status lands in (upstream's <c>statusBucket</c>): a timeout is a failure, and an interrupted test counts on its own.</summary>
-    public static ResultBucket StatusBucket(ResultStatus status) =>
+    public static ResultBucket StatusBucket(Reports.ResultStatus status) =>
         status switch
         {
-            ResultStatus.TimedOut or ResultStatus.Failed => ResultBucket.Failed,
-            ResultStatus.Interrupted => ResultBucket.Interrupted,
-            ResultStatus.Flaky => ResultBucket.Flaky,
-            ResultStatus.Skipped => ResultBucket.Skipped,
+            Reports.ResultStatus.TimedOut or Reports.ResultStatus.Failed => ResultBucket.Failed,
+            Reports.ResultStatus.Interrupted => ResultBucket.Interrupted,
+            Reports.ResultStatus.Flaky => ResultBucket.Flaky,
+            Reports.ResultStatus.Skipped => ResultBucket.Skipped,
             _ => ResultBucket.Passed,
         };
 
     /// <summary>Counts results by bucket (upstream's <c>tally</c>).</summary>
-    public static Dictionary<ResultBucket, int> Tally(IEnumerable<ResultStatus> statuses)
+    public static Dictionary<ResultBucket, int> Tally(IEnumerable<Reports.ResultStatus> statuses)
     {
         var counters = Enum.GetValues<ResultBucket>().ToDictionary(bucket => bucket, _ => 0);
         foreach (var status in statuses)

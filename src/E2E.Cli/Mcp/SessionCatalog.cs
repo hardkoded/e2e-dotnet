@@ -74,13 +74,16 @@ internal sealed class SessionCatalog
     /// resolves, and <paramref name="attemptDir"/> the attempt's artifact directory, where the engine writes a screenshot before <c>screenshot</c>
     /// copies it out. <paramref name="recorder"/> is the session's video recorder, which adds <c>start_recording</c> and <c>stop_recording</c>.
     /// <paramref name="testRan"/> is the full name of the test the session ran first, which the test lines continue.
+    /// <paramref name="actionKinds"/> is what the engine declared (<see cref="IEngineSession.ActionKinds"/>): <c>long_press</c>, <c>right_click</c>,
+    /// <c>hover</c>, and <c>drag</c> are tools only where their kind is named.
     /// </summary>
-    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null, SessionRecorder? recorder = null, string? testRan = null, TestLineFills? fills = null)
+    public static SessionCatalog Create(ISessionContext context, EngineCapabilities capabilities, IReadOnlyCollection<string> secrets, string projectRoot, string attemptDir, Uri? appBase = null, SessionRecorder? recorder = null, string? testRan = null, TestLineFills? fills = null, IReadOnlyCollection<string>? actionKinds = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(secrets);
         ArgumentNullException.ThrowIfNull(projectRoot);
         ArgumentNullException.ThrowIfNull(attemptDir);
+        var kinds = actionKinds ?? [];
         var lines = new SessionTestLines(new TestLineOptions
         {
             Newest = () => context.Session.Agent.Feed.Latest?.Roots,
@@ -98,12 +101,33 @@ internal sealed class SessionCatalog
         var holdable = capabilities.HasFlag(EngineCapabilities.TapModifiers) ? new (string Name, JsonNode Schema, bool Required)[] { ("modifiers", AgentTools.ModifiersSchema(), false) } : [];
         Add("tap", Verb(context, screen, "tap", "tap", "Tap or click one node: the gesture for a button, link, menu item, tab, checkbox, row, or field.", Schema(Target, holdable)));
         Add("double_tap", Verb(context, screen, "double_tap", "double_tap", "Double-click one node. Use it only when a tap does nothing, such as a label that opens an editor on a double-click.", Schema(Target, holdable)));
+        if (kinds.Contains("longPress"))
+        {
+            Add("long_press", Verb(context, screen, "long_press", "long_press", "Press one node and hold: only for a control with a long-press menu or action. Anything else takes tap.", Schema(Target)));
+        }
+
+        if (kinds.Contains("secondaryTap"))
+        {
+            Add("right_click", Verb(context, screen, "right_click", "right_click", "Right-click one node to open its context menu, and only for that. The menu items it opens, and every button, link, or field, take tap. When nothing opens, the app has no context menu there: look for a menu button or another path instead.", Schema(Target, holdable)));
+        }
+
+        if (kinds.Contains("hover"))
+        {
+            Add("hover", Verb(context, screen, "hover", "hover", "Move the pointer over one node without clicking: opens what reacts to the pointer resting on it, such as a menu, a flyout, a tooltip, or a control revealed on mouse-over. The result reports what appeared. In a nested menu, hover each level in turn and then tap the item while it is open.", Schema(Target)));
+        }
+
         Add("type", Verb(context, screen, "type", "fill", "Replace the text in a field with text.", Schema(Target, ("text", Property("string", "The text the field should hold"), true)), ("text", "value")));
         Add("press", Verb(context, screen, "press", "press", "Press a key such as Enter, Escape, or Tab. With a target, the key goes to that node; without one, to whatever has focus.", Schema(OptionalTarget, ("key", Property("string", "The key, such as Enter"), true))));
         Add("select", Verb(context, screen, "select", "select", "Choose an option of a combobox or select, by its value or label.", Schema(Target, ("value", Property("string", "The option's value or label"), true))));
         Add("check", Verb(context, screen, "check", "check", "Check a checkbox or radio.", Schema(Target)));
         Add("uncheck", Verb(context, screen, "uncheck", "uncheck", "Uncheck a checkbox.", Schema(Target)));
         Add("clear", Verb(context, screen, "clear", "clear", "Clear a field.", Schema(Target)));
+
+        if (kinds.Contains("dragTo"))
+        {
+            Add("drag", Verb(context, screen, "drag", "drag", "Drag one node and drop it on another: reorder a list, move a card to a column, drop an item into a zone. The result reports what moved.", Schema(Target, ("to", Property("string", "Node id of the drop target"), true))));
+        }
+
         if (capabilities.HasFlag(EngineCapabilities.Scroll))
         {
             Add("scroll_to", Verb(context, screen, "scroll_to", "scroll_to", "Scroll until a node is inside the viewport. With a target, one listed node above or below the fold. With text, a node the screen does not list yet: the list named by the target (or the viewport) is paged screen by screen until a node reading that text shows.", Schema(OptionalTarget, ("text", Property("string", "The visible text of the node to reach, or a distinctive part of it"), false), ("direction", Direction, false))));
@@ -239,7 +263,7 @@ internal sealed class SessionCatalog
     }
 
     private static readonly HashSet<string> GrammarVerbs = new(
-        ["observe", "tap", "double_tap", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "screenshot"],
+        ["observe", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "screenshot"],
         StringComparer.Ordinal);
 
     private static readonly (string Name, JsonNode Schema, bool Required)[] Target =
@@ -319,6 +343,13 @@ internal sealed class SessionCatalog
                 var mapped = new JsonObject();
                 foreach (var property in args.EnumerateObject())
                 {
+                    // A drag names its drop target as it names the node dragged.
+                    if (agentTool == "drag" && property.Name == "to" && property.Value.ValueKind == JsonValueKind.String)
+                    {
+                        mapped["to"] = new JsonObject { ["ref"] = property.Value.GetString() };
+                        continue;
+                    }
+
                     var key = property.Name == "target" ? "ref" : rename is { } map && map.From == property.Name ? map.To : property.Name;
                     mapped[key] = JsonNode.Parse(property.Value.GetRawText());
                 }

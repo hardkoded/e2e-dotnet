@@ -15,7 +15,7 @@ namespace E2E;
 /// Upstream's action dispatcher (<c>agent/action-dispatcher.ts</c>): the <see cref="IExecutorActions"/> of one act step. Each
 /// verb performs the action on the engine, records it in the step's accounting, and arms the change wait its settle policy
 /// asks for. Upstream's <c>commitTargeted</c> is <see cref="CommitAsync(RecordedAction)"/>, and its private <c>targeted</c> is
-/// <see cref="TargetedAsync"/>.
+/// <see cref="TargetedAsync(SemanticNode, CancellationToken, Func{SemanticNode, int, Task}, Action{SemanticNode}?)"/>.
 /// </summary>
 internal sealed partial class ActionDispatcher : IExecutorActions
 {
@@ -49,6 +49,58 @@ internal sealed partial class ActionDispatcher : IExecutorActions
 
     public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) =>
         ClickAsync("doubleTap", target, options, cancellationToken);
+
+    public Task SecondaryTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) =>
+        ClickAsync("secondaryTap", target, options, cancellationToken);
+
+    public Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+        NodeVerbAsync("longPress", target, new LocatorAction.LongPress(), cancellationToken);
+
+    public Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default) =>
+        NodeVerbAsync("hover", target, new LocatorAction.Hover(), cancellationToken);
+
+    // Upstream's nodeVerb for a verb that carries nothing but its target.
+    private Task NodeVerbAsync(string kind, ExecutorTarget target, LocatorAction action, CancellationToken cancellationToken) =>
+        RunAsync(
+            kind,
+            async token =>
+            {
+                var node = Resolve(target);
+                await TargetedAsync(node, action, token).ConfigureAwait(false);
+                await CommitAsync(kind, node).ConfigureAwait(false);
+            },
+            cancellationToken);
+
+    /// <summary>
+    /// Upstream's <c>drag</c>: drags one node onto another. The destination is resolved beside the source on every attempt of the
+    /// relocation loop, so both come from the same look at the screen. Its placement is recorded like the source's, so a replay can
+    /// tell one "Done" column from another.
+    /// </summary>
+    public Task DragAsync(ExecutorTarget source, ExecutorTarget destination, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+        return RunAsync(
+            "dragTo",
+            async token =>
+            {
+                var node = Resolve(source);
+                SemanticNode? dropped = null;
+                node = await TargetedAsync(
+                    node,
+                    token,
+                    async (found, attempt) =>
+                    {
+                        // The first attempt reads the node the tool loop resolved; one after a relocation reads the fresh look.
+                        dropped = attempt == 0 ? Resolve(destination) : _feed.Lookup(destination).Node ?? throw ObservationFeed.NodeGone(destination.Id.TrimStart('#'));
+                        await _scope.Session.PerformAsync(found, new LocatorAction.DragTo(dropped), token).ConfigureAwait(false);
+                    }).ConfigureAwait(false);
+                var recorded = Target(node, "drag", WithinOf(node));
+                var end = Target(dropped!, "drag", WithinOf(dropped!));
+                recorded.Destination = new RecordedTarget { Role = end.Role, Name = end.Name, TestId = end.TestId, Within = end.Within };
+                await CommitAsync(recorded).ConfigureAwait(false);
+            },
+            cancellationToken);
+    }
 
     // Upstream's nodeVerb for the tap family: the modifiers are checked before a slot is taken, and recorded with the action.
     private Task ClickAsync(string kind, ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken)
@@ -108,9 +160,13 @@ internal sealed partial class ActionDispatcher : IExecutorActions
         return modifiers;
     }
 
-    /// <summary>The engine action of a <c>tap</c> or <c>doubleTap</c> holding <paramref name="modifiers"/>.</summary>
-    internal static LocatorAction ClickAction(string kind, IReadOnlyList<KeyModifier>? modifiers) =>
-        string.Equals(kind, "doubleTap", StringComparison.Ordinal) ? new LocatorAction.DoubleTap(modifiers) : new LocatorAction.Tap(modifiers);
+    /// <summary>The engine action of a <c>tap</c>, <c>doubleTap</c>, or <c>secondaryTap</c> holding <paramref name="modifiers"/>.</summary>
+    internal static LocatorAction ClickAction(string kind, IReadOnlyList<KeyModifier>? modifiers) => kind switch
+    {
+        "doubleTap" => new LocatorAction.DoubleTap(modifiers),
+        "secondaryTap" => new LocatorAction.SecondaryTap(modifiers),
+        _ => new LocatorAction.Tap(modifiers),
+    };
 
     public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default)
     {
@@ -611,7 +667,15 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     /// <paramref name="authorize"/> checks each node before the action reaches it, the relocated one too. Returns the node the
     /// action reached, which is what the trace records.
     /// </summary>
-    private async Task<SemanticNode> TargetedAsync(SemanticNode node, LocatorAction action, CancellationToken token, Action<SemanticNode>? authorize = null)
+    private Task<SemanticNode> TargetedAsync(SemanticNode node, LocatorAction action, CancellationToken token, Action<SemanticNode>? authorize = null) =>
+        TargetedAsync(
+            node,
+            token,
+            (found, _) => _scope.Session.PerformAsync(found, action, token),
+            authorize);
+
+    // The loop with the action built per attempt, which gets the node and the attempt's number: a drag reads its destination anew after a relocation.
+    private async Task<SemanticNode> TargetedAsync(SemanticNode node, CancellationToken token, Func<SemanticNode, int, Task> perform, Action<SemanticNode>? authorize = null)
     {
         for (var relocations = 0; ; relocations++)
         {
@@ -619,7 +683,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             {
                 // Runs on every attempt, so a node found again after a stale answer is authorized as it is now.
                 authorize?.Invoke(node);
-                await _scope.Session.PerformAsync(node, action, token).ConfigureAwait(false);
+                await perform(node, relocations).ConfigureAwait(false);
                 return node;
             }
             catch (EngineException ex) when (ex.Code == EngineErrorCodes.NodeStale)

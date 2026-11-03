@@ -29,8 +29,9 @@ public sealed partial class EngineTargetsTests
         var executor = new TestExecutor("toy-tapper", async (context, _) =>
         {
             // The executor is told which grammar the surface honors: no scroll and no back, since the toy declares neither.
+            // It declares no action kinds, so it gets every locator one, and the pointer verbs with them.
             var verbs = string.Join(",", context.Target.Verbs.Select(verb => verb.ToString()).Order(StringComparer.Ordinal));
-            if (context.Target.Platform != "ios" || verbs != "Check,Clear,DoubleTap,Navigate,Press,Select,Tap,Type,TypeSecret")
+            if (context.Target.Platform != "ios" || verbs != "Check,Clear,DoubleTap,Drag,Hover,LongPress,Navigate,Press,SecondaryTap,Select,Tap,Type,TypeSecret")
             {
                 return Failed("unexpected target " + context.Target.Platform + " " + verbs);
             }

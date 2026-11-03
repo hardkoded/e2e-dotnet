@@ -7,6 +7,9 @@ using E2E.Tests.Traces;
 using static E2E.Tests.ReportFailureText.FailureTextKit;
 using ArtifactProducer = E2E.Reports.ArtifactProducer;
 using ArtifactProducerKind = E2E.Reports.ArtifactProducerKind;
+using FailureText = E2E.Reports.FailureText;
+using Outcome = E2E.Reports.Outcome;
+using TracePageOptions = E2E.Reports.TracePageOptions;
 
 namespace E2E.Tests.ReportFailureText;
 
@@ -17,7 +20,8 @@ public sealed class RenderTracePageTests
     {
         var failing = ReportBuilders.Result(id: "r1", titlePath: ["todos", "archives a todo"], file: "tests/todos.e2e.ts", status: ResultStatus.Failed, attempts: attempts);
         var document = new Report1Document(new ReportRun("run-1", "0.0.0", [new ReportTarget("web", 0, "web", BuildReport.DescribeTarget(null))], [failing]));
-        return FailureText.RenderTracePage(document, failing, Outcome.Of(failing), new TracePageOptions { ArtifactsDir = ".e2e/artifacts", ReadArtifact = readArtifact });
+        var told = ReportBuilders.Public(document);
+        return FailureText.RenderTracePage(told, told.Run.Results[0], Outcome.Of(told.Run.Results[0]), new TracePageOptions { ArtifactsDir = ".e2e/artifacts", ReadArtifact = readArtifact });
     }
 
     [Fact]
@@ -51,7 +55,8 @@ public sealed class RenderTracePageTests
         DateTimeOffset At(int seconds) => new(2026, 10, 27, 10, 0, seconds, TimeSpan.Zero);
         ReportArtifact Video(string id, string file, DateTimeOffset startedAt, ArtifactProducer producer) =>
             new(id, "video", "t/" + file, StartedAt: startedAt, Producer: producer);
-        List<string> Offsets(IReadOnlyList<ReportArtifact> artifacts) =>
+        // The report names the step that made an artifact by the artifacts the step lists, so a stopped recording is listed by its stop step.
+        List<string> Offsets(IReadOnlyList<ReportArtifact> artifacts, params string[] madeByStopStep) =>
         [
             .. Page(
                 [
@@ -60,7 +65,7 @@ public sealed class RenderTracePageTests
                         [
                             Step(0, api: "app.open", startedAt: At(0), durationMs: 500),
                             Step(1, api: "locator.tap", startedAt: At(5), durationMs: 500),
-                            Step(2, api: "app.stopRecording", startedAt: At(8), durationMs: 1000),
+                            Step(2, api: "app.stopRecording", startedAt: At(8), durationMs: 1000, artifacts: madeByStopStep),
                             Step(3, api: "locator.tap", status: StepStatus.Failed, error: ReportBuilders.Error(), startedAt: At(12), durationMs: 500),
                         ],
                         artifacts: artifacts),
@@ -70,7 +75,7 @@ public sealed class RenderTracePageTests
                 .Select(line => System.Text.RegularExpressions.Regex.Match(line, @"\((?:[^,)]*)(?:, ([^)]*))?\)").Groups[1].Value),
         ];
 
-        Assert.Equal(["", "video 0:01", "video 0:04", ""], Offsets([Video("a:0", "recordings/001-span.webm", At(4), new ArtifactProducer { Kind = ArtifactProducerKind.Step, StepId = "s2" })]));
+        Assert.Equal(["", "video 0:01", "video 0:04", ""], Offsets([Video("a:0", "recordings/001-span.webm", At(4), new ArtifactProducer { Kind = ArtifactProducerKind.Step, StepId = "s2" })], "a:0"));
         Assert.Equal(["video 0:00", "video 0:04", "video 0:07", "video 0:11"], Offsets([Video("a:0", "video/video.webm", At(1), new ArtifactProducer { Kind = ArtifactProducerKind.Attempt })]));
     }
 

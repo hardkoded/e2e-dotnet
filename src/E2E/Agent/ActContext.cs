@@ -77,7 +77,7 @@ internal sealed partial class ActContext : StepExecutorContext
             CancellationToken = scope.Ended.Token,
             Memory = scope.ExecutorMemory,
         };
-        Target = new ExecutorTargetInfo { Name = scope.TargetName, Platform = scope.EnginePlatform, Verbs = VerbsOf(scope.EngineCapabilities, scope.Session.PointerActionKinds), TapModifiers = scope.EngineCapabilities.HasFlag(EngineCapabilities.TapModifiers) };
+        Target = new ExecutorTargetInfo { Name = scope.TargetName, Platform = scope.EnginePlatform, Verbs = VerbsOf(scope.EngineCapabilities, scope.ActionKinds, scope.Session.PointerActionKinds), TapModifiers = scope.EngineCapabilities.HasFlag(EngineCapabilities.TapModifiers) };
         ReplayedPrefix = prefix;
         Model = agent.Model;
         ProviderOptions = agent.ProviderOptions;
@@ -164,7 +164,7 @@ internal sealed partial class ActContext : StepExecutorContext
     }
 
     // The verbs the engine can honor: the grammar the built-in tools offer for these capabilities.
-    private static HashSet<ExecutorVerb> VerbsOf(EngineCapabilities capabilities, IReadOnlyCollection<string> pointerKinds)
+    private static HashSet<ExecutorVerb> VerbsOf(EngineCapabilities capabilities, IReadOnlyCollection<string>? actionKinds, IReadOnlyCollection<string> pointerKinds)
     {
         var verbs = new HashSet<ExecutorVerb>
         {
@@ -178,6 +178,14 @@ internal sealed partial class ActContext : StepExecutorContext
             ExecutorVerb.Check,
             ExecutorVerb.Navigate,
         };
+        foreach (var (kind, verb) in AgentTools.PointerVerbs)
+        {
+            if (actionKinds?.Contains(kind) == true)
+            {
+                verbs.Add(verb);
+            }
+        }
+
         if (capabilities.HasFlag(EngineCapabilities.Upload))
         {
             verbs.Add(ExecutorVerb.Upload);

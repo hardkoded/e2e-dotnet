@@ -237,6 +237,14 @@ internal sealed class StepHost : IStepCacheHost
 
         public Task DoubleTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+        public Task SecondaryTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task DragAsync(ExecutorTarget source, ExecutorTarget destination, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
         public Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task TypeSecretAsync(ExecutorTarget target, string secretName, CancellationToken cancellationToken = default) => Task.CompletedTask;

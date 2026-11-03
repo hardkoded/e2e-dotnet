@@ -5,13 +5,15 @@
 using E2E.Internal;
 using E2E.Tests.Traces;
 using static E2E.Tests.ReportMarkdown.MarkdownKit;
+using MarkdownReport = E2E.Reports.MarkdownReport;
+using MarkdownReportOptions = E2E.Reports.MarkdownReportOptions;
 
 namespace E2E.Tests.ReportMarkdown;
 
 /// <summary>Upstream's <c>describe('renderMarkdownReport')</c> (<c>tests/unit/report-markdown.test.ts</c>).</summary>
 public sealed class RenderMarkdownReportTests
 {
-    private static string Render(Report1Document document, MarkdownReportOptions? options = null) => MarkdownReport.RenderMarkdownReport(document, options);
+    private static string Render(Report1Document document, MarkdownReportOptions? options = null) => MarkdownReport.RenderMarkdownReport(ReportBuilders.Public(document), options);
 
     [Fact]
     public void Leads_with_the_counts_and_the_spend_blocks_each_failure_with_its_step_and_the_agents_word_folds_the_flaky_tests_and_folds_every_test_by_file()
