@@ -24,8 +24,8 @@ e2e login|logout|models [provider]                   # subscription logins: open
                                                      # github-copilot, opencode-console, spacexai
 e2e install [chromium ...] [--with-deps]             # download browsers (topic setup)
 e2e mcp                                              # MCP server for a coding agent (topic mcp)
-e2e doctor [--config <path>] [--target <ids>] [--headed] [--json] # can explore and mcp start: runtime, config,
-                                                     # engine setup, models; --json for a host, exit 2 on a failed check
+e2e doctor [--config <path>] [--target <ids>] [--headed] [--check-model] [--json] # can explore and mcp start: runtime,
+                                                     # config, engine setup, models; --json for a host, exit 2 on a failed check
 e2e explore [goal] [--max-steps <n>] [--timeout <ms>] [--video|--trace|--debug|--ai-trace] # explore the app toward a goal (topic explore)
 ```
 
@@ -150,12 +150,13 @@ does not close or a required video is not finalized. The `e2e` tool exits 0 on s
 command. `e2e guide` exits 2 on an unknown topic, and `e2e mcp` and `e2e
 explore` exit 2 on a bad flag. `e2e explore` exits 0 when it reported no
 issue, 1 when it reported one, 3 for an engine or model provider failure, and
-130 when interrupted. `e2e doctor` makes no model call and starts nothing: it
+130 when interrupted. `e2e doctor` starts nothing and calls no model unless `--check-model` is given: it
 exits 0 when no check failed (`warn`, `skip`, and `unknown` never fail), 2 when
 one did, and 130 when interrupted. `e2e doctor --json` prints only the
 `doctor-1` report (`schema/doctor-v1.schema.json`) to stdout, and an engine's
 progress lines go to stderr. A model on an `e2e login` is checked on the stored
-login; any other model is `unknown`. `--check-model` is not supported yet.
+login; any other model is `unknown` unless `--check-model` calls it once (one retry, 1 minute; agents with the
+same model, provider options, and `MaxInputTokens` share the call).
 
 ## Continuous integration
 

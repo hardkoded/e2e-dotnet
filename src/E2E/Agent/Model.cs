@@ -46,6 +46,9 @@ public sealed class ModelRequest
     /// <summary>Upstream's <c>ModelCall.schemaName</c>: the name sent with <see cref="Schema"/>, for the providers that name a structured output.</summary>
     public string? SchemaName { get; init; }
 
+    /// <summary>Upstream's <c>ModelCall.maxRetries</c>: provider transport retries for this call. Null keeps <see cref="ModelHttp.TransportRetries"/>.</summary>
+    public int? MaxRetries { get; init; }
+
     /// <summary>Redacts the secrets of the step from a provider failure that quotes the response body.</summary>
     internal Redactor Redactor { get; init; } = Redactor.None;
 }
@@ -121,7 +124,7 @@ public sealed class ModelResponse
     /// <summary>The reasoning of the turn that the model can take back, to replay on the next turn. Empty when the model gave none.</summary>
     public IReadOnlyList<JsonElement> ReasoningItems { get; init; } = [];
 
-    /// <summary>The AI SDK finish reason that matters to the agent: <see cref="ContentFilter"/> when the provider stopped the turn because it refused the request. Null for any other turn.</summary>
+    /// <summary>The AI SDK finish reason that matters to the agent: <see cref="ContentFilter"/> when the provider stopped the turn because it refused the request, or <see cref="ErrorFinish"/> when it ended on an error. Null for any other turn.</summary>
     public string? FinishReason { get; init; }
 
     /// <summary>The provider's own word for the stop, such as <c>refusal</c>, when it sent one. Provider text: redact it before it reaches a message.</summary>
@@ -129,6 +132,9 @@ public sealed class ModelResponse
 
     /// <summary>The finish reason of a turn the provider refused (upstream's <c>content-filter</c>).</summary>
     public const string ContentFilter = "content-filter";
+
+    /// <summary>The finish reason of a turn the provider ended on an error (upstream's <c>error</c>), whatever text came with it. No built-in provider reports it; a custom <see cref="IAgentModel"/> may.</summary>
+    public const string ErrorFinish = "error";
 }
 
 /// <summary>Builds the tool calls a <see cref="ScriptedModel"/> (or a test) returns.</summary>

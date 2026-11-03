@@ -78,9 +78,10 @@ engine launches the browser `BrowserName` names, Chromium by default.
 
 `e2e doctor` checks the setup without starting anything: the .NET runtime, the
 config and its targets, whether the browser a run launches is installed (`warn`
-when the first run will download it), the `InitScripts` files, and, for an
+when the first run will download it), the `InitScripts` files, for a device target agent-device's own checks (toolchain, devices,
+the installed app, the `AppPath` build), and, for an
 agent whose `provider` is `chatgpt`, `copilot`, `grok`, or `opencode-console`,
-the stored login (a set provider API key variable, such as `OPENCODE_API_KEY`, passes it without one). It exits 2 when a check failed.
+the stored login (a set provider API key variable, such as `OPENCODE_API_KEY`, passes it without one). `--check-model` calls each model once to prove it answers. It exits 2 when a check failed.
 
 ## Subscriptions and API keys
 

@@ -76,7 +76,7 @@ public sealed class BedrockModel : IAgentModel, IDisposable
             }
         }
 
-        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, sign).ConfigureAwait(false);
+        var body = await ModelHttp.SendAsync(_http, message, request.Redactor, cancellationToken, sign, request.MaxRetries).ConfigureAwait(false);
         var response = ModelHttp.Parse(body, Parse);
         return request.Schema is null ? response : ModelHttp.StructuredAnswer(response);
     }

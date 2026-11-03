@@ -143,6 +143,18 @@ internal sealed class DoctorOptions
     /// <summary>Where an engine's progress lines go, under the target they concern.</summary>
     public required Action<string, string> Notice { get; init; }
 
+    /// <summary>
+    /// <c>--check-model</c>: call each agent's model once with a short prompt and the agent's provider options, and fail the check of one
+    /// that does not answer.
+    /// </summary>
+    public bool CheckModel { get; init; }
+
+    /// <summary>
+    /// Builds the model of an agent for <c>--check-model</c>, the agent's judge when the flag is true. .NET-only test seam: upstream's tests
+    /// bring a scripted instance in the config. Null builds it from the agent's provider, as a run does.
+    /// </summary>
+    public Func<AgentConfig, bool, IAgentModel?>? CreateModel { get; init; }
+
     /// <summary>How long each engine's doctor may take; 30 seconds by default.</summary>
     public TimeSpan? EngineTimeout { get; init; }
 
@@ -165,6 +177,12 @@ internal static partial class Doctor
 
     /// <summary>How long a timed-out or cancelled engine doctor may take to settle.</summary>
     private static readonly TimeSpan EngineDoctorTeardown = TimeSpan.FromSeconds(15);
+
+    /// <summary>How long one <c>--check-model</c> call may take, transport retries included.</summary>
+    private static readonly TimeSpan ModelCallTimeout = TimeSpan.FromMinutes(1);
+
+    /// <summary>Transport retries of a <c>--check-model</c> call: one rides out a blip, more would hide a refused connection behind the timeout.</summary>
+    private const int ModelCallRetries = 1;
 
     /// <summary>The ids of doctor's own checks, which an engine's finding cannot take. <c>runtime</c> is .NET-only: upstream's <c>node</c> check names the runtime it needs.</summary>
     private static readonly HashSet<string> ReservedIds = new(["node", "config", "runtime", "engine", "model"], StringComparer.Ordinal);
@@ -212,7 +230,7 @@ internal static partial class Doctor
 
         if (!cancellationToken.IsCancellationRequested)
         {
-            checks.AddRange(await ModelChecksAsync(loaded.Config, cancellationToken).ConfigureAwait(false));
+            checks.AddRange(await ModelChecksAsync(loaded.Config, options, redactor, cancellationToken).ConfigureAwait(false));
         }
 
         return Report(options.Version, checks, redactor);
@@ -435,11 +453,25 @@ internal static partial class Doctor
         new(EngineErrorCodes.EngineFailure, $"engine \"{engine}\" returned a malformed doctor check: {Format.Bounded(value)}");
 
     /// <summary>
-    /// One <c>model</c> check per agent. A model on a stored login passes or fails on that login, and any other is <c>unknown</c>:
-    /// the model reads its own credential, and doctor does not call it.
+    /// One <c>model</c> check per agent. Without <c>--check-model</c>, a model on a stored login passes or fails on that login and any other
+    /// is <c>unknown</c>; with it, each model answers one call per set of provider options and input limit the agents send it.
     /// </summary>
-    private static async Task<IReadOnlyList<DoctorCheck>> ModelChecksAsync(E2EConfig config, CancellationToken cancellationToken)
+    private static async Task<IReadOnlyList<DoctorCheck>> ModelChecksAsync(E2EConfig config, DoctorOptions options, Redactor redactor, CancellationToken cancellationToken)
     {
+        var calls = new Dictionary<string, Task<ModelFailure?>>(StringComparer.Ordinal);
+        Func<AgentConfig, bool, Task<ModelFailure?>>? call = options.CheckModel
+            ? (agent, judge) =>
+            {
+                var key = CallKey(agent, judge);
+                if (!calls.TryGetValue(key, out var pending))
+                {
+                    pending = CallModelAsync(() => options.CreateModel is { } create ? create(agent, judge) : judge ? agent.CreateJudge() : agent.CreateModel(), agent, redactor, cancellationToken);
+                    calls[key] = pending;
+                }
+
+                return pending;
+            }
+        : null;
         var checks = new List<DoctorCheck>();
         foreach (var (name, agent) in config.Agents)
         {
@@ -448,14 +480,21 @@ internal static partial class Doctor
                 break;
             }
 
-            checks.Add(await ModelCheckAsync(name, agent, cancellationToken).ConfigureAwait(false));
+            checks.Add(await ModelCheckAsync(name, agent, call, cancellationToken).ConfigureAwait(false));
         }
 
         return checks;
     }
 
-    /// <summary>The <c>model</c> check of one agent: its model and, when it is another one, its judge.</summary>
-    private static async Task<DoctorCheck> ModelCheckAsync(string name, AgentConfig agent, CancellationToken cancellationToken)
+    /// <summary>Why a model's call failed: the e2e error code and message.</summary>
+    private sealed record ModelFailure(string Code, string Message);
+
+    /// <summary>What makes two agents' calls to one model the same call: the model, how it is reached, and the agent's provider options and input limit.</summary>
+    private static string CallKey(AgentConfig agent, bool judge) =>
+        JsonSerializer.Serialize(new object?[] { agent.Provider, judge ? agent.Judge : agent.Model, agent.BaseUrl, agent.ApiKeyEnv, agent.ProviderOptions, agent.MaxInputTokens });
+
+    /// <summary>The <c>model</c> check of one agent: its model and, when it is another one, its judge, each checked on its own.</summary>
+    private static async Task<DoctorCheck> ModelCheckAsync(string name, AgentConfig agent, Func<AgentConfig, bool, Task<ModelFailure?>>? call, CancellationToken cancellationToken)
     {
         var judge = agent.Judge is null || agent.Judge == agent.Model ? null : agent.Judge;
         if (agent.Model is null && judge is null)
@@ -474,13 +513,100 @@ internal static partial class Doctor
             Message = message,
         };
 
-        if (login is null)
+        string? credential = null;
+        if (login is not null)
         {
-            return Result(DoctorStatus.Unknown, null, "the model reads its own credential");
+            var (ok, message) = await LoginCredentialAsync(login, cancellationToken).ConfigureAwait(false);
+            if (!ok)
+            {
+                return Result(DoctorStatus.Fail, "MODEL_UNAVAILABLE", message);
+            }
+
+            credential = message;
         }
 
-        var (ok, message) = await LoginCredentialAsync(login, cancellationToken).ConfigureAwait(false);
-        return ok ? Result(DoctorStatus.Pass, null, message) : Result(DoctorStatus.Fail, "MODEL_UNAVAILABLE", message);
+        if (call is not null)
+        {
+            var roles = new List<(string Role, bool Judge)>();
+            if (agent.Model is not null)
+            {
+                roles.Add(("model", false));
+            }
+
+            if (judge is not null)
+            {
+                roles.Add(("judge", true));
+            }
+
+            var failures = new List<ModelFailure>();
+            foreach (var (role, isJudge) in roles)
+            {
+                if (await call(agent, isJudge).ConfigureAwait(false) is { } failure)
+                {
+                    failures.Add(failure with { Message = roles.Count == 1 ? failure.Message : role + ": " + failure.Message });
+                }
+            }
+
+            return failures.Count > 0
+                ? Result(DoctorStatus.Fail, failures[0].Code, string.Join("; ", failures.Select(failure => failure.Message)))
+                : Result(DoctorStatus.Pass, null, roles.Count == 1 ? "answered" : "both answered");
+        }
+
+        return credential is not null
+            ? Result(DoctorStatus.Pass, null, credential)
+            : Result(DoctorStatus.Unknown, null, "the model reads its own credential; --check-model calls it");
+    }
+
+    /// <summary>
+    /// One small call to the model <paramref name="createModel"/> builds, with the agent's provider options, resolving to the failure or null. A reply that is not
+    /// the JSON asked for, or a refusal, still proves the model answered; a call the provider ended on an error does not. Upstream's <c>callModel</c>.
+    /// </summary>
+    private static async Task<ModelFailure?> CallModelAsync(Func<IAgentModel?> createModel, AgentConfig agent, Redactor redactor, CancellationToken cancellationToken)
+    {
+        IAgentModel? model = null;
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(ModelCallTimeout);
+        try
+        {
+            model = createModel();
+            if (model is null)
+            {
+                return null;
+            }
+
+            var response = await model.CompleteAsync(
+                new ModelRequest
+                {
+                    System = "You are checking that this model is reachable.",
+                    Messages = [new ModelMessage { Role = "user", Content = "Reply with the JSON object {\"ok\": true} and nothing else." }],
+                    Tools = [],
+                    ProviderOptions = agent.ProviderOptions,
+                    MaxRetries = ModelCallRetries,
+                    Redactor = redactor,
+                },
+                deadline.Token).ConfigureAwait(false);
+            if (string.Equals(response.FinishReason, ModelResponse.ErrorFinish, StringComparison.Ordinal))
+            {
+                throw ModelHttp.ErrorFinishError(response.RawFinishReason, redactor);
+            }
+
+            return null;
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && deadline.IsCancellationRequested)
+        {
+            return new ModelFailure("MODEL_PROVIDER_FAILED", "the model did not answer within " + Time.BudgetText((long)ModelCallTimeout.TotalMilliseconds));
+        }
+#pragma warning disable CA1031 // Any failure of the call, or of building the model, is the agent's failed model check; a cancel by the caller is not one.
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+#pragma warning restore CA1031
+        {
+            var (_, code, message, _) = ErrorSerializer.Classify(ex);
+            return code is "MODEL_REFUSED" or "MODEL_OUTPUT_INVALID" ? null : new ModelFailure(code, message);
+        }
+        finally
+        {
+            (model as IDisposable)?.Dispose();
+        }
     }
 
     /// <summary>The credential <paramref name="login"/>'s calls read: its API key variable when set, else the stored login, which must be there.</summary>

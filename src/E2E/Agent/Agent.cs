@@ -839,6 +839,12 @@ public sealed partial class Agent
             throw ModelHttp.ModelRefusalError(model.Name, response.RawFinishReason, _scope.Redactor);
         }
 
+        // A call the provider ended on an error is a provider failure, whatever text came with it.
+        if (response.ToolCalls.Count == 0 && string.Equals(response.FinishReason, ModelResponse.ErrorFinish, StringComparison.Ordinal))
+        {
+            throw ModelHttp.ErrorFinishError(response.RawFinishReason, _scope.Redactor);
+        }
+
         return response;
     }
 

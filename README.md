@@ -399,6 +399,7 @@ foreach (var finding in outcome.Explore.Findings)
 ```bash
 e2e doctor
 e2e doctor --json
+e2e doctor --check-model
 e2e doctor --target web --headed
 ```
 
@@ -406,12 +407,12 @@ e2e doctor --target web --headed
 | --- | --- |
 | `runtime` | `pass`: the .NET version. |
 | `config` | `pass` with `path` and `targets` (`name`, `platform`, `engine`), or `fail` with the `INVALID_CONFIG`, `CONFIG_NOT_FOUND`, or `UNKNOWN_TARGET` code. A failed `config` is the last check. |
-| Engine checks, with `target` | What the target's engine reports, such as the web engine's `browser`: `pass` when installed, `warn` when the first run will download it, `skip` with a browser provider or `Connect`; and `init-scripts`, when `InitScripts` are set. `engine` is `skip` when the engine has no doctor checks (the device and Windows engines, for now), and `fail` when its doctor threw, timed out, or returned a malformed check. |
-| `model`, with `agent` | `model` and `judge` as `provider` and `modelId`. `pass` or `fail` for a model on an [`e2e login`](#subscriptions) (`chatgpt`, `copilot`, `grok`, `opencode-console`), from the stored login or the provider's API key variable. `unknown` for any other model, because the model reads its own credential, and doctor never calls it. `skip` when the agent has no model. |
+| Engine checks, with `target` | What the target's engine reports, such as the web engine's `browser`: `pass` when installed, `warn` when the first run will download it, `skip` with a browser provider or `Connect`; and `init-scripts`, when `InitScripts` are set. The device engine reports agent-device's own checks (`agent-device`, `toolchain`, `ios-runner-cache`, `device` for each configured device, `target-app` for an installed `BundleId`) and `app-path` (the build `AppPath` names exists); with a device provider (Limrun, BrowserStack, TestMu, Expo) it reports only `device`, as `skip`. `engine` is `skip` when the engine has no doctor checks (the Windows, MAUI DevFlow, and document engines), and `fail` when its doctor threw, timed out, or returned a malformed check. |
+| `model`, with `agent` | `model` and `judge` as `provider` and `modelId`. `pass` or `fail` for a model on an [`e2e login`](#subscriptions) (`chatgpt`, `copilot`, `grok`, `opencode-console`), from the stored login or the provider's API key variable. `unknown` for any other model, because the model reads its own credential. With `--check-model`, `pass` (`answered`) when every model answered, else `fail` with the error code, its message prefixed `model:` or `judge:` when the agent has both. `skip` when the agent has no model. |
 
-`--config <path>` and `--target <names>` (comma-separated or repeated) are as for `e2e explore`. `--headed` checks for what a headed run needs. `--json` prints the `doctor-1` report to stdout, and only the report; its JSON Schema ships in the package as `schema/doctor-v1.schema.json`. An engine's progress lines go to stderr as `[target] line`.
+`--config <path>` and `--target <names>` (comma-separated or repeated) are as for `e2e explore`. `--headed` checks for what a headed run needs. `--check-model` calls each agent's model, and its judge when that is a different model, once with a short prompt and the agent's provider options, with one retry and 1 minute; agents that share a model, equal provider options, and `MaxInputTokens` share the call. A reply that is not the JSON asked for, or a refusal, still counts as an answer. `--json` prints the `doctor-1` report to stdout, and only the report; its JSON Schema ships in the package as `schema/doctor-v1.schema.json`. An engine's progress lines go to stderr as `[target] line`.
 
-It exits 0 when no check failed (`warn`, `skip`, and `unknown` never fail), 2 when a check failed, and 130 when interrupted: the check that was cut short is `fail` with `CANCELLED`, and the checks after it are left out. `--check-model` is not supported yet.
+It exits 0 when no check failed (`warn`, `skip`, and `unknown` never fail), 2 when a check failed, and 130 when interrupted: the check that was cut short is `fail` with `CANCELLED`, and the checks after it are left out.
 
 An engine reports its own checks through `IDoctorEngine.DoctorAsync` (read-only and quick: it starts, installs, and leases nothing, and does not call `PrepareAsync`). `e2e doctor` gives each call 30 seconds. A throw, a timeout, a finding with an id doctor uses itself (`node`, `config`, `runtime`, `engine`, `model`) or one that is not kebab case, or a status it does not know, becomes an `engine` check with status `fail`. See [COMPATIBILITY.md](COMPATIBILITY.md#doctor).
 

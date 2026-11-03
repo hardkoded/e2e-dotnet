@@ -67,7 +67,7 @@ public sealed record MobileStartInfo
 /// fresh launch of the pinned app. The device is a simulator, an emulator, or a connected phone, named by the options,
 /// discovered, or leased from an <see cref="IDeviceProvider"/>.
 /// </summary>
-public sealed class MobileEngine : IPreparableEngine
+public sealed partial class MobileEngine : IPreparableEngine, IDoctorEngine
 {
     /// <summary>The version of the engine, as upstream's <c>@e2e-dev/mobile</c> numbers the surface this one follows.</summary>
     public const string EngineVersion = "0.11.0";
@@ -312,9 +312,5 @@ public sealed class MobileEngine : IPreparableEngine
             throw new ConfigurationException("INVALID_CONFIG", "mobile: `transition` must be a non-negative integer of milliseconds");
         }
 
-        if (options.Device is not null && options.Device.Length == 0)
-        {
-            throw new ConfigurationException("INVALID_CONFIG", "mobile: `device` is an empty name; name a simulator or emulator, or omit it to use every booted one");
-        }
     }
 }

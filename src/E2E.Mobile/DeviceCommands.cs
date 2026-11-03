@@ -36,6 +36,8 @@ public static class DeviceCommands
                 return new DeviceCommand("boot", [], flags);
             case DeviceMethods.CommandPrepare:
                 return new DeviceCommand("prepare", Take(flags, "action"), flags);
+            case DeviceMethods.CommandDoctor:
+                return new DeviceCommand("doctor", [], flags);
             case DeviceMethods.CommandBack:
                 return new DeviceCommand("back", [], flags);
             case DeviceMethods.AppsOpen:
