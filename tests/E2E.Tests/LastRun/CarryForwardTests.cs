@@ -11,8 +11,8 @@ namespace E2E.Tests.LastRun;
 
 /// <summary>
 /// Upstream's <c>describe('carryForward')</c> (<c>tests/unit/last-run.test.ts</c>, tester-army/e2e <c>50fa7af</c>). Not ported: <c>carries a serial member's group,
-/// where its attempts live</c> (the port has no serial groups) and <c>names every artifact file a report points at, its carried ones included</c>
-/// (<c>reportArtifactPaths</c> prunes the results tree a rerun keeps, and the port never wipes it).
+/// where its attempts live</c> (the port has no serial groups). <c>names every artifact file a report points at, its carried ones included</c> is
+/// <c>Partial_</c>: it leaves out the serial group's video.
 /// </summary>
 public sealed class CarryForwardTests : IDisposable
 {
@@ -190,5 +190,16 @@ public sealed class CarryForwardTests : IDisposable
         var carried = Result(("results", new JsonArray(Failed("owed"))));
         var file = ReportFile(_roots, ReportText([Passed("a")], [], Result(("carried", carried))));
         Assert.Equal([IdOf("owed")], Last.LastFailedIds(await Last.ReadLastRunAsync(file)));
+    }
+
+    /// <summary>Partial: the port has no serial groups, so the group's video and its hosted link are not in the report.</summary>
+    [Fact]
+    public void Partial_Names_every_artifact_file_a_report_points_at_its_carried_ones_included()
+    {
+        var hosted = Result(("url", "https://hosted.example/v.mp4"));
+        var linked = With(Failed("linked"), ("attempts", new JsonArray(Result(("artifacts", new JsonArray(hosted))))));
+        var carried = Result(("results", new JsonArray(Failed("old"), linked)));
+        var paths = Last.ReportArtifactPaths(DocumentOf([Failed("new"), Passed("fine")], [], Result(("carried", carried))).Report);
+        Assert.Equal(["web/new/attempt-0/failure.png", "web/old/attempt-0/failure.png"], paths.Order(StringComparer.Ordinal));
     }
 }

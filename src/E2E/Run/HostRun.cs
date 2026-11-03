@@ -16,6 +16,8 @@ namespace E2E;
 /// </summary>
 internal sealed class HostRun : IDisposable
 {
+    private static string? _rerunDir;
+
     private readonly IReadOnlyList<Reporter> _reporters;
     private readonly List<IDisposable> _subscriptions = [];
 
@@ -51,6 +53,16 @@ internal sealed class HostRun : IDisposable
     {
         ArgumentNullException.ThrowIfNull(reporters);
         return new HostRun(reporters);
+    }
+
+    /// <summary>
+    /// The directory the attempts of this process go in, inside each test's, when the run is a <c>--last-failed</c> rerun (.NET-only: upstream's runner hands
+    /// <c>rerunDir</c> to the workers it starts; a .NET test framework starts the tests, so the run fixture sets it once, before the first test). Null for any other run.
+    /// </summary>
+    internal static string? RerunDir
+    {
+        get => Volatile.Read(ref _rerunDir);
+        set => Volatile.Write(ref _rerunDir, value);
     }
 
     /// <summary>The run began (<c>run-started</c>). The run's id is the process's: every report this process writes carries it.</summary>

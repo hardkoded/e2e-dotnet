@@ -46,6 +46,92 @@ internal static partial class ArtifactPaths
     [GeneratedRegex(@"[^a-z0-9]+", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 2000)]
     private static partial Regex NotAlphanumeric();
 
+    /// <summary>What a <c>--last-failed</c> rerun's attempt directory is called, <c>rerun-&lt;n&gt;</c>, numbered from 1 (upstream's <c>RERUN_DIR</c>).</summary>
+    [GeneratedRegex(@"^rerun-([1-9][0-9]*)\z", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 2000)]
+    private static partial Regex RerunDir();
+
+    /// <summary>
+    /// Empties an artifact tree down to the files <paramref name="keep"/> names, by their report paths, and removes the directories left empty. A
+    /// <c>--last-failed</c> rerun starts this way rather than from an empty tree: the evidence the report it reruns names stays, since that report's
+    /// results fold into the rerun's and its carried tests are not run again. Upstream's <c>pruneArtifacts</c>.
+    /// </summary>
+    public static async Task PruneArtifactsAsync(string root, IReadOnlySet<string> keep, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        ArgumentNullException.ThrowIfNull(keep);
+        await Task.Run(() => Prune(root, "", keep, cancellationToken), cancellationToken).ConfigureAwait(false);
+    }
+
+    // Whether the directory is empty once pruned; a directory that is not there counts as empty.
+    private static bool Prune(string directory, string relative, IReadOnlySet<string> keep, CancellationToken cancellationToken)
+    {
+        if (!Directory.Exists(directory))
+        {
+            return true;
+        }
+
+        var empty = true;
+        foreach (var entry in new DirectoryInfo(directory).EnumerateFileSystemInfos())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var reportPath = relative.Length == 0 ? entry.Name : relative + "/" + entry.Name;
+            if (entry.Attributes.HasFlag(FileAttributes.Directory) && entry.LinkTarget is null)
+            {
+                if (Prune(entry.FullName, reportPath, keep, cancellationToken))
+                {
+                    Directory.Delete(entry.FullName);
+                }
+                else
+                {
+                    empty = false;
+                }
+            }
+            else if (keep.Contains(reportPath))
+            {
+                empty = false;
+            }
+            else
+            {
+                entry.Delete();
+            }
+        }
+
+        return empty;
+    }
+
+    /// <summary>
+    /// The directory a <c>--last-failed</c> rerun's attempts write under inside each test's directory, beside the evidence it kept: <c>rerun-&lt;n&gt;</c>,
+    /// past every number any test's directory already holds, so one rerun has one number across the tree and no attempt of it writes into a
+    /// directory an earlier run's report still names. Upstream's <c>nextRerunDir</c>.
+    /// </summary>
+    public static Task<string> NextRerunDirAsync(string root)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        return Task.Run(() =>
+        {
+            var taken = 0;
+            if (Directory.Exists(root))
+            {
+                foreach (var name in Directory.EnumerateDirectories(root).SelectMany(Directory.EnumerateFileSystemEntries).Select(Path.GetFileName))
+                {
+                    if (RerunDir().Match(name!) is { Success: true } match && int.TryParse(match.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var number) && number < int.MaxValue)
+                    {
+                        taken = Math.Max(taken, number);
+                    }
+                }
+            }
+
+            return "rerun-" + (taken + 1).ToString(CultureInfo.InvariantCulture);
+        });
+    }
+
+    /// <summary>
+    /// An attempt's report segments: its owner's directory (<see cref="ResultSegment"/> of the result), the rerun's directory on a <c>--last-failed</c>
+    /// rerun, and <c>attempt-&lt;n&gt;</c>, numbered from 1. Upstream's <c>attemptSegments</c>.
+    /// </summary>
+    public static IReadOnlyList<string> AttemptSegments(string? rerunDir, string owner, int attemptIndex) =>
+        [owner, .. rerunDir is null ? (string[])[] : [rerunDir], "attempt-" + (attemptIndex + 1).ToString(CultureInfo.InvariantCulture)];
+
     /// <summary>
     /// How much of each kind the runner masked. A screenshot masks secure fields at the source; a log passes through the secret redactor.
     /// A recording masks nothing: a secure field renders its own dots, but anything else the screen showed is in the frames. A download is

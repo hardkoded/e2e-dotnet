@@ -38,7 +38,7 @@ With no base ref, every test runs. A session that `e2e mcp` opens on a named tes
 
 ## Rerun what failed
 
-Set `E2E_LAST_FAILED=1` (or `true`), or override `protected virtual bool LastFailed` on the run fixture, to run only the tests the last run did not pass. The fixture reads the previous `report.json` from the output folder. Without one, the run stops with `NO_LAST_RUN`: run once without the flag first.
+Set `E2E_LAST_FAILED=1` (or `true`), or override `protected virtual bool LastFailed` on the run fixture, to run only the tests the last run did not pass. The fixture reads the previous `report.json` from the output folder. Without one, the run stops with `NO_LAST_RUN`: run once without the flag first. A rerun removes the files in `results/` that the previous report does not name, and writes its own attempts to `results/<test>/rerun-<n>/attempt-<n>`. The evidence of the attempt it reruns, its video included, stays, even when the rerun passes.
 
 - A test that failed, timed out, was interrupted, or was skipped by a setup, a predecessor, the worker, or a limit runs again. Every other test skips itself with `did not fail in the last run`.
 - If a base ref is also set, the filters are not asked: a filter cannot turn a real failure green.

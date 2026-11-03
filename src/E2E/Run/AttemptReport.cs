@@ -13,12 +13,18 @@ namespace E2E;
 
 /// <summary>Where one attempt's trace page goes, and which attempts keep one.</summary>
 /// <param name="Keep">Which verdicts keep the page, from the attempt's <c>trace</c> mode; null when the mode keeps none for this attempt.</param>
-/// <param name="AttemptDir">The attempt's artifact directory, <c>&lt;results&gt;/&lt;test&gt;/attempt-&lt;n&gt;</c>.</param>
+/// <param name="AttemptDir">The attempt's artifact directory, <c>&lt;results&gt;/&lt;test&gt;/attempt-&lt;n&gt;</c>, or <c>&lt;results&gt;/&lt;test&gt;/rerun-&lt;n&gt;/attempt-&lt;n&gt;</c> in a <c>--last-failed</c> rerun.</param>
 /// <param name="CacheDir">The replay cache directory when a <see cref="FileStepCache"/> holds the cache.</param>
-internal sealed record TraceOutput(Keep? Keep, string AttemptDir, string? CacheDir)
+/// <param name="RerunDir">The rerun's directory inside the test's, when the run is a <c>--last-failed</c> rerun.</param>
+internal sealed record TraceOutput(Keep? Keep, string AttemptDir, string? CacheDir, string? RerunDir = null)
 {
     /// <summary>The test's directory under the results directory, where the page goes beside the attempts.</summary>
-    public string TestDir => Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(AttemptDir))!;
+    public string TestDir => RerunDir is null
+        ? Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(AttemptDir))!
+        : Path.GetDirectoryName(Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(AttemptDir))!)!;
+
+    /// <summary>The attempt's directory below the test's, as a report path: <c>attempt-&lt;n&gt;</c>, with the rerun's directory before it in a rerun.</summary>
+    public string AttemptPath => RerunDir is null ? Path.GetFileName(AttemptDir) : RerunDir + "/" + Path.GetFileName(AttemptDir);
 
     /// <summary>The results directory.</summary>
     public string ResultsRoot => Path.GetDirectoryName(TestDir)!;
@@ -100,7 +106,7 @@ internal static class AttemptReport
         var id = ResultId(scope.TestFile, scope.TestTitle);
         var located = steps.Select(step => step.Source).OfType<SourceLocation>().FirstOrDefault();
         var directory = Path.GetFileName(output.TestDir);
-        var attemptSegment = Path.GetFileName(output.AttemptDir);
+        var attemptSegment = output.AttemptPath;
         var failed = error is not null && status != AttemptStatus.Passed;
         ReportArtifact[] kept =
         [

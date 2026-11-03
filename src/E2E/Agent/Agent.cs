@@ -1528,6 +1528,9 @@ internal sealed class AttemptScope
     /// <summary>The attempt's artifact directory (upstream's <c>ArtifactSink.dir</c>); null when the scope has none, as in a unit test.</summary>
     public string? ArtifactsDir { get; init; }
 
+    /// <summary>The directory a <c>--last-failed</c> rerun files its attempts in, inside the test's (upstream's <c>rerunDir</c>); null for any other run.</summary>
+    public string? RerunDir { get; init; }
+
     /// <summary>The host store every artifact is handed to as it is produced (upstream's <c>artifacts.store</c>); null keeps files local only.</summary>
     public IArtifactStore? ArtifactStore { get; init; }
 
@@ -1551,11 +1554,11 @@ internal sealed class AttemptScope
                 () =>
                 {
                     var attempt = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
-                    var test = Path.GetDirectoryName(attempt)!;
+                    var test = Path.GetDirectoryName(RerunDir is null ? attempt : Path.GetDirectoryName(attempt)!)!;
                     return ArtifactPaths.CreateAttemptArtifacts(new AttemptArtifactsOptions
                     {
                         ArtifactsRoot = Path.GetDirectoryName(test)!,
-                        Segments = [Path.GetFileName(test), Path.GetFileName(attempt)],
+                        Segments = [Path.GetFileName(test), .. RerunDir is null ? (string[])[] : [RerunDir], Path.GetFileName(attempt)],
                         AttemptId = AttemptId,
                         CurrentStepId = Steps.ArtifactStepId,
                         Store = ArtifactStore,

@@ -28,13 +28,15 @@ internal sealed record DiscoveredTest(string Key, string Namespace, string TypeN
 /// <param name="Changes">The change judged, or why no filter ran (<c>run.changes</c>); null when there was nothing to judge by.</param>
 /// <param name="Previous">The report a <c>--last-failed</c> rerun selected from; null for any other run.</param>
 /// <param name="Collected">The tests the host found, which decide what a rerun still carries; set with <paramref name="Previous"/>.</param>
+/// <param name="RerunDir">The directory the rerun's attempts go in, inside each test's (<c>rerun-&lt;n&gt;</c>); set with <paramref name="Previous"/>.</param>
 internal sealed record HostSelection(
     IReadOnlyDictionary<string, string> Excluded,
     IReadOnlyList<ReportResult> Results,
     IReadOnlyList<ReportFilter> Filters,
     ReportChanges? Changes,
     PreviousRun? Previous = null,
-    RerunCollection? Collected = null);
+    RerunCollection? Collected = null,
+    string? RerunDir = null);
 
 /// <summary>
 /// Wires the test filters into a framework adapter's run (upstream's host applies <c>filterSelection</c> after <c>select</c>; .NET-only
@@ -121,13 +123,23 @@ internal static class HostTestFilters
             }
         }
 
+        // The tree the rerun starts from keeps the files the report it reruns names, and its own attempts go in a directory no earlier run wrote into.
+        string? rerunDir = null;
+        if (previous is not null)
+        {
+            var resultsRoot = OutputLayout.Of(config.Output).Results;
+            await ArtifactPaths.PruneArtifactsAsync(resultsRoot, LastRun.ReportArtifactPaths(previous.Report), cancellationToken).ConfigureAwait(false);
+            rerunDir = await ArtifactPaths.NextRerunDirAsync(resultsRoot).ConfigureAwait(false);
+        }
+
         return new HostSelection(
             excluded,
             results,
             filtered.Records,
             filtered.Changes,
             previous,
-            previous is null ? null : new RerunCollection(new HashSet<string>(collection.Tests.Select(test => test.Id), StringComparer.Ordinal), new HashSet<string>(StringComparer.Ordinal)));
+            previous is null ? null : new RerunCollection(new HashSet<string>(collection.Tests.Select(test => test.Id), StringComparer.Ordinal), new HashSet<string>(StringComparer.Ordinal)),
+            rerunDir);
     }
 
     // One filter's call as the `filter` setup step: started as it begins, finished with how long it took and, for a call that did not answer, how it ended.

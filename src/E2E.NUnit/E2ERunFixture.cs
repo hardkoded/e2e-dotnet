@@ -83,6 +83,7 @@ public abstract class E2ERunFixture
                     global::NUnit.Framework.TestContext.CurrentContext.CancellationToken,
                     lastFailed).ConfigureAwait(false);
                 RunSelection.Add(selection.Excluded);
+                HostRun.RerunDir = selection.RerunDir;
                 excluded = selection.Excluded;
                 await HostTestFilters.WriteReportAsync(config, selection, global::NUnit.Framework.TestContext.CurrentContext.CancellationToken).ConfigureAwait(false);
             }
