@@ -11,40 +11,35 @@ using E2E.Reports;
 namespace E2E;
 
 /// <summary>
-/// One entry of <c>reporters</c> in <c>e2e.config.json</c>: a <see cref="Reporter"/> type and the options for it. .NET-only: upstream's config
+/// One entry of <c>reporters</c> in <c>e2e.config.json</c>: the name of a <see cref="Reporter"/> type and the options for it. .NET-only: upstream's config
 /// lists reporter objects, and a JSON file holds no code, so it names the type and the reporter is built by reflection when the run ends.
+/// The type is resolved then, not when the config loads, since a type of the test assembly is not loaded for every command that reads the config.
 /// </summary>
-internal sealed record ReporterEntry(Type Type, JsonElement? Options)
+internal sealed record ReporterEntry(string Name, JsonElement? Options, string At)
 {
     /// <summary>
-    /// Resolves <paramref name="name"/>, an assembly-qualified type name or the name of a type in a loaded assembly, and checks it can be built.
-    /// Throws <c>INVALID_CONFIG</c>. A message never holds an option value.
+    /// Resolves <see cref="Name"/>, an assembly-qualified type name or the name of a type in a loaded assembly, builds the reporter, and hands it
+    /// its options. Throws <c>INVALID_CONFIG</c> for a type that cannot be a reporter. A message never holds an option value.
     /// </summary>
-    public static ReporterEntry Resolve(string name, JsonElement? options, string at)
+    public Reporter Create()
     {
-        var type = Find(name) ?? throw Invalid(at + " reporter type \"" + name + "\" was not found; name it with its assembly (\"Namespace.Type, Assembly\") and make sure that assembly is referenced and copied to the output");
+        var type = Find(Name) ?? throw Invalid(At + " reporter type \"" + Name + "\" was not found; name it with its assembly (\"Namespace.Type, Assembly\"), make sure that assembly is referenced and copied to the output, and in a trimmed app keep the type");
         if (type.IsAbstract || type.IsInterface || !type.IsAssignableTo(typeof(Reporter)))
         {
-            throw Invalid(at + " reporter type \"" + name + "\" must be a non-abstract class that derives from E2E.Reports.Reporter");
+            throw Invalid(At + " reporter type \"" + Name + "\" must be a non-abstract class that derives from E2E.Reports.Reporter");
         }
 
         if (type.GetConstructor(Type.EmptyTypes) is null)
         {
-            throw Invalid(at + " reporter type \"" + name + "\" needs a public constructor with no parameters");
+            throw Invalid(At + " reporter type \"" + Name + "\" needs a public constructor with no parameters");
         }
 
-        if (options is not null && !type.IsAssignableTo(typeof(IConfigurableReporter)))
+        if (Options is not null && !type.IsAssignableTo(typeof(IConfigurableReporter)))
         {
-            throw Invalid(at + " reporter type \"" + name + "\" takes no options; remove \"options\" or implement E2E.Reports.IConfigurableReporter");
+            throw Invalid(At + " reporter type \"" + Name + "\" takes no options; remove \"options\" or implement E2E.Reports.IConfigurableReporter");
         }
 
-        return new ReporterEntry(type, options);
-    }
-
-    /// <summary>Builds the reporter and hands it its options.</summary>
-    public Reporter Create()
-    {
-        var reporter = (Reporter)Activator.CreateInstance(Type)!;
+        var reporter = (Reporter)Activator.CreateInstance(type)!;
         if (Options is { } options)
         {
             ((IConfigurableReporter)reporter).Configure(options);
@@ -88,7 +83,10 @@ internal sealed record ReporterEntry(Type Type, JsonElement? Options)
 /// </summary>
 internal static class Reporters
 {
-    /// <summary>The reporters of <paramref name="config"/>, in config order. One that cannot be built is one line on stderr.</summary>
+    /// <summary>
+    /// The reporters of <paramref name="config"/>, in config order. One that cannot be built (a type that is not found or is not a reporter, a
+    /// constructor or <c>Configure</c> that throws) is one line on stderr that names its type string, and the others still run.
+    /// </summary>
     public static IReadOnlyList<Reporter> Create(E2EConfig config)
     {
         List<Reporter> reporters = [];
@@ -100,7 +98,7 @@ internal static class Reporters
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                Console.Error.WriteLine($"e2e: reporter {entry.Type} could not be created: {(ex is TargetInvocationException { InnerException: { } inner } ? inner : ex).Message}");
+                Console.Error.WriteLine($"e2e: reporter \"{entry.Name}\" could not be created: {(ex is TargetInvocationException { InnerException: { } inner } ? inner : ex).Message}");
             }
         }
 
@@ -109,7 +107,7 @@ internal static class Reporters
 
     /// <summary>
     /// Runs the reporters of <paramref name="config"/> on every run this process wrote a report for, and prints the rows they return. A reporter
-    /// can never change the run's outcome, so a failure while they run is one line on stderr. A bad <c>reporters</c> entry is not that: it threw when the config loaded.
+    /// can never change the run's outcome, so a failure while they build or run is one line on stderr. A <c>reporters</c> entry of the wrong shape is not that: it threw when the config loaded.
     /// </summary>
     public static async Task RunFinishedAsync(E2EConfig config, TimeSpan? timeout = null, CancellationToken force = default)
     {
