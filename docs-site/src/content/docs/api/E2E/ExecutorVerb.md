@@ -161,6 +161,20 @@ Press = 9
 
 **Value:** [ExecutorVerb](./)
 
+<a id="E2E_ExecutorVerb_PressKey"></a>
+
+### PressKey
+
+
+```csharp
+PressKey = 22
+```
+
+
+Upstream's `pressKey`: `PressKeyAsync`, with an engine that declares [Keyboard](/api/E2E.Engine/EngineCapabilities/#E2E_Engine_EngineCapabilities_Keyboard).
+
+**Value:** [ExecutorVerb](./)
+
 <a id="E2E_ExecutorVerb_Scroll"></a>
 
 ### Scroll
@@ -268,6 +282,20 @@ Type = 6
 TypeSecret = 7
 ```
 
+
+**Value:** [ExecutorVerb](./)
+
+<a id="E2E_ExecutorVerb_TypeText"></a>
+
+### TypeText
+
+
+```csharp
+TypeText = 21
+```
+
+
+Upstream's `typeText`: `TypeTextAsync`, with an engine that declares [Keyboard](/api/E2E.Engine/EngineCapabilities/#E2E_Engine_EngineCapabilities_Keyboard).
 
 **Value:** [ExecutorVerb](./)
 

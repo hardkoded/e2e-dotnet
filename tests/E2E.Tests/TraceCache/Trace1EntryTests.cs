@@ -88,6 +88,8 @@ public sealed class Trace1EntryTests
             Action("doubleTap"),
             new RecordedAction { Kind = "fill", Role = target.Role, Name = target.Name, Value = "x" },
             new RecordedAction { Kind = "press", Role = target.Role, Name = target.Name, Key = "Enter" },
+            new RecordedAction { Kind = "typeText", Value = "a@b.c", Replace = false },
+            new RecordedAction { Kind = "pressKey", Key = "Enter" },
             new RecordedAction { Kind = "select", Role = "combobox", Name = "Plan", Value = "Pro" },
             Action("check"),
             Action("uncheck"),
@@ -104,13 +106,18 @@ public sealed class Trace1EntryTests
         Assert.Equal(JsonSerializer.Serialize(actions, EntryJson), JsonSerializer.Serialize(read.Actions, EntryJson));
     }
 
-    /// <summary>Partial port of "round-trips an empty typed value: clearing a field is a recordable action": the port has no <c>typeText</c> action.</summary>
     [Fact]
-    public void Round_trips_an_empty_filled_value()
+    public void Round_trips_an_empty_typed_value_clearing_a_field_is_a_recordable_action()
     {
-        var read = RoundTrip(Entry(new RecordedAction { Kind = "fill", Role = "textbox", Name = "Name", Value = "" }));
+        RecordedAction[] actions =
+        [
+            new() { Kind = "fill", Role = "textbox", Name = "Name", Value = "" },
+            new() { Kind = "typeText", Value = "", Replace = true },
+        ];
 
-        Assert.Equal("", Assert.Single(read.Actions).Value);
+        var read = RoundTrip(Entry(actions));
+
+        Assert.Equal(JsonSerializer.Serialize(actions, EntryJson), JsonSerializer.Serialize(read.Actions, EntryJson));
     }
 
     /// <summary>Partial port of "round-trips the postcondition: end path and end anchors": the port stores the end route, and the anchors are <c>appeared</c>.</summary>

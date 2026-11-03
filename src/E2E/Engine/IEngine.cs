@@ -17,7 +17,7 @@ public enum EngineCapabilities
     /// <summary>The viewport swipe, <see cref="LocatorAction.Swipe"/>, and <see cref="LocatorAction.ScrollIntoView"/>.</summary>
     Scroll = 16,
 
-    /// <summary><see cref="IEngineSession.BackAsync"/>.</summary>
+    /// <summary><see cref="IEngineSession.BackAsync(CancellationToken)"/>.</summary>
     History = 32,
 
     /// <summary><see cref="IEngineSession.ScreenshotAsync(CancellationToken)"/>, which <c>toHaveScreenshot</c> compares.</summary>
@@ -217,14 +217,22 @@ public interface IEngineSession : IAsyncDisposable
     Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken);
 
     /// <summary>
-    /// The locator action kinds the engine declared for <see cref="PerformAsync"/>, by upstream's names (<see cref="EngineActionKinds.Locator"/>).
+    /// <see cref="PerformAsync(SemanticNode, LocatorAction, CancellationToken)"/> with <paramref name="context"/>, who acts: upstream's
+    /// <c>perform(ref, action, operation)</c>. An engine that acts differently for a test's step than for the agent (a device that settles
+    /// only for the agent) overrides it. The default drops the context (.NET-only: it keeps the engines that ignore it compiling, as upstream's
+    /// web and document engines do).
+    /// </summary>
+    Task PerformAsync(SemanticNode node, LocatorAction action, OperationContext context, CancellationToken cancellationToken) => PerformAsync(node, action, cancellationToken);
+
+    /// <summary>
+    /// The locator action kinds the engine declared for <see cref="PerformAsync(SemanticNode, LocatorAction, CancellationToken)"/>, by upstream's names (<see cref="EngineActionKinds.Locator"/>).
     /// The harness refuses any other kind with <c>UNSUPPORTED_CAPABILITY</c> before it resolves the node. Upstream's <c>actions</c>. The
     /// default declares every kind, so an engine that does not narrow it keeps compiling.
     /// </summary>
     IReadOnlyCollection<string> ActionKinds => EngineActionKinds.Locator;
 
     /// <summary>
-    /// The pointer action kinds the engine declared for <see cref="PerformAtAsync"/> (<see cref="EngineActionKinds.Pointer"/>), empty for an
+    /// The pointer action kinds the engine declared for <see cref="PerformAtAsync(Point, PointerAction, CancellationToken)"/> (<see cref="EngineActionKinds.Pointer"/>), empty for an
     /// engine with no pointer. Upstream's <c>pointerActions</c>.
     /// </summary>
     IReadOnlyCollection<string> PointerActionKinds => [];
@@ -235,8 +243,24 @@ public interface IEngineSession : IAsyncDisposable
     /// </summary>
     Task PerformAtAsync(Point point, PointerAction action, CancellationToken cancellationToken) => Unsupported("the pointer actions");
 
+    /// <summary>
+    /// <see cref="PerformAtAsync(Point, PointerAction, CancellationToken)"/> with <paramref name="context"/>: upstream's
+    /// <c>performAt(point, action, operation)</c>. The default drops the context, as <see cref="PerformAsync(SemanticNode, LocatorAction, OperationContext, CancellationToken)"/> does.
+    /// </summary>
+    Task PerformAtAsync(Point point, PointerAction action, OperationContext context, CancellationToken cancellationToken) => PerformAtAsync(point, action, cancellationToken);
+
     /// <summary>Sends a key to whatever holds focus. The harness has already validated the key.</summary>
     Task PressAsync(string key, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Types <paramref name="text"/> into whatever holds focus, with no node resolved: how a field the tree does not list (drawn on a
+    /// canvas, flattened out of a platform's tree) gets its text after a tap gave it focus. With <paramref name="replace"/> the field's
+    /// value is cleared first, select all and delete. An engine that finds nothing that takes text focused refuses with
+    /// <c>NOT_ACTIONABLE</c>. Engines that declare <see cref="EngineCapabilities.Keyboard"/> implement it; the default refuses with
+    /// <c>UNSUPPORTED_CAPABILITY</c> (.NET-only: it keeps an engine written before the member compiling). Upstream's <c>keyboard.type</c>,
+    /// with <see cref="PressAsync"/> its <c>keyboard.press</c>.
+    /// </summary>
+    Task TypeTextAsync(string text, bool replace, CancellationToken cancellationToken) => Unsupported("keyboard input");
 
     /// <summary>
     /// Whether <see cref="LocateAsync"/> is implemented. A session that says false has its locators resolved in core over
@@ -270,10 +294,22 @@ public interface IEngineSession : IAsyncDisposable
     Task SwipeAsync(ScrollDirection direction, Momentum? momentum, CancellationToken cancellationToken) => SwipeAsync(direction, cancellationToken);
 
     /// <summary>
+    /// <see cref="SwipeAsync(ScrollDirection, Momentum?, CancellationToken)"/> with <paramref name="context"/>: upstream swipes the screen root
+    /// through <c>perform(root, swipe, operation)</c>. The default drops the context, as <see cref="PerformAsync(SemanticNode, LocatorAction, OperationContext, CancellationToken)"/> does.
+    /// </summary>
+    Task SwipeAsync(ScrollDirection direction, Momentum? momentum, OperationContext context, CancellationToken cancellationToken) => SwipeAsync(direction, momentum, cancellationToken);
+
+    /// <summary>
     /// Goes back one entry in the session history. With no earlier entry it does nothing.
     /// Engines that declare <see cref="EngineCapabilities.History"/> implement it.
     /// </summary>
     Task BackAsync(CancellationToken cancellationToken) => Unsupported("app.back");
+
+    /// <summary>
+    /// <see cref="BackAsync(CancellationToken)"/> with <paramref name="context"/>: upstream's <c>back(operation)</c>. The default drops the
+    /// context, as <see cref="PerformAsync(SemanticNode, LocatorAction, OperationContext, CancellationToken)"/> does.
+    /// </summary>
+    Task BackAsync(OperationContext context, CancellationToken cancellationToken) => BackAsync(cancellationToken);
 
     /// <summary>Closes the current document and opens a blank one, keeping cookies and storage.</summary>
     Task RestartAsync(CancellationToken cancellationToken) => Unsupported("app.restart");

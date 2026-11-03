@@ -162,7 +162,7 @@ internal static class Trace
                 break;
             case "fill" when IsSecretMarker(action):
                 break;
-            case "fill" or "select":
+            case "fill" or "select" or "typeText":
                 if (!TryMap(action.Value, map, out var value))
                 {
                     return null;

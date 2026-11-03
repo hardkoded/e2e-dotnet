@@ -229,6 +229,22 @@ public sealed class DocumentEngine : IEngine
             return Task.CompletedTask;
         }
 
+        /// <summary>Types into the focused element, which must take text; <paramref name="replace"/> clears its value first. Upstream's <c>keyboard.type</c>.</summary>
+        public Task TypeTextAsync(string text, bool replace, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(text);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (_focused is null)
+            {
+                throw new EngineException(EngineErrorCodes.NotActionable, "nothing that takes keystrokes has focus: the typed text would reach no field. Tap the field first, or type into a listed input by id.");
+            }
+
+            RequireText(_focused);
+            _focused.Value = (replace ? "" : _focused.Value ?? "") + text;
+            _focused.OnFill?.Invoke(_focused.Value);
+            return Task.CompletedTask;
+        }
+
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
         private static void RequireText(DocumentElement element)

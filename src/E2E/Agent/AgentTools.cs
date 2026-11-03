@@ -228,6 +228,17 @@ public static class AgentTools
         ["description"] = "Keys held while the pointer clicks. A Shift-click extends a selection, a Control-click (Meta on macOS) toggles one item",
     };
 
+    internal const string ReplaceDescription = "Select all and delete before typing, for a field that visibly holds text you must remove; default false. Leave it off for an empty field.";
+
+    // With a keyboard, a fill with no target types into whatever has focus (upstream's type with typeText): how a field the tree does not
+    // list gets its text after a tap_at gave it focus.
+    private static readonly ModelTool FillFocused = Tool(
+        "fill",
+        "Type a plain-text value into one input node, or into whatever has focus when target is omitted. With target the value replaces the node's value. " +
+        "After tap_at on a field the screen does not list, call fill with NO target (not the document or a container id): the value is inserted at the caret of the focused field; set replace to clear it first. " +
+        "Several fields can be typed in one turn.",
+        Extend(Target, $$"""{ "value": { "type": "string" }, "replace": { "type": "boolean", "description": "Without target: {{ReplaceDescription}}" } }""", "value"));
+
     // The tap family names the keys it holds for the click, on an engine that declares them.
     private static ModelTool HoldingModifiers(ModelTool verb) =>
         verb.Name is "tap" or "double_tap" or "right_click"
@@ -317,7 +328,9 @@ public static class AgentTools
             }
         }
 
-        tools.AddRange(capabilities.HasFlag(EngineCapabilities.TapModifiers) ? Verbs.Concat(pointer).Select(HoldingModifiers) : [.. Verbs, .. pointer]);
+        var keyboard = capabilities.HasFlag(EngineCapabilities.Keyboard);
+        IEnumerable<ModelTool> grammar = keyboard ? Verbs.Select(verb => verb.Name == "fill" ? FillFocused : verb) : Verbs;
+        tools.AddRange(capabilities.HasFlag(EngineCapabilities.TapModifiers) ? grammar.Concat(pointer).Select(HoldingModifiers) : [.. grammar, .. pointer]);
         if (capabilities.HasFlag(EngineCapabilities.Upload))
         {
             tools.Add(Upload);
@@ -336,7 +349,7 @@ public static class AgentTools
         }
 
         tools.Add(Screenshot);
-        tools.AddRange(CreatePointTools(pointerKinds ?? []));
+        tools.AddRange(CreatePointTools(pointerKinds ?? [], keyboard));
         if (project is not null)
         {
             tools.AddRange(project);
@@ -348,9 +361,10 @@ public static class AgentTools
     /// <summary>
     /// Upstream's <c>createPointTools</c>: the point-addressed fallback verbs, each taking a point in the latest screenshot for a target the
     /// tree does not list. <paramref name="pointerKinds"/> are the pointer kinds the engine takes at a bare point. A point tool whose node verb
-    /// exists is offered even without the kind, and says its bare point cannot be taken.
+    /// exists is offered even without the kind, and says its bare point cannot be taken. With a <paramref name="keyboard"/>, <c>type_at</c> and
+    /// <c>press_at</c> on a point on nothing listed tap it to focus it and go through the keyboard.
     /// </summary>
-    private static List<ModelTool> CreatePointTools(IReadOnlyCollection<string> pointerKinds)
+    private static List<ModelTool> CreatePointTools(IReadOnlyCollection<string> pointerKinds, bool keyboard)
     {
         var tools = new List<ModelTool>();
         foreach (var (tool, kind, does, byId) in PointTools)
@@ -388,11 +402,17 @@ public static class AgentTools
 
         tools.Add(Tool(
             "type_at",
-            "Type a plain-text value into the input at a point in the latest screenshot, replacing its value. Aim at the field itself; a point on nothing listed fails. Last resort: when the screen lists the field, type by id.",
-            Extend(PointXY, """{ "value": { "type": "string" } }""", "x", "y", "value")));
+            keyboard
+                ? "Type a plain-text value into the field at a point in the latest screenshot, for a field the screen does not list. A listed input under the point is filled by id, replacing its value; anything else is tapped to focus it and typed into through the keyboard, inserting at the caret unless replace is set. Last resort: when the screen lists the field, type by id."
+                : "Type a plain-text value into the input at a point in the latest screenshot, replacing its value. Aim at the field itself; a point on nothing listed fails. Last resort: when the screen lists the field, type by id.",
+            keyboard
+                ? Extend(PointXY, $$"""{ "value": { "type": "string" }, "replace": { "type": "boolean", "description": "{{ReplaceDescription}}" } }""", "x", "y", "value")
+                : Extend(PointXY, """{ "value": { "type": "string" } }""", "x", "y", "value")));
         tools.Add(Tool(
             "press_at",
-            "Send one key (e.g. \"Enter\", \"Escape\", \"Tab\") to the control at a point in the latest screenshot, for a control the screen does not list. Last resort: when the screen lists the control, press by id.",
+            "Send one key (e.g. \"Enter\", \"Escape\", \"Tab\") to the control at a point in the latest screenshot, for a control the screen does not list." +
+            (keyboard ? " A listed control under the point gets the key by id; anything else is tapped to focus it and the key goes through the keyboard." : "") +
+            " Last resort: when the screen lists the control, press by id.",
             Extend(PointXY, """{ "key": { "type": "string", "minLength": 1, "maxLength": 64 } }""", "x", "y", "key")));
         tools.Add(Tool(
             "select_at",
@@ -644,6 +664,25 @@ internal static class Args
             if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind == JsonValueKind.Number && property.Value.TryGetDouble(out var number) && double.IsFinite(number))
             {
                 return number;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>A boolean argument, or null when it is absent or not a boolean.</summary>
+    public static bool? Bool(JsonElement element, string name)
+    {
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        foreach (var property in element.EnumerateObject())
+        {
+            if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase) && property.Value.ValueKind is JsonValueKind.True or JsonValueKind.False)
+            {
+                return property.Value.GetBoolean();
             }
         }
 

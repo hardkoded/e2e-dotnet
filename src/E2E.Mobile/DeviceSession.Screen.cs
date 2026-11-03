@@ -8,13 +8,14 @@ using E2E.Engine;
 
 namespace E2E.Mobile;
 
-/// <summary>Who acts through a <see cref="DeviceSession"/>: it decides whether an action settles, and whether it waits out a transition.</summary>
+/// <summary>Who acts through a <see cref="DeviceSession"/>. Replaced by the <see cref="OperationContext"/> every action carries.</summary>
+[Obsolete("Every action now carries an OperationContext; the session no longer has an origin of its own. Removed in the next release.")]
 public enum ActionOrigin
 {
-    /// <summary>A test's own step. It verifies its outcome with <c>expect</c>, so it never waits for the screen to settle afterwards. It only lets a control that came with the last action finish arriving.</summary>
+    /// <summary>A test's own step.</summary>
     Test,
 
-    /// <summary>The agent. It reads the screen right after acting, so its actions settle first.</summary>
+    /// <summary>The agent.</summary>
     Agent,
 }
 
@@ -69,8 +70,8 @@ public sealed partial class DeviceSession
             ? DeviceArgs.Of(("settle", JsonValue.Create(true)), ("settleQuietMs", JsonValue.Create(Options.SettleMilliseconds)))
             : new JsonObject();
 
-    /// <summary>The settle wait one action of this session carries: a test's step carries none.</summary>
-    internal JsonObject ActionSettle() => Origin == ActionOrigin.Test ? new JsonObject() : SettleArgs();
+    /// <summary>The settle wait one action carries: a test's step carries none.</summary>
+    internal JsonObject ActionSettle(OperationContext context) => context.Origin == OperationOrigin.Test ? new JsonObject() : SettleArgs();
 
     /// <summary>
     /// Runs a fixture command that changes the screen (a back, the home screen, a dismissed alert or keyboard, a

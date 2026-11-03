@@ -173,6 +173,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ToolLoopHelpers](/api/E2E/ToolLoopHelpers/) | Loop services for the tool bodies that run work of their own (upstream's ToolLoopHelpers). |
 | [ToolLoopTool](/api/E2E/ToolLoopTool/) | One tool of a loop's vocabulary: what the model is told, and what runs when it calls it. Upstream's tools are AI SDK tools, which the port has no counterpart of, so this is the .NET shape of one entry of its ToolSet. A tool that throws is read by the model as a failed call, except a hard stop of the step, which ends the loop. |
 | [TraceKeyContext](/api/E2E/TraceKeyContext/) | Upstream's TraceKeyContext (cache/trace.ts): every part of a cache key outside the step's own identity, as it was when a step was recorded. An entry stores it as keyedBy: provenance, never read by a replay. When a step's key no longer finds the entry, comparing it with the run's says what changed. |
+| [TypeTextOptions](/api/E2E/TypeTextOptions/) | What TypeTextAsync is asked beside the value: upstream's typing argument of typeText, an inline object type there (.NET-only name). |
 | [UniqueValue](/api/E2E/UniqueValue/) | A value that changes every run, such as a timestamp or a fresh email. The replay cache treats every UniqueValue as the same param and substitutes the current value when it types. |
 | [UserCredential](/api/E2E/UserCredential/) | Username plus a Secret password loaded from the environment. |
 | [Values](/api/E2E/Values/) | Wraps a fresh value so the replay cache can still match the step. |
@@ -205,7 +206,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 
 | Type | Summary |
 | --- | --- |
-| [ActionName](/api/E2E/ActionName/) | The name ActionEvent reports a committed action under (upstream's ActionName). Upstream's typeText, pressKey, and dismissKeyboard are left out: the port has no such actions. A clear reads Type. |
+| [ActionName](/api/E2E/ActionName/) | The name ActionEvent reports a committed action under (upstream's ActionName). Upstream's dismissKeyboard is left out: the port has no such action. A clear reads Type. |
 | [ActionSource](/api/E2E/ActionSource/) | Who chose an action an ActionEvent reports. |
 | [AppLogLevel](/api/E2E/AppLogLevel/) | How bad a line the app logged was. |
 | [AppLogSource](/api/E2E/AppLogSource/) | Where a line the app logged came from (upstream's AppLogSource). |

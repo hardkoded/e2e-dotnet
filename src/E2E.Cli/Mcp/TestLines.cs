@@ -229,6 +229,12 @@ internal sealed class SessionTestLines(TestLineOptions options)
     /// <summary>Records a performed action's line and puts it after the result's lead.</summary>
     private string Annotate(string tool, string text, LinePlan plan)
     {
+        // A type whose node took the value through the keyboard has no line, whatever the plan found (upstream's annotate).
+        if (tool == "type" && ActTools.TypedThroughKeyboard(text))
+        {
+            plan = LinePlan.None("the node is not an input and took the value through the keyboard, which no locator line repeats");
+        }
+
         _entries.Add(new Entry(tool, plan.Line, plan.Reason));
         var note = plan.Line is { } line ? "Test line: " + line : "No test line: " + plan.Reason + ".";
         var cut = text.IndexOf('\n', StringComparison.Ordinal);
@@ -269,6 +275,11 @@ internal sealed class SessionTestLines(TestLineOptions options)
                 {
                     // A value the ledger rewrites is a secret: the line would fill the placeholder, not the secret.
                     var text = Field(args, "text") ?? "";
+                    if (target is null)
+                    {
+                        return LinePlan.None("the value went to the focused field; type into a listed node by id for a line");
+                    }
+
                     return _options.Redact(text) != text
                         ? LinePlan.None("the text holds a secret value; fill it with type_secret for a line")
                         : await OnTargetAsync(target, locator => locator + ".FillAsync(" + Typed(text) + ")", token).ConfigureAwait(false);

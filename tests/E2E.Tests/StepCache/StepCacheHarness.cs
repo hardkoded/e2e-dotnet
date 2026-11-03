@@ -253,6 +253,10 @@ internal sealed class StepHost : IStepCacheHost
 
         public Task PressAsync(ExecutorTarget? target, string key, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+        public Task TypeTextAsync(string value, TypeTextOptions? options = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task PressKeyAsync(string key, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
         public Task SelectAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         public Task CheckAsync(ExecutorTarget target, bool check, CancellationToken cancellationToken = default) => Task.CompletedTask;

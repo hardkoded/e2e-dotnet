@@ -15,9 +15,21 @@ public interface IDeviceActions
 {
     Task PerformAsync(DeviceSession session, SemanticNode node, LocatorAction action, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// <see cref="PerformAsync(DeviceSession, SemanticNode, LocatorAction, CancellationToken)"/> with <paramref name="context"/>, who acts
+    /// (upstream's <c>operation.origin</c>). The default drops the context (.NET-only), so an implementation that defines only the member
+    /// without one keeps compiling.
+    /// </summary>
+    Task PerformAsync(DeviceSession session, SemanticNode node, LocatorAction action, OperationContext context, CancellationToken cancellationToken) =>
+        PerformAsync(session, node, action, cancellationToken);
+
     Task PressAsync(DeviceSession session, string key, CancellationToken cancellationToken);
 
     Task SwipeAsync(DeviceSession session, ScrollDirection direction, CancellationToken cancellationToken);
+
+    /// <summary><see cref="SwipeAsync(DeviceSession, ScrollDirection, CancellationToken)"/> with <paramref name="context"/>. The default drops it, as <see cref="PerformAsync(DeviceSession, SemanticNode, LocatorAction, OperationContext, CancellationToken)"/> does.</summary>
+    Task SwipeAsync(DeviceSession session, ScrollDirection direction, OperationContext context, CancellationToken cancellationToken) =>
+        SwipeAsync(session, direction, cancellationToken);
 
     Task<EngineScreenshot> ScreenshotAsync(DeviceSession session, CancellationToken cancellationToken);
 

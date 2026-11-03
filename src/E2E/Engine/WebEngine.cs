@@ -1521,6 +1521,59 @@ public sealed partial class WebEngine : IEngine
             return InputAsync(() => Page.Keyboard.PressAsync(key), "press " + key, cancellationToken);
         }));
 
+        /// <summary>
+        /// Types into whatever holds focus. Keystrokes into a document body are accepted by the browser and lost, so the focused element is
+        /// checked for editability first and the call refuses rather than "typing" into nothing. <paramref name="replace"/> clears with
+        /// select-all and delete: the only locator-free clear, scoped by the browser to the whole editing host, so it is opt-in. Upstream's
+        /// <c>typeText</c> of the web surface (<c>keyboard.type</c>).
+        /// </summary>
+        public Task TypeTextAsync(string text, bool replace, CancellationToken cancellationToken) => ActedAsync(cancellationToken, () => RunAsync("keyboard.type", cancellationToken, async () =>
+        {
+            ArgumentNullException.ThrowIfNull(text);
+            RequireObservation();
+            await InputAsync(() => RequireEditableFocusAsync(), "keyboard.type", cancellationToken).ConfigureAwait(false);
+            if (replace)
+            {
+                await InputAsync(() => Page.Keyboard.PressAsync("ControlOrMeta+A"), "keyboard.type", cancellationToken).ConfigureAwait(false);
+                await InputAsync(() => Page.Keyboard.PressAsync("Delete"), "keyboard.type", cancellationToken).ConfigureAwait(false);
+            }
+
+            await InputAsync(() => Page.Keyboard.TypeAsync(text), "keyboard.type", cancellationToken).ConfigureAwait(false);
+        }));
+
+        /// <summary>
+        /// Refuses focused typing when nothing that takes keystrokes has focus, in any frame of the page. Text fields and contenteditable
+        /// hosts take them; so does any other focusable element the app made focusable (a canvas, a widget with a tabindex and its own key
+        /// handling), because focusing it is how the app opted into keys. Focus on the body, a button, a link, a select, or a non-text
+        /// input means the keystrokes would be discarded. Upstream's <c>requireEditableFocus</c>.
+        /// </summary>
+        private async Task RequireEditableFocusAsync()
+        {
+            foreach (var frame in Page.Frames)
+            {
+                bool editable;
+                try
+                {
+                    editable = await frame.EvaluateAsync<bool>(PageScript.HasEditableFocus).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (WebErrors.IsPlaywright(ex))
+                {
+                    // A frame that cannot be read has nothing the typed text could reach.
+                    continue;
+                }
+
+                if (editable)
+                {
+                    return;
+                }
+            }
+
+            throw new EngineException(
+                EngineErrorCodes.NotActionable,
+                "nothing that takes keystrokes has focus: the typed text would reach no field. Tap the field first, or type into a listed input by id.",
+                retryable: false);
+        }
+
         // Direct test input: it needs no observation, so it stays available after a reconnect.
         public Task KeyboardPressAsync(string key, CancellationToken cancellationToken) => RunAsync("keyboard.press", cancellationToken, () =>
             InputAsync(() => Page.Keyboard.PressAsync(key), "press " + key, cancellationToken));

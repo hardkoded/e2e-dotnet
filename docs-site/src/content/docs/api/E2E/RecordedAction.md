@@ -157,6 +157,22 @@ given on a viewport of [Viewport](#E2E_RecordedAction_Viewport)'s size, or at [U
 
 **Value:** `Point?`
 
+<a id="E2E_RecordedAction_Replace_"></a>
+<a id="E2E_RecordedAction_Replace"></a>
+
+### Replace
+
+
+```csharp
+public bool? Replace { get; set; }
+```
+
+
+Upstream's `replace` of a `typeText`: whether the field's value was cleared before the text went in. Present on a
+`typeText` and on no other action.
+
+**Value:** [bool?](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_RecordedAction_Role_"></a>
 <a id="E2E_RecordedAction_Role"></a>
 

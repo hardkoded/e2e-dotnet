@@ -92,7 +92,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
                     {
                         // The first attempt reads the node the tool loop resolved; one after a relocation reads the fresh look.
                         dropped = attempt == 0 ? Resolve(destination) : _feed.Lookup(destination).Node ?? throw ObservationFeed.NodeGone(destination.Id.TrimStart('#'));
-                        await _scope.Session.PerformAsync(found, new LocatorAction.DragTo(dropped), token).ConfigureAwait(false);
+                        await _scope.Session.PerformAsync(found, new LocatorAction.DragTo(dropped), OperationContext.Agent, token).ConfigureAwait(false);
                     }).ConfigureAwait(false);
                 var recorded = Target(node, "drag", WithinOf(node));
                 var end = Target(dropped!, "drag", WithinOf(dropped!));
@@ -218,20 +218,58 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             throw new TestException("INVALID_ARGUMENT", "press requires a key");
         }
 
+        // A key with no node is upstream's pressKey.
+        if (target is null)
+        {
+            return PressKeyAsync(key, cancellationToken);
+        }
+
         return RunAsync(
             "press",
             async token =>
             {
-                if (target is null)
-                {
-                    await _scope.Session.PressAsync(key, token).ConfigureAwait(false);
-                    await CommitAsync(new RecordedAction { Kind = "press", Key = key }).ConfigureAwait(false);
-                    return;
-                }
-
                 var node = Resolve(target);
                 await TargetedAsync(node, new LocatorAction.Press(key), token).ConfigureAwait(false);
                 await CommitAsync("press", node, key: key).ConfigureAwait(false);
+            },
+            cancellationToken);
+    }
+
+    // Upstream's typeText: keyboard input to whatever holds focus. No node is resolved, so no descriptor is recorded: the trace keeps the
+    // value and replays it as given after the actions that gave the field focus. An engine that finds nothing editable focused refuses
+    // (NOT_ACTIONABLE), which reaches the executor as an ordinary failed action to read and work around.
+    public Task TypeTextAsync(string value, TypeTextOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        if (value is null)
+        {
+            throw new TestException("INVALID_ARGUMENT", "typeText value must be a string");
+        }
+
+        var replace = options?.Replace == true;
+        return RunAsync(
+            "typeText",
+            async token =>
+            {
+                await _scope.Session.TypeTextAsync(value, replace, token).ConfigureAwait(false);
+                await CommitAsync(new RecordedAction { Kind = "typeText", Value = value, Replace = replace }).ConfigureAwait(false);
+            },
+            cancellationToken);
+    }
+
+    // Upstream's pressKey: one key to whatever holds focus.
+    public Task PressKeyAsync(string key, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            throw new TestException("INVALID_ARGUMENT", "pressKey requires a key");
+        }
+
+        return RunAsync(
+            "pressKey",
+            async token =>
+            {
+                await _scope.Session.PressAsync(key, token).ConfigureAwait(false);
+                await CommitAsync(new RecordedAction { Kind = "pressKey", Key = key }).ConfigureAwait(false);
             },
             cancellationToken);
     }
@@ -302,7 +340,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             async token =>
             {
                 var node = Resolve(target);
-                await _scope.Session.PerformAsync(node, new LocatorAction.ScrollIntoView(), token).ConfigureAwait(false);
+                await _scope.Session.PerformAsync(node, new LocatorAction.ScrollIntoView(), OperationContext.Agent, token).ConfigureAwait(false);
                 await CommitAsync("scrollTo", node).ConfigureAwait(false);
             },
             cancellationToken);
@@ -362,13 +400,13 @@ internal sealed partial class ActionDispatcher : IExecutorActions
                     var resolved = list is null ? null : ScrollTarget.ResolveScrollTarget(_feed, list);
                     if (resolved is null)
                     {
-                        await _scope.Session.SwipeAsync(direction, token).ConfigureAwait(false);
+                        await _scope.Session.SwipeAsync(direction, null, OperationContext.Agent, token).ConfigureAwait(false);
                         RecordScroll(direction, null, null);
                         continue;
                     }
 
                     node = resolved.Node;
-                    await _scope.Session.PerformAsync(node, new LocatorAction.Swipe(direction), token).ConfigureAwait(false);
+                    await _scope.Session.PerformAsync(node, new LocatorAction.Swipe(direction), OperationContext.Agent, token).ConfigureAwait(false);
                     RecordScroll(direction, node, resolved.Observation.Viewport);
                 }
 
@@ -404,7 +442,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             "back",
             async token =>
             {
-                await _scope.Session.BackAsync(token).ConfigureAwait(false);
+                await _scope.Session.BackAsync(OperationContext.Agent, token).ConfigureAwait(false);
                 await CommitAsync(new RecordedAction { Kind = "back" }).ConfigureAwait(false);
             },
             cancellationToken);
@@ -523,7 +561,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
             var found = Reading.NodeReading(observation, text, _scope.Redactor, within);
             if (found is not null)
             {
-                await _scope.Session.PerformAsync(found, new LocatorAction.ScrollIntoView(), token).ConfigureAwait(false);
+                await _scope.Session.PerformAsync(found, new LocatorAction.ScrollIntoView(), OperationContext.Agent, token).ConfigureAwait(false);
                 return paged;
             }
 
@@ -561,11 +599,11 @@ internal sealed partial class ActionDispatcher : IExecutorActions
         var resolved = list is null ? null : ScrollTargetOrLost(list);
         if (resolved is null)
         {
-            await _scope.Session.SwipeAsync(direction, token).ConfigureAwait(false);
+            await _scope.Session.SwipeAsync(direction, null, OperationContext.Agent, token).ConfigureAwait(false);
             return ((null, null), null);
         }
 
-        await _scope.Session.PerformAsync(resolved.Node, new LocatorAction.Swipe(direction), token).ConfigureAwait(false);
+        await _scope.Session.PerformAsync(resolved.Node, new LocatorAction.Swipe(direction), OperationContext.Agent, token).ConfigureAwait(false);
         return ((resolved.Node, SpansOf(resolved.Node, resolved.Observation.Viewport)), list);
     }
 
@@ -671,7 +709,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
         TargetedAsync(
             node,
             token,
-            (found, _) => _scope.Session.PerformAsync(found, action, token),
+            (found, _) => _scope.Session.PerformAsync(found, action, OperationContext.Agent, token),
             authorize);
 
     // The loop with the action built per attempt, which gets the node and the attempt's number: a drag reads its destination anew after a relocation.
