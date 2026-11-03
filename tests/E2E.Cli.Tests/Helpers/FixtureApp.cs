@@ -136,9 +136,14 @@ internal sealed class FixtureApp : IDisposable
             {
                 app._listener.Start();
             }
-            catch (HttpListenerException) when (attempt < 5)
+            catch (HttpListenerException)
             {
                 app.Dispose();
+                if (attempt >= 5)
+                {
+                    throw;
+                }
+
                 continue;
             }
 

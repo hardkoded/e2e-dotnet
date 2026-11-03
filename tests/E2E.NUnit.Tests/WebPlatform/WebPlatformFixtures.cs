@@ -74,9 +74,15 @@ public sealed class LateHandlerFixture : E2ETest
                 http.Start();
                 break;
             }
-            catch (HttpListenerException) when (attempt < 5)
+            catch (HttpListenerException)
             {
                 http.Close();
+                if (attempt >= 5)
+                {
+                    throw;
+                }
+
+                continue;
             }
         }
 

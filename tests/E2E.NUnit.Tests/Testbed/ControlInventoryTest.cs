@@ -45,9 +45,15 @@ internal static class ControlInventorySite
                 listener.Start();
                 break;
             }
-            catch (HttpListenerException) when (attempt < 5)
+            catch (HttpListenerException)
             {
                 listener.Close();
+                if (attempt >= 5)
+                {
+                    throw;
+                }
+
+                continue;
             }
         }
 
