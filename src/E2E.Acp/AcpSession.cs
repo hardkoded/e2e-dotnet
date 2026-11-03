@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 namespace E2E.Acp;
 
@@ -55,7 +56,7 @@ internal sealed record TurnReport(
 /// tools are allowed, anything else is rejected. Each <see cref="PromptAsync"/> is one <c>session/prompt</c> and resolves when the
 /// agent's turn ends. Upstream's <c>AcpSession</c> and <c>startSession</c> (<c>session.ts</c>).
 /// </summary>
-internal sealed class AcpSession
+internal sealed partial class AcpSession
 {
     /// <summary>The ACP protocol version the client speaks. Pinned: upstream takes the SDK's <c>PROTOCOL_VERSION</c>.</summary>
     internal const int ProtocolVersion = 1;
@@ -392,14 +393,7 @@ internal sealed class AcpSession
             start.ArgumentList.Add(argument);
         }
 
-        if (_launch.Env is not null)
-        {
-            foreach (var (name, value) in _launch.Env)
-            {
-                start.Environment[name] = value;
-            }
-        }
-
+        WithoutSecrets(start, _launch.Env);
         var process = new Process { StartInfo = start, EnableRaisingEvents = true };
         process.Exited += (_, _) => _ = Task.Run(OnExitedAsync);
         _process = process;
@@ -415,6 +409,30 @@ internal sealed class AcpSession
         _stderrReader = Task.Run(() => ReadStderrAsync(process.StandardError));
         _connection = new JsonRpcConnection(process.StandardInput.BaseStream, process.StandardOutput, OnRequest, OnNotification);
         _connection.Start();
+    }
+
+    /// <summary>The variables e2e reads secrets and credentials from, in any casing.</summary>
+    [GeneratedRegex(@"^E2E_(?:SECRET|USER)_", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex SecretVariable();
+
+    /// <summary>
+    /// Sets <paramref name="env"/> on top of this process's environment for <paramref name="start"/>, without the variables e2e reads secrets from,
+    /// wherever they came from. Upstream's <c>withoutSecrets</c> (<c>session.ts</c>).
+    /// </summary>
+    internal static void WithoutSecrets(ProcessStartInfo start, IReadOnlyDictionary<string, string>? env)
+    {
+        if (env is not null)
+        {
+            foreach (var (name, value) in env)
+            {
+                start.Environment[name] = value;
+            }
+        }
+
+        foreach (var name in start.Environment.Keys.Where(name => SecretVariable().IsMatch(name)).ToList())
+        {
+            start.Environment.Remove(name);
+        }
     }
 
     /// <summary>Reads stderr as the agent writes it, so a full pipe never stops the agent, and keeps its last lines for a failure message.</summary>

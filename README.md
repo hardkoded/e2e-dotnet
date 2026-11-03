@@ -503,7 +503,7 @@ Most unit tests use `DocumentEngine` and a scripted model. No test needs an API 
 | `apps/mobile-benchmark` | `apps/WinAppBenchmark`, the benchmark scenarios as a WinUI 3 app (Microsoft.UI.Reactor), and `apps/WinAppBenchmark.E2ETests`, its ported suites, for the Windows engine |
 | `@e2e-dev/eas` | `E2E.Expo` (`ExpoSimulators`) |
 | `@e2e-dev/github` (ported in part) | `E2E.GitHub` (`GitHubReporter`), the run as a pull request comment |
-| `@e2e-dev/acp` | `E2E.Acp` (`AcpExecutor`), a step executor that runs `act` and `assert` on a coding agent over the Agent Client Protocol |
+| `@e2e-dev/acp` | `E2E.Acp` (`AcpExecutor`), a step executor that runs `act` and `assert` on Claude Code, Codex, or another coding agent over the Agent Client Protocol; the presets need Node |
 | `@e2e-dev/kernel` | `E2E.Kernel` (`KernelProvider`), hosted browsers for `WebEngineOptions.Browser` |
 | `@e2e-dev/limrun` | `E2E.Limrun` (`LimrunSimulators`) |
 | `@e2e-dev/browserstack` | `E2E.BrowserStack` (`BrowserStackDevices`), BrowserStack App Automate real devices; the shared lease helper (`@e2e-dev/mobile/lease`) is in `E2E.Mobile` |

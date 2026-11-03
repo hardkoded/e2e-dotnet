@@ -11,7 +11,7 @@ namespace E2E.Acp;
 /// <summary>
 /// Runs <c>agent.act</c> and <c>agent.assert</c> on any agent that speaks the Agent Client Protocol on stdio: one agent session per test
 /// attempt, started by its first agent step and closed when the attempt ends. Upstream's <c>acp</c> (<c>@e2e-dev/acp</c>,
-/// <c>executor.ts</c>); the presets <c>claudeCode()</c> and <c>codex()</c> come with the next change.
+/// <c>executor.ts</c>); <see cref="ClaudeCode"/> and <see cref="Codex"/> start Claude Code and Codex with the step tools as their only tools.
 /// </summary>
 public static class AcpExecutor
 {
@@ -31,7 +31,7 @@ public static class AcpExecutor
     /// <c>agent</c> with <c>["acp"]</c>. The agent signs in the way it does on its own (its CLI login or its own API key variable).
     /// Upstream's <c>acp({ command, args })</c>.
     /// </summary>
-    /// <param name="command">The command that starts the agent. It is run without a shell.</param>
+    /// <param name="command">The command that starts the agent. It is run without a shell, so on Windows it must be an executable, not a <c>.cmd</c> shim.</param>
     /// <param name="args">Its arguments, passed one by one.</param>
     /// <param name="options">The agent's environment, model, mode, and rules.</param>
     /// <exception cref="ConfigurationException"><c>INVALID_CONFIG</c> when <paramref name="command"/> is empty.</exception>
@@ -45,6 +45,32 @@ public static class AcpExecutor
         options ??= new AcpOptions();
         var launch = new AgentLaunch(command, args ?? [], options.Env, options.Model, options.Mode, options.SessionMeta);
         return Build(options.Name ?? "acp", options, _ => Task.FromResult(launch));
+    }
+
+    /// <summary>
+    /// Creates an executor that runs agent steps on Claude Code through Zed's adapter (<c>@agentclientprotocol/claude-agent-acp</c>), signed in
+    /// with your <c>claude</c> login. The adapter must be installed in the project (<c>npm install -D @agentclientprotocol/claude-agent-acp</c>)
+    /// and found from the working directory up, and Node must be on the <c>PATH</c>. Upstream's <c>claudeCode()</c>.
+    /// </summary>
+    /// <param name="options">The agent's environment, model, and rules.</param>
+    /// <exception cref="ConfigurationException"><c>INVALID_CONFIG</c> when the adapter is not installed.</exception>
+    public static IStepExecutor ClaudeCode(AcpAgentOptions? options = null)
+    {
+        options ??= new AcpAgentOptions();
+        return Build(options.Name ?? "claude-code", options, Presets.ClaudeCodeLaunch(options));
+    }
+
+    /// <summary>
+    /// Creates an executor that runs agent steps on Codex through its adapter (<c>@agentclientprotocol/codex-acp</c>), signed in with your
+    /// <c>codex</c> login. The adapter must be installed in the project (<c>npm install -D @agentclientprotocol/codex-acp</c>) and found from the
+    /// working directory up, and Node must be on the <c>PATH</c>. Upstream's <c>codex()</c>.
+    /// </summary>
+    /// <param name="options">The agent's environment, model, and rules.</param>
+    /// <exception cref="ConfigurationException"><c>INVALID_CONFIG</c> when the adapter is not installed.</exception>
+    public static IStepExecutor Codex(AcpAgentOptions? options = null)
+    {
+        options ??= new AcpAgentOptions();
+        return Build(options.Name ?? "codex", options, Presets.CodexLaunch(options));
     }
 
     /// <summary>Upstream's <c>executor</c>: the step executor over how to start an agent.</summary>
