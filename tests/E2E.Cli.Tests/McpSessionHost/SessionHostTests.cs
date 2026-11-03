@@ -355,12 +355,28 @@ public sealed class SessionHostTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Catalogs_a_pointer_verb_only_for_the_action_kind_the_engine_declares()
+    {
+        var host = Host(new FakeEngine { Kinds = ["tap", "doubleTap", "hover", "dragTo"] });
+        var opened = await host.OpenAsync(new Mcp.OpenSessionOptions());
+        var names = ServedCli.CatalogNames(opened);
+        Assert.Equal(["observe", "tap", "double_tap", "hover", "type", "press", "select", "check", "uncheck", "clear", "drag", "navigate", "locate", "test_lines"], names);
+        Assert.Contains("- drag {target, to}: ", opened, StringComparison.Ordinal);
+        var call = host.ToolSpecs().Single(spec => spec.Name == "call");
+        var pressed = await call.Call(Json("""{ "tool": "long_press", "args": { "target": "k-1" } }"""), CancellationToken.None);
+        Assert.True(pressed.IsError);
+        Assert.Contains("UNSUPPORTED_CAPABILITY", Text(pressed), StringComparison.Ordinal);
+        Assert.Contains("declares no such action", Text(pressed), StringComparison.Ordinal);
+        await host.CloseAsync("done");
+    }
+
+    [Fact]
     public async Task Catalogs_only_the_verbs_the_engine_declares()
     {
         var host = Host(new FakeEngine());
         var opened = await host.OpenAsync(new Mcp.OpenSessionOptions());
         var names = ServedCli.CatalogNames(opened);
-        Assert.Equal(["observe", "tap", "double_tap", "type", "press", "select", "check", "uncheck", "clear", "navigate", "locate", "test_lines"], names);
+        Assert.Equal(["observe", "tap", "double_tap", "long_press", "right_click", "hover", "type", "press", "select", "check", "uncheck", "clear", "drag", "navigate", "locate", "test_lines"], names);
         var call = host.ToolSpecs().Single(spec => spec.Name == "call");
         var scrolled = await call.Call(Json("""{ "tool": "scroll", "args": { "direction": "down" } }"""), CancellationToken.None);
         Assert.True(scrolled.IsError);

@@ -117,7 +117,7 @@ internal static class Trace
     }
 
     /// <summary>
-    /// Upstream's <c>mapActionText</c>. An action holds its target as <c>Name</c>, <c>TestId</c>, and <c>Within</c>. A typed or selected value, a
+    /// Upstream's <c>mapActionText</c>. An action holds its target as <c>Name</c>, <c>TestId</c>, and <c>Within</c>, and a drag its destination the same way. A typed or selected value, a
     /// navigated URL, a scroll text and upload paths are replay inputs like a typed value. A <c>fill</c> of a secret holds its marker,
     /// which is a name, not text a param produced (upstream's <c>typeSecret</c> maps its target only).
     /// </summary>
@@ -159,6 +159,16 @@ internal static class Trace
                 }
 
                 mapped.Text = text;
+                break;
+            case "drag" when action.Destination is { } destination:
+                // Both ends are re-found by what they read, so a value a param produced reappears in either.
+                var mappedDestination = MapDescriptorText(destination, map);
+                if (mappedDestination is null)
+                {
+                    return null;
+                }
+
+                mapped.Destination = mappedDestination;
                 break;
             case "upload" when action.Paths is { } paths:
                 // Paths are replay inputs like a typed value: a file named through unique() must be re-resolved from each run's value,

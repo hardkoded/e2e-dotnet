@@ -68,7 +68,7 @@ public static class DefaultAgent
             : tools.Where(pair => pair.Value.AppliesTo(context.Target.Platform)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         var offered = project.Select(pair => AgentTools.Project(pair.Key, pair.Value)).ToList();
         var act = new ActTools(host.Scope, host.Feed, null, PixelMode.For(context));
-        return AgentTools.CreateGrammarTools(host.Scope.EngineCapabilities, offered)
+        return AgentTools.CreateGrammarTools(host.Scope.EngineCapabilities, offered, host.Scope.ActionKinds)
             .Select(definition => new ToolLoopTool(
                 definition,
                 async (call, token) =>
@@ -182,9 +182,18 @@ public static class DefaultAgent
         return text;
     }
 
+    // How the pointer verbs read in a summary, upstream's NODE_ACTION_PROSE: the rest read as their kind.
+    private static readonly Dictionary<string, string> Prose = new(StringComparer.Ordinal)
+    {
+        ["doubleTap"] = "double-tap",
+        ["longPress"] = "long-press",
+        ["secondaryTap"] = "secondary-tap",
+        ["hover"] = "hover over",
+    };
+
     internal static string Describe(RecordedAction action)
     {
-        var builder = new StringBuilder(action.Kind);
+        var builder = new StringBuilder(Prose.GetValueOrDefault(action.Kind, action.Kind));
 
         // Upstream's summary: the files, then the node they went to.
         if (action.Paths is { Count: > 0 } paths)
@@ -202,6 +211,25 @@ public static class DefaultAgent
             else if (action.TestId is not null)
             {
                 builder.Append(" testId=").Append(action.TestId);
+            }
+        }
+
+        // Upstream's summary of a drag: the node it was dropped on, in the container it sat in.
+        if (action.Destination is { } destination)
+        {
+            builder.Append(" to ").Append(destination.Role ?? "node");
+            if (destination.Name is not null)
+            {
+                builder.Append(" \"").Append(destination.Name).Append('"');
+            }
+            else if (destination.TestId is not null)
+            {
+                builder.Append(" testId=").Append(destination.TestId);
+            }
+
+            if (destination.Within is not null)
+            {
+                builder.Append(" in \"").Append(destination.Within).Append('"');
             }
         }
 

@@ -101,26 +101,66 @@ public sealed class ReplayTraceTests
         Assert.Equal([SettleMode.HeldStill], host.Looks);
     }
 
-    /// <summary>Partial: the port has no <c>hover</c>, <c>longPress</c>, <c>secondaryTap</c>, or <c>upload</c>.</summary>
     [Fact]
-    public async Task Partial_replays_every_node_verb_through_its_own_grammar_call_with_the_recorded_state_and_files()
+    public async Task Replays_every_node_verb_through_its_own_grammar_call_with_the_recorded_state_and_files()
+    {
+        var details = new List<object?>();
+        var host = MakeHost(onAction: (_, detail) => details.Add(detail));
+        var target = new RecordedAction { Role = "button", Name = "Upgrade" };
+
+        var outcome = await Replay.ReplayTrace(
+            host,
+            [
+                new RecordedAction { Kind = "hover", Role = target.Role, Name = target.Name },
+                new RecordedAction { Kind = "doubleTap", Role = target.Role, Name = target.Name },
+                new RecordedAction { Kind = "longPress", Role = target.Role, Name = target.Name },
+                new RecordedAction { Kind = "secondaryTap", Role = target.Role, Name = target.Name },
+                new RecordedAction { Kind = "scrollTo", Role = target.Role, Name = target.Name },
+                new RecordedAction { Kind = "uncheck", Role = target.Role, Name = target.Name },
+                new RecordedAction { Kind = "upload", Role = target.Role, Name = target.Name, Paths = ["fixtures/a.txt"] },
+                new RecordedAction { Kind = "back" },
+            ]);
+
+        Assert.True(outcome.Completed);
+        Assert.Equal((8, 8), (outcome.Executed, outcome.Total));
+        Assert.Equal(["hover", "doubleTap", "longPress", "secondaryTap", "scrollTo", "check", "upload", "back"], host.Calls);
+        Assert.Equal(("n1", false), details[5]);
+        var (uploaded, paths) = ((string, IReadOnlyList<string>))details[6]!;
+        Assert.Equal("n1", uploaded);
+        Assert.Equal(["fixtures/a.txt"], paths);
+    }
+
+    [Fact]
+    public async Task Re_finds_both_ends_of_a_drag_on_one_screen_before_dragging()
     {
         var details = new List<object?>();
         var host = MakeHost(onAction: (_, detail) => details.Add(detail));
 
         var outcome = await Replay.ReplayTrace(
             host,
-            [
-                new RecordedAction { Kind = "doubleTap", Role = "button", Name = "Upgrade" },
-                new RecordedAction { Kind = "scrollTo", Role = "button", Name = "Upgrade" },
-                new RecordedAction { Kind = "uncheck", Role = "button", Name = "Upgrade" },
-                new RecordedAction { Kind = "back" },
-            ]);
+            [new RecordedAction { Kind = "drag", Role = "button", Name = "Upgrade", Destination = new RecordedTarget { Role = "textbox", Name = "Email" } }]);
 
         Assert.True(outcome.Completed);
-        Assert.Equal((4, 4), (outcome.Executed, outcome.Total));
-        Assert.Equal(["doubleTap", "scrollTo", "check", "back"], host.Calls);
-        Assert.Equal(("n1", false), details[2]);
+        Assert.Equal(1, outcome.Executed);
+        Assert.Equal(["drag"], host.Calls);
+        Assert.Equal(("n1", "n2"), details[0]);
+        // The pair came from one look at the screen.
+        Assert.Equal(1, host.Observations);
+    }
+
+    [Fact]
+    public async Task Hands_a_drag_off_when_either_end_cannot_be_re_found_never_dragging_half_of_it()
+    {
+        var host = MakeHost([Upgrade]);
+
+        var outcome = await Replay.ReplayTrace(
+            host,
+            [new RecordedAction { Kind = "drag", Role = "button", Name = "Upgrade", Destination = new RecordedTarget { Role = "textbox", Name = "Email" } }]);
+
+        Assert.False(outcome.Completed);
+        Assert.Equal(0, outcome.Executed);
+        Assert.Equal(ReplayHandOffReason.TargetNotFound, outcome.StopReason);
+        Assert.Empty(host.Calls);
     }
 
     [Fact]

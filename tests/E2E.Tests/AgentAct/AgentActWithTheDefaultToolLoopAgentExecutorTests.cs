@@ -28,7 +28,8 @@ public sealed class AgentActWithTheDefaultToolLoopAgentExecutorTests
         Assert.Null(result.Error);
     }
 
-    // Upstream lists a toolset the port does not have (hover, drag, upload, and the pixel verbs), and its tool
+    // Upstream lists a toolset the port does not have here (upload, and the point tools). The document engine declares no pointer action,
+    // so it offers no long_press, right_click, hover, or drag. Upstream's tool
     // results report changes since a revision. The port's results carry the whole screen instead.
     [Fact]
     public async Task Offers_the_port_toolset_and_concludes_through_done()

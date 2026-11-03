@@ -23,7 +23,7 @@ namespace E2E;
 internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed, ScreenPresenter? screen = null, PixelMode? pixels = null)
 {
     private static readonly HashSet<string> ActionTools =
-        new(["navigate", "tap", "double_tap", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "upload", "back", "scroll", "scroll_to"], StringComparer.Ordinal);
+        new(["navigate", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "upload", "back", "scroll", "scroll_to"], StringComparer.Ordinal);
 
     private readonly AttemptScope _scope = scope;
     private readonly ObservationFeed _feed = feed;
@@ -63,7 +63,8 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             return await RunProjectToolAsync(call, projectTool, budget, token, context).ConfigureAwait(false);
         }
 
-        if (!ActionTools.Contains(call.Name))
+        // A pointer verb is a tool only where the engine declared its action kind, so a model that calls one anyway is told so.
+        if (!ActionTools.Contains(call.Name) || (AgentTools.PointerToolKinds.TryGetValue(call.Name, out var kind) && _scope.ActionKinds?.Contains(kind) != true))
         {
             return ToolOutcome.Fail("Unknown tool " + call.Name + ".");
         }
@@ -104,6 +105,8 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 return await ScrollToAsync(arguments, actions, token).ConfigureAwait(false);
             case "upload":
                 return await UploadAsync(arguments, actions, budget, token).ConfigureAwait(false);
+            case "drag":
+                return await DragAsync(arguments, actions, token).ConfigureAwait(false);
             case "navigate":
                 var url = Args.String(arguments, "url") ?? "/";
                 return await ActingAsync(new ActionLabel("Navigated to " + url + ".", "navigate " + url), () => actions.NavigateAsync(url, token), token).ConfigureAwait(false);
@@ -129,6 +132,9 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             {
                 "tap" => actions.TapAsync(target, ClickOptionsOf(arguments), token),
                 "double_tap" => actions.DoubleTapAsync(target, ClickOptionsOf(arguments), token),
+                "long_press" => actions.LongPressAsync(target, token),
+                "right_click" => actions.SecondaryTapAsync(target, ClickOptionsOf(arguments), token),
+                "hover" => actions.HoverAsync(target, token),
                 "fill" => actions.TypeAsync(target, Args.String(arguments, "value") ?? "", token),
                 "fill_secret" => actions.TypeSecretAsync(target, Args.String(arguments, "secret") ?? "", token),
                 "press" => actions.PressAsync(target, Args.String(arguments, "key") ?? "Enter", token),
@@ -179,6 +185,9 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         {
             "tap" => new("Tapped " + reference + ".", "tap " + reference),
             "double_tap" => new("Double-tapped " + reference + ".", "double_tap " + reference),
+            "long_press" => new("Long-pressed " + reference + ".", "long_press " + reference),
+            "right_click" => new("Right-clicked " + reference + ".", "right_click " + reference),
+            "hover" => new("Hovered over " + reference + ".", "hover " + reference),
             "fill" => new("Typed into " + reference + ".", "fill " + reference),
             "fill_secret" => new(
                 "Filled secret \"" + secret + "\" into " + reference + "; its value is masked in every observation.",
@@ -270,6 +279,33 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 await actions.ScrollAsync(target, direction, times, token).ConfigureAwait(false);
             },
             token).ConfigureAwait(false);
+    }
+
+    // Upstream's drag tool: the drop target is named like the node dragged, and both are found before anything moves. `Dragged #a to #b.` on
+    // success, `drag #a to #b failed: <code>: <message>` otherwise, each followed by the screen.
+    private async Task<ToolOutcome> DragAsync(JsonElement arguments, IExecutorActions actions, CancellationToken token)
+    {
+        var drop = arguments.ValueKind == JsonValueKind.Object && arguments.TryGetProperty("to", out var named) && named.ValueKind == JsonValueKind.Object ? named : default;
+        var label = new ActionLabel("", "drag " + ReferenceOf(arguments) + " to " + ReferenceOf(drop));
+        SemanticNode source;
+        SemanticNode destination;
+        try
+        {
+            if (drop.ValueKind != JsonValueKind.Object || !HasTarget(drop))
+            {
+                throw new TestException("INVALID_ARGUMENT", "drag requires a to target: the node to drop on");
+            }
+
+            source = await ResolveAsync(arguments, token).ConfigureAwait(false);
+            destination = await ResolveAsync(drop, token).ConfigureAwait(false);
+        }
+        catch (TestException ex)
+        {
+            return await FailedAsync(label, ex, token).ConfigureAwait(false);
+        }
+
+        label = new ActionLabel("Dragged #" + source.Ref + " to #" + destination.Ref + ".", "drag #" + source.Ref + " to #" + destination.Ref);
+        return await ActingAsync(label, () => actions.DragAsync(new ExecutorTarget(source), new ExecutorTarget(destination), token), token).ConfigureAwait(false);
     }
 
     private async Task<ToolOutcome> ScrollToAsync(JsonElement arguments, IExecutorActions actions, CancellationToken token)

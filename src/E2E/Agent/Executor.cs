@@ -216,7 +216,7 @@ public sealed class ExecutorTargetInfo
 
     public IReadOnlySet<ExecutorVerb> Verbs { get; init; } = new HashSet<ExecutorVerb>();
 
-    /// <summary>True when <see cref="IExecutorActions.TapAsync(ExecutorTarget, ClickOptions, CancellationToken)"/> and <see cref="IExecutorActions.DoubleTapAsync(ExecutorTarget, ClickOptions, CancellationToken)"/> take <see cref="ClickOptions.Modifiers"/>.</summary>
+    /// <summary>True when <see cref="IExecutorActions.TapAsync(ExecutorTarget, ClickOptions, CancellationToken)"/>, <see cref="IExecutorActions.DoubleTapAsync(ExecutorTarget, ClickOptions, CancellationToken)"/>, and <see cref="IExecutorActions.SecondaryTapAsync(ExecutorTarget, ClickOptions, CancellationToken)"/> take <see cref="ClickOptions.Modifiers"/>.</summary>
     public bool TapModifiers { get; init; }
 }
 
@@ -225,6 +225,10 @@ public enum ExecutorVerb
 {
     Tap,
     DoubleTap,
+    LongPress,
+    SecondaryTap,
+    Hover,
+    Drag,
     Type,
     TypeSecret,
     Clear,
@@ -377,6 +381,28 @@ public interface IExecutorActions
 
     /// <summary>Double-taps one node, holding no keys.</summary>
     Task DoubleTapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => DoubleTapAsync(target, null, cancellationToken);
+
+    /// <summary>Holds one node pressed, as a touch long press does. Needs <see cref="ExecutorVerb.LongPress"/> in <see cref="ExecutorTargetInfo.Verbs"/>.</summary>
+    Task LongPressAsync(ExecutorTarget target, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Taps one node with the secondary button, a right-click. Takes the tap's <paramref name="options"/>. Needs
+    /// <see cref="ExecutorVerb.SecondaryTap"/> in <see cref="ExecutorTargetInfo.Verbs"/>.
+    /// </summary>
+    Task SecondaryTapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default);
+
+    /// <summary>Right-clicks one node, holding no keys.</summary>
+    Task SecondaryTapAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => SecondaryTapAsync(target, null, cancellationToken);
+
+    /// <summary>Moves the pointer over one node, as a hover that reveals a menu or a tooltip. Needs <see cref="ExecutorVerb.Hover"/> in <see cref="ExecutorTargetInfo.Verbs"/>.</summary>
+    Task HoverAsync(ExecutorTarget target, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Drags one node onto another. Both are named by their ids from the newest observation and found on one look, so the drag
+    /// never joins a source from one screen to a destination from another. Needs <see cref="ExecutorVerb.Drag"/> in
+    /// <see cref="ExecutorTargetInfo.Verbs"/>.
+    /// </summary>
+    Task DragAsync(ExecutorTarget source, ExecutorTarget destination, CancellationToken cancellationToken = default);
 
     Task TypeAsync(ExecutorTarget target, string value, CancellationToken cancellationToken = default);
 
