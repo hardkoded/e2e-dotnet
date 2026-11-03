@@ -305,10 +305,10 @@ public sealed class E2eExploreTests
         Assert.Contains("button \"Increment\"", model.LoopCalls.First().Messages[0].Content, StringComparison.Ordinal);
 
         var configPath = Path.Combine(root, "bad.config.json");
-        await File.WriteAllTextAsync(configPath, """{ "targets": [{ "name": "web", "platform": "web" }], "reporters": ["json"] }""");
+        await File.WriteAllTextAsync(configPath, """{ "targets": [{ "name": "web", "platform": "web" }], "workers": 2 }""");
         var invalid = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(new ExploreOptions { Cwd = root, ConfigPath = configPath, Goal = "Look around" }));
         Assert.Equal("INVALID_CONFIG", invalid.Code);
-        Assert.Contains("config key \"reporters\" is not supported", invalid.Message, StringComparison.Ordinal);
+        Assert.Contains("config key \"workers\" is not supported", invalid.Message, StringComparison.Ordinal);
 
         var unknown = await Assert.ThrowsAsync<ConfigurationException>(() => Explorer.ExploreAsync(Options(root, model.Model, [], target: "nope")));
         Assert.Equal("UNKNOWN_TARGET", unknown.Code);

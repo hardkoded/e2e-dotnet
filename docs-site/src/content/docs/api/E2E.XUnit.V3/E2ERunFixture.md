@@ -97,8 +97,8 @@ public ValueTask DisposeAsync()
 ```
 
 
-Runs the reporters that the test assembly registers with `[assembly: E2EReporter(typeof(...))]` once `report.json` is final, then
-stops the app commands that the tests of this process started, and deletes the sessions that setup tests saved (see `E2ESetupAttribute`). The test assembly is the one xUnit is running (its path from the test context), else the entry assembly, since an xUnit v3 test project is an executable.
+Runs the reporters that [Config](#E2E_XUnit_V3_E2ERunFixture_Config) lists in `reporters` once `report.json` is final, then
+stops the app commands that the tests of this process started, and deletes the sessions that setup tests saved (see `E2ESetupAttribute`).
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask)
 

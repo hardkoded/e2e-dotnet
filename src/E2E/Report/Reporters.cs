@@ -2,33 +2,105 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Text.Json;
 using E2E.Internal;
 using E2E.Reports;
 
 namespace E2E;
 
 /// <summary>
-/// Finds and runs the reporters when the run is over (.NET-only: <see cref="RunFinishedAsync"/> and
-/// <see cref="Discover"/>, since upstream's runner owns the config that lists the reporters and knows when the run ends. The run fixtures of
+/// One entry of <c>reporters</c> in <c>e2e.config.json</c>: a <see cref="Reporter"/> type and the options for it. .NET-only: upstream's config
+/// lists reporter objects, and a JSON file holds no code, so it names the type and the reporter is built by reflection when the run ends.
+/// </summary>
+internal sealed record ReporterEntry(Type Type, JsonElement? Options)
+{
+    /// <summary>
+    /// Resolves <paramref name="name"/>, an assembly-qualified type name or the name of a type in a loaded assembly, and checks it can be built.
+    /// Throws <c>INVALID_CONFIG</c>. A message never holds an option value.
+    /// </summary>
+    public static ReporterEntry Resolve(string name, JsonElement? options, string at)
+    {
+        var type = Find(name) ?? throw Invalid(at + " reporter type \"" + name + "\" was not found; name it with its assembly (\"Namespace.Type, Assembly\") and make sure that assembly is referenced and copied to the output");
+        if (type.IsAbstract || type.IsInterface || !type.IsAssignableTo(typeof(Reporter)))
+        {
+            throw Invalid(at + " reporter type \"" + name + "\" must be a non-abstract class that derives from E2E.Reports.Reporter");
+        }
+
+        if (type.GetConstructor(Type.EmptyTypes) is null)
+        {
+            throw Invalid(at + " reporter type \"" + name + "\" needs a public constructor with no parameters");
+        }
+
+        if (options is not null && !type.IsAssignableTo(typeof(IConfigurableReporter)))
+        {
+            throw Invalid(at + " reporter type \"" + name + "\" takes no options; remove \"options\" or implement E2E.Reports.IConfigurableReporter");
+        }
+
+        return new ReporterEntry(type, options);
+    }
+
+    /// <summary>Builds the reporter and hands it its options.</summary>
+    public Reporter Create()
+    {
+        var reporter = (Reporter)Activator.CreateInstance(Type)!;
+        if (Options is { } options)
+        {
+            ((IConfigurableReporter)reporter).Configure(options);
+        }
+
+        return reporter;
+    }
+
+    // A reporter is chosen by name in a file, so reflection is the point. A trimmed or AOT app must keep the type (see COMPATIBILITY.md, Reporters).
+    [UnconditionalSuppressMessage("Trimming", "IL2057", Justification = "The config names the reporter type by string.")]
+    private static Type? Find(string name)
+    {
+        if (Type.GetType(name, throwOnError: false) is { } type)
+        {
+            return type;
+        }
+
+        if (name.Contains(',', StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            if (!assembly.IsDynamic && assembly.GetType(name, throwOnError: false) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    private static ConfigurationException Invalid(string message) => new("INVALID_CONFIG", message);
+}
+
+/// <summary>
+/// Builds and runs the reporters when the run is over (.NET-only: <see cref="RunFinishedAsync"/> and
+/// <see cref="Create"/>, since upstream's runner owns the config that lists the reporters and knows when the run ends. The run fixtures of
 /// <c>E2E.NUnit</c> and <c>E2E.XUnit.V3</c> call it when the last test of the assembly is done. The reporters themselves run through <see cref="Runner.RunReportersAsync"/> (upstream's <c>runReporters</c>).
 /// </summary>
 internal static class Reporters
 {
-    /// <summary>The reporters that <paramref name="assembly"/> registers with <see cref="E2EReporterAttribute"/>. One that cannot be built is one line on stderr.</summary>
-    public static IReadOnlyList<Reporter> Discover(Assembly assembly)
+    /// <summary>The reporters of <paramref name="config"/>, in config order. One that cannot be built is one line on stderr.</summary>
+    public static IReadOnlyList<Reporter> Create(E2EConfig config)
     {
         List<Reporter> reporters = [];
-        foreach (var attribute in assembly.GetCustomAttributes<E2EReporterAttribute>())
+        foreach (var entry in config.Reporters)
         {
             try
             {
-                reporters.Add(Activator.CreateInstance(attribute.ReporterType) as Reporter
-                    ?? throw new InvalidOperationException($"{attribute.ReporterType} is not a {nameof(Reporter)}"));
+                reporters.Add(entry.Create());
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                Console.Error.WriteLine($"e2e: reporter {attribute.ReporterType} could not be created: {(ex is TargetInvocationException { InnerException: { } inner } ? inner : ex).Message}");
+                Console.Error.WriteLine($"e2e: reporter {entry.Type} could not be created: {(ex is TargetInvocationException { InnerException: { } inner } ? inner : ex).Message}");
             }
         }
 
@@ -36,14 +108,14 @@ internal static class Reporters
     }
 
     /// <summary>
-    /// Runs the reporters of <paramref name="assembly"/> on every run this process wrote a report for, and prints the rows they return. It
-    /// never throws: a reporter can never change the run's outcome.
+    /// Runs the reporters of <paramref name="config"/> on every run this process wrote a report for, and prints the rows they return. A reporter
+    /// can never change the run's outcome, so a failure while they run is one line on stderr. A bad <c>reporters</c> entry is not that: it threw when the config loaded.
     /// </summary>
-    public static async Task RunFinishedAsync(Assembly assembly, TimeSpan? timeout = null, CancellationToken force = default)
+    public static async Task RunFinishedAsync(E2EConfig config, TimeSpan? timeout = null, CancellationToken force = default)
     {
         try
         {
-            var reporters = Discover(assembly);
+            var reporters = Create(config);
             if (reporters.Count == 0)
             {
                 return;

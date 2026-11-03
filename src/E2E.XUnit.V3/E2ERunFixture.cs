@@ -49,21 +49,14 @@ public class E2ERunFixture : IAsyncLifetime
     }
 
     /// <summary>
-    /// Runs the reporters that the test assembly registers with <c>[assembly: E2EReporter(typeof(...))]</c> once <c>report.json</c> is final, then
-    /// stops the app commands that the tests of this process started, and deletes the sessions that setup tests saved (see <c>E2ESetupAttribute</c>). The test assembly is the one xUnit is running (its path from the test context), else the entry assembly, since an xUnit v3 test project is an executable.
+    /// Runs the reporters that <see cref="Config"/> lists in <c>reporters</c> once <c>report.json</c> is final, then
+    /// stops the app commands that the tests of this process started, and deletes the sessions that setup tests saved (see <c>E2ESetupAttribute</c>).
     /// </summary>
     public async ValueTask DisposeAsync()
     {
         try
         {
-            if (TestAssemblyOf(Xunit.TestContext.Current.TestAssembly?.AssemblyPath) is { } testAssembly)
-            {
-                await Reporters.RunFinishedAsync(testAssembly).ConfigureAwait(false);
-            }
-            else
-            {
-                Console.Error.WriteLine("e2e: the test assembly is unknown (xUnit gave no assembly path and there is no entry assembly), so no reporter ran");
-            }
+            await Reporters.RunFinishedAsync(Config).ConfigureAwait(false);
         }
         finally
         {
