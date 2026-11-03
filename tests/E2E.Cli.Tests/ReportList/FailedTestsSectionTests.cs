@@ -8,14 +8,36 @@ using static E2E.Cli.Tests.ReportList.ListReporterKit;
 namespace E2E.Cli.Tests.ReportList;
 
 /// <summary>
-/// Upstream: packages/e2e/tests/unit/report-list.test.ts, ListReporter describe('failed tests section'). Not ported: <c>lists a retry that
-/// skipped with the failed attempt’s error and evidence</c>, because the port has no <c>Skipped After Failure</c> section (issue #843).
+/// Upstream: packages/e2e/tests/unit/report-list.test.ts, ListReporter describe('failed tests section').
 /// </summary>
 public sealed class FailedTestsSectionTests
 {
     /// <summary>Upstream's <c>failedAttempt()</c>.</summary>
     private static ReportAttempt FailedAttempt(string message) =>
         Attempt(error: new ReportError("ASSERTION_FAILED", message), status: AttemptStatus.Failed);
+
+    [Fact]
+    public void Lists_a_retry_that_skipped_with_the_failed_attempts_error_and_evidence()
+    {
+        var output = new Capture();
+        var reporter = PlainReporter(output);
+        reporter.Handle(RunStarted());
+        reporter.Handle(Plan(("tests/a.e2e.ts", 1)));
+        var failed = FailedAttempt("original failure") with
+        {
+            Failure = new FailureEvidence { Url = "https://app.test/checkout", Candidates = ["button \"Pay later\""], Screen = "attempt-1:artifact:0" },
+            Artifacts = [new ReportArtifact("attempt-1:artifact:0", "log", "chromium/a/attempt-0/screen.txt")],
+        };
+        var skipped = Attempt(status: AttemptStatus.Skipped) with { Id = "attempt-2" };
+        reporter.Handle(Finished(Result(ResultStatus.Skipped, id: "a", file: "tests/a.e2e.ts", title: ["first"], attempts: [failed, skipped], skipReason: "feature disabled")));
+        reporter.Handle(RunFinished(reportPath: "/project/.e2e/report.json"));
+        Assert.Contains(" Skipped After Failure 1 ", string.Join('\n', output.Lines));
+        Assert.Contains(" SKIP  |chromium| tests/a.e2e.ts > first", output.Lines);
+        Assert.Contains("ASSERTION_FAILED: original failure", output.Lines);
+        Assert.Contains(" ❯ at https://app.test/checkout", output.Lines);
+        Assert.Contains(" ❯ on screen button \"Pay later\"", output.Lines);
+        Assert.Contains(" ❯ screen .e2e/artifacts/chromium/a/attempt-0/screen.txt", output.Lines);
+    }
 
     [Fact]
     public void Quotes_the_first_app_errors_under_the_tally_loopback_origins_dropped_and_counts_the_rest()
