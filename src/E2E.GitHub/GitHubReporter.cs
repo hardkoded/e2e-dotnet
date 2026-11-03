@@ -4,6 +4,7 @@
 
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using E2E.Reports;
 
@@ -35,13 +36,13 @@ internal sealed record ReportDeps(
     Func<string, bool> Exists) : ActionsDeps(Env, ReadFile);
 
 /// <summary>
-/// The GitHub reporter (upstream's <c>github()</c>, <c>reporter.ts</c>): register it with <c>[assembly: E2EReporter(typeof(GitHubReporter))]</c>.
+/// The GitHub reporter (upstream's <c>github()</c>, <c>reporter.ts</c>): list it in the <c>reporters</c> of <c>e2e.config.json</c>: <c>{ "type": "E2E.GitHub.GitHubReporter, E2E.GitHub", "options": { "key": "chromium" } }</c>.
 /// On GitHub Actions it writes the run to the job summary and, for a pull request, posts or updates one comment. Everything it reads (the token,
 /// the event, the repository) is read when the run finishes, never when it is created, so constructing it has no side effects. Derive from it and
-/// call <see cref="GitHubReporter(GitHubOptions)"/> to set the options in code. Not ported: the fold of a <c>--last-failed</c> rerun into the run
+/// call <see cref="GitHubReporter(GitHubOptions)"/> to set the options in code, or set <c>options.key</c> in the config entry (<see cref="Configure"/>). Not ported: the fold of a <c>--last-failed</c> rerun into the run
 /// it selected from (upstream's <c>merge.ts</c>), since <see cref="FinishedRun"/> has no <c>LastRun</c> yet.
 /// </summary>
-public class GitHubReporter : Reporter
+public class GitHubReporter : Reporter, IConfigurableReporter
 {
     private const string SummaryLabel = "GitHub";
 
@@ -61,18 +62,49 @@ public class GitHubReporter : Reporter
 
     private static readonly Regex CutEscape = new(@"%[0-9A-F]?\z", RegexOptions.CultureInvariant, MatchTimeout);
 
-    private readonly GitHubOptions? _options;
+    private GitHubOptions? _options;
 
-    /// <summary>A reporter whose key comes from the <c>E2E_GITHUB_KEY</c> environment variable. The public constructor <c>E2EReporterAttribute</c> needs.</summary>
+    /// <summary>A reporter whose key comes from the <c>E2E_GITHUB_KEY</c> environment variable. The public constructor the config builds it with.</summary>
     public GitHubReporter()
     {
     }
 
-    /// <summary>A reporter with these options. For a class that derives from this one and is registered with <c>E2EReporterAttribute</c>.</summary>
+    /// <summary>A reporter with these options. For a class that derives from this one and is listed in the config.</summary>
     protected GitHubReporter(GitHubOptions options) => _options = options;
 
     /// <inheritdoc />
     public override string Name => "github";
+
+    /// <summary>
+    /// Reads the <c>options</c> of the config entry (.NET-only: upstream's <c>github({ key })</c> is called in code). The only option is <c>key</c>, a
+    /// string, which is <see cref="GitHubOptions.Key"/>. When it is not set, the key comes from <c>E2E_GITHUB_KEY</c>. An unknown option or a
+    /// <c>key</c> that is not a string is an <see cref="ArgumentException"/> that names the option and never its value.
+    /// </summary>
+    public void Configure(JsonElement options)
+    {
+        if (options.ValueKind != JsonValueKind.Object)
+        {
+            throw new ArgumentException("options must be an object");
+        }
+
+        string? key = null;
+        foreach (var option in options.EnumerateObject())
+        {
+            if (option.Name != "key")
+            {
+                throw new ArgumentException($"option \"{option.Name}\" is not supported; the only option is \"key\"");
+            }
+
+            key = option.Value.ValueKind == JsonValueKind.String
+                ? option.Value.GetString()
+                : throw new ArgumentException("option \"key\" must be a string");
+        }
+
+        if (key is not null)
+        {
+            _options = new GitHubOptions { Key = key };
+        }
+    }
 
     /// <inheritdoc />
     public override async Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(FinishedRun run, CancellationToken cancellationToken)

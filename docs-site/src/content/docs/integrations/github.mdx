@@ -11,13 +11,10 @@ description: The GitHubReporter posts one comment per run from GitHub Actions an
 dotnet add package E2E.GitHub
 ```
 
-Register the reporter once in the test assembly. The run fixture calls it when the last test is done (`E2ERunFixture` of `E2E.NUnit` or `E2E.XUnit.V3`), so add the fixture too: without it no reporter runs.
+List the reporter in the `reporters` of `e2e.config.json`. The run fixture calls it when the last test is done (`E2ERunFixture` of `E2E.NUnit` or `E2E.XUnit.V3`), so add the fixture too: without it no reporter runs.
 
-```csharp
-using E2E.GitHub;
-using E2E.Reports;
-
-[assembly: E2EReporter(typeof(GitHubReporter))]
+```json
+{ "reporters": ["E2E.GitHub.GitHubReporter, E2E.GitHub"] }
 ```
 
 Give the workflow `pull-requests: write`. Pass `GITHUB_TOKEN` to the test step:
@@ -65,15 +62,17 @@ env:
   E2E_GITHUB_KEY: ${{ matrix.browser }}
 ```
 
-Or set it in code, with a class that derives from `GitHubReporter`:
+Or set `key` in the options of the config entry:
 
-```csharp
-public sealed class ChromiumReporter() : GitHubReporter(new GitHubOptions { Key = "chromium" });
-
-[assembly: E2EReporter(typeof(ChromiumReporter))]
+```json
+{
+  "reporters": [
+    { "type": "E2E.GitHub.GitHubReporter, E2E.GitHub", "options": { "key": "chromium" } }
+  ]
+}
 ```
 
-The key shows in the headline, such as `e2e chromium: 77 passed`. Keep it stable across runs so a rerun updates the existing comment. The environment variable is .NET-only, since the attribute that registers a reporter takes a type and not a value.
+`key` is the only option. An unknown option or a `key` that is not a string is `INVALID_CONFIG`, and the message never holds a value. The key shows in the headline, such as `e2e chromium: 77 passed`. Keep it stable across runs so a rerun updates the existing comment. The options and the environment variable are .NET-only: upstream calls `github({ key })` in its config module, and a JSON config holds no code. When `key` is not set, the reporter reads `E2E_GITHUB_KEY`.
 
 ## Explorations
 

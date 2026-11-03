@@ -251,16 +251,16 @@ and in CI.
   it when there is no URL), `SourceUrl` (a link to a source line),
   `Traces` (the path of each traced result's page, by result id), and `Title`.
   To post the page as a pull request comment from GitHub Actions, add the
-  `E2E.GitHub` package and register its reporter:
-  `[assembly: E2EReporter(typeof(GitHubReporter))]` (`E2E.GitHub`; upstream's
+  `E2E.GitHub` package and list its reporter in `reporters` of `e2e.config.json`:
+  `"E2E.GitHub.GitHubReporter, E2E.GitHub"` (`E2E.GitHub`; upstream's
   `github()` of `@e2e-dev/github`). On Actions it writes the job summary and
   posts or updates one comment, found by a hidden first-line marker (project,
   workflow, job, `kind=explore` for an exploration, and a key). The step needs
   `GITHUB_TOKEN` (or `GH_TOKEN`) in its `env`, and the job needs
   `permissions: pull-requests: write`. Outside Actions, on a push, or without a
   token it posts nothing and says why in one row. Set `E2E_GITHUB_KEY` (.NET-only)
-  or derive from `GitHubReporter` and pass `new GitHubOptions { Key = ... }` to
-  tell matrix jobs apart. Not ported: the `--last-failed` fold.
+  or the entry's `"options": { "key": "chromium" }` (the only option; an unknown
+  option or a non-string `key` is `INVALID_CONFIG`) to tell matrix jobs apart. Not ported: the `--last-failed` fold.
   It returns text and does not write or post it. The text stays under what a
   GitHub comment accepts, and every title, label, and message in it is escaped.
 - A `command` is `executable`, `args`, `cwd` (from the config's directory),
