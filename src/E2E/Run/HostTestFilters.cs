@@ -148,7 +148,8 @@ internal static class HostTestFilters
     // A test left out ran no attempt, so the reason sits on the result, and the summary does not count the test as selected.
     private static ReportResult LeftOutResult(CollectedTest test, ResolvedTarget target, SkipInfo skip) => new()
     {
-        Id = AttemptReport.ResultId(null, test.Id),
+        // The id its executed row gets (class as the file, method as the title), so a fold finds both as one test.
+        Id = AttemptReport.ResultId(test.Id[..test.Id.LastIndexOf("::", StringComparison.Ordinal)], test.Title),
         TestId = test.Id,
         File = test.File,
         TitlePath = test.TitlePath,

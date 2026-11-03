@@ -85,6 +85,8 @@ public sealed class LastFailedRunTests : IDisposable
             Assert.Equal("did not fail in the last run", result.Skip!.Reason);
         });
         Assert.Equal([TestIdOf("passes"), TestIdOf("also_passes")], selection.Results.Select(result => result.TestId));
+        // A session that runs the test names its result the same, so a reporter folding the two reports sees one test.
+        Assert.Equal([AttemptReport.ResultId($"{Namespace}.{Class}", "passes"), AttemptReport.ResultId($"{Namespace}.{Class}", "also_passes")], selection.Results.Select(result => result.Id));
     }
 
     /// <summary>Partial: the port has no runner; this asks the host's selection with a filter in the config, which the second run must not call.</summary>

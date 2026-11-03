@@ -16,7 +16,7 @@ namespace E2E.GitHub;
 internal static class Merge
 {
     /// <summary>Statuses that count as a failure of the run. <c>--last-failed</c> also runs an interrupted test again, but that one reached no verdict.</summary>
-    private static bool IsFailure(Reports.ResultStatus status) => status is Reports.ResultStatus.Failed or Reports.ResultStatus.TimedOut;
+    private static readonly HashSet<Reports.ResultStatus> FailedStatuses = [Reports.ResultStatus.Failed, Reports.ResultStatus.TimedOut];
 
     /// <summary>
     /// A test per target and agent, whatever its <c>--repeat-each</c> run: the identity <c>--last-failed</c> selects by, so a rerun without the flag runs
@@ -37,7 +37,7 @@ internal static class Merge
 
         var before = history.OrderBy(result => result.Repeat).ToList();
         var attempts = before.SelectMany(result => result.Attempts).Concat(current.Attempts).ToList();
-        var failure = before.LastOrDefault(result => IsFailure(result.Status));
+        var failure = before.LastOrDefault(result => FailedStatuses.Contains(result.Status));
         var status = failure is null
             ? current.Status
             : current.Status == Reports.ResultStatus.Passed
@@ -74,7 +74,7 @@ internal static class Merge
                 case Reports.ResultStatus.Interrupted:
                     interrupted++;
                     break;
-                case Reports.ResultStatus.Failed or Reports.ResultStatus.TimedOut:
+                case var status when FailedStatuses.Contains(status):
                     failed++;
                     break;
                 default:
@@ -171,7 +171,7 @@ internal static class Merge
         var carriedFailure =
             carriedErrors.Count > 0
             || carriedById.Values.Any(result => result.Status != Reports.ResultStatus.Interrupted)
-            || results.Exists(result => result.Selected && IsFailure(result.Status));
+            || results.Exists(result => result.Selected && FailedStatuses.Contains(result.Status));
         return current with
         {
             Run = current.Run with
