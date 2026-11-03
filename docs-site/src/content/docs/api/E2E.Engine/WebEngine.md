@@ -15,7 +15,7 @@ Namespace: [E2E.Engine](/api/E2E.Engine/)
 
 
 ```csharp
-public sealed class WebEngine : IEngine, IAsyncDisposable
+public sealed class WebEngine : IDoctorEngine, IEngine, IAsyncDisposable
 ```
 
 
@@ -26,7 +26,7 @@ same node actions the document engine does. Install browsers once with
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
-**Implements:** [IEngine](/api/E2E.Engine/IEngine/), [IAsyncDisposable](https://learn.microsoft.com/dotnet/api/system.iasyncdisposable)
+**Implements:** [IDoctorEngine](/api/E2E.Engine/IDoctorEngine/), [IEngine](/api/E2E.Engine/IEngine/), [IAsyncDisposable](https://learn.microsoft.com/dotnet/api/system.iasyncdisposable)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/obj/Release/net10.0/System.Text.RegularExpressions.Generator/System.Text.RegularExpressions.Generator.RegexGenerator/RegexGenerator.g.cs)
 
@@ -136,6 +136,28 @@ public ValueTask DisposeAsync()
 Worker shutdown: releases the replacement lease the worker acquired for itself, within the cleanup timeout. What prepare leased is the runner's to release.
 
 **Returns:** [ValueTask](https://learn.microsoft.com/dotnet/api/system.threading.tasks.valuetask)
+
+<a id="E2E_Engine_WebEngine_DoctorAsync_"></a>
+<a id="E2E_Engine_WebEngine_DoctorAsync_E2E_Engine_EngineDoctorInfo_System_Threading_CancellationToken_"></a>
+
+### DoctorAsync(EngineDoctorInfo, CancellationToken)
+
+
+```csharp
+public Task<IReadOnlyList<EngineDoctorCheck>> DoctorAsync(EngineDoctorInfo info, CancellationToken cancellationToken)
+```
+
+
+The checks of `e2e doctor`: the init scripts a start reads, and the browser, which only a local launch needs on this machine.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `info` | [EngineDoctorInfo](/api/E2E.Engine/EngineDoctorInfo/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task&lt;IReadOnlyList&lt;EngineDoctorCheck&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task-1)
 
 <a id="E2E_Engine_WebEngine_FinishAsync_"></a>
 <a id="E2E_Engine_WebEngine_FinishAsync_E2E_Engine_EngineFinishInfo_System_Threading_CancellationToken_"></a>

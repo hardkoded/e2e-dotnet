@@ -440,6 +440,78 @@ public sealed record EngineFinishInfo
     public TimeSpan CleanupTimeout { get; init; } = E2EDefaults.CleanupTimeout;
 }
 
+/// <summary>
+/// The app the harness resolved from the target's declaration, as an engine's doctor hook reads it: the site policy and what a device
+/// launches. The URL itself stays with the harness. Upstream's <c>EngineAppInfo</c>, with the members the port's config declares.
+/// </summary>
+public sealed record EngineAppInfo
+{
+    /// <summary>The site of the app's URL, its registrable domain. Null for an app without a URL, which is no policy at all.</summary>
+    public string? Site { get; init; }
+
+    /// <summary>The installed app to launch, as the target declared it.</summary>
+    public string? BundleId { get; init; }
+
+    /// <summary>The build to install, as the target declared it; relative to <see cref="EngineDoctorInfo.ProjectRoot"/>.</summary>
+    public string? AppPath { get; init; }
+
+    /// <summary>Arguments every fresh launch passes the app.</summary>
+    public IReadOnlyList<string>? LaunchArguments { get; init; }
+
+    /// <summary>Permissions the app holds, by name; what each state means is the engine's.</summary>
+    public IReadOnlyDictionary<string, AppPermissionState>? Permissions { get; init; }
+}
+
+/// <summary>
+/// The facts handed to an engine's doctor (<see cref="IDoctorEngine.DoctorAsync"/>), once per target in the process <c>e2e doctor</c>
+/// runs in. Upstream's <c>EngineDoctorInfo</c>; its <c>signal</c> is the <see cref="CancellationToken"/> of the call.
+/// </summary>
+public sealed record EngineDoctorInfo
+{
+    /// <summary>The target being checked.</summary>
+    public required string TargetName { get; init; }
+
+    /// <summary>The directory relative paths in the config resolve against, as <see cref="EnginePrepareInfo.ProjectRoot"/>.</summary>
+    public required string ProjectRoot { get; init; }
+
+    /// <summary>The app the target declares.</summary>
+    public required EngineAppInfo App { get; init; }
+
+    /// <summary>The environment a run would start with.</summary>
+    public required IReadOnlyDictionary<string, string?> Env { get; init; }
+
+    /// <summary>Whether the run would show the surface (<c>--headed</c>).</summary>
+    public required bool Headed { get; init; }
+
+    /// <summary>Reports one line of progress; <c>e2e doctor</c> prints it to stderr.</summary>
+    public required Action<string> Log { get; init; }
+}
+
+/// <summary>
+/// How one finding of an engine's doctor went. Upstream's <c>EngineDoctorCheck.status</c>, a union of four strings. .NET-only name: a C#
+/// union has to be a type.
+/// </summary>
+public enum EngineDoctorStatus
+{
+    /// <summary>What was checked is there.</summary>
+    Pass,
+
+    /// <summary>Something a run handles on its own, slower: a first-run download.</summary>
+    Warn,
+
+    /// <summary>Something that stops a run.</summary>
+    Fail,
+
+    /// <summary>A check that does not apply to this target.</summary>
+    Skip,
+}
+
+/// <summary>One finding of <see cref="IDoctorEngine.DoctorAsync"/>. Upstream's <c>EngineDoctorCheck</c>.</summary>
+/// <param name="Id">What was checked, in kebab case: <c>browser</c>, <c>toolchain</c>. <c>node</c>, <c>config</c>, <c>runtime</c>, <c>engine</c>, and <c>model</c> are <c>e2e doctor</c>'s own.</param>
+/// <param name="Status">How the check went.</param>
+/// <param name="Message">One line: what was found and, unless it passed, what to do.</param>
+public sealed record EngineDoctorCheck(string Id, EngineDoctorStatus Status, string? Message = null);
+
 /// <summary>What a worker's init is given, once per worker, before its first attempt. Upstream's <c>EngineInitInfo</c>.</summary>
 public sealed record EngineInitInfo
 {

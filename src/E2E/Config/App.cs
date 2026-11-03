@@ -5,6 +5,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text.Json.Nodes;
+using E2E.Engine;
 using E2E.Internal;
 
 namespace E2E;
@@ -107,6 +108,13 @@ internal static class TargetApps
             app.Permissions,
             command,
             command is null ? null : readyUrl);
+    }
+
+    /// <summary>What an engine's doctor receives about the target's app: its site policy and what a device launches (upstream's <c>engineAppInfo</c>).</summary>
+    public static EngineAppInfo EngineAppInfoOf(ResolvedApp app)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+        return new EngineAppInfo { Site = app.Site, BundleId = app.BundleId, AppPath = app.AppPath, LaunchArguments = app.LaunchArguments, Permissions = app.Permissions };
     }
 
     /// <summary>
