@@ -122,6 +122,6 @@ public sealed class RunReportTests
         Assert.Equal(ResultStatus.Interrupted, E2E.RunReport.StatusOf([interrupted]));
 
         var result = ReportBuilders.Result(attempts: [failed with { DurationMs = 7 }, interrupted with { DurationMs = 99 }]) with { Status = ResultStatus.Failed };
-        Assert.Equal(7, Outcome.Of(result).Verdict.DurationMs);
+        Assert.Equal(7, Reports.Outcome.Of(Traces.ReportBuilders.Public(result)).Verdict.DurationMs);
     }
 }

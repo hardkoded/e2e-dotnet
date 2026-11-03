@@ -5,6 +5,7 @@
 using E2E.Internal;
 using E2E.Tests.ReportFailureText;
 using E2E.Tests.Traces;
+using MarkdownReportOptions = E2E.Reports.MarkdownReportOptions;
 
 namespace E2E.Tests.ReportMarkdown;
 

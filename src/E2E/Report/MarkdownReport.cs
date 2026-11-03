@@ -4,13 +4,13 @@
 
 using System.Globalization;
 using E2E.Internal;
-using static E2E.FailureText;
 using static E2E.MarkdownText;
+using static E2E.Reports.FailureText;
 
-namespace E2E;
+namespace E2E.Reports;
 
 /// <summary>What a markdown page links to and how it names itself (upstream's <c>MarkdownReportOptions</c>).</summary>
-internal sealed record MarkdownReportOptions
+public sealed record MarkdownReportOptions
 {
     /// <summary>Where the run's artifacts can be fetched: the workflow run page, or a hosted run page. Evidence links there.</summary>
     public string? ArtifactsUrl { get; init; }
@@ -42,7 +42,7 @@ internal sealed record MarkdownReportOptions
 /// renderer trusts, so it is escaped and clipped, and the whole body never outgrows what GitHub accepts. The port has no reporter
 /// extension point, so upstream's <c>markdownReporter</c> (the <c>summary.md</c> writer) is not here.
 /// </summary>
-internal static class MarkdownReport
+public static class MarkdownReport
 {
     /// <summary>GitHub rejects a comment body past 65536 characters. The page stays clear of it with room for what a poster prepends (a marker comment).</summary>
     private const int MaxBodyChars = 60_000;
@@ -67,12 +67,12 @@ internal static class MarkdownReport
     private sealed record FileGroup(string File, string Target, IReadOnlyList<Entry> Entries);
 
     /// <summary>Screenshots first, then the recording; a kind not listed reads last.</summary>
-    private static int KindRank(string kind) => kind switch
+    private static int KindRank(ArtifactKind kind) => kind switch
     {
-        "screenshot" => 0,
-        "video" => 1,
-        "download" => 2,
-        "log" => 3,
+        ArtifactKind.Screenshot => 0,
+        ArtifactKind.Video => 1,
+        ArtifactKind.Download => 2,
+        ArtifactKind.Log => 3,
         _ => 4,
     };
 
@@ -111,11 +111,11 @@ internal static class MarkdownReport
     /// <summary>
     /// The headline's glyph: red for a failed run or any failed test, the interrupted glyph for a run or a listed test the run stopped,
     /// else green. A <c>--last-failed</c> rerun that passed can still list a test the first pass never finished, and the page must not
-    /// read as all green. A run without a status (one only a page reads) counts as passed: its results decide.
+    /// read as all green.
     /// </summary>
     private static string RunIcon(ReportRun run, IReadOnlyList<ReportResult> results)
     {
-        var status = run.Status ?? ReportRunStatus.Passed;
+        var status = run.Status;
         if (status is not (ReportRunStatus.Passed or ReportRunStatus.Interrupted))
         {
             return Icon(ResultBucket.Failed);
@@ -175,7 +175,7 @@ internal static class MarkdownReport
         var leftOut = run.Results.Where(result => result.Skip?.Filter is not null).ToList();
         var withTarget = manyTargets || leftOut.Select(result => result.TargetId).Distinct(StringComparer.Ordinal).Count() > 1;
         var changes = ChangesLine(run.Changes);
-        List<string> said = [.. changes is null ? [] : new[] { changes }, .. run.Filters.Select(record => FilterLine(record, counts))];
+        List<string> said = [.. changes is null ? [] : new[] { changes }, .. (run.Filters ?? []).Select(record => FilterLine(record, counts))];
         List<string> parts = said.Count == 0 ? [] : [string.Join("  \n", said)];
         if (leftOut.Count == 0)
         {
@@ -198,13 +198,13 @@ internal static class MarkdownReport
     }
 
     /// <summary>The model calls an agent step made; the step's metrics are the source of truth.</summary>
-    private static int ModelCalls(StepRecord step) => step.Metrics?.ModelCalls ?? 0;
+    private static int ModelCalls(ReportStep step) => step.Metrics?.ModelCalls ?? 0;
 
     /// <summary>What the agent did over a set of steps.</summary>
-    private static (int Steps, int Replayed, int Calls) AgentTotals(IEnumerable<StepRecord> steps)
+    private static (int Steps, int Replayed, int Calls) AgentTotals(IEnumerable<ReportStep> steps)
     {
         var agent = steps.Where(step => step.Kind == StepKind.Agent).ToList();
-        return (agent.Count, agent.Count(step => step.Cache?.Mode == "self-finalized"), agent.Sum(ModelCalls));
+        return (agent.Count, agent.Count(step => step.Cache?.Mode == CacheMode.SelfFinalized), agent.Sum(ModelCalls));
     }
 
     /// <summary>
@@ -214,7 +214,7 @@ internal static class MarkdownReport
     private static string? SpendLine(ReportRun run, IReadOnlyList<Entry> entries)
     {
         var totals = AgentTotals(entries.SelectMany(entry => entry.Final.Final.Steps));
-        var tokens = run.Usage?.ModelTokens ?? 0;
+        var tokens = run.Usage.ModelTokens;
         if (totals.Steps == 0 && tokens == 0)
         {
             return null;
@@ -233,12 +233,12 @@ internal static class MarkdownReport
 
         if (tokens > 0)
         {
-            var cached = run.Usage?.ModelCachedTokens ?? 0;
+            var cached = run.Usage.ModelCachedTokens ?? 0;
             var share = cached == 0 ? "" : " (" + Math.Round((double)cached / tokens * 100, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture) + "% cached)";
             parts.Add(ReportFormat.FormatTokens(tokens) + " tokens" + share);
         }
 
-        if (run.Usage?.EstimatedCostUsd is { } cost)
+        if (run.Usage.EstimatedCostUsd is { } cost)
         {
             parts.Add(ReportFormat.FormatCost(cost));
         }
@@ -247,10 +247,10 @@ internal static class MarkdownReport
     }
 
     /// <summary><c>screenshot `.e2e/results/&lt;test&gt;/attempt-1/screenshots/001-failure.png`</c>: each file as the reader finds it under <paramref name="dir"/>, capped.</summary>
-    private static List<string> EvidencePaths(IReadOnlyList<ReportArtifact> sorted, string dir)
+    private static List<string> EvidencePaths(IReadOnlyList<ArtifactRecord> sorted, string dir)
     {
         var files = sorted.Where(artifact => artifact.Path is not null).Select(artifact => (Artifact: artifact, File: PosixJoin(dir, artifact.Path!))).ToList();
-        var shown = files.Take(MaxEvidencePaths).Select(item => item.Artifact.Kind + " " + Code(item.File)).ToList();
+        var shown = files.Take(MaxEvidencePaths).Select(item => ArtifactKindName(item.Artifact.Kind) + " " + Code(item.File)).ToList();
         if (files.Count > shown.Count)
         {
             shown.Add("and " + (files.Count - shown.Count).ToString(CultureInfo.InvariantCulture) + " more");
@@ -258,6 +258,9 @@ internal static class MarkdownReport
 
         return shown;
     }
+
+    /// <summary>An artifact's kind as the page names it: <c>screenshot</c>.</summary>
+    private static string ArtifactKindName(ArtifactKind kind) => KebabName(kind);
 
     /// <summary>The artifact path under the directory the reader has the files in; the directory <c>.</c> is the path itself (<c>path.posix.join</c>).</summary>
     private static string PosixJoin(string dir, string artifactPath) => dir is "." or "" ? artifactPath : dir.TrimEnd('/') + "/" + artifactPath;
@@ -267,10 +270,10 @@ internal static class MarkdownReport
     /// after it, so the reader finds the files without their paths spelled out); listed as paths under <c>ArtifactsDir</c> when the
     /// reader has the files; and named by kind otherwise. Paths are POSIX, as the report keeps them.
     /// </summary>
-    private static string Evidence(IReadOnlyList<ReportArtifact> artifacts, MarkdownReportOptions options)
+    private static string Evidence(IReadOnlyList<ArtifactRecord> artifacts, MarkdownReportOptions options)
     {
         // A video a hosted service keeps links to itself, wherever the run's files are.
-        var hosted = artifacts.Where(artifact => artifact.Url is not null).Select(artifact => Link(artifact.Kind, artifact.Url!)).ToList();
+        var hosted = artifacts.Where(artifact => artifact.Url is not null).Select(artifact => Link(ArtifactKindName(artifact.Kind), artifact.Url!)).ToList();
         var local = artifacts.Where(artifact => artifact.Url is null).ToList();
         if (local.Count == 0)
         {
@@ -278,7 +281,7 @@ internal static class MarkdownReport
         }
 
         var sorted = local.OrderBy(artifact => KindRank(artifact.Kind)).ToList();
-        var kinds = sorted.Select(artifact => artifact.Kind).Distinct(StringComparer.Ordinal).ToList();
+        var kinds = sorted.Select(artifact => ArtifactKindName(artifact.Kind)).Distinct(StringComparer.Ordinal).ToList();
         List<string> shown = options.ArtifactsUrl is { } url
             ? [.. kinds.Select(kind => Link(kind, url))]
             : options.ArtifactsDir is null ? [] : EvidencePaths(sorted, options.ArtifactsDir);
@@ -292,7 +295,7 @@ internal static class MarkdownReport
     /// step ran, and what the agent spent on it. A step that is not the agent's reads as the one call it was; an agent step's label is the
     /// sentence the author wrote.
     /// </summary>
-    private static string StepClause(IReadOnlyList<StepRecord> steps, FailedStep at)
+    private static string StepClause(IReadOnlyList<ReportStep> steps, FailedStep at)
     {
         var calls = ModelCalls(at.Step);
         var spent = calls == 0 ? "" : " and " + Plural(calls, "model call");
@@ -303,7 +306,7 @@ internal static class MarkdownReport
     /// <summary><c>**CODE** (phase)</c>: how the error names itself.</summary>
     private static string ErrorName(ReportError error)
     {
-        var phase = error.Phase is null or "body" ? "" : " (" + TextRules.Collapse(TextRules.SanitizeText(error.Phase)) + ")";
+        var phase = error.Phase is null or ErrorPhase.Body ? "" : " (" + TextRules.Collapse(TextRules.SanitizeText(PhaseText(error.Phase.Value))) + ")";
         return "**" + Cell(error.Code, 128) + "**" + phase;
     }
 
@@ -312,7 +315,7 @@ internal static class MarkdownReport
     /// only its first line is quoted, and not when that line just says the api failed. An agent step's explanation is quoted once: skipped
     /// when the message already is the explanation.
     /// </summary>
-    private static List<string> QuotedWords(ReportError? error, StepRecord? at)
+    private static List<string> QuotedWords(ReportError? error, ReportStep? at)
     {
         List<string> words = [];
         if (error is not null)
@@ -357,7 +360,7 @@ internal static class MarkdownReport
         var told = ToldAttempt(result, final);
         var at = FailedStepOf(told);
         var error = told.Error;
-        var name = error is null ? "**" + Cell(ReportWire.ResultStatusName(result.Status), MaxIdChars) + "**" : ErrorName(error);
+        var name = error is null ? "**" + Cell(KebabName(result.Status), MaxIdChars) + "**" : ErrorName(error);
         var lead = at is null ? name : name + " " + StepClause(told.Steps, at);
         var alike = AttemptsLine(result, final);
         List<string> facts = [.. DetailLines(error), .. alike is null ? [] : new[] { alike }, .. LastTurnLines(at?.Step), .. ScreenLines(told), .. AppErrorLines(told)];
@@ -432,7 +435,7 @@ internal static class MarkdownReport
                 return (
                     result.TestId + "@" + result.Agent + "@" + result.TargetId,
                     string.Join(' ', label),
-                    new RepeatRun(result.Repeat, ReportWire.ResultStatusName(result.Status), entry.Final.Final.Error?.Code ?? entry.Final.LastFailed?.Error?.Code));
+                    new RepeatRun(result.Repeat, KebabName(result.Status), entry.Final.Final.Error?.Code ?? entry.Final.LastFailed?.Error?.Code));
             });
         if (groups.Count == 0)
         {
@@ -483,7 +486,7 @@ internal static class MarkdownReport
     }
 
     /// <summary><c>2 steps · 9 calls</c>: the agent's work over a set of steps, or nothing when it did none.</summary>
-    private static string AgentCell(IEnumerable<StepRecord> steps)
+    private static string AgentCell(IEnumerable<ReportStep> steps)
     {
         var totals = AgentTotals(steps);
         if (totals.Steps == 0)
@@ -577,14 +580,14 @@ internal static class MarkdownReport
     private static List<string> Footer(ReportRun run, IReadOnlyList<ReportTarget> targets, MarkdownReportOptions options)
     {
         // A run no one timed (a page built by hand) reads as instant, where upstream's date arithmetic would print NaN.
-        var duration = FormatDuration(run.StartedAt is { } started && run.FinishedAt is { } finished ? (finished - started).TotalMilliseconds : 0);
+        var duration = FormatDuration(run.FinishedAt is { } finished ? (finished - run.StartedAt).TotalMilliseconds : 0);
         var shown = targets.Take(MaxFooterTargets).Select(target => Cell(target.Id, MaxIdChars)).ToList();
         if (targets.Count > shown.Count)
         {
             shown.Add("and " + (targets.Count - shown.Count).ToString(CultureInfo.InvariantCulture) + " more");
         }
 
-        List<string> parts = ["Tested by " + Link("e2e", SiteUrl) + " " + Cell(run.RunnerVersion, MaxIdChars), duration];
+        List<string> parts = ["Tested by " + Link("e2e", SiteUrl) + " " + Cell(run.Runner.Version, MaxIdChars), duration];
         if (targets.Count == 1)
         {
             parts.Add(shown[0]);
@@ -623,7 +626,7 @@ internal static class MarkdownReport
     }
 
     /// <summary>One finding as a list item: grade and title, where it was seen, what was expected against what the screen showed, the actions that reach it, and its screenshot.</summary>
-    private static string FindingBlock(ReportExploreFinding finding, int position, Dictionary<string, ReportArtifact> artifacts, MarkdownReportOptions options)
+    private static string FindingBlock(ReportExploreFinding finding, int position, Dictionary<string, ArtifactRecord> artifacts, MarkdownReportOptions options)
     {
         List<string> where = [.. finding.Path is null ? [] : new[] { Code(finding.Path, MaxTitleChars) }, .. finding.Step is null ? [] : new[] { "step " + finding.Step.Value.ToString(CultureInfo.InvariantCulture) }];
         var kind = finding.Kind == ReportExploreFindingKind.Issue ? "issue" : "warning";
@@ -654,7 +657,7 @@ internal static class MarkdownReport
             return [];
         }
 
-        Dictionary<string, ReportArtifact> artifacts = [];
+        Dictionary<string, ArtifactRecord> artifacts = [];
         foreach (var artifact in run.Results.SelectMany(result => result.Attempts).SelectMany(attempt => attempt.Artifacts))
         {
             artifacts[artifact.Id] = artifact;
@@ -698,7 +701,10 @@ internal static class MarkdownReport
         [.. sections.Where(section => section.Count > 0).SelectMany((section, index) => index == 0 ? section : ["", .. section])];
 
     /// <summary>Renders the run as one markdown page: a pull request comment body, a job summary, or <c>summary.md</c>.</summary>
-    public static string RenderMarkdownReport(Report1Document report, MarkdownReportOptions? options = null)
+    /// <param name="report">The report a reporter receives (<see cref="FinishedRun.Report"/>).</param>
+    /// <param name="options">What the page links to and how it names itself; <see langword="null"/> for none.</param>
+    /// <returns>The page: markdown, at most about 60,000 characters.</returns>
+    public static string RenderMarkdownReport(Report report, MarkdownReportOptions? options = null)
     {
         options ??= new MarkdownReportOptions();
         var run = report.Run;
@@ -710,7 +716,7 @@ internal static class MarkdownReport
         var entries = selected.Select(result => new Entry(result, Outcome.Of(result))).ToList();
         var targets = RanTargets(run, selected);
         var manyTargets = targets.Count > 1;
-        var leftOut = LeftOut.LeftOutTests(run.Results.Select(result => (result.TestId, result.Skip)));
+        var leftOut = LeftOut.LeftOutTests(run.Results.Select(result => (result.TestId, result.Skip?.Filter)));
 
         var errors = run.Errors.Take(MaxRunErrors).Select(RunErrorLine).ToList();
         if (run.Errors.Count > errors.Count)

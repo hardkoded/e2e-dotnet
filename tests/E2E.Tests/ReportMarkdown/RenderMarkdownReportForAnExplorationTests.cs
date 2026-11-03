@@ -3,14 +3,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Internal;
+using E2E.Tests.Traces;
 using static E2E.Tests.ReportMarkdown.MarkdownKit;
+using MarkdownReport = E2E.Reports.MarkdownReport;
+using MarkdownReportOptions = E2E.Reports.MarkdownReportOptions;
 
 namespace E2E.Tests.ReportMarkdown;
 
 /// <summary>Upstream's <c>describe('renderMarkdownReport for an exploration')</c> (<c>tests/unit/report-markdown.test.ts</c>).</summary>
 public sealed class RenderMarkdownReportForAnExplorationTests
 {
-    private static string Render(Report1Document document, MarkdownReportOptions? options = null) => MarkdownReport.RenderMarkdownReport(document, options);
+    private static string Render(Report1Document document, MarkdownReportOptions? options = null) => MarkdownReport.RenderMarkdownReport(ReportBuilders.Public(document), options);
 
     [Fact]
     public void Renders_the_goal_the_steps_every_finding_with_its_evidence_and_the_assessment_in_place_of_the_test_list()
