@@ -174,7 +174,8 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     // instead of walking on.
     private async Task<ToolOutcome> PressAsync(JsonElement arguments, ExecutorTarget? target, string where, IExecutorActions actions, CancellationToken token)
     {
-        var times = Args.Int(arguments, "times") ?? 1;
+        var given = arguments.ValueKind == JsonValueKind.Object && arguments.TryGetProperty("times", out var raw) && raw.ValueKind != JsonValueKind.Null;
+        var times = Args.Int(arguments, "times") ?? (given ? 0 : 1);
         if (times is < 1 or > AgentTools.MaxPressTimes)
         {
             return ToolOutcome.Fail("press times must be 1 to " + AgentTools.MaxPressTimes.ToString(CultureInfo.InvariantCulture) + ".");
