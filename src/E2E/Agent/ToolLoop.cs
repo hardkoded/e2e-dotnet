@@ -171,6 +171,7 @@ public sealed record PreparedMessages(IReadOnlyList<ModelMessage> Messages, stri
 
 internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepExecutor
 {
+    // Only its definition and its stateless Decide policy are used: a shared instance must never run Execute, which keeps a verdict.
     private static readonly VerdictTool Verdict = AgentTools.CreateVerdictTool();
 
     private const string StopActingNotice = "Stop acting. Call done with a verdict.";
@@ -399,11 +400,22 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         return null;
     }
 
-    // The executor's guidance, then the agent's project context: trusted, told to every turn.
+    // The executor's guidance, then the agent's project context (trusted, told to every turn), then the verdict rules for the tool the loop adds.
     private string SystemFor(StepExecutorContext context)
     {
-        var system = options.System?.Invoke(context) ?? "";
-        return string.IsNullOrWhiteSpace(context.AgentContext) ? system : system + (system.Length == 0 ? "" : "\n\n") + "Project context:\n" + context.AgentContext;
+        var parts = new List<string>();
+        if (options.System?.Invoke(context) is { } system && !string.IsNullOrWhiteSpace(system))
+        {
+            parts.Add(system);
+        }
+
+        if (!string.IsNullOrWhiteSpace(context.AgentContext))
+        {
+            parts.Add("Project context:\n" + context.AgentContext);
+        }
+
+        parts.Add(AgentTools.VerdictRules);
+        return string.Join("\n\n", parts);
     }
 
     // One model turn. A request the model refused outright was no turn, and a timeout or a cancel ends the loop like any hard stop.
@@ -460,7 +472,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
     {
         if (string.Equals(call.Name, "done", StringComparison.Ordinal))
         {
-            return Verdict.Execute(call);
+            return Verdict.Decide(call);
         }
 
         var tool = tools.FirstOrDefault(item => string.Equals(item.Definition.Name, call.Name, StringComparison.Ordinal));

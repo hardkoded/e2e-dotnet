@@ -688,6 +688,32 @@ supports the verb. A tool that works outside `context.Actions` wraps its body in
 and records the call. Do not call `context.Actions` or `context.ObserveAsync` inside a
 mutating body: the call waits behind itself.
 
+To keep the built-in actions beside your own tools, add
+`AgentTools.CreateGrammarTools(context, new GrammarToolsOptions { Guard = body => helpers.GuardAsync(body) })`
+to the list `Tools` returns. It gives the built-in agent's action tools for the
+verbs the target's engine supports, and each result reports what changed on
+screen. `DefaultAgent.BaseRules` is the built-in agent's guidance for those
+tools: start `System` with it. The loop appends `AgentTools.VerdictRules` itself.
+`Guard` is optional; without it a hard stop of the step leaves the tool and the
+loop ends the step. A result is a `ToolLoopResult`: text, or text with a
+screenshot in `Pixels`. When a tool throws an error that
+`StepExecutors.IsRuntimeHardStop(error)` accepts, end the step and rethrow it.
+The context must be one the runtime opened for a step.
+
+```csharp
+Tools = (context, helpers) =>
+[
+    .. AgentTools.CreateGrammarTools(context, new GrammarToolsOptions { Guard = body => helpers.GuardAsync(body) }),
+    ReadInbox(context),
+],
+System = _ => DefaultAgent.BaseRules + "\n\nCheck the inbox with read_inbox when a step mentions an email.",
+```
+
+An executor that drives a model outside the loop gets the built-in verdict from
+`AgentTools.CreateVerdictTool()`: give the model its `Tool` and
+`AgentTools.VerdictRules`, run each `done` call with `Execute(call)`, and return
+`Verdict` once `Concluded`. The tool is `done`, and it takes `code`.
+
 The observation's `KeyboardVisible` says whether an on-screen keyboard is
 showing, and is `null` when the engine can't tell.
 

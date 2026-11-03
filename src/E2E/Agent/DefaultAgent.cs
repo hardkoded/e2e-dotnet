@@ -23,12 +23,14 @@ public sealed class BuiltInAgentOptions
 /// <summary>Upstream's <c>createBuiltInAgent</c> (<c>agent/default-agent.ts</c>): the tool loop with the built-in rules, tools, and opening prompt.</summary>
 public static class DefaultAgent
 {
-    // Upstream's BASE_RULES.
-    private const string BaseRules =
-        "You are an e2e test agent. Act only by calling tools. Finish with done. " +
+    /// <summary>
+    /// Upstream's <c>BASE_RULES</c>: the built-in agent's guidance for its action tools (<see cref="AgentTools.CreateGrammarTools"/>). Begin the
+    /// <see cref="ToolLoopExecutorOptions.System"/> of an executor that offers the same tools with it. The verdict rules are <see cref="AgentTools.VerdictRules"/>,
+    /// which the tool loop adds itself.
+    /// </summary>
+    public const string BaseRules =
+        "You are an e2e test agent. Act only by calling tools. " +
         "Target a control by its role and name from the screen snapshot. " +
-        "done status is passed, failed, or blocked. " +
-        "blocked means credentials, the environment, or test setup prevented a verdict, and requires a code. " +
         "Never type a secret value. Call fill_secret with the secret name. " +
         "A secret looks like <secret:name>. " +
         "If what you need is not on the screen, scroll to it. " +
@@ -55,7 +57,7 @@ public static class DefaultAgent
             Version = BuiltInAgent.Version,
             System = _ => SystemFor(options.System),
             PrepareMessages = (messages, _) => new PreparedMessages(TranscriptCompaction.CompactScreenshotHistory(TranscriptCompaction.CompactScreenHistory(messages))),
-            Tools = (context, _) => GrammarTools(context, options.Tools),
+            Tools = (context, _) => AgentTools.GrammarTools(context, options.Tools),
             BuildMessages = Opening,
         });
     }
@@ -63,27 +65,6 @@ public static class DefaultAgent
     // The execution rules, then the configured text.
     private static string SystemFor(string? system) =>
         string.IsNullOrWhiteSpace(system) ? BaseRules : BaseRules + "\n\n" + system;
-
-    // The tools this engine can honor beside the project tools its platform may be offered, each run through the step's own actions.
-    private static List<ToolLoopTool> GrammarTools(StepExecutorContext context, IReadOnlyDictionary<string, AgentTool>? tools)
-    {
-        var host = context.Host
-            ?? throw new InvalidOperationException("The built-in agent drives the context of a step the runtime opened; it cannot run on a context built by hand.");
-        var project = tools is null
-            ? new Dictionary<string, AgentTool>()
-            : tools.Where(pair => pair.Value.AppliesTo(context.Target.Platform)).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
-        var offered = project.Select(pair => AgentTools.Project(pair.Key, pair.Value)).ToList();
-        var act = new ActTools(host.Scope, host.Feed, null, PixelMode.For(context));
-        return AgentTools.CreateGrammarTools(host.Scope.EngineCapabilities, offered, host.Scope.ActionKinds, host.Scope.Session.PointerActionKinds)
-            .Select(definition => new ToolLoopTool(
-                definition,
-                async (call, token) =>
-                {
-                    var outcome = await act.ExecuteAsync(call, context.Actions, host.Accounting, project, token, context).ConfigureAwait(false);
-                    return new ToolLoopResult(outcome.Content, !outcome.Succeeded, outcome.Pixels);
-                }))
-            .ToList();
-    }
 
     // Upstream's formatReplayedPrefix: the mid-step hand-off notice. The agent continues from live state; redoing a replayed
     // action would double-commit a mutation.
