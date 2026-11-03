@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Reflection;
+using Xunit;
 
 namespace E2E.XUnit.V3;
 
@@ -12,9 +13,41 @@ namespace E2E.XUnit.V3;
 /// <code>
 /// [assembly: AssemblyFixture(typeof(E2E.XUnit.V3.E2ERunFixture))]
 /// </code>
+/// To give the run test filters, derive a fixture, override <see cref="Filters"/>, and register that type instead.
 /// </summary>
-public sealed class E2ERunFixture : IAsyncDisposable
+public class E2ERunFixture : IAsyncLifetime
 {
+    /// <summary>
+    /// The test filters, in order. They run only when <see cref="ChangedSince"/> or <c>E2E_CHANGED_SINCE</c> names a base ref; each judges
+    /// the tests and the files changed since that ref, and a test it leaves out is skipped with its reason. Empty by default.
+    /// </summary>
+    protected virtual IReadOnlyList<ITestFilter> Filters => [];
+
+    /// <summary>The base ref to measure the change from (upstream's <c>--changed-since</c>). Unset, the <c>E2E_CHANGED_SINCE</c> environment variable; with neither, no filter runs.</summary>
+    protected virtual string? ChangedSince => null;
+
+    /// <summary>The config the filters read: the discovered <c>e2e.config.json</c>, or the defaults when there is none.</summary>
+    protected virtual E2EConfig Config => E2EConfig.Discover();
+
+    /// <summary>
+    /// Finds the tests of the assembly by reflection and runs the filters over them once, before the first test. The tests the filters left
+    /// out skip themselves at their start. A run with no base ref runs every test.
+    /// </summary>
+    public async ValueTask InitializeAsync()
+    {
+        // A session the host opens on a named test is never filtered out (upstream's open-session path applies no changedSince).
+        if (SessionHandover.IsActive || HostTestFilters.ResolveChangedSince(ChangedSince) is not { } changedSince || TestAssemblyOf(Xunit.TestContext.Current.TestAssembly?.AssemblyPath) is not { } testAssembly)
+        {
+            return;
+        }
+
+        var config = Config;
+        var token = Xunit.TestContext.Current.CancellationToken;
+        var selection = await HostTestFilters.ExcludeAsync(config, Filters, changedSince, RunSelection.Discover(testAssembly), Console.Error.WriteLine, token).ConfigureAwait(false);
+        RunSelection.Add(selection.Excluded);
+        await HostTestFilters.WriteReportAsync(config, selection, token).ConfigureAwait(false);
+    }
+
     /// <summary>
     /// Runs the reporters that the test assembly registers with <c>[assembly: E2EReporter(typeof(...))]</c> once <c>report.json</c> is final, then
     /// stops the app commands that the tests of this process started, and deletes the sessions that setup tests saved (see <c>E2ESetupAttribute</c>). The test assembly is the one xUnit is running (its path from the test context), else the entry assembly, since an xUnit v3 test project is an executable.
