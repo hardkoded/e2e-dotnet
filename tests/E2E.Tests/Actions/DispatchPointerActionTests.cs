@@ -10,7 +10,7 @@ namespace E2E.Tests.Actions;
 /// <summary>
 /// Upstream's <c>dispatchPointerAction</c> describe. Upstream stubs the page's mouse and reads its calls, and fakes the clock. The port
 /// cannot see calls inside the engine, so each test runs a live page that logs the mouse events it receives, at the coordinates the page
-/// sees. The two paced tests read real time, so they are <c>Partial_</c>.
+/// sees. The ported paced tests read real time, so they are <c>Partial_</c>.
 /// </summary>
 [Collection(BrowserCollection.Name)]
 public sealed class DispatchPointerActionTests
@@ -114,7 +114,7 @@ public sealed class DispatchPointerActionTests
             await WaitForMoveAfterDownAsync(session);
 
             await cancel.CancelAsync();
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => swipe);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => swipe.WaitAsync(TimeSpan.FromSeconds(30)));
 
             var log = await DragLogAsync(session);
             Assert.Equal("up", log[^1]);
@@ -135,7 +135,7 @@ public sealed class DispatchPointerActionTests
             await WaitForMoveAfterDownAsync(session);
 
             await cancel.CancelAsync();
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => swipe);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => swipe.WaitAsync(TimeSpan.FromSeconds(30)));
 
             var log = await DragLogAsync(session);
             Assert.Equal("up", log[^1]);
