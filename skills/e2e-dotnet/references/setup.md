@@ -76,6 +76,12 @@ cache, as upstream does, and exits with Playwright's exit code. An unknown
 option or browser exits 2. A local tool runs it as `dotnet e2e install`. The
 engine launches the browser `BrowserName` names, Chromium by default.
 
+`e2e doctor` checks the setup without starting anything: the .NET runtime, the
+config and its targets, whether the browser a run launches is installed (`warn`
+when the first run will download it), the `InitScripts` files, and, for an
+agent whose `provider` is `chatgpt`, `copilot`, `grok`, or `opencode-console`,
+the stored login (a set provider API key variable, such as `OPENCODE_API_KEY`, passes it without one). It exits 2 when a check failed.
+
 ## Subscriptions and API keys
 
 Pick the model in `agents.<name>.provider` and `model`:

@@ -70,6 +70,7 @@ export default defineConfig({
                         { label: "Caching & self-healing", slug: "features/caching" },
                         { label: "Test filters", slug: "docs/test-filters" },
                         { label: "Bug bashes", slug: "docs/bug-bash" },
+                        { label: "e2e doctor", slug: "docs/doctor" },
                         { label: "Soft assertions & evidence", slug: "features/assertions" },
                         { label: "Video & screenshots", slug: "features/video" },
                         { label: "Working with the browser", slug: "features/browser" },

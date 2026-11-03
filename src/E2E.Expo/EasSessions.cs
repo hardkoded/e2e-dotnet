@@ -126,21 +126,36 @@ internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
         }
 
         var data = await GraphqlAsync(Create, new JsonObject { ["input"] = input }, cancellationToken).ConfigureAwait(false);
-        var created = data["deviceRunSession"]?["createDeviceRunSession"];
-        var id = created?["id"]?.GetValue<string>() ?? throw new InvalidOperationException("Expo: the created session has no id");
-        var app = created["app"];
-        var account = Uri.EscapeDataString(app?["ownerAccount"]?["name"]?.GetValue<string>() ?? "");
-        var slug = Uri.EscapeDataString(app?["slug"]?.GetValue<string>() ?? "");
-        return new EasCreatedSession(id, $"https://expo.dev/accounts/{account}/projects/{slug}/simulator-sessions/{id}");
+        var created = Field(Field(data, "deviceRunSession"), "createDeviceRunSession");
+        var app = Field(created, "app");
+        if (Text(Field(created, "id")) is not { } id || Text(Field(app, "slug")) is not { } slug || Text(Field(Field(app, "ownerAccount"), "name")) is not { } owner)
+        {
+            throw Unexpected("createDeviceRunSession");
+        }
+
+        return new EasCreatedSession(id, $"https://expo.dev/accounts/{Uri.EscapeDataString(owner)}/projects/{Uri.EscapeDataString(slug)}/simulator-sessions/{id}");
     }
 
     public async Task<EasSessionState> StateAsync(string id, CancellationToken cancellationToken)
     {
         var data = await GraphqlAsync(State, new JsonObject { ["id"] = id }, cancellationToken).ConfigureAwait(false);
-        var session = data["deviceRunSessions"]?["byId"] ?? throw new InvalidOperationException($"Expo: session {id} not found");
-        var status = session["status"]?.GetValue<string>();
-        var job = session["turtleJobRun"]?["status"]?.GetValue<string>();
-        var config = session["remoteConfig"];
+        var session = Field(Field(data, "deviceRunSessions"), "byId");
+        var status = Text(Field(session, "status"));
+        var jobRun = Field(session, "turtleJobRun");
+        var job = Text(Field(jobRun, "status"));
+        var config = Field(session, "remoteConfig");
+        var daemonUrl = Field(config, "agentDeviceRemoteSessionUrl");
+        var daemonToken = Field(config, "agentDeviceRemoteSessionToken");
+        var previewUrl = Field(config, "webPreviewUrl");
+        var previewToken = Field(config, "webPreviewToken");
+        if (status is null
+            || (jobRun is not null && job is null)
+            || (config is not null && config is not JsonObject)
+            || !new[] { daemonUrl, daemonToken, previewUrl, previewToken }.All(value => value is null || Text(value) is not null))
+        {
+            throw Unexpected("deviceRunSessions.byId");
+        }
+
         if (status is "STOPPED" or "ERRORED")
         {
             return new EasSessionState(EasPhase.Ended, EndedStatus: status.ToLowerInvariant());
@@ -152,9 +167,9 @@ internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
             return new EasSessionState(EasPhase.Ended, EndedStatus: $"job {job.ToLowerInvariant()}");
         }
 
-        if (config?["agentDeviceRemoteSessionUrl"]?.GetValue<string>() is { } url && config["agentDeviceRemoteSessionToken"]?.GetValue<string>() is { } token)
+        if (Text(daemonUrl) is { } url && Text(daemonToken) is { } token)
         {
-            var preview = config["webPreviewToken"] is null ? config["webPreviewUrl"]?.GetValue<string>() : null;
+            var preview = previewToken is null ? Text(previewUrl) : null;
             return new EasSessionState(EasPhase.Ready, url, token, preview);
         }
 
@@ -168,22 +183,49 @@ internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
     /// </summary>
     public async Task StopAsync(string id, CancellationToken cancellationToken)
     {
-        JsonNode? job;
+        JsonNode data;
         try
         {
-            var data = await GraphqlAsync(Stop, new JsonObject { ["id"] = id }, cancellationToken).ConfigureAwait(false);
-            job = data["deviceRunSession"]?["ensureDeviceRunSessionStopped"]?["turtleJobRun"];
+            data = await GraphqlAsync(Stop, new JsonObject { ["id"] = id }, cancellationToken).ConfigureAwait(false);
         }
         catch (EasException cause) when (cause.Code == "NOT_FOUND_ERROR")
         {
             return;
         }
 
-        if (job is not null && job["status"]?.GetValue<string>() is { } status && QueuedJob.Contains(status))
+        if (Field(Field(data, "deviceRunSession"), "ensureDeviceRunSessionStopped") is not JsonObject stopped)
         {
-            await GraphqlAsync(CancelJob, new JsonObject { ["id"] = job["id"]?.GetValue<string>() }, cancellationToken).ConfigureAwait(false);
+            throw Unexpected("ensureDeviceRunSessionStopped");
+        }
+
+        if (!stopped.TryGetPropertyValue("turtleJobRun", out var job))
+        {
+            throw Unexpected("ensureDeviceRunSessionStopped");
+        }
+
+        if (job is null)
+        {
+            return;
+        }
+
+        if (Text(Field(job, "id")) is not { } jobId || Text(Field(job, "status")) is not { } jobStatus)
+        {
+            throw Unexpected("ensureDeviceRunSessionStopped");
+        }
+
+        if (QueuedJob.Contains(jobStatus))
+        {
+            await GraphqlAsync(CancelJob, new JsonObject { ["id"] = jobId }, cancellationToken).ConfigureAwait(false);
         }
     }
+
+    /// <summary><paramref name="key"/> of a JSON object; <see langword="null"/> for a missing key or a value that is not an object.</summary>
+    private static JsonNode? Field(JsonNode? value, string key) => value is JsonObject node ? node[key] : null;
+
+    private static string? Text(JsonNode? value) => value is JsonValue node && node.TryGetValue<string>(out var text) ? text : null;
+
+    /// <summary>The error for an answer without the fields an operation reads; it names no value, since the answer can hold a daemon token.</summary>
+    private static InvalidOperationException Unexpected(string operation) => new($"Expo: unexpected response to {operation}");
 
     private static void Set(JsonObject target, string name, string? value)
     {
@@ -224,20 +266,20 @@ internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
         }
         catch (JsonException)
         {
-            body = null;
-        }
-
-        if (body is not JsonObject root)
-        {
-            var excerpt = text.Trim();
+            var excerpt = Redact(text.Trim());
             throw new InvalidOperationException($"Expo: HTTP {status}, {(excerpt.Length > 200 ? excerpt[..200] : excerpt)}");
         }
 
-        if (root["errors"] is JsonArray { Count: > 0 } errors && errors[0] is { } error)
+        if (Field(body, "errors") is JsonArray { Count: > 0 } errors)
         {
-            throw new EasException(error["message"]?.GetValue<string>() ?? $"HTTP {status}", error["extensions"]?["errorCode"]?.GetValue<string>());
+            var error = errors[0];
+            throw new EasException(Redact(Text(Field(error, "message")) ?? $"HTTP {status}"), Text(Field(Field(error, "extensions"), "errorCode")));
         }
 
-        return !response.IsSuccessStatusCode || root["data"] is not { } data ? throw new InvalidOperationException($"Expo: HTTP {status}, no data") : data;
+        return !response.IsSuccessStatusCode || Field(body, "data") is not { } data ? throw new InvalidOperationException($"Expo: HTTP {status}, no data") : data;
     }
+
+    /// <summary>The text with the credential this client sends hidden: Expo's error text can echo a rejected token.</summary>
+    private string Redact(string text) =>
+        (credentials.AccessToken ?? credentials.SessionSecret) is { Length: > 0 } secret ? text.Replace(secret, "*****", StringComparison.Ordinal) : text;
 }

@@ -392,6 +392,29 @@ foreach (var finding in outcome.Explore.Findings)
 
 `outcome.Status` is `Failed` when the agent reported an `issue` (a `warning` does not fail the run) and `Blocked` when it could not explore. The budgets are 1 to 12 steps and 3 to 15 minutes. `OnProgress` follows the run as it happens, and `Credentials` gives the accounts the agent can sign in with. The command takes `--trace`, `--video`, `--debug`, and `--ai-trace` as upstream does, and has no `--session` or `--reporter`. See [COMPATIBILITY.md](COMPATIBILITY.md#explore) and topic `explore`.
 
+## Checking your setup
+
+`e2e doctor` checks that `e2e explore` and `e2e mcp` can start here, without starting anything. It prints one line per check, then whether they can start:
+
+```bash
+e2e doctor
+e2e doctor --json
+e2e doctor --target web --headed
+```
+
+| Check | Status |
+| --- | --- |
+| `runtime` | `pass`: the .NET version. |
+| `config` | `pass` with `path` and `targets` (`name`, `platform`, `engine`), or `fail` with the `INVALID_CONFIG`, `CONFIG_NOT_FOUND`, or `UNKNOWN_TARGET` code. A failed `config` is the last check. |
+| Engine checks, with `target` | What the target's engine reports, such as the web engine's `browser`: `pass` when installed, `warn` when the first run will download it, `skip` with a browser provider or `Connect`; and `init-scripts`, when `InitScripts` are set. `engine` is `skip` when the engine has no doctor checks (the device and Windows engines, for now), and `fail` when its doctor threw, timed out, or returned a malformed check. |
+| `model`, with `agent` | `model` and `judge` as `provider` and `modelId`. `pass` or `fail` for a model on an [`e2e login`](#subscriptions) (`chatgpt`, `copilot`, `grok`, `opencode-console`), from the stored login or the provider's API key variable. `unknown` for any other model, because the model reads its own credential, and doctor never calls it. `skip` when the agent has no model. |
+
+`--config <path>` and `--target <names>` (comma-separated or repeated) are as for `e2e explore`. `--headed` checks for what a headed run needs. `--json` prints the `doctor-1` report to stdout, and only the report; its JSON Schema ships in the package as `schema/doctor-v1.schema.json`. An engine's progress lines go to stderr as `[target] line`.
+
+It exits 0 when no check failed (`warn`, `skip`, and `unknown` never fail), 2 when a check failed, and 130 when interrupted: the check that was cut short is `fail` with `CANCELLED`, and the checks after it are left out. `--check-model` is not supported yet.
+
+An engine reports its own checks through `IDoctorEngine.DoctorAsync` (read-only and quick: it starts, installs, and leases nothing, and does not call `PrepareAsync`). `e2e doctor` gives each call 30 seconds. A throw, a timeout, a finding with an id doctor uses itself (`node`, `config`, `runtime`, `engine`, `model`) or one that is not kebab case, or a status it does not know, becomes an `engine` check with status `fail`. See [COMPATIBILITY.md](COMPATIBILITY.md#doctor).
+
 ## Hosting sessions in your own runner
 
 `E2EHost` opens isolated per-test sessions for a runner that is not NUnit or xUnit (upstream's `openHost`). It loads the config, starts the target's app command, prepares the engine once, and opens one session at a time.
@@ -485,6 +508,6 @@ Most unit tests use `DocumentEngine` and a scripted model. No test needs an API 
 | none (.NET only) | `E2E.TestMu.Mobile` (TestMu AI real and virtual mobile devices through Appium; in progress) |
 | none (.NET only) | `E2E.Mobile.DevFlow` (`DevFlowAgents`), .NET MAUI apps through the MAUI DevFlow agent; preview |
 | `@e2e-dev/testmu` (`testmuBrowsers()`, ported in part) | `E2E.TestMu` (`TestMuBrowsers`), hosted browsers for `WebEngineOptions.Browser` |
-| `e2e login`, `e2e logout`, `e2e models`, `e2e guide`, `e2e mcp`, `e2e explore`, `e2e-web install` (as `e2e install`) | `E2E.Cli` (the `e2e` .NET tool) |
+| `e2e login`, `e2e logout`, `e2e models`, `e2e guide`, `e2e mcp`, `e2e explore`, `e2e doctor`, `e2e-web install` (as `e2e install`) | `E2E.Cli` (the `e2e` .NET tool) |
 
 `@e2e-dev/mobile` is ported in part (the snapshot model and the engine) as `E2E.Mobile`. The Expo Simulators, Limrun, and BrowserStack providers are their own packages, `E2E.Expo`, `E2E.Limrun`, and `E2E.BrowserStack`. `E2E.TestMu` ports upstream's `testmuBrowsers()` in part. The Kernel provider is its own package, `E2E.Kernel`. `@e2e-dev/github` is `E2E.GitHub`, ported in part. Details are in [COMPATIBILITY.md](COMPATIBILITY.md).

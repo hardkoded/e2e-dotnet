@@ -29,6 +29,7 @@ public static partial class Program
           e2e init [directory] [--yes] [--engine <ids>] [--gateway <id>] [--endpoint <url>] [--skills <dirs>] [--mcp <files>]
           e2e explore [goal] [--config <path>] [--target <id>] [--agent <name>] [--max-steps <n>] [--timeout <ms>] [--headed] [--output <dir>]
                        [--debug] [--ai-trace] [--trace [mode]] [--video [mode]]
+          e2e doctor [--config <path>] [--target <ids>] [--headed] [--json]
 
         e2e install downloads browsers for the Playwright version E2E runs. It installs chromium when no browser is named.
 
@@ -42,6 +43,8 @@ public static partial class Program
         It asks the questions no flag answered; --yes takes the defaults instead. e2e init --help lists its flags.
 
         e2e explore runs the agent against the app toward a goal, without a test file, and reports its findings. e2e explore --help lists its options.
+
+        e2e doctor checks that e2e explore and e2e mcp can start here, without starting anything: the runtime, the config, each target's engine, and each agent's model. e2e doctor --help lists its options.
 
         e2e mcp serves a coding agent such as Claude Code over MCP (stdio): the fixed tools and the guide
         resources. Each action prints the test line that repeats it, or says why it has none, so the agent writes a test while it walks the real app. Register it with: claude mcp add e2e -- e2e mcp
@@ -95,6 +98,11 @@ public static partial class Program
         if (args[0] == "explore")
         {
             return await ExploreCommand.RunAsync(args.Skip(1), stdout, stderr, interactive, Explore.ExploreAsync, cancellationToken, cwd).ConfigureAwait(false);
+        }
+
+        if (args[0] == "doctor")
+        {
+            return await DoctorCommand.RunAsync(args.Skip(1), stdout, stderr, interactive, cancellationToken, cwd).ConfigureAwait(false);
         }
 
         if (args[0] == "init")
