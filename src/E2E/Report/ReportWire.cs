@@ -541,7 +541,8 @@ internal static partial class ReportWire
             ("reproduction", Strings(finding.Reproduction.Take(20), 500)),
             ("path", ClipOrNull(finding.Path, 2048)),
             ("observationRevision", ClipOrNull(finding.ObservationRevision, 256)),
-            ("reportedAt", Timestamp(finding.ReportedAt))))])));
+            ("reportedAt", Timestamp(finding.ReportedAt)),
+            ("artifactId", ClipOrNull(finding.ArtifactId, 2048))))])));
 
     /// <summary>The document with every result serialized now, for a caller that keeps none.</summary>
     public static JsonObject Document(Report1Document document, string resultsRoot) =>

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Internal;
+using E2E.Reports;
 
 namespace E2E;
 
@@ -54,11 +55,24 @@ internal static class TracePages
         }
 
         Dictionary<string, string> pages = new(StringComparer.Ordinal);
-        foreach (var result in report.Run.Results.Where(result => traced.Contains(result.Id)))
+        if (traced.Count == 0)
         {
+            return pages;
+        }
+
+        // The renderer reads the public tree, as a reporter has it; the results keep their order, so each pairs with its own.
+        var told = ReportSerializer.Read(ReportWire.Document(report, options.ResultsRoot));
+        for (var index = 0; index < report.Run.Results.Count; index++)
+        {
+            var result = report.Run.Results[index];
+            if (!traced.Contains(result.Id))
+            {
+                continue;
+            }
+
             var dir = result.Directory ?? ArtifactPaths.ResultSegment(result.Id, result.File, result.TitlePath);
             var file = Path.Combine(options.ResultsRoot, dir, TracePage);
-            var outcome = Outcome.Of(result);
+            var outcome = Outcome.Of(told.Run.Results[index]);
             if (report.Run.Explore is { } explore && IsExploreVerdict(outcome, explore))
             {
                 // A page an earlier run left for the same goal would pass as evidence of this one.
@@ -75,8 +89,8 @@ internal static class TracePages
             }
 
             var page = FailureText.RenderTracePage(
-                report,
-                result,
+                told,
+                told.Run.Results[index],
                 outcome,
                 new TracePageOptions
                 {

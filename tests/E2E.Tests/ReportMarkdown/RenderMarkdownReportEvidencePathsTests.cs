@@ -3,14 +3,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Internal;
+using E2E.Tests.Traces;
 using static E2E.Tests.ReportMarkdown.MarkdownKit;
+using MarkdownReport = E2E.Reports.MarkdownReport;
+using MarkdownReportOptions = E2E.Reports.MarkdownReportOptions;
 
 namespace E2E.Tests.ReportMarkdown;
 
 /// <summary>Upstream's <c>describe('renderMarkdownReport evidence paths')</c> (<c>tests/unit/report-markdown.test.ts</c>).</summary>
 public sealed class RenderMarkdownReportEvidencePathsTests
 {
-    private static string Render(Report1Document document, MarkdownReportOptions? options = null) => MarkdownReport.RenderMarkdownReport(document, options);
+    private static string Render(Report1Document document, MarkdownReportOptions? options = null) => MarkdownReport.RenderMarkdownReport(ReportBuilders.Public(document), options);
 
     [Fact]
     public void Lists_one_artifact_path_per_kind_under_artifactsDir_when_there_is_no_run_page_in_kind_order_and_names_kinds_when_no_path_was_kept()
