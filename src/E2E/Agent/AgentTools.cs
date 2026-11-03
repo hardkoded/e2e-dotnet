@@ -294,8 +294,11 @@ public static class AgentTools
 
                     var content = guard is null ? await Body().ConfigureAwait(false) : await guard(Body).ConfigureAwait(false);
 
-                    // A guard that answered in the body's place (the step is concluding, or the body failed) leaves no outcome: a failed call.
-                    return outcome is null ? new ToolLoopResult(content, Failed: true) : new ToolLoopResult(content, !outcome.Succeeded, outcome.Pixels);
+                    // A guard that answered in the body's place (the step is concluding, or the body failed) leaves no outcome, or an outcome
+                    // whose text is not what the model reads: a failed call, with no screenshot of a screen the text does not describe.
+                    return outcome is null || !string.Equals(content, outcome.Content, StringComparison.Ordinal)
+                        ? new ToolLoopResult(content, Failed: outcome is null || !outcome.Succeeded)
+                        : new ToolLoopResult(content, !outcome.Succeeded, outcome.Pixels);
                 }))
             .ToList();
     }
