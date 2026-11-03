@@ -4,12 +4,14 @@
 
 using System.Text.Json;
 using E2E.Reports;
+using E2E.Tests.ScreenTree;
 
 namespace E2E.Tests.Reporters;
 
 /// <summary>
 /// .NET-only: <c>reporters</c> in <c>e2e.config.json</c> names reporter types, where upstream's config lists reporter objects built in code.
 /// </summary>
+[Collection(nameof(ConsoleCollection))]
 public sealed class ConfigReportersTests
 {
     private const string First = "E2E.Tests.Reporters.FirstReporter, E2E.Tests";
@@ -67,7 +69,7 @@ public sealed class ConfigReportersTests
     {
         var config = Parse($$$"""["{{{First}}}", {"type": "{{{Second}}}", "options": {"bad": true}}, "{{{First}}}"]""");
 
-        Assert.Equal(2, E2E.Reporters.Create(config).Count);
+        Assert.Equal(2, CreateCapturingStderr(config).Reporters.Count);
     }
 
     [Fact]
@@ -100,30 +102,62 @@ public sealed class ConfigReportersTests
     }
 
     [Fact]
-    public void Rejects_a_type_name_that_does_not_resolve_and_hints_a_missing_assembly()
+    public void A_type_that_does_not_resolve_loads_with_the_config_and_is_one_stderr_line_at_run_end()
     {
-        var message = Invalid("[\"Nope.Missing, Nope\"]");
+        var (reporters, error) = CreateCapturingStderr(Parse($$"""["Nope.Missing, Nope", "{{First}}"]"""));
 
-        Assert.Contains("reporters[0] reporter type \"Nope.Missing, Nope\" was not found", message);
-        Assert.Contains("assembly", message);
+        Assert.Equal(["first"], reporters.Select(reporter => reporter.Name));
+        Assert.Contains("reporter \"Nope.Missing, Nope\" could not be created", error);
+        Assert.Contains("was not found", error);
+        Assert.Contains("assembly", error);
     }
 
     [Theory]
     [InlineData("E2E.Tests.Reporters.NotAReporter, E2E.Tests", "derives from E2E.Reports.Reporter")]
     [InlineData("E2E.Tests.Reporters.AbstractReporter, E2E.Tests", "non-abstract")]
     [InlineData("E2E.Tests.Reporters.ParameterReporter, E2E.Tests", "public constructor with no parameters")]
-    public void Rejects_a_type_that_cannot_be_a_reporter(string type, string reason)
+    public void A_type_that_cannot_be_a_reporter_is_one_stderr_line_and_the_others_still_run(string type, string reason)
     {
-        Assert.Contains(reason, Invalid($"[\"{type}\"]"));
+        var (reporters, error) = CreateCapturingStderr(Parse($$"""["{{type}}", "{{First}}"]"""));
+
+        Assert.Equal(["first"], reporters.Select(reporter => reporter.Name));
+        Assert.Contains($"reporter \"{type}\" could not be created", error);
+        Assert.Contains(reason, error);
     }
 
     [Fact]
-    public void Rejects_options_for_a_reporter_that_is_not_configurable_without_echoing_them()
+    public void Options_for_a_reporter_that_is_not_configurable_are_one_stderr_line_that_never_holds_the_value()
     {
-        var message = Invalid($"[{{\"type\": \"{First}\", \"options\": {{\"key\": \"s3cret-value\"}}}}]");
+        var (reporters, error) = CreateCapturingStderr(Parse($$$"""[{"type": "{{{First}}}", "options": {"key": "s3cret-value"}}, "{{{Second}}}"]"""));
 
-        Assert.Contains("takes no options", message);
-        Assert.DoesNotContain("s3cret-value", message);
+        Assert.Equal(["second"], reporters.Select(reporter => reporter.Name));
+        Assert.Contains("takes no options", error);
+        Assert.DoesNotContain("s3cret-value", error);
+    }
+
+    [Fact]
+    public void A_configure_that_rejects_its_options_is_one_stderr_line_that_names_the_type()
+    {
+        var (_, error) = CreateCapturingStderr(Parse($$$"""[{"type": "{{{Second}}}", "options": {"bad": "s3cret-value"}}]"""));
+
+        Assert.Contains($"reporter \"{Second}\" could not be created: option \"bad\" is not supported", error);
+        Assert.DoesNotContain("s3cret-value", error);
+    }
+
+    // Reporters.Create writes to the process's stderr, which the console collection shares.
+    private static (IReadOnlyList<Reporter> Reporters, string Error) CreateCapturingStderr(E2EConfig config)
+    {
+        var original = Console.Error;
+        using var captured = new StringWriter();
+        Console.SetError(captured);
+        try
+        {
+            return (E2E.Reporters.Create(config), captured.ToString());
+        }
+        finally
+        {
+            Console.SetError(original);
+        }
     }
 
     [Fact]

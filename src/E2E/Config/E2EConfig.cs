@@ -369,7 +369,7 @@ public sealed class E2EConfig
         }
     }
 
-    // Upstream's resolveReporters: `reporters` is an array. An entry is a type name, or { type, options }. The type must resolve at load, so a typo fails before the run.
+    // Upstream's resolveReporters: `reporters` is an array. An entry is a type name, or { type, options }. The shape is checked at load; the type is resolved when the run ends (see ReporterEntry).
     private static List<ReporterEntry> ReadReporters(JsonElement? raw)
     {
         var entries = new List<ReporterEntry>();
@@ -412,7 +412,7 @@ public sealed class E2EConfig
                 throw Invalid(at + " must be a reporter type name or an object with a string \"type\"");
             }
 
-            entries.Add(ReporterEntry.Resolve(name.Trim(), options, at));
+            entries.Add(new ReporterEntry(name.Trim(), options));
         }
 
         return entries;

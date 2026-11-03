@@ -229,10 +229,14 @@ and in CI.
   `{ "type": "...", "options": { ... } }`. `options` reach the reporter only if
   it implements `IConfigurableReporter` (`Configure(JsonElement options)`, called
   once, only when `options` is given); the reporter rejects option content it
-  does not know with an error that names the key, not the value. `options`
-  on a type that is not configurable, a type that does not resolve, is not
-  a `Reporter`, is abstract, or has no such constructor is `INVALID_CONFIG`
-  at config load. The file is committed: put no token in `options`.
+  does not know with an error that names the key, not the value. The config
+  load checks only the shape (an array; each entry a string or an object with
+  a string `type` and optional `options` object); a wrong shape is
+  `INVALID_CONFIG`. The type is resolved when the run ends: a name that is
+  not found, a type that is not a `Reporter`, is abstract, or has no such
+  constructor, and `options` on a type that is not configurable, are one
+  stderr line naming the type string. The other reporters still run and the
+  outcome is unchanged. The file is committed: put no token in `options`.
   Reflection needs the type kept in a trimmed or AOT app. The same type listed
   twice runs twice; no config file means no reporters. The run
   fixture above calls `OnRunFinishedAsync(FinishedRun, CancellationToken)` once,
