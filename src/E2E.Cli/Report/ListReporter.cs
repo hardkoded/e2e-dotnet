@@ -707,7 +707,14 @@ internal sealed partial class ListReporter
             return;
         }
 
+        // Upstream's `userFrame` takes only frames inside the project root; a location outside it is not framed.
         var file = Path.GetFullPath(source.File, _projectRoot);
+        var relative = Path.GetRelativePath(_projectRoot, file);
+        if (relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) || Path.IsPathRooted(relative))
+        {
+            return;
+        }
+
         Print(_pc.Cyan($" {_pc.Dim(Format.Pointer)} {Format.Bounded(DisplayPath(file))}:{_pc.Dim($"{source.Line}:{source.Column}")}"));
         foreach (var line in CodeFrame.Render(file, source.Line, source.Column, _pc))
         {

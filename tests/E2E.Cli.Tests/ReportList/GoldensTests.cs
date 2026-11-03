@@ -58,6 +58,6 @@ public sealed class GoldensTests : IDisposable
                 " ❯ screen .e2e/artifacts/chromium/login/attempt-0/screen.txt",
                 " ❯ video .e2e/artifacts/chromium/login/attempt-0/video/video.webm",
             ],
-            output.Lines.Skip(start).Take(14).Select(line => line.Replace(_root, "/project", StringComparison.Ordinal)));
+            output.Lines.Skip(start).Take(14).Select(line => line.Replace(_root, "/project", StringComparison.Ordinal).Replace('\\', '/')));
     }
 }
