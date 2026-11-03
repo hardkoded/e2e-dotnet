@@ -545,11 +545,14 @@ public sealed class ObservationTests
     public async Task Lets_a_slow_snapshot_run_for_the_whole_timeout_the_locate_gets()
     {
         var h = Harness.Create();
+        h.Clock.ManualTimers = true;
         var session = await Screens.OpenAttempt(h);
-        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, async (_, _) =>
+
+        // The snapshot takes 300 ms of the test's clock, so a loaded runner cannot make it outlast the 500 ms the locate gets.
+        h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, (_, _) =>
         {
-            await Task.Delay(300);
-            return FakeDeviceClient.SettingsSnapshot();
+            h.Clock.Spend(TimeSpan.FromMilliseconds(300));
+            return Task.FromResult<JsonNode?>(FakeDeviceClient.SettingsSnapshot());
         });
         Assert.Single(await session.LocateAsync(About, TimeSpan.FromMilliseconds(500), CancellationToken.None));
     }

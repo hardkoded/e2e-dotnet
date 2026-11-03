@@ -9,6 +9,12 @@ using E2E.Internal;
 
 namespace E2E.Cli.Mcp;
 
+/// <summary>One credential as a test line names it: the name <c>Credentials.User</c> takes, its username, and its password secret's name (upstream's <c>TestLineFills.credentials</c>).</summary>
+internal sealed record TestLineCredential(string Name, string Username, string Password);
+
+/// <summary>The names a test fills values from, as the config declares them (upstream's <c>TestLineFills</c>).</summary>
+internal sealed record TestLineFills(IReadOnlyList<TestLineCredential> Credentials, IReadOnlyCollection<string> Secrets);
+
 /// <summary>What a session's test lines need of the session around them. Upstream's <c>TestLineOptions</c>.</summary>
 internal sealed class TestLineOptions
 {
@@ -27,8 +33,8 @@ internal sealed class TestLineOptions
     /// <summary>The app's base URL, which a navigation line is made relative to.</summary>
     public Uri? AppBase { get; init; }
 
-    /// <summary>The <c>secrets</c> names <c>Secrets.Get</c> takes.</summary>
-    public IReadOnlyCollection<string> Secrets { get; init; } = [];
+    /// <summary>The configured credentials and secrets a fill is written with (upstream's <c>fills</c>).</summary>
+    public TestLineFills? Fills { get; init; }
 
     /// <summary>The full name of the test the session ran before it went live: the lines carry on from where it stopped. Upstream's <c>testRan</c> (<c>file:line</c> there).</summary>
     public string? TestRan { get; init; }
@@ -262,15 +268,14 @@ internal sealed class SessionTestLines(TestLineOptions options)
                     var text = Field(args, "text") ?? "";
                     return _options.Redact(text) != text
                         ? LinePlan.None("the text holds a secret value; fill it with type_secret for a line")
-                        : await OnTargetAsync(target, locator => locator + ".FillAsync(" + SessionCatalog.Quote(text) + ")", token).ConfigureAwait(false);
+                        : await OnTargetAsync(target, locator => locator + ".FillAsync(" + Typed(text) + ")", token).ConfigureAwait(false);
                 }
 
             case "type_secret":
                 {
-                    var secret = Field(args, "secret") ?? "";
-                    return _options.Secrets.Contains(secret)
-                        ? await OnTargetAsync(target, locator => locator + ".FillAsync(Secrets.Get(" + SessionCatalog.Quote(secret) + "))", token).ConfigureAwait(false)
-                        : LinePlan.None("the secret is not a config secret");
+                    return SecretExpression(Field(args, "secret") ?? "") is { } secret
+                        ? await OnTargetAsync(target, locator => locator + ".FillAsync(" + secret + ")", token).ConfigureAwait(false)
+                        : LinePlan.None("the secret is neither a credential password nor a config secret");
                 }
 
             case "press":
@@ -292,6 +297,25 @@ internal sealed class SessionTestLines(TestLineOptions options)
             default:
                 return LinePlan.None(name + " has no test line");
         }
+    }
+
+    /// <summary>A typed value as the line spells it: a credential's username by its name, anything else as written (upstream's <c>typed</c>).</summary>
+    private string Typed(string value)
+    {
+        var credential = _options.Fills?.Credentials.FirstOrDefault(candidate => candidate.Username == value);
+        return credential is null ? SessionCatalog.Quote(value) : "Credentials.User(" + SessionCatalog.Quote(credential.Name) + ").Username";
+    }
+
+    /// <summary>How a test names a secret <c>type_secret</c> filled: a credential's password, or a config secret (upstream's <c>secretExpression</c>).</summary>
+    private string? SecretExpression(string name)
+    {
+        var credential = _options.Fills?.Credentials.FirstOrDefault(candidate => candidate.Password == name);
+        if (credential is not null)
+        {
+            return "Credentials.User(" + SessionCatalog.Quote(credential.Name) + ").Password";
+        }
+
+        return _options.Fills?.Secrets.Contains(name) == true ? "Secrets.Get(" + SessionCatalog.Quote(name) + ")" : null;
     }
 
     /// <summary>A line acting on one target, or why there is none.</summary>

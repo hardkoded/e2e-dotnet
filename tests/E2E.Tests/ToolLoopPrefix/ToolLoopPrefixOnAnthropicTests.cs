@@ -18,15 +18,42 @@ namespace E2E.Tests.ToolLoopPrefix;
 /// Not ported: "keeps the system prompt identical on every turn, the switch to auto included" (the port sends <c>auto</c> from
 /// the first turn, so it has no switch), and "notices a tool result a custom executor edits in place, below the part" (a
 /// <see cref="ModelMessage"/> is immutable, so an executor replaces a message and cannot edit it). Partial: "stops replaying the
-/// thinking from a message an elision rewrote" is ported whole, over the stale-screen budget and the overflow shrink; "notices a message a custom executor edits in place" replaces the message, for the
+/// thinking from a message an elision rewrote" asserts the port's own third request (the port prints every look as a full screen, so the
+/// second look's screen is elided too and nothing produced after it is replayed); "notices a message a custom executor edits in place" replaces the message, for the
 /// same reason; "keeps every reasoning part when a custom executor clones the history each turn" has a text opening message
 /// with no bytes, and does not read the turn notes. The test of a message an executor replaces on the first turn, and keeps the
-/// thinking produced after it, is .NET-only: upstream covers that through its elision.
+/// thinking produced after it, and the one of the overflow shrink, are .NET-only.
 /// </summary>
 public sealed class ToolLoopPrefixOnAnthropicTests
 {
     [Fact]
-    public async Task Stops_replaying_the_thinking_from_a_message_an_elision_rewrote()
+    public async Task Stops_replaying_the_thinking_from_a_message_an_elision_rewrote_PARTIAL()
+    {
+        // The opening screen, then the same screen on each look: the port prints a full screen every time.
+        var big = new DocumentWorld().Map("/start", page =>
+        {
+            for (var i = 0; i < 600; i++)
+            {
+                page.Paragraph("row " + i + " " + new string('x', 90));
+            }
+        });
+        var handler = new RecordingHandler(Answer(1, "observe", new { })).Then(HttpStatusCode.OK, Answer(2, "observe", new { })).Then(HttpStatusCode.OK, Done(3));
+        var (error, turns) = await ToolLoopPrefixHelpers.RunAsync(handler, world: big, instruction: "look around twice, then conclude");
+
+        Assert.Null(error);
+        Assert.Equal(3, handler.Requests.Count);
+        // The second request elided the opening screen at messages.0: the block produced under the whole screen is not sent again.
+        Assert.Contains("[earlier screen elided", handler.Requests[1].Body, StringComparison.Ordinal);
+        Assert.Empty(ReplayedThinking(handler.Requests[1]));
+        // The third request elided the first look's screen too (the port keeps only the newest full screen verbatim, where upstream
+        // prints the second look as a diff), so the block produced under it is not sent again. 
+        Assert.Equal(2, handler.Requests[2].Body.Split("[earlier screen elided").Length - 1);
+        Assert.Empty(ReplayedThinking(handler.Requests[2]));
+        Assert.Contains(turns, turn => turn.Outcome.Contains("message 1 was rewritten, so the reasoning after it is not sent again", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Stops_replaying_the_thinking_from_a_message_an_overflow_shrink_rewrote_NET_ONLY()
     {
         var big = new DocumentWorld().Map("/start", page =>
         {

@@ -111,14 +111,14 @@ sent whole again. `observe` always shows the whole screen and makes it the
 screen later changes are measured from. What an engine lacks is missing from its
 catalog: `scroll` and `scroll_to` need scrolling, `back` needs history,
 `screenshot` needs the web engine, and `type_secret` appears only when the
-config declares a `secrets` entry.
+config declares `credentials` or a `secrets` entry.
 
 | Tool | Does |
 | --- | --- |
 | `observe` | The whole current screen |
 | `tap`, `double_tap`, `check`, `uncheck`, `clear` `{target}` | Act on one node. On an engine that declares `TapModifiers` (the web engine), `tap` and `double_tap` also take an optional `modifiers` list (`Shift`, `Control`, `Alt`, `Meta`, `ControlOrMeta`) to hold keys for the click, as a Shift-click extends a selection |
 | `type {target, text}` | Replace the text in a field |
-| `type_secret {target, secret}` | Fill a configured secret into an editable field by name; you never see the value, and its test line names the secret (`FillAsync(Secrets.Get(name))`) |
+| `type_secret {target, secret}` | Fill a configured secret by name: a credential's password (`<name>.password`) into a password field, a `secrets` entry into any editable field; you never see the value, and its test line names the credential or secret (`FillAsync(Credentials.User(name).Password)`, `FillAsync(Secrets.Get(name))`) |
 | `press {key, target?}` | Press a key on a node, or on whatever has focus |
 | `select {target, value}` | Choose an option |
 | `scroll {direction, times?, target?}`, `scroll_to {target?, text?, direction?}` | Move the viewport, or page to a node |
@@ -165,7 +165,7 @@ into a test, then add the assertions.
 - When nothing reaches the node alone, the result says `No test line:` and
   why, and the draft shows the action as a `//` comment. A line that would
   fail is never printed. A failed action prints and records no line.
-- A fill names `Secrets.Get(name)`, never a value.
+- A fill names `Credentials.User(name).Username`, `Credentials.User(name).Password`, or `Secrets.Get(name)`, never a value.
 - A `navigate` to a URL on the app's origin is written as its path
   (`App.OpenAsync("/settings")`); `back` is `App.BackAsync()`.
 
@@ -173,8 +173,8 @@ into a test, then add the assertions.
 | --- | --- |
 | Opening the session | `App.OpenAsync()` |
 | `tap`, `double_tap` | `TapAsync()`, `DoubleTapAsync()` |
-| `type` | `FillAsync(text)` |
-| `type_secret` | `FillAsync(Secrets.Get(name))` |
+| `type` | `FillAsync(text)`; a credential's username as `FillAsync(Credentials.User(name).Username)` |
+| `type_secret` | `FillAsync(Credentials.User(name).Password)` or `FillAsync(Secrets.Get(name))` |
 | `press` on a node | `PressAsync(key)` |
 | `select`, `check`, `uncheck`, `clear` | `SelectOptionAsync(value)`, `CheckAsync()`, `UncheckAsync()`, `ClearAsync()` |
 | `scroll_to` a node | `ScrollIntoViewAsync()` |
