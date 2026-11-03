@@ -62,7 +62,7 @@ public sealed class LocatorEngineResolveRetryContractTests
     private static readonly SemanticNode Match = new() { Ref = "node-1", Role = "button", Name = "Submit" };
 
     /// <summary>A screen whose engine resolves each locate with the next script entry, given the budget of that locate.</summary>
-    private static Screen LocatingScreen(List<Func<TimeSpan, Task<IReadOnlyList<SemanticNode>>>> script, List<TimeSpan> budgets, TimeSpan? actionTimeout = null)
+    private static Screen LocatingScreen(List<Func<TimeSpan, Task<IReadOnlyList<SemanticNode>>>> script, List<TimeSpan> budgets, TimeSpan? actionTimeout = null, TimeProvider? clock = null)
     {
         var next = 0;
         return new Screen(
@@ -72,6 +72,7 @@ public sealed class LocatorEngineResolveRetryContractTests
             () => { },
             actionTimeout ?? TimeSpan.FromMilliseconds(350),
             actionTimeout ?? TimeSpan.FromMilliseconds(350),
+            clock: clock,
             locate: (_, budget, _) =>
             {
                 budgets.Add(budget);
@@ -122,16 +123,21 @@ public sealed class LocatorEngineResolveRetryContractTests
     [Fact]
     public async Task Ends_a_wait_whose_slow_last_resolve_found_nothing_as_LOCATOR_NOT_FOUND_not_a_timeout()
     {
+        // The slow resolves move a fake clock, so the deadline passes without any waiting.
+        var clock = new SteppingTime();
         var budgets = new List<TimeSpan>();
         var screen = LocatingScreen(
             [
-                budget => SlowLocate.AnswerAsync(TimeSpan.FromMilliseconds(200), [], budget),
-                budget => SlowLocate.AnswerAsync(TimeSpan.FromMilliseconds(200), [], budget),
+                budget => SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(200), [], budget),
+                budget => SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(200), [], budget),
             ],
-            budgets);
+            budgets,
+            clock: clock);
         var deadline = new Deadline(TimeSpan.FromMilliseconds(400), screen.Clock);
 
-        var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button").ResolveExactlyOneAsync(deadline, CancellationToken.None));
+        var resolving = screen.GetByRole("button").ResolveExactlyOneAsync(deadline, CancellationToken.None);
+        await clock.RunAsync(resolving.ContinueWith(_ => { }, TaskScheduler.Default));
+        var error = await Assert.ThrowsAsync<TestException>(() => resolving);
 
         Assert.Equal("LOCATOR_NOT_FOUND", error.Code);
         Assert.Null(error.InnerException);

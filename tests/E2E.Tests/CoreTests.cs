@@ -451,7 +451,10 @@ public sealed class CoreTests
         modelCalls = 0;
 
         delay = TimeSpan.FromMilliseconds(50);
-        var second = await RunAsync(Body, world, model, directory);
+
+        // The state shows up when the delay's timer fires, which a loaded runner can hold up past the replay's usual 300 ms. The replay
+        // returns as soon as the state is there, so a wide window costs nothing when the machine is quiet.
+        var second = await RunAsync(Body, world, model, directory, actionTimeout: TimeSpan.FromSeconds(10));
         Assert.Null(second.Error);
         Assert.Equal(0, modelCalls);
         Assert.Equal(1, second.Replayed);

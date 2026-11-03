@@ -300,28 +300,50 @@ public sealed class CdpSessionRecoveryTests
     {
         using var app = await FixtureApp.StartAsync();
         await using var remote = await RemoteChrome.LaunchAsync();
-        await using var session = await StartAsync(
-            app,
-            new WebConnectOptions
+        // The operation budget reads a clock the test moves: the reconnect takes 300 ms of it, and the page script, which never ends on
+        // its own, gets the 800 ms that pass once it has started. Real waits would let a loaded runner spend the whole 1 s before the script runs.
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider();
+        var connect = new WebConnectOptions
+        {
+            CdpEndpoint = _ => Task.FromResult(remote.Endpoint),
+            ReconnectEndpoint = _ =>
             {
-                CdpEndpoint = _ => Task.FromResult(remote.Endpoint),
-                ReconnectEndpoint = async _ =>
-                {
-                    await Task.Delay(300);
-                    return remote.Endpoint;
-                },
+                clock.Advance(TimeSpan.FromMilliseconds(300));
+                return Task.FromResult(remote.Endpoint);
             },
-            TimeSpan.FromSeconds(1));
-        await WebEngine.SurfaceOf(session)!.Context().Browser!.CloseAsync();
-        var error = await Assert.ThrowsAsync<EngineException>(() => EvaluateAsync<string>(session, """
-            async () => {
+        };
+        await using var session = await StartAsync(app, new WebEngine(new WebEngineOptions { Connect = connect }) { Clock = clock }, TimeSpan.FromSeconds(1));
+        var live = WebEngine.SurfaceOf(session)!;
+        await live.Context().Browser!.CloseAsync();
+        var evaluating = Assert.ThrowsAsync<EngineException>(() => EvaluateAsync<string>(session, """
+            () => {
               document.body.dataset['started'] = 'true';
-              await new Promise((resolve) => setTimeout(resolve, 800));
-              return 'too late';
+              return new Promise(() => { });
             }
             """));
+        using var give = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        while (await StartedAsync(live) != "true")
+        {
+            await Task.Delay(10, give.Token);
+        }
+
+        clock.Advance(TimeSpan.FromMilliseconds(800));
+        var error = await evaluating;
         Assert.Equal("OPERATION_TIMEOUT", error.Code);
         Assert.Equal("true", await WebEngine.SurfaceOf(session)!.Page().GetAttributeAsync("body", "data-started"));
+    }
+
+    /// <summary>The page's <c>data-started</c>, or null while the page is the one that was closed and the session has not yet swapped it for the reconnected one.</summary>
+    private static async Task<string?> StartedAsync(LiveSurface live)
+    {
+        try
+        {
+            return await live.Page().GetAttributeAsync("body", "data-started");
+        }
+        catch (PlaywrightException)
+        {
+            return null;
+        }
     }
 
     [Fact]

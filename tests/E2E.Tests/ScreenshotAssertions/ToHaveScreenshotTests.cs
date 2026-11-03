@@ -250,18 +250,31 @@ public sealed class ToHaveScreenshotTests
         var captures = 0;
         var hangsAt = 3;
         engine.Current = () => ScreenEngine.Shot(ScreenEngine.White, ScreenEngine.Red);
+
+        // The captures and the polls wait on a clock the test moves, as upstream's fake timers do: with real waits, a loaded runner
+        // starts the capture that must be cut off by the deadline, or the one that must hang with budget left, at the wrong time.
+        var clock = new SteppingTime();
         engine.BeforeCapture = async () =>
         {
             if (++captures != hangsAt)
             {
-                await Task.Delay(300);
+                await Task.Delay(TimeSpan.FromMilliseconds(300), clock);
                 return;
             }
 
-            await Task.Delay(1200);
+            await Task.Delay(TimeSpan.FromMilliseconds(1200), clock);
             throw new EngineException(EngineErrorCodes.OperationTimeout, "the screenshot outlived its budget");
         };
-        var error = await project.RunAsync("home", "home", Home);
+
+        async Task<E2EException?> RunHomeAsync()
+        {
+            await using var open = await project.OpenScreenAsync("home", "home", clock);
+            var matching = Home(open.Screen);
+            await clock.RunAsync(matching.ContinueWith(_ => { }, TaskScheduler.Default));
+            return await Record.ExceptionAsync(() => matching) as E2EException;
+        }
+
+        var error = await RunHomeAsync();
         Assert.Equal("ASSERTION_FAILED", error?.Code);
         Assert.Contains(ButtonPixels + " pixels", error!.Message, StringComparison.Ordinal);
         Assert.True(File.Exists(Path.Combine(project.ResultsOf("home"), "screenshots", "home-diff.png")));
@@ -269,7 +282,7 @@ public sealed class ToHaveScreenshotTests
         // The second capture starts with most of the budget left and never answers: that is a hang, not the deadline.
         captures = 0;
         hangsAt = 2;
-        var hung = await project.RunAsync("home", "home", Home);
+        var hung = await RunHomeAsync();
         Assert.Equal("ACTION_FAILED", hung?.Code);
         Assert.Contains("timed out", hung!.Message, StringComparison.Ordinal);
     }
