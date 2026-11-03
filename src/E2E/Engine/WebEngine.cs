@@ -1494,11 +1494,9 @@ public sealed partial class WebEngine : IEngine
                     for (var step = 1; step <= steps; step++)
                     {
                         var due = TimeSpan.FromTicks(length.Ticks * step / steps);
+                        // Awaited on every step, also when the drag is behind its schedule, so an abort is seen even at no wait (upstream's setTimeout with a signal).
                         var wait = due - Stopwatch.GetElapsedTime(started);
-                        if (wait > TimeSpan.Zero)
-                        {
-                            await Task.Delay(wait, cancellationToken).ConfigureAwait(false);
-                        }
+                        await Task.Delay(wait > TimeSpan.Zero ? wait : TimeSpan.Zero, cancellationToken).ConfigureAwait(false);
 
                         await mouse.MoveAsync(step == steps ? toX : fromX + ((toX - fromX) * step / steps), step == steps ? toY : fromY + ((toY - fromY) * step / steps)).ConfigureAwait(false);
                     }
