@@ -50,6 +50,17 @@ public sealed class GitHubReporterTests
     }
 
     [Fact]
+    public async Task Trims_the_key_of_E2E_GITHUB_KEY_and_reads_a_blank_one_as_unset()
+    {
+        var padded = Authorized();
+        padded["E2E_GITHUB_KEY"] = " chromium ";
+        Assert.Equal("<!-- e2e-github project=dev.example.shop workflow=e2e job=test key=chromium -->", await PostedMarker(new GitHubReporter(), padded));
+        var blank = Authorized();
+        blank["E2E_GITHUB_KEY"] = "  ";
+        Assert.Equal("<!-- e2e-github project=dev.example.shop workflow=e2e job=test -->", await PostedMarker(new GitHubReporter(), blank));
+    }
+
+    [Fact]
     public async Task Takes_the_key_from_the_options_a_derived_reporter_passes_over_the_variable()
     {
         Assert.Equal("<!-- e2e-github project=dev.example.shop workflow=e2e job=test key=from%20code -->", await PostedMarker(new MatrixReporter(), Authorized()));

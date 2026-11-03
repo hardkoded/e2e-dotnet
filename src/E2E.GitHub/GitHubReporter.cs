@@ -121,7 +121,7 @@ public class GitHubReporter : Reporter, IConfigurableReporter
 
     /// <summary>The run's report with the options this reporter has, or the key <see cref="KeyVariable"/> names.</summary>
     internal Task<IReadOnlyList<ReporterSummaryRow>> ReportRunAsync(FinishedRun run, ReportDeps deps, CancellationToken cancellationToken) =>
-        ReportRunAsync(run, _options ?? new GitHubOptions { Key = deps.Env(KeyVariable) }, deps, cancellationToken);
+        ReportRunAsync(run, _options ?? new GitHubOptions { Key = deps.Env(KeyVariable) is { } key && !string.IsNullOrWhiteSpace(key) ? key.Trim() : null }, deps, cancellationToken);
 
     /// <summary>
     /// One marker field, URI-encoded. A field that fits is the encoded value itself, as it always was, so comments already on open pull requests are
