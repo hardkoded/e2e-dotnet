@@ -116,8 +116,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             case "tap_at" or "hover_at" or "drag_at" or "type_at" or "press_at" or "select_at":
                 return await PointToolAsync(call.Name, arguments, actions, budget, token).ConfigureAwait(false);
             case "press" when !HasTarget(arguments):
-                var focusedKey = Args.String(arguments, "key") ?? "Enter";
-                return await ActingAsync(NodeLabel(call.Name, arguments, "the focused field"), () => actions.PressKeyAsync(focusedKey, token), token).ConfigureAwait(false);
+                return await PressAsync(arguments, null, "the focused field", actions, token).ConfigureAwait(false);
             case "fill" when !HasTarget(arguments) && Keyboard:
                 // Keyboard input to whatever holds focus: how a field the tree does not list gets its text after a tap_at gave it focus.
                 var typed = Args.String(arguments, "value") ?? "";
@@ -145,6 +144,11 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             return await ActingAsync(NodeLabel(call.Name, arguments, "#" + node.Ref), () => TypeIntoNodeAsync(actions, target, value, "#" + node.Ref, token), token).ConfigureAwait(false);
         }
 
+        if (call.Name == "press")
+        {
+            return await PressAsync(arguments, target, "#" + node.Ref, actions, token).ConfigureAwait(false);
+        }
+
         return await ActingAsync(
             NodeLabel(call.Name, arguments, "#" + node.Ref),
             () => call.Name switch
@@ -156,12 +160,48 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 "hover" => actions.HoverAsync(target, token),
                 "fill" => actions.TypeAsync(target, Args.String(arguments, "value") ?? "", token),
                 "fill_secret" => actions.TypeSecretAsync(target, Args.String(arguments, "secret") ?? "", token),
-                "press" => actions.PressAsync(target, Args.String(arguments, "key") ?? "Enter", token),
                 "select" => actions.SelectAsync(target, Args.String(arguments, "value") ?? "", token),
                 "check" => actions.CheckAsync(target, true, token),
                 "uncheck" => actions.CheckAsync(target, false, token),
                 "clear" => actions.ClearAsync(target, token),
                 _ => throw new TestException("INVALID_ARGUMENT", "Unknown tool " + call.Name + "."),
+            },
+            token).ConfigureAwait(false);
+    }
+
+    // Upstream's press tool with `times`: each repeat is one recorded action against the budget, as a scroll repeat is. The first press addresses
+    // the node; the rest go to whatever has focus, since a targeted press refocuses the node first and a repeated Tab would start over from it
+    // instead of walking on.
+    private async Task<ToolOutcome> PressAsync(JsonElement arguments, ExecutorTarget? target, string where, IExecutorActions actions, CancellationToken token)
+    {
+        var times = Args.Int(arguments, "times") ?? 1;
+        if (times is < 1 or > AgentTools.MaxPressTimes)
+        {
+            return ToolOutcome.Fail("press times must be 1 to " + AgentTools.MaxPressTimes.ToString(CultureInfo.InvariantCulture) + ".");
+        }
+
+        var key = Args.String(arguments, "key") ?? "Enter";
+        var label = NodeLabel("press", arguments, where);
+        if (times > 1)
+        {
+            label = label with { Done = "Pressed " + key + " " + times.ToString(CultureInfo.InvariantCulture) + " times on " + where + "." };
+        }
+
+        return await ActingAsync(
+            label,
+            async () =>
+            {
+                for (var repeat = 0; repeat < times; repeat++)
+                {
+                    if (target is null || (repeat > 0 && Keyboard))
+                    {
+                        await actions.PressKeyAsync(key, token).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await actions.PressAsync(target, key, token).ConfigureAwait(false);
+                    }
+                }
             },
             token).ConfigureAwait(false);
     }

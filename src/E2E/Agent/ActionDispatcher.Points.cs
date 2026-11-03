@@ -49,15 +49,15 @@ internal sealed partial class ActionDispatcher
             var viewport = ViewportOf(observation);
             var clamped = Geometry.ClampToViewport(point, viewport);
             var hit = PointTap.HitTest(observation, clamped);
-            // A tap by id lands on the control's center, not where the model aimed: only an engine without the bare point gets it. Only
-            // the tap resolves onto a node verb here; the node hover and drag are the agent verbs of #861.
+            // A tap by id lands on the control's center, not where the model aimed: only an engine without the bare point gets it, and
+            // only when it takes the node verb.
             var bare = TakesBarePoint(verb);
-            var control = hit.Control is not null && !bare && nodeVerb == "tap" ? hit.Control : null;
+            var control = hit.Control is not null && !bare && TakesNodeVerb(nodeVerb) ? hit.Control : null;
             var summary = PointTap.DescribePointAction(verb, clamped, hit.Control, hit.Under, control is not null, Prose());
             if (control is not null)
             {
                 var target = new ExecutorTarget(control);
-                await RunNowAsync(nodeVerb, token => ByIdAsync(control, token), cancellationToken).ConfigureAwait(false);
+                await RunNowAsync(nodeVerb, token => ByIdAsync(control, nodeVerb, token), cancellationToken).ConfigureAwait(false);
                 return new PointTapResult(clamped, target, summary);
             }
 
@@ -96,10 +96,20 @@ internal sealed partial class ActionDispatcher
             var end = Geometry.ClampToViewport(to, viewport);
             var fromHit = PointTap.HitTest(observation, start);
             var toHit = PointTap.HitTest(observation, end);
-            var summary = PointTap.DescribePointDrag(start, end, fromHit.Control, toHit.Control, fromHit.Under, toHit.Under, false, Prose());
+            // A drag by id runs between the controls' centers, not where the model aimed: only an engine without the bare drag gets it, and
+            // only between two different controls, since a node dragged onto itself does nothing.
+            var byId = !TakesBarePoint("dragAt") && TakesNodeVerb("drag") && fromHit.Control is not null && toHit.Control is not null && fromHit.Control.Ref != toHit.Control.Ref;
+            var summary = PointTap.DescribePointDrag(start, end, fromHit.Control, toHit.Control, fromHit.Under, toHit.Under, byId, Prose());
+            if (byId)
+            {
+                var source = new ExecutorTarget(fromHit.Control!);
+                var destination = new ExecutorTarget(toHit.Control!);
+                await RunNowAsync("dragTo", token => DragOntoAsync(source, destination, token), cancellationToken).ConfigureAwait(false);
+                return new PointDragResult(start, end, source, destination, summary);
+            }
+
             if (!TakesBarePoint("dragAt"))
             {
-                // An engine that drags listed nodes only joins two different controls by id (#861's drag).
                 throw new TestException(
                     "UNSUPPORTED_CAPABILITY",
                     "the drag from (" + Num(start.X) + ", " + Num(start.Y) + ") to (" + Num(end.X) + ", " + Num(end.Y)
@@ -130,12 +140,23 @@ internal sealed partial class ActionDispatcher
         });
     }
 
-    // The tap of a listed control by its id, for an engine without the bare-point tap: the node verb of upstream's pointVerb.
-    private async Task ByIdAsync(SemanticNode control, CancellationToken token)
+    // The tap or hover of a listed control by its id, for an engine without the bare point: the node verb of upstream's pointVerb.
+    private async Task ByIdAsync(SemanticNode control, string nodeVerb, CancellationToken token)
     {
+        if (nodeVerb == "hover")
+        {
+            var hovered = await TargetedAsync(control, new LocatorAction.Hover(), token).ConfigureAwait(false);
+            await CommitAsync("hover", hovered).ConfigureAwait(false);
+            return;
+        }
+
         var node = await TargetedAsync(control, ClickAction("tap", null), token).ConfigureAwait(false);
         await CommitAsync(Target(node, "tap", WithinOf(node))).ConfigureAwait(false);
     }
+
+    // Upstream's `verbs.has(nodeVerb)`: whether the engine takes the node verb a point verb falls back to. The tap is always there; the hover and the
+    // drag are the pointer verbs the engine declares by locator action kind.
+    private bool TakesNodeVerb(string nodeVerb) => nodeVerb == "tap" || _scope.ActionKinds?.Contains(nodeVerb == "drag" ? "dragTo" : nodeVerb) == true;
 
     // Whether the engine declared the pointer kind a point verb needs: upstream's `verbs.has('tapAt')`, `hoverAt`, and `dragAt`.
     private bool TakesBarePoint(string verb)

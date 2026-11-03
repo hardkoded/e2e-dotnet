@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.RegularExpressions;
 using E2E.Engine;
 using E2E.Tests.AgentAct;
 using static E2E.Tests.AgentAct.ExecutorKit;
@@ -9,15 +10,13 @@ using static E2E.Tests.AgentAct.ExecutorKit;
 namespace E2E.Tests.AgentActPixelTools;
 
 /// <summary>
-/// Upstream's <c>describe('actions.dragAt on an engine that drags listed nodes only')</c>. The join of two controls by id needs the
-/// agent's node <c>drag</c> verb (#861), which the port does not have yet, so only the refusal of a drag the engine cannot take is ported.
+/// Upstream's <c>describe('actions.dragAt on an engine that drags listed nodes only')</c>: two points on two listed controls are joined by
+/// id, and a drag inside one control is refused, since the engine takes no bare point.
 /// </summary>
 public sealed class ActionsDragAtOnAnEngineThatDragsListedNodesOnlyTests
 {
-    // Partial of upstream's "joins the two controls by id and says so, and refuses a drag inside one control": the first drag, which joins
-    // the Card to Done by id, waits for the node drag verb (#861). A drag from a point to another inside one control is refused here too.
     [Fact]
-    public async Task Partial_refuses_a_drag_the_engine_cannot_take_as_UNSUPPORTED_CAPABILITY()
+    public async Task Joins_the_two_controls_by_id_and_says_so_and_refuses_a_drag_inside_one_control()
     {
         var engine = new ListedNodesOnlyEngine(
             "dragTo",
@@ -34,11 +33,13 @@ public sealed class ActionsDragAtOnAnEngineThatDragsListedNodesOnlyTests
                 },
             ]);
         string? refused = null;
+        string? summary = null;
         var executor = new TestExecutor(
             "card-dragger",
             async (context, token) =>
             {
                 await context.ObserveAsync(cancellationToken: token);
+                summary = (await context.Actions.DragAtAsync(new Point(150, 150), new Point(700, 150), token)).Summary;
                 try
                 {
                     await context.Actions.DragAtAsync(new Point(120, 120), new Point(280, 180), token);
@@ -64,7 +65,8 @@ public sealed class ActionsDragAtOnAnEngineThatDragsListedNodesOnlyTests
             });
         session.Complete();
 
+        Assert.Equal(["card onto done"], engine.Performed);
+        Assert.Matches(new Regex(@"^Dragged \S* ?button ""Card""\S*, the control at \(150, 150\), onto \S* ?button ""Done""\S*, the control at \(700, 150\)\.$", RegexOptions.None, TimeSpan.FromSeconds(2)), summary);
         Assert.Equal("UNSUPPORTED_CAPABILITY", refused);
-        Assert.Empty(engine.Performed);
     }
 }

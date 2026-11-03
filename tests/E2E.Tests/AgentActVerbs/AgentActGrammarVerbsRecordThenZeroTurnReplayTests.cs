@@ -10,7 +10,6 @@ namespace E2E.Tests.AgentActVerbs;
 
 /// <summary>
 /// <c>agent.act</c> grammar verbs recorded on a first run, then replayed with no model call.
-/// Upstream's replay pass also runs two repeated-press flows. This port's press tool takes no repeat count.
 /// The engine-name lines are not ported: a replay records no engine events. The upload policy line is.
 /// </summary>
 [Collection(BrowserCollection.Name)]

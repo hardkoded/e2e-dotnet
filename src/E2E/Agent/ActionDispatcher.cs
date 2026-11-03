@@ -79,27 +79,27 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     public Task DragAsync(ExecutorTarget source, ExecutorTarget destination, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(destination);
-        return RunAsync(
-            "dragTo",
-            async token =>
+        return RunAsync("dragTo", token => DragOntoAsync(source, destination, token), cancellationToken);
+    }
+
+    // Upstream's dragOnto: the body of a node drag past the source's resolution, shared by the drag verb and the drag of two points that land on listed controls.
+    private async Task DragOntoAsync(ExecutorTarget source, ExecutorTarget destination, CancellationToken token)
+    {
+        var node = Resolve(source);
+        SemanticNode? dropped = null;
+        node = await TargetedAsync(
+            node,
+            token,
+            async (found, attempt) =>
             {
-                var node = Resolve(source);
-                SemanticNode? dropped = null;
-                node = await TargetedAsync(
-                    node,
-                    token,
-                    async (found, attempt) =>
-                    {
-                        // The first attempt reads the node the tool loop resolved; one after a relocation reads the fresh look.
-                        dropped = attempt == 0 ? Resolve(destination) : _feed.Lookup(destination).Node ?? throw ObservationFeed.NodeGone(destination.Id.TrimStart('#'));
-                        await _scope.Session.PerformAsync(found, new LocatorAction.DragTo(dropped), OperationContext.Agent, token).ConfigureAwait(false);
-                    }).ConfigureAwait(false);
-                var recorded = Target(node, "drag", WithinOf(node));
-                var end = Target(dropped!, "drag", WithinOf(dropped!));
-                recorded.Destination = new RecordedTarget { Role = end.Role, Name = end.Name, TestId = end.TestId, Within = end.Within };
-                await CommitAsync(recorded).ConfigureAwait(false);
-            },
-            cancellationToken);
+                // The first attempt reads the node the tool loop resolved; one after a relocation reads the fresh look.
+                dropped = attempt == 0 ? Resolve(destination) : _feed.Lookup(destination).Node ?? throw ObservationFeed.NodeGone(destination.Id.TrimStart('#'));
+                await _scope.Session.PerformAsync(found, new LocatorAction.DragTo(dropped), OperationContext.Agent, token).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+        var recorded = Target(node, "drag", WithinOf(node));
+        var end = Target(dropped!, "drag", WithinOf(dropped!));
+        recorded.Destination = new RecordedTarget { Role = end.Role, Name = end.Name, TestId = end.TestId, Within = end.Within };
+        await CommitAsync(recorded).ConfigureAwait(false);
     }
 
     // Upstream's nodeVerb for the tap family: the modifiers are checked before a slot is taken, and recorded with the action.

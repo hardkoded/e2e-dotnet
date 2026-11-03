@@ -174,8 +174,6 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
     // Only its definition and its stateless Decide policy are used: a shared instance must never run Execute, which keeps a verdict.
     private static readonly VerdictTool Verdict = AgentTools.CreateVerdictTool();
 
-    private const string StopActingNotice = "Stop acting. Call done with a verdict.";
-
     public string Name => options.Name;
 
     public string? Version => options.Version;
@@ -203,7 +201,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
             : new List<ModelMessage> { new() { Role = "user", Content = await options.BuildPrompt!(context).ConfigureAwait(false) } };
 
         var turns = new TurnLog(context);
-        var failures = 0;
+        var results = new List<GuardToolResult>();
         var stopped = false;
         string? noticed = null;
         var shrunkOnce = false;
@@ -237,12 +235,6 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 }
             }
 
-            // The notice is added once: a retry after an overflow prepares the same turn again.
-            if (failures >= 5 && messages[^1] is not { Role: "user", Content: StopActingNotice })
-            {
-                messages.Add(new ModelMessage { Role = "user", Content = StopActingNotice });
-            }
-
             // A repeat warns first. A stop leaves the model only done, so it still writes its own verdict.
             var (stop, repeat) = preparedStop is not null
                 ? (true, preparedStop)
@@ -258,6 +250,24 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                         ? "Loop guard: " + repeat + ". Repeating it further will not make progress. Call done now with your best verdict: failed if the application misbehaved, blocked (with a code) if something outside the application stopped you."
                         : "You appear to be going in circles: " + repeat + ". Change approach, or call done with your best verdict.",
                 });
+            }
+
+            // A streak of failures with varied inputs is the same circle by another route: the approach is not working, whatever id it tries next.
+            if (!stopped && preparedStop is null)
+            {
+                var (streakStop, streak) = LoopGuards.CheckFailureStreak(results);
+                if (streak is not null && !string.Equals(streak, noticed, StringComparison.Ordinal))
+                {
+                    noticed = streak;
+                    stopped = streakStop;
+                    messages.Add(new ModelMessage
+                    {
+                        Role = "user",
+                        Content = streakStop
+                            ? "Loop guard: " + streak + ". Repeating it further will not make progress. Call done now with your best verdict: failed if the application misbehaved, blocked (with a code) if something outside the application stopped you."
+                            : streak + ". Read the failure text and the current screen and change approach; if the step cannot be done, call done with your best verdict.",
+                    });
+                }
             }
 
             var offered = stopped ? definitions.Where(tool => string.Equals(tool.Name, "done", StringComparison.Ordinal)).ToList() : definitions;
@@ -308,7 +318,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                 turns.Note("turn " + turn.Index.ToString(CultureInfo.InvariantCulture) + " made no tool call: asking for one");
                 messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ReasoningItems = response.ReasoningItems });
                 messages.Add(new ModelMessage { Role = "user", Content = "Call a tool. End the step with done." });
-                failures++;
+                results.Add(new GuardToolResult(Failed: true));
                 previous = [];
                 continue;
             }
@@ -342,13 +352,9 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                     screenshots.Add((toolCall.Name, shot));
                 }
 
-                if (!outcome.Succeeded)
-                {
-                    failures++;
-                }
-
                 if (!outcome.Done)
                 {
+                    results.Add(new GuardToolResult(!outcome.Succeeded));
                     continue;
                 }
 
@@ -372,11 +378,6 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                     Content = "Screenshot" + (screenshots.Count == 1 ? "" : "s") + " attached to the result of " + string.Join(", ", screenshots.Select(shot => shot.Tool)) + ".",
                     Images = [.. screenshots.Select(shot => new ModelImage(shot.Pixels.Data, shot.Pixels.MediaType, shot.Pixels.Width, shot.Pixels.Height))],
                 });
-            }
-
-            if (failures is >= 3 and < 5)
-            {
-                messages.Add(new ModelMessage { Role = "user", Content = "The last actions failed. Change approach, then call done if you cannot." });
             }
         }
 

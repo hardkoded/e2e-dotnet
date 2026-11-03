@@ -46,6 +46,24 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
         Assert.Equal(["to"], drag.Parameters.GetProperty("required").EnumerateArray().Select(item => item.GetString()));
         Assert.True(drag.Parameters.GetProperty("properties").GetProperty("to").GetProperty("properties").TryGetProperty("ref", out _));
         Assert.True(AgentTools.IsReserved("drag"));
+
+        // The point verbs that fall back to a node verb are offered with it, and say the bare point cannot be taken.
+        var points = AgentTools.GrammarToolDefinitions(EngineCapabilities.None, null, ["tap", "hover", "dragTo"], []).ToDictionary(tool => tool.Name);
+        Assert.Contains("which this engine cannot do", points["hover_at"].Description, StringComparison.Ordinal);
+        Assert.Contains("which this engine cannot do", points["drag_at"].Description, StringComparison.Ordinal);
+        var bareToo = AgentTools.GrammarToolDefinitions(EngineCapabilities.None, null, ["tap", "hover", "dragTo"], ["tap", "hover", "dragTo"]).ToDictionary(tool => tool.Name);
+        Assert.DoesNotContain("which this engine cannot do", bareToo["hover_at"].Description, StringComparison.Ordinal);
+        Assert.DoesNotContain("which this engine cannot do", bareToo["drag_at"].Description, StringComparison.Ordinal);
+        Assert.DoesNotContain(AgentTools.GrammarToolDefinitions(EngineCapabilities.None, null, ["tap"], []), tool => tool.Name is "hover_at" or "drag_at");
+    }
+
+    // Part of upstream's "offers the whole vocabulary over the full grammar, and every tool refuses a field it does not declare": the input it
+    // accepts for press carries `times`. The port checks the declared field, not the closed shape.
+    [Fact]
+    public void Partial_Declares_the_times_of_press_up_to_the_ceiling()
+    {
+        var times = AgentTools.GrammarToolDefinitions(EngineCapabilities.None).Single(tool => tool.Name == "press").Parameters.GetProperty("properties").GetProperty("times");
+        Assert.Equal(AgentTools.MaxPressTimes, times.GetProperty("maximum").GetInt32());
     }
 
     // Partial of upstream's "closes the keyboard-only shapes too: type and press without a target, scroll without one": the port's tool is
