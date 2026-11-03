@@ -7,9 +7,6 @@ using E2E.Engine;
 
 namespace E2E.Mobile;
 
-/// <summary>A point on the screen, in the device's logical points.</summary>
-public readonly record struct Point(double X, double Y);
-
 /// <summary>A box on the screen, in the device's logical points.</summary>
 public readonly record struct Rect(double X, double Y, double Width, double Height);
 

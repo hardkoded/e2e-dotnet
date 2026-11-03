@@ -65,7 +65,9 @@ public sealed class CdpSessionRecoveryTests
             Assert.True(await recovered.EvaluateAsync<bool>("() => confirm('Handler survived?')"));
             Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(stale, new LocatorAction.Tap(), None))).Code);
             Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.SwipeAsync(ScrollDirection.Down, None))).Code);
+            Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.PerformAtAsync(new Point(1, 1), new PointerAction.Tap(), None))).Code);
             await session.ObserveAsync(None);
+            await session.PerformAtAsync(new Point(1, 1), new PointerAction.Tap(), None);
             Assert.Equal(1, provisioned);
             Assert.Equal(1, reconnected);
         }
@@ -423,7 +425,11 @@ public sealed class CdpSessionRecoveryTests
         var wheel = await PollAsync(() => EvaluateAsync<string?>(session, "() => document.body.dataset['wheel'] ?? null"), "25");
         Assert.Equal("25", wheel);
         Assert.Equal("1", await EvaluateAsync<string?>(session, "() => document.body.dataset['clicks'] ?? null"));
+
+        Assert.Equal("NODE_STALE", (await Assert.ThrowsAsync<EngineException>(() => session.PerformAtAsync(new Point(x, y), new PointerAction.Tap(), None))).Code);
         await session.ObserveAsync(None);
+        await session.PerformAtAsync(new Point(x, y), new PointerAction.Tap(), None);
+        Assert.Equal("2", await EvaluateAsync<string?>(session, "() => document.body.dataset['clicks'] ?? null"));
     }
 
     [Fact]

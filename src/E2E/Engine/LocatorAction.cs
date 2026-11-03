@@ -36,7 +36,17 @@ public abstract record LocatorAction
     /// <summary>Focuses the node and types <paramref name="Text"/> one character at a time.</summary>
     public sealed record PressSequentially(string Text, TimeSpan? Delay = null) : LocatorAction;
 
-    public sealed record Select(string Value) : LocatorAction;
+    /// <summary>
+    /// Selects one option: the one whose value or label is <paramref name="Text"/>, or the one <paramref name="Option"/> names by its label,
+    /// its value, or its index. Exactly one of the two is set.
+    /// </summary>
+    public sealed record Select(string? Text, SelectOption? Option = null) : LocatorAction
+    {
+        public Select(SelectOption option)
+            : this(null, option)
+        {
+        }
+    }
 
     /// <summary>
     /// Sets the files of a file input, or of a control that opens a file chooser when clicked, such as a button over a hidden input.

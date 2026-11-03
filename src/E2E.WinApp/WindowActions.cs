@@ -20,7 +20,7 @@ public sealed class WindowActions : IWindowActions
 
     /// <summary>The action kinds a window honors, declared so the harness offers exactly these.</summary>
     public static IReadOnlyList<string> NodeActionKinds { get; } =
-        ["tap", "doubleTap", "longPress", "fill", "clear", "press", "pressSequentially", "selectOption", "check", "uncheck", "focus", "hover", "dragTo", "scrollIntoView", "swipe"];
+        ["tap", "doubleTap", "secondaryTap", "longPress", "fill", "clear", "press", "selectOption", "check", "uncheck", "focus", "hover", "dragTo", "scrollIntoView", "swipe"];
 
     /// <summary>How many wheel notches one viewport swipe turns: about three quarters of a screen at the usual three lines a notch.</summary>
     private const int SwipeNotches = 6;
@@ -271,7 +271,7 @@ public sealed class WindowActions : IWindowActions
                 await session.SettleAsync(cancellationToken).ConfigureAwait(false);
                 break;
             case LocatorAction.Select select:
-                await SelectAsync(session, driver, entry, select.Value, cancellationToken).ConfigureAwait(false);
+                await SelectAsync(session, driver, entry, select, cancellationToken).ConfigureAwait(false);
                 break;
             case LocatorAction.Check:
                 await driver.InvokeAsync(entry.Handle, entry.Role == "radio" ? InvokeKind.Select : InvokeKind.ToggleOn, cancellationToken).ConfigureAwait(false);
@@ -405,7 +405,7 @@ public sealed class WindowActions : IWindowActions
     /// Selects an option by its name or value: a combo box is expanded first and read again so its list is in the tree; a list,
     /// tab list, or radio group is read as it is. The option is selected through its pattern.
     /// </summary>
-    private static async Task SelectAsync(WindowSession session, IWindowDriver driver, NodeBinding entry, string value, CancellationToken cancellationToken)
+    private static async Task SelectAsync(WindowSession session, IWindowDriver driver, NodeBinding entry, LocatorAction.Select select, CancellationToken cancellationToken)
     {
         if (entry.Role == "combobox" && !entry.Node.States.Expanded)
         {
@@ -420,8 +420,14 @@ public sealed class WindowActions : IWindowActions
             .Where(candidate => candidate.Role is "listitem" or "menuitem" or "tab" or "radio" or "option" or "treeitem")
             .Where(candidate => container is null || candidate.WindowHandle != container.WindowHandle || Contains(container.Node, candidate.Id))
             .ToList();
-        var option = options.FirstOrDefault(candidate => Matches(candidate, value))
-            ?? throw WinAppSupport.NotActionable($"no option named \"{value}\" is listed under the node; the options listed are {Listed(options)}");
+        var form = select.Option;
+        var wanted = select.Text ?? form?.Label ?? form?.Value ?? "";
+        var option = (form?.Index is { } index
+                ? options.ElementAtOrDefault(index)
+                : options.FirstOrDefault(candidate => Matches(candidate, wanted)))
+            ?? throw WinAppSupport.NotActionable(form?.Index is { } missing
+                ? $"no option at index {missing} is listed under the node; the options listed are {Listed(options)}"
+                : $"no option named \"{wanted}\" is listed under the node; the options listed are {Listed(options)}");
         await driver.InvokeAsync(option.Handle, InvokeKind.Select, cancellationToken).ConfigureAwait(false);
         await session.SettleAsync(cancellationToken).ConfigureAwait(false);
     }

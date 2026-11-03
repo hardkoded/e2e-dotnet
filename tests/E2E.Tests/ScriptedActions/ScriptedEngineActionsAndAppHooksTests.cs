@@ -13,9 +13,8 @@ namespace E2E.Tests.ScriptedActions;
 /// the engine with the node and payload the test named, and <c>app.open</c>, <c>back</c>, <c>restart</c>, and
 /// <c>clearState</c> reach the session hooks. Upstream runs each case in the real runner and reads the engine
 /// calls and the report steps. The port has no runner, so each case runs in the test body, reads what the engine recorded, and
-/// reads the steps from <c>report.json</c>. Not ported, because the port has no such feature: the object
-/// forms of <c>selectOption</c> (<c>label</c>, <c>value</c>, <c>index</c>); the first test is partial for that reason. It also does not run
-/// <c>setInputFiles</c>, whose files the scripted engine does not read. It is partial too
+/// reads the steps from <c>report.json</c>. The first test is partial: it does not run
+/// <c>setInputFiles</c>, whose files the scripted engine does not read, and
 /// because <c>click</c> and <c>dblclick</c> are the port's <c>tap</c> and <c>doubleTap</c> steps, so their api names are not checked.
 /// </summary>
 public sealed class ScriptedEngineActionsAndAppHooksTests
@@ -60,6 +59,12 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
         await Expect.That(screen.GetByLabel("Plan")).ToHaveValueAsync("pro");
         await screen.GetByLabel("Plan").SelectOptionAsync("team");
         await Expect.That(screen.GetByLabel("Plan")).ToHaveValueAsync("team");
+        await screen.GetByLabel("Plan").SelectOptionAsync(new SelectOption { Label = "Team" });
+        await Expect.That(screen.GetByLabel("Plan")).ToHaveValueAsync("team");
+        await screen.GetByLabel("Plan").SelectOptionAsync(new SelectOption { Value = "free" });
+        await Expect.That(screen.GetByLabel("Plan")).ToHaveValueAsync("free");
+        await screen.GetByLabel("Plan").SelectOptionAsync(new SelectOption { Index = 1 });
+        await Expect.That(screen.GetByLabel("Plan")).ToHaveValueAsync("pro");
         await screen.GetByLabel("Focus target").FocusAsync();
         await Expect.That(screen.GetByLabel("Focus target")).ToBeFocusedAsync();
         await Expect.That(screen.GetByLabel("City")).Not.ToBeFocusedAsync(timeout: TimeSpan.FromMilliseconds(500));
@@ -98,6 +103,9 @@ public sealed class ScriptedEngineActionsAndAppHooksTests
                 ("notify", new LocatorAction.Uncheck()),
                 ("plan", new LocatorAction.Select("Pro")),
                 ("plan", new LocatorAction.Select("team")),
+                ("plan", new LocatorAction.Select(new SelectOption { Label = "Team" })),
+                ("plan", new LocatorAction.Select(new SelectOption { Value = "free" })),
+                ("plan", new LocatorAction.Select(new SelectOption { Index = 1 })),
                 ("focus-target", new LocatorAction.Focus()),
                 ("submit", new LocatorAction.Hover()),
                 ("drag", new LocatorAction.DragTo(dropNode)),

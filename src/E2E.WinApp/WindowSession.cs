@@ -29,6 +29,9 @@ public sealed partial class WindowSession : IEngineSession
     /// <summary>How many bindings a session keeps; the oldest goes first. Upstream's <c>MAX_LOCATED_REFS</c>.</summary>
     private const int MaxBindings = 2048;
 
+    /// <inheritdoc />
+    public IReadOnlyCollection<string> ActionKinds => WindowActions.NodeActionKinds;
+
     private readonly WinAppEngine _engine;
     private readonly string _projectRoot;
     private readonly string? _artifactsDir;

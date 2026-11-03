@@ -136,6 +136,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ScrollUntilVisibleOptions](/api/E2E/ScrollUntilVisibleOptions/) | Options for Screen.ScrollUntilVisibleAsync and Locator.ScrollUntilVisibleAsync. |
 | [Secret](/api/E2E/Secret/) | A value the model must not see. Prompts, transcripts, reports, and the names and test ids an act records in its replay cache entry receive <secret:name>. The agent fills the real value itself. |
 | [Secrets](/api/E2E/Secrets/) | The secrets declared in e2e.config.json. Each value comes from E2E_SECRET_{NAME} when it is set, else from the config. The name is uppercased and every character other than A-Z and 0-9 becomes an underscore. |
+| [SelectOption](/api/E2E/SelectOption/) | One option of a select-like control, named by exactly one of its Label, its Value, or its Index. Upstream's SelectOption object forms { label }, { value }, and { index }; the plain string form is SelectOptionAsync. A select takes one option per call. |
 | [SkipException](/api/E2E/SkipException/) | Thrown by Skip when a test stops early and is reported skipped. |
 | [SoftBrowserExpect](/api/E2E/SoftBrowserExpect/) | The browser matchers of BrowserExpect, but an ASSERTION_FAILED is kept on the session instead of thrown, as SoftLocatorExpect does. |
 | [SoftLocatorExpect](/api/E2E/SoftLocatorExpect/) | The locator matchers of LocatorExpect, but an ASSERTION_FAILED is kept on the session instead of thrown, and the test body runs on. Any other error, such as LOCATOR_AMBIGUOUS, still throws. |
@@ -145,7 +146,9 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [StepTurn](/api/E2E/StepTurn/) | One model turn of an agent step: the tool calls the model made and what came back, each bounded (upstream's StepTurn). |
 | [StoredArtifact](/api/E2E/StoredArtifact/) | One artifact handed to PutAsync (upstream's StoredArtifact): the file's bytes, its digest, and the identity the report files it under. Path is the report-relative path the record carries, stable across runs of the same test, so a host may use it as its own key. |
 | [StoredArtifactLink](/api/E2E/StoredArtifactLink/) | One provider-hosted recording, handed to PutLinkAsync once the attempt stopped it (upstream's StoredArtifactLink). |
-| [SwipeOptions](/api/E2E/SwipeOptions/) | Options for SwipeAsync. |
+| [SwipeOptions](/api/E2E/SwipeOptions/) | Options for SwipeAsync and SwipeAsync. Upstream's SwipeOptions. |
+| [SwipePathOptions](/api/E2E/SwipePathOptions/) | Options for SwipeAsync: a swipe along a path between two viewport points. Upstream's SwipePathOptions. |
+| [TapOptions](/api/E2E/TapOptions/) | Options for TapAsync and ClickAsync. Upstream's TapOptions. |
 | [TargetConfig](/api/E2E/TargetConfig/) | One entry of targets. The port drives the web, ios, and android platforms. |
 | [TestContext](/api/E2E/TestContext/) | The fixtures for one test. Call Skip before the first step when a precondition is missing. |
 | [TestException](/api/E2E/TestException/) | A locator, expectation, or test failed. |

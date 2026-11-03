@@ -175,6 +175,27 @@ Alias of `TapAsync`.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
+<a id="E2E_Locator_ClickAsync_E2E_TapOptions_System_Threading_CancellationToken_"></a>
+
+### ClickAsync(TapOptions?, CancellationToken)
+
+
+```csharp
+public Task ClickAsync(TapOptions? options, CancellationToken cancellationToken = default)
+```
+
+
+Alias of `TapAsync`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [TapOptions](/api/E2E/TapOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
 <a id="E2E_Locator_CountAsync_"></a>
 <a id="E2E_Locator_CountAsync_System_Threading_CancellationToken_"></a>
 
@@ -1116,6 +1137,34 @@ An engine with no secondary tap (a device, the document engine) fails with `UNSU
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
 <a id="E2E_Locator_SelectOptionAsync_"></a>
+<a id="E2E_Locator_SelectOptionAsync_E2E_SelectOption_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
+
+### SelectOptionAsync(SelectOption, ActionOptions?, CancellationToken)
+
+
+```csharp
+public Task SelectOptionAsync(SelectOption option, ActionOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Selects the option &lt;code class="paramref"&gt;option&lt;/code&gt; names by its label, its value, or its index. A select takes one option per call.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `option` | [SelectOption](/api/E2E/SelectOption/) |  |
+| `options` | [ActionOptions](/api/E2E/ActionOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` when &lt;code class="paramref"&gt;option&lt;/code&gt; names none or more than one of the three, or an index below 0. |
+
 <a id="E2E_Locator_SelectOptionAsync_System_String_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
 
 ### SelectOptionAsync(string, ActionOptions?, CancellationToken)
@@ -1254,6 +1303,29 @@ Taps the node. [Modifiers](/api/E2E/ClickOptions/#E2E_ClickOptions_Modifiers) ar
 | Name | Type | Description |
 | --- | --- | --- |
 | `options` | [ClickOptions](/api/E2E/ClickOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+<a id="E2E_Locator_TapAsync_E2E_TapOptions_System_Threading_CancellationToken_"></a>
+
+### TapAsync(TapOptions?, CancellationToken)
+
+
+```csharp
+public Task TapAsync(TapOptions? options, CancellationToken cancellationToken = default)
+```
+
+
+Taps the node, or, with [Position](/api/E2E/TapOptions/#E2E_TapOptions_Position), the point of its box at that offset from its top-left corner: the node is scrolled
+into view when the engine can, its box is read, and the pointer is dispatched there with no other actionability check. That needs the
+engine's `tap` pointer action. A node that never has a box fails with `LOCATOR_NOT_FOUND`, as `WaitForAsync` does.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [TapOptions](/api/E2E/TapOptions/) |  |
 | `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)

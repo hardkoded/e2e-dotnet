@@ -7,32 +7,6 @@ using E2E.Engine;
 
 namespace E2E.Mobile;
 
-/// <summary>One pointer action at a screen point in logical pixels, the space every node's bounds are in, with no element resolved behind it.</summary>
-public abstract record PointerAction
-{
-    private PointerAction()
-    {
-    }
-
-    public sealed record Tap : PointerAction;
-
-    public sealed record DoubleTap : PointerAction;
-
-    /// <summary>A hold. Without a duration it holds <see cref="DeviceActions.DefaultLongPress"/>.</summary>
-    public sealed record LongPress(TimeSpan? Duration = null) : PointerAction;
-
-    /// <summary>A drag to another point. With a duration the finger takes that long to get there.</summary>
-    public sealed record SwipeTo(Point Target, TimeSpan? Duration = null) : PointerAction;
-
-    public sealed record SecondaryTap : PointerAction;
-
-    public sealed record Hover : PointerAction;
-
-    public sealed record DragTo(Point Target) : PointerAction;
-
-    public sealed record Swipe(ScrollDirection Direction) : PointerAction;
-}
-
 /// <summary>
 /// What a <see cref="DeviceSession"/> does for each action of the contract: the translation of a node and an action
 /// into agent-device commands, the transition wait a test's step makes, and the pointer dispatch that agrees with the
