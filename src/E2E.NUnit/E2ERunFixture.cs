@@ -42,14 +42,16 @@ public abstract class E2ERunFixture
             return;
         }
 
-        var excluded = await HostTestFilters.ExcludeAsync(
-            Config,
+        var config = Config;
+        var selection = await HostTestFilters.ExcludeAsync(
+            config,
             Filters,
             changedSince,
             RunSelection.Discover(GetType().Assembly),
             line => global::NUnit.Framework.TestContext.Progress.WriteLine(line),
             global::NUnit.Framework.TestContext.CurrentContext.CancellationToken).ConfigureAwait(false);
-        RunSelection.Add(excluded);
+        RunSelection.Add(selection.Excluded);
+        await HostTestFilters.WriteReportAsync(config, selection, global::NUnit.Framework.TestContext.CurrentContext.CancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

@@ -103,6 +103,49 @@ public sealed class ReportFileTests : IDisposable
     }
 
     [Fact]
+    public async Task Tells_what_the_filters_left_out_beside_the_tests_that_ran()
+    {
+        var leftOut = ReportBuilders.Result(id: new string('b', 64)) with
+        {
+            File = "tests/Login/LoginTests.cs",
+            Selected = false,
+            Status = ResultStatus.Skipped,
+            Skip = new ReportSkip("filtered", "tests/Login/LoginTests.cs did not change", "changed-files"),
+            Attempts = [],
+        };
+        var selection = new HostSelection(
+            new Dictionary<string, string> { ["Login"] = "tests/Login/LoginTests.cs did not change" },
+            [leftOut],
+            [new ReportFilter("changed-files", 2, 1)],
+            new ReportChanges("0123456789abcdef0123456789abcdef01234567", 1));
+
+        // Only the left-out tests are known: the run has its document before any test starts.
+        await ReportFile.WriteLeftOutAsync(selection, new ReportTarget("document", 0, "web", BuildReport.DescribeTarget(null)), _output, Results);
+        var before = Read()["run"]!;
+        Assert.Equal("skipped", (string)before["results"]![0]!["status"]!);
+        Assert.Equal("filtered", (string)before["results"]![0]!["skip"]!["cause"]!);
+        Assert.Equal("changed-files", (string)before["results"]![0]!["skip"]!["filter"]!);
+        Assert.False((bool)before["results"]![0]!["selected"]!);
+        Assert.Equal(0, (int)before["summary"]!["selected"]!);
+
+        await using (var session = await StartAsync("shop > browses", 1))
+        {
+            await session.App.OpenAsync("/");
+            session.Complete();
+        }
+
+        var run = Read()["run"]!;
+        Assert.Equal("passed", (string)run["status"]!);
+        Assert.Equal(2, run["results"]!.AsArray().Count);
+        Assert.Equal(1, (int)run["summary"]!["selected"]!);
+        Assert.Equal("changed-files", (string)run["filters"]![0]!["name"]!);
+        Assert.Equal(1, (int)run["filters"]![0]!["excluded"]!);
+        Assert.Equal(1, (int)run["changes"]!["files"]!);
+        Assert.Equal("document", (string)run["targets"]![0]!["platform"]!);
+        Assert.Single(run["targets"]!.AsArray());
+    }
+
+    [Fact]
     public async Task Redacts_the_secrets_of_a_test_from_every_text_of_its_result()
     {
         var report = new Report1Document(new ReportRun(

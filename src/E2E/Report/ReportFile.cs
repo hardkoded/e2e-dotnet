@@ -61,6 +61,12 @@ internal static class ReportFile
 
         /// <summary>The run's limits: the largest any test's agents allowed.</summary>
         public ReportLimits? Limits { get; set; }
+
+        /// <summary>The change the test filters judged (<c>run.changes</c>); null when no filter had a say.</summary>
+        public ReportChanges? Changes { get; set; }
+
+        /// <summary>What each test filter decided (<c>run.filters</c>), in order.</summary>
+        public IReadOnlyList<ReportFilter> Filters { get; set; } = [];
     }
 
     /// <summary>Where the document of the run whose results go to <paramref name="resultsRoot"/> is written.</summary>
@@ -168,19 +174,7 @@ internal static class ReportFile
     {
         resultsRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(resultsRoot));
         var added = report.Run.Results[0];
-        RunState state;
-        lock (Gate)
-        {
-            if (!Runs.TryGetValue(resultsRoot, out state!))
-            {
-                state = Runs[resultsRoot] = new RunState(
-                    report.Run.Id,
-                    projectRoot,
-                    added.Attempts.FirstOrDefault()?.StartedAt ?? DateTimeOffset.UtcNow,
-                    DetectVcs(projectRoot));
-            }
-        }
-
+        var state = StateOf(resultsRoot, report.Run.Id, projectRoot, added.Attempts.FirstOrDefault()?.StartedAt ?? DateTimeOffset.UtcNow);
         await state.Write.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -190,52 +184,114 @@ internal static class ReportFile
                 state.StartedAt = earliest;
             }
 
-            foreach (var target in report.Run.Targets.Where(target => state.Targets.TrueForAll(known => known.Id != target.Id)))
+            foreach (var target in report.Run.Targets)
             {
-                state.Targets.Add(target);
+                // A target the left-out tests named first has no engine to describe; the session that runs on it does.
+                var known = state.Targets.FindIndex(each => each.Id == target.Id);
+                if (known < 0)
+                {
+                    state.Targets.Add(target);
+                }
+                else if (state.Targets[known].Provenance.Engine.Name == "none")
+                {
+                    state.Targets[known] = target with { Index = state.Targets[known].Index };
+                }
             }
 
-            // Read from the results the run holds: a rerun that replaces an interrupted result clears the flag, while the retries of a test stay in its result.
-            state.Interrupted = state.Results.Values.Any(entry => WasInterrupted(entry.Result));
             state.Explore = report.Run.Explore ?? state.Explore;
             state.Limits = report.Run.Limits is { } limits ? state.Limits?.Max(limits) ?? limits : state.Limits;
-            var (status, exitCode) = StatusOf(state.Results.Values.Select(entry => entry.Result), state.Interrupted);
-            var document = BuildReport.Build(new BuildReportOptions
-            {
-                RunId = state.RunId,
-                ProjectRoot = projectRoot,
-                ReportTargets = state.Targets,
-                StartedAt = state.StartedAt,
-                Status = status,
-                ExitCode = exitCode,
-                Results = [.. state.Results.Values.Select(entry => entry.Result)],
-                Explore = state.Explore,
-                Limits = state.Limits,
-                Vcs = await VcsOf(state.Vcs).ConfigureAwait(false),
-                Ci = E2EConfig.IsCi(),
-            });
-
-            // A result that gained no attempt keeps its wire form: only the test this call is about is built again.
-            var nodes = new Dictionary<string, JsonNode>(StringComparer.Ordinal);
-            foreach (var result in document.Run.Results)
-            {
-                var entry = state.Results[result.Id];
-                if (entry.Node is null)
-                {
-                    var node = ReportWire.Result(result, result.Platform, resultsRoot);
-                    ReportWire.Redact(node, entry.Redact);
-                    entry.Node = node;
-                }
-
-                nodes[result.Id] = entry.Node;
-            }
-
-            await WriteReport.WriteJsonReportAsync(PathFor(resultsRoot), ReportWire.Document(document, nodes), cancellationToken).ConfigureAwait(false);
+            await WriteStateAsync(state, resultsRoot, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
             state.Write.Release();
         }
+    }
+
+    /// <summary>
+    /// Adds what the test filters left out to the run whose results go to <paramref name="resultsRoot"/>, and writes the document: the skipped,
+    /// unselected result of each test left out, <c>run.filters</c>, and <c>run.changes</c> (.NET-only: upstream's runner holds them when it builds the report;
+    /// a test left out starts no session, so no session would add it). The run exists from here, so a run whose every test was left out still has its document.
+    /// </summary>
+    public static async Task WriteLeftOutAsync(HostSelection selection, ReportTarget target, string projectRoot, string resultsRoot, CancellationToken cancellationToken = default)
+    {
+        resultsRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(resultsRoot));
+        var state = StateOf(resultsRoot, AttemptReport.RunId, projectRoot, DateTimeOffset.UtcNow);
+        await state.Write.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            foreach (var result in selection.Results)
+            {
+                state.Results[result.Id] = new Entry(result);
+            }
+
+            if (state.Targets.TrueForAll(known => known.Id != target.Id))
+            {
+                state.Targets.Add(target);
+            }
+
+            state.Changes = selection.Changes;
+            state.Filters = selection.Filters;
+            await WriteStateAsync(state, resultsRoot, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            state.Write.Release();
+        }
+    }
+
+    private static RunState StateOf(string resultsRoot, string runId, string projectRoot, DateTimeOffset startedAt)
+    {
+        lock (Gate)
+        {
+            if (!Runs.TryGetValue(resultsRoot, out var state))
+            {
+                state = Runs[resultsRoot] = new RunState(runId, projectRoot, startedAt, DetectVcs(projectRoot));
+            }
+
+            return state;
+        }
+    }
+
+    // The caller holds the run's write gate.
+    private static async Task WriteStateAsync(RunState state, string resultsRoot, CancellationToken cancellationToken)
+    {
+        // Read from the results the run holds: a rerun that replaces an interrupted result clears the flag, while the retries of a test stay in its result.
+        state.Interrupted = state.Results.Values.Any(entry => WasInterrupted(entry.Result));
+        var (status, exitCode) = StatusOf(state.Results.Values.Select(entry => entry.Result), state.Interrupted);
+        var document = BuildReport.Build(new BuildReportOptions
+        {
+            RunId = state.RunId,
+            ProjectRoot = state.ProjectRoot,
+            ReportTargets = state.Targets,
+            StartedAt = state.StartedAt,
+            Status = status,
+            ExitCode = exitCode,
+            Results = [.. state.Results.Values.Select(entry => entry.Result)],
+            Explore = state.Explore,
+            Limits = state.Limits,
+            Vcs = await VcsOf(state.Vcs).ConfigureAwait(false),
+            Ci = E2EConfig.IsCi(),
+            Changes = state.Changes,
+            Filters = state.Filters,
+        });
+
+        // A result that gained no attempt keeps its wire form: only the test this call is about is built again.
+        var nodes = new Dictionary<string, JsonNode>(StringComparer.Ordinal);
+        foreach (var result in document.Run.Results)
+        {
+            var entry = state.Results[result.Id];
+            if (entry.Node is null)
+            {
+                var node = ReportWire.Result(result, result.Platform, resultsRoot);
+                ReportWire.Redact(node, entry.Redact);
+                entry.Node = node;
+            }
+
+            nodes[result.Id] = entry.Node;
+        }
+
+        await WriteReport.WriteJsonReportAsync(PathFor(resultsRoot), ReportWire.Document(document, nodes), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
