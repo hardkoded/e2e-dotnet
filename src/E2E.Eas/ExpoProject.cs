@@ -10,7 +10,7 @@ using System.Text.Json.Nodes;
 namespace E2E.Eas;
 
 /// <summary>
-/// The Expo project id a run's sessions belong to when <see cref="EasSimulatorsOptions.ProjectId"/> names none:
+/// The Expo project id a run's sessions belong to when <see cref="ExpoSimulatorsOptions.ProjectId"/> names none:
 /// <c>extra.eas.projectId</c> of the app config in the e2e project root, the id <c>eas init</c> writes.
 /// </summary>
 internal static class ExpoProject
@@ -24,7 +24,7 @@ internal static class ExpoProject
     /// <summary>How long <c>expo config</c> may evaluate a dynamic config; it takes about a second.</summary>
     private static readonly TimeSpan ExpoConfigTimeout = TimeSpan.FromSeconds(60);
 
-    private const string PassIt = "pass `projectId` to EasSimulators, or run `eas init` to link the app to an EAS project";
+    private const string PassIt = "pass `projectId` to ExpoSimulators, or run `eas init` to link the app to an Expo project";
 
     /// <summary>
     /// <c>extra.eas.projectId</c> from the app config in <paramref name="projectRoot"/>. A dynamic config

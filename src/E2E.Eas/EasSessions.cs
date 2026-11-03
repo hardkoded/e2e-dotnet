@@ -11,7 +11,7 @@ using E2E.Mobile;
 
 namespace E2E.Eas;
 
-/// <summary>What the provider asks EAS for: one agent-device session on one platform.</summary>
+/// <summary>What the provider asks Expo for: one agent-device session on one platform.</summary>
 internal sealed record EasSessionParams
 {
     public required string AppId { get; init; }
@@ -33,7 +33,7 @@ internal sealed record EasSessionParams
 
     public int? MaxRunTimeMinutes { get; init; }
 
-    /// <summary>The agent-device version EAS starts the daemon at.</summary>
+    /// <summary>The agent-device version Expo starts the daemon at.</summary>
     public string? PackageVersion { get; init; }
 }
 
@@ -55,14 +55,14 @@ internal sealed record EasSessionState(
 
 internal sealed record EasCreatedSession(string Id, string Url);
 
-/// <summary>An error EAS answered with, its <c>errorCode</c> kept.</summary>
-internal sealed class EasException(string message, string? code) : Exception($"EAS: {message}")
+/// <summary>An error Expo answered with, its <c>errorCode</c> kept.</summary>
+internal sealed class EasException(string message, string? code) : Exception($"Expo: {message}")
 {
     public string? Code { get; } = code;
 }
 
 /// <summary>
-/// EAS Simulators' sessions through Expo's GraphQL API over <see cref="HttpClient"/>, the API <c>eas simulator:*</c> uses,
+/// Expo Simulators' sessions through Expo's GraphQL API over <see cref="HttpClient"/>, the API <c>eas simulator:*</c> uses,
 /// so the integration installs no SDK.
 /// </summary>
 internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
@@ -127,7 +127,7 @@ internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
 
         var data = await GraphqlAsync(Create, new JsonObject { ["input"] = input }, cancellationToken).ConfigureAwait(false);
         var created = data["deviceRunSession"]?["createDeviceRunSession"];
-        var id = created?["id"]?.GetValue<string>() ?? throw new InvalidOperationException("EAS: the created session has no id");
+        var id = created?["id"]?.GetValue<string>() ?? throw new InvalidOperationException("Expo: the created session has no id");
         var app = created["app"];
         var account = Uri.EscapeDataString(app?["ownerAccount"]?["name"]?.GetValue<string>() ?? "");
         var slug = Uri.EscapeDataString(app?["slug"]?.GetValue<string>() ?? "");
@@ -137,7 +137,7 @@ internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
     public async Task<EasSessionState> StateAsync(string id, CancellationToken cancellationToken)
     {
         var data = await GraphqlAsync(State, new JsonObject { ["id"] = id }, cancellationToken).ConfigureAwait(false);
-        var session = data["deviceRunSessions"]?["byId"] ?? throw new InvalidOperationException($"EAS: session {id} not found");
+        var session = data["deviceRunSessions"]?["byId"] ?? throw new InvalidOperationException($"Expo: session {id} not found");
         var status = session["status"]?.GetValue<string>();
         var job = session["turtleJobRun"]?["status"]?.GetValue<string>();
         var config = session["remoteConfig"];
@@ -163,7 +163,7 @@ internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
 
     /// <summary>
     /// Stops the session, and cancels its job when it is still queued: a stopped session's queued job still starts later
-    /// and holds one of the account's concurrent sessions while it does. Stopping one already stopped, or one EAS no
+    /// and holds one of the account's concurrent sessions while it does. Stopping one already stopped, or one Expo no
     /// longer knows, succeeds.
     /// </summary>
     public async Task StopAsync(string id, CancellationToken cancellationToken)
@@ -201,7 +201,7 @@ internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
         }
     }
 
-    /// <summary>Runs one operation; a GraphQL error throws with EAS's message and error code.</summary>
+    /// <summary>Runs one operation; a GraphQL error throws with Expo's message and error code.</summary>
     private async Task<JsonNode> GraphqlAsync(string query, JsonObject variables, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, GraphqlUrl)
@@ -230,7 +230,7 @@ internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
         if (body is not JsonObject root)
         {
             var excerpt = text.Trim();
-            throw new InvalidOperationException($"EAS: HTTP {status}, {(excerpt.Length > 200 ? excerpt[..200] : excerpt)}");
+            throw new InvalidOperationException($"Expo: HTTP {status}, {(excerpt.Length > 200 ? excerpt[..200] : excerpt)}");
         }
 
         if (root["errors"] is JsonArray { Count: > 0 } errors && errors[0] is { } error)
@@ -238,6 +238,6 @@ internal sealed class EasSessions(ExpoCredentials credentials, HttpClient http)
             throw new EasException(error["message"]?.GetValue<string>() ?? $"HTTP {status}", error["extensions"]?["errorCode"]?.GetValue<string>());
         }
 
-        return !response.IsSuccessStatusCode || root["data"] is not { } data ? throw new InvalidOperationException($"EAS: HTTP {status}, no data") : data;
+        return !response.IsSuccessStatusCode || root["data"] is not { } data ? throw new InvalidOperationException($"Expo: HTTP {status}, no data") : data;
     }
 }
