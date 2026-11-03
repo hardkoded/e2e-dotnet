@@ -53,21 +53,23 @@ public sealed partial class Agent
         // The action as the replay dispatched it: a point action reads the point it acted at. The step still records the action as read.
         private RecordedAction Dispatched(RecordedAction action)
         {
-            var shown = action.Copy();
+            RecordedAction shown;
             switch (action.Kind)
             {
                 case "tapAt" or "hoverAt" when _tapped is { } point:
+                    shown = action.Copy();
                     shown.Point = point;
-                    break;
+                    return shown;
                 case "dragAt" when _dragged is { } drag && action.From is not null && action.To is not null:
+                    shown = action.Copy();
                     shown.From = action.From.Copy();
                     shown.From.Point = drag.From;
                     shown.To = action.To.Copy();
                     shown.To.Point = drag.To;
-                    break;
+                    return shown;
+                default:
+                    return action;
             }
-
-            return shown;
         }
 
         public Task CommitAsync(RecordedAction action)

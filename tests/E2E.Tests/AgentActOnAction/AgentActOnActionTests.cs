@@ -105,7 +105,7 @@ public sealed class AgentActOnActionTests
     // Upstream's hook also mutates the points it receives, to prove the trace cache does not see it. A C# point is a value, so a hook cannot
     // change what the cache records; the test checks the recorded and replayed events instead.
     [Fact]
-    public async Task Exposes_dispatched_viewport_points_and_isolates_hook_mutations_from_replay()
+    public async Task Partial_exposes_dispatched_viewport_points_and_isolates_hook_mutations_from_replay()
     {
         using var site = await CanvasPages.StartAsync();
         var directory = TwoTapCounter.NewDirectory();
