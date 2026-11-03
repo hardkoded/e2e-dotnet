@@ -294,11 +294,9 @@ public static class AgentTools
 
                     var content = guard is null ? await Body().ConfigureAwait(false) : await guard(Body).ConfigureAwait(false);
 
-                    // A guard that answered in the body's place (the step is concluding, or the body failed) leaves no outcome, or an outcome
-                    // whose text is not what the model reads: a failed call, with no screenshot of a screen the text does not describe.
-                    return outcome is null || !string.Equals(content, outcome.Content, StringComparison.Ordinal)
-                        ? new ToolLoopResult(content, Failed: outcome is null || !outcome.Succeeded)
-                        : new ToolLoopResult(content, !outcome.Succeeded, outcome.Pixels);
+                    // A guard that answered in the body's place (the step is concluding) leaves no outcome: a failed call. Text the guard
+                    // changed on a body that ran keeps the body's result and its screenshot.
+                    return outcome is null ? new ToolLoopResult(content, Failed: true) : new ToolLoopResult(content, !outcome.Succeeded, outcome.Pixels);
                 }))
             .ToList();
     }
@@ -524,6 +522,7 @@ public sealed class GrammarToolsOptions
 /// </summary>
 public sealed class VerdictTool
 {
+    private readonly Lock _gate = new();
     private StepVerdict? _verdict;
 
     internal VerdictTool(ModelTool tool) => Tool = tool;
@@ -547,18 +546,20 @@ public sealed class VerdictTool
     public ToolLoopResult Execute(ModelToolCall call)
     {
         ArgumentNullException.ThrowIfNull(call);
-        if (_verdict is not null)
-        {
-            return new ToolLoopResult("The step already concluded.");
-        }
-
         var outcome = Decide(call);
-        if (!outcome.Done)
+        lock (_gate)
         {
-            return new ToolLoopResult(outcome.Content, Failed: true);
-        }
+            if (_verdict is not null)
+            {
+                return new ToolLoopResult("The step already concluded.");
+            }
 
-        _verdict = new StepVerdict(
+            if (!outcome.Done)
+            {
+                return new ToolLoopResult(outcome.Content, Failed: true);
+            }
+
+            _verdict = new StepVerdict(
             outcome.Status switch
             {
                 "passed" => StepVerdictStatus.Passed,
@@ -567,6 +568,8 @@ public sealed class VerdictTool
             },
             outcome.Summary ?? "",
             outcome.Code);
+        }
+
         return new ToolLoopResult(
             string.Equals(outcome.Status, "passed", StringComparison.Ordinal) && Args.String(call.Arguments, "code") is { } dropped
                 ? "Step concluded as passed; the code " + dropped + " you sent does not apply to a passed verdict and was ignored."

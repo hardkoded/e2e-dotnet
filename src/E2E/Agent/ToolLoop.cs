@@ -171,6 +171,7 @@ public sealed record PreparedMessages(IReadOnlyList<ModelMessage> Messages, stri
 
 internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepExecutor
 {
+    // Only its definition and its stateless Decide policy are used: a shared instance must never run Execute, which keeps a verdict.
     private static readonly VerdictTool Verdict = AgentTools.CreateVerdictTool();
 
     private const string StopActingNotice = "Stop acting. Call done with a verdict.";
