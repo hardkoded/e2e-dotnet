@@ -18,7 +18,6 @@ Public types in the `E2E.Reports` namespace.
 | [ArtifactProducer](/api/E2E.Reports/ArtifactProducer/) | Who made an artifact (upstream's ArtifactRecord['producer']). |
 | [ArtifactRecord](/api/E2E.Reports/ArtifactRecord/) | A file or link an attempt kept (upstream's ArtifactRecord, run/records.ts). |
 | [CacheRecordedBy](/api/E2E.Reports/CacheRecordedBy/) | The model that recorded a cache entry. |
-| [E2EReporterAttribute](/api/E2E.Reports/E2EReporterAttribute/) | Registers a Reporter for the test assembly: [assembly: E2EReporter(typeof(MyReporter))]. .NET-only: upstream registers reporter objects in the reporters field of its config module, and the port's JSON config holds no code. |
 | [FailureEvidence](/api/E2E.Reports/FailureEvidence/) | What the runner saw when a failure landed (upstream's FailureEvidence). |
 | [FinishedRun](/api/E2E.Reports/FinishedRun/) | What a reporter receives once the run is over and its report is on disk (upstream's FinishedRun, types.ts). |
 | [HookScope](/api/E2E.Reports/HookScope/) | The tests a hook failure leaves unverified (upstream's HookScope). |
@@ -29,7 +28,7 @@ Public types in the `E2E.Reports` namespace.
 | [ReportChanges](/api/E2E.Reports/ReportChanges/) | The change a run's test filters judged, by counts only, or why no filter ran (upstream's ReportChanges): Base and Files once git measured the change, Skipped alone when no filter ran before git was asked. |
 | [ReportEngine](/api/E2E.Reports/ReportEngine/) | The engine a target runs on (upstream's ReportTarget['engine']). |
 | [ReportEnvironment](/api/E2E.Reports/ReportEnvironment/) | What a run ran on (upstream's run.environment). |
-| [Reporter](/api/E2E.Reports/Reporter/) | A reporter, registered with E2EReporterAttribute (upstream's Reporter, types.ts). OnRunFinishedAsync runs once, when the test run is over and report.json is final; the run is awaited for one minute, and the rows it returns print under the run's output. The token is cancelled when that budget runs out or the run is forced to stop, so a reporter hands it to its requests and leaves nothing running behind. A reporter can never change the run's outcome: a failure or a timeout is one line on stderr. The test run ends when the run fixture (E2ERunFixture of E2E.NUnit or E2E.XUnit.V3) is torn down, so a run without it calls no reporter. A reporter has a public constructor with no parameters and no side effects. Not ported: onEvent, since the port emits no run events. |
+| [Reporter](/api/E2E.Reports/Reporter/) | A reporter, listed in the reporters of e2e.config.json (upstream's Reporter, types.ts). OnRunFinishedAsync runs once, when the test run is over and report.json is final; the run is awaited for one minute, and the rows it returns print under the run's output. The token is cancelled when that budget runs out or the run is forced to stop, so a reporter hands it to its requests and leaves nothing running behind. A reporter can never change the run's outcome: a failure or a timeout is one line on stderr. The test run ends when the run fixture (E2ERunFixture of E2E.NUnit or E2E.XUnit.V3) is torn down, so a run without it calls no reporter. A reporter has a public constructor with no parameters and no side effects; one that takes options also implements IConfigurableReporter. Not ported: onEvent, since the port emits no run events. |
 | [ReportError](/api/E2E.Reports/ReportError/) | An error as a report tells it: the serialized error without its stack (upstream's ReportError). |
 | [ReporterSummaryRow](/api/E2E.Reports/ReporterSummaryRow/) | One row a reporter hands back for the terminal summary: a label and its text, a URL or a path (upstream's ReporterSummary element). |
 | [ReportFilter](/api/E2E.Reports/ReportFilter/) | One test filter the run applied, in order (upstream's ReportFilter). |
@@ -55,6 +54,12 @@ Public types in the `E2E.Reports` namespace.
 | [StepViewport](/api/E2E.Reports/StepViewport/) | The viewport a step ran in. |
 | [VcsInfo](/api/E2E.Reports/VcsInfo/) | Where the code under test came from (upstream's VcsInfo, internal/vcs.ts). |
 | [ViewportSize](/api/E2E.Reports/ViewportSize/) | The size of a viewport in pixels (upstream's inline FailureEvidence['viewport']). |
+
+## Interfaces
+
+| Type | Summary |
+| --- | --- |
+| [IConfigurableReporter](/api/E2E.Reports/IConfigurableReporter/) | A Reporter that takes the options of its e2e.config.json entry. .NET-only: upstream's config lists reporter objects built in code (github(options)), and a JSON entry holds no code, so the options arrive as JSON. |
 
 ## Enums
 

@@ -21,7 +21,7 @@ public sealed class E2EConfig
 
 The resolved `e2e.config.json`. The JSON shape follows upstream `e2e.config.ts`:
 `targets[].app.url`, named `agents`, top-level timeouts in milliseconds,
-`retries`, `cache`, and `secrets`. Unknown keys fail with
+`retries`, `cache`, `secrets`, and `reporters` (type names, .NET-only). Unknown keys fail with
 `INVALID_CONFIG`. `E2ETest` finds and applies this file; a fixture can
 still override each value. There is no default model.
 
