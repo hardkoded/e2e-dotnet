@@ -17,7 +17,7 @@ namespace E2E;
 /// asks for. Upstream's <c>commitTargeted</c> is <see cref="CommitAsync(RecordedAction)"/>, and its private <c>targeted</c> is
 /// <see cref="TargetedAsync(SemanticNode, CancellationToken, Func{SemanticNode, int, Task}, Action{SemanticNode}?)"/>.
 /// </summary>
-internal sealed class ActionDispatcher : IExecutorActions
+internal sealed partial class ActionDispatcher : IExecutorActions
 {
     // A scroll to a text gives up after this many pages, or once the screen stops moving.
     private const int MaxScrollUntilScreens = 800;
@@ -414,31 +414,34 @@ internal sealed class ActionDispatcher : IExecutorActions
     /// still an attempt. A failure of an action that ran past the step's end is the step's own hard stop, not the action's.
     /// </summary>
     private Task RunAsync(string name, Func<CancellationToken, Task> body, CancellationToken cancellationToken) =>
-        _accounting.Queue.RunAsync(async () =>
+        _accounting.Queue.RunAsync(() => RunNowAsync(name, body, cancellationToken));
+
+    // Upstream's runActionNow: RunAsync's body, for a caller already inside the queue (a point verb resolves its point there first).
+    private async Task RunNowAsync(string name, Func<CancellationToken, Task> body, CancellationToken cancellationToken)
+    {
+        _accounting.Reserve();
+        // The call runs under the step's own token as well as the caller's, so a step that ends stops an action in flight.
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(_accounting.Token, cancellationToken);
+        var actions = _accounting.Recorder.Actions;
+        try
         {
-            _accounting.Reserve();
-            // The call runs under the step's own token as well as the caller's, so a step that ends stops an action in flight.
-            using var linked = CancellationTokenSource.CreateLinkedTokenSource(_accounting.Token, cancellationToken);
-            var actions = _accounting.Recorder.Actions;
-            try
-            {
-                // One engine event named for the action, saying what it did once the action was recorded.
-                await Phases.InstrumentPhaseAsync(
-                    new PhaseHost(_scope.Steps, _scope.Debug),
-                    new PhaseSpec(StepEventKind.Engine, Phases.Action, name),
-                    async () =>
-                    {
-                        var before = actions.Count;
-                        await body(linked.Token).ConfigureAwait(false);
-                        return before;
-                    },
-                    before => actions.Count > before ? new PhaseDetail(Detail: _scope.Redactor.Redact(DefaultAgent.Describe(actions[^1]))) : new PhaseDetail()).ConfigureAwait(false);
-            }
-            catch (Exception) when (CheckStep())
-            {
-                throw;
-            }
-        });
+            // One engine event named for the action, saying what it did once the action was recorded.
+            await Phases.InstrumentPhaseAsync(
+                new PhaseHost(_scope.Steps, _scope.Debug),
+                new PhaseSpec(StepEventKind.Engine, Phases.Action, name),
+                async () =>
+                {
+                    var before = actions.Count;
+                    await body(linked.Token).ConfigureAwait(false);
+                    return before;
+                },
+                before => actions.Count > before ? new PhaseDetail(Detail: _scope.Redactor.Redact(DefaultAgent.Describe(actions[^1]))) : new PhaseDetail()).ConfigureAwait(false);
+        }
+        catch (Exception) when (CheckStep())
+        {
+            throw;
+        }
+    }
 
     // Throws the step's hard stop when the clock or the cancel ended it. Otherwise the action's own failure goes through.
     private bool CheckStep()

@@ -58,7 +58,7 @@ public sealed class FilteredRealModelTests
     private static async Task<IReadOnlyDictionary<string, string>> ExcludeAsync(string dir, params ITestFilter[] filters)
     {
         var found = E2E.NUnit.RunSelection.Discover([typeof(FilteredAgentFixture)], typeof(FilteredAgentFixture).Assembly);
-        return await HostTestFilters.ExcludeAsync(E2EConfig.Parse("{}", dir, _ => null), filters, "main", found, _ => { }, CancellationToken.None);
+        return (await HostTestFilters.ExcludeAsync(E2EConfig.Parse("{}", dir, _ => null), filters, "main", found, _ => { }, CancellationToken.None)).Excluded;
     }
 
     internal static string FeatureRepo()

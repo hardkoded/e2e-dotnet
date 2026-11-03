@@ -112,7 +112,7 @@ public Task StopAppCommandsAsync()
 ```
 
 
-Runs the reporters that the assembly registers with `[assembly: E2EReporter(typeof(...))]` once `report.json` is final, then stops
+Runs the reporters that [Config](#E2E_NUnit_E2ERunFixture_Config) lists in `reporters` once `report.json` is final, then stops
 the app commands that the tests of this process started, and deletes the sessions that setup tests saved (see `E2ESetupAttribute`).
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)

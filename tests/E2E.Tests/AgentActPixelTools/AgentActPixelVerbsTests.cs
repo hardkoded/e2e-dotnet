@@ -7,12 +7,14 @@ using E2E.Engine;
 namespace E2E.Tests.AgentActPixelTools;
 
 /// <summary>
-/// Upstream's <c>describe('act pixel tools')</c> (<c>agent-act-pixel-tools.test.ts</c>), the part that does not need a point tool. The
-/// port has no <c>tap_at</c>, <c>hover_at</c>, <c>type_at</c>, <c>press_at</c>, <c>select_at</c> or <c>drag_at</c> yet (#632), so every
-/// <c>it</c> that drives one is not ported here. The built-in agent prints no <c>#id</c> nodes and no diff results, so the ported
-/// <c>it</c>s read the full screen the port prints, and a screenshot rides a user turn after the tool results.
+/// Upstream's <c>describe('agent.act pixel verbs')</c> (<c>agent-act-pixel-tools.test.ts</c>). The built-in agent prints no <c>#id</c>
+/// nodes and no diff results, so the ported <c>it</c>s read the full screen the port prints, and a screenshot rides a user turn after the
+/// tool results. The point its are in <c>AgentActPixelVerbsTests.Points.cs</c>. Not ported: the keyboard its (<c>typeText</c>, <c>pressKey</c>),
+/// "counts failing point verbs toward the failure streak" (the port has no streak guard), and "reports a moved screenshot under an unchanged
+/// listing" (no diff presenter).
 /// </summary>
-public sealed class AgentActPixelVerbsTests
+[Collection(BrowserCollection.Name)]
+public sealed partial class AgentActPixelVerbsTests
 {
     private static DocumentWorld Page() => new DocumentWorld().Map("/", page =>
     {
@@ -24,7 +26,7 @@ public sealed class AgentActPixelVerbsTests
     private static DocumentWorld Canvas() => new DocumentWorld().Map("/", page => page.Status("Chart"));
 
     /// <summary>What one model request carried. The loop grows one list across turns, so the requests are copied as they arrive.</summary>
-    private sealed record Sent(IReadOnlyList<ModelMessage> Messages, IReadOnlyList<ModelTool> Tools);
+    private sealed record Sent(IReadOnlyList<ModelMessage> Messages, IReadOnlyList<ModelTool> Tools, string System = "");
 
     private static async Task<(List<Sent> Requests, PixelsEngine Engine, StepRecord Record, Exception? Error)> ActAsync(
         DocumentWorld world,

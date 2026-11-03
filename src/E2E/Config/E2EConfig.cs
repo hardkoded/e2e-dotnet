@@ -13,7 +13,7 @@ namespace E2E;
 /// <summary>
 /// The resolved <c>e2e.config.json</c>. The JSON shape follows upstream <c>e2e.config.ts</c>:
 /// <c>targets[].app.url</c>, named <c>agents</c>, top-level timeouts in milliseconds,
-/// <c>retries</c>, <c>cache</c>, and <c>secrets</c>. Unknown keys fail with
+/// <c>retries</c>, <c>cache</c>, <c>secrets</c>, and <c>reporters</c> (type names, .NET-only). Unknown keys fail with
 /// <c>INVALID_CONFIG</c>. <c>E2ETest</c> finds and applies this file; a fixture can
 /// still override each value. There is no default model.
 /// </summary>
@@ -49,14 +49,16 @@ public sealed class E2EConfig
     private static readonly string[] TopLevelKeys =
     [
         "targets", "timeout", "launchTimeout", "actionTimeout", "assertionTimeout", "cleanupTimeout",
-        "retries", "agents", "cache", "secrets", "credentials", "artifacts", "output", "trace", "video", "testAssembly",
+        "retries", "agents", "cache", "secrets", "credentials", "artifacts", "output", "trace", "video", "testAssembly", "reporters",
     ];
 
     // Upstream keys the .NET port does not implement. They fail loudly rather than being ignored.
     private static readonly string[] UnsupportedTopLevelKeys =
     [
-        "projectId", "tests", "failOnSkippedFailure", "workers", "reporters",
+        "projectId", "tests", "failOnSkippedFailure", "workers",
     ];
+
+    private static readonly string[] ReporterKeys = ["type", "options"];
 
     private static readonly string[] TargetKeys = ["name", "platform", "app", "trace", "video"];
 
@@ -151,6 +153,12 @@ public sealed class E2EConfig
     public string? TestAssembly { get; private init; }
 
     public CacheConfig Cache { get; private set; } = new();
+
+    /// <summary>
+    /// The reporters the config lists, in config order (upstream's <c>reporters</c>, <c>ResolvedConfig.customReporters</c>). .NET-only shape: an
+    /// entry names a <see cref="Reporter"/> type, and the reporter is built when the run ends (see <see cref="Reporters"/>).
+    /// </summary>
+    internal IReadOnlyList<ReporterEntry> Reporters { get; private init; } = [];
 
     /// <summary>
     /// Where artifacts go, over the files under the results directory (upstream's <c>artifacts.store</c>, <c>ResolvedConfig.artifactStore</c>).
@@ -351,6 +359,7 @@ public sealed class E2EConfig
                 Agents = ReadAgents(Property(root, "agents")),
                 TestAssembly = OptionalString(root, "testAssembly", "testAssembly") is { } testAssembly ? Path.GetFullPath(testAssembly, projectRoot) : null,
                 Cache = cache,
+                Reporters = ReadReporters(Property(root, "reporters")),
                 _rawOutput = Property(root, "output")?.Clone(),
                 Secrets = ReadSecrets(Property(root, "secrets"), environment, credentials),
                 Credentials = credentials,
@@ -358,6 +367,55 @@ public sealed class E2EConfig
                 _environment = environment,
             };
         }
+    }
+
+    // Upstream's resolveReporters: `reporters` is an array. An entry is a type name, or { type, options }. The type must resolve at load, so a typo fails before the run.
+    private static List<ReporterEntry> ReadReporters(JsonElement? raw)
+    {
+        var entries = new List<ReporterEntry>();
+        if (raw is null)
+        {
+            return entries;
+        }
+
+        if (raw.Value.ValueKind != JsonValueKind.Array)
+        {
+            throw Invalid("reporters must be an array of reporter type names and { \"type\": ..., \"options\": ... } objects");
+        }
+
+        var index = 0;
+        foreach (var entry in raw.Value.EnumerateArray())
+        {
+            var at = "reporters[" + index++.ToString(CultureInfo.InvariantCulture) + "]";
+            string? name;
+            JsonElement? options = null;
+            if (entry.ValueKind == JsonValueKind.String)
+            {
+                name = entry.GetString();
+            }
+            else if (entry.ValueKind == JsonValueKind.Object)
+            {
+                CheckKeys(entry, at, ReporterKeys, [], null);
+                name = Property(entry, "type") is { ValueKind: JsonValueKind.String } type ? type.GetString() : null;
+                if (Property(entry, "options") is { } rawOptions)
+                {
+                    options = rawOptions.ValueKind == JsonValueKind.Object ? rawOptions.Clone() : throw Invalid(at + ".options must be an object");
+                }
+            }
+            else
+            {
+                throw Invalid(at + " must be a reporter type name or an object with a string \"type\"");
+            }
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw Invalid(at + " must be a reporter type name or an object with a string \"type\"");
+            }
+
+            entries.Add(ReporterEntry.Resolve(name.Trim(), options, at));
+        }
+
+        return entries;
     }
 
     private static List<TargetConfig> ReadTargets(JsonElement? raw, string projectRoot, RunRecording trace, RunRecording video)

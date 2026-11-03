@@ -32,12 +32,18 @@ dotnet add package E2E.NUnit   # or E2E.XUnit.V3 for xUnit v3
 
 ## Reporters
 
-A reporter runs once, when the test run is over and `report.json` is final (upstream's `Reporter.onRunFinished`). Derive from `E2E.Reports.Reporter`, override `OnRunFinishedAsync`, and register the type for the test assembly:
+A reporter runs once, when the test run is over and `report.json` is final (upstream's `Reporter.onRunFinished`). Derive from `E2E.Reports.Reporter`, override `OnRunFinishedAsync`, and list the type in `reporters` of `e2e.config.json`:
+
+```json
+{
+  "reporters": ["UploadReporter, MyTests"]
+}
+```
+
+The reporter:
 
 ```csharp
 using E2E.Reports;
-
-[assembly: E2EReporter(typeof(UploadReporter))]
 
 public sealed class UploadReporter : Reporter
 {
@@ -51,7 +57,7 @@ public sealed class UploadReporter : Reporter
 }
 ```
 
-The run ends when the run fixture is torn down (`E2ERunFixture`, see the setup reference), so add it: without it no reporter is called. The reporter needs a public constructor with no parameters. It is awaited for one minute, and the token is cancelled when that runs out. The rows it returns print to standard output after the tests. A reporter can never change the outcome: a throw or a timeout is one line on standard error. `OnEvent`, `FinishedRun.Traces`, `AiTracePath`, and `LastRun` are not ported.
+The run ends when the run fixture is torn down (`E2ERunFixture`, see the setup reference), so add it: without it no reporter is called. The reporter needs a public constructor with no parameters. Reporters run in the order the config lists them, and a type listed twice runs twice. An entry is a type name (with its assembly, or the name of a type in a loaded assembly) or an object, `{ "type": "UploadReporter, MyTests", "options": { "label": "nightly" } }`. Options reach a reporter that implements `IConfigurableReporter`: its `Configure(JsonElement options)` runs once, right after the reporter is built, and rejects content it does not know with an error that names the key, not the value. `options` for a reporter that does not implement it is `INVALID_CONFIG`, as is a type name that does not resolve or is not a `Reporter`. `e2e.config.json` is committed, so put no token in `options`. It is awaited for one minute, and the token is cancelled when that runs out. The rows it returns print to standard output after the tests. A reporter can never change the outcome: a throw or a timeout is one line on standard error. `OnEvent`, `FinishedRun.Traces`, `AiTracePath`, and `LastRun` are not ported.
 
 ### Rendering the report as markdown
 

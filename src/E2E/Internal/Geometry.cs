@@ -46,4 +46,32 @@ internal static class Geometry
         var height = Math.Min(box.Y + box.Height, viewport.Height) - Math.Max(box.Y, 0);
         return width <= 0 || height <= 0 ? 0 : Math.Clamp(width * height / ((double)viewport.Width * viewport.Height), 0, 1);
     }
+
+    /// <summary>
+    /// Upstream's <c>requireFinitePoint</c>: a point of two finite numbers, or <c>INVALID_ARGUMENT</c> naming <paramref name="what"/>
+    /// asked for it. Callers layer their own rule on top: the agent clamps into the viewport, a test refuses negatives.
+    /// </summary>
+    public static Point RequireFinitePoint(Point point, string what) =>
+        double.IsFinite(point.X) && double.IsFinite(point.Y)
+            ? point
+            : throw new TestException("INVALID_ARGUMENT", what + " requires a point { x, y } of finite numbers");
+
+    /// <summary>
+    /// Upstream's <c>clampToViewport</c>: rounds a point to whole CSS pixels and keeps it inside a box of the given size, so a point
+    /// placed off the edge lands on the edge rather than failing the engine. JavaScript's <c>Math.round</c> rounds halves up.
+    /// </summary>
+    public static Point ClampToViewport(Point point, TraceViewport viewport)
+    {
+        ArgumentNullException.ThrowIfNull(viewport);
+        return new Point(
+            Math.Clamp(Math.Floor(point.X + 0.5), 0, Math.Max(0, viewport.Width - 1)),
+            Math.Clamp(Math.Floor(point.Y + 0.5), 0, Math.Max(0, viewport.Height - 1)));
+    }
+
+    /// <summary>Upstream's <c>containsPoint</c>: true when the point lies inside the box, on its top and left edges and short of its bottom and right ones.</summary>
+    public static bool ContainsPoint(BoundingBox box, Point point)
+    {
+        ArgumentNullException.ThrowIfNull(box);
+        return point.X >= box.X && point.X < box.X + box.Width && point.Y >= box.Y && point.Y < box.Y + box.Height;
+    }
 }

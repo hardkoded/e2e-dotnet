@@ -63,12 +63,12 @@ public class GitHubReporter : Reporter
 
     private readonly GitHubOptions? _options;
 
-    /// <summary>A reporter whose key comes from the <c>E2E_GITHUB_KEY</c> environment variable. The public constructor <see cref="E2EReporterAttribute"/> needs.</summary>
+    /// <summary>A reporter whose key comes from the <c>E2E_GITHUB_KEY</c> environment variable. The public constructor <c>E2EReporterAttribute</c> needs.</summary>
     public GitHubReporter()
     {
     }
 
-    /// <summary>A reporter with these options. For a class that derives from this one and is registered with <see cref="E2EReporterAttribute"/>.</summary>
+    /// <summary>A reporter with these options. For a class that derives from this one and is registered with <c>E2EReporterAttribute</c>.</summary>
     protected GitHubReporter(GitHubOptions options) => _options = options;
 
     /// <inheritdoc />

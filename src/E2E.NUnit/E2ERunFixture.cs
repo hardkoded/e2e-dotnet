@@ -42,18 +42,20 @@ public abstract class E2ERunFixture
             return;
         }
 
-        var excluded = await HostTestFilters.ExcludeAsync(
-            Config,
+        var config = Config;
+        var selection = await HostTestFilters.ExcludeAsync(
+            config,
             Filters,
             changedSince,
             RunSelection.Discover(GetType().Assembly),
             line => global::NUnit.Framework.TestContext.Progress.WriteLine(line),
             global::NUnit.Framework.TestContext.CurrentContext.CancellationToken).ConfigureAwait(false);
-        RunSelection.Add(excluded);
+        RunSelection.Add(selection.Excluded);
+        await HostTestFilters.WriteReportAsync(config, selection, global::NUnit.Framework.TestContext.CurrentContext.CancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Runs the reporters that the assembly registers with <c>[assembly: E2EReporter(typeof(...))]</c> once <c>report.json</c> is final, then stops
+    /// Runs the reporters that <see cref="Config"/> lists in <c>reporters</c> once <c>report.json</c> is final, then stops
     /// the app commands that the tests of this process started, and deletes the sessions that setup tests saved (see <c>E2ESetupAttribute</c>).
     /// </summary>
     [OneTimeTearDown]
@@ -61,7 +63,7 @@ public abstract class E2ERunFixture
     {
         try
         {
-            await Reporters.RunFinishedAsync(GetType().Assembly).ConfigureAwait(false);
+            await Reporters.RunFinishedAsync(Config).ConfigureAwait(false);
         }
         finally
         {

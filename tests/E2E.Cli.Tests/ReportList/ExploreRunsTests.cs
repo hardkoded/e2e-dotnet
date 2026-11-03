@@ -4,6 +4,7 @@
 
 using System.Text.RegularExpressions;
 using E2E.Cli.Tests.Helpers;
+using E2E.Reports;
 
 namespace E2E.Cli.Tests.ReportList;
 
@@ -35,7 +36,7 @@ public sealed partial class ExploreRunsTests
         ["Open the catalog", "Add two books to the cart", "Open the cart"],
         Start.AddSeconds(5),
         "/cart",
-        ".e2e/results/explore-checkout/attempt-1/screenshots/1-finding-1.png");
+        "attempt-1:artifact:0");
 
     private static readonly ReportExploreFinding Warning = new(
         "f-2",
@@ -87,9 +88,13 @@ public sealed partial class ExploreRunsTests
         RunStatus.Failed,
         1,
         new TestException("ASSERTION_FAILED", "exploration found 1 issue(s): [severity 4] Cart total shows $0.00 with two items"),
-        new ReportExplore(Goal, Budgets, ReportExploreEnded.Finished, [Step1Done, Step2Done], [Finding, Warning], Assessment));
+        new ReportExplore(Goal, Budgets, ReportExploreEnded.Finished, [Step1Done, Step2Done], [Finding, Warning], Assessment))
+    {
+        Artifacts = [new ArtifactRecord { Id = "attempt-1:artifact:0", Kind = ArtifactKind.Screenshot, Path = "explore-checkout/attempt-1/screenshots/1-finding-1.png" }],
+        ArtifactsRoot = Path.Combine(Directory.GetCurrentDirectory(), ".e2e", "results"),
+    };
 
-    /// <summary>Partial: the port prints no run header, counts no actions in a step (it has no engine events), and names the screenshot by its path under the project root.</summary>
+    /// <summary>Partial: the port prints no run header, counts no actions in a step (it has no engine events), and shows the screenshot's path under the working directory.</summary>
     [Fact]
     public async Task Without_a_live_window_streams_the_header_each_finding_and_each_step_as_they_happen_then_the_findings_with_their_evidence()
     {

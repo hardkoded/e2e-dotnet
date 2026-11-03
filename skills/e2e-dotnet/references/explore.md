@@ -134,8 +134,8 @@ low 2, trivial 1. The exit code is the verdict's: 0 when no issue was reported
 configuration or policy error, 3 for an engine, app, or model provider
 failure, and 130 when interrupted. `.e2e/report.json` (in the output
 directory, so `--output out` gives `out/report.json`) has the record under `run.explore`: the goal, the budgets, why the
-run ended, the steps, and the findings. A finding's `artifactId` is left out:
-the port names the screenshot by its path, in the terminal and in `ExploreOutcome`.
+run ended, the steps, and the findings. A finding's `artifactId` is the id of
+the `screenshot` artifact of the attempt that holds its evidence.
 
 ## Budgets
 
@@ -176,8 +176,8 @@ assessment in `Summary`, the `Steps` with their status (`Passed`, `Failed`,
 when it did not pass. A finding carries `Step`, `Path`, `ObservationRevision`, and
 `ArtifactId` only when known. `ObservationRevision` is the revision (`b<n>`) of
 the capture the finding tool took when it reported the finding (its own capture,
-as upstream, so no agent step records the same value). `ArtifactId` is the path, relative to the project root, of
-the evidence screenshot, which lands under
+as upstream, so no agent step records the same value). `ArtifactId` is the id of the report artifact that holds
+the evidence screenshot, a file that lands under
 `.e2e/results/<result>/attempt-1/screenshots/` (`Output` changes the output
 directory they are under). The exploration is a test of the virtual file `explore`, so
 `<result>` starts with `explore-` and the goal's words, as

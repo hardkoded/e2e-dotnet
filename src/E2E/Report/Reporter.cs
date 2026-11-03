@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json;
+
 namespace E2E.Reports;
 
 /// <summary>What a reporter receives once the run is over and its report is on disk (upstream's <c>FinishedRun</c>, <c>types.ts</c>).</summary>
@@ -17,12 +19,12 @@ public sealed record FinishedRun(Report Report, ReportRunStatus Status, int Exit
 public sealed record ReporterSummaryRow(string Label, string Text);
 
 /// <summary>
-/// A reporter, registered with <see cref="E2EReporterAttribute"/> (upstream's <c>Reporter</c>, <c>types.ts</c>). <see cref="OnRunFinishedAsync"/> runs
+/// A reporter, listed in the <c>reporters</c> of <c>e2e.config.json</c> (upstream's <c>Reporter</c>, <c>types.ts</c>). <see cref="OnRunFinishedAsync"/> runs
 /// once, when the test run is over and <c>report.json</c> is final; the run is awaited for one minute, and the rows it returns print under the run's
 /// output. The token is cancelled when that budget runs out or the run is forced to stop, so a reporter hands it to its requests and leaves nothing
 /// running behind. A reporter can never change the run's outcome: a failure or a timeout is one line on stderr. The test run ends when the
 /// run fixture (<c>E2ERunFixture</c> of <c>E2E.NUnit</c> or <c>E2E.XUnit.V3</c>) is torn down, so a run without it calls no reporter. A reporter
-/// has a public constructor with no parameters and no side effects. Not ported: <c>onEvent</c>, since the port emits no run events.
+/// has a public constructor with no parameters and no side effects; one that takes options also implements <see cref="IConfigurableReporter"/>. Not ported: <c>onEvent</c>, since the port emits no run events.
 /// </summary>
 public abstract class Reporter
 {
@@ -35,13 +37,14 @@ public abstract class Reporter
 }
 
 /// <summary>
-/// Registers a <see cref="Reporter"/> for the test assembly: <c>[assembly: E2EReporter(typeof(MyReporter))]</c>. .NET-only: upstream registers
-/// reporter objects in the <c>reporters</c> field of its config module, and the port's JSON config holds no code.
+/// A <see cref="Reporter"/> that takes the <c>options</c> of its <c>e2e.config.json</c> entry. .NET-only: upstream's config lists reporter
+/// objects built in code (<c>github(options)</c>), and a JSON entry holds no code, so the options arrive as JSON.
 /// </summary>
-/// <param name="reporterType">A <see cref="Reporter"/> with a public constructor with no parameters.</param>
-[AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
-public sealed class E2EReporterAttribute(Type reporterType) : Attribute
+public interface IConfigurableReporter
 {
-    /// <summary>The reporter's type.</summary>
-    public Type ReporterType { get; } = reporterType;
+    /// <summary>
+    /// Called once, right after the reporter is built, and only when the entry has <c>options</c>. The reporter rejects content it does not
+    /// know with a clear error that names the key, never the value: <c>e2e.config.json</c> is committed, so options hold no tokens.
+    /// </summary>
+    void Configure(JsonElement options);
 }

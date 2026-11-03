@@ -71,16 +71,23 @@ public sealed class HostTestFiltersTests : IDisposable
     {
         var (dir, config) = Repo();
         var notices = new List<string>();
-        var excluded = await E2E.HostTestFilters.ExcludeAsync(
+        var selection = await E2E.HostTestFilters.ExcludeAsync(
             config,
             [ByChangedFile()],
             "main",
             [Found("App.Tests.Cart", "CartTests", "Adds_an_item"), Found("App.Tests.Login", "LoginTests", "Signs_in")],
             notices.Add,
             CancellationToken.None);
-        var left = Assert.Single(excluded);
+        var left = Assert.Single(selection.Excluded);
         Assert.Equal("App.Tests.Login.LoginTests.Signs_in", left.Key);
         Assert.Equal("tests/Login/LoginTests.cs did not change", left.Value);
+        var result = Assert.Single(selection.Results);
+        Assert.Equal(ResultStatus.Skipped, result.Status);
+        Assert.False(result.Selected);
+        Assert.Equal(new ReportSkip("filtered", "tests/Login/LoginTests.cs did not change", "changed-files"), result.Skip);
+        Assert.Equal(new ReportChanges(selection.Changes!.Base, 1), selection.Changes);
+        var record = Assert.Single(selection.Filters);
+        Assert.Equal(("changed-files", 2, 1), (record.Name, record.Candidates, record.Excluded));
         Assert.Contains(notices, line => line.StartsWith("judging 1 file changed since ", StringComparison.Ordinal));
         Assert.True(Directory.Exists(dir));
     }
@@ -90,8 +97,10 @@ public sealed class HostTestFiltersTests : IDisposable
     {
         var (_, config) = Repo();
         var notices = new List<string>();
-        var excluded = await E2E.HostTestFilters.ExcludeAsync(config, [], "main", [Found("App.Tests.Login", "LoginTests", "Signs_in")], notices.Add, CancellationToken.None);
-        Assert.Empty(excluded);
+        var selection = await E2E.HostTestFilters.ExcludeAsync(config, [], "main", [Found("App.Tests.Login", "LoginTests", "Signs_in")], notices.Add, CancellationToken.None);
+        Assert.Empty(selection.Excluded);
+        Assert.Empty(selection.Results);
+        Assert.Null(selection.Changes);
         Assert.Equal(["warning: --changed-since: the config has no filters, so every test runs"], notices);
     }
 

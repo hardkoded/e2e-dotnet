@@ -1,9 +1,9 @@
 ---
 title: Test filters
-description: Run only the tests a change can affect, with --changed-since style filters in an NUnit run.
+description: Run only the tests a change can affect, with --changed-since style filters in an NUnit or xUnit v3 run.
 ---
 
-A test filter leaves tests out of a run before anything starts. It sees the tests and the files that changed since a base ref, and it names the tests to leave out. This ports upstream's `filters` and `--changed-since` (`run/test-filters.ts`) to `dotnet test` with NUnit.
+A test filter leaves tests out of a run before anything starts. It sees the tests and the files that changed since a base ref, and it names the tests to leave out. This ports upstream's `filters` and `--changed-since` (`run/test-filters.ts`) to `dotnet test` with NUnit and xUnit v3.
 
 ## Turn it on
 
@@ -18,6 +18,17 @@ public sealed class AppCommands : E2ERunFixture
 }
 ```
 
+With xUnit v3, derive the assembly fixture and register that type in place of `E2ERunFixture`:
+
+```csharp
+public sealed class Filtered : E2ERunFixture
+{
+    protected override IReadOnlyList<ITestFilter> Filters => [new ChangedFilesFilter()];
+}
+
+[assembly: AssemblyFixture(typeof(Filtered))]
+```
+
 The filters run once, before the first test, and only when a base ref is set:
 
 - `ChangedSince` on the fixture, or
@@ -27,12 +38,23 @@ With no base ref, every test runs. A session that `e2e mcp` opens on a named tes
 
 ## What happens
 
-1. The fixture finds the tests of the assembly by reflection: every public method of a non-abstract `E2ETest` that has `[Test]`, `[TestCase]`, `[TestCaseSource]`, or `[Theory]`. `[Explicit]` classes and methods are not judged. A parameterized method is one test.
+1. The fixture finds the tests of the assembly by reflection: every public method of a non-abstract `E2ETest` that has `[Test]`, `[TestCase]`, `[TestCaseSource]`, or `[Theory]` (NUnit), or `[Fact]` or `[Theory]` (xUnit v3). `[Explicit]` classes and methods are not judged. A parameterized method is one test.
 2. It asks git for the files changed since the base ref (the merge base, uncommitted and untracked files included).
 3. Each filter gets the tests the earlier filters kept, in order, and returns the ones to leave out with a reason.
-4. A left-out test skips itself at its start with `Assert.Ignore(reason)`.
+4. A left-out test skips itself at its start: `Assert.Ignore(reason)` in NUnit, a skip with the reason in xUnit v3.
+5. The run's `report.json` gets the part upstream's runner adds (see below).
 
-A filter that throws, answers with something invalid, or runs past 5 minutes leaves nothing out, with a warning. Notes go to the NUnit progress output.
+A filter that throws, answers with something invalid, or runs past 5 minutes leaves nothing out, with a warning. Notes go to the NUnit progress output, and to the standard error stream in xUnit v3.
+
+## In the report
+
+`report.json` tells what the filters did:
+
+- `run.changes` holds the base commit and how many files changed, or `skipped` with the reason no filter ran (for example, no files changed).
+- `run.filters` lists each filter with the tests it judged (`candidates`), the tests it left out (`excluded`), its note, and an `outcome` when it failed or timed out.
+- Each test left out is a result with status `skipped`, `selected: false`, and `skip: { cause: "filtered", reason, filter }`. It has no attempts, and the summary's `selected` does not count it.
+
+The reporters read these from the report. The markdown reporter prints the filter lines and a "left out by filters" section. A run in which every test is left out still writes `report.json`. Nothing is written when no filter had a say (no base ref).
 
 ## Writing a filter
 
@@ -51,7 +73,7 @@ public sealed class ChangedFilesFilter : ITestFilter
 }
 ```
 
-Each `TestFilterCandidate` has `Id`, `File`, `TitlePath`, and `Tags`. `Tags` are the `[Category]` values of the method, its class, its enclosing classes, and the assembly.
+Each `TestFilterCandidate` has `Id`, `File`, `TitlePath`, and `Tags`. `Tags` are the `[Category]` values (NUnit) or the `TestCategory` trait values (xUnit v3, `[Trait("TestCategory", "Slow")]`) of the method, its class, its enclosing classes, and the assembly.
 
 ## Where a test's file comes from
 
@@ -61,5 +83,5 @@ This is a convention. It is wrong when a class lives in a file with another name
 
 ## Not included yet
 
-- xUnit and the mobile and Windows adapters.
-- Report records and the left-out section of the reporters. A left-out test shows as ignored in NUnit, not in `report.json`.
+- The mobile and Windows adapters.
+- `filters` in `e2e.config.json`, `--changed-since` and `--no-filter` flags, and `e2e list` and `e2e run` output: the port has no runner or CLI for them. A filter is code, so it is given on the run fixture.

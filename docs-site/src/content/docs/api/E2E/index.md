@@ -48,7 +48,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ConfigurationException](/api/E2E/ConfigurationException/) | e2e.config.json is invalid. The code is INVALID_CONFIG. |
 | [Credentials](/api/E2E/Credentials/) | The accounts of the config's credentials (upstream's credentials, secrets.ts): E2E_USER_{NAME}_USERNAME and E2E_USER_{NAME}_PASSWORD replace the config's values. While a session runs, only a configured name resolves. |
 | [DefaultAgent](/api/E2E/DefaultAgent/) | Upstream's createBuiltInAgent (agent/default-agent.ts): the tool loop with the built-in rules, tools, and opening prompt. |
-| [E2EConfig](/api/E2E/E2EConfig/) | The resolved e2e.config.json. The JSON shape follows upstream e2e.config.ts: targets[].app.url, named agents, top-level timeouts in milliseconds, retries, cache, and secrets. Unknown keys fail with INVALID_CONFIG. E2ETest finds and applies this file; a fixture can still override each value. There is no default model. |
+| [E2EConfig](/api/E2E/E2EConfig/) | The resolved e2e.config.json. The JSON shape follows upstream e2e.config.ts: targets[].app.url, named agents, top-level timeouts in milliseconds, retries, cache, secrets, and reporters (type names, .NET-only). Unknown keys fail with INVALID_CONFIG. E2ETest finds and applies this file; a fixture can still override each value. There is no default model. |
 | [E2EDefaults](/api/E2E/E2EDefaults/) | The upstream defaults, in one place. E2EConfig, E2ESessionOptions, and the NUnit fixture all start from these values. |
 | [E2EException](/api/E2E/E2EException/) | Base exception for the agent and engines. Code is stable. |
 | [E2EFixture](/api/E2E/E2EFixture/) | The part of a test base class that every test framework shares. It holds the settings and starts one E2ESession per test. A framework adapter, such as E2E.NUnit.E2ETest, calls StartSessionAsync before the test body and commits the session from the framework's result after it. &lt;p&gt; Settings come from Config, the nearest e2e.config.json above the test assembly or the working directory. Override a property to change one value for a fixture. &lt;/p&gt; |
@@ -111,12 +111,17 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [OpenedStep](/api/E2E/OpenedStep/) | A step as opened: title and charter bounded to the report's ceilings, which is what the step runs with. |
 | [OpenHostOptions](/api/E2E/OpenHostOptions/) | What OpenAsync is given. Upstream's OpenHostOptions (run/open-session.ts). |
 | [OpenSessionOptions](/api/E2E/OpenSessionOptions/) | What OpenSessionAsync is given. Upstream's OpenSessionOptions (run/open-session.ts). |
+| [PointDragResult](/api/E2E/PointDragResult/) | Upstream's PointDragResult: what one DragAtAsync did, for the executor to relay to its model. |
+| [PointHit](/api/E2E/PointHit/) | Upstream's PointHit: what one HitTestAsync found, for the executor to act on or relay. |
+| [PointTapResult](/api/E2E/PointTapResult/) | Upstream's PointTapResult: what one point action (TapAtAsync, HoverAtAsync) did, for the executor to relay to its model. |
 | [PollExpectation&lt;T&gt;](/api/E2E/PollExpectation-1/) | Re-reads a value until the chosen matcher holds or the timeout passes. A read that throws is retried, and its error is reported if the poll times out. A matcher that refuses the read value's type counts as not yet. With NUnit, ToMatchAsync from E2E.NUnit takes any NUnit constraint. |
 | [PollOptions](/api/E2E/PollOptions/) | How Poll&lt;T&gt; re-reads a value. |
 | [PreparedMessages](/api/E2E/PreparedMessages/) | What PrepareMessages hands back: the history for the next turn, and optionally a reason to stop. The executor has evidence the loop guards cannot see that the step is not progressing. A stop leaves the model only done, like a loop guard. |
 | [PreparedTurn](/api/E2E/PreparedTurn/) | What PrepareMessages learns about the turn that is about to run. |
 | [PressSequentiallyOptions](/api/E2E/PressSequentiallyOptions/) | Options for PressSequentiallyAsync. |
 | [RecordedAction](/api/E2E/RecordedAction/) |  |
+| [RecordedPointEnd](/api/E2E/RecordedPointEnd/) | Upstream's TracePointEnd: a recorded point and, when a listed node with a durable descriptor contained it, its place inside that node's box. |
+| [RecordedPointPlace](/api/E2E/RecordedPointPlace/) | Upstream's within of a TracePointEnd: the node a bare point sat in, and the point's place inside its box. Upstream types it inline ({ target, fx, fy }); C# has no inline object type, so it is a class (.NET-only name). The property that holds it is Under, because Within already names a container key here. |
 | [RecordedTarget](/api/E2E/RecordedTarget/) |  |
 | [RecordedVideo](/api/E2E/RecordedVideo/) | One video StopRecordingAsync(CancellationToken) returns: a file, or a link to a recording a hosted service keeps (upstream's RecordedVideo). |
 | [RecordedVideoFile](/api/E2E/RecordedVideoFile/) | A video file under the attempt's recordings/ directory (upstream's RecordedVideoFile). |

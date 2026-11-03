@@ -186,9 +186,9 @@ public virtual Task<string> AttachScreenshotAsync(ExecutorPixels pixels, string 
 ```
 
 
-Keeps pixels the executor or one of its tools observed as a screenshot of the step in progress, and returns the
-path of the file, relative to the project root. The file is named by &lt;code class="paramref"&gt;label&lt;/code&gt; and lands in the
-attempt's results directory. For a tool with evidence worth keeping.
+Keeps pixels the executor or one of its tools observed as a `screenshot` artifact of the step in progress, and
+returns the artifact's report id. The file is named by &lt;code class="paramref"&gt;label&lt;/code&gt; and lands in the attempt's results
+directory, and the report's artifact records it like every screenshot the runner takes. For a tool with evidence worth keeping.
 
 **Parameters**
 

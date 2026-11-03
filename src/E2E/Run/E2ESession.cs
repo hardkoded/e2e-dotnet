@@ -85,6 +85,9 @@ public sealed class E2ESession : IAsyncDisposable
     /// </summary>
     public TestContext Fixtures => Context;
 
+    /// <summary>The records of the artifacts the attempt kept, settled once the session has closed. .NET-only: upstream reads them from the report.</summary>
+    internal IReadOnlyList<Reports.ArtifactRecord> Artifacts => _scope.Attached;
+
     /// <summary>The absolute directory of the attempt's artifacts. Upstream's <c>artifactsDir</c>.</summary>
     public string ArtifactsDir => _scope.ArtifactsDir!;
 

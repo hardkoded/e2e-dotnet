@@ -113,7 +113,11 @@ public static partial class AgentDeviceDaemon
     /// Stops the daemon of a state directory and removes the directory, as <c>agent-device daemon stop --clean</c> does,
     /// and forgets it. Throws when the command fails, so a caller can report a daemon left running.
     /// </summary>
-    public static async Task StopAsync(string stateDirectory, IReadOnlyDictionary<string, string?>? environment, CancellationToken cancellationToken)
+    public static async Task StopAsync(string stateDirectory, IReadOnlyDictionary<string, string?>? environment, CancellationToken cancellationToken) =>
+        await StopReportAsync(stateDirectory, environment, cancellationToken).ConfigureAwait(false);
+
+    /// <summary><see cref="StopAsync"/>, answering the JSON shutdown report <c>daemon stop --json</c> printed, for a caller that must see whether the provider sessions ended.</summary>
+    internal static async Task<string> StopReportAsync(string stateDirectory, IReadOnlyDictionary<string, string?>? environment, CancellationToken cancellationToken)
     {
         var (program, arguments) = Launcher();
         var start = new ProcessStartInfo(program) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
@@ -134,6 +138,7 @@ public static partial class AgentDeviceDaemon
         }
 
         Local.TryRemove(stateDirectory, out _);
+        return output;
     }
 
     /// <summary>A child that sees exactly <paramref name="environment"/>, not this process's own variables.</summary>

@@ -15,14 +15,14 @@ internal sealed class TestHost : IReplayHost
 {
     private readonly Action<string, object?>? _onAction;
 
-    private TestHost(IReadOnlyList<SemanticNode> nodes, Action<string, object?>? onAction)
+    private TestHost(IReadOnlyList<SemanticNode> nodes, Action<string, object?>? onAction, TraceViewport? viewport)
     {
         _onAction = onAction;
         Actions = new Grammar(this);
         Capture = () =>
         {
             Observations++;
-            return Screen(nodes);
+            return Screen(nodes, viewport);
         };
     }
 
@@ -62,11 +62,14 @@ internal sealed class TestHost : IReplayHost
     /// <summary>The clock the replay reads; a test swaps in a fake one, as upstream's fake timers.</summary>
     public TimeProvider Time { get; set; } = TimeProvider.System;
 
-    public static TestHost MakeHost(IReadOnlyList<SemanticNode>? nodes = null, Action<string, object?>? onAction = null) =>
-        new(nodes ?? [Upgrade, Email], onAction);
+    public static TestHost MakeHost(IReadOnlyList<SemanticNode>? nodes = null, Action<string, object?>? onAction = null, TraceViewport? viewport = null) =>
+        new(nodes ?? [Upgrade, Email], onAction, viewport);
+
+    /// <summary>The viewport every screen is observed in unless a test names another (upstream's <c>VIEWPORT</c>).</summary>
+    public static TraceViewport Viewport { get; } = new(1280, 720);
 
     /// <summary>One observed screen over the given nodes.</summary>
-    public static Observation Screen(IReadOnlyList<SemanticNode> nodes) => new() { Route = "/plan", Roots = nodes };
+    public static Observation Screen(IReadOnlyList<SemanticNode> nodes, TraceViewport? viewport = null) => new() { Route = "/plan", Roots = nodes, Viewport = viewport ?? Viewport };
 
     public Task<Observation> ObserveAsync(SettleMode mode)
     {
@@ -131,6 +134,26 @@ internal sealed class TestHost : IReplayHost
         public Task UploadAsync(ExecutorTarget target, IReadOnlyList<string> paths, CancellationToken cancellationToken = default) => host.Act("upload", (target.Id, paths));
 
         public Task ScrollToAsync(ExecutorTarget target, CancellationToken cancellationToken = default) => host.Act("scrollTo", target.Id);
+
+        public async Task<PointTapResult> TapAtAsync(Point point, CancellationToken cancellationToken = default)
+        {
+            await host.Act("tapAt", (point.X, point.Y)).ConfigureAwait(false);
+            return new PointTapResult(point, null, "");
+        }
+
+        public async Task<PointTapResult> HoverAtAsync(Point point, CancellationToken cancellationToken = default)
+        {
+            await host.Act("hoverAt", (point.X, point.Y)).ConfigureAwait(false);
+            return new PointTapResult(point, null, "");
+        }
+
+        public async Task<PointDragResult> DragAtAsync(Point from, Point to, CancellationToken cancellationToken = default)
+        {
+            await host.Act("dragAt", (from.X, from.Y, to.X, to.Y)).ConfigureAwait(false);
+            return new PointDragResult(from, to, null, null, "");
+        }
+
+        public Task<PointHit> HitTestAsync(Point point, CancellationToken cancellationToken = default) => Task.FromResult(new PointHit(point, null, null, ""));
 
         public Task ScrollUntilAsync(string text, ScrollDirection direction, ExecutorTarget? list = null, CancellationToken cancellationToken = default) =>
             host.Act("scrollUntil", (text, direction, list?.Id));

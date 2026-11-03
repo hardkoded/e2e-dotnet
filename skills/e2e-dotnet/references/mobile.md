@@ -122,6 +122,22 @@ E2E_MOBILE_PROVIDER=limrun dotnet test samples/MobileApp.E2ETests
 
 The NUnit and xUnit adapters do not run the engine's prepare and finish hooks, so without help each test would lease its own billed device. `MobileAppTest` runs them once per run, so every test shares the one leased device, and it releases the device when the test process ends.
 
+**A hosted BrowserStack device.** Add the `E2E.BrowserStack` package and set `MobileOptions.Provider`:
+
+```csharp
+using E2E.BrowserStack;
+
+var provider = new BrowserStackDevices(new BrowserStackDevicesOptions
+{
+    Device = "Google Pixel 7",
+    OsVersion = "13.0",
+    App = "https://example.com/app.apk", // a bs:// id, an https URL, or a local path
+    AppiumVersion = "3.2.0",
+});
+```
+
+The provider leases one BrowserStack App Automate real device for each worker slot, installs `App` (so leave `MobileApp.AppPath` out), and ends the session when the run ends. A release fails the run when agent-device cannot confirm it ended the session. Set `BROWSERSTACK_USERNAME` and `BROWSERSTACK_ACCESS_KEY` in the environment that starts the tests (`BROWSERSTACK_API_ENDPOINT` reaches another API). `Device` and `OsVersion` must match the App Automate catalog exactly. Set `AppiumVersion`, or BrowserStack runs Appium 1.x. Options: `Project`, `Build`, `SessionName`, `Orientation`, `GeoLocation`, `Timezone`, `Language`, `Locale`, `NetworkProfile` or `CustomNetwork`, and `NoResignApp` (iOS only). `E2E_MOBILE_PROVIDER` and `e2e explore`/`e2e mcp` do not know it: set the provider in code. Not verified against a live account.
+
 `e2e explore` and `e2e mcp` read the same variable. A target with `platform` `ios` or `android` and `E2E_MOBILE_PROVIDER=limrun` leases one Limrun device when the exploration or the MCP session starts, and releases it when that ends: the tool runs the engine's prepare hook as the one session opens and its finish hook as it closes, the hooks `MobileAppTest` runs once per test process. Each session leases its own device, a target admits one session at a time, and the lease is also released when a start fails, when the request is cancelled (`e2e explore` exits 130 on Ctrl+C, also while the lease is being taken), when an MCP session reaches its idle or time limit, when the server shuts down, and when the process exits. The release runs within the config's `cleanupTimeout` (30 seconds by default), and an interrupt does not cut it short. `LIMRUN_API_KEY` is redacted from what the tool prints or returns. The tool leaves out `E2E.Eas` (`EasSimulators`): set the provider in code for that. A failed release is reported, not lost: `e2e explore` still prints the exploration, with the failure as its error line when the run had no error of its own (status `Failed`, exit 3 or the verdict's code when that is higher; the findings stay; when the run already ended with an issue or an error, only the exit code shows the failed release), except after an interrupt: Ctrl+C exits 130 and prints nothing, so a failed release then goes unreported, and `close_session` shows a `Cleanup:` line. A release that outlives `cleanupTimeout` is reported as `CLEANUP_TIMEOUT`, and the device then bills until the provider's own limit (`HardTimeout`), so keep that short.
 
 A provider whose service records its devices overrides `IDeviceProvider.RecordAsync(DeviceLease lease, ProviderRecordContext context, CancellationToken ct)`. When an attempt records video, the worker calls it in place of agent-device's screen recording, with the lease as it traveled to the worker: its `Id` and the other `DeviceLease` fields, never what a derived lease class kept on the object `AcquireAsync` returned. The context carries `RunId`, `TargetName`, `AttemptId`, and `Env`. It returns a `ProviderRecording`, as a browser provider's `RecordAsync` does: its `StartedAt`, and `StopAsync`, which either writes a file into the directory it gets and returns `new ProviderRecordingResult { File = "replay.mp4" }` (kept as `video/<file>`), or returns `{ Url, MediaType }` for a recording the service keeps, which the report links. The default returns null, and the engine records with agent-device. A `RecordAsync` that throws fails the start of the video as `ENGINE_FAILURE` naming the provider and the lease; a start that outlives its budget is cancelled, and the recording that comes up anyway is stopped when the session ends. A `StopAsync` that fails keeps the recording, so the end of the attempt stops it once more. A worker without a lease (an engine that did not run its prepare hook) records with agent-device.

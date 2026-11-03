@@ -8,7 +8,7 @@ using static E2E.GitHub.Tests.Fixtures;
 
 namespace E2E.GitHub.Tests.Reporter;
 
-/// <summary>.NET-only: how a <see cref="GitHubReporter"/> gets its options, since <see cref="E2EReporterAttribute"/> builds it with no arguments. Upstream's <c>github(options)</c> takes them in the config module.</summary>
+/// <summary>.NET-only: how a <see cref="GitHubReporter"/> gets its options, since <c>E2EReporterAttribute</c> builds it with no arguments. Upstream's <c>github(options)</c> takes them in the config module.</summary>
 public sealed class GitHubReporterTests
 {
     private sealed class MatrixReporter() : GitHubReporter(new GitHubOptions { Key = "from code" });
