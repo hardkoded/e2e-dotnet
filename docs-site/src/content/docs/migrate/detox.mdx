@@ -1,0 +1,144 @@
+---
+title: From Detox
+description: Test a React Native app on a simulator or emulator with your normal build and your testIDs.
+---
+
+This guide ports upstream's `docs/migrate/detox.mdx` (tester-army/e2e at `7b1b8b27`, tester-army/e2e#1441). Detox runs in Node and the port runs in .NET, so a Detox project gets a .NET test project beside it, with a `MobileAppTest` base class.
+
+e2e tests a React Native app on a simulator or emulator with your normal debug or release build, with no Detox framework in the app. Your `testID` props work with `GetByTestId` on both platforms. Node 22.12 or newer must be on `PATH`, because the device engine drives the device through agent-device.
+
+## Agent prompt
+
+```text
+Migrate this project's Detox tests to e2e, one spec at a time. Docs: the "From Detox" page of the e2e-dotnet docs site (docs-site/src/content/docs/migrate/detox.mdx).
+
+1. Read the migration guide. It maps Detox config and calls to e2e.
+2. Ask me where the .NET test project should live and whether to use NUnit or xUnit v3. Create it, add E2E.Mobile.NUnit (or E2E.Mobile.XUnit.V3), and run `e2e init --yes --engine mobile` there.
+3. Read the e2e skill (`e2e guide` prints it, `e2e guide mobile` prints the mobile topic) and follow it for every step below.
+4. If you ran init, ask me which model to use for agent steps. If it needs a sign-in, give me the `e2e login <provider>` command and wait until I confirm.
+5. Port .detoxrc.js into e2e.config.json with the guide's config table: one target per platform, with app.bundleId and app.appPath.
+6. List the Detox specs and ask me which one to move first. Suggest a flow that needs frequent maintenance.
+7. Rewrite that spec as a test class that derives from MobileAppTest. Map each element(by.*) call to Screen with the guide. Replace each waitFor with an assertion that has a timeout.
+8. Keep the final assertions deterministic, with Expect.That. Where a run of scripted interactions breaks often, propose an Agent.ActAsync goal for it instead.
+9. Run the new class on a booted simulator with `dotnet test --filter` and fix it until it passes. Keep the Detox spec until I confirm it can go.
+10. Summarize which tests moved, which stayed in Detox, and why.
+```
+
+For a migration that spans several sessions, the `migrate-to-e2e` skill records what moved in a progress file and keeps the old suite running until you retire each test. See [Coding agents](/coding-agents/#migrate-an-existing-suite).
+
+## Port the config
+
+Set up a target with the [mobile guide](/get-started/mobile/) and a model with the [web guide](/get-started/web/). Both runners can use the same simulator while you move one spec at a time.
+
+| Detox (`.detoxrc.js`) | e2e |
+| --- | --- |
+| `apps.<name>.binaryPath` | `app.appPath` on the target. `MobileAppTest` installs the build once per run with `Device.InstallAppAsync()` |
+| `apps.<name>.bundleId` | `app.bundleId` on the target, the app `App.OpenAsync()` launches |
+| `devices.<name>.device.type` | `MobileOptions.Device`, or `E2E_MOBILE_DEVICE`, a UDID or a name |
+| `configurations` | `targets`; the port runs one target, so pick the platform with `E2E_MOBILE_PLATFORM` |
+| Jest config, `maxWorkers` | the framework's parallelism; the engine drives every booted device that no other session holds |
+| `detox build` | Your normal build |
+| `device.launchApp({ permissions })` | `app.permissions` on the target, set before every fresh launch, or `Device.OpenAppAsync(app, new OpenAppOptions { Relaunch = true, Permissions = ... })` for one; `PermissionState.Grant`, `Deny`, `Reset` for `YES`, `NO`, `unset` |
+| `device.launchApp({ launchArgs })` | `app.launchArguments` on the target, or `OpenAppOptions.LaunchArguments` for one launch; a list of strings the platform launch command takes, not a map |
+
+```json title="e2e.config.json"
+{
+  "targets": [
+    {
+      "name": "ios",
+      "platform": "ios",
+      "app": { "bundleId": "com.example.app", "appPath": "ios/build/MyApp.app" }
+    }
+  ]
+}
+```
+
+Run the Android build with `E2E_MOBILE_PLATFORM=android E2E_MOBILE_APP_PATH=android/app/build/outputs/apk/debug/app-debug.apk dotnet test`. Upstream's config holds an `ios` and an `android` target at once. The port's `e2e.config.json` holds one device target and the two variables switch it, see [MobileAppTest](/compatibility/#mobileapptest-not-in-upstream).
+
+## Rewrite one spec
+
+Start with a flow that needs frequent maintenance. If its screens take time to settle, set `MobileOptions.SettleMilliseconds` and `TransitionMilliseconds` in `CreateMobileOptions`.
+
+```js title="Detox"
+describe('login', () => {
+  beforeAll(async () => { await device.launchApp({ newInstance: true }); });
+
+  it('shows the home screen', async () => {
+    await element(by.id('email')).typeText('ada@example.test');
+    await element(by.id('password')).typeText('hunter2');
+    await element(by.text('Sign in')).tap();
+    await waitFor(element(by.id('home'))).toBeVisible().withTimeout(10000);
+    await expect(element(by.text('Welcome, Ada'))).toBeVisible();
+  });
+});
+```
+
+```csharp title="e2e (NUnit)"
+using E2E.Mobile.NUnit;
+
+public sealed class LoginTests : MobileAppTest
+{
+    [Test]
+    [Category("RealModel")]
+    public async Task Shows_the_home_screen()
+    {
+        var ada = Credentials.User("ada");
+        await Agent.ActAsync("sign in as {username}", new ActOptions
+        {
+            Params = new Dictionary<string, object?> { ["username"] = ada.Username, ["password"] = ada.Password },
+        });
+        await Expect.That(Screen.GetByTestId("home")).ToBeVisibleAsync(timeout: TimeSpan.FromSeconds(10));
+        await Expect.That(Screen.GetByText("Welcome, Ada")).ToBeVisibleAsync();
+    }
+}
+```
+
+`MobileAppTest` installs the build and launches the app fresh before each test, so the test needs no `App.OpenAsync()`. The password comes from `E2E_USER_ADA_USERNAME` and `E2E_USER_ADA_PASSWORD` or the `credentials` key, see [Signing in](/features/signing-in/). For xUnit v3, use `E2E.Mobile.XUnit.V3`, `[Fact]`, and `[Trait("TestCategory", "RealModel")]`.
+
+## Map each Detox call
+
+| Detox | e2e |
+| --- | --- |
+| `by.id('x')` | `Screen.GetByTestId("x")` |
+| `by.text('t')` | `Screen.GetByText("t")`; both match the exact text |
+| `by.label('l')` | `Screen.GetByLabel("l")` |
+| `by.type('RCTImageView')` | `Device.Locator("role=image")`, agent-device's selector syntax |
+| `by.id('x').withAncestor(by.id('row'))` | `Screen.GetByTestId("row").GetByTestId("x")` |
+| `.atIndex(n)` | `.Nth(n)` |
+| `.tap()`, `.multiTap(2)`, `.longPress()` | `.TapAsync()`, `.DoubleTapAsync()`, `.LongPressAsync()` |
+| `.tap({ x, y })` | Not yet: the tap `position` is not ported |
+| `.typeText(t)`, `.replaceText(t)` | `.FillAsync(t)` replaces the content |
+| `.clearText()` | `.ClearAsync()` |
+| `.tapReturnKey()` | `.PressAsync("Enter")` |
+| `.swipe('up', 'fast')` | `.SwipeAsync(new SwipeOptions { Direction = ..., Momentum = ... })`: Detox names the finger's direction, e2e the content's |
+| `.scroll(200, 'down')` | `Locator.SwipeAsync` on the scroll view; the screen-level `Swipe` is not ported |
+| `waitFor(el).toBeVisible().whileElement(list).scroll(...)` | `Screen.ScrollUntilVisibleAsync(el)` |
+| `waitFor(el).toBeVisible().withTimeout(ms)` | `await Expect.That(el).ToBeVisibleAsync(timeout: TimeSpan.FromMilliseconds(ms))` |
+| `expect(el).toBeVisible()`, `.toExist()` | `.ToBeVisibleAsync()` for visibility; `.ToHaveCountAsync(1)` for existence |
+| `expect(el).not.toBeVisible()` | `.ToBeHiddenAsync()` |
+| `expect(el).toHaveText(t)` | `.ToHaveTextAsync(t)` |
+| `expect(el).toHaveToggleValue(true)` | `.ToBeCheckedAsync()` |
+| `expect(el).toHaveValue(v)` | `.ToHaveValueAsync(v)` |
+| `device.launchApp({ newInstance: true })` | `App.RestartAsync()` |
+| `device.launchApp({ delete: true })` | `App.ClearStateAsync()` |
+| `device.reloadReactNative()` | No equivalent. `App.RestartAsync()` is the nearest |
+| `device.sendToHome()`, `device.pressBack()` | `Device.HomeAsync()`, `Device.BackAsync()` |
+| `device.setLocation(lat, lon)` | `Device.SetLocationAsync(new Coordinates(latitude, longitude))` |
+| `device.setOrientation('landscape')` | `Device.SetOrientationAsync(DeviceOrientation.LandscapeLeft)` |
+| `device.setBiometricEnrollment(true)` | `Device.EnrollBiometricsAsync(BiometricSensor.FaceId, true)` |
+| `device.matchFace()`, `device.unmatchFace()` | `Device.SetBiometricsAsync(BiometricSensor.FaceId, BiometricResult.Match)` or `NonMatch` |
+| `device.setStatusBar`, `device.setURLBlacklist` | No equivalent |
+| `device.disableSynchronization()` | No equivalent. Actions wait and assertions retry |
+| `device.takeScreenshot()` | `App.ScreenshotAsync("label")`, secure fields masked |
+| `device.takeScreenshot()` compared with an image snapshot library | `Expect.That(Screen).ToHaveScreenshotAsync("name.png")`. The port documents it for the web engine only and has no device run of it, so keep the Detox comparison until you have checked it on your device |
+| `:ios:` / `:android:` in a test name | `Assume.That` on the platform, such as `E2E_MOBILE_PLATFORM`, or a separate run per platform |
+
+Two things differ from Detox:
+
+- Actions and single-node reads and assertions need one match. Several fail with `LOCATOR_AMBIGUOUS`. Narrow with `Filter(...)`, `First()`, or `Nth(n)`.
+- A device has no saved sessions. Sign in inside the test or in `[SetUp]`. See [Mobile](/get-started/mobile/).
+
+## Next
+
+- [Mobile](/get-started/mobile/): configure your app and devices.
+- [Core concepts](/get-started/core-concepts/): goals, assertions, and locators instead of scripted selectors.

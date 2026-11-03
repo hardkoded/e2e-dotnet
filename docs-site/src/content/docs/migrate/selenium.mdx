@@ -1,0 +1,117 @@
+---
+title: From Selenium .NET
+description: Rewrite Selenium flows in C# with locators, retrying assertions, and agent goals.
+---
+
+This guide ports upstream's `docs/migrate/selenium.mdx` (tester-army/e2e at `7b1b8b27`, tester-army/e2e#1441). Upstream's example is Java and its target is TypeScript. This guide maps Selenium `WebDriver` for .NET (`Selenium.WebDriver`, with NUnit or xUnit) to C# e2e tests.
+
+e2e replaces a Selenium suite with C# tests. Locators find nodes by role and label, and assertions retry until they pass or time out. Run both suites and move one flow at a time.
+
+## Agent prompt
+
+```text
+Migrate this project's Selenium .NET tests to e2e, one flow at a time. Docs: the "From Selenium .NET" page of the e2e-dotnet docs site (docs-site/src/content/docs/migrate/selenium.mdx).
+
+1. Read the migration guide. It maps Selenium config and WebDriver calls to e2e.
+2. e2e tests are NUnit or xUnit v3 tests. If the Selenium suite uses another language, ask me where the new test project should live.
+3. If the solution has no e2e test project, create one beside the Selenium project and run `e2e init --yes` there. It writes e2e.config.json and installs the skill. It creates no test project and edits no .csproj.
+4. Read the e2e skill (`e2e guide` prints it, `e2e guide <topic>` prints a topic) and follow it for every step below.
+5. If you ran init, ask me which model to use for agent steps. If it needs a sign-in, give me the `e2e login <provider>` command and wait until I confirm.
+6. Set the target's app.url to the URL every driver.Navigate().GoToUrl used, and app.command to the command that starts the app if the suite starts it. Move passwords and tokens into credentials or secrets.
+7. List the page objects and the flows that use them, and ask me which to move first. Suggest one page object and its flows.
+8. Rewrite those flows as test classes that derive from E2ETest, with the guide's tables. Prefer role, label, and test id queries over CSS and XPath. Replace every wait and Thread.Sleep with a locator assertion. Narrow queries that match several nodes. Turn the page object's setup code into a [SetUp] (NUnit) or InitializeAsync (xUnit).
+9. Keep navigation and the final assertions deterministic, with App.OpenAsync and Expect.That. Where a run of scripted interactions breaks often, propose an Agent.ActAsync goal for it instead.
+10. Run the new classes with `dotnet test --filter` and fix them until they pass. Keep the Selenium tests until I confirm they can go.
+11. Summarize which flows moved, which stayed in Selenium, and why.
+```
+
+For a migration that spans several sessions, the `migrate-to-e2e` skill records what moved in a progress file and keeps the old suite running until you retire each test. See [Coding agents](/coding-agents/#migrate-an-existing-suite).
+
+## Port the config
+
+Install e2e with the [web guide](/get-started/web/). Only agent calls need a model, so the example below runs without one.
+
+| Selenium | e2e |
+| --- | --- |
+| The URL in every `Navigate().GoToUrl` | `app.url` on the target, then relative paths |
+| Starting the app in a script | `app.url` with `app.command`, see [Web](/get-started/web/) |
+| One driver per browser | One target per browser, `WebEngineOptions.BrowserName = BrowserName.Firefox` |
+| Selenium Grid | The framework's parallelism; `WebEngineOptions.Connect` attaches to a remote Chromium over CDP, and a [browser provider](/features/browser/#hosted-browsers) leases hosted browsers |
+| `Manage().Window.Size` | `WebEngineOptions.Viewport` |
+| Implicit waits | `actionTimeout` and `assertionTimeout` set action and assertion deadlines |
+| A page object for sign-in | `[E2ESetup]` and `[E2ESession]`, see [Signing in](/features/signing-in/) |
+
+## Rewrite one flow
+
+Start with one page object and the flows that use it.
+
+```csharp title="Selenium .NET"
+driver.Navigate().GoToUrl("http://localhost:3000/login");
+var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
+wait.Until(ExpectedConditions.ElementIsVisible(By.Id("username"))).SendKeys("admin@example.test");
+driver.FindElement(By.Id("password")).SendKeys(Environment.GetEnvironmentVariable("ADMIN_PASSWORD"));
+driver.FindElement(By.XPath("//button[contains(., 'Sign in')]")).Click();
+wait.Until(ExpectedConditions.UrlContains("/dashboard"));
+Assert.That(driver.FindElement(By.CssSelector(".greeting")).Text, Is.EqualTo("Welcome back, admin!"));
+```
+
+```csharp title="e2e (NUnit)"
+using E2E.NUnit;
+
+public sealed class SignInTests : E2ETest
+{
+    [Test]
+    public async Task Signs_in()
+    {
+        var admin = Credentials.User("admin");
+        await App.OpenAsync("/login");
+        await Screen.GetByLabel("Username").FillAsync(admin.Username);
+        await Screen.GetByLabel("Password").FillAsync(admin.Password);
+        await Screen.GetByRole("button", "Sign in").TapAsync();
+        await Expect.That(Browser).ToHaveURLAsync("/dashboard");
+        await Expect.That(Screen.GetByRole("status")).ToHaveTextAsync("Welcome back, admin!");
+    }
+}
+```
+
+For xUnit v3, use `E2E.XUnit.V3` and `[Fact]`. The body is the same. Locator actions wait for their targets, so no explicit wait is left. The password comes from `E2E_USER_ADMIN_USERNAME` and `E2E_USER_ADMIN_PASSWORD` or the `credentials` key, see [Signing in](/features/signing-in/).
+
+## Map each WebDriver call
+
+| Selenium | e2e |
+| --- | --- |
+| `driver.Navigate().GoToUrl(url)` | `App.OpenAsync(path)` |
+| `driver.Navigate().Back()`, `.Refresh()` | `App.BackAsync()`, `Browser.ReloadAsync()` |
+| `By.Id("x")` | `Browser.Locator("#x")`; or `WebEngineOptions.TestIdAttribute = "id"` and `Screen.GetByTestId("x")` |
+| `By.Name("x")` | `Browser.Locator("[name=\"x\"]")`, not portable; prefer a role or label |
+| `By.LinkText`, `By.PartialLinkText` | `Screen.GetByRole("link", name)`, `exact: false` for part of the name |
+| `By.CssSelector`, `By.XPath` | `Browser.Locator("css or xpath")`, not portable |
+| `FindElements(...).Count` | `await locator.CountAsync()` |
+| `FindElements(...)[n]` | `locator.Nth(n)` |
+| `.Click()` | `.TapAsync()` or `.ClickAsync()` |
+| `.SendKeys("text")` | `.FillAsync("text")` replaces the content |
+| `.SendKeys(Keys.Enter)` | `.PressAsync("Enter")` |
+| `.Clear()` | `.ClearAsync()` |
+| `new SelectElement(el).SelectByText` | `.SelectOptionAsync("label")` |
+| `.Text`, `.GetAttribute()`, `.Displayed` | `.TextContentAsync()`, `.GetAttributeAsync()` wait for the node then read one time, `.IsVisibleAsync()` reads at once; `ToHaveTextAsync()` retries |
+| `wait.Until(ElementIsVisible(...))` | `await Expect.That(locator).ToBeVisibleAsync()` |
+| `wait.Until(d => el.Text == "x")` | `await Expect.That(locator).ToHaveTextAsync("x")` |
+| `wait.Until(UrlContains(...))` | `await Expect.That(Browser).ToHaveURLAsync(new Regex("..."))` |
+| `new Actions(driver).MoveToElement(el)` | `.HoverAsync()` |
+| `Actions.DragAndDrop(a, b)` | `a.DragToAsync(b)` |
+| `Actions.KeyDown(Keys.Control).SendKeys("a")` | `.PressAsync("ControlOrMeta+a")` |
+| `SwitchTo().Frame()` | `Browser.FrameLocator("#frame")` |
+| `SwitchTo().Alert().Accept()` | `await Browser.OnDialogAsync(DialogHandler.Accept)` before the action |
+| `SwitchTo().Window()` | No equivalent. Popups are unsupported |
+| `ExecuteScript` | `Browser.EvaluateAsync<T>` |
+| `Manage().Cookies.AddCookie` | `Browser.SetCookiesAsync` |
+| `GetScreenshot()` | `App.ScreenshotAsync("label")`, redacted |
+| `Thread.Sleep` | Use a locator assertion for the condition you need |
+| Page objects | A class that takes `Screen` and `Browser`, or a goal for `Agent.ActAsync`, see [Migrating from Playwright .NET](/migrate/playwright/#port-page-objects) |
+
+`FindElement` takes the first match. e2e fails with `LOCATOR_AMBIGUOUS` on several, so narrow with `Filter(...)`, `First()`, or `Nth(n)`.
+
+## Next
+
+- [Core concepts](/get-started/core-concepts/): goals, assertions, and locators instead of scripted selectors.
+- [Working with the browser](/features/browser/): hosted browsers and CDP recovery.

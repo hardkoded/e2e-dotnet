@@ -86,6 +86,18 @@ export default defineConfig({
                         { label: "Deep links", slug: "examples/deep-links" },
                     ],
                 },
+                {
+                    label: "Migrate",
+                    items: [
+                        { label: "Overview", slug: "migrate" },
+                        { label: "Playwright .NET", slug: "migrate/playwright" },
+                        { label: "Cypress", slug: "migrate/cypress" },
+                        { label: "Selenium .NET", slug: "migrate/selenium" },
+                        { label: "Detox", slug: "migrate/detox" },
+                        { label: "Maestro", slug: "migrate/maestro" },
+                        { label: "TesterArmy", slug: "migrate/testerarmy" },
+                    ],
+                },
                 { label: "Integrations", items: [{ label: "Limrun", slug: "integrations/limrun" }] },
                 {
                     label: "Reference",
