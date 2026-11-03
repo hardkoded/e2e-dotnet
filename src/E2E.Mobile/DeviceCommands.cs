@@ -142,6 +142,7 @@ public static class DeviceCommands
                 Put("ttlMs", command.Flags["ttlMs"]);
                 Put("retainOnClose", command.Flags["retainOnClose"]);
                 Put("backend", Field("leaseBackend"));
+                PutSelectors(command.Flags, parameters);
                 break;
             case "lease_heartbeat":
                 Put("leaseId", Field("leaseId"));
@@ -153,6 +154,32 @@ public static class DeviceCommands
         }
 
         return parameters;
+    }
+
+    /// <summary>
+    /// The flags the daemon reads as the device a lease asks for (<c>platform</c>, <c>device</c>, the <c>provider*</c> capabilities, and
+    /// the device spec), which agent-device's client spreads into an allocate request's params. Read from agent-device 0.21.35.
+    /// </summary>
+    private static readonly string[] LeaseSelectorKeys =
+    [
+        "platform", "target", "device", "udid", "serial", "iosSimulatorDeviceSet", "androidDeviceAllowlist",
+        "providerApp", "providerOsVersion", "providerDeviceType", "providerProject", "providerBuild", "providerSessionName",
+        "providerDeviceOrientation", "providerGeoLocation", "providerTimezone", "providerAppiumVersion", "providerLanguage",
+        "providerLocale", "providerNetworkProfile", "providerCustomNetwork", "providerNoResignApp", "providerNetworkLogs",
+        "providerNetworkHosts", "awsProjectArn", "awsDeviceArn", "awsAppArn", "awsRegion", "awsInteractionMode",
+        "osVersion", "imageTag", "physical",
+    ];
+
+    /// <summary>Copies the string and boolean selectors of an allocate call's flags into its params, as agent-device's client does.</summary>
+    private static void PutSelectors(JsonObject flags, JsonObject parameters)
+    {
+        foreach (var key in LeaseSelectorKeys)
+        {
+            if (flags[key] is JsonValue value && (value.TryGetValue<string>(out _) || value.TryGetValue<bool>(out _)))
+            {
+                parameters[key] = value.DeepClone();
+            }
+        }
     }
 
     /// <summary>Moves the named options out of the flags, in order, as positional arguments. A missing one is skipped.</summary>
