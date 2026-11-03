@@ -77,7 +77,7 @@ internal sealed partial class ActContext : StepExecutorContext
             CancellationToken = scope.Ended.Token,
             Memory = scope.ExecutorMemory,
         };
-        Target = new ExecutorTargetInfo { Name = scope.TargetName, Platform = scope.EnginePlatform, Verbs = VerbsOf(scope.EngineCapabilities, scope.ActionKinds), TapModifiers = scope.EngineCapabilities.HasFlag(EngineCapabilities.TapModifiers) };
+        Target = new ExecutorTargetInfo { Name = scope.TargetName, Platform = scope.EnginePlatform, Verbs = VerbsOf(scope.EngineCapabilities, scope.ActionKinds, scope.Session.PointerActionKinds), TapModifiers = scope.EngineCapabilities.HasFlag(EngineCapabilities.TapModifiers) };
         ReplayedPrefix = prefix;
         Model = agent.Model;
         ProviderOptions = agent.ProviderOptions;
@@ -140,9 +140,18 @@ internal sealed partial class ActContext : StepExecutorContext
     {
         ArgumentNullException.ThrowIfNull(pixels);
         ArgumentException.ThrowIfNullOrWhiteSpace(label);
-        var screenshots = _scope.Screenshots
-            ?? throw new TestException("UNSUPPORTED_CAPABILITY", "this attempt keeps no results, so there is nowhere to keep the screenshot");
-        return Task.FromResult(screenshots.KeepEvidence(UnsafeInName().Replace(label, "-"), pixels.Data));
+        var screenshots = _scope.Screenshots;
+        var artifacts = _scope.Artifacts;
+        if (screenshots is null || artifacts is null)
+        {
+            throw new TestException("UNSUPPORTED_CAPABILITY", "this attempt keeps no results, so there is nowhere to keep the screenshot");
+        }
+
+        // Upstream writes the file, registers it as a `screenshot` artifact, and attaches it to the step in progress.
+        var kept = Path.GetFullPath(Path.Combine(screenshots.ProjectRoot, screenshots.KeepEvidence(UnsafeInName().Replace(label, "-"), pixels.Data)));
+        var id = artifacts.Sink.Register(Reports.ArtifactKind.Screenshot, Path.GetRelativePath(artifacts.Dir, kept).Replace('\\', '/'));
+        _scope.Steps.AttachArtifact(id);
+        return Task.FromResult(id);
     }
 
     /// <summary>Keeps the transcript the executor attached, redacted like any log. Best effort: a transcript never fails the step.</summary>
@@ -164,7 +173,7 @@ internal sealed partial class ActContext : StepExecutorContext
     }
 
     // The verbs the engine can honor: the grammar the built-in tools offer for these capabilities.
-    private static HashSet<ExecutorVerb> VerbsOf(EngineCapabilities capabilities, IReadOnlyCollection<string>? actionKinds)
+    private static HashSet<ExecutorVerb> VerbsOf(EngineCapabilities capabilities, IReadOnlyCollection<string>? actionKinds, IReadOnlyCollection<string> pointerKinds)
     {
         var verbs = new HashSet<ExecutorVerb>
         {
@@ -199,6 +208,22 @@ internal sealed partial class ActContext : StepExecutorContext
         if (capabilities.HasFlag(EngineCapabilities.History))
         {
             verbs.Add(ExecutorVerb.Back);
+        }
+
+        // The point verbs follow the pointer kinds the engine declared (upstream's declaredVerbs).
+        if (pointerKinds.Contains("tap"))
+        {
+            verbs.Add(ExecutorVerb.TapAt);
+        }
+
+        if (pointerKinds.Contains("hover"))
+        {
+            verbs.Add(ExecutorVerb.HoverAt);
+        }
+
+        if (pointerKinds.Contains("dragTo"))
+        {
+            verbs.Add(ExecutorVerb.DragAt);
         }
 
         return verbs;

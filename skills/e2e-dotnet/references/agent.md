@@ -191,7 +191,10 @@ all four, the device engines all but `secondaryTap`, and the document engine
 none. `drag` takes a `target` and a `to`, the node to drop on, each named like
 any node (`ref`, or `role` and `name`); both are found on one look at the
 screen. A replay finds both ends again before it drags and hands the step to
-the model when either is gone. A step that needs a verb its engine lacks is
+the model when either is gone. `screenshot` and the point tools `tap_at`,
+`type_at`, `press_at`, and `select_at` are always offered (see "Screenshots in
+`ActAsync`"), and `hover_at` and `drag_at` with an engine that takes a bare
+point for a hover or a drag (the web engine does). A step that needs a verb its engine lacks is
 `AUTOMATION_UNSUPPORTED`. Do that part with `Screen` actions instead.
 `upload` takes a target and `files`, project-relative paths such as
 `fixtures/photo.png`, and attaches them to a file input or to a control that
@@ -370,8 +373,29 @@ semantic tree (`Observation.TreeUnavailable`, answered to a look with
 `ObserveOptions.PixelFallback`), the step works from the screenshot alone:
 earlier node references are refused and the step is not cached. If no masked
 screenshot can replace the tree, the step ends `POLICY_DENIED`. `ActOptions`
-has no `Vision` option. The point tools (`tap_at` and the others) are not
-ported yet.
+has no `Vision` option.
+
+The point tools act at a point of the latest screenshot, given in that image's
+pixels (x from the left edge, y from the top). They are for a target the
+screen does not list; the model is told to prefer ids. Before a screenshot
+they cost nothing and answer with the line that says to take one.
+
+- `tap_at`, `hover_at`, and `drag_at` (`x`, `y`, and for a drag `to_x` and
+  `to_y`) send the bare point to the engine, scaled into CSS pixels and
+  clamped to the viewport, when it declares the pointer kind. The result names
+  the control the point landed inside, or says no listed control is there. An
+  engine without the bare-point tap taps the enabled control that contains the
+  point by its id instead, and a point on nothing listed fails with
+  `UNSUPPORTED_CAPABILITY`. `hover_at` and `drag_at` need the bare point.
+- `type_at`, `press_at`, and `select_at` act by id on the enabled control the
+  point lands on (`value` or `key` beside the point). A point on nothing listed
+  is an action failure the model can read, and costs no action.
+
+A custom executor reaches the same verbs as `Actions.TapAtAsync`,
+`HoverAtAsync`, `DragAtAsync`, and `HitTestAsync`. The trace cache records a
+point with the viewport size and where the point sat inside the node under
+it. A replay re-finds that node and taps the same place in its live box; a
+viewport of another size hands the step over (`viewport-changed`).
 
 ## Budgets and cost
 
@@ -683,7 +707,7 @@ What the context holds:
 | `Model`, `ProviderOptions`, `AgentContext`, `Ledger` | The agent's model and provider options, its project context, and the steps completed before this one, as numbered lines (`1. app.open passed :: /`) in at most 8192 bytes |
 | `Attempt` | `TestId`, `AttemptId`, the test's `TitlePath` (empty outside a test), `Index`, a `CancellationToken` that ends with the attempt, and a `Memory` dictionary the runtime never reads |
 | `Budgets` | `MaxActions`, `MaxModelCalls`, `ActionsUsed()`, `RemainingMs()`, `RecordModelCall`, and `RunToolAsync` |
-| `AttachTranscript`, `AttachScreenshotAsync` | Keep a model transcript, or observed pixels, under the attempt's results directory |
+| `AttachTranscript`, `AttachScreenshotAsync` | Keep a model transcript, or observed pixels (a `screenshot` artifact of the step; it returns the artifact's report id), under the attempt's results directory |
 | `AttachTurns(turns)` | Keeps a clipped record of the model turns (`StepTurn`: `Index`, `Calls`, `Outcome`) on the step. The trace page shows the last ones under a failed step. Call it as each turn ends; the last call wins. A secret the attempt knows is redacted. `ToolLoop.CreateToolLoopExecutor` calls it for you |
 
 `RunStepAsync` gets a token that ends on cancellation, at the step deadline, and
@@ -712,8 +736,7 @@ the loop sends it on a user turn after the turn's tool results. Set
 `ToolLoopExecutorOptions.BuildMessages` instead of `BuildPrompt` to open the
 step with images (exactly one of the two).
 
-Not ported: the point verbs, long press, hover, and drag (the port's engines
-have none) and the observation's `Revision`.
+Not ported: the observation's `Revision`.
 
 ## In CI
 

@@ -129,9 +129,9 @@ public class StepExecutorContext
     }
 
     /// <summary>
-    /// Keeps pixels the executor or one of its tools observed as a screenshot of the step in progress, and returns the
-    /// path of the file, relative to the project root. The file is named by <paramref name="label"/> and lands in the
-    /// attempt's results directory. For a tool with evidence worth keeping.
+    /// Keeps pixels the executor or one of its tools observed as a <c>screenshot</c> artifact of the step in progress, and
+    /// returns the artifact's report id. The file is named by <paramref name="label"/> and lands in the attempt's results
+    /// directory, and the report's artifact records it like every screenshot the runner takes. For a tool with evidence worth keeping.
     /// </summary>
     public virtual Task<string> AttachScreenshotAsync(ExecutorPixels pixels, string label, CancellationToken cancellationToken = default) =>
         throw new NotSupportedException("This context does not keep screenshots.");
@@ -241,6 +241,15 @@ public enum ExecutorVerb
     Navigate,
     Back,
     Upload,
+
+    /// <summary>Upstream's <c>tapAt</c>: <see cref="IExecutorActions.TapAtAsync"/>, with the engine's <c>tap</c> pointer kind.</summary>
+    TapAt,
+
+    /// <summary>Upstream's <c>hoverAt</c>: <see cref="IExecutorActions.HoverAtAsync"/>, with the engine's <c>hover</c> pointer kind.</summary>
+    HoverAt,
+
+    /// <summary>Upstream's <c>dragAt</c>: <see cref="IExecutorActions.DragAtAsync"/>, with the engine's <c>dragTo</c> pointer kind.</summary>
+    DragAt,
 }
 
 /// <summary>What an executor asks <see cref="StepExecutorContext.ObserveAsync"/> to include beyond the text.</summary>
@@ -453,7 +462,61 @@ public interface IExecutorActions
 
     /// <summary>Navigates back once.</summary>
     Task BackAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Taps one viewport point, in the CSS pixels of the newest observation (<see cref="SemanticNode.Rect"/> space; a point read off
+    /// <see cref="ExecutorPixels"/> is divided by its <see cref="ExecutorPixels.Scale"/>). The engine gets the bare point when it takes the
+    /// <c>tap</c> pointer kind (<see cref="ExecutorVerb.TapAt"/> in <see cref="ExecutorTargetInfo.Verbs"/>), where the model aimed; an
+    /// engine that taps listed nodes only gets the enabled control whose box contains the point, tapped by its id like
+    /// <see cref="TapAsync(ExecutorTarget, CancellationToken)"/>, and fails when the point is on nothing listed. A point off the viewport
+    /// is clamped to its edge. Upstream's <c>tapAt</c>.
+    /// </summary>
+    Task<PointTapResult> TapAtAsync(Point point, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Hovers one viewport point the way <see cref="TapAtAsync"/> taps one: the bare point through the engine's <c>hover</c> pointer kind
+    /// (<see cref="ExecutorVerb.HoverAt"/>). Upstream's <c>hoverAt</c>.
+    /// </summary>
+    Task<PointTapResult> HoverAtAsync(Point point, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Drags from one viewport point to another, in the CSS pixels <see cref="TapAtAsync"/> takes, for a drag the tree does not list: a
+    /// shape on a canvas, a pin on a map, a card dropped on an empty spot. The engine gets the bare points through its <c>dragTo</c>
+    /// pointer kind (<see cref="ExecutorVerb.DragAt"/>), recorded with the viewport and each point's place inside the node under it. An
+    /// engine without it joins the two different enabled controls holding the ends, like a drag by id, and fails when the points do not
+    /// land on two such controls. Upstream's <c>dragAt</c>.
+    /// </summary>
+    Task<PointDragResult> DragAtAsync(Point from, Point to, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// What the newest observation lists at one viewport point, in the same CSS pixels <see cref="TapAtAsync"/> takes: the innermost
+    /// enabled control whose box contains the point, and the innermost listed node of any role. What a point-addressed verb resolves its
+    /// target through before calling <see cref="TypeAsync"/>. Costs no action: the verb the executor calls with the result does.
+    /// Upstream's <c>hitTest</c>.
+    /// </summary>
+    Task<PointHit> HitTestAsync(Point point, CancellationToken cancellationToken = default);
 }
+
+/// <summary>Upstream's <c>PointHit</c>: what one <see cref="IExecutorActions.HitTestAsync"/> found, for the executor to act on or relay.</summary>
+/// <param name="Point">Where the point landed after clamping to the viewport, in CSS pixels.</param>
+/// <param name="Control">The innermost enabled control containing the point, if any is listed.</param>
+/// <param name="Under">The innermost listed node of any role containing the point, if any.</param>
+/// <param name="Summary">Prose for a model: the control the point is on, or what sits under it.</param>
+public sealed record PointHit(Point Point, ExecutorTarget? Control, ExecutorTarget? Under, string Summary);
+
+/// <summary>Upstream's <c>PointTapResult</c>: what one point action (<see cref="IExecutorActions.TapAtAsync"/>, <see cref="IExecutorActions.HoverAtAsync"/>) did, for the executor to relay to its model.</summary>
+/// <param name="Point">Where the point landed after clamping to the viewport, in CSS pixels.</param>
+/// <param name="Target">The listed, enabled control containing the point, acted on by id or at the point; null when none is listed there.</param>
+/// <param name="Summary">Prose for a model: what was acted on, or what sits under a bare point.</param>
+public sealed record PointTapResult(Point Point, ExecutorTarget? Target, string Summary);
+
+/// <summary>Upstream's <c>PointDragResult</c>: what one <see cref="IExecutorActions.DragAtAsync"/> did, for the executor to relay to its model.</summary>
+/// <param name="From">Where the start landed after clamping to the viewport, in CSS pixels.</param>
+/// <param name="To">Where the end landed after clamping to the viewport, in CSS pixels.</param>
+/// <param name="Source">The listed, enabled control holding the start, dragged by id or at the point; null when none is listed there.</param>
+/// <param name="Destination">The listed, enabled control holding the end; null when none is listed there.</param>
+/// <param name="Summary">Prose for a model: what was dragged where, or what sits under the bare points.</param>
+public sealed record PointDragResult(Point From, Point To, ExecutorTarget? Source, ExecutorTarget? Destination, string Summary);
 
 /// <summary>Step budgets, read and reported by the executor and enforced by the runtime.</summary>
 public interface IExecutorBudgets
@@ -534,6 +597,9 @@ public enum ReplayHandOffReason
     Gap,
     TargetNotFound,
     TargetAmbiguous,
+
+    /// <summary>A recorded bare-point action met a viewport of another size; the point would land elsewhere.</summary>
+    ViewportChanged,
     ActionFailed,
     ActionUncertain,
     EndMismatch,
@@ -549,6 +615,7 @@ internal static class ReplayHandOffReasons
         (ReplayHandOffReason.Gap, "gap"),
         (ReplayHandOffReason.TargetNotFound, "target-not-found"),
         (ReplayHandOffReason.TargetAmbiguous, "target-ambiguous"),
+        (ReplayHandOffReason.ViewportChanged, "viewport-changed"),
         (ReplayHandOffReason.ActionFailed, "action-failed"),
         (ReplayHandOffReason.ActionUncertain, "action-uncertain"),
         (ReplayHandOffReason.EndMismatch, "end-mismatch"),

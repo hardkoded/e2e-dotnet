@@ -33,7 +33,7 @@ from a store that can hold any shape.
 
 
 ```csharp
-ActionBudget = 6
+ActionBudget = 7
 ```
 
 
@@ -45,7 +45,7 @@ ActionBudget = 6
 
 
 ```csharp
-ActionFailed = 3
+ActionFailed = 4
 ```
 
 
@@ -57,7 +57,7 @@ ActionFailed = 3
 
 
 ```csharp
-ActionUncertain = 4
+ActionUncertain = 5
 ```
 
 
@@ -69,7 +69,7 @@ ActionUncertain = 4
 
 
 ```csharp
-EndMismatch = 5
+EndMismatch = 6
 ```
 
 
@@ -93,7 +93,7 @@ Gap = 0
 
 
 ```csharp
-InvalidEntry = 7
+InvalidEntry = 8
 ```
 
 
@@ -120,5 +120,19 @@ TargetAmbiguous = 2
 TargetNotFound = 1
 ```
 
+
+**Value:** [ReplayHandOffReason](./)
+
+<a id="E2E_ReplayHandOffReason_ViewportChanged"></a>
+
+### ViewportChanged
+
+
+```csharp
+ViewportChanged = 3
+```
+
+
+A recorded bare-point action met a viewport of another size; the point would land elsewhere.
 
 **Value:** [ReplayHandOffReason](./)

@@ -159,7 +159,7 @@ internal static class Replay
             var look = previous is not null ? new Look(null, SettlePolicy.For(previous).Look) : options?.Initial is { } initial ? new Look(initial, SettleMode.Raw) : HeldStill;
 
             // An action with no target reads no screen, so the screen the previous action left would go unseen.
-            if (previous is not null && !HasTarget(action) && options?.LooksBeforeFree?.Invoke() == true)
+            if (previous is not null && !HasTarget(action) && !IsPointAction(action) && options?.LooksBeforeFree?.Invoke() == true)
             {
                 await host.ObserveAsync(look.Settle).ConfigureAwait(false);
             }
@@ -277,6 +277,21 @@ internal static class Replay
 
                         await host.Actions.ScrollUntilAsync(text, Direction(action.Direction), scrolled.Node is null ? null : new ExecutorTarget(scrolled.Node) { Recorded = action }, token).ConfigureAwait(false);
                         break;
+                    case "tapAt" or "hoverAt":
+                        // A bare point, placed the way PlacePoint places one, then acted on through its point verb.
+                        var placed = await PlacePoint(host, action.Point!.Value, action.Under, action.Viewport!, look).ConfigureAwait(false);
+                        if (placed.Failure is { } placedFailure)
+                        {
+                            return Stop(placedFailure, null, placed.Why);
+                        }
+
+                        if (!host.TryReserve())
+                        {
+                            return Stop(ReplayHandOffReason.ActionBudget);
+                        }
+
+                        await (action.Kind == "tapAt" ? host.Actions.TapAtAsync(placed.Point, token) : host.Actions.HoverAtAsync(placed.Point, token)).ConfigureAwait(false);
+                        break;
                     case "drag":
                         // Both ends are re-found on one screen, so the nodes the drag joins come from the same look at the app.
                         var pair = await RelocatePair(host, action, look).ConfigureAwait(false);
@@ -291,6 +306,28 @@ internal static class Replay
                         }
 
                         await host.Actions.DragAsync(new ExecutorTarget(pair.Source), new ExecutorTarget(pair.Destination), token).ConfigureAwait(false);
+                        break;
+                    case "dragAt":
+                        // Points, not ids, reach the drag, so each end may take its own look: nothing acts between the two, and a renumbered
+                        // tree moves no box.
+                        var start = await PlacePoint(host, action.From!.Point, action.From.Under, action.Viewport!, look).ConfigureAwait(false);
+                        if (start.Failure is { } startFailure)
+                        {
+                            return Stop(startFailure, null, start.Why);
+                        }
+
+                        var end = await PlacePoint(host, action.To!.Point, action.To.Under, action.Viewport!, look).ConfigureAwait(false);
+                        if (end.Failure is { } endFailure)
+                        {
+                            return Stop(endFailure, null, end.Why);
+                        }
+
+                        if (!host.TryReserve())
+                        {
+                            return Stop(ReplayHandOffReason.ActionBudget);
+                        }
+
+                        await host.Actions.DragAtAsync(start.Point, end.Point, token).ConfigureAwait(false);
                         break;
                     default:
                         var found = await Relocate(host, action, look).ConfigureAwait(false);
@@ -489,6 +526,83 @@ internal static class Replay
         }
     }
 
+    /// <summary>Whether a recorded action acts on a bare viewport point, which takes its own look and reads its viewport.</summary>
+    private static bool IsPointAction(RecordedAction action) => action.Kind is "tapAt" or "hoverAt" or "dragAt";
+
+    /// <summary>Where one recorded bare point lands on the live screen, or why it cannot (upstream's <c>placePoint</c> result).</summary>
+    private readonly record struct Placed(Point Point, ReplayHandOffReason? Failure = null, string? Why = null);
+
+    /// <summary>
+    /// Upstream's <c>placePoint</c>: where one recorded bare point lands on the live screen: inside its re-found node's live box when it sat
+    /// in one, else as recorded once the viewport is the recorded size. A failure names the hand-off.
+    /// </summary>
+    private static async Task<Placed> PlacePoint(IReplayHost host, Point point, RecordedPointPlace? within, TraceViewport viewport, Look look)
+    {
+        if (within is null)
+        {
+            var screen = look.InHand ?? await host.ObserveAsync(look.Settle).ConfigureAwait(false);
+            if (screen.TreeUnavailable)
+            {
+                return new Placed(default, ReplayHandOffReason.ActionFailed);
+            }
+
+            host.MarkActing();
+            if (screen.Viewport is not { } live)
+            {
+                return new Placed(default, ReplayHandOffReason.ViewportChanged, "recorded at " + Size(viewport) + ", the screen is of unknown size");
+            }
+
+            if (live.Width != viewport.Width || live.Height != viewport.Height)
+            {
+                return new Placed(default, ReplayHandOffReason.ViewportChanged, "recorded at " + Size(viewport) + ", the screen is " + Size(live));
+            }
+
+            return new Placed(point);
+        }
+
+        var target = within.Target!;
+        var relocated = await RelocateAmong(host, target, look).ConfigureAwait(false);
+        var at = PlaceWithin(relocated, within, point, viewport);
+        return at is { } placedAt ? new Placed(placedAt) : new Placed(default, relocated.Node is null ? relocated.Failure : ReplayHandOffReason.TargetNotFound);
+    }
+
+    private static string Size(TraceViewport viewport) => viewport.Width.ToString(CultureInfo.InvariantCulture) + "x" + viewport.Height.ToString(CultureInfo.InvariantCulture);
+
+    // A relocation that keeps the look-alikes it found with the screen they are on, for a replay that needs boxes.
+    private readonly record struct Relocated(SemanticNode? Node, ReplayHandOffReason Failure, IReadOnlyList<SemanticNode> Candidates, Observation? Screen);
+
+    // Upstream's relocate for a point end: re-finds the node a point sat in, looking again while the failure may pass.
+    private static async Task<Relocated> RelocateAmong(IReplayHost host, RecordedTarget target, Look look)
+    {
+        var deadline = host.Time.GetUtcNow() + host.ReplayTimeout;
+        var first = true;
+        while (true)
+        {
+            var observation = first && look.InHand is { } inHand ? inHand : await host.ObserveAsync(first ? look.Settle : SettleMode.Raw).ConfigureAwait(false);
+            first = false;
+            var matches = Find(observation, target.Role, target.Name, target.TestId, null, host.Redact, target.Within);
+            if (matches.Count == 1)
+            {
+                host.MarkActing();
+                return new Relocated(matches[0], default, matches, observation);
+            }
+
+            // Several look-alikes are worth another look only when a place among them could tell them apart; the port records none, so
+            // ambiguity is final, as it is for a node action.
+            if (matches.Count > 1)
+            {
+                return new Relocated(null, ReplayHandOffReason.TargetAmbiguous, matches, observation);
+            }
+
+            if (host.Time.GetUtcNow() >= deadline)
+            {
+                return new Relocated(null, ReplayHandOffReason.TargetNotFound, [], null);
+            }
+
+            await Task.Delay(RetryDelay, host.Time, host.Signal).ConfigureAwait(false);
+        }
+    }
+
     /// <summary>
     /// Upstream's <c>relocatePair</c>: re-finds a drag's two nodes on one screen, so the nodes the drag joins come from the same look
     /// at the app. Waits like <see cref="Relocate"/> and gives up the same way: a missing end is worth another look, an end that matches
@@ -527,6 +641,54 @@ internal static class Replay
 
             await Task.Delay(RetryDelay, host.Time, host.Signal).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Upstream's <c>placeWithin</c>: where a recorded point lands on the live screen: its place inside the re-found node's box, or among the
+    /// visible look-alikes inside the one that contains the recorded point on a viewport of the recorded size, as the hit test that recorded
+    /// it skipped hidden nodes. Null when the node is gone or has no box, or the point settles nothing: tapping the bare point could press
+    /// whatever now sits there.
+    /// </summary>
+    private static Point? PlaceWithin(Relocated relocated, RecordedPointPlace within, Point point, TraceViewport viewport)
+    {
+        static BoundingBox? Usable(BoundingBox? rect) => rect is null || rect.Width <= 0 || rect.Height <= 0 ? null : rect;
+        Point Inside(BoundingBox box) => new(box.X + within.Fx * box.Width, box.Y + within.Fy * box.Height);
+
+        if (relocated.Node is { } node)
+        {
+            return Usable(node.Rect) is { } box ? Inside(box) : null;
+        }
+
+        if (relocated.Failure != ReplayHandOffReason.TargetAmbiguous || relocated.Screen?.Viewport is not { } live || live.Width != viewport.Width || live.Height != viewport.Height)
+        {
+            return null;
+        }
+
+        var containing = relocated.Candidates
+            .Where(candidate => !candidate.States.Hidden)
+            .Select(candidate => Usable(candidate.Rect))
+            .OfType<BoundingBox>()
+            .Where(box => Geometry.ContainsPoint(box, point))
+            .ToList();
+        if (containing.Count == 1)
+        {
+            return Inside(containing[0]);
+        }
+
+        // Several look-alikes hold the point and nest: a host view and the view inside it, a group inside a group, an anonymous container among
+        // its kind. Whichever of them is the recorded node, the recorded point on a viewport of the recorded size names the same pixel, and it
+        // is acted on as a bare point would be. Siblings that merely overlap under the point stay ambiguous and hand off.
+        return containing.Count > 1 && Nested(containing) ? point : null;
+    }
+
+    // Whether the boxes form one chain of containers, each holding the next smaller one, rather than siblings that overlap.
+    private static bool Nested(List<BoundingBox> boxes)
+    {
+        var byArea = boxes.OrderBy(box => box.Width * box.Height).ToList();
+        return byArea.Skip(1).Select((box, index) => (Outer: box, Inner: byArea[index]))
+            .All(pair => pair.Inner.X >= pair.Outer.X && pair.Inner.Y >= pair.Outer.Y
+                && pair.Inner.X + pair.Inner.Width <= pair.Outer.X + pair.Outer.Width
+                && pair.Inner.Y + pair.Inner.Height <= pair.Outer.Y + pair.Outer.Height);
     }
 
     private static string FirstLine(string text)

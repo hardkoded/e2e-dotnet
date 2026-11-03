@@ -480,9 +480,10 @@ Most unit tests use `DocumentEngine` and a scripted model. No test needs an API 
 | `@e2e-dev/eas` | `E2E.Eas` (`EasSimulators`) |
 | `@e2e-dev/kernel` | `E2E.Kernel` (`KernelProvider`), hosted browsers for `WebEngineOptions.Browser` |
 | `@e2e-dev/limrun` | `E2E.Limrun` (`LimrunSimulators`) |
+| `@e2e-dev/browserstack` | `E2E.BrowserStack` (`BrowserStackDevices`), BrowserStack App Automate real devices; the shared lease helper (`@e2e-dev/mobile/lease`) is in `E2E.Mobile` |
 | none (.NET only) | `E2E.TestMu.Mobile` (TestMu AI real and virtual mobile devices through Appium; in progress) |
 | none (.NET only) | `E2E.Mobile.DevFlow` (`DevFlowAgents`), .NET MAUI apps through the MAUI DevFlow agent; preview |
 | `@e2e-dev/testmu` (`testmuBrowsers()`, ported in part) | `E2E.TestMu` (`TestMuBrowsers`), hosted browsers for `WebEngineOptions.Browser` |
 | `e2e login`, `e2e logout`, `e2e models`, `e2e guide`, `e2e mcp`, `e2e explore`, `e2e-web install` (as `e2e install`) | `E2E.Cli` (the `e2e` .NET tool) |
 
-`@e2e-dev/mobile` is ported in part (the snapshot model and the engine) as `E2E.Mobile`. The EAS and Limrun providers are their own packages, `E2E.Eas` and `E2E.Limrun`. `E2E.TestMu` ports upstream's `testmuBrowsers()` in part. The Kernel provider is its own package, `E2E.Kernel`. `@e2e-dev/github` is not ported. Details are in [COMPATIBILITY.md](COMPATIBILITY.md).
+`@e2e-dev/mobile` is ported in part (the snapshot model and the engine) as `E2E.Mobile`. The EAS, Limrun, and BrowserStack providers are their own packages, `E2E.Eas`, `E2E.Limrun`, and `E2E.BrowserStack`. `E2E.TestMu` ports upstream's `testmuBrowsers()` in part. The Kernel provider is its own package, `E2E.Kernel`. `@e2e-dev/github` is not ported. Details are in [COMPATIBILITY.md](COMPATIBILITY.md).

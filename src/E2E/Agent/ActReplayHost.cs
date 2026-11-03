@@ -162,6 +162,33 @@ public sealed partial class Agent
             feed.ArmAfter(new RecordedAction { Kind = "back" });
         }
 
+        // A recorded bare point goes to the engine as given and arms the next look; the replay commits the action as recorded. The result's
+        // prose is for a model, which a replay has none of.
+        public async Task<PointTapResult> TapAtAsync(Point point, CancellationToken cancellationToken = default)
+        {
+            await scope.Session.PerformAtAsync(point, new PointerAction.Tap(), cancellationToken).ConfigureAwait(false);
+            feed.ArmAfter(new RecordedAction { Kind = "tapAt" });
+            return new PointTapResult(point, null, "");
+        }
+
+        public async Task<PointTapResult> HoverAtAsync(Point point, CancellationToken cancellationToken = default)
+        {
+            await scope.Session.PerformAtAsync(point, new PointerAction.Hover(), cancellationToken).ConfigureAwait(false);
+            feed.ArmAfter(new RecordedAction { Kind = "hoverAt" });
+            return new PointTapResult(point, null, "");
+        }
+
+        public async Task<PointDragResult> DragAtAsync(Point from, Point to, CancellationToken cancellationToken = default)
+        {
+            await scope.Session.PerformAtAsync(from, new PointerAction.DragTo(to), cancellationToken).ConfigureAwait(false);
+            feed.ArmAfter(new RecordedAction { Kind = "dragAt" });
+            return new PointDragResult(from, to, null, null, "");
+        }
+
+        // A replay places its points from the recording and never hit-tests one.
+        public Task<PointHit> HitTestAsync(Point point, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("A replay never hit-tests a point.");
+
         private static SemanticNode Resolve(ExecutorTarget target) =>
             target.Node ?? throw new InvalidOperationException("A replayed target holds the node it was found as.");
 

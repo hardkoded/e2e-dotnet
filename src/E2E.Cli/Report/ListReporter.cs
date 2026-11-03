@@ -24,11 +24,11 @@ internal sealed record ListReporterOptions
 /// Renders the run's event stream as the CLI's human-readable output (upstream's <c>report/list.ts</c>). The reporter is one sink on
 /// the run's single event spine, so it can only show what every other sink receives.
 /// <para>
-/// Ported: the run header, the setup steps (a process prints once it is ready, with its wait), a file block per file with its test lines, the <c>Failed Tests</c> section with its evidence rows, the run
-/// errors, and the summary rows (<c>Test Files</c>, <c>Tests</c>, <c>AI</c>, <c>Cache</c>, <c>Errors</c>,
+/// Ported: the run header, the setup steps (a process prints once it is ready, with its wait), a file block per file with its test lines, the <c>Failed Tests</c> and
+/// <c>Skipped After Failure</c> sections with their evidence rows, the run
+/// errors, and the summary rows (<c>Test Files</c>, <c>Tests</c>, <c>AI</c>, <c>Cache</c>, <c>Repeats</c>, <c>Warnings</c>, <c>Errors</c>,
 /// <c>Start at</c>, <c>Duration</c>, <c>Report</c>, <c>Traces</c>, <c>Screenshots</c>, <c>AI trace</c>). Not ported: the live window, a
-/// test's console output, serial groups, step streaming, the exploration view, the <c>Repeats</c> row, and the
-/// <c>Skipped After Failure</c> section and its <c>Warnings</c> row. A failure also prints its code frame and its video rows.
+/// test's console output, serial groups, step streaming, and the exploration view. A failure also prints its code frame and its video rows.
 /// </para>
 /// </summary>
 internal sealed partial class ListReporter
@@ -66,6 +66,12 @@ internal sealed partial class ListReporter
     private readonly Dictionary<(string Target, string File), FileGroup> _groups = [];
     private readonly List<FileGroup> _groupOrder = [];
     private readonly List<Failure> _failures = [];
+
+    /// <summary>Skipped tests that followed a failure, for the <c>Skipped After Failure</c> section and the <c>Warnings</c> row.</summary>
+    private readonly List<Failure> _skippedFailures = [];
+
+    /// <summary>Every finished test's run, for the <c>Repeats</c> summary of a <c>--repeat-each</c> run.</summary>
+    private readonly List<(string Key, string Label, RepeatRun Run)> _runs = [];
 
     /// <summary>Run-level errors, printed once at the end.</summary>
     private readonly List<ReportError> _errors = [];
@@ -322,7 +328,6 @@ internal sealed partial class ListReporter
 
         // A retry the run interrupted tells nothing; the failure before it is the verdict.
         var told = attempts.LastOrDefault(attempt => attempt.Status != E2E.Internal.AttemptStatus.Interrupted) ?? attempts.LastOrDefault();
-        var screen = told?.Failure?.Screen is { } screenId ? told.Artifacts.FirstOrDefault(artifact => artifact.Id == screenId)?.Path : null;
         return new ResultDetails
         {
             DurationMs = attempts.Sum(attempt => attempt.DurationMs),
@@ -332,7 +337,7 @@ internal sealed partial class ListReporter
             Error = told?.Error,
             Screenshots = [.. attempts.SelectMany(attempt => RequestedScreenshots(attempt.Steps, attempt.Artifacts))],
             Failure = told?.Failure,
-            ScreenPath = screen,
+            ScreenPath = ScreenPathOf(told?.Failure, told?.Artifacts),
             Videos = VideoPaths(attempts),
             AppLog = AppLogSummaryOf(told?.AppLog ?? []),
             SkipReason = told?.Status == E2E.Internal.AttemptStatus.Skipped ? null : told?.Skip?.Reason,
@@ -342,6 +347,10 @@ internal sealed partial class ListReporter
     /// <summary>Where each video these attempts kept is, in order: a report-relative path, or the URL of one a hosted service keeps (upstream's <c>videoPaths</c>).</summary>
     private static List<string> VideoPaths(IReadOnlyList<ReportAttempt> attempts) =>
         [.. attempts.SelectMany(attempt => attempt.Artifacts).Where(artifact => artifact.Kind == "video").Select(artifact => artifact.Url ?? artifact.Path).OfType<string>()];
+
+    /// <summary>The report path of the screen text a failure's evidence points at (upstream's <c>failureOf</c>).</summary>
+    private static string? ScreenPathOf(FailureEvidence? failure, IReadOnlyList<ReportArtifact>? artifacts) =>
+        failure?.Screen is { } screenId ? artifacts?.FirstOrDefault(artifact => artifact.Id == screenId)?.Path : null;
 
     /// <summary>Report-relative paths of the screenshots the <c>app.screenshot</c> steps among <paramref name="steps"/> attached, in step order (upstream's <c>requestedScreenshots</c>).</summary>
     private static IEnumerable<string> RequestedScreenshots(IReadOnlyList<StepRecord> steps, IReadOnlyList<ReportArtifact> artifacts) =>
@@ -379,6 +388,7 @@ internal sealed partial class ListReporter
         }
 
         var group = Group(result.Test.File, result.Target.Name);
+        var skippedAfter = Records.FailureBeforeSkip(result);
         var details = DetailsOf(result.Attempts);
         _screenshots.AddRange(details.Screenshots);
         Format.AddUsage(_runUsage, details.Usage);
@@ -395,9 +405,20 @@ internal sealed partial class ListReporter
             FirstErrorLine = details.Error is null ? null : Format.Bounded(details.Error.Message).Split('\n')[0],
             SkipReason = result.Skip is null ? null : Format.Bounded(result.Skip.Reason),
         });
+        _runs.Add((
+            $"{result.Test.Id}@{result.Agent}@{result.Target.Name}",
+            $"{Badge(group.Target)} {Format.Bounded(group.File)}{_separator}{TitledAs(string.Join(" > ", result.Test.TitlePath), result.Agent, 0)}",
+
+            // A flaky run's final attempt passed; the code is the one its retry recovered from.
+            new RepeatRun(result.Repeat, StatusName(result.Status), details.Error?.Code ?? result.Attempts.LastOrDefault(attempt => attempt.Status != E2E.Internal.AttemptStatus.Passed)?.Error?.Code)));
         if (Format.StatusBucket(result.Status) == "failed")
         {
             _failures.Add(new Failure(result.ResultId, group, title, result.Status, details.Error, details.Failure, details.ScreenPath, details.AppLog, details.SkipReason, details.Videos));
+        }
+
+        if (skippedAfter is not null)
+        {
+            _skippedFailures.Add(new Failure(result.ResultId, group, title, result.Status, skippedAfter.Error, skippedAfter.Failure, ScreenPathOf(skippedAfter.Failure, skippedAfter.Artifacts), null, null, details.Videos));
         }
 
         if (group.Planned is { } planned && group.Lines.Count >= planned)
@@ -572,6 +593,12 @@ internal sealed partial class ListReporter
             rows.Add(Format.PadTitle(_pc, "Cache") + cache);
         }
 
+        rows.AddRange(RepeatRows());
+        if (_skippedFailures.Count > 0)
+        {
+            rows.Add(Format.PadTitle(_pc, "Warnings") + _pc.Yellow($"{_skippedFailures.Count} skipped after failure"));
+        }
+
         if (_errors.Count > 0)
         {
             rows.Add(Format.PadTitle(_pc, "Errors") + _pc.Bold(_pc.Red($"{_errors.Count} error{(_errors.Count == 1 ? string.Empty : "s")}")));
@@ -581,6 +608,28 @@ internal sealed partial class ListReporter
         rows.Add(Format.PadTitle(_pc, "Start at") + Format.FormatClock(startedAt));
         rows.Add(Format.PadTitle(_pc, "Duration") + Format.DurationText(_pc, _time.GetLocalNow() - startedAt, TimeSpan.FromMilliseconds(_startupMs)));
         return rows;
+    }
+
+    /// <summary>
+    /// The <c>Repeats</c> row of a <c>--repeat-each</c> run: how many tests passed every run, then one line per test that did not, naming the
+    /// runs that failed.
+    /// </summary>
+    private List<string> RepeatRows()
+    {
+        var groups = Repeats.RepeatGroups(_runs, entry => entry);
+        if (groups.Count == 0)
+        {
+            return [];
+        }
+
+        // A test is listed when it missed a run: a flake first, then one the run cut short.
+        var missed = groups.Where(group => group.Passed < group.Runs.Count).OrderByDescending(group => group.Unstable).ToList();
+        var summary = Repeats.RepeatSummary(groups);
+        return
+        [
+            Format.PadTitle(_pc, "Repeats") + (missed.Any(group => group.Unstable) ? _pc.Yellow(summary) : _pc.Green(summary)),
+            .. missed.Select(group => $"{Format.PadTitle(_pc, string.Empty)}{(group.Unstable ? _pc.Yellow(Format.Cross) : _pc.Dim(_pc.Gray(FDown)))} {group.Label}  {_pc.Dim(Repeats.RepeatLine(group))}"),
+        ];
     }
 
     /// <summary>A zero counter's label: the plain text, or the interrupt when that is why nothing is counted.</summary>
@@ -764,6 +813,7 @@ internal sealed partial class ListReporter
 
         var pages = finished.Traces ?? new Dictionary<string, string>();
         PrintFailures("Failed Tests", _failures, pages);
+        PrintFailures("Skipped After Failure", _skippedFailures, pages);
         PrintErrors();
         Print(string.Empty);
         foreach (var row in SummaryRows())

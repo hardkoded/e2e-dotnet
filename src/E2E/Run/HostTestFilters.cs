@@ -17,6 +17,16 @@ namespace E2E;
 internal sealed record DiscoveredTest(string Key, string Namespace, string TypeName, string Title, IReadOnlyList<string> Tags, string? SkipReason = null);
 
 /// <summary>
+/// What the filters decided for a run (.NET-only): the tests left out with their reasons, for each test to skip itself, and the report's
+/// part of it, which upstream's runner builds: the skipped <see cref="Results"/> of the tests left out, what each filter decided, and the change judged.
+/// </summary>
+/// <param name="Excluded">The reason each test left out gives, by <see cref="DiscoveredTest.Key"/>.</param>
+/// <param name="Results">One skipped, unselected result per test left out (upstream's skipped record of a filtered pair).</param>
+/// <param name="Filters">What each filter decided (<c>run.filters</c>); empty when no filter ran.</param>
+/// <param name="Changes">The change judged, or why no filter ran (<c>run.changes</c>); null when there was nothing to judge by.</param>
+internal sealed record HostSelection(IReadOnlyDictionary<string, string> Excluded, IReadOnlyList<ReportResult> Results, IReadOnlyList<ReportFilter> Filters, ReportChanges? Changes);
+
+/// <summary>
 /// Wires the test filters into a framework adapter's run (upstream's host applies <c>filterSelection</c> after <c>select</c>; .NET-only
 /// name). The adapter hands over the tests it found by reflection once, before the first test. The seam collects them, selects, runs
 /// <see cref="TestFilters.FilterSelection"/>, and returns the tests the filters left out, each with its reason, for the test to skip itself.
@@ -36,10 +46,10 @@ internal static class HostTestFilters
     }
 
     /// <summary>
-    /// The tests the filters left out, by <see cref="DiscoveredTest.Key"/>, with the reason each filter gave. Empty when the filters left
-    /// none out or none ran. The selection is made once for the whole run.
+    /// The tests the filters left out, by <see cref="DiscoveredTest.Key"/>, with the reason each filter gave, and the part of the report that
+    /// says so. Nothing is left out when the filters left none out or none ran. The selection is made once for the whole run.
     /// </summary>
-    public static async Task<IReadOnlyDictionary<string, string>> ExcludeAsync(
+    public static async Task<HostSelection> ExcludeAsync(
         E2EConfig config,
         IReadOnlyList<ITestFilter> filters,
         string changedSince,
@@ -68,12 +78,55 @@ internal static class HostTestFilters
         }).ConfigureAwait(false);
 
         var excluded = new Dictionary<string, string>(StringComparer.Ordinal);
+        var results = new List<ReportResult>();
         foreach (var pair in filtered.Selection.Pairs.Where(pair => pair.Skip is { Cause: "filtered", Filter: not null }))
         {
-            excluded.TryAdd(keys[pair.Test.Id], pair.Skip!.Reason);
+            if (excluded.TryAdd(keys[pair.Test.Id], pair.Skip!.Reason))
+            {
+                results.Add(LeftOutResult(pair.Test, resolved.Targets[0], pair.Skip));
+            }
         }
 
-        return excluded;
+        return new HostSelection(excluded, results, filtered.Records, filtered.Changes);
+    }
+
+    // A test left out ran no attempt, so the reason sits on the result, and the summary does not count the test as selected.
+    private static ReportResult LeftOutResult(CollectedTest test, ResolvedTarget target, SkipInfo skip) => new()
+    {
+        Id = AttemptReport.ResultId(null, test.Id),
+        File = test.File,
+        TitlePath = test.TitlePath,
+        DeclarationIndex = test.DeclarationIndex,
+        TargetId = target.Name,
+        Platform = target.Platform,
+        Tags = test.Tags,
+        Selected = false,
+        Status = ResultStatus.Skipped,
+        Skip = new ReportSkip(skip.Cause, skip.Reason, skip.Filter),
+    };
+
+    /// <summary>
+    /// Puts what the filters decided into the run's <c>report.json</c> (<c>run.changes</c>, <c>run.filters</c>, and a skipped result per test
+    /// left out), so the reporters can say so. Nothing is written when no filter had a say. The report is a courtesy: a failure is one line on stderr.
+    /// </summary>
+    public static async Task WriteReportAsync(E2EConfig config, HostSelection selection, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(selection);
+        if (selection.Changes is null && selection.Results.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var target = new ReportTarget(config.Target.Name, 0, config.Target.Platform, BuildReport.DescribeTarget(null));
+            await ReportFile.WriteLeftOutAsync(selection, target, config.ProjectRoot, OutputLayout.Of(config.Output).Results, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Console.Error.WriteLine("[e2e] could not write " + ReportFile.FileName + " for the tests the filters left out: " + ex.Message);
+        }
     }
 
     /// <summary>A one-target <see cref="ResolvedConfig"/> from the loaded config (.NET-only: the port has no resolver).</summary>

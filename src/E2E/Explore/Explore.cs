@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using E2E.Engine;
 using E2E.Internal;
+using E2E.Reports;
 
 namespace E2E;
 
@@ -111,7 +112,14 @@ public sealed class ExploreOptions
 /// <param name="ExitCode">0 when the exploration reported no issue (warnings do not count), 1 when it reported one or explored nothing, 2 for a configuration or policy error, 3 for an engine, app, or model provider failure. A failure of closing the exploration joins it: the code is the verdict's combined with the cleanup failure's (precedence 130, 4, 3, 2, 1, 0).</param>
 /// <param name="Error">The error that ended the run, or else the first cleanup failure, or null for a pass.</param>
 /// <param name="Explore">What was asked, did, and found.</param>
-public sealed record ExploreOutcome(RunStatus Status, int ExitCode, E2EException? Error, ReportExplore Explore);
+public sealed record ExploreOutcome(RunStatus Status, int ExitCode, E2EException? Error, ReportExplore Explore)
+{
+    /// <summary>The artifacts the exploration's attempt kept, where a finding's <see cref="ReportExploreFinding.ArtifactId"/> is found. .NET-only: upstream's list reporter reads them from the run's result event.</summary>
+    internal IReadOnlyList<ArtifactRecord> Artifacts { get; init; } = [];
+
+    /// <summary>The directory the paths of <see cref="Artifacts"/> are relative to. .NET-only, like <see cref="Artifacts"/>.</summary>
+    internal string? ArtifactsRoot { get; init; }
+}
 
 /// <summary>
 /// An exploration: a run whose one test is a goal. The config is loaded as a test run loads it, the exploration body runs as the
@@ -228,6 +236,7 @@ public static class Explore
         var (appTarget, appProcesses) = await RunApps.AcquireAsync(config, target, notice, cancellationToken).ConfigureAwait(false);
         target = appTarget;
         var appFailures = new List<Exception>();
+        var resultsDirectory = OutputLayout.Of(config.ResolveOutput(options.Output)).Results;
         StandaloneAttempt attempt;
         try
         {
@@ -251,7 +260,7 @@ public static class Explore
                 Permissions = target.App.Permissions,
                 ProjectRoot = projectRoot,
                 TargetName = target.Name,
-                ResultsDirectory = OutputLayout.Of(config.ResolveOutput(options.Output)).Results,
+                ResultsDirectory = resultsDirectory,
                 CacheEnabled = false,
                 CacheMode = CacheMode.Off,
                 TestTitle = state.Goal,
@@ -338,7 +347,11 @@ public static class Explore
         var exitCode = ErrorSerializer.CombineExitCodes(
             cleanupErrors.Select(failure => ErrorSerializer.ExitCodeForCategory(ErrorSerializer.Classify(failure).Category)).Append(Runner.ExitCodeOf(error)));
         var status = cleanupErrors.Count > 0 ? RunStatus.Failed : Runner.StatusOf(error);
-        return new ExploreOutcome(status, exitCode, error ?? cleanupErrors.FirstOrDefault(), record);
+        return new ExploreOutcome(status, exitCode, error ?? cleanupErrors.FirstOrDefault(), record)
+        {
+            Artifacts = attempt.Session.Artifacts,
+            ArtifactsRoot = Path.GetFullPath(resultsDirectory),
+        };
     }
 
     /// <summary>

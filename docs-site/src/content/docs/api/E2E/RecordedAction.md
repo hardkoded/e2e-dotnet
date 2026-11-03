@@ -56,6 +56,21 @@ public string? Direction { get; set; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_RecordedAction_From_"></a>
+<a id="E2E_RecordedAction_From"></a>
+
+### From
+
+
+```csharp
+public RecordedPointEnd? From { get; set; }
+```
+
+
+The start of a `dragAt`, placed the way a point action's one point is.
+
+**Value:** [RecordedPointEnd](/api/E2E/RecordedPointEnd/)
+
 <a id="E2E_RecordedAction_Key_"></a>
 <a id="E2E_RecordedAction_Key"></a>
 
@@ -125,6 +140,22 @@ Upstream's `paths` of an `upload`: the files attached, by project-relative path 
 typed value, expanded with the call's params and authorized against the project root again before it reaches the engine.
 
 **Value:** [List&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)
+
+<a id="E2E_RecordedAction_Point_"></a>
+<a id="E2E_RecordedAction_Point"></a>
+
+### Point
+
+
+```csharp
+public Point? Point { get; set; }
+```
+
+
+The viewport point of a `tapAt` or `hoverAt`, in CSS pixels, where the model aimed (upstream's `PointAction.point`). Replayed as
+given on a viewport of [Viewport](#E2E_RecordedAction_Viewport)'s size, or at [Under](#E2E_RecordedAction_Under)'s place in the live node.
+
+**Value:** `Point?`
 
 <a id="E2E_RecordedAction_Role_"></a>
 <a id="E2E_RecordedAction_Role"></a>
@@ -199,6 +230,37 @@ Consecutive identical scrolls folded into one action. Null means one.
 
 **Value:** [int?](https://learn.microsoft.com/dotnet/api/system.int32)
 
+<a id="E2E_RecordedAction_To_"></a>
+<a id="E2E_RecordedAction_To"></a>
+
+### To
+
+
+```csharp
+public RecordedPointEnd? To { get; set; }
+```
+
+
+The end of a `dragAt`.
+
+**Value:** [RecordedPointEnd](/api/E2E/RecordedPointEnd/)
+
+<a id="E2E_RecordedAction_Under_"></a>
+<a id="E2E_RecordedAction_Under"></a>
+
+### Under
+
+
+```csharp
+public RecordedPointPlace? Under { get; set; }
+```
+
+
+Upstream's `within` of a point action: the listed node that held the point and the point's place inside its box, when the node has
+a durable descriptor. Replay re-finds the node and acts at the same place in its live box, so a layout shift moves the point with it.
+
+**Value:** [RecordedPointPlace](/api/E2E/RecordedPointPlace/)
+
 <a id="E2E_RecordedAction_Url_"></a>
 <a id="E2E_RecordedAction_Url"></a>
 
@@ -224,6 +286,21 @@ public string? Value { get; set; }
 
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+<a id="E2E_RecordedAction_Viewport_"></a>
+<a id="E2E_RecordedAction_Viewport"></a>
+
+### Viewport
+
+
+```csharp
+public TraceViewport? Viewport { get; set; }
+```
+
+
+The size of the viewport a point action was placed in, the precondition of its replay (upstream's `viewport` of a point action).
+
+**Value:** [TraceViewport](/api/E2E.Engine/TraceViewport/)
 
 <a id="E2E_RecordedAction_Within_"></a>
 <a id="E2E_RecordedAction_Within"></a>

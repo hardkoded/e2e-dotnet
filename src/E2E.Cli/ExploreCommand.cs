@@ -226,7 +226,8 @@ internal static partial class ExploreCommand
         {
             if (view is not null)
             {
-                foreach (var line in view.Record().Concat(view.FindingsSection()).Concat(view.Assessment()))
+                var root = cwd ?? Directory.GetCurrentDirectory();
+                foreach (var line in view.Record().Concat(view.FindingsSection(outcome.Artifacts, outcome.ArtifactsRoot, target => DisplayPath(root, target))).Concat(view.Assessment()))
                 {
                     Print(line);
                 }
@@ -251,6 +252,13 @@ internal static partial class ExploreCommand
         }
 
         return outcome.ExitCode;
+    }
+
+    /// <summary>A path relative to <paramref name="root"/> when inside it, else as given.</summary>
+    private static string DisplayPath(string root, string target)
+    {
+        var relative = Path.GetRelativePath(root, target);
+        return relative.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(relative) ? target : relative;
     }
 
     /// <summary>
