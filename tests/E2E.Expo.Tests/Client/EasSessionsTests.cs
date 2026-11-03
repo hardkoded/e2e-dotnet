@@ -18,7 +18,7 @@ public sealed class EasSessionsTests
     private static readonly EasSessionParams Params = new() { AppId = "p1", Platform = MobilePlatform.Ios, Name = "e2e ios 1 of 1", Tags = [] };
 
     /// <summary>A client whose every request is answered with <paramref name="body"/> as JSON.</summary>
-    private static EasSessions Answering(string body, int status = 200) =>
+    internal static EasSessions Answering(string body, int status = 200) =>
         new(new ExpoCredentials("expo-test", null), new HttpClient(new Answer(body, (HttpStatusCode)status)));
 
     [Fact]
@@ -88,18 +88,7 @@ public sealed class EasSessionsTests
         Assert.Equal("Expo: unexpected response to ensureDeviceRunSessionStopped", error.Message);
     }
 
-    /// <summary>.NET-only: upstream redacts at the report boundary; the port's provider hides its own token in what Expo answers.</summary>
-    [Fact]
-    public async Task HidesTheTokenInAnErrorExpoAnswersWith()
-    {
-        var graphql = await Assert.ThrowsAsync<EasException>(
-            () => Answering("""{ "errors": [{ "message": "bad token expo-test" }] }""").StateAsync("s1", CancellationToken.None));
-        Assert.Equal("Expo: bad token *****", graphql.Message);
-        var page = await Assert.ThrowsAsync<InvalidOperationException>(() => Answering("Forbidden: expo-test", 403).StateAsync("s1", CancellationToken.None));
-        Assert.Equal("Expo: HTTP 403, Forbidden: *****", page.Message);
-    }
-
-    private sealed class Answer(string body, HttpStatusCode status) : HttpMessageHandler
+    internal sealed class Answer(string body, HttpStatusCode status) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") });
