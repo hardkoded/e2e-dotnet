@@ -121,7 +121,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [PressSequentiallyOptions](/api/E2E/PressSequentiallyOptions/) | Options for PressSequentiallyAsync. |
 | [RecordedAction](/api/E2E/RecordedAction/) |  |
 | [RecordedPointEnd](/api/E2E/RecordedPointEnd/) | Upstream's TracePointEnd: a recorded point and, when a listed node with a durable descriptor contained it, its place inside that node's box. |
-| [RecordedPointPlace](/api/E2E/RecordedPointPlace/) | Upstream's TracePointEnd.within: the node a bare point sat in, and the point's place inside its box. |
+| [RecordedPointPlace](/api/E2E/RecordedPointPlace/) | Upstream's within of a TracePointEnd: the node a bare point sat in, and the point's place inside its box. Upstream types it inline ({ target, fx, fy }); C# has no inline object type, so it is a class (.NET-only name). The property that holds it is Under, because Within already names a container key here. |
 | [RecordedTarget](/api/E2E/RecordedTarget/) |  |
 | [RecordedVideo](/api/E2E/RecordedVideo/) | One video StopRecordingAsync(CancellationToken) returns: a file, or a link to a recording a hosted service keeps (upstream's RecordedVideo). |
 | [RecordedVideoFile](/api/E2E/RecordedVideoFile/) | A video file under the attempt's recordings/ directory (upstream's RecordedVideoFile). |

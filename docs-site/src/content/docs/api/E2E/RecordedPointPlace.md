@@ -1,6 +1,6 @@
 ---
 title: "RecordedPointPlace"
-description: "Upstream's TracePointEnd.within: the node a bare point sat in, and the point's place inside its box."
+description: "Upstream's within of a TracePointEnd: the node a bare point sat in, and the point's place inside its box. Upstream types it inline ({ target, fx, fy }); C# h..."
 editUrl: false
 prev: false
 next: false
@@ -19,7 +19,9 @@ public sealed class RecordedPointPlace
 ```
 
 
-Upstream's `TracePointEnd.within`: the node a bare point sat in, and the point's place inside its box.
+Upstream's `within` of a `TracePointEnd`: the node a bare point sat in, and the point's place inside its box. Upstream types it
+inline (`{ target, fx, fy }`); C# has no inline object type, so it is a class (.NET-only name). The property that holds it is
+`Under`, because [Within](/api/E2E/RecordedAction/#E2E_RecordedAction_Within) already names a container key here.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 

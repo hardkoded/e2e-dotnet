@@ -245,7 +245,11 @@ public sealed class RecordedAction
             && Modifiers.All(name => KeyModifiers.TryParse(name, out _)));
 }
 
-/// <summary>Upstream's <c>TracePointEnd.within</c>: the node a bare point sat in, and the point's place inside its box.</summary>
+/// <summary>
+/// Upstream's <c>within</c> of a <c>TracePointEnd</c>: the node a bare point sat in, and the point's place inside its box. Upstream types it
+/// inline (<c>{ target, fx, fy }</c>); C# has no inline object type, so it is a class (.NET-only name). The property that holds it is
+/// <c>Under</c>, because <see cref="RecordedAction.Within"/> already names a container key here.
+/// </summary>
 public sealed class RecordedPointPlace
 {
     /// <summary>How a replay re-finds the node: its role, label, test id and container key.</summary>
