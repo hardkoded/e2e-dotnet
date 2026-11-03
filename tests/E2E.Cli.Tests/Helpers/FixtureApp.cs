@@ -123,15 +123,28 @@ internal sealed class FixtureApp : IDisposable
 
     public static FixtureApp Start()
     {
-        var probe = new TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        var port = ((IPEndPoint)probe.LocalEndpoint).Port;
-        probe.Stop();
-        var app = new FixtureApp("http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        app._listener.Prefixes.Add(app.Url + "/");
-        app._listener.Start();
-        _ = Task.Run(() => app.ListenAsync(app._stop.Token));
-        return app;
+        // HttpListener cannot bind port 0: take a free port, and try again when another test takes it first.
+        for (var attempt = 0; ; attempt++)
+        {
+            var probe = new TcpListener(IPAddress.Loopback, 0);
+            probe.Start();
+            var port = ((IPEndPoint)probe.LocalEndpoint).Port;
+            probe.Stop();
+            var app = new FixtureApp("http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            app._listener.Prefixes.Add(app.Url + "/");
+            try
+            {
+                app._listener.Start();
+            }
+            catch (HttpListenerException) when (attempt < 5)
+            {
+                app.Dispose();
+                continue;
+            }
+
+            _ = Task.Run(() => app.ListenAsync(app._stop.Token));
+            return app;
+        }
     }
 
     public void Dispose()

@@ -28,14 +28,29 @@ internal static class ControlInventorySite
     private static string Start()
     {
         var page = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Testbed", "control-inventory.html"));
-        var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
-        probe.Start();
-        var port = ((IPEndPoint)probe.LocalEndpoint).Port;
-        probe.Stop();
-        var url = "http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/";
-        var listener = new HttpListener();
-        listener.Prefixes.Add(url);
-        listener.Start();
+        // HttpListener cannot bind port 0: take a free port, and try again when another test takes it first.
+        string url;
+        HttpListener listener;
+        for (var attempt = 0; ; attempt++)
+        {
+            var probe = new System.Net.Sockets.TcpListener(IPAddress.Loopback, 0);
+            probe.Start();
+            var port = ((IPEndPoint)probe.LocalEndpoint).Port;
+            probe.Stop();
+            url = "http://127.0.0.1:" + port.ToString(System.Globalization.CultureInfo.InvariantCulture) + "/";
+            listener = new HttpListener();
+            listener.Prefixes.Add(url);
+            try
+            {
+                listener.Start();
+                break;
+            }
+            catch (HttpListenerException) when (attempt < 5)
+            {
+                listener.Close();
+            }
+        }
+
         _ = Task.Run(async () =>
         {
             while (listener.IsListening)
