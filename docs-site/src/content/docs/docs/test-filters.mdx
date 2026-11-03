@@ -81,7 +81,10 @@ Reflection does not name a source file. The fixture guesses it from the layout: 
 
 This is a convention. It is wrong when a class lives in a file with another name, or when several classes share one file. Name files after their class, or check `test.File` in your filter.
 
+## Mobile and Windows apps
+
+`MobileAppTest` and `WinAppTest` (NUnit and xUnit v3) derive from `E2ETest`, so the run fixture finds their tests and leaves out the same way. A left-out test never installs or opens the app. In xUnit v3 it is also skipped before the run leases a hosted device. In NUnit, `MobileAppTest` leases the device once per run, even when every test of its fixture is left out.
+
 ## Not included yet
 
-- The mobile and Windows adapters.
 - `filters` in `e2e.config.json`, `--changed-since` and `--no-filter` flags, and `e2e list` and `e2e run` output: the port has no runner or CLI for them. A filter is code, so it is given on the run fixture.
