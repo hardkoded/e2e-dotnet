@@ -322,7 +322,7 @@ public sealed class CdpSessionRecoveryTests
             }
             """));
         using var give = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-        while (await StartedAsync(live) != "true")
+        while (!evaluating.IsCompleted && await StartedAsync(live) != "true")
         {
             await Task.Delay(10, give.Token);
         }

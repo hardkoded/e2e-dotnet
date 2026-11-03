@@ -75,8 +75,9 @@ public sealed class ManagedProcessReuseExistingTests : IDisposable
         Assert.Contains("within 300 ms", failure.Message, StringComparison.Ordinal);
 
         // The probe is cut at the budget, which leaves none for the readiness wait to probe again. The old code spent the 2 s probe cap and
-        // then the whole budget again, probing a second time. Counting probes holds on a loaded runner, where a time limit does not.
-        Assert.Equal(1, probes);
+        // then the whole budget again, probing a second time. Counting probes holds on a loaded runner, where a time limit does not. The
+        // server counts a request once it has read it, which a probe cut on a loaded runner can beat, so none is allowed too.
+        Assert.InRange(probes, 0, 1);
         await app.StopAsync();
     }
 }
