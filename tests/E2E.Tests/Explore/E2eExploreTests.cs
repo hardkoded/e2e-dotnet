@@ -173,6 +173,8 @@ public sealed class E2eExploreTests
         // The finding names a report artifact by its id, not a file by its path.
         var artifact = Assert.Single(outcome.Artifacts, record => record.Id == finding.ArtifactId);
         Assert.Equal(E2E.Reports.ArtifactKind.Screenshot, artifact.Kind);
+        Assert.Equal("image/png", artifact.MediaType);
+        Assert.Equal(E2E.Reports.ArtifactProducerKind.Step, artifact.Producer.Kind);
         Assert.Equal(AttemptReport.ResultSegmentOf(E2E.Explore.ExploreFile, "Explore the home page and find bugs") + "/attempt-1/screenshots/001-finding-1.png", artifact.Path);
         Assert.Equal(ScreenshotEngine.Png(), await File.ReadAllBytesAsync(Path.Combine(outcome.ArtifactsRoot!, artifact.Path!)));
 
