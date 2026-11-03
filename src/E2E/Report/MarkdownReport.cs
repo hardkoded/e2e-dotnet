@@ -32,15 +32,16 @@ public sealed record MarkdownReportOptions
 }
 
 /// <summary>
-/// The report-1 document as one markdown page, laid out for a pull request: a headline with the counts and what the run spent, the
+/// The <see cref="Report"/> as one markdown page, laid out for a pull request: a headline with the counts and what the run spent, the
 /// run-level errors, one block per test that failed with the step it went wrong at and the agent's last word, the flaky tests folded
 /// away with the same block each, what the run's test filters left out, folded away with each reason, and every test folded away under
 /// that as one table, a row per file with its counts and time above the rows of its tests. A green run is the headline, the folds, and
 /// the footer: nothing to read unless the reader opens it. An <c>e2e explore</c> run renders its record instead: the goal, every
 /// finding with its evidence, and the assessment. Upstream's <c>report/markdown.ts</c>.
 /// Everything a test or the agent wrote (titles, labels, error messages, findings) is untrusted text on its way into markdown a
-/// renderer trusts, so it is escaped and clipped, and the whole body never outgrows what GitHub accepts. The port has no reporter
-/// extension point, so upstream's <c>markdownReporter</c> (the <c>summary.md</c> writer) is not here.
+/// renderer trusts, so it is escaped and clipped, and the whole body never outgrows what GitHub accepts. A reporter that posts the page
+/// elsewhere (such as the GitHub comment) renders <c>FinishedRun.Report</c> with it; upstream's <c>markdownReporter</c> (the
+/// <c>summary.md</c> writer) is not here.
 /// </summary>
 public static class MarkdownReport
 {
@@ -579,7 +580,7 @@ public static class MarkdownReport
     /// <summary><c>&lt;sub&gt;Tested by e2e 0.13.0 · 2m 15s · web · run artifacts&lt;/sub&gt;</c>: one line of small print.</summary>
     private static List<string> Footer(ReportRun run, IReadOnlyList<ReportTarget> targets, MarkdownReportOptions options)
     {
-        // A run no one timed (a page built by hand) reads as instant, where upstream's date arithmetic would print NaN.
+        // A run with no finish time (interrupted) reads as instant, where upstream's date arithmetic would print NaN.
         var duration = FormatDuration(run.FinishedAt is { } finished ? (finished - run.StartedAt).TotalMilliseconds : 0);
         var shown = targets.Take(MaxFooterTargets).Select(target => Cell(target.Id, MaxIdChars)).ToList();
         if (targets.Count > shown.Count)

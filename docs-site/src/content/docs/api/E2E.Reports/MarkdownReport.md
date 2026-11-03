@@ -1,6 +1,6 @@
 ---
 title: "MarkdownReport"
-description: "The report-1 document as one markdown page, laid out for a pull request: a headline with the counts and what the run spent, the run-level errors, one block p..."
+description: "The Report as one markdown page, laid out for a pull request: a headline with the counts and what the run spent, the run-level errors, one block per test tha..."
 editUrl: false
 prev: false
 next: false
@@ -19,15 +19,16 @@ public static class MarkdownReport
 ```
 
 
-The report-1 document as one markdown page, laid out for a pull request: a headline with the counts and what the run spent, the
+The [Report](/api/E2E.Reports/Report/) as one markdown page, laid out for a pull request: a headline with the counts and what the run spent, the
 run-level errors, one block per test that failed with the step it went wrong at and the agent's last word, the flaky tests folded
 away with the same block each, what the run's test filters left out, folded away with each reason, and every test folded away under
 that as one table, a row per file with its counts and time above the rows of its tests. A green run is the headline, the folds, and
 the footer: nothing to read unless the reader opens it. An `e2e explore` run renders its record instead: the goal, every
 finding with its evidence, and the assessment. Upstream's `report/markdown.ts`.
 Everything a test or the agent wrote (titles, labels, error messages, findings) is untrusted text on its way into markdown a
-renderer trusts, so it is escaped and clipped, and the whole body never outgrows what GitHub accepts. The port has no reporter
-extension point, so upstream's `markdownReporter` (the `summary.md` writer) is not here.
+renderer trusts, so it is escaped and clipped, and the whole body never outgrows what GitHub accepts. A reporter that posts the page
+elsewhere (such as the GitHub comment) renders `FinishedRun.Report` with it; upstream's `markdownReporter` (the
+`summary.md` writer) is not here.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
