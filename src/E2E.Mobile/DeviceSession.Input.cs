@@ -13,9 +13,14 @@ public sealed partial class DeviceSession
     /// One pointer action at a screen point in logical pixels, the space every node's bounds are in, with no element
     /// resolved behind it. A test's step carries no settle wait, as the node taps do not.
     /// </summary>
-    public async Task PerformAtAsync(Point point, PointerAction action, CancellationToken cancellationToken = default)
+    public Task PerformAtAsync(Point point, PointerAction action, CancellationToken cancellationToken = default) =>
+        PerformAtAsync(point, action, DefaultContext, cancellationToken);
+
+    /// <summary><see cref="PerformAtAsync(Point, PointerAction, CancellationToken)"/> for the caller <paramref name="context"/> names.</summary>
+    public async Task PerformAtAsync(Point point, PointerAction action, OperationContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(action);
+        ArgumentNullException.ThrowIfNull(context);
         var input = InputBudget(PointerLabel(action));
         var hold = action switch
         {
@@ -26,7 +31,7 @@ public sealed partial class DeviceSession
         var before = _latestScreen;
         await CommandAsync(
             $"{PointerLabel(action)} at point",
-            (client, token) => SendInputAsync(input, () => DeviceActions.PointerInteractionAsync(client, point, action, ActionSettle(), token), token, hold),
+            (client, token) => SendInputAsync(input, () => DeviceActions.PointerInteractionAsync(client, point, action, ActionSettle(context), token), token, hold),
             cancellationToken).ConfigureAwait(false);
         MarkAction(before);
     }

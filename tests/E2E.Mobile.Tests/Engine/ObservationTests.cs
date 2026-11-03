@@ -380,7 +380,6 @@ public sealed class ObservationTests
         // observation when a loaded runner stretches it.
         h.Clock.ManualTimers = true;
         var session = await Screens.OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(200));
-        session.Origin = ActionOrigin.Test;
         var root = await Screens.RootOf(session);
         var about = Named(root, "About");
         var sent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -391,13 +390,13 @@ public sealed class ObservationTests
         });
         Task hung = entry switch
         {
-            "tap" => session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None),
-            "screen swipe" => session.PerformAsync(root, new LocatorAction.Swipe(ScrollDirection.Down), CancellationToken.None),
-            "tap at point" => session.PerformAtAsync(new Point(10, 10), new PointerAction.Tap()),
+            "tap" => session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None),
+            "screen swipe" => session.PerformAsync(root, new LocatorAction.Swipe(ScrollDirection.Down), OperationContext.Test, CancellationToken.None),
+            "tap at point" => session.PerformAtAsync(new Point(10, 10), new PointerAction.Tap(), OperationContext.Test, CancellationToken.None),
             "type" => session.TypeTextAsync("hi", replace: false, CancellationToken.None),
             "press" => session.PressAsync("Enter", CancellationToken.None),
             "keyboard dismiss" => session.DismissKeyboardAsync(CancellationToken.None, session.InputBudget("keyboard dismiss")),
-            "back" => session.BackAsync(CancellationToken.None),
+            "back" => session.BackAsync(OperationContext.Test, CancellationToken.None),
             _ => throw new ArgumentOutOfRangeException(nameof(entry), entry, null),
         };
         await sent.Task;
@@ -411,11 +410,10 @@ public sealed class ObservationTests
     {
         var h = Harness.Create(options => options with { TransitionMilliseconds = 120 });
         var session = await Screens.OpenAttempt(h, actionTimeout: TimeSpan.FromMilliseconds(100));
-        session.Origin = ActionOrigin.Test;
         var about = await Screens.Observed(session, "About");
 
         // About moves with the tap, so the next tap relocates it first; a slow relocation spends the whole budget.
-        await session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None);
+        await session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None);
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(
             RawNodes.SettingsNodes.Select(node => node.Label == "About" ? node with { Rect = new Rect(0, 400, 390, 44) } : node)));
         var moved = await Screens.Observed(session, "About");
@@ -426,20 +424,19 @@ public sealed class ObservationTests
         });
         int Presses() => h.Fake.Methods().Count(method => method == DeviceMethods.InteractionsPress);
         var before = Presses();
-        var late = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(moved, new LocatorAction.Tap(), CancellationToken.None));
+        var late = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(moved, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None));
         Assert.Equal("OPERATION_TIMEOUT", late.Code);
         Assert.Equal(before, Presses());
 
         // A key on an unfocused field taps it, then types. The tap answers within its grace but past the budget, so the keystroke is not sent.
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SettingsSnapshot());
         var field = await Screens.Observed(session, "Search");
-        session.Origin = ActionOrigin.Agent;
         h.Fake.Respond(DeviceMethods.InteractionsPress, _ =>
         {
             h.Clock.Spend(TimeSpan.FromMilliseconds(170));
             return new JsonObject();
         });
-        var cut = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(field, new LocatorAction.Press("a"), CancellationToken.None));
+        var cut = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(field, new LocatorAction.Press("a"), OperationContext.Agent, CancellationToken.None));
         Assert.Equal("ACTION_MAY_HAVE_COMMITTED", cut.Code);
         Assert.DoesNotContain(DeviceMethods.InteractionsType, h.Fake.Methods());
     }
@@ -449,11 +446,10 @@ public sealed class ObservationTests
     {
         var h = Harness.Create();
         var session = await Screens.OpenAttempt(h, actionTimeout: TimeSpan.FromSeconds(2));
-        session.Origin = ActionOrigin.Test;
         var about = await Screens.Observed(session, "About");
         var onNode = await Assert.ThrowsAsync<EngineException>(() => session.LongPressAsync(about, TimeSpan.FromSeconds(3)));
         Assert.Equal("NOT_ACTIONABLE", onNode.Code);
-        var atPoint = await Assert.ThrowsAsync<EngineException>(() => session.PerformAtAsync(new Point(10, 10), new PointerAction.LongPress(TimeSpan.FromSeconds(3))));
+        var atPoint = await Assert.ThrowsAsync<EngineException>(() => session.PerformAtAsync(new Point(10, 10), new PointerAction.LongPress(TimeSpan.FromSeconds(3)), OperationContext.Test, CancellationToken.None));
         Assert.Equal("NOT_ACTIONABLE", atPoint.Code);
         Assert.DoesNotContain(DeviceMethods.InteractionsLongPress, h.Fake.Methods());
     }

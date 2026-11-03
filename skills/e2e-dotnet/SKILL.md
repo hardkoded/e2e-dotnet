@@ -300,6 +300,13 @@ lines you changed:
   after the body and again after the teardown); a handler still running then
   fails with `CLEANUP_TIMEOUT`. An engine reports such a failure from
   `IEngineSession.SettleAttemptAsync`, once (topic `writing-tests`).
+- An engine that acts differently for a test's step than for the agent (a
+  device that settles only for the agent) overrides the `IEngineSession`
+  overloads that take an `OperationContext`: `PerformAsync`, `PerformAtAsync`,
+  `SwipeAsync`, and `BackAsync`. `context.Origin` is `OperationOrigin.Test` for
+  a step of the test and `OperationOrigin.Agent` for the agent. The overloads
+  without a context stay, and an engine that overrides only those acts the same
+  for both.
 - An engine that can save and reuse the app's state overrides
   `IEngineSession.CaptureStateAsync` and `RestoreStateAsync` (an `EngineState`:
   a format, a version, opaque data). Without them they fail with

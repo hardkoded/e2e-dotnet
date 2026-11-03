@@ -40,9 +40,13 @@ public sealed class DeviceActions : IDeviceActions
     /// </summary>
     public static IReadOnlyList<string> PointerActionKinds { get; } = ["tap", "doubleTap", "longPress", "swipeTo"];
 
-    public async Task PerformAsync(DeviceSession session, SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
+    public Task PerformAsync(DeviceSession session, SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
+        PerformAsync(session, node, action, OperationContext.Agent, cancellationToken);
+
+    public async Task PerformAsync(DeviceSession session, SemanticNode node, LocatorAction action, OperationContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(node);
         ArgumentNullException.ThrowIfNull(action);
 
@@ -60,7 +64,7 @@ public sealed class DeviceActions : IDeviceActions
                 throw DeviceSupport.NotActionable($"the screen root takes swipe only, not {KindOf(action)}; act on a node");
             }
 
-            await ScrollScreenAsync(session, screenSwipe.Direction, input, cancellationToken).ConfigureAwait(false);
+            await ScrollScreenAsync(session, screenSwipe.Direction, context, input, cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -87,12 +91,12 @@ public sealed class DeviceActions : IDeviceActions
             label,
             async (client, token) =>
             {
-                var settle = session.ActionSettle();
+                var settle = session.ActionSettle(context);
                 NodeBinding target;
                 if (filling)
                 {
                     // The field is read again before it is typed into, and what it reads as may have changed.
-                    if (session.Origin == ActionOrigin.Test)
+                    if (context.Origin == OperationOrigin.Test)
                     {
                         await session.WaitForTransitionAsync(entry, token).ConfigureAwait(false);
                     }
@@ -105,7 +109,7 @@ public sealed class DeviceActions : IDeviceActions
                 }
                 else
                 {
-                    target = session.Origin == ActionOrigin.Test ? await session.SettledAsync(entry, input, token).ConfigureAwait(false) : entry;
+                    target = context.Origin == OperationOrigin.Test ? await session.SettledAsync(entry, input, token).ConfigureAwait(false) : entry;
                 }
 
                 await RunAsync(session, client, target, action, settle, input, token).ConfigureAwait(false);
@@ -237,14 +241,14 @@ public sealed class DeviceActions : IDeviceActions
         await DeviceSession.SendInputAsync(input, () => client.CallAsync(DeviceMethods.InteractionsSwipe, DeviceArgs.Of(("from", DeviceSession.PointNode(from)), ("to", DeviceSession.PointNode(to))), cancellationToken), cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task ScrollScreenAsync(DeviceSession session, ScrollDirection direction, InputBudget? input, CancellationToken cancellationToken)
+    private static async Task ScrollScreenAsync(DeviceSession session, ScrollDirection direction, OperationContext context, InputBudget? input, CancellationToken cancellationToken)
     {
         var before = session.LatestScreen;
         await session.CommandAsync(
             "swipe",
             (client, token) => DeviceSession.SendInputAsync(
                 input,
-                () => client.CallAsync(DeviceMethods.InteractionsScroll, Args(session.ActionSettle(), ("direction", JsonValue.Create(DirectionName(direction)))), token),
+                () => client.CallAsync(DeviceMethods.InteractionsScroll, Args(session.ActionSettle(context), ("direction", JsonValue.Create(DirectionName(direction)))), token),
                 token),
             cancellationToken).ConfigureAwait(false);
         session.MarkAction(before);
@@ -282,10 +286,14 @@ public sealed class DeviceActions : IDeviceActions
         session.MarkAction(before);
     }
 
-    public Task SwipeAsync(DeviceSession session, ScrollDirection direction, CancellationToken cancellationToken)
+    public Task SwipeAsync(DeviceSession session, ScrollDirection direction, CancellationToken cancellationToken) =>
+        SwipeAsync(session, direction, OperationContext.Agent, cancellationToken);
+
+    public Task SwipeAsync(DeviceSession session, ScrollDirection direction, OperationContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
-        return ScrollScreenAsync(session, direction, session.InputBudget("swipe"), cancellationToken);
+        ArgumentNullException.ThrowIfNull(context);
+        return ScrollScreenAsync(session, direction, context, session.InputBudget("swipe"), cancellationToken);
     }
 
     public Task<EngineScreenshot> ScreenshotAsync(DeviceSession session, CancellationToken cancellationToken)
@@ -345,9 +353,10 @@ public sealed class DeviceActions : IDeviceActions
     /// <summary>A swipe inside a node's bounds, as far as <paramref name="momentum"/> says.</summary>
     internal static Task SwipeAsync(DeviceSession session, SemanticNode node, ScrollDirection direction, Momentum? momentum, CancellationToken cancellationToken) =>
         node.Ref == SnapshotProjection.RootId
-            ? ScrollScreenAsync(session, direction, session.InputBudget("swipe"), cancellationToken)
+            ? ScrollScreenAsync(session, direction, OperationContext.Test, session.InputBudget("swipe"), cancellationToken)
             : RunNodeAsync(session, node, "swipe", (client, target, _, input, token) => SwipeNodeAsync(client, target, direction, momentum, input, token), cancellationToken);
 
+    /// <summary>One action the fixture methods above run: a test's own step, as upstream marks every action a test performs.</summary>
     private static async Task RunNodeAsync(
         DeviceSession session,
         SemanticNode node,
@@ -363,8 +372,8 @@ public sealed class DeviceActions : IDeviceActions
             label,
             async (client, token) =>
             {
-                var settle = session.ActionSettle();
-                var target = session.Origin == ActionOrigin.Test ? await session.SettledAsync(entry, input, token).ConfigureAwait(false) : entry;
+                var settle = session.ActionSettle(OperationContext.Test);
+                var target = await session.SettledAsync(entry, input, token).ConfigureAwait(false);
                 await run(client, target, settle, input, token).ConfigureAwait(false);
             },
             cancellationToken).ConfigureAwait(false);

@@ -9,8 +9,9 @@ using Microsoft.Extensions.Time.Testing;
 namespace E2E.Tests.LocatorEngine;
 
 /// <summary>
-/// Upstream's <c>LocatorEngine perform contract</c>. One of its seven its is not ported: 'marks every action it performs
-/// with the test origin' (the port has no operation context).
+/// Upstream's <c>LocatorEngine perform contract</c>. The port has no <c>LocatorEngine</c> class: <c>Screen</c> and <c>Locator</c> hold its
+/// retries, so these run through them. 'marks every action it performs with the test origin' is partial for that reason: it reads the origin
+/// at the session the test's step reaches, not at the <c>LocatorEngine</c> that adds it.
 /// </summary>
 public sealed class LocatorEnginePerformContractTests
 {
@@ -158,5 +159,22 @@ public sealed class LocatorEnginePerformContractTests
         Assert.Contains("before the tap was sent", error.Message, StringComparison.Ordinal);
         Assert.Equal<LocatorAction>([new LocatorAction.ScrollIntoView()], performed);
         Assert.Empty(performedAt);
+    }
+
+    [Fact]
+    public async Task Partial_Marks_every_action_it_performs_with_the_test_origin_so_an_engine_can_act_without_settling()
+    {
+        var engine = new OriginRecordingEngine(new DocumentEngine(BillingWorld.Create()));
+        await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+        {
+            Engine = engine,
+            BaseUrl = "https://billing.test",
+            TestTitle = "taps a node",
+        });
+        await session.App.OpenAsync("/settings/billing");
+
+        await session.Screen.GetByRole("button").TapAsync();
+
+        Assert.Equal([OperationOrigin.Test], engine.Origins);
     }
 }

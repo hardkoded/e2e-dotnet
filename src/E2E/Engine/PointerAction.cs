@@ -5,13 +5,13 @@
 namespace E2E.Engine;
 
 /// <summary>
-/// A point of the viewport, in the space <see cref="SemanticNode.Rect"/> is in and <see cref="IEngineSession.PerformAtAsync"/> dispatches in.
+/// A point of the viewport, in the space <see cref="SemanticNode.Rect"/> is in and <see cref="IEngineSession.PerformAtAsync(Point, PointerAction, CancellationToken)"/> dispatches in.
 /// Upstream's <c>ViewportPoint</c>.
 /// </summary>
 public readonly record struct Point(double X, double Y);
 
 /// <summary>
-/// One action <see cref="IEngineSession.PerformAtAsync"/> carries out at a viewport point, with no node behind it: the pointer half of
+/// One action <see cref="IEngineSession.PerformAtAsync(Point, PointerAction, CancellationToken)"/> carries out at a viewport point, with no node behind it: the pointer half of
 /// the action vocabulary, for a surface that has pixels and coordinates where the tree lists nothing (a canvas, a map, a desktop shell, a
 /// game), and for a test that names a point outright (<c>Screen.TapAtAsync</c>, <c>Screen.SwipeAsync</c> from one point to another, a
 /// tap's <c>Position</c>). The kinds are the pointer subset of <see cref="LocatorAction"/> with the same meanings; <see cref="DragTo"/>

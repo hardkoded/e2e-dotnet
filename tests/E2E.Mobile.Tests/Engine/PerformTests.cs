@@ -39,10 +39,10 @@ public sealed class PerformTests
             before,
             ("interactions.press", """{"ref":"@e4","settle":true,"settleQuietMs":150}"""),
             ("interactions.press", """{"ref":"@e4","count":2,"settle":true,"settleQuietMs":150}"""),
-            ("interactions.longPress", """{"ref":"@e4","settle":true,"settleQuietMs":150,"durationMs":900}"""),
+            ("interactions.longPress", """{"ref":"@e4","durationMs":900}"""),
 
             // No duration named: the engine's one-second hold, past a Pressable's delayLongPress.
-            ("interactions.longPress", """{"ref":"@e4","settle":true,"settleQuietMs":150,"durationMs":1000}"""),
+            ("interactions.longPress", """{"ref":"@e4","durationMs":1000}"""),
             ("interactions.press", """{"ref":"@e7","settle":true,"settleQuietMs":150}"""),
             ("interactions.hover", """{"ref":"@e4"}"""),
 
@@ -64,8 +64,8 @@ public sealed class PerformTests
             ("interactions.type", """{"text":" "}"""),
             ("interactions.swipe", """{"from":{"x":195,"y":620},"to":{"x":195,"y":420}}"""),
 
-            // The root swipe is the viewport swipe: agent-device's whole-screen scroll at its default amount, settled like a tap.
-            ("interactions.scroll", """{"direction":"up","settle":true,"settleQuietMs":150}"""),
+            // The root swipe is the viewport swipe: agent-device's whole-screen scroll at its default amount, a test's step carries no settle wait.
+            ("interactions.scroll", """{"direction":"up"}"""),
             ("interactions.drag", """{"source":"@e4","destination":"@e3"}"""));
     }
 
