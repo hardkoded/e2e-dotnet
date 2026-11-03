@@ -5,6 +5,7 @@
 using System.Collections.Concurrent;
 using E2E.Engine;
 using E2E.Tests.AgentAct;
+using E2E.Tests.AgentActPixelTools;
 using E2E.Tests.AgentTraceCache;
 using static E2E.Tests.AgentAct.ExecutorKit;
 
@@ -57,7 +58,14 @@ public sealed class AgentActOnActionTests
         await session.Agent.ActAsync(TwoTapCounter.Instruction, new ActOptions { OnAction = onAction });
     }
 
-    private static string Line(ActionEvent e) => $"{e.Index} {e.Source.ToString().ToLowerInvariant()} {e.Action}: {e.Summary}";
+    // Upstream's hook also asserts the event holds no point, from, or to: a tap by id is the base event, not a point event.
+    private static string Line(ActionEvent e)
+    {
+        Assert.Equal(typeof(ActionEvent), e.GetType());
+        return Format(e);
+    }
+
+    private static string Format(ActionEvent e) => $"{e.Index} {e.Source.ToString().ToLowerInvariant()} {e.Action}: {e.Summary}";
 
     [Fact]
     public async Task Calls_the_hook_for_each_model_action_then_for_each_replayed_one_with_its_source()
@@ -92,6 +100,73 @@ public sealed class AgentActOnActionTests
         Assert.Equal(2, replayed.Count);
         Assert.Matches(@"^1 replay tap: ", replayed[0]);
         Assert.Matches(@"^2 replay tap: ", replayed[1]);
+    }
+
+    // Upstream's hook also mutates the points it receives, to prove the trace cache does not see it. A C# point is a value, so a hook cannot
+    // change what the cache records; the test checks the recorded and replayed events instead.
+    [Fact]
+    public async Task Exposes_dispatched_viewport_points_and_isolates_hook_mutations_from_replay()
+    {
+        using var site = await CanvasPages.StartAsync();
+        var directory = TwoTapCounter.NewDirectory();
+        var calls = 0;
+        var executor = new TestExecutor("point-executor", async (context, token) =>
+        {
+            calls++;
+            await context.ObserveAsync(cancellationToken: token);
+            await context.Actions.HoverAtAsync(new Point(-10, -20), token);
+            await context.Actions.TapAtAsync(new Point(300.4, 60.4), token);
+            await context.Actions.DragAtAsync(new Point(300.4, 60.4), new Point(200.4, 100.4), token);
+            return Passed("hovered, tapped, and dragged the pin");
+        })
+        {
+            Version = "test",
+        };
+
+        async Task<List<ActionEvent>> RunPointsAsync()
+        {
+            var events = new List<ActionEvent>();
+            await using var session = await E2ESession.StartAsync(new E2ESessionOptions
+            {
+                Engine = new WebEngine(headless: true),
+                AgentExecutor = executor,
+                BaseUrl = site.Url,
+                Cache = new FileStepCache(directory),
+                CacheEnabled = true,
+                CacheMode = CacheMode.ReadWrite,
+                TestTitle = "captures point geometry",
+                ActionTimeout = TimeSpan.FromSeconds(10),
+                StepTimeout = TimeSpan.FromSeconds(30),
+                TestTimeout = TimeSpan.FromSeconds(60),
+            });
+            await session.App.OpenAsync("/canvas");
+            await session.Agent.ActAsync("hover, tap the red pin, and drag it to the middle", new ActOptions
+            {
+                OnAction = e =>
+                {
+                    events.Add(e);
+                    return Task.CompletedTask;
+                },
+            });
+            await Expect.That(session.Screen.GetByRole("status")).ToHaveTextAsync("moved red to 200,100");
+            session.Complete();
+            return events;
+        }
+
+        foreach (var source in new[] { ActionSource.Model, ActionSource.Replay })
+        {
+            var events = await RunPointsAsync();
+            Assert.Equal(3, events.Count);
+            Assert.All(events, e => Assert.Equal(source, e.Source));
+            Assert.Equal(new Point(0, 0), Assert.IsType<HoverAtActionEvent>(events[0]).Point);
+            Assert.Equal(new Point(300, 60), Assert.IsType<TapAtActionEvent>(events[1]).Point);
+            var drag = Assert.IsType<DragAtActionEvent>(events[2]);
+            Assert.Equal(new Point(300, 60), drag.From);
+            Assert.Equal(new Point(200, 100), drag.To);
+            Assert.Equal([ActionName.HoverAt, ActionName.TapAt, ActionName.DragAt], events.Select(e => e.ActionName));
+        }
+
+        Assert.Equal(1, calls);
     }
 
     [Fact]
@@ -202,6 +277,8 @@ public sealed class AgentActOnActionTests
             OnAction = e =>
             {
                 seen.Add($"{e.Index} {e.Action}: {e.Summary}");
+                Assert.Equal(ActionName.Tool, e.ActionName);
+                Assert.Equal("seed", e.ToolName);
                 return Task.CompletedTask;
             },
         });

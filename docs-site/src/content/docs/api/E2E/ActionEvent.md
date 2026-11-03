@@ -1,6 +1,6 @@
 ---
 title: "ActionEvent"
-description: "One completed action of an agent.act step, as OnAction receives it."
+description: "One completed action of an agent.act step, as OnAction receives it. Upstream types it as a union keyed by action; here the base event is a record and TapAtAc..."
 editUrl: false
 prev: false
 next: false
@@ -15,15 +15,19 @@ Namespace: [E2E](/api/E2E/)
 
 
 ```csharp
-public sealed record ActionEvent : IEquatable<ActionEvent>
+public record ActionEvent : IEquatable<ActionEvent>
 ```
 
 
-One completed action of an `agent.act` step, as [OnAction](/api/E2E/ActOptions/#E2E_ActOptions_OnAction) receives it.
+One completed action of an `agent.act` step, as [OnAction](/api/E2E/ActOptions/#E2E_ActOptions_OnAction) receives it. Upstream types it as a union
+keyed by `action`; here the base event is a record and [TapAtActionEvent](/api/E2E/TapAtActionEvent/), [HoverAtActionEvent](/api/E2E/HoverAtActionEvent/), and
+[DragAtActionEvent](/api/E2E/DragAtActionEvent/) carry the details of their action. Match on the type, or on [ActionName](#E2E_ActionEvent_ActionName), to read them.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
 **Implements:** [IEquatable&lt;ActionEvent&gt;](https://learn.microsoft.com/dotnet/api/system.iequatable-1)
+
+**Derived:** [DragAtActionEvent](/api/E2E/DragAtActionEvent/), [HoverAtActionEvent](/api/E2E/HoverAtActionEvent/), [TapAtActionEvent](/api/E2E/TapAtActionEvent/)
 
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Agent/Agent.cs)
 
@@ -40,7 +44,9 @@ public ActionEvent(int Index, string Action, string Summary, ActionSource Source
 ```
 
 
-One completed action of an `agent.act` step, as [OnAction](/api/E2E/ActOptions/#E2E_ActOptions_OnAction) receives it.
+One completed action of an `agent.act` step, as [OnAction](/api/E2E/ActOptions/#E2E_ActOptions_OnAction) receives it. Upstream types it as a union
+keyed by `action`; here the base event is a record and [TapAtActionEvent](/api/E2E/TapAtActionEvent/), [HoverAtActionEvent](/api/E2E/HoverAtActionEvent/), and
+[DragAtActionEvent](/api/E2E/DragAtActionEvent/) carry the details of their action. Match on the type, or on [ActionName](#E2E_ActionEvent_ActionName), to read them.
 
 **Parameters**
 
@@ -67,6 +73,21 @@ public string Action { get; init; }
 The committed action, such as `tap` or `navigate`; a mutating project tool reads `tool:name`.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+<a id="E2E_ActionEvent_ActionName_"></a>
+<a id="E2E_ActionEvent_ActionName"></a>
+
+### ActionName
+
+
+```csharp
+public ActionName ActionName { get; init; }
+```
+
+
+The action as a name, [Tool](/api/E2E/ActionName/#E2E_ActionName_Tool) for a mutating project tool. Upstream types `action` as `ActionName`; the string [Action](#E2E_ActionEvent_Action) stays for compatibility.
+
+**Value:** [ActionName](/api/E2E/ActionName/)
 
 <a id="E2E_ActionEvent_Index_"></a>
 <a id="E2E_ActionEvent_Index"></a>
@@ -110,5 +131,20 @@ public string Summary { get; init; }
 
 
 What the action did, secrets redacted.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
+<a id="E2E_ActionEvent_ToolName_"></a>
+<a id="E2E_ActionEvent_ToolName"></a>
+
+### ToolName
+
+
+```csharp
+public string? ToolName { get; init; }
+```
+
+
+The name of the project tool that ran, when [ActionName](#E2E_ActionEvent_ActionName) is [Tool](/api/E2E/ActionName/#E2E_ActionName_Tool); null otherwise.
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)

@@ -633,13 +633,13 @@ internal sealed partial class ActionDispatcher : IExecutorActions
     /// retry, or the replay as a divergence.
     /// </summary>
     internal Task NotifyAsync(RecordedAction action, ActionSource source) =>
-        NotifyAsync(action.Kind, SettlePolicy.For(action).Look, () => DefaultAgent.Describe(action), source);
+        NotifyAsync(SettlePolicy.For(action).Look, (index, redact) => AgentActions.EventOf(action, index, redact(DefaultAgent.Describe(action)), source));
 
     /// <summary>A mutating project tool that ran: the hook reads it as <c>tool:name</c>.</summary>
     internal Task NotifyToolAsync(string name) =>
-        NotifyAsync(ActionNames.ProjectToolEventPrefix + name, SettlePolicy.For(new RecordedAction { Kind = "tool" }).Look, () => "ran " + name, ActionSource.Model);
+        NotifyAsync(SettlePolicy.For(new RecordedAction { Kind = "tool" }).Look, (index, redact) => new ActionEvent(index, ActionNames.ProjectToolEventPrefix + name, redact("ran " + name), ActionSource.Model));
 
-    private async Task NotifyAsync(string action, SettleMode look, Func<string> summary, ActionSource source)
+    private async Task NotifyAsync(SettleMode look, Func<int, Func<string, string>, ActionEvent> build)
     {
         if (_onAction is not { } hook || _accounting.Closed)
         {
@@ -649,7 +649,7 @@ internal sealed partial class ActionDispatcher : IExecutorActions
         try
         {
             await _feed.ObserveAsync(look, _accounting.Token).ConfigureAwait(false);
-            await hook(new ActionEvent(_accounting.Used, action, _scope.Redactor.Redact(summary()), source)).WaitAsync(_accounting.Token).ConfigureAwait(false);
+            await hook(build(_accounting.Used, _scope.Redactor.Redact)).WaitAsync(_accounting.Token).ConfigureAwait(false);
         }
         catch (Exception cause) when (!ReferenceEquals(cause, _accounting.HardStop) && !_accounting.Token.IsCancellationRequested)
         {

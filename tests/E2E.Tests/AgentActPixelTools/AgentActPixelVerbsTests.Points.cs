@@ -17,7 +17,7 @@ public sealed partial class AgentActPixelVerbsTests
     private sealed record WebRun(List<Sent> Requests, StepRecord Step, Exception? Error);
 
     // The act model: a screenshot, then point verbs in it, then a verdict. `calls` is the number of tool results the loop holds.
-    private static async Task<WebRun> ActOnAsync(string path, string instruction, Func<int, ModelResponse> script, Func<Screen, Task>? check = null, Func<Screen, Task>? before = null)
+    private static async Task<WebRun> ActOnAsync(string path, string instruction, Func<int, ModelResponse> script, Func<Screen, Task>? check = null, Func<Screen, Task>? before = null, ActionHook? onAction = null)
     {
         using var site = await CanvasPages.StartAsync();
         var requests = new List<Sent>();
@@ -47,7 +47,7 @@ public sealed partial class AgentActPixelVerbsTests
                 await before(session.Context.Screen);
             }
 
-            await session.Context.Agent.ActAsync(instruction);
+            await session.Context.Agent.ActAsync(instruction, new ActOptions { OnAction = onAction });
             if (check is not null)
             {
                 await check(session.Context.Screen);
@@ -100,7 +100,12 @@ public sealed partial class AgentActPixelVerbsTests
                 1 => ModelResponses.Call("tap_at", new { x = 180, y = 36 }),
                 _ => Done(),
             },
-            screen => HasStatus(screen, "red"));
+            screen => HasStatus(screen, "red"),
+            onAction: e =>
+            {
+                Assert.Equal(new Point(300, 60), Assert.IsType<TapAtActionEvent>(e).Point);
+                return Task.CompletedTask;
+            });
         Assert.Null(run.Error);
         var actions = EngineEvents(run);
         Assert.Equal(["tapAt"], actions.Select(item => item.Name));
@@ -173,6 +178,13 @@ public sealed partial class AgentActPixelVerbsTests
                 await HasStatus(screen, "moved red to 200,100");
                 await screen.TapAtAsync(new Point(200, 100));
                 await HasStatus(screen, "red");
+            },
+            onAction: e =>
+            {
+                var drag = Assert.IsType<DragAtActionEvent>(e);
+                Assert.Equal(new Point(300, 60), drag.From);
+                Assert.Equal(new Point(200, 100), drag.To);
+                return Task.CompletedTask;
             });
         Assert.Null(run.Error);
         var actions = EngineEvents(run);

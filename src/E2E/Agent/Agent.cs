@@ -1026,12 +1026,79 @@ public sealed class ActOptions
 /// <summary>The <c>onAction</c> hook of an <c>agent.act</c> call.</summary>
 public delegate Task ActionHook(ActionEvent actionEvent);
 
-/// <summary>One completed action of an <c>agent.act</c> step, as <see cref="ActOptions.OnAction"/> receives it.</summary>
+/// <summary>
+/// One completed action of an <c>agent.act</c> step, as <see cref="ActOptions.OnAction"/> receives it. Upstream types it as a union
+/// keyed by <c>action</c>; here the base event is a record and <see cref="TapAtActionEvent"/>, <see cref="HoverAtActionEvent"/>, and
+/// <see cref="DragAtActionEvent"/> carry the details of their action. Match on the type, or on <see cref="ActionName"/>, to read them.
+/// </summary>
 /// <param name="Index">1-based position in the step's action budget; a failed attempt uses a number too.</param>
 /// <param name="Action">The committed action, such as <c>tap</c> or <c>navigate</c>; a mutating project tool reads <c>tool:name</c>.</param>
 /// <param name="Summary">What the action did, secrets redacted.</param>
 /// <param name="Source">Who chose the action.</param>
-public sealed record ActionEvent(int Index, string Action, string Summary, ActionSource Source);
+public record ActionEvent(int Index, string Action, string Summary, ActionSource Source)
+{
+    /// <summary>The action as a name, <see cref="E2E.ActionName.Tool"/> for a mutating project tool. Upstream types <c>action</c> as <c>ActionName</c>; the string <see cref="Action"/> stays for compatibility.</summary>
+    public ActionName ActionName { get; init; } = AgentActions.NameOf(Action);
+
+    /// <summary>The name of the project tool that ran, when <see cref="ActionName"/> is <see cref="E2E.ActionName.Tool"/>; null otherwise.</summary>
+    public string? ToolName { get; init; } = AgentActions.ToolNameOf(Action);
+}
+
+/// <summary>A <c>tapAt</c> the step dispatched. Upstream's <c>ActionEvent</c> narrowed to <c>tapAt</c>.</summary>
+/// <param name="Index">1-based position in the step's action budget.</param>
+/// <param name="Action">The committed action string.</param>
+/// <param name="Summary">What the action did, secrets redacted.</param>
+/// <param name="Source">Who chose the action.</param>
+/// <param name="Point">The dispatched point, in the space of <c>Screen.TapAtAsync</c> and bounding boxes, rounded and clamped to the viewport.</param>
+public sealed record TapAtActionEvent(int Index, string Action, string Summary, ActionSource Source, Point Point) : ActionEvent(Index, Action, Summary, Source);
+
+/// <summary>A <c>hoverAt</c> the step dispatched. Mobile engines have no <c>hoverAt</c>.</summary>
+/// <param name="Index">1-based position in the step's action budget.</param>
+/// <param name="Action">The committed action string.</param>
+/// <param name="Summary">What the action did, secrets redacted.</param>
+/// <param name="Source">Who chose the action.</param>
+/// <param name="Point">The dispatched point, in the space of <c>Screen.TapAtAsync</c> and bounding boxes, rounded and clamped to the viewport.</param>
+public sealed record HoverAtActionEvent(int Index, string Action, string Summary, ActionSource Source, Point Point) : ActionEvent(Index, Action, Summary, Source);
+
+/// <summary>A <c>dragAt</c> the step dispatched. Mobile engines have no <c>dragAt</c>.</summary>
+/// <param name="Index">1-based position in the step's action budget.</param>
+/// <param name="Action">The committed action string.</param>
+/// <param name="Summary">What the action did, secrets redacted.</param>
+/// <param name="Source">Who chose the action.</param>
+/// <param name="From">The dispatched start, rounded and clamped to the viewport.</param>
+/// <param name="To">The dispatched end, rounded and clamped to the viewport.</param>
+public sealed record DragAtActionEvent(int Index, string Action, string Summary, ActionSource Source, Point From, Point To) : ActionEvent(Index, Action, Summary, Source);
+
+/// <summary>
+/// The name <see cref="ActionEvent"/> reports a committed action under (upstream's <c>ActionName</c>). Upstream's <c>typeText</c>,
+/// <c>pressKey</c>, and <c>dismissKeyboard</c> are left out: the port has no such actions. A <c>clear</c> reads <see cref="Type"/>.
+/// </summary>
+public enum ActionName
+{
+    Tap,
+    DoubleTap,
+    LongPress,
+    SecondaryTap,
+    Hover,
+    ScrollTo,
+    Type,
+    TypeSecret,
+    Press,
+    Select,
+    Check,
+    Upload,
+    Drag,
+    Scroll,
+    ScrollUntil,
+    Navigate,
+    Back,
+    TapAt,
+    HoverAt,
+    DragAt,
+
+    /// <summary>A mutating project tool; <see cref="ActionEvent.ToolName"/> names it. Upstream reads <c>tool:name</c> in <c>action</c>; this value is .NET-only.</summary>
+    Tool,
+}
 
 /// <summary>Who chose an action an <see cref="ActionEvent"/> reports.</summary>
 public enum ActionSource
