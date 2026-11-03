@@ -8,8 +8,9 @@ namespace E2E.Tests.AgentObservation;
 
 /// <summary>
 /// <c>isTransitionalObservation</c>: whether a capture is a screen in transition rather than a screen. Upstream also
-/// checks that an empty root whose unproven screenshot was withheld is still in transition; the port's observations
-/// carry no pixels, so that capture is the empty root the first check reads.
+/// checks that an empty root whose unproven screenshot was withheld is still in transition; the port's observation keeps the
+/// pixels it carries (the model gets them only after the proof, in the feed), so that check is a canvas whose pixels
+/// are there and is not in transition.
 /// </summary>
 public sealed class IsTransitionalObservationTests
 {
@@ -23,6 +24,16 @@ public sealed class IsTransitionalObservationTests
         Assert.False(Transitional(Node("button", "Continue")));
         Assert.False(Transitional(Node("textbox", "Password", states: new NodeStates { Secure = true })));
         Assert.False(Transitional(Node(role, children: [Node("text", text: "Ready")])));
+    }
+
+    [Fact]
+    public void Treats_an_empty_root_that_carries_pixels_or_has_no_tree_as_a_screen()
+    {
+        var empty = new SemanticNode { Ref = "e1", Role = "screen", States = new NodeStates(), Children = [] };
+        var canvas = new Observation { Route = "/", Roots = [empty], Pixels = new EngineScreenshot([1], 1, 0) };
+        Assert.False(global::E2E.AgentObservation.IsTransitional(canvas));
+        Assert.False(global::E2E.AgentObservation.IsTransitional(new Observation { Route = "/", Roots = [], TreeUnavailable = true }));
+        Assert.True(global::E2E.AgentObservation.IsTransitional(new Observation { Route = "/", Roots = [empty] }));
     }
 
     private static bool Transitional(SemanticNode root) => global::E2E.AgentObservation.IsTransitional(new Observation { Route = "/", Roots = [root] });

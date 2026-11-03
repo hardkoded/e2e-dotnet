@@ -29,6 +29,11 @@ public static class ToolLoop
             throw new TestException("INVALID_ARGUMENT", "a tool loop executor needs a name");
         }
 
+        if ((options.BuildPrompt is null) == (options.BuildMessages is null))
+        {
+            throw new TestException("INVALID_ARGUMENT", "a tool loop executor needs one of BuildPrompt and BuildMessages");
+        }
+
         return new ToolLoopExecutor(options);
     }
 
@@ -63,8 +68,15 @@ public sealed class ToolLoopExecutorOptions
     /// <summary>Builds the step's tool vocabulary. The chassis adds <c>done</c>.</summary>
     public required Func<StepExecutorContext, ToolLoopHelpers, IReadOnlyList<ToolLoopTool>> Tools { get; init; }
 
-    /// <summary>Builds the step's opening prompt: the first user message.</summary>
-    public required Func<StepExecutorContext, Task<string>> BuildPrompt { get; init; }
+    /// <summary>Builds the step's opening prompt: the first user message. Set this or <see cref="BuildMessages"/>.</summary>
+    public Func<StepExecutorContext, Task<string>>? BuildPrompt { get; init; }
+
+    /// <summary>
+    /// Builds the step's opening messages, for an opening that carries images (a screenshot beside the screen). Upstream's
+    /// <c>buildPrompt</c> returns a string or an array of messages; C# has no union, so the array form has a property of its own.
+    /// Set this or <see cref="BuildPrompt"/>.
+    /// </summary>
+    public Func<StepExecutorContext, Task<IReadOnlyList<ModelMessage>>>? BuildMessages { get; init; }
 
     /// <summary>The provider options every model call carries. Defaults to the agents entry's.</summary>
     public IReadOnlyDictionary<string, JsonElement>? ProviderOptions { get; init; }
@@ -85,8 +97,12 @@ public sealed class ToolLoopExecutorOptions
 /// <param name="ExecuteAsync">Runs the call and answers what the model reads.</param>
 public sealed record ToolLoopTool(ModelTool Definition, Func<ModelToolCall, CancellationToken, Task<ToolLoopResult>> ExecuteAsync);
 
-/// <summary>What a tool call answered: the text the model reads, and whether the call failed, which the loop counts toward its failure streak.</summary>
-public readonly record struct ToolLoopResult(string Content, bool Failed = false);
+/// <summary>
+/// What a tool call answered: the text the model reads, whether the call failed, which the loop counts toward its failure streak, and the
+/// screenshot that goes with the text, when there is one (upstream's tool result with a file part). The loop hands the image to the model
+/// in a user turn right after the turn's tool results, since a tool message carries text only on every provider the port sends to.
+/// </summary>
+public readonly record struct ToolLoopResult(string Content, bool Failed = false, ExecutorPixels? Pixels = null);
 
 /// <summary>Loop services for the tool bodies that run work of their own (upstream's <c>ToolLoopHelpers</c>).</summary>
 public sealed class ToolLoopHelpers
@@ -181,14 +197,9 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         var tools = options.Tools(context, new ToolLoopHelpers(() => concluded || hardStop is not null, error => hardStop ??= error));
         var definitions = tools.Select(tool => tool.Definition).Append(Verdict.Tool).ToList();
         var system = SystemFor(context);
-        var messages = new List<ModelMessage>
-        {
-            new()
-            {
-                Role = "user",
-                Content = await options.BuildPrompt(context).ConfigureAwait(false),
-            },
-        };
+        var messages = options.BuildMessages is { } build
+            ? [.. await build(context).ConfigureAwait(false)]
+            : new List<ModelMessage> { new() { Role = "user", Content = await options.BuildPrompt!(context).ConfigureAwait(false) } };
 
         var turns = new TurnLog(context);
         var failures = 0;
@@ -303,6 +314,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
 
             messages.Add(new ModelMessage { Role = "assistant", Content = response.Content, ToolCalls = response.ToolCalls, ReasoningItems = response.ReasoningItems });
             previous = response.ToolCalls.Select(toolCall => toolCall.Name).ToList();
+            var screenshots = new List<(string Tool, ExecutorPixels Pixels)>();
             foreach (var toolCall in response.ToolCalls)
             {
                 var outcome = ToolOutcome.Fail("The loop guard stopped the step. Only done is available.");
@@ -324,6 +336,11 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                     Name = toolCall.Name,
                     Content = redactor.Redact(outcome.Content),
                 });
+                if (outcome.Pixels is { } shot)
+                {
+                    screenshots.Add((toolCall.Name, shot));
+                }
+
                 if (!outcome.Succeeded)
                 {
                     failures++;
@@ -344,6 +361,16 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
                     },
                     outcome.Summary ?? "",
                     outcome.Code);
+            }
+
+            if (screenshots.Count > 0)
+            {
+                messages.Add(new ModelMessage
+                {
+                    Role = "user",
+                    Content = "Screenshot" + (screenshots.Count == 1 ? "" : "s") + " attached to the result of " + string.Join(", ", screenshots.Select(shot => shot.Tool)) + ".",
+                    Images = [.. screenshots.Select(shot => new ModelImage(shot.Pixels.Data, shot.Pixels.MediaType, shot.Pixels.Width, shot.Pixels.Height))],
+                });
             }
 
             if (failures is >= 3 and < 5)
@@ -445,7 +472,7 @@ internal sealed class ToolLoopExecutor(ToolLoopExecutorOptions options) : IStepE
         try
         {
             var result = await tool.ExecuteAsync(call, token).ConfigureAwait(false);
-            return new ToolOutcome { Content = result.Content, Succeeded = !result.Failed };
+            return new ToolOutcome { Content = result.Content, Succeeded = !result.Failed, Pixels = result.Pixels };
         }
         catch (E2EException ex) when (!StepExecutors.IsRuntimeHardStop(ex))
         {

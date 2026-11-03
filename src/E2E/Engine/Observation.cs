@@ -152,6 +152,13 @@ public sealed class Observation
     /// not ask, or when the image could not be taken or proven redacted: the observation is then the tree alone.
     /// </summary>
     public EngineScreenshot? Pixels { get; init; }
+
+    /// <summary>
+    /// The engine read no semantic tree, and <see cref="Pixels"/> are the only evidence of the screen (upstream's <c>kind: 'pixels'</c>
+    /// observation, which an engine answers when <see cref="ObserveOptions.PixelFallback"/> allows it). <see cref="Roots"/> is empty then,
+    /// the node refs of earlier observations name nothing, and a step that saw such a screen records no replay.
+    /// </summary>
+    public bool TreeUnavailable { get; init; }
 }
 
 /// <summary>What an observation takes besides the tree. Upstream's <c>EngineObserveOptions</c>.</summary>
@@ -162,4 +169,10 @@ public sealed record ObserveOptions
 
     /// <summary>Take the pixels in a state fit for comparing against a stored one: the status bar normalized.</summary>
     public bool Comparable { get; init; }
+
+    /// <summary>
+    /// Let the engine answer a screen whose semantic tree it could not read with a pixel-only observation
+    /// (<see cref="Observation.TreeUnavailable"/>) instead of an error. The agent asks; a locator or an assertion does not.
+    /// </summary>
+    public bool PixelFallback { get; init; }
 }

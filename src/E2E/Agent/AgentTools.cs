@@ -116,6 +116,18 @@ internal static class AgentTools
         "Go back one step in the browser history. The result shows the screen you return to.",
         Parse("""{ "type": "object", "properties": {} }"""));
 
+    /// <summary>
+    /// The pixel fallback of the grammar (upstream's <c>screenshot</c> tool, offered while pixels may reach the model): a masked viewport
+    /// screenshot, and from then on one with every action result.
+    /// </summary>
+    internal const string ScreenshotName = "screenshot";
+
+    private static readonly ModelTool Screenshot = Tool(
+        ScreenshotName,
+        "Attach a screenshot of the current viewport. Use it when the screen lists too little to act on (a canvas, a map, an image, a game, a system sheet) or contradicts what you expect. " +
+        "From then on every action result carries a fresh screenshot too, so you can see what each action did.",
+        Parse("""{ "type": "object", "properties": {} }"""));
+
     private static readonly ModelTool[] Verbs =
     [
         Tool("tap", "Activate a control.", Target),
@@ -176,6 +188,7 @@ internal static class AgentTools
             tools.Add(Back);
         }
 
+        tools.Add(Screenshot);
         if (project is not null)
         {
             tools.AddRange(project);

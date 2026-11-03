@@ -38,6 +38,8 @@ public sealed partial class Agent
 
         public Observation? FirstActedOn => feed.FirstActedOn;
 
+        public bool TraceEligible => feed.TraceEligible;
+
         public Task<Observation> ObserveAsync(SettleMode mode) => feed.ObserveAsync(mode, token);
 
         public bool TryReserve() => budget.TryReserve();

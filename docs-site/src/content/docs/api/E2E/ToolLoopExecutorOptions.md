@@ -27,6 +27,23 @@ Upstream's `ToolLoopExecutorOptions`.
 
 ## Properties
 
+<a id="E2E_ToolLoopExecutorOptions_BuildMessages_"></a>
+<a id="E2E_ToolLoopExecutorOptions_BuildMessages"></a>
+
+### BuildMessages
+
+
+```csharp
+public Func<StepExecutorContext, Task<IReadOnlyList<ModelMessage>>>? BuildMessages { get; init; }
+```
+
+
+Builds the step's opening messages, for an opening that carries images (a screenshot beside the screen). Upstream's
+`buildPrompt` returns a string or an array of messages; C# has no union, so the array form has a property of its own.
+Set this or [BuildPrompt](#E2E_ToolLoopExecutorOptions_BuildPrompt).
+
+**Value:** [Func&lt;StepExecutorContext, Task&lt;IReadOnlyList&lt;ModelMessage&gt;&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
+
 <a id="E2E_ToolLoopExecutorOptions_BuildPrompt_"></a>
 <a id="E2E_ToolLoopExecutorOptions_BuildPrompt"></a>
 
@@ -34,11 +51,11 @@ Upstream's `ToolLoopExecutorOptions`.
 
 
 ```csharp
-public required Func<StepExecutorContext, Task<string>> BuildPrompt { get; init; }
+public Func<StepExecutorContext, Task<string>>? BuildPrompt { get; init; }
 ```
 
 
-Builds the step's opening prompt: the first user message.
+Builds the step's opening prompt: the first user message. Set this or [BuildMessages](#E2E_ToolLoopExecutorOptions_BuildMessages).
 
 **Value:** [Func&lt;StepExecutorContext, Task&lt;string&gt;&gt;](https://learn.microsoft.com/dotnet/api/system.func-2)
 

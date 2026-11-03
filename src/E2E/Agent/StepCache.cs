@@ -32,6 +32,12 @@ internal interface IStepCacheHost : IReplayHost
 {
     /// <summary>The screen the step's first committed action was resolved against, if it took one.</summary>
     Observation? FirstActedOn { get; }
+
+    /// <summary>
+    /// False once the step has seen a screen with no semantic tree (upstream's <c>traceEligible</c>): a recording may only describe a step
+    /// observed with semantic evidence throughout, and a replay cannot prove its end state against pixels.
+    /// </summary>
+    bool TraceEligible => true;
 }
 
 /// <summary>Upstream's <c>ClaimedKey</c>: the key a step claimed and the step it names, which an entry records as its provenance.</summary>
@@ -347,6 +353,12 @@ internal sealed class StepTraceSession
             return null;
         }
 
+        if (!_host.TraceEligible)
+        {
+            _info = Missed("truncated", entry.Actions.Count);
+            return null;
+        }
+
         Pending.ConsumedReplay = true;
 
         // Every screen the replay looks at, in order, from the start: the end check measures the recorded delta from the first
@@ -438,6 +450,11 @@ internal sealed class StepTraceSession
     // did not hold on the last look the wait took on the recorded end route.
     private async Task<EndStateCheck> WaitForEndAsync(CacheEntry entry, List<Observation> screens)
     {
+        if (!_host.TraceEligible)
+        {
+            return new EndStateCheck(false);
+        }
+
         // As a recording reads its delta, the evidence counts from the screen the first action was resolved against.
         // A screen a scroll to a text marked while it paged is not among the screens; the stretch then opens with it.
         var actedOn = _host.FirstActedOn ?? _start;
@@ -514,8 +531,13 @@ internal sealed class StepTraceSession
     // The cache is disposable: a passing step whose end screen cannot be read records nothing, and still passes.
     private async Task<CacheEntry?> StageAsync(string? recordedBy)
     {
+        if (!_host.TraceEligible)
+        {
+            return null;
+        }
+
         var end = await ProbeAsync(SettleMode.HeldStill).ConfigureAwait(false);
-        return end is null ? null : BuildEntry(_host.FirstActedOn ?? _start!, end, recordedBy);
+        return end is null || !_host.TraceEligible ? null : BuildEntry(_host.FirstActedOn ?? _start!, end, recordedBy);
     }
 
     // A step that changed nothing a replay could check, no node and no route, records nothing:

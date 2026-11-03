@@ -18,12 +18,12 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
     {
         var full = AgentTools.CreateGrammarTools(EngineCapabilities.Scroll | EngineCapabilities.History);
         Assert.Equal(
-            ["back", "check", "clear", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "scroll", "scroll_to", "select", "tap", "uncheck"],
+            ["back", "check", "clear", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "screenshot", "scroll", "scroll_to", "select", "tap", "uncheck"],
             full.Select(tool => tool.Name).Order(StringComparer.Ordinal));
 
         var bare = AgentTools.CreateGrammarTools(EngineCapabilities.None);
         Assert.Equal(
-            ["check", "clear", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "select", "tap", "uncheck"],
+            ["check", "clear", "double_tap", "fill", "fill_secret", "navigate", "observe", "press", "screenshot", "select", "tap", "uncheck"],
             bare.Select(tool => tool.Name).Order(StringComparer.Ordinal));
     }
 

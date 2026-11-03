@@ -478,6 +478,16 @@ internal sealed class StepRecorder
             current.ObservationTruncated = truncated;
         }
 
+        if (details.VisionInput is { } visionInput)
+        {
+            current.VisionInput = visionInput;
+        }
+
+        if (details.VisionDegraded is { } degraded)
+        {
+            current.VisionDegraded = degraded;
+        }
+
         if (details.Explanation is not null)
         {
             current.Explanation = RedactText(details.Explanation);
