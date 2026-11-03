@@ -376,6 +376,7 @@ The port installs the skill with `npx skills add hardkoded/e2e-dotnet` and regis
 - A dynamic app config (`app.config.ts` and its siblings) is evaluated by running the project's own `expo config` with `node` from the path of the process, so it needs Node. A static `app.json` needs nothing.
 - The request's cancellation is a `CancellationToken`. A cancelled read of the app config is an `OperationCanceledException`; upstream wraps it as "could not read the Expo app config".
 - A device request always carries the project root, so upstream's check for an engine that passes none has no counterpart.
+- The sessions client checks the shape of each Expo answer as upstream's `easSessions()` does: an answer that is JSON but lacks the fields an operation reads fails with `Expo: unexpected response to <operation>`, and an answer that is not a GraphQL object is `Expo: HTTP <status>, no data`. All 7 `it`s of `client.test.ts` are ported (`Client/EasSessionsTests`). One difference: the port also replaces the Expo token or session secret with `*****` in the error text it builds from Expo's answer, which upstream leaves to its report-boundary redactor.
 
 ## Limrun
 
