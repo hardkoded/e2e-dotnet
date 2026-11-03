@@ -29,37 +29,72 @@ public class E2ERunFixture : IAsyncLifetime
     /// <summary>The config the filters read: the discovered <c>e2e.config.json</c>, or the defaults when there is none.</summary>
     protected virtual E2EConfig Config => E2EConfig.Discover();
 
+    private HostRun? _run;
+
     /// <summary>
-    /// Finds the tests of the assembly by reflection and runs the filters over them once, before the first test. The tests the filters left
-    /// out skip themselves at their start. A run with no base ref runs every test.
+    /// Builds the reporters of <see cref="Config"/> and starts the run's events, then finds the tests of the assembly by reflection and runs the filters over them
+    /// once, before the first test. The tests the filters left out skip themselves at their start. A run with no base ref runs every test.
     /// </summary>
     public async ValueTask InitializeAsync()
     {
-        // A session the host opens on a named test is never filtered out (upstream's open-session path applies no changedSince).
-        if (SessionHandover.IsActive || HostTestFilters.ResolveChangedSince(ChangedSince) is not { } changedSince || TestAssemblyOf(Xunit.TestContext.Current.TestAssembly?.AssemblyPath) is not { } testAssembly)
+        _run = HostRun.Begin(() => Config);
+
+        // A session the host opens on a named test is never filtered out (upstream's open-session path applies no changedSince), and is no run.
+        if (SessionHandover.IsActive || TestAssemblyOf(Xunit.TestContext.Current.TestAssembly?.AssemblyPath) is not { } testAssembly)
         {
             return;
         }
 
-        var config = Config;
+        E2EConfig config;
+        try
+        {
+            config = Config;
+        }
+        catch (Exception) when (HostTestFilters.ResolveChangedSince(ChangedSince) is null)
+        {
+            // A config that does not load is said once, by the run's start; the tests report it themselves. Only a changed-since selection needs it here.
+            return;
+        }
+
         var token = Xunit.TestContext.Current.CancellationToken;
-        var selection = await HostTestFilters.ExcludeAsync(config, Filters, changedSince, RunSelection.Discover(testAssembly), Console.Error.WriteLine, token).ConfigureAwait(false);
-        RunSelection.Add(selection.Excluded);
-        await HostTestFilters.WriteReportAsync(config, selection, token).ConfigureAwait(false);
+        try
+        {
+            HostRun.Started(config);
+            var discovered = HostRun.Collect(() => RunSelection.Discover(testAssembly));
+            IReadOnlyDictionary<string, string> excluded = new Dictionary<string, string>(StringComparer.Ordinal);
+            if (HostTestFilters.ResolveChangedSince(ChangedSince) is { } changedSince)
+            {
+                var selection = await HostTestFilters.ExcludeAsync(config, Filters, changedSince, discovered, Console.Error.WriteLine, token).ConfigureAwait(false);
+                RunSelection.Add(selection.Excluded);
+                excluded = selection.Excluded;
+                await HostTestFilters.WriteReportAsync(config, selection, token).ConfigureAwait(false);
+            }
+
+            HostRun.Planned(config.Target.Name, discovered, excluded);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            HostRun.Failed(config, ex);
+            throw;
+        }
     }
 
     /// <summary>
-    /// Runs the reporters that <see cref="Config"/> lists in <c>reporters</c> once <c>report.json</c> is final, then
+    /// Ends the run's events and runs the reporters that <see cref="Config"/> lists in <c>reporters</c> once <c>report.json</c> is final, then
     /// stops the app commands that the tests of this process started, and deletes the sessions that setup tests saved (see <c>E2ESetupAttribute</c>).
     /// </summary>
     public async ValueTask DisposeAsync()
     {
         try
         {
-            await Reporters.RunFinishedAsync(Config).ConfigureAwait(false);
+            if (_run is { } run)
+            {
+                await run.FinishAsync().ConfigureAwait(false);
+            }
         }
         finally
         {
+            _run?.Dispose();
             try
             {
                 await RunApps.StopAllAsync().ConfigureAwait(false);

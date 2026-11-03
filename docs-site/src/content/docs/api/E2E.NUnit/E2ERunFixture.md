@@ -95,8 +95,8 @@ public Task SelectTestsAsync()
 ```
 
 
-Finds the tests of the assembly by reflection and runs the filters over them once, before the first test. The tests the filters left
-out skip themselves at their start. A run with no base ref runs every test.
+Builds the reporters of [Config](#E2E_NUnit_E2ERunFixture_Config) and starts the run's events, then finds the tests of the assembly by reflection and runs the filters over them
+once, before the first test. The tests the filters left out skip themselves at their start. A run with no base ref runs every test.
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
 
@@ -112,7 +112,7 @@ public Task StopAppCommandsAsync()
 ```
 
 
-Runs the reporters that [Config](#E2E_NUnit_E2ERunFixture_Config) lists in `reporters` once `report.json` is final, then stops
+Ends the run's events and runs the reporters that [Config](#E2E_NUnit_E2ERunFixture_Config) lists in `reporters` once `report.json` is final, then stops
 the app commands that the tests of this process started, and deletes the sessions that setup tests saved (see `E2ESetupAttribute`).
 
 **Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)

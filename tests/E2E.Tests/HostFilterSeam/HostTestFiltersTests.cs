@@ -2,6 +2,7 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Reports;
 using E2E.Tests.Changes;
 
 namespace E2E.Tests.HostFilterSeam;
@@ -90,6 +91,42 @@ public sealed class HostTestFiltersTests : IDisposable
         Assert.Equal(("changed-files", 2, 1), (record.Name, record.Candidates, record.Excluded));
         Assert.Contains(notices, line => line.StartsWith("judging 1 file changed since ", StringComparison.Ordinal));
         Assert.True(Directory.Exists(dir));
+    }
+
+    [Fact]
+    public async Task Tells_the_run_each_filters_call_as_a_setup_step_and_each_notice_as_a_filter_notice()
+    {
+        var (_, config) = Repo();
+        var notices = new List<string>();
+        var facts = new List<RunEventFact>();
+        using var listening = E2E.RunEvents.Subscribe(new RunEventSubscriber("test", runEvent =>
+        {
+            lock (facts)
+            {
+                facts.Add(runEvent.Fact);
+            }
+        }));
+
+        await E2E.HostTestFilters.ExcludeAsync(
+            config,
+            [ByChangedFile()],
+            "main",
+            [Found("App.Tests.Cart", "CartTests", "Adds_an_item"), Found("App.Tests.Login", "LoginTests", "Signs_in")],
+            notices.Add,
+            CancellationToken.None);
+
+        List<RunEventFact> heard;
+        lock (facts)
+        {
+            heard = [.. facts];
+        }
+
+        var step = new FilterSetupStep("changed-files");
+        Assert.Equal(new SetupEvent(step, SetupState.Started), heard.OfType<SetupEvent>().First());
+        var finished = heard.OfType<SetupEvent>().Last();
+        Assert.Equal((step, SetupState.Finished, null), (finished.Step, finished.State, finished.Outcome));
+        Assert.True(heard.IndexOf(finished) > heard.IndexOf(heard.OfType<SetupEvent>().First()));
+        Assert.Equal(notices, heard.OfType<NoticeEvent>().Where(notice => notice.Target == "filter").Select(notice => notice.Message));
     }
 
     [Fact]

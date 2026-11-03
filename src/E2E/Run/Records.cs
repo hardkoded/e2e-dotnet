@@ -16,7 +16,7 @@ internal static class Records
     /// Upstream's <c>failureBeforeSkip</c>, without its <c>groupOf</c> argument, which only a serial member reads: the port has no serial
     /// groups.
     /// </summary>
-    public static FailureBeforeSkip? FailureBeforeSkip(RunEventResult result)
+    public static FailureBeforeSkip? FailureBeforeSkip(ReportResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
         if (result.Status != ResultStatus.Skipped || result.Skip?.Cause != "explicit")

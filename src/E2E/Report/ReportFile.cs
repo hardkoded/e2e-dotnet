@@ -56,6 +56,9 @@ internal static class ReportFile
 
         public ReportExplore? Explore { get; set; }
 
+        /// <summary>The trace page written for each test that kept one, by result id, as a path from the project root (<see cref="FinishedRun.Traces"/>).</summary>
+        public Dictionary<string, string> Traces { get; } = new(StringComparer.Ordinal);
+
         /// <summary>Set once a session of the run was cancelled by the user (upstream's <c>interruptController.signal.aborted</c>); read from the results the run holds.</summary>
         public bool Interrupted { get; set; }
 
@@ -241,6 +244,38 @@ internal static class ReportFile
         }
     }
 
+    /// <summary>
+    /// Records where the trace page of the result <paramref name="resultId"/> is, as a path from the project root, or that it has none now (null) in the run whose
+    /// results go to <paramref name="resultsRoot"/>. The run keeps the union over its tests, which a reporter reads as <see cref="FinishedRun.Traces"/>.
+    /// A run that no session has added a result to yet has nothing to record it in.
+    /// </summary>
+    public static void SetTrace(string resultsRoot, string resultId, string? path)
+    {
+        resultsRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(resultsRoot));
+        RunState? state;
+        lock (Gate)
+        {
+            Runs.TryGetValue(resultsRoot, out state);
+        }
+
+        if (state is null)
+        {
+            return;
+        }
+
+        lock (state.Traces)
+        {
+            if (path is null)
+            {
+                state.Traces.Remove(resultId);
+            }
+            else
+            {
+                state.Traces[resultId] = path;
+            }
+        }
+    }
+
     // The target of the first session stands for the one the left-out tests named: they ran on it, whatever name the config gave.
     private static void ReplacePlaceholder(RunState state, ReportTarget real)
     {
@@ -335,7 +370,17 @@ internal static class ReportFile
             try
             {
                 var report = ReportSerializer.Read(JsonNode.Parse(await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false))!.AsObject());
-                finished.Add(new FinishedRun(report, report.Run.Status, report.Run.ExitCode, state.ProjectRoot, path, resultsRoot));
+                Dictionary<string, string> traces;
+                lock (state.Traces)
+                {
+                    traces = new Dictionary<string, string>(state.Traces, StringComparer.Ordinal);
+                }
+
+                finished.Add(new FinishedRun(report, report.Run.Status, report.Run.ExitCode, state.ProjectRoot, path, resultsRoot)
+                {
+                    Traces = traces,
+                    AiTracePath = AiTrace.WrittenPath(Path.GetDirectoryName(resultsRoot)!),
+                });
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

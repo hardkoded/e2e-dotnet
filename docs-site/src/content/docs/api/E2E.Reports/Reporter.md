@@ -24,7 +24,8 @@ once, when the test run is over and `report.json` is final; the run is awaited f
 output. The token is cancelled when that budget runs out or the run is forced to stop, so a reporter hands it to its requests and leaves nothing
 running behind. A reporter can never change the run's outcome: a failure or a timeout is one line on stderr. The test run ends when the
 run fixture (`E2ERunFixture` of `E2E.NUnit` or `E2E.XUnit.V3`) is torn down, so a run without it calls no reporter. A reporter
-has a public constructor with no parameters and no side effects; one that takes options also implements [IConfigurableReporter](/api/E2E.Reports/IConfigurableReporter/). Not ported: `onEvent`, since the port emits no run events.
+has a public constructor with no parameters and no side effects; one that takes options also implements [IConfigurableReporter](/api/E2E.Reports/IConfigurableReporter/). The run fixture
+builds the reporters when the run starts, so [OnEvent(RunEvent)](#E2E_Reports_Reporter_OnEvent_E2E_Reports_RunEvent_) sees the run's events as they happen, and calls the same instances when it ends.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object)
 
@@ -48,6 +49,28 @@ Label in diagnostics.
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
 ## Methods
+
+<a id="E2E_Reports_Reporter_OnEvent_"></a>
+<a id="E2E_Reports_Reporter_OnEvent_E2E_Reports_RunEvent_"></a>
+
+### OnEvent(RunEvent)
+
+
+```csharp
+public virtual void OnEvent(RunEvent runEvent)
+```
+
+
+Every run event as it happens, exactly what the list reporter renders (upstream's `onEvent`). Must not block or throw: a throw quarantines this
+reporter's events for the rest of the run, with one line on stderr, and never changes the run's outcome. Event types are added over time; a
+reporter handles the ones it knows and ignores the rest. Events arrive in [Seq](/api/E2E.Reports/RunEvent/#E2E_Reports_RunEvent_Seq) order, one at a time, from whichever thread
+emitted them. A retried test emits [TestStartedEvent](/api/E2E.Reports/TestStartedEvent/) and [TestFinishedEvent](/api/E2E.Reports/TestFinishedEvent/) once per attempt, the later result holding every attempt so far.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `runEvent` | [RunEvent](/api/E2E.Reports/RunEvent/) |  |
 
 <a id="E2E_Reports_Reporter_OnRunFinishedAsync_"></a>
 <a id="E2E_Reports_Reporter_OnRunFinishedAsync_E2E_Reports_FinishedRun_System_Threading_CancellationToken_"></a>

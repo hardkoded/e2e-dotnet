@@ -2,18 +2,20 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Internal;
 using E2E.Reports;
 using E2E.Tests.ScreenTree;
 
 namespace E2E.Tests.Reporters;
 
-/// <summary>.NET-only: a reporter that honors its token or blocks (upstream's <c>withAbort</c> rejects a promise, which a C# task cannot be made to ignore).</summary>
+/// <summary>.NET-only: a reporter that honors its token or blocks (upstream's <c>withAbort</c> rejects a promise, which a C# task cannot be made to ignore). Either way the run gave up on it, which is work left behind.</summary>
 [Collection(nameof(ConsoleCollection))]
 public sealed class RunReportersTests
 {
     [Fact]
     public async Task Reports_a_reporter_that_stops_at_its_token_as_given_up_on_not_as_failed()
     {
+        AbandonedWork.Reset();
         var stderr = new StringWriter();
         var original = Console.Error;
         Console.SetError(stderr);
@@ -28,11 +30,13 @@ public sealed class RunReportersTests
         }
 
         Assert.Contains("e2e: reporter \"honoring\" did not finish within 100ms", stderr.ToString(), StringComparison.Ordinal);
+        Assert.True(AbandonedWork.LeftWorkBehind);
     }
 
     [Fact]
     public async Task Stops_waiting_for_a_reporter_that_blocks_before_it_returns_a_task()
     {
+        AbandonedWork.Reset();
         var stderr = new StringWriter();
         var original = Console.Error;
         Console.SetError(stderr);
@@ -49,6 +53,7 @@ public sealed class RunReportersTests
 
         Assert.True(started.Elapsed < TimeSpan.FromSeconds(1.5), started.Elapsed.ToString());
         Assert.Contains("e2e: reporter \"blocking\" did not finish within 100ms", stderr.ToString(), StringComparison.Ordinal);
+        Assert.True(AbandonedWork.LeftWorkBehind);
     }
 
     private sealed class BlockingReporter : Reporter

@@ -55,6 +55,22 @@ What a reporter receives once the run is over and its report is on disk (upstrea
 
 ## Properties
 
+<a id="E2E_Reports_FinishedRun_AiTracePath_"></a>
+<a id="E2E_Reports_FinishedRun_AiTracePath"></a>
+
+### AiTracePath
+
+
+```csharp
+public string? AiTracePath { get; init; }
+```
+
+
+Where `E2E_AI_TRACE=1` wrote the process's model calls, once the file exists (`ai-trace-<process id>.json` in the output directory,
+one file for the whole process); null when the process recorded none. Upstream's `aiTracePath`.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_Reports_FinishedRun_ArtifactsRoot_"></a>
 <a id="E2E_Reports_FinishedRun_ArtifactsRoot"></a>
 
@@ -144,3 +160,19 @@ public ReportRunStatus Status { get; init; }
 The same status `Report.Run.Status` carries.
 
 **Value:** [ReportRunStatus](/api/E2E/ReportRunStatus/)
+
+<a id="E2E_Reports_FinishedRun_Traces_"></a>
+<a id="E2E_Reports_FinishedRun_Traces"></a>
+
+### Traces
+
+
+```csharp
+public IReadOnlyDictionary<string, string> Traces { get; init; }
+```
+
+
+The trace page the process wrote for each test that kept a trace, by report result id, as a path from [ProjectRoot](#E2E_Reports_FinishedRun_ProjectRoot)
+(`.e2e/results/checkout-applies-the-coupon-1a2b3c4d5e6f7a8b/trace.md`). Empty when no test kept one. Upstream's `traces`, a map.
+
+**Value:** [IReadOnlyDictionary&lt;string, string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.ireadonlydictionary-2)

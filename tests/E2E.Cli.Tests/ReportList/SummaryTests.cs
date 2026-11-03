@@ -4,7 +4,9 @@
 
 using E2E.Cli.Report;
 using E2E.Internal;
+using E2E.Reports;
 using static E2E.Cli.Tests.ReportList.ListReporterKit;
+using AttemptStatus = E2E.Internal.AttemptStatus;
 
 namespace E2E.Cli.Tests.ReportList;
 
@@ -64,7 +66,7 @@ public sealed class SummaryTests
         var launch = time.GetLocalNow();
         reporter.Handle(RunStarted());
         time.Advance(TimeSpan.FromMilliseconds(1_500));
-        reporter.Handle(new RunErrorEvent(new ReportError("NO_TESTS", "no test file matched tests/**/*.e2e.ts", "collection") { Category = "configuration" }));
+        reporter.Handle(new RunErrorEvent(new Reports.ReportError { Code = "NO_TESTS", Message = "no test file matched tests/**/*.e2e.ts", Phase = ErrorPhase.Collection, Category = ErrorCategory.Configuration }));
         reporter.Handle(RunFinished(ReportRunStatus.Error, 2, "r.json"));
         Assert.Contains($"   Start at  {Format.FormatClock(launch)}", output.Lines);
         Assert.Contains("   Duration  1.50s", output.Lines);

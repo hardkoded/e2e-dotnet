@@ -12,7 +12,7 @@ namespace E2E;
 
 /// <summary>
 /// One entry of <c>reporters</c> in <c>e2e.config.json</c>: the name of a <see cref="Reporter"/> type and the options for it. .NET-only: upstream's config
-/// lists reporter objects, and a JSON file holds no code, so it names the type and the reporter is built by reflection when the run ends.
+/// lists reporter objects, and a JSON file holds no code, so it names the type and the reporter is built by reflection when the run begins.
 /// The type is resolved then, not when the config loads, since a type of the test assembly is not loaded for every command that reads the config.
 /// </summary>
 internal sealed record ReporterEntry(string Name, JsonElement? Options)
@@ -77,9 +77,9 @@ internal sealed record ReporterEntry(string Name, JsonElement? Options)
 }
 
 /// <summary>
-/// Builds and runs the reporters when the run is over (.NET-only: <see cref="RunFinishedAsync"/> and
-/// <see cref="Create"/>, since upstream's runner owns the config that lists the reporters and knows when the run ends. The run fixtures of
-/// <c>E2E.NUnit</c> and <c>E2E.XUnit.V3</c> call it when the last test of the assembly is done. The reporters themselves run through <see cref="Runner.RunReportersAsync"/> (upstream's <c>runReporters</c>).
+/// Builds the reporters the config lists (.NET-only: <see cref="Create"/>, since upstream's runner owns the config that lists the reporters). <see cref="HostRun"/>
+/// calls it when the run begins, for the run fixtures of <c>E2E.NUnit</c> and <c>E2E.XUnit.V3</c>. The reporters themselves run through
+/// <see cref="Runner.RunReportersAsync"/> (upstream's <c>runReporters</c>).
 /// </summary>
 internal static class Reporters
 {
@@ -103,34 +103,5 @@ internal static class Reporters
         }
 
         return reporters;
-    }
-
-    /// <summary>
-    /// Runs the reporters of <paramref name="config"/> on every run this process wrote a report for, and prints the rows they return. A reporter
-    /// can never change the run's outcome, so a failure while they build or run is one line on stderr. A <c>reporters</c> entry of the wrong shape is not that: it threw when the config loaded.
-    /// </summary>
-    public static async Task RunFinishedAsync(E2EConfig config, TimeSpan? timeout = null, CancellationToken force = default)
-    {
-        try
-        {
-            var reporters = Create(config);
-            if (reporters.Count == 0)
-            {
-                return;
-            }
-
-            foreach (var finished in await ReportFile.FinishedRunsAsync().ConfigureAwait(false))
-            {
-                var rows = await Runner.RunReportersAsync(reporters, finished, timeout ?? Runner.ReporterTimeout, force).ConfigureAwait(false);
-                foreach (var row in rows)
-                {
-                    Console.Out.WriteLine($"{row.Label}  {row.Text}");
-                }
-            }
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            Console.Error.WriteLine($"e2e: reporters failed: {ex.Message}");
-        }
     }
 }

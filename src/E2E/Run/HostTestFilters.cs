@@ -2,6 +2,8 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Reports;
+
 namespace E2E;
 
 /// <summary>
@@ -62,6 +64,14 @@ internal static class HostTestFilters
         ArgumentNullException.ThrowIfNull(discovered);
         ArgumentNullException.ThrowIfNull(notice);
         var resolved = Resolve(config, filters);
+
+        // Each line also goes to the run's events (upstream's runner emits the filter's notices as `notice` events with target `filter`).
+        void Say(string message)
+        {
+            notice(message);
+            RunEvents.Emit(new NoticeEvent("filter", message));
+        }
+
         // With no filter nothing judges a file, so the tree is not walked.
         var files = filters.Count == 0 ? [] : SourceFiles(config.ProjectRoot);
         var collection = Collect(discovered, files, out var keys);
@@ -72,9 +82,10 @@ internal static class HostTestFilters
             Config = resolved,
             ChangedSince = changedSince,
             CancellationToken = cancellationToken,
-            Notice = notice,
+            Notice = Say,
             Collection = collection,
             SelectionFilters = selectionFilters,
+            Step = FilterStepAsync,
         }).ConfigureAwait(false);
 
         var excluded = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -88,6 +99,21 @@ internal static class HostTestFilters
         }
 
         return new HostSelection(excluded, results, filtered.Records, filtered.Changes);
+    }
+
+    // One filter's call as the `filter` setup step: started as it begins, finished with how long it took and, for a call that did not answer, how it ended.
+    private static async Task<FilterCall> FilterStepAsync(string name, Func<Task<FilterCall>> work)
+    {
+        var step = new FilterSetupStep(name);
+        RunEvents.Emit(new SetupEvent(step, SetupState.Started));
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        var call = await work().ConfigureAwait(false);
+        RunEvents.Emit(new SetupEvent(
+            step,
+            SetupState.Finished,
+            (long)System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds,
+            call.Outcome switch { FilterOutcome.Failed => SetupOutcome.Failed, FilterOutcome.TimedOut => SetupOutcome.TimedOut, _ => null }));
+        return call;
     }
 
     // A test left out ran no attempt, so the reason sits on the result, and the summary does not count the test as selected.

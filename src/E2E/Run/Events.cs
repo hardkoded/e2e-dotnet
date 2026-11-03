@@ -2,18 +2,31 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-namespace E2E;
+namespace E2E.Reports;
 
 /// <summary>
-/// Structured run events: the run's single event spine (upstream's <c>run/events.ts</c>). The list reporter consumes exactly this
-/// stream (<c>ListReporter.Handle</c>), so no two consumers can drift. Only the events the port's list reporter reads are here: the
-/// run's start, plan, notices, setup steps, started tests, step progress, finished tests, errors, interrupts, and end. Not ported: <c>output</c>,
-/// <c>serial-group</c>, and <c>explore</c>, which feed the live window the port has no use for yet. Nothing emits <c>test-started</c> or <c>step</c> yet: the port has no runner.
+/// Structured run events: the run's single event spine (upstream's <c>run/events.ts</c>), as a <see cref="Reporter"/> sees it through
+/// <see cref="Reporter.OnEvent"/>. The list reporter consumes the same stream (<c>ListReporter.Handle</c>), so no two consumers can drift. The
+/// port's test run fixtures and sessions emit them: the run's start, plan, notices, setup steps, started tests, step progress, finished tests, errors,
+/// interrupts, and end. Not ported: <c>output</c> (the test framework captures stdout), <c>serial-group</c> (the port has no serial groups), and
+/// <c>explore</c>, which feeds the live window the port has no use for yet. A new event type may be added, so a reporter handles the ones it
+/// knows and ignores the rest.
 /// </summary>
-internal abstract record RunEventFact;
+/// <param name="Seq">The event's place in the run's order, from 1. Upstream's <c>seq</c>.</param>
+/// <param name="At">When the event was emitted. Upstream's <c>at</c>.</param>
+/// <param name="Fact">What happened. Upstream spreads the fact into the event; a C# record keeps it as a member.</param>
+public sealed record RunEvent(long Seq, DateTimeOffset At, RunEventFact Fact);
+
+/// <summary>One fact about the run; the emitter wraps it in the <see cref="RunEvent"/> envelope. One record per upstream event type.</summary>
+public abstract record RunEventFact
+{
+    private protected RunEventFact()
+    {
+    }
+}
 
 /// <summary>Upstream's <c>run-started</c> fact.</summary>
-internal sealed record RunStartedEvent : RunEventFact
+public sealed record RunStartedEvent : RunEventFact
 {
     public required string RunId { get; init; }
 
@@ -42,41 +55,46 @@ internal sealed record RunStartedEvent : RunEventFact
 /// Upstream's <c>plan</c> fact: what the run will execute, emitted once collection, selection, and every target's setup are done.
 /// From here the run executes, so the list reporter's clock starts with it. <c>Files</c> is upstream's inline <c>{ file, target, tests }</c> list, one tuple per test file on one target.
 /// </summary>
-internal sealed record PlanEvent(int Total, IReadOnlyList<(string File, string Target, int Tests)> Files) : RunEventFact;
+public sealed record PlanEvent(int Total, IReadOnlyList<(string File, string Target, int Tests)> Files) : RunEventFact;
 
 /// <summary>Upstream's <c>notice</c> fact: one line of run-level progress outside any test.</summary>
-internal sealed record NoticeEvent(string Target, string Message) : RunEventFact;
+public sealed record NoticeEvent(string Target, string Message) : RunEventFact;
 
 /// <summary>
 /// What one setup step is about (upstream's <c>SetupStep</c>, <c>run/events.ts</c>). <c>collect</c> loads the test files; <c>filter</c> is one test
 /// filter, by its name; <c>prepare</c> is one target's engine provisioning; <c>service</c> and <c>app</c> are the processes the run owns, labelled
 /// the way the runner names them (<c>service "postgres"</c>, <c>target "web" command</c>).
 /// </summary>
-internal abstract record SetupStep;
+public abstract record SetupStep
+{
+    private protected SetupStep()
+    {
+    }
+}
 
 /// <summary>Upstream's <c>{ kind: 'collect' }</c> step.</summary>
-internal sealed record CollectSetupStep : SetupStep;
+public sealed record CollectSetupStep : SetupStep;
 
 /// <summary>Upstream's <c>{ kind: 'filter' }</c> step.</summary>
-internal sealed record FilterSetupStep(string Name) : SetupStep;
+public sealed record FilterSetupStep(string Name) : SetupStep;
 
 /// <summary>Upstream's <c>{ kind: 'prepare' }</c> step.</summary>
-internal sealed record PrepareSetupStep(string Target, string Engine) : SetupStep;
+public sealed record PrepareSetupStep(string Target, string Engine) : SetupStep;
 
 /// <summary>Upstream's <c>{ kind: 'service' }</c> step.</summary>
-internal sealed record ServiceSetupStep(string Label) : SetupStep;
+public sealed record ServiceSetupStep(string Label) : SetupStep;
 
 /// <summary>
 /// Upstream's <c>{ kind: 'app' }</c> step. <paramref name="Url"/> is the one its readiness probe polls, with a free port already assigned and
 /// without userinfo or query; null for a command that is ready when it exits.
 /// </summary>
-internal sealed record AppSetupStep(string Label, string? Url = null) : SetupStep;
+public sealed record AppSetupStep(string Label, string? Url = null) : SetupStep;
 
 /// <summary>
 /// How a setup step ended other than plainly done (upstream's <c>SetupOutcome</c>): <c>Reused</c> when a service or app command attached to a process
 /// already serving its URL instead of spawning; <c>Failed</c> and <c>TimedOut</c> for a test filter (upstream's <c>FilterOutcome</c>).
 /// </summary>
-internal enum SetupOutcome
+public enum SetupOutcome
 {
     Reused,
     Failed,
@@ -84,7 +102,7 @@ internal enum SetupOutcome
 }
 
 /// <summary>Whether a <see cref="SetupEvent"/> opens its step or closes it.</summary>
-internal enum SetupState
+public enum SetupState
 {
     Started,
     Finished,
@@ -94,23 +112,20 @@ internal enum SetupState
 /// Upstream's <c>setup</c> fact: the work before the tests start. Upstream has two members of one type, <c>started</c> and <c>finished</c>; here
 /// <see cref="DurationMs"/> and <see cref="Outcome"/> are set only when <see cref="State"/> is <see cref="SetupState.Finished"/>.
 /// </summary>
-internal sealed record SetupEvent(SetupStep Step, SetupState State, long DurationMs = 0, SetupOutcome? Outcome = null) : RunEventFact;
+public sealed record SetupEvent(SetupStep Step, SetupState State, long DurationMs = 0, SetupOutcome? Outcome = null) : RunEventFact;
 
 /// <summary>Who a test is (upstream's <c>TestIdentity</c>, <c>collect/collect.ts</c>).</summary>
-internal sealed record TestIdentity(IReadOnlyList<string> TitlePath, string Id, string File, int DeclarationIndex);
+public sealed record TestIdentity(IReadOnlyList<string> TitlePath, string Id, string File, int DeclarationIndex);
 
 /// <summary>Upstream's <c>RunEventResult</c>: a test's result with its target's identity. The attempts are the report's.</summary>
-internal sealed record RunEventResult
+public sealed record RunEventResult
 {
     public required TestIdentity Test { get; init; }
 
     /// <summary>The target the result ran on, by its stable identity: upstream's inline <c>{ name, platform }</c>.</summary>
     public required (string Name, string Platform) Target { get; init; }
 
-    /// <summary>
-    /// The report id of the result, which keys its trace page in <see cref="RunFinishedEvent.Traces"/>. Upstream derives it with
-    /// <c>resultId</c> (<c>internal/ids.ts</c>); the port has no such digest, so the producer supplies it.
-    /// </summary>
+    /// <summary>The report id of the result, which keys its trace page in <see cref="RunFinishedEvent.Traces"/>.</summary>
     public required string ResultId { get; init; }
 
     /// <summary>The configured agent the test ran as.</summary>
@@ -123,44 +138,51 @@ internal sealed record RunEventResult
 
     public bool Selected { get; init; } = true;
 
-    public ReportSkip? Skip { get; init; }
+    public SkipInfo? Skip { get; init; }
 
+    /// <summary>Every attempt the test has had so far, as the report tells them.</summary>
     public IReadOnlyList<ReportAttempt> Attempts { get; init; } = [];
+
+    /// <summary>
+    /// .NET-only: the port's own record of the result, which the list reporter renders from (the report's public tree carries the same facts, in
+    /// types the reporter's helpers do not read). Set by the producer in this process; null for an event built from the public members alone.
+    /// </summary>
+    internal global::E2E.ReportResult? Recorded { get; init; }
 }
 
 /// <summary>
 /// Upstream's <c>test-started</c> fact: a test began executing. A test that runs as several agents, on several targets, or under repeat-each
 /// starts once per pair. <c>SerialId</c> is the test's serial group; the port has no serial groups, so the list reporter does not read it.
 /// </summary>
-internal sealed record TestStartedEvent(string TestId, string Agent, int Repeat, string Title, string File, string? SerialId, string Target) : RunEventFact;
+public sealed record TestStartedEvent(string TestId, string Agent, int Repeat, string Title, string File, string? SerialId, string Target) : RunEventFact;
 
 /// <summary>
 /// Upstream's <c>step</c> fact: one moment of a running test's step, routed to its pair by test id, agent, target, and repeat. .NET-only name:
 /// <c>StepEvent</c> is the report's model-turn record.
 /// </summary>
-internal sealed record StepProgressEvent(string TestId, string Agent, int Repeat, string Target, StepProgress Progress) : RunEventFact;
+public sealed record StepProgressEvent(string TestId, string Agent, int Repeat, string Target, StepProgress Progress) : RunEventFact;
 
 /// <summary>Upstream's <c>test-finished</c> fact.</summary>
-internal sealed record TestFinishedEvent(RunEventResult Result) : RunEventFact;
+public sealed record TestFinishedEvent(RunEventResult Result) : RunEventFact;
 
 /// <summary>Upstream's <c>run-error</c> fact: a run-level error, which aborts before, between, or after test execution.</summary>
-internal sealed record RunErrorEvent(ReportError Error) : RunEventFact;
+public sealed record RunErrorEvent(ReportError Error) : RunEventFact;
 
 /// <summary>How an interrupt landed: the running test is interrupted and its teardown runs, or (a second interrupt) every worker is torn down at once.</summary>
-internal enum InterruptMode
+public enum InterruptMode
 {
     Graceful,
     Forced,
 }
 
 /// <summary>Upstream's <c>run-interrupted</c> fact.</summary>
-internal sealed record RunInterruptedEvent(InterruptMode Mode) : RunEventFact;
+public sealed record RunInterruptedEvent(InterruptMode Mode) : RunEventFact;
 
 /// <summary>Upstream's <c>run-stopped</c> fact: the run reached its failure limit.</summary>
-internal sealed record RunStoppedEvent(int Failures, int Limit) : RunEventFact;
+public sealed record RunStoppedEvent(int Failures, int Limit) : RunEventFact;
 
 /// <summary>Upstream's <c>run-finished</c> fact.</summary>
-internal sealed record RunFinishedEvent : RunEventFact
+public sealed record RunFinishedEvent : RunEventFact
 {
     public required ReportRunStatus Status { get; init; }
 
@@ -175,71 +197,3 @@ internal sealed record RunFinishedEvent : RunEventFact
     public IReadOnlyDictionary<string, string>? Traces { get; init; }
 }
 
-/// <summary>One consumer of the run's events (upstream's <c>RunEventSubscriber</c>): a name for the diagnostic and the sink.</summary>
-internal sealed record RunEventSubscriber(string Name, Action<RunEventFact> OnEvent);
-
-/// <summary>The run's event writer (upstream's <c>createRunEventEmitter</c>, <c>run/events.ts</c>).</summary>
-internal static partial class RunEvents
-{
-    /// <summary>
-    /// Builds the run's single event writer over every subscriber. Subscribers are quarantined independently, so one broken sink cannot silence
-    /// another, and each quarantine is one stderr line naming the sink, the event, and the error. Returns a no-op when there is no subscriber, so
-    /// call sites never branch. Not ported: the <c>seq</c> and <c>at</c> envelope, and async sinks (the port's sinks are synchronous).
-    /// </summary>
-    public static Action<RunEventFact> CreateRunEventEmitter(IEnumerable<RunEventSubscriber?> subscribers)
-    {
-        var active = subscribers.OfType<RunEventSubscriber>().ToList();
-        if (active.Count == 0)
-        {
-            return _ => { };
-        }
-
-        // .NET-only lock: hooks run on whatever thread a process lifecycle uses, where upstream's emitter is called from one thread.
-        var quarantined = new HashSet<RunEventSubscriber>();
-        return fact =>
-        {
-            foreach (var subscriber in active)
-            {
-                lock (quarantined)
-                {
-                    if (quarantined.Contains(subscriber))
-                    {
-                        continue;
-                    }
-                }
-
-                try
-                {
-                    subscriber.OnEvent(fact);
-                }
-                catch (Exception cause)
-                {
-                    lock (quarantined)
-                    {
-                        if (!quarantined.Add(subscriber))
-                        {
-                            continue;
-                        }
-                    }
-
-                    Console.Error.WriteLine($"e2e: reporter \"{subscriber.Name}\" threw on {EventType(fact)}: {cause.Message}; ignoring it for the rest of the run");
-                }
-            }
-        };
-    }
-
-    // The fact as upstream's `type` names it: `SetupEvent` is `setup`, `RunStartedEvent` is `run-started`.
-    private static string EventType(RunEventFact fact)
-    {
-        if (fact is StepProgressEvent)
-        {
-            return "step";
-        }
-
-        var name = fact.GetType().Name;
-        return TypeWords().Replace(name.EndsWith("Event", StringComparison.Ordinal) ? name[..^"Event".Length] : name, "$1-$2").ToLowerInvariant();
-    }
-
-    [System.Text.RegularExpressions.GeneratedRegex("([a-z])([A-Z])")]
-    private static partial System.Text.RegularExpressions.Regex TypeWords();
-}
