@@ -27,7 +27,7 @@ namespace E2E.Tests.ToolLoopPrefix;
 public sealed class ToolLoopPrefixOnAnthropicTests
 {
     [Fact]
-    public async Task Stops_replaying_the_thinking_from_a_message_an_elision_rewrote_and_keeps_the_thinking_produced_after_it()
+    public async Task Stops_replaying_the_thinking_from_a_message_an_elision_rewrote_PARTIAL()
     {
         // The opening screen, then the same screen on each look: the port prints a full screen every time.
         var big = new DocumentWorld().Map("/start", page =>
@@ -46,7 +46,8 @@ public sealed class ToolLoopPrefixOnAnthropicTests
         Assert.Contains("[earlier screen elided", handler.Requests[1].Body, StringComparison.Ordinal);
         Assert.Empty(ReplayedThinking(handler.Requests[1]));
         // The third request elided the first look's screen too (the port keeps only the newest full screen verbatim, where upstream
-        // prints the second look as a diff), so the block produced under it is not sent again. Messages.0 is as the second request sent it.
+        // prints the second look as a diff), so the block produced under it is not sent again. 
+        Assert.Equal(2, handler.Requests[2].Body.Split("[earlier screen elided").Length - 1);
         Assert.Empty(ReplayedThinking(handler.Requests[2]));
         Assert.Contains(turns, turn => turn.Outcome.Contains("message 1 was rewritten, so the reasoning after it is not sent again", StringComparison.Ordinal));
     }
