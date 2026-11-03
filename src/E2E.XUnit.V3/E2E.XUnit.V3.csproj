@@ -13,5 +13,6 @@
     <PackageReference Include="xunit.v3.extensibility.core" Version="4.0.1" />
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
     <InternalsVisibleTo Include="E2E.XUnit.V3.Tests" />
+    <InternalsVisibleTo Include="E2E.Mobile.XUnit.V3" />
   </ItemGroup>
 </Project>
