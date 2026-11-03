@@ -15,4 +15,4 @@ dotnet test
 
 For Codex, run `codex login`, then `ACP_AGENT=codex dotnet test`. `ACP_MODEL` picks the Claude model (`sonnet` by default).
 
-The tests are in the `RealModel` and `AcpAgent` categories. They need your Claude or Codex login, not a GitHub Copilot login, so leave them out of a Copilot real-model run with `--filter "TestCategory=RealModel&TestCategory!=AcpAgent"`. The first run asks the agent for each `ActAsync` and records it in `.e2e/cache`. The next run replays those steps without the agent. `AssertAsync` always reaches it.
+The tests are in the `AcpAgent` category, not `RealModel`: they need your Claude or Codex login, and CI skips them. Run them by hand with `dotnet test --filter "TestCategory=AcpAgent"`. The first run asks the agent for each `ActAsync` and records it in `.e2e/cache`. The next run replays those steps without the agent. `AssertAsync` always reaches it.

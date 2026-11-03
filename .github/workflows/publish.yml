@@ -26,7 +26,7 @@ jobs:
           dotnet-version: "10.0.x"
 
       - name: Test
-        run: dotnet test E2E.slnx -c Release --nologo --filter "TestCategory!=RealModel"
+        run: dotnet test E2E.slnx -c Release --nologo --filter "TestCategory!=RealModel&TestCategory!=AcpAgent"
 
       - name: Pack
         run: |

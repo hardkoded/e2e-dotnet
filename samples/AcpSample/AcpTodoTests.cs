@@ -11,7 +11,6 @@ namespace AcpSample;
 /// Runs the steps of the TodoMVC demo on a coding agent the developer is signed in to, not on a model: Claude Code, or Codex when
 /// <c>ACP_AGENT</c> is <c>codex</c>. The first run records each step, and the next run replays it without the agent.
 /// </summary>
-[Category("RealModel")]
 [Category("AcpAgent")]
 public sealed class AcpTodoTests : E2ETest
 {
