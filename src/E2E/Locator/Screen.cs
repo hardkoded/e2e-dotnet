@@ -22,6 +22,7 @@ public class Screen
     private readonly Func<CancellationToken> _cancellation;
     private readonly Action _verified;
     private readonly Func<ScrollDirection, Momentum?, CancellationToken, Task>? _swipe;
+    private readonly Func<Point, PointerAction, CancellationToken, Task>? _performAt;
     private readonly Screen? _scopeOf;
     private readonly Func<LocatorExpression, LocatorExpression>? _wrap;
     private ScreenshotContext? _screenshots;
@@ -33,6 +34,8 @@ public class Screen
     private string? _projectRoot;
     private Action _failed = static () => { };
     private EngineCapabilities _capabilities;
+    private IReadOnlyCollection<string>? _actionKinds;
+    private IReadOnlyCollection<string>? _pointerActionKinds;
 
     internal Screen(
         Func<CancellationToken, Task<Observation>> observe,
@@ -45,9 +48,11 @@ public class Screen
         TimeProvider? clock = null,
         Func<LocatorExpression, TimeSpan, CancellationToken, Task<IReadOnlyList<SemanticNode>>>? locate = null,
         Func<ScrollDirection, Momentum?, CancellationToken, Task>? swipe = null,
-        Func<TimeSpan, CancellationToken, Task<Observation>>? observeWithin = null)
+        Func<TimeSpan, CancellationToken, Task<Observation>>? observeWithin = null,
+        Func<Point, PointerAction, CancellationToken, Task>? performAt = null)
     {
         _swipe = swipe;
+        _performAt = performAt;
         _observeWithin = observeWithin;
         SoftFailures = softFailures ?? new SoftFailures();
         _observe = observe;
@@ -76,6 +81,7 @@ public class Screen
         _cancellation = root._cancellation;
         _verified = root._verified;
         _swipe = root._swipe;
+        _performAt = root._performAt;
         SoftFailures = root.SoftFailures;
         ActionTimeout = root.ActionTimeout;
         AssertionTimeout = root.AssertionTimeout;
@@ -104,6 +110,15 @@ public class Screen
 
     /// <summary>What the attempt's engine declares; none for a screen outside a session. The locator reads <see cref="EngineCapabilities.TapModifiers"/>, upstream's <c>session.tapModifiers</c>.</summary>
     internal EngineCapabilities Capabilities { get => Root._capabilities; set => Root._capabilities = value; }
+
+    /// <summary>
+    /// The locator action kinds the engine declared (upstream's <c>session.actions</c>). Null declares every kind, as a screen built over
+    /// bare functions does; a session sets it from <see cref="IEngineSession.ActionKinds"/>.
+    /// </summary>
+    internal IReadOnlyCollection<string>? ActionKinds { get => Root._actionKinds; set => Root._actionKinds = value; }
+
+    /// <summary>The pointer action kinds the engine declared (upstream's <c>session.pointerActions</c>). Null declares none.</summary>
+    internal IReadOnlyCollection<string>? PointerActionKinds { get => Root._pointerActionKinds; set => Root._pointerActionKinds = value; }
 
     internal SoftFailures SoftFailures { get; }
 
@@ -199,6 +214,163 @@ public class Screen
     /// </summary>
     public async Task DebugAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) =>
         Console.WriteLine(await ReadTreeAsync("screen.debug", options, cancellationToken).ConfigureAwait(false));
+
+    /// <summary>
+    /// Taps a viewport point, in CSS pixels or the device's points, with no node behind it. The engine has to declare the <c>tap</c> pointer
+    /// action. Upstream's <c>screen.tapAt</c>.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> for a point that is not finite or is negative.</exception>
+    public Task TapAtAsync(Point point, ActionOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        var at = RequirePoint(point, "tapAt");
+        return RunStepAsync(StepKind.Screen, "screen.tapAt", DescribePoint(at), () => PerformAtAsync(at, new PointerAction.Tap(), options?.Timeout, cancellationToken));
+    }
+
+    /// <summary>
+    /// Scrolls the viewport in a direction, <see cref="SwipeOptions.Momentum"/> deciding how far. Upstream's <c>screen.swipe({ direction })</c>.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> when <see cref="ActionOptions.Timeout"/> is set: a viewport swipe has none, as upstream's options have no <c>timeout</c> key.</exception>
+    public Task SwipeAsync(SwipeOptions options, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.Timeout is not null)
+        {
+            throw new TestException("INVALID_ARGUMENT", "swipe options has no key \"timeout\"; a viewport swipe takes direction and momentum");
+        }
+
+        var swipe = _swipe ?? throw new EngineException(EngineErrorCodes.UnsupportedCapability, "scroll is not supported by this engine.");
+        if (ActionKinds is { } declared && !declared.Contains("swipe"))
+        {
+            throw new EngineException(EngineErrorCodes.UnsupportedCapability, "swipe gestures are not available on this target: its engine declares no \"swipe\" action");
+        }
+
+        return RunStepAsync(StepKind.Screen, "screen.swipe", DirectionName(options.Direction), async () =>
+        {
+            var token = Token(cancellationToken);
+            await AppNotOpen.GuardAsync(() => swipe(options.Direction, options.Momentum, token)).ConfigureAwait(false);
+        });
+    }
+
+    /// <summary>
+    /// Swipes along a path between two viewport points: a touch swipe on a device, a pointer drag on a document platform. The engine has
+    /// to declare the <c>swipeTo</c> pointer action. Upstream's <c>screen.swipe({ from, to })</c>.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> for a point that is not finite or is negative, or a duration that is not a whole number of milliseconds from 16 through 10000.</exception>
+    public Task SwipeAsync(SwipePathOptions options, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        var from = RequirePoint(options.From, "swipe from");
+        var to = RequirePoint(options.To, "swipe to");
+        var duration = ValidateSwipeDuration(options.Duration);
+        return RunStepAsync(StepKind.Screen, "screen.swipe", DescribePoint(from) + " → " + DescribePoint(to), () => PerformAtAsync(from, new PointerAction.SwipeTo(to, duration), null, cancellationToken));
+    }
+
+    /// <summary>Validates a point a test names: finite, and never off the plane. Upstream's <c>requirePoint</c>.</summary>
+    internal static Point RequirePoint(Point point, string what)
+    {
+        if (!double.IsFinite(point.X) || !double.IsFinite(point.Y))
+        {
+            throw new TestException("INVALID_ARGUMENT", $"{what} requires a point {{ x, y }} of finite numbers");
+        }
+
+        return point.X < 0 || point.Y < 0 ? throw new TestException("INVALID_ARGUMENT", $"{what} requires a point {{ x, y }} of non-negative numbers") : point;
+    }
+
+    /// <summary>A point as the report shows it. Upstream's <c>describePoint</c>.</summary>
+    internal static string DescribePoint(Point point) =>
+        string.Create(System.Globalization.CultureInfo.InvariantCulture, $"({point.X}, {point.Y})");
+
+    /// <summary>The shared swipe duration bound: whole milliseconds from 16 through 10000, none named leaving the gesture to the engine's default.</summary>
+    internal static TimeSpan? ValidateSwipeDuration(TimeSpan? duration)
+    {
+        if (duration is not { } length)
+        {
+            return null;
+        }
+
+        var milliseconds = length.TotalMilliseconds;
+        return milliseconds != Math.Floor(milliseconds) || milliseconds < 16 || milliseconds > 10_000
+            ? throw new TestException("INVALID_ARGUMENT", "swipe duration must be an integer from 16 through 10000, got " + milliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            : length;
+    }
+
+    private static string DirectionName(ScrollDirection direction) => direction switch
+    {
+        ScrollDirection.Up => "up",
+        ScrollDirection.Down => "down",
+        ScrollDirection.Left => "left",
+        _ => "right",
+    };
+
+    /// <summary>Performs one pointer action at a viewport point, with no node behind it. Upstream's <c>performAt</c>.</summary>
+    internal async Task PerformAtAsync(Point point, PointerAction action, TimeSpan? timeout, CancellationToken cancellationToken)
+    {
+        CheckPointerAction(action);
+        var token = Token(cancellationToken);
+        await DispatchAtAsync(point, action, new Deadline(TimeoutOf(timeout), Clock), token).ConfigureAwait(false);
+    }
+
+    internal TimeSpan TimeoutOf(TimeSpan? timeout)
+    {
+        if (timeout is TimeSpan chosen)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(chosen, TimeSpan.Zero, "timeout");
+            return chosen;
+        }
+
+        return ActionTimeout;
+    }
+
+    /// <summary>One pointer dispatch within a deadline, its engine error translated to the public taxonomy. Upstream's <c>dispatchAt</c>.</summary>
+    internal async Task DispatchAtAsync(Point point, PointerAction action, Deadline deadline, CancellationToken token)
+    {
+        var startedAt = DateTimeOffset.UtcNow;
+        var stamp = Stopwatch.GetTimestamp();
+        var kind = EngineActionKinds.Of(action);
+        var at = string.Create(System.Globalization.CultureInfo.InvariantCulture, $"({Math.Round(point.X, MidpointRounding.AwayFromZero)}, {Math.Round(point.Y, MidpointRounding.AwayFromZero)})");
+        void Record(StepEventStatus status, string? code) => RecordEvent(new StepEvent
+        {
+            Kind = StepEventKind.Engine,
+            Name = kind,
+            StartedAt = startedAt,
+            DurationMs = (long)Stopwatch.GetElapsedTime(stamp).TotalMilliseconds,
+            Status = status,
+            Code = code,
+            Detail = kind + " at " + at,
+        });
+
+        if (deadline.Expired(Clock.GetUtcNow()))
+        {
+            var late = LateAction(kind, at);
+            Record(StepEventStatus.Failed, late.Code);
+            throw late;
+        }
+
+        try
+        {
+            await PerformAtAsync(point, action, token).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            var failure = token.IsCancellationRequested ? ex : LocatorResolver.TranslateLocatorError(ex);
+            Record(token.IsCancellationRequested ? StepEventStatus.Cancelled : StepEventStatus.Failed, ErrorSerializer.Classify(failure).Code);
+            if (ReferenceEquals(failure, ex))
+            {
+                throw;
+            }
+
+            throw failure;
+        }
+
+        Record(StepEventStatus.Passed, null);
+    }
+
+    /// <summary>
+    /// The failure of an action whose deadline passed before it was sent. A read may finish past its deadline so its result is classed
+    /// right; an action never starts past it (upstream's <c>lateAction</c>).
+    /// </summary>
+    internal static TestException LateAction(string kind, string target) =>
+        new("ACTION_FAILED", "operation timed out before the " + kind + " was sent: " + target);
 
     /// <summary>
     /// Scrolls the viewport until <paramref name="target"/> is visible: polls the target and swipes between polls, down and slowly
@@ -369,7 +541,45 @@ public class Screen
 
     internal async Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken)
     {
+        // The session adapter's own guard (upstream's `session.ts`): an action built per attempt, such as a drag, is checked when it is sent.
+        CheckAction(action);
         await AppNotOpen.GuardAsync(() => _perform(node, action, cancellationToken == default ? _cancellation() : cancellationToken)).ConfigureAwait(false);
+    }
+
+    /// <summary>Carries out one pointer action at a viewport point, with no node behind it. Upstream's <c>session.performAt</c>.</summary>
+    internal async Task PerformAtAsync(Point point, PointerAction action, CancellationToken cancellationToken)
+    {
+        CheckPointerAction(action);
+        var perform = _performAt ?? throw new EngineException(EngineErrorCodes.UnsupportedCapability, "the pointer actions are not supported by this engine.");
+        await AppNotOpen.GuardAsync(() => perform(point, action, cancellationToken == default ? _cancellation() : cancellationToken)).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Refuses an action the engine did not declare, before the node is resolved: <c>UNSUPPORTED_CAPABILITY</c>. Upstream's
+    /// <c>checkAction</c>; its modifiers check is the tap family's own (<c>ActionDispatcher.RequireClickModifiers</c>).
+    /// </summary>
+    internal void CheckAction(LocatorAction action)
+    {
+        var kind = EngineActionKinds.Of(action);
+        if (ActionKinds is { } declared && !declared.Contains(kind))
+        {
+            throw new EngineException(
+                EngineErrorCodes.UnsupportedCapability,
+                $"the \"{kind}\" action is not available on this target: its engine declares {(declared.Count == 0 ? "no actions" : string.Join(", ", declared))}");
+        }
+    }
+
+    /// <summary>Refuses a pointer action the engine did not declare: <c>UNSUPPORTED_CAPABILITY</c>. Upstream's <c>checkPointerAction</c>.</summary>
+    internal void CheckPointerAction(PointerAction action)
+    {
+        var kind = EngineActionKinds.Of(action);
+        var declared = PointerActionKinds ?? [];
+        if (!declared.Contains(kind))
+        {
+            throw new EngineException(
+                EngineErrorCodes.UnsupportedCapability,
+                $"the \"{kind}\" action at a point is not available on this target: its engine declares {(declared.Count == 0 ? "no pointer actions" : string.Join(", ", declared))}");
+        }
     }
 
     internal CancellationToken Token(CancellationToken cancellationToken)
@@ -543,15 +753,23 @@ public sealed class Locator
     /// Taps the node. <see cref="ClickOptions.Modifiers"/> are held for the tap, on an engine that declares
     /// <see cref="EngineCapabilities.TapModifiers"/>; any other engine refuses them with <c>UNSUPPORTED_CAPABILITY</c> before the node is resolved.
     /// </summary>
-    public Task TapAsync(ClickOptions? options, CancellationToken cancellationToken = default) =>
-        ClickWithAsync("tap", static modifiers => new LocatorAction.Tap(modifiers), options, cancellationToken);
+    public Task TapAsync(ClickOptions? options, CancellationToken cancellationToken = default) => TapWithAsync("tap", options, cancellationToken);
+
+    /// <summary>
+    /// Taps the node, or, with <see cref="TapOptions.Position"/>, the point of its box at that offset from its top-left corner: the node is scrolled
+    /// into view when the engine can, its box is read, and the pointer is dispatched there with no other actionability check. That needs the
+    /// engine's <c>tap</c> pointer action. A node that never has a box fails with <c>LOCATOR_NOT_FOUND</c>, as <c>WaitForAsync</c> does.
+    /// </summary>
+    public Task TapAsync(TapOptions? options, CancellationToken cancellationToken = default) => TapAsync((ClickOptions?)options, cancellationToken);
 
     /// <summary>Alias of <see cref="TapAsync(ActionOptions, CancellationToken)"/>.</summary>
     public Task ClickAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => ClickAsync(AsClick(options), cancellationToken);
 
     /// <summary>Alias of <see cref="TapAsync(ClickOptions, CancellationToken)"/>.</summary>
-    public Task ClickAsync(ClickOptions? options, CancellationToken cancellationToken = default) =>
-        ClickWithAsync("click", static modifiers => new LocatorAction.Tap(modifiers), options, cancellationToken);
+    public Task ClickAsync(ClickOptions? options, CancellationToken cancellationToken = default) => TapWithAsync("click", options, cancellationToken);
+
+    /// <summary>Alias of <see cref="TapAsync(TapOptions, CancellationToken)"/>.</summary>
+    public Task ClickAsync(TapOptions? options, CancellationToken cancellationToken = default) => ClickAsync((ClickOptions?)options, cancellationToken);
 
     /// <summary>Double taps the node, waiting for exactly one enabled match.</summary>
     public Task DoubleTapAsync(ActionOptions? options = null, CancellationToken cancellationToken = default) => DoubleTapAsync(AsClick(options), cancellationToken);
@@ -668,6 +886,17 @@ public sealed class Locator
     {
         ArgumentNullException.ThrowIfNull(value);
         return ActAsync(new LocatorAction.Select(value), options, cancellationToken);
+    }
+
+    /// <summary>
+    /// Selects the option <paramref name="option"/> names by its label, its value, or its index. A select takes one option per call.
+    /// </summary>
+    /// <exception cref="TestException"><c>INVALID_ARGUMENT</c> when <paramref name="option"/> names none or more than one of the three, or an index below 0.</exception>
+    public Task SelectOptionAsync(SelectOption option, ActionOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(option);
+        option.Require();
+        return ActAsync(new LocatorAction.Select(option), options, cancellationToken);
     }
 
     /// <summary>
@@ -951,7 +1180,7 @@ public sealed class Locator
     /// More than one match fails at once.
     /// </summary>
     private Task ActAsync(LocatorAction action, ActionOptions? options, CancellationToken cancellationToken) =>
-        ActAsync("locator." + ApiName(action), (_, _) => Task.FromResult(action), options, null, null, cancellationToken);
+        ActAsync("locator." + ApiName(action), (_, _) => Task.FromResult(action), options, null, () => _screen.CheckAction(action), cancellationToken);
 
     /// <summary>
     /// <see cref="ActAsync(LocatorAction, ActionOptions, CancellationToken)"/> for an action built once the node is found, with the step's
@@ -970,6 +1199,11 @@ public sealed class Locator
     /// </summary>
     private Task ClickWithAsync(string api, Func<IReadOnlyList<KeyModifier>?, LocatorAction> make, ClickOptions? options, CancellationToken cancellationToken)
     {
+        if (options is TapOptions { Position: not null })
+        {
+            throw new TestException("INVALID_ARGUMENT", api + " options has no key \"position\"; it takes timeout, modifiers");
+        }
+
         // Validation only: every capability is passed, so the engine's own check waits for the step (RequireClickModifiers below).
         var modifiers = ActionDispatcher.RequireClickModifiers(options, api, EngineCapabilities.TapModifiers);
         var label = modifiers is null ? null : Query.Describe() + " with " + string.Join('+', modifiers);
@@ -979,8 +1213,36 @@ public sealed class Locator
             (_, _) => Task.FromResult(action),
             options,
             label,
-            modifiers is null ? null : () => ActionDispatcher.RequireClickModifiers(options, api, _screen.Capabilities),
+            () =>
+            {
+                _screen.CheckAction(action);
+                if (modifiers is not null)
+                {
+                    ActionDispatcher.RequireClickModifiers(options, api, _screen.Capabilities);
+                }
+            },
             cancellationToken);
+    }
+
+    /// <summary>
+    /// One tap of the node: the platform's own, or, with a <see cref="TapOptions.Position"/>, the pointer dispatched at that offset of the node's box
+    /// (upstream's <c>tapWith</c>). Modifiers are not held with a position yet.
+    /// </summary>
+    private Task TapWithAsync(string api, ClickOptions? options, CancellationToken cancellationToken)
+    {
+        if (options is not TapOptions { Position: { } position })
+        {
+            return ClickWithAsync(api, static modifiers => new LocatorAction.Tap(modifiers), options, cancellationToken);
+        }
+
+        // Validation only, as for the other taps: the capability check waits for the step.
+        if (ActionDispatcher.RequireClickModifiers(options, api, EngineCapabilities.TapModifiers) is not null)
+        {
+            throw new TestException("INVALID_ARGUMENT", api + "() does not take modifiers with a position yet; drop one of them");
+        }
+
+        var offset = Screen.RequirePoint(position, api + " position");
+        return _screen.RunStepAsync(StepKind.Locator, "locator." + api, Query.Describe() + " at " + Screen.DescribePoint(offset), () => PerformWithinAsync(offset, new PointerAction.Tap(), options.Timeout, cancellationToken));
     }
 
     /// <summary>The hold of a long press: whole milliseconds from 100 through 10000, or null for the engine's default.</summary>
@@ -1097,8 +1359,62 @@ public sealed class Locator
     public Task ScrollUntilVisibleAsync(Locator target, ScrollUntilVisibleOptions? options = null, CancellationToken cancellationToken = default) =>
         _screen.ScrollUntilVisibleAsync(target, options, this, cancellationToken);
 
-    /// <summary>Performs one action on the one enabled match, waiting for it until <paramref name="deadline"/> (upstream's <c>performUntil</c>).</summary>
-    internal async Task PerformUntilAsync(LocatorAction action, Deadline deadline, CancellationToken token)
+    /// <summary>
+    /// Performs one pointer action at an offset from the top-left corner of exactly one match: the node is scrolled into view when the engine
+    /// can, then its box is read and the pointer dispatched at the point, with no node behind the gesture. The node has to be visible with a
+    /// box within the deadline; one that never is fails as <c>LOCATOR_NOT_FOUND</c>, as <c>WaitForAsync</c> does. Upstream's <c>performWithin</c>.
+    /// </summary>
+    internal async Task PerformWithinAsync(Point offset, PointerAction action, TimeSpan? timeout, CancellationToken cancellationToken)
+    {
+        _screen.CheckPointerAction(action);
+        var token = _screen.Token(cancellationToken);
+        var clock = _screen.Clock;
+        var deadline = new Deadline(TimeoutOf(timeout), clock);
+        var started = clock.GetTimestamp();
+        if (_screen.ActionKinds is not { } declared || declared.Contains("scrollIntoView"))
+        {
+            await PerformUntilAsync(new LocatorAction.ScrollIntoView(), deadline, token, anyState: true).ConfigureAwait(false);
+        }
+
+        TestException NotVisible(Exception? cause)
+        {
+            var message = "locator did not become visible with a box to act within: " + Query.Describe();
+            var details = LocatorResolver.LocatorDetails(Query, clock.GetElapsedTime(started));
+            return cause is null ? new TestException("LOCATOR_NOT_FOUND", message) { Details = details } : new TestException("LOCATOR_NOT_FOUND", message, cause) { Details = details };
+        }
+
+        var reads = _screen.Reads(deadline);
+        var sampled = false;
+        while (true)
+        {
+            SemanticNode? node;
+            try
+            {
+                node = await ResolveSingleAsync(token, reads).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (sampled && !token.IsCancellationRequested && reads.CutOff(ex))
+            {
+                throw NotVisible(ex);
+            }
+
+            sampled = true;
+            if (node is { States.Hidden: false, Rect: { } rect })
+            {
+                await _screen.DispatchAtAsync(new Point(rect.X + offset.X, rect.Y + offset.Y), action, deadline, token).ConfigureAwait(false);
+                return;
+            }
+
+            if (deadline.Expired(clock.GetUtcNow()))
+            {
+                throw NotVisible(null);
+            }
+
+            await Task.Delay(_screen.PollInterval, token).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Performs one action on the one enabled match, waiting for it until <paramref name="deadline"/> (upstream's <c>performUntil</c>). With <paramref name="anyState"/> a hidden or disabled match is acted on too, as upstream's resolve does not look at the state.</summary>
+    internal async Task PerformUntilAsync(LocatorAction action, Deadline deadline, CancellationToken token, bool anyState = false)
     {
         var started = _screen.Clock.GetTimestamp();
         var reads = _screen.Reads(deadline);
@@ -1107,7 +1423,7 @@ public sealed class Locator
         {
             var node = await ResolveCountedAsync(token, reads, sampled, () => _screen.Clock.GetElapsedTime(started)).ConfigureAwait(false);
             sampled = true;
-            if (node is { States.Disabled: false, States.Hidden: false })
+            if (node is not null && (anyState || node is { States.Disabled: false, States.Hidden: false }))
             {
                 if (deadline.Expired(_screen.Clock.GetUtcNow()))
                 {
@@ -1304,16 +1620,7 @@ public sealed class Locator
     private TestException LateAction(LocatorAction action) =>
         new("ACTION_FAILED", "operation timed out before the " + (action is LocatorAction.Select ? "select" : ApiName(action)) + " was sent: " + Query.Describe());
 
-    private TimeSpan TimeoutOf(TimeSpan? timeout)
-    {
-        if (timeout is TimeSpan chosen)
-        {
-            ArgumentOutOfRangeException.ThrowIfLessThan(chosen, TimeSpan.Zero, "timeout");
-            return chosen;
-        }
-
-        return _screen.ActionTimeout;
-    }
+    private TimeSpan TimeoutOf(TimeSpan? timeout) => _screen.TimeoutOf(timeout);
 
     private static string StateName(WaitForState state) => state switch
     {
@@ -1356,6 +1663,30 @@ public class ClickOptions : ActionOptions
     public IReadOnlyList<KeyModifier>? Modifiers { get; init; }
 }
 
+/// <summary>Options for <see cref="Locator.TapAsync(TapOptions, CancellationToken)"/> and <see cref="Locator.ClickAsync(TapOptions, CancellationToken)"/>. Upstream's <c>TapOptions</c>.</summary>
+public class TapOptions : ClickOptions
+{
+    /// <summary>
+    /// Where to tap, relative to the node's top-left corner. Without it the platform picks a point of the node, usually its center, behind
+    /// its own actionability checks; with it the pointer is dispatched at that point once the node is in view and has a box, which needs
+    /// the engine's <c>tap</c> pointer action. Not held with <see cref="ClickOptions.Modifiers"/> yet.
+    /// </summary>
+    public Point? Position { get; init; }
+}
+
+/// <summary>Options for <see cref="Screen.SwipeAsync(SwipePathOptions, CancellationToken)"/>: a swipe along a path between two viewport points. Upstream's <c>SwipePathOptions</c>.</summary>
+public sealed class SwipePathOptions
+{
+    /// <summary>Where the finger goes down.</summary>
+    public required Point From { get; init; }
+
+    /// <summary>Where it lifts.</summary>
+    public required Point To { get; init; }
+
+    /// <summary>How long the gesture takes: whole milliseconds from 16 through 10000. Without one the engine's default.</summary>
+    public TimeSpan? Duration { get; init; }
+}
+
 /// <summary>Options for <see cref="Locator.LongPressAsync"/>.</summary>
 public sealed class LongPressOptions : ActionOptions
 {
@@ -1363,7 +1694,7 @@ public sealed class LongPressOptions : ActionOptions
     public TimeSpan? Duration { get; init; }
 }
 
-/// <summary>Options for <see cref="Locator.SwipeAsync"/>.</summary>
+/// <summary>Options for <see cref="Locator.SwipeAsync"/> and <see cref="Screen.SwipeAsync(SwipeOptions, CancellationToken)"/>. Upstream's <c>SwipeOptions</c>.</summary>
 public sealed class SwipeOptions : ActionOptions
 {
     /// <summary>Which way the content moves into view, as for <see cref="ScrollDirection"/>.</summary>

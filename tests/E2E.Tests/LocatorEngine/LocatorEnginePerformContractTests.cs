@@ -4,12 +4,12 @@
 
 using E2E.Engine;
 using E2E.Internal;
+using Microsoft.Extensions.Time.Testing;
 
 namespace E2E.Tests.LocatorEngine;
 
 /// <summary>
-/// Upstream's <c>LocatorEngine perform contract</c>. Two of its seven its are not ported: 'never sends a positioned tap whose target
-/// became visible past the deadline' (the port has no positioned tap with a scroll into view) and 'marks every action it performs
+/// Upstream's <c>LocatorEngine perform contract</c>. One of its seven its is not ported: 'marks every action it performs
 /// with the test origin' (the port has no operation context).
 /// </summary>
 public sealed class LocatorEnginePerformContractTests
@@ -111,5 +111,49 @@ public sealed class LocatorEnginePerformContractTests
         Assert.Contains("before the tap was sent", error.Message, StringComparison.Ordinal);
         Assert.Equal(2, resolves);
         Assert.Equal(0, performs);
+    }
+
+    [Fact]
+    public async Task Never_sends_a_positioned_tap_whose_target_became_visible_past_the_deadline()
+    {
+        // The slow resolves move a fake clock, so the deadline passes without any waiting.
+        var clock = new FakeTimeProvider();
+        var visible = new SemanticNode { Ref = "node-1", Role = "button", Name = "Submit", Rect = new BoundingBox(10, 10, 100, 40) };
+        var resolves = 0;
+        var performed = new List<LocatorAction>();
+        var performedAt = new List<PointerAction>();
+        var screen = new Screen(
+            _ => Task.FromResult(new Observation { Route = "/", Roots = [] }),
+            (_, action, _) =>
+            {
+                performed.Add(action);
+                return Task.CompletedTask;
+            },
+            () => CancellationToken.None,
+            () => { },
+            TimeSpan.FromMilliseconds(350),
+            TimeSpan.FromMilliseconds(350),
+            clock: clock,
+            locate: (_, budget, _) => ++resolves switch
+            {
+                1 => Task.FromResult<IReadOnlyList<SemanticNode>>([visible]),
+                2 => SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(200), [], budget),
+                _ => SlowLocate.AnswerAsync(clock, TimeSpan.FromMilliseconds(200), [visible], budget),
+            },
+            performAt: (_, action, _) =>
+            {
+                performedAt.Add(action);
+                return Task.CompletedTask;
+            })
+        {
+            PointerActionKinds = ["tap"],
+        };
+
+        var error = await Assert.ThrowsAsync<TestException>(() => screen.GetByRole("button").TapAsync(new TapOptions { Position = new Point(5, 5) }));
+
+        Assert.Equal("ACTION_FAILED", error.Code);
+        Assert.Contains("before the tap was sent", error.Message, StringComparison.Ordinal);
+        Assert.Equal<LocatorAction>([new LocatorAction.ScrollIntoView()], performed);
+        Assert.Empty(performedAt);
     }
 }

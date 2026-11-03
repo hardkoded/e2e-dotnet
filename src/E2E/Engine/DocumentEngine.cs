@@ -120,6 +120,10 @@ public sealed class DocumentEngine : IEngine
 
         public bool CanLocate => true;
 
+        /// <summary>The kinds the document takes. It has no pointer, so a secondary tap, a long press, a hover, and a drag are refused before the node is resolved.</summary>
+        public IReadOnlyCollection<string> ActionKinds { get; } =
+            ["tap", "doubleTap", "fill", "clear", "press", "check", "uncheck", "focus", "scrollIntoView", "selectOption", "swipe"];
+
         /// <summary>Resolves a locator against the document as it is now, over the observation it takes. Upstream's <c>locate</c>. <paramref name="timeout"/> is not used: the document answers at once.</summary>
         public async Task<IReadOnlyList<SemanticNode>> LocateAsync(LocatorExpression expression, TimeSpan timeout, CancellationToken cancellationToken)
         {
@@ -183,7 +187,8 @@ public sealed class DocumentEngine : IEngine
 
                     break;
                 case LocatorAction.Select select:
-                    element.Value = select.Value;
+                    element.Value = select.Text ?? select.Option?.Label ?? select.Option?.Value
+                        ?? throw new EngineException("NOT_ACTIONABLE", $"{Describe(element)} lists no options to select by index.");
                     break;
                 case LocatorAction.Check:
                     element.Checked = true;

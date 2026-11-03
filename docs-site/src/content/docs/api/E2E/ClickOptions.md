@@ -23,6 +23,8 @@ Options for `TapAsync`, `DoubleTapAsync`, and `SecondaryTapAsync`. Upstream's `C
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object) → [ActionOptions](/api/E2E/ActionOptions/)
 
+**Derived:** [TapOptions](/api/E2E/TapOptions/)
+
 [View source](https://github.com/hardkoded/e2e-dotnet/blob/main/src/E2E/Locator/Screen.cs)
 
 ## Properties

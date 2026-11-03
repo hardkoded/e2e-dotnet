@@ -1,6 +1,6 @@
 ---
 title: "SwipeOptions"
-description: "Options for SwipeAsync."
+description: "Options for SwipeAsync and SwipeAsync. Upstream's SwipeOptions."
 editUrl: false
 prev: false
 next: false
@@ -19,7 +19,7 @@ public sealed class SwipeOptions : ActionOptions
 ```
 
 
-Options for `SwipeAsync`.
+Options for `SwipeAsync` and `SwipeAsync`. Upstream's `SwipeOptions`.
 
 **Inheritance:** [object](https://learn.microsoft.com/dotnet/api/system.object) → [ActionOptions](/api/E2E/ActionOptions/)
 

@@ -158,9 +158,10 @@ internal sealed class ScriptedScene : IDisposable
                 node.Value = (node.Value ?? "") + press.Key;
                 break;
             case LocatorAction.Select select:
-                var picked = node.Options.FirstOrDefault(option => option.Label == select.Value)
-                    ?? node.Options.FirstOrDefault(option => option.Value == select.Value)
-                    ?? throw new EngineException(EngineErrorCodes.NotActionable, "no option matches " + select.Value + " on " + node.Id);
+                var picked = (select.Option?.Index is { } at ? node.Options.ElementAtOrDefault(at) : null)
+                    ?? node.Options.FirstOrDefault(option => option.Label == (select.Text ?? select.Option?.Label))
+                    ?? node.Options.FirstOrDefault(option => option.Value == (select.Text ?? select.Option?.Value))
+                    ?? throw new EngineException(EngineErrorCodes.NotActionable, "no option matches " + (select.Text ?? select.Option?.Label ?? select.Option?.Value ?? select.Option?.Index?.ToString()) + " on " + node.Id);
                 node.Value = picked.Value;
                 break;
         }

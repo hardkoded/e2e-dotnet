@@ -352,12 +352,15 @@ public sealed class E2ESession : IAsyncDisposable
                 softFailures,
                 locate: engine.CanLocate ? engine.LocateAsync : null,
                 swipe: engine.SwipeAsync,
-                observeWithin: scope.ObserveAsync);
+                observeWithin: scope.ObserveAsync,
+                performAt: engine.PerformAtAsync);
             var fixtureContext = new EngineFixtureContext(screen);
             browser.Context = fixtureContext;
             (engine as IEngineFixtureHost)?.CreateFixtures(fixtureContext);
             screen.Steps = scope.Steps;
             screen.Capabilities = options.Engine.Capabilities;
+            screen.ActionKinds = engine.ActionKinds;
+            screen.PointerActionKinds = engine.PointerActionKinds;
             screen.BudgetDeadline = budgetDeadline;
             screen.ProjectRoot = projectRoot;
             screen.RememberSecret = secret => scope.Remember(new Dictionary<string, object?>(StringComparer.Ordinal) { [secret.Name] = secret });

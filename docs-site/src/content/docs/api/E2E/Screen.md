@@ -367,6 +367,92 @@ action timeout. Upstream's `screen.scrollUntilVisible`.
 | --- | --- |
 | [TestException](/api/E2E/TestException/) | `LOCATOR_NOT_FOUND` when the target did not become visible in time; `INVALID_LOCATOR` when it belongs to another screen or attempt. |
 
+<a id="E2E_Screen_SwipeAsync_"></a>
+<a id="E2E_Screen_SwipeAsync_E2E_SwipeOptions_System_Threading_CancellationToken_"></a>
+
+### SwipeAsync(SwipeOptions, CancellationToken)
+
+
+```csharp
+public Task SwipeAsync(SwipeOptions options, CancellationToken cancellationToken = default)
+```
+
+
+Scrolls the viewport in a direction, [Momentum](/api/E2E/SwipeOptions/#E2E_SwipeOptions_Momentum) deciding how far. Upstream's `screen.swipe({ direction })`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [SwipeOptions](/api/E2E/SwipeOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` when [Timeout](/api/E2E/ActionOptions/#E2E_ActionOptions_Timeout) is set: a viewport swipe has none, as upstream's options have no `timeout` key. |
+
+<a id="E2E_Screen_SwipeAsync_E2E_SwipePathOptions_System_Threading_CancellationToken_"></a>
+
+### SwipeAsync(SwipePathOptions, CancellationToken)
+
+
+```csharp
+public Task SwipeAsync(SwipePathOptions options, CancellationToken cancellationToken = default)
+```
+
+
+Swipes along a path between two viewport points: a touch swipe on a device, a pointer drag on a document platform. The engine has
+to declare the `swipeTo` pointer action. Upstream's `screen.swipe({ from, to })`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `options` | [SwipePathOptions](/api/E2E/SwipePathOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` for a point that is not finite or is negative, or a duration that is not a whole number of milliseconds from 16 through 10000. |
+
+<a id="E2E_Screen_TapAtAsync_"></a>
+<a id="E2E_Screen_TapAtAsync_E2E_Engine_Point_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
+
+### TapAtAsync(Point, ActionOptions?, CancellationToken)
+
+
+```csharp
+public Task TapAtAsync(Point point, ActionOptions? options = null, CancellationToken cancellationToken = default)
+```
+
+
+Taps a viewport point, in CSS pixels or the device's points, with no node behind it. The engine has to declare the `tap` pointer
+action. Upstream's `screen.tapAt`.
+
+**Parameters**
+
+| Name | Type | Description |
+| --- | --- | --- |
+| `point` | [Point](/api/E2E.Engine/Point/) |  |
+| `options` | [ActionOptions](/api/E2E/ActionOptions/) |  |
+| `cancellationToken` | [CancellationToken](https://learn.microsoft.com/dotnet/api/system.threading.cancellationtoken) |  |
+
+**Returns:** [Task](https://learn.microsoft.com/dotnet/api/system.threading.tasks.task)
+
+**Exceptions**
+
+| Type | Condition |
+| --- | --- |
+| [TestException](/api/E2E/TestException/) | `INVALID_ARGUMENT` for a point that is not finite or is negative. |
+
 <a id="E2E_Screen_TreeAsync_"></a>
 <a id="E2E_Screen_TreeAsync_E2E_ActionOptions_System_Threading_CancellationToken_"></a>
 
