@@ -65,6 +65,12 @@ internal static class ReportFile
         /// <summary>The change the test filters judged (<c>run.changes</c>); null when no filter had a say.</summary>
         public ReportChanges? Changes { get; set; }
 
+        /// <summary>
+        /// The id of the target the left-out tests named when no session had described one (it has no engine to describe); the first session
+        /// takes its place, since a fixture can run on a target of another name than the config's.
+        /// </summary>
+        public string? Placeholder { get; set; }
+
         /// <summary>What each test filter decided (<c>run.filters</c>), in order.</summary>
         public IReadOnlyList<ReportFilter> Filters { get; set; } = [];
     }
@@ -184,18 +190,10 @@ internal static class ReportFile
                 state.StartedAt = earliest;
             }
 
-            foreach (var target in report.Run.Targets)
+            ReplacePlaceholder(state, report.Run.Targets[0]);
+            foreach (var target in report.Run.Targets.Where(target => state.Targets.TrueForAll(known => known.Id != target.Id)))
             {
-                // A target the left-out tests named first has no engine to describe; the session that runs on it does.
-                var known = state.Targets.FindIndex(each => each.Id == target.Id);
-                if (known < 0)
-                {
-                    state.Targets.Add(target);
-                }
-                else if (state.Targets[known].Provenance.Engine.Name == "none")
-                {
-                    state.Targets[known] = target with { Index = state.Targets[known].Index };
-                }
+                state.Targets.Add(target);
             }
 
             state.Explore = report.Run.Explore ?? state.Explore;
@@ -220,14 +218,17 @@ internal static class ReportFile
         await state.Write.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            foreach (var result in selection.Results)
-            {
-                state.Results[result.Id] = new Entry(result);
-            }
-
-            if (state.Targets.TrueForAll(known => known.Id != target.Id))
+            if (state.Targets.Count == 0)
             {
                 state.Targets.Add(target);
+                state.Placeholder = target.Id;
+            }
+
+            // A session has described the target already: the tests left out ran on it.
+            var named = state.Placeholder is null ? state.Targets[0] : target;
+            foreach (var result in selection.Results)
+            {
+                state.Results[result.Id] = new Entry(result with { TargetId = named.Id, Platform = named.Platform });
             }
 
             state.Changes = selection.Changes;
@@ -237,6 +238,24 @@ internal static class ReportFile
         finally
         {
             state.Write.Release();
+        }
+    }
+
+    // The target of the first session stands for the one the left-out tests named: they ran on it, whatever name the config gave.
+    private static void ReplacePlaceholder(RunState state, ReportTarget real)
+    {
+        if (state.Placeholder is not { } placeholder)
+        {
+            return;
+        }
+
+        state.Placeholder = null;
+        state.Targets.RemoveAll(each => each.Id == placeholder);
+        state.Targets.Insert(0, real with { Index = 0 });
+        foreach (var entry in state.Results.Values.Where(entry => entry.Result.TargetId == placeholder))
+        {
+            entry.Result = entry.Result with { TargetId = real.Id, Platform = real.Platform };
+            entry.Node = null;
         }
     }
 

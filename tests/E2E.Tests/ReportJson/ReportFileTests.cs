@@ -146,6 +146,35 @@ public sealed class ReportFileTests : IDisposable
     }
 
     [Fact]
+    public async Task Keeps_one_target_when_the_session_runs_on_a_target_the_left_out_tests_did_not_name()
+    {
+        var leftOut = ReportBuilders.Result(id: new string('c', 64)) with
+        {
+            File = "tests/Login/LoginTests.cs",
+            TargetId = "web",
+            Selected = false,
+            Status = ResultStatus.Skipped,
+            Skip = new ReportSkip("filtered", "did not change", "changed-files"),
+            Attempts = [],
+        };
+        var selection = new HostSelection(new Dictionary<string, string>(), [leftOut], [new ReportFilter("changed-files", 2, 1)], new ReportChanges("0123456789abcdef0123456789abcdef01234567", 1));
+
+        // The config calls the target "web"; the session runs on "document".
+        await ReportFile.WriteLeftOutAsync(selection, new ReportTarget("web", 0, "web", BuildReport.DescribeTarget(null)), _output, Results);
+        await using (var session = await StartAsync("shop > browses", 1))
+        {
+            await session.App.OpenAsync("/");
+            session.Complete();
+        }
+
+        var run = Read()["run"]!;
+        var target = Assert.Single(run["targets"]!.AsArray())!;
+        Assert.Equal("document", (string)target["id"]!);
+        Assert.All(run["results"]!.AsArray(), result => Assert.Equal("document", (string)result!["targetId"]!));
+        Assert.Equal(2, run["results"]!.AsArray().Count);
+    }
+
+    [Fact]
     public async Task Redacts_the_secrets_of_a_test_from_every_text_of_its_result()
     {
         var report = new Report1Document(new ReportRun(
