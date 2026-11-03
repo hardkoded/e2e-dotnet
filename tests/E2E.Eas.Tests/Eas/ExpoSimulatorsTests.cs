@@ -228,7 +228,7 @@ public sealed class ExpoSimulatorsTests : IDisposable
     }
 
     [Fact]
-    public async Task Stops_the_session_on_release_and_one_EAS_no_longer_knows_counts_as_stopped()
+    public async Task Stops_the_session_on_release_and_one_Expo_no_longer_knows_counts_as_stopped()
     {
         var provider = Provider();
         var request = Request();
@@ -393,7 +393,7 @@ public sealed class ExpoSimulatorsTests : IDisposable
     }
 
     [Fact]
-    public async Task Keeps_the_idle_limit_below_a_short_duration_as_EAS_requires_and_pins_the_agent_device_an_option_names()
+    public async Task Keeps_the_idle_limit_below_a_short_duration_as_Expo_requires_and_pins_the_agent_device_an_option_names()
     {
         await Provider(new ExpoSimulatorsOptions { ProjectId = "p1", MaxDurationMinutes = 5, AgentDeviceVersion = "0.22.0" }).AcquireAsync(Request(), default);
         var input = _eas.Create(0);
@@ -425,7 +425,7 @@ public sealed class ExpoSimulatorsTests : IDisposable
     }
 
     [Fact]
-    public async Task Stops_a_session_EAS_created_while_the_request_was_cancelled()
+    public async Task Stops_a_session_Expo_created_while_the_request_was_cancelled()
     {
         using var cancel = new CancellationTokenSource();
         _eas.OnCreate = () => cancel.Cancel();
@@ -435,7 +435,7 @@ public sealed class ExpoSimulatorsTests : IDisposable
     }
 
     [Fact]
-    public async Task Surfaces_an_EAS_error_with_its_message()
+    public async Task Surfaces_an_Expo_error_with_its_message()
     {
         _eas.Errors[EasOperation.Create] = ("Device run sessions are not enabled for this account", "FORBIDDEN");
         var failure = await Assert.ThrowsAsync<EasException>(() => Provider().AcquireAsync(Request(), default));
@@ -644,7 +644,7 @@ public sealed class ExpoSimulatorsTests : IDisposable
     }
 
     [Fact]
-    public async Task Refuses_the_targets_app_appPath_for_an_app_EAS_already_installs_and_two_app_sources()
+    public async Task Refuses_the_targets_app_appPath_for_an_app_Expo_already_installs_and_two_app_sources()
     {
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(
             () => Provider(new ExpoSimulatorsOptions { ProjectId = "p1", BuildId = "b1" }).AcquireAsync(Request(r => r with { AppPath = "/builds/App.app" }), default));
