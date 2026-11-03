@@ -321,8 +321,15 @@ internal sealed partial class ListReporter
         public bool Narrated { get; set; }
     }
 
+    /// <summary>
+    /// Upstream's <c>passingRunSteps</c>: the steps a passed or flaky result counts as not saved, its latest passing run's, since a retry
+    /// may have saved what an earlier attempt did not.
+    /// </summary>
+    private static IReadOnlyList<StepRecord> PassingRunSteps(IReadOnlyList<ReportAttempt> runs, bool passed) =>
+        passed ? runs.LastOrDefault(run => run.Status == E2E.Internal.AttemptStatus.Passed)?.Steps ?? [] : [];
+
     /// <summary>The details of an ordinary result: summed over its attempts, the error from the told one.</summary>
-    private static ResultDetails DetailsOf(IReadOnlyList<ReportAttempt> attempts)
+    private static ResultDetails DetailsOf(IReadOnlyList<ReportAttempt> attempts, bool passed)
     {
         var steps = attempts.Select(attempt => (IEnumerable<StepRecord>)attempt.Steps).ToList();
 
@@ -333,7 +340,7 @@ internal sealed partial class ListReporter
             DurationMs = attempts.Sum(attempt => attempt.DurationMs),
             Usage = Format.StepsUsage(steps),
             Models = Format.StepsModelTally(steps),
-            Cache = Format.StepsCacheTally(steps),
+            Cache = WithNotSaved(Format.StepsCacheTally(steps), PassingRunSteps(attempts, passed)),
             Error = told?.Error,
             Screenshots = [.. attempts.SelectMany(attempt => RequestedScreenshots(attempt.Steps, attempt.Artifacts))],
             Failure = told?.Failure,
@@ -342,6 +349,12 @@ internal sealed partial class ListReporter
             AppLog = AppLogSummaryOf(told?.AppLog ?? []),
             SkipReason = told?.Status == E2E.Internal.AttemptStatus.Skipped ? null : told?.Skip?.Reason,
         };
+    }
+
+    private static Format.CacheTally WithNotSaved(Format.CacheTally counts, IReadOnlyList<StepRecord> steps)
+    {
+        counts.NotSaved = Format.NotSavedCount(steps);
+        return counts;
     }
 
     /// <summary>Where each video these attempts kept is, in order: a report-relative path, or the URL of one a hosted service keeps (upstream's <c>videoPaths</c>).</summary>
@@ -389,7 +402,7 @@ internal sealed partial class ListReporter
 
         var group = Group(result.Test.File, result.Target.Name);
         var skippedAfter = Records.FailureBeforeSkip(result);
-        var details = DetailsOf(result.Attempts);
+        var details = DetailsOf(result.Attempts, result.Status is ResultStatus.Passed or ResultStatus.Flaky);
         _screenshots.AddRange(details.Screenshots);
         Format.AddUsage(_runUsage, details.Usage);
         Format.AddModelTally(_runModels, details.Models);

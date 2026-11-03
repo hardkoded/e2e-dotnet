@@ -122,7 +122,16 @@ internal static partial class Format
         public int HandedOff { get; set; }
 
         public int Missed { get; set; }
+
+        public int NotSaved { get; set; }
     }
+
+    /// <summary>The <c>step.cache.write</c> outcomes where the step's recording was not written (upstream's <c>NOT_SAVED</c>).</summary>
+    private static readonly HashSet<CacheWrite> NotSaved = [CacheWrite.Unconfirmed, CacheWrite.NoChange, CacheWrite.NotWritten];
+
+    /// <summary>Upstream's <c>notSavedCount</c>: the steps whose recording was not saved.</summary>
+    public static int NotSavedCount(IEnumerable<StepRecord> steps) =>
+        steps.Count(step => step.CacheWrite is { } write && NotSaved.Contains(write));
 
     /// <summary>Upstream's <c>emptyCacheTally</c>.</summary>
     public static CacheTally EmptyCacheTally() => new();
@@ -133,6 +142,7 @@ internal static partial class Format
         into.Replayed += counts.Replayed;
         into.HandedOff += counts.HandedOff;
         into.Missed += counts.Missed;
+        into.NotSaved += counts.NotSaved;
     }
 
     /// <summary>Upstream's <c>stepsCacheTally</c>: the trace cache's part in several step lists, by step. A step with no cache detail counts nowhere.</summary>
@@ -159,7 +169,7 @@ internal static partial class Format
     }
 
     /// <summary>
-    /// Upstream's <c>cacheText</c>: <c>9 replayed · 2 handed off · 4 missed</c>, zero counts left out, or null when no step went
+    /// Upstream's <c>cacheText</c>: <c>9 replayed · 2 handed off · 4 missed · 1 not saved</c>, zero counts left out, or null when no step went
     /// through the trace cache.
     /// </summary>
     public static string? CacheText(Colors pc, CacheTally counts)
@@ -178,6 +188,11 @@ internal static partial class Format
         if (counts.Missed > 0)
         {
             parts.Add(counts.Missed.ToString(CultureInfo.InvariantCulture) + " missed");
+        }
+
+        if (counts.NotSaved > 0)
+        {
+            parts.Add(pc.Yellow(counts.NotSaved.ToString(CultureInfo.InvariantCulture) + " not saved"));
         }
 
         return parts.Count == 0 ? null : string.Join(pc.Dim(" · "), parts);
