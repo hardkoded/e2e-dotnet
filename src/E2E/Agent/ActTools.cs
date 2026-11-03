@@ -296,8 +296,10 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
                 throw new TestException("INVALID_ARGUMENT", "drag requires a to target: the node to drop on");
             }
 
-            source = await ResolveAsync(arguments, token).ConfigureAwait(false);
-            destination = await ResolveAsync(drop, token).ConfigureAwait(false);
+            // Both ends come from one look, so a screen that changes between two looks cannot join a node of one with a node of the other.
+            var observation = await _feed.ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false);
+            source = ResolveIn(arguments, observation);
+            destination = ResolveIn(drop, observation);
         }
         catch (TestException ex)
         {
@@ -456,9 +458,11 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         return new ClickOptions { Modifiers = modifiers };
     }
 
-    private async Task<SemanticNode> ResolveAsync(JsonElement arguments, CancellationToken token)
+    private async Task<SemanticNode> ResolveAsync(JsonElement arguments, CancellationToken token) =>
+        ResolveIn(arguments, await _feed.ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false));
+
+    private SemanticNode ResolveIn(JsonElement arguments, Observation observation)
     {
-        var observation = await _feed.ObserveAsync(SettleMode.Raw, token).ConfigureAwait(false);
         var matches = Find(observation, Args.String(arguments, "role"), Args.String(arguments, "name"), Args.String(arguments, "testId"), Args.String(arguments, "ref"), _scope.Redactor);
         if (matches.Count == 0 && Args.String(arguments, "ref") is { } reference && _feed.LastSeen(reference) is { } seen && !LocatorResolver.Walk(observation.Roots).Any(node => node.Ref == reference))
         {

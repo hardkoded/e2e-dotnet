@@ -496,7 +496,11 @@ internal static class Replay
     /// </summary>
     private static async Task<(SemanticNode? Source, SemanticNode? Destination, ReplayHandOffReason Failure)> RelocatePair(IReplayHost host, RecordedAction action, Look look)
     {
-        var destination = action.Destination ?? new RecordedTarget();
+        if (action.Destination is not { } destination)
+        {
+            return (null, null, ReplayHandOffReason.TargetNotFound);
+        }
+
         var deadline = host.Time.GetUtcNow() + host.ReplayTimeout;
         var first = true;
         while (true)
