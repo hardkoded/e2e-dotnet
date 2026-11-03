@@ -92,12 +92,13 @@ public sealed partial class WebEngine : IDoctorEngine
 
         var cache = BrowsersCache(declared);
         var product = name == BrowserName.Chromium && !headed ? "chromium-headless-shell" : BrowserConnection.NameOf(name);
-        if (cache is null || BrowserRevision(product) is not { } revision)
+        if (cache is null || BrowserRevision(product) is not var (revision, overridden) || revision is null)
         {
             return null;
         }
 
-        return File.Exists(Path.Combine(cache, product.Replace('-', '_') + "-" + revision, "INSTALLATION_COMPLETE"));
+        // A build with per-platform revision overrides installs under a host-specific name this check does not rebuild: found is a pass, missing is unknown.
+        return File.Exists(Path.Combine(cache, product.Replace('-', '_') + "-" + revision, "INSTALLATION_COMPLETE")) ? true : overridden ? null : false;
     }
 
     /// <summary>Playwright's browser cache: the declared path, else the operating system's default. Null for <c>0</c>, which places it inside the driver.</summary>
@@ -105,7 +106,9 @@ public sealed partial class WebEngine : IDoctorEngine
     {
         if (!string.IsNullOrEmpty(declared))
         {
-            return declared == "0" ? null : Path.GetFullPath(declared);
+            // A relative path resolves against INIT_CWD (the directory a package manager ran from) else the working directory, as Playwright does.
+            var initCwd = Environment.GetEnvironmentVariable("INIT_CWD");
+            return declared == "0" ? null : Path.GetFullPath(declared, string.IsNullOrEmpty(initCwd) ? Directory.GetCurrentDirectory() : Path.GetFullPath(initCwd));
         }
 
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -125,15 +128,15 @@ public sealed partial class WebEngine : IDoctorEngine
         return root is null ? null : Path.Combine(root, "ms-playwright");
     }
 
-    /// <summary>The revision of <paramref name="product"/> in the driver's <c>browsers.json</c>, or null when the file does not say.</summary>
-    private static string? BrowserRevision(string product)
+    /// <summary>The revision of <paramref name="product"/> in the driver's <c>browsers.json</c>, and whether it has per-platform revision overrides; null when the file does not say.</summary>
+    private static (string? Revision, bool Overridden)? BrowserRevision(string product)
     {
         try
         {
             using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, ".playwright", "package", "browsers.json")));
             return document.RootElement.GetProperty("browsers").EnumerateArray()
                 .Where(browser => browser.GetProperty("name").GetString() == product)
-                .Select(browser => browser.GetProperty("revision").GetString())
+                .Select(browser => ((string? Revision, bool Overridden)?)(browser.GetProperty("revision").GetString(), browser.TryGetProperty("revisionOverrides", out var overrides) && overrides.EnumerateObject().Any()))
                 .FirstOrDefault();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or KeyNotFoundException or InvalidOperationException)

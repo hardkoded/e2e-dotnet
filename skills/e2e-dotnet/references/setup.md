@@ -80,7 +80,7 @@ engine launches the browser `BrowserName` names, Chromium by default.
 config and its targets, whether the browser a run launches is installed (`warn`
 when the first run will download it), the `InitScripts` files, and, for an
 agent whose `provider` is `chatgpt`, `copilot`, `grok`, or `opencode-console`,
-the stored login. It exits 2 when a check failed.
+the stored login (a set provider API key variable, such as `OPENCODE_API_KEY`, passes it without one). It exits 2 when a check failed.
 
 ## Subscriptions and API keys
 

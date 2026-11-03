@@ -18,7 +18,7 @@ public sealed class DoctorTests : IDisposable
     public void Dispose() => Directory.Delete(_dir, recursive: true);
 
     /// <summary>A project whose one target's engine checks until aborted, then finishes its teardown 200 ms later, marking <c>closed</c>.</summary>
-    private DoctorOptions Slow(TimeSpan? timeout = null)
+    private DoctorOptions Slow(TimeSpan? timeout = null, TaskCompletionSource? entered = null)
     {
         File.WriteAllText(Path.Combine(_dir, "e2e.config.json"), """{ "targets": [{ "name": "slow", "platform": "web", "app": { "url": "http://127.0.0.1:3000" } }] }""");
         return new DoctorOptions
@@ -32,6 +32,7 @@ public sealed class DoctorTests : IDisposable
             {
                 try
                 {
+                    entered?.TrySetResult();
                     await Task.Delay(Timeout.Infinite, token);
                 }
                 catch (OperationCanceledException)
@@ -49,8 +50,10 @@ public sealed class DoctorTests : IDisposable
     [Fact]
     public async Task Partial_Waits_for_a_cancelled_engine_to_close_its_connection_before_it_reports()
     {
-        using var interrupt = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
-        var report = await Doctor.RunAsync(Slow(), interrupt.Token);
+        using var interrupt = new CancellationTokenSource();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _ = entered.Task.ContinueWith(_ => interrupt.CancelAfter(TimeSpan.FromMilliseconds(200)), TaskScheduler.Default);
+        var report = await Doctor.RunAsync(Slow(entered: entered), interrupt.Token);
         Assert.True(File.Exists(Path.Combine(_dir, "closed")));
         var check = report.Checks.First(check => check.Target == "slow");
         Assert.Equal(("engine", DoctorStatus.Fail, "CANCELLED"), (check.Id, check.Status, check.Code));
