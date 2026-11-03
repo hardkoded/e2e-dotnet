@@ -18,6 +18,7 @@ internal sealed partial class ActionDispatcher
         // Resolved in queue order, so a batched turn reads each point against the screen its earlier actions left.
         return _accounting.Queue.RunAsync(() =>
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var observation = RequireLatest();
             var clamped = Geometry.ClampToViewport(point, ViewportOf(observation));
             // The control is reported whatever the engine can do with it: the verb the executor calls next is gated on its own action kind.

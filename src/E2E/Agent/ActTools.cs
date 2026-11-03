@@ -174,7 +174,9 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         if (_pixels?.Latest is not var (shot, viewport))
         {
             budget.RefundPrepaid();
-            return ToolOutcome.Ok("No screenshot has been taken in this step: " + tool + " coordinates are pixels of the latest screenshot. Call screenshot first, or act on a listed node by id.");
+            return ToolOutcome.Ok(_pixels?.Showing == true
+                ? "The screenshot has no known viewport size, so " + tool + " coordinates cannot be placed. Act on a listed node by id."
+                : "No screenshot has been taken in this step: " + tool + " coordinates are pixels of the latest screenshot. Call screenshot first, or act on a listed node by id.");
         }
 
         var point = PointTap.ImagePointToViewport(new Point(px, py), shot, viewport);
