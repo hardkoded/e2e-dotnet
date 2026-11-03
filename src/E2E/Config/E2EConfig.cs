@@ -412,7 +412,7 @@ public sealed class E2EConfig
                 throw Invalid(at + " must be a reporter type name or an object with a string \"type\"");
             }
 
-            entries.Add(new ReporterEntry(name.Trim(), options, at));
+            entries.Add(new ReporterEntry(name.Trim(), options));
         }
 
         return entries;

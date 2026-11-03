@@ -15,7 +15,7 @@ namespace E2E;
 /// lists reporter objects, and a JSON file holds no code, so it names the type and the reporter is built by reflection when the run ends.
 /// The type is resolved then, not when the config loads, since a type of the test assembly is not loaded for every command that reads the config.
 /// </summary>
-internal sealed record ReporterEntry(string Name, JsonElement? Options, string At)
+internal sealed record ReporterEntry(string Name, JsonElement? Options)
 {
     /// <summary>
     /// Resolves <see cref="Name"/>, an assembly-qualified type name or the name of a type in a loaded assembly, builds the reporter, and hands it
@@ -23,20 +23,20 @@ internal sealed record ReporterEntry(string Name, JsonElement? Options, string A
     /// </summary>
     public Reporter Create()
     {
-        var type = Find(Name) ?? throw Invalid(At + " reporter type \"" + Name + "\" was not found; name it with its assembly (\"Namespace.Type, Assembly\"), make sure that assembly is referenced and copied to the output, and in a trimmed app keep the type");
+        var type = Find(Name) ?? throw Invalid("the type was not found; name it with its assembly (\"Namespace.Type, Assembly\"), make sure that assembly is referenced and copied to the output, and in a trimmed app keep the type");
         if (type.IsAbstract || type.IsInterface || !type.IsAssignableTo(typeof(Reporter)))
         {
-            throw Invalid(At + " reporter type \"" + Name + "\" must be a non-abstract class that derives from E2E.Reports.Reporter");
+            throw Invalid("the type must be a non-abstract class that derives from E2E.Reports.Reporter");
         }
 
         if (type.GetConstructor(Type.EmptyTypes) is null)
         {
-            throw Invalid(At + " reporter type \"" + Name + "\" needs a public constructor with no parameters");
+            throw Invalid("the type needs a public constructor with no parameters");
         }
 
         if (Options is not null && !type.IsAssignableTo(typeof(IConfigurableReporter)))
         {
-            throw Invalid(At + " reporter type \"" + Name + "\" takes no options; remove \"options\" or implement E2E.Reports.IConfigurableReporter");
+            throw Invalid("the type takes no options; remove \"options\" or implement E2E.Reports.IConfigurableReporter");
         }
 
         var reporter = (Reporter)Activator.CreateInstance(type)!;
