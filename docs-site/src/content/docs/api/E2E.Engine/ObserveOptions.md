@@ -44,6 +44,22 @@ Take the pixels in a state fit for comparing against a stored one: the status ba
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
+<a id="E2E_Engine_ObserveOptions_PixelFallback_"></a>
+<a id="E2E_Engine_ObserveOptions_PixelFallback"></a>
+
+### PixelFallback
+
+
+```csharp
+public bool PixelFallback { get; init; }
+```
+
+
+Let the engine answer a screen whose semantic tree it could not read with a pixel-only observation
+([TreeUnavailable](/api/E2E.Engine/Observation/#E2E_Engine_Observation_TreeUnavailable)) instead of an error. The agent asks; a locator or an assertion does not.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_ObserveOptions_Pixels_"></a>
 <a id="E2E_Engine_ObserveOptions_Pixels"></a>
 

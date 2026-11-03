@@ -2,16 +2,33 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Engine;
+
 namespace E2E.Tests.AgentObservation;
 
 /// <summary>
 /// <c>observationShape</c>: what two looks are compared by. The lines use the port's screen text, where a node
-/// reference reads <c>[ref=e1]</c> and each state is its own bracket. Upstream's "is shaped by the pixels when a
-/// capture carries them" is a partial in <c>VisionOnWaitForAndExtractTests</c>: the port compares the looks of a
-/// <c>WaitForAsync</c> there, and the shape of an act's observation carries no pixels.
+/// reference reads <c>[ref=e1]</c> and each state is its own bracket.
 /// </summary>
 public sealed class ObservationShapeTests
 {
+    private static string ShapeOfPixels(params byte[] data) =>
+        global::E2E.AgentObservation.Shape(new Observation
+        {
+            Route = "/",
+            Roots = [new SemanticNode { Ref = "e1", Role = "document", Name = "Map" }],
+            Pixels = new EngineScreenshot(data, 1, 0),
+        });
+
+    [Fact]
+    public void Is_shaped_by_the_pixels_when_a_capture_carries_them_so_a_canvas_that_redrew_counts_as_changed()
+    {
+        var bare = global::E2E.AgentObservation.Shape(new Observation { Route = "/", Roots = [new SemanticNode { Ref = "e1", Role = "document", Name = "Map" }] });
+        Assert.Equal(ShapeOfPixels(1, 2, 3), ShapeOfPixels(1, 2, 3));
+        Assert.NotEqual(ShapeOfPixels(1, 2, 3), ShapeOfPixels(1, 2, 4));
+        Assert.NotEqual(ShapeOfPixels(1, 2, 3), bare);
+    }
+
     private static string ShapeOf(string text) => global::E2E.AgentObservation.Shape(text);
 
     [Fact]

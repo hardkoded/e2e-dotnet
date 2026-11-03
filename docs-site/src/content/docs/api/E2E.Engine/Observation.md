@@ -103,6 +103,23 @@ public required string Route { get; init; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_Engine_Observation_TreeUnavailable_"></a>
+<a id="E2E_Engine_Observation_TreeUnavailable"></a>
+
+### TreeUnavailable
+
+
+```csharp
+public bool TreeUnavailable { get; init; }
+```
+
+
+The engine read no semantic tree, and [Pixels](#E2E_Engine_Observation_Pixels) are the only evidence of the screen (upstream's `kind: 'pixels'`
+observation, which an engine answers when [PixelFallback](/api/E2E.Engine/ObserveOptions/#E2E_Engine_ObserveOptions_PixelFallback) allows it). [Roots](#E2E_Engine_Observation_Roots) is empty then,
+the node refs of earlier observations name nothing, and a step that saw such a screen records no replay.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_Observation_Truncated_"></a>
 <a id="E2E_Engine_Observation_Truncated"></a>
 

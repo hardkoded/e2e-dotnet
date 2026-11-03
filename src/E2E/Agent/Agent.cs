@@ -1260,6 +1260,12 @@ internal sealed class AttemptScope
     /// <summary><see cref="ObserveAsync(CancellationToken)"/> within <paramref name="timeout"/>, the operation budget the engine bounds its reads by.</summary>
     public Task<Observation> ObserveAsync(TimeSpan timeout, CancellationToken token) => ShowAsync(Session.ObserveAsync(timeout, token));
 
+    /// <summary>
+    /// <see cref="ObserveAsync(CancellationToken)"/> with <paramref name="options"/>, under the action timeout the engine bounds its reads by
+    /// (upstream's <c>observe(operation, options)</c>). An engine that takes no options reads as it does without them.
+    /// </summary>
+    public Task<Observation> ObserveAsync(ObserveOptions options, CancellationToken token) => ShowAsync(Session.ObserveAsync(options, ActionTimeout, token));
+
     private async Task<Observation> ShowAsync(Task<Observation> look)
     {
         var observation = await look.ConfigureAwait(false);
@@ -1700,6 +1706,9 @@ internal sealed class ToolOutcome
 
     /// <summary>The error message of a failed action alone, which Content leads with in upstream's wording and follows with the screen. A host driving the tools words its own failure from it.</summary>
     public string? Error { get; init; }
+
+    /// <summary>The screenshot that goes with <see cref="Content"/>, when the tool took one.</summary>
+    public ExecutorPixels? Pixels { get; init; }
 
     public static ToolOutcome Ok(string content) => new() { Content = content, Succeeded = true };
 

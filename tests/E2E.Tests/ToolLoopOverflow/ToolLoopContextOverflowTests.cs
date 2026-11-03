@@ -54,9 +54,10 @@ public sealed class ToolLoopContextOverflowTests
 
         Assert.Null(attempt.Error);
         Assert.Equal(3, model.CallCount);
-        // The second request carried the whole opening screen. The failed tap answers with the screen again, so the retried request
-        // elides the superseded opening screen and clips the newest one, which rides the tool result, to its head and a notice.
-        Assert.True(requests[1][0]!.Length > 16_384);
+        // The failed tap answers with the screen again, so the superseded opening screen outgrows the stale budget and the second
+        // request already carries it elided. The retried request clips the newest screen, which rides the tool result, to its head and a notice.
+        Assert.Contains("[earlier screen elided", requests[1][0], StringComparison.Ordinal);
+        Assert.True(requests[1][^1]!.Length > 16_384);
         Assert.Contains("[earlier screen elided", requests[2][0], StringComparison.Ordinal);
         Assert.True(requests[2][^1]!.Length < 16_384 + 200);
         Assert.Contains("more characters cut: the request exceeded the model's context window", requests[2][^1], StringComparison.Ordinal);
@@ -66,8 +67,8 @@ public sealed class ToolLoopContextOverflowTests
 
     /// <summary>
     /// Partial port of upstream's "shrinks a pixel-mode history, where every screen rides a result with its screenshot, and
-    /// retries", so it carries another name. The port has no screenshots, so no result carries an image beside its screen. And it has no cache-friendly
-    /// budget that elides superseded screens before a refusal, so every earlier screen is still whole in the refused request.
+    /// retries", so it carries another name. Its results carry no image beside the screen, so it does not read a screenshot; the
+    /// image turn of the port's pixel mode is covered by the pixel tests.
     /// </summary>
     [Fact]
     public async Task Elides_the_superseded_screens_and_clips_the_newest_one_at_a_refusal_and_retries()

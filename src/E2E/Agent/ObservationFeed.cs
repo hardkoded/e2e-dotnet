@@ -29,8 +29,29 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     /// <summary>Whether any semantic observation in this step stopped at a capture or byte limit.</summary>
     private bool _observationTruncated;
 
-    /// <summary>The step's observation record for the report (upstream's <c>reportDetails</c>).</summary>
-    public StepAgentDetails ReportDetails() => new() { ObservationTruncated = _observationTruncated ? true : null };
+    // True once pixels this feed cleared were handed to the executor as model input, and why requested pixels were not, when they were not.
+    private bool _pixelsSent;
+    private VisionDegradation? _visionDegraded;
+
+    // A trace may only describe a step observed with semantic evidence throughout (upstream's `semanticHistory`).
+    private bool _semanticHistory = true;
+
+    /// <summary>The size in bytes of the largest screenshot handed to the executor in this step (upstream's <c>metrics.pixelBytes</c>); null when none was.</summary>
+    public int? PixelBytes { get; private set; }
+
+    /// <summary>A trace may only describe a step observed with semantic evidence throughout (upstream's <c>traceEligible</c>).</summary>
+    public bool TraceEligible => _semanticHistory;
+
+    /// <summary>True once a screenshot went to the model in this step; text drawn in it is not in the listing (upstream's <c>pixelsShown</c>).</summary>
+    public bool PixelsShown => _pixelsSent;
+
+    /// <summary>The step's observation and pixel record for the report (upstream's <c>reportDetails</c>).</summary>
+    public StepAgentDetails ReportDetails() => new()
+    {
+        ObservationTruncated = _observationTruncated ? true : null,
+        VisionInput = _pixelsSent ? true : null,
+        VisionDegraded = _visionDegraded,
+    };
 
     /// <summary>
     /// The limits the step's observations are cut under, upstream's <c>ObservationFeedOptions</c>. Null for a feed that cuts nothing,
@@ -94,7 +115,7 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
     {
         // Retried at the engine while it reports a race, the step's clock checked each time it fails (upstream's retryingObserve).
         var observation = await Phases.RetryingObserveAsync(
-            () => Scope is { } scope ? scope.ObserveAsync(token) : session.ObserveAsync(token),
+            () => Scope is { } scope ? scope.ObserveAsync(PixelFallbackLook, token) : session.ObserveAsync(token),
             cause => Accounting?.Checkpoint(cause),
             token).ConfigureAwait(false);
         if (observation.Truncated)
@@ -102,8 +123,18 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
             _observationTruncated = true;
         }
 
+        if (observation.TreeUnavailable)
+        {
+            // No node of an earlier look names anything now, and a recording cannot describe a step that saw only pixels.
+            _semanticHistory = false;
+            _seen.Clear();
+        }
+
         return observation;
     }
+
+    // The agent lets the engine answer a screen it cannot read with pixels alone (upstream's `pixelFallback: true`).
+    private static readonly ObserveOptions PixelFallbackLook = new() { PixelFallback = true };
 
     private async Task<Observation> LookAsync(SettleMode mode, CancellationToken token)
     {
@@ -166,19 +197,29 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         var observation = await ObserveAsync(SettleMode.HeldStill, null, options?.Pixels == true, token).ConfigureAwait(false);
 
         var view = View(observation, scope, options);
-        if (options?.Pixels != true)
+        if (options?.Pixels != true && !observation.TreeUnavailable)
         {
             return view;
         }
 
-        var outcome = AgentObservation.PixelsForModel(observation, await scope.CaptureAsync(token).ConfigureAwait(false));
+        // A screen with no tree carries its pixels with it; any other look is photographed now.
+        var captured = observation.TreeUnavailable ? observation.Pixels : await scope.CaptureAsync(token).ConfigureAwait(false);
+        var outcome = AgentObservation.PixelsForModel(observation, captured);
         if (outcome.Pixels is not { } pixels)
         {
+            if (observation.TreeUnavailable)
+            {
+                throw new TestException("UNSUPPORTED_CAPABILITY", "semantic capture is unavailable and no permitted, proven-masked screenshot can replace it");
+            }
+
             scope.VisionDegraded = true;
+            _visionDegraded = outcome.Withheld;
             return view with { PixelsWithheld = outcome.Withheld };
         }
 
         scope.VisionInput = true;
+        _pixelsSent = true;
+        PixelBytes = Math.Max(PixelBytes ?? 0, pixels.Png.Length);
         var size = Pixels.ReadPngSize(pixels.Png);
         return view with { Pixels = new ExecutorPixels(pixels.Png, "image/png", size?.Width ?? 0, size?.Height ?? 0, pixels.Scale, pixels.MaskedRegionCount ?? 0) };
     }
@@ -192,7 +233,8 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         var text = Text(observation, options?.Pixels == true, out var cut);
         return new ExecutorObservation(text)
         {
-            Truncated = observation.Truncated || cut,
+            TreeUnavailable = observation.TreeUnavailable,
+            Truncated = observation.Truncated || cut || observation.TreeUnavailable,
             KeyboardVisible = observation.KeyboardVisible,
             Path = scope.Redactor.Redact(observation.Route),
             Revision = observation.Revision.Length > 0 ? observation.Revision : null,
@@ -232,6 +274,12 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         // One look is read for its size, for the executor, and for the model; it is rendered once. A secret registered since
         // replaces the attempt's redactor, and text rendered under the old one is never reused.
         var scope = Scope ?? throw new InvalidOperationException("This feed serves no executor.");
+        if (observation.TreeUnavailable)
+        {
+            cut = false;
+            return UnavailableTreeMarker;
+        }
+
         var redactor = scope.Redactor;
         if (_rendered is { } last && ReferenceEquals(last.Observation, observation) && last.Pixels == pixels && ReferenceEquals(last.Redactor, redactor))
         {
@@ -274,9 +322,17 @@ internal sealed class ObservationFeed(IEngineSession session, TimeProvider time)
         ArgumentNullException.ThrowIfNull(target);
         var id = target.Id.TrimStart('#');
         var latest = Latest ?? throw NodeGone(id);
+        if (latest.TreeUnavailable)
+        {
+            throw new TestException("LOCATOR_NOT_FOUND", "semantic capture is unavailable; previous node ids are no longer valid, so use the current screenshot");
+        }
+
         var node = LocatorResolver.Walk(latest.Roots).FirstOrDefault(candidate => candidate.Ref == id) ?? Refound(id, latest);
         return new Lookup(id, node, latest);
     }
+
+    /// <summary>What a screen with no semantic tree lists in place of one (upstream's <c>UNAVAILABLE_TREE_MARKER</c>).</summary>
+    internal const string UnavailableTreeMarker = "[semantic capture unavailable: no nodes were read; previous node ids are no longer valid. Use the screenshot, never infer absence from this listing]";
 
     /// <summary>Upstream's <c>nodeGone</c>: the error for a target id the newest screen no longer lists.</summary>
     public static TestException NodeGone(string id) =>

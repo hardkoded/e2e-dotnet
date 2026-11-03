@@ -347,6 +347,25 @@ none, and neither does a field whose value or text holds a registered
 secret, so selected characters of a secret never reach the model. A
 `press` of `Shift+ArrowLeft` shows what it selected.
 
+### Screenshots in `ActAsync`
+
+The model starts a step from the text snapshot. Its `screenshot` tool returns
+a masked screenshot of the screen (an image on the next turn, with its pixel
+size and its scale to CSS pixels in the result). Once it has taken one, every
+later action in the step answers with a fresh screenshot, so the model sees
+what the action did. A screen with no control to act on (a canvas) opens with
+a screenshot. An engine that captures no pixels, or masks fewer regions than
+the screen has secure fields, gets none, and the result says so; the model
+works from the text. A superseded screen past 32 KB, and all but the newest
+two screenshots (in batches of three), are elided from the request. The step
+report carries `visionInput` and `pixelBytes`. When an engine cannot read the
+semantic tree (`Observation.TreeUnavailable`, answered to a look with
+`ObserveOptions.PixelFallback`), the step works from the screenshot alone:
+earlier node references are refused and the step is not cached. If no masked
+screenshot can replace the tree, the step ends `POLICY_DENIED`. `ActOptions`
+has no `Vision` option. The point tools (`tap_at` and the others) are not
+ported yet.
+
 ## Budgets and cost
 
 | Call | Model calls | Default timeout |
@@ -680,6 +699,11 @@ On an agent with an executor, `AssertAsync` goes to it as a step with `Kind`
 `Assert`. `Vision` is refused with `UNSUPPORTED_CAPABILITY`, since the executor
 decides what its model sees. `Screenshot` still keeps evidence after the
 verdict.
+
+A custom executor shows an image in a tool result with `ToolLoopResult.Pixels`;
+the loop sends it on a user turn after the turn's tool results. Set
+`ToolLoopExecutorOptions.BuildMessages` instead of `BuildPrompt` to open the
+step with images (exactly one of the two).
 
 Not ported: the point verbs, long press, hover, and drag (the port's engines
 have none) and the observation's `Revision`.

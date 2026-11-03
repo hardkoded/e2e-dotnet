@@ -240,7 +240,8 @@ internal static partial class ReportWire
         ("actionSteps", Math.Max(0, metrics?.ActionSteps ?? 0)),
         ("observationBytes", Math.Max(0, metrics?.ObservationBytes ?? 0)),
         ("contextBytes", Math.Max(0, metrics?.ContextBytes ?? 0)),
-        ("ledgerBytes", Math.Max(0, metrics?.LedgerBytes ?? 0)));
+        ("ledgerBytes", Math.Max(0, metrics?.LedgerBytes ?? 0)),
+        ("pixelBytes", metrics?.PixelBytes is { } pixelBytes ? Math.Max(0, pixelBytes) : null));
 
     /// <summary>Upstream's <c>serializeStep</c>.</summary>
     public static JsonObject Step(StepRecord step)
@@ -280,6 +281,20 @@ internal static partial class ReportWire
         if (step.ObservationTruncated == true)
         {
             result["observationTruncated"] = true;
+        }
+
+        if (step.VisionInput == true)
+        {
+            result["visionInput"] = true;
+        }
+
+        if (step.VisionDegraded is { } degraded)
+        {
+            result["visionDegraded"] = degraded switch
+            {
+                VisionDegradation.MaskingUnproven => "MASKING_UNPROVEN",
+                _ => "UNSUPPORTED_CAPABILITY",
+            };
         }
 
         if (step.Viewport is { Width: >= 1, Height: >= 1, Scale: > 0 } viewport && double.IsFinite(viewport.Scale))

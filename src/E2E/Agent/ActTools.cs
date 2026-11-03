@@ -20,7 +20,7 @@ namespace E2E;
 /// changes since the screen the coding agent holds, as upstream's session answers. No upstream equivalent: upstream's tool loop holds
 /// these as closures over its <c>ToolLoopHelpers</c>.
 /// </summary>
-internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed, ScreenPresenter? screen = null)
+internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed, ScreenPresenter? screen = null, PixelMode? pixels = null)
 {
     private static readonly HashSet<string> ActionTools =
         new(["navigate", "tap", "double_tap", "fill", "fill_secret", "press", "select", "check", "uncheck", "clear", "upload", "back", "scroll", "scroll_to"], StringComparer.Ordinal);
@@ -28,6 +28,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     private readonly AttemptScope _scope = scope;
     private readonly ObservationFeed _feed = feed;
     private readonly ScreenPresenter? _screen = screen;
+    private readonly PixelMode? _pixels = pixels;
 
     // context: the step the tools run in, which a project tool reaches through AgentToolContext. Null outside a step.
     public async Task<ToolOutcome> ExecuteAsync(
@@ -41,7 +42,20 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
         // observe looks and records nothing, so it takes no action slot.
         if (string.Equals(call.Name, "observe", StringComparison.Ordinal))
         {
-            return ToolOutcome.Ok(_screen is null ? await DescribeAsync("Observed.", token).ConfigureAwait(false) : await WholeScreenAsync(token).ConfigureAwait(false));
+            return _screen is null ? Outcome(await DescribeAsync("Observed.", token).ConfigureAwait(false)) : ToolOutcome.Ok(await WholeScreenAsync(token).ConfigureAwait(false));
+        }
+
+        // screenshot looks too: it attaches the viewport's pixels, and from then on every result carries a fresh one.
+        if (string.Equals(call.Name, AgentTools.ScreenshotName, StringComparison.Ordinal) && _screen is null)
+        {
+            try
+            {
+                return Outcome(await DescribeAsync("Screenshot taken.", token, pixels: true).ConfigureAwait(false));
+            }
+            catch (E2EException ex) when (!token.IsCancellationRequested && !StepExecutors.IsRuntimeHardStop(ex))
+            {
+                return ToolOutcome.Fail(ex);
+            }
         }
 
         if (projectTools is not null && projectTools.TryGetValue(call.Name, out var projectTool))
@@ -143,8 +157,13 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     }
 
     // Upstream's `failureLead` on a screen: a failed action still returns the screen, so the model can act on a stale-id or not-found failure at once.
-    private async Task<ToolOutcome> FailedAsync(ActionLabel label, E2EException error, CancellationToken token) =>
-        new() { Content = await DescribeAsync(FailureLead(label, error), token).ConfigureAwait(false), Succeeded = false, Code = error.Code, Error = error.Message };
+    private async Task<ToolOutcome> FailedAsync(ActionLabel label, E2EException error, CancellationToken token)
+    {
+        var screen = await DescribeAsync(FailureLead(label, error), token).ConfigureAwait(false);
+        return new() { Content = screen.Text, Pixels = screen.Pixels, Succeeded = false, Code = error.Code, Error = error.Message };
+    }
+
+    private static ToolOutcome Outcome(ScreenText screen) => new() { Content = screen.Text, Pixels = screen.Pixels, Succeeded = true };
 
     // Upstream's failureLead: the attempt, then the error's code, then its message. `navigate file:///etc/passwd failed: POLICY_DENIED: forbidden URL scheme: file:`.
     private static string FailureLead(ActionLabel label, E2EException error) => label.Attempt + " failed: " + error.Code + ": " + error.Message;
@@ -356,7 +375,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
             return await FailedAsync(label, ex, token).ConfigureAwait(false);
         }
 
-        return ToolOutcome.Ok(await DescribeAsync(label.Done, token).ConfigureAwait(false));
+        return Outcome(await DescribeAsync(label.Done, token).ConfigureAwait(false));
     }
 
     // The files an upload call names. Anything but a list of strings is the model's error, which the policy words as it does an empty list.
@@ -431,7 +450,7 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     {
         try
         {
-            return ToolOutcome.Ok(await DescribeAsync(action, token, expectChange).ConfigureAwait(false));
+            return Outcome(await DescribeAsync(action, token, expectChange).ConfigureAwait(false));
         }
         catch (E2EException ex) when (!token.IsCancellationRequested && !StepExecutors.IsRuntimeHardStop(ex))
         {
@@ -443,12 +462,39 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
     // and so did a project tool's gap.
     // With a presenter (a session over MCP) the screen is the changes since the one the coding agent holds, the action's lead first;
     // `expectChange` says an unchanged screen after this action is worth pointing out.
-    private async Task<string> DescribeAsync(string action, CancellationToken token, bool expectChange = false)
+    // Once the step shows pixels (a screenshot went to the model), every look carries a fresh one (upstream's `showingPixels`).
+    // `pixels` asks for one beside a look that would not carry it (the screenshot tool).
+    private async Task<ScreenText> DescribeAsync(string action, CancellationToken token, bool expectChange = false, bool pixels = false)
     {
-        var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
-        return _screen is null
-            ? action + "\n" + _feed.Text(observation)
-            : _screen.Update(_feed.ListedView(observation, _scope), new ScreenUpdateOptions { Lead = action, ExpectChange = expectChange });
+        if (_screen is not null)
+        {
+            var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
+            return new ScreenText(_screen.Update(_feed.ListedView(observation, _scope), new ScreenUpdateOptions { Lead = action, ExpectChange = expectChange }), null);
+        }
+
+        if (!pixels && _pixels?.Showing != true)
+        {
+            // A screen the engine cannot read as a tree is shown by its pixels alone, whether or not the step asked for one.
+            var observation = await _feed.ObserveAsync(SettleMode.HeldStill, token).ConfigureAwait(false);
+            if (!observation.TreeUnavailable)
+            {
+                return new ScreenText(action + "\n" + _feed.Text(observation), null);
+            }
+        }
+
+        var view = await _feed.ObserveAsync(new ExecutorObserveOptions { Pixels = true }, token).ConfigureAwait(false);
+        if (view.Pixels is { } shot)
+        {
+            if (_pixels is not null)
+            {
+                _pixels.Showing = true;
+            }
+
+            return new ScreenText(action + "\n" + view.Text + "\n\n" + PixelMode.Note(shot), shot);
+        }
+
+        // The pixels the step asked for did not come: say why once and keep working from the tree.
+        return new ScreenText(action + "\n" + view.Text + (view.PixelsWithheld is { } withheld ? "\n\nNo screenshot: " + PixelMode.WithheldAdvice(withheld) : ""), null);
     }
 
     // A session's `observe`: the whole screen, every time. The presenter takes it as the baseline for the changes that follow.
@@ -461,6 +507,9 @@ internal sealed partial class ActTools(AttemptScope scope, ObservationFeed feed,
 
     [GeneratedRegex(@"^(?:(?:Shift|Control|Alt|Meta)\+)*(?:Tab|Arrow(?:Left|Right|Up|Down)|Home|End|PageUp|PageDown)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex FocusOnlyKey();
+
+    // The screen a look rendered, and the screenshot that goes with it, when the look took one.
+    private readonly record struct ScreenText(string Text, ExecutorPixels? Pixels);
 
     // Upstream's ActionLabel: what an action's result opens with, `Done` when it ran, and `Attempt`, the tool and what it was aimed at,
     // for the lead of a failure, so a failed action never reads as done.
