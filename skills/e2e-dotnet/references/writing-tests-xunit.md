@@ -99,7 +99,7 @@ public sealed class Dashboard : E2ETest
         await Screen.GetByLabel("Username").FillAsync(admin.Username);
         await Screen.GetByLabel("Password").FillAsync(admin.Password);
         await Screen.GetByRole("button", "Sign in").TapAsync();
-        await Expect.That(Browser).ToHaveUrlAsync("/dashboard");
+        await Expect.That(Browser).ToHaveURLAsync("/dashboard");
         await SaveSessionAsync("admin");
     }
 
