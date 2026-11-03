@@ -129,9 +129,9 @@ public class StepExecutorContext
     }
 
     /// <summary>
-    /// Keeps pixels the executor or one of its tools observed as a screenshot of the step in progress, and returns the
-    /// path of the file, relative to the project root. The file is named by <paramref name="label"/> and lands in the
-    /// attempt's results directory. For a tool with evidence worth keeping.
+    /// Keeps pixels the executor or one of its tools observed as a <c>screenshot</c> artifact of the step in progress, and
+    /// returns the artifact's report id. The file is named by <paramref name="label"/> and lands in the attempt's results
+    /// directory, and the report's artifact records it like every screenshot the runner takes. For a tool with evidence worth keeping.
     /// </summary>
     public virtual Task<string> AttachScreenshotAsync(ExecutorPixels pixels, string label, CancellationToken cancellationToken = default) =>
         throw new NotSupportedException("This context does not keep screenshots.");

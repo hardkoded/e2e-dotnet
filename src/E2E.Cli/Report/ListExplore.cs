@@ -4,6 +4,7 @@
 
 using System.Globalization;
 using E2E.Internal;
+using E2E.Reports;
 
 namespace E2E.Cli.Report;
 
@@ -196,7 +197,7 @@ internal sealed class ExploreView
     /// The <c>Findings</c> section: a banner, then one block per finding, issues before warnings and the most severe first, each
     /// with where it was seen, what was expected against what the screen showed, the actions that reach it, and its screenshot.
     /// </summary>
-    public IReadOnlyList<string> FindingsSection()
+    public IReadOnlyList<string> FindingsSection(IReadOnlyList<ArtifactRecord> artifacts, string? artifactsRoot, Func<string, string> displayPath)
     {
         if (_findings.Count == 0)
         {
@@ -233,15 +234,26 @@ internal sealed class ExploreView
                 lines.AddRange(Detail(i == 0 ? "steps" : "", (i + 1).ToString(CultureInfo.InvariantCulture) + ". " + finding.Reproduction[i]));
             }
 
-            if (finding.ArtifactId is not null)
+            if (Screenshot(finding, artifacts, artifactsRoot, displayPath) is { } screenshot)
             {
-                lines.Add(DetailIndent + _pc.Dim("evidence".PadRight(DetailLabelWidth)) + "  " + _pc.Cyan(Format.Bounded(finding.ArtifactId)));
+                lines.Add(DetailIndent + _pc.Dim("evidence".PadRight(DetailLabelWidth)) + "  " + _pc.Cyan(Format.Bounded(screenshot)));
             }
 
             lines.Add("");
         }
 
         return lines;
+    }
+
+    /// <summary>The path of a finding's screenshot as the reporter shows paths; null when no artifact of the run has the finding's id.</summary>
+    private static string? Screenshot(ReportExploreFinding finding, IReadOnlyList<ArtifactRecord> artifacts, string? artifactsRoot, Func<string, string> displayPath)
+    {
+        if (finding.ArtifactId is null || artifacts.FirstOrDefault(artifact => artifact.Id == finding.ArtifactId)?.Path is not { } path)
+        {
+            return null;
+        }
+
+        return displayPath(artifactsRoot is null ? path : Path.Combine(artifactsRoot, path));
     }
 
     /// <summary>The agent's closing assessment, wrapped under its heading.</summary>

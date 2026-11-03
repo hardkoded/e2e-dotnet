@@ -140,9 +140,18 @@ internal sealed partial class ActContext : StepExecutorContext
     {
         ArgumentNullException.ThrowIfNull(pixels);
         ArgumentException.ThrowIfNullOrWhiteSpace(label);
-        var screenshots = _scope.Screenshots
-            ?? throw new TestException("UNSUPPORTED_CAPABILITY", "this attempt keeps no results, so there is nowhere to keep the screenshot");
-        return Task.FromResult(screenshots.KeepEvidence(UnsafeInName().Replace(label, "-"), pixels.Data));
+        var screenshots = _scope.Screenshots;
+        var artifacts = _scope.Artifacts;
+        if (screenshots is null || artifacts is null)
+        {
+            throw new TestException("UNSUPPORTED_CAPABILITY", "this attempt keeps no results, so there is nowhere to keep the screenshot");
+        }
+
+        // Upstream writes the file, registers it as a `screenshot` artifact, and attaches it to the step in progress.
+        var kept = Path.GetFullPath(Path.Combine(screenshots.ProjectRoot, screenshots.KeepEvidence(UnsafeInName().Replace(label, "-"), pixels.Data)));
+        var id = artifacts.Sink.Register(Reports.ArtifactKind.Screenshot, Path.GetRelativePath(artifacts.Dir, kept).Replace('\\', '/'));
+        _scope.Steps.AttachArtifact(id);
+        return Task.FromResult(id);
     }
 
     /// <summary>Keeps the transcript the executor attached, redacted like any log. Best effort: a transcript never fails the step.</summary>
