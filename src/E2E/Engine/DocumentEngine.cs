@@ -236,7 +236,7 @@ public sealed class DocumentEngine : IEngine
             cancellationToken.ThrowIfCancellationRequested();
             if (_focused is null)
             {
-                throw new EngineException("NOT_ACTIONABLE", "nothing that takes keystrokes has focus: the typed text would reach no field. Tap the field first, or type into a listed input by id.");
+                throw new EngineException(EngineErrorCodes.NotActionable, "nothing that takes keystrokes has focus: the typed text would reach no field. Tap the field first, or type into a listed input by id.");
             }
 
             RequireText(_focused);
