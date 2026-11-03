@@ -383,7 +383,10 @@ lines you changed:
   settles, replayed actions included. Use it to observe (log, screenshot),
   never to drive the app. It is awaited and counts toward `Timeout`. A throw
   fails the step with `agent.act onAction failed: ...`, and a check inside it
-  never confirms the act (topic `agent`).
+  never confirms the act. `TapAtActionEvent`, `HoverAtActionEvent`, and
+  `DragAtActionEvent` carry `Point`, or `From` and `To`, in the space of
+  `Screen.TapAtAsync`, replayed too; `ActionEvent.ActionName` is the action as
+  an enum (topic `agent`).
 - Check each act's outcome. Only a verified act is recorded and replayed
   (topic `agent`).
 - `App.ScreenshotAsync(label)` keeps a redacted evidence screenshot under the

@@ -14,7 +14,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 
 | Type | Summary |
 | --- | --- |
-| [ActionEvent](/api/E2E/ActionEvent/) | One completed action of an agent.act step, as OnAction receives it. |
+| [ActionEvent](/api/E2E/ActionEvent/) | One completed action of an agent.act step, as OnAction receives it. Upstream types it as a union keyed by action; here the base event is a record and TapAtActionEvent, HoverAtActionEvent, and DragAtActionEvent carry the details of their action. Match on the type, or on ActionName, to read them. |
 | [ActionOptions](/api/E2E/ActionOptions/) | Options for one locator action. |
 | [ActOptions](/api/E2E/ActOptions/) | Values passed into one ActAsync goal. Put fresh data in Unique(string). |
 | [ActResult](/api/E2E/ActResult/) |  |
@@ -48,6 +48,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [ConfigurationException](/api/E2E/ConfigurationException/) | e2e.config.json is invalid. The code is INVALID_CONFIG. |
 | [Credentials](/api/E2E/Credentials/) | The accounts of the config's credentials (upstream's credentials, secrets.ts): E2E_USER_{NAME}_USERNAME and E2E_USER_{NAME}_PASSWORD replace the config's values. While a session runs, only a configured name resolves. |
 | [DefaultAgent](/api/E2E/DefaultAgent/) | Upstream's createBuiltInAgent (agent/default-agent.ts): the tool loop with the built-in rules, tools, and opening prompt. |
+| [DragAtActionEvent](/api/E2E/DragAtActionEvent/) | A dragAt the step dispatched. Mobile engines have no dragAt. |
 | [E2EConfig](/api/E2E/E2EConfig/) | The resolved e2e.config.json. The JSON shape follows upstream e2e.config.ts: targets[].app.url, named agents, top-level timeouts in milliseconds, retries, cache, secrets, and reporters (type names, .NET-only). Unknown keys fail with INVALID_CONFIG. E2ETest finds and applies this file; a fixture can still override each value. There is no default model. |
 | [E2EDefaults](/api/E2E/E2EDefaults/) | The upstream defaults, in one place. E2EConfig, E2ESessionOptions, and the NUnit fixture all start from these values. |
 | [E2EException](/api/E2E/E2EException/) | Base exception for the agent and engines. Code is stable. |
@@ -90,6 +91,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [GoogleModel](/api/E2E/GoogleModel/) | Google Gemini API (Generative Language) client. Tool schemas go as parametersJsonSchema, so the agent's JSON Schemas need no conversion. Thought signatures Gemini attaches to a function call are sent back with it. |
 | [GoogleModelOptions](/api/E2E/GoogleModelOptions/) |  |
 | [GotoOptions](/api/E2E/GotoOptions/) | Options of GotoAsync. |
+| [HoverAtActionEvent](/api/E2E/HoverAtActionEvent/) | A hoverAt the step dispatched. Mobile engines have no hoverAt. |
 | [Locator](/api/E2E/Locator/) | A query that resolves against a fresh observation every time it is used. |
 | [LocatorExpect](/api/E2E/LocatorExpect/) | Matchers that retry until they pass or the assertion timeout elapses. Each takes an optional timeout that replaces the assertion timeout for that call. |
 | [LocatorExpression](/api/E2E/LocatorExpression/) | A locator expression. Query kinds (role, text, label, testid, placeholder, displayValue) search the descendants of Parent when it is set. filter and index narrow Source. union matches either Left or Right, each node once, in document order. selector is a CSS or XPath selector in the engine's own language, and frame scopes Source into the iframe Selector names. |
@@ -153,6 +155,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 | [StoredArtifactLink](/api/E2E/StoredArtifactLink/) | One provider-hosted recording, handed to PutLinkAsync once the attempt stopped it (upstream's StoredArtifactLink). |
 | [SwipeOptions](/api/E2E/SwipeOptions/) | Options for SwipeAsync and SwipeAsync. Upstream's SwipeOptions. |
 | [SwipePathOptions](/api/E2E/SwipePathOptions/) | Options for SwipeAsync: a swipe along a path between two viewport points. Upstream's SwipePathOptions. |
+| [TapAtActionEvent](/api/E2E/TapAtActionEvent/) | A tapAt the step dispatched. Upstream's ActionEvent narrowed to tapAt. |
 | [TapOptions](/api/E2E/TapOptions/) | Options for TapAsync and ClickAsync. Upstream's TapOptions. |
 | [TargetConfig](/api/E2E/TargetConfig/) | One entry of targets. The port drives the web, ios, and android platforms. |
 | [TestContext](/api/E2E/TestContext/) | The fixtures for one test. Call Skip before the first step when a precondition is missing. |
@@ -199,6 +202,7 @@ The core. Agent, Screen, Expect, the engines, model clients, config, and the rep
 
 | Type | Summary |
 | --- | --- |
+| [ActionName](/api/E2E/ActionName/) | The name ActionEvent reports a committed action under (upstream's ActionName). Upstream's typeText, pressKey, and dismissKeyboard are left out: the port has no such actions. A clear reads Type. |
 | [ActionSource](/api/E2E/ActionSource/) | Who chose an action an ActionEvent reports. |
 | [AppLogLevel](/api/E2E/AppLogLevel/) | How bad a line the app logged was. |
 | [AppLogSource](/api/E2E/AppLogSource/) | Where a line the app logged came from (upstream's AppLogSource). |

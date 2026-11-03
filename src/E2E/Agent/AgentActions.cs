@@ -14,6 +14,61 @@ namespace E2E;
 /// </summary>
 internal static class AgentActions
 {
+    /// <summary>The name an event reports for an action string (upstream's <c>ActionName</c>); a project tool reads <see cref="ActionName.Tool"/>.</summary>
+    public static ActionName NameOf(string action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        if (action.StartsWith(ActionNames.ProjectToolEventPrefix, StringComparison.Ordinal))
+        {
+            return ActionName.Tool;
+        }
+
+        return action switch
+        {
+            "tap" => ActionName.Tap,
+            "doubleTap" => ActionName.DoubleTap,
+            "longPress" => ActionName.LongPress,
+            "secondaryTap" => ActionName.SecondaryTap,
+            "hover" => ActionName.Hover,
+            "scrollTo" => ActionName.ScrollTo,
+            "fill" or "clear" => ActionName.Type,
+            "press" => ActionName.Press,
+            "select" => ActionName.Select,
+            "check" or "uncheck" => ActionName.Check,
+            "upload" => ActionName.Upload,
+            "drag" => ActionName.Drag,
+            "scroll" => ActionName.Scroll,
+            "scrollUntil" => ActionName.ScrollUntil,
+            "navigate" => ActionName.Navigate,
+            "back" => ActionName.Back,
+            "tapAt" => ActionName.TapAt,
+            "hoverAt" => ActionName.HoverAt,
+            "dragAt" => ActionName.DragAt,
+            _ => throw new ArgumentException("\"" + action + "\" is not an action an event reports.", nameof(action)),
+        };
+    }
+
+    /// <summary>The project tool an action string names, or null.</summary>
+    public static string? ToolNameOf(string action) =>
+        action.StartsWith(ActionNames.ProjectToolEventPrefix, StringComparison.Ordinal) ? action[ActionNames.ProjectToolEventPrefix.Length..] : null;
+
+    /// <summary>
+    /// Upstream's <c>actionEvent</c>: the <c>onAction</c> event of one committed action. A point action carries its points; a secret fill
+    /// reads <see cref="ActionName.TypeSecret"/>. Points are values, so a hook cannot move what the trace cache records.
+    /// </summary>
+    public static ActionEvent EventOf(RecordedAction action, int index, string summary, ActionSource source)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        return action.Kind switch
+        {
+            "tapAt" when action.Point is { } point => new TapAtActionEvent(index, action.Kind, summary, source, point),
+            "hoverAt" when action.Point is { } point => new HoverAtActionEvent(index, action.Kind, summary, source, point),
+            "dragAt" when action.From is { } from && action.To is { } to => new DragAtActionEvent(index, action.Kind, summary, source, from.Point, to.Point),
+            "fill" when action.Value is { } value && value.StartsWith("<secret:", StringComparison.Ordinal) => new ActionEvent(index, action.Kind, summary, source) { ActionName = ActionName.TypeSecret },
+            _ => new ActionEvent(index, action.Kind, summary, source),
+        };
+    }
+
     /// <summary>Roles whose first text names the thing a control belongs to: a row's key, a list item's title.</summary>
     private static readonly HashSet<string> ContainerRoles = new(["row", "listitem", "article", "group", "region", "dialog", "tabpanel"], StringComparer.Ordinal);
 

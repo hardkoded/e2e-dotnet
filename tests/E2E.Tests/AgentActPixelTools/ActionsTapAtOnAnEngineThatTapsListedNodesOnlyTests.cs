@@ -53,7 +53,16 @@ public sealed class ActionsTapAtOnAnEngineThatTapsListedNodesOnlyTests
             });
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions { Engine = engine, AgentExecutor = executor, BaseUrl = "https://fixture.test", CacheEnabled = false, TestTitle = "taps outside the popover" });
         await session.App.OpenAsync("/");
-        await session.Agent.ActAsync("dismiss the calendar popover");
+        await session.Agent.ActAsync(
+            "dismiss the calendar popover",
+            new ActOptions
+            {
+                OnAction = e =>
+                {
+                    Assert.IsNotType<TapAtActionEvent>(e);
+                    return Task.CompletedTask;
+                },
+            });
         session.Complete();
 
         Assert.Equal(["dismiss"], engine.Performed);

@@ -52,7 +52,16 @@ public sealed class ActionsDragAtOnAnEngineThatDragsListedNodesOnlyTests
             });
         await using var session = await E2ESession.StartAsync(new E2ESessionOptions { Engine = engine, AgentExecutor = executor, BaseUrl = "https://fixture.test", CacheEnabled = false, TestTitle = "moves the card to done" });
         await session.App.OpenAsync("/");
-        await session.Agent.ActAsync("move the card to done");
+        await session.Agent.ActAsync(
+            "move the card to done",
+            new ActOptions
+            {
+                OnAction = e =>
+                {
+                    Assert.IsNotType<DragAtActionEvent>(e);
+                    return Task.CompletedTask;
+                },
+            });
         session.Complete();
 
         Assert.Equal("UNSUPPORTED_CAPABILITY", refused);

@@ -46,11 +46,37 @@ public sealed partial class Agent
 
         public void MarkActing() => feed.MarkActing();
 
+        // The points the replay last dispatched, which the next commit reports: where the recorded point landed on this screen, not the recorded one.
+        private Point? _tapped;
+        private (Point From, Point To)? _dragged;
+
+        // The action as the replay dispatched it: a point action reads the point it acted at. The step still records the action as read.
+        private RecordedAction Dispatched(RecordedAction action)
+        {
+            RecordedAction shown;
+            switch (action.Kind)
+            {
+                case "tapAt" or "hoverAt" when _tapped is { } point:
+                    shown = action.Copy();
+                    shown.Point = point;
+                    return shown;
+                case "dragAt" when _dragged is { } drag && action.From is not null && action.To is not null:
+                    shown = action.Copy();
+                    shown.From = action.From.Copy();
+                    shown.From.Point = drag.From;
+                    shown.To = action.To.Copy();
+                    shown.To.Point = drag.To;
+                    return shown;
+                default:
+                    return action;
+            }
+        }
+
         public Task CommitAsync(RecordedAction action)
         {
             // The entry was expanded when it was read, so the step records the action as this run read it, and templates it when it finishes.
             budget.Recorder.Record(action);
-            return dispatcher.NotifyAsync(action, ActionSource.Replay);
+            return dispatcher.NotifyAsync(Dispatched(action), ActionSource.Replay);
         }
 
         public Task TapAsync(ExecutorTarget target, ClickOptions? options, CancellationToken cancellationToken = default) => ClickAsync("tap", target, options, cancellationToken);
@@ -167,6 +193,7 @@ public sealed partial class Agent
         public async Task<PointTapResult> TapAtAsync(Point point, CancellationToken cancellationToken = default)
         {
             await scope.Session.PerformAtAsync(point, new PointerAction.Tap(), cancellationToken).ConfigureAwait(false);
+            _tapped = point;
             feed.ArmAfter(new RecordedAction { Kind = "tapAt" });
             return new PointTapResult(point, null, "");
         }
@@ -174,6 +201,7 @@ public sealed partial class Agent
         public async Task<PointTapResult> HoverAtAsync(Point point, CancellationToken cancellationToken = default)
         {
             await scope.Session.PerformAtAsync(point, new PointerAction.Hover(), cancellationToken).ConfigureAwait(false);
+            _tapped = point;
             feed.ArmAfter(new RecordedAction { Kind = "hoverAt" });
             return new PointTapResult(point, null, "");
         }
@@ -181,6 +209,7 @@ public sealed partial class Agent
         public async Task<PointDragResult> DragAtAsync(Point from, Point to, CancellationToken cancellationToken = default)
         {
             await scope.Session.PerformAtAsync(from, new PointerAction.DragTo(to), cancellationToken).ConfigureAwait(false);
+            _dragged = (from, to);
             feed.ArmAfter(new RecordedAction { Kind = "dragAt" });
             return new PointDragResult(from, to, null, null, "");
         }

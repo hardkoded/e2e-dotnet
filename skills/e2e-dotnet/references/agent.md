@@ -166,6 +166,14 @@ outside, `Blocked` is true); `MODEL_OUTPUT_INVALID` (unusable answer),
   budget), `Action` (`tap`, `navigate`, and so on; a mutating project tool
   reads `tool:<name>`), `Summary` (what the action did, secrets redacted), and
   `Source` (`ActionSource.Model`, or `ActionSource.Replay` for a cached action).
+  Match on the event to read an action's details: `TapAtActionEvent.Point` and
+  `HoverAtActionEvent.Point` for `tapAt` and `hoverAt`, `DragAtActionEvent.From`
+  and `To` for `dragAt` (`using E2E.Engine;` for `Point`). Points are in the
+  same space as `Screen.TapAtAsync` and `BoundingBox`, rounded and clamped to
+  the viewport. A replay reports the points it dispatches on the current
+  screen. Mobile engines have no `hoverAt` or `dragAt`. `ActionName` is the
+  action as an enum (`TapAt`, `Navigate`, ..., `Tool`), and `ToolName` names a
+  mutating project tool (`Action` still reads `tool:<name>`).
 
 ```csharp
 await Agent.ActAsync("open settings and turn on dark mode", new ActOptions
