@@ -589,6 +589,7 @@ public sealed class CdpSessionRecoveryTests
     private static Task<IEngineSession> StartAsync(TinySite app, WebEngine engine, TimeSpan? actionTimeout = null) =>
         StartAsync(app.Url, app.Url + "login", engine, actionTimeout);
 
+    /// <summary>Starts the engine's attempt at <paramref name="baseUrl"/> and opens <paramref name="loginUrl"/>; a page that is not served over the network cannot be aborted by a loaded runner.</summary>
     private static async Task<IEngineSession> StartAsync(string baseUrl, string loginUrl, WebEngine engine, TimeSpan? actionTimeout = null)
     {
         var session = await engine.StartAsync(new EngineStartOptions { BaseUrl = baseUrl, ActionTimeout = actionTimeout ?? TimeSpan.FromSeconds(10) }, None);
