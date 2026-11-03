@@ -55,7 +55,7 @@ public abstract class MobileAppTest : E2ETest
     {
         var cancellationToken = Xunit.TestContext.Current.CancellationToken;
         // A test the filters left out must not lease a device: the base class skips it, but only after this lease.
-        RunSelection.SkipIfLeftOut(GetType(), Xunit.TestContext.Current.Test?.TestCase.TestMethodName);
+        RunSelection.SkipIfLeftOut(GetType(), (Xunit.TestContext.Current.Test ?? throw new InvalidOperationException("The E2E session starts inside a running xUnit test.")).TestCase.TestMethodName);
         await MobileAppHost.LeaseAsync(CreateMobileOptions, ProjectRoot, Console.WriteLine, cancellationToken);
         await base.InitializeAsync();
         await MobileAppHost.InstallAndOpenAsync(Device, AppId, AppPath, cancellationToken);
