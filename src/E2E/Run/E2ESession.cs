@@ -317,6 +317,7 @@ public sealed class E2ESession : IAsyncDisposable
                 EngineName = options.Engine.Name,
                 EngineVersion = options.Engine.Version,
                 EngineCapabilities = options.Engine.Capabilities,
+                ActionKinds = engine.ActionKinds,
                 Attempt = options.Attempt,
                 ActionTimeout = options.ActionTimeout,
                 ReplayTimeout = options.ReplayTimeout,

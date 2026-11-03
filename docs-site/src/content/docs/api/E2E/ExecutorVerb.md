@@ -31,7 +31,7 @@ One verb of [IExecutorActions](/api/E2E/IExecutorActions/). The port has the ver
 
 
 ```csharp
-Back = 12
+Back = 16
 ```
 
 
@@ -43,7 +43,7 @@ Back = 12
 
 
 ```csharp
-Check = 7
+Check = 11
 ```
 
 
@@ -55,7 +55,7 @@ Check = 7
 
 
 ```csharp
-Clear = 4
+Clear = 8
 ```
 
 
@@ -73,13 +73,49 @@ DoubleTap = 1
 
 **Value:** [ExecutorVerb](./)
 
+<a id="E2E_ExecutorVerb_Drag"></a>
+
+### Drag
+
+
+```csharp
+Drag = 5
+```
+
+
+**Value:** [ExecutorVerb](./)
+
+<a id="E2E_ExecutorVerb_Hover"></a>
+
+### Hover
+
+
+```csharp
+Hover = 4
+```
+
+
+**Value:** [ExecutorVerb](./)
+
+<a id="E2E_ExecutorVerb_LongPress"></a>
+
+### LongPress
+
+
+```csharp
+LongPress = 2
+```
+
+
+**Value:** [ExecutorVerb](./)
+
 <a id="E2E_ExecutorVerb_Navigate"></a>
 
 ### Navigate
 
 
 ```csharp
-Navigate = 11
+Navigate = 15
 ```
 
 
@@ -91,7 +127,7 @@ Navigate = 11
 
 
 ```csharp
-Press = 5
+Press = 9
 ```
 
 
@@ -103,7 +139,7 @@ Press = 5
 
 
 ```csharp
-Scroll = 10
+Scroll = 14
 ```
 
 
@@ -115,7 +151,7 @@ Scroll = 10
 
 
 ```csharp
-ScrollTo = 8
+ScrollTo = 12
 ```
 
 
@@ -127,7 +163,19 @@ ScrollTo = 8
 
 
 ```csharp
-ScrollUntil = 9
+ScrollUntil = 13
+```
+
+
+**Value:** [ExecutorVerb](./)
+
+<a id="E2E_ExecutorVerb_SecondaryTap"></a>
+
+### SecondaryTap
+
+
+```csharp
+SecondaryTap = 3
 ```
 
 
@@ -139,7 +187,7 @@ ScrollUntil = 9
 
 
 ```csharp
-Select = 6
+Select = 10
 ```
 
 
@@ -163,7 +211,7 @@ Tap = 0
 
 
 ```csharp
-Type = 2
+Type = 6
 ```
 
 
@@ -175,7 +223,7 @@ Type = 2
 
 
 ```csharp
-TypeSecret = 3
+TypeSecret = 7
 ```
 
 
@@ -187,7 +235,7 @@ TypeSecret = 3
 
 
 ```csharp
-Upload = 13
+Upload = 17
 ```
 
 

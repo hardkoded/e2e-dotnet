@@ -25,12 +25,12 @@ public sealed class SessionTestLinesTests
         await using var context = await SessionContext.StartAsync(engine);
         const EngineCapabilities all = EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | EngineCapabilities.Keyboard
             | EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Screenshot | EngineCapabilities.TapModifiers;
-        var catalog = SessionCatalog.Create(context, all, secrets: ["apiKey"], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt");
+        var catalog = SessionCatalog.Create(context, all, secrets: ["apiKey"], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt", actionKinds: EngineActionKinds.Locator);
 
         // Only what looks at the screen or reads the draft prints no line.
         Assert.Equal(["observe", "screenshot", "locate", "test_lines"], catalog.Entries.Select(pair => pair.Key).Where(name => !SessionTestLines.HasLine(name)));
         Assert.Equal(
-            ["tap", "double_tap", "type", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "type_secret"],
+            ["tap", "double_tap", "long_press", "right_click", "hover", "type", "press", "select", "check", "uncheck", "clear", "drag", "scroll_to", "scroll", "navigate", "back", "type_secret"],
             catalog.Entries.Select(pair => pair.Key).Where(SessionTestLines.HasLine));
     }
 
@@ -203,10 +203,15 @@ public sealed class SessionTestLinesTests
         var plan = new Fake("n51", "combobox", "Plan", Y: 80);
         var terms = new Fake("n52", "checkbox", "Terms", Y: 120);
         var card = new Fake("n53", "listitem", Text: "Card", Y: 160);
-        var session = new TestLineHarness([field, plan, terms, card, Save]);
+        var done = new Fake("n54", "region", "Done", Y: 200);
+        var session = new TestLineHarness([field, plan, terms, card, done, Save]);
         (string Line, string Tool, string Args)[] lines =
         [
             ("await Screen.GetByRole(\"button\", \"Save\").DoubleTapAsync();", "double_tap", """{ "target": "n2" }"""),
+            ("await Screen.GetByRole(\"button\", \"Save\").LongPressAsync();", "long_press", """{ "target": "n2" }"""),
+            ("await Screen.GetByRole(\"button\", \"Save\").SecondaryTapAsync();", "right_click", """{ "target": "n2" }"""),
+            ("await Screen.GetByRole(\"button\", \"Save\").HoverAsync();", "hover", """{ "target": "n2" }"""),
+            ("await Screen.GetByText(\"Card\").DragToAsync(Screen.GetByRole(\"region\", \"Done\"));", "drag", """{ "target": "n53", "to": "n54" }"""),
             ("await Screen.GetByRole(\"textbox\", \"Notes\").PressAsync(\"Enter\");", "press", """{ "target": "n50", "key": "Enter" }"""),
             ("await Screen.GetByRole(\"combobox\", \"Plan\").SelectOptionAsync(\"Pro\");", "select", """{ "target": "n51", "value": "Pro" }"""),
             ("await Screen.GetByRole(\"checkbox\", \"Terms\").CheckAsync();", "check", """{ "target": "n52" }"""),
@@ -232,6 +237,8 @@ public sealed class SessionTestLinesTests
         Assert.Matches(@"^No test line: scrolling to a text has none", NoteOf(await session.RunAsync("scroll_to", """{ "text": "Row 40" }""")));
         Assert.Matches(@"^No test line: the secret is neither", NoteOf(await session.RunAsync("type_secret", """{ "target": "n60", "secret": "unknown" }""")));
         Assert.Matches(@"^No test line: a locator tap takes no modifier keys", NoteOf(await session.RunAsync("tap", """{ "target": "n2", "modifiers": ["Shift"] }""")));
+        Assert.Matches(@"^No test line: a locator right click takes no modifier keys", NoteOf(await session.RunAsync("right_click", """{ "target": "n2", "modifiers": ["Shift"] }""")));
+        Assert.Equal("No test line: the drop target: node n404 is not on the newest screen.", NoteOf(await session.RunAsync("drag", """{ "target": "n2", "to": "n404" }""")));
         Assert.Equal("No test line: node n404 is not on the newest screen.", NoteOf(await session.RunAsync("tap", """{ "target": "n404" }""")));
     }
 

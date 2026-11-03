@@ -44,6 +44,9 @@ internal sealed class FakeEngine : IEngine
         }
     }
 
+    /// <summary>The locator action kinds the engine declares. Null declares every kind, as an engine that says nothing does.</summary>
+    public IReadOnlyCollection<string>? Kinds { get; init; }
+
     /// <summary>Capabilities the engine declares beyond the base four.</summary>
     public EngineCapabilities Also { get; init; }
 
@@ -119,6 +122,8 @@ internal sealed class FakeEngine : IEngine
             return Task.FromResult<IReadOnlyList<VideoSegment>>([new VideoFile { Path = "video/fake.webm", StartedAt = DateTimeOffset.UtcNow.ToString("O") }]);
         }
 
+
+        public IReadOnlyCollection<string> ActionKinds => engine.Kinds ?? EngineActionKinds.Locator;
 
         public string Route { get; private set; } = "/";
 

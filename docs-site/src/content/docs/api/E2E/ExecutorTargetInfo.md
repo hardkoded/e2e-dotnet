@@ -65,7 +65,7 @@ public bool TapModifiers { get; init; }
 ```
 
 
-True when `TapAsync` and `DoubleTapAsync` take [Modifiers](/api/E2E/ClickOptions/#E2E_ClickOptions_Modifiers).
+True when `TapAsync`, `DoubleTapAsync`, and `SecondaryTapAsync` take [Modifiers](/api/E2E/ClickOptions/#E2E_ClickOptions_Modifiers).
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 

@@ -27,6 +27,27 @@ public sealed class TheGrammarToolsHaveClosedSchemasTests
             bare.Select(tool => tool.Name).Order(StringComparer.Ordinal));
     }
 
+    // Part of upstream's "offers the whole vocabulary over the full grammar": the pointer verbs follow the action kinds the engine declares,
+    // where upstream's follow the verbs its target lists, and drag names its drop target in a second argument.
+    [Fact]
+    public void Offers_each_pointer_verb_only_for_the_action_kind_the_engine_declares()
+    {
+        string[] pointer = ["drag", "hover", "long_press", "right_click"];
+        static IEnumerable<string> Offered(IReadOnlyCollection<string>? kinds) =>
+            AgentTools.CreateGrammarTools(EngineCapabilities.None, null, kinds).Select(tool => tool.Name).Where(name => name is "drag" or "hover" or "long_press" or "right_click").Order(StringComparer.Ordinal);
+
+        Assert.Equal(pointer, Offered(EngineActionKinds.Locator));
+        Assert.Equal(["drag", "hover", "long_press"], Offered(["tap", "doubleTap", "longPress", "hover", "dragTo"]));
+        Assert.Equal(["right_click"], Offered(["secondaryTap"]));
+        Assert.Empty(Offered([]));
+        Assert.Empty(Offered(null));
+
+        var drag = AgentTools.CreateGrammarTools(EngineCapabilities.None, null, EngineActionKinds.Locator).Single(tool => tool.Name == "drag");
+        Assert.Equal(["to"], drag.Parameters.GetProperty("required").EnumerateArray().Select(item => item.GetString()));
+        Assert.True(drag.Parameters.GetProperty("properties").GetProperty("to").GetProperty("properties").TryGetProperty("ref", out _));
+        Assert.True(AgentTools.IsReserved("drag"));
+    }
+
     // Partial of upstream's scroll_to "it": the port checks the text ceiling and the declared fields, not the closed shape.
     [Fact]
     public void Declares_the_text_of_scroll_to_with_a_ceiling_beside_a_target_and_a_direction()

@@ -1374,6 +1374,12 @@ internal sealed class AttemptScope
     /// <summary>What the engine declared. Scroll and back tools are offered only when it can honor them.</summary>
     public EngineCapabilities EngineCapabilities { get; init; }
 
+    /// <summary>
+    /// The locator action kinds the engine declared (<see cref="IEngineSession.ActionKinds"/>): the pointer verbs of the grammar
+    /// (<c>long_press</c>, <c>right_click</c>, <c>hover</c>, <c>drag</c>) are offered, and run, only for the kinds named here. Null declares none.
+    /// </summary>
+    public IReadOnlyCollection<string>? ActionKinds { get; init; }
+
     public int Attempt { get; init; } = 1;
 
     public TimeSpan ActionTimeout { get; init; } = E2EDefaults.ActionTimeout;

@@ -71,6 +71,10 @@ internal static class SettlePolicy
     {
         ["tap"] = Moves,
         ["doubleTap"] = Moves,
+        ["longPress"] = Moves,
+        ["secondaryTap"] = Moves,
+        ["hover"] = Moves,
+        ["drag"] = Moves,
         ["press"] = Moves,
         ["select"] = Moves,
         ["check"] = Moves,

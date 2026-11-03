@@ -25,6 +25,22 @@ public sealed class RecordedAction
 
 ## Properties
 
+<a id="E2E_RecordedAction_Destination_"></a>
+<a id="E2E_RecordedAction_Destination"></a>
+
+### Destination
+
+
+```csharp
+public RecordedTarget? Destination { get; set; }
+```
+
+
+Upstream's `destination` of a `drag`: the node the source was dropped on, described like the source with the container it
+sat in. A replay re-finds both ends on one screen before it drags. Null on every other action.
+
+**Value:** [RecordedTarget](/api/E2E/RecordedTarget/)
+
 <a id="E2E_RecordedAction_Direction_"></a>
 <a id="E2E_RecordedAction_Direction"></a>
 
@@ -77,7 +93,7 @@ public List<string>? Modifiers { get; set; }
 ```
 
 
-Keys a `tap` or `doubleTap` held for the click, replayed with it. Null holds none.
+Keys a `tap`, `doubleTap`, or `secondaryTap` held for the click, replayed with it. Null holds none.
 
 **Value:** [List&lt;string&gt;](https://learn.microsoft.com/dotnet/api/system.collections.generic.list-1)
 

@@ -13,7 +13,7 @@ namespace E2E.Playground;
 /// test run. A port of upstream's <c>apps/testbed</c> with only the pages these tests use:
 /// the landing page, a plans page of copy with inline links and emphasis (unlisted in the nav), a todo list kept in localStorage, a checkout with one planted bug, a profile
 /// form, a sign-in form that sets a session cookie for the dashboard behind it, the workspace wizard, the swatches page that the screenshot tests compare,
-/// a page that loads users from <c>/api/users</c>, a pointer pad, a canvas with a drawn chart, the controls page, the browser fixture's own page, a counter for the speed floor, and the
+/// a page that loads users from <c>/api/users</c>, a pointer pad, a canvas with a drawn chart, a board with hover and drag (unlisted in the nav), the controls page, the browser fixture's own page, a counter for the speed floor, and the
 /// about page navigation lands on. E2E.NUnit.Tests links this file for its browser fixture tests.
 /// </summary>
 internal static class Testbed
@@ -444,6 +444,35 @@ internal static class Testbed
                        document.getElementById('picked').textContent = picked
                          ? 'picked the ' + picked.name + ' pin'
                          : 'missed at ' + Math.round(x) + ',' + Math.round(y);
+                     });
+                   </script>
+            """),
+
+        ["/board"] = ("Board", """
+            <h1>Board</h1>
+
+                   <div id="card-menu">Card actions</div>
+                   <button id="archive" hidden>Archive card</button>
+
+                   <ul aria-label="Todo column">
+                     <li id="card" draggable="true">Design review</li>
+                   </ul>
+                   <section id="done" aria-label="Done column">Done column</section>
+                   <output aria-label="Board state">Design review is in todo</output>
+
+                   <script>
+                     const boardState = document.querySelector('output[aria-label="Board state"]');
+                     document.getElementById('card-menu').addEventListener('mouseenter', () => {
+                       document.getElementById('archive').hidden = false;
+                     });
+                     document.getElementById('archive').addEventListener('click', () => {
+                       boardState.textContent = 'Design review is archived';
+                     });
+                     const done = document.getElementById('done');
+                     done.addEventListener('dragover', (event) => event.preventDefault());
+                     done.addEventListener('drop', (event) => {
+                       event.preventDefault();
+                       boardState.textContent = 'Design review is done';
                      });
                    </script>
             """),

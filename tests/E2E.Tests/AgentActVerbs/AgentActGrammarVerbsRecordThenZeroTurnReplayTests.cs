@@ -10,8 +10,7 @@ namespace E2E.Tests.AgentActVerbs;
 
 /// <summary>
 /// <c>agent.act</c> grammar verbs recorded on a first run, then replayed with no model call.
-/// Upstream's replay pass also runs hover, drag, and two repeated-press flows. This
-/// port has no hover or drag tool, and its press tool takes no repeat count.
+/// Upstream's replay pass also runs two repeated-press flows. This port's press tool takes no repeat count.
 /// The engine-name lines are not ported: a replay records no engine events. The upload policy line is.
 /// </summary>
 [Collection(BrowserCollection.Name)]
@@ -21,7 +20,7 @@ public sealed class AgentActGrammarVerbsRecordThenZeroTurnReplayTests(AgentActGr
     private const string RoundTrip = "opens a page and comes back";
 
     [Fact]
-    public void Records_the_check_and_scroll_verbs_on_the_first_run()
+    public void Records_every_verb_on_the_first_run()
     {
         foreach (var flow in ReplayFlows)
         {
@@ -32,7 +31,7 @@ public sealed class AgentActGrammarVerbsRecordThenZeroTurnReplayTests(AgentActGr
     }
 
     [Fact]
-    public void Replays_check_and_scroll_without_a_model_call_and_runs_a_round_trip_that_changed_nothing_live()
+    public void Replays_hover_drag_check_upload_and_scroll_into_view_without_a_model_call_and_runs_a_round_trip_that_changed_nothing_live()
     {
         // Every second-run flow passed its check: RunFlowAsync fails the fixture otherwise.
         // A round trip leaves the screen and the route as it found them: nothing a
