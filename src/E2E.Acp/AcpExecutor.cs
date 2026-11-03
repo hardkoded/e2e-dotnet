@@ -95,14 +95,6 @@ public static class AcpExecutor
             }
             catch (Exception error)
             {
-                // A tool's runtime error stopped the turn: the agent may answer the cancel with a failure, which is not the cause.
-                if (active.Halted is { } stopped)
-                {
-                    session.Close();
-                    context.Attempt.Memory.Remove(_memoryKey);
-                    ExceptionDispatchInfo.Capture(stopped).Throw();
-                }
-
                 if (cancellationToken.IsCancellationRequested)
                 {
                     // The step ended: stop the agent's turn, which the next step waits for.
