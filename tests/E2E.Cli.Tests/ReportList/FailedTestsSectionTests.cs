@@ -12,10 +12,6 @@ namespace E2E.Cli.Tests.ReportList;
 /// </summary>
 public sealed class FailedTestsSectionTests
 {
-    /// <summary>Upstream's <c>failedAttempt()</c>.</summary>
-    private static ReportAttempt FailedAttempt(string message) =>
-        Attempt(error: new ReportError("ASSERTION_FAILED", message), status: AttemptStatus.Failed);
-
     [Fact]
     public void Lists_a_retry_that_skipped_with_the_failed_attempts_error_and_evidence()
     {

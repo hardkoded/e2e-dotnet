@@ -38,6 +38,38 @@ internal static partial class ListReporterKit
             Steps = steps ?? [],
         };
 
+    /// <summary>Upstream's <c>failedAttempt()</c>.</summary>
+    public static ReportAttempt FailedAttempt(string message) =>
+        Attempt(error: new ReportError("ASSERTION_FAILED", message), status: AttemptStatus.Failed);
+
+    /// <summary>Upstream's <c>testStarted()</c>.</summary>
+    public static TestStartedEvent TestStarted(string testId, string title, string target, string file = "tests/case.e2e.ts", string agent = "default", string? serialId = null) =>
+        new(testId, agent, 0, title, file, serialId, target);
+
+    /// <summary>The <c>step</c> event of the default agent's first run of <paramref name="testId"/>, on <c>chromium</c>.</summary>
+    public static StepProgressEvent Step(string testId, StepProgress progress, string agent = "default") => new(testId, agent, 0, "chromium", progress);
+
+    /// <summary>Upstream's <c>agentStep()</c> of <c>describe('step streaming')</c>: an agent step's <c>start</c> or <c>end</c> progress.</summary>
+    public static StepProgress AgentStep(StepProgressPhase phase, string label, StepStatus status = StepStatus.Passed) =>
+        phase == StepProgressPhase.Start
+            ? new StepProgress { Phase = phase, Kind = StepKind.Agent, Api = "agent.act", Label = label }
+            : new StepProgress { Phase = phase, Kind = StepKind.Agent, Api = "agent.act", Label = label, Status = status, DurationMs = 4_200, ModelCalls = 3 };
+
+    /// <summary>Upstream's <c>agentStepRecord()</c>: a finished <c>agent.act</c> step record that carries <paramref name="cache"/>.</summary>
+    public static StepRecord AgentStepRecord(string label, CacheInfo? cache = null, string? agent = null, int index = 0) =>
+        new()
+        {
+            Id = label,
+            Index = index,
+            Kind = StepKind.Agent,
+            Api = "agent.act",
+            Label = label,
+            StartedAt = DateTimeOffset.UnixEpoch,
+            DurationMs = 10,
+            Cache = cache,
+            Agent = agent,
+        };
+
     /// <summary>Upstream's <c>result()</c>.</summary>
     public static RunEventResult Result(
         ResultStatus status,

@@ -2,12 +2,14 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
+using E2E.Reports;
+
 namespace E2E.Cli.Report;
 
 /// <summary>
 /// State the list reporter accumulates from the event stream (upstream's <c>report/list-model.ts</c>). Records, not rendered text: the
-/// reporter renders at its own indent and width when it prints. Not ported: the live window's <c>RunningTest</c> and
-/// <c>CurrentStep</c>, a test line's finished steps and replay notices, and <c>ConfiguredModel</c>, which only the replay notices read.
+/// reporter renders at its own indent and width when it prints. Not ported: the live window's <c>CurrentStep</c> and a running
+/// test's serial group, executing flag, and start time, and a test line's finished steps, which only the live window collects.
 /// </summary>
 internal sealed class FileGroup(string file, string target)
 {
@@ -23,6 +25,18 @@ internal sealed class FileGroup(string file, string target)
     /// <summary>Whether the file's block has printed.</summary>
     public bool Printed { get; set; }
 }
+
+/// <summary>One finished agent step of a pair, as the <c>End</c> progress reported it (upstream's <c>FinishedStep</c>).</summary>
+internal sealed record FinishedStep(string Api, string Label, StepStatus Status, long DurationMs, int ModelCalls);
+
+/// <summary>A pair that has started and whose result is still to come (upstream's <c>RunningTest</c>).</summary>
+internal sealed record RunningTest(FileGroup Group, string Title);
+
+/// <summary>The model and agent named in the run header (upstream's <c>ConfiguredModel</c>).</summary>
+internal sealed record ConfiguredModel(string Label, string Agent);
+
+/// <summary>One recording mismatch, rendered under its test (upstream's <c>ReplayNotice</c>). <c>Source</c> is the model that recorded, as <c>IAgentModel.Name</c> spells it.</summary>
+internal sealed record ReplayNotice(string Api, string Label, string Source);
 
 /// <summary>One finished test of a file group.</summary>
 internal sealed record TestLine
@@ -40,4 +54,6 @@ internal sealed record TestLine
     public string? FirstErrorLine { get; init; }
 
     public string? SkipReason { get; init; }
+
+    public IReadOnlyList<ReplayNotice> Replays { get; init; } = [];
 }
