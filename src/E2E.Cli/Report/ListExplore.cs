@@ -41,8 +41,6 @@ internal sealed class ExploreView
     private ExploreProgress.Planning? _planning;
     private ReportExploreEnded? _ended;
     private string? _summary;
-    private IReadOnlyList<ArtifactRecord> _artifacts = [];
-    private string? _artifactsRoot;
 
     public ExploreView(Colors pc, ExploreProgress.Started started, int columns)
     {
@@ -58,16 +56,6 @@ internal sealed class ExploreView
     public (ReportExploreStep Step, int Findings)? LastStep => _steps.Count == 0 ? null : (_steps[^1].Step, _steps[^1].Findings);
 
     private IEnumerable<ReportExploreFinding> Issues => _findings.Where(finding => finding.Kind == ReportExploreFindingKind.Issue);
-
-    /// <summary>
-    /// The exploration's attempt closed: keeps its artifacts, so a finding can name its screenshot (upstream's <c>result</c>).
-    /// <paramref name="artifactsRoot"/> is the directory their paths are relative to.
-    /// </summary>
-    public void Result(IReadOnlyList<ArtifactRecord> artifacts, string? artifactsRoot)
-    {
-        _artifacts = artifacts;
-        _artifactsRoot = artifactsRoot;
-    }
 
     /// <summary>Applies one moment of the exploration.</summary>
     public void Progress(ExploreProgress progress)
@@ -209,7 +197,7 @@ internal sealed class ExploreView
     /// The <c>Findings</c> section: a banner, then one block per finding, issues before warnings and the most severe first, each
     /// with where it was seen, what was expected against what the screen showed, the actions that reach it, and its screenshot.
     /// </summary>
-    public IReadOnlyList<string> FindingsSection(Func<string, string> displayPath)
+    public IReadOnlyList<string> FindingsSection(IReadOnlyList<ArtifactRecord> artifacts, string? artifactsRoot, Func<string, string> displayPath)
     {
         if (_findings.Count == 0)
         {
@@ -246,7 +234,7 @@ internal sealed class ExploreView
                 lines.AddRange(Detail(i == 0 ? "steps" : "", (i + 1).ToString(CultureInfo.InvariantCulture) + ". " + finding.Reproduction[i]));
             }
 
-            if (Screenshot(finding, displayPath) is { } screenshot)
+            if (Screenshot(finding, artifacts, artifactsRoot, displayPath) is { } screenshot)
             {
                 lines.Add(DetailIndent + _pc.Dim("evidence".PadRight(DetailLabelWidth)) + "  " + _pc.Cyan(Format.Bounded(screenshot)));
             }
@@ -258,14 +246,14 @@ internal sealed class ExploreView
     }
 
     /// <summary>The path of a finding's screenshot as the reporter shows paths; null when no artifact of the run has the finding's id.</summary>
-    private string? Screenshot(ReportExploreFinding finding, Func<string, string> displayPath)
+    private static string? Screenshot(ReportExploreFinding finding, IReadOnlyList<ArtifactRecord> artifacts, string? artifactsRoot, Func<string, string> displayPath)
     {
-        if (finding.ArtifactId is null || _artifacts.FirstOrDefault(artifact => artifact.Id == finding.ArtifactId)?.Path is not { } path)
+        if (finding.ArtifactId is null || artifacts.FirstOrDefault(artifact => artifact.Id == finding.ArtifactId)?.Path is not { } path)
         {
             return null;
         }
 
-        return displayPath(_artifactsRoot is null ? path : Path.Combine(_artifactsRoot, path));
+        return displayPath(artifactsRoot is null ? path : Path.Combine(artifactsRoot, path));
     }
 
     /// <summary>The agent's closing assessment, wrapped under its heading.</summary>
