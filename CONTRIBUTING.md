@@ -8,6 +8,7 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | --- | --- |
 | `src/E2E` | SDK: tests, expect, agent, cache, document engine, Playwright `WebEngine` |
 | `src/E2E.Eas` | EAS hosted simulators and emulators for `MobileEngine`, packed as `E2E.Eas` |
+| `src/E2E.GitHub` | The GitHub pull request comment reporter (`GitHubReporter`), packed as `E2E.GitHub` |
 | `src/E2E.Mobile` | Mobile engine: the snapshot model, locators, errors, the agent-device client, the device pool and providers, and the session over agent-device |
 | `src/E2E.Kernel` | Kernel hosted browsers for `WebEngineOptions.Browser`, packed as `E2E.Kernel` |
 | `src/E2E.Limrun` | Limrun hosted simulators and emulators for `MobileEngine`, packed as `E2E.Limrun` |
@@ -20,6 +21,7 @@ This repo is a community .NET port of [tester-army/e2e](https://github.com/teste
 | `tests/E2E.Tests` | Unit tests. No API key. The Chromium tests install the browser on the first launch |
 | `tests/E2E.Cli.Tests` | Tests of the `e2e` tool: the bundled skill, the MCP server, its sessions, and its tools. The server tests start `e2e mcp` as a child process, open a session on a fixture app in Chromium, and talk to it over stdio. No API key |
 | `tests/E2E.Eas.Tests` | Unit tests of `src/E2E.Eas`, with a fake EAS service. No device, no API key. The tests that evaluate a dynamic app config run a stand-in `expo` with `node`, so they need Node on the path |
+| `tests/E2E.GitHub.Tests` | Unit tests of `src/E2E.GitHub`, with a fake GitHub REST API. No token, no network. Ported from upstream's `packages/github/tests` |
 | `tests/E2E.Kernel.Tests` | Unit tests of `src/E2E.Kernel`, with a fake Kernel REST API. No browser, no API key. Ported from upstream's `packages/kernel/tests`, plus a few tests of the REST requests that are .NET-only |
 | `tests/E2E.BrowserStack.Tests` | Unit tests of `src/E2E.BrowserStack`, with a fake App Automate API and fake leases. No device, no account. The live test is skipped without `BROWSERSTACK_*` variables |
 | `tests/E2E.Limrun.Tests` | Unit tests of `src/E2E.Limrun`, with a fake Limrun API and a scripted device client. No device, no API key |
@@ -79,6 +81,6 @@ That needs the .NET 10 SDK. It runs DocFX metadata, then writes Markdown into `d
 
 ## Release
 
-Push a version tag such as `v0.1.0` (previews use `v0.1.0-preview.1`). `.github/workflows/publish.yml` tests, packs `E2E`, `E2E.NUnit`, `E2E.XUnit.V3`, `E2E.Cli`, `E2E.Mobile`, `E2E.Mobile.DevFlow`, `E2E.Limrun`, `E2E.BrowserStack`, `E2E.Eas`, `E2E.TestMu`, and `E2E.Kernel`, and pushes them to nuget.org with trusted publishing. The policy is repository owner `hardkoded`, repository `e2e-dotnet`, workflow file `publish.yml`. The workflow has to be on the default branch before the tag is pushed.
+Push a version tag such as `v0.1.0` (previews use `v0.1.0-preview.1`). `.github/workflows/publish.yml` tests, packs `E2E`, `E2E.NUnit`, `E2E.XUnit.V3`, `E2E.Cli`, `E2E.Mobile`, `E2E.Mobile.DevFlow`, `E2E.Limrun`, `E2E.BrowserStack`, `E2E.Eas`, `E2E.GitHub`, `E2E.TestMu`, and `E2E.Kernel`, and pushes them to nuget.org with trusted publishing. The policy is repository owner `hardkoded`, repository `e2e-dotnet`, workflow file `publish.yml`. The workflow has to be on the default branch before the tag is pushed.
 
 Docs are not published by the tag. Vercel publishes them on push to `main`. See [Documentation](#documentation).

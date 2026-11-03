@@ -82,7 +82,7 @@ public override Task<IReadOnlyList<ReporterSummaryRow>?> OnRunFinishedAsync(Fini
 }
 ```
 
-`MarkdownReportOptions` has five optional members. `ArtifactsUrl` is where the run's artifacts can be fetched, and the evidence of a failure links there. Without it, `ArtifactsDir` lists the evidence as paths under that directory. `SourceUrl` links a source line, `Traces` gives the path of each traced result's page by result id, and `Title` tells this run's page apart from another on the same pull request. The function reads only the report. It writes no file and posts nothing, it escapes and clips every title, label, and message, and the page never outgrows what GitHub accepts in a comment. The `summary.md` writer upstream ships is not ported.
+`MarkdownReportOptions` has five optional members. `ArtifactsUrl` is where the run's artifacts can be fetched, and the evidence of a failure links there. Without it, `ArtifactsDir` lists the evidence as paths under that directory. `SourceUrl` links a source line, `Traces` gives the path of each traced result's page by result id, and `Title` tells this run's page apart from another on the same pull request. The function reads only the report. It writes no file and posts nothing, it escapes and clips every title, label, and message, and the page never outgrows what GitHub accepts in a comment. The `summary.md` writer upstream ships is not ported. To post the page as a pull request comment from GitHub Actions, register `GitHubReporter` from `E2E.GitHub` instead of writing the request yourself: see [Pull request comments](/integrations/github/).
 
 ## Filtering a locator
 

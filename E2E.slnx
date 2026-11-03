@@ -12,6 +12,7 @@
     <Project Path="src/E2E.BrowserStack/E2E.BrowserStack.csproj" />
     <Project Path="src/E2E.Cli/E2E.Cli.csproj" />
     <Project Path="src/E2E.Eas/E2E.Eas.csproj" />
+    <Project Path="src/E2E.GitHub/E2E.GitHub.csproj" />
     <Project Path="src/E2E.Kernel/E2E.Kernel.csproj" />
     <Project Path="src/E2E.Limrun/E2E.Limrun.csproj" />
     <Project Path="src/E2E.Mobile.DevFlow/E2E.Mobile.DevFlow.csproj" />
@@ -32,6 +33,7 @@
     <Project Path="tests/E2E.BrowserStack.Tests/E2E.BrowserStack.Tests.csproj" />
     <Project Path="tests/E2E.Cli.Tests/E2E.Cli.Tests.csproj" />
     <Project Path="tests/E2E.Eas.Tests/E2E.Eas.Tests.csproj" />
+    <Project Path="tests/E2E.GitHub.Tests/E2E.GitHub.Tests.csproj" />
     <Project Path="tests/E2E.Kernel.Tests/E2E.Kernel.Tests.csproj" />
     <Project Path="tests/E2E.Limrun.Tests/E2E.Limrun.Tests.csproj" />
     <Project Path="tests/E2E.Mobile.DevFlow.Tests/E2E.Mobile.DevFlow.Tests.csproj" />
