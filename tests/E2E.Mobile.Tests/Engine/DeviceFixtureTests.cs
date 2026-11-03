@@ -10,7 +10,7 @@ namespace E2E.Mobile.Tests.Engine;
 
 public sealed class DeviceFixtureTests
 {
-    private static Task Tap(DeviceSession session, SemanticNode node) => session.PerformAsync(node, new LocatorAction.Tap(), CancellationToken.None);
+    private static Task Tap(DeviceSession session, SemanticNode node) => session.PerformAsync(node, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None);
 
     private static Harness Android(string? bundleId = null, bool pinned = true) =>
         Harness.Create(
@@ -50,7 +50,6 @@ public sealed class DeviceFixtureTests
     {
         var h = Harness.Create(options => options with { TransitionMilliseconds = 120 });
         var session = await OpenAttempt(h);
-        session.Origin = ActionOrigin.Test;
         await Observed(session, "Back");
         var device = session.Device;
         Func<Task>[] changes =
@@ -173,7 +172,7 @@ public sealed class DeviceFixtureTests
             ("apps.close", """{"platform":"ios","app":"com.apple.Preferences"}"""),
             ("command.appState", "{}"),
             ("command.home", """{"platform":"ios"}"""),
-            ("command.back", """{"settle":true,"settleQuietMs":150}"""),
+            ("command.back", """{}"""),
             ("command.alert", """{"platform":"ios","action":"accept"}"""),
             ("command.keyboard", """{"action":"dismiss"}"""),
             ("command.clipboard", """{"platform":"ios","action":"read"}"""),

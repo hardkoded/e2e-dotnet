@@ -73,7 +73,7 @@ internal sealed partial class ActionDispatcher
                 verb,
                 async token =>
                 {
-                    await _scope.Session.PerformAtAsync(clamped, nodeVerb == "tap" ? new PointerAction.Tap() : new PointerAction.Hover(), token).ConfigureAwait(false);
+                    await _scope.Session.PerformAtAsync(clamped, nodeVerb == "tap" ? new PointerAction.Tap() : new PointerAction.Hover(), OperationContext.Agent, token).ConfigureAwait(false);
                     await CommitAsync(recorded).ConfigureAwait(false);
                 },
                 cancellationToken).ConfigureAwait(false);
@@ -117,7 +117,7 @@ internal sealed partial class ActionDispatcher
                 "dragAt",
                 async token =>
                 {
-                    await _scope.Session.PerformAtAsync(start, new PointerAction.DragTo(end), token).ConfigureAwait(false);
+                    await _scope.Session.PerformAtAsync(start, new PointerAction.DragTo(end), OperationContext.Agent, token).ConfigureAwait(false);
                     await CommitAsync(recorded).ConfigureAwait(false);
                 },
                 cancellationToken).ConfigureAwait(false);

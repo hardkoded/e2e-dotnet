@@ -4,7 +4,7 @@
 
 namespace E2E.Engine;
 
-/// <summary>A deterministic action <see cref="IEngineSession.PerformAsync"/> carries out on one node.</summary>
+/// <summary>A deterministic action <see cref="IEngineSession.PerformAsync(SemanticNode, LocatorAction, CancellationToken)"/> carries out on one node.</summary>
 public abstract record LocatorAction
 {
     private LocatorAction()

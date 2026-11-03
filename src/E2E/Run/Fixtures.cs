@@ -103,7 +103,7 @@ public sealed class App
     /// <summary>Goes back one entry in the history. With no earlier entry it does nothing.</summary>
     public Task BackAsync(CancellationToken cancellationToken = default)
     {
-        return RunStepAsync("app.back", "", () => _session.BackAsync(Token(cancellationToken)));
+        return RunStepAsync("app.back", "", () => _session.BackAsync(OperationContext.Test, Token(cancellationToken)));
     }
 
     /// <summary>Closes the current document and reopens the app at <see cref="BaseUrl"/>. Cookies and storage are kept.</summary>

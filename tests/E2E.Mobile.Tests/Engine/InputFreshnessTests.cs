@@ -28,13 +28,6 @@ public sealed class InputFreshnessTests
     private static Harness WithTransition(int milliseconds) =>
         Harness.Create(options => options with { TransitionMilliseconds = milliseconds });
 
-    private static async Task<DeviceSession> OpenAs(Harness h, ActionOrigin origin, TimeSpan? actionTimeout = null)
-    {
-        var session = await OpenAttempt(h, actionTimeout: actionTimeout);
-        session.Origin = origin;
-        return session;
-    }
-
     private static int Snapshots(Harness h) => h.Fake.Methods().Count(method => method == "capture.snapshot");
 
     private static int Fills(Harness h) => h.Fake.Methods().Count(method => method == "interactions.fill");
@@ -72,12 +65,12 @@ public sealed class InputFreshnessTests
 
     private static LocatorAction Act(string kind) => kind == "fill" ? new LocatorAction.Fill("example") : new LocatorAction.Clear();
 
-    public static TheoryData<ActionOrigin, string, string> Cases(params string[] names)
+    public static TheoryData<OperationOrigin, string, string> Cases(params string[] names)
     {
-        var data = new TheoryData<ActionOrigin, string, string>();
+        var data = new TheoryData<OperationOrigin, string, string>();
         foreach (var name in names)
         {
-            foreach (var origin in new[] { ActionOrigin.Test, ActionOrigin.Agent })
+            foreach (var origin in new[] { OperationOrigin.Test, OperationOrigin.Agent })
             {
                 foreach (var kind in new[] { "fill", "clear" })
                 {
@@ -89,39 +82,37 @@ public sealed class InputFreshnessTests
         return data;
     }
 
-    public static TheoryData<ActionOrigin, string, string> ActsCases() => Cases("empty, over its placeholder", "filled");
+    public static TheoryData<OperationOrigin, string, string> ActsCases() => Cases("empty, over its placeholder", "filled");
 
-    public static TheoryData<ActionOrigin, string, string> RejectsCases() =>
+    public static TheoryData<OperationOrigin, string, string> RejectsCases() =>
         Cases("childless and valueless, like a React Native Pressable", "holding a control");
 
     [Theory]
     [MemberData(nameof(ActsCases))]
-    public async Task Acts_on_an_unclassified_iOS_field(ActionOrigin origin, string kind, string field)
+    public async Task Acts_on_an_unclassified_iOS_field(OperationOrigin origin, string kind, string field)
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
-        session.Origin = origin;
         var snapshot = field == "filled" ? Unclassified("Grace") : Unclassified(inside: Child("static-text", "Ada Lovelace"));
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => snapshot.DeepClone());
         var observed = await Observed(session, "Account");
 
-        await session.PerformAsync(observed, Act(kind), CancellationToken.None);
+        await session.PerformAsync(observed, Act(kind), new OperationContext(origin), CancellationToken.None);
 
         JsonAssert.Args(kind == "fill" ? """{"ref":"@e20","text":"example"}""" : """{"ref":"@e20","text":""}""", h.Fake.LastArgs("interactions.fill") is { } args ? Strip(args) : null);
     }
 
     [Theory]
     [MemberData(nameof(RejectsCases))]
-    public async Task Rejects_an_unclassified_iOS_element(ActionOrigin origin, string kind, string element)
+    public async Task Rejects_an_unclassified_iOS_element(OperationOrigin origin, string kind, string element)
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
-        session.Origin = origin;
         var snapshot = element == "holding a control" ? Unclassified(inside: Child("button", "Clear")) : Unclassified();
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => snapshot.DeepClone());
         var observed = await Observed(session, "Account");
 
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(observed, Act(kind), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(observed, Act(kind), new OperationContext(origin), CancellationToken.None));
 
         Assert.Equal("UNSUPPORTED_CAPABILITY", failure.Code);
         Assert.False(failure.Retryable);
@@ -130,26 +121,25 @@ public sealed class InputFreshnessTests
 
     [Theory]
     [MemberData(nameof(GainedCases))]
-    public async Task Rejects_an_unclassified_iOS_element_that_gained_a_control_before_typing(ActionOrigin origin, string kind)
+    public async Task Rejects_an_unclassified_iOS_element_that_gained_a_control_before_typing(OperationOrigin origin, string kind)
     {
         var h = Harness.Create();
         var session = await OpenAttempt(h);
-        session.Origin = origin;
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Unclassified(inside: Child("static-text", "Loading")));
         var observed = await Observed(session, "Account");
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Unclassified(inside: Child("button", "Loading")));
 
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(observed, Act(kind), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(observed, Act(kind), new OperationContext(origin), CancellationToken.None));
 
         Assert.Equal("UNSUPPORTED_CAPABILITY", failure.Code);
         Assert.False(failure.Retryable);
         Assert.DoesNotContain("interactions.fill", h.Fake.Methods());
     }
 
-    public static TheoryData<ActionOrigin, string> GainedCases()
+    public static TheoryData<OperationOrigin, string> GainedCases()
     {
-        var data = new TheoryData<ActionOrigin, string>();
-        foreach (var origin in new[] { ActionOrigin.Test, ActionOrigin.Agent })
+        var data = new TheoryData<OperationOrigin, string>();
+        foreach (var origin in new[] { OperationOrigin.Test, OperationOrigin.Agent })
         {
             foreach (var kind in new[] { "fill", "clear" })
             {
@@ -162,10 +152,10 @@ public sealed class InputFreshnessTests
 
     [Theory]
     [MemberData(nameof(GainedCases))]
-    public async Task Uses_one_fresh_binding_after_a_slow_capture_for_origin_and_kind(ActionOrigin origin, string kind)
+    public async Task Uses_one_fresh_binding_after_a_slow_capture_for_origin_and_kind(OperationOrigin origin, string kind)
     {
         var h = Harness.Create();
-        var session = await OpenAs(h, origin);
+        var session = await OpenAttempt(h);
         h.Fake.RespondAsync(DeviceMethods.CaptureSnapshot, (_, _) =>
         {
             h.Clock.Spend(TimeSpan.FromMilliseconds(600));
@@ -175,7 +165,7 @@ public sealed class InputFreshnessTests
         var captures = Snapshots(h);
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Account(126, field => field with { Ref = "@e42" }));
 
-        await session.PerformAsync(old, Typing(kind, sensitive: true), CancellationToken.None);
+        await session.PerformAsync(old, Typing(kind, sensitive: true), new OperationContext(origin), CancellationToken.None);
 
         JsonAssert.Args(Fill("@e42", kind == "fill" ? "example" : ""), Strip(h.Fake.LastArgs("interactions.fill")!));
         Assert.Equal(captures + 1, Snapshots(h));
@@ -184,21 +174,21 @@ public sealed class InputFreshnessTests
 
     [Theory]
     [MemberData(nameof(GainedCases))]
-    public async Task Acts_on_a_sliding_input_with_one_capture_for_origin_and_kind(ActionOrigin origin, string kind)
+    public async Task Acts_on_a_sliding_input_with_one_capture_for_origin_and_kind(OperationOrigin origin, string kind)
     {
         var h = Harness.Create();
-        var session = await OpenAs(h, origin);
+        var session = await OpenAttempt(h);
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Account(2000));
         var sliding = await Observed(session, "Account");
         var captures = Snapshots(h);
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Account(126, field => field with { Ref = "@e42" }));
         var delays = h.Delays.Count;
 
-        await session.PerformAsync(sliding, Typing(kind, sensitive: false), CancellationToken.None);
+        await session.PerformAsync(sliding, Typing(kind, sensitive: false), new OperationContext(origin), CancellationToken.None);
 
         JsonAssert.Args(Fill("@e42", kind == "fill" ? "example" : ""), Strip(h.Fake.LastArgs("interactions.fill")!));
         Assert.Equal(captures + 1, Snapshots(h));
-        if (origin == ActionOrigin.Test)
+        if (origin == OperationOrigin.Test)
         {
             Assert.True(Waited(h, delays) >= 500);
         }
@@ -206,16 +196,16 @@ public sealed class InputFreshnessTests
 
     [Theory]
     [MemberData(nameof(GainedCases))]
-    public async Task Rejects_an_originally_non_input_target_before_waiting_or_capturing_for_origin_and_kind(ActionOrigin origin, string kind)
+    public async Task Rejects_an_originally_non_input_target_before_waiting_or_capturing_for_origin_and_kind(OperationOrigin origin, string kind)
     {
         var h = Harness.Create();
-        var session = await OpenAs(h, origin);
+        var session = await OpenAttempt(h);
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Account(237, field => field with { Type = "button" }));
         var button = await Observed(session, "Account");
         var captures = Snapshots(h);
         var delays = h.Delays.Count;
 
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(button, Typing(kind, sensitive: false), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(button, Typing(kind, sensitive: false), new OperationContext(origin), CancellationToken.None));
 
         Assert.Equal("UNSUPPORTED_CAPABILITY", failure.Code);
         Assert.False(failure.Retryable);
@@ -228,14 +218,14 @@ public sealed class InputFreshnessTests
     public async Task Refreshes_an_unchanged_input_even_when_the_transition_shortcut_skips_the_wait()
     {
         var h = Harness.Create();
-        var session = await OpenAs(h, ActionOrigin.Test);
-        await session.PerformAsync(await Observed(session, "Back"), new LocatorAction.Tap(), CancellationToken.None);
+        var session = await OpenAttempt(h);
+        await session.PerformAsync(await Observed(session, "Back"), new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None);
         var search = await Observed(session, "Search");
         var captures = Snapshots(h);
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => FakeDeviceClient.SnapshotOf(SettingsNodes.Select(node => node.Label == "Search" ? node with { Ref = "@e42" } : node)));
         var delays = h.Delays.Count;
 
-        await session.PerformAsync(search, new LocatorAction.Clear(), CancellationToken.None);
+        await session.PerformAsync(search, new LocatorAction.Clear(), OperationContext.Test, CancellationToken.None);
 
         Assert.Equal(delays, h.Delays.Count);
         JsonAssert.Args(Fill("@e42", ""), Strip(h.Fake.LastArgs("interactions.fill")!));
@@ -281,7 +271,7 @@ public sealed class InputFreshnessTests
     public async Task Can_act_on_identical_OTP_input_with_the_existing_nearest_node_matching(string kind, int selected)
     {
         var h = Harness.Create();
-        var session = await OpenAs(h, ActionOrigin.Test);
+        var session = await OpenAttempt(h);
         static JsonObject Digits(string[] refs, double shift) => FakeDeviceClient.SnapshotOf(
         [
             SettingsNodes[0],
@@ -292,7 +282,7 @@ public sealed class InputFreshnessTests
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Digits(["@e41", "@e42"], 10));
         var captures = Snapshots(h);
 
-        await session.PerformAsync(target, Typing(kind, sensitive: false), CancellationToken.None);
+        await session.PerformAsync(target, Typing(kind, sensitive: false), OperationContext.Test, CancellationToken.None);
 
         Assert.Equal(selected == 0 ? "@e41" : "@e42", h.Fake.LastArgs("interactions.fill")!["ref"]!.GetValue<string>());
         Assert.Equal(captures + 1, Snapshots(h));
@@ -337,13 +327,13 @@ public sealed class InputFreshnessTests
     public async Task Does_not_silently_accept_changed_security_facts_during_a_transition()
     {
         var h = Harness.Create();
-        var session = await OpenAs(h, ActionOrigin.Test);
+        var session = await OpenAttempt(h);
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Account());
         var old = await Observed(session, "Account");
         h.Fake.Respond(DeviceMethods.CaptureSnapshot, _ => Account(126, field => field with { Enabled = false }));
         var captures = Snapshots(h);
 
-        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(old, new LocatorAction.Fill("example", Sensitive: true), CancellationToken.None));
+        var failure = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(old, new LocatorAction.Fill("example", Sensitive: true), OperationContext.Test, CancellationToken.None));
 
         Assert.Equal("NODE_STALE", failure.Code);
         Assert.DoesNotContain("interactions.fill", h.Fake.Methods());
@@ -376,13 +366,13 @@ public sealed class InputFreshnessTests
     {
         var h = WithTransition(300);
         h.Waits.Wait = (_, token) => Task.Delay(Timeout.Infinite, token);
-        var session = await OpenAs(h, ActionOrigin.Test);
+        var session = await OpenAttempt(h);
         var search = await Observed(session, "Search");
         var captures = Snapshots(h);
         using var controller = new CancellationTokenSource();
         controller.CancelAfter(TimeSpan.FromMilliseconds(20));
 
-        var cancelled = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(search, Typing(kind, sensitive: false), controller.Token));
+        var cancelled = await Assert.ThrowsAsync<EngineException>(() => session.PerformAsync(search, Typing(kind, sensitive: false), OperationContext.Test, controller.Token));
 
         Assert.Equal("CANCELLED", cancelled.Code);
         Assert.Equal(captures, Snapshots(h));

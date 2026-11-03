@@ -102,11 +102,19 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     public string? AppPath => _app.AppPath;
 
     /// <summary>
-    /// Who acts through this session. A test's step never settles, and it waits out a transition. The agent reads the
-    /// screen right after acting, so its actions settle first. The core session does not say who is calling, so the
-    /// caller sets it. The default is the agent's.
+    /// Who acts through this session when a caller does not say: the members that take no <see cref="OperationContext"/> (the ones
+    /// <see cref="IEngineSession"/> had before it). The default is the agent's.
     /// </summary>
-    public ActionOrigin Origin { get; set; } = ActionOrigin.Agent;
+    [Obsolete("Every action now carries an OperationContext: call the overload that takes one. Removed in the next release.")]
+    public ActionOrigin Origin
+    {
+        get => _origin == OperationOrigin.Test ? ActionOrigin.Test : ActionOrigin.Agent;
+        set => _origin = value == ActionOrigin.Test ? OperationOrigin.Test : OperationOrigin.Agent;
+    }
+
+    private OperationOrigin _origin = OperationOrigin.Agent;
+
+    internal OperationContext DefaultContext => _origin == OperationOrigin.Test ? OperationContext.Test : OperationContext.Agent;
 
     /// <summary>The device fixture of this session: deterministic device management for a test.</summary>
     public Device Device => _device ??= new Device(this);
@@ -289,13 +297,16 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
         await OpenAppAsync(app, new OpenAppOptions { Relaunch = true }, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task BackAsync(CancellationToken cancellationToken)
+    public Task BackAsync(CancellationToken cancellationToken) => BackAsync(DefaultContext, cancellationToken);
+
+    public async Task BackAsync(OperationContext context, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(context);
         var input = InputBudget("back");
         var before = _latestScreen;
         await CommandAsync(
             "back",
-            (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.CommandBack, ActionSettle(), token), token),
+            (client, token) => SendInputAsync(input, () => client.CallAsync(DeviceMethods.CommandBack, ActionSettle(context), token), token),
             cancellationToken).ConfigureAwait(false);
         MarkAction(before);
     }
@@ -335,13 +346,20 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     }
 
     public Task PerformAsync(SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
-        _engine.Actions.PerformAsync(this, node, action, cancellationToken);
+        PerformAsync(node, action, DefaultContext, cancellationToken);
+
+    public Task PerformAsync(SemanticNode node, LocatorAction action, OperationContext context, CancellationToken cancellationToken) =>
+        _engine.Actions.PerformAsync(this, node, action, context, cancellationToken);
 
     public Task PressAsync(string key, CancellationToken cancellationToken) =>
         _engine.Actions.PressAsync(this, key, cancellationToken);
 
     public Task SwipeAsync(ScrollDirection direction, CancellationToken cancellationToken) =>
-        _engine.Actions.SwipeAsync(this, direction, cancellationToken);
+        SwipeAsync(direction, null, DefaultContext, cancellationToken);
+
+    /// <summary>A device has one stride for a viewport swipe, so <paramref name="momentum"/> is dropped.</summary>
+    public Task SwipeAsync(ScrollDirection direction, Momentum? momentum, OperationContext context, CancellationToken cancellationToken) =>
+        _engine.Actions.SwipeAsync(this, direction, context, cancellationToken);
 
     public Task<EngineScreenshot> ScreenshotAsync(CancellationToken cancellationToken) => ScreenshotAsync(ActionTimeout, cancellationToken);
 

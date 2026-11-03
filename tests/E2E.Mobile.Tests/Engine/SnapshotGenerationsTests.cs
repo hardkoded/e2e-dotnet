@@ -53,13 +53,6 @@ public sealed partial class SnapshotGenerationsTests
         });
     }
 
-    private static async Task<DeviceSession> OpenTestAttempt(Harness h)
-    {
-        var session = await OpenAttempt(h);
-        session.Origin = ActionOrigin.Test;
-        return session;
-    }
-
     [Fact]
     public async Task Pins_every_ref_action_to_the_capture_that_issued_its_ref()
     {
@@ -98,7 +91,7 @@ public sealed partial class SnapshotGenerationsTests
     public async Task Drags_between_nodes_located_in_separate_captures_from_the_newest_one()
     {
         var h = Harness.Create(options => options with { TransitionMilliseconds = 0 });
-        var session = await OpenTestAttempt(h);
+        var session = await OpenAttempt(h);
         Generations(h);
         var about = Assert.Single(await session.LocateAsync(TestId("ABOUT"), TimeSpan.FromSeconds(5), CancellationToken.None));
         var back = Assert.Single(await session.LocateAsync(TestId("BackButton"), TimeSpan.FromSeconds(5), CancellationToken.None));
@@ -110,10 +103,10 @@ public sealed partial class SnapshotGenerationsTests
     public async Task Pins_a_control_found_again_after_a_transition_to_the_capture_it_was_found_in()
     {
         var h = Harness.Create();
-        var session = await OpenTestAttempt(h);
+        var session = await OpenAttempt(h);
         Generations(h);
         var about = await Observed(session, "About");
-        await session.PerformAsync(about, new LocatorAction.Tap(), CancellationToken.None);
+        await session.PerformAsync(about, new LocatorAction.Tap(), OperationContext.Test, CancellationToken.None);
         JsonAssert.Args("""{"ref":"@e4~s8"}""", h.Fake.LastArgs("interactions.press"));
     }
 
@@ -121,7 +114,7 @@ public sealed partial class SnapshotGenerationsTests
     public async Task Drags_from_a_source_found_again_after_a_transition_to_a_target_located_before_it()
     {
         var h = Harness.Create();
-        var session = await OpenTestAttempt(h);
+        var session = await OpenAttempt(h);
         Generations(h);
         var about = Assert.Single(await session.LocateAsync(TestId("ABOUT"), TimeSpan.FromSeconds(5), CancellationToken.None));
         var back = Assert.Single(await session.LocateAsync(TestId("BackButton"), TimeSpan.FromSeconds(5), CancellationToken.None));
@@ -135,7 +128,7 @@ public sealed partial class SnapshotGenerationsTests
     public async Task Refuses_a_drag_whose_source_a_newer_capture_lists_nowhere_it_was_before_sending_it()
     {
         var h = Harness.Create(options => options with { TransitionMilliseconds = 0 });
-        var session = await OpenTestAttempt(h);
+        var session = await OpenAttempt(h);
         var twin = Submit("@e11", 600, "About", "cell", "ABOUT");
         IEnumerable<RawNode> nodes = [.. SettingsNodes, twin];
         Generations(h, () => nodes);

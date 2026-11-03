@@ -330,7 +330,7 @@ public sealed class Device
 
     /// <summary>Navigates back once (in-app back).</summary>
     public Task BackAsync(CancellationToken cancellationToken = default) =>
-        RunAsync("device.back", "", () => _session.ScreenCommandAsync("device.back", (client, token) => client.CallAsync(DeviceMethods.CommandBack, _session.SettleArgs(), token), cancellationToken));
+        RunAsync("device.back", "", () => _session.ScreenCommandAsync("device.back", (client, token) => client.CallAsync(DeviceMethods.CommandBack, _session.ActionSettle(OperationContext.Test), token), cancellationToken));
 
     /// <summary>Accepts or dismisses the visible system alert.</summary>
     public Task AlertAsync(AlertAction action, CancellationToken cancellationToken = default) =>

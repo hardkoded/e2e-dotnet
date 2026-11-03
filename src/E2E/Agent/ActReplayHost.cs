@@ -177,11 +177,11 @@ public sealed partial class Agent
             {
                 if (list is null)
                 {
-                    await scope.Session.SwipeAsync(direction, cancellationToken).ConfigureAwait(false);
+                    await scope.Session.SwipeAsync(direction, null, OperationContext.Agent, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
-                    await scope.Session.PerformAsync(Resolve(list), new LocatorAction.Swipe(direction), cancellationToken).ConfigureAwait(false);
+                    await scope.Session.PerformAsync(Resolve(list), new LocatorAction.Swipe(direction), OperationContext.Agent, cancellationToken).ConfigureAwait(false);
                 }
 
                 feed.ArmAfter(new RecordedAction { Kind = "scroll" });
@@ -196,7 +196,7 @@ public sealed partial class Agent
 
         public async Task BackAsync(CancellationToken cancellationToken = default)
         {
-            await scope.Session.BackAsync(cancellationToken).ConfigureAwait(false);
+            await scope.Session.BackAsync(OperationContext.Agent, cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = "back" });
         }
 
@@ -204,7 +204,7 @@ public sealed partial class Agent
         // prose is for a model, which a replay has none of.
         public async Task<PointTapResult> TapAtAsync(Point point, CancellationToken cancellationToken = default)
         {
-            await scope.Session.PerformAtAsync(point, new PointerAction.Tap(), cancellationToken).ConfigureAwait(false);
+            await scope.Session.PerformAtAsync(point, new PointerAction.Tap(), OperationContext.Agent, cancellationToken).ConfigureAwait(false);
             _tapped = point;
             feed.ArmAfter(new RecordedAction { Kind = "tapAt" });
             return new PointTapResult(point, null, "");
@@ -212,7 +212,7 @@ public sealed partial class Agent
 
         public async Task<PointTapResult> HoverAtAsync(Point point, CancellationToken cancellationToken = default)
         {
-            await scope.Session.PerformAtAsync(point, new PointerAction.Hover(), cancellationToken).ConfigureAwait(false);
+            await scope.Session.PerformAtAsync(point, new PointerAction.Hover(), OperationContext.Agent, cancellationToken).ConfigureAwait(false);
             _tapped = point;
             feed.ArmAfter(new RecordedAction { Kind = "hoverAt" });
             return new PointTapResult(point, null, "");
@@ -220,7 +220,7 @@ public sealed partial class Agent
 
         public async Task<PointDragResult> DragAtAsync(Point from, Point to, CancellationToken cancellationToken = default)
         {
-            await scope.Session.PerformAtAsync(from, new PointerAction.DragTo(to), cancellationToken).ConfigureAwait(false);
+            await scope.Session.PerformAtAsync(from, new PointerAction.DragTo(to), OperationContext.Agent, cancellationToken).ConfigureAwait(false);
             _dragged = (from, to);
             feed.ArmAfter(new RecordedAction { Kind = "dragAt" });
             return new PointDragResult(from, to, null, null, "");
@@ -235,7 +235,7 @@ public sealed partial class Agent
 
         private async Task PerformAsync(ExecutorTarget target, LocatorAction action, string kind, CancellationToken cancellationToken, string? value = null)
         {
-            await scope.Session.PerformAsync(Resolve(target), action, cancellationToken).ConfigureAwait(false);
+            await scope.Session.PerformAsync(Resolve(target), action, OperationContext.Agent, cancellationToken).ConfigureAwait(false);
             feed.ArmAfter(new RecordedAction { Kind = kind, Value = value });
         }
     }

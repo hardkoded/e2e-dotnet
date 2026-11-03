@@ -348,16 +348,16 @@ public sealed class E2ESession : IAsyncDisposable
             var agent = new Agent(scope);
             var screen = new Screen(
                 scope.ObserveAsync,
-                (node, action, token) => engine.PerformAsync(node, action, token),
+                (node, action, token) => engine.PerformAsync(node, action, OperationContext.Test, token),
                 () => timeout.Token,
                 scope.MarkVerified,
                 options.ActionTimeout,
                 options.AssertionTimeout,
                 softFailures,
                 locate: engine.CanLocate ? engine.LocateAsync : null,
-                swipe: engine.SwipeAsync,
+                swipe: (direction, momentum, token) => engine.SwipeAsync(direction, momentum, OperationContext.Test, token),
                 observeWithin: scope.ObserveAsync,
-                performAt: engine.PerformAtAsync);
+                performAt: (point, action, token) => engine.PerformAtAsync(point, action, OperationContext.Test, token));
             var fixtureContext = new EngineFixtureContext(screen);
             browser.Context = fixtureContext;
             (engine as IEngineFixtureHost)?.CreateFixtures(fixtureContext);
