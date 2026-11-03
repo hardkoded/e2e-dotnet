@@ -62,13 +62,14 @@ public sealed class LeaseHeartbeatTests
             CancellationToken.None);
 
         var config = Assert.Single(created);
+        Assert.Matches("^e2e-lease-[0-9a-f]{8}$", config.Session);
         Assert.Equal("", config.DaemonBaseUrl);
         Assert.Equal("", config.DaemonAuthToken);
         Assert.Equal("auto", config.DaemonTransport);
         await clock.AdvanceAsync(TimeSpan.FromSeconds(140));
         Assert.Equal(8, daemon.Requests.Count);
         Assert.All(daemon.Requests, request => Assert.Equal("agent_device.lease.heartbeat", request["method"]!.GetValue<string>()));
-        JsonAssert.Args("""{"tenantId":"browserstack","runId":"run","leaseProvider":"browserstack","leaseId":"lease-2","ttlMs":60000}""", daemon.Requests[^1]["params"]);
+        JsonAssert.Args($$"""{"session":"{{config.Session}}","tenantId":"browserstack","runId":"run","leaseProvider":"browserstack","leaseId":"lease-2","ttlMs":60000}""", daemon.Requests[^1]["params"]);
         await stop();
         await clock.AdvanceAsync(TimeSpan.FromSeconds(140));
         Assert.Equal(8, daemon.Requests.Count);

@@ -24,11 +24,13 @@ public sealed class LeaseDriverTests
         var client = new FakeDeviceClient();
         client.Respond(DeviceMethods.LeasesAllocate, _ => new JsonObject { ["leaseId"] = "lease", ["tenantId"] = "browserstack", ["runId"] = "run", ["backend"] = "ios-instance", ["retainOnClose"] = true });
         DeviceConnection? connection = null;
+        string? session = null;
 
         var grant = await Mobile.Lease.LeaseDriver.AllocateAsync(
             new DriverRequest("/daemon", Allocate),
-            (_, config) =>
+            (named, config) =>
             {
+                session = named;
                 connection = config;
                 return client;
             },
@@ -36,6 +38,7 @@ public sealed class LeaseDriverTests
 
         Assert.Equal(new DriverGrant("lease", "browserstack", "run", true), grant);
         JsonAssert.Args("""{"stateDir":"/daemon"}""", connection!.Client);
+        Assert.Matches("^e2e-lease-[0-9a-f]{8}$", session);
         JsonAssert.Args("""{"tenant":"browserstack","runId":"run","leaseProvider":"browserstack","retainOnClose":true}""", client.LastArgs(DeviceMethods.LeasesAllocate));
     }
 

@@ -22,7 +22,7 @@ internal static class LeaseDriver
 {
     public static async Task<DriverGrant> AllocateAsync(DriverRequest request, DeviceClientFactory connect, CancellationToken cancellationToken)
     {
-        var client = connect("default", new DeviceConnection { Client = new JsonObject { ["stateDir"] = request.StateDirectory } });
+        var client = connect(LeaseSessions.LeaseSession(request.StateDirectory), new DeviceConnection { Client = new JsonObject { ["stateDir"] = request.StateDirectory } });
         var lease = await client.CallAsync(DeviceMethods.LeasesAllocate, (JsonObject)request.Allocate.DeepClone(), cancellationToken).ConfigureAwait(false) as JsonObject
             ?? throw new InvalidOperationException("agent-device returned no lease");
         return new DriverGrant(

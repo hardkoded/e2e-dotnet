@@ -72,7 +72,8 @@ public sealed class LimrunHeartbeatTests
             await clock.AdvanceAsync(TimeSpan.FromSeconds(140));
             Assert.Equal(8, daemon.Requests.Count);
             Assert.All(daemon.Requests, request => Assert.Equal("agent_device.lease.heartbeat", request["method"]!.GetValue<string>()));
-            JsonAssert.Args("""{"tenantId":"e2e","runId":"run","leaseId":"lease-2","ttlMs":60000}""", daemon.Requests[^1]["params"]);
+            Assert.Matches("^e2e-lease-[0-9a-f]{8}$", config.Session);
+            JsonAssert.Args($$"""{"session":"{{config.Session}}","tenantId":"e2e","runId":"run","leaseId":"lease-2","ttlMs":60000}""", daemon.Requests[^1]["params"]);
             await stop();
             await clock.AdvanceAsync(TimeSpan.FromSeconds(140));
             Assert.Equal(8, daemon.Requests.Count);
@@ -109,7 +110,7 @@ public sealed class LimrunHeartbeatTests
             }
         });
         var stop = await LimrunHeartbeat.StartAsync(
-            new LimrunBinding(new JsonObject { ["leaseId"] = "lease" }, "device"),
+            new LimrunBinding(new JsonObject { ["stateDir"] = "/daemon", ["leaseId"] = "lease" }, "device"),
             (_, _) => client,
             log.Add,
             clock.Delay,

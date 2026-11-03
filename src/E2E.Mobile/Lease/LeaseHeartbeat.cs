@@ -33,8 +33,12 @@ internal static class LeaseHeartbeat
             ? id
             : throw new InvalidOperationException("The lease scope has no lease id");
 
+        var stateDirectory = scope["stateDir"] is JsonValue directory && directory.TryGetValue<string>(out var path) && path.Length > 0
+            ? path
+            : throw new InvalidOperationException("The lease scope has no state directory");
+
         // The lease's own stateDir selects the local daemon, whatever remote daemon the environment names.
-        var client = connect("default", new DeviceConnection { Client = scope });
+        var client = connect(LeaseSessions.LeaseSession(stateDirectory), new DeviceConnection { Client = scope });
         var stopping = new CancellationTokenSource();
 
         async Task BeatAsync(CancellationToken outer)

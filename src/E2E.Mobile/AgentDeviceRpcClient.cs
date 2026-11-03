@@ -71,7 +71,7 @@ public sealed class AgentDeviceRpcClient : IDeviceClient
         JsonObject parameters;
         if (lease)
         {
-            parameters = DeviceCommands.LeaseParameters(command, _settings);
+            parameters = DeviceCommands.LeaseParameters(command, _settings, _session);
         }
         else
         {
