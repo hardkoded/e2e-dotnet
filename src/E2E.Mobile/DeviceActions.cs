@@ -41,7 +41,7 @@ public sealed class DeviceActions : IDeviceActions
     public static IReadOnlyList<string> PointerActionKinds { get; } = ["tap", "doubleTap", "longPress", "swipeTo"];
 
     public Task PerformAsync(DeviceSession session, SemanticNode node, LocatorAction action, CancellationToken cancellationToken) =>
-        PerformAsync(session, node, action, OperationContext.Agent, cancellationToken);
+        PerformAsync(session, node, action, session.DefaultContext, cancellationToken);
 
     public async Task PerformAsync(DeviceSession session, SemanticNode node, LocatorAction action, OperationContext context, CancellationToken cancellationToken)
     {
@@ -287,7 +287,7 @@ public sealed class DeviceActions : IDeviceActions
     }
 
     public Task SwipeAsync(DeviceSession session, ScrollDirection direction, CancellationToken cancellationToken) =>
-        SwipeAsync(session, direction, OperationContext.Agent, cancellationToken);
+        SwipeAsync(session, direction, session.DefaultContext, cancellationToken);
 
     public Task SwipeAsync(DeviceSession session, ScrollDirection direction, OperationContext context, CancellationToken cancellationToken)
     {

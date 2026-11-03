@@ -108,13 +108,13 @@ public sealed partial class DeviceSession : IEngineSession, IEngineFixtureHost
     [Obsolete("Every action now carries an OperationContext: call the overload that takes one. Removed in the next release.")]
     public ActionOrigin Origin
     {
-        get => (ActionOrigin)_origin;
-        set => _origin = (OperationOrigin)value;
+        get => _origin == OperationOrigin.Test ? ActionOrigin.Test : ActionOrigin.Agent;
+        set => _origin = value == ActionOrigin.Test ? OperationOrigin.Test : OperationOrigin.Agent;
     }
 
     private OperationOrigin _origin = OperationOrigin.Agent;
 
-    private OperationContext DefaultContext => _origin == OperationOrigin.Test ? OperationContext.Test : OperationContext.Agent;
+    internal OperationContext DefaultContext => _origin == OperationOrigin.Test ? OperationContext.Test : OperationContext.Agent;
 
     /// <summary>The device fixture of this session: deterministic device management for a test.</summary>
     public Device Device => _device ??= new Device(this);
