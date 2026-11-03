@@ -354,7 +354,6 @@ internal sealed partial class ListReporter
     private static IReadOnlyList<StepRecord> PassingRunSteps(IReadOnlyList<ReportAttempt> runs, bool passed) =>
         passed ? runs.LastOrDefault(run => run.Status == E2E.Internal.AttemptStatus.Passed)?.Steps ?? [] : [];
 
-    /// <summary>The details of an ordinary result: summed over its attempts, the error from the told one.</summary>
     /// <summary>A finished test as the list reporter reads it: the event's identity and the port's own record of the result.</summary>
     private sealed record Finished(TestIdentity Test, (string Name, string Platform) Target, string ResultId, string Agent, int Repeat, ResultStatus Status, ReportSkip? Skip, IReadOnlyList<ReportAttempt> Attempts, ReportResult Record);
 
@@ -364,6 +363,7 @@ internal sealed partial class ListReporter
         return new Finished(published.Test, published.Target, published.ResultId, published.Agent, published.Repeat, record.Status, record.Skip, record.Attempts, record);
     }
 
+    /// <summary>The details of an ordinary result: summed over its attempts, the error from the told one.</summary>
     private static ResultDetails DetailsOf(IReadOnlyList<ReportAttempt> attempts, bool passed, ConfiguredModel? configured)
     {
         var steps = attempts.Select(attempt => (IEnumerable<StepRecord>)attempt.Steps).ToList();
