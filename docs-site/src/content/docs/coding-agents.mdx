@@ -82,3 +82,7 @@ npx skills add hardkoded/e2e-dotnet --skill migrate-to-e2e
 Then ask the agent for `/migrate-to-e2e`. It ports the slice you pick as NUnit or xUnit v3 tests and runs each ported test three times on every target. A `MIGRATION.md` file records progress for the next session. Optionally, the agent plants a temporary bug in the app, such as a wrong checkout total, and checks whether both suites fail on it. The agent deletes an old test only when you confirm.
 
 The skill reads the [migration guide](/migrate/) for the runner first (`docs/migrate/*.mdx` upstream), then the e2e skill's topics. See [COMPATIBILITY.md](/compatibility/#migration-guides).
+
+## Run steps on a coding agent
+
+The other direction also works. `E2E.Acp` runs `agent.act` and `agent.assert` steps on a coding agent that speaks the [Agent Client Protocol](https://agentclientprotocol.com) on stdio. `AcpExecutor.Create(command, args)` returns a step executor. Set it as `AgentOptions.Executor`. The agent gets the built-in action tools and `done` as an MCP server on `127.0.0.1`, and every action goes through the step's own actions, so cached steps replay as usual. Presets for Claude Code and Codex, and a full guide, come later.

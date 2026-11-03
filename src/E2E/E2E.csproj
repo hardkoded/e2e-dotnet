@@ -30,5 +30,6 @@
     <InternalsVisibleTo Include="E2E.WinApp" />
     <InternalsVisibleTo Include="E2E.WinApp.Tests" />
     <InternalsVisibleTo Include="E2E.GitHub" />
+    <InternalsVisibleTo Include="E2E.Acp" />
   </ItemGroup>
 </Project>
