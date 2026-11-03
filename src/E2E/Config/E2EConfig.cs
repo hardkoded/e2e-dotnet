@@ -49,13 +49,13 @@ public sealed class E2EConfig
     private static readonly string[] TopLevelKeys =
     [
         "targets", "timeout", "launchTimeout", "actionTimeout", "assertionTimeout", "cleanupTimeout",
-        "retries", "agents", "cache", "secrets", "credentials", "artifacts", "trace", "video", "testAssembly",
+        "retries", "agents", "cache", "secrets", "credentials", "artifacts", "output", "trace", "video", "testAssembly",
     ];
 
     // Upstream keys the .NET port does not implement. They fail loudly rather than being ignored.
     private static readonly string[] UnsupportedTopLevelKeys =
     [
-        "projectId", "tests", "failOnSkippedFailure", "workers", "output", "reporters",
+        "projectId", "tests", "failOnSkippedFailure", "workers", "reporters",
     ];
 
     private static readonly string[] TargetKeys = ["name", "platform", "app", "trace", "video"];
@@ -157,6 +157,16 @@ public sealed class E2EConfig
     /// None by default. A store is code, so the config file cannot name one: <see cref="WithArtifactStore"/> sets it.
     /// </summary>
     public IArtifactStore? ArtifactStore { get; private set; }
+
+    /// <summary>
+    /// The absolute directory the runs write their results to: <c>output</c>, else <c>&lt;ProjectRoot&gt;/.e2e</c>. Results go to
+    /// <c>results/</c> under it, the session stores to <c>sessions/</c>, and an <c>e2e mcp</c> recording to <c>videos/</c>. Upstream's
+    /// <c>ResolvedConfig.output</c>. It is checked when read, not when the config loads, so <c>--output</c> can replace a configured value
+    /// that is refused (upstream checks only the one that is used). Throws <c>INVALID_CONFIG</c> for a directory the run cannot own.
+    /// </summary>
+    public string Output => ResolveOutput(null);
+
+    private JsonElement? _rawOutput;
 
     public Secrets Secrets { get; private init; } = Secrets.Empty;
 
@@ -324,6 +334,7 @@ public sealed class E2EConfig
             var trace = ReadRun(root, RecordingKind.Trace, environment);
             var video = ReadRun(root, RecordingKind.Video, environment);
             var credentials = ReadCredentials(Property(root, "credentials"), environment);
+            var cache = ReadCache(Property(root, "cache"), projectRoot, ci, environment, null);
             ReadArtifacts(Property(root, "artifacts"));
             return new E2EConfig
             {
@@ -339,7 +350,8 @@ public sealed class E2EConfig
                 Retries = Property(root, "retries") is { } retries ? Integer(retries, "retries", 0, 10) : ci ? 1 : 0,
                 Agents = ReadAgents(Property(root, "agents")),
                 TestAssembly = OptionalString(root, "testAssembly", "testAssembly") is { } testAssembly ? Path.GetFullPath(testAssembly, projectRoot) : null,
-                Cache = ReadCache(Property(root, "cache"), projectRoot, ci, environment, null),
+                Cache = cache,
+                _rawOutput = Property(root, "output")?.Clone(),
                 Secrets = ReadSecrets(Property(root, "secrets"), environment, credentials),
                 Credentials = credentials,
                 _rawCache = Property(root, "cache")?.Clone(),
@@ -585,6 +597,105 @@ public sealed class E2EConfig
         return new ReadOnlyDictionary<string, JsonElement>(options);
     }
 
+    // The directories under the output a run clears or owns, which nothing else may live in (upstream's OUTPUT_OWNED_DIRS).
+    private static readonly string[] OutputOwnedDirs = ["results", "sessions", "videos"];
+
+    /// <summary>
+    /// The output directory for a run, <paramref name="flag"/> (<c>--output</c>) over the config's <c>output</c>. Upstream's <c>resolveOutput</c>
+    /// run on this config's cache.
+    /// </summary>
+    internal string ResolveOutput(string? flag) => ResolveOutput(_rawOutput, flag, ProjectRoot, Cache);
+
+    // Upstream's resolveOutput: the results directory, `--output` over the config's `output`, from the project root. A run clears
+    // `<output>/results` and writes over its reports, so the directory must be one it can own: a directory (or a path that does not exist
+    // yet) inside the project root and not the root itself, not the cache directory or inside it, and not wrapping the cache in a directory
+    // the run clears or owns. Every path is compared through the filesystem, with the symlinks of its nearest existing ancestor resolved and a
+    // dangling one followed to where it points. Not ported: the check against the test globs (the port has no `tests` key).
+    private static string ResolveOutput(JsonElement? configured, string? flag, string projectRoot, CacheConfig cache)
+    {
+        var where = flag is null ? "output" : "--output";
+        string? value = flag;
+        if (flag is null && configured is { } raw)
+        {
+            value = raw.ValueKind == JsonValueKind.String ? raw.GetString() : null;
+            if (value is null)
+            {
+                throw Invalid(where + " must be a non-empty path relative to the project root, got " + raw.GetRawText());
+            }
+        }
+
+        if (value is not null && string.IsNullOrWhiteSpace(value))
+        {
+            throw Invalid(where + " must be a non-empty path relative to the project root, got " + JsonSerializer.Serialize(value));
+        }
+
+        var output = Path.GetFullPath(value ?? ".e2e", projectRoot);
+        var named = value is null ? where + " \".e2e\" (the default)" : where + " " + JsonSerializer.Serialize(value);
+        ConfigurationException Refuse(string reason) => Invalid(named + " " + reason);
+        var realRoot = Paths.RealPathOfExisting(projectRoot);
+        var real = Paths.RealPathOfExisting(output);
+        var realCache = Paths.RealPathOfExisting(cache.Directory);
+        if (real == realRoot)
+        {
+            throw Refuse("is the project root; the run clears <output>/results, so name a directory of its own, such as '.e2e'");
+        }
+
+        if (!IsWithin(real, realRoot))
+        {
+            throw Refuse("is outside the project root " + projectRoot + "; name a directory inside it");
+        }
+
+        var existing = NearestExisting(output);
+        if (existing is not null && !Directory.Exists(existing))
+        {
+            throw Refuse(
+                existing == output
+                    ? "is a file; name a directory, which the run creates when it is missing"
+                    : "is under the file " + Path.GetRelativePath(realRoot, Paths.RealPathOfExisting(existing)) + "; name a directory, which the run creates when it is missing");
+        }
+
+        var cacheName = Path.GetRelativePath(realRoot, realCache);
+        if (IsWithin(real, realCache))
+        {
+            throw Refuse("is the cache directory " + cacheName + " or inside it; keep results and the replay cache apart");
+        }
+
+        foreach (var owned in OutputOwnedDirs)
+        {
+            if (IsWithin(realCache, Paths.RealPathOfExisting(Path.Combine(output, owned))))
+            {
+                throw Refuse("would hold " + cache.DirectorySource + " " + cacheName + " under " + owned + "/, which the run owns; move " + cache.DirectorySource + " or the output");
+            }
+        }
+
+        return output;
+    }
+
+    // Whether `inner` is `outer` or a path below it.
+    private static bool IsWithin(string inner, string outer)
+    {
+        var relative = Path.GetRelativePath(outer, inner);
+        return relative == "." || (!relative.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relative));
+    }
+
+    // The nearest of `target` and its ancestors that exists, or null when none does.
+    private static string? NearestExisting(string target)
+    {
+        for (var current = target; ; current = Path.GetDirectoryName(current)!)
+        {
+            // A dangling symlink does not exist, as upstream's existsSync follows links.
+            if (Directory.Exists(current) || (File.Exists(current) && new FileInfo(current).ResolveLinkTarget(true)?.Exists != false))
+            {
+                return current;
+            }
+
+            if (Path.GetDirectoryName(current) is null)
+            {
+                return null;
+            }
+        }
+    }
+
     // Upstream's removedRecordingReplacement: what replaces the removed recording facts of `artifacts`, read together. The kinds list (bare or as
     // `kinds`, null when the config had none) and the `trace` block. A list holding `trace` beside `trace: { record: 'retries' }` meant retries
     // only, and a list without `trace` recorded none whatever the block said. Then the video option for a `video` kind, and the failure
@@ -668,7 +779,7 @@ public sealed class E2EConfig
         var defaultDirectory = sharedDirectory ?? Path.Combine(projectRoot, ".e2e", "cache");
         if (raw is null)
         {
-            return new CacheConfig { Mode = ci && store is null ? CacheMode.ReadOnly : CacheMode.ReadWrite, Directory = defaultDirectory, Store = store };
+            return new CacheConfig { Mode = ci && store is null ? CacheMode.ReadOnly : CacheMode.ReadWrite, Directory = defaultDirectory, Store = store, DirectorySource = sharedDirectory is null ? "cache.dir" : "E2E_CACHE_DIR" };
         }
 
         if (raw.Value.ValueKind != JsonValueKind.Object)
@@ -718,7 +829,7 @@ public sealed class E2EConfig
             };
         }
 
-        return new CacheConfig { Mode = mode, Directory = directory, Strict = strict, Store = store };
+        return new CacheConfig { Mode = mode, Directory = directory, Strict = strict, Store = store, DirectorySource = sharedDirectory is null ? "cache.dir" : "E2E_CACHE_DIR" };
     }
 
     /// <summary>The value with a leading <c>~</c> or <c>~/</c> read as the home directory, which no shell expands in an env file.</summary>
@@ -1346,6 +1457,9 @@ public sealed class CacheConfig
 
     /// <summary>When true, a recording that no longer matches fails with <c>REPLAY_STALE</c> instead of running live.</summary>
     public bool Strict { get; init; }
+
+    /// <summary>What named <see cref="Directory"/>, for the errors that point at it (upstream's <c>CacheDirSource</c>): <c>cache.dir</c> or <c>E2E_CACHE_DIR</c>.</summary>
+    internal string DirectorySource { get; init; } = "cache.dir";
 
     /// <summary>
     /// The store that replaces the file store at <see cref="Directory"/> (upstream's <c>cache.store</c>), or null. Set it with

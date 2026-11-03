@@ -238,7 +238,7 @@ public string? Output { get; init; }
 ```
 
 
-The results directory, over the default `.e2e/results` under the project root. Finding screenshots are kept under it.
+The output directory (`--output`), over the config's `output`. Finding screenshots and trace pages are kept in `results/` under it (upstream's `output`).
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 

@@ -128,8 +128,8 @@ public abstract class E2EFixture
     /// </summary>
     protected virtual bool UpdateSnapshots => Environment.GetEnvironmentVariable("E2E_UPDATE_SNAPSHOTS")?.Trim() == "1";
 
-    /// <summary>Where a failed screenshot comparison puts its diff, actual, and expected images. Defaults to <c>.e2e/results</c> under <see cref="ProjectRoot"/>.</summary>
-    protected virtual string? ResultsDirectory => null;
+    /// <summary>Where a failed screenshot comparison puts its diff, actual, and expected images. Defaults to <c>results</c> under the config's <c>output</c> (<c>.e2e</c> by default).</summary>
+    protected virtual string? ResultsDirectory => OutputLayout.Of(Config.Output).Results;
 
     /// <summary>The name of the target: the only one the config declares, and the target part of a stored screenshot's file name. Override it when the config declares several.</summary>
     protected virtual string TargetName => Config.Target.Name;
@@ -228,7 +228,7 @@ public abstract class E2EFixture
         var saves = SessionAttributes.Saves(testMethod);
         var sessions = restore is null && saves is null
             ? null
-            : new SessionPlan(SessionRun.Store(ProjectRoot), sessionIdentity, restore, saves is null ? null : new SessionStaging(saves));
+            : new SessionPlan(SessionRun.Store(ProjectRoot, Config.Output), sessionIdentity, restore, saves is null ? null : new SessionStaging(saves));
         _session = await E2ESession.StartAsync(
             new E2ESessionOptions
             {

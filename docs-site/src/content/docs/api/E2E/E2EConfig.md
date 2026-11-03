@@ -205,6 +205,24 @@ Engine start timeout. Upstream `launchTimeout`, 60 s by default.
 
 **Value:** [TimeSpan](https://learn.microsoft.com/dotnet/api/system.timespan)
 
+<a id="E2E_E2EConfig_Output_"></a>
+<a id="E2E_E2EConfig_Output"></a>
+
+### Output
+
+
+```csharp
+public string Output { get; }
+```
+
+
+The absolute directory the runs write their results to: `output`, else `<ProjectRoot>/.e2e`. Results go to
+`results/` under it, the session stores to `sessions/`, and an `e2e mcp` recording to `videos/`. Upstream's
+`ResolvedConfig.output`. It is checked when read, not when the config loads, so `--output` can replace a configured value
+that is refused (upstream checks only the one that is used). Throws `INVALID_CONFIG` for a directory the run cannot own.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_E2EConfig_ProjectRoot_"></a>
 <a id="E2E_E2EConfig_ProjectRoot"></a>
 
