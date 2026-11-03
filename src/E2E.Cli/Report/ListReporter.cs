@@ -28,11 +28,10 @@ internal sealed record ListReporterOptions
 /// <c>Skipped After Failure</c> sections with their evidence rows, the run
 /// errors, and the summary rows (<c>Test Files</c>, <c>Tests</c>, <c>AI</c>, <c>Cache</c>, <c>Repeats</c>, <c>Warnings</c>, <c>Errors</c>,
 /// <c>Start at</c>, <c>Duration</c>, <c>Report</c>, <c>Traces</c>, <c>Screenshots</c>, <c>AI trace</c>). Not ported: the live window, a
-/// test's console output, serial groups, step streaming, the exploration view, the video rows, and the code frame
-/// under a failure.
+/// test's console output, serial groups, step streaming, and the exploration view. A failure also prints its code frame and its video rows.
 /// </para>
 /// </summary>
-internal sealed class ListReporter
+internal sealed partial class ListReporter
 {
     /// <summary>Indentation under a badge line, matching vitest's banner padding.</summary>
     private const string BadgePadding = "      ";
@@ -339,10 +338,15 @@ internal sealed class ListReporter
             Screenshots = [.. attempts.SelectMany(attempt => RequestedScreenshots(attempt.Steps, attempt.Artifacts))],
             Failure = told?.Failure,
             ScreenPath = ScreenPathOf(told?.Failure, told?.Artifacts),
+            Videos = VideoPaths(attempts),
             AppLog = AppLogSummaryOf(told?.AppLog ?? []),
             SkipReason = told?.Status == E2E.Internal.AttemptStatus.Skipped ? null : told?.Skip?.Reason,
         };
     }
+
+    /// <summary>Where each video these attempts kept is, in order: a report-relative path, or the URL of one a hosted service keeps (upstream's <c>videoPaths</c>).</summary>
+    private static List<string> VideoPaths(IReadOnlyList<ReportAttempt> attempts) =>
+        [.. attempts.SelectMany(attempt => attempt.Artifacts).Where(artifact => artifact.Kind == "video").Select(artifact => artifact.Url ?? artifact.Path).OfType<string>()];
 
     /// <summary>The report path of the screen text a failure's evidence points at (upstream's <c>failureOf</c>).</summary>
     private static string? ScreenPathOf(FailureEvidence? failure, IReadOnlyList<ReportArtifact>? artifacts) =>
@@ -409,12 +413,12 @@ internal sealed class ListReporter
             new RepeatRun(result.Repeat, StatusName(result.Status), details.Error?.Code ?? result.Attempts.LastOrDefault(attempt => attempt.Status != E2E.Internal.AttemptStatus.Passed)?.Error?.Code)));
         if (Format.StatusBucket(result.Status) == "failed")
         {
-            _failures.Add(new Failure(result.ResultId, group, title, result.Status, details.Error, details.Failure, details.ScreenPath, details.AppLog, details.SkipReason));
+            _failures.Add(new Failure(result.ResultId, group, title, result.Status, details.Error, details.Failure, details.ScreenPath, details.AppLog, details.SkipReason, details.Videos));
         }
 
         if (skippedAfter is not null)
         {
-            _skippedFailures.Add(new Failure(result.ResultId, group, title, result.Status, skippedAfter.Error, skippedAfter.Failure, ScreenPathOf(skippedAfter.Failure, skippedAfter.Artifacts), null, null));
+            _skippedFailures.Add(new Failure(result.ResultId, group, title, result.Status, skippedAfter.Error, skippedAfter.Failure, ScreenPathOf(skippedAfter.Failure, skippedAfter.Artifacts), null, null, details.Videos));
         }
 
         if (group.Planned is { } planned && group.Lines.Count >= planned)
@@ -658,6 +662,8 @@ internal sealed class ListReporter
                 {
                     Print(_pc.Red(line));
                 }
+
+                PrintFailureLocation(failure.Error.Source);
             }
 
             if (failure.SkipReason is { } skipReason)
@@ -666,6 +672,7 @@ internal sealed class ListReporter
             }
 
             PrintEvidence(failure.Evidence, failure.ScreenPath, pages.GetValueOrDefault(failure.Id), failure.AppLog);
+            PrintVideos(failure.Videos);
             var marker = $"[{index + 1}/{failures.Count}]";
             var (before, after) = Format.Rule(marker, RuleAlign.Right);
             Print(string.Empty);
@@ -721,6 +728,46 @@ internal sealed class ListReporter
         else if (screenPath is not null)
         {
             Row("screen", DisplayPath(_artifactsRoot is null ? screenPath : Path.Combine(_artifactsRoot, screenPath)));
+        }
+    }
+
+    /// <summary>Where to watch a failed attempt: one line per recording it kept.</summary>
+    private void PrintVideos(IReadOnlyList<string> videos)
+    {
+        foreach (var video in videos)
+        {
+            var hosted = HostedUrl().IsMatch(video);
+            var shown = hosted ? Format.Bounded(video) : DisplayPath(_artifactsRoot is null ? video : Path.Combine(_artifactsRoot, video));
+            Print(_pc.Cyan($" {_pc.Dim(Format.Pointer)} {_pc.Dim("video")} {shown}"));
+        }
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex("^https?://")]
+    private static partial System.Text.RegularExpressions.Regex HostedUrl();
+
+    /// <summary>
+    /// Names the user's failing line and renders a code frame around it (upstream's <c>printFailureLocation</c>). Upstream finds the line in the
+    /// error's stack (<c>userFrame</c>); the port's error carries it already, as <c>Source</c> (<c>Source.Locate</c>), relative to the project root.
+    /// </summary>
+    private void PrintFailureLocation(E2E.Internal.SourceLocation? source)
+    {
+        if (source is null || _projectRoot is null)
+        {
+            return;
+        }
+
+        // Upstream's `userFrame` takes only frames inside the project root; a location outside it is not framed.
+        var file = Path.GetFullPath(source.File, _projectRoot);
+        var relative = Path.GetRelativePath(_projectRoot, file);
+        if (relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal) || Path.IsPathRooted(relative))
+        {
+            return;
+        }
+
+        Print(_pc.Cyan($" {_pc.Dim(Format.Pointer)} {Format.Bounded(DisplayPath(file))}:{_pc.Dim($"{source.Line}:{source.Column}")}"));
+        foreach (var line in CodeFrame.Render(file, source.Line, source.Column, _pc))
+        {
+            Print("    " + line);
         }
     }
 
@@ -842,6 +889,9 @@ internal sealed class ListReporter
 
         /// <summary>Why the told attempt skipped itself, when it failed anyway.</summary>
         public string? SkipReason { get; init; }
+
+        /// <summary>Where the recordings the attempts kept are: report-relative paths, or hosted URLs.</summary>
+        public IReadOnlyList<string> Videos { get; init; } = [];
     }
 
     /// <summary>The app log lines that say something went wrong: the tally, and the errors a failure block quotes (upstream's <c>AppLogSummary</c>).</summary>
@@ -850,7 +900,7 @@ internal sealed class ListReporter
     private sealed record AppLogSummary(string Tally, FailureText.AppErrors Errors);
 
     /// <summary>One failed pair, held for the <c>Failed Tests</c> section.</summary>
-    private sealed record Failure(string Id, FileGroup Group, string Title, ResultStatus Status, ReportError? Error, FailureEvidence? Evidence, string? ScreenPath, AppLogSummary? AppLog, string? SkipReason);
+    private sealed record Failure(string Id, FileGroup Group, string Title, ResultStatus Status, ReportError? Error, FailureEvidence? Evidence, string? ScreenPath, AppLogSummary? AppLog, string? SkipReason, IReadOnlyList<string> Videos);
 
     /// <summary>Upstream's <c>DEFAULT_OUTPUT</c>: a line to stdout. A C# interface needs a class to implement it, hence <see cref="StdoutOutput"/>.</summary>
     private static readonly IListReporterOutput DefaultOutput = new StdoutOutput();
