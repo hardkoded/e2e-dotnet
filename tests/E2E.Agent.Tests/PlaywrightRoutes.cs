@@ -48,7 +48,7 @@ internal static class PlaywrightRoutes
         if (path == "/respond")
         {
             var query = context.Request.QueryString;
-            response.StatusCode = int.Parse(query["status"] ?? "200", CultureInfo.InvariantCulture);
+            response.StatusCode = int.TryParse(query["status"], CultureInfo.InvariantCulture, out var status) ? status : 200;
             if (query["headers"] is { } headers)
             {
                 foreach (var (name, value) in JsonSerializer.Deserialize<Dictionary<string, string>>(headers)!)
@@ -111,6 +111,12 @@ internal static class PlaywrightRoutes
             var next = afterStart + relative;
             var part = data[(afterStart + 2)..(next - 2)];
             var split = part.Span.IndexOf("\r\n\r\n"u8);
+            if (split < 0)
+            {
+                start = next;
+                continue;
+            }
+
             var head = Encoding.UTF8.GetString(part.Span[..split]);
             var body = part[(split + 4)..];
             files.Add(new Dictionary<string, object?>

@@ -45,11 +45,11 @@ public sealed class PageFilechooserTests : PlaywrightTest
         try
         {
             var uploadFile = Path.Combine(dir, "50MB_1.zip");
-            var chunk = new byte[1024];
+            var chunk = new byte[1024 * 1024];
             Array.Fill(chunk, (byte)'A');
             await using (var stream = File.Create(uploadFile))
             {
-                for (var i = 0; i < 49 * 1024; i++)
+                for (var i = 0; i < 49; i++)
                 {
                     await stream.WriteAsync(chunk);
                 }

@@ -45,7 +45,10 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
     {
         foreach (var dir in _outputDirs)
         {
-            Directory.Delete(dir, recursive: true);
+            if (Directory.Exists(dir))
+            {
+                Directory.Delete(dir, recursive: true);
+            }
         }
 
         _outputDirs.Clear();
@@ -62,10 +65,10 @@ public sealed class PageSetInputFilesTests : PlaywrightTest
     /// <summary>Writes a 200MB file of <c>A</c>s, Playwright's large upload.</summary>
     private static async Task WriteLargeFileAsync(string file)
     {
-        var chunk = new byte[4 * 1024];
+        var chunk = new byte[1024 * 1024];
         Array.Fill(chunk, (byte)'A');
         await using var stream = File.Create(file);
-        for (var i = 0; i < 50 * 1024; i++)
+        for (var i = 0; i < 200; i++)
         {
             await stream.WriteAsync(chunk);
         }
