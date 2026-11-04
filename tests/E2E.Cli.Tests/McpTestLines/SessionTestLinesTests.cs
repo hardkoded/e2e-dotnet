@@ -24,13 +24,13 @@ public sealed class SessionTestLinesTests
         var engine = new FakeEngine();
         await using var context = await SessionContext.StartAsync(engine);
         const EngineCapabilities all = EngineCapabilities.Observation | EngineCapabilities.Actions | EngineCapabilities.Location | EngineCapabilities.Keyboard
-            | EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Screenshot | EngineCapabilities.TapModifiers;
+            | EngineCapabilities.Scroll | EngineCapabilities.History | EngineCapabilities.Screenshot | EngineCapabilities.TapModifiers | EngineCapabilities.Resize;
         var catalog = SessionCatalog.Create(context, all, secrets: ["apiKey"], projectRoot: "/project", attemptDir: "/project/.e2e/results/attempt", actionKinds: EngineActionKinds.Locator, pointerKinds: ["tap", "hover", "dragTo"], canDismissKeyboard: true);
 
         // Only what looks at the screen, acts at a point, or reads the draft prints no line.
         Assert.Equal(["observe", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at", "locate", "test_lines"], catalog.Entries.Select(pair => pair.Key).Where(name => !SessionTestLines.HasLine(name)));
         Assert.Equal(
-            ["tap", "double_tap", "long_press", "right_click", "hover", "type", "press", "select", "check", "uncheck", "clear", "drag", "scroll_to", "scroll", "navigate", "back", "dismiss_keyboard", "type_secret"],
+            ["tap", "double_tap", "long_press", "right_click", "hover", "type", "press", "select", "check", "uncheck", "clear", "drag", "scroll_to", "scroll", "navigate", "back", "resize_viewport", "dismiss_keyboard", "type_secret"],
             catalog.Entries.Select(pair => pair.Key).Where(SessionTestLines.HasLine));
     }
 
@@ -225,6 +225,14 @@ public sealed class SessionTestLinesTests
         {
             Assert.Equal("Test line: " + line, NoteOf(await session.RunAsync(tool, args)));
         }
+    }
+
+    [Fact]
+    public async Task Prints_no_line_for_a_resize_naming_the_size_to_set_with_the_engine_fixture()
+    {
+        var session = new TestLineHarness([Save]);
+        await session.RunAsync("resize_viewport", """{ "width": 390, "height": 844 }""");
+        Assert.Contains("// resize_viewport: no test line: set 390x844 with the engine fixture's viewport call", session.Lines.Draft(), StringComparison.Ordinal);
     }
 
     [Fact]

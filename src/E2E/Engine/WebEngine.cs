@@ -345,6 +345,7 @@ public sealed partial class WebEngine : IEngine
         | EngineCapabilities.Screenshot
         | EngineCapabilities.TapModifiers
         | EngineCapabilities.Video
+        | EngineCapabilities.Resize
         | EngineCapabilities.Upload
         | EngineCapabilities.State;
 
@@ -1605,6 +1606,10 @@ public sealed partial class WebEngine : IEngine
             }
 
         })));
+
+        // Upstream's PlaywrightSurface.resize: the viewport `Browser.SetViewportAsync` sets, then the screen after it.
+        public Task ResizeAsync(TraceViewport size, OperationContext context, CancellationToken cancellationToken) =>
+            ActedAsync(cancellationToken, () => SetViewportAsync(size.Width, size.Height, cancellationToken));
 
         public Task ForwardAsync(CancellationToken cancellationToken) => RunAsync("forward", cancellationToken, () => NavigatingAsync(async () =>
         {

@@ -9,6 +9,7 @@
 - The verdict
 - Reading the result
 - Your config applies
+- Check other screen sizes
 - Writing a good goal
 - When it does not fit
 
@@ -208,6 +209,17 @@ usernames, and the agent fills each password with `fill_secret` by the
 secret `<name>.password`; the password never reaches a model. Give only the
 accounts the exploration needs. Without credentials, the agent signs in with
 made-up ones.
+
+## Check other screen sizes
+
+When the target's engine can resize the viewport (the web engine can), a goal
+can ask for layouts at other widths:
+
+```bash
+e2e explore 'Check the pricing page at desktop, tablet, and phone widths for broken layouts'
+```
+
+The agent resizes with its `resize_viewport` tool.
 
 ## Writing a good goal
 

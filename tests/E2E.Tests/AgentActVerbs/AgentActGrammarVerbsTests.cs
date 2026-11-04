@@ -162,6 +162,20 @@ public sealed class AgentActGrammarVerbsTests
     }
 
     [Fact]
+    public async Task Resizes_the_viewport_through_the_engine_session_and_reports_the_screen_at_the_new_size()
+    {
+        using var site = await StartSiteAsync();
+        var model = ModelFor(ResizeFlow);
+        var (result, steps) = await RunFlowWithStepsAsync(site, ResizeFlow, model, NewCacheDirectory());
+
+        Assert.Equal(3, result.Actions);
+        var actions = EngineEvents(steps);
+        Assert.Equal(["hover", "tap", "resize"], actions.Select(item => item.Name));
+        Assert.Equal("resize the viewport to 390x844", actions[2].Detail);
+        Assert.StartsWith("Resized the viewport to 390x844.", CounterPage.ToolResults(model)[2], StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Repeats_a_key_in_one_call_one_engine_action_per_press_and_shows_the_selection_it_made()
     {
         using var site = await StartSiteAsync();

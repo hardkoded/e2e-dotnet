@@ -399,7 +399,10 @@ lines you changed:
   nothing listed tap it to focus it and go through the keyboard, and `fill`
   with no target types into the focused field (`replace` clears it first);
   `select_at` needs a listed control. On a device engine `dismiss_keyboard`
-  hides the on-screen keyboard when it covers a control. Tell the agent to prefer ids (topic
+  hides the on-screen keyboard when it covers a control. On the web engine
+  `resize_viewport {width, height}` sets the viewport (200 to 4096 CSS pixels per
+  side), so the agent can check a layout at desktop, tablet, and phone widths;
+  take a `screenshot` after it to see the layout. Tell the agent to prefer ids (topic
   `agent`). `press` takes `times` (1 to 20) to repeat a key in one call, and
   five failed calls in a row leave the agent only `done` (topic `agent`). Once
   the step shows pixels, an action that leaves the listing as it was but moves

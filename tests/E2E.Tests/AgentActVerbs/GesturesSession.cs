@@ -232,6 +232,19 @@ internal static class GesturesSession
         },
         screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("redeemed"));
 
+    /// <summary>Upstream's "redeems the voucher, then resizes to a phone width" flow: the hover and tap, then a resize the replay must repeat.</summary>
+    public static readonly Flow ResizeFlow = new(
+        "redeems the voucher, then resizes to a phone width",
+        "redeem the voucher and check the page on a phone",
+        (calls, prompt) => calls switch
+        {
+            0 => ModelResponses.Call("hover", new { @ref = RefFor(prompt, AccountLine) }),
+            1 => ModelResponses.Call("tap", new { @ref = RefFor(prompt, "button \"Redeem\"") }),
+            2 => ModelResponses.Call("resize_viewport", new { width = 390, height = 844 }),
+            _ => null,
+        },
+        screen => Expect.That(screen.GetByRole("status", "Gesture state")).ToHaveTextAsync("redeemed"));
+
     /// <summary>
     /// The flows of upstream's record-then-replay pass this port can run: the instruction, the
     /// scripted model's tool call for each turn (null concludes the step), and the check after it.
@@ -278,6 +291,7 @@ internal static class GesturesSession
                 _ => null,
             },
             screen => Expect.That(screen.GetByRole("heading", "Gestures")).ToBeVisibleAsync()),
+        ResizeFlow,
     ];
 
     /// <summary>Upstream's "refuses a hidden file" flow: the model names the project's <c>.env</c>, which the policy never lets through. It fails, so it has no check.</summary>

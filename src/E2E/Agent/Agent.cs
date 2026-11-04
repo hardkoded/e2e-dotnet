@@ -1109,6 +1109,9 @@ public enum ActionName
     ScrollUntil,
     Navigate,
     Back,
+
+    /// <summary>The viewport set to a size (<c>resize</c>).</summary>
+    Resize,
     TapAt,
     HoverAt,
     DragAt,

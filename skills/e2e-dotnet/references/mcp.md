@@ -109,7 +109,7 @@ node changed within the wait after this action` when it should have changed
 something), focus moving is not a change, and a screen that changed mostly is
 sent whole again. `observe` always shows the whole screen and makes it the
 screen later changes are measured from. What an engine lacks is missing from its
-catalog: `scroll` and `scroll_to` need scrolling, `back` needs history,
+catalog: `scroll` and `scroll_to` need scrolling, `back` needs history, `resize_viewport` needs an engine that can resize the viewport,
 `long_press`, `right_click`, `hover`, and `drag` need the engine to declare the
 action (`longPress`, `secondaryTap`, `hover`, `dragTo`), `hover_at` and `drag_at` need the engine to take a bare point for a hover or a drag, `screenshot` needs the web engine, and `type_secret` appears only when the
 config declares `credentials` or a `secrets` entry.
@@ -126,6 +126,7 @@ config declares `credentials` or a `secrets` entry.
 | `scroll {direction, times?, target?}`, `scroll_to {target?, text?, direction?}` | Move the viewport, or page to a node |
 | `navigate {url}` | Open a path or an http or https URL. Any other scheme fails with `POLICY_DENIED` |
 | `back` | One step back in the history |
+| `resize_viewport {width, height}` | Set the viewport size in CSS pixels, 200 to 4096 per side, to check a layout at another width (listed when the engine can resize, as the web engine can). It stays at that size until resized again. It prints no test line: set the size in a test with `Browser.SetViewportAsync` |
 | `dismiss_keyboard` | Hide the on-screen keyboard when it covers what you need to reach (listed when the engine can hide its keyboard, as the mobile engine can). It prints no test line |
 | `screenshot {path?}` | The viewport as an image. It masks secure fields only, after a secret fill too. With `path` (a `.png` inside the project, relative to its root, not hidden or under a hidden directory), also saves a full-resolution masked capture there and returns its absolute path; any other path is `POLICY_DENIED` |
 | `tap_at {x, y}`, `hover_at {x, y}`, `drag_at {x, y, to_x, to_y}`, `type_at {x, y, value, replace?}`, `press_at {x, y, key}`, `select_at {x, y, value}` | Act at a point of the latest `screenshot`, in that image's pixels, for a target `observe` does not list (a canvas, a map). Before a screenshot they answer with the line that says to take one. Last resort: act on a listed node by id. They print no test line |
@@ -186,7 +187,7 @@ into a test, then add the assertions.
 | `scroll_to` a node | `ScrollIntoViewAsync()` |
 | `navigate`, `back` | `App.OpenAsync(url)`, `App.BackAsync()` |
 
-No line: `type` or `press` with no target, a `type` whose node is no input and took the value through the keyboard, the point tools, `tap`, `double_tap`, or `right_click` with
+No line: `type` or `press` with no target, `resize_viewport` (set the size with `Browser.SetViewportAsync` on the web engine), a `type` whose node is no input and took the value through the keyboard, the point tools, `tap`, `double_tap`, or `right_click` with
 `modifiers` (a locator tap takes none), a `drag` whose either end has no locator, `scroll`, and `scroll_to` a text.
 
 ## Workflow

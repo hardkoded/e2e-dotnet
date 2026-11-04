@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using E2E.Cache;
+using E2E.Engine;
 
 namespace E2E.Tests.TraceCache;
 
@@ -40,6 +41,14 @@ public sealed class DecideTraceReplayTests
         var entry = Entry("/settings", Navigate(), Tap());
         Assert.Equal("replay", Decide.DecideTraceReplay(entry, "/other").Action);
         Assert.Equal("replay", Decide.DecideTraceReplay(entry, null).Action);
+    }
+
+    [Fact]
+    public void Skips_a_leading_resize_when_checking_for_the_navigate_opener()
+    {
+        var resize = new RecordedAction { Kind = "resize", Size = new TraceViewport(390, 844) };
+        Assert.Equal("replay", Decide.DecideTraceReplay(Entry("/settings", resize, Navigate()), "/elsewhere").Action);
+        Assert.Equal(TraceReplayDecision.Miss("wrong-context"), Decide.DecideTraceReplay(Entry("/settings", resize, Tap()), "/elsewhere"));
     }
 
     [Fact]

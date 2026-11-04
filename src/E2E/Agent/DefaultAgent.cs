@@ -199,6 +199,8 @@ public static class DefaultAgent
                 return "press " + UploadPaths.Quote(action.Key ?? "") + " on the focused field";
             case "dismissKeyboard":
                 return "dismiss the keyboard";
+            case "resize":
+                return "resize the viewport to " + (action.Size?.Width ?? 0).ToString(CultureInfo.InvariantCulture) + "x" + (action.Size?.Height ?? 0).ToString(CultureInfo.InvariantCulture);
         }
 
         var builder = new StringBuilder(action.Kind switch { "tapAt" => "tap", "hoverAt" => "hover", "dragAt" => "drag", _ => Prose.GetValueOrDefault(action.Kind, action.Kind) });
