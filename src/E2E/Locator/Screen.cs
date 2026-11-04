@@ -973,17 +973,17 @@ public sealed class Locator
     /// More than one match fails at once.
     /// </summary>
     private Task ActAsync(LocatorAction action, ActionOptions? options, CancellationToken cancellationToken) =>
-        ActAsync("locator." + LocatorEngine.ApiName(action), (_, _) => Task.FromResult(action), options, null, () => _screen.Engine.CheckAction(action), cancellationToken);
+        ActAsync("locator." + LocatorEngine.ApiName(action), (_, _) => Task.FromResult(action), options, null, () => _screen.Engine.CheckAction(action), cancellationToken, anyState: action is LocatorAction.ScrollIntoView);
 
     /// <summary>
     /// <see cref="ActAsync(LocatorAction, ActionOptions, CancellationToken)"/> for an action built once the node is found, with the step's
     /// label and a check that runs inside the step before the node is resolved.
     /// </summary>
-    private Task ActAsync(string api, Func<Deadline, CancellationToken, Task<LocatorAction>> build, ActionOptions? options, string? label, Action? check, CancellationToken cancellationToken) =>
+    private Task ActAsync(string api, Func<Deadline, CancellationToken, Task<LocatorAction>> build, ActionOptions? options, string? label, Action? check, CancellationToken cancellationToken, bool anyState = false) =>
         _screen.RunStepAsync(StepKind.Locator, api, label ?? Query.Describe(), () =>
         {
             check?.Invoke();
-            return _screen.Engine.PerformAsync(Query, build, options?.Timeout, _screen.Token(cancellationToken));
+            return _screen.Engine.PerformAsync(Query, build, options?.Timeout, _screen.Token(cancellationToken), anyState);
         });
 
     /// <summary>
@@ -1578,9 +1578,19 @@ internal static class LocatorResolver
                         ? candidates
                         : tree.DescendantsOf(Resolve(query.Parent, candidates, tree, includeHidden), candidates);
                     var matches = pool.Where(node => Matches(node, query, includeHidden)).ToList();
-                    return query.Kind is "text" or "label" ? tree.InnermostOnly(matches) : matches;
+                    return query.Kind is "text" or "label" ? tree.InnermostOnly(BoxedFirst(matches)) : matches;
                 }
         }
+    }
+
+    /// <summary>
+    /// The matches with a box when there are any. Upstream's web tree lists no node that has no box, so a zero-sized control inside a shown
+    /// label never stands in for the label as its innermost match; this tree lists such a node, so it is left out here instead.
+    /// </summary>
+    private static List<SemanticNode> BoxedFirst(List<SemanticNode> matches)
+    {
+        static bool Boxed(SemanticNode node) => node.Rect is not { Width: <= 0 } and not { Height: <= 0 };
+        return matches.Any(Boxed) ? matches.Where(Boxed).ToList() : matches;
     }
 
     private static bool UsesDisplayValue(LocatorExpression query) =>

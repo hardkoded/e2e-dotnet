@@ -721,7 +721,7 @@ internal static class PageScript
             if (directTexts.has(el)) return directTexts.get(el);
             let out = "";
             for (const child of el.childNodes) {
-              if (child.nodeType === Node.TEXT_NODE) out += child.nodeValue ?? "";
+              if (child.nodeType === 3) out += child.nodeValue ?? "";
             }
             out = out.replace(/\s+/g, " ").trim();
             if (out && getComputedStyle(el).getPropertyValue("content-visibility") === "hidden") out = "";
@@ -782,8 +782,8 @@ internal static class PageScript
           const lineRunOf = (el) => {
             let out = "";
             for (const child of renderedChildrenOf(el)) {
-              if (child.nodeType === Node.TEXT_NODE) out += child.nodeValue ?? "";
-              if (child.nodeType !== Node.ELEMENT_NODE) continue;
+              if (child.nodeType === 3) out += child.nodeValue ?? "";
+              if (child.nodeType !== 1) continue;
               if (flowsInLine(child)) {
                 out += lineRunOf(child);
                 continue;
@@ -841,10 +841,10 @@ internal static class PageScript
             }
             return labelledBy.get(id) ?? [];
           };
-          // Text inside a label of a control, or in an element a role's
-          // aria-labelledby names, is the labelled element's name already.
+          // Text in an element a role's aria-labelledby names is the labelled
+          // element's name already. Text in a label is listed, as upstream lists
+          // it, so a text query finds the label, even one whose control has no box.
           const namesControl = (el) => {
-            if (el.closest("label")?.control) return true;
             if (!el.id || document.getElementById(el.id) !== el) return false;
             return referencesOf(el.id).some((ref) => {
               const role = roleOf(ref);
@@ -855,7 +855,7 @@ internal static class PageScript
           // or text of its own, so text inside a bare span or a strong is a node
           // a text query can answer with. Text that names another element is
           // not listed: that element carries it as its name, so a text query
-          // answers with it, and a fill acts on the control a label names. An
+          // answers with it. An
           // SVG element has no innerText to read, so it is not listed by text.
           const ownsText = (el) => el instanceof HTMLElement && !namesControl(el) &&
             (offersAction(el) && isReadInLine(el) ? lineTextOf(el) !== "" : directTextOf(el) !== "" && !isReadInLine(el));
@@ -874,7 +874,7 @@ internal static class PageScript
           const inlineNodesOf = (parent, isHidden) => {
             const out = [];
             for (const child of renderedChildrenOf(parent)) {
-              if (child.nodeType !== Node.ELEMENT_NODE || !flowsInLine(child) || listed(child, roleOf(child))) continue;
+              if (child.nodeType !== 1 || !flowsInLine(child) || listed(child, roleOf(child))) continue;
               const text = cut(lineRunOf(child), Infinity);
               if (text) out.push({ ref: stamp(child), text, hidden: isHidden, attributes: attributesOf(child, false), rect: rectOf(child), children: inlineNodesOf(child, isHidden) });
             }

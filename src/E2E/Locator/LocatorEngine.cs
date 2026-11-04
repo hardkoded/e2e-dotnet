@@ -429,9 +429,10 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
     /// <summary>
     /// Performs exactly one action against exactly one enabled match. Stale nodes are re-resolved while the deadline remains; a possibly
     /// committed action is never repeated. An action that itself names other nodes (dragTo) is built per attempt, so its nodes are
-    /// re-resolved together with the source.
+    /// re-resolved together with the source. With <paramref name="anyState"/> a hidden or disabled match is acted on too, as for a scroll into view,
+    /// which needs no visibility.
     /// </summary>
-    internal async Task PerformAsync(LocatorExpression expression, Func<Deadline, CancellationToken, Task<LocatorAction>> build, TimeSpan? timeout, CancellationToken token)
+    internal async Task PerformAsync(LocatorExpression expression, Func<Deadline, CancellationToken, Task<LocatorAction>> build, TimeSpan? timeout, CancellationToken token, bool anyState = false)
     {
         var started = Clock.GetUtcNow();
         var deadline = started + TimeoutOf(timeout);
@@ -447,7 +448,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
         {
             var node = await ResolveCountedAsync(expression, token, reads, sampled: rounds > 0, () => Stopwatch.GetElapsedTime(resolveStamp)).ConfigureAwait(false);
             rounds++;
-            if (node is { States.Disabled: false, States.Hidden: false })
+            if (node is not null && (anyState || node is { States.Disabled: false, States.Hidden: false }))
             {
                 var waitedMs = rounds > 1 ? (long)Stopwatch.GetElapsedTime(resolveStamp).TotalMilliseconds : 0;
                 var action = await build(window, token).ConfigureAwait(false);
