@@ -152,18 +152,4 @@ public sealed class PageDialogTests : PlaywrightTest
         Assert.That(error?.Message, Does.Contain("unhandled alert dialog: 123"));
         Assert.That(await Browser.EvaluateAsync<bool>("window._clicked"), Is.True);
     }
-
-    /// <summary>What <paramref name="act"/> threw, or null when it did not throw (upstream's <c>failure</c>).</summary>
-    private static async Task<Exception?> Failure(Func<Task> act)
-    {
-        try
-        {
-            await act();
-            return null;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            return ex;
-        }
-    }
 }

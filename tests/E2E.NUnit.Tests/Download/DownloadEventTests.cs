@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text;
-using System.Text.Json;
 using E2E.Engine;
 using static E2E.NUnit.Tests.Helpers;
 
@@ -34,7 +33,7 @@ public sealed class DownloadEventTests : PlaywrightTest
         Exception? responseOrError = null;
         var download = await Browser.WaitForDownloadAsync(async () =>
         {
-            responseOrError = await Record(() => Browser.GotoAsync($"{PREFIX}/download"));
+            responseOrError = await Failure(() => Browser.GotoAsync($"{PREFIX}/download"));
         });
         Assert.That(File.Exists(download.AbsolutePath), Is.True);
         Assert.That(await File.ReadAllTextAsync(download.AbsolutePath), Is.EqualTo("Hello world"));
@@ -57,7 +56,7 @@ public sealed class DownloadEventTests : PlaywrightTest
         });
         var download = await Browser.WaitForDownloadAsync(async () =>
         {
-            responseOrError = await Record(() => Browser.GotoAsync(url));
+            responseOrError = await Failure(() => Browser.GotoAsync(url));
         });
         Assert.That(File.Exists(download.AbsolutePath), Is.True);
         Assert.That(await File.ReadAllTextAsync(download.AbsolutePath), Is.EqualTo("Hello world"));
@@ -166,22 +165,5 @@ public sealed class DownloadEventTests : PlaywrightTest
         var download = await Browser.WaitForDownloadAsync(() => Browser.FrameLocator("iframe").FrameLocator("iframe").Locator("a").TapAsync());
         Assert.That(File.Exists(download.AbsolutePath), Is.True);
         Assert.That(await File.ReadAllTextAsync(download.AbsolutePath), Is.EqualTo("Hello world"));
-    }
-
-    /// <summary><c>/respond</c> answering with <paramref name="headers"/> and <paramref name="body"/>.</summary>
-    internal static string Respond(Dictionary<string, string> headers, string body = "Hello world") =>
-        $"/respond?headers={Uri.EscapeDataString(JsonSerializer.Serialize(headers))}&body={Uri.EscapeDataString(body)}";
-
-    private static async Task<Exception?> Record(Func<Task> act)
-    {
-        try
-        {
-            await act();
-            return null;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            return ex;
-        }
     }
 }

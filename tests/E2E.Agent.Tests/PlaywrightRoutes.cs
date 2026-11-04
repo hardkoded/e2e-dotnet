@@ -55,17 +55,27 @@ internal static class PlaywrightRoutes
         if (path == "/respond")
         {
             response.StatusCode = int.TryParse(query["status"], out var status) ? status : 200;
-            var headers = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(query["headers"] ?? "{}") ?? [];
-            foreach (var (header, value) in headers)
+            try
             {
-                if (header.Equals("content-type", StringComparison.OrdinalIgnoreCase))
+                var headers = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(query["headers"] ?? "{}") ?? [];
+                foreach (var (header, value) in headers)
                 {
-                    response.ContentType = value;
+                    if (header.Equals("content-type", StringComparison.OrdinalIgnoreCase))
+                    {
+                        response.ContentType = value;
+                    }
+                    else
+                    {
+                        response.AddHeader(header, value);
+                    }
                 }
-                else
-                {
-                    response.AddHeader(header, value);
-                }
+            }
+            catch (Exception ex) when (ex is System.Text.Json.JsonException or ArgumentException)
+            {
+                response.StatusCode = 400;
+                response.ContentType = "text/plain";
+                await WriteAsync(response, Encoding.UTF8.GetBytes("Bad headers: " + ex.Message)).ConfigureAwait(false);
+                return;
             }
 
             await WriteAsync(response, Encoding.UTF8.GetBytes(query["body"] ?? "")).ConfigureAwait(false);

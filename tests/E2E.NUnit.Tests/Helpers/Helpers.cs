@@ -18,6 +18,24 @@ internal static class Helpers
     /// <summary>The absolute path of one of Playwright's test assets, upstream's <c>asset</c>.</summary>
     public static string Asset(string name) => Path.Combine(AppContext.BaseDirectory, "Testbed", "playwright", "assets", name);
 
+    /// <summary>What <paramref name="act"/> threw, or null when it did not throw (upstream's <c>failure</c>).</summary>
+    public static async Task<Exception?> Failure(Func<Task> act)
+    {
+        try
+        {
+            await act().ConfigureAwait(false);
+            return null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return ex;
+        }
+    }
+
+    /// <summary>A path of <c>/respond</c> answering with <paramref name="headers"/> and <paramref name="body"/> (upstream's <c>respond</c>).</summary>
+    public static string Respond(Dictionary<string, string> headers, string body = "Hello world") =>
+        $"/respond?headers={Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(headers))}&body={Uri.EscapeDataString(body)}";
+
     /// <summary>A path that serves <paramref name="html"/> as a page, for Playwright's <c>page.setContent(html)</c>.</summary>
     public static string Content(string html) =>
         "/content?html=" + Convert.ToBase64String(Encoding.UTF8.GetBytes(html)).TrimEnd('=').Replace('+', '-').Replace('/', '_');

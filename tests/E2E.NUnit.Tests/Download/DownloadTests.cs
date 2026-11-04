@@ -54,7 +54,7 @@ public sealed class DownloadTests : PlaywrightTest
     [Test]
     public async Task Should_download_even_if_there_is_no_attachment_value()
     {
-        await Browser.GotoAsync(Content($"""<a href="{PREFIX}{DownloadEventTests.Respond(new Dictionary<string, string> { ["content-type"] = "application/octet-stream", ["content-disposition"] = "filename=foo.txt" })}">download</a>"""));
+        await Browser.GotoAsync(Content($"""<a href="{PREFIX}{Respond(new Dictionary<string, string> { ["content-type"] = "application/octet-stream", ["content-disposition"] = "filename=foo.txt" })}">download</a>"""));
         await Browser.WaitForDownloadAsync(() => Browser.Locator("a").TapAsync());
     }
 
@@ -67,7 +67,7 @@ public sealed class DownloadTests : PlaywrightTest
         {
             try
             {
-                await Browser.GotoAsync(DownloadEventTests.Respond(new Dictionary<string, string> { ["content-type"] = "application/octet-stream" }));
+                await Browser.GotoAsync(Respond(new Dictionary<string, string> { ["content-type"] = "application/octet-stream" }));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
