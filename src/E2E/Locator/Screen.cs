@@ -343,7 +343,7 @@ public class Screen
                 }
 
                 sampled = true;
-                if (node is { States.Hidden: false })
+                if (LocatorEngine.IsNodeVisible(node))
                 {
                     return;
                 }
@@ -937,12 +937,12 @@ public sealed class Locator
                     throw await _screen.Engine.AmbiguousAsync(Query, matches.Count, token).ConfigureAwait(false);
                 }
 
-                samples.Add(matches.Count == 0 ? "absent" : matches[0].States.Hidden ? "hidden" : "visible");
+                samples.Add(matches.Count == 0 ? "absent" : LocatorEngine.IsNodeVisible(matches[0]) ? "visible" : "hidden");
                 return state switch
                 {
                     WaitForState.Attached => matches.Count == 1,
-                    WaitForState.Visible => matches.Count == 1 && !matches[0].States.Hidden,
-                    WaitForState.Hidden => matches.Count == 0 || matches[0].States.Hidden,
+                    WaitForState.Visible => matches.Count == 1 && LocatorEngine.IsNodeVisible(matches[0]),
+                    WaitForState.Hidden => matches.Count == 0 || !LocatorEngine.IsNodeVisible(matches[0]),
                     _ => matches.Count == 0,
                 };
             },
@@ -1593,7 +1593,7 @@ internal static class LocatorResolver
 
     private static bool Matches(SemanticNode node, LocatorExpression query, bool includeHidden)
     {
-        if (query.Visible && node.States.Hidden)
+        if (query.Visible && !LocatorEngine.IsNodeVisible(node))
         {
             return false;
         }
@@ -1630,11 +1630,11 @@ internal static class LocatorResolver
         }
 
         var states = node.States;
-        return StateIs(query.Checked, states.Checked)
+        return StateIs(query.Checked, states.Checked, states.Mixed)
             && StateIs(query.Disabled, states.Disabled)
             && StateIs(query.Selected, states.Selected)
-            && StateIs(query.Expanded, states.Expanded)
-            && StateIs(query.Pressed, states.Pressed)
+            && StateIs(query.Expanded, states.Expanded, states.ExpandedAbsent)
+            && StateIs(query.Pressed, states.Pressed, states.Mixed)
             && (query.Level is null || node.Level == query.Level);
     }
 
@@ -1643,7 +1643,8 @@ internal static class LocatorResolver
     private static bool HasText(SemanticNode node, TextMatch expected, bool exact) =>
         node.DomText is { } domText ? expected.Matches(domText, exact) : expected.Matches(node.Name, exact) || expected.Matches(node.Text, exact);
 
-    private static bool StateIs(bool? wanted, bool actual) => wanted is null || wanted.Value == actual;
+    /// <summary>A state with no value to match (mixed, or an attribute that is absent) matches neither true nor false, as Playwright's role selector reads it.</summary>
+    private static bool StateIs(bool? wanted, bool actual, bool unset = false) => wanted is null || (!unset && wanted.Value == actual);
 
     /// <summary>
     /// Whether the node's own name, text, or value, or a descendant's, contains the text, ignoring case.
