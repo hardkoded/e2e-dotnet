@@ -53,14 +53,11 @@ public sealed class PageNetworkIdleTests : PlaywrightTest
         await bRequested.Task;
         Assert.That(actionFinished, Is.False);
 
-        var timerTriggered = false;
-        using var cancel = new CancellationTokenSource();
-        _ = Task.Delay(500, cancel.Token).ContinueWith(t => timerTriggered = !t.IsCanceled, TaskScheduler.Default);
+        var timer = Task.Delay(500);
         bAnswer.TrySetResult();
 
         await actionPromise;
-        await cancel.CancelAsync();
-        Assert.That(timerTriggered, Is.True);
+        Assert.That(timer.IsCompletedSuccessfully, Is.True);
     }
 
     [Test]
