@@ -15,6 +15,27 @@ internal static class Helpers
     /// <summary>The app's origin, Playwright's <c>server.PREFIX</c> in the tests ported from it.</summary>
     public static string PREFIX => E2E.Playground.Testbed.Url;
 
+    /// <summary>Upstream's <c>delay(milliseconds).then(next)</c>.</summary>
+    public static async Task After(int milliseconds, Func<Task> next)
+    {
+        await Task.Delay(milliseconds).ConfigureAwait(false);
+        await next().ConfigureAwait(false);
+    }
+
+    /// <summary>The error <paramref name="act"/> threw, or null when it did not (upstream's <c>failure</c>).</summary>
+    public static async Task<Exception?> Record(Func<Task> act)
+    {
+        try
+        {
+            await act().ConfigureAwait(false);
+            return null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return ex;
+        }
+    }
+
     /// <summary>Another origin on the same app, Playwright's <c>server.CROSS_PROCESS_PREFIX</c> (<c>localhost</c> on the app's port).</summary>
     public static string CROSS => new UriBuilder(PREFIX) { Host = "localhost" }.Uri.GetLeftPart(UriPartial.Authority);
 

@@ -266,25 +266,4 @@ public sealed class LocatorFrameTests : PlaywrightTest
             Equal(true, await div.IsVisibleAsync());
         });
     }
-
-    /// <summary>Upstream's <c>delay(ms).then(next)</c>.</summary>
-    private static async Task After(int milliseconds, Func<Task> next)
-    {
-        await Task.Delay(milliseconds);
-        await next();
-    }
-
-    /// <summary>The error <paramref name="act"/> threw, or null when it did not.</summary>
-    private static async Task<Exception?> Record(Func<Task> act)
-    {
-        try
-        {
-            await act();
-            return null;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            return ex;
-        }
-    }
 }

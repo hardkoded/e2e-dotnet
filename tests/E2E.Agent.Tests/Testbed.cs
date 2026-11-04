@@ -1029,7 +1029,14 @@ internal static class Testbed
                     }
                     finally
                     {
-                        response.Close();
+                        try
+                        {
+                            response.Close();
+                        }
+                        catch (Exception ex) when (ex is HttpListenerException or InvalidOperationException or IOException or ObjectDisposedException)
+                        {
+                            // The response was aborted.
+                        }
                     }
                 });
                 continue;

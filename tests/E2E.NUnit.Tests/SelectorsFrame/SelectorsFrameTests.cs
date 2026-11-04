@@ -166,11 +166,4 @@ public sealed class SelectorsFrameTests : PlaywrightTest
         await Browser.GotoAsync(Iframe2);
         await promise;
     }
-
-    /// <summary>Upstream's <c>delay(ms).then(next)</c>.</summary>
-    private static async Task After(int milliseconds, Func<Task> next)
-    {
-        await Task.Delay(milliseconds);
-        await next();
-    }
 }
