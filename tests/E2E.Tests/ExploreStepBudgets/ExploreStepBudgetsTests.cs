@@ -54,4 +54,16 @@ public sealed class ExploreStepBudgetsTests
         Assert.Equal(25, explorer.MaxModelCalls);
         Assert.Equal(40, Explorer.WithStepBudgets(new AgentOptions()).MaxSteps);
     }
+
+    [Fact]
+    public void Adds_the_signed_in_sentence_to_the_context_of_an_exploration_from_a_session()
+    {
+        var config = E2EConfig.Parse("""{ "agents": { "default": { "model": "gpt-4.1", "context": "Be brief." } } }""", Root, _ => null);
+
+        var explorer = Explorer.WithStepBudgets(config.Agent.CreateOptions(), "admin");
+        var plain = Explorer.WithStepBudgets(config.Agent.CreateOptions());
+
+        Assert.Equal("Be brief.\nThe app starts signed in: the run restored the session \"admin\" a setup test saved. Do not sign in again, and do not sign out, unless the goal asks for it.", explorer.Context);
+        Assert.Equal("Be brief.", plain.Context);
+    }
 }
