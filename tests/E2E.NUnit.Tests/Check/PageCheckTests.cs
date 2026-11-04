@@ -76,7 +76,7 @@ public sealed class PageCheckTests : PlaywrightTest
     [Test]
     public async Task Should_uncheck_radio_by_aria_role()
     {
-        await ExpectedToFailAsync(async () =>
+        await ExpectedToFailAsync("uncheck", async () =>
         {
             await Browser.GotoAsync(Content("""
                 <div role='radio' id='checkbox' aria-checked="true">CHECKBOX</div>
@@ -109,7 +109,7 @@ public sealed class PageCheckTests : PlaywrightTest
     [Test]
     public async Task Should_uncheck_the_box_by_aria_role()
     {
-        await ExpectedToFailAsync(async () =>
+        await ExpectedToFailAsync("uncheck", async () =>
         {
             foreach (var role in AriaRoles)
             {

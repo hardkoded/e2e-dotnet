@@ -33,10 +33,10 @@ internal static class Helpers
 
     /// <summary>
     /// Runs the body of a test upstream marks <c>{ fail: 'reason' }</c>, a known difference from Playwright: the test passes while
-    /// <paramref name="body"/> still fails, and fails once it passes, so the marker is removed. The port has no <c>fail</c> test option
+    /// <paramref name="body"/> still fails with a message that contains <paramref name="failure"/>, and fails once it passes, so the marker is removed. The port has no <c>fail</c> test option
     /// (see COMPATIBILITY.md), and NUnit has no expected-failure outcome.
     /// </summary>
-    public static async Task ExpectedToFailAsync(Func<Task> body)
+    public static async Task ExpectedToFailAsync(string failure, Func<Task> body)
     {
         try
         {
@@ -44,6 +44,7 @@ internal static class Helpers
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            Assert.That(ex.Message, Does.Contain(failure), "the body failed, but not with the known difference");
             return;
         }
 

@@ -30,7 +30,7 @@ public sealed partial class SelectorsTextTests : PlaywrightTest
     [Test]
     public async Task HasText_and_internal_text_should_match_full_node_text_in_strict_mode()
     {
-        await ExpectedToFailAsync(async () =>
+        await ExpectedToFailAsync("Expected span1", async () =>
         {
             await Browser.GotoAsync(Content("""
                 <div id=div1>hello<span>world</span></div>
