@@ -71,8 +71,12 @@ public sealed class AFrameWhoseNavigationIsHeldTests
         }
     }
 
+    /// <summary>
+    /// Partial: upstream checks the observation's <c>pixels</c> and <c>maskingProven</c>. The port's observation has no pixels, so this
+    /// checks the tree is not truncated and the screenshot's masked count and width.
+    /// </summary>
     [Fact]
-    public async Task Leaves_the_observation_whole_and_its_pixels_proven_masked()
+    public async Task Partial_Leaves_the_observation_whole_and_the_screenshot_masked_with_no_secure_field()
     {
         await WithHeldFrameAsync(string.Empty, async (session, _) =>
         {
