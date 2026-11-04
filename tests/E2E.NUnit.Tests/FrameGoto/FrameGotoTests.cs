@@ -23,15 +23,7 @@ public sealed class FrameGotoTests : PlaywrightTest
         {
             await Browser.RouteAsync("**/frames/script.js", route => route.ContinueAsync(new RouteContinueOverrides { Url = $"{PREFIX}/never" }));
             var url = $"{PREFIX}/frames/child-redirect.html";
-            Exception? error = null;
-            try
-            {
-                await Browser.GotoAsync(url, new GotoOptions { Timeout = TimeSpan.FromSeconds(5), WaitUntil = GotoWaitUntil.NetworkIdle });
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                error = ex;
-            }
+            var error = await Record(() => Browser.GotoAsync(url, new GotoOptions { Timeout = TimeSpan.FromSeconds(5), WaitUntil = GotoWaitUntil.NetworkIdle }));
 
             if (error is null || !error.Message.Contains("timed out in browser.goto", StringComparison.Ordinal))
             {

@@ -253,7 +253,6 @@ public sealed class LocatorFrameTests : PlaywrightTest
     [Test]
     public async Task Should_treat_elements_inside_hidden_cross_origin_iframe_as_hidden()
     {
-        _ = PREFIX;
         if (!E2E.Playground.Testbed.CrossOriginAvailable)
         {
             Assert.Ignore("The testbed could not bind localhost, the second origin of this test (CROSS).");
