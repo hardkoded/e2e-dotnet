@@ -1677,7 +1677,10 @@ internal static class LocatorResolver
 
         public List<SemanticNode> All { get; } = [];
 
-        /// <summary>The candidates that are strict descendants of any of <paramref name="ancestors"/>, in document order.</summary>
+        /// <summary>
+        /// The candidates that are strict descendants of any of <paramref name="ancestors"/>, in document order. A frame node's children are
+        /// its own document's, so a candidate under a nested frame is no descendant of a node above that frame, as in a locator chain.
+        /// </summary>
         public List<SemanticNode> DescendantsOf(IReadOnlyCollection<SemanticNode> ancestors, IReadOnlyList<SemanticNode> candidates)
         {
             if (ancestors.Count == 0)
@@ -1686,7 +1689,25 @@ internal static class LocatorResolver
             }
 
             var set = new HashSet<SemanticNode>(ancestors, ReferenceEqualityComparer.Instance);
-            return candidates.Where(node => Ancestors(node).Any(set.Contains)).ToList();
+            return candidates.Where(node => InsideAny(node, set)).ToList();
+        }
+
+        private bool InsideAny(SemanticNode node, HashSet<SemanticNode> ancestors)
+        {
+            foreach (var ancestor in Ancestors(node))
+            {
+                if (ancestors.Contains(ancestor))
+                {
+                    return true;
+                }
+
+                if (ancestor.Frame)
+                {
+                    return false;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

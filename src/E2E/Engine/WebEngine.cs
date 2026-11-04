@@ -3489,6 +3489,7 @@ public sealed partial class WebEngine : IEngine
                 Placeholder = dto.Placeholder,
                 InputPurpose = dto.InputPurpose,
                 Level = dto.Level,
+                Frame = dto.Frame,
                 States = new NodeStates
                 {
                     Checked = dto.Checked,

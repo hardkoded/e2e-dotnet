@@ -45,6 +45,23 @@ public sealed class NestedFrameLocatorsTests
         Assert.Equal(expected.Height, node.Rect.Height, 3);
     }
 
+    // .NET-only: upstream's locator-frame and selectors-frame testbed tests cover this page; the port has no testbed here.
+    [Fact]
+    public async Task A_frame_scoped_role_query_stops_at_a_nested_frame()
+    {
+        await using var session = await WebSemanticsTests.OpenAsync("about:blank", new WebEngineOptions { Headless = true });
+        var page = WebEngine.SurfaceOf(session)!.Page();
+        var nested = "<button>Hello nested iframe</button>";
+        var outer = $"<button>Hello iframe</button><iframe srcdoc=\"{Attribute(nested)}\"></iframe>";
+        await page.SetContentAsync($"<iframe srcdoc=\"{Attribute(outer)}\"></iframe>");
+        await page.FrameLocator("iframe").FrameLocator("iframe").GetByRole(AriaRole.Button).WaitForAsync();
+
+        var inFrame = new LocatorExpression { Kind = "frame", Selector = "iframe", Source = new LocatorExpression { Kind = "role", Role = "button" } };
+        var nodes = await session.LocateAsync(inFrame, TimeSpan.FromSeconds(10), CancellationToken.None);
+
+        Assert.Equal(["Hello iframe"], nodes.Select(node => node.Name));
+    }
+
     /// <summary>Escapes HTML for a double-quoted attribute value, so a document can carry a nested <c>srcdoc</c>.</summary>
     private static string Attribute(string html) => html.Replace("&", "&amp;", StringComparison.Ordinal).Replace("\"", "&quot;", StringComparison.Ordinal);
 }
