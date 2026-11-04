@@ -55,7 +55,7 @@ Check = 10
 
 
 ```csharp
-DismissKeyboard = 22
+DismissKeyboard = 23
 ```
 
 
@@ -93,7 +93,7 @@ Drag = 12
 
 
 ```csharp
-DragAt = 19
+DragAt = 20
 ```
 
 
@@ -117,7 +117,7 @@ Hover = 4
 
 
 ```csharp
-HoverAt = 18
+HoverAt = 19
 ```
 
 
@@ -165,11 +165,25 @@ Press = 8
 
 
 ```csharp
-PressKey = 21
+PressKey = 22
 ```
 
 
 One key sent to whatever held focus (`pressKey`).
+
+**Value:** [ActionName](./)
+
+<a id="E2E_ActionName_Resize"></a>
+
+### Resize
+
+
+```csharp
+Resize = 17
+```
+
+
+The viewport set to a size (`resize`).
 
 **Value:** [ActionName](./)
 
@@ -251,7 +265,7 @@ Tap = 0
 
 
 ```csharp
-TapAt = 17
+TapAt = 18
 ```
 
 
@@ -263,7 +277,7 @@ TapAt = 17
 
 
 ```csharp
-Tool = 23
+Tool = 24
 ```
 
 
@@ -301,7 +315,7 @@ TypeSecret = 7
 
 
 ```csharp
-TypeText = 20
+TypeText = 21
 ```
 
 

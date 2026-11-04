@@ -186,6 +186,21 @@ public string? Role { get; set; }
 
 **Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
 
+<a id="E2E_RecordedAction_Size_"></a>
+<a id="E2E_RecordedAction_Size"></a>
+
+### Size
+
+
+```csharp
+public TraceViewport? Size { get; set; }
+```
+
+
+The viewport a `resize` set, in CSS pixels, replayed as given (upstream's `size` of a `ResizeAction`). Null on every other action.
+
+**Value:** [TraceViewport](/api/E2E.Engine/TraceViewport/)
+
 <a id="E2E_RecordedAction_Spans_"></a>
 <a id="E2E_RecordedAction_Spans"></a>
 

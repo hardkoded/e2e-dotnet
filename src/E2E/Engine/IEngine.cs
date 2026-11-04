@@ -47,6 +47,13 @@ public enum EngineCapabilities
     /// <c>stateCapability</c>; the report's <c>capabilities</c> does not list it.
     /// </summary>
     State = 2048,
+
+    /// <summary>
+    /// <see cref="IEngineSession.ResizeAsync(TraceViewport, OperationContext, CancellationToken)"/>: the engine sets the viewport size, which the
+    /// agent's <c>resize_viewport</c> tool needs. .NET-only name for upstream's optional <c>session.resize</c>, whose being defined lists the
+    /// <c>resize</c> verb; C# has no optional member to test, so this declares it.
+    /// </summary>
+    Resize = 4096,
 }
 
 /// <summary>
@@ -325,6 +332,12 @@ public interface IEngineSession : IAsyncDisposable
     /// context, as <see cref="PerformAsync(SemanticNode, LocatorAction, OperationContext, CancellationToken)"/> does.
     /// </summary>
     Task BackAsync(OperationContext context, CancellationToken cancellationToken) => BackAsync(cancellationToken);
+
+    /// <summary>
+    /// Sets the viewport to <paramref name="size"/> in CSS pixels, for this page and every page the attempt opens after it. Engines that declare
+    /// <see cref="EngineCapabilities.Resize"/> implement it. Upstream's <c>session.resize</c>.
+    /// </summary>
+    Task ResizeAsync(TraceViewport size, OperationContext context, CancellationToken cancellationToken) => Unsupported("viewport resizing");
 
     /// <summary>Closes the current document and opens a blank one, keeping cookies and storage.</summary>
     Task RestartAsync(CancellationToken cancellationToken) => Unsupported("app.restart");

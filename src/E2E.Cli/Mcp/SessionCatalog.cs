@@ -157,6 +157,11 @@ internal sealed class SessionCatalog
             Add("back", Verb(context, screen, "back", "back", "Go back one entry in the browser history.", Schema([])));
         }
 
+        if (capabilities.HasFlag(EngineCapabilities.Resize))
+        {
+            Add(AgentTools.ResizeViewportName, Verb(context, screen, AgentTools.ResizeViewportName, AgentTools.ResizeViewportName, "Resize the viewport to check how the page lays out at another screen size, e.g. 1440x900 desktop, 768x1024 tablet, 390x844 phone. It stays at that size until resized again.", Schema([], ("width", ViewportSide("width"), true), ("height", ViewportSide("height"), true))));
+        }
+
         if (canDismissKeyboard && capabilities.HasFlag(EngineCapabilities.Keyboard))
         {
             Add(AgentTools.DismissKeyboardName, Verb(context, screen, AgentTools.DismissKeyboardName, AgentTools.DismissKeyboardName, AgentTools.DismissKeyboardDescription, Schema([])));
@@ -286,7 +291,7 @@ internal sealed class SessionCatalog
     }
 
     private static readonly HashSet<string> GrammarVerbs = new(
-        ["observe", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "dismiss_keyboard", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"],
+        ["observe", "tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll_to", "scroll", "navigate", "back", "resize_viewport", "dismiss_keyboard", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at"],
         StringComparer.Ordinal);
 
     private static readonly (string Name, JsonNode Schema, bool Required)[] Target =
@@ -303,6 +308,14 @@ internal sealed class SessionCatalog
         ["minimum"] = 1,
         ["maximum"] = AgentTools.MaxScrollTimes,
         ["description"] = "How many screens to scroll in this one call; default 1",
+    };
+
+    private static JsonNode ViewportSide(string what) => new JsonObject
+    {
+        ["type"] = "integer",
+        ["minimum"] = Geometry.ViewportLimits.Min,
+        ["maximum"] = Geometry.ViewportLimits.Max,
+        ["description"] = "Viewport " + what + " in CSS pixels",
     };
 
     private static JsonObject Property(string type, string description)

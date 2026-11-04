@@ -79,7 +79,7 @@ internal sealed class SessionTestLines(TestLineOptions options)
 
     /// <summary>The grammar tools that print a line or say why they print none.</summary>
     private static readonly HashSet<string> LineTools = new(
-        ["tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll", "scroll_to", "navigate", "back", "dismiss_keyboard"],
+        ["tap", "double_tap", "long_press", "right_click", "hover", "drag", "type", "type_secret", "press", "select", "check", "uncheck", "clear", "scroll", "scroll_to", "navigate", "back", "resize_viewport", "dismiss_keyboard"],
         StringComparer.Ordinal);
 
     /// <summary>The locator method each node verb's tool repeats as.</summary>
@@ -312,6 +312,8 @@ internal sealed class SessionTestLines(TestLineOptions options)
                 return LinePlan.Of(NavigationLine(Field(args, "url") ?? "", _options.AppBase));
             case "back":
                 return LinePlan.Of("await App.BackAsync();");
+            case "resize_viewport":
+                return LinePlan.None("set " + Side(args, "width") + "x" + Side(args, "height") + " with the engine fixture's viewport call");
             default:
                 return LinePlan.None(name + " has no test line");
         }
@@ -728,6 +730,10 @@ internal sealed class SessionTestLines(TestLineOptions options)
 
     private static string? Field(JsonElement args, string name) =>
         args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+    // A viewport side as the model sent it, for the reason a resize has no line.
+    private static string Side(JsonElement args, string name) =>
+        args.ValueKind == JsonValueKind.Object && args.TryGetProperty(name, out var value) ? value.ToString() : "undefined";
 
     /// <summary>One recorded action: its line, or why it has none.</summary>
     private sealed record Entry(string Tool, string? Line, string? Reason);

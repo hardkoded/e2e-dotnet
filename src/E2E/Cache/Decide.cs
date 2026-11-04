@@ -23,10 +23,11 @@ internal static class Decide
 {
     /// <summary>
     /// Whether a recording establishes its own starting point by navigating first. Such a recording needs no start-path
-    /// precondition. Upstream skips the project-tool gaps before the first action; the port reads the first action as it is.
+    /// precondition. A resize before the navigate does not depend on the route, so it is passed over. Upstream also skips the
+    /// project-tool gaps before the first action; the port reads the first action as it is.
     /// </summary>
     public static bool OpensWithNavigate(CacheEntry entry) =>
-        string.Equals(entry.Actions[0].Kind, "navigate", StringComparison.Ordinal);
+        string.Equals(entry.Actions.FirstOrDefault(action => !string.Equals(action.Kind, "resize", StringComparison.Ordinal))?.Kind, "navigate", StringComparison.Ordinal);
 
     /// <summary>
     /// Decides whether one entry replays for the current step. A recording that does not open with a navigate carries a start

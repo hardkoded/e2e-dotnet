@@ -339,7 +339,7 @@ protected override IEngine CreateEngine() => new WebEngine(new WebEngineOptions
 | Option | Meaning |
 | --- | --- |
 | `Headless` | Unset: headless, unless `E2E_HEADLESS` is `0` or `false`. |
-| `Viewport` | Default 1280 by 720; `null` follows the browser window. |
+| `Viewport` | Default 1280 by 720; `null` follows the browser window. A test calls `Browser.SetViewportAsync()` to resize; the agent resizes with its `resize_viewport` tool. |
 | `TestIdAttribute` | What `GetByTestId` reads; default `data-testid`. |
 | `Headers` | Sent only to the base URL's host; turns the browser HTTP cache off. |
 | `BasicAuth` | Credentials for a `401` challenge. |

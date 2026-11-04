@@ -90,7 +90,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
         Assert.Contains("Tools (run one with call {tool, args}; tools {tool} shows a tool's arguments):", opened.Text, StringComparison.Ordinal);
         string[] names =
         [
-            "observe", "tap", "double_tap", "long_press", "right_click", "hover", "type", "press", "select", "check", "uncheck", "clear", "drag", "scroll_to", "scroll", "navigate", "back", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at", "type_secret", "locate", "start_recording", "stop_recording", "test_lines",
+            "observe", "tap", "double_tap", "long_press", "right_click", "hover", "type", "press", "select", "check", "uncheck", "clear", "drag", "scroll_to", "scroll", "navigate", "back", "resize_viewport", "screenshot", "tap_at", "hover_at", "drag_at", "type_at", "press_at", "select_at", "type_secret", "locate", "start_recording", "stop_recording", "test_lines",
         ];
         Assert.Equal(names, ServedCli.CatalogNames(opened.Text));
         Assert.Contains("- tap {target, modifiers?}: Tap or click one node: the gesture for a button, link, menu item, tab, checkbox, row, or field.\n", opened.Text, StringComparison.Ordinal);
@@ -101,7 +101,7 @@ public sealed class E2EMcpTests : IClassFixture<E2EMcpTests.Served>
 
         var listed = await _served.InvokeAsync("tools");
         Assert.False(listed.IsError, listed.Text);
-        Assert.Contains($"Session {sessionId} on target \"web\": 29 tools.", listed.Text, StringComparison.Ordinal);
+        Assert.Contains($"Session {sessionId} on target \"web\": 30 tools.", listed.Text, StringComparison.Ordinal);
         Assert.Equal(ServedCli.CatalogLines(opened.Text), ServedCli.CatalogLines(listed.Text));
         var detail = await _served.InvokeAsync("tools", new() { ["tool"] = "type_secret" });
         Assert.Contains("Arguments (JSON Schema):", detail.Text, StringComparison.Ordinal);

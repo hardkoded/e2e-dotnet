@@ -230,6 +230,18 @@ public sealed class RecordedAction
         _ => Point is null && Viewport is null && Under is null && From is null && To is null,
     };
 
+    /// <summary>The viewport a <c>resize</c> set, in CSS pixels, replayed as given (upstream's <c>size</c> of a <c>ResizeAction</c>). Null on every other action.</summary>
+    public TraceViewport? Size { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="Size"/> is well formed: a <c>resize</c> holds one whose sides are within <see cref="Geometry.ViewportLimits"/>, and
+    /// every other action none. Upstream's <c>readAction</c>, which makes a malformed entry a miss.
+    /// </summary>
+    internal bool HasValidSize() =>
+        Kind == "resize"
+            ? Size is { } size && Geometry.ViewportLimits.Fits(size.Width) && Geometry.ViewportLimits.Fits(size.Height)
+            : Size is null;
+
     /// <summary>
     /// Upstream's <c>destination</c> of a <c>drag</c>: the node the source was dropped on, described like the source with the container it
     /// sat in. A replay re-finds both ends on one screen before it drags. Null on every other action.

@@ -216,7 +216,7 @@ public sealed class TraceRecorderTests
         Assert.Null(Finalize(MakeRecorder()));
     }
 
-    /// <summary>Partial port of "records every node verb, a state, a drag with its destination, files, and a back step, and reads them back": the port has no point verb, and no summary.</summary>
+    /// <summary>Partial port of "records every node verb, a state, a drag with its destination, files, and a back step, and reads them back": the port has no point verb, and no summary. The resize step is recorded and read back as upstream's is.</summary>
     [Fact]
     public void Records_every_node_verb_a_state_a_drag_with_its_destination_and_a_back_step_and_reads_them_back()
     {
@@ -229,19 +229,38 @@ public sealed class TraceRecorderTests
         var drag = recorder.Record("drag", UpgradeButton);
         drag.Destination = Recorder.DescribeTarget(new SemanticNode { Ref = "e9", Role = "region", Name = "Done column" }, Redactor.None, "Board");
         recorder.Record(new RecordedAction { Kind = "back" });
+        recorder.Record(new RecordedAction { Kind = "resize", Size = new TraceViewport(390, 844) });
         var entry = Finalize(recorder)!;
 
         var read = RoundTrip(entry);
 
-        Assert.Equal(["hover", "doubleTap", "longPress", "secondaryTap", "scrollTo", "uncheck", "check", "clear", "drag", "back"], entry.Actions.Select(action => action.Kind));
+        Assert.Equal(["hover", "doubleTap", "longPress", "secondaryTap", "scrollTo", "uncheck", "check", "clear", "drag", "back", "resize"], entry.Actions.Select(action => action.Kind));
         Assert.Equal(("region", "Done column", "Board"), (read.Actions[8].Destination?.Role, read.Actions[8].Destination?.Name, read.Actions[8].Destination?.Within));
+        Assert.Equal(new TraceViewport(390, 844), read.Actions[10].Size);
         Assert.Equal(JsonSerializer.Serialize(entry.Actions, Relaxed), JsonSerializer.Serialize(read.Actions, Relaxed));
     }
 
-    /// <summary>Partial port of "rejects a stored check, upload, or drag that lost a field": only the drag's destination, which the port checks on the action itself.</summary>
+    /// <summary>Partial port of "rejects a stored check, upload, drag, or resize that lost a field": the drag's destination and the resize's size, which the port checks on the action itself.</summary>
     [Fact]
-    public void Partial_rejects_a_stored_drag_that_lost_its_destination_or_an_action_that_gained_one()
+    public void Partial_Rejects_a_stored_check_upload_drag_or_resize_that_lost_a_field()
     {
+        var resize = new RecordedAction { Kind = "resize", Size = new TraceViewport(390, 844) };
+        Assert.True(resize.HasValidSize());
+
+        resize.Size = null;
+        Assert.False(resize.HasValidSize());
+
+        resize.Size = new TraceViewport(200, 4096);
+        Assert.True(resize.HasValidSize());
+
+        resize.Size = new TraceViewport(199, 844);
+        Assert.False(resize.HasValidSize());
+
+        resize.Size = new TraceViewport(390, 4097);
+        Assert.False(resize.HasValidSize());
+
+        Assert.False(new RecordedAction { Kind = "tap", Role = "button", Name = "Upgrade", Size = new TraceViewport(390, 844) }.HasValidSize());
+
         var drag = new RecordedAction { Kind = "drag", Role = "button", Name = "Upgrade", Destination = new RecordedTarget { Role = "region", Name = "Done column" } };
         Assert.True(drag.HasValidDestination());
 

@@ -204,6 +204,20 @@ public sealed class Trace1EntryTests
         Assert.Equal(("missed", "invalid-entry", 0), (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions));
     }
 
+    /// <summary>Partial port of "rejects resize below the viewport limits" and "rejects resize above the viewport limits": a store may return both, and the replay treats each as a miss.</summary>
+    [Theory]
+    [InlineData("resize below the viewport limits", 100, 844)]
+    [InlineData("resize above the viewport limits", 390, 5000)]
+    public async Task Rejects_a_resize_outside_the_viewport_limits_as_a_miss(string label, int width, int height)
+    {
+        var cache = new FixedCache(new CacheEntry { Route = "/storage", Actions = [new RecordedAction { Kind = "resize", Size = new E2E.Engine.TraceViewport(width, height) }] });
+
+        var step = await StepAsync(StorageWorld(), cache, "/storage", null, Script(ModelResponses.Tap("button", "Save marker")));
+
+        Assert.True(step.Error is null, label);
+        Assert.Equal(("missed", "invalid-entry", 0), (step.Cache?.Mode, step.Cache?.Reason, step.Cache?.ReplayedActions));
+    }
+
     private sealed class FixedCache(CacheEntry entry) : IStepCache
     {
         public CacheLookup Read(string key) => new() { Entry = entry };

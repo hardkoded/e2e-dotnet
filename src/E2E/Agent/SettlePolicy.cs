@@ -85,6 +85,9 @@ internal static class SettlePolicy
         ["upload"] = Moves,
         ["navigate"] = Moves,
         ["back"] = Moves,
+
+        // A layout may reflow at the new size or stay as it was, like a scroll.
+        ["resize"] = Scrolls,
         ["pressKey"] = Moves,
         ["dismissKeyboard"] = Moves,
         ["fill"] = Types,
