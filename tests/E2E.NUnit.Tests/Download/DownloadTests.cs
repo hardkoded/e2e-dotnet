@@ -2,7 +2,6 @@
 // Modified by Dario Kondratiuk.
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Text.RegularExpressions;
 using E2E.Engine;
 using static E2E.NUnit.Tests.Helpers;
 

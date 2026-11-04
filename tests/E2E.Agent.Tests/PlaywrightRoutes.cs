@@ -47,16 +47,16 @@ internal static class PlaywrightRoutes
         if (path == "/download")
         {
             response.ContentType = "application/octet-stream";
-            response.AddHeader("Content-Disposition", "attachment" + (query["name"] is { } name ? "; filename=\"" + name + "\"" : ""));
+            response.AddHeader("Content-Disposition", "attachment" + (query["name"] is { } name ? "; filename=\"" + name.Replace("\"", "", StringComparison.Ordinal).ReplaceLineEndings("") + "\"" : ""));
             await WriteAsync(response, Encoding.UTF8.GetBytes(query["body"] ?? "Hello world")).ConfigureAwait(false);
             return;
         }
 
         if (path == "/respond")
         {
-            response.StatusCode = int.TryParse(query["status"], out var status) ? status : 200;
             try
             {
+                response.StatusCode = int.TryParse(query["status"], out var status) ? status : 200;
                 var headers = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(query["headers"] ?? "{}") ?? [];
                 foreach (var (header, value) in headers)
                 {
@@ -70,7 +70,7 @@ internal static class PlaywrightRoutes
                     }
                 }
             }
-            catch (Exception ex) when (ex is System.Text.Json.JsonException or ArgumentException)
+            catch (Exception ex) when (ex is System.Text.Json.JsonException or ArgumentException or System.Net.ProtocolViolationException)
             {
                 response.StatusCode = 400;
                 response.ContentType = "text/plain";
