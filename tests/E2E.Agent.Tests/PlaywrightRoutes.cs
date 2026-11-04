@@ -15,7 +15,7 @@ namespace E2E.Playground;
 /// </summary>
 internal static class PlaywrightRoutes
 {
-    private static readonly string Root = Path.Combine(AppContext.BaseDirectory, "Testbed", "playwright", "assets");
+    private static readonly string Root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "Testbed", "playwright", "assets"));
 
     /// <summary>Cancelled when the process exits, which releases the requests a route holds.</summary>
     private static readonly CancellationTokenSource Shutdown = CreateShutdown();
