@@ -47,6 +47,7 @@ public sealed partial class E2eInitTests : CliInitTestBase
         Assert.Contains("// With the model key in the environment, uncomment:", example, StringComparison.Ordinal);
         Assert.Contains("public async Task App_opens()", example, StringComparison.Ordinal);
         Assert.Contains("await App.OpenAsync(\"/\");", example, StringComparison.Ordinal);
+        Assert.Contains("await Expect.That(Browser.Locator(\"body\")).ToBeVisibleAsync();", example, StringComparison.Ordinal);
         Assert.Contains("// public async Task The_agent_drives_a_flow()", example, StringComparison.Ordinal);
         Assert.DoesNotContain("HttpClient", example, StringComparison.Ordinal);
         Assert.Contains(".e2e/cache/", Read(".gitignore"), StringComparison.Ordinal);
