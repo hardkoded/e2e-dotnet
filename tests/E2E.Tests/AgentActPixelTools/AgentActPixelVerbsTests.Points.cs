@@ -8,8 +8,7 @@ using E2E.Engine;
 namespace E2E.Tests.AgentActPixelTools;
 
 // The point-tool its of upstream's describe('agent.act pixel verbs'), run on the web engine over the canvas fixture pages with a scripted
-// model that cannot see. Not ported here: "reports a moved screenshot under an unchanged listing...", because the built-in agent prints
-// whole screens without upstream's diff presenter.
+// model that cannot see.
 public sealed partial class AgentActPixelVerbsTests
 {
     private sealed record WebRun(List<Sent> Requests, StepRecord Step, Exception? Error);
@@ -421,5 +420,35 @@ public sealed partial class AgentActPixelVerbsTests
         {
             Assert.Contains(first.Tools, tool => tool.Name == verb);
         }
+    }
+
+    // Partial: upstream reads the first miss as a diff line (`changed #n status "Hit" text="miss at 100,100"`), and the built-in agent prints whole screens.
+    [Fact]
+    public async Task Partial_reports_a_moved_screenshot_under_an_unchanged_listing_and_blames_the_control_only_when_the_image_stood_still_too()
+    {
+        // After the red pin, the same miss point at CSS (100, 100) twice: the status text repeats, so the listing stands still while the map
+        // paints a new tap count. Then the blank margin at CSS (700, 500): nothing there repaints.
+        var run = await ActOnAsync(
+            "/canvas",
+            "tap the map twice, then the margin once",
+            calls => calls switch
+            {
+                0 => ModelResponses.Call("screenshot", new { }),
+                1 => ModelResponses.Call("tap_at", new { x = 180, y = 36 }),
+                <= 3 => ModelResponses.Call("tap_at", new { x = 60, y = 60 }),
+                4 => ModelResponses.Call("tap_at", new { x = 420, y = 300 }),
+                _ => Done(),
+            });
+        Assert.Null(run.Error);
+        // The first miss changed the listed status text; the second repeated it, and only the drawn tap count moved.
+        Assert.Matches("status \"Hit\".*miss at 100,100", Result(run, 3));
+        Assert.DoesNotContain("listed nodes unchanged", Result(run, 3), StringComparison.Ordinal);
+        Assert.Contains("listed nodes unchanged; the screenshot changed", Result(run, 4), StringComparison.Ordinal);
+        Assert.DoesNotContain("had no visible effect", Result(run, 4), StringComparison.Ordinal);
+        Assert.Equal(1, run.Requests[4].Messages[^1].Images?.Count);
+        // The margin tap changed neither the listing nor a pixel: the same PNG, so the tap is blamed as before.
+        Assert.Contains("had no visible effect", Result(run, 5), StringComparison.Ordinal);
+        Assert.DoesNotContain("the screenshot changed", Result(run, 5), StringComparison.Ordinal);
+        Assert.Equal(1, run.Requests[5].Messages[^1].Images?.Count);
     }
 }

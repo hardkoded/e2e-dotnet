@@ -27,12 +27,32 @@ internal sealed record ScreenUpdateOptions
 }
 
 /// <summary>
+/// What the screenshot going out with an update says against the one the model held (upstream's <c>PixelEvidence</c>): <see cref="None"/> when
+/// there is no pair to compare (no screenshot, or the step's first), <see cref="Unavailable"/> when the step can get no screenshot at all.
+/// </summary>
+internal enum PixelEvidence
+{
+    /// <summary>No pair of screenshots to compare.</summary>
+    None,
+
+    /// <summary>The screenshot moved.</summary>
+    Changed,
+
+    /// <summary>The same image again.</summary>
+    Unchanged,
+
+    /// <summary>The step can get no screenshot.</summary>
+    Unavailable,
+}
+
+/// <summary>
 /// What a session tells a coding agent about the screen, and how much (upstream's <c>ScreenPresenter</c>, <c>agent/screen-update.ts</c>).
 /// The first look goes out whole. Every look after it is compared with the screen the agent already holds and rendered as the
 /// difference: the lines that appeared, the lines that changed, the lines that went away. Node ids are stable for as long as an
 /// element exists, so a line the agent saw earlier still names the same element, and a diff is a complete update rather than a
 /// hint. A screen that changed mostly goes out whole again. Not ported: the screenshot half (<c>open</c>, <c>present</c>,
-/// <c>latestScreenshot</c>), since the port has no vision on <c>act</c>.
+/// <c>latestScreenshot</c>). The built-in agent keeps that state in <see cref="PixelMode"/> and prints whole screens; it reads an unchanged
+/// listing through <see cref="RenderUnchanged"/> too.
 /// </summary>
 internal sealed partial class ScreenPresenter
 {
@@ -88,7 +108,7 @@ internal sealed partial class ScreenPresenter
         // A truncated screen is never called unchanged: what it left out is unknown.
         if (changes == 0 && !observation.Truncated)
         {
-            return lead + RenderUnchanged(previous.Revision, observation, options.ExpectChange) + closed;
+            return lead + RenderUnchanged(previous.Revision, observation, options.ExpectChange, PixelEvidence.None) + closed;
         }
 
         if (changes >= MaxDiffLines || changes > MaxDiffShare * next.Order.Count)
@@ -127,13 +147,31 @@ internal sealed partial class ScreenPresenter
             + " nodes):\n" + observation.Text;
     }
 
-    // An update with no listed line changed. The port takes no screenshots here, so the tree is the only evidence (upstream's `none` case).
-    private static string RenderUnchanged(string since, ExecutorObservation observation, bool expectedChange)
+    /// <summary>
+    /// An update with no listed line changed (upstream's <c>renderUnchanged</c>). A screenshot that moved while the listing stood still is
+    /// said so, whatever was expected: the effect is drawn, and blaming the control would send the model looking for another way to do what
+    /// it just did. For the same reason the control is blamed only when an identical screenshot backs the tree: the tree alone cannot tell a
+    /// drawn effect (a filled dot, a color) from none.
+    /// </summary>
+    internal static string RenderUnchanged(string since, ExecutorObservation observation, bool expectedChange, PixelEvidence pixels)
     {
         var looked = "re-observed as revision " + observation.Revision + DescribeLocation(observation);
-        return expectedChange
-            ? "No listed node changed within the wait after this action (" + looked + "); the ids you have stay valid. The listing shows only what the tree describes: a drawn change needs a screenshot to see."
-            : "Screen unchanged since revision " + since + " (" + looked + "); the ids you have stay valid.";
+        if (pixels == PixelEvidence.Changed)
+        {
+            return "Since revision " + since + " (" + looked + "): listed nodes unchanged; the screenshot changed. Read the effect off the image (a focus ring alone is no effect); the ids you have stay valid.";
+        }
+
+        if (!expectedChange)
+        {
+            return "Screen unchanged since revision " + since + " (" + looked + "); the ids you have stay valid.";
+        }
+
+        return pixels switch
+        {
+            PixelEvidence.Unchanged => "The screen did not change within the wait after this action (" + looked + "); the ids you have stay valid. If a change was expected, the control had no visible effect here: look for another way rather than repeating it.",
+            PixelEvidence.Unavailable => "No listed node changed within the wait after this action (" + looked + "); the ids you have stay valid. No screenshot can be taken in this step, so the listing is the only evidence: if a change was expected, look for another way rather than repeating it.",
+            _ => "No listed node changed within the wait after this action (" + looked + "); the ids you have stay valid. The listing shows only what the tree describes: a drawn change needs a screenshot to see.",
+        };
     }
 
     // The keyboard note when the action took the keyboard off the screen. A truncated listing may have cut the keyboard off, not closed it.

@@ -392,7 +392,11 @@ lines you changed:
   with no target types into the focused field (`replace` clears it first);
   `select_at` needs a listed control. Tell the agent to prefer ids (topic
   `agent`). `press` takes `times` (1 to 20) to repeat a key in one call, and
-  five failed calls in a row leave the agent only `done` (topic `agent`).
+  five failed calls in a row leave the agent only `done` (topic `agent`). Once
+  the step shows pixels, an action that leaves the listing as it was but moves
+  the screenshot is reported as `listed nodes unchanged; the screenshot
+  changed` (a drawn effect, such as a canvas repaint), and the control is
+  blamed (`had no visible effect`) only when the image stood still too.
 - `ActOptions.OnAction` runs after each action of an act, once the screen
   settles, replayed actions included. Use it to observe (log, screenshot),
   never to drive the app. It is awaited and counts toward `Timeout`. A throw
