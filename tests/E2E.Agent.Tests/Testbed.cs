@@ -929,6 +929,7 @@ internal static class Testbed
             url = "http://127.0.0.1:" + port.ToString(CultureInfo.InvariantCulture) + "/";
             listener = new HttpListener();
             listener.Prefixes.Add(url);
+            listener.Prefixes.Add(url.Replace("127.0.0.1", "localhost", StringComparison.Ordinal));
             try
             {
                 listener.Start();
