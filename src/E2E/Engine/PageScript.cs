@@ -936,7 +936,8 @@ internal static class PageScript
             const role = roleOf(el);
             const testId = el.getAttribute(testIdAttribute);
             const isFrame = el.tagName === "IFRAME";
-            if (isFrame && (isHidden || isAriaHidden)) return;
+            // A frame the page hides is no boundary of the tree, unless a frame locator named it: then the host reads its document as hidden.
+            if (isFrame && (isHidden || isAriaHidden) && !isForced(el)) return;
             if (listed(el, role)) {
               const textNode = textOnly(el, role);
               // A node a selector named is read whatever the budget says: the locate must reach what it names.
