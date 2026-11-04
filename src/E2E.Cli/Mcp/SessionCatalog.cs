@@ -159,7 +159,7 @@ internal sealed class SessionCatalog
 
         if (capabilities.HasFlag(EngineCapabilities.Resize))
         {
-            Add(AgentTools.ResizeViewportName, Verb(context, screen, AgentTools.ResizeViewportName, AgentTools.ResizeViewportName, "Resize the viewport to check how the page lays out at another screen size, e.g. 1440x900 desktop, 768x1024 tablet, 390x844 phone. It stays at that size until resized again.", Schema([], ("width", ViewportSide("width"), true), ("height", ViewportSide("height"), true))));
+            Add(AgentTools.ResizeViewportName, Verb(context, screen, AgentTools.ResizeViewportName, AgentTools.ResizeViewportName, AgentTools.ResizeViewportDescription, Schema([], ("width", ViewportSide("width"), true), ("height", ViewportSide("height"), true))));
         }
 
         if (canDismissKeyboard && capabilities.HasFlag(EngineCapabilities.Keyboard))

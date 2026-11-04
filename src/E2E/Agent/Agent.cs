@@ -1110,8 +1110,6 @@ public enum ActionName
     Navigate,
     Back,
 
-    /// <summary>The viewport set to a size (<c>resize</c>).</summary>
-    Resize,
     TapAt,
     HoverAt,
     DragAt,
@@ -1127,6 +1125,9 @@ public enum ActionName
 
     /// <summary>A mutating project tool; <see cref="ActionEvent.ToolName"/> names it. Upstream reads <c>tool:name</c> in <c>action</c>; this value is .NET-only.</summary>
     Tool,
+
+    /// <summary>The viewport set to a size (<c>resize</c>). Last, so no earlier member changes its value.</summary>
+    Resize,
 }
 
 /// <summary>Who chose an action an <see cref="ActionEvent"/> reports.</summary>
