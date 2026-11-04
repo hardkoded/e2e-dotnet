@@ -228,7 +228,7 @@ internal sealed class RunningTree(Colors pc, Func<string, string> badge)
         };
 
     /// <summary>The work in flight: a spinner and a shimmering status word (upstream's <c>waitingRow</c>).</summary>
-    private static string WaitingRow(Colors pc, long now, string word)
+    internal static string WaitingRow(Colors pc, long now, string word)
     {
         var frame = (int)(now / LiveWindow.RepaintIntervalMs);
         var spinner = pc.Cyan(SpinnerFrames[frame / SpinnerHoldFrames % SpinnerFrames.Length]);

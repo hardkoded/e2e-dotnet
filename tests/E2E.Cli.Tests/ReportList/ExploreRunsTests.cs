@@ -3,17 +3,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.RegularExpressions;
+using E2E.Cli.Report;
 using E2E.Cli.Tests.Helpers;
+using E2E.Internal;
 using E2E.Reports;
+using static E2E.Cli.Tests.ReportList.ListReporterKit;
+using AttemptStatus = E2E.Internal.AttemptStatus;
 
 namespace E2E.Cli.Tests.ReportList;
 
 /// <summary>
 /// Upstream: packages/e2e/tests/unit/report-list.test.ts, describe('explore runs'). The port's reporter is the view of
-/// <c>e2e explore</c>, which prints as the list reporter does without a live window, so the tests drive the command with a
-/// scripted exploration. Not ported: "badges the record with the explored target after its test has finished" (the port has no
-/// test result, so the one badge is printed at the start), and "with a live window, shows the exploration in the window and
-/// prints the record with its steps once the run is over" (the port has no live window).
+/// <c>e2e explore</c>, which prints as the list reporter does without a live window, so the tests about that output drive the
+/// command with a scripted exploration. The two that need a live window drive a <see cref="ListReporter"/> with the
+/// <see cref="ExploreEvent"/> stream, as upstream does. Not ported: the golden of the first test is compared by value, not by file.
 /// </summary>
 [Collection(ExploreEnvironment.Name)]
 public sealed partial class ExploreRunsTests
@@ -175,6 +178,143 @@ public sealed partial class ExploreRunsTests
         Assert.Contains("AUTOMATION_UNSUPPORTED: exploration concluded nothing", stdout, StringComparison.Ordinal);
         Assert.Contains("   Findings  none", lines);
         Assert.Contains("      Steps  0 of 4 · the run was cut short", lines);
+    }
+
+    private static ExploreEvent Explore(ExploreProgress progress) => new(progress);
+
+    private static StepProgressEvent ExploreStep(Reports.StepProgress progress) => new("t1", "default", 0, "web", progress);
+
+    private static StepProgressEvent EngineEvent(string name, string? detail = null) =>
+        ExploreStep(new Reports.StepProgress
+        {
+            Phase = Reports.StepProgressPhase.Event,
+            Api = "agent.act",
+            Event = new Reports.StepEvent { Kind = Reports.StepEventKind.Engine, Name = name, StartedAt = Start.AddSeconds(4), DurationMs = 40, Status = Reports.StepEventStatus.Passed, Detail = detail },
+        });
+
+    private static Reports.StepProgress AgentExtract(Reports.StepProgressPhase phase) =>
+        phase == Reports.StepProgressPhase.Start
+            ? new Reports.StepProgress { Phase = phase, Kind = Reports.StepKind.Agent, Api = "agent.extract", Label = "Plan the next step" }
+            : new Reports.StepProgress { Phase = phase, Kind = Reports.StepKind.Agent, Api = "agent.extract", Label = "Plan the next step", Status = Reports.StepStatus.Passed, DurationMs = 900, ModelCalls = 1 };
+
+    private static Reports.StepProgress AgentAct(Reports.StepProgressPhase phase) =>
+        phase == Reports.StepProgressPhase.Start
+            ? new Reports.StepProgress { Phase = phase, Kind = Reports.StepKind.Agent, Api = "agent.act", Label = Step1.Instruction }
+            : new Reports.StepProgress { Phase = phase, Kind = Reports.StepKind.Agent, Api = "agent.act", Label = Step1.Instruction, Status = Reports.StepStatus.Passed, DurationMs = 32_000, ModelCalls = 6 };
+
+    private static PlanEvent PlanOn(string target) => new(1, [("explore", target, 1)]);
+
+    /// <summary>Upstream's <c>play()</c>: the whole exploration from the run's start to its end, as the run's stream carries it.</summary>
+    private static void PlayThrough(ListReporter reporter)
+    {
+        reporter.Handle(RunStarted(targets: ["web"]));
+        reporter.Handle(PlanOn("web"));
+        reporter.Handle(TestStarted("t1", Goal, "web", "explore"));
+        reporter.Handle(Explore(new ExploreProgress.Started(Goal, Budgets)));
+        reporter.Handle(Explore(new ExploreProgress.Planning(false)));
+        reporter.Handle(ExploreStep(AgentExtract(Reports.StepProgressPhase.Start)));
+        reporter.Handle(ExploreStep(AgentExtract(Reports.StepProgressPhase.End)));
+        reporter.Handle(Explore(new ExploreProgress.StepStarted(Step1)));
+        reporter.Handle(ExploreStep(AgentAct(Reports.StepProgressPhase.Start)));
+        reporter.Handle(EngineEvent("tap", "tap link \"Catalog\""));
+        reporter.Handle(EngineEvent("tap", "tap button \"Add to cart\""));
+        reporter.Handle(EngineEvent("tool:report_finding"));
+        reporter.Handle(Explore(new ExploreProgress.FindingReported(Finding)));
+        reporter.Handle(ExploreStep(AgentAct(Reports.StepProgressPhase.End)));
+        reporter.Handle(Explore(new ExploreProgress.StepFinished(Step1Done)));
+        reporter.Handle(Explore(new ExploreProgress.Planning(false)));
+        reporter.Handle(Explore(new ExploreProgress.StepStarted(Step2)));
+        reporter.Handle(Explore(new ExploreProgress.FindingReported(Warning)));
+        reporter.Handle(Explore(new ExploreProgress.StepFinished(Step2Done)));
+        reporter.Handle(Explore(new ExploreProgress.Finished(ReportExploreEnded.Finished, Assessment)));
+        reporter.Handle(Finished(Result(
+            ResultStatus.Failed,
+            title: [Goal],
+            id: "t1",
+            file: "explore",
+            target: "web",
+            attempts:
+            [
+                Attempt(
+                    status: AttemptStatus.Failed,
+                    error: new ReportError("ASSERTION_FAILED", "exploration found 1 issue(s): [severity 4] Cart total shows $0.00 with two items"),
+                    artifacts: [new ReportArtifact("attempt-1:artifact:0", "screenshot", "web/explore-checkout-like-a-first-time-buyer/default/attempt-0/finding-1.png")]),
+            ])));
+        reporter.Handle(RunFinished(ReportRunStatus.Failed, 1, "/project/.e2e/report.json"));
+    }
+
+    [Fact]
+    public void Badges_the_record_with_the_explored_target_after_its_test_has_finished()
+    {
+        var output = new LiveCapture();
+        var reporter = PlainReporter(output, live: true);
+        reporter.Handle(RunStarted(targets: ["capacity", "mixed"]));
+        reporter.Handle(PlanOn("mixed"));
+        reporter.Handle(TestStarted("t1", Goal, "mixed", "explore"));
+        reporter.Handle(Explore(new ExploreProgress.Started(Goal, Budgets)));
+        reporter.Handle(Explore(new ExploreProgress.Finished(ReportExploreEnded.Finished, "Nothing to report.")));
+        reporter.Handle(Finished(Result(ResultStatus.Passed, title: [Goal], id: "t1", file: "explore", target: "mixed", attempts: [Attempt(status: AttemptStatus.Passed)])));
+        reporter.Handle(RunFinished(ReportRunStatus.Passed, 0, "/project/.e2e/report.json"));
+
+        var header = output.Lines.First(line => line.Contains("Explored", StringComparison.Ordinal));
+        Assert.Contains("|mixed|", header, StringComparison.Ordinal);
+        Assert.DoesNotContain("|capacity|", header, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void With_a_live_window_shows_the_exploration_in_the_window_and_prints_the_record_with_its_steps_once_the_run_is_over()
+    {
+        var output = new LiveCapture();
+        var reporter = PlainReporter(output, live: true);
+
+        // The window's repaint is the last write after each event: the frame is what that write painted.
+        string Frame() => StripAnsi(output.Chunks[^1]);
+        reporter.Handle(RunStarted(targets: ["web"]));
+        reporter.Handle(PlanOn("web"));
+        reporter.Handle(TestStarted("t1", Goal, "web", "explore"));
+        reporter.Handle(Explore(new ExploreProgress.Started(Goal, Budgets)));
+        reporter.Handle(Explore(new ExploreProgress.Planning(false)));
+        Assert.Contains("↳ planning step 1 of 4", Frame(), StringComparison.Ordinal);
+        Assert.Contains("Steps  0 done of 4 · planning", Frame(), StringComparison.Ordinal);
+
+        // The budget can end the run before the step cap: the planner is then writing the assessment, not a step.
+        reporter.Handle(Explore(new ExploreProgress.Planning(true)));
+        Assert.Contains("↳ planning the closing assessment", Frame(), StringComparison.Ordinal);
+        Assert.Contains("Steps  0 done of 4 · closing", Frame(), StringComparison.Ordinal);
+        reporter.Handle(Explore(new ExploreProgress.StepStarted(Step1)));
+        reporter.Handle(ExploreStep(AgentAct(Reports.StepProgressPhase.Start)));
+        reporter.Handle(ExploreStep(new Reports.StepProgress
+        {
+            Phase = Reports.StepProgressPhase.Event,
+            Api = "agent.act",
+            Event = new Reports.StepEvent
+            {
+                Kind = Reports.StepEventKind.Model,
+                StartedAt = Start.AddSeconds(3),
+                DurationMs = 2_500,
+                Status = Reports.StepEventStatus.Passed,
+                Reasoning = "The cart total is stale; adding an item first.",
+            },
+        }));
+        reporter.Handle(EngineEvent("tap", "tap button \"Add to cart\""));
+        reporter.Handle(EngineEvent("tool:report_finding"));
+        reporter.Handle(Explore(new ExploreProgress.FindingReported(Finding)));
+        var frame = Frame();
+        Assert.Contains($"Exploring  {Goal}", frame, StringComparison.Ordinal);
+        Assert.Contains("↳ 1  Cart (step 1 of 4)", frame, StringComparison.Ordinal);
+        Assert.Contains("• Thinking (2.50s) · The cart total is stale; adding an item first.", frame, StringComparison.Ordinal);
+        Assert.Contains("› tap button \"Add to cart\" (40ms)", frame, StringComparison.Ordinal);
+        Assert.Contains("⚑ high issue  Cart total shows $0.00 with two items (/cart)", frame, StringComparison.Ordinal);
+        Assert.DoesNotContain("report_finding", frame, StringComparison.Ordinal);
+        Assert.Contains("Findings  1 issue", frame, StringComparison.Ordinal);
+        Assert.Contains("Steps  0 done of 4 · step 1 running", frame, StringComparison.Ordinal);
+        Assert.DoesNotContain(output.Lines, line => line.Contains("Exploring", StringComparison.Ordinal));
+        PlayThrough(reporter);
+
+        Assert.Contains($" × |web| Explored  {Goal}", output.Lines);
+        Assert.Contains("   ✓ 1  Cart 32.00s · 2 actions · 1 finding", output.Lines);
+        Assert.Contains("   × 2  Checkout 91.00s · 1 finding failed", output.Lines);
+        Assert.DoesNotContain("Failed Tests", string.Join('\n', output.Lines), StringComparison.Ordinal);
     }
 
     /// <summary>The clock rows are the only ones that differ between runs.</summary>

@@ -265,11 +265,13 @@ and in CI.
   `Reporter.OnEvent(RunEvent)` (a virtual no-op) sees each run event as it
   happens, from the start of the run: `RunStartedEvent`, `PlanEvent`,
   `NoticeEvent`, `SetupEvent`, `TestStartedEvent`, `StepProgressEvent`,
-  `TestFinishedEvent`, `RunErrorEvent`, and `RunFinishedEvent` (the
+  `TestFinishedEvent`, `ExploreEvent`, `RunErrorEvent`, and `RunFinishedEvent` (the
   `RunEvent` holds `Seq`, `At`, and the `Fact`). Each event comes in `Seq`
   order, on any thread; keep `OnEvent` quick. A throw is one stderr line, and
   the reporter gets no more events. A test that retries emits one start and
-  one finish per attempt. Not emitted: `output`, serial groups, explore events.
+  one finish per attempt. `Explore.ExploreAsync` emits an `ExploreEvent` for
+  each moment of the exploration (`Progress` is the `ExploreProgress`), beside
+  the events of its one test. Not emitted: `output`, serial groups.
   `MarkdownReport.RenderMarkdownReport(run.Report, options)` (`E2E.Reports`)
   renders that report as one markdown page for a pull request comment or a job
   summary: a headline with the counts, a block per failed test, the flaky tests

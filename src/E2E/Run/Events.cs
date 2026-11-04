@@ -8,8 +8,7 @@ namespace E2E.Reports;
 /// Structured run events: the run's single event spine (upstream's <c>run/events.ts</c>), as a <see cref="Reporter"/> sees it through
 /// <see cref="Reporter.OnEvent"/>. The list reporter consumes the same stream (<c>ListReporter.Handle</c>), so no two consumers can drift. The
 /// port's test run fixtures and sessions emit them: the run's start, plan, notices, setup steps, started tests, step progress, finished tests, errors,
-/// interrupts, and end. <c>output</c> is defined and the list reporter prints it, but nothing emits it (the test framework captures stdout). Not ported: <c>serial-group</c> (the port has no serial groups), and
-/// <c>explore</c>, which feeds the live window the port has no use for yet. A new event type may be added, so a reporter handles the ones it
+/// interrupts, and end. An exploration (<see cref="Explore.ExploreAsync"/>) emits its progress as <see cref="ExploreEvent"/>. <c>output</c> is defined and the list reporter prints it, but nothing emits it (the test framework captures stdout). Not ported: <c>serial-group</c> (the port has no serial groups). A new event type may be added, so a reporter handles the ones it
 /// knows and ignores the rest.
 /// </summary>
 /// <param name="Seq">The event's place in the run's order, from 1. Upstream's <c>seq</c>.</param>
@@ -178,6 +177,12 @@ public sealed record TestStartedEvent(string TestId, string Agent, int Repeat, s
 /// <c>StepEvent</c> is the report's model-turn record.
 /// </summary>
 public sealed record StepProgressEvent(string TestId, string Agent, int Repeat, string Target, StepProgress Progress) : RunEventFact;
+
+/// <summary>
+/// Upstream's <c>explore</c> fact: one moment of an <c>e2e explore</c> run, the exploration starting as its test begins, the step in progress, each
+/// finding the moment it is reported, and the end. The record is <c>run.explore</c> in the report.
+/// </summary>
+public sealed record ExploreEvent(ExploreProgress Progress) : RunEventFact;
 
 /// <summary>Upstream's <c>test-finished</c> fact.</summary>
 public sealed record TestFinishedEvent(RunEventResult Result) : RunEventFact;

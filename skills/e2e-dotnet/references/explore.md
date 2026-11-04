@@ -184,7 +184,8 @@ directory they are under). The exploration is a test of the virtual file `explor
 `explore-the-checkout-flow-1a2b3c4d5e6f7a8b`. A finding keeps its screenshot after a secret fill too; the screenshot masks secure fields only.
 
 `OnProgress` receives each moment as it happens: `Started`, `Planning`,
-`StepStarted`, `FindingReported`, `StepFinished`, and `Finished`.
+`StepStarted`, `FindingReported`, `StepFinished`, and `Finished`. A reporter
+sees the same moments as `ExploreEvent` in `Reporter.OnEvent`.
 
 Turn a finding into a test: its `Reproduction` steps are the `ActAsync`
 instructions or `Screen` actions, and `Expected` is the assertion.

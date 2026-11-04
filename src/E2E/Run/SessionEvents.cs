@@ -31,7 +31,7 @@ internal sealed class SessionEvents
         _testId = AttemptReport.TestId(file, title);
     }
 
-    /// <summary>The events of the session <paramref name="options"/> starts on <paramref name="target"/>; null for a session that is not a test (an exploration).</summary>
+    /// <summary>The events of the session <paramref name="options"/> starts on <paramref name="target"/>; null for a session that does not emit them.</summary>
     public static SessionEvents? For(E2ESessionOptions options, string target) =>
         options.EmitRunEvents ? new SessionEvents(string.IsNullOrEmpty(options.TestFile) ? UnknownFile : options.TestFile, options.TestTitle, options.Agent ?? "default", target) : null;
 
