@@ -104,7 +104,7 @@ internal sealed class LocatorEngine(LocatorEngineOptions options)
 
     /// <summary>Canonical visibility predicate over a semantic node snapshot (upstream's <c>isNodeVisible</c>).</summary>
     internal static bool IsNodeVisible(SemanticNode? node) =>
-        node is { States.Hidden: false } && node.Rect is not { Width: <= 0 } and not { Height: <= 0 };
+        node is { States: { Hidden: false, EmptyBox: false } };
 
     /// <summary>
     /// Denies reading a value, text, or attribute when any node is a secure field: the engine withholds them there, so what reads as

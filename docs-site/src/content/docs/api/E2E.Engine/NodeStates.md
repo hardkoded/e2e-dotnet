@@ -68,6 +68,21 @@ public bool Disabled { get; init; }
 
 **Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
 
+<a id="E2E_Engine_NodeStates_EmptyBox_"></a>
+<a id="E2E_Engine_NodeStates_EmptyBox"></a>
+
+### EmptyBox
+
+
+```csharp
+public bool EmptyBox { get; init; }
+```
+
+
+The node renders a box with no width or no height. It is not visible, though role queries and the agent still read it (.NET-only; upstream puts this in its `hidden` state). Web only.
+
+**Value:** [bool](https://learn.microsoft.com/dotnet/api/system.boolean)
+
 <a id="E2E_Engine_NodeStates_Expanded_"></a>
 <a id="E2E_Engine_NodeStates_Expanded"></a>
 

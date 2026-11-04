@@ -671,10 +671,10 @@ internal static class PageScript
             : el.getAttribute("aria-checked") === "mixed" || el.getAttribute("aria-pressed") === "mixed";
           // aria-level wins; an h1 to h6 reads its tag; any other heading is level 2 (HTML-AAM).
           const levelOf = (el, role) => {
-            if (role !== "heading") return /^H[1-6]$/.test(el.tagName) ? Number(el.tagName.slice(1)) : null;
+            const tagLevel = /^H[1-6]$/.test(el.tagName) ? Number(el.tagName.slice(1)) : null;
+            if (role !== "heading") return tagLevel;
             const ariaLevel = Number.parseInt(el.getAttribute("aria-level") || "", 10);
-            if (Number.isInteger(ariaLevel) && ariaLevel > 0) return ariaLevel;
-            return /^H[1-6]$/.test(el.tagName) ? Number(el.tagName.slice(1)) : 2;
+            return Number.isInteger(ariaLevel) && ariaLevel > 0 ? ariaLevel : tagLevel ?? 2;
           };
           // A link target as the model reads it: origin and path, without
           // userinfo, query, or fragment, which routinely carry tokens. A
@@ -1013,6 +1013,8 @@ internal static class PageScript
                 disabled: disabledOf(el, role),
                 checked: checkedOf(el),
                 mixed: mixedOf(el),
+                // A box with no width or height; an option has none while its select is closed.
+                emptyBox: !isHidden && el.tagName !== "OPTION" && (() => { const box = rectOf(el); return box !== null && (box.width <= 0 || box.height <= 0); })(),
                 expandedAbsent: !["true", "false"].includes(el.getAttribute("aria-expanded") || "") && el.tagName !== "DETAILS",
                 expanded: el.getAttribute("aria-expanded") === "true" || (el.tagName === "DETAILS" && el.open),
                 selected: el.tagName === "OPTION" ? !!el.selected : (el.getAttribute("aria-selected") || "").toLowerCase() === "true",
