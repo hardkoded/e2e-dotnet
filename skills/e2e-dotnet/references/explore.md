@@ -109,7 +109,7 @@ there, since `e2e.config.json` names only a provider and a model id.
 | `--video [mode]` | the config's `video`, else `off` | Which attempts record a video, when the engine can. A bare flag is `on`. `E2E_VIDEO` sets it too. |
 
 A flag out of range exits 2 and names the range. `--session` and `--reporter`
-exit 2: the port has no saved sessions or reporters. The modes of `--trace`
+exit 2: the command has no way to run the setup test that saves a session, and no reporters. The modes of `--trace`
 and `--video` are `off`, `on`, `retain-on-failure`, `on-first-retry`, and
 `on-all-retries`; a value that is not one exits 2. `--trace` and `--video` take
 the next word as the mode, so write `--video=on "Explore checkout"` or put the
@@ -150,7 +150,7 @@ Start with the defaults. Increase the step or time budget when the result
 shows the run stopped before the part of the flow you need. The last minute
 is kept for the closing assessment. A run with time left after the main flows
 returns to them with edge-case inputs, combined filters, reloads, and, with
-more than one account configured, another account. It finishes early only when
+more than one account configured and no session, another account. It finishes early only when
 nothing new is reachable. The replay cache is off for the
 exploration, and so are retries.
 
@@ -232,9 +232,10 @@ the record, or a model.
 ## When it does not fit
 
 Findings are the model's claims plus evidence, not verified reproductions:
-read `Actual` against the screenshot before filing a bug. The port has no
-saved sessions (`--session`), so an
-exploration starts signed out. Its record is the outcome, what the command
+read `Actual` against the screenshot before filing a bug. The command has no
+`--session`, so an exploration starts signed out. From code, set
+`ExploreOptions.Session` to the name of a session you restored into the engine
+you pass: the planner and the explorer are told the app starts signed in. Its record is the outcome, what the command
 prints, and `run.explore` in `report.json`. A whole-app
 bug hunt is many of these runs at once, then a repro test for each finding
 (topic `bug-bash`).

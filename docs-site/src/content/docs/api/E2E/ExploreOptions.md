@@ -257,6 +257,24 @@ A config value instead of a discovered file, for a host that builds one in code.
 
 **Value:** [E2EConfig](/api/E2E/E2EConfig/)
 
+<a id="E2E_ExploreOptions_Session_"></a>
+<a id="E2E_ExploreOptions_Session"></a>
+
+### Session
+
+
+```csharp
+public string? Session { get; init; }
+```
+
+
+The name of a session already restored into the app, which the exploration starts signed in with, as upstream's `session`:
+the planner and the explorer are told not to sign in again, and the planner does not offer the other-account lens. The port has
+no setup runner here, so unlike upstream the option does not run the setup or restore the state itself; the host that passes an
+[Engine](#E2E_ExploreOptions_Engine) has done both.
+
+**Value:** [string](https://learn.microsoft.com/dotnet/api/system.string)
+
 <a id="E2E_ExploreOptions_Target_"></a>
 <a id="E2E_ExploreOptions_Target"></a>
 

@@ -46,13 +46,16 @@ public sealed class PlanInstructionTests
         Assert.DoesNotContain("\"decision\": \"step\"", text, StringComparison.Ordinal);
     }
 
-    // Upstream also checks the text for a run that restored a saved session. The port has no saved sessions.
     [Fact]
-    public void Plans_the_sign_in_with_the_accounts_listed_when_no_session_was_restored()
+    public void Says_the_run_starts_signed_in_from_a_restored_session_and_plans_no_sign_in()
     {
-        var text = Plan.PlanInstruction(Fresh(), new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000)));
-        Assert.DoesNotContain("starts signed in", text, StringComparison.Ordinal);
-        Assert.Contains("sign in with the accounts listed above", text, StringComparison.Ordinal);
+        var signedOut = Plan.PlanInstruction(Fresh(), new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000)));
+        Assert.DoesNotContain("starts signed in", signedOut, StringComparison.Ordinal);
+        Assert.Contains("sign in with the accounts listed above", signedOut, StringComparison.Ordinal);
+        var text = Plan.PlanInstruction(Fresh(), new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000), Session: "admin"));
+        Assert.Contains("The app starts signed in: the run restored the session \"admin\" a setup test saved.", text, StringComparison.Ordinal);
+        Assert.Contains("work as the signed-in user rather than signing in again", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("sign in with the accounts listed above", text, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -73,13 +76,14 @@ public sealed class PlanInstructionTests
         Assert.True(text.Length < 40_000);
     }
 
-    // Upstream also checks that a restored session removes the lens. The port has no saved sessions.
     [Fact]
-    public void Partial_Offers_the_other_account_lens_only_with_several_accounts_and_no_restored_session()
+    public void Offers_the_other_account_lens_only_with_several_accounts_and_no_restored_session()
     {
         PlanAccount[] accounts = [new("ada", "ada@example.test"), new("bob", "bob@example.test")];
-        string PlanFor(IReadOnlyList<PlanAccount> list) => Plan.PlanInstruction(Fresh(), new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000), list));
+        string PlanFor(IReadOnlyList<PlanAccount> list, string? session = null) =>
+            Plan.PlanInstruction(Fresh(), new PlanRequest(false, TimeSpan.FromMilliseconds(300_000), TimeSpan.FromMilliseconds(60_000), list, Session: session));
         Assert.Contains("another account or role", PlanFor(accounts), StringComparison.Ordinal);
         Assert.DoesNotContain("another account or role", PlanFor(accounts[..1]), StringComparison.Ordinal);
+        Assert.DoesNotContain("another account or role", PlanFor(accounts, "admin"), StringComparison.Ordinal);
     }
 }

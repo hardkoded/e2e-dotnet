@@ -32,6 +32,14 @@ public sealed class ExploreOptions
     /// <summary>The agent (<c>agents.&lt;name&gt;</c>) the exploration runs as. Defaults to <c>default</c>.</summary>
     public string? Agent { get; init; }
 
+    /// <summary>
+    /// The name of a session already restored into the app, which the exploration starts signed in with, as upstream's <c>session</c>:
+    /// the planner and the explorer are told not to sign in again, and the planner does not offer the other-account lens. The port has
+    /// no setup runner here, so unlike upstream the option does not run the setup or restore the state itself; the host that passes an
+    /// <see cref="Engine"/> has done both.
+    /// </summary>
+    public string? Session { get; init; }
+
     /// <summary>Exploration steps, <see cref="Explore.StepBounds"/>.</summary>
     public int? MaxSteps { get; init; }
 
@@ -214,7 +222,7 @@ public static class Explore
         state.Subscribe(progress => RunEvents.Emit(new ExploreEvent(progress)));
 
         var resolved = ResolvedAgent.From(agentName, entry);
-        var explorer = WithStepBudgets(ExploreExecutor.ExplorerAgent(new ExplorerOptions(state, agentName, entry, resolved, notice)));
+        var explorer = WithStepBudgets(ExploreExecutor.ExplorerAgent(new ExplorerOptions(state, agentName, entry, resolved, notice)), options.Session);
         var resolvedExplorer = ResolvedAgent.From(agentName, explorer);
 
         // Every exploration step calls the model, a custom executor's included, since the built-in agent replaces it: no model is a
@@ -307,7 +315,8 @@ public static class Explore
                 StepTimeout,
                 target.App.Url is not null || TargetEngines.LaunchesPinnedApp(target, engine),
                 credentials,
-                string.Equals(agentName, "default", StringComparison.Ordinal) ? null : agentName));
+                string.Equals(agentName, "default", StringComparison.Ordinal) ? null : agentName,
+                Session: options.Session));
             try
             {
                 await body(new ExploreFixtures(new SessionAgent(session.Agent), token => session.App.OpenAsync(null, token)), cancellationToken).ConfigureAwait(false);
@@ -479,12 +488,12 @@ public static class Explore
     /// The explorer's agent with per-step budgets that default higher than a scripted step's, a charter being longer. An agent that
     /// left a budget out has set none, whatever number it would default to.
     /// </summary>
-    internal static AgentOptions WithStepBudgets(AgentOptions explorer) => new()
+    internal static AgentOptions WithStepBudgets(AgentOptions explorer, string? session = null) => new()
     {
         Model = explorer.Model,
         Judge = explorer.Judge,
         System = explorer.System,
-        Context = explorer.Context,
+        Context = session is null ? explorer.Context : string.Join('\n', new[] { explorer.Context, ExplorePlan.SignedInContext(session) }.Where(part => !string.IsNullOrWhiteSpace(part))),
         MaxSteps = explorer.MaxSteps ?? DefaultStepBudget,
         MaxModelCalls = explorer.MaxModelCalls ?? DefaultStepBudget,
         JudgmentTimeout = explorer.JudgmentTimeout,
